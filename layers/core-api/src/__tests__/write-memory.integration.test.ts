@@ -11,6 +11,7 @@ import {
 	knowledgeItems,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -27,9 +28,9 @@ function buildWriteMemoryTool(app: Hono): ReturnType<typeof buildToolDefinitions
 const NOW = new Date().toISOString();
 
 // @lore AD8c: role renamed from practice_facilitator to facilitator
-async function seedFacilitator(db: HyperIdleDb): Promise<void> {
+async function seedFacilitator(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db.insert(users).values({
-		id: "agent-a",
+		id: ids("agent-a"),
 		name: "Agent A",
 		role: "facilitator",
 		status: "active",
@@ -37,9 +38,9 @@ async function seedFacilitator(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-async function seedBuilder(db: HyperIdleDb): Promise<void> {
+async function seedBuilder(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db.insert(users).values({
-		id: "agent-builder",
+		id: ids("agent-builder"),
 		name: "Builder Agent",
 		role: "builder",
 		status: "active",
@@ -47,13 +48,17 @@ async function seedBuilder(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdleDb> {
+function makeContext(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+	agentLabel = "agent-a",
+): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus: new EventBus(),
-		agentId,
-		sessionId: "session-1",
-		taskId: "task-1",
+		agentId: ids(agentLabel),
+		sessionId: ids("session-1"),
+		taskId: ids("task-1"),
 		sandboxPath: path.join(os.tmpdir(), `hi-d4-writemem-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
@@ -61,9 +66,9 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdl
 
 describe("write_memory tool", () => {
 	describe("creates a knowledge item via fabric.create", () => {
-		test("inserts a knowledge_items row with version 1", async ({ db, app }) => {
+		test("inserts a knowledge_items row with version 1", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -71,7 +76,7 @@ describe("write_memory tool", () => {
 					title: "New practice",
 					body: "Always validate input at the boundary.",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -94,9 +99,9 @@ describe("write_memory tool", () => {
 			expect(fabricRow?.kind).toBe("pattern");
 		});
 
-		test("attributes updatedBy to `agent:<agentId>`", async ({ db, app }) => {
+		test("attributes updatedBy to `agent:<agentId>`", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -104,7 +109,7 @@ describe("write_memory tool", () => {
 					title: "Reflection",
 					body: "What I learned.",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -113,12 +118,12 @@ describe("write_memory tool", () => {
 				.select()
 				.from(knowledgeItems)
 				.where(eq(knowledgeItems.id, data.knowledgeItemId));
-			expect(row?.updatedBy).toBe("agent:agent-a");
+			expect(row?.updatedBy).toBe(`agent:${ids("agent-a")}`);
 		});
 
-		test("creates an edit log entry with editType=create", async ({ db, app }) => {
+		test("creates an edit log entry with editType=create", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -126,7 +131,7 @@ describe("write_memory tool", () => {
 					title: "Pattern",
 					body: "Body",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -137,12 +142,12 @@ describe("write_memory tool", () => {
 				.where(eq(knowledgeEditLog.itemId, data.knowledgeItemId));
 			expect(log).toHaveLength(1);
 			expect(log[0]!.editType).toBe("create");
-			expect(log[0]!.editor).toBe("agent:agent-a");
+			expect(log[0]!.editor).toBe(`agent:${ids("agent-a")}`);
 		});
 
-		test("accepts optional topic and format/status defaults", async ({ db, app }) => {
+		test("accepts optional topic and format/status defaults", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L2",
@@ -151,7 +156,7 @@ describe("write_memory tool", () => {
 					body: "Why we chose X",
 					topic: "architecture",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -165,9 +170,9 @@ describe("write_memory tool", () => {
 			expect(row?.status).toBeDefined();
 		});
 
-		test("accepts explicit practice scope with role id", async ({ db, app }) => {
+		test("accepts explicit practice scope with role id", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -177,7 +182,7 @@ describe("write_memory tool", () => {
 					scopeKind: "practice",
 					scopeId: "product_manager",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -192,9 +197,9 @@ describe("write_memory tool", () => {
 
 		// AU26 F2 (founder ruling): `filesystem` is no longer a scope kind, so
 		// the tool's `z.enum(SCOPE_KINDS)` rejects it at the input boundary.
-		test("rejects a filesystem scope — the scope kind is gone", async ({ db, app }) => {
+		test("rejects a filesystem scope — the scope kind is gone", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L2",
@@ -204,17 +209,21 @@ describe("write_memory tool", () => {
 					scopeKind: "filesystem",
 					scopeId: "fs-main",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
-			expect(await db.select().from(knowledgeItems)).toEqual([]);
+			const myItems = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.updatedBy, `agent:${ids("agent-a")}`));
+			expect(myItems).toEqual([]);
 		});
 
-		test("rejects explicit scoped writes without required scopeId", async ({ db, app }) => {
+		test("rejects explicit scoped writes without required scopeId", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -223,7 +232,7 @@ describe("write_memory tool", () => {
 					body: "No role id.",
 					scopeKind: "practice",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
@@ -233,10 +242,10 @@ describe("write_memory tool", () => {
 	});
 
 	describe("I6: non-facilitator agents restricted to L0-L2", () => {
-		test("builder agent writing L3 gets FORBIDDEN", async ({ db, app }) => {
+		test("builder agent writing L3 gets FORBIDDEN", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
-			await seedBuilder(db);
+			await seedFacilitator(db, ids);
+			await seedBuilder(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -244,7 +253,7 @@ describe("write_memory tool", () => {
 					title: "Forbidden pattern",
 					body: "Should be rejected.",
 				},
-				makeContext(db, "agent-builder"),
+				makeContext(db, ids, "agent-builder"),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
@@ -252,10 +261,10 @@ describe("write_memory tool", () => {
 			expect(result.error).toContain("insufficient role for L3");
 		});
 
-		test("builder agent writing L4 gets FORBIDDEN", async ({ db, app }) => {
+		test("builder agent writing L4 gets FORBIDDEN", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
-			await seedBuilder(db);
+			await seedFacilitator(db, ids);
+			await seedBuilder(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L4",
@@ -263,7 +272,7 @@ describe("write_memory tool", () => {
 					title: "Forbidden principle",
 					body: "Should be rejected.",
 				},
-				makeContext(db, "agent-builder"),
+				makeContext(db, ids, "agent-builder"),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
@@ -271,10 +280,10 @@ describe("write_memory tool", () => {
 			expect(result.error).toContain("insufficient role for L4");
 		});
 
-		test("builder agent can write to L0", async ({ db, app }) => {
+		test("builder agent can write to L0", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
-			await seedBuilder(db);
+			await seedFacilitator(db, ids);
+			await seedBuilder(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L0",
@@ -282,15 +291,15 @@ describe("write_memory tool", () => {
 					title: "Session note",
 					body: "A builder can write L0.",
 				},
-				makeContext(db, "agent-builder"),
+				makeContext(db, ids, "agent-builder"),
 			);
 			expect(result.success).toBe(true);
 		});
 
-		test("builder agent can write to L2", async ({ db, app }) => {
+		test("builder agent can write to L2", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
-			await seedBuilder(db);
+			await seedFacilitator(db, ids);
+			await seedBuilder(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L2",
@@ -298,14 +307,14 @@ describe("write_memory tool", () => {
 					title: "Product decision",
 					body: "A builder can write L2.",
 				},
-				makeContext(db, "agent-builder"),
+				makeContext(db, ids, "agent-builder"),
 			);
 			expect(result.success).toBe(true);
 		});
 
-		test("facilitator agent can write to L3", async ({ db, app }) => {
+		test("facilitator agent can write to L3", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L3",
@@ -313,14 +322,14 @@ describe("write_memory tool", () => {
 					title: "Allowed pattern",
 					body: "A facilitator can write L3.",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(true);
 		});
 
-		test("facilitator agent can write to L4", async ({ db, app }) => {
+		test("facilitator agent can write to L4", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				{
 					layer: "L4",
@@ -328,46 +337,46 @@ describe("write_memory tool", () => {
 					title: "Allowed principle",
 					body: "A facilitator can write L4.",
 				},
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(true);
 		});
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT for unknown layer", async ({ db, app }) => {
+		test("returns INVALID_INPUT for unknown layer", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ layer: "L42", kind: "pattern", title: "x", body: "y" } as any,
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT for missing title", async ({ db, app }) => {
+		test("returns INVALID_INPUT for missing title", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ layer: "L3", kind: "pattern", body: "y" } as any,
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT for unknown kind", async ({ db, app }) => {
+		test("returns INVALID_INPUT for unknown kind", async ({ db, app, ids }) => {
 			const writeMemoryTool = buildWriteMemoryTool(app);
-			await seedFacilitator(db);
+			await seedFacilitator(db, ids);
 			const result = await writeMemoryTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ layer: "L3", kind: "rumor", title: "x", body: "y" } as any,
-				makeContext(db),
+				makeContext(db, ids),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;

@@ -6,6 +6,8 @@
  */
 
 import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
+import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -16,18 +18,18 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	// Seed product and team
 	await db.insert(teams).values({
-		id: "prod-1",
+		id: ids("prod-1"),
 		name: "Test Product",
 		phase: "build",
 		createdAt: NOW,
 	});
 
 	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
+		id: ids("team-1"),
+		teamId: ids("prod-1"),
 		capacity: 3,
 		activeBets: 0,
 		formedAt: NOW,
@@ -39,21 +41,21 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	// principal must match the inbox owner. All seedBase tests resolve principal = "agent-1".
 	await db.insert(users).values([
 		{
-			id: "agent-1",
+			id: ids("agent-1"),
 			kind: "human",
 			name: "Builder Bot",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: ids("team-1"),
 			createdAt: NOW,
 		},
 		{
-			id: "agent-2",
+			id: ids("agent-2"),
 			kind: "ai",
 			name: "Growth Bot",
 			role: "growth",
 			status: "active",
-			teamId: "team-1",
+			teamId: ids("team-1"),
 			createdAt: NOW,
 		},
 	]);
@@ -73,16 +75,17 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 	// `AU26-J1-run-read-deletions.integration.test.ts`) — the run count was a raw
 	// `sessions` read serving a consumer typed `{id,name,role,teamId}`.
 	describe("AC1: GET /api/users — list all users", () => {
-		test("returns all users with their identity fields", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns all users with their identity fields", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/users", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Array<Record<string, unknown>>;
-			expect(body).toHaveLength(2);
-			expect(body[0]).toHaveProperty("status");
-			expect(body[0]).toHaveProperty("teamId");
-			expect(body[0]).toHaveProperty("role");
+			const mine = body.filter((u) => u.id === ids("agent-1") || u.id === ids("agent-2"));
+			expect(mine).toHaveLength(2);
+			expect(mine[0]).toHaveProperty("status");
+			expect(mine[0]).toHaveProperty("teamId");
+			expect(mine[0]).toHaveProperty("role");
 		});
 
 		test("returns 401 without auth", async ({ app }) => {
@@ -93,19 +96,19 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 	// AC2: GET /api/users/:id — user detail
 	describe("AC2: GET /api/users/:id — user detail", () => {
-		test("returns the user identity", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-1", { headers: authHeaders() });
+		test("returns the user identity", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/users/${ids("agent-1")}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.id).toBe("agent-1");
+			expect(body.id).toBe(ids("agent-1"));
 			expect(body.name).toBe("Builder Bot");
 		});
 
-		test("returns 404 for unknown user", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/nonexistent", { headers: authHeaders() });
+		test("returns 404 for unknown user", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/users/${ids("nonexistent")}`, { headers: authHeaders() });
 			expect(res.status).toBe(404);
 
 			const body = (await res.json()) as Record<string, unknown>;
@@ -115,30 +118,32 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 	// AC8: GET /api/users/:id/inbox — user's inbox
 	describe("AC8: GET /api/users/:id/inbox", () => {
-		test("returns messages for the user", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns messages for the user", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			// Seed a thread and message
 			await db.insert(threads).values({
-				id: "thread-1",
+				id: ids("thread-1"),
 				hostKind: "agent",
-				hostId: "agent-1",
-				initiatorId: "agent-2",
-				participants: JSON.stringify(["agent-2", "agent-1"]),
+				hostId: ids("agent-1"),
+				initiatorId: ids("agent-2"),
+				participants: JSON.stringify([ids("agent-2"), ids("agent-1")]),
 				lastActiveAt: NOW,
 				createdAt: NOW,
 			});
 
 			await db.insert(messages).values({
-				id: "msg-1",
-				senderId: "agent-2",
-				threadId: "thread-1",
+				id: ids("msg-1"),
+				senderId: ids("agent-2"),
+				threadId: ids("thread-1"),
 				type: "plain",
 				payload: JSON.stringify({ text: "Hello!" }),
-				clientKey: "msg-1",
+				clientKey: ids("msg-1"),
 				createdAt: NOW,
 			});
 
-			const res = await app.request("/api/users/agent-1/inbox", { headers: authHeaders() });
+			const res = await app.request(`/api/users/${ids("agent-1")}/inbox`, {
+				headers: authHeaders(),
+			});
 			expect(res.status).toBe(200);
 
 			// P2: inbox returns { messages, total } shape
@@ -168,11 +173,11 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 	// @lore AF11-IDOR: senderId now comes from c.get("userId") (auth principal = "agent-1")
 	// rather than the X-Identity header. Tests updated to reflect the fixed behavior.
 	describe("AC9: POST /api/users/:id/inbox — send message", () => {
-		test("sends a message and creates thread if needed", async ({ db, app }) => {
-			await seedBase(db);
+		test("sends a message and creates thread if needed", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			// Agent-2 (ai, not human) receives the inbox message.
 			// Agent-1 (the auth principal, kind='human') is the sender.
-			const res = await app.request("/api/users/agent-2/inbox", {
+			const res = await app.request(`/api/users/${ids("agent-2")}/inbox`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ body: "Hey there!" }),
@@ -183,41 +188,50 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			// L1a: messages now carry payload (JSON), not body/recipientId.
 			expect(typeof body.payload).toBe("string");
 			// AF11-IDOR: senderId is the authenticated principal (agent-1), never the header
-			expect(body.senderId).toBe("agent-1");
+			expect(body.senderId).toBe(ids("agent-1"));
 
 			// Verify thread was created with the new shape.
-			const allThreads = await db.select().from(threads);
-			expect(allThreads).toHaveLength(1);
+			const myThreads = await db
+				.select()
+				.from(threads)
+				.where(sql`${threads.hostId} = ${ids("agent-2")}`);
+			expect(myThreads).toHaveLength(1);
 			// findOrCreateDirectThread defaults recipientKind="agent" for DM threads
-			expect(allThreads[0]!.hostKind).toBe("agent");
-			expect(allThreads[0]!.hostId).toBe("agent-2");
+			expect(myThreads[0]!.hostKind).toBe("agent");
+			expect(myThreads[0]!.hostId).toBe(ids("agent-2"));
 		});
 
-		test("reuses existing thread for same sender/recipient pair", async ({ db, app }) => {
-			await seedBase(db);
+		test("reuses existing thread for same sender/recipient pair", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			// Send first message
-			await app.request("/api/users/agent-2/inbox", {
+			await app.request(`/api/users/${ids("agent-2")}/inbox`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ body: "First" }),
 			});
 
 			// Send second message
-			await app.request("/api/users/agent-2/inbox", {
+			await app.request(`/api/users/${ids("agent-2")}/inbox`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ body: "Second" }),
 			});
 
-			const allThreads = await db.select().from(threads);
-			expect(allThreads).toHaveLength(1); // Still just one thread
+			const myThreads = await db
+				.select()
+				.from(threads)
+				.where(sql`${threads.hostId} = ${ids("agent-2")}`);
+			expect(myThreads).toHaveLength(1); // Still just one thread
 
-			const allMessages = await db.select().from(messages);
-			expect(allMessages).toHaveLength(2);
+			const myMessages = await db
+				.select()
+				.from(messages)
+				.where(sql`${messages.threadId} = ${myThreads[0]!.id}`);
+			expect(myMessages).toHaveLength(2);
 		});
 
-		test("returns 404 for unknown recipient user", async ({ app }) => {
-			const res = await app.request("/api/users/nonexistent/inbox", {
+		test("returns 404 for unknown recipient user", async ({ app, ids }) => {
+			const res = await app.request(`/api/users/${ids("nonexistent")}/inbox`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ body: "Hello" }),
@@ -225,9 +239,9 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(res.status).toBe(404);
 		});
 
-		test("returns 400 for missing body text", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-2/inbox", {
+		test("returns 400 for missing body text", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/users/${ids("agent-2")}/inbox`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({}),
@@ -235,10 +249,10 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("rejects body-supplied senderId — no spoofing via body", async ({ db, app }) => {
-			await seedBase(db);
+		test("rejects body-supplied senderId — no spoofing via body", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			// schema is strict() — extra field senderId in body → 400 validation error
-			const res = await app.request("/api/users/agent-2/inbox", {
+			const res = await app.request(`/api/users/${ids("agent-2")}/inbox`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ senderId: "u-founder", body: "spoof" }),
@@ -252,9 +266,10 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 		test("missing X-Identity header is accepted — senderId comes from auth", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-2/inbox", {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/users/${ids("agent-2")}/inbox`, {
 				method: "POST",
 				headers: authHeaders(), // No X-Identity — this is now fine
 				body: JSON.stringify({ body: "auth-only sender" }),
@@ -263,7 +278,7 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 
 			const body = (await res.json()) as Record<string, unknown>;
 			// senderId must be the auth principal, not a fallback error
-			expect(body.senderId).toBe("agent-1");
+			expect(body.senderId).toBe(ids("agent-1"));
 		});
 	});
 });

@@ -21,9 +21,7 @@ increment 1 by running both rules over the whole lane.
 
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
 - `layers/core-api/src/__tests__/two-app-mount-session-routes.integration.test.ts`
-- `layers/core-api/src/__tests__/users.integration.test.ts`
 - `layers/core-api/src/__tests__/work-service.integration.test.ts`
-- `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts`
