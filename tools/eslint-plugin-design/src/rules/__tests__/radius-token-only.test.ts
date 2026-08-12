@@ -35,6 +35,15 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 		},
 	],
 	invalid: [
+		// AZ7 N3 (review round 1): the exemption is keyed to the design
+		// system's OWN Checkbox.tsx path, not the bare filename — a
+		// same-named file anywhere else in the repo (a page-local component,
+		// a test fixture) must NOT inherit the exemption.
+		{
+			filename: "layers/core-ui/src/pages/knowledge/Checkbox.tsx",
+			code: 'const J = <div className="rounded-[6px]" />;',
+			errors: [{ messageId: "notAToken" }],
+		},
 		// rounded-full — the pill's second, now-forbidden spelling (Trade-off 1).
 		{
 			filename: "Foo.tsx",

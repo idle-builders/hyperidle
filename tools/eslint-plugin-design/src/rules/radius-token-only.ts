@@ -34,16 +34,33 @@
  * first time the exemption needed encoding for real. `Toggle.tsx` needs no
  * exemption (already token-pill throughout); it is listed anyway so a future
  * hand-rolled form control doesn't have to rediscover this list.
+ *
+ * @lore AZ7 N3 (review round 1): the exemption used to match `basename(filename)`
+ * against `/^(Checkbox|Toggle)\.tsx$/` — matching on basename ONLY means any
+ * file anywhere in the repo named `Checkbox.tsx` or `Toggle.tsx` (a test
+ * fixture, a page-local component) is silently exempt, the exact allowlist
+ * shape AU31/AU32 deliberately removed elsewhere in the codebase. Keyed to
+ * the exact design-system path instead — only the two files that actually
+ * BUILD this chrome are exempt, not anything sharing their name.
  */
 
-import { basename } from "node:path";
 import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
 import { asReportNode, collectClassStringsFromJSXAttributeDeep, createRule } from "../util.js";
 
 // AQ-011: "Form control chrome (checkboxes, radio buttons, toggles) may use
-// off-scale radii." These are the design-system files that BUILD that chrome.
-const FORM_CONTROL_BASENAME_RE = /^(Checkbox|Toggle)\.tsx$/;
+// off-scale radii." These are the exact design-system files that BUILD that
+// chrome — path-keyed (not basename-keyed) so a same-named file elsewhere in
+// the repo is never accidentally exempt.
+const FORM_CONTROL_PATHS: ReadonlySet<string> = new Set([
+	"framework/design-system/src/Checkbox.tsx",
+	"framework/design-system/src/Toggle.tsx",
+]);
+
+function isFormControlFile(filename: string): boolean {
+	const normalized = filename.replace(/\\/g, "/");
+	return [...FORM_CONTROL_PATHS].some((p) => normalized.endsWith(p));
+}
 
 // Named or arbitrary radius utility, with an optional side/corner infix
 // (t/r/b/l/tl/tr/bl/br/s/e/ss/se/es/ee — Tailwind v4's logical + physical sides).
@@ -77,7 +94,7 @@ export const radiusTokenOnly: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
-		if (FORM_CONTROL_BASENAME_RE.test(basename(context.filename))) return {};
+		if (isFormControlFile(context.filename)) return {};
 		return {
 			JSXAttribute(rawNode: unknown) {
 				const node = rawNode as JSXAttribute;
