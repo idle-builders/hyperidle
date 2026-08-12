@@ -244,12 +244,15 @@ function AssistantIconButton({
 			onClick={onClick}
 			aria-label="Assistant"
 			aria-expanded={open}
+			// A pressed/open TOGGLE state, not an action Button (Button has no
+			// built-in pressed treatment distinct from its 4 action variants).
 			className={[
 				"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)]",
 				"border border-[var(--border-subtle)]",
 				"transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				open
-					? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
+					? // eslint-disable-next-line design/no-handrolled-control -- see comment above
+						"bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 					: "bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
 			].join(" ")}
 		>

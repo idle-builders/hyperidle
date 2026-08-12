@@ -894,11 +894,15 @@ export function SetupFlow(): JSX.Element {
 												setCustomFunctions([]);
 											}
 										}}
+										// A pressed/selected TOGGLE in a preset picker group, not an
+										// action Button (Button has no built-in pressed/selected
+										// treatment distinct from its 4 action variants).
 										className={[
 											"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)] text-[13px] font-[500]",
 											"border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 											isSelected
-												? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] btn-primary selected"
+												? // eslint-disable-next-line design/no-handrolled-control -- see comment above
+													"border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
 												: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:border-[var(--border-strong)]",
 										].join(" ")}
 									>

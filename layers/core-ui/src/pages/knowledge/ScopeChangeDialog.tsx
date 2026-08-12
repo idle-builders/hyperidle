@@ -184,7 +184,6 @@ export function ScopeChangeDialog({
 				<Input
 					textarea
 					label="Reason (required)"
-					className="resize-none"
 					placeholder="Why are you changing the scope?"
 					value={reason}
 					onChange={(e) => setReason(e.target.value)}

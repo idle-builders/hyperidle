@@ -23,6 +23,8 @@
  * have tabIndex) we fall back to document.body silently.
  */
 import {
+	Button,
+	Input,
 	LiveDot,
 	StatusChip,
 	sessionOutcomeToStatus,
@@ -396,9 +398,9 @@ export function TaskSheet({
 				<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 					Task
 				</span>
-				<button type="button" aria-label="Close" className="btn btn-ghost btn-xs" onClick={onClose}>
+				<Button variant="ghost" size="sm" aria-label="Close" onClick={onClose}>
 					✕
-				</button>
+				</Button>
 			</div>
 
 			{/* Scrollable body — dialog content may exceed viewport height */}
@@ -461,13 +463,9 @@ export function TaskSheet({
 						<span className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 							Discussion
 						</span>
-						<button
-							type="button"
-							className="btn btn-ghost btn-xs text-xs"
-							onClick={() => void handleOpenThread()}
-						>
+						<Button variant="ghost" size="sm" onClick={() => void handleOpenThread()}>
 							Open thread
-						</button>
+						</Button>
 					</div>
 					{/* M3 D4: pass the task's ownerAgentId so HostThreadSection includes
 					    the agent as a thread participant when the thread is created. */}
@@ -507,19 +505,17 @@ export function TaskSheet({
 					</div>
 
 					{/* Optional note */}
-					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-tertiary)]">Note (optional)</span>
-						<textarea
-							className="textarea textarea-bordered text-base resize-none h-20"
-							placeholder="What should the agent know?"
-							value={note}
-							onChange={(e) => {
-								setNote(e.target.value);
-								setStatus(null);
-							}}
-							disabled={submitting}
-						/>
-					</label>
+					<Input
+						textarea
+						label="Note (optional)"
+						placeholder="What should the agent know?"
+						value={note}
+						onChange={(e) => {
+							setNote(e.target.value);
+							setStatus(null);
+						}}
+						disabled={submitting}
+					/>
 
 					{/* Inline feedback region — one DOM slot, mutually exclusive states */}
 					{status?.kind === "success" ? (
@@ -533,16 +529,17 @@ export function TaskSheet({
 					) : null}
 
 					{/* Send request button */}
-					<button
-						type="button"
-						className="btn btn-primary btn-sm w-full"
+					<Button
+						variant="primary"
+						size="sm"
+						className="w-full"
 						disabled={!selectedIntent || submitting}
 						aria-disabled={!selectedIntent || submitting}
 						onClick={() => void handleSendRequest()}
 					>
 						{submitting ? <span className="loading loading-spinner loading-xs" /> : null}
 						Send request
-					</button>
+					</Button>
 				</div>
 			</div>
 		</div>

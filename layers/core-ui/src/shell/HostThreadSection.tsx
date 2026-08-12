@@ -29,7 +29,7 @@
  */
 
 import type { CommentRowSender } from "@hyperidle/design-system";
-import { CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
+import { Button, CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message, PlainPayload } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -347,15 +347,15 @@ export function HostThreadSection({
 					}}
 					disabled={sending}
 				/>
-				<button
-					type="button"
-					className="inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-fast)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-					style={{ padding: "7px 12px" }}
+				<Button
+					variant="primary"
+					size="sm"
+					className="shrink-0"
 					disabled={!composerText.trim() || sending}
 					onClick={() => void handleSend()}
 				>
 					Send
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

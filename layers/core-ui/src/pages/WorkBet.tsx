@@ -378,7 +378,6 @@ function ConsequencePreviewDialog({
 			<Input
 				textarea
 				label="Reason (required)"
-				className="resize-none"
 				placeholder="Why is this bet being killed?"
 				value={reason}
 				onChange={(e) => setReason(e.target.value)}
@@ -1170,7 +1169,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 											id="outcome-summary-textarea"
 											data-testid="retro-summary-textarea"
 											label="Reality"
-											className="min-h-[72px] resize-y"
 											placeholder="What actually happened?"
 											value={outcomeSummaryForm}
 											onChange={(e) => setOutcomeSummaryForm(e.target.value)}
@@ -1181,7 +1179,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 											id="retro-learnings-textarea"
 											data-testid="retro-learnings-textarea"
 											label="Learnings (optional)"
-											className="min-h-[72px] resize-y"
 											placeholder="What did you learn from this bet?"
 											value={retroLearningsForm}
 											onChange={(e) => setRetroLearningsForm(e.target.value)}
