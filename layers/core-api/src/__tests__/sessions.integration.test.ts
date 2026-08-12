@@ -1,4 +1,5 @@
 import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { DomainEvent } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
@@ -34,43 +35,43 @@ describe("Session Endpoints (E6)", () => {
 
 	// AC10: POST /api/sessions — create session
 	describe("AC10: POST /api/sessions — create session", () => {
-		test("creates a session and emits event", async ({ db, eventBus }) => {
+		test("creates a session and emits event", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
 				// Seed required data
 				await db.insert(teams).values({
-					id: "prod-1",
+					id: ids("prod-1"),
 					name: "Test Product",
 					phase: "build",
 					createdAt: new Date().toISOString(),
 				});
 				await db.insert(teamMembers).values({
-					id: "team-1",
-					teamId: "prod-1",
+					id: ids("team-1"),
+					teamId: ids("prod-1"),
 					capacity: 3,
 					activeBets: 0,
 					formedAt: new Date().toISOString(),
 				});
 				await db.insert(users).values({
-					id: "agent-1",
+					id: ids("agent-1"),
 					name: "Builder Bot",
 					role: "builder",
 					status: "idle",
-					teamId: "team-1",
+					teamId: ids("team-1"),
 					createdAt: new Date().toISOString(),
 				});
 				await db.insert(bets).values({
-					id: "bet-1",
-					teamId: "prod-1",
+					id: ids("bet-1"),
+					teamId: ids("prod-1"),
 					description: "Test",
 					appetite: "small",
 					status: "active",
 					createdAt: new Date().toISOString(),
 				});
 				await db.insert(tasks).values({
-					id: "task-1",
-					betId: "bet-1",
-					teamId: "prod-1",
+					id: ids("task-1"),
+					betId: ids("bet-1"),
+					teamId: ids("prod-1"),
 					title: "Test Task",
 					state: "in_progress",
 					createdAt: new Date().toISOString(),
@@ -84,16 +85,16 @@ describe("Session Endpoints (E6)", () => {
 					method: "POST",
 					headers: authHeaders(),
 					body: JSON.stringify({
-						agentId: "agent-1",
-						taskId: "task-1",
+						agentId: ids("agent-1"),
+						taskId: ids("task-1"),
 						modelTier: "workhorse",
 					}),
 				});
 				expect(res.status).toBe(201);
 
 				const body = (await res.json()) as Record<string, unknown>;
-				expect(body.agentId).toBe("agent-1");
-				expect(body.taskId).toBe("task-1");
+				expect(body.agentId).toBe(ids("agent-1"));
+				expect(body.taskId).toBe(ids("task-1"));
 				expect(body.modelTier).toBe("workhorse");
 				expect(body.state).toBe("active");
 				expect(body.startedAt).toBeTruthy();
@@ -106,42 +107,42 @@ describe("Session Endpoints (E6)", () => {
 			}
 		});
 
-		test("returns 400 for invalid modelTier", async ({ db, eventBus }) => {
+		test("returns 400 for invalid modelTier", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
 				await db.insert(teams).values({
-					id: "prod-1",
+					id: ids("prod-1"),
 					name: "Test Product",
 					phase: "build",
 					createdAt: new Date().toISOString(),
 				});
 				await db.insert(teamMembers).values({
-					id: "team-1",
-					teamId: "prod-1",
+					id: ids("team-1"),
+					teamId: ids("prod-1"),
 					capacity: 3,
 					activeBets: 0,
 					formedAt: new Date().toISOString(),
 				});
 				await db.insert(users).values({
-					id: "agent-1",
+					id: ids("agent-1"),
 					name: "Builder Bot",
 					role: "builder",
 					status: "idle",
-					teamId: "team-1",
+					teamId: ids("team-1"),
 					createdAt: new Date().toISOString(),
 				});
 				await db.insert(bets).values({
-					id: "bet-1",
-					teamId: "prod-1",
+					id: ids("bet-1"),
+					teamId: ids("prod-1"),
 					description: "Test",
 					appetite: "small",
 					status: "active",
 					createdAt: new Date().toISOString(),
 				});
 				await db.insert(tasks).values({
-					id: "task-1",
-					betId: "bet-1",
-					teamId: "prod-1",
+					id: ids("task-1"),
+					betId: ids("bet-1"),
+					teamId: ids("prod-1"),
 					title: "Test Task",
 					state: "in_progress",
 					createdAt: new Date().toISOString(),
@@ -152,8 +153,8 @@ describe("Session Endpoints (E6)", () => {
 					method: "POST",
 					headers: authHeaders(),
 					body: JSON.stringify({
-						agentId: "agent-1",
-						taskId: "task-1",
+						agentId: ids("agent-1"),
+						taskId: ids("task-1"),
 						modelTier: "invalid",
 					}),
 				});
@@ -163,13 +164,13 @@ describe("Session Endpoints (E6)", () => {
 			}
 		});
 
-		test("returns 400 for missing required fields", async ({ db, eventBus }) => {
+		test("returns 400 for missing required fields", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
 				const res = await app.request("/api/sessions", {
 					method: "POST",
 					headers: authHeaders(),
-					body: JSON.stringify({ agentId: "agent-1" }),
+					body: JSON.stringify({ agentId: ids("agent-1") }),
 				});
 				expect(res.status).toBe(400);
 			} finally {
@@ -180,40 +181,43 @@ describe("Session Endpoints (E6)", () => {
 
 	// AC11: PATCH /api/sessions/:id — update state (end, crash)
 	describe("AC11: PATCH /api/sessions/:id — update session state", () => {
-		async function seedData(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
+		async function seedData(
+			db: import("@hyperidle/db").HyperIdleDb,
+			ids: ScopedIds,
+		): Promise<void> {
 			await db.insert(teams).values({
-				id: "prod-1",
+				id: ids("prod-1"),
 				name: "Test Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
 			});
 			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
+				id: ids("team-1"),
+				teamId: ids("prod-1"),
 				capacity: 3,
 				activeBets: 0,
 				formedAt: new Date().toISOString(),
 			});
 			await db.insert(users).values({
-				id: "agent-1",
+				id: ids("agent-1"),
 				name: "Builder Bot",
 				role: "builder",
 				status: "idle",
-				teamId: "team-1",
+				teamId: ids("team-1"),
 				createdAt: new Date().toISOString(),
 			});
 			await db.insert(bets).values({
-				id: "bet-1",
-				teamId: "prod-1",
+				id: ids("bet-1"),
+				teamId: ids("prod-1"),
 				description: "Test",
 				appetite: "small",
 				status: "active",
 				createdAt: new Date().toISOString(),
 			});
 			await db.insert(tasks).values({
-				id: "task-1",
-				betId: "bet-1",
-				teamId: "prod-1",
+				id: ids("task-1"),
+				betId: ids("bet-1"),
+				teamId: ids("prod-1"),
 				title: "Test Task",
 				state: "in_progress",
 				createdAt: new Date().toISOString(),
@@ -221,17 +225,17 @@ describe("Session Endpoints (E6)", () => {
 			});
 		}
 
-		test("ends a session with state=done", async ({ db, eventBus }) => {
+		test("ends a session with state=done", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
-				await seedData(db);
+				await seedData(db, ids);
 
 				const createRes = await app.request("/api/sessions", {
 					method: "POST",
 					headers: authHeaders(),
 					body: JSON.stringify({
-						agentId: "agent-1",
-						taskId: "task-1",
+						agentId: ids("agent-1"),
+						taskId: ids("task-1"),
 						modelTier: "workhorse",
 					}),
 				});
@@ -261,17 +265,17 @@ describe("Session Endpoints (E6)", () => {
 			}
 		});
 
-		test("crashes a session with state=crashed", async ({ db, eventBus }) => {
+		test("crashes a session with state=crashed", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
-				await seedData(db);
+				await seedData(db, ids);
 
 				const createRes = await app.request("/api/sessions", {
 					method: "POST",
 					headers: authHeaders(),
 					body: JSON.stringify({
-						agentId: "agent-1",
-						taskId: "task-1",
+						agentId: ids("agent-1"),
+						taskId: ids("task-1"),
 						modelTier: "workhorse",
 					}),
 				});
@@ -293,10 +297,10 @@ describe("Session Endpoints (E6)", () => {
 			}
 		});
 
-		test("returns 404 for unknown session", async ({ db, eventBus }) => {
+		test("returns 404 for unknown session", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
-				const res = await app.request("/api/sessions/nonexistent", {
+				const res = await app.request(`/api/sessions/${ids("nonexistent")}`, {
 					method: "PATCH",
 					headers: authHeaders(),
 					body: JSON.stringify({ state: "done" }),
@@ -311,17 +315,17 @@ describe("Session Endpoints (E6)", () => {
 		// cost-cap dedup entry" tests are HARD-DELETED — costOps and its dedup
 		// map no longer exist, no replacement.
 
-		test("returns 400 for invalid state", async ({ db, eventBus }) => {
+		test("returns 400 for invalid state", async ({ db, eventBus, ids }) => {
 			const app = await createTestApp({ db, eventBus, serviceBootstrap: testServiceBootstrap });
 			try {
-				await seedData(db);
+				await seedData(db, ids);
 
 				const createRes = await app.request("/api/sessions", {
 					method: "POST",
 					headers: authHeaders(),
 					body: JSON.stringify({
-						agentId: "agent-1",
-						taskId: "task-1",
+						agentId: ids("agent-1"),
+						taskId: ids("task-1"),
 						modelTier: "workhorse",
 					}),
 				});
