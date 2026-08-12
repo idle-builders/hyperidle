@@ -33,23 +33,29 @@ describe("AF12 AC1 — activate at capacity returns 409", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST /bets/:id/commit at full capacity returns 409 CONFLICT", async ({ db, app }) => {
+	test("POST /bets/:id/commit at full capacity returns 409 CONFLICT", async ({ db, app, ids }) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
-		// Team is at capacity: capacity 1, activeBets 1.
 		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 1, activeBets: 1, formedAt: now });
+			.insert(teams)
+			.values({ id: ids("prod-1"), name: "Test", phase: "build", createdAt: now });
+		// Team is at capacity: capacity 1, activeBets 1.
+		await db.insert(teamMembers).values({
+			id: ids("team-1"),
+			teamId: ids("prod-1"),
+			capacity: 1,
+			activeBets: 1,
+			formedAt: now,
+		});
 		await db.insert(bets).values({
-			id: "bet-draft",
-			teamId: "prod-1",
+			id: ids("bet-draft"),
+			teamId: ids("prod-1"),
 			description: "Test",
 			appetite: "small",
 			status: "draft",
 			createdAt: now,
 		});
 
-		const res = await app.request("/api/bets/bet-draft/commit", {
+		const res = await app.request(`/api/bets/${ids("bet-draft")}/commit`, {
 			method: "POST",
 			headers: authHeaders(),
 		});
@@ -59,7 +65,10 @@ describe("AF12 AC1 — activate at capacity returns 409", () => {
 		expect(body.code).toBe("CONFLICT");
 
 		// The bet stayed draft — the failed activate did not partially apply.
-		const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-draft"));
+		const [bet] = await db
+			.select()
+			.from(bets)
+			.where(eq(bets.id, ids("bet-draft")));
 		expect(bet?.status).toBe("draft");
 	});
 });

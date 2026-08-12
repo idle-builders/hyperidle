@@ -14,6 +14,7 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -40,31 +41,31 @@ function buildEditBetTool(app: Hono): ReturnType<typeof buildToolDefinitions>[nu
 
 const NOW = "2026-06-09T00:00:00.000Z";
 
-function makeCtx(db: HyperIdleDb, label = "ad8b"): ToolContext<HyperIdleDb> {
+function makeCtx(db: HyperIdleDb, ids: ScopedIds, label = "ad8b"): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus: new EventBus(),
-		agentId: "ast-agent-1",
-		sessionId: "session-ad8b",
-		taskId: "task-ad8b",
+		agentId: ids("ast-agent-1"),
+		sessionId: ids("session-ad8b"),
+		taskId: ids("task-ad8b"),
 		sandboxPath: path.join(os.tmpdir(), `hi-${label}-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db
 		.insert(teams)
-		.values({ id: "team-ad8b", name: "AD8b Team", phase: "build", createdAt: NOW });
+		.values({ id: ids("team-ad8b"), name: "AD8b Team", phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
-		id: "tm-ad8b",
-		teamId: "team-ad8b",
+		id: ids("tm-ad8b"),
+		teamId: ids("team-ad8b"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
 	});
 	await db.insert(users).values({
-		id: "ast-agent-1",
+		id: ids("ast-agent-1"),
 		kind: "ai",
 		name: "Assistant Agent",
 		role: "assistant",
@@ -74,10 +75,10 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-async function seedBet(db: HyperIdleDb): Promise<void> {
+async function seedBet(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db.insert(bets).values({
-		id: "bet-ad8b-1",
-		teamId: "team-ad8b",
+		id: ids("bet-ad8b-1"),
+		teamId: ids("team-ad8b"),
 		description: "Test Bet for AD8b",
 		status: "draft",
 		createdAt: NOW,
@@ -93,6 +94,7 @@ describe("AD8b — create_bet tool", () => {
 		db,
 		app,
 		eventBus: _eb,
+		ids,
 	}) => {
 		// @lore AU21 §9 Increment 1: create_bet now routes through the
 		// CoreApiPort write seam (real POST /bets), not raw DI — needs a
@@ -100,11 +102,11 @@ describe("AD8b — create_bet tool", () => {
 		// convention `bets.integration.test.ts` uses for every real route call.
 		vi.stubEnv("HYPERIDLE_API_KEY", "ad8b-create-bet-test-key");
 		const createBetTool = buildCreateBetTool(app);
-		await seedBase(db);
-		const ctx = makeCtx(db, "create-bet");
+		await seedBase(db, ids);
+		const ctx = makeCtx(db, ids, "create-bet");
 
 		const result = await createBetTool.handler(
-			{ teamId: "team-ad8b", description: "New test bet" },
+			{ teamId: ids("team-ad8b"), description: "New test bet" },
 			ctx,
 		);
 
@@ -117,13 +119,13 @@ describe("AD8b — create_bet tool", () => {
 		const [row] = await db.select().from(bets).where(eq(bets.description, "New test bet"));
 		expect(row).toBeDefined();
 		expect(row?.status).toBe("draft");
-		expect(row?.teamId).toBe("team-ad8b");
+		expect(row?.teamId).toBe(ids("team-ad8b"));
 	});
 
-	test("returns error when teamId is missing", async ({ db, app }) => {
+	test("returns error when teamId is missing", async ({ db, app, ids }) => {
 		const createBetTool = buildCreateBetTool(app);
-		await seedBase(db);
-		const ctx = makeCtx(db, "create-bet-err");
+		await seedBase(db, ids);
+		const ctx = makeCtx(db, ids, "create-bet-err");
 
 		const result = await createBetTool.handler(
 			// handler accepts unknown after registry erasure — validation happens inside
@@ -145,30 +147,33 @@ describe("AD8b — create_bet tool", () => {
 // ---------------------------------------------------------------------------
 
 describe("AD8b — edit_bet tool", () => {
-	test("updates bet description and returns ok", async ({ db, app }) => {
+	test("updates bet description and returns ok", async ({ db, app, ids }) => {
 		const editBetTool = buildEditBetTool(app);
-		await seedBase(db);
-		await seedBet(db);
-		const ctx = makeCtx(db, "edit-bet");
+		await seedBase(db, ids);
+		await seedBet(db, ids);
+		const ctx = makeCtx(db, ids, "edit-bet");
 
 		const result = await editBetTool.handler(
-			{ betId: "bet-ad8b-1", description: "Updated description" },
+			{ betId: ids("bet-ad8b-1"), description: "Updated description" },
 			ctx,
 		);
 
 		expect(result.success).toBe(true);
 
-		const [row] = await db.select().from(bets).where(eq(bets.id, "bet-ad8b-1"));
+		const [row] = await db
+			.select()
+			.from(bets)
+			.where(eq(bets.id, ids("bet-ad8b-1")));
 		expect(row?.description).toBe("Updated description");
 	});
 
-	test("returns error for non-existent bet", async ({ db, app }) => {
+	test("returns error for non-existent bet", async ({ db, app, ids }) => {
 		const editBetTool = buildEditBetTool(app);
-		await seedBase(db);
-		const ctx = makeCtx(db, "edit-bet-err");
+		await seedBase(db, ids);
+		const ctx = makeCtx(db, ids, "edit-bet-err");
 
 		const result = await editBetTool.handler(
-			{ betId: "bet-nonexistent", description: "Updated" },
+			{ betId: ids("bet-nonexistent"), description: "Updated" },
 			ctx,
 		);
 

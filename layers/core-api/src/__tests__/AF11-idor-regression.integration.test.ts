@@ -20,6 +20,7 @@
  */
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -71,12 +72,12 @@ async function seedVictim(db: HyperIdleDb, victimId: string): Promise<void> {
 		.onConflictDoNothing();
 }
 
-async function seedSystemAgent(db: HyperIdleDb): Promise<void> {
+async function seedSystemAgent(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(users)
 		.values({
-			id: "seed-agent-cos",
+			id: ids("seed-agent-cos"),
 			name: "System Agent",
 			role: "assistant",
 			status: "active",
@@ -93,20 +94,21 @@ describe("AF11 CRITICAL-1 — GET /api/threads/assistant IDOR via X-Identity", (
 	test("spoofed X-Identity header is ignored — returns attacker's own thread, not victim's", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const ATK = "atk-A";
-		const VIC = "vic-B";
+		const ATK = ids("atk-A");
+		const VIC = ids("vic-B");
 
 		// Attacker authenticates first (auth middleware resolves first human user)
 		await seedAttacker(db, ATK);
 		await seedVictim(db, VIC);
-		await seedSystemAgent(db);
+		await seedSystemAgent(db, ids);
 
 		const now = new Date().toISOString();
-		const atkAssistantAgent = `seed-agent-assistant-${ATK}`;
-		const vicAssistantAgent = `seed-agent-assistant-${VIC}`;
+		const atkAssistantAgent = ids("seed-agent-assistant-atk");
+		const vicAssistantAgent = ids("seed-agent-assistant-vic");
 
 		// Seed the attacker's assistant agent
 		await db
@@ -134,7 +136,7 @@ describe("AF11 CRITICAL-1 — GET /api/threads/assistant IDOR via X-Identity", (
 
 		// Pre-create victim's assistant thread (hostKind="user", hostId=VIC)
 		await db.insert(threads).values({
-			id: `thr-ast-${VIC}`,
+			id: ids("thr-ast-vic"),
 			hostKind: "user",
 			hostId: VIC,
 			initiatorId: VIC,
@@ -170,25 +172,26 @@ describe("AF11 CRITICAL-1 sibling — GET /api/threads/coach IDOR via X-Identity
 	test("spoofed X-Identity header is ignored — returns attacker's own coach thread, not victim's", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const ATK = "atk-A";
-		const VIC = "vic-B";
+		const ATK = ids("atk-A");
+		const VIC = ids("vic-B");
 
 		await seedAttacker(db, ATK);
 		await seedVictim(db, VIC);
-		await seedSystemAgent(db);
+		await seedSystemAgent(db, ids);
 
 		const now = new Date().toISOString();
 
 		// Pre-create victim's pinned coach thread
 		await db.insert(threads).values({
-			id: `thr-coach-${VIC}`,
+			id: ids("thr-coach-vic"),
 			hostKind: "user",
 			hostId: VIC,
 			initiatorId: VIC,
-			participants: JSON.stringify([VIC, "seed-agent-cos"].sort()),
+			participants: JSON.stringify([VIC, ids("seed-agent-cos")].sort()),
 			pinned: true,
 			resolvedAt: null,
 			lastActiveAt: now,
@@ -219,11 +222,12 @@ describe("AF11 CRITICAL-2 — POST /api/threads/:id/messages non-participant spo
 	test("non-participant attacker with spoofed X-Identity is rejected with 403", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const ATK = "atk-A";
-		const PART = "part-P"; // legitimate participant
+		const ATK = ids("atk-A");
+		const PART = ids("part-P"); // legitimate participant
 		const now = new Date().toISOString();
 
 		// ATK is the authenticated principal (first human user)
@@ -232,13 +236,19 @@ describe("AF11 CRITICAL-2 — POST /api/threads/:id/messages non-participant spo
 		// Seed the legitimate participant
 		await db
 			.insert(users)
-			.values({ id: PART, name: "Participant", role: "member", status: "active", createdAt: now })
+			.values({
+				id: PART,
+				name: "Participant",
+				role: "member",
+				status: "active",
+				createdAt: now,
+			})
 			.onConflictDoNothing();
 
 		// Create a participant-scope thread (hostKind="user") where ATK is NOT a participant.
 		// participant-scope means only listed participants can write (authorizeWrite enforces this).
 		// host-scope threads (bet, task) allow any authenticated user to write by design (Hard Rule 5).
-		const threadId = "thr-victim-thread-1";
+		const threadId = ids("thr-victim-thread-1");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "user",
@@ -277,20 +287,21 @@ describe("AF11 CRITICAL-2 — POST /api/threads/:id/messages non-participant spo
 	test("message senderId is the authenticated principal, not the X-Identity header value", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const ATK = "atk-A";
+		const ATK = ids("atk-A");
 		const NOW = new Date().toISOString();
 
 		// ATK is the authenticated principal AND a legitimate participant
 		await seedAttacker(db, ATK);
 
-		const threadId = "thr-atk-own-thread";
+		const threadId = ids("thr-atk-own-thread");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "bet",
-			hostId: "bet-y",
+			hostId: ids("bet-y"),
 			initiatorId: ATK,
 			participants: JSON.stringify([ATK].sort()),
 			pinned: false,
@@ -302,7 +313,7 @@ describe("AF11 CRITICAL-2 — POST /api/threads/:id/messages non-participant spo
 		// ATK sends with a different X-Identity header (trying to forge attribution)
 		const res = await app.request(`/api/threads/${threadId}/messages`, {
 			method: "POST",
-			headers: authHeaders({ "X-Identity": "some-other-user" }),
+			headers: authHeaders({ "X-Identity": ids("some-other-user") }),
 			body: JSON.stringify({
 				type: "plain",
 				payload: { text: "Hello from ATK" },
@@ -316,7 +327,7 @@ describe("AF11 CRITICAL-2 — POST /api/threads/:id/messages non-participant spo
 		const body = (await res.json()) as { message?: { senderId?: string } };
 		// senderId must be the authenticated principal ATK, NOT the spoofed header value
 		expect(body.message?.senderId).toBe(ATK);
-		expect(body.message?.senderId).not.toBe("some-other-user");
+		expect(body.message?.senderId).not.toBe(ids("some-other-user"));
 
 		vi.unstubAllEnvs();
 	});
@@ -330,12 +341,13 @@ describe("AF11 WARNING-1 — POST /api/users/:id/inbox spoofed X-Identity", () =
 	test("inbox message senderId is the authenticated principal, not the X-Identity header", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		const ATK = "atk-A";
-		const RECIPIENT = "recip-R";
-		const IMPERSONATED = "some-other-user";
+		const ATK = ids("atk-A");
+		const RECIPIENT = ids("recip-R");
+		const IMPERSONATED = ids("some-other-user");
 		const now = new Date().toISOString();
 
 		// ATK is the authenticated principal (first human user)

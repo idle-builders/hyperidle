@@ -12,11 +12,6 @@ Shape: one `## <rule-name>` heading per rule; entries are
 increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
-- `layers/core-api/src/__tests__/AD5-dep-unblock-event.integration.test.ts`
-- `layers/core-api/src/__tests__/AD8b-new-tools.integration.test.ts`
-- `layers/core-api/src/__tests__/AE6-artifact-normalization.integration.test.ts`
-- `layers/core-api/src/__tests__/AF11-idor-regression.integration.test.ts`
-- `layers/core-api/src/__tests__/AF12-activate-capacity.integration.test.ts`
 - `layers/core-api/src/__tests__/AF12-bet-cascade.integration.test.ts`
 - `layers/core-api/src/__tests__/AF12-task-cas.integration.test.ts`
 - `layers/core-api/src/__tests__/AF15-model-gateway-partial.integration.test.ts`

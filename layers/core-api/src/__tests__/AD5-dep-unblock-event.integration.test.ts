@@ -11,6 +11,7 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { TaskStateChangedEvent } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
@@ -22,36 +23,36 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 
 	await db.insert(teams).values({
-		id: "team-ad5-dep",
+		id: ids("team-ad5-dep"),
 		name: "AD5 Dep Team",
 		phase: "build",
 		createdAt: now,
 	});
 
 	await db.insert(teamMembers).values({
-		id: "tm-ad5-dep",
-		teamId: "team-ad5-dep",
+		id: ids("tm-ad5-dep"),
+		teamId: ids("team-ad5-dep"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
 	});
 
 	await db.insert(users).values({
-		id: "agent-ad5-dep",
+		id: ids("agent-ad5-dep"),
 		name: "AD5 Dep Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-ad5-dep",
+		teamId: ids("tm-ad5-dep"),
 		createdAt: now,
 	});
 
 	await db.insert(bets).values({
-		id: "bet-ad5-dep",
-		teamId: "team-ad5-dep",
+		id: ids("bet-ad5-dep"),
+		teamId: ids("team-ad5-dep"),
 		description: "AD5 dep bet",
 		status: "active",
 		createdAt: now,
@@ -60,6 +61,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 async function insertTask(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 	id: string,
 	state: string,
 	dependencies?: string[],
@@ -67,11 +69,11 @@ async function insertTask(
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
 		id,
-		betId: "bet-ad5-dep",
-		teamId: "team-ad5-dep",
+		betId: ids("bet-ad5-dep"),
+		teamId: ids("team-ad5-dep"),
 		title: `Task ${id}`,
 		state: state as (typeof tasks.$inferInsert)["state"],
-		ownerAgentId: "agent-ad5-dep",
+		ownerAgentId: ids("agent-ad5-dep"),
 		dependencies: dependencies ? JSON.stringify(dependencies) : null,
 		createdAt: now,
 		updatedAt: now,
@@ -82,17 +84,18 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 	test("auto-transitions downstream task from hold to accepted when last dep completes via API", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		// Set up: task A in "review" state (can transition to "done") and task B (hold, depends on A)
 		// Note: in_progress → review → done is the valid path per VALID_TRANSITIONS
-		await insertTask(db, "task-a-dep", "review");
-		await insertTask(db, "task-b-dep", "hold", ["task-a-dep"]);
+		await insertTask(db, ids, ids("task-a-dep"), "review");
+		await insertTask(db, ids, ids("task-b-dep"), "hold", [ids("task-a-dep")]);
 
 		// Transition task A to done via the API (review → done is a valid transition)
-		const res = await app.request("/api/tasks/task-a-dep/transition", {
+		const res = await app.request(`/api/tasks/${ids("task-a-dep")}/transition`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "done" }),
@@ -104,7 +107,10 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
 		// Assert task B is now accepted (unblocked by auto-unblock listener)
-		const [taskB] = await db.select().from(tasks).where(eq(tasks.id, "task-b-dep"));
+		const [taskB] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task-b-dep")));
 		expect(taskB?.state).toBe("accepted");
 
 		vi.unstubAllEnvs();
@@ -114,20 +120,21 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		// task-c-dep in "review" state so it can validly transition to "done"
-		await insertTask(db, "task-c-dep", "review");
-		await insertTask(db, "task-d-dep", "hold", ["task-c-dep"]);
+		await insertTask(db, ids, ids("task-c-dep"), "review");
+		await insertTask(db, ids, ids("task-d-dep"), "hold", [ids("task-c-dep")]);
 
 		const stateChangedEvents: TaskStateChangedEvent[] = [];
 		eventBus.on("task_state_changed", (e: unknown) =>
 			stateChangedEvents.push(e as TaskStateChangedEvent),
 		);
 
-		const res = await app.request("/api/tasks/task-c-dep/transition", {
+		const res = await app.request(`/api/tasks/${ids("task-c-dep")}/transition`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "done" }),
@@ -141,7 +148,7 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		// There should be at least two events: one for task-c (in_progress→done)
 		// and one for task-d (hold→accepted) emitted by checkAndUnblockDependents
 		const unblockEvent = stateChangedEvents.find(
-			(e) => e.taskId === "task-d-dep" && e.toState === "accepted",
+			(e) => e.taskId === ids("task-d-dep") && e.toState === "accepted",
 		);
 		expect(unblockEvent).toBeDefined();
 		expect(unblockEvent?.fromState).toBe("hold");
@@ -152,17 +159,18 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 	test("does NOT unblock a downstream task with multiple deps when only one completes", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		// task-e-dep in "review" (can go to "done"); task-f-dep in "in_progress" (not done yet)
-		await insertTask(db, "task-e-dep", "review");
-		await insertTask(db, "task-f-dep", "in_progress");
-		await insertTask(db, "task-g-dep", "hold", ["task-e-dep", "task-f-dep"]);
+		await insertTask(db, ids, ids("task-e-dep"), "review");
+		await insertTask(db, ids, ids("task-f-dep"), "in_progress");
+		await insertTask(db, ids, ids("task-g-dep"), "hold", [ids("task-e-dep"), ids("task-f-dep")]);
 
 		// Complete task E only (review → done is valid)
-		const res = await app.request("/api/tasks/task-e-dep/transition", {
+		const res = await app.request(`/api/tasks/${ids("task-e-dep")}/transition`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "done" }),
@@ -172,7 +180,10 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
 		// Task G must remain in hold (task F not done yet)
-		const [taskG] = await db.select().from(tasks).where(eq(tasks.id, "task-g-dep"));
+		const [taskG] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task-g-dep")));
 		expect(taskG?.state).toBe("hold");
 
 		vi.unstubAllEnvs();
@@ -181,17 +192,18 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 	test("unblocks downstream task when ALL deps complete via sequential transitions", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBase(db);
+		await seedBase(db, ids);
 
 		// Both upstream tasks in "review" so they can validly transition to "done"
-		await insertTask(db, "task-h-dep", "review");
-		await insertTask(db, "task-i-dep", "review");
-		await insertTask(db, "task-j-dep", "hold", ["task-h-dep", "task-i-dep"]);
+		await insertTask(db, ids, ids("task-h-dep"), "review");
+		await insertTask(db, ids, ids("task-i-dep"), "review");
+		await insertTask(db, ids, ids("task-j-dep"), "hold", [ids("task-h-dep"), ids("task-i-dep")]);
 
 		// Complete task H (review → done)
-		await app.request("/api/tasks/task-h-dep/transition", {
+		await app.request(`/api/tasks/${ids("task-h-dep")}/transition`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "done" }),
@@ -199,11 +211,14 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
 		// Task J still hold (task-i-dep not done yet)
-		const [taskJMid] = await db.select().from(tasks).where(eq(tasks.id, "task-j-dep"));
+		const [taskJMid] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task-j-dep")));
 		expect(taskJMid?.state).toBe("hold");
 
 		// Complete task I (review → done)
-		await app.request("/api/tasks/task-i-dep/transition", {
+		await app.request(`/api/tasks/${ids("task-i-dep")}/transition`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "done" }),
@@ -211,7 +226,10 @@ describe("AD5 — AC-2: Dependency auto-unblock via task_state_changed event", (
 		await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
 		// Now task J should be accepted (all deps done, auto-unblock fired)
-		const [taskJFinal] = await db.select().from(tasks).where(eq(tasks.id, "task-j-dep"));
+		const [taskJFinal] = await db
+			.select()
+			.from(tasks)
+			.where(eq(tasks.id, ids("task-j-dep")));
 		expect(taskJFinal?.state).toBe("accepted");
 
 		vi.unstubAllEnvs();
