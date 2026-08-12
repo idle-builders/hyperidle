@@ -146,10 +146,11 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 	test("a real baked routine_run intent that fails terminally at drain still finalizes the real routine run to outcome=error", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const teamId = "team-au21-rrun-mig";
-		const teamMembersId = "team-au21-rrun-mig-members";
-		const ownerAgentId = "agent-au21-rrun-mig-owner";
+		const teamId = ids("team-au21-rrun-mig");
+		const teamMembersId = ids("team-au21-rrun-mig-members");
+		const ownerAgentId = ids("agent-au21-rrun-mig-owner");
 		await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
 		await db
 			.insert(teamMembers)
@@ -163,8 +164,9 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 			teamId: teamMembersId,
 			createdAt: NOW,
 		});
+		const routineId = ids("routine-au21-rrun-mig");
 		await db.insert(routines).values({
-			id: "routine-au21-rrun-mig",
+			id: routineId,
 			name: "routine_run migration proof routine",
 			teamId,
 			state: "active",
@@ -175,7 +177,7 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 		const [routine] = await db
 			.select()
 			.from(routines)
-			.where(eq(routines.id, "routine-au21-rrun-mig"));
+			.where(eq(routines.id, routineId));
 
 		const fireResult = await fireGenericRoutine(db, eventBus, routine!, makePorts());
 		expect(fireResult.fired).toBe(true);

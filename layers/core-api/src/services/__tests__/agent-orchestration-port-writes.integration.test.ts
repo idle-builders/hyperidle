@@ -21,6 +21,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { and, eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
@@ -30,20 +31,35 @@ import {
 
 const NOW = "2026-08-08T00:00:00.000Z";
 
-async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
-	await db
-		.insert(teams)
-		.values({ id: `${prefix}-team-parent`, name: prefix, phase: "build", createdAt: NOW });
+async function seedTeamAndTask(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+	prefix: string,
+): Promise<{
+	teamParentId: string;
+	teamMembersId: string;
+	humanId: string;
+	agentId: string;
+	betId: string;
+	taskId: string;
+}> {
+	const teamParentId = ids(`${prefix}-team-parent`);
+	const teamMembersId = ids(`${prefix}-team`);
+	const humanId = ids(`${prefix}-human`);
+	const agentId = ids(`${prefix}-agent`);
+	const betId = ids(`${prefix}-bet`);
+	const taskId = ids(`${prefix}-task`);
+	await db.insert(teams).values({ id: teamParentId, name: prefix, phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
-		id: `${prefix}-team`,
-		teamId: `${prefix}-team-parent`,
+		id: teamMembersId,
+		teamId: teamParentId,
 		capacity: 3,
 		activeBets: 0,
 		formedAt: NOW,
 	});
 	await db.insert(users).values([
 		{
-			id: `${prefix}-human`,
+			id: humanId,
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -51,47 +67,51 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 			createdAt: NOW,
 		},
 		{
-			id: `${prefix}-agent`,
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
 			status: "idle",
-			teamId: `${prefix}-team`,
+			teamId: teamMembersId,
 			createdAt: NOW,
 		},
 	]);
 	await db.insert(bets).values({
-		id: `${prefix}-bet`,
-		teamId: `${prefix}-team-parent`,
+		id: betId,
+		teamId: teamParentId,
 		description: prefix,
 		appetite: "small",
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-		id: `${prefix}-task`,
-		betId: `${prefix}-bet`,
-		teamId: `${prefix}-team-parent`,
+		id: taskId,
+		betId,
+		teamId: teamParentId,
 		title: prefix,
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	return { teamParentId, teamMembersId, humanId, agentId, betId, taskId };
 }
 
 describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness)", () => {
 	test("intents.submit reaches the real route and durably inserts an agent_work_intents row", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-submit");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-submit"));
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
+		const sourceId = ids("aopw-submit-source");
+		const idemKey = ids("aopw-submit-idem");
 		const receipt = await port.intents.submit({
 			kind: "knowledge_action",
 			sourceKind: "knowledge_action",
-			sourceId: "knowledge:aop-write-1",
-			idempotencyKey: "knowledge:aop-write-1:review:e1",
+			sourceId,
+			idempotencyKey: idemKey,
 		});
 
 		expect(receipt.id).toBeTruthy();
@@ -100,27 +120,30 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 			.from(agentWorkIntents)
 			.where(eq(agentWorkIntents.id, receipt.id))
 			.limit(1);
-		expect(row?.sourceId).toBe("knowledge:aop-write-1");
+		expect(row?.sourceId).toBe(sourceId);
 		expect(row?.status).toBe("pending");
 	});
 
 	test("intents.submit is idempotent — the same idempotencyKey resolves the SAME row", async ({
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-idem");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-idem"));
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
+		const sourceId = ids("aopw-idem-source");
+		const idemKey = ids("aopw-idem-key");
 		const first = await port.intents.submit({
 			kind: "knowledge_action",
 			sourceKind: "knowledge_action",
-			sourceId: "knowledge:aop-write-idem",
-			idempotencyKey: "knowledge:aop-write-idem:review:e1",
+			sourceId,
+			idempotencyKey: idemKey,
 		});
 		const second = await port.intents.submit({
 			kind: "knowledge_action",
 			sourceKind: "knowledge_action",
-			sourceId: "knowledge:aop-write-idem",
-			idempotencyKey: "knowledge:aop-write-idem:review:e1",
+			sourceId,
+			idempotencyKey: idemKey,
 		});
 
 		expect(second.id).toBe(first.id);
@@ -129,96 +152,103 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 	test("intents.createExplicitStart atomically creates the explicit start AND its baked intent", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-explicit-start");
-		await seedTeamAndTask(db, "aopw-es");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-explicit-start"));
+		const seed = await seedTeamAndTask(db, ids, "aopw-es");
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
+		const startId = ids("aopw-es-start");
+		const intentIdemKey = ids("aopw-es-intent-idem");
 		const result = await port.intents.createExplicitStart({
-			startId: "aopw-es-start",
-			taskId: "aopw-es-task",
-			requestedAgentId: "aopw-es-agent",
+			startId,
+			taskId: seed.taskId,
+			requestedAgentId: seed.agentId,
 			requestedModelTier: "workhorse",
-			requestedBy: "aopw-es-human",
-			idempotencyKey: "aopw-es-key",
-			intentIdempotencyKey: "explicit-session-start:aopw-es-start",
-			bakedRequest: { defaultAgentId: "aopw-es-agent" },
+			requestedBy: seed.humanId,
+			idempotencyKey: ids("aopw-es-key"),
+			intentIdempotencyKey: intentIdemKey,
+			bakedRequest: { defaultAgentId: seed.agentId },
 		});
 
-		expect(result.start.id).toBe("aopw-es-start");
+		expect(result.start.id).toBe(startId);
 		expect(result.start.status).toBe("requested");
 		expect(result.intent?.id).toBeTruthy();
 
 		const [startRow] = await db
 			.select()
 			.from(explicitSessionStarts)
-			.where(eq(explicitSessionStarts.id, "aopw-es-start"))
+			.where(eq(explicitSessionStarts.id, startId))
 			.limit(1);
-		expect(startRow?.taskId).toBe("aopw-es-task");
+		expect(startRow?.taskId).toBe(seed.taskId);
 
 		const [intentRow] = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "aopw-es-start"))
+			.where(eq(agentWorkIntents.sourceId, startId))
 			.limit(1);
 		expect(intentRow?.kind).toBe("session_start");
-		expect(intentRow?.bakedRequestJson).toContain("aopw-es-agent");
+		expect(intentRow?.bakedRequestJson).toContain(seed.agentId);
 	});
 
 	test("requests.findExplicitStartByIdempotencyKey / findExplicitStartById reach the real routes", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-find");
-		await seedTeamAndTask(db, "aopw-find");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-find"));
+		const seed = await seedTeamAndTask(db, ids, "aopw-find");
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
+		const startId = ids("aopw-find-start");
+		const idemKey = ids("aopw-find-key");
 		await port.intents.createExplicitStart({
-			startId: "aopw-find-start",
-			taskId: "aopw-find-task",
-			requestedAgentId: "aopw-find-agent",
-			requestedBy: "aopw-find-human",
-			idempotencyKey: "aopw-find-key",
-			intentIdempotencyKey: "explicit-session-start:aopw-find-start",
+			startId,
+			taskId: seed.taskId,
+			requestedAgentId: seed.agentId,
+			requestedBy: seed.humanId,
+			idempotencyKey: idemKey,
+			intentIdempotencyKey: ids("aopw-find-intent-idem"),
 		});
 
-		const byKey = await port.requests.findExplicitStartByIdempotencyKey(
-			"aopw-find-human",
-			"aopw-find-key",
-		);
-		expect(byKey?.id).toBe("aopw-find-start");
+		const byKey = await port.requests.findExplicitStartByIdempotencyKey(seed.humanId, idemKey);
+		expect(byKey?.id).toBe(startId);
 
-		const byId = await port.requests.findExplicitStartById("aopw-find-start");
-		expect(byId?.taskId).toBe("aopw-find-task");
+		const byId = await port.requests.findExplicitStartById(startId);
+		expect(byId?.taskId).toBe(seed.taskId);
 
-		const missing = await port.requests.findExplicitStartById("aopw-find-does-not-exist");
+		const missing = await port.requests.findExplicitStartById(ids("aopw-find-does-not-exist"));
 		expect(missing).toBeNull();
 	});
 
 	test("requests.listPendingIntentsByKind returns only pending/claimed intents for that kind", async ({
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-pending");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-pending"));
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
+		const sourceId = ids("aopw-pending-msg-1");
 		await port.intents.submit({
 			kind: "assistant_turn",
 			sourceKind: "thread_message",
-			sourceId: "aopw-pending-msg-1",
-			idempotencyKey: "assistant:aopw-pending-msg-1",
+			sourceId,
+			idempotencyKey: ids("aopw-pending-idem"),
 		});
 
 		const pending = await port.requests.listPendingIntentsByKind("assistant_turn");
-		expect(pending.some((p) => p.sourceId === "aopw-pending-msg-1")).toBe(true);
+		expect(pending.some((p) => p.sourceId === sourceId)).toBe(true);
 	});
 
 	test("runConfig.write then runConfig.read round-trips through the real route", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-runconfig");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-runconfig"));
+		const agentId = ids("aopw-rc-agent");
 		await db.insert(users).values({
-			id: "aopw-rc-agent",
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -227,11 +257,11 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		});
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
-		await port.runConfig.write("aopw-rc-agent", {
+		await port.runConfig.write(agentId, {
 			harnessType: "claude-code",
 			maxConcurrentSessions: 2,
 		});
-		const config = await port.runConfig.read("aopw-rc-agent");
+		const config = await port.runConfig.read(agentId);
 
 		expect(config.harnessType).toBe("claude-code");
 		expect(config.maxConcurrentSessions).toBe(2);
@@ -240,11 +270,14 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 	test("runConfig.readBatch reads multiple agents in one call, defaulting an unwritten agent", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-runconfig-batch");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-runconfig-batch"));
+		const agent1 = ids("aopw-rcb-agent-1");
+		const agent2 = ids("aopw-rcb-agent-2");
 		await db.insert(users).values([
 			{
-				id: "aopw-rcb-agent-1",
+				id: agent1,
 				kind: "ai",
 				name: "Agent1",
 				role: "builder",
@@ -252,7 +285,7 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 				createdAt: NOW,
 			},
 			{
-				id: "aopw-rcb-agent-2",
+				id: agent2,
 				kind: "ai",
 				name: "Agent2",
 				role: "builder",
@@ -262,23 +295,27 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		]);
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
-		await port.runConfig.write("aopw-rcb-agent-1", { harnessType: "codex" });
-		const configs = await port.runConfig.readBatch(["aopw-rcb-agent-1", "aopw-rcb-agent-2"]);
+		await port.runConfig.write(agent1, { harnessType: "codex" });
+		const configs = await port.runConfig.readBatch([agent1, agent2]);
 
-		expect(configs.get("aopw-rcb-agent-1")?.harnessType).toBe("codex");
-		expect(configs.get("aopw-rcb-agent-2")?.harnessType).toBeNull();
+		expect(configs.get(agent1)?.harnessType).toBe("codex");
+		expect(configs.get(agent2)?.harnessType).toBeNull();
 	});
 
 	test("filesystems.persistInjection persists the row and reports NOT_FOUND for an unknown filesystem", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-fs");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-fs"));
+		const teamParentId = ids("aopw-fs-team-parent");
+		const agentId = ids("aopw-fs-agent");
+		const fsId = ids("aopw-fs-1");
 		await db
 			.insert(teams)
-			.values({ id: "aopw-fs-team-parent", name: "aopw-fs", phase: "build", createdAt: NOW });
+			.values({ id: teamParentId, name: "aopw-fs", phase: "build", createdAt: NOW });
 		await db.insert(users).values({
-			id: "aopw-fs-agent",
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -286,8 +323,8 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 			createdAt: NOW,
 		});
 		await db.insert(filesystems).values({
-			id: "aopw-fs-1",
-			teamId: "aopw-fs-team-parent",
+			id: fsId,
+			teamId: teamParentId,
 			source: "local",
 			kind: "code",
 			resourceRef: JSON.stringify({ kind: "code", repo: "x", branch: "main" }),
@@ -297,7 +334,7 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		});
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
-		const result = await port.filesystems.persistInjection("aopw-fs-1", "aopw-fs-agent");
+		const result = await port.filesystems.persistInjection(fsId, agentId);
 		expect(result.ok).toBe(true);
 		if (result.ok) {
 			const [row] = await db
@@ -305,8 +342,8 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 				.from(filesystemInjections)
 				.where(
 					and(
-						eq(filesystemInjections.filesystemId, "aopw-fs-1"),
-						eq(filesystemInjections.agentUserId, "aopw-fs-agent"),
+						eq(filesystemInjections.filesystemId, fsId),
+						eq(filesystemInjections.agentUserId, agentId),
 					),
 				)
 				.limit(1);
@@ -314,8 +351,8 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		}
 
 		const notFound = await port.filesystems.persistInjection(
-			"aopw-fs-does-not-exist",
-			"aopw-fs-agent",
+			ids("aopw-fs-does-not-exist"),
+			agentId,
 		);
 		expect(notFound.ok).toBe(false);
 		if (!notFound.ok) expect(notFound.code).toBe("NOT_FOUND");
@@ -324,97 +361,96 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 	test("runs.createBareRun inserts an active session row through the real route", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-bare-run");
-		await seedTeamAndTask(db, "aopw-bare");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-bare-run"));
+		const seed = await seedTeamAndTask(db, ids, "aopw-bare");
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
 		const session = await port.runs.createBareRun({
-			agentId: "aopw-bare-agent",
-			taskId: "aopw-bare-task",
+			agentId: seed.agentId,
+			taskId: seed.taskId,
 			modelTier: "workhorse",
 		});
 
 		expect(session.state).toBe("active");
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, session.id)).limit(1);
-		expect(row?.agentId).toBe("aopw-bare-agent");
+		expect(row?.agentId).toBe(seed.agentId);
 	});
 
 	test("runs.stopForTasks stops the active session for a task and returns it", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-stop");
-		await seedTeamAndTask(db, "aopw-stop");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-stop"));
+		const seed = await seedTeamAndTask(db, ids, "aopw-stop");
+		const sessionId = ids("aopw-stop-session");
 		await db.insert(sessions).values({
-			id: "aopw-stop-session",
-			agentId: "aopw-stop-agent",
-			taskId: "aopw-stop-task",
+			id: sessionId,
+			agentId: seed.agentId,
+			taskId: seed.taskId,
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state: "active",
 		});
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
-		const stopped = await port.runs.stopForTasks(["aopw-stop-task"], "bet_killed");
-		expect(stopped).toEqual([{ taskId: "aopw-stop-task", sessionId: "aopw-stop-session" }]);
+		const stopped = await port.runs.stopForTasks([seed.taskId], "bet_killed");
+		expect(stopped).toEqual([{ taskId: seed.taskId, sessionId }]);
 
-		const [row] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, "aopw-stop-session"))
-			.limit(1);
+		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		expect(row?.state).toBe("stopped");
 	});
 
 	test("runs.endForHandoff marks the session done without emitting session_ended", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-handoff");
-		await seedTeamAndTask(db, "aopw-handoff");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-handoff"));
+		const seed = await seedTeamAndTask(db, ids, "aopw-handoff");
+		const sessionId = ids("aopw-handoff-session");
 		await db.insert(sessions).values({
-			id: "aopw-handoff-session",
-			agentId: "aopw-handoff-agent",
-			taskId: "aopw-handoff-task",
+			id: sessionId,
+			agentId: seed.agentId,
+			taskId: seed.taskId,
 			modelTier: "workhorse",
 			startedAt: NOW,
 			state: "active",
 		});
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
-		await port.runs.endForHandoff("aopw-handoff-session", NOW);
+		await port.runs.endForHandoff(sessionId, NOW);
 
-		const [row] = await db
-			.select()
-			.from(sessions)
-			.where(eq(sessions.id, "aopw-handoff-session"))
-			.limit(1);
+		const [row] = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
 		expect(row?.state).toBe("done");
 	});
 
 	test("runs.failExplicitStart marks the explicit start failed through the real route", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-fail-start");
-		await seedTeamAndTask(db, "aopw-fail");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-fail-start"));
+		const seed = await seedTeamAndTask(db, ids, "aopw-fail");
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
+		const startId = ids("aopw-fail-start");
 		await port.intents.createExplicitStart({
-			startId: "aopw-fail-start",
-			taskId: "aopw-fail-task",
-			requestedAgentId: "aopw-fail-agent",
-			requestedBy: "aopw-fail-human",
-			idempotencyKey: "aopw-fail-key",
-			intentIdempotencyKey: "explicit-session-start:aopw-fail-start",
+			startId,
+			taskId: seed.taskId,
+			requestedAgentId: seed.agentId,
+			requestedBy: seed.humanId,
+			idempotencyKey: ids("aopw-fail-key"),
+			intentIdempotencyKey: ids("aopw-fail-intent-idem"),
 		});
 
-		await port.runs.failExplicitStart("aopw-fail-start", "no_runnable_agent");
+		await port.runs.failExplicitStart(startId, "no_runnable_agent");
 
 		const [row] = await db
 			.select()
 			.from(explicitSessionStarts)
-			.where(eq(explicitSessionStarts.id, "aopw-fail-start"))
+			.where(eq(explicitSessionStarts.id, startId))
 			.limit(1);
 		expect(row?.status).toBe("failed");
 		expect(row?.failureCode).toBe("no_runnable_agent");
@@ -434,14 +470,17 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 	test("filesystems.getTeamId reaches the real route and returns null for an unknown filesystem", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-fs-team");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-fs-team"));
+		const teamParentId = ids("aopw-fst-team-parent");
+		const fsId = ids("aopw-fst-1");
 		await db
 			.insert(teams)
-			.values({ id: "aopw-fst-team-parent", name: "aopw-fst", phase: "build", createdAt: NOW });
+			.values({ id: teamParentId, name: "aopw-fst", phase: "build", createdAt: NOW });
 		await db.insert(filesystems).values({
-			id: "aopw-fst-1",
-			teamId: "aopw-fst-team-parent",
+			id: fsId,
+			teamId: teamParentId,
 			source: "local",
 			kind: "code",
 			resourceRef: JSON.stringify({ kind: "code", repo: "x", branch: "main" }),
@@ -451,8 +490,8 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		});
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
-		expect(await port.filesystems.getTeamId("aopw-fst-1")).toBe("aopw-fst-team-parent");
-		expect(await port.filesystems.getTeamId("aopw-fst-does-not-exist")).toBeNull();
+		expect(await port.filesystems.getTeamId(fsId)).toBe(teamParentId);
+		expect(await port.filesystems.getTeamId(ids("aopw-fst-does-not-exist"))).toBeNull();
 	});
 
 	// AU31 §3 clause 2 — the team-defaults pair `teams-routes.ts` needs
@@ -460,27 +499,27 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 	test("runConfig.writeTeamDefaults then readTeamDefaults round-trips through the real route", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-team-defaults");
-		await db
-			.insert(teams)
-			.values({ id: "aopw-td-team", name: "aopw-td", phase: "build", createdAt: NOW });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("aop-write-key-team-defaults"));
+		const teamId = ids("aopw-td-team");
+		await db.insert(teams).values({ id: teamId, name: "aopw-td", phase: "build", createdAt: NOW });
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
 		// Absent row ≡ all-null row.
-		const before = await port.runConfig.readTeamDefaults("aopw-td-team");
+		const before = await port.runConfig.readTeamDefaults(teamId);
 		expect(before).toEqual({
 			defaultHarnessType: null,
 			defaultModelId: null,
 			defaultModelProvider: null,
 		});
 
-		await port.runConfig.writeTeamDefaults("aopw-td-team", {
+		await port.runConfig.writeTeamDefaults(teamId, {
 			defaultHarnessType: "claude-code",
 			defaultModelId: "claude-sonnet-4-6",
 			defaultModelProvider: "anthropic",
 		});
-		const after = await port.runConfig.readTeamDefaults("aopw-td-team");
+		const after = await port.runConfig.readTeamDefaults(teamId);
 
 		expect(after).toEqual({
 			defaultHarnessType: "claude-code",

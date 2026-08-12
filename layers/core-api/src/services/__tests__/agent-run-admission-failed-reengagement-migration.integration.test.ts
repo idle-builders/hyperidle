@@ -73,20 +73,21 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
 		const idPrefix = "au21-reengage-migration-1";
-		const teamId = `${idPrefix}-team`;
-		const betId = `${idPrefix}-bet`;
-		const taskId = `${idPrefix}-task`;
-		const agentId = `${idPrefix}-agent`;
-		const threadId = `${idPrefix}-thread`;
-		const messageId = `${idPrefix}-message`;
-		const artifactId = `${idPrefix}-artifact`;
+		const teamId = ids(`${idPrefix}-team`);
+		const betId = ids(`${idPrefix}-bet`);
+		const taskId = ids(`${idPrefix}-task`);
+		const agentId = ids(`${idPrefix}-agent`);
+		const threadId = ids(`${idPrefix}-thread`);
+		const messageId = ids(`${idPrefix}-message`);
+		const artifactId = ids(`${idPrefix}-artifact`);
 
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
 		await db
 			.insert(teamMembers)
-			.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
+			.values({ id: ids(`${teamId}-members`), teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 		await db.insert(users).values({
 			id: agentId,
 			kind: "ai",
@@ -141,21 +142,22 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 			createdAt: NOW,
 		});
 		await db.insert(proposedCalls).values({
-			id: `${idPrefix}-pc`,
+			id: ids(`${idPrefix}-pc`),
 			reviewMessageId: messageId,
 			subjectThreadId: threadId,
 			artifactId,
-			originSessionId: `${idPrefix}-origin`,
+			originSessionId: ids(`${idPrefix}-origin`),
 			toolId: "commit_file",
 			args: JSON.stringify({ path: "result.txt" }),
-			identityHash: `${idPrefix}-hash`,
+			identityHash: ids(`${idPrefix}-hash`),
 			reversibility: "irreversible",
 			status: "captured",
 			stagedByAgentId: agentId,
 			createdAt: NOW,
 		});
+		const founderId = ids("u-au21-reengage-migration-founder");
 		await db.insert(users).values({
-			id: "u-au21-reengage-migration-founder",
+			id: founderId,
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -163,8 +165,8 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 			createdAt: NOW,
 		});
 		await db.insert(serviceConnections).values({
-			id: "sc-au21-reengage-migration",
-			userId: "u-au21-reengage-migration-founder",
+			id: ids("sc-au21-reengage-migration"),
+			userId: founderId,
 			service: "github",
 			authSource: "token",
 			encryptedToken: "au21-reengage-migration-encrypted-placeholder",

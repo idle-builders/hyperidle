@@ -84,10 +84,13 @@ describe("agent_run_admission_failed — knowledge_action reaction fires for a R
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
+		const agentId = ids("agent-au21-know-mig");
+		const itemId = ids("item-au21-know-mig");
 		await db.insert(users).values({
-			id: "agent-au21-know-mig",
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -95,34 +98,34 @@ describe("agent_run_admission_failed — knowledge_action reaction fires for a R
 			createdAt: now,
 		});
 		await db.insert(knowledgeItems).values({
-			id: "item-au21-know-mig",
+			id: itemId,
 			scopeKind: "factory",
 			title: "knowledge_action migration proof item",
 			body: "Body",
 			format: "markdown",
 			status: "draft",
 			version: 1,
-			updatedBy: "agent-au21-know-mig",
+			updatedBy: agentId,
 			createdAt: now,
 			updatedAt: now,
 		});
 		// The owner writes the projection row alongside the item.
 		await db.insert(knowledgeAppProjection).values({
-			id: "item-au21-know-mig-projection",
-			knowledgeItemId: "item-au21-know-mig",
+			id: ids("item-au21-know-mig-projection"),
+			knowledgeItemId: itemId,
 		});
 
-		const res = await app.request("/api/knowledge/item-au21-know-mig/flag", {
+		const res = await app.request(`/api/knowledge/${itemId}/flag`, {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ reason: "Needs review", agentId: "agent-au21-know-mig" }),
+			body: JSON.stringify({ reason: "Needs review", agentId }),
 		});
 		expect(res.status).toBe(200);
 
 		const [intentBeforeDrain] = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "knowledge:item-au21-know-mig"));
+			.where(eq(agentWorkIntents.sourceId, `knowledge:${itemId}`));
 		// RED today: the emit call site does not yet bake the request.
 		expect(intentBeforeDrain?.bakedRequestJson).toBeTruthy();
 
@@ -137,13 +140,13 @@ describe("agent_run_admission_failed — knowledge_action reaction fires for a R
 		expect(emitted).toHaveLength(1);
 		expect(emitted[0]).toMatchObject({
 			kind: "knowledge_action",
-			sourceId: "knowledge:item-au21-know-mig",
+			sourceId: `knowledge:${itemId}`,
 			terminal: true,
 		});
 
 		await vi.waitFor(async () => {
 			const reviewItems = await db.select().from(items);
-			const marker = attentionReviewReasoningMarker("item-au21-know-mig");
+			const marker = attentionReviewReasoningMarker(itemId);
 			const flagged = reviewItems.find((row) => (row.reasoning ?? "").includes(marker));
 			expect(flagged).toBeDefined();
 		});
