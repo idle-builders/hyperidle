@@ -39,6 +39,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -56,50 +57,54 @@ function authHeaders(): Record<string, string> {
 
 const NOW = "2026-08-04T00:00:00.000Z";
 
-async function seed(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
+async function seed(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
+	await db.insert(teams).values({ id: ids("prod-1"), name: "P", phase: "build", createdAt: NOW });
+	await db.insert(teamMembers).values({
+		id: ids("team-1"),
+		teamId: ids("prod-1"),
+		capacity: 3,
+		activeBets: 0,
+		formedAt: NOW,
+	});
 	await db.insert(users).values({
-		id: "agent-1",
+		id: ids("agent-1"),
 		name: "Builder",
 		role: "builder",
 		status: "active",
 		kind: "ai",
-		teamId: "team-1",
+		teamId: ids("team-1"),
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
-		id: "human-1",
+		id: ids("human-1"),
 		name: "Human",
 		role: "founder",
 		status: "active",
 		kind: "human",
-		teamId: "team-1",
+		teamId: ids("team-1"),
 		createdAt: NOW,
 	});
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "prod-1",
+		id: ids("bet-1"),
+		teamId: ids("prod-1"),
 		description: "d",
 		appetite: "small",
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "prod-1",
+		id: ids("task-1"),
+		betId: ids("bet-1"),
+		teamId: ids("prod-1"),
 		title: "T",
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 	await db.insert(sessions).values({
-		id: "sess-1",
-		agentId: "agent-1",
-		taskId: "task-1",
+		id: ids("sess-1"),
+		agentId: ids("agent-1"),
+		taskId: ids("task-1"),
 		modelTier: "workhorse",
 		state: "active",
 		startedAt: NOW,
@@ -127,29 +132,34 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 	});
 
 	describe("the four relocated session routes answer through the composed app", () => {
-		test("GET /api/sessions lists, and filters by task_id", async ({ db, app }) => {
-			await seed(db);
-			const res = await app.request("/api/sessions?task_id=task-1", { headers: authHeaders() });
+		test("GET /api/sessions lists, and filters by task_id", async ({ db, app, ids }) => {
+			await seed(db, ids);
+			const res = await app.request(`/api/sessions?task_id=${ids("task-1")}`, {
+				headers: authHeaders(),
+			});
 			expect(res.status).toBe(200);
 			const rows = (await res.json()) as ReadonlyArray<{ id: string }>;
-			expect(rows.map((r) => r.id)).toEqual(["sess-1"]);
+			expect(rows.map((r) => r.id)).toEqual([ids("sess-1")]);
 
-			const none = await app.request("/api/sessions?task_id=task-nope", { headers: authHeaders() });
+			const none = await app.request(`/api/sessions?task_id=${ids("task-nope")}`, {
+				headers: authHeaders(),
+			});
 			expect(await none.json()).toEqual([]);
 		});
 
 		test("GET /api/sessions/starts/:startId projects the caller's own start", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seed(db);
+			await seed(db, ids);
 			await db.insert(explicitSessionStarts).values({
-				id: "start-1",
-				taskId: "task-1",
-				requestedAgentId: "agent-1",
+				id: ids("start-1"),
+				taskId: ids("task-1"),
+				requestedAgentId: ids("agent-1"),
 				requestedModelTier: "workhorse",
-				requestedBy: "human-1",
-				idempotencyKey: "k-1",
+				requestedBy: ids("human-1"),
+				idempotencyKey: ids("k-1"),
 				status: "requested",
 				createdAt: NOW,
 				updatedAt: NOW,
@@ -157,10 +167,12 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 
 			// A still-`requested` start projects the shared 202 pending body — the same
 			// `projectExplicitStartOutcome` core-hosted `POST /api/sessions` renders.
-			const res = await app.request("/api/sessions/starts/start-1", { headers: authHeaders() });
+			const res = await app.request(`/api/sessions/starts/${ids("start-1")}`, {
+				headers: authHeaders(),
+			});
 			expect(res.status).toBe(202);
-			expect(await res.json()).toMatchObject({ startId: "start-1", status: "requested" });
-			expect(res.headers.get("Idempotency-Key")).toBe("k-1");
+			expect(await res.json()).toMatchObject({ startId: ids("start-1"), status: "requested" });
+			expect(res.headers.get("Idempotency-Key")).toBe(ids("k-1"));
 
 			const missing = await app.request("/api/sessions/starts/nope", { headers: authHeaders() });
 			expect(missing.status).toBe(404);
@@ -169,15 +181,18 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		test("GET /api/sessions/:id/activity returns session metadata + entries", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seed(db);
-			const res = await app.request("/api/sessions/sess-1/activity", { headers: authHeaders() });
+			await seed(db, ids);
+			const res = await app.request(`/api/sessions/${ids("sess-1")}/activity`, {
+				headers: authHeaders(),
+			});
 			expect(res.status).toBe(200);
 			expect(await res.json()).toEqual({
 				session: {
-					id: "sess-1",
-					agentId: "agent-1",
-					taskId: "task-1",
+					id: ids("sess-1"),
+					agentId: ids("agent-1"),
+					taskId: ids("task-1"),
 					state: "active",
 					startedAt: NOW,
 					modelTier: "workhorse",
@@ -189,9 +204,9 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 			expect(missing.status).toBe(404);
 		});
 
-		test("PATCH /api/sessions/:id writes the effectiveness score", async ({ db, app }) => {
-			await seed(db);
-			const res = await app.request("/api/sessions/sess-1", {
+		test("PATCH /api/sessions/:id writes the effectiveness score", async ({ db, app, ids }) => {
+			await seed(db, ids);
+			const res = await app.request(`/api/sessions/${ids("sess-1")}`, {
 				method: "PATCH",
 				headers: { ...authHeaders(), "content-type": "application/json" },
 				body: JSON.stringify({ effectivenessScore: 0.75 }),
@@ -201,7 +216,7 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 			expect(body.effectivenessScore).toBe("0.75");
 			expect(body.state).toBe("active");
 
-			const invalid = await app.request("/api/sessions/sess-1", {
+			const invalid = await app.request(`/api/sessions/${ids("sess-1")}`, {
 				method: "PATCH",
 				headers: { ...authHeaders(), "content-type": "application/json" },
 				body: JSON.stringify({ effectivenessScore: 42 }),
@@ -209,10 +224,10 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 			expect(invalid.status).toBe(400);
 		});
 
-		test("GET /api/agent-orchestration/sessions still backs the port", async ({ db, app }) => {
-			await seed(db);
+		test("GET /api/agent-orchestration/sessions still backs the port", async ({ db, app, ids }) => {
+			await seed(db, ids);
 			const res = await app.request(
-				"/api/agent-orchestration/sessions?sourceKind=task&sourceId=task-1",
+				`/api/agent-orchestration/sessions?sourceKind=task&sourceId=${ids("task-1")}`,
 				{ headers: authHeaders() },
 			);
 			expect(res.status).toBe(200);
@@ -223,15 +238,18 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 	test("POST /api/sessions stays core-hosted and returns the whole session row", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seed(db);
+		await seed(db, ids);
 		const res = await app.request("/api/sessions", {
 			method: "POST",
 			headers: { ...authHeaders(), "content-type": "application/json" },
-			body: JSON.stringify({ agentId: "agent-1", taskId: "task-1", modelTier: "fast" }),
+			body: JSON.stringify({ agentId: ids("agent-1"), taskId: ids("task-1"), modelTier: "fast" }),
 		});
 		expect(res.status).toBe(201);
 		const created = (await res.json()) as Record<string, unknown>;
+		// @lore AU38: session id is route-generated (production-derived); capture it
+		// from the response rather than asserting a specific literal.
 		const [row] = await db
 			.select()
 			.from(sessions)
@@ -242,22 +260,37 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 	test("AgentOrchestrationPort.sessions.getById returns the full session wire row", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		await seed(db);
+		await seed(db, ids);
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-		const got = await port.sessions.getById("sess-1");
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, "sess-1"));
+		const got = await port.sessions.getById(ids("sess-1"));
+		const [row] = await db
+			.select()
+			.from(sessions)
+			.where(eq(sessions.id, ids("sess-1")));
 		expect(got).toEqual(JSON.parse(JSON.stringify(row)));
-		expect(await port.sessions.getById("nope")).toBeNull();
+		expect(await port.sessions.getById(ids("nope"))).toBeNull();
 	});
 
-	test("every relocated route 401s without auth", async ({ db, app }) => {
-		await seed(db);
+	test("every relocated route 401s without auth", async ({ db, app, ids }) => {
+		await seed(db, ids);
+		await db.insert(explicitSessionStarts).values({
+			id: ids("start-1"),
+			taskId: ids("task-1"),
+			requestedAgentId: ids("agent-1"),
+			requestedModelTier: "workhorse",
+			requestedBy: ids("human-1"),
+			idempotencyKey: ids("k-1"),
+			status: "requested",
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
 		const cases: ReadonlyArray<readonly [string, string]> = [
 			["GET", "/api/sessions"],
-			["GET", "/api/sessions/starts/start-1"],
-			["GET", "/api/sessions/sess-1/activity"],
-			["PATCH", "/api/sessions/sess-1"],
+			["GET", `/api/sessions/starts/${ids("start-1")}`],
+			["GET", `/api/sessions/${ids("sess-1")}/activity`],
+			["PATCH", `/api/sessions/${ids("sess-1")}`],
 			["POST", "/api/sessions"],
 			["GET", "/api/agent-orchestration/sessions?sourceKind=task&sourceId=x"],
 		];
