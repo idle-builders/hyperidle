@@ -37,7 +37,7 @@
 	},
 	"workspaces": {
 		".": {
-			"entry": ["vitest.integration.config.ts!"]
+			"entry": ["vitest.integration.config.ts!", "eslint.design.config.ts!"]
 		},
 		"framework/domain-model": {},
 		"framework/diagnostics": {},
