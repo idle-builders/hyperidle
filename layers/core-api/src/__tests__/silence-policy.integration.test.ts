@@ -7,6 +7,7 @@
  * structural inference from the NotificationsDeps-compatible literal.
  */
 import { teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { isSilenced } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -23,30 +24,34 @@ const silencePolicyDeps = {
 	},
 };
 
+async function seedBase(db: import("@hyperidle/db").HyperIdleDb, ids: ScopedIds): Promise<void> {
+	await db.insert(teams).values({
+		id: ids("prod-1"),
+		name: "Test Product",
+		phase: "build",
+		createdAt: new Date().toISOString(),
+	});
+	await db.insert(teamMembers).values({
+		id: ids("team-1"),
+		teamId: ids("prod-1"),
+		capacity: 3,
+		activeBets: 0,
+		formedAt: new Date().toISOString(),
+	});
+	await db.insert(users).values({
+		id: ids("agent-1"),
+		kind: "ai",
+		name: "Test Agent",
+		role: "builder",
+		status: "active",
+		teamId: ids("team-1"),
+		createdAt: new Date().toISOString(),
+	});
+}
+
 describe("isSilenced", () => {
-	test("returns true when factory-wide silence_mode is enabled", async ({ db }) => {
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-		await db.insert(users).values({
-			id: "agent-1",
-			kind: "ai",
-			name: "Test Agent",
-			role: "builder",
-			status: "active",
-			teamId: "team-1",
-			createdAt: new Date().toISOString(),
-		});
+	test("returns true when factory-wide silence_mode is enabled", async ({ db, ids }) => {
+		await seedBase(db, ids);
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 
 		const result = await isSilenced(db, { sourceAgentId: null }, new Date(), silencePolicyDeps);
@@ -58,34 +63,15 @@ describe("isSilenced", () => {
 		expect(result).toBe(false);
 	});
 
-	test("returns true for per-product silence", async ({ db }) => {
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
+	test("returns true for per-product silence", async ({ db, ids }) => {
+		await seedBase(db, ids);
+		await updateServerConfig(db, {
+			notifications: { silence: { silencedTeamIds: [ids("prod-1")] } },
 		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-		await db.insert(users).values({
-			id: "agent-1",
-			kind: "ai",
-			name: "Test Agent",
-			role: "builder",
-			status: "active",
-			teamId: "team-1",
-			createdAt: new Date().toISOString(),
-		});
-		await updateServerConfig(db, { notifications: { silence: { silencedTeamIds: ["prod-1"] } } });
 
 		const result = await isSilenced(
 			db,
-			{ sourceAgentId: "agent-1" },
+			{ sourceAgentId: ids("agent-1") },
 			new Date(),
 			silencePolicyDeps,
 		);

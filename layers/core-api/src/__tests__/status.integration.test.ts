@@ -1,4 +1,5 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -8,51 +9,51 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({
-		id: "prod-1",
+		id: ids("prod-1"),
 		name: "Test Product",
 		phase: "build",
 		createdAt: now,
 	});
 	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
+		id: ids("team-1"),
+		teamId: ids("prod-1"),
 		capacity: 3,
 		activeBets: 0,
 		formedAt: now,
 	});
 	await db.insert(users).values([
 		{
-			id: "agent-1",
+			id: ids("agent-1"),
 			name: "Builder Bot",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: ids("team-1"),
 			createdAt: now,
 		},
 		{
-			id: "agent-2",
+			id: ids("agent-2"),
 			name: "Growth Bot",
 			role: "growth",
 			status: "active",
-			teamId: "team-1",
+			teamId: ids("team-1"),
 			createdAt: now,
 		},
 	]);
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "prod-1",
+		id: ids("bet-1"),
+		teamId: ids("prod-1"),
 		description: "Test",
 		appetite: "small",
 		status: "active",
 		createdAt: now,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "prod-1",
+		id: ids("task-1"),
+		betId: ids("bet-1"),
+		teamId: ids("prod-1"),
 		title: "Test Task",
 		state: "in_progress",
 		createdAt: now,
@@ -74,8 +75,8 @@ describe("Status Endpoints (E6)", () => {
 		// @lore AU26 J1: `activeSessions` is gone from this response — it was a raw
 		// `sessions` read on a route with zero consumers repo-wide. The absence is
 		// pinned by `AU26-J1-run-read-deletions.integration.test.ts`.
-		test("returns the agent-state census and uptime", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns the agent-state census and uptime", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -94,8 +95,9 @@ describe("Status Endpoints (E6)", () => {
 		test("uptime is a non-empty ISO timestamp (SERVER_START_TIME fallback, always)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 			const res = await app.request("/api/status", { headers: authHeaders() });
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(typeof body.uptime).toBe("string");

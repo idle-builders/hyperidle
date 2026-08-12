@@ -17,6 +17,7 @@
 
 import { findThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, threads as threadsTable } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { type WsClient, WsConnectionHub } from "../ws-connection-hub.js";
@@ -46,79 +47,75 @@ const REALTIME_DEPS: SubscribeAuthorizerDeps = {
 	conversation: { getThreadById: (db: HyperIdleDb, id: string) => findThread(db, { id }) },
 };
 
+async function seedThread(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ threadId: string; participantId: string; nonParticipantId: string }> {
+	const now = new Date().toISOString();
+	const threadId = ids("thr-1");
+	const participantId = ids("agent-1");
+	const nonParticipantId = ids("agent-2");
+	const founderId = ids("u-founder");
+	await db.insert(threadsTable).values({
+		id: threadId,
+		hostKind: "task",
+		hostId: ids("task-1"),
+		initiatorId: founderId,
+		participants: JSON.stringify([founderId, participantId]),
+		pinned: false,
+		lastActiveAt: now,
+		createdAt: now,
+	});
+	return { threadId, participantId, nonParticipantId };
+}
+
 describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
-	test("participant subscribe to thread:<id> → ok", async ({ db }) => {
+	test("participant subscribe to thread:<id> → ok", async ({ db, ids }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
-		// Seed a thread
-		const now = new Date().toISOString();
-		await db.insert(threadsTable).values({
-			id: "thr-1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "u-founder",
-			participants: JSON.stringify(["u-founder", "agent-1"]),
-			pinned: false,
-			lastActiveAt: now,
-			createdAt: now,
-		});
+		const { threadId, participantId } = await seedThread(db, ids);
 
 		const client = createMockClient();
-		hub.addClient(client, "agent-1");
+		hub.addClient(client, participantId);
 
-		const result = await hub.subscribe(client, "thread:thr-1");
+		const result = await hub.subscribe(client, `thread:${threadId}`);
 		expect(result).toBe("ok");
 	});
 
 	test("non-participant subscribe to thread:<id> → forbidden, no broadcasts delivered", async ({
 		db,
+		ids,
 	}) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
-		const now = new Date().toISOString();
-		await db.insert(threadsTable).values({
-			id: "thr-1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "u-founder",
-			participants: JSON.stringify(["u-founder", "agent-1"]),
-			pinned: false,
-			lastActiveAt: now,
-			createdAt: now,
-		});
+		const { threadId, nonParticipantId } = await seedThread(db, ids);
 
 		const client = createMockClient();
-		hub.addClient(client, "agent-2");
+		hub.addClient(client, nonParticipantId);
 
-		const result = await hub.subscribe(client, "thread:thr-1");
+		const result = await hub.subscribe(client, `thread:${threadId}`);
 		expect(result).toBe("forbidden");
 
 		// Confirm the rejected client never joined the topic set — a
 		// subsequent direct push to it must skip them.
 		hub.broadcast(
-			"thread:thr-1",
-			JSON.stringify({ type: "update", topic: "thread:thr-1", kind: "thread_message_appended" }),
+			`thread:${threadId}`,
+			JSON.stringify({
+				type: "update",
+				topic: `thread:${threadId}`,
+				kind: "thread_message_appended",
+			}),
 		);
 
 		expect(client.messages).toEqual([]);
 	});
 
-	test("subscribe with no bound identity → forbidden for thread topics", async ({ db }) => {
+	test("subscribe with no bound identity → forbidden for thread topics", async ({ db, ids }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
-		const now = new Date().toISOString();
-		await db.insert(threadsTable).values({
-			id: "thr-1",
-			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "u-founder",
-			participants: JSON.stringify(["u-founder", "agent-1"]),
-			pinned: false,
-			lastActiveAt: now,
-			createdAt: now,
-		});
+		const { threadId } = await seedThread(db, ids);
 
 		const client = createMockClient();
 		hub.addClient(client); // no senderId
 
-		const result = await hub.subscribe(client, "thread:thr-1");
+		const result = await hub.subscribe(client, `thread:${threadId}`);
 		expect(result).toBe("forbidden");
 	});
 
@@ -131,12 +128,12 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 		expect(await hub.subscribe(client, "work")).toBe("ok");
 	});
 
-	test("subscribe to a non-existent thread → forbidden", async ({ db }) => {
+	test("subscribe to a non-existent thread → forbidden", async ({ db, ids }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		const client = createMockClient();
-		hub.addClient(client, "agent-1");
+		hub.addClient(client, ids("agent-1"));
 
-		expect(await hub.subscribe(client, "thread:does-not-exist")).toBe("forbidden");
+		expect(await hub.subscribe(client, `thread:${ids("does-not-exist")}`)).toBe("forbidden");
 	});
 
 	/**
@@ -148,19 +145,19 @@ describe("WsConnectionHub — subscribe authorization (L1 Adv-C1)", () => {
 	 * like any other unknown prefix. This case is what proves the branch left,
 	 * rather than merely that its old fail-closed edge still held.
 	 */
-	test("session topics are not served by core's socket", async ({ db }) => {
+	test("session topics are not served by core's socket", async ({ db, ids }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		const client = createMockClient();
-		hub.addClient(client, "agent-1");
+		hub.addClient(client, ids("agent-1"));
 
 		expect(await hub.subscribe(client, "session:any-session")).toBe("forbidden");
 		expect(await hub.subscribe(client, "session:")).toBe("forbidden");
 	});
 
-	test("subscribe to malformed topic prefix → forbidden", async ({ db }) => {
+	test("subscribe to malformed topic prefix → forbidden", async ({ db, ids }) => {
 		const hub = new WsConnectionHub(createDbSubscribeAuthorizer(db, REALTIME_DEPS));
 		const client = createMockClient();
-		hub.addClient(client, "agent-1");
+		hub.addClient(client, ids("agent-1"));
 
 		expect(await hub.subscribe(client, "evil:thr-1")).toBe("forbidden");
 	});

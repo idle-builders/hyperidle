@@ -22,8 +22,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
 - `layers/core-api/src/__tests__/session-review-creator.integration.test.ts`
 - `layers/core-api/src/__tests__/sessions.integration.test.ts`
-- `layers/core-api/src/__tests__/silence-policy.integration.test.ts`
-- `layers/core-api/src/__tests__/status.integration.test.ts`
 - `layers/core-api/src/__tests__/submit-review.integration.test.ts`
 - `layers/core-api/src/__tests__/task-state-machine.integration.test.ts`
 - `layers/core-api/src/__tests__/tasks.integration.test.ts`
@@ -31,8 +29,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/users.integration.test.ts`
 - `layers/core-api/src/__tests__/work-service.integration.test.ts`
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
-- `layers/core-api/src/__tests__/write-session-notes.integration.test.ts`
-- `layers/core-api/src/__tests__/ws-subscribe-authz.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts`
