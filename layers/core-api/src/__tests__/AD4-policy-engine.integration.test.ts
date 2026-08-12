@@ -169,7 +169,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 			},
 			// policy_engine sender row required for messages FK
 			{
-				id: ids("policy_engine"),
+				id: "policy_engine",
 				kind: "ai",
 				name: "Policy Engine",
 				role: "system",
@@ -375,7 +375,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const verdicts = await getPolicyEngineVerdicts(db, itemId);
 		expect(verdicts[0]?.decision).toBe("approve");
-		expect(verdicts[0]?.approverId).toBe(ids("policy_engine"));
+		expect(verdicts[0]?.approverId).toBe("policy_engine");
 	});
 
 	// =========================================================================
