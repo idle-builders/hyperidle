@@ -56,23 +56,20 @@ describe("composeArtifactBody dispatch (AC1/AC4)", () => {
 		expect(link?.getAttribute("href")).toBe("https://example.com/service");
 	});
 
-	it("'html' kind + sanitizeHtml → renders HtmlPayload", () => {
+	// AZ6: the html kind runs whole in a sealed frame rather than being sanitised
+	// into the app's document — see framework/design-system/src/artifact-frame/.
+	it("'html' kind → renders inside a sealed frame carrying the artifact's markup", () => {
 		const preview = { kind: "html", html: "<p>Hello dashboard</p>" };
-		const sanitizeHtml = (raw: string): string => raw;
-		const { container } = render(<>{composeArtifactBody("html", preview, sanitizeHtml)}</>);
-		expect(container.querySelector("p")?.textContent).toBe("Hello dashboard");
-	});
-
-	it("'html' kind without sanitizeHtml → UnknownPayload (security fallback)", () => {
-		const preview = { kind: "html", html: "<p>Hello</p>" };
 		const { container } = render(<>{composeArtifactBody("html", preview)}</>);
-		expect(container.querySelector("[data-block-unknown-pill]")).toBeTruthy();
+		const frame = container.querySelector("iframe");
+		expect(frame?.getAttribute("sandbox")).toBe("allow-scripts");
+		expect(frame?.getAttribute("srcdoc") ?? "").toContain("Hello dashboard");
 	});
 
-	it("unknown kind → UnknownPayload (K1 fallback, never crashes)", () => {
+	it("unknown kind → the designed unrenderable state (K1 fallback, never crashes)", () => {
 		const preview = { kind: "mystery_kind", data: "something" };
 		const { container } = render(<>{composeArtifactBody("mystery_kind", preview)}</>);
-		expect(container.querySelector("[data-block-unknown-pill]")).toBeTruthy();
+		expect(container.querySelector("[data-artifact-unrenderable]")).toBeTruthy();
 	});
 });
 
@@ -129,7 +126,9 @@ describe("AC-COLLAPSE: kind-renderer barrel removal (K5)", () => {
 
 describe("ArtifactPreviewSurface gate (K0b)", () => {
 	it("preview=null renders 'No preview available' (not a primitive empty-state)", () => {
-		render(<ArtifactPreviewSurface kind="code" preview={null} size="full" />);
+		render(
+			<ArtifactPreviewSurface kind="code" preview={null} size="full" sanitizeHtml={(raw) => raw} />,
+		);
 		expect(screen.getByText("No preview available")).toBeTruthy();
 	});
 

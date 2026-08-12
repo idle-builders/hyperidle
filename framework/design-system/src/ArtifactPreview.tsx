@@ -10,6 +10,14 @@ export interface ArtifactPreviewProps {
 	data: Artifact;
 	discussion?: ReactNode;
 	state?: "populated" | "loading" | "error";
+	/**
+	 * The app's HTML sanitiser, applied to HTML embedded inside a prose body.
+	 *
+	 * @lore AZ6: required, not optional. When it was optional every call site
+	 * forgot it and the flagship artifact kind rendered as its own source text.
+	 * The `html` kind does not use it — that kind is isolated, not stripped.
+	 */
+	sanitizeHtml: (raw: string) => string;
 }
 
 const WRAP =
@@ -25,6 +33,7 @@ export function ArtifactPreview({
 	data,
 	discussion,
 	state = "populated",
+	sanitizeHtml,
 }: ArtifactPreviewProps): JSX.Element {
 	return (
 		<div {...dsProps("ArtifactPreview", "2")} className={WRAP} data-state={state}>
@@ -45,7 +54,12 @@ export function ArtifactPreview({
 				</div>
 				<div className={TITLE}>{artifactDisplayTitle(data)}</div>
 			</div>
-			<ArtifactPreviewSurface kind={data.kind} preview={data.preview} size="full" />
+			<ArtifactPreviewSurface
+				kind={data.kind}
+				preview={data.preview}
+				size="full"
+				sanitizeHtml={sanitizeHtml}
+			/>
 			{discussion ? <div className={DISCUSSION}>{discussion}</div> : null}
 		</div>
 	);

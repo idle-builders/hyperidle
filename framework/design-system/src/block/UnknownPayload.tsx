@@ -7,11 +7,23 @@ export interface UnknownPayloadProps {
 }
 
 /**
- * @lore C8: the warn-stripe shell uses a plain UNKNOWN pill — `StatusChip`
- * has a closed status enum that doesn't include "unknown" and is Tier-1
- * protected. A bespoke pill keeps the Block primitive Tier-2 (composing
- * tokens directly, not extending Tier-1).
+ * @lore C8: the warn-stripe shell uses a plain pill — `StatusChip` has a closed
+ * status enum that doesn't include "unknown" and is Tier-1 protected. A bespoke
+ * pill keeps the Block primitive Tier-2 (composing tokens directly, not
+ * extending Tier-1).
+ *
+ * @lore AZ6: `reason` is the internal discriminant and must never reach the
+ * screen — "unsupported block — parser-unrecognised" is a sentence written for
+ * whoever wrote the parser, not for whoever opened the page. It maps to plain
+ * words here. This component appears inside artifacts, knowledge items and
+ * comments, so the wording lands in all three. Layout is unchanged.
  */
+const REASON_TEXT: Record<UnknownPayloadProps["reason"], string> = {
+	"parser-unrecognised": "HyperIdle couldn't read this part.",
+	"body-too-large": "This part is too long to show in full.",
+	"sanitiser-stripped": "Part of this was removed because it wasn't safe to show.",
+};
+
 export function UnknownPayload({ raw, reason }: UnknownPayloadProps): JSX.Element {
 	return (
 		<div className="border-l-2 border-[var(--status-warning)] pl-[12px] flex flex-col gap-[9px]">
@@ -20,11 +32,9 @@ export function UnknownPayload({ raw, reason }: UnknownPayloadProps): JSX.Elemen
 					className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] uppercase tracking-[var(--tracking-caps-sm)] text-[11px] font-semibold bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)] border border-[var(--status-warning)]"
 					data-block-unknown-pill
 				>
-					UNKNOWN
+					Not shown
 				</span>
-				<span className="text-[12px] text-[var(--text-secondary)]">
-					unsupported block — {reason}
-				</span>
+				<span className="text-[12px] text-[var(--text-secondary)]">{REASON_TEXT[reason]}</span>
 			</div>
 			<pre className="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-secondary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0 whitespace-pre-wrap">
 				<code>{raw}</code>

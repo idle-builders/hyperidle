@@ -15,6 +15,7 @@ import type { JSX } from "react";
 import { useParams } from "react-router-dom";
 import { useArtifact } from "../hooks/useArtifacts.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
+import { sanitizeHtml } from "../utils/sanitize-html.js";
 
 export function ArtifactPermalink(): JSX.Element {
 	const { id = "" } = useParams<{ id: string }>();
@@ -49,7 +50,7 @@ export function ArtifactPermalink(): JSX.Element {
 	return (
 		<PageScaffold>
 			<div className="p-3 flex flex-col gap-3">
-				<ArtifactPreview data={data} />
+				<ArtifactPreview data={data} sanitizeHtml={sanitizeHtml} />
 				<HostThreadSection hostKind="artifact" hostId={data.id} title="Discussion" />
 			</div>
 		</PageScaffold>

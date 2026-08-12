@@ -7,6 +7,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ArtifactPreviewSurface } from "../ArtifactPreviewSurface.js";
 
+// @lore AZ6: full-size previews require the app's HTML sanitiser at the type level.
+const passthrough = (raw: string): string => raw;
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("ArtifactPreviewSurface", () => {
@@ -47,6 +50,7 @@ describe("ArtifactPreviewSurface", () => {
 					kind: "screenshot",
 					preview: null,
 					size: "full",
+					sanitizeHtml: passthrough,
 				}),
 			);
 		});
@@ -68,7 +72,7 @@ describe("ArtifactPreviewSurface", () => {
 		expect(container.textContent).toContain("No preview");
 	});
 
-	it("AE6: renders 'kind: preview not available' for unregistered kind with unrecognised preview (gallery)", () => {
+	it("AE6/AZ6: names the unregistered kind in the gallery caption", () => {
 		act(() => {
 			root.render(
 				createElement(ArtifactPreviewSurface, {
@@ -79,7 +83,7 @@ describe("ArtifactPreviewSurface", () => {
 			);
 		});
 		expect(container.textContent).toContain("deck");
-		expect(container.textContent).toContain("preview not available");
+		expect(container.textContent).toContain("no preview");
 	});
 
 	it("AE6: renders summary for html kind with valid preview (gallery)", () => {
@@ -106,6 +110,7 @@ describe("ArtifactPreviewSurface", () => {
 				createElement(ArtifactPreviewSurface, {
 					kind: "image",
 					size: "full",
+					sanitizeHtml: passthrough,
 					preview: { url: "https://example.com/img.png", width: 400, height: 300 },
 				}),
 			);

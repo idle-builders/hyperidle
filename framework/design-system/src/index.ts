@@ -7,6 +7,8 @@ export type { AgentOperationalStatus } from "@hyperidle/domain-model";
 // the cost feature — no replacement.
 export type { ArtifactEmbedProps } from "./ArtifactEmbed.js";
 export { ArtifactEmbed } from "./ArtifactEmbed.js";
+export type { ArtifactFrameProps } from "./ArtifactFrame.js";
+export { ArtifactFrame } from "./ArtifactFrame.js";
 export type { ArtifactGalleryCardProps } from "./ArtifactGalleryCard.js";
 export { ArtifactGalleryCard } from "./ArtifactGalleryCard.js";
 export type { ArtifactKindBadgeProps } from "./ArtifactKindBadge.js";

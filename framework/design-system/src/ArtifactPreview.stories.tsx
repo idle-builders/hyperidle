@@ -1,6 +1,11 @@
 import type { Artifact } from "@hyperidle/domain-model";
 import { ArtifactPreview } from "./ArtifactPreview.js";
 
+// @lore AZ6: a full-size preview requires the app's HTML sanitiser (prose bodies may
+// embed HTML). The design-system package never imports DOMPurify, so dev surfaces
+// pass a pass-through — same pattern as Html.stories.tsx.
+const passthrough = (raw: string): string => raw;
+
 export default {
 	title: "ArtifactPreview",
 	tier: "2" as const,
@@ -19,7 +24,7 @@ const FIXTURE: Artifact = {
 
 export const Populated = (): React.JSX.Element => (
 	<div className="w-[960px]">
-		<ArtifactPreview data={FIXTURE} />
+		<ArtifactPreview sanitizeHtml={passthrough} data={FIXTURE} />
 	</div>
 );
 
@@ -32,20 +37,32 @@ export const Populated = (): React.JSX.Element => (
 // `preview == null → NoPreviewText` BEFORE invoking the (pure) kind renderer.
 export const NoPreview = (): React.JSX.Element => (
 	<div className="w-[960px]">
-		<ArtifactPreview data={{ ...FIXTURE, preview: null }} state="populated" />
+		<ArtifactPreview
+			sanitizeHtml={passthrough}
+			data={{ ...FIXTURE, preview: null }}
+			state="populated"
+		/>
 	</div>
 );
 
 // "Loading" — owned by the single representation.
 export const Loading = (): React.JSX.Element => (
 	<div className="w-[960px]">
-		<ArtifactPreview data={{ ...FIXTURE, preview: null }} state="loading" />
+		<ArtifactPreview
+			sanitizeHtml={passthrough}
+			data={{ ...FIXTURE, preview: null }}
+			state="loading"
+		/>
 	</div>
 );
 
 // "Error" — owned by the single representation.
 export const ErrorState = (): React.JSX.Element => (
 	<div className="w-[960px]">
-		<ArtifactPreview data={{ ...FIXTURE, preview: null }} state="error" />
+		<ArtifactPreview
+			sanitizeHtml={passthrough}
+			data={{ ...FIXTURE, preview: null }}
+			state="error"
+		/>
 	</div>
 );

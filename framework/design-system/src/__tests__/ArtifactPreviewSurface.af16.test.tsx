@@ -15,6 +15,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ArtifactPreviewSurface } from "../ArtifactPreviewSurface.js";
 
+// @lore AZ6: full-size previews require the app's HTML sanitiser at the type level.
+const passthrough = (raw: string): string => raw;
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 describe("AF16 T10, T11 — ArtifactPreviewSurface (registry dispatch + fallback)", () => {
@@ -39,6 +42,7 @@ describe("AF16 T10, T11 — ArtifactPreviewSurface (registry dispatch + fallback
 				createElement(ArtifactPreviewSurface, {
 					kind: "image",
 					size: "full",
+					sanitizeHtml: passthrough,
 					preview: { url: "https://example.com/img.png", width: 400, height: 300 },
 				}),
 			);
@@ -59,6 +63,7 @@ describe("AF16 T10, T11 — ArtifactPreviewSurface (registry dispatch + fallback
 				createElement(ArtifactPreviewSurface, {
 					kind: "image",
 					size: "full",
+					sanitizeHtml: passthrough,
 					preview: {
 						url: "https://example.com/chart.png",
 						width: 800,
@@ -79,6 +84,7 @@ describe("AF16 T10, T11 — ArtifactPreviewSurface (registry dispatch + fallback
 				createElement(ArtifactPreviewSurface, {
 					kind: "image",
 					size: "full",
+					sanitizeHtml: passthrough,
 					preview: { url: "https://example.com/img2.png", width: 200, height: 150 },
 				}),
 			);
@@ -99,6 +105,7 @@ describe("AF16 T10, T11 — ArtifactPreviewSurface (registry dispatch + fallback
 				createElement(ArtifactPreviewSurface, {
 					kind: "image",
 					size: "full",
+					sanitizeHtml: passthrough,
 					preview: null,
 				}),
 			);
@@ -120,6 +127,7 @@ describe("AF16 T10, T11 — ArtifactPreviewSurface (registry dispatch + fallback
 				createElement(ArtifactPreviewSurface, {
 					kind: "image",
 					size: "full",
+					sanitizeHtml: passthrough,
 					preview: {}, // malformed: no url
 				}),
 			);
@@ -143,6 +151,7 @@ describe("AF16 T10, T11 — ArtifactPreviewSurface (registry dispatch + fallback
 				createElement(ArtifactPreviewSurface, {
 					kind: "image",
 					size: "full",
+					sanitizeHtml: passthrough,
 					preview: { width: 400, height: 300 }, // url missing
 				}),
 			);

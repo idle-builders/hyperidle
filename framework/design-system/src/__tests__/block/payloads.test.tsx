@@ -191,7 +191,8 @@ describe("Per-kind payload renderers", () => {
 				reason: "parser-unrecognised",
 			}) as ReactElement,
 		);
-		expect(container.textContent ?? "").toContain("parser-unrecognised");
+		// AZ6: the internal reason maps to plain words before it reaches the screen.
+		expect(container.textContent ?? "").toMatch(/couldn't read/i);
 		// Raw source rendered as text content (not inner HTML).
 		expect(container.querySelector("pre, code")).toBeTruthy();
 	});
