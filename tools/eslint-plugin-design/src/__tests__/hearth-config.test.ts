@@ -29,15 +29,24 @@ describe("hearth-config totality", () => {
 		}
 	});
 
-	it("a rule added to the plugin but missing from RULE_SEVERITY is caught (break-test)", () => {
-		// Simulates the D2 failure mode directly: a severity table missing one
-		// of the plugin's exported rule keys.
-		const ruleKeys = Object.keys(rules);
-		const incompleteTable = Object.fromEntries(
-			Object.entries(RULE_SEVERITY).filter(([name]) => name !== ruleKeys[0]),
-		);
-		expect(Object.keys(incompleteTable).sort()).not.toEqual(ruleKeys.sort());
-	});
+	// AZ7 N9 (review round 1): the previous version of this test filtered a
+	// LOCAL COPY of RULE_SEVERITY down by one key, then asserted the filtered
+	// copy's key list differs from the full key list — true by construction
+	// of `.filter()`, regardless of whether `rules` and `RULE_SEVERITY` were
+	// ever actually in sync. It could not fail and proved nothing about the
+	// totality guard. There is no type-level totality to break-test either
+	// (`RULE_SEVERITY` is `Record<string, ScopedSeverity>`, not
+	// `Record<keyof typeof rules, …>` — N10, left as recorded). The one
+	// real check is the test above ("has exactly one severity entry per rule
+	// …") — it re-derives both key lists from the live module exports on
+	// every run, so it genuinely fails if a rule is ever added to `rules`
+	// without a matching `RULE_SEVERITY` entry. Manually verified during
+	// review: deleting an entry from `hearth-config.ts`'s `RULE_SEVERITY`
+	// turns that test red at this file's line 18; reverting turns it green
+	// again. A vitest unit test cannot mutate the imported module's static
+	// shape to simulate that without editing source, so there is no way to
+	// write a second, meaningfully different automated break-test for the
+	// same property — hence deletion rather than a real replacement.
 
 	it("builds a hearth config with a core-ui block and a design-system block", () => {
 		expect(configs.hearth.length).toBeGreaterThanOrEqual(2);
