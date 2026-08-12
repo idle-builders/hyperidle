@@ -287,10 +287,11 @@ function ReviewedBox({
 			}}
 			aria-pressed={reviewed}
 			title={reviewed ? "Reviewed" : "Mark reviewed"}
-			// This is a compact 18x18 icon-only reviewed-indicator inside a dense
-			// code-diff row. It is functionally a Checkbox (AZ7 Set 2), but
-			// Checkbox.tsx's visible label is mandatory and would break this
-			// row's density; it is not a Button (not an action). Candidate for a
+			// @lore AZ7: this is a compact 18x18 icon-only reviewed-indicator inside a
+			// dense code-diff row. It is functionally a Checkbox (the design
+			// system's closed input set), but Checkbox.tsx's visible label is
+			// mandatory and would break this row's density; it is not a Button
+			// (not an action). Candidate for a
 			// Checkbox icon-only variant per design-system.md's promotion rule
 			// if a second consumer needs the same shape.
 			className={[

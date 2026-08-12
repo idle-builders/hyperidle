@@ -38,7 +38,7 @@ export function SmallVariants(): JSX.Element {
 }
 
 /**
- * AZ7 Set 1: size="icon" — a square control whose entire label is its icon.
+ * @lore AZ7 Set 1: size="icon" — a square control whose entire label is its icon.
  * 32×32 desktop, 44×44 touch floor below lg (same pattern as sm/default).
  */
 export function IconSize(): JSX.Element {

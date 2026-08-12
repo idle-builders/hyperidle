@@ -213,7 +213,10 @@ function groupByTopic(items: ApiKnowledgeItem[]): Array<{
  * AI4 Note A: kind is NOT status — this stays local (Tag would be the ideal
  * primitive but kind badge style matches existing visual treatment).
  */
-// eslint-disable-next-line design/no-local-status-builder -- AI4 Note A: kind is NOT status (Set 5, AZ7 combined-round.md §2 "Not status, unchanged: Tag/ReferenceChip/ArtifactKindBadge — what an object IS"). The name matches the rule's Badge+Style naming heuristic by coincidence; this builds a KIND treatment (Pattern/Decision/Failure), never a state.
+// @lore AZ7: the design system's closed status-presentation set is explicit
+// that Tag/ReferenceChip/ArtifactKindBadge are "what an object IS", not a
+// state — kind is NOT status.
+// eslint-disable-next-line design/no-local-status-builder -- AI4 Note A: the name matches the rule's Badge+Style naming heuristic by coincidence; this builds a KIND treatment (Pattern/Decision/Failure), never a state.
 function kindBadgeStyle(kind: string): { background: string; color: string } {
 	const k = kind.toLowerCase();
 	if (k === "pattern") {

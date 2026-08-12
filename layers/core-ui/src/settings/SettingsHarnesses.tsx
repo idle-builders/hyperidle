@@ -296,7 +296,7 @@ export function SettingsHarnesses(): JSX.Element {
 							{sorted.map((descriptor) => {
 								const sl = statusLine(descriptor);
 								const clickable = hasDetail(descriptor);
-								// AZ7 E7 (§1.6 finding #3): Status → RowTone mapping mirrors the
+								// @lore AZ7 E7: Status → RowTone mapping mirrors the
 								// original hand-rolled ladder exactly (healthy→success,
 								// behind→warning, error|blocked→error, else→info); the dot itself
 								// is now RowDot, not a private span + private color ladder.
