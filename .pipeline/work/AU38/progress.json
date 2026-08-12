@@ -38,9 +38,9 @@
       "note": "APPROVED by founder. Ruling 1: AC6 = lint ratchet. Ruling 2: maxWorkers:1 proof run withdrawn — the standing isolate:false lane config is itself the enforcement (empty-world tests fail in ordinary CI, cannot merge). See founder-rulings.md."
     },
     {
-      "started": "2026-08-10",
+      "started": "2026-08-12",
       "phase": "build",
-      "note": "sequential builder waves in one worktree: T1 foundation (increments 0-1) → batches 2-7 (one builder per batch, disjoint file sets — P10 factory+credentials cluster owned by batch 7 alone per round-2 critique NB2) → increment 8 truncate removal → increment 9 isolate flip → increment 10 proof. Each wave: lane green + lint green + commit."
+      "note": "waves landed: T1 foundation (baseline 2845, ids fixture, lint ratchet R1=190/R2=48 waivers); batch 2 (38 files framework/db+agent-orchestration); merged origin/main 705b28f6 (CI now runs lane live); batch 3 (23 files core-api subpackages); batch 4 (48 files routes/__tests__+org); merged origin/main a8ed3ad9; live-proof fix (founder-approved, #481 hook vs 5s git-runner timeout); batch 5a (14 files) + 5b (9 files, incl. AO1 double-seed collision fix) — lane green 2861 (post-merge floor). Permanent waivers so far: 3 P10 (policy_engine, serverConfig default, system:propagation) + bets createTestDb-test R1 + AO1 negative-proof R2. Remaining: batch 6 (M-Z + applications + tools), batch 7 (residue + 2 harness db-fixture files), increments 8-10."
     }
   ],
   "evaluations": [
