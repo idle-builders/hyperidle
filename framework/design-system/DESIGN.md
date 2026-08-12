@@ -266,6 +266,18 @@ closes that reading. The one documented exception: `Checkbox`'s 20×20px box
 uses `rounded-[6px]` (AQ-011 form-control exemption — none of the four scale
 values reads right on a small checkbox).
 
+**Enforcement boundary.** `design/radius-token-only` reads a class string
+directly in `className`, and follows it through a same-file `const` whose
+value is provably single-assignment (`CommentRow.tsx`'s `avatarClass`
+ternary and similar module-level extracted class-string constants are
+covered this way — see `createConstIdentifierResolver` in
+`tools/eslint-plugin-design/src/util.ts`). It does **not** follow a `let`/
+reassignable binding, a value imported from another file, or a string built
+at runtime from a prop/state value it cannot statically resolve. A radius
+built through one of those three shapes would still pass silently — the same
+failure mode that let `CommentRow.tsx`'s `rounded-full` ship invisible to
+`npm run lint` until review round 2 caught it by browser measurement.
+
 ### Status presentation — 2 members
 
 | Member | Job |
