@@ -56,11 +56,11 @@ interface SeedResult {
  * Seed a team + teamMembers (U1 1:1) + two bot users for injection tests.
  * users.teamId → teamMembers.id (schema.ts:47).
  */
-async function seedTeamAndBots(db: HyperIdleDb, ids: ScopedIds): Promise<SeedResult> {
-	const teamId = ids("t1");
-	const teamMembersId = ids("tm1");
-	const botId = ids("bot1");
-	const bot2Id = ids("bot2");
+async function seedTeamAndBots(db: HyperIdleDb, ids: ScopedIds, prefix = "a"): Promise<SeedResult> {
+	const teamId = ids(`${prefix}-t1`);
+	const teamMembersId = ids(`${prefix}-tm1`);
+	const botId = ids(`${prefix}-bot1`);
+	const bot2Id = ids(`${prefix}-bot2`);
 
 	await db.insert(teams).values({ id: teamId, name: "AO1 Team", phase: "build", createdAt: NOW });
 	await db
@@ -469,10 +469,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			ids,
 		}) => {
 			// Two separate teams
-			const { teamId: teamA } = await seedTeamAndBots(db, ids);
-			const { teamMembersId: tmB } = await seedTeamAndBots(db, ids);
+			const { teamId: teamA } = await seedTeamAndBots(db, ids, "a");
+			const { teamMembersId: tmB } = await seedTeamAndBots(db, ids, "b");
 			// A bot from team B
-			const botFromB = `bot-ao1-inj6b-alien`;
+			const botFromB = ids("alien-bot");
 			await db.insert(users).values({
 				id: botFromB,
 				kind: "ai",
@@ -903,7 +903,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 		test("filesystem_injections has composite PK (agent_user_id, filesystem_id) — UNIQUE enforcement", async ({
 			db,
-			ids,
 		}) => {
 			const result = await db.execute(
 				sql.raw(
@@ -930,7 +929,6 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 
 		test("migration does not touch artifacts or knowledge_items tables (no ALTER)", async ({
 			db,
-			ids,
 		}) => {
 			// Both tables must still exist and have no new filesystem-related columns
 			const artifactCols = await db.execute(

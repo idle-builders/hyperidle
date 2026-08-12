@@ -133,7 +133,6 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 	test("installNotifications returns a disposer that stops the interval", async ({
 		db,
 		eventBus,
-		ids,
 	}) => {
 		// installNotifications replaces startNotificationDrain (Ag6b)
 		const dispose = installNotifications(db, eventBus, notificationsDeps);

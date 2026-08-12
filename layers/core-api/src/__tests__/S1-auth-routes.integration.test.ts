@@ -58,7 +58,7 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("creates an invite code when called with admin API key", async ({ db, eventBus }) => {
+	test("creates an invite code when called with admin API key", async ({ db, eventBus, ids }) => {
 		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
@@ -110,7 +110,7 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		expect(res.status).toBe(401);
 	});
 
-	test("returns 400 for invalid role", async ({ db, eventBus, ids }) => {
+	test("returns 400 for invalid role", async ({ db, eventBus }) => {
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/invite", {
@@ -189,7 +189,7 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 		expect(body.code).toBe("INVITE_EXPIRED");
 	});
 
-	test("returns 404 for unknown invite code", async ({ db, eventBus, ids }) => {
+	test("returns 404 for unknown invite code", async ({ db, eventBus }) => {
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/claim", {
@@ -270,7 +270,7 @@ describe("S1 — POST /api/auth/logout", () => {
 		expect(body.code).toBe("SESSION_REVOKED");
 	});
 
-	test("returns 400 when using API key (no session to revoke)", async ({ db, eventBus, ids }) => {
+	test("returns 400 when using API key (no session to revoke)", async ({ db, eventBus }) => {
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/logout", {

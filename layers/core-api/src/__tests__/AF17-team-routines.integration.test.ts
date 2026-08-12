@@ -167,10 +167,7 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AF17 AC3: per-team id scheme prevents collision across two teams", () => {
-	test("two teams each get 4 built-in routines (8 total, no collision)", async ({
-		db,
-		app
-	}) => {
+	test("two teams each get 4 built-in routines (8 total, no collision)", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		// Create first team
