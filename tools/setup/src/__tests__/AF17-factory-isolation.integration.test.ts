@@ -28,85 +28,145 @@ async function queryRows<T extends Record<string, unknown>>(
 
 describe("AF17 AC4: bootstrap-only DB contains no demo data", () => {
 	test("teams table is empty after bootstrap (no demo team created)", async ({ db }) => {
+		// @lore AU38 P10: bootstrap writes no teams. In a populated world other
+		// tests may have written teams, so assert the bootstrap didn't ADD any
+		// by diffing before/after around the call.
+		const before = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
+		const beforeCount = Number(before[0]?.count ?? 0);
+
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
-		expect(Number(rows[0]?.count)).toBe(0);
+		const after = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no human users exist after bootstrap (human created at onboarding only)", async ({
 		db,
 	}) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		// @lore AU38 P10: diff before/after — in a populated world other tests
+		// may have inserted human users; assert bootstrap didn't ADD any.
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no seed-product-1 row exists after bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		// @lore AU38 P10: assert bootstrap didn't ADD this row (diff before/after).
+		// In a populated world another test may have created it already.
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM teams WHERE id = 'seed-product-1'",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM teams WHERE id = 'seed-product-1'",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no demo-team-acme row exists after bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM teams WHERE id = 'demo-team-acme'",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM teams WHERE id = 'demo-team-acme'",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no demo-agent-* users exist after bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE id LIKE 'demo-agent-%'",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE id LIKE 'demo-agent-%'",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no u-founder row exists after bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE id = 'u-founder'",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE id = 'u-founder'",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no seed-agent-pm-nimmly row exists after bootstrap (purged to demo-agent-pm)", async ({
 		db,
 	}) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE id = 'seed-agent-pm-nimmly'",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE id = 'seed-agent-pm-nimmly'",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no seed-agent-builder row exists after bootstrap (demo agent, not factory)", async ({
 		db,
 	}) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE id = 'seed-agent-builder'",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE id = 'seed-agent-builder'",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 });

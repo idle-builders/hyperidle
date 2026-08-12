@@ -96,10 +96,22 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 	test("bootstrap writes no server_config row (cost_cap default now lives server-side)", async ({
 		db,
 	}) => {
+		// @lore AU38 P10: diff before/after — in a populated world other tests
+		// may have written server_config rows; assert bootstrap didn't ADD any.
+		const before = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM server_config",
+		);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ id: string }>(db, "SELECT id FROM server_config");
-		expect(rows).toHaveLength(0);
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM server_config",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("factory principle knowledge item (seed-ki-1) exists with scope_kind=factory", async ({
@@ -128,37 +140,61 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 	});
 
 	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {
+		// @lore AU38 P10: diff before/after — in a populated world other tests
+		// may have created teams; assert bootstrap didn't ADD any.
+		const before = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
+		const beforeCount = Number(before[0]?.count ?? 0);
+
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
-		expect(Number(rows[0]?.count)).toBe(0);
+		const after = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no team_members row is created by bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM team_members",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM team_members",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no routines row is created by bootstrap (routines require a team)", async ({ db }) => {
+		const before = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM routines");
+		const beforeCount = Number(before[0]?.count ?? 0);
+
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM routines");
-		expect(Number(rows[0]?.count)).toBe(0);
+		const after = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM routines");
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("no human user (kind=human) is created by bootstrap", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ count: string }>(
+		const before = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
 		);
-		expect(Number(rows[0]?.count)).toBe(0);
+		const beforeCount = Number(before[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const after = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
+		);
+		const afterCount = Number(after[0]?.count ?? 0);
+		expect(afterCount - beforeCount).toBe(0);
 	});
 
 	test("facilitator agents have null team_id (factory-scoped, not team-scoped)", async ({ db }) => {

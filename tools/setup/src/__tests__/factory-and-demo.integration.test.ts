@@ -245,16 +245,36 @@ describe("AF17: seed() = runFactoryBootstrap + seedDemoWorld", () => {
 	});
 
 	test("runFactoryBootstrap alone produces 0 teams (factory isolation)", async ({ db }) => {
-		await runFactoryBootstrap(db);
+		// @lore AU38 P10: diff before/after — in a populated world other tests
+		// may have created teams; assert bootstrap didn't ADD any.
+		const beforeTeams = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM teams",
+		);
+		const beforeTeamsCount = Number(beforeTeams[0]?.count ?? 0);
 
-		const teamRows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
-		expect(Number(teamRows[0]?.count)).toBe(0);
-
-		const humanRows = await queryRows<{ count: string }>(
+		const beforeHumans = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
 		);
-		expect(Number(humanRows[0]?.count)).toBe(0);
+		const beforeHumansCount = Number(beforeHumans[0]?.count ?? 0);
+
+		await runFactoryBootstrap(db);
+
+		const afterTeams = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM teams",
+		);
+		const afterTeamsCount = Number(afterTeams[0]?.count ?? 0);
+
+		const afterHumans = await queryRows<{ count: string }>(
+			db,
+			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
+		);
+		const afterHumansCount = Number(afterHumans[0]?.count ?? 0);
+
+		expect(afterTeamsCount - beforeTeamsCount).toBe(0);
+		expect(afterHumansCount - beforeHumansCount).toBe(0);
 	});
 
 	test("seedDemoWorld alone produces Acme team + demo founder + demo agents", async ({ db }) => {

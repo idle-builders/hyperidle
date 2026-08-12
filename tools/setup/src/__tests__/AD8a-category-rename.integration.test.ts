@@ -14,8 +14,8 @@ import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
 describe("AD8a — agentCategory 'individual' rename", () => {
-	test("insert and read back a user with agentCategory 'individual'", async ({ db }) => {
-		const id = "test-agent-ad8a";
+	test("insert and read back a user with agentCategory 'individual'", async ({ db, ids }) => {
+		const id = ids("test-agent-ad8a");
 		await db.insert(users).values({
 			id,
 			name: "AD8a Test Agent",
@@ -33,14 +33,17 @@ describe("AD8a — agentCategory 'individual' rename", () => {
 		// Seed the database with all seed data. Before AD8a code changes are applied,
 		// seed.ts inserts agentCategory: "personal" for the system agent. This test
 		// verifies that after the migration + code changes, 'personal' is gone.
+		// @lore AU38 P10: diff before/after — in a populated world another test may
+		// have inserted 'personal' rows; assert seeding didn't ADD any.
+		const oldValue = "personal" as unknown as string;
+		const before = await db.select().from(users).where(eq(users.agentCategory, oldValue));
+		const beforeCount = before.length;
+
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
-		// @lore AD8a: The cast is intentional — asserting that no row with the OLD value exists.
-		// This assertion guards against stale seed data.
-		const oldValue = "personal" as unknown as string;
-		const rows = await db.select().from(users).where(eq(users.agentCategory, oldValue));
-		expect(rows).toHaveLength(0);
+		const after = await db.select().from(users).where(eq(users.agentCategory, oldValue));
+		expect(after.length - beforeCount).toBe(0);
 	});
 
 	test("after seeding, seed-agent-cos has agentCategory 'individual'", async ({ db }) => {

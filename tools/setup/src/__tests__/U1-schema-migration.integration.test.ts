@@ -150,50 +150,61 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 		expect(cols).not.toContain("product_id");
 	});
 
-	test("bets.team_id FK integrity: insert bet referencing teams.id succeeds", async ({ db }) => {
+	test("bets.team_id FK integrity: insert bet referencing teams.id succeeds", async ({
+		db,
+		ids,
+	}) => {
 		const now = new Date().toISOString();
+		const teamId = ids("t-p1");
+		const betId = ids("bet-fk-1");
 
 		// Insert into the new teams table (formerly products)
 		await db.execute(
 			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p1', 'MyTeam', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('${teamId}', 'MyTeam', 'build', '${now}')`,
 			),
 		);
 
 		// Insert a bet with team_id pointing at the new teams table
 		await db.execute(
 			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-fk-1', 't-p1', 'Test bet', 'draft', '${now}')`,
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('${betId}', '${teamId}', 'Test bet', 'draft', '${now}')`,
 			),
 		);
 
-		const result = await db.execute(sql.raw(`SELECT id, team_id FROM bets WHERE id='bet-fk-1'`));
+		const result = await db.execute(sql.raw(`SELECT id, team_id FROM bets WHERE id='${betId}'`));
 		const rows = (result as { rows: Array<{ id: string; team_id: string }> }).rows;
-		expect(rows[0]?.team_id).toBe("t-p1");
+		expect(rows[0]?.team_id).toBe(teamId);
 	});
 
-	test("tasks.team_id FK integrity: insert task referencing teams.id succeeds", async ({ db }) => {
+	test("tasks.team_id FK integrity: insert task referencing teams.id succeeds", async ({
+		db,
+		ids,
+	}) => {
 		const now = new Date().toISOString();
+		const teamId = ids("t-p2");
+		const betId = ids("bet-task-fk");
+		const taskId = ids("task-fk-1");
 
 		await db.execute(
 			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-p2', 'MyTeam', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('${teamId}', 'MyTeam', 'build', '${now}')`,
 			),
 		);
 		await db.execute(
 			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-task-fk', 't-p2', 'Bet for task', 'active', '${now}')`,
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('${betId}', '${teamId}', 'Bet for task', 'active', '${now}')`,
 			),
 		);
 		await db.execute(
 			sql.raw(
-				`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at) VALUES ('task-fk-1', 'bet-task-fk', 't-p2', 'Test task', 'proposed', '${now}', '${now}')`,
+				`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at) VALUES ('${taskId}', '${betId}', '${teamId}', 'Test task', 'proposed', '${now}', '${now}')`,
 			),
 		);
 
-		const result = await db.execute(sql.raw(`SELECT id, team_id FROM tasks WHERE id='task-fk-1'`));
+		const result = await db.execute(sql.raw(`SELECT id, team_id FROM tasks WHERE id='${taskId}'`));
 		const rows = (result as { rows: Array<{ id: string; team_id: string }> }).rows;
-		expect(rows[0]?.team_id).toBe("t-p2");
+		expect(rows[0]?.team_id).toBe(teamId);
 	});
 });
 
@@ -202,21 +213,23 @@ describe("U1 AC1: FK renames on bets and tasks", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1 AC3: Bet status enum simplification", () => {
-	test("bet with status 'draft' is insertable and queryable", async ({ db }) => {
+	test("bet with status 'draft' is insertable and queryable", async ({ db, ids }) => {
 		const now = new Date().toISOString();
+		const teamId = ids("t-s1");
+		const betId = ids("bet-draft");
 
 		await db.execute(
 			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-s1', 'T', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('${teamId}', 'T', 'build', '${now}')`,
 			),
 		);
 		await db.execute(
 			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-draft', 't-s1', 'Test', 'draft', '${now}')`,
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('${betId}', '${teamId}', 'Test', 'draft', '${now}')`,
 			),
 		);
 
-		const result = await db.execute(sql.raw(`SELECT status FROM bets WHERE id='bet-draft'`));
+		const result = await db.execute(sql.raw(`SELECT status FROM bets WHERE id='${betId}'`));
 		const rows = (result as { rows: Array<{ status: string }> }).rows;
 		expect(rows[0]?.status).toBe("draft");
 	});
@@ -293,21 +306,23 @@ describe("U1 AC4: Bet column renames", () => {
 		expect(cols).not.toContain("shipped_at");
 	});
 
-	test("description column preserves data after rename", async ({ db }) => {
+	test("description column preserves data after rename", async ({ db, ids }) => {
 		const now = new Date().toISOString();
+		const teamId = ids("t-d1");
+		const betId = ids("bet-desc");
 
 		await db.execute(
 			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-d1', 'T', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('${teamId}', 'T', 'build', '${now}')`,
 			),
 		);
 		await db.execute(
 			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-desc', 't-d1', 'Build the feature', 'active', '${now}')`,
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('${betId}', '${teamId}', 'Build the feature', 'active', '${now}')`,
 			),
 		);
 
-		const result = await db.execute(sql.raw(`SELECT description FROM bets WHERE id='bet-desc'`));
+		const result = await db.execute(sql.raw(`SELECT description FROM bets WHERE id='${betId}'`));
 		const rows = (result as { rows: Array<{ description: string }> }).rows;
 		expect(rows[0]?.description).toBe("Build the feature");
 	});
@@ -349,21 +364,24 @@ describe("U1 AC5: at_risk column on bets", () => {
 
 	test("at_risk defaults to false when inserting a bet without specifying at_risk", async ({
 		db,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
+		const teamId = ids("t-ar");
+		const betId = ids("bet-at-risk");
 
 		await db.execute(
 			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-ar', 'T', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('${teamId}', 'T', 'build', '${now}')`,
 			),
 		);
 		await db.execute(
 			sql.raw(
-				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-at-risk', 't-ar', 'Some bet', 'draft', '${now}')`,
+				`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('${betId}', '${teamId}', 'Some bet', 'draft', '${now}')`,
 			),
 		);
 
-		const result = await db.execute(sql.raw(`SELECT at_risk FROM bets WHERE id='bet-at-risk'`));
+		const result = await db.execute(sql.raw(`SELECT at_risk FROM bets WHERE id='${betId}'`));
 		// @lore U1: at_risk is stored as integer (0/1) in the schema.
 		// PGLite returns 0 (not false) for integer columns.
 		const rows = (result as { rows: Array<{ at_risk: number | boolean }> }).rows;
@@ -461,25 +479,27 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 // ---------------------------------------------------------------------------
 
 describe("U1: Bet status migration scenarios (data transformation)", () => {
-	test("all 4 new statuses are insertable and queryable", async ({ db }) => {
+	test("all 4 new statuses are insertable and queryable", async ({ db, ids }) => {
 		const now = new Date().toISOString();
+		const teamId = ids("t-st");
 
 		await db.execute(
 			sql.raw(
-				`INSERT INTO teams (id, name, phase, created_at) VALUES ('t-st', 'T', 'build', '${now}')`,
+				`INSERT INTO teams (id, name, phase, created_at) VALUES ('${teamId}', 'T', 'build', '${now}')`,
 			),
 		);
 
 		for (const status of ["draft", "active", "completed", "killed"]) {
+			const betId = ids(`bet-${status}`);
 			await db.execute(
 				sql.raw(
-					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-${status}', 't-st', 'Bet ${status}', '${status}', '${now}')`,
+					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('${betId}', '${teamId}', 'Bet ${status}', '${status}', '${now}')`,
 				),
 			);
 		}
 
 		const result = await db.execute(
-			sql.raw(`SELECT status FROM bets WHERE team_id='t-st' ORDER BY created_at`),
+			sql.raw(`SELECT status FROM bets WHERE team_id='${teamId}' ORDER BY created_at`),
 		);
 		const rows = (result as { rows: Array<{ status: string }> }).rows;
 		const statuses = rows.map((r) => r.status);
