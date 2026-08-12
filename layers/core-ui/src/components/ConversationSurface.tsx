@@ -254,13 +254,15 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 					type="button"
 					role="menuitem"
 					onClick={onPick}
-					// This is a full menu ROW (icon + label + hint), not a Button —
-					// UI-062 already tracks this composer's consolidation onto the
-					// DS Composer (which owns its own menu shape); a partial Button
-					// swap here would be rework when UI-062 lands. See
-					// migration-backlog.md.
+					// This is a full menu ROW (icon + label + hint), not a Button — a
+					// dedicated backlog item already tracks this composer's
+					// consolidation onto the DS Composer (which owns its own menu
+					// shape); a partial Button swap here would be rework once that
+					// lands.
 					className={`flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] ${
-						// eslint-disable-next-line design/no-handrolled-control -- see comment above
+						// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
+						// selected tint — no longer a no-handrolled-control violation
+						// (the rule's predicate excludes this exact token).
 						it.key ? "bg-[var(--accent-primary-dim)]" : "hover:bg-[var(--surface-container)]"
 					}`}
 				>
@@ -369,11 +371,12 @@ function ComposerInputRow({
 					onClick={onToggleMenu}
 					// A pressed/open TOGGLE state, not a Button variant (Button has no
 					// built-in pressed treatment distinct from its 4 action variants).
-					// UI-062 owns this composer's full consolidation.
+					// A dedicated backlog item owns this composer's full consolidation.
+					// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
+					// selected tint — not a no-handrolled-control violation.
 					className={
 						insertMenuOpen
-							? // eslint-disable-next-line design/no-handrolled-control -- see comment above
-								"flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
+							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 							: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 					}
 				>

@@ -1357,7 +1357,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										// it"). Migrating onto the broken branch would shrink-wrap
 										// this row narrower than its current w-full. Left as a
 										// hand-rolled row pending UI-060.
-										// eslint-disable-next-line design/no-handrolled-control -- see comment above
+										// @lore AZ7 N1: hover:bg-[var(--accent-primary-dim)] is Set 3's
+										// row-hover tint — not a no-handrolled-control violation.
 										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[var(--accent-primary-dim)] transition-colors duration-[var(--motion-fast)] text-left w-full"
 										onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
 										aria-label={task.title}

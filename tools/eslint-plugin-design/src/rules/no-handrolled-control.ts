@@ -46,6 +46,18 @@ const DAISY_CONTROL_RE = /^(btn|input|textarea|select)(-[a-z0-9]+)*$/;
 // coming from a design-system component's variant system.
 const ACCENT_STATUS_FILL_RE = /^bg-\[var\(--(accent|status)-[a-z-]+\)\]$/;
 
+// @lore AZ7 N1 (review round 1): --accent-primary-dim is not an accent FILL
+// in Set 3's sense (combined-round.md §2 Set 3) — it is the row-hover /
+// selected TINT, the one job that token has. The predicate above matched it
+// anyway, which made every hover tint on a raw interactive element (a Row, a
+// list item) a false positive requiring a disable comment — 5 of the review's
+// 8 disables were exactly this. A rule that needs a standing exemption for
+// its own design system's documented tint is on its way to not biting, which
+// is the failure AZ7 exists to end. Excluded by exact value, not by widening
+// the regex — every OTHER accent/status fill (--accent-primary,
+// --status-error, …) is still a real violation.
+const ROW_HOVER_TINT = "bg-[var(--accent-primary-dim)]";
+
 // @lore AZ7: excludes test/story files — "core-ui is where controls are
 // USED" means used in the product, not exercised in a fixture. A test that
 // renders a raw <button className="btn"> to prove DaisyUI classes resolve in
@@ -109,7 +121,7 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 								messageId: "daisyControl",
 								data: { tag, cls: token },
 							});
-						} else if (ACCENT_STATUS_FILL_RE.test(token)) {
+						} else if (token !== ROW_HOVER_TINT && ACCENT_STATUS_FILL_RE.test(token)) {
 							context.report({
 								node: asReportNode(strNode),
 								messageId: "accentFill",

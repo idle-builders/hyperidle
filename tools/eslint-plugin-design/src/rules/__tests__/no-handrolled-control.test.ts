@@ -36,6 +36,13 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const J = <input type="range" className="range range-xs" />;',
 		},
+		// AZ7 N1 (review round 1): --accent-primary-dim is Set 3's row-hover /
+		// selected tint, not an accent fill — a raw interactive element (e.g. a
+		// Row) painting it directly must not be flagged.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <button className="hover:bg-[var(--accent-primary-dim)]" />;',
+		},
 		// Test/story files are not "used in a product surface" — excluded.
 		{
 			filename: "layers/core-ui/src/__tests__/foundation.component.test.tsx",

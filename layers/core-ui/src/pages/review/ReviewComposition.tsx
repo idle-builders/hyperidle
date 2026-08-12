@@ -497,11 +497,12 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 			// missing w-full today (bug-list UI-060, unfixed). Migrating onto
 			// the broken branch would shrink-wrap this row narrower than its
 			// current w-full. Left as a hand-rolled row pending UI-060.
+			// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
+			// selected tint — not a no-handrolled-control violation.
 			className={[
 				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				active
-					? // eslint-disable-next-line design/no-handrolled-control -- see comment above
-						"border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
+					? "border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
 					: "border-[var(--border-subtle)] hover:border-[var(--border-default)]",
 			].join(" ")}
 		>

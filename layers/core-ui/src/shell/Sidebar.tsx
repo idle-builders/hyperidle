@@ -250,9 +250,10 @@ function AssistantIconButton({
 				"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)]",
 				"border border-[var(--border-subtle)]",
 				"transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
+				// selected tint — not a no-handrolled-control violation.
 				open
-					? // eslint-disable-next-line design/no-handrolled-control -- see comment above
-						"bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
+					? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 					: "bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
 			].join(" ")}
 		>
