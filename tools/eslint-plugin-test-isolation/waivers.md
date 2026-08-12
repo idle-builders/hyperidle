@@ -18,19 +18,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
 - `layers/core-api/src/__tests__/bets.integration.test.ts` — createTestDb test at line 515 uses its own isolated DB; literal id is safe within that isolated scope
 
-- `layers/core-api/src/__tests__/M3-auth-middleware.integration.test.ts`
-- `layers/core-api/src/__tests__/M3-lifecycle-propagation-auth.integration.test.ts`
-- `layers/core-api/src/__tests__/M3-settings-routes.integration.test.ts`
-- `layers/core-api/src/__tests__/M3-threads-coach-auth.integration.test.ts`
-- `layers/core-api/src/__tests__/P2-auth-resolution.integration.test.ts`
-- `layers/core-api/src/__tests__/P2-org-routes.integration.test.ts`
-- `layers/core-api/src/__tests__/P2-user-routes.integration.test.ts`
-- `layers/core-api/src/__tests__/P3-health-auth.integration.test.ts`
-- `layers/core-api/src/__tests__/P3-settings-config.integration.test.ts`
-- `layers/core-api/src/__tests__/R5-agent-work-loop.integration.test.ts`
-- `layers/core-api/src/__tests__/R7-bet-lifecycle.integration.test.ts`
-- `layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts`
-- `layers/core-api/src/__tests__/U2-api-teams-bets.integration.test.ts`
 - `layers/core-api/src/__tests__/af9-attention-population.integration.test.ts`
 - `layers/core-api/src/__tests__/af9-promotion-routine.integration.test.ts`
 - `layers/core-api/src/__tests__/agent-layer-boot-recovery.integration.test.ts`
@@ -112,7 +99,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts` — AC4 before/after comparison reads of knowledgeItems and serverConfig to prove filesystem registration didn't touch other tables; legitimate negative-proof pattern
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
 
-- `layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts`
 - `layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts`
 - `layers/core-api/src/__tests__/agent-request-custody.integration.test.ts`
 - `layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts`
