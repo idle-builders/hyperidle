@@ -65,4 +65,19 @@ describe("TaskSheet thread (L18)", () => {
 		// The inline thread section renders with hostKind=task
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
 	});
+
+	it("uses the Hearth elevated shadow token for floating sheet depth", () => {
+		render(
+			<TaskSheet
+				task={MOCK_TASK}
+				open
+				onClose={vi.fn()}
+				resolveThreadId={vi.fn()}
+				postRequest={vi.fn()}
+				onNavigateToThread={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByTestId("task-sheet")).toHaveClass("shadow-[var(--shadow-elevated)]");
+	});
 });

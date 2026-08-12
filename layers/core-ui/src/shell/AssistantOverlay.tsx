@@ -52,7 +52,7 @@ function renderRefEmbedsForAssistant(
 	if (blockRefs.length === 0) return null;
 	const openHandler = createOpenHandler(navigate, {});
 	return (
-		<div className="flex flex-col gap-1 mt-1">
+		<div className="flex flex-col gap-[3px] mt-[3px]">
 			{blockRefs.map((r) => (
 				<BlockRefEmbed
 					key={`${r.blockId}-${r.hostId}`}
@@ -105,7 +105,7 @@ function ContextChip({
 			<button
 				type="button"
 				aria-label={`Remove ${contextRef.label}`}
-				className="ml-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+				className="ml-[6px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 				onClick={() => onRemove(index)}
 			>
 				×
@@ -379,7 +379,7 @@ function AssistantOverlayInner({
 
 	if (status === "error" || !data) {
 		return (
-			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-4">
+			<div className="flex flex-1 flex-col items-center justify-center gap-[9px] p-4">
 				<p className="text-sm text-[var(--text-secondary)]">
 					{error ?? "Failed to load assistant thread"}
 				</p>
@@ -428,7 +428,7 @@ function AssistantOverlayInner({
 			{contextRefs.length > 0 && (
 				<div
 					data-testid="assistant-context-chips"
-					className="flex flex-wrap gap-1 border-b border-[var(--border-subtle)] px-3 py-2"
+					className="flex flex-wrap gap-[6px] border-b border-[var(--border-subtle)] px-3 py-2"
 				>
 					{contextRefs.map((contextRef, i) => (
 						<ContextChip

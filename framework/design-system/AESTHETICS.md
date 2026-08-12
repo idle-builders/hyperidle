@@ -28,6 +28,23 @@ There is no density system. No compact/default/comfortable. Each component has e
 
 ---
 
+## Spacing relationships
+
+Composition uses the closed Hearth vocabulary: `0 / 3 / 6 / 9 / 12 / 18 / 24 / 36 / 48px`. The values communicate proportional relationship, not fixed semantic slots:
+
+- `0` keeps contiguous rows and divided list items flush. `3–9px` signals a close relation; use `6–9px` for most label/content and icon/text pairs, with `3px` reserved for very compact metadata.
+- `12–18px` separates related groups. Choose `12px` in dense or strongly bounded layouts and `18px` for multiline content or weaker cues.
+- `24–36px` separates major vertical sections. Use `24px` when headings, borders, or surface changes already mark the boundary; use `36px` when a sparse, unbordered phase change needs more help.
+- `48px` is exceptional page-level or expressive separation, not a routine section gap.
+
+Horizontal composition follows the same vocabulary: `3–9px` for tightly related icon/text or metadata, `9–12px` for peer actions, `18–24px` for distinct clusters or columns, and `36–48px` only for rare broad layouts. Narrow viewports and wrapping generally need the compact end of a range; larger type, multiline content, weak boundaries, and sparse layouts may need the roomy end. Borders, surface changes, and strong headings permit less space because they already provide hierarchy.
+
+Do not use one gap for unrelated nested relationships, introduce off-vocabulary values to split the difference, add space between contiguous divided rows, or use `48px` to compensate for weak typography. If no value in a range works after typography and boundary cues are considered, escalate the design rather than inventing a value.
+
+The composition rule does not own control-internal padding/gaps, fixed geometry, optical offsets, canvas coordinates, negative overlap, CSS resets, or subject-authored artifact content. Exemptions must be narrow and structural; never disable the rule for a whole page or surface.
+
+---
+
 ## AQ-004: Status through content, not structure
 
 A bet card with "Active" status and one with "Blocked" status have the same shadow, same border radius, same padding, same structural treatment. The difference lives inside: a green dot vs a red dot, an "Active" badge vs a "Blocked" badge.

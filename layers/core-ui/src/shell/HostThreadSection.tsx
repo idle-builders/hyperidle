@@ -241,7 +241,7 @@ export function HostThreadSection({
 		: allMessages;
 
 	const content = (
-		<div data-testid="host-thread-section" className="flex flex-col gap-2">
+		<div data-testid="host-thread-section" className="flex flex-col gap-[9px]">
 			{/* Message list or empty state */}
 			{/* @lore L18: intentionally NOT using the EmptyState design-system component here.
 			    EmptyState carries role="status" per J8 AC — that role conflicts with the
@@ -310,7 +310,7 @@ export function HostThreadSection({
 			{prefill && (
 				<div
 					data-testid="host-thread-prefill-chip"
-					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded-[var(--r-pill)] text-[var(--text-tertiary)]"
+					className="flex items-center gap-[6px] px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded-[var(--r-pill)] text-[var(--text-tertiary)]"
 				>
 					<span>Re:</span>
 					<span className="truncate">{prefill.blockExcerpt}</span>

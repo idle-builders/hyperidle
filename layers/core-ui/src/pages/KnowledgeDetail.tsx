@@ -888,7 +888,7 @@ function KnowledgeDetailView({
 					{archiveError !== null && (
 						<div
 							role="alert"
-							className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="flex items-center justify-between gap-[9px] px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="archive-error"
 						>
 							<span className="text-[var(--status-error)]">{archiveError}</span>
@@ -906,7 +906,7 @@ function KnowledgeDetailView({
 					{promoteError !== null && (
 						<div
 							role="alert"
-							className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="flex items-center justify-between gap-[9px] px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="promote-error"
 						>
 							<span className="text-[var(--status-error)]">{promoteError}</span>
@@ -924,7 +924,7 @@ function KnowledgeDetailView({
 					{conflictVersion !== null && (
 						<div
 							role="alert"
-							className="flex items-center justify-between gap-2 px-[12px] py-[9px] text-[13px]
+							className="flex items-center justify-between gap-[9px] px-[12px] py-[9px] text-[13px]
 								           bg-[var(--surface-container)] border border-[var(--border-subtle)]
 								           rounded-[var(--r-subtle)]"
 							data-testid="conflict-banner"

@@ -320,7 +320,7 @@ function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element
 				{checks.map((c) => (
 					<span
 						key={c.label}
-						className="inline-flex items-center gap-[4px] text-[12px] text-[var(--text-secondary)]"
+						className="inline-flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]"
 					>
 						<span className="text-[var(--status-success)]">
 							<CheckGlyph />
@@ -328,7 +328,7 @@ function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element
 						{c.label}
 					</span>
 				))}
-				<span className="inline-flex items-center gap-[4px] text-[12px] text-[var(--text-secondary)]">
+				<span className="inline-flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
 					<span className="text-[var(--status-success)]">
 						<CheckGlyph />
 					</span>

@@ -388,12 +388,12 @@ function WorkTeamLoaded({
 							<div
 								role="status"
 								data-testid={hintCreateBet.testId}
-								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-2"
+								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[9px]"
 							>
 								<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 									{hintCreateBet.copy}
 								</p>
-								<div className="flex gap-2">
+								<div className="flex gap-[9px]">
 									<Button
 										variant="ghost"
 										size="sm"
@@ -520,7 +520,7 @@ function WorkTeamLoaded({
 						<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 							{hintReviewAgents.copy}
 						</p>
-						<div className="flex gap-2">
+						<div className="flex gap-[9px]">
 							<Button variant="ghost" size="sm" type="button" onClick={hintReviewAgents.dismiss}>
 								Got it
 							</Button>
@@ -595,7 +595,7 @@ function WorkTeamLoaded({
 									<>
 										{member.name}
 										{member.isLead && (
-											<span className="ml-1 text-[var(--accent-deep)] text-[10px]">— Lead</span>
+											<span className="ml-[6px] text-[var(--accent-deep)] text-[10px]">— Lead</span>
 										)}
 									</>
 								}

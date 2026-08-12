@@ -70,6 +70,13 @@ function renderProfile(state: AgentRunState): void {
 }
 
 describe("AgentProfile — run state could not be read", () => {
+	it("keeps top-level profile sections in the major-section spacing range", () => {
+		renderProfile(runState("ready"));
+
+		const section = screen.getByTestId("agent-config-section");
+		expect(section.parentElement).toHaveClass("gap-[24px]");
+	});
+
 	it("surfaces an alert instead of silently rendering a healthy agent", () => {
 		renderProfile(runState("error"));
 

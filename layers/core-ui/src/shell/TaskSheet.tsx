@@ -140,7 +140,7 @@ function SessionRow({ id, title, agent, status }: TaskSession): JSX.Element {
 		>
 			<div className="flex-1 min-w-0">
 				<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">{title}</div>
-				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">{agent}</div>
+				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px]">{agent}</div>
 			</div>
 			<div className="flex items-center gap-[6px] shrink-0">
 				{isActive && <LiveDot />}
@@ -389,7 +389,7 @@ export function TaskSheet({
 			// small viewports get a bottom-sheet; desktop gets a right drawer. Both share
 			// the same component — Tailwind responsive prefixes do the layout switching.
 			// @lore AI2: z-50 removed; z-layer now via --z-drawer token in style prop (AC-3).
-			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-subtle)] shadow-lg sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
+			className="fixed inset-x-0 bottom-0 max-h-[85vh] rounded-t-[var(--r-default)] flex flex-col w-full bg-[var(--surface-container)] border-t border-[var(--border-subtle)] shadow-[var(--shadow-elevated)] sm:inset-y-0 sm:right-0 sm:bottom-auto sm:left-auto sm:max-w-[min(640px,90vw)] sm:max-h-screen sm:rounded-none sm:border-t-0 sm:border-l"
 			style={{ zIndex: overlayProps.style.zIndex }}
 			onKeyDown={handleDialogKeyDown}
 		>
@@ -410,7 +410,7 @@ export function TaskSheet({
 					<p id="task-sheet-title" className="text-base font-medium text-[var(--text-primary)]">
 						{task.title}
 					</p>
-					<div className="flex items-center gap-2 mt-1 text-xs text-[var(--text-tertiary)]">
+					<div className="flex items-center gap-[9px] mt-[3px] text-xs text-[var(--text-tertiary)]">
 						<span>{task.owner}</span>
 						{task.betTag && <span>· {task.betTag}</span>}
 					</div>
@@ -424,7 +424,7 @@ export function TaskSheet({
 				{task.latestSessionOutcome && (
 					<div
 						data-testid="task-session-metadata"
-						className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-subtle)] text-xs font-mono text-[var(--text-tertiary)]"
+						className="flex items-center gap-[9px] px-4 py-2 border-b border-[var(--border-subtle)] text-xs font-mono text-[var(--text-tertiary)]"
 					>
 						<StatusChip status={sessionOutcomeToStatus(task.latestSessionOutcome)} />
 						{(task.latestSessionTokensInput != null || task.latestSessionTokensOutput != null) && (
@@ -484,11 +484,11 @@ export function TaskSheet({
 					</p>
 
 					{/* Intent radiogroup */}
-					<div role="radiogroup" aria-label="Request intent" className="flex flex-col gap-1">
+					<div role="radiogroup" aria-label="Request intent" className="flex flex-col gap-[6px]">
 						{REQUEST_INTENTS.map((intent) => (
 							<label
 								key={intent.id}
-								className="flex items-center gap-2 min-h-[44px] px-3 rounded-[var(--r-subtle)] cursor-pointer hover:bg-[var(--surface-elevated)]"
+								className="flex items-center gap-[9px] min-h-[44px] px-3 rounded-[var(--r-subtle)] cursor-pointer hover:bg-[var(--surface-elevated)]"
 							>
 								<input
 									type="radio"

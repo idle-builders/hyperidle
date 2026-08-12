@@ -57,7 +57,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-profile"
 					data-testid="settings-section-profile"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Profile</SectionTitle>
 					<SettingsProfile />
@@ -67,7 +67,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-orgchart"
 					data-testid="settings-section-org-chart"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Org chart</SectionTitle>
 					<SettingsOrgChart />
@@ -79,7 +79,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agents"
 					data-testid="settings-section-agents"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Agents</SectionTitle>
 					<SettingsAgents />
@@ -88,7 +88,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agent-behavior"
 					data-testid="settings-section-agent-behavior"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Agent behavior</SectionTitle>
 					<SettingsAgentBehavior />
@@ -99,7 +99,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-filesystems"
 					data-testid="settings-section-filesystems"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Filesystems</SectionTitle>
 					<SettingsFilesystems />
@@ -109,7 +109,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agent-backends"
 					data-testid="settings-section-agent-backends"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Agent backends</SectionTitle>
 					<SettingsHarnesses />
@@ -131,7 +131,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-appearance"
 					data-testid="settings-section-appearance"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Appearance</SectionTitle>
 					<SettingsAppearance />
@@ -141,7 +141,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-credentials"
 					data-testid="settings-section-credentials"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Credentials</SectionTitle>
 					<CredentialsTab />
@@ -151,7 +151,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-notifications"
 					data-testid="settings-section-notifications"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Notifications</SectionTitle>
 					<SettingsNotifications />
@@ -161,7 +161,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-backend"
 					data-testid="settings-section-backend"
-					className="flex flex-col gap-[18px]"
+					className="flex flex-col gap-[9px]"
 				>
 					<SectionTitle>Backend</SectionTitle>
 					<SettingsBackend />

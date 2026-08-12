@@ -166,7 +166,7 @@ export function KnowledgeCreateDialog({
 				/>
 
 				{/* Body — BodyEditor (TipTap WYSIWYG, GFM markdown) */}
-				<div className="flex flex-col gap-1">
+				<div className="flex flex-col gap-[6px]">
 					<span className="text-xs text-[var(--text-tertiary)]">
 						Body <span aria-hidden>(required)</span>
 					</span>
@@ -180,7 +180,7 @@ export function KnowledgeCreateDialog({
 				</div>
 
 				{/* Scope — locked (read-only tag) or 3-pill segmented control */}
-				<div className="flex flex-col gap-1">
+				<div className="flex flex-col gap-[6px]">
 					<span className="text-xs text-[var(--text-tertiary)]">Scope</span>
 					{isLocked ? (
 						<span className="inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-subtle)] text-[12px] bg-[var(--surface-container)] text-[var(--text-secondary)] w-fit">

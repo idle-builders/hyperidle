@@ -390,7 +390,7 @@ function OutcomeBand({
 function IrreversibleBadge(): JSX.Element {
 	return (
 		<span
-			className="inline-flex items-center gap-[4px] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+			className="inline-flex items-center gap-[6px] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
 			style={{
 				borderRadius: "var(--r-pill)",
 				color: "var(--status-warning)",

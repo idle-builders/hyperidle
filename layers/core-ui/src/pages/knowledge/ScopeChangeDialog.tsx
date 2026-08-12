@@ -146,7 +146,7 @@ export function ScopeChangeDialog({
 				{/* AI5: migrated from <Select> to the canonical ScopePicker pill group
 				    (scope-picker is AI5-owned; the pill group is the one anatomy
 				    rendered at all 4 scope sites). New testid prefix scope-pill-change. */}
-				<div className="flex flex-col gap-1">
+				<div className="flex flex-col gap-[6px]">
 					<span className="text-xs text-[var(--text-tertiary)]">New scope</span>
 					<ScopePicker
 						options={SCOPE_CREATE_OPTIONS.map((opt) => ({

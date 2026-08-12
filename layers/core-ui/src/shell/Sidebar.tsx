@@ -508,7 +508,7 @@ export function Sidebar({
 			return (
 				<>
 					<SettingsHeading />
-					{settingsNavItems && <div className="flex flex-col gap-1">{settingsNavItems}</div>}
+					{settingsNavItems && <div className="flex flex-col gap-[3px]">{settingsNavItems}</div>}
 				</>
 			);
 		}

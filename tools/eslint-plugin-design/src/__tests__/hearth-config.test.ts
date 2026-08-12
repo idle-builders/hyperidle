@@ -82,7 +82,11 @@ describe("hearth-config totality", () => {
 		expect(coreUiBlock?.rules?.["design/radius-token-only"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/no-handrolled-control"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/no-hardcoded-color"]).toBe("error");
+		expect(coreUiBlock?.rules?.["design/no-off-grid-spacing"]).toBe("error");
+		expect(coreUiBlock?.rules?.["design/shadow-token-only"]).toBe("error");
 		expect(designSystemBlock?.rules?.["design/radius-token-only"]).toBe("error");
+		expect(designSystemBlock?.rules?.["design/no-off-grid-spacing"]).toBe("error");
+		expect(designSystemBlock?.rules?.["design/shadow-token-only"]).toBe("error");
 		// no-handrolled-control is deliberately OFF for design-system (Trade-off 4).
 		expect(designSystemBlock?.rules?.["design/no-handrolled-control"]).toBeUndefined();
 	});

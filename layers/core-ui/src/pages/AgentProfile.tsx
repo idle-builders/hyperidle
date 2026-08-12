@@ -231,7 +231,7 @@ function AgentProfileLoaded({
 			}
 			data-testid="agent-profile-page"
 		>
-			<div className="flex flex-col gap-[12px] p-[24px]">
+			<div className="flex flex-col gap-[24px] p-[24px]">
 				{/* AU26 W6: run state could not be read — say so, never imply health. */}
 				{runStateUnavailable && (
 					<div
@@ -244,7 +244,7 @@ function AgentProfileLoaded({
 						}}
 					>
 						<span className="font-medium text-[var(--text-primary)]">Run state unavailable</span>
-						<span className="ml-2">
+						<span className="ml-[6px]">
 							This agent's runs could not be loaded, so health, recent runs and success rate are not
 							shown.
 						</span>
@@ -263,15 +263,15 @@ function AgentProfileLoaded({
 					>
 						<span className="font-medium text-[var(--text-primary)]">Health warning</span>
 						{healthSignals.failureRate7d > 0.5 && (
-							<span className="ml-2">
+							<span className="ml-[6px]">
 								High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in last 7 days.
 							</span>
 						)}
 						{healthSignals.lastSessionCrashed && (
-							<span className="ml-2">Last session crashed.</span>
+							<span className="ml-[6px]">Last session crashed.</span>
 						)}
 						{!healthSignals.harnessAvailable && (
-							<span className="ml-2">Required harness not available.</span>
+							<span className="ml-[6px]">Required harness not available.</span>
 						)}
 					</div>
 				)}
@@ -300,8 +300,8 @@ function AgentProfileLoaded({
 							</div>
 							<p className="text-[12px] text-[var(--text-tertiary)] mt-[3px]">
 								{catalogEntry?.label ?? data.role}
-								{data.teamName && <span className="ml-2">· {data.teamName}</span>}
-								<span className="ml-2">· Created {createdDate}</span>
+								{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
+								<span className="ml-[6px]">· Created {createdDate}</span>
 							</p>
 							{/* Active session link — /work/bet/:betId/task/:taskId (M1: was using taskId as betId) */}
 							{activeSession !== null && (

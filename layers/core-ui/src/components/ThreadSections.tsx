@@ -335,7 +335,7 @@ export function ThreadSections({
 
 	const sections = groupThreadsForConversations(filtered, { now });
 	return (
-		<div className="flex flex-col gap-2" data-testid="thread-sections">
+		<div className="flex flex-col gap-[9px]" data-testid="thread-sections">
 			{sections.map((section) => {
 				// approved.md §5.5: Blocking and Resolved silently absent when empty.
 				// Active renders its header plus a "Quiet" line when empty —
@@ -372,7 +372,7 @@ export function ThreadSections({
 				return (
 					<section key={section.id} data-thread-section={section.id} style={sectionStyle}>
 						<h3
-							className={`flex items-center gap-2 px-3 py-1 text-[11px] font-mono uppercase tracking-wider ${headerToneClass} ${headerStickyClass}`}
+							className={`flex items-center gap-[9px] px-3 py-1 text-[11px] font-mono uppercase tracking-wider ${headerToneClass} ${headerStickyClass}`}
 						>
 							<span>{section.label}</span>
 							<span data-thread-section-count className="normal-case">

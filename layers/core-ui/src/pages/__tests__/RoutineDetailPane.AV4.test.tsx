@@ -195,6 +195,13 @@ describe("editable prompt saves via PATCH and refetches the routine", () => {
 // ---------------------------------------------------------------------------
 
 describe("de-greyed sections render without surface-container background; run rows are present", () => {
+	it("keeps top-level pane sections in the major-section spacing range", async () => {
+		await renderPane();
+
+		const section = await waitFor(() => screen.getByTestId("routine-last-run-summary"));
+		expect(section.parentElement).toHaveClass("gap-[24px]");
+	});
+
 	it("[RED] config/last-run sections have no element with bg-[var(--surface-container)] class", async () => {
 		const { container } = await renderPane();
 

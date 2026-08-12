@@ -33,6 +33,7 @@ import { radiusTokenOnly } from "./rules/radius-token-only.js";
 import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
 import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
+import { shadowTokenOnly } from "./rules/shadow-token-only.js";
 
 export const rules: Record<string, Rule.RuleModule> = {
 	// Classifying stream-drain lint guard (AC4 static)
@@ -49,6 +50,7 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"no-off-grid-spacing": noOffGridSpacing,
 	"no-off-scale-duration": noOffScaleDuration,
 	"radius-token-only": radiusTokenOnly,
+	"shadow-token-only": shadowTokenOnly,
 	"no-off-scale-font-size": noOffScaleFontSize,
 	"no-ai-aesthetic": noAiAesthetic,
 	"no-op-button": noOpButton,

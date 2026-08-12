@@ -30,7 +30,7 @@ export function ListPayload({ ordered, start, items }: ListPayloadProps): JSX.El
 		tag,
 		{
 			start: ordered && start !== null ? start : undefined,
-			className: "pl-[20px] m-0 flex flex-col gap-[2px]",
+			className: "pl-[20px] m-0 flex flex-col gap-[3px]",
 			style: { listStyleType: ordered ? "decimal" : "disc" },
 		},
 		items.map((it, i) => (

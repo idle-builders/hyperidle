@@ -63,7 +63,7 @@ function AnchoredMessages({
 }): JSX.Element | null {
 	if (messages.length === 0) return null;
 	return (
-		<div data-testid="anchored-messages" className="flex flex-col gap-1 mt-1">
+		<div data-testid="anchored-messages" className="flex flex-col gap-[3px] mt-[3px]">
 			{anchorLost && (
 				<span
 					data-testid="anchor-lost-indicator"

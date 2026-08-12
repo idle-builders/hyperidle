@@ -153,7 +153,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	return (
 		<div
 			data-testid="recipient-picker"
-			className="flex flex-col gap-[8px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] border border-[var(--border-default)]"
+			className="flex flex-col gap-[9px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] border border-[var(--border-default)]"
 			onKeyDown={handleKeyDown}
 		>
 			{pickerState === "browsing" && (
@@ -165,7 +165,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 						onChange={setQuery}
 					/>
 					<div
-						className="flex flex-col gap-[2px] max-h-[320px] overflow-y-auto"
+						className="flex flex-col gap-[3px] max-h-[320px] overflow-y-auto"
 						role="listbox"
 						aria-label="Recipients"
 					>
@@ -186,7 +186,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 									type="button"
 									role="option"
 									aria-selected={false}
-									className="flex items-center gap-[8px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
+									className="flex items-center gap-[9px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
 									onClick={() => handleSelectRecipient(recipient)}
 								>
 									{/* AI5: shared Avatar primitive (initials now uppercased via deriveInitials). */}
@@ -223,7 +223,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 
 			{(pickerState === "selected" || pickerState === "sending") && selected && (
 				<>
-					<div className="flex items-center gap-[8px] mb-[4px]">
+					<div className="flex items-center gap-[9px] mb-[6px]">
 						{/* AI5: shared Avatar primitive. */}
 						<Avatar initials={deriveInitials(selected.name)} size="sm" className="flex-shrink-0" />
 						<span className="text-[13px] text-[var(--text-primary)] font-medium">
@@ -261,7 +261,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 							{sendError}
 						</p>
 					)}
-					<div className="flex justify-end gap-[8px]">
+					<div className="flex justify-end gap-[9px]">
 						<Button
 							variant="ghost"
 							size="sm"
