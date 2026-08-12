@@ -1,8 +1,8 @@
 {
   "id": "AZ7",
   "title": "Close the visual system",
-  "status": "done",
-  "phase": "review-4-accepted",
+  "status": "shipped",
+  "phase": "ship-complete",
   "procedure": "founder-approved custom procedure (plan.md, 2026-08-11): one combined refine+design+architecture artifact -> founder approval -> same-session build (tests then code) -> one fresh review round. No separate refine/design/architecture/critique phases, no second human gate.",
   "worktree": "/Users/tg/hyperidle/.claude/worktrees/pipeline-az7-dbd5ab",
   "branch": "claude/pipeline-az7-dbd5ab",
@@ -79,12 +79,12 @@
     },
     {
       "phase": "review-4",
-      "result": "DONE — fresh independent reviewer, no blocking findings. Work accepted.",
+      "result": "DONE \u2014 fresh independent reviewer, no blocking findings. Work accepted.",
       "evidence": {
         "backlog (AC6)": "46 backlog items (59 control sites / 24 files, 44 chip sites / 22 files); migration-backlog.md regenerates byte-identically from predicates.mjs + render-backlog.mjs.",
         "lint config": "design/radius-token-only confirmed at severity 2 (error) in the config npm run lint actually uses; 0 design errors across the 442 production .tsx files under framework/design-system/src and layers/core-ui/src.",
         "radius": "0 elements computing a radius over 10000px, checked across 8 page loads in the running app.",
-        "icon button geometry": "32×32 at 1440px viewport, 44px at 768px — matches the review-fix-1 (B1) measurement.",
+        "icon button geometry": "32\u00d732 at 1440px viewport, 44px at 768px \u2014 matches the review-fix-1 (B1) measurement.",
         "verify/test": "npm run verify exits 0 with the design:backlog:check gate step visible in the run. npm run test: 265 files / 2571 tests green."
       }
     }
@@ -125,5 +125,13 @@
       "decision": "keep building with a changed strategy: make backlog drift mechanically checkable rather than hand-corrected. All three rounds failed as a tracked claim outliving the code.",
       "evaluations_reset": true
     }
-  ]
+  ],
+  "pr": {
+    "number": 489,
+    "url": "https://github.com/ambrovia/hyperidle/pull/489",
+    "state": "OPEN",
+    "base": "main",
+    "ci": "green (npm run verify, release-guard, release verify all SUCCESS)",
+    "merged": false
+  }
 }
