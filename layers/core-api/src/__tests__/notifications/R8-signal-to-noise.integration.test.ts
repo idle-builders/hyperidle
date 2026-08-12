@@ -22,6 +22,7 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { ItemCreatedEvent, TaskStateChangedEvent } from "@hyperidle/domain-model";
 import {
 	installNotifications,
@@ -78,13 +79,14 @@ async function enableNotifications(
 	);
 }
 
-async function seedThread(db: HyperIdleDb, id = "thread-r8"): Promise<string> {
+async function seedThread(db: HyperIdleDb, ids: ScopedIds, label = "thread"): Promise<string> {
+	const id = ids(label);
 	await db.insert(threads).values({
 		id,
 		hostKind: "task",
-		hostId: "task-r8",
-		initiatorId: "agent-r8",
-		participants: JSON.stringify(["agent-r8"]),
+		hostId: ids("task"),
+		initiatorId: ids("agent"),
+		participants: JSON.stringify([ids("agent")]),
 		lastActiveAt: "2026-05-30T00:00:00.000Z",
 		createdAt: "2026-05-30T00:00:00.000Z",
 	});
@@ -116,14 +118,15 @@ async function createItem(
 
 function emitTaskStateChanged(
 	bus: import("@hyperidle/event-bus").EventBus,
+	ids: ScopedIds,
 	fromState: "proposed" | "in_progress",
 	toState: "in_progress" | "done",
-	taskId = "task-r8",
+	taskLabel = "task",
 ): void {
 	const event: TaskStateChangedEvent = {
 		type: "task_state_changed",
-		streamId: "stream-r8",
-		taskId,
+		streamId: ids("stream"),
+		taskId: ids(taskLabel),
 		fromState,
 		toState,
 		timestamp: Date.now(),
@@ -191,19 +194,25 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 	test("item_created with blocking item → dispatcher handler fires (subscribed)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		const threadId = await seedThread(db, "thread-ac1-item");
-		await createItem(db, { id: "ac1-blocking", blocking: true, riskTier: "medium", threadId });
+		const threadId = await seedThread(db, ids, "thread-ac1-item");
+		await createItem(db, {
+			id: ids("ac1-blocking"),
+			blocking: true,
+			riskTier: "medium",
+			threadId,
+		});
 		unsubscribe = installNotifications(db, eventBus, notificationsDeps, {
 			adapterFactory: () => adapter,
 		});
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-ac1",
-			itemId: "ac1-blocking",
+			streamId: ids("stream-ac1"),
+			itemId: ids("ac1-blocking"),
 			conversationId: threadId,
 			kind: "approval",
 			timestamp: Date.now(),
@@ -223,6 +232,7 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 	test("task_state_changed → dispatcher does NOT fire (not subscribed — intentionally silent)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		// AC2: task_state_changed is explicitly not subscribed by the dispatcher.
@@ -232,8 +242,8 @@ describe("R8 AC1 — Event subscription mapping (behavioral)", () => {
 			adapterFactory: () => adapter,
 		});
 
-		emitTaskStateChanged(eventBus, "proposed", "in_progress");
-		emitTaskStateChanged(eventBus, "in_progress", "done");
+		emitTaskStateChanged(eventBus, ids, "proposed", "in_progress");
+		emitTaskStateChanged(eventBus, ids, "in_progress", "done");
 
 		// Allow async event handlers to fully settle
 		await Promise.resolve();
@@ -262,6 +272,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 	test("task_state_changed pending→in_progress does NOT generate a notification or queue row", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
@@ -269,7 +280,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 			adapterFactory: () => adapter,
 		});
 
-		emitTaskStateChanged(eventBus, "proposed", "in_progress");
+		emitTaskStateChanged(eventBus, ids, "proposed", "in_progress");
 
 		// Allow all microtasks and async event handlers to settle.
 		await Promise.resolve();
@@ -283,6 +294,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 	test("task_state_changed in_progress→done does NOT generate a notification or queue row", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
@@ -290,7 +302,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 			adapterFactory: () => adapter,
 		});
 
-		emitTaskStateChanged(eventBus, "in_progress", "done");
+		emitTaskStateChanged(eventBus, ids, "in_progress", "done");
 
 		await Promise.resolve();
 		await Promise.resolve();
@@ -303,6 +315,7 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 	test("task_state_changed emits no notification even when notifications are enabled with full config", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		// Extra insurance: flood limit=1 to prove any push would be caught
@@ -314,8 +327,8 @@ describe("R8 AC2 — Routine task state changes are silent", () => {
 		});
 
 		// Emit multiple transitions
-		emitTaskStateChanged(eventBus, "proposed", "in_progress", "task-a");
-		emitTaskStateChanged(eventBus, "in_progress", "done", "task-a");
+		emitTaskStateChanged(eventBus, ids, "proposed", "in_progress", "task-a");
+		emitTaskStateChanged(eventBus, ids, "in_progress", "done", "task-a");
 
 		await Promise.resolve();
 		await Promise.resolve();
@@ -337,21 +350,26 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		unsubscribe?.();
 	});
 
-	test("blockerAlerts=false drops blocking item notification", async ({ db, eventBus }) => {
+	test("blockerAlerts=false drops blocking item notification", async ({ db, eventBus, ids }) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		// Set blockerAlerts=false via server_config
 		await updateServerConfig(db, { notifications: { blockerAlerts: false } });
 
-		const threadId = await seedThread(db);
-		await createItem(db, { id: "blocker-off", blocking: true, riskTier: "high", threadId });
+		const threadId = await seedThread(db, ids);
+		await createItem(db, {
+			id: ids("blocker-off"),
+			blocking: true,
+			riskTier: "high",
+			threadId,
+		});
 
 		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "blocker-off",
+			streamId: ids("stream"),
+			itemId: ids("blocker-off"),
 			conversationId: threadId,
 			kind: "approval",
 			timestamp: Date.now(),
@@ -366,20 +384,25 @@ describe("R8 AC3 — Blocker alerts respect blockerAlerts preference", () => {
 		expect(rows).toHaveLength(0);
 	});
 
-	test("blockerAlerts=true (default) pushes blocking item", async ({ db, eventBus }) => {
+	test("blockerAlerts=true (default) pushes blocking item", async ({ db, eventBus, ids }) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		// Default: blockerAlerts=true — no override needed
 
-		const threadId = await seedThread(db);
-		await createItem(db, { id: "blocker-on", blocking: true, riskTier: "medium", threadId });
+		const threadId = await seedThread(db, ids);
+		await createItem(db, {
+			id: ids("blocker-on"),
+			blocking: true,
+			riskTier: "medium",
+			threadId,
+		});
 
 		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "blocker-on",
+			streamId: ids("stream"),
+			itemId: ids("blocker-on"),
 			conversationId: threadId,
 			kind: "approval",
 			timestamp: Date.now(),
@@ -410,15 +433,16 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 	test("reviewAlerts=false drops review item (kind=review, riskTier=high)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { reviewAlerts: false } });
 
-		const threadId = await seedThread(db);
+		const threadId = await seedThread(db, ids);
 		// A review item: kind="review", riskTier="high" → would normally be blocking
 		await createItem(db, {
-			id: "review-off",
+			id: ids("review-off"),
 			kind: "review",
 			blocking: false,
 			riskTier: "high",
@@ -429,8 +453,8 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "review-off",
+			streamId: ids("stream"),
+			itemId: ids("review-off"),
 			conversationId: threadId,
 			kind: "review",
 			timestamp: Date.now(),
@@ -447,14 +471,15 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 	test("reviewAlerts=true (default) pushes review item (kind=review, riskTier=high)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		// Default: reviewAlerts=true
 
-		const threadId = await seedThread(db);
+		const threadId = await seedThread(db, ids);
 		await createItem(db, {
-			id: "review-on",
+			id: ids("review-on"),
 			kind: "review",
 			blocking: false,
 			riskTier: "high",
@@ -465,8 +490,8 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "review-on",
+			streamId: ids("stream"),
+			itemId: ids("review-on"),
 			conversationId: threadId,
 			kind: "review",
 			timestamp: Date.now(),
@@ -480,6 +505,7 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 	test("reviewAlerts=false does NOT suppress non-review blocking items", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		// Disabling review alerts should only affect review-kind items.
@@ -487,9 +513,9 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { reviewAlerts: false } });
 
-		const threadId = await seedThread(db);
+		const threadId = await seedThread(db, ids);
 		await createItem(db, {
-			id: "approval-still-pushes",
+			id: ids("approval-still-pushes"),
 			kind: "approval",
 			blocking: true,
 			riskTier: "medium",
@@ -500,8 +526,8 @@ describe("R8 AC4 — Review alerts respect reviewAlerts preference", () => {
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "approval-still-pushes",
+			streamId: ids("stream"),
+			itemId: ids("approval-still-pushes"),
 			conversationId: threadId,
 			kind: "approval",
 			timestamp: Date.now(),
@@ -585,6 +611,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 	test("quietHoursEnabled=false — blocking item pushes regardless of time", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		// quietHoursEnabled=false: no silence window should be applied by the
@@ -598,8 +625,13 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 			},
 		});
 
-		const threadId = await seedThread(db);
-		await createItem(db, { id: "qh-off-blocking", blocking: true, riskTier: "medium", threadId });
+		const threadId = await seedThread(db, ids);
+		await createItem(db, {
+			id: ids("qh-off-blocking"),
+			blocking: true,
+			riskTier: "medium",
+			threadId,
+		});
 
 		// Use a fixed "now" that falls inside the 00:00–23:59 window
 		const fixedNow = new Date("2026-05-30T12:00:00.000Z");
@@ -607,8 +639,8 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "qh-off-blocking",
+			streamId: ids("stream"),
+			itemId: ids("qh-off-blocking"),
 			conversationId: threadId,
 			kind: "approval",
 			timestamp: fixedNow.getTime(),
@@ -629,6 +661,7 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 	test("quietHoursEnabled=true — blocking item is queued (silenced) within the window", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		// quietHoursEnabled=true with a window that covers 12:00 UTC.
@@ -642,16 +675,21 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 			},
 		});
 
-		const threadId = await seedThread(db, "thread-r8-qh");
-		await createItem(db, { id: "qh-on-blocking", blocking: true, riskTier: "medium", threadId });
+		const threadId = await seedThread(db, ids, "thread-r8-qh");
+		await createItem(db, {
+			id: ids("qh-on-blocking"),
+			blocking: true,
+			riskTier: "medium",
+			threadId,
+		});
 
 		const fixedNow = new Date("2026-05-30T12:00:00.000Z"); // 12:00 UTC — inside 10:00–14:00
 		unsubscribe = registerWithPrefs(db, eventBus, adapter, { now: () => fixedNow });
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "qh-on-blocking",
+			streamId: ids("stream"),
+			itemId: ids("qh-on-blocking"),
 			conversationId: threadId,
 			kind: "approval",
 			timestamp: fixedNow.getTime(),
@@ -724,20 +762,26 @@ describe("R8 Preferences wiring — server_config drives dispatcher", () => {
 	test("blockerAlerts=false in server_config → emit blocking item event → no notification sent", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 		await updateServerConfig(db, { notifications: { blockerAlerts: false } });
 
-		const threadId = await seedThread(db);
-		await createItem(db, { id: "pref-blocker", blocking: true, riskTier: "high", threadId });
+		const threadId = await seedThread(db, ids);
+		await createItem(db, {
+			id: ids("pref-blocker"),
+			blocking: true,
+			riskTier: "high",
+			threadId,
+		});
 
 		unsubscribe = registerWithPrefs(db, eventBus, adapter);
 
 		const event: ItemCreatedEvent = {
 			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "pref-blocker",
+			streamId: ids("stream"),
+			itemId: ids("pref-blocker"),
 			conversationId: threadId,
 			kind: "approval",
 			timestamp: Date.now(),
