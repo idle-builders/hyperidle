@@ -23,6 +23,7 @@
 
 import {
 	Avatar,
+	agentOperationalStatusToStatus,
 	Breadcrumb,
 	Button,
 	betStatusToStatus,
@@ -42,7 +43,11 @@ import {
 } from "@hyperidle/design-system";
 // @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
 import type { BetCardSummary, TeamDetail } from "@hyperidle/domain-model";
-import { BET_STATUS_LABEL, findRoleCatalogEntry } from "@hyperidle/domain-model";
+import {
+	AGENT_OPERATIONAL_STATUS_LABEL,
+	BET_STATUS_LABEL,
+	findRoleCatalogEntry,
+} from "@hyperidle/domain-model";
 import { relativeShort } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -308,15 +313,15 @@ function WorkTeamLoaded({
 						value={`${burn.activeBets} / ${burn.capacity}`}
 						sub="active bets"
 					/>
-					{/* Status tile — derives from roster; empty → "—"/"No agents" */}
+					{/* Agent Health tile — derives from roster; empty → "—"/"No agents" */}
 					{(() => {
 						if (roster.length === 0) {
-							return <StatTile label="Status" value="—" sub="No agents" />;
+							return <StatTile label="Agent Health" value="—" sub="No agents" />;
 						}
 						if (rosterRunStateUnknown) {
 							return (
 								<StatTile
-									label="Status"
+									label="Agent Health"
 									value="—"
 									sub={rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state"}
 								/>
@@ -327,10 +332,27 @@ function WorkTeamLoaded({
 						);
 						const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
 						const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
+						// @lore AZ7 B4 (review round 1): this tile rolls up
+						// RosterRunState.healthLevel ("healthy" | "warning" | "critical",
+						// @hyperidle/domain-model team.ts) — a per-agent run-health signal,
+						// computed client-side by useRosterRunState. It is NOT
+						// deriveTeamStatus's "healthy" | "behind" | "blocked" (bets over
+						// capacity / a blocked task; core-api/routes/teams-routes.ts),
+						// which is what the header StatusChip at :728 renders. Two
+						// genuinely different measurements over the same team. The first
+						// attempt reused the header's own word ("Behind") for this tile,
+						// which read as a second, contradicting status for the same
+						// object whenever the two happened to disagree (e.g. header
+						// BLOCKED, tile "Behind" — looks like a typo, is actually two
+						// unrelated facts). Fixed by giving this tile its own label
+						// ("Agent Health", not "Status") and its own vocabulary
+						// ("Needs attention" / "On track", neither of which is a
+						// StatusChip word) so it can never be misread as a second
+						// opinion on team.status.
 						return (
 							<StatTile
-								label="Status"
-								value={hasAttention ? "Attention" : "Healthy"}
+								label="Agent Health"
+								value={hasAttention ? "Needs attention" : "On track"}
 								sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
 							/>
 						);
@@ -372,13 +394,14 @@ function WorkTeamLoaded({
 									{hintCreateBet.copy}
 								</p>
 								<div className="flex gap-2">
-									<button
-										type="button"
-										className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+									<Button
+										variant="ghost"
+										size="sm"
+										className="text-[var(--text-tertiary)]"
 										onClick={hintCreateBet.dismiss}
 									>
 										Got it
-									</button>
+									</Button>
 								</div>
 							</div>
 						)}
@@ -445,7 +468,7 @@ function WorkTeamLoaded({
 									{
 										content: (
 											<span
-												className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
+												className="w-[24px] h-[24px] rounded-[var(--r-pill)] shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
 												style={{ background: "var(--accent-deep-dim)" }}
 												aria-label={routine.agentName}
 												title={routine.agentName}
@@ -533,13 +556,6 @@ function WorkTeamLoaded({
 								: "Run state loading"
 							: healthDetail;
 
-						const statusTone =
-							memberStatus === "active"
-								? ("success" as const)
-								: memberStatus === "error"
-									? ("error" as const)
-									: undefined;
-
 						let contextText = (() => {
 							const catalogEntry = findRoleCatalogEntry(member.role);
 							return catalogEntry?.description ?? member.role;
@@ -593,23 +609,37 @@ function WorkTeamLoaded({
 											]
 										: []),
 									{
-										content: memberStatus,
-										width: 48,
-										tone: statusTone,
+										// @lore AZ7 E7: the agent's operational status now
+										// reads through StatusChip like every other status on this page
+										// (the team header chip, bet StatusChips) — same word, same
+										// treatment, instead of the raw lowercase domain string.
+										content: (
+											<StatusChip
+												status={agentOperationalStatusToStatus(memberStatus)}
+												label={AGENT_OPERATIONAL_STATUS_LABEL[memberStatus]}
+											/>
+										),
+										width: 90,
 										"data-testid": "agent-status",
 									},
 									{
-										content: contextText,
+										// @lore AZ7 Set 5: RowCell.tone is deleted — the error tint moves onto
+										// the content itself.
+										content: contextIsError ? (
+											<span className="text-[var(--status-error)]">{contextText}</span>
+										) : (
+											contextText
+										),
 										width: 140,
 										align: "start",
-										tone: contextIsError ? ("error" as const) : undefined,
 										"data-testid": "agent-context",
 									},
 								]}
 								actions={
-									<button
-										type="button"
-										className="btn btn-ghost btn-xs shrink-0"
+									<Button
+										variant="ghost"
+										size="sm"
+										className="shrink-0"
 										onClick={(e) => {
 											e.stopPropagation();
 											// @lore AV4: Customize now opens AgentDetailPane in the split pane
@@ -619,7 +649,7 @@ function WorkTeamLoaded({
 										data-testid="agent-customize-btn"
 									>
 										Customize
-									</button>
+									</Button>
 								}
 								onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
 							/>

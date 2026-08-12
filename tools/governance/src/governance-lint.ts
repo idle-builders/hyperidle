@@ -40,7 +40,6 @@ import {
 	loadArchitecture,
 	loadMisplacedFiles,
 	loadTableOwners,
-	MIN_TRACKED_FILES,
 	presentToolingFiles,
 	readRepoFile,
 	trackedFiles,
@@ -169,10 +168,14 @@ function runAttackSuite(): number {
 
 function runLive(errorsOnly: boolean): number {
 	const files = trackedFiles();
-	if (files.length < MIN_TRACKED_FILES) {
+	// @lore AZ7: an EMPTY census, not a small one. This used to compare against a maintained
+	// repo-wide file count; that floor was removed because it named a number instead of an
+	// architectural fact, and because every detector floor already fails on an empty tree. What is
+	// left is the one case where no rule can say anything true: git returned nothing at all.
+	if (files.length === 0) {
 		console.error(
-			`governance-lint: git ls-files returned ${files.length} paths, below the floor of ${MIN_TRACKED_FILES}. ` +
-				`Refusing to report a verdict over an implausibly small census.`,
+			"governance-lint: git ls-files returned no paths at all — wrong cwd, or a broken git " +
+				"invocation. Refusing to report a verdict over an empty census.",
 		);
 		return 1;
 	}

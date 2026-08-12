@@ -12,7 +12,7 @@
  */
 
 // hearth-internal-padding
-import { Avatar, Button, PageScaffold, Select } from "@hyperidle/design-system";
+import { Avatar, Button, Input, PageScaffold, Select } from "@hyperidle/design-system";
 import type { RosterMember } from "@hyperidle/domain-model";
 import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -209,7 +209,7 @@ export function AgentDetailPane({
 					{isStrategy && (
 						<div
 							className="rounded-[var(--r-subtle)] p-[9px] mt-[6px] mb-[6px]"
-							style={{ background: "rgba(217,119,6,0.06)" }}
+							style={{ background: "color-mix(in oklab, var(--status-warning) 6%, transparent)" }}
 						>
 							<p className="text-[12px] text-[var(--text-secondary)]">
 								This agent is managed by app defaults. Your system prompt edits are preserved, but
@@ -218,9 +218,10 @@ export function AgentDetailPane({
 						</div>
 					)}
 
-					<textarea
+					<Input
+						textarea
 						aria-label="System prompt"
-						className="textarea textarea-bordered w-full mt-[6px]"
+						className="mt-[6px]"
 						rows={12}
 						value={formValues.systemPrompt}
 						onChange={(e) => setFormValues((prev) => ({ ...prev, systemPrompt: e.target.value }))}
@@ -260,15 +261,11 @@ export function AgentDetailPane({
 
 					{configVisible && (
 						<div className="mt-[6px] flex flex-wrap gap-[12px]">
-							<div className="form-control min-w-[140px] flex-1">
-								<label className="label" htmlFor="pane-dialog-harness">
-									<span className="label-text text-[var(--text-secondary)]">Harness</span>
-								</label>
-								<input
+							<div className="min-w-[140px] flex-1">
+								<Input
 									id="pane-dialog-harness"
+									label="Harness"
 									type="text"
-									aria-label="Harness"
-									className="input input-sm input-bordered w-full"
 									value={formValues.harnessType}
 									onChange={(e) =>
 										setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))
@@ -301,15 +298,11 @@ export function AgentDetailPane({
 								/>
 							</div>
 
-							<div className="form-control min-w-[100px] flex-1">
-								<label className="label" htmlFor="pane-dialog-sessions">
-									<span className="label-text text-[var(--text-secondary)]">Max sessions</span>
-								</label>
-								<input
+							<div className="min-w-[100px] flex-1">
+								<Input
 									id="pane-dialog-sessions"
+									label="Max sessions"
 									type="number"
-									aria-label="Max sessions"
-									className="input input-sm input-bordered w-full"
 									value={formValues.maxConcurrentSessions}
 									min={1}
 									max={20}

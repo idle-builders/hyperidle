@@ -6,7 +6,8 @@
 	"description": "HyperIdle design-system ESLint rules (K6). Enforces the AESTHETICS.md recommendations table and tokens.css scales.",
 	"exports": {
 		".": "./src/index.ts",
-		"./mock-data-policy": "./src/mock-data-policy.ts"
+		"./mock-data-policy": "./src/mock-data-policy.ts",
+		"./hearth-config": "./src/hearth-config.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",

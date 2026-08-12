@@ -26,7 +26,7 @@ function ThreadRowPresenceDot({
 	const bg = status === "active" ? "bg-[var(--accent-primary)]" : "bg-[var(--status-error)]";
 	return (
 		<span
-			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-full border-[1.5px] border-[var(--surface-elevated)] ${bg}`}
+			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--surface-elevated)] ${bg}`}
 			aria-label={`${initials} - ${status}`}
 		/>
 	);
@@ -137,7 +137,7 @@ export function ThreadRow({
 				data-testid={unread ? "unread-dot" : "read-dot-spacer"}
 				aria-hidden="true"
 				className={[
-					"w-[8px] h-[8px] rounded-full shrink-0",
+					"w-[8px] h-[8px] rounded-[var(--r-pill)] shrink-0",
 					unread ? "bg-[var(--accent-primary)]" : "bg-transparent",
 				].join(" ")}
 			/>
@@ -212,7 +212,7 @@ export function ThreadRow({
 							<span
 								key={`${a.initials}-${i}`}
 								className={[
-									"relative w-[24px] h-[24px] rounded-full inline-flex items-center justify-center shrink-0",
+									"relative w-[24px] h-[24px] rounded-[var(--r-pill)] inline-flex items-center justify-center shrink-0",
 									"text-[9px] font-[600] leading-none",
 									"border-[2px] border-[var(--surface-elevated)]",
 									i > 0 ? "ml-[-6px]" : "",

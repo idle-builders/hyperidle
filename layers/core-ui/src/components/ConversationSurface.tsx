@@ -42,7 +42,7 @@
  */
 
 import type { OpenHandler, OpenTarget, Part } from "@hyperidle/conversation-parts";
-import { ReferenceChip } from "@hyperidle/design-system";
+import { Button, ReferenceChip } from "@hyperidle/design-system";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PartList } from "./PartList.js";
@@ -134,7 +134,7 @@ function Avatar({
 		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 	return (
 		<div
-			className={`inline-flex items-center justify-center rounded-full border-[1.5px] font-[600] shrink-0 ${color}`}
+			className={`inline-flex items-center justify-center rounded-[var(--r-pill)] border-[1.5px] font-[600] shrink-0 ${color}`}
 			style={{ width: size, height: size, fontSize: size <= 22 ? 10 : 12 }}
 			aria-hidden="true"
 		>
@@ -153,7 +153,7 @@ function ParticipantGroup({
 			{people.map((p, i) => (
 				<div
 					key={p.id}
-					className="rounded-full ring-2 ring-[var(--surface-page)]"
+					className="rounded-[var(--r-pill)] ring-2 ring-[var(--surface-page)]"
 					style={{ marginLeft: i === 0 ? 0 : -9, zIndex: people.length - i }}
 				>
 					<Avatar who={p} size={26} />
@@ -254,7 +254,15 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 					type="button"
 					role="menuitem"
 					onClick={onPick}
+					// This is a full menu ROW (icon + label + hint), not a Button — a
+					// dedicated backlog item already tracks this composer's
+					// consolidation onto the DS Composer (which owns its own menu
+					// shape); a partial Button swap here would be rework once that
+					// lands.
 					className={`flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] ${
+						// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
+						// selected tint — no longer a no-handrolled-control violation
+						// (the rule's predicate excludes this exact token).
 						it.key ? "bg-[var(--accent-primary-dim)]" : "hover:bg-[var(--surface-container)]"
 					}`}
 				>
@@ -361,6 +369,11 @@ function ComposerInputRow({
 					aria-haspopup="menu"
 					title="Insert block, attach, mention, reference, format"
 					onClick={onToggleMenu}
+					// A pressed/open TOGGLE state, not a Button variant (Button has no
+					// built-in pressed treatment distinct from its 4 action variants).
+					// A dedicated backlog item owns this composer's full consolidation.
+					// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
+					// selected tint — not a no-handrolled-control violation.
 					className={
 						insertMenuOpen
 							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
@@ -377,15 +390,9 @@ function ComposerInputRow({
 				onChange={(e) => onChange(e.target.value)}
 				className="min-h-[72px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
 			/>
-			<button
-				type="button"
-				onClick={onSend}
-				aria-label="Send message"
-				// hearth-internal-padding
-				className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--accent-primary-hover)]"
-			>
+			<Button variant="primary" size="icon" onClick={onSend} aria-label="Send message">
 				<Glyph d={ICON_SEND} size={15} />
-			</button>
+			</Button>
 		</div>
 	);
 }

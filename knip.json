@@ -37,7 +37,7 @@
 	},
 	"workspaces": {
 		".": {
-			"entry": ["vitest.integration.config.ts!"]
+			"entry": ["vitest.integration.config.ts!", "eslint.design.config.ts!"]
 		},
 		"framework/domain-model": {},
 		"framework/diagnostics": {},
@@ -124,6 +124,7 @@
 				"src/typecheck-gate.ts!",
 				"src/dep-manifest-lint.ts!",
 				"src/mock-inventory.ts!",
+				"src/design-backlog-drift.ts!",
 				"src/knip-production-test-files.mjs!"
 			]
 		},

@@ -138,6 +138,6 @@ describe("KnowledgeRow", () => {
 		// Tag for kind — "pattern" matches TagKind so gets tint class
 		expect(screen.getByText("pattern")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// StatusChip for status
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});
 });

@@ -13,8 +13,8 @@
  */
 
 import { basename } from "node:path";
-import type { JSSyntaxElement, Rule } from "eslint";
-import type { TemplateElement } from "estree";
+import type { JSSyntaxElement, Rule, Scope } from "eslint";
+import type { Node as ESTreeNode, TemplateElement } from "estree";
 import type { JSXAttribute } from "estree-jsx";
 
 /**
@@ -34,18 +34,6 @@ import type { JSXAttribute } from "estree-jsx";
  * is a real value a developer may type). Added per K6-adversary.md SEV-1 #4.
  */
 export const SPACING_ALLOWLIST: ReadonlySet<number> = new Set([0, 3, 6, 9, 12, 18, 24, 36, 48]);
-
-/**
- * Closed Hearth radius scale from `framework/design-system/src/tokens.css`:
- *   --r-none:0 --r-subtle:10px --r-default:16px --r-pill:9999px
- *
- * @lore U10: Changed from old Lucid scale {0,4,8,12,999} to Hearth scale
- * {0,10,16,9999}. The generous-rounding principle uses 10px as the minimum
- * non-zero radius and 16px as the default card radius. rounded-2xl (16px) is
- * now ON-SCALE. Form control chrome (checkboxes, radio buttons) may use
- * off-scale radii per AQ-011 exemption — DaisyUI manages these in production.
- */
-export const RADIUS_ALLOWLIST: ReadonlySet<number> = new Set([0, 10, 16, 9999]);
 
 /**
  * Hearth type-scale allowlist.
@@ -112,30 +100,6 @@ const SHADOW_OVERLAY_BASENAME_REGEX = /^(Modal|Dialog|Popover|Tooltip|Sheet|Draw
 export function isShadowOverlayFile(filename: string): boolean {
 	return SHADOW_OVERLAY_BASENAME_REGEX.test(basename(filename));
 }
-
-/**
- * Named Tailwind radii whose pixel value is on the Hearth closed scale {0,10,16,9999}
- * derived from `tokens.css` (--r-none / --r-subtle / --r-default / --r-pill).
- * These named classes are permitted; any other named class must be flagged off-scale.
- *
- * @lore U10: Significant reversal from K6. The old scale {0,4,8,12,999} allowed
- * `rounded`, `rounded-lg`, `rounded-xl` as named equivalents. The Hearth scale
- * {0,10,16,9999} does not have 4px, 8px, or 12px steps, so these are now OFF-SCALE.
- * `rounded-2xl` (16px) is NOW ALLOWED — it maps to --r-default (the Hearth default
- * card radius). `rounded-3xl` (24px) remains off-scale and is flagged by no-ai-aesthetic.
- *
- * Tailwind v3 named-radius pixel mapping (verified against Tailwind defaults):
- *   rounded-none = 0    ✓ (--r-none)
- *   rounded      = 4    ✗ (off-scale; no 4px step in Hearth)
- *   rounded-sm   = 2    ✗ (off-scale)
- *   rounded-md   = 6    ✗ (off-scale)
- *   rounded-lg   = 8    ✗ (off-scale; no 8px step in Hearth)
- *   rounded-xl   = 12   ✗ (off-scale; no 12px step in Hearth)
- *   rounded-2xl  = 16   ✓ (--r-default)
- *   rounded-3xl  = 24   ✗ (off-scale; also blocked by no-ai-aesthetic)
- *   rounded-full = 9999 ✓ (--r-pill)
- */
-export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set(["none", "2xl", "full"]);
 
 /**
  * Class-name string extractor: returns the literal text of `className="..."`.
@@ -311,6 +275,219 @@ export function collectClassStringsFromJSXAttribute(
 	}
 	if (v.type === "JSXExpressionContainer") {
 		return collectClassStringsFromExpression(v.expression);
+	}
+	return [];
+}
+
+/**
+ * Resolves a bare `Identifier` to the initializer expression of the single
+ * same-file `const` it is bound to, so the deep collector can look THROUGH a
+ * variable indirection instead of stopping at it.
+ *
+ * @lore AZ7 review-round-2 NEW-1: `CommentRow.tsx` builds `avatarClass` as a
+ * ternary of two class strings, assigns it to a `const`, and only THEN passes
+ * it to `className`. Every className-scanning tool in this repo (this deep
+ * collector, `scan.mjs`, `predicates.mjs`) walked `className={avatarClass}`
+ * and saw only an `Identifier` node — none of the switch cases matched, so
+ * the two strings underneath (one carrying `rounded-full`, the pill's
+ * forbidden second spelling) were invisible. The same shape turned out NOT to
+ * be a one-off: a repo sweep (grep for a bare-identifier `className={...}`)
+ * across every package's `src/` under `layers/` and `framework/` found ~30
+ * more sites — mostly module-level extracted class-string constants (`ArtifactStackItem.tsx`'s
+ * `ROW`/`PILL`, `ErrorState.tsx`'s `RETRY_BTN_CLASS`, …) rather than local
+ * ternaries, but the AST shape (an `Identifier` in class-string position) and
+ * the blind spot are identical.
+ *
+ * Deliberately conservative — a false negative (miss a real violation) is
+ * preferable to a false positive (report a violation on a variable that could
+ * take a different value at runtime, which would make the rule wrong, not
+ * just incomplete): only follows a variable that
+ *   1. resolves to exactly ONE `const` declaration (not `let`/`var` — nothing
+ *      to chase if the binding can be reassigned after its `const` init), and
+ *   2. has exactly one WRITE reference anywhere in scope (the initializer
+ *      itself) — so a `const` that is never reassigned (TypeScript wouldn't
+ *      allow re-assignment anyway, but this also rules out destructuring
+ *      rebinds and shadowing edge cases the scope manager might resolve
+ *      unexpectedly).
+ * A cycle guard (`seen`) stops runaway recursion; real cycles should be
+ * impossible in valid JS (a `const` cannot reference a not-yet-declared
+ * `const`), but the guard costs nothing and removes the need to prove that.
+ */
+// AZ7 review-round-3 NB3-1: `unknown | null` is exactly `unknown` in TypeScript
+// (`null` is already a member of `unknown`), so the `| null` said nothing about
+// what callers get back. The real contract is narrower: either an AST node
+// (an object with at least a `type`, matched by the `walk` switch in the deep
+// collector) or `null` when resolution fails — never a primitive.
+export type IdentifierResolver = (identifierNode: unknown) => { type: string } | null;
+
+/**
+ * Builds an `IdentifierResolver` bound to a specific rule's `context`, using
+ * ESLint's scope manager (`context.sourceCode.getScope`) to find the
+ * declaration a given `Identifier` node resolves to.
+ */
+export function createConstIdentifierResolver(context: Rule.RuleContext): IdentifierResolver {
+	return (identifierNode: unknown): { type: string } | null => {
+		const node = identifierNode as { type?: string; name?: string };
+		if (!node || node.type !== "Identifier" || typeof node.name !== "string") return null;
+		// AZ7 review-round-3 NB3-2: no try/catch here — `.claude/rules/typescript.md`
+		// says let unexpected errors propagate. `getScope` is called the same way,
+		// uncaught, in `require-ds-attribute.ts:123` on this same plugin; if it
+		// throws on a node from this rule's own AST walk that is a real bug in the
+		// walk (an unlinked/synthetic node), not a condition to hide behind `null`.
+		const scope: Scope.Scope = context.sourceCode.getScope(identifierNode as ESTreeNode);
+		let cur: Scope.Scope | null = scope;
+		let variable: Scope.Variable | undefined;
+		while (cur) {
+			variable = cur.variables.find((v) => v.name === node.name);
+			if (variable) break;
+			cur = cur.upper;
+		}
+		if (!variable) return null;
+		if (variable.defs.length !== 1) return null;
+		const def = variable.defs[0];
+		if (!def || def.type !== "Variable") return null;
+		const declaration = (def as { parent?: { kind?: string } }).parent;
+		if (declaration?.kind !== "const") return null;
+		const writes = variable.references.filter((r) => r.isWrite());
+		if (writes.length !== 1) return null;
+		const declarator = def.node as { init?: { type: string } } | null;
+		return declarator?.init ?? null;
+	};
+}
+
+/**
+ * Deep variant of `collectClassStringsFromExpression` — walks EVERY call
+ * expression's arguments and, for a member-call receiver (`[...].join(" ")`),
+ * the receiver too. The shallow collector only widens into `cn()`/`clsx()`-style
+ * named helpers; it never chases `.join()`, so `className={[...].join(" ")}` —
+ * a real, measured pattern (AZ7 measurement `scan.mjs`/`predicates.mjs`, which
+ * use this exact traversal shape) — is invisible to it. `no-off-scale-radius`
+ * silently passed `Checkbox.tsx`'s `rounded-[6px]` for this reason: the class
+ * list is built via `[...].join(" ")` and the shallow walker stops at the
+ * `CallExpression` because `.join` is a `MemberExpression` callee, not a bare
+ * `Identifier` named `cn`/`clsx`/etc.
+ *
+ * @lore AZ7 E2/E6: kept as a SEPARATE exported function rather than changing
+ * `collectClassStringsFromExpression` in place — that function backs 20+ other
+ * rules already at `error` in production; widening it in place risks surfacing
+ * new findings in files those rules currently read as clean, outside this
+ * work package's scope. The two new AZ7 rules (`radius-token-only`,
+ * `no-handrolled-control`) use the deep variant so their site counts are
+ * comparable to the measurement's `predicate-sites.json` (same traversal
+ * shape), which is what `migration-backlog.md` and the scope-line arithmetic
+ * in the approved plan are built from. The two counts are an approximation,
+ * not an exact match: the scanner keys its const map by name-per-file, while
+ * ESLint resolves by lexical scope — shadowing diverges both directions.
+ *
+ * @lore AZ7 review-round-2 NEW-1: accepts an optional `resolveIdentifier` —
+ * see `createConstIdentifierResolver` — so a bare `Identifier` in class-string
+ * position (`className={avatarClass}`, or a template-literal interpolation
+ * `${colorClass}`) can be followed to its same-file `const` initializer
+ * instead of being silently invisible. Optional and defaulted to a no-op so
+ * every existing call site (and the 20+ rules on the shallow collector) is
+ * unaffected unless a rule opts in.
+ */
+export function collectClassStringsFromExpressionDeep(
+	expr: unknown,
+	resolveIdentifier?: IdentifierResolver,
+): Array<{ text: string; node: AnyNode }> {
+	const out: Array<{ text: string; node: AnyNode }> = [];
+	const seen = new Set<unknown>();
+	function walk(n: unknown): void {
+		if (!n || typeof n !== "object") return;
+		const node = n as WalkNode;
+		switch (node.type) {
+			case "Literal": {
+				if (typeof node.value === "string") {
+					out.push({ text: node.value as string, node: node as JSSyntaxElement });
+				}
+				return;
+			}
+			case "TemplateLiteral": {
+				const quasis = node.quasis as Array<TemplateElement>;
+				for (const q of quasis) {
+					const text = q.value.cooked ?? q.value.raw;
+					if (typeof text === "string" && text.length > 0) {
+						out.push({ text, node: q as JSSyntaxElement });
+					}
+				}
+				const exprs = node.expressions as unknown[];
+				for (const sub of exprs) walk(sub);
+				return;
+			}
+			case "ArrayExpression": {
+				const elements = node.elements as unknown[];
+				for (const el of elements) walk(el);
+				return;
+			}
+			case "ObjectExpression": {
+				const props = node.properties as Array<{
+					type: string;
+					key?: unknown;
+					value?: unknown;
+				}>;
+				for (const p of props) {
+					if (p.type === "Property") walk(p.key);
+				}
+				return;
+			}
+			case "CallExpression": {
+				const args = node.arguments as unknown[];
+				for (const a of args) walk(a);
+				// `[...].join(" ")` / `arr.filter(Boolean).join(" ")` — also walk the
+				// receiver of a member-call, whatever its name (not just cn/clsx).
+				const callee = node.callee as WalkNode;
+				if (callee.type === "MemberExpression") {
+					walk((callee as { object?: unknown }).object);
+				}
+				return;
+			}
+			case "ConditionalExpression": {
+				walk(node.consequent);
+				walk(node.alternate);
+				return;
+			}
+			case "LogicalExpression":
+			case "BinaryExpression": {
+				walk(node.left);
+				walk(node.right);
+				return;
+			}
+			case "ParenthesizedExpression": {
+				walk((node as { expression?: unknown }).expression);
+				return;
+			}
+			case "Identifier": {
+				if (!resolveIdentifier || seen.has(node)) return;
+				seen.add(node);
+				const resolved = resolveIdentifier(node);
+				if (resolved) walk(resolved);
+				return;
+			}
+		}
+	}
+	walk(expr);
+	return out;
+}
+
+/**
+ * Deep variant of `collectClassStringsFromJSXAttribute` — see
+ * `collectClassStringsFromExpressionDeep` for why this exists as a sibling
+ * function rather than a change to the shallow one.
+ */
+export function collectClassStringsFromJSXAttributeDeep(
+	attr: unknown,
+	resolveIdentifier?: IdentifierResolver,
+): Array<{ text: string; node: AnyNode }> {
+	if (!attr || typeof attr !== "object") return [];
+	const a = attr as { value?: WalkNode | null };
+	const v = a.value;
+	if (!v) return [];
+	if (v.type === "Literal" && typeof v.value === "string") {
+		return [{ text: v.value as string, node: v as JSSyntaxElement }];
+	}
+	if (v.type === "JSXExpressionContainer") {
+		return collectClassStringsFromExpressionDeep(v.expression, resolveIdentifier);
 	}
 	return [];
 }

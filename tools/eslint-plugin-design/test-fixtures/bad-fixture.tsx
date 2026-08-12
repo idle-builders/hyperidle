@@ -11,7 +11,12 @@
  * sibling-fixtures directory.
  *
  * U10 Hearth update: rounded-2xl is now ON-SCALE — uses rounded-3xl here instead.
- * The no-off-scale-radius arbitrary case uses rounded-[4px] (now off-scale in Hearth).
+ * The radius-token-only arbitrary case uses rounded-[4px] (still off-scale).
+ *
+ * AZ7 E6: no-off-scale-radius was replaced by radius-token-only (the old
+ * rule's allowlist permitted rounded-full; the new rule permits only
+ * rounded-none or a --r-* token). rounded-md and rounded-3xl remain
+ * violations under the new rule too — neither is rounded-none nor a token.
  */
 
 import type { JSX } from "react";
@@ -22,11 +27,11 @@ export const Bad = (): JSX.Element => (
 		{/* expect: design/require-focus-on-interactive */}
 		<span style={{ color: "#ff00aa" }} /> {/* expect: design/no-hardcoded-color */}
 		<span className="p-[5px]" /> {/* expect: design/no-off-grid-spacing */}
-		<span className="rounded-[4px]" /> {/* expect: design/no-off-scale-radius (arbitrary — off Hearth scale) */}
-		<span className="rounded-md" /> {/* expect: design/no-off-scale-radius (named — off Hearth scale) */}
+		<span className="rounded-[4px]" /> {/* expect: design/radius-token-only (arbitrary — not a --r-* token) */}
+		<span className="rounded-md" /> {/* expect: design/radius-token-only (named — not a --r-* token) */}
 		<span className="text-[22px]" /> {/* expect: design/no-off-scale-font-size */}
 		<span className="rounded-3xl" />{" "}
-		{/* expect: design/no-ai-aesthetic (rounded3xl) + no-off-scale-radius */}
+		{/* expect: design/no-ai-aesthetic (rounded3xl) + radius-token-only */}
 		<span className="backdrop-blur-md" /> {/* expect: design/no-ai-aesthetic (backdropBlur) */}
 		<h1 className="bg-clip-text text-transparent" />{" "}
 		{/* expect: design/no-ai-aesthetic (gradientText) */}

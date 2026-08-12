@@ -22,6 +22,7 @@ import {
 	BodyEditor,
 	Breadcrumb,
 	Button,
+	Input,
 	PageHeader,
 	PageScaffold,
 	pageTitleClassName,
@@ -242,19 +243,14 @@ export function KnowledgeCreate(): JSX.Element {
 							/>
 						</div>
 						{needsScopeId && (
-							<label className="flex flex-col gap-[6px]">
-								<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-									Scope ID
-								</span>
-								<input
-									type="text"
-									className="input input-bordered input-sm text-base w-full"
-									placeholder={`${selectedScope.label} ID`}
-									value={scopeId}
-									onChange={(e) => setScopeId(e.target.value)}
-									disabled={submitting}
-								/>
-							</label>
+							<Input
+								label="Scope ID"
+								type="text"
+								placeholder={`${selectedScope.label} ID`}
+								value={scopeId}
+								onChange={(e) => setScopeId(e.target.value)}
+								disabled={submitting}
+							/>
 						)}
 					</div>
 				</aside>

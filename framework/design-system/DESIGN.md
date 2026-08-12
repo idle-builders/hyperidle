@@ -63,8 +63,7 @@ There is no 4px or 8px step. The jump from 0 to 10px is intentional.
 ### Mixed hierarchy
 
 Shadows AND borders AND tints work together. Different elements use different strategies:
-- **Cards** get `--shadow-default` (warm, visible shadow)
-- **Flat cards** use `--border-default` + `--surface-container` background
+- **Cards** get `--shadow-default` (warm, visible shadow) on `--surface-elevated`
 - **Thread rows** use bottom `--border-subtle` hairline dividers
 - **Toast** uses left-border accent
 - **Status** uses colored dots and tinted pill badges
@@ -193,6 +192,111 @@ Tinted backgrounds for icon containers, hover states, and focus glows. Use these
 | `--accent-secondary-hover` | `#b86305` | `#b86305` | Amber button hover state |
 | `--status-error-hover` | `#c53e30` | `#c53e30` | Destructive button hover state |
 | `--scrim` | `rgba(26,21,16,0.45)` | `rgba(20,16,12,0.62)` | Modal overlay scrim (AI2) |
+
+---
+
+## Closed Sets (AZ7)
+
+Five axes closed to a decided set, each entry stating its job. Adding a value
+outside a set is either a type error (Button) or fails `npm run lint`
+(radius, controls, status, colors) — see `tools/eslint-plugin-design/src/hearth-config.ts`.
+
+### Button — 4 variants × 3 sizes
+
+| Variant | Job |
+|---|---|
+| `primary` | The one action that completes the surface's purpose. At most one per surface. |
+| `secondary` | An equal-standing alternative to the primary — *Cancel* beside *Save*. |
+| `ghost` | An action that must not compete with the content it sits in: row actions, toolbars, dialog dismiss. |
+| `destructive` | An action that ends or removes something. |
+
+| Size | Job |
+|---|---|
+| `default` | Page-level and dialog-level actions. |
+| `sm` | Inside a row, a toolbar, or a dense panel. |
+| `icon` | A square control whose entire label is its icon (32px desktop, 44px touch floor below `lg`); carries an accessible name. |
+
+`amber` is deleted (zero production uses). A pressed/open TOGGLE state (a
+composer's insert-menu button, a sidebar toggle) is not this set — it has no
+built-in pressed treatment distinct from the four action variants.
+
+### Input — 6 members
+
+| Member | Job |
+|---|---|
+| `Input` | A single-line value the user types. `textarea` is the same field when the value is long. |
+| `SearchField` | A query that filters what is already on screen. |
+| `Select` | One value chosen from a closed list. |
+| `Composer` | A message sent into a conversation. |
+| `Checkbox` | A boolean the user sets in place. |
+| `Toggle` | A setting that takes effect the moment it changes. |
+
+A raw `<input type="checkbox"|"radio"|"range">` carrying DaisyUI form-control
+chrome stays permitted (AQ-011 exemption) — `Checkbox`/`Toggle` wrap exactly
+those classes themselves.
+
+### Filled surfaces — 4 fills + 2 tints
+
+| Fill | Job |
+|---|---|
+| `--surface-page` | The canvas the application is drawn on. Nothing that is not the page background uses it as a fill. |
+| `--surface-elevated` | Anything that floats on the canvas and holds content: cards, panels, list containers, text inputs. |
+| `--surface-container` | A region recessed *inside* an elevated surface: code block, table header, quote, empty state, embedded reference, progress track. |
+| `--surface-overlay` | A surface drawn above the page: modal, popover, toast. |
+| `--accent-primary-dim` | The hover / selected tint on an interactive row or a ghost control. **Not** `--surface-page` — that was its accidental second job before AZ7. |
+| `color-mix(in oklab, var(--status-*) NN%, transparent)` | The fill of a status chip or an inline alert banner, and nothing else. |
+
+### Radius — 4 values, one spelling each
+
+| Spelling | Value | Job |
+|---|---|---|
+| no radius class, or `rounded-none` | 0 | Full-bleed regions, table cells, edges that meet another edge. |
+| `rounded-[var(--r-subtle)]` | 10px | A region inside a card; a menu item; an icon button. |
+| `rounded-[var(--r-default)]` | 16px | Cards, dialogs, panels, text inputs. |
+| `rounded-[var(--r-pill)]` | 9999px | Buttons, chips, avatars, toggles, tabs, progress tracks. |
+
+The only permitted spelling of a non-zero radius is a `--r-*` token.
+`rounded-full`, named Tailwind radii (`rounded-lg`, `rounded-2xl`, …), and
+arbitrary pixel radii (`rounded-[8px]`) are all lint errors — even when the
+pixel value happens to land on the scale. `rounded-full` was the pill's
+second spelling; Chrome's computed value for it (`calc(infinity * 1px)`,
+clamped to 33,554,432px) is what made a computed-style measurement of this
+app report an "off-scale" radius as its most common value. One spelling
+closes that reading. The one documented exception: `Checkbox`'s 20×20px box
+uses `rounded-[6px]` (AQ-011 form-control exemption — none of the four scale
+values reads right on a small checkbox).
+
+**Enforcement boundary.** `design/radius-token-only` reads a class string
+directly in `className`, and follows it through a same-file `const` whose
+value is provably single-assignment (`CommentRow.tsx`'s `avatarClass`
+ternary and similar module-level extracted class-string constants are
+covered this way — see `createConstIdentifierResolver` in
+`tools/eslint-plugin-design/src/util.ts`). It does **not** follow a `let`/
+reassignable binding, a value imported from another file, or a string built
+at runtime from a prop/state value it cannot statically resolve. Nor is the
+boundary limited to those three: a `const` bound to an object-literal member
+access (`const cls = RADII.pill`) is statically resolvable in principle but
+is not followed either — the resolver only chases a `const`'s own
+initializer expression, not a property read off it — and neither is
+mid-token string concatenation (`"rounded-" + "full"`), which the walker
+never reassembles into `rounded-full` before testing it against the token
+regex. A radius built through any of these shapes would still pass silently
+— the same failure mode that let `CommentRow.tsx`'s `rounded-full` ship
+invisible to `npm run lint` until review round 2 caught it by browser
+measurement.
+
+### Status presentation — 2 members
+
+| Member | Job |
+|---|---|
+| `StatusChip` | The object's state, said in a word. Whenever a state is named on screen, this is its shape. |
+| `RowDot` | The same state reduced to a dot, where the row has no room for the word and the word is available on hover and to a screen reader. |
+
+`RowCell.tone` is deleted — a third status channel with one call site. Not
+status, unchanged: `Tag`, `ReferenceChip`, `ArtifactKindBadge` (what an object
+*is*), `LiveDot` (something is happening right now), `Progress` (how much). A
+state's word comes from `status-mapping.ts` and the `@hyperidle/domain-model`
+label registries — a surface may not invent one.
 
 ---
 

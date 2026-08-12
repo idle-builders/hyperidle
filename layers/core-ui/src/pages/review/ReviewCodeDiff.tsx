@@ -287,11 +287,19 @@ function ReviewedBox({
 			}}
 			aria-pressed={reviewed}
 			title={reviewed ? "Reviewed" : "Mark reviewed"}
+			// @lore AZ7: this is a compact 18x18 icon-only reviewed-indicator inside a
+			// dense code-diff row. It is functionally a Checkbox (the design
+			// system's closed input set), but Checkbox.tsx's visible label is
+			// mandatory and would break this row's density; it is not a Button
+			// (not an action). Candidate for a
+			// Checkbox icon-only variant per design-system.md's promotion rule
+			// if a second consumer needs the same shape.
 			className={[
-				"inline-flex h-[18px] w-[18px] items-center justify-center rounded-[6px] border-[1.5px] shrink-0",
+				"inline-flex h-[18px] w-[18px] items-center justify-center rounded-[var(--r-subtle)] border-[1.5px] shrink-0",
 				"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				reviewed
-					? "bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[var(--text-on-accent)]"
+					? // eslint-disable-next-line design/no-handrolled-control -- see comment above className
+						"bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[var(--text-on-accent)]"
 					: "bg-[var(--surface-elevated)] border-[var(--border-default)] text-transparent",
 			].join(" ")}
 		>
@@ -449,6 +457,11 @@ function FileDiff({
 				aria-label="Add inline comment"
 				title="Add inline comment"
 				onClick={() => setComposerBlockId(info.blockId)}
+				// A 16x16 hover-triggered gutter affordance positioned at a fixed
+				// offset inside a code line. Button size="icon" floors at 32px
+				// (44px touch) — more than double this affordance's footprint —
+				// and would collide with the line-number gutter. Not a Button fit.
+				// eslint-disable-next-line design/no-handrolled-control -- see comment above
 				className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 			>
 				+
@@ -469,7 +482,7 @@ function FileDiff({
 					<div className="flex gap-[12px] pl-[88px] pr-[12px] py-[9px]">
 						<div className="flex flex-col items-center gap-0">
 							<div className="w-[var(--bw-default)] h-[18px] bg-[var(--border-strong)]" />
-							<div className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)]" />
+							<div className="w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]" />
 							<div className="w-[var(--bw-default)] flex-1 bg-[var(--border-strong)]" />
 						</div>
 						<InlineComposer

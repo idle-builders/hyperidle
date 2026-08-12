@@ -23,7 +23,7 @@
  * no replacement.
  */
 
-import { EmptyState, TabBar } from "@hyperidle/design-system";
+import { Button, EmptyState, TabBar } from "@hyperidle/design-system";
 import { clockTime } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityEntry } from "../hooks/useSessionActivity.js";
@@ -174,10 +174,10 @@ export function SessionActivityPanel({
 						{isLive && (
 							<span
 								role="status"
-								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
+								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
 								aria-label="Live session"
 							>
-								<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
+								<span className="w-[5px] h-[5px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] animate-pulse" />
 								Live
 							</span>
 						)}
@@ -256,9 +256,9 @@ export function SessionActivityPanel({
 				{/* Q1 review issue #10: scroll-to-bottom nudge when paused */}
 				{autoScrollPaused && entries.length > 0 && (
 					<div className="sticky bottom-0 flex justify-center pb-[4px]">
-						<button
-							type="button"
-							className="btn btn-xs btn-ghost text-[var(--text-tertiary)] text-[10px]"
+						<Button
+							variant="ghost"
+							size="sm"
 							onClick={() => {
 								if (scrollRef.current) {
 									scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -267,7 +267,7 @@ export function SessionActivityPanel({
 							}}
 						>
 							↓ Scroll to latest
-						</button>
+						</Button>
 					</div>
 				)}
 			</div>

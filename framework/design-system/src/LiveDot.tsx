@@ -15,7 +15,7 @@ export function LiveDot(): JSX.Element {
 	return (
 		<span
 			aria-hidden="true"
-			className="inline-block w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
+			className="inline-block w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] animate-pulse shrink-0"
 		/>
 	);
 }

@@ -11,14 +11,14 @@ describe("StatusChip", () => {
 	it("applies color-mix background for healthy status", () => {
 		render(<StatusChip status="healthy" />);
 		const chip = screen.getByText("HEALTHY");
-		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		expect(chip.className).toContain("text-[var(--status-success)]");
 	});
 
 	it("applies color-mix background for behind status", () => {
 		render(<StatusChip status="behind" />);
 		const chip = screen.getByText("BEHIND");
-		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		expect(chip.className).toContain("text-[var(--status-warning)]");
 	});
 
@@ -28,28 +28,28 @@ describe("StatusChip", () => {
 		// `error` = broken/intervention required → also status-error but distinct at data-status level.
 		render(<StatusChip status="blocked" />);
 		const chip = screen.getByText("BLOCKED");
-		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		expect(chip.className).toContain("text-[var(--status-error)]");
 	});
 
 	it("applies color-mix background for paused status", () => {
 		render(<StatusChip status="paused" />);
 		const chip = screen.getByText("PAUSED");
-		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		expect(chip.className).toContain("text-[var(--status-info)]");
 	});
 
 	it("applies color-mix background for done status", () => {
 		render(<StatusChip status="done" />);
 		const chip = screen.getByText("DONE");
-		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		expect(chip.className).toContain("text-[var(--status-success)]");
 	});
 
 	it("applies color-mix background for error status", () => {
 		render(<StatusChip status="error" />);
 		const chip = screen.getByText("ERROR");
-		expect(chip).toHaveClass("inline-flex", "rounded-full");
+		expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		expect(chip.className).toContain("text-[var(--status-error)]");
 	});
 
@@ -63,7 +63,7 @@ describe("StatusChip", () => {
 		const { container } = render(<StatusChip status="healthy" />);
 		const dot = container.querySelector("span > span");
 		expect(dot).toBeInTheDocument();
-		expect(dot).toHaveClass("rounded-full");
+		expect(dot).toHaveClass("rounded-[var(--r-pill)]");
 	});
 
 	it("renders all six status values without crashing", () => {
@@ -80,7 +80,7 @@ describe("StatusChip", () => {
 		for (const status of statuses) {
 			const { container, unmount } = render(<StatusChip status={status} />);
 			const dot = container.querySelector("span > span");
-			expect(dot).toHaveClass("rounded-full");
+			expect(dot).toHaveClass("rounded-[var(--r-pill)]");
 			// Every dot should have a bg-* color class
 			expect(dot?.className).toMatch(/bg-/);
 			unmount();
@@ -139,7 +139,7 @@ describe("StatusChip", () => {
 			const undefinedStatus = undefined as unknown as Status;
 			render(<StatusChip status={undefinedStatus} />);
 			const chip = screen.getByText("UNKNOWN");
-			expect(chip).toHaveClass("inline-flex", "rounded-full");
+			expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 			expect(chip).not.toHaveClass("undefined");
 			expect(chip.className).not.toMatch(/undefined/);
 		});
@@ -148,14 +148,14 @@ describe("StatusChip", () => {
 			const bogus = "cancelled" as unknown as Status;
 			render(<StatusChip status={bogus} />);
 			const chip = screen.getByText("UNKNOWN");
-			expect(chip).toHaveClass("inline-flex", "rounded-full");
+			expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		});
 
 		it("UNKNOWN chip still has a dot indicator (no detached markup)", () => {
 			const { container } = render(<StatusChip status={undefined as unknown as Status} />);
 			const dot = container.querySelector("span > span");
 			expect(dot).toBeInTheDocument();
-			expect(dot).toHaveClass("rounded-full");
+			expect(dot).toHaveClass("rounded-[var(--r-pill)]");
 		});
 	});
 });

@@ -237,8 +237,8 @@ describe("ThreadRow", () => {
 
 	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
 		render(<ThreadRow {...defaultProps} status="healthy" tag="ops" />);
-		// StatusChip renders uppercase status text with rounded-full
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
+		// StatusChip renders uppercase status text with rounded-[var(--r-pill)]
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// Tag renders label with rounded-[var(--r-pill)] and neutral bg
 		expect(screen.getByText("ops")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});

@@ -211,13 +211,17 @@ describe("AB2 AC-2: AgentRow renders operational data", () => {
 		expect(screen.getByText("Error Agent")).toBeInTheDocument();
 	});
 
+	// AZ7 E7 (§1.6 finding #1): the agent-status cell now renders through
+	// StatusChip (AGENT_OPERATIONAL_STATUS_LABEL — "Idle"/"Active"/"Error"),
+	// matching the same word + treatment as every other status on this page,
+	// instead of the raw lowercase domain string ("idle"/"active"/"error").
 	it("shows status label for each agent", () => {
 		renderPage(TEAM_WITH_AGENTS);
 		const statusEls = screen.getAllByTestId("agent-status");
 		const statuses = statusEls.map((el) => el.textContent?.trim());
-		expect(statuses).toContain("idle");
-		expect(statuses).toContain("active");
-		expect(statuses).toContain("error");
+		expect(statuses).toContain("Idle");
+		expect(statuses).toContain("Active");
+		expect(statuses).toContain("Error");
 	});
 
 	it("shows active task title in context column when agent is active", () => {

@@ -198,7 +198,14 @@ export function RoleCombobox({
 					setOpen((o) => !o);
 					requestAnimationFrame(() => inputRef.current?.focus());
 				}}
-				className={`flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-page)] px-[9px] text-left text-[13px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${
+				// @lore AZ7 review-round-2 NB-3: was `bg-[var(--surface-page)]` on both
+				// this trigger and the popover's filter input below — the same Set 3
+				// second-job defect B3 fixed on SearchField. Both are Input-set
+				// chrome (this component ships as `dsInputLike` in the AZ7
+				// measurement scanner), so both move to `--surface-elevated`
+				// together — leaving one fixed and one not would make a single
+				// component internally inconsistent about its own fill.
+				className={`flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left text-[13px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${
 					disabled
 						? "cursor-not-allowed text-[var(--text-tertiary)] opacity-70"
 						: "text-[var(--text-primary)] hover:border-[var(--border-strong)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
@@ -226,7 +233,7 @@ export function RoleCombobox({
 							placeholder="Filter roles or type a new one…"
 							aria-label="Filter or define a role"
 							aria-activedescendant={`${listId}-opt-${highlight}`}
-							className="w-full rounded-[var(--r-subtle)] bg-[var(--surface-page)] px-[9px] py-[6px] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none max-md:text-[16px]"
+							className="w-full rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none max-md:text-[16px]"
 						/>
 					</div>
 

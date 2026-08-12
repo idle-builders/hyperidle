@@ -1,4 +1,4 @@
-import { Composer, PageScaffold, SplitView } from "@hyperidle/design-system";
+import { Button, Composer, PageScaffold, SplitView } from "@hyperidle/design-system";
 import {
 	type AnchorRef,
 	type VerdictDecision,
@@ -74,7 +74,7 @@ const KIND_LABEL: Record<string, string> = {
 
 function KindBadge({ kind }: { kind: string }): JSX.Element {
 	return (
-		<span className="inline-flex items-center rounded-[6px] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-none text-[var(--text-tertiary)]">
+		<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-none text-[var(--text-tertiary)]">
 			{KIND_LABEL[kind as keyof typeof KIND_LABEL] ?? kind}
 		</span>
 	);
@@ -140,16 +140,16 @@ function Verdict({
 }: VerdictProps): JSX.Element {
 	return (
 		<div className="relative flex shrink-0 items-center gap-[6px]">
-			<button
-				type="button"
+			<Button
+				variant="primary"
+				size="sm"
 				disabled={resolved}
 				onClick={() => onSubmit("approve")}
 				aria-pressed={activeDecision === "approve"}
-				className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] px-[14px] py-[7px] text-[13px] font-[600] text-white transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				<CheckGlyph />
 				Approve
-			</button>
+			</Button>
 			<button
 				type="button"
 				disabled={resolved}
@@ -343,13 +343,13 @@ function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element
 					<div className="flex items-center gap-[6px]">
 						<div
 							className={[
-								"flex-1 rounded-[8px] border bg-[var(--surface-page)] px-[9px] py-[6px] font-mono text-[12px] text-[var(--text-primary)]",
+								"flex-1 rounded-[var(--r-default)] border bg-[var(--surface-page)] px-[9px] py-[6px] font-mono text-[12px] text-[var(--text-primary)]",
 								isAfter ? "border-[var(--status-error)]" : "border-[var(--border-default)]",
 							].join(" ")}
 						>
 							SPRING24
 						</div>
-						<span className="rounded-[8px] bg-[var(--surface-container)] px-[9px] py-[6px] text-[12px] font-[500] text-[var(--text-tertiary)]">
+						<span className="rounded-[var(--r-default)] bg-[var(--surface-container)] px-[9px] py-[6px] text-[12px] font-[500] text-[var(--text-tertiary)]">
 							Apply
 						</span>
 					</div>
@@ -454,7 +454,7 @@ function NeedsSection({
 						>
 							<span
 								aria-hidden="true"
-								className="mt-[6px] inline-block h-[7px] w-[7px] shrink-0 rounded-full"
+								className="mt-[6px] inline-block h-[7px] w-[7px] shrink-0 rounded-[var(--r-pill)]"
 								style={{ background: NEED_TONE[need.kind] }}
 							/>
 							<span className="min-w-0 flex-1">
@@ -492,6 +492,13 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 			type="button"
 			onClick={onOpen}
 			aria-current={active}
+			// This is functionally a Row (icon + title, clickable, selected-state
+			// accent tint) and belongs on <Row>, but Row's button-branch is
+			// missing w-full today (bug-list UI-060, unfixed). Migrating onto
+			// the broken branch would shrink-wrap this row narrower than its
+			// current w-full. Left as a hand-rolled row pending UI-060.
+			// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
+			// selected tint — not a no-handrolled-control violation.
 			className={[
 				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				active
@@ -579,7 +586,7 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 						onClick={() => {
 							if (comment.anchor) onJumpToAnchor(comment.anchor);
 						}}
-						className="mt-[3px] inline-flex items-center gap-[4px] rounded-[6px] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
+						className="mt-[3px] inline-flex items-center gap-[4px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
 						aria-label={comment.anchor ? `Go to anchor ${label}` : undefined}
 					>
 						<span className="text-[var(--text-tertiary)]">on</span>

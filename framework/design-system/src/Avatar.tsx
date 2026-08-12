@@ -46,7 +46,7 @@ export function Avatar({
 	return (
 		<div
 			{...dsProps("Avatar", "0")}
-			className={`inline-flex items-center justify-center rounded-full border-[1.5px] font-semibold shrink-0 ${sizeClass} ${colorClass} ${className}`}
+			className={`inline-flex items-center justify-center rounded-[var(--r-pill)] border-[1.5px] font-semibold shrink-0 ${sizeClass} ${colorClass} ${className}`}
 		>
 			{initials}
 		</div>
@@ -73,7 +73,7 @@ export function AvatarGroup({
 			{Children.map(items, (item, i) => (
 				<div
 					key={i}
-					className={`${i > 0 ? overlapClass : ""} ring-[2px] ring-[var(--surface-elevated)] rounded-full`}
+					className={`${i > 0 ? overlapClass : ""} ring-[2px] ring-[var(--surface-elevated)] rounded-[var(--r-pill)]`}
 				>
 					{item}
 				</div>

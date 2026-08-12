@@ -60,7 +60,7 @@ function StatusGlyph({ status }: { status: ToolPartShape["status"] }): JSX.Eleme
 			<span
 				role="img"
 				aria-label="running"
-				className="inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]"
+				className="inline-block h-[7px] w-[7px] shrink-0 rounded-[var(--r-pill)] bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]"
 			/>
 		);
 	}

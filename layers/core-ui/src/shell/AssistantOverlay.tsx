@@ -21,7 +21,7 @@
  * not a design-system custom component. It lives in layers/core-ui/src/shell/.
  */
 
-import { ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
+import { Button, ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
 import type {
 	AssistantNotice,
 	BlockRef,
@@ -134,9 +134,9 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 					"I can't think until an API key is set. Add your Anthropic key to get started.",
 				colorToken: "var(--status-warning)",
 				affordance: (
-					<button
-						type="button"
-						className="text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]"
+					<Button
+						variant="primary"
+						size="sm"
 						onClick={() => {
 							// Navigate to Settings → Credentials
 							// @lore AH3: settings navigation is via existing nav patterns
@@ -146,7 +146,7 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 						}}
 					>
 						Settings → Credentials
-					</button>
+					</Button>
 				),
 			};
 		case "missing_harness":
@@ -155,9 +155,9 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 				description: "I don't have a runtime selected. Pick a harness for me and I'll be ready.",
 				colorToken: "var(--status-warning)",
 				affordance: (
-					<button
-						type="button"
-						className="text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)]"
+					<Button
+						variant="primary"
+						size="sm"
 						onClick={() => {
 							window.dispatchEvent(
 								new CustomEvent("navigate-settings", { detail: { tab: "agents" } }),
@@ -165,7 +165,7 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 						}}
 					>
 						Open Agent settings
-					</button>
+					</Button>
 				),
 			};
 		case "provider_error":
@@ -265,7 +265,7 @@ function ThinkingRow(): JSX.Element {
 				gap: "9px",
 				padding: "9px 12px",
 				borderRadius: "var(--r-subtle)",
-				background: "var(--accent-primary-dim, rgba(240,196,25,0.14))",
+				background: "var(--accent-primary-dim)",
 			}}
 		>
 			<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
@@ -383,9 +383,9 @@ function AssistantOverlayInner({
 				<p className="text-sm text-[var(--text-secondary)]">
 					{error ?? "Failed to load assistant thread"}
 				</p>
-				<button type="button" className="btn btn-xs btn-ghost" onClick={retry}>
+				<Button variant="ghost" size="sm" onClick={retry}>
 					Retry
-				</button>
+				</Button>
 			</div>
 		);
 	}

@@ -76,7 +76,7 @@ export function NavItem({
 				)}
 				{statusDot && (
 					<span
-						className={`h-[8px] w-[8px] rounded-full shrink-0 ${STATUS_DOT_COLORS[statusDot]}`}
+						className={`h-[8px] w-[8px] rounded-[var(--r-pill)] shrink-0 ${STATUS_DOT_COLORS[statusDot]}`}
 					/>
 				)}
 				<span className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">

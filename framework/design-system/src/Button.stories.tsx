@@ -14,7 +14,6 @@ export function AllVariants(): JSX.Element {
 			<Button variant="secondary">Secondary</Button>
 			<Button variant="ghost">Ghost</Button>
 			<Button variant="destructive">Destructive</Button>
-			<Button variant="amber">Amber</Button>
 		</div>
 	);
 }
@@ -34,8 +33,28 @@ export function SmallVariants(): JSX.Element {
 			<Button variant="destructive" size="sm">
 				Destructive
 			</Button>
-			<Button variant="amber" size="sm">
-				Amber
+		</div>
+	);
+}
+
+/**
+ * @lore AZ7 Set 1: size="icon" — a square control whose entire label is its icon.
+ * 32×32 desktop, 44×44 touch floor below lg (same pattern as sm/default).
+ */
+export function IconSize(): JSX.Element {
+	return (
+		<div className="flex flex-wrap items-center gap-[12px] p-[18px]">
+			<Button variant="primary" size="icon" aria-label="Add">
+				+
+			</Button>
+			<Button variant="secondary" size="icon" aria-label="More options">
+				⋯
+			</Button>
+			<Button variant="ghost" size="icon" aria-label="Close">
+				×
+			</Button>
+			<Button variant="destructive" size="icon" aria-label="Delete">
+				×
 			</Button>
 		</div>
 	);

@@ -36,6 +36,7 @@ import {
 	Button,
 	EmptyState,
 	ErrorState,
+	Input,
 	ItemList,
 	KeyValue,
 	PageScaffold,
@@ -312,11 +313,10 @@ function RoutineDetailPaneLoaded({
 						>
 							Name
 						</label>
-						<input
+						<Input
 							id="routine-name-input"
 							aria-label="Name"
 							type="text"
-							className="input input-sm input-bordered w-full"
 							value={name}
 							onChange={(e) => setName(e.target.value)}
 							disabled={saving}
@@ -334,10 +334,10 @@ function RoutineDetailPaneLoaded({
 						<p className="text-[12px] text-[var(--text-tertiary)]">
 							The run instruction handed to the agent each time this routine fires.
 						</p>
-						<textarea
+						<Input
+							textarea
 							id="routine-prompt-textarea"
 							aria-label="Prompt"
-							className="textarea textarea-bordered w-full"
 							rows={6}
 							value={description}
 							onChange={(e) => setDescription(e.target.value)}
@@ -402,11 +402,10 @@ function RoutineDetailPaneLoaded({
 							>
 								Custom cron
 							</label>
-							<input
+							<Input
 								id="routine-custom-cron-input"
 								aria-label="Custom cron expression"
 								type="text"
-								className="input input-sm input-bordered font-[family-name:var(--font-mono)] w-full"
 								value={customCron}
 								onChange={(e) => setCustomCron(e.target.value)}
 								disabled={saving}

@@ -31,7 +31,7 @@
  * defense-in-depth against future agent-authored content reaching this path.
  */
 
-import { EmptyState, useDialogBehavior } from "@hyperidle/design-system";
+import { Button, EmptyState, useDialogBehavior } from "@hyperidle/design-system";
 import type { NotificationTypeKey } from "@hyperidle/domain-model";
 import { shortLabelForType } from "@hyperidle/domain-model";
 import { relativeShort } from "@hyperidle/presentation-format";
@@ -201,14 +201,14 @@ export function NotificationPopover({
 						>
 							Couldn't load notifications
 						</p>
-						<button
-							type="button"
+						<Button
+							variant="ghost"
+							size="sm"
 							aria-label="Retry loading notifications"
-							className="btn btn-xs btn-ghost"
 							onClick={() => void refetch()}
 						>
 							Retry
-						</button>
+						</Button>
 					</div>
 				)}
 
@@ -255,7 +255,7 @@ export function NotificationPopover({
 									>
 										{/* 1. Urgency dot */}
 										<span
-											className="shrink-0 rounded-full"
+											className="shrink-0 rounded-[var(--r-pill)]"
 											style={{
 												display: "inline-block",
 												width: "6px",

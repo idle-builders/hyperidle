@@ -16,7 +16,7 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, PageScaffold, Select } from "@hyperidle/design-system";
+import { BodyEditor, Button, PageScaffold, Select } from "@hyperidle/design-system";
 import { deriveTitleFromPitch } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -151,23 +151,18 @@ export function WorkBetCreate(): JSX.Element {
 							{derivedTitle || "Untitled bet"}
 						</span>
 						<div className="flex items-center gap-[9px] shrink-0">
-							<button
-								type="button"
-								className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-transparent border-[1.5px] border-[var(--border-default)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
-								onClick={handleCancel}
-								disabled={submitting}
-							>
+							<Button variant="secondary" size="sm" onClick={handleCancel} disabled={submitting}>
 								Cancel
-							</button>
-							<button
-								type="button"
+							</Button>
+							<Button
+								variant="primary"
+								size="sm"
 								data-testid="bet-create-submit"
-								className="inline-flex items-center text-[13px] font-[500] px-[12px] py-[7px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity duration-[var(--motion-fast)]"
 								onClick={() => void handleCreate()}
 								disabled={!canCreate}
 							>
 								{submitting ? "Creating…" : "Create"}
-							</button>
+							</Button>
 						</div>
 					</div>
 				</header>

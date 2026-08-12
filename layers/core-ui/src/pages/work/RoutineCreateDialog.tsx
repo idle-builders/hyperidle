@@ -17,7 +17,7 @@
  * accepted by POST /api/routines, no replacement.
  */
 
-import { Dialog, Select } from "@hyperidle/design-system";
+import { Button, Dialog, Input, Select } from "@hyperidle/design-system";
 import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
 import { type JSX, useEffect, useState } from "react";
 import { apiFetch } from "../../services/api-fetch.js";
@@ -121,54 +121,41 @@ export function RoutineCreateDialog({
 			size="md"
 			footer={
 				<>
-					<button
-						type="button"
-						className="btn btn-sm btn-ghost min-h-[44px]"
-						onClick={onClose}
-						disabled={submitting}
-					>
+					<Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
 						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-sm btn-primary min-h-[44px]"
+					</Button>
+					<Button
+						variant="primary"
+						size="sm"
 						onClick={() => void handleSubmit()}
 						disabled={!canCreate}
 					>
 						{submitting ? "…" : "Create"}
-					</button>
+					</Button>
 				</>
 			}
 		>
 			<div className="flex flex-col gap-[9px]">
 				{/* Name field */}
-				<label className="flex flex-col gap-[3px]">
-					<span className="text-xs text-[var(--text-tertiary)]">
-						Name <span aria-hidden>(required)</span>
-					</span>
-					<input
-						type="text"
-						className="input input-bordered input-sm text-base w-full"
-						value={name}
-						onChange={(e) => setName(e.target.value)}
-						placeholder="Daily digest"
-						disabled={submitting}
-						aria-label="Name"
-					/>
-				</label>
+				<Input
+					label="Name (required)"
+					type="text"
+					value={name}
+					onChange={(e) => setName(e.target.value)}
+					placeholder="Daily digest"
+					disabled={submitting}
+				/>
 
 				{/* Description field */}
-				<label className="flex flex-col gap-[3px]">
-					<span className="text-xs text-[var(--text-tertiary)]">Description</span>
-					<textarea
-						className="textarea textarea-bordered textarea-sm text-base w-full"
-						value={description}
-						onChange={(e) => setDescription(e.target.value)}
-						placeholder="Description of what this routine does"
-						disabled={submitting}
-						rows={2}
-					/>
-				</label>
+				<Input
+					textarea
+					label="Description"
+					value={description}
+					onChange={(e) => setDescription(e.target.value)}
+					placeholder="Description of what this routine does"
+					disabled={submitting}
+					rows={2}
+				/>
 
 				{/* Team select — only shown when multiple teams */}
 				{teams.length > 1 && (
@@ -229,17 +216,19 @@ export function RoutineCreateDialog({
 
 				{/* Custom cron input — shown only when "Custom..." selected */}
 				{isCustom && (
-					<label className="flex flex-col gap-[3px]">
-						<span className="text-xs text-[var(--text-tertiary)]">Custom cron expression</span>
-						<input
-							type="text"
-							className="input input-bordered input-sm font-mono text-base w-full"
-							value={customCron}
-							onChange={(e) => setCustomCron(e.target.value)}
-							placeholder="cron: * * * * *"
-							disabled={submitting}
-						/>
-					</label>
+					// @lore AZ7: font-mono was on the raw <input> chrome; Input's
+					// className prop styles its wrapper div, not the inner
+					// <input> (Input.tsx has no per-field class override), so a
+					// monospace cron field is a small, accepted visual delta
+					// here — not worth widening Input's API for one caller.
+					<Input
+						label="Custom cron expression"
+						type="text"
+						value={customCron}
+						onChange={(e) => setCustomCron(e.target.value)}
+						placeholder="cron: * * * * *"
+						disabled={submitting}
+					/>
 				)}
 
 				{error && (

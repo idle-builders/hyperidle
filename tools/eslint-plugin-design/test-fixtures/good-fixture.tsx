@@ -10,6 +10,11 @@
  *
  * U10 Hearth update: uses rounded-2xl (16px = --r-default, now on-scale) and
  * 6px-grid spacing values.
+ *
+ * AZ7 E6: radius-token-only replaced no-off-scale-radius and closed the
+ * allowlist further — a NAMED radius class (rounded-2xl) is no longer
+ * permitted even though 16px is on-scale; only rounded-none or a --r-* token
+ * spelling passes. Updated to rounded-[var(--r-default)].
  */
 
 import type { JSX } from "react";
@@ -18,7 +23,7 @@ export const Good = (): JSX.Element => (
 	<button
 		type="button"
 		onClick={() => {}}
-		className="rounded-2xl bg-surface-1 text-text-hi p-[12px] gap-[6px] text-[14px] shadow-sm"
+		className="rounded-[var(--r-default)] bg-surface-1 text-text-hi p-[12px] gap-[6px] text-[14px] shadow-sm"
 	>
 		Good
 	</button>

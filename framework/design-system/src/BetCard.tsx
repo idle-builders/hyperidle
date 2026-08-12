@@ -133,14 +133,13 @@ export function BetCard({
 			<div className="flex items-center gap-[6px]">
 				{leadAvatar && (
 					<span
-						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold"
+						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold"
 						aria-label={`Lead agent: ${leadAvatar.name}`}
 					>
 						{leadAvatar.initials}
 					</span>
 				)}
 				{/* AI4 Decision 5: status rendering via StatusChip (label prop preserves human-readable labels) */}
-				{/* Note: rounded-[var(--r-pill)] NOT used — StatusChip uses rounded-full (BetCard.test.tsx line 33) */}
 				<StatusChip status={betStatusToStatus(status)} label={BET_STATUS_LABEL[status]} />
 				{/* AI4 AC5: Outcome verdict badge — semantic coloring via StatusChip */}
 				{outcomeVerdict && (
@@ -215,7 +214,7 @@ export function BetCard({
 										// biome-ignore lint/suspicious/noArrayIndexKey: static display-only list
 										key={i}
 										className={[
-											"inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0",
+											"inline-flex w-[24px] h-[24px] items-center justify-center rounded-[var(--r-pill)] text-[9px] font-[600] shrink-0",
 											i === 0 ? "" : "-ml-[6px]",
 											a.agent
 												? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)]"
@@ -246,7 +245,7 @@ export function BetCard({
 							// biome-ignore lint/suspicious/noArrayIndexKey: static display-only list
 							key={i}
 							className={[
-								"inline-flex w-[24px] h-[24px] items-center justify-center rounded-full text-[9px] font-[600] shrink-0",
+								"inline-flex w-[24px] h-[24px] items-center justify-center rounded-[var(--r-pill)] text-[9px] font-[600] shrink-0",
 								i === 0 ? "" : "-ml-[6px]",
 								a.agent
 									? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)]"

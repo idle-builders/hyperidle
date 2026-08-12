@@ -30,6 +30,7 @@ import {
 	Dialog,
 	EmptyState,
 	ErrorState,
+	Input,
 	LiveDot,
 	Menu,
 	PageHeader,
@@ -175,7 +176,7 @@ function AnchoredMessages({
 				return (
 					<div
 						key={msg.id}
-						className="text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded"
+						className="text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded-[var(--r-subtle)]"
 					>
 						{text}
 					</div>
@@ -338,22 +339,17 @@ function ConsequencePreviewDialog({
 			size="sm"
 			footer={
 				<>
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={onCancel}
-						disabled={submitting}
-					>
+					<Button variant="ghost" size="sm" onClick={onCancel} disabled={submitting}>
 						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-error"
+					</Button>
+					<Button
+						variant="destructive"
+						size="sm"
 						onClick={() => void handleConfirm()}
 						disabled={!reason.trim() || submitting}
 					>
 						{submitting ? "…" : "Kill bet"}
-					</button>
+					</Button>
 				</>
 			}
 		>
@@ -379,19 +375,15 @@ function ConsequencePreviewDialog({
 				</p>
 			</div>
 
-			<label className="flex flex-col gap-1">
-				<span className="text-xs text-[var(--text-tertiary)]">
-					Reason <span aria-hidden>(required)</span>
-				</span>
-				<textarea
-					className="textarea textarea-bordered text-base resize-none h-20 w-full"
-					placeholder="Why is this bet being killed?"
-					value={reason}
-					onChange={(e) => setReason(e.target.value)}
-					disabled={submitting}
-					maxLength={500}
-				/>
-			</label>
+			<Input
+				textarea
+				label="Reason (required)"
+				placeholder="Why is this bet being killed?"
+				value={reason}
+				onChange={(e) => setReason(e.target.value)}
+				disabled={submitting}
+				maxLength={500}
+			/>
 
 			{error && (
 				<p role="alert" className="text-xs text-error mt-2">
@@ -899,13 +891,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							{hintAddCredential.copy}
 						</p>
 						<div className="flex gap-2">
-							<button
-								type="button"
-								className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+							<Button
+								variant="ghost"
+								size="sm"
+								className="text-[var(--text-tertiary)]"
 								onClick={hintAddCredential.dismiss}
 							>
 								Got it
-							</button>
+							</Button>
 						</div>
 					</div>
 				)}
@@ -1171,39 +1164,25 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 											/>
 										</div>
 										{/* Reality / summary textarea */}
-										<div className="flex flex-col gap-[6px]">
-											<label
-												htmlFor="outcome-summary-textarea"
-												className="text-[12px] font-[500] text-[var(--text-secondary)]"
-											>
-												Reality
-											</label>
-											<textarea
-												id="outcome-summary-textarea"
-												data-testid="retro-summary-textarea"
-												className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
-												placeholder="What actually happened?"
-												value={outcomeSummaryForm}
-												onChange={(e) => setOutcomeSummaryForm(e.target.value)}
-											/>
-										</div>
+										<Input
+											textarea
+											id="outcome-summary-textarea"
+											data-testid="retro-summary-textarea"
+											label="Reality"
+											placeholder="What actually happened?"
+											value={outcomeSummaryForm}
+											onChange={(e) => setOutcomeSummaryForm(e.target.value)}
+										/>
 										{/* Learnings textarea */}
-										<div className="flex flex-col gap-[6px]">
-											<label
-												htmlFor="retro-learnings-textarea"
-												className="text-[12px] font-[500] text-[var(--text-secondary)]"
-											>
-												Learnings (optional)
-											</label>
-											<textarea
-												id="retro-learnings-textarea"
-												data-testid="retro-learnings-textarea"
-												className="textarea textarea-sm bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-primary)] text-[13px] min-h-[72px] resize-y"
-												placeholder="What did you learn from this bet?"
-												value={retroLearningsForm}
-												onChange={(e) => setRetroLearningsForm(e.target.value)}
-											/>
-										</div>
+										<Input
+											textarea
+											id="retro-learnings-textarea"
+											data-testid="retro-learnings-textarea"
+											label="Learnings (optional)"
+											placeholder="What did you learn from this bet?"
+											value={retroLearningsForm}
+											onChange={(e) => setRetroLearningsForm(e.target.value)}
+										/>
 									</div>
 								</div>
 								{/* Error */}
@@ -1371,7 +1350,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										key={task.id}
 										type="button"
 										data-testid="task-row"
-										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[rgba(44,36,26,0.02)] transition-colors duration-[var(--motion-fast)] text-left w-full"
+										// This is functionally a Row (title + subtitle-ish meta,
+										// clickable, hover tint) and belongs on <Row>, but Row's
+										// button-branch is missing w-full today (bug-list UI-060,
+										// unfixed — "do this first, several rows below depend on
+										// it"). Migrating onto the broken branch would shrink-wrap
+										// this row narrower than its current w-full. Left as a
+										// hand-rolled row pending UI-060.
+										// @lore AZ7 N1: hover:bg-[var(--accent-primary-dim)] is Set 3's
+										// row-hover tint — not a no-handrolled-control violation.
+										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[var(--accent-primary-dim)] transition-colors duration-[var(--motion-fast)] text-left w-full"
 										onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
 										aria-label={task.title}
 									>

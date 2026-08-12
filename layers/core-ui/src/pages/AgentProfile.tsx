@@ -239,8 +239,8 @@ function AgentProfileLoaded({
 						data-testid="run-state-unavailable"
 						className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
 						style={{
-							background: "rgba(220, 100, 60, 0.08)",
-							border: "1px solid rgba(220, 100, 60, 0.2)",
+							background: "color-mix(in oklab, var(--status-warning) 8%, transparent)",
+							border: "1px solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
 						}}
 					>
 						<span className="font-medium text-[var(--text-primary)]">Run state unavailable</span>
@@ -257,8 +257,8 @@ function AgentProfileLoaded({
 						role="alert"
 						className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
 						style={{
-							background: "rgba(220, 100, 60, 0.08)",
-							border: "1px solid rgba(220, 100, 60, 0.2)",
+							background: "color-mix(in oklab, var(--status-warning) 8%, transparent)",
+							border: "1px solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
 						}}
 					>
 						<span className="font-medium text-[var(--text-primary)]">Health warning</span>

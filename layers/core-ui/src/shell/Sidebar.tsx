@@ -208,7 +208,7 @@ function SectionHeader({
 			<span data-section-label={view}>{label}</span>
 			{badgeCount != null && badgeCount > 0 && (
 				<span
-					className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
+					className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[var(--r-pill)] text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
 					data-testid={
 						view === "knowledge"
 							? "knowledge-triage-badge"
@@ -244,10 +244,14 @@ function AssistantIconButton({
 			onClick={onClick}
 			aria-label="Assistant"
 			aria-expanded={open}
+			// A pressed/open TOGGLE state, not an action Button (Button has no
+			// built-in pressed treatment distinct from its 4 action variants).
 			className={[
 				"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)]",
 				"border border-[var(--border-subtle)]",
 				"transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
+				// selected tint — not a no-handrolled-control violation.
 				open
 					? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 					: "bg-[var(--surface-container)] text-[var(--text-secondary)] hover:border-[var(--border-default)] hover:text-[var(--text-primary)]",
@@ -314,7 +318,7 @@ function SettingsFooter({
 					<span>Notifications</span>
 					{hasUnread && (
 						<span
-							className="absolute top-[6px] right-[9px] w-[6px] h-[6px] rounded-full bg-[var(--status-error)]"
+							className="absolute top-[6px] right-[9px] w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--status-error)]"
 							data-testid="notification-unread-dot"
 							aria-hidden="true"
 						/>

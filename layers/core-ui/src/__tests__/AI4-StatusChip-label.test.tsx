@@ -93,7 +93,7 @@ describe("StatusChip label prop (AI4 Decision 1)", () => {
 			// The dot must still be present
 			const dot = container.querySelector("span > span");
 			expect(dot).toBeInTheDocument();
-			expect(dot).toHaveClass("rounded-full");
+			expect(dot).toHaveClass("rounded-[var(--r-pill)]");
 		});
 
 		it("data-status attribute reflects the status prop even when label is set", () => {
@@ -108,10 +108,10 @@ describe("StatusChip label prop (AI4 Decision 1)", () => {
 			expect(chip.className).toContain("text-[var(--status-success)]");
 		});
 
-		it("chip still has inline-flex and rounded-full when label is provided", () => {
+		it("chip still has inline-flex and rounded-[var(--r-pill)] when label is provided", () => {
 			render(<StatusChip status="paused" label="Draft" />);
 			const chip = screen.getByText("Draft");
-			expect(chip).toHaveClass("inline-flex", "rounded-full");
+			expect(chip).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		});
 	});
 

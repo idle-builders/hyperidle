@@ -15,11 +15,11 @@
  * @lore AG5: Not folded into Menu (AG5): a searchable entity-directory panel with
  * browse/selected/sending states + composer, not a transient action menu.
  * Uses role=listbox (entity directory), not role=menu (action list) — different
- * ARIA semantics, different interaction model. The no-handrolled-select lint rule
- * does not flag it because it does not use DaisyUI select classes.
+ * ARIA semantics, different interaction model. The no-handrolled-control lint
+ * rule does not flag it because it does not use DaisyUI control classes.
  */
 
-import { Avatar, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
+import { Avatar, Button, Input, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
@@ -128,7 +128,12 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	);
 
 	const handleMessageKeyDown = useCallback(
-		(e: KeyboardEvent<HTMLTextAreaElement>): void => {
+		// @lore AZ7 B2 (review round 1): Input's textarea mode types onKeyDown for
+		// HTMLInputElement (InputProps extends InputHTMLAttributes — see
+		// Input.tsx's own docblock on the textarea-mode cast). This handler only
+		// reads key/shiftKey/preventDefault, none of which are element-specific,
+		// so widening the param type to the union is a genuine type, not a cast.
+		(e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
 			if (e.key === "Escape") {
 				onCancel();
 				return;
@@ -197,10 +202,10 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 											</span>
 											{recipient.hasActiveSession && (
 												<span
-													className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
+													className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
 													aria-label="Live session"
 												>
-													<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
+													<span className="w-[5px] h-[5px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] animate-pulse" />
 													Live
 												</span>
 											)}
@@ -236,9 +241,15 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 							Change
 						</button>
 					</div>
-					<textarea
+					{/*
+					 * @lore AZ7 B2 (review round 1): was a hand-rolled <textarea>
+					 * already on token-legal fill/border but reproducing Input's own
+					 * textarea-mode recipe by hand. Migrated to Input's textarea mode.
+					 */}
+					<Input
 						ref={messageRef}
-						className="w-full min-h-[80px] p-[8px] bg-[var(--surface-elevated)] border border-[var(--border-default)] rounded-[var(--r-subtle)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:border-[var(--accent-deep)] transition-[border-color] duration-[var(--motion-fast)]"
+						textarea
+						className="w-full"
 						placeholder="Type a message..."
 						value={message}
 						onChange={(e) => setMessage(e.target.value)}
@@ -251,22 +262,22 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 						</p>
 					)}
 					<div className="flex justify-end gap-[8px]">
-						<button
-							type="button"
-							className="btn btn-sm btn-ghost text-[var(--text-tertiary)]"
+						<Button
+							variant="ghost"
+							size="sm"
 							onClick={onCancel}
 							disabled={pickerState === "sending"}
 						>
 							Cancel
-						</button>
-						<button
-							type="button"
-							className="btn btn-sm btn-primary"
+						</Button>
+						<Button
+							variant="primary"
+							size="sm"
 							onClick={() => void handleSend()}
 							disabled={pickerState === "sending" || !message.trim()}
 						>
 							{pickerState === "sending" ? "Sending..." : "Send"}
-						</button>
+						</Button>
 					</div>
 				</>
 			)}

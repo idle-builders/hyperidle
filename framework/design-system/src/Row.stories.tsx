@@ -77,7 +77,7 @@ export const WithCells = (): React.JSX.Element => (
 			lead={<RowDot tone="success" label="Healthy" />}
 			cells={[
 				{ content: <Tag label="team" />, "data-testid": "agent-card-category" },
-				{ content: "idle", width: 48, tone: "neutral", "data-testid": "agent-status" },
+				{ content: "idle", width: 48, "data-testid": "agent-status" },
 				{
 					content: "Awaiting next task",
 					width: 140,

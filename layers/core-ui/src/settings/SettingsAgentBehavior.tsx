@@ -326,7 +326,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 									<a
 										key={link.href}
 										href={link.href}
-										className="inline-flex min-h-[32px] items-center rounded-full border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-primary)]"
+										className="inline-flex min-h-[32px] items-center rounded-[var(--r-pill)] border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-primary)]"
 									>
 										{link.label}
 									</a>
@@ -339,7 +339,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 								<a
 									key={link.href}
 									href={link.href}
-									className="inline-flex min-h-[32px] items-center rounded-full border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-primary)]"
+									className="inline-flex min-h-[32px] items-center rounded-[var(--r-pill)] border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-primary)]"
 								>
 									{link.label}
 								</a>

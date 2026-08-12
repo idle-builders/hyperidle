@@ -6,7 +6,7 @@
  *
  * Plan Task 5: Promote LiveDot from WorkTask/TaskSheet to the design system
  * as a standalone component with the exact body:
- *   aria-hidden inline-block w-[6px] h-[6px] rounded-full
+ *   aria-hidden inline-block w-[6px] h-[6px] rounded-[var(--r-pill)]
  *   bg-[var(--accent-primary)] animate-pulse shrink-0
  *
  * NOTE: This test lives in design-system/__tests__ because LiveDot is a
@@ -52,9 +52,9 @@ describe("LiveDot (AI4 AC3, Task 5)", () => {
 		expect(html).toContain("h-[6px]");
 	});
 
-	it("rendered HTML includes rounded-full class (circular dot)", () => {
+	it("rendered HTML includes rounded-[var(--r-pill)] class (circular dot)", () => {
 		const html = ReactDOMServer.renderToStaticMarkup(React.createElement(LiveDot));
-		expect(html).toContain("rounded-full");
+		expect(html).toContain("rounded-[var(--r-pill)]");
 	});
 
 	it("rendered HTML uses accent-primary token (no hardcoded color)", () => {

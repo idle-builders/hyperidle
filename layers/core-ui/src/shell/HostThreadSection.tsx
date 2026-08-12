@@ -29,7 +29,7 @@
  */
 
 import type { CommentRowSender } from "@hyperidle/design-system";
-import { CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
+import { Button, CommentRow, ErrorState, Input, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message, PlainPayload } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -310,7 +310,7 @@ export function HostThreadSection({
 			{prefill && (
 				<div
 					data-testid="host-thread-prefill-chip"
-					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded text-[var(--text-tertiary)]"
+					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded-[var(--r-pill)] text-[var(--text-tertiary)]"
 				>
 					<span>Re:</span>
 					<span className="truncate">{prefill.blockExcerpt}</span>
@@ -328,14 +328,24 @@ export function HostThreadSection({
 			)}
 
 			{/* Composer — inline single-line pattern matching knowledge-edit.html .discussion-composer */}
-			{/* hearth-internal-padding */}
+			{/*
+			 * @lore AZ7 B2 (review round 1): was a hand-rolled <input> — the design
+			 * system's own Composer component doesn't fit (it's multiline, submits
+			 * on Cmd/Ctrl+Enter, and owns a heavier ComposerSubmitInput contract
+			 * with clientKey/refs this call site doesn't have); migrated to the
+			 * plain Input primitive instead, which matches this field's actual
+			 * shape (single-line, Enter-to-send, no shift+Enter distinction) with
+			 * no behavior change. This also fixes bg-[var(--surface-page)] as an
+			 * input fill — Set 3 gives that token exactly one job (the page
+			 * canvas); a text input is --surface-elevated's job, which Input
+			 * already carries.
+			 */}
 			<div className="flex gap-[9px] items-stretch">
-				<input
+				<Input
 					ref={composerRef}
 					type="text"
 					data-testid="composer-textarea"
-					className="flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
-					style={{ padding: "9px 12px" }}
+					className="flex-1"
 					placeholder="Write a message…"
 					value={composerText}
 					onChange={(e) => setComposerText(e.target.value)}
@@ -347,15 +357,15 @@ export function HostThreadSection({
 					}}
 					disabled={sending}
 				/>
-				<button
-					type="button"
-					className="inline-flex items-center text-[12px] font-[500] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] border-none cursor-pointer hover:bg-[var(--accent-primary-hover)] transition-colors duration-[var(--motion-fast)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-					style={{ padding: "7px 12px" }}
+				<Button
+					variant="primary"
+					size="sm"
+					className="shrink-0"
 					disabled={!composerText.trim() || sending}
 					onClick={() => void handleSend()}
 				>
 					Send
-				</button>
+				</Button>
 			</div>
 		</div>
 	);

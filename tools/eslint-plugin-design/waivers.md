@@ -15,7 +15,7 @@ are now hard errors there. They remain `warn` for `layers/core-ui/src/**`
 because consumer code (pages, shells) still has a small backlog.
 
 - `design/no-hardcoded-color`
-- `design/no-off-scale-radius`
+- `design/radius-token-only` (AZ7 renamed `no-off-scale-radius` → `radius-token-only` and tightened its allowlist; the design-system package remains at zero survivors under the new rule too)
 - `design/no-off-scale-font-size`
 - `design/no-raw-tailwind-color`
 - `design/require-ds-attribute`

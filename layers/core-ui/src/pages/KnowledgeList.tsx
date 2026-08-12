@@ -213,6 +213,10 @@ function groupByTopic(items: ApiKnowledgeItem[]): Array<{
  * AI4 Note A: kind is NOT status — this stays local (Tag would be the ideal
  * primitive but kind badge style matches existing visual treatment).
  */
+// @lore AZ7: the design system's closed status-presentation set is explicit
+// that Tag/ReferenceChip/ArtifactKindBadge are "what an object IS", not a
+// state — kind is NOT status.
+// eslint-disable-next-line design/no-local-status-builder -- AI4 Note A: the name matches the rule's Badge+Style naming heuristic by coincidence; this builds a KIND treatment (Pattern/Decision/Failure), never a state.
 function kindBadgeStyle(kind: string): { background: string; color: string } {
 	const k = kind.toLowerCase();
 	if (k === "pattern") {
@@ -605,28 +609,28 @@ function KnowledgeListContent({
 								className="flex items-center gap-[12px] px-[24px] py-[9px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]"
 							>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										j
 									</kbd>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)] ml-[3px]">
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)] ml-[3px]">
 										k
 									</kbd>
 									&nbsp;navigate
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										Enter
 									</kbd>
 									&nbsp;open
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										v
 									</kbd>
 									&nbsp;validate
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[4px] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
 										x
 									</kbd>
 									&nbsp;reject
@@ -658,13 +662,14 @@ function KnowledgeListContent({
 										{hintKnowledgeEmpty.copy}
 									</p>
 									<div className="flex gap-[9px]">
-										<button
-											type="button"
-											className="btn btn-ghost btn-xs text-[var(--text-tertiary)] min-h-[44px]"
+										<Button
+											variant="ghost"
+											size="sm"
+											className="text-[var(--text-tertiary)]"
 											onClick={hintKnowledgeEmpty.dismiss}
 										>
 											Got it
-										</button>
+										</Button>
 									</div>
 								</div>
 							)}

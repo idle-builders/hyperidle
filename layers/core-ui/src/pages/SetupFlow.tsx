@@ -222,13 +222,13 @@ function WelcomeVisual(): JSX.Element {
 				>
 					<div className="flex items-center gap-[6px] mb-[6px]">
 						<span
-							className="block w-[8px] h-[8px] rounded-full shrink-0"
+							className="block w-[8px] h-[8px] rounded-[var(--r-pill)] shrink-0"
 							style={{ background: dotColor }}
 						/>
-						<span className="block h-[6px] rounded-full bg-[var(--border-subtle)] w-3/5" />
+						<span className="block h-[6px] rounded-[var(--r-pill)] bg-[var(--border-subtle)] w-3/5" />
 					</div>
-					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-[90%] mb-[3px]" />
-					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-3/5" />
+					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-[var(--r-pill)] w-[90%] mb-[3px]" />
+					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-[var(--r-pill)] w-3/5" />
 				</div>
 			))}
 		</div>
@@ -810,12 +810,24 @@ export function SetupFlow(): JSX.Element {
 								Project folder{" "}
 								<span className="font-[400] text-[var(--text-tertiary)]">(optional)</span>
 							</label>
-							<div className="relative">
+							{/*
+							 * @lore AZ7 B2 (review round 1): was a hand-rolled <input>
+							 * reproducing Input's own recipe (bg-surface-elevated,
+							 * border-default 1.5px, rounded-default) plus a raw hex-alpha
+							 * focus shadow instead of the --accent-primary-dim token, with
+							 * the "browse folder" button absolutely positioned INSIDE the
+							 * input's padding. Migrated to the design-system Input; the
+							 * browse button moves beside the field (Button size="icon")
+							 * instead of overlaying it — same affordance, no bespoke
+							 * conditional padding needed to keep text clear of the icon.
+							 */}
+							<div className="flex items-center gap-[6px]">
 								{window.__HYPERIDLE__?.shell?.selectFolder && (
-									<button
+									<Button
 										type="button"
+										variant="ghost"
+										size="icon"
 										aria-label="Browse for folder"
-										className="absolute inset-y-0 left-0 flex items-center pl-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] cursor-pointer z-10"
 										onClick={handleFolderPick}
 									>
 										<svg
@@ -832,20 +844,12 @@ export function SetupFlow(): JSX.Element {
 										>
 											<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
 										</svg>
-									</button>
+									</Button>
 								)}
-								<input
+								<Input
 									id="setup-repo"
 									type="text"
-									className={[
-										"w-full text-[15px] px-[12px] py-[10px]",
-										"bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)]",
-										"rounded-[var(--r-default)] text-[var(--text-primary)]",
-										"placeholder:text-[var(--text-placeholder)]",
-										"transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
-										"outline-none focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_rgba(111,77,30,0.12)]",
-										window.__HYPERIDLE__?.shell?.selectFolder ? "pl-[36px]" : "",
-									].join(" ")}
+									className="flex-1"
 									placeholder="/Users/you/my-project"
 									value={repoPath}
 									onChange={(e) => setRepoPath(e.target.value)}
@@ -894,11 +898,15 @@ export function SetupFlow(): JSX.Element {
 												setCustomFunctions([]);
 											}
 										}}
+										// A pressed/selected TOGGLE in a preset picker group, not an
+										// action Button (Button has no built-in pressed/selected
+										// treatment distinct from its 4 action variants).
 										className={[
 											"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)] text-[13px] font-[500]",
 											"border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 											isSelected
-												? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] btn-primary selected"
+												? // eslint-disable-next-line design/no-handrolled-control -- see comment above
+													"border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
 												: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:border-[var(--border-strong)]",
 										].join(" ")}
 									>
