@@ -54,8 +54,6 @@ import {
 
 const SERVER_SECRET = "au21-k1-edge-closed-secret";
 const NOW = "2026-08-02T00:00:00.000Z";
-const USER_HUMAN_ID = "u-k1-edge-closed-human";
-const AGENT_CALLER_ID = "agent-k1-edge-closed-caller";
 
 let sandboxPath: string;
 beforeEach(() => {
@@ -72,11 +70,14 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 	test("live in-layer read -> buildProvisioningPlan -> applyProvisioningPlan completes fully with `app.fetch` (the ONE choke point every in-process CoreApiPort call goes through) NEVER invoked", async ({
 		db,
 		app,
+		ids,
 	}) => {
+		const humanId = ids("u-k1-edge-closed-human");
+		const agentId = ids("agent-k1-edge-closed-caller");
 		await db
 			.insert(users)
 			.values({
-				id: USER_HUMAN_ID,
+				id: humanId,
 				kind: "human",
 				name: "K1 Edge-Closed Human",
 				role: "founder",
@@ -87,7 +88,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 		await db
 			.insert(users)
 			.values({
-				id: AGENT_CALLER_ID,
+				id: agentId,
 				kind: "ai",
 				name: "K1 Edge-Closed Agent",
 				role: "engineer",
@@ -96,9 +97,10 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 			})
 			.onConflictDoNothing();
 		const encryptedToken = encryptCredentialValue("sk_test_k1_edge_closed");
+		const scId = ids("sc-k1-edge-closed-stripe");
 		await db.insert(serviceConnections).values({
-			id: "sc-k1-edge-closed-stripe",
-			userId: USER_HUMAN_ID,
+			id: scId,
+			userId: humanId,
 			service: "stripe",
 			authSource: "token",
 			encryptedToken,
@@ -118,7 +120,7 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 		const resolver = new ServiceConnectionResolver(db);
 		const plan = await buildProvisioningPlan({
 			connections: {
-				listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID),
+				listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, humanId),
 			},
 			resolver,
 		});
@@ -150,13 +152,15 @@ describe("run-orchestration's connection-provisioning path makes ZERO CoreApiPor
 	test("the same proof holds when there is no held connection at all — still zero CoreApiPort calls", async ({
 		db,
 		app,
+		ids,
 	}) => {
+		const humanId = ids("u-k1-edge-closed-human-empty");
 		const fetchSpy = vi.spyOn(app, "fetch");
 
 		const resolver = new ServiceConnectionResolver(db);
 		const plan = await buildProvisioningPlan({
 			connections: {
-				listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID),
+				listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, humanId),
 			},
 			resolver,
 		});

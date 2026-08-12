@@ -214,7 +214,7 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 			agentId,
 			humanId,
 		);
-		const fsRows = await db.select().from(filesystems);
+		const fsRows = await db.select().from(filesystems).where(eq(filesystems.teamId, teamId));
 		expect(fsRows).toEqual([]);
 
 		// The request carries NOTHING about filesystems — the bake is gone, so

@@ -22,10 +22,8 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts` — `toolId: "commit_file"` is a tool identifier (configuration value), not an entity id
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts` — `toolId: "commit_file"` and `approvedToolId: "commit_file"` are tool identifiers (configuration values), not entity ids
 - `layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts` — `scopeId: "building"` is a community name (configuration value), not an entity id
-- `layers/core-api/src/services/__tests__/routine-scheduler.au15.integration.test.ts`
-- `layers/core-api/src/services/__tests__/run-orchestration-connections-provisioning-edge-closed.integration.test.ts`
-- `layers/core-api/src/services/__tests__/session-knowledge-assembler-ranking-parity.integration.test.ts`
-- `layers/core-api/src/services/__tests__/session-review-creator.reengagement-liveness-baked-emit.integration.test.ts`
+- `layers/core-api/src/services/__tests__/session-knowledge-assembler-ranking-parity.integration.test.ts` — `scopeId: "building"` and `scopeId: "growth"` are community names (configuration values), not entity ids
+- `layers/core-api/src/services/__tests__/session-review-creator.reengagement-liveness-baked-emit.integration.test.ts` — `toolId: "commit_file"` and `approvedToolId: "commit_file"` are tool identifiers (configuration values), not entity ids
 - `layers/core-api/users/src/__tests__/runnable-agent.integration.test.ts`
 
 ## no-unscoped-table-read

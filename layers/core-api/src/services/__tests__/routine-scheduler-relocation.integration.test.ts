@@ -59,7 +59,7 @@ import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-07-28T00:00:00.000Z";
@@ -259,11 +259,12 @@ describe("relocated fireBuiltinRoutine", () => {
 
 		expect(result.fired).toBe(true);
 		// Scope: find the review item created by this routine fire by its body content
-		// (unscoped whole-table reads break in a populated world).
-		const allItems = await db.select().from(items);
-		const reviewItem = allItems.find(
-			(r) => r.kind === "review" && (r.body ?? "").includes("Relocating the scheduler"),
-		);
+		// (scoped predicate so it works in a populated world).
+		const [reviewItem] = await db
+			.select()
+			.from(items)
+			.where(sql`${items.kind} = 'review' AND ${items.body} LIKE '%Relocating the scheduler%'`)
+			.limit(1);
 		expect(reviewItem).toBeDefined();
 		expect(reviewItem?.body ?? "").toContain(
 			"Relocating the scheduler changes nothing observable.",

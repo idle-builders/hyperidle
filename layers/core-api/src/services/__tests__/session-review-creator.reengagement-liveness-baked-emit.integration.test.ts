@@ -67,18 +67,28 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 	test("first no-show re-provision bakes the reengagement request onto the retry intent", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const idPrefix = "au21-reengage-liveness-1";
-		const teamId = `${idPrefix}-team`;
-		const betId = `${idPrefix}-bet`;
-		const taskId = `${idPrefix}-task`;
-		const agentId = `${idPrefix}-agent`;
-		const pcId = `${idPrefix}-pc`;
+		const teamId = ids(`${idPrefix}-team`);
+		const betId = ids(`${idPrefix}-bet`);
+		const taskId = ids(`${idPrefix}-task`);
+		const agentId = ids(`${idPrefix}-agent`);
+		const pcId = ids(`${idPrefix}-pc`);
+		const threadId = ids(`${idPrefix}-thread`);
+		const msgId = ids(`${idPrefix}-msg`);
+		const artifactId = ids(`${idPrefix}-artifact`);
+		const originSessionId = ids(`${idPrefix}-origin`);
+		const identityHash = ids(`${idPrefix}-hash`);
 
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
+		await db.insert(teamMembers).values({
+			id: ids(`${teamId}-members`),
+			teamId,
+			capacity: 5,
+			activeBets: 0,
+			formedAt: NOW,
+		});
 		await db.insert(users).values({
 			id: agentId,
 			kind: "ai",
@@ -105,7 +115,7 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 			updatedAt: NOW,
 		});
 		await db.insert(threads).values({
-			id: `${idPrefix}-thread`,
+			id: threadId,
 			hostKind: "task",
 			hostId: taskId,
 			initiatorId: agentId,
@@ -114,29 +124,29 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 			createdAt: NOW,
 		});
 		await db.insert(messages).values({
-			id: `${idPrefix}-msg`,
+			id: msgId,
 			senderId: agentId,
-			threadId: `${idPrefix}-thread`,
+			threadId,
 			type: "review",
 			payload: JSON.stringify({ title: "Review", reasoning: ["reason"] }),
-			clientKey: `${idPrefix}-msg`,
+			clientKey: msgId,
 			createdAt: NOW,
 		});
 		await db.insert(artifacts).values({
-			id: `${idPrefix}-artifact`,
+			id: artifactId,
 			producingTaskId: taskId,
 			kind: "action_operation",
 			createdAt: NOW,
 		});
 		await db.insert(proposedCalls).values({
 			id: pcId,
-			reviewMessageId: `${idPrefix}-msg`,
-			subjectThreadId: `${idPrefix}-thread`,
-			artifactId: `${idPrefix}-artifact`,
-			originSessionId: `${idPrefix}-origin`,
+			reviewMessageId: msgId,
+			subjectThreadId: threadId,
+			artifactId,
+			originSessionId,
 			toolId: "commit_file",
 			args: JSON.stringify({ path: "result.txt" }),
-			identityHash: `${idPrefix}-hash`,
+			identityHash,
 			reversibility: "irreversible",
 			status: "granted",
 			stagedByAgentId: agentId,
@@ -178,8 +188,8 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 		const unsub = registerReviewSubscriptions(db, eventBus, ports);
 		const event: SessionEndedEvent = {
 			type: "session_ended",
-			streamId: "stream-au21-reengage-liveness",
-			sessionId: `sess-${idPrefix}`,
+			streamId: ids("stream-au21-reengage-liveness"),
+			sessionId: ids(`sess-${idPrefix}`),
 			agentId,
 			taskId,
 			outcome: "completed",

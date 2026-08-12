@@ -81,11 +81,13 @@ async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 
 async function seedRoutineWorld(
 	db: HyperIdleDb,
-	id = "au15-sched-routine",
+	ids: (label: string) => string,
+	prefix: string,
 ): Promise<{ routineId: string; ownerAgentId: string }> {
-	const teamId = `${id}-team`;
-	const tmId = `${id}-tm`;
-	const ownerAgentId = `${id}-owner`;
+	const routineId = ids(`${prefix}-routine`);
+	const teamId = ids(`${prefix}-team`);
+	const tmId = ids(`${prefix}-tm`);
+	const ownerAgentId = ids(`${prefix}-owner`);
 
 	await db
 		.insert(teams)
@@ -103,7 +105,7 @@ async function seedRoutineWorld(
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({
-		id,
+		id: routineId,
 		name: "AU15 sched routine",
 		teamId,
 		state: "active",
@@ -112,7 +114,7 @@ async function seedRoutineWorld(
 		active: true,
 	});
 
-	return { routineId: id, ownerAgentId };
+	return { routineId, ownerAgentId };
 }
 
 describe("fire-time no longer evaluates owner-WIP", () => {
@@ -120,10 +122,12 @@ describe("fire-time no longer evaluates owner-WIP", () => {
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		const { routineId, ownerAgentId } = await seedRoutineWorld(db, "au15-r2-routine");
+		const { routineId, ownerAgentId } = await seedRoutineWorld(db, ids, "au15-r2");
+		const sessionId = ids("au15-r2-owner-session");
 		await db.insert(sessions).values({
-			id: "au15-r2-owner-session",
+			id: sessionId,
 			agentId: ownerAgentId,
 			modelTier: "fast",
 			startedAt: NOW,
@@ -156,8 +160,9 @@ describe("unified run-row coalescing across both fire paths", () => {
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		const { routineId } = await seedRoutineWorld(db, "au15-r3a-routine");
+		const { routineId } = await seedRoutineWorld(db, ids, "au15-r3a");
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 
 		const first = await fireGenericRoutine(
@@ -193,8 +198,9 @@ describe("unified run-row coalescing across both fire paths", () => {
 		eventBus,
 		app,
 		agentOrchestration,
+		ids,
 	}) => {
-		const { routineId } = await seedRoutineWorld(db, "au15-r3b-routine");
+		const { routineId } = await seedRoutineWorld(db, ids, "au15-r3b");
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 
 		// Poll-created run: fired, but never provisioned into a session (no
@@ -233,8 +239,9 @@ describe("terminal-failure finalization of session-less running runs", () => {
 		db,
 		eventBus,
 		agentOrchestration,
+		ids,
 	}) => {
-		const { routineId } = await seedRoutineWorld(db, "au15-r4a-routine");
+		const { routineId } = await seedRoutineWorld(db, ids, "au15-r4a");
 		const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
 		const fireResult = await fireGenericRoutine(
 			db,
@@ -316,16 +323,17 @@ describe("terminal-failure finalization of session-less running runs", () => {
 	test("AC-3c: terminal PROVISION failure (post-hand-off) finalizes the run via Wave C's agent_run_lifecycle_changed reaction, not the drain", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const { routineId, ownerAgentId } = await seedRoutineWorld(db, "au15-r4b-routine");
-		const runId = "au15-r4b-run";
+		const { routineId, ownerAgentId } = await seedRoutineWorld(db, ids, "au15-r4b");
+		const runId = ids("au15-r4b-run");
 		await routineService.insertRoutineRun(db, {
 			id: runId,
 			routineId,
 			startedAt: NOW,
 			outcome: "running",
 		});
-		const requestId = "au15-r4b-request";
+		const requestId = ids("au15-r4b-request");
 		await db.insert(agentSessionRequests).values({
 			id: requestId,
 			sourceKind: "routine",
