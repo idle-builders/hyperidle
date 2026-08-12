@@ -113,16 +113,16 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 		vi.unstubAllEnvs();
 	});
 
-	test("flush delivers pending rows and marks them sent", async ({ db }) => {
+	test("flush delivers pending rows and marks them sent", async ({ db, ids }) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
-		await insertPendingRow(db, "drain-row-1", "blocking");
+		await insertPendingRow(db, ids("drain-row"), "blocking");
 
 		// deliver({kind:"flush"}) wraps loadNotificationConfig + recoverStuckLeases + flushQueue
 		await deliver(db, { kind: "flush" }, notificationsDeps, { adapterOverride: adapter });
 
 		const rows = (await listNotifications(db, { kind: "all" })).filter(
-			(r) => r.id === "drain-row-1",
+			(r) => r.id === ids("drain-row"),
 		);
 		// After flush: status = sent OR the adapter was called
 		expect(adapter.calls.length + rows.filter((r) => r.status === "sent").length).toBeGreaterThan(
@@ -133,6 +133,7 @@ describe("AF8 AC1 — drain loop delivers pending row without manual flush", () 
 	test("installNotifications returns a disposer that stops the interval", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		// installNotifications replaces startNotificationDrain (Ag6b)
 		const dispose = installNotifications(db, eventBus, notificationsDeps);
@@ -154,17 +155,18 @@ describe("AF8 AC2 — notification event produces typed, source-linked row", () 
 	test("policy-engine push notification → row with typeKey=review_request and thread-keyed sourceLink", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const threadId = "thread-af8-ac2";
-		const itemId = "item-af8-ac2";
+		const threadId = ids("thread-ac2");
+		const itemId = ids("item-ac2");
 
 		// Seed thread and item
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-af8",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
+			hostId: ids("task-ac2"),
+			initiatorId: ids("agent1"),
+			participants: JSON.stringify([ids("agent1")]),
 			lastActiveAt: "2026-06-11T00:00:00.000Z",
 			createdAt: "2026-06-11T00:00:00.000Z",
 		});
@@ -227,6 +229,7 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 	test("notification event with kind=auto_unblock produces NO notification_queue row", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const dispose = installNotifications(db, eventBus, notificationsDeps);
 
@@ -263,6 +266,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 
 	test("blocking row stays pending during quiet hours; delivered after silence cleared", async ({
 		db,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
@@ -270,7 +274,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		// Set quiet-hours window covering "now" (00:00–23:59 = always)
 		await setSilenceWindow(db, "00:00", "23:59");
 
-		await insertPendingRow(db, "quiet-block-1", "blocking");
+		await insertPendingRow(db, ids("quiet-block"), "blocking");
 
 		// Run drain with "now" inside quiet hours
 		const raw1 = await deliver(db, { kind: "flush" }, notificationsDeps, {
@@ -284,7 +288,7 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 		const rows = (await listNotifications(db, { kind: "all" })).filter(
 			(r) => r.status === "pending",
 		);
-		expect(rows.some((r) => r.id === "quiet-block-1")).toBe(true);
+		expect(rows.some((r) => r.id === ids("quiet-block"))).toBe(true);
 
 		// Clear quiet hours
 		await setSilenceWindow(db, "22:00", "22:01");
@@ -304,14 +308,14 @@ describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
 // --- AC5: stuck sending lease recovered by drain ---
 
 describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
-	test("flush recovers stuck sending rows and delivers them", async ({ db }) => {
+	test("flush recovers stuck sending rows and delivers them", async ({ db, ids }) => {
 		const adapter = createFakeAdapter();
 		await enableNotifications(db);
 
 		// Insert a row that appears stuck in 'sending' for 6 minutes
 		const stuckClaimedAt = new Date(Date.now() - 6 * 60 * 1000 - 1000).toISOString();
 		await enqueue(db, {
-			id: "stuck-lease-1",
+			id: ids("stuck-lease"),
 			eventType: "test_event",
 			subjectId: null,
 			severity: "blocking",
@@ -335,7 +339,7 @@ describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
 		expect(raw.flushed).toBeGreaterThan(0);
 
 		const rows = await listNotifications(db, { kind: "all" });
-		const row = rows.find((r) => r.id === "stuck-lease-1");
+		const row = rows.find((r) => r.id === ids("stuck-lease"));
 		expect(row).toBeDefined();
 		expect(row!.status).toBe("sent");
 	});
@@ -353,16 +357,17 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 	test("review_request notifications are not enqueued when type is muted", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const threadId = "thread-af8-ac9";
-		const itemId = "item-af8-ac9";
+		const threadId = ids("thread-ac9");
+		const itemId = ids("item-ac9");
 
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-af8-mute",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
+			hostId: ids("task-ac9"),
+			initiatorId: ids("agent1"),
+			participants: JSON.stringify([ids("agent1")]),
 			lastActiveAt: "2026-06-11T00:00:00.000Z",
 			createdAt: "2026-06-11T00:00:00.000Z",
 		});
@@ -424,11 +429,11 @@ describe("AF8 AC10 — popover API routes", () => {
 		expect(Array.isArray(body.rows)).toBe(true);
 	});
 
-	test("POST /notifications/seen marks all unseen rows as seen", async ({ db, app }) => {
+	test("POST /notifications/seen marks all unseen rows as seen", async ({ db, app, ids }) => {
 		// Insert an unseen notification row
 		const nowIso = new Date().toISOString();
 		await enqueue(db, {
-			id: "notif-seen-1",
+			id: ids("notif-seen"),
 			eventType: "test",
 			subjectId: null,
 			severity: "blocking",
@@ -455,10 +460,10 @@ describe("AF8 AC10 — popover API routes", () => {
 		expect(seen?.seenAt).toBeTruthy();
 	});
 
-	test("POST /notifications/:id/read marks a row as read", async ({ db, app }) => {
+	test("POST /notifications/:id/read marks a row as read", async ({ db, app, ids }) => {
 		// Valid UUID v4 — zod v4 z.string().uuid() requires version nibble [1-8] per RFC
 		// (00000000-0000-0000-0000-000000000001 fails zod v4 strict UUID pattern)
-		const notifId = "a1b2c3d4-e5f6-4789-abcd-ef0123456789";
+		const notifId = ids("notif-read");
 		const nowIso = new Date().toISOString();
 		await enqueue(db, {
 			id: notifId,

@@ -1,5 +1,7 @@
 import { bets, teamMembers, teams } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { createTestDb } from "@hyperidle/db/testing";
+import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
 
@@ -14,24 +16,34 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
+async function seedTeamAndMembers(
+	db: import("@hyperidle/db").HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ teamId: string; teamMembersId: string }> {
+	const teamId = ids("t1");
+	const teamMembersId = ids("tm1");
+	await db.insert(teams).values({
+		id: teamId,
+		name: "Test Product",
+		phase: "build",
+		createdAt: new Date().toISOString(),
+	});
+	await db.insert(teamMembers).values({
+		id: teamMembersId,
+		teamId,
+		capacity: 2,
+		activeBets: 0,
+		formedAt: new Date().toISOString(),
+	});
+	return { teamId, teamMembersId };
+}
+
 describe("Bet Endpoints (E3)", () => {
-	test("AC1: returns bets grouped by status", async ({ db, app, eventBus: _eb }) => {
+	test("AC1: returns bets grouped by status", async ({ db, app, eventBus: _eb, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		// Seed domain entity and membership group
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		async function createBet(
 			overrides?: Record<string, unknown>,
@@ -40,7 +52,7 @@ describe("Bet Endpoints (E3)", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId,
 					description: "Build feature X",
 					...overrides,
 				}),
@@ -66,40 +78,32 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC1: returns empty groups when no bets exist", async ({ app }) => {
+	test("AC1: returns empty groups for own team when no bets exist", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+		// Arrange own team (no bets for it)
+		const { teamId } = await seedTeamAndMembers(db, ids);
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown[]>;
-		expect(body.draft).toHaveLength(0);
-		expect(body.active).toHaveLength(0);
-		expect(body.completed).toHaveLength(0);
-		expect(body.killed).toHaveLength(0);
+		const body = (await res.json()) as Record<string, Array<Record<string, unknown>>>;
+		// Scoped: only our team's bets count
+		const own = (group: Array<Record<string, unknown>>) => group.filter((b) => b.teamId === teamId);
+		expect(own(body.draft)).toHaveLength(0);
+		expect(own(body.active)).toHaveLength(0);
+		expect(own(body.completed)).toHaveLength(0);
+		expect(own(body.killed)).toHaveLength(0);
 		vi.unstubAllEnvs();
 	});
 
-	test("AC2: returns bet with its tasks", async ({ db, app }) => {
+	test("AC2: returns bet with its tasks", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -108,9 +112,9 @@ describe("Bet Endpoints (E3)", () => {
 
 		const { tasks } = await import("@hyperidle/db");
 		await db.insert(tasks).values({
-			id: "task-1",
+			id: ids("task1"),
 			betId,
-			teamId: "prod-1",
+			teamId,
 			title: "Implement X",
 			state: "proposed",
 			createdAt: new Date().toISOString(),
@@ -134,28 +138,16 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC3: creates a bet with status draft", async ({ db, app }) => {
+	test("AC3: creates a bet with status draft", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "New bet pitch",
 				hypothesis: "Users will engage more",
 			}),
@@ -171,54 +163,30 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC3: returns 400 for missing required fields", async ({ db, app }) => {
+	test("AC3: returns 400 for missing required fields", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const res = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
-			body: JSON.stringify({ teamId: "prod-1" }),
+			body: JSON.stringify({ teamId }),
 		});
 		expect(res.status).toBe(400);
 		vi.unstubAllEnvs();
 	});
 
-	test("AC4: updates a field on an active bet", async ({ db, app }) => {
+	test("AC4: updates a field on an active bet", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -244,35 +212,23 @@ describe("Bet Endpoints (E3)", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		expect(body.doneCondition).toBe("All tests pass");
 
-		const rows = await db.select().from(bets);
+		const rows = await db.select().from(bets).where(eq(bets.teamId, teamId));
 		const betRow = rows[0];
 		const revisionLog = JSON.parse(betRow!.revisionLog ?? "[]") as unknown[];
 		expect(revisionLog.length).toBeGreaterThan(0);
 		vi.unstubAllEnvs();
 	});
 
-	test("AC4: returns 500 for non-active bet", async ({ db, app }) => {
+	test("AC4: returns 500 for non-active bet", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -291,28 +247,16 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC5: transitions draft bet to active", async ({ db, app }) => {
+	test("AC5: transitions draft bet to active", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -329,22 +273,10 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC5: emits bet_state_changed event on commit", async ({ db, app, eventBus }) => {
+	test("AC5: emits bet_state_changed event on commit", async ({ db, app, eventBus, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const events: unknown[] = [];
 		eventBus.on("bet_state_changed", (e: unknown) => events.push(e));
@@ -353,7 +285,7 @@ describe("Bet Endpoints (E3)", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -367,29 +299,17 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC5: rejects commit when team is at capacity (409)", async ({ db, app }) => {
+	test("AC5: rejects commit when team is at capacity (409)", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		async function createBet(desc: string): Promise<Record<string, unknown>> {
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId,
 					description: desc,
 				}),
 			});
@@ -413,28 +333,16 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC6: transitions active bet to completed", async ({ db, app }) => {
+	test("AC6: transitions active bet to completed", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -457,28 +365,16 @@ describe("Bet Endpoints (E3)", () => {
 
 	// @lore U2: Invalid bet transitions return 400 (not 409). 409 is reserved for
 	// capacity conflicts (ApiError CONFLICT). InvalidTransitionError -> 400 VALIDATION_ERROR.
-	test("AC6: rejects ship from draft (invalid transition 400)", async ({ db, app }) => {
+	test("AC6: rejects ship from draft (invalid transition 400)", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -493,28 +389,16 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC7: kills a draft bet with reason", async ({ db, app }) => {
+	test("AC7: kills a draft bet with reason", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -532,28 +416,16 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC7: returns 400 when reason is missing", async ({ db, app }) => {
+	test("AC7: returns 400 when reason is missing", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -569,28 +441,16 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC7: returns 400 when reason is empty string", async ({ db, app }) => {
+	test("AC7: returns 400 when reason is empty string", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				teamId: "prod-1",
+				teamId,
 				description: "Build feature X",
 			}),
 		});
@@ -606,22 +466,10 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC11: returns draft, active, and capacity info", async ({ db, app }) => {
+	test("AC11: returns draft, active, and capacity info", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
+		const { teamId } = await seedTeamAndMembers(db, ids);
 
 		async function createBet(
 			overrides?: Record<string, unknown>,
@@ -630,7 +478,7 @@ describe("Bet Endpoints (E3)", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId,
 					description: "Build feature X",
 					...overrides,
 				}),
@@ -679,19 +527,20 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC12: first commit succeeds, second rejected 409 (no race)", async ({ db, app }) => {
+	test("AC12: first commit succeeds, second rejected 409 (no race)", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
+		const teamId = ids("t1");
 		await db.insert(teams).values({
-			id: "prod-1",
+			id: teamId,
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
 		// @lore U1: capacity is on teamMembers, not teams (domain entity)
 		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
+			id: ids("tm1"),
+			teamId,
 			capacity: 1,
 			activeBets: 0,
 			formedAt: new Date().toISOString(),
@@ -702,7 +551,7 @@ describe("Bet Endpoints (E3)", () => {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId,
 					description: desc,
 				}),
 			});
