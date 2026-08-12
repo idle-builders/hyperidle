@@ -75,6 +75,15 @@
   --color-border-strong: var(--border-strong);
 }
 
+/*
+ * @lore AZ7 B1: this path was `../../design-system/src/**` — relative to
+ * layers/core-ui/src that resolves to layers/design-system/src, which does
+ * not exist. Tailwind's @source glob then matched zero files and silently
+ * scanned nothing from the design system, so every design-system-only
+ * utility (Button's size="icon" geometry, SearchField's fill, etc.) was
+ * absent from the emitted stylesheet. The real package lives three levels
+ * up at framework/design-system/src.
+ */
 @source "../../../framework/design-system/src/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
 
