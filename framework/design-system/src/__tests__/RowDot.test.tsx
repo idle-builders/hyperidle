@@ -95,11 +95,11 @@ describe("RowDot (AG6 T1)", () => {
 			expect(html).toContain("h-[6px]");
 		});
 
-		it("is circular (rounded-full)", () => {
+		it("is circular (rounded-[var(--r-pill)])", () => {
 			const html = ReactDOMServer.renderToStaticMarkup(
 				React.createElement(RowDot, { tone: "success" }),
 			);
-			expect(html).toContain("rounded-full");
+			expect(html).toContain("rounded-[var(--r-pill)]");
 		});
 
 		it("does NOT include animate-pulse (RowDot is static, not LiveDot)", () => {

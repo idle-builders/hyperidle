@@ -98,7 +98,7 @@ describe("TaskCard", () => {
 	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
 		render(<TaskCard {...defaultProps} betTag="Sprint 1" />);
 		// StatusChip
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// Tag for betTag
 		expect(screen.getByText("Sprint 1")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});

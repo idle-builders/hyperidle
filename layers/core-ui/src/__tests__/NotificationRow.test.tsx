@@ -34,10 +34,11 @@ describe("NotificationRow", () => {
 	it("does not render source Tag when omitted", () => {
 		const { container } = render(<NotificationRow {...defaultProps} />);
 		// No Tag elements should be rendered when source is omitted.
-		// Tags carry rounded-[var(--r-pill)] class.
-		const tags = Array.from(container.querySelectorAll("span")).filter((el) =>
-			el.className.includes("rounded-[var(--r-pill)]"),
-		);
+		// AZ7: rounded-[var(--r-pill)] is no longer a Tag-unique marker — every
+		// pill-shaped element (Tag, StatusChip, its dot) now shares the SAME
+		// token spelling (Trade-off 1: pill has exactly one spelling). Tag's
+		// own data-ds-component marker is the unique, reliable selector.
+		const tags = container.querySelectorAll('[data-ds-component="Tag"]');
 		expect(tags.length).toBe(0);
 	});
 
@@ -81,7 +82,7 @@ describe("NotificationRow", () => {
 	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
 		render(<NotificationRow {...defaultProps} source="system" />);
 		// StatusChip for severity
-		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-full");
+		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		// Tag for source
 		expect(screen.getByText("system")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});
