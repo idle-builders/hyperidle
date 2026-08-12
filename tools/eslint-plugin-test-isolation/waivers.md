@@ -19,9 +19,7 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/bets.integration.test.ts` — createTestDb test at line 515 uses its own isolated DB; literal id is safe within that isolated scope
 - `layers/core-api/src/__tests__/configuration-projection-boot.integration.test.ts` — `modelId: "claude-sonnet-4-6"` is a configuration value (model identifier), not an entity id; scoping would break the test
 
-- `layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts`
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
-- `layers/core-api/src/__tests__/policy-engine.integration.test.ts`
 - `layers/core-api/src/__tests__/session-review-creator.integration.test.ts`
 - `layers/core-api/src/__tests__/sessions.integration.test.ts`
 - `layers/core-api/src/__tests__/silence-policy.integration.test.ts`
@@ -68,8 +66,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/create-routine.integration.test.ts`
 - `layers/core-api/src/__tests__/knowledge-access.integration.test.ts`
 - `layers/core-api/src/__tests__/knowledge.integration.test.ts`
-- `layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts`
-- `layers/core-api/src/__tests__/policy-engine.integration.test.ts`
 - `layers/core-api/src/__tests__/session-review-creator.integration.test.ts`
 - `layers/core-api/src/__tests__/users.integration.test.ts`
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`

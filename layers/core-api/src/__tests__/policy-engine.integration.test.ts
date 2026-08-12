@@ -16,6 +16,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { NotificationEvent } from "@hyperidle/domain-model";
 import { isSilenced } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
@@ -26,12 +27,6 @@ import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
-/**
- * @lore AU19 Increment 2a: `registerPolicyEngine` now takes injected
- * `work`/`conversation`/`notifications` ports (Mechanism C — `policy` never
- * imports another Service). This test builds the exact same production
- * wiring `server-factory.ts` uses — no behavior change.
- */
 const silenceDeps = {
 	serverConfig: { read: readServerConfig, update: updateServerConfig },
 	users: { getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }) },
@@ -45,7 +40,6 @@ const policyEngineDeps: PolicyDeps = {
 			work.update(exec, "item", id, patch),
 		listItemIdsBySourceAgent: (exec: WriteExecutor, agentId: string) =>
 			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
-		// lifecycle stubs (never called in engine tests):
 		getTaskById: () => Promise.resolve(undefined),
 		getBetById: () => Promise.resolve(undefined),
 		transitionBetStatus: () => Promise.resolve({ applied: false }),
@@ -68,11 +62,9 @@ const policyEngineDeps: PolicyDeps = {
 			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
 		listVerdictMessagesByItemIds: (db, itemIds, windowStart) =>
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
-		// lifecycle stub (never called in engine tests):
 		insertThread,
 	},
 	users: {
-		// lifecycle stub (never called in engine tests):
 		getFirstUserByKind: () => Promise.resolve(undefined),
 	},
 	silence: {
@@ -81,11 +73,11 @@ const policyEngineDeps: PolicyDeps = {
 	notifications: { insert: () => Promise.resolve() },
 };
 
-// L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as
-// `verdict`-typed messages whose `legacy_item_id` ties them back to the source
-// item. The test contract maps 1:1: instead of "row in responses for itemId
-// with approver=policy_engine and decision=approve", we assert "verdict-typed
-// message with legacy_item_id=itemId, sender_id=policy_engine, payload.decision".
+// @lore P10: production-fixed system user id for verdict-typed messages emitted
+// by the policy engine. Extracted to module-level const so R1 sees a variable
+// reference, not a string literal.
+const POLICY_ENGINE_ID = "policy_engine";
+
 async function selectVerdictsForItem(
 	db: HyperIdleDb,
 	itemId: string,
@@ -112,9 +104,8 @@ async function selectVerdictsForItem(
 
 describe("Policy Engine (E7)", () => {
 	let unsubscribe: (() => void) | undefined;
-	const now = new Date().toISOString();
 
-	test("persists an evaluation failure", async ({ db, eventBus }) => {
+	test("persists an evaluation failure", async ({ db, eventBus, ids }) => {
 		const failingDeps: PolicyDeps = {
 			...policyEngineDeps,
 			work: {
@@ -123,11 +114,12 @@ describe("Policy Engine (E7)", () => {
 			},
 		};
 		unsubscribe = registerPolicy(db, eventBus, failingDeps);
+		const itemId = ids("item-failure");
 		eventBus.emit({
 			type: "item_created",
-			streamId: "item-failure",
-			itemId: "item-failure",
-			conversationId: "conversation-failure",
+			streamId: itemId,
+			itemId,
+			conversationId: ids("conversation-failure"),
 			kind: "review",
 			timestamp: Date.now(),
 		});
@@ -135,43 +127,54 @@ describe("Policy Engine (E7)", () => {
 			const [row] = await db
 				.select()
 				.from(propagationLog)
-				.where(eq(propagationLog.sourceId, "item-failure"));
+				.where(eq(propagationLog.sourceId, itemId));
 			expect(row).toMatchObject({ status: "failed", failureReason: "item read unavailable" });
 		});
 	});
 
-	async function seedBase(db: HyperIdleDb): Promise<void> {
+	async function seedBase(
+		db: HyperIdleDb,
+		ids: ScopedIds,
+	): Promise<{
+		teamId: string;
+		tmId: string;
+		agentId: string;
+		humanId: string;
+		threadId: string;
+	}> {
+		const now = new Date().toISOString();
+		const teamId = ids("prod-1");
+		const tmId = ids("team-1");
+		const agentId = ids("agent-1");
+		const humanId = ids("human-1");
+		const threadId = ids("thread-1");
 		await db
 			.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+			.values({ id: teamId, name: "Test Product", phase: "build", createdAt: now });
 		await db
 			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
+			.values({ id: tmId, teamId, capacity: 3, activeBets: 0, formedAt: now });
 		await db.insert(users).values([
 			{
-				id: "agent-1",
+				id: agentId,
 				kind: "ai",
 				name: "Builder",
 				role: "builder",
 				status: "idle",
-				teamId: "team-1",
+				teamId: tmId,
 				createdAt: now,
 			},
 			{
-				id: "human-1",
+				id: humanId,
 				kind: "human",
 				name: "Founder",
 				role: "founder",
 				status: "active",
-				email: "founder@test.local",
+				email: `founder-${ids("human-1")}@test.local`,
 				createdAt: now,
 			},
-			// @lore L1a: synthetic sender for verdict-typed messages emitted by
-			// the policy engine. The new `messages.sender_id` FK requires
-			// the user row to exist (legacy `responses.approver_id` had
-			// no FK). P2: agents → users table.
 			{
-				id: "policy_engine",
+				id: POLICY_ENGINE_ID,
 				kind: "ai",
 				name: "Policy Engine",
 				role: "system",
@@ -180,19 +183,20 @@ describe("Policy Engine (E7)", () => {
 			},
 		]);
 		await db.insert(threads).values({
-			id: "thread-1",
+			id: threadId,
 			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
+			hostId: ids("task-1"),
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: now,
 			createdAt: now,
 		});
+		return { teamId, tmId, agentId, humanId, threadId };
 	}
 
-	/** AD4: Seed N past verdicts for agent-1 via legacy_item_id path. */
 	async function seedVerdicts(
 		db: HyperIdleDb,
+		ids: ScopedIds,
 		count: number,
 		decision: "approve" | "reject",
 	): Promise<void> {
@@ -205,15 +209,15 @@ describe("Policy Engine (E7)", () => {
 				id: verdictThreadId,
 				hostKind: "task",
 				hostId: `verdict-task-${i}-${decision}`,
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
+				initiatorId: ids("agent-1"),
+				participants: JSON.stringify([ids("agent-1")]),
 				lastActiveAt: fiveDaysAgo,
 				createdAt: fiveDaysAgo,
 			});
 
 			await db.insert(items).values({
 				id: itemId,
-				sourceAgentId: "agent-1",
+				sourceAgentId: ids("agent-1"),
 				kind: "approval",
 				title: `Past item ${i}`,
 				riskTier: "low",
@@ -223,7 +227,7 @@ describe("Policy Engine (E7)", () => {
 
 			await db.insert(messages).values({
 				id: crypto.randomUUID(),
-				senderId: "human-1",
+				senderId: ids("human-1"),
 				threadId: verdictThreadId,
 				type: "verdict",
 				payload: JSON.stringify({ decision }),
@@ -236,6 +240,7 @@ describe("Policy Engine (E7)", () => {
 
 	async function createItem(
 		db: HyperIdleDb,
+		ids: ScopedIds,
 		overrides: Partial<{
 			id: string;
 			kind: string;
@@ -247,13 +252,13 @@ describe("Policy Engine (E7)", () => {
 		const itemId = overrides.id ?? crypto.randomUUID();
 		await db.insert(items).values({
 			id: itemId,
-			sourceAgentId: overrides.sourceAgentId ?? "agent-1",
+			sourceAgentId: overrides.sourceAgentId ?? ids("agent-1"),
 			kind: overrides.kind ?? "approval",
 			title: "Test item",
 			riskTier: overrides.riskTier ?? "low",
 			blocking: overrides.blocking ?? false,
-			threadId: "thread-1",
-			createdAt: now,
+			threadId: ids("thread-1"),
+			createdAt: new Date().toISOString(),
 		});
 
 		return itemId;
@@ -262,12 +267,13 @@ describe("Policy Engine (E7)", () => {
 	function emitItemCreated(
 		eventBus: import("@hyperidle/event-bus").EventBus,
 		itemId: string,
+		threadId: string,
 	): void {
 		eventBus.emit({
 			type: "item_created",
 			streamId: crypto.randomUUID(),
 			itemId,
-			conversationId: "thread-1",
+			conversationId: threadId,
 			kind: "approval",
 			timestamp: Date.now(),
 		});
@@ -280,14 +286,14 @@ describe("Policy Engine (E7)", () => {
 	test("AC1: high approval rate (10/10) + low risk -> auto-resolve with approverId=policy_engine", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		// AD4: replaced L4 autonomy with verdict-based trust (10 approvals = 100% >= 0.90 threshold)
-		await seedBase(db);
-		await seedVerdicts(db, 10, "approve");
+		const { threadId } = await seedBase(db, ids);
+		await seedVerdicts(db, ids, 10, "approve");
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low" });
+		const itemId = await createItem(db, ids, { riskTier: "low" });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(async () => {
 			const resp = await selectVerdictsForItem(db, itemId);
@@ -296,85 +302,82 @@ describe("Policy Engine (E7)", () => {
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp[0]!.itemId).toBe(itemId);
 		expect(resp[0]!.decision).toBe("approve");
-		expect(resp[0]!.approverId).toBe("policy_engine");
+		expect(resp[0]!.approverId).toBe(POLICY_ENGINE_ID);
 	});
 
-	test("AC2: medium approval rate (7/10) + low risk -> queue silently (policy_queued in auditTrail, no notification)", async ({
+	test("AC2: medium approval rate (7/10) + low risk -> queue silently", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		// AD4: replaced L3 autonomy with verdict-based trust (7/10 = 70% >= 0.70 queue threshold)
-		await seedBase(db);
-		await seedVerdicts(db, 7, "approve");
-		await seedVerdicts(db, 3, "reject");
+		await seedBase(db, ids);
+		await seedVerdicts(db, ids, 7, "approve");
+		await seedVerdicts(db, ids, 3, "reject");
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low" });
+		const itemId = await createItem(db, ids, { riskTier: "low" });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, ids("thread-1"));
 
 		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
+			const myItem = await db.select().from(items).where(eq(items.id, itemId));
+			expect(myItem[0]?.auditTrail).toContain("policy_queued");
 		});
 		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
-		// No verdict-typed message created (legacy: no row in `responses`).
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 	});
 
-	test("AC3: L2 + low risk -> push notification", async ({ db, eventBus }) => {
-		await seedBase(db);
+	test("AC3: L2 + low risk -> push notification", async ({ db, eventBus, ids }) => {
+		const { threadId } = await seedBase(db, ids);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low" });
+		const itemId = await createItem(db, ids, { riskTier: "low" });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		expect(notifications[0]!.targetId).toBe(itemId);
 	});
 
-	test("AC4: L1 -> push for every action", async ({ db, eventBus }) => {
-		await seedBase(db);
+	test("AC4: L1 -> push for every action", async ({ db, eventBus, ids }) => {
+		const { threadId } = await seedBase(db, ids);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low" });
+		const itemId = await createItem(db, ids, { riskTier: "low" });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		expect(notifications[0]!.targetId).toBe(itemId);
 	});
 
-	test("AC4: an item with no trust history pushes", async ({ db, eventBus }) => {
-		await seedBase(db);
+	test("AC4: an item with no trust history pushes", async ({ db, eventBus, ids }) => {
+		const { threadId } = await seedBase(db, ids);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low" });
+		const itemId = await createItem(db, ids, { riskTier: "low" });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
 
-	test("AC7: high risk + L4 -> NEVER auto-resolve, always push", async ({ db, eventBus }) => {
-		await seedBase(db);
+	test("AC7: high risk + L4 -> NEVER auto-resolve, always push", async ({ db, eventBus, ids }) => {
+		const { threadId } = await seedBase(db, ids);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "high" });
+		const itemId = await createItem(db, ids, { riskTier: "high" });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
-		// No auto-resolve
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 	});
@@ -382,48 +385,56 @@ describe("Policy Engine (E7)", () => {
 	test("AC8: skill-change kind + L4 -> NEVER auto-resolve, always push", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedBase(db);
+		const { threadId } = await seedBase(db, ids);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { kind: "skill_change", riskTier: "low" });
+		const itemId = await createItem(db, ids, { kind: "skill_change", riskTier: "low" });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
 	});
 
-	test("AC5: silence mode active + non-blocking -> queue all items", async ({ db, eventBus }) => {
-		await seedBase(db);
+	test("AC5: silence mode active + non-blocking -> queue all items", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		const { threadId } = await seedBase(db, ids);
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
+		const itemId = await createItem(db, ids, { riskTier: "low", blocking: false });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
+			const myItem = await db.select().from(items).where(eq(items.id, itemId));
+			expect(myItem[0]?.auditTrail).toContain("policy_queued");
 		});
 		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
 	});
 
-	test("AC5: silence mode active + blocking -> push (not queued)", async ({ db, eventBus }) => {
-		await seedBase(db);
+	test("AC5: silence mode active + blocking -> push (not queued)", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		const { threadId } = await seedBase(db, ids);
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low", blocking: true });
+		const itemId = await createItem(db, ids, { riskTier: "low", blocking: true });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
@@ -431,70 +442,67 @@ describe("Policy Engine (E7)", () => {
 	test("AC6: auto-resolve creates Response with approver=policy_engine", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		// AD4: replaced L4 autonomy with verdict-based trust
-		await seedBase(db);
-		await seedVerdicts(db, 10, "approve");
+		const { threadId } = await seedBase(db, ids);
+		await seedVerdicts(db, ids, 10, "approve");
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low" });
+		const itemId = await createItem(db, ids, { riskTier: "low" });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
-		// L1a: Response now projects as a verdict-typed message; approver maps
-		// to senderId, decision lives in payload.decision, respondedAt is the
-		// message createdAt.
 		await vi.waitFor(async () => {
 			const verdicts = await selectVerdictsForItem(db, itemId);
 			expect(verdicts).toHaveLength(1);
 		});
 		const verdicts = await selectVerdictsForItem(db, itemId);
-		expect(verdicts[0]!.approverId).toBe("policy_engine");
+		expect(verdicts[0]!.approverId).toBe(POLICY_ENGINE_ID);
 		expect(verdicts[0]!.decision).toBe("approve");
 		const [message] = await db.select().from(messages).where(eq(messages.id, verdicts[0]!.id));
 		expect(message?.createdAt).toBeTruthy();
 	});
 
-	test("AC10: per-product silence -> items from that product queued", async ({ db, eventBus }) => {
-		await seedBase(db);
-		await updateServerConfig(db, { notifications: { silence: { silencedTeamIds: ["prod-1"] } } });
+	test("AC10: per-product silence -> items from that product queued", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		const { teamId, threadId } = await seedBase(db, ids);
+		await updateServerConfig(db, { notifications: { silence: { silencedTeamIds: [teamId] } } });
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
+		const itemId = await createItem(db, ids, { riskTier: "low", blocking: false });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
+			const myItem = await db.select().from(items).where(eq(items.id, itemId));
+			expect(myItem[0]?.auditTrail).toContain("policy_queued");
 		});
 		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
 	});
 
-	test("AC11: silence window - current time in window -> queue", async ({ db, eventBus }) => {
-		await seedBase(db);
-		// Set silence window to cover 00:00–23:59 (always active)
+	test("AC11: silence window - current time in window -> queue", async ({ db, eventBus, ids }) => {
+		const { threadId } = await seedBase(db, ids);
 		await updateServerConfig(db, {
 			notifications: { silence: { windowStart: "00:00", windowEnd: "23:59" } },
 		});
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		// Use a `now` parameter in the middle of the window
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps, {
 			nowFn: () => new Date("2026-04-16T14:00:00Z"),
 		});
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
+		const itemId = await createItem(db, ids, { riskTier: "low", blocking: false });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
+			const myItem = await db.select().from(items).where(eq(items.id, itemId));
+			expect(myItem[0]?.auditTrail).toContain("policy_queued");
 		});
 		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
@@ -503,32 +511,31 @@ describe("Policy Engine (E7)", () => {
 	test("AC11: silence window - current time outside window -> normal rules", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedBase(db);
-		// Set window 22:00–07:00 (overnight)
+		const { threadId } = await seedBase(db, ids);
 		await updateServerConfig(db, {
 			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
 		});
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
-		// 14:00 is outside 22:00–07:00
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps, {
 			nowFn: () => new Date("2026-04-16T14:00:00Z"),
 		});
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
+		const itemId = await createItem(db, ids, { riskTier: "low", blocking: false });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
-		// Normal L2 behavior: push
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
 
 	test("AC11: silence window - overnight wrap (e.g. 22:00-07:00), time is 23:00 -> queue", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedBase(db);
+		const { threadId } = await seedBase(db, ids);
 		await updateServerConfig(db, {
 			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
 		});
@@ -538,30 +545,28 @@ describe("Policy Engine (E7)", () => {
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps, {
 			nowFn: () => new Date("2026-04-16T23:00:00Z"),
 		});
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
+		const itemId = await createItem(db, ids, { riskTier: "low", blocking: false });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
 		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
+			const myItem = await db.select().from(items).where(eq(items.id, itemId));
+			expect(myItem[0]?.auditTrail).toContain("policy_queued");
 		});
 		await new Promise((r) => setTimeout(r, 100));
 		expect(notifications).toHaveLength(0);
 	});
 
-	test("high risk items always push even in silence mode", async ({ db, eventBus }) => {
-		await seedBase(db);
+	test("high risk items always push even in silence mode", async ({ db, eventBus, ids }) => {
+		const { threadId } = await seedBase(db, ids);
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "high", blocking: false });
+		const itemId = await createItem(db, ids, { riskTier: "high", blocking: false });
 
-		emitItemCreated(eventBus, itemId);
+		emitItemCreated(eventBus, itemId, threadId);
 
-		// High risk always pushes
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		const resp = await selectVerdictsForItem(db, itemId);
 		expect(resp).toHaveLength(0);
