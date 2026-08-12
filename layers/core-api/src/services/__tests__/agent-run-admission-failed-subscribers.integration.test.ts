@@ -61,8 +61,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { attentionReviewReasoningMarker } from "@hyperidle/review";
 import type { ScopedIds } from "@hyperidle/db/test-fixtures";
+import { attentionReviewReasoningMarker } from "@hyperidle/review";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { and, eq } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
@@ -427,10 +427,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 				.select()
 				.from(agentWorkIntents)
 				.where(
-					and(
-						eq(agentWorkIntents.kind, "reengagement"),
-						eq(agentWorkIntents.sourceId, callId),
-					),
+					and(eq(agentWorkIntents.kind, "reengagement"), eq(agentWorkIntents.sourceId, callId)),
 				);
 			// The original + a fresh re-provision intent recorded by the liveness net.
 			expect(retryIntents.length).toBeGreaterThanOrEqual(2);
@@ -505,10 +502,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		expect(emitted).toHaveLength(1);
 		expect(emitted[0]).toMatchObject({ kind: "assistant_turn", terminal: true });
 
-		const [message] = await db
-			.select()
-			.from(messages)
-			.where(eq(messages.id, messageId));
+		const [message] = await db.select().from(messages).where(eq(messages.id, messageId));
 		expect(message?.deletedAt).toBe(now);
 		expect(message?.redactedAt).toBeNull();
 	});

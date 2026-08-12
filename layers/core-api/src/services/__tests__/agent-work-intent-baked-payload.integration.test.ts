@@ -22,7 +22,6 @@
  */
 
 import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
-import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
