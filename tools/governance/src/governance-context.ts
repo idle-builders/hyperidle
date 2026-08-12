@@ -53,7 +53,7 @@ export const readRepoFile = (rel: string): string =>
  * Held in the middle of the `floors-tight` band rather than near zero: a floor with 70% slack, which
  * is where this started, cannot fail until two thirds of the repository has disappeared.
  */
-export const MIN_TRACKED_FILES = 2976;
+export const MIN_TRACKED_FILES = 3351;
 
 /**
  * Minimum crossings each detector must find, MEASURED against the live tree and set in the MIDDLE of
