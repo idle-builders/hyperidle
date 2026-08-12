@@ -5,9 +5,10 @@
  * Three sizes: default, sm, icon.
  * Uses forwardRef for focus management, tooltips, and popovers.
  *
- * @lore W2 S3: Only Button has forwardRef among the Tier 0 primitives.
- * Consumers need ref for focus management (tooltips, popovers, programmatic focus).
- * No other Tier 0 primitive currently needs ref forwarding.
+ * @lore W2 S3: Button carries forwardRef for focus management (tooltips,
+ * popovers, programmatic focus). Input gained the same for the same reason —
+ * a consumer needing programmatic focus is what triggers this, not which
+ * primitive it is.
  * @lore W2: No DaisyUI — custom CSS matching Button.html pixel-for-pixel.
  * @lore W2: hearth-internal-padding — vertical padding (10px default, 7px sm)
  * is optically tuned, not on the 6px grid. This is the AQ-001 form exemption.

@@ -19,7 +19,7 @@
  * does not flag it because it does not use DaisyUI select classes.
  */
 
-import { Avatar, Button, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
+import { Avatar, Button, Input, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
@@ -128,7 +128,12 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	);
 
 	const handleMessageKeyDown = useCallback(
-		(e: KeyboardEvent<HTMLTextAreaElement>): void => {
+		// @lore AZ7 B2 (review round 1): Input's textarea mode types onKeyDown for
+		// HTMLInputElement (InputProps extends InputHTMLAttributes — see
+		// Input.tsx's own docblock on the textarea-mode cast). This handler only
+		// reads key/shiftKey/preventDefault, none of which are element-specific,
+		// so widening the param type to the union is a genuine type, not a cast.
+		(e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
 			if (e.key === "Escape") {
 				onCancel();
 				return;
@@ -236,9 +241,15 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 							Change
 						</button>
 					</div>
-					<textarea
+					{/*
+					 * @lore AZ7 B2 (review round 1): was a hand-rolled <textarea>
+					 * already on token-legal fill/border but reproducing Input's own
+					 * textarea-mode recipe by hand. Migrated to Input's textarea mode.
+					 */}
+					<Input
 						ref={messageRef}
-						className="w-full min-h-[80px] p-[8px] bg-[var(--surface-elevated)] border border-[var(--border-default)] rounded-[var(--r-subtle)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-none focus:outline-none focus:border-[var(--accent-deep)] transition-[border-color] duration-[var(--motion-fast)]"
+						textarea
+						className="w-full"
 						placeholder="Type a message..."
 						value={message}
 						onChange={(e) => setMessage(e.target.value)}

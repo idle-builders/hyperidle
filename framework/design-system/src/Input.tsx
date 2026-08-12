@@ -8,11 +8,20 @@
  * Input.html uses 15px; the responsive override adds 16px at mobile.
  * @lore W2 hearth-internal-padding: input padding (10px vertical) is optically
  * tuned, not on the 6px grid. AQ-001 form exemption applies.
+ * @lore AZ7 B2 (review round 1): forwardRef added — Button's docblock used to
+ * say it was the only Tier 0 primitive that needed one ("no other Tier 0
+ * primitive currently needs ref forwarding"). HostThreadSection's inline
+ * composer needs a ref to the input for the exact reason Button's does
+ * (programmatic focus: scrollIntoView + focus() when a block-reply prefill
+ * arrives) and was, until this fix, the reason it stayed a hand-rolled
+ * `<input>` instead of adopting this component. The ref is typed as the
+ * union of both DOM element types the component can render (textarea mode
+ * vs input mode) since which one a given caller gets depends on `textarea`.
  */
 
 // hearth-internal-padding
 
-import type { JSX } from "react";
+import { forwardRef, type JSX } from "react";
 import { dsProps } from "./ds-attrs.js";
 
 /**
@@ -49,16 +58,10 @@ const INPUT_BASE =
 const INPUT_ERROR =
 	"border-[var(--status-error)] focus:border-[var(--status-error)] focus:shadow-[0_0_0_3px_var(--status-error-dim)]";
 
-export function Input({
-	label,
-	hint,
-	error,
-	textarea = false,
-	className = "",
-	id,
-	rows,
-	...rest
-}: InputProps): JSX.Element {
+export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputProps>(function Input(
+	{ label, hint, error, textarea = false, className = "", id, rows, ...rest },
+	ref,
+): JSX.Element {
 	const inputId = id ?? (label ? `input-${label.toLowerCase().replace(/\s+/g, "-")}` : undefined);
 	const borderClass = error ? INPUT_ERROR : "";
 
@@ -71,6 +74,7 @@ export function Input({
 			)}
 			{textarea ? (
 				<textarea
+					ref={ref as React.Ref<HTMLTextAreaElement>}
 					id={inputId}
 					className={`${INPUT_BASE} ${borderClass} resize-y min-h-[80px] leading-[1.55]`}
 					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
@@ -80,6 +84,7 @@ export function Input({
 				/>
 			) : (
 				<input
+					ref={ref as React.Ref<HTMLInputElement>}
 					id={inputId}
 					className={`${INPUT_BASE} ${borderClass}`}
 					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
@@ -102,4 +107,4 @@ export function Input({
 			)}
 		</div>
 	);
-}
+});

@@ -29,7 +29,7 @@
  */
 
 import type { CommentRowSender } from "@hyperidle/design-system";
-import { Button, CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
+import { Button, CommentRow, ErrorState, Input, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message, PlainPayload } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -328,14 +328,24 @@ export function HostThreadSection({
 			)}
 
 			{/* Composer — inline single-line pattern matching knowledge-edit.html .discussion-composer */}
-			{/* hearth-internal-padding */}
+			{/*
+			 * @lore AZ7 B2 (review round 1): was a hand-rolled <input> — the design
+			 * system's own Composer component doesn't fit (it's multiline, submits
+			 * on Cmd/Ctrl+Enter, and owns a heavier ComposerSubmitInput contract
+			 * with clientKey/refs this call site doesn't have); migrated to the
+			 * plain Input primitive instead, which matches this field's actual
+			 * shape (single-line, Enter-to-send, no shift+Enter distinction) with
+			 * no behavior change. This also fixes bg-[var(--surface-page)] as an
+			 * input fill — Set 3 gives that token exactly one job (the page
+			 * canvas); a text input is --surface-elevated's job, which Input
+			 * already carries.
+			 */}
 			<div className="flex gap-[9px] items-stretch">
-				<input
+				<Input
 					ref={composerRef}
 					type="text"
 					data-testid="composer-textarea"
-					className="flex-1 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-[var(--surface-page)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] outline-none focus:border-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
-					style={{ padding: "9px 12px" }}
+					className="flex-1"
 					placeholder="Write a message…"
 					value={composerText}
 					onChange={(e) => setComposerText(e.target.value)}
