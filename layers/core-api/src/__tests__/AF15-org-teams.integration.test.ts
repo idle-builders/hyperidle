@@ -92,13 +92,16 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		const res = await app.request("/api/org", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { teams: { id: string }[] };
-		const ids = body.teams.map((t) => t.id);
-		expect(ids).toContain("tm-active");
-		expect(ids).not.toContain("tm-dissolved");
+		const teamIds = body.teams.map((t) => t.id);
+		expect(teamIds).toContain("tm-active");
+		expect(teamIds).not.toContain("tm-dissolved");
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/org returns empty teams array when no teamMembers exist", async ({ app, db }) => {
+	test("GET /api/org returns empty teams array when no teamMembers exist", async ({
+		app,
+		db
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await db.insert(users).values({
 			id: "u-human-notm",
@@ -189,7 +192,10 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("function edge round-trips: appears in GET /api/org after creation", async ({ app, db }) => {
+	test("function edge round-trips: appears in GET /api/org after creation", async ({
+		app,
+		db
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await db.insert(users).values({
 			id: "u-solo-rt",

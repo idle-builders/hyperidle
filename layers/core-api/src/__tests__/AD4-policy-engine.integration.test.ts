@@ -334,7 +334,9 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 			]);
 		});
 
-		test("returns the stable empty result when an agent has no verdict history", async ({ db }) => {
+		test("returns the stable empty result when an agent has no verdict history", async ({
+			db
+		}) => {
 			await seedBase(db);
 
 			await expect(

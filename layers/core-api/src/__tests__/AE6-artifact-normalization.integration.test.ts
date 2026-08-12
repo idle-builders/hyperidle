@@ -311,7 +311,10 @@ describe("AE6 AC-3: artifact kind normalization and label support", () => {
 	// Old kinds rejected on create (closed write rule)
 	// ------------------------------------------------------------------
 
-	test("POST rejects old kind=code_diff (closed write — must use 'code')", async ({ db, app }) => {
+	test("POST rejects old kind=code_diff (closed write — must use 'code')", async ({
+		db,
+		app
+	}) => {
 		await seed(db);
 		const res = await app.request("/api/artifacts", {
 			method: "POST",

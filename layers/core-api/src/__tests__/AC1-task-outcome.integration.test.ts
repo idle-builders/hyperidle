@@ -126,7 +126,10 @@ describe("PATCH /api/tasks/:id — AC1 task outcome (AC-2, AC-10, AC-12)", () =>
 	});
 
 	// Existing task fields still patchable
-	test("existing task fields still patchable alongside outcomeVerdict", async ({ app, db }) => {
+	test("existing task fields still patchable alongside outcomeVerdict", async ({
+		app,
+		db
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedTask(db);
 		const res = await app.request("/api/tasks/task-1", {

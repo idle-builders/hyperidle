@@ -19,11 +19,11 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBets(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
+async function seedBets(db: HyperIdleDb, ids: (label: string) => string): Promise<void> {
+	await db.insert(teams).values({ id: ids("t1"), name: "Alpha", phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
-		id: "tm1",
-		teamId: "t1",
+		id: ids("tm1"),
+		teamId: ids("t1"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
@@ -32,29 +32,29 @@ async function seedBets(db: HyperIdleDb): Promise<void> {
 	// Seed bets in various statuses
 	await db.insert(bets).values([
 		{
-			id: "bet-completed",
-			teamId: "t1",
+			id: ids("bet-completed"),
+			teamId: ids("t1"),
 			description: "Completed bet",
 			status: "completed",
 			createdAt: NOW,
 		},
 		{
-			id: "bet-killed",
-			teamId: "t1",
+			id: ids("bet-killed"),
+			teamId: ids("t1"),
 			description: "Killed bet",
 			status: "killed",
 			createdAt: NOW,
 		},
 		{
-			id: "bet-active",
-			teamId: "t1",
+			id: ids("bet-active"),
+			teamId: ids("t1"),
 			description: "Active bet",
 			status: "active",
 			createdAt: NOW,
 		},
 		{
-			id: "bet-draft",
-			teamId: "t1",
+			id: ids("bet-draft"),
+			teamId: ids("t1"),
 			description: "Draft bet",
 			status: "draft",
 			createdAt: NOW,
@@ -64,10 +64,14 @@ async function seedBets(db: HyperIdleDb): Promise<void> {
 
 describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-10, AC-12)", () => {
 	// AC-1: Happy path — record outcome on completed bet
-	test("AC-1: records outcome on completed bet with verdict and summary", async ({ app, db }) => {
+	test("AC-1: records outcome on completed bet with verdict and summary", async ({
+		app,
+		db,
+		ids,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
-		const res = await app.request("/api/bets/bet-completed/outcome", {
+		await seedBets(db, ids);
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "The hypothesis held." }),
@@ -82,10 +86,10 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-1: Record outcome without summary (summary is optional)
-	test("AC-1: records outcome without summary (summary is optional)", async ({ app, db }) => {
+	test("AC-1: records outcome without summary (summary is optional)", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
-		const res = await app.request("/api/bets/bet-completed/outcome", {
+		await seedBets(db, ids);
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "refuted" }),
@@ -98,10 +102,10 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-1: Records outcome on killed bet (both completed and killed are valid)
-	test("AC-1: records outcome on killed bet", async ({ app, db }) => {
+	test("AC-1: records outcome on killed bet", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
-		const res = await app.request("/api/bets/bet-killed/outcome", {
+		await seedBets(db, ids);
+		const res = await app.request(`/api/bets/${ids("bet-killed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "inconclusive" }),
@@ -114,10 +118,10 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-4: New bets have null outcome fields
-	test("AC-4: new bets have null outcome fields", async ({ app, db }) => {
+	test("AC-4: new bets have null outcome fields", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
-		const res = await app.request("/api/bets/bet-active", { headers: authHeaders() });
+		await seedBets(db, ids);
+		const res = await app.request(`/api/bets/${ids("bet-active")}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
@@ -128,10 +132,10 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-9: POST /api/bets/:id/outcome rejected for active bet
-	test("AC-9: rejects outcome for active bet (400)", async ({ app, db }) => {
+	test("AC-9: rejects outcome for active bet (400)", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
-		const res = await app.request("/api/bets/bet-active/outcome", {
+		await seedBets(db, ids);
+		const res = await app.request(`/api/bets/${ids("bet-active")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated" }),
@@ -141,10 +145,10 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-9: POST /api/bets/:id/outcome rejected for draft bet
-	test("AC-9: rejects outcome for draft bet (400)", async ({ app, db }) => {
+	test("AC-9: rejects outcome for draft bet (400)", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
-		const res = await app.request("/api/bets/bet-draft/outcome", {
+		await seedBets(db, ids);
+		const res = await app.request(`/api/bets/${ids("bet-draft")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "partial" }),
@@ -154,9 +158,9 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-9: 404 for non-existent bet
-	test("AC-9: returns 404 for non-existent bet", async ({ app }) => {
+	test("AC-9: returns 404 for non-existent bet", async ({ app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/nonexistent/outcome", {
+		const res = await app.request(`/api/bets/${ids("nonexistent")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated" }),
@@ -166,10 +170,10 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-10: Invalid verdict value rejected (400)
-	test("AC-10: rejects invalid verdict value with 400", async ({ app, db }) => {
+	test("AC-10: rejects invalid verdict value with 400", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
-		const res = await app.request("/api/bets/bet-completed/outcome", {
+		await seedBets(db, ids);
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "wrong_value" }),
@@ -179,10 +183,10 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-10: Missing verdict field rejected
-	test("AC-10: rejects missing verdict with 400", async ({ app, db }) => {
+	test("AC-10: rejects missing verdict with 400", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
-		const res = await app.request("/api/bets/bet-completed/outcome", {
+		await seedBets(db, ids);
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ summary: "No verdict" }),
@@ -192,11 +196,11 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-10: Summary too long rejected (> 2000 chars)
-	test("AC-10: rejects summary exceeding 2000 characters with 400", async ({ app, db }) => {
+	test("AC-10: rejects summary exceeding 2000 characters with 400", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
+		await seedBets(db, ids);
 		const longSummary = "x".repeat(2001);
-		const res = await app.request("/api/bets/bet-completed/outcome", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: longSummary }),
@@ -206,11 +210,15 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// AC-12: Outcome revision tracked in revision log
-	test("AC-12: tracks outcome revisions in revisionLog on second write", async ({ app, db }) => {
+	test("AC-12: tracks outcome revisions in revisionLog on second write", async ({
+		app,
+		db,
+		ids,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
+		await seedBets(db, ids);
 		// First outcome
-		const res1 = await app.request("/api/bets/bet-completed/outcome", {
+		const res1 = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "First verdict" }),
@@ -218,7 +226,7 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 		expect(res1.status).toBe(200);
 
 		// Second outcome (override)
-		const res2 = await app.request("/api/bets/bet-completed/outcome", {
+		const res2 = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "refuted", summary: "Changed verdict" }),
@@ -246,11 +254,12 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	test("AC-10: all valid verdict values are accepted (validated, refuted, partial, inconclusive)", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
+		await seedBets(db, ids);
 		for (const verdict of ["validated", "refuted", "partial", "inconclusive"] as const) {
-			const res = await app.request("/api/bets/bet-completed/outcome", {
+			const res = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({ verdict }),
@@ -264,17 +273,18 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	test("GET /api/bets/:id returns outcomeVerdict in task rows (W-2 reviewer finding)", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedBets(db);
+		await seedBets(db, ids);
 		// Set outcome
-		await app.request("/api/bets/bet-completed/outcome", {
+		await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "partial", summary: "Check detail endpoint" }),
 		});
 
-		const res = await app.request("/api/bets/bet-completed", { headers: authHeaders() });
+		const res = await app.request(`/api/bets/${ids("bet-completed")}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as Record<string, unknown>;
@@ -284,9 +294,9 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// 401 without auth
-	test("returns 401 without authentication", async ({ app }) => {
+	test("returns 401 without authentication", async ({ app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/bet-completed/outcome", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/outcome`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ verdict: "validated" }),

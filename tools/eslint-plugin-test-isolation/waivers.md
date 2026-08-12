@@ -12,9 +12,6 @@ Shape: one `## <rule-name>` heading per rule; entries are
 increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
-
-- `layers/core-api/src/__tests__/AC1-bet-outcome.integration.test.ts`
-- `layers/core-api/src/__tests__/AC1-session-effectiveness.integration.test.ts`
 - `layers/core-api/src/__tests__/AC1-task-outcome.integration.test.ts`
 - `layers/core-api/src/__tests__/AC2-retro.integration.test.ts`
 - `layers/core-api/src/__tests__/AD4-policy-engine.integration.test.ts`
@@ -27,10 +24,19 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AF12-task-cas.integration.test.ts`
 - `layers/core-api/src/__tests__/AF15-model-gateway-partial.integration.test.ts`
 - `layers/core-api/src/__tests__/AF15-org-teams.integration.test.ts`
+- `layers/core-api/src/__tests__/AF15-teams-idempotency.integration.test.ts`
 - `layers/core-api/src/__tests__/AF17-propagation-bootstrap.integration.test.ts`
+- `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-reviews-loader-redo.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-two-session-loop.integration.test.ts`
+- `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts`
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
+- `layers/core-api/src/__tests__/S1-auth-routes.integration.test.ts`
+- `layers/core-api/src/__tests__/S1-e2e-flow.integration.test.ts`
+- `layers/core-api/src/__tests__/S1-invite-code.integration.test.ts`
+- `layers/core-api/src/__tests__/bets.integration.test.ts`
+- `layers/core-api/src/__tests__/notifications/AF8-notification-delivery.integration.test.ts`
+
 - `layers/core-api/src/__tests__/M3-auth-middleware.integration.test.ts`
 - `layers/core-api/src/__tests__/M3-lifecycle-propagation-auth.integration.test.ts`
 - `layers/core-api/src/__tests__/M3-settings-routes.integration.test.ts`
@@ -43,8 +49,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/R5-agent-work-loop.integration.test.ts`
 - `layers/core-api/src/__tests__/R7-bet-lifecycle.integration.test.ts`
 - `layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts`
-- `layers/core-api/src/__tests__/S1-auth-routes.integration.test.ts`
-- `layers/core-api/src/__tests__/S1-e2e-flow.integration.test.ts`
 - `layers/core-api/src/__tests__/U2-api-teams-bets.integration.test.ts`
 - `layers/core-api/src/__tests__/af9-attention-population.integration.test.ts`
 - `layers/core-api/src/__tests__/af9-promotion-routine.integration.test.ts`
@@ -59,7 +63,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/app-runtime-domain-observability.integration.test.ts`
 - `layers/core-api/src/__tests__/artifacts-route.integration.test.ts`
 - `layers/core-api/src/__tests__/bet-decomposition-removal.integration.test.ts`
-- `layers/core-api/src/__tests__/bets.integration.test.ts`
 - `layers/core-api/src/__tests__/bets.q3.integration.test.ts`
 - `layers/core-api/src/__tests__/builtin-routines.integration.test.ts`
 - `layers/core-api/src/__tests__/configuration-projection-boot.integration.test.ts`
@@ -76,7 +79,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/knowledge-signals.integration.test.ts`
 - `layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts`
 - `layers/core-api/src/__tests__/log-task.integration.test.ts`
-- `layers/core-api/src/__tests__/notifications/AF8-notification-delivery.integration.test.ts`
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
 - `layers/core-api/src/__tests__/notifications/dispatcher.integration.test.ts`
 - `layers/core-api/src/__tests__/policy-engine.integration.test.ts`
@@ -126,20 +128,20 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/users/src/__tests__/runnable-agent.integration.test.ts`
 
 ## no-unscoped-table-read
-
 - `layers/core-api/src/__tests__/AC2-retro.integration.test.ts`
 - `layers/core-api/src/__tests__/AF15-teams-idempotency.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
 - `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts`
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
-- `layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts`
 - `layers/core-api/src/__tests__/S1-invite-code.integration.test.ts`
+- `layers/core-api/src/__tests__/bets.integration.test.ts`
+
+- `layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts`
 - `layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts`
 - `layers/core-api/src/__tests__/agent-request-custody.integration.test.ts`
 - `layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts`
 - `layers/core-api/src/__tests__/app-runtime-domain-observability.integration.test.ts`
 - `layers/core-api/src/__tests__/attention-service.integration.test.ts`
-- `layers/core-api/src/__tests__/bets.integration.test.ts`
 - `layers/core-api/src/__tests__/builtin-routines.integration.test.ts`
 - `layers/core-api/src/__tests__/create-routine.integration.test.ts`
 - `layers/core-api/src/__tests__/explicit-session-start.production.integration.test.ts`

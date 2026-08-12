@@ -155,7 +155,10 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(body.connectionId).toBeNull();
 		});
 
-		test("GET /api/filesystems?teamId= lists the registered filesystem", async ({ db, app }) => {
+		test("GET /api/filesystems?teamId= lists the registered filesystem", async ({
+			db,
+			app
+		}) => {
 			const { teamId } = await seedTeamAndBots(db, "ac1c");
 
 			await app.request("/api/filesystems", {

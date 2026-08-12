@@ -268,7 +268,10 @@ describe("AN1 — /api/connections routes", () => {
 			expect(body.health).toBe("needs-attention");
 		});
 
-		test("GET /api/connections/:id/validate returns 200 with health field", async ({ app, db }) => {
+		test("GET /api/connections/:id/validate returns 200 with health field", async ({
+			app,
+			db
+		}) => {
 			await seedUserA(db);
 
 			const createRes = await app.request("/api/connections", {
@@ -516,7 +519,10 @@ describe("AN1 — /api/connections routes", () => {
 			expect(validateRes.status).toBe(404);
 		});
 
-		test("(legacy) DELETE with non-existent id → 404 (existing baseline)", async ({ app, db }) => {
+		test("(legacy) DELETE with non-existent id → 404 (existing baseline)", async ({
+			app,
+			db
+		}) => {
 			await seedUserA(db);
 
 			const res = await app.request("/api/connections/sc-definitely-does-not-exist-xyz", {
@@ -546,7 +552,10 @@ describe("AN1 — /api/connections routes", () => {
 	// ─── 409 unique constraint ────────────────────────────────────────────────
 
 	describe("409 on duplicate (user, service, authSource)", () => {
-		test("second POST of same service+authSource for the same user → 409", async ({ app, db }) => {
+		test("second POST of same service+authSource for the same user → 409", async ({
+			app,
+			db
+		}) => {
 			await seedUserA(db);
 
 			await app.request("/api/connections", {
@@ -637,7 +646,10 @@ describe("AN1 — /api/connections routes", () => {
 			expect([400, 422]).toContain(res.status);
 		});
 
-		test("POST mcp with http://localhost → 400 (SSRF: http not https)", async ({ app, db }) => {
+		test("POST mcp with http://localhost → 400 (SSRF: http not https)", async ({
+			app,
+			db
+		}) => {
 			await seedUserA(db);
 
 			// http:// is already rejected by the https-only refine
@@ -686,7 +698,10 @@ describe("AN1 — /api/connections routes", () => {
 			expect([400, 422]).toContain(res.status);
 		});
 
-		test("POST mcp with https://127.0.0.1 (loopback) → 400 (SSRF block)", async ({ app, db }) => {
+		test("POST mcp with https://127.0.0.1 (loopback) → 400 (SSRF block)", async ({
+			app,
+			db
+		}) => {
 			await seedUserA(db);
 
 			const res = await app.request("/api/connections", {
@@ -704,7 +719,10 @@ describe("AN1 — /api/connections routes", () => {
 	// ─── Critique WARNING §7 GET perf — no child-process spawn ─────────────────
 
 	describe("Critique [§7 GET wiring] — GET spawns no child process", () => {
-		test("GET /api/connections returns 200 (not a spawn-on-every-request)", async ({ app, db }) => {
+		test("GET /api/connections returns 200 (not a spawn-on-every-request)", async ({
+			app,
+			db
+		}) => {
 			// AC: GET /api/connections reads cached descriptors, never re-probes.
 			// We verify correctness by: (a) the route returns 200 (not a timeout-
 			// induced failure), and (b) two sequential GETs are fast (< 500ms total),

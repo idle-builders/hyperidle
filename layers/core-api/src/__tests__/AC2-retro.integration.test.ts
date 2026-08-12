@@ -379,7 +379,10 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// AC2-15: Knowledge item title = "Retro: {bet title}"
-	test("AC2-15: knowledge item title follows 'Retro: {bet title}' format", async ({ db, app }) => {
+	test("AC2-15: knowledge item title follows 'Retro: {bet title}' format", async ({
+		db,
+		app
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedRetroBase(db);
 
@@ -424,7 +427,10 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// No hypothesis case — body frontmatter should note it
-	test("AC2-2: body indicates no hypothesis when bet has no hypothesis", async ({ db, app }) => {
+	test("AC2-2: body indicates no hypothesis when bet has no hypothesis", async ({
+		db,
+		app
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedRetroBase(db);
 
@@ -449,7 +455,10 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// Learnings empty — body should have placeholder
-	test("AC2-2: body has learnings placeholder when learnings not provided", async ({ db, app }) => {
+	test("AC2-2: body has learnings placeholder when learnings not provided", async ({
+		db,
+		app
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedRetroBase(db);
 
@@ -614,7 +623,10 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 	});
 
 	// AC2-5: Draft with no tasks returns generic content (not an error)
-	test("AC2-5: returns draft for bet with no tasks (generic stub content)", async ({ db, app }) => {
+	test("AC2-5: returns draft for bet with no tasks (generic stub content)", async ({
+		db,
+		app
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedDraftBase(db);
 

@@ -195,7 +195,10 @@ describe("AC10b: loader returns verbatim proposedCall.args (not a summary string
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC10: outcome is visible against the review; failure surfaces verbatim", () => {
-	test("executed proposedCall returns outcome with status:ok and receipt", async ({ db, app }) => {
+	test("executed proposedCall returns outcome with status:ok and receipt", async ({
+		db,
+		app
+	}) => {
 		const { reviewMessageId, artifactId } = await seedReviewWithProposedCall(db, {
 			status: "executed",
 			withOutcome: {
