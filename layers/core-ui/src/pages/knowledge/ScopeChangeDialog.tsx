@@ -18,7 +18,7 @@
  * isDirty = reason entered or scope changed from current. Authoring surface — guards.
  */
 
-import { Dialog, ScopePicker } from "@hyperidle/design-system";
+import { Button, Dialog, Input, ScopePicker } from "@hyperidle/design-system";
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { type JSX, useState } from "react";
@@ -130,22 +130,12 @@ export function ScopeChangeDialog({
 			size="sm"
 			footer={
 				<>
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={onClose}
-						disabled={submitting}
-					>
+					<Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
 						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
-						onClick={() => void handleSave()}
-						disabled={!canSave}
-					>
+					</Button>
+					<Button variant="primary" size="sm" onClick={() => void handleSave()} disabled={!canSave}>
 						{submitting ? "…" : "Save"}
-					</button>
+					</Button>
 				</>
 			}
 		>
@@ -180,33 +170,27 @@ export function ScopeChangeDialog({
 
 				{/* Scope ID — free text for scopes that need an external id. */}
 				{needsScopeId && (
-					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-tertiary)]">Scope ID</span>
-						<input
-							type="text"
-							className="input input-bordered input-sm text-base w-full"
-							placeholder={`${scopeKind} ID`}
-							value={scopeId}
-							onChange={(e) => setScopeId(e.target.value)}
-							disabled={submitting}
-						/>
-					</label>
+					<Input
+						label="Scope ID"
+						type="text"
+						placeholder={`${scopeKind} ID`}
+						value={scopeId}
+						onChange={(e) => setScopeId(e.target.value)}
+						disabled={submitting}
+					/>
 				)}
 
 				{/* Reason — required */}
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-tertiary)]">
-						Reason <span aria-hidden>(required)</span>
-					</span>
-					<textarea
-						className="textarea textarea-bordered text-base resize-none h-20 w-full"
-						placeholder="Why are you changing the scope?"
-						value={reason}
-						onChange={(e) => setReason(e.target.value)}
-						disabled={submitting}
-						maxLength={500}
-					/>
-				</label>
+				<Input
+					textarea
+					label="Reason (required)"
+					className="resize-none"
+					placeholder="Why are you changing the scope?"
+					value={reason}
+					onChange={(e) => setReason(e.target.value)}
+					disabled={submitting}
+					maxLength={500}
+				/>
 
 				{error && (
 					<p role="alert" className="text-xs text-error">

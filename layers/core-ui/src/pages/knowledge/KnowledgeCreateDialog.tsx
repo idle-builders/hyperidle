@@ -21,7 +21,7 @@
  * old font-heading + text-sm h2 is removed (fixes off-scale 14px heading).
  */
 
-import { BodyEditor, Dialog, ScopePicker } from "@hyperidle/design-system";
+import { BodyEditor, Button, Dialog, Input, ScopePicker } from "@hyperidle/design-system";
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
@@ -139,41 +139,31 @@ export function KnowledgeCreateDialog({
 			size="md"
 			footer={
 				<>
-					<button
-						type="button"
-						className="btn btn-xs btn-ghost"
-						onClick={onClose}
-						disabled={submitting}
-					>
+					<Button variant="ghost" size="sm" onClick={onClose} disabled={submitting}>
 						Cancel
-					</button>
-					<button
-						type="button"
-						className="btn btn-xs btn-primary"
+					</Button>
+					<Button
+						variant="primary"
+						size="sm"
 						onClick={() => void handleSubmit()}
 						disabled={!canCreate}
 					>
 						{submitting ? "…" : "Create"}
-					</button>
+					</Button>
 				</>
 			}
 		>
 			<div className="flex flex-col gap-3">
 				{/* Title input */}
-				<label className="flex flex-col gap-1">
-					<span className="text-xs text-[var(--text-tertiary)]">
-						Title <span aria-hidden>(required)</span>
-					</span>
-					<input
-						type="text"
-						className="input input-bordered input-sm text-base w-full"
-						placeholder="What did you learn?"
-						value={title}
-						onChange={(e) => setTitle(e.target.value)}
-						disabled={submitting}
-						maxLength={500}
-					/>
-				</label>
+				<Input
+					label="Title (required)"
+					type="text"
+					placeholder="What did you learn?"
+					value={title}
+					onChange={(e) => setTitle(e.target.value)}
+					disabled={submitting}
+					maxLength={500}
+				/>
 
 				{/* Body — BodyEditor (TipTap WYSIWYG, GFM markdown) */}
 				<div className="flex flex-col gap-1">
@@ -220,17 +210,14 @@ export function KnowledgeCreateDialog({
 				</div>
 
 				{needsScopeId && (
-					<label className="flex flex-col gap-1">
-						<span className="text-xs text-[var(--text-tertiary)]">Scope ID</span>
-						<input
-							type="text"
-							className="input input-bordered input-sm text-base w-full"
-							placeholder={`${selectedScope.label} ID`}
-							value={scopeId}
-							onChange={(e) => setScopeId(e.target.value)}
-							disabled={submitting}
-						/>
-					</label>
+					<Input
+						label="Scope ID"
+						type="text"
+						placeholder={`${selectedScope.label} ID`}
+						value={scopeId}
+						onChange={(e) => setScopeId(e.target.value)}
+						disabled={submitting}
+					/>
 				)}
 
 				{error && (
