@@ -13,8 +13,8 @@
 // plugin's rules (via `hearth-config`'s total severity table), so there is no
 // type-aware rule to crash on and no need for `--quiet` to hide it.
 import tsParser from "@typescript-eslint/parser";
-import { configs as designHearthConfigs } from "eslint-plugin-design/hearth-config";
 import type { Linter } from "eslint";
+import { configs as designHearthConfigs } from "eslint-plugin-design/hearth-config";
 
 const languageOptions: Linter.Config["languageOptions"] = {
 	parser: tsParser,

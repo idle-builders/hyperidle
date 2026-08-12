@@ -22,9 +22,10 @@ describe("hearth-config totality", () => {
 		const allowed = new Set(["off", "warn", "error"]);
 		for (const [name, severity] of Object.entries(RULE_SEVERITY)) {
 			expect(allowed.has(severity.coreUi), `${name}.coreUi = ${severity.coreUi}`).toBe(true);
-			expect(allowed.has(severity.designSystem), `${name}.designSystem = ${severity.designSystem}`).toBe(
-				true,
-			);
+			expect(
+				allowed.has(severity.designSystem),
+				`${name}.designSystem = ${severity.designSystem}`,
+			).toBe(true);
 		}
 	});
 

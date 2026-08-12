@@ -22,8 +22,8 @@
  */
 
 import {
-	agentOperationalStatusToStatus,
 	Avatar,
+	agentOperationalStatusToStatus,
 	Breadcrumb,
 	Button,
 	betStatusToStatus,

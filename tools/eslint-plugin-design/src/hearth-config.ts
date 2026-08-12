@@ -20,7 +20,7 @@
  */
 
 import type { ESLint, Linter } from "eslint";
-import plugin, { rules } from "./index.js";
+import plugin from "./index.js";
 
 export type Severity = "off" | "warn" | "error";
 

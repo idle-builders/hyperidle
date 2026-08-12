@@ -6,7 +6,7 @@
  *
  * Plan Task 5: Promote LiveDot from WorkTask/TaskSheet to the design system
  * as a standalone component with the exact body:
-  *   aria-hidden inline-block w-[6px] h-[6px] rounded-[var(--r-pill)]
+ *   aria-hidden inline-block w-[6px] h-[6px] rounded-[var(--r-pill)]
  *   bg-[var(--accent-primary)] animate-pulse shrink-0
  *
  * NOTE: This test lives in design-system/__tests__ because LiveDot is a

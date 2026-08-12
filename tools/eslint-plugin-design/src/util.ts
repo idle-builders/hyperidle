@@ -36,18 +36,6 @@ import type { JSXAttribute } from "estree-jsx";
 export const SPACING_ALLOWLIST: ReadonlySet<number> = new Set([0, 3, 6, 9, 12, 18, 24, 36, 48]);
 
 /**
- * Closed Hearth radius scale from `framework/design-system/src/tokens.css`:
- *   --r-none:0 --r-subtle:10px --r-default:16px --r-pill:9999px
- *
- * @lore U10: Changed from old Lucid scale {0,4,8,12,999} to Hearth scale
- * {0,10,16,9999}. The generous-rounding principle uses 10px as the minimum
- * non-zero radius and 16px as the default card radius. rounded-2xl (16px) is
- * now ON-SCALE. Form control chrome (checkboxes, radio buttons) may use
- * off-scale radii per AQ-011 exemption — DaisyUI manages these in production.
- */
-export const RADIUS_ALLOWLIST: ReadonlySet<number> = new Set([0, 10, 16, 9999]);
-
-/**
  * Hearth type-scale allowlist.
  * Source: AESTHETICS.md § Typography — U10 Hearth override (§ U10 changelog).
  *   Full allowlist: {9,10,11,12,13,14,15,16,17,18,20,24,30}
@@ -112,30 +100,6 @@ const SHADOW_OVERLAY_BASENAME_REGEX = /^(Modal|Dialog|Popover|Tooltip|Sheet|Draw
 export function isShadowOverlayFile(filename: string): boolean {
 	return SHADOW_OVERLAY_BASENAME_REGEX.test(basename(filename));
 }
-
-/**
- * Named Tailwind radii whose pixel value is on the Hearth closed scale {0,10,16,9999}
- * derived from `tokens.css` (--r-none / --r-subtle / --r-default / --r-pill).
- * These named classes are permitted; any other named class must be flagged off-scale.
- *
- * @lore U10: Significant reversal from K6. The old scale {0,4,8,12,999} allowed
- * `rounded`, `rounded-lg`, `rounded-xl` as named equivalents. The Hearth scale
- * {0,10,16,9999} does not have 4px, 8px, or 12px steps, so these are now OFF-SCALE.
- * `rounded-2xl` (16px) is NOW ALLOWED — it maps to --r-default (the Hearth default
- * card radius). `rounded-3xl` (24px) remains off-scale and is flagged by no-ai-aesthetic.
- *
- * Tailwind v3 named-radius pixel mapping (verified against Tailwind defaults):
- *   rounded-none = 0    ✓ (--r-none)
- *   rounded      = 4    ✗ (off-scale; no 4px step in Hearth)
- *   rounded-sm   = 2    ✗ (off-scale)
- *   rounded-md   = 6    ✗ (off-scale)
- *   rounded-lg   = 8    ✗ (off-scale; no 8px step in Hearth)
- *   rounded-xl   = 12   ✗ (off-scale; no 12px step in Hearth)
- *   rounded-2xl  = 16   ✓ (--r-default)
- *   rounded-3xl  = 24   ✗ (off-scale; also blocked by no-ai-aesthetic)
- *   rounded-full = 9999 ✓ (--r-pill)
- */
-export const ALLOWED_NAMED_RADIUS: ReadonlySet<string> = new Set(["none", "2xl", "full"]);
 
 /**
  * Class-name string extractor: returns the literal text of `className="..."`.

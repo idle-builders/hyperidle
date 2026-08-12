@@ -213,7 +213,9 @@ export function GlobalSearchPanel({
 										<div
 											key={c.id}
 											className={
-												idx === nav.activeIndex ? "bg-[var(--surface-elevated)] rounded-[var(--r-subtle)]" : ""
+												idx === nav.activeIndex
+													? "bg-[var(--surface-elevated)] rounded-[var(--r-subtle)]"
+													: ""
 											}
 										>
 											<ThreadRow
@@ -241,7 +243,9 @@ export function GlobalSearchPanel({
 										<div
 											key={w.id}
 											className={
-												idx === nav.activeIndex ? "bg-[var(--surface-elevated)] rounded-[var(--r-subtle)]" : ""
+												idx === nav.activeIndex
+													? "bg-[var(--surface-elevated)] rounded-[var(--r-subtle)]"
+													: ""
 											}
 										>
 											<BetCard
@@ -268,7 +272,9 @@ export function GlobalSearchPanel({
 										<div
 											key={k.id}
 											className={
-												idx === nav.activeIndex ? "bg-[var(--surface-elevated)] rounded-[var(--r-subtle)]" : ""
+												idx === nav.activeIndex
+													? "bg-[var(--surface-elevated)] rounded-[var(--r-subtle)]"
+													: ""
 											}
 										>
 											<KnowledgeRow

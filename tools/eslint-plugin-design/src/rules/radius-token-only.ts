@@ -39,11 +39,7 @@
 import { basename } from "node:path";
 import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
-import {
-	asReportNode,
-	collectClassStringsFromJSXAttributeDeep,
-	createRule,
-} from "../util.js";
+import { asReportNode, collectClassStringsFromJSXAttributeDeep, createRule } from "../util.js";
 
 // AQ-011: "Form control chrome (checkboxes, radio buttons, toggles) may use
 // off-scale radii." These are the design-system files that BUILD that chrome.
