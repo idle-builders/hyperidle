@@ -207,7 +207,7 @@ describe("AF15 AC-2 — PATCH /api/model-gateway partial-tier merge", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("patching fast tier leaves workhorse unchanged", async ({ app, db, ids }) => {
+	test("patching fast tier leaves workhorse unchanged", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const config = {
 			modelGateway: {
