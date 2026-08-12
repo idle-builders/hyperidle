@@ -90,7 +90,7 @@
     }
   ],
   "artifacts": [
-    ".pipeline/work/AZ7/combined-round.md",
+    ".pipeline/work/AZ7/plan.md (as-built section §1–§8 folds combined-round.md and review.md, both deleted at ship per the ship skill)",
     ".pipeline/work/AZ7/measurement/ (re-runnable scanners + raw data + render-backlog.mjs)",
     ".pipeline/work/AZ7/migration-backlog.md (AC6 \u2014 46 enumerated items, UI-180 onward, generated \u2014 kept correct by tools/repo-gates/src/design-backlog-drift.ts)",
     "tools/repo-gates/src/design-backlog-drift.ts (npm run design:backlog / design:backlog:check, wired into npm run verify)"

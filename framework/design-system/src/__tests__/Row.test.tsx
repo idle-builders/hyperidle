@@ -284,7 +284,7 @@ describe("Row (AG6 T2)", () => {
 
 		// AZ7 Set 5 / E7: RowCell.tone deleted — a status/tone shown in a cell
 		// was a third status channel (StatusChip, RowDot, and this), with one
-		// call site (combined-round.md §1.6 finding #1). A tinted cell now
+		// call site (plan.md §1.6 finding #1). A tinted cell now
 		// colors its own `content` directly; see WorkTeam.tsx's agent-context
 		// cell. This test used to prove `tone="error"` produced the error
 		// token — that prop no longer exists, so every cell is --text-tertiary.

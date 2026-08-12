@@ -8,7 +8,7 @@
 // (the broad, per-element predicates — not the narrower no-handrolled-control
 // rule predicate), filters to layers/core-ui/ production files, and emits one
 // bug-list item per file per axis in the shape .pipeline/AZ-bugs.md already
-// uses. See combined-round.md §4.2 for why this exists and §4.1 for the
+// uses. See plan.md §4.2 for why this exists and §4.1 for the
 // scope line it enumerates the remainder of.
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -58,7 +58,7 @@ lines.push("");
 lines.push(
 	"Meant to fold into `.pipeline/AZ-bugs.md` (Batch D — \"adopt the primitives that already exist\"), " +
 		"continuing its numbering from UI-172. AZ7 closed radii, inputs and status fully, and buttons " +
-		"partly (the 63-site DaisyUI + accent-fill union) — see `.pipeline/work/AZ7/combined-round.md` " +
+		"partly (the 63-site DaisyUI + accent-fill union) — see `.pipeline/work/AZ7/plan.md` " +
 		"§4.1. Everything below is the declared-out-of-scope remainder: hand-rolled buttons with " +
 		"token-legal chrome (no DaisyUI class, no accent/status fill) and hand-rolled chips (pill radius " +
 		"+ a fill, not one of the design-system chip components).",
@@ -85,7 +85,7 @@ lines.push("");
 lines.push("## Hand-rolled buttons/inputs — token-legal chrome, no DaisyUI class, no accent/status fill");
 lines.push("");
 lines.push(
-	"Each already passes `design/no-handrolled-control` (E2's honest boundary, combined-round.md §3.3: " +
+	"Each already passes `design/no-handrolled-control` (E2's honest boundary, plan.md §3.3: " +
 		"\"a hand-rolled `<button>` with a token-legal fill in a page still passes E2 unless it uses an " +
 		"accent/status fill or a DaisyUI class\"). Migrating to `Button`/`Input` is a look-alike, not a lint fix.",
 );

@@ -40,7 +40,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				type="text"
 				// @lore AZ7 B3 (review round 1): fill was --surface-container (a recessed
 				// fill, wrong job for an input — Set 3 gives text inputs
-				// --surface-elevated, combined-round.md §2 Set 3 + §5.1) with a focus
+				// --surface-elevated, plan.md §2 Set 3 + §5.1) with a focus
 				// state that swapped to --surface-page, giving the page-canvas token a
 				// second job on focus (the same defect fixed on Button's hover tint).
 				// Matches Input.tsx's pattern: one fill, border + ring for focus.

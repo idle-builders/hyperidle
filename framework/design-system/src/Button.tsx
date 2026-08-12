@@ -13,12 +13,12 @@
  * @lore W2: hearth-internal-padding — vertical padding (10px default, 7px sm)
  * is optically tuned, not on the 6px grid. This is the AQ-001 form exemption.
  *
- * @lore AZ7 Set 1: `amber` deleted — zero production uses (combined-round.md
+ * @lore AZ7 Set 1: `amber` deleted — zero production uses (plan.md
  * §1.2, Trade-off 2). `size="icon"` added — AQ-003 "one size per component":
  * a square 32×32 control (44×44 touch floor below `lg`, matching `sm`/`default`'s
  * existing pattern) whose entire label is its icon. This is the migration
  * target for ~20 hand-rolled icon buttons measured at 16–32px across core-ui
- * (combined-round.md §2 Set 1) — they get visibly larger; that is a deliberate,
+ * (plan.md §2 Set 1) — they get visibly larger; that is a deliberate,
  * founder-approved visual change (Trade-off 3), not a regression.
  */
 
@@ -43,7 +43,7 @@ const VARIANT_CLASSES: Record<NonNullable<ButtonProps["variant"]>, string> = {
 	// @lore AZ7 Set 3: hover tint corrected from --surface-page to
 	// --accent-primary-dim — the closed fill set gives --surface-page exactly
 	// one job (the page canvas) and --accent-primary-dim the hover/selected
-	// tint job (combined-round.md §2 Set 3, "Two consequences").
+	// tint job (plan.md §2 Set 3, "Two consequences").
 	secondary:
 		"bg-[var(--surface-elevated)] border-[var(--border-default)] text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--accent-primary-dim)]",
 	ghost:

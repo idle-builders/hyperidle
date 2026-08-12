@@ -9,7 +9,7 @@
  * (RichMessageCard's private tone vocabulary) is still a defect, but it is
  * caught by review, not by this rule.
  *
- * Predicate (combined-round.md §5.2): on a raw `<button>|<input>|<textarea>|<select>`
+ * Predicate (plan.md §5.2): on a raw `<button>|<input>|<textarea>|<select>`
  * under `layers/core-ui/src/**`, a violation is:
  *   1. a class token matching `^(btn|input|textarea|select)(-[a-z0-9]+)*$` —
  *      the DaisyUI control-component vocabulary, which carries the WHOLE
@@ -57,7 +57,7 @@ const DAISY_CONTROL_RE = /^(btn|input|textarea|select)(-[a-z0-9]+)*$/;
 const ACCENT_STATUS_FILL_RE = /^bg-\[var\(--(accent|status)-[a-z-]+\)\]$/;
 
 // @lore AZ7 N1 (review round 1): --accent-primary-dim is not an accent FILL
-// in Set 3's sense (combined-round.md §2 Set 3) — it is the row-hover /
+// in Set 3's sense (plan.md §2 Set 3) — it is the row-hover /
 // selected TINT, the one job that token has. The predicate above matched it
 // anyway, which made every hover tint on a raw interactive element (a Row, a
 // list item) a false positive requiring a disable comment — 5 of the review's

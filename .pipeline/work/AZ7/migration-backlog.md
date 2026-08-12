@@ -1,6 +1,6 @@
 # AZ7 migration backlog — remaining hand-rolled control/chip sites
 
-Meant to fold into `.pipeline/AZ-bugs.md` (Batch D — "adopt the primitives that already exist"), continuing its numbering from UI-172. AZ7 closed radii, inputs and status fully, and buttons partly (the 63-site DaisyUI + accent-fill union) — see `.pipeline/work/AZ7/combined-round.md` §4.1. Everything below is the declared-out-of-scope remainder: hand-rolled buttons with token-legal chrome (no DaisyUI class, no accent/status fill) and hand-rolled chips (pill radius + a fill, not one of the design-system chip components).
+Meant to fold into `.pipeline/AZ-bugs.md` (Batch D — "adopt the primitives that already exist"), continuing its numbering from UI-172. AZ7 closed radii, inputs and status fully, and buttons partly (the 63-site DaisyUI + accent-fill union) — see `.pipeline/work/AZ7/plan.md` §4.1. Everything below is the declared-out-of-scope remainder: hand-rolled buttons with token-legal chrome (no DaisyUI class, no accent/status fill) and hand-rolled chips (pill radius + a fill, not one of the design-system chip components).
 
 **Sites already tracked under an existing Batch D id are referenced, not re-filed:** UI-060 (`Row`'s button branch missing `w-full` — this is why several `no-handrolled-control` exceptions AZ7 left in place cite it directly), UI-062 (three message composers), UI-066 (two destructive button styles), UI-067 (disabled-primary opacity), UI-074 (kebab bypasses `Menu`), UI-150 (the `ACTIVE` chip on every curated-knowledge row).
 
@@ -10,7 +10,7 @@ Meant to fold into `.pipeline/AZ-bugs.md` (Batch D — "adopt the primitives tha
 
 ## Hand-rolled buttons/inputs — token-legal chrome, no DaisyUI class, no accent/status fill
 
-Each already passes `design/no-handrolled-control` (E2's honest boundary, combined-round.md §3.3: "a hand-rolled `<button>` with a token-legal fill in a page still passes E2 unless it uses an accent/status fill or a DaisyUI class"). Migrating to `Button`/`Input` is a look-alike, not a lint fix.
+Each already passes `design/no-handrolled-control` (E2's honest boundary, plan.md §3.3: "a hand-rolled `<button>` with a token-legal fill in a page still passes E2 unless it uses an accent/status fill or a DaisyUI class"). Migrating to `Button`/`Input` is a look-alike, not a lint fix.
 
 - [ ] **UI-180** `layers/core-ui/src/components/AssistantAttachButton.tsx` — 1 hand-rolled `<button>` site(s) at line(s) 34 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **S**
 - [ ] **UI-181** `layers/core-ui/src/components/BlockRefEmbed.tsx` — 1 hand-rolled `<button>` site(s) at line(s) 111 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **S**

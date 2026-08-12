@@ -22,7 +22,7 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			code: 'const J = <Button variant="primary" />;',
 		},
 		// A raw button with no DaisyUI/accent chrome (token-legal, no violation
-		// under this rule — E2's honest boundary, combined-round.md §3.3).
+		// under this rule — E2's honest boundary, plan.md §3.3).
 		{
 			filename: "layers/core-ui/src/pages/Foo.tsx",
 			code: 'const J = <button className="flex items-center gap-[6px]" />;',

@@ -9,7 +9,7 @@ went stale the moment the code moved.
 |---|---|---|
 | `predicates.mjs` | Emits `predicate-sites.json` — every control-chrome and hand-rolled-chip site with file, line, tag and the class string that made it a violation | `node predicates.mjs "$REPO_ROOT" <outDir>` |
 | `render-backlog.mjs` | Reads that JSON and renders `migration-backlog.md` | `node render-backlog.mjs <outDir> "$REPO_ROOT"` |
-| `scan.mjs` | The broader per-axis population scan (radius spellings, surface fills, status sites, button and input recipes) behind `combined-round.md` §1 | `node scan.mjs "$REPO_ROOT" <outDir>` |
+| `scan.mjs` | The broader per-axis population scan (radius spellings, surface fills, status sites, button and input recipes) behind `plan.md` §1 | `node scan.mjs "$REPO_ROOT" <outDir>` |
 | `measure.eslint.config.ts` | The standalone config the measurement ran the design rules under | — |
 
 `npm run design:backlog` regenerates the backlog. `npm run design:backlog:check` — wired into

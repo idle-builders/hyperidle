@@ -10,7 +10,7 @@
  * its own generator: a scanner change (identifier following, template-literal
  * span resolution) was never re-run against the tracked file, so it quietly
  * stopped matching the code it claims to enumerate. See
- * `.pipeline/work/AZ7/review.md` for the finding.
+ * `.pipeline/work/AZ7/plan.md` §7 (review history) for the finding.
  *
  * This gate re-runs the real generator pair (`predicates.mjs` +
  * `render-backlog.mjs`, unmodified, in a throwaway output location so the

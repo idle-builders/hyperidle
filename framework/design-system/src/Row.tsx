@@ -84,7 +84,7 @@ export interface RowProps {
 // @lore AZ7 E7 / Set 5: RowCell.tone (and the toneColor ladder it drove) is
 // deleted — a status/tone shown in a cell was a THIRD status channel
 // alongside StatusChip and RowDot, with one call site (WorkTeam.tsx's
-// agent-status cell, combined-round.md §1.6 finding #1). A cell that needs
+// agent-status cell, plan.md §1.6 finding #1). A cell that needs
 // tinted content now colors its own `content` ReactNode directly (e.g. wraps
 // it in a `<span className="text-[var(--status-error)]">`), or — for an
 // actual status word — renders a <StatusChip> as the cell content. Deleting
