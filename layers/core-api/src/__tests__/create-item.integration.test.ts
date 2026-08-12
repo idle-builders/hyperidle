@@ -5,6 +5,7 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, items, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { ItemCreatedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
@@ -19,30 +20,34 @@ function buildCreateItemTool(app: Hono): ReturnType<typeof buildToolDefinitions>
 	)!;
 }
 
-async function seed(db: HyperIdleDb): Promise<void> {
+async function seed(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: ids("p1"), name: "Test", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("t1"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(users).values({
-		id: "agent-a",
+		id: ids("agent-a"),
 		name: "A",
 		role: "builder",
-		teamId: "t1",
+		teamId: ids("t1"),
 		status: "active",
 		createdAt: now,
 	});
 }
 
-function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdleDb> {
+function makeContext(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	ids: ScopedIds,
+): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus,
-		agentId: "agent-a",
-		sessionId: "session-1",
-		taskId: "task-1",
+		agentId: ids("agent-a"),
+		sessionId: ids("session-1"),
+		taskId: ids("task-1"),
 		sandboxPath: path.join(os.tmpdir(), `hi-d4-createitem-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
@@ -54,9 +59,10 @@ describe("create_item tool", () => {
 			db,
 			eventBus,
 			app,
+			ids,
 		}) => {
 			const createItemTool = buildCreateItemTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const emitted: ItemCreatedEvent[] = [];
 			eventBus.on("item_created", (e) => {
 				emitted.push(e);
@@ -69,7 +75,7 @@ describe("create_item tool", () => {
 					riskTier: "high",
 					body: "Design doc draft.",
 				},
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -93,16 +99,21 @@ describe("create_item tool", () => {
 			expect(emitted[0]!.kind).toBe("review");
 		});
 
-		test("auto-creates a thread when no threadId is provided", async ({ db, eventBus, app }) => {
+		test("auto-creates a thread when no threadId is provided", async ({
+			db,
+			eventBus,
+			app,
+			ids,
+		}) => {
 			const createItemTool = buildCreateItemTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const result = await createItemTool.handler(
 				{
 					title: "New review",
 					kind: "review",
 					riskTier: "high",
 				},
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -111,16 +122,21 @@ describe("create_item tool", () => {
 			expect(thread).toBeDefined();
 		});
 
-		test("reuses an existing thread when threadId is provided", async ({ db, eventBus, app }) => {
+		test("reuses an existing thread when threadId is provided", async ({
+			db,
+			eventBus,
+			app,
+			ids,
+		}) => {
 			const createItemTool = buildCreateItemTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const now = new Date().toISOString();
 			await db.insert(threads).values({
-				id: "existing-thread",
+				id: ids("existing-thread"),
 				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
+				hostId: ids("task-1"),
+				initiatorId: ids("agent-1"),
+				participants: JSON.stringify([ids("agent-1")]),
 				lastActiveAt: now,
 				createdAt: now,
 			});
@@ -129,21 +145,26 @@ describe("create_item tool", () => {
 				{
 					title: "Follow-up",
 					kind: "review",
-					threadId: "existing-thread",
+					threadId: ids("existing-thread"),
 				},
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 			const data = result.data as { threadId: string };
-			expect(data.threadId).toBe("existing-thread");
+			expect(data.threadId).toBe(ids("existing-thread"));
 		});
 	});
 
 	describe("AU21 §6 Decision L3: result shape has no view field (routeItem deleted)", () => {
-		test("result is exactly {itemId, threadId} — no view field", async ({ db, eventBus, app }) => {
+		test("result is exactly {itemId, threadId} — no view field", async ({
+			db,
+			eventBus,
+			app,
+			ids,
+		}) => {
 			const createItemTool = buildCreateItemTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const result = await createItemTool.handler(
 				{
 					title: "Please review this design",
@@ -151,7 +172,7 @@ describe("create_item tool", () => {
 					riskTier: "high",
 					body: "Design doc draft.",
 				},
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -166,15 +187,16 @@ describe("create_item tool", () => {
 			db,
 			eventBus,
 			app,
+			ids,
 		}) => {
 			const createItemTool = buildCreateItemTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const emitted: ItemCreatedEvent[] = [];
 			eventBus.on("item_created", (e) => emitted.push(e));
 
 			const result = await createItemTool.handler(
 				{ title: "Something", kind: "review", riskTier: "medium" },
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 			expect(result.success).toBe(true);
 
@@ -188,26 +210,26 @@ describe("create_item tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when title missing", async ({ db, eventBus, app }) => {
+		test("returns INVALID_INPUT when title missing", async ({ db, eventBus, app, ids }) => {
 			const createItemTool = buildCreateItemTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const result = await createItemTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{} as any,
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT for unknown riskTier", async ({ db, eventBus, app }) => {
+		test("returns INVALID_INPUT for unknown riskTier", async ({ db, eventBus, app, ids }) => {
 			const createItemTool = buildCreateItemTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const result = await createItemTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ title: "x", riskTier: "extreme" } as any,
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
@@ -218,12 +240,13 @@ describe("create_item tool", () => {
 			db,
 			eventBus,
 			app,
+			ids,
 		}) => {
 			const createItemTool = buildCreateItemTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const result = await createItemTool.handler(
-				{ title: "x", threadId: "nope" },
-				makeContext(db, eventBus),
+				{ title: "x", threadId: ids("nonexistent-thread") },
+				makeContext(db, eventBus, ids),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;

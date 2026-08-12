@@ -15,6 +15,7 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { TaskStateChangedEvent } from "@hyperidle/domain-model";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -30,34 +31,34 @@ function buildCreateTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>
 
 const NOW = new Date().toISOString();
 
-async function seed(db: HyperIdleDb): Promise<void> {
+async function seed(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	// @lore U1: teams = domain entity (formerly products); teamMembers = membership group (formerly teams).
 	await db
 		.insert(teams)
-		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
+		.values({ id: ids("team-1"), name: "Test Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.values({ id: ids("tm-1"), teamId: ids("team-1"), capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
-		id: "b1",
-		teamId: "team-1",
+		id: ids("b1"),
+		teamId: ids("team-1"),
 		description: "Implement feature X",
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
-		id: "agent-a",
+		id: ids("agent-a"),
 		name: "Builder Agent",
 		role: "builder",
-		teamId: "tm-1",
+		teamId: ids("tm-1"),
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "b1",
-		teamId: "team-1",
-		ownerAgentId: "agent-a",
+		id: ids("task-1"),
+		betId: ids("b1"),
+		teamId: ids("team-1"),
+		ownerAgentId: ids("agent-a"),
 		title: "Parent Task",
 		state: "in_progress",
 		createdAt: NOW,
@@ -68,13 +69,14 @@ async function seed(db: HyperIdleDb): Promise<void> {
 function makeContext(
 	db: HyperIdleDb,
 	eventBus: import("@hyperidle/event-bus").EventBus,
+	ids: ScopedIds,
 ): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus,
-		agentId: "agent-a",
-		sessionId: "session-1",
-		taskId: "task-1",
+		agentId: ids("agent-a"),
+		sessionId: ids("session-1"),
+		taskId: ids("task-1"),
 		sandboxPath: path.join(os.tmpdir(), `hi-r5-createtask-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
@@ -87,12 +89,13 @@ describe("create_task tool", () => {
 			db,
 			eventBus,
 			app,
+			ids,
 		}) => {
 			const createTaskTool = buildCreateTaskTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const result = await createTaskTool.handler(
 				{ title: "Implement feature X" },
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 
 			expect(result.success).toBe(true);
@@ -100,14 +103,14 @@ describe("create_task tool", () => {
 
 			const data = result.data as { taskId: string; betId: string };
 			expect(typeof data.taskId).toBe("string");
-			expect(data.betId).toBe("b1");
+			expect(data.betId).toBe(ids("b1"));
 
 			const [inserted] = await db.select().from(tasks).where(eq(tasks.id, data.taskId));
 			expect(inserted).toBeDefined();
-			expect(inserted?.betId).toBe("b1");
+			expect(inserted?.betId).toBe(ids("b1"));
 			// @lore U1: tasks.teamId now references teams.id (domain entity), no productId column.
-			expect(inserted?.teamId).toBe("team-1");
-			expect(inserted?.ownerAgentId).toBe("agent-a");
+			expect(inserted?.teamId).toBe(ids("team-1"));
+			expect(inserted?.ownerAgentId).toBe(ids("agent-a"));
 			expect(inserted?.title).toBe("Implement feature X");
 			expect(inserted?.state).toBe("proposed");
 		});
@@ -116,16 +119,17 @@ describe("create_task tool", () => {
 			db,
 			eventBus,
 			app,
+			ids,
 		}) => {
 			const createTaskTool = buildCreateTaskTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const result = await createTaskTool.handler(
 				{
 					title: "Write tests",
 					description: "Cover all edge cases",
 					doneCondition: "All tests pass and coverage >= 90%",
 				},
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 
 			expect(result.success).toBe(true);
@@ -140,10 +144,13 @@ describe("create_task tool", () => {
 
 	// AC5: new tasks from create_task start in proposed state
 	describe("AC5: new task starts in proposed state", () => {
-		test("inserted task has state=proposed", async ({ db, eventBus, app }) => {
+		test("inserted task has state=proposed", async ({ db, eventBus, app, ids }) => {
 			const createTaskTool = buildCreateTaskTool(app);
-			await seed(db);
-			const result = await createTaskTool.handler({ title: "Subtask" }, makeContext(db, eventBus));
+			await seed(db, ids);
+			const result = await createTaskTool.handler(
+				{ title: "Subtask" },
+				makeContext(db, eventBus, ids),
+			);
 
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -156,13 +163,21 @@ describe("create_task tool", () => {
 
 	// Event emission
 	describe("event emission", () => {
-		test("emits task_state_changed event after creating a task", async ({ db, eventBus, app }) => {
+		test("emits task_state_changed event after creating a task", async ({
+			db,
+			eventBus,
+			app,
+			ids,
+		}) => {
 			const createTaskTool = buildCreateTaskTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const emitted: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e: TaskStateChangedEvent) => emitted.push(e));
 
-			const result = await createTaskTool.handler({ title: "New Task" }, makeContext(db, eventBus));
+			const result = await createTaskTool.handler(
+				{ title: "New Task" },
+				makeContext(db, eventBus, ids),
+			);
 
 			expect(result.success).toBe(true);
 			expect(emitted).toHaveLength(1);
@@ -175,12 +190,12 @@ describe("create_task tool", () => {
 
 	// Error cases
 	describe("error cases", () => {
-		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, eventBus, app }) => {
+		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, eventBus, app, ids }) => {
 			const createTaskTool = buildCreateTaskTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const ctx: ToolContext<HyperIdleDb> = {
-				...makeContext(db, eventBus),
-				taskId: "ghost-task-does-not-exist",
+				...makeContext(db, eventBus, ids),
+				taskId: ids("ghost-task"),
 			};
 
 			const result = await createTaskTool.handler({ title: "Will fail" }, ctx);
@@ -190,10 +205,10 @@ describe("create_task tool", () => {
 			expect(result.code).toBe("NOT_FOUND");
 		});
 
-		test("returns INVALID_INPUT when title is empty string", async ({ db, eventBus, app }) => {
+		test("returns INVALID_INPUT when title is empty string", async ({ db, eventBus, app, ids }) => {
 			const createTaskTool = buildCreateTaskTool(app);
-			await seed(db);
-			const result = await createTaskTool.handler({ title: "" }, makeContext(db, eventBus));
+			await seed(db, ids);
+			const result = await createTaskTool.handler({ title: "" }, makeContext(db, eventBus, ids));
 
 			expect(result.success).toBe(false);
 			if (result.success) return;
@@ -204,12 +219,13 @@ describe("create_task tool", () => {
 			db,
 			eventBus,
 			app,
+			ids,
 		}) => {
 			const createTaskTool = buildCreateTaskTool(app);
-			await seed(db);
+			await seed(db, ids);
 			const result = await createTaskTool.handler(
 				{ title: "x".repeat(513) },
-				makeContext(db, eventBus),
+				makeContext(db, eventBus, ids),
 			);
 
 			expect(result.success).toBe(false);

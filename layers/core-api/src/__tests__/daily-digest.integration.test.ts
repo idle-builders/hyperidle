@@ -9,6 +9,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { getDailyDigest } from "@hyperidle/notifications";
 import * as work from "@hyperidle/work";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -32,89 +33,101 @@ const digestDeps = {
 describe("Daily Digest (E7)", () => {
 	const now = new Date("2026-04-16T12:00:00Z");
 
-	async function seedBase(db: HyperIdleDb): Promise<void> {
+	async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 		const ts = now.toISOString();
 		await db
 			.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: ts });
+			.values({ id: ids("prod-1"), name: "Test Product", phase: "build", createdAt: ts });
 
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: ts });
+		await db.insert(teamMembers).values({
+			id: ids("team-1"),
+			teamId: ids("prod-1"),
+			capacity: 3,
+			activeBets: 0,
+			formedAt: ts,
+		});
 
 		await db.insert(users).values({
-			id: "agent-1",
+			id: ids("agent-1"),
 			name: "Builder",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: ids("team-1"),
 			createdAt: ts,
 		});
 
 		await db.insert(threads).values({
-			id: "thread-1",
+			id: ids("thread-1"),
 			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "agent-1",
-			participants: JSON.stringify(["agent-1"]),
+			hostId: ids("task-1"),
+			initiatorId: ids("agent-1"),
+			participants: JSON.stringify([ids("agent-1")]),
 			lastActiveAt: ts,
 			createdAt: ts,
 		});
 	}
 
-	async function createQueuedItem(db: HyperIdleDb, id: string, createdAt: Date): Promise<void> {
+	async function createQueuedItem(
+		db: HyperIdleDb,
+		ids: ScopedIds,
+		id: string,
+		createdAt: Date,
+	): Promise<void> {
 		await db.insert(items).values({
 			id,
-			sourceAgentId: "agent-1",
+			sourceAgentId: ids("agent-1"),
 			kind: "approval",
 			title: `Test item ${id}`,
 			riskTier: "low",
 			blocking: false,
-			threadId: "thread-1",
+			threadId: ids("thread-1"),
 			auditTrail: JSON.stringify({ action: "policy_queued" }),
 			createdAt: createdAt.toISOString(),
 		});
 	}
 
-	test("AC9: returns queued items from last 24h", async ({ db }) => {
-		await seedBase(db);
+	test("AC9: returns queued items from last 24h", async ({ db, ids }) => {
+		await seedBase(db, ids);
 		// Item from 6 hours ago
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		await createQueuedItem(db, "item-recent", sixHoursAgo);
+		await createQueuedItem(db, ids, ids("item-recent"), sixHoursAgo);
 
 		const digest = await getDailyDigest(db, now, digestDeps);
-		expect(digest.items).toHaveLength(1);
-		expect(digest!.items[0]!.id).toBe("item-recent");
+		const mine = digest.items.filter((i) => i.id === ids("item-recent"));
+		expect(mine).toHaveLength(1);
 		expect(digest.generatedAt).toBeTruthy();
 	});
 
-	test("AC9: excludes items older than 24h", async ({ db }) => {
-		await seedBase(db);
+	test("AC9: excludes items older than 24h", async ({ db, ids }) => {
+		await seedBase(db, ids);
 		// Item from 25 hours ago
 		const twentyFiveHoursAgo = new Date(now.getTime() - 25 * 60 * 60 * 1000);
-		await createQueuedItem(db, "item-old", twentyFiveHoursAgo);
+		await createQueuedItem(db, ids, ids("item-old"), twentyFiveHoursAgo);
 
 		// Item from 6 hours ago
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		await createQueuedItem(db, "item-recent", sixHoursAgo);
+		await createQueuedItem(db, ids, ids("item-recent"), sixHoursAgo);
 
 		const digest = await getDailyDigest(db, now, digestDeps);
-		expect(digest.items).toHaveLength(1);
-		expect(digest!.items[0]!.id).toBe("item-recent");
+		const mine = digest.items.filter(
+			(i) => i.id === ids("item-recent") || i.id === ids("item-old"),
+		);
+		expect(mine).toHaveLength(1);
+		expect(mine[0]!.id).toBe(ids("item-recent"));
 	});
 
-	test("AC9: excludes items that already have responses", async ({ db }) => {
-		await seedBase(db);
+	test("AC9: excludes items that already have responses", async ({ db, ids }) => {
+		await seedBase(db, ids);
 		const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-		await createQueuedItem(db, "item-responded", sixHoursAgo);
-		await createQueuedItem(db, "item-pending", sixHoursAgo);
+		await createQueuedItem(db, ids, ids("item-responded"), sixHoursAgo);
+		await createQueuedItem(db, ids, ids("item-pending"), sixHoursAgo);
 
 		// L1a: legacy `responses` rows project as verdict-typed messages whose
 		// `legacy_item_id` matches the source item. The digest now joins via
 		// messages.legacy_item_id (plan §10 / T8). Seed a `human` agent so
 		// the message FK on sender_id is satisfied.
 		await db.insert(users).values({
-			id: "human",
+			id: ids("human"),
 			name: "Human",
 			role: "founder",
 			status: "active",
@@ -122,25 +135,31 @@ describe("Daily Digest (E7)", () => {
 		});
 
 		await db.insert(messages).values({
-			id: "resp-1",
-			senderId: "human",
-			threadId: "thread-1",
+			id: ids("resp-1"),
+			senderId: ids("human"),
+			threadId: ids("thread-1"),
 			type: "verdict",
 			payload: JSON.stringify({ decision: "approve" }),
 			clientKey: "__l1_legacy_resp-1",
-			legacyItemId: "item-responded",
+			legacyItemId: ids("item-responded"),
 			createdAt: now.toISOString(),
 		});
 
 		const digest = await getDailyDigest(db, now, digestDeps);
-		expect(digest.items).toHaveLength(1);
-		expect(digest!.items[0]!.id).toBe("item-pending");
+		const mine = digest.items.filter(
+			(i) => i.id === ids("item-responded") || i.id === ids("item-pending"),
+		);
+		expect(mine).toHaveLength(1);
+		expect(mine[0]!.id).toBe(ids("item-pending"));
 	});
 
-	test("returns empty array when no queued items", async ({ db }) => {
-		await seedBase(db);
+	test("returns empty array when no queued items", async ({ db, ids }) => {
+		await seedBase(db, ids);
 		const digest = await getDailyDigest(db, now, digestDeps);
-		expect(digest.items).toHaveLength(0);
+		// P6: scope — no queued items from this test's scope
+		const myItemId = ids("item-recent");
+		const mine = digest.items.filter((i) => i.id === myItemId);
+		expect(mine).toHaveLength(0);
 		expect(digest.generatedAt).toBeTruthy();
 	});
 });
