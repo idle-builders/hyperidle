@@ -76,6 +76,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
@@ -158,11 +159,13 @@ interface SeamCoreApiPortIncrement2 {
 
 async function seedTeamAndBet(
 	db: HyperIdleDb,
-	opts: { readonly suffix: string; readonly betStatus?: string },
+	ids: ScopedIds,
+	prefix: string,
+	betStatus = "active",
 ): Promise<{ readonly teamId: string; readonly teamMembersId: string; readonly betId: string }> {
-	const teamId = `team-inc2-${opts.suffix}`;
-	const teamMembersId = `tm-inc2-${opts.suffix}`;
-	const betId = `bet-inc2-${opts.suffix}`;
+	const teamId = ids(`${prefix}-team`);
+	const teamMembersId = ids(`${prefix}-tm`);
+	const betId = ids(`${prefix}-bet`);
 	await db.insert(teams).values({ id: teamId, name: "Inc2 Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
@@ -172,7 +175,7 @@ async function seedTeamAndBet(
 		teamId,
 		description: "Inc2 bet",
 		appetite: "small",
-		status: opts.betStatus ?? "active",
+		status: betStatus,
 		createdAt: NOW,
 	});
 	return { teamId, teamMembersId, betId };
@@ -202,12 +205,14 @@ function buildSeamPort(actorId: string, app: Hono): SeamCoreApiPortIncrement2 {
 }
 
 describe("CoreApiPort.work — Increment 2 (RED)", () => {
-	test("getTaskById reaches the real task detail route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-task");
-		const { teamId, betId } = await seedTeamAndBet(db, { suffix: "task1" });
-		await seedAgent(db, "agent-inc2-task1");
+	test("getTaskById reaches the real task detail route", async ({ db, app, ids }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-task"));
+		const { teamId, betId } = await seedTeamAndBet(db, ids, "task1");
+		const agentId = ids("agent-inc2-task1");
+		await seedAgent(db, agentId);
+		const taskId = ids("task-inc2-1");
 		await db.insert(tasks).values({
-			id: "task-inc2-1",
+			id: taskId,
 			betId,
 			teamId,
 			title: "Seam task",
@@ -216,19 +221,20 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 			updatedAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-inc2-task1", app);
-		const found = await port.work.getTaskById("task-inc2-1");
+		const port = buildSeamPort(agentId, app);
+		const found = await port.work.getTaskById(taskId);
 
 		expect(found?.betId).toBe(betId);
 		expect(found?.teamId).toBe(teamId);
 	});
 
-	test("getBetById reaches the real GET /bets/:id route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-bet");
-		const { betId } = await seedTeamAndBet(db, { suffix: "bet1" });
-		await seedAgent(db, "agent-inc2-bet1");
+	test("getBetById reaches the real GET /bets/:id route", async ({ db, app, ids }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-bet"));
+		const { betId } = await seedTeamAndBet(db, ids, "bet1");
+		const agentId = ids("agent-inc2-bet1");
+		await seedAgent(db, agentId);
 
-		const port = buildSeamPort("agent-inc2-bet1", app);
+		const port = buildSeamPort(agentId, app);
 		const found = await port.work.getBetById(betId);
 
 		expect(found?.status).toBe("active");
@@ -237,12 +243,14 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 	test("updateBetById reaches the real PATCH /bets/:id route and the row lands in the DB", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-updatebet");
-		const { betId } = await seedTeamAndBet(db, { suffix: "bet2", betStatus: "active" });
-		await seedAgent(db, "agent-inc2-bet2");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-updatebet"));
+		const { betId } = await seedTeamAndBet(db, ids, "bet2", "active");
+		const agentId = ids("agent-inc2-bet2");
+		await seedAgent(db, agentId);
 
-		const port = buildSeamPort("agent-inc2-bet2", app);
+		const port = buildSeamPort(agentId, app);
 		await port.work.updateBetById(betId, {
 			doneCondition: "Ship it",
 			hypothesis: "Users will love it",
@@ -256,12 +264,14 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 	test("createTask reaches the real POST /tasks route (a real row lands in the DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-createtask");
-		const { teamId, betId } = await seedTeamAndBet(db, { suffix: "task2" });
-		await seedAgent(db, "agent-inc2-task2");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-createtask"));
+		const { teamId, betId } = await seedTeamAndBet(db, ids, "task2");
+		const agentId = ids("agent-inc2-task2");
+		await seedAgent(db, agentId);
 
-		const port = buildSeamPort("agent-inc2-task2", app);
+		const port = buildSeamPort(agentId, app);
 		const created = await port.work.createTask({ betId, title: "New seam task" });
 
 		expect(created.betId).toBe(betId);
@@ -275,12 +285,15 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 	test("appendTaskNote reaches the real atomic-append route (notes land in the DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-appendnote");
-		const { teamId, betId } = await seedTeamAndBet(db, { suffix: "task3" });
-		await seedAgent(db, "agent-inc2-task3");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-appendnote"));
+		const { teamId, betId } = await seedTeamAndBet(db, ids, "task3");
+		const agentId = ids("agent-inc2-task3");
+		await seedAgent(db, agentId);
+		const taskId = ids("task-inc2-3");
 		await db.insert(tasks).values({
-			id: "task-inc2-3",
+			id: taskId,
 			betId,
 			teamId,
 			title: "Note target",
@@ -289,39 +302,43 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 			updatedAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-inc2-task3", app);
-		const result = await port.work.appendTaskNote("task-inc2-3", "[note] discovered a thing");
+		const port = buildSeamPort(agentId, app);
+		const result = await port.work.appendTaskNote(taskId, "[note] discovered a thing");
 
-		expect(result?.id).toBe("task-inc2-3");
-		const [row] = await db.select().from(tasks).where(eq(tasks.id, "task-inc2-3")).limit(1);
+		expect(result?.id).toBe(taskId);
+		const [row] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
 		expect(row?.notes).toContain("discovered a thing");
 	});
 
 	test("appendTaskNote against a nonexistent task resolves undefined (task-not-found signal, no throw)", async ({
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-appendnote-404");
-		const port = buildSeamPort("agent-inc2-missing", app);
-		const result = await port.work.appendTaskNote("no-such-task", "irrelevant");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-appendnote-404"));
+		const port = buildSeamPort(ids("agent-inc2-missing"), app);
+		const result = await port.work.appendTaskNote(ids("no-such-task"), "irrelevant");
 		expect(result).toBeUndefined();
 	});
 
-	test("getItemById reaches the real item detail route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-getitem");
-		await seedAgent(db, "agent-inc2-item1");
-		const threadId = "thread-inc2-item1";
+	test("getItemById reaches the real item detail route", async ({ db, app, ids }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-getitem"));
+		const agentId = ids("agent-inc2-item1");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-inc2-item1");
+		const hostId = ids("task-x-item1");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-x",
-			initiatorId: "agent-inc2-item1",
-			participants: JSON.stringify(["agent-inc2-item1"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
+		const itemId = ids("item-inc2-1");
 		await db.insert(items).values({
-			id: "item-inc2-1",
-			sourceAgentId: "agent-inc2-item1",
+			id: itemId,
+			sourceAgentId: agentId,
 			title: "Seam item",
 			riskTier: "low",
 			kind: "review",
@@ -330,8 +347,8 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-inc2-item1", app);
-		const found = await port.work.getItemById("item-inc2-1");
+		const port = buildSeamPort(agentId, app);
+		const found = await port.work.getItemById(itemId);
 
 		expect(found?.riskTier).toBe("low");
 		expect(found?.kind).toBe("review");
@@ -340,22 +357,26 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 	test("updateItemById reaches the real item-patch route (row lands in the DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-updateitem");
-		await seedAgent(db, "agent-inc2-item2");
-		const threadId = "thread-inc2-item2";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-updateitem"));
+		const agentId = ids("agent-inc2-item2");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-inc2-item2");
+		const hostId = ids("task-x-item2");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-x",
-			initiatorId: "agent-inc2-item2",
-			participants: JSON.stringify(["agent-inc2-item2"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
+		const itemId = ids("item-inc2-2");
 		await db.insert(items).values({
-			id: "item-inc2-2",
-			sourceAgentId: "agent-inc2-item2",
+			id: itemId,
+			sourceAgentId: agentId,
 			title: "Seam item 2",
 			riskTier: "low",
 			kind: null,
@@ -363,10 +384,10 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-inc2-item2", app);
-		await port.work.updateItemById("item-inc2-2", { riskTier: "high", kind: "escalation" });
+		const port = buildSeamPort(agentId, app);
+		await port.work.updateItemById(itemId, { riskTier: "high", kind: "escalation" });
 
-		const [row] = await db.select().from(items).where(eq(items.id, "item-inc2-2")).limit(1);
+		const [row] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
 		expect(row?.riskTier).toBe("high");
 		expect(row?.kind).toBe("escalation");
 	});
@@ -374,21 +395,24 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 	test("createItem reaches the real POST /conversations/items route (a real row lands in the DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-createitem");
-		await seedAgent(db, "agent-inc2-item3");
-		const threadId = "thread-inc2-item3";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-createitem"));
+		const agentId = ids("agent-inc2-item3");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-inc2-item3");
+		const hostId = ids("task-x-item3");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-x",
-			initiatorId: "agent-inc2-item3",
-			participants: JSON.stringify(["agent-inc2-item3"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-inc2-item3", app);
+		const port = buildSeamPort(agentId, app);
 		const created = await port.work.createItem({
 			threadId,
 			title: "A review item",
@@ -405,60 +429,67 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 	test("findItemByReasoningMarker reaches the real reasoning-marker search route", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-marker");
-		await seedAgent(db, "agent-inc2-item4");
-		const threadId = "thread-inc2-item4";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-marker"));
+		const agentId = ids("agent-inc2-item4");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-inc2-item4");
+		const hostId = ids("task-x-item4");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-x",
-			initiatorId: "agent-inc2-item4",
-			participants: JSON.stringify(["agent-inc2-item4"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
-		const marker = "au21-inc2-unique-marker";
+		const marker = ids("au21-inc2-unique-marker");
+		const itemId = ids("item-inc2-marker");
 		await db.insert(items).values({
-			id: "item-inc2-marker",
-			sourceAgentId: "agent-inc2-item4",
+			id: itemId,
+			sourceAgentId: agentId,
 			title: "Markered item",
 			reasoning: `context::${marker}::end`,
 			threadId,
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-inc2-item4", app);
+		const port = buildSeamPort(agentId, app);
 		const found = await port.work.findItemByReasoningMarker(marker);
 
-		expect(found?.id).toBe("item-inc2-marker");
+		expect(found?.id).toBe(itemId);
 	});
 
 	test("createArtifact reaches the real POST /artifacts route (a real row lands in the DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-artifact");
-		const { teamId, betId } = await seedTeamAndBet(db, { suffix: "art1" });
-		await seedAgent(db, "agent-inc2-art1");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-artifact"));
+		const { teamId, betId } = await seedTeamAndBet(db, ids, "art1");
+		const agentId = ids("agent-inc2-art1");
+		await seedAgent(db, agentId);
+		const taskId = ids("task-inc2-art1");
 		await db.insert(tasks).values({
-			id: "task-inc2-art1",
+			id: taskId,
 			betId,
 			teamId,
 			title: "Producing task",
 			state: "in_progress",
-			ownerAgentId: "agent-inc2-art1",
+			ownerAgentId: agentId,
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-inc2-art1", app);
+		const port = buildSeamPort(agentId, app);
 		const created = await port.work.createArtifact({
-			producingTaskId: "task-inc2-art1",
+			producingTaskId: taskId,
 			kind: "text",
 		});
 
-		expect(created.producingTaskId).toBe("task-inc2-art1");
+		expect(created.producingTaskId).toBe(taskId);
 		const [row] = await db.select().from(artifacts).where(eq(artifacts.id, created.id)).limit(1);
 		expect(row).toBeDefined();
 		expect(row?.kind).toBe("text");
@@ -467,12 +498,15 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 	test("a write with no credentials is rejected, not silently bypassed (auth/boundary middleware ran)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-noauth");
-		const { teamId, betId } = await seedTeamAndBet(db, { suffix: "noauth" });
-		await seedAgent(db, "agent-inc2-noauth");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-noauth"));
+		const { teamId, betId } = await seedTeamAndBet(db, ids, "noauth");
+		const agentId = ids("agent-inc2-noauth");
+		await seedAgent(db, agentId);
+		const taskId = ids("task-inc2-noauth");
 		await db.insert(tasks).values({
-			id: "task-inc2-noauth",
+			id: taskId,
 			betId,
 			teamId,
 			title: "Unauthed target",
@@ -487,35 +521,41 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 			createInProcessCoreApiTransport(app),
 		) as unknown as SeamCoreApiPortIncrement2;
 
-		await expect(
-			port.work.appendTaskNote("task-inc2-noauth", "should never land"),
-		).rejects.toThrow();
+		await expect(port.work.appendTaskNote(taskId, "should never land")).rejects.toThrow();
 	});
 });
 
 describe("CoreApiPort.users — Increment 2 (RED)", () => {
-	test("getUserById reaches the real GET /users/:id route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-getuser");
-		await seedAgent(db, "agent-inc2-user1");
+	test("getUserById reaches the real GET /users/:id route", async ({ db, app, ids }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-getuser"));
+		const agentId = ids("agent-inc2-user1");
+		await seedAgent(db, agentId);
 
-		const port = buildSeamPort("agent-inc2-user1", app);
-		const found = await port.users.getUserById("agent-inc2-user1");
+		const port = buildSeamPort(agentId, app);
+		const found = await port.users.getUserById(agentId);
 
-		expect(found?.name).toBe("Agent agent-inc2-user1");
+		expect(found?.name).toBe(`Agent ${agentId}`);
 	});
 
-	test("listUsersByTeam reaches the real team-scoped user-listing route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-listusers");
-		const { teamMembersId } = await seedTeamAndBet(db, { suffix: "roster1" });
-		await seedAgent(db, "agent-inc2-roster1", { teamId: teamMembersId });
-		await seedAgent(db, "agent-inc2-roster2", { teamId: teamMembersId });
+	test("listUsersByTeam reaches the real team-scoped user-listing route", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-key-listusers"));
+		const { teamMembersId } = await seedTeamAndBet(db, ids, "roster1");
+		const agent1 = ids("agent-inc2-roster1");
+		const agent2 = ids("agent-inc2-roster2");
+		const agentOther = ids("agent-inc2-roster-other");
+		await seedAgent(db, agent1, { teamId: teamMembersId });
+		await seedAgent(db, agent2, { teamId: teamMembersId });
 		// A control agent NOT on this team — must not appear in the result.
-		await seedAgent(db, "agent-inc2-roster-other");
+		await seedAgent(db, agentOther);
 
-		const port = buildSeamPort("agent-inc2-roster1", app);
+		const port = buildSeamPort(agent1, app);
 		const roster = await port.users.listUsersByTeam(teamMembersId);
 
-		const ids = roster.map((u) => u.id).sort();
-		expect(ids).toEqual(["agent-inc2-roster1", "agent-inc2-roster2"]);
+		const rosterIds = roster.map((u) => u.id).sort();
+		expect(rosterIds).toEqual([agent1, agent2].sort());
 	});
 });

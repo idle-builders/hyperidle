@@ -153,11 +153,11 @@ interface SeamCoreApiPortIncrement2Conversation {
 	};
 }
 
-async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
+async function seedAgent(db: HyperIdleDb, id: string, name?: string): Promise<void> {
 	await db.insert(users).values({
 		id,
 		kind: "ai",
-		name: `Agent ${id}`,
+		name: name ?? `Agent ${id}`,
 		role: "engineer",
 		status: "active",
 		createdAt: NOW,
@@ -172,105 +172,122 @@ function buildSeamPort(actorId: string, app: Hono): SeamCoreApiPortIncrement2Con
 }
 
 describe("CoreApiPort.conversation — Increment 2 conversation wave (RED)", () => {
-	test("getThreadById reaches the real GET /api/threads/:id route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-getthread");
-		await seedAgent(db, "agent-conv-getthread");
-		const threadId = "thread-conv-getthread";
+	test("getThreadById reaches the real GET /api/threads/:id route", async ({ db, app, ids }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-getthread"));
+		const agentId = ids("agent-conv-getthread");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-conv-getthread");
+		const hostId = ids("task-conv-x");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-conv-x",
-			initiatorId: "agent-conv-getthread",
-			participants: JSON.stringify(["agent-conv-getthread"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-conv-getthread", app);
+		const port = buildSeamPort(agentId, app);
 		const found = await port.conversation.getThreadById(threadId);
 
 		expect(found?.id).toBe(threadId);
-		expect(found?.participants).toContain("agent-conv-getthread");
+		expect(found?.participants).toContain(agentId);
 	});
 
-	test("getThreadById against a nonexistent thread resolves undefined", async ({ app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-getthread-404");
-		const port = buildSeamPort("agent-conv-missing", app);
-		const found = await port.conversation.getThreadById("no-such-thread");
+	test("getThreadById against a nonexistent thread resolves undefined", async ({ app, ids }) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-getthread-404"));
+		const port = buildSeamPort(ids("agent-conv-missing"), app);
+		const found = await port.conversation.getThreadById(ids("no-such-thread"));
 		expect(found).toBeUndefined();
 	});
 
 	test("insertThread reaches a real bare-thread-creation route (a real row lands in the DB, no message required)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-insertthread");
-		await seedAgent(db, "agent-conv-insertthread");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-insertthread"));
+		const agentId = ids("agent-conv-insertthread");
+		await seedAgent(db, agentId);
+		const hostId = ids("task-conv-insert");
 
-		const port = buildSeamPort("agent-conv-insertthread", app);
+		const port = buildSeamPort(agentId, app);
 		const created = await port.conversation.insertThread({
 			hostKind: "task",
-			hostId: "task-conv-insert",
-			participants: ["agent-conv-insertthread"],
+			hostId,
+			participants: [agentId],
 		});
 
 		expect(created.id).toBeTruthy();
 		const [row] = await db.select().from(threads).where(eq(threads.id, created.id)).limit(1);
 		expect(row).toBeDefined();
 		expect(row?.hostKind).toBe("task");
-		expect(row?.hostId).toBe("task-conv-insert");
-		expect(JSON.parse(row?.participants ?? "[]")).toContain("agent-conv-insertthread");
+		expect(row?.hostId).toBe(hostId);
+		expect(JSON.parse(row?.participants ?? "[]")).toContain(agentId);
 	});
 
 	test("updateThread reaches a real thread-patch route (participants land in the DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-updatethread");
-		await seedAgent(db, "agent-conv-updatethread");
-		await seedAgent(db, "agent-conv-updatethread-2");
-		const threadId = "thread-conv-updatethread";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-updatethread"));
+		const agentId = ids("agent-conv-updatethread");
+		const agentId2 = ids("agent-conv-updatethread-2");
+		await seedAgent(db, agentId);
+		await seedAgent(db, agentId2);
+		const threadId = ids("thread-conv-updatethread");
+		const hostId = ids("task-conv-update");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-conv-update",
-			initiatorId: "agent-conv-updatethread",
-			participants: JSON.stringify(["agent-conv-updatethread"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-conv-updatethread", app);
+		const port = buildSeamPort(agentId, app);
 		await port.conversation.updateThread(threadId, {
-			participants: ["agent-conv-updatethread", "agent-conv-updatethread-2"],
+			participants: [agentId, agentId2],
 		});
 
 		const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
-		expect(JSON.parse(row?.participants ?? "[]")).toEqual([
-			"agent-conv-updatethread",
-			"agent-conv-updatethread-2",
-		]);
+		expect(JSON.parse(row?.participants ?? "[]")).toEqual([agentId, agentId2]);
 	});
 
 	test("updateThread can set pinned (dispatch's assistant-thread-pin shape)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-updatethread-pin");
-		await seedAgent(db, "agent-conv-pin");
-		const threadId = "thread-conv-pin";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-updatethread-pin"));
+		const agentId = ids("agent-conv-pin");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-conv-pin");
+		const humanId = ids("human-conv-pin");
+		await db.insert(users).values({
+			id: humanId,
+			kind: "human",
+			name: "Human",
+			role: "founder",
+			status: "active",
+			createdAt: NOW,
+		});
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "user",
-			hostId: "human-conv-pin",
-			initiatorId: "human-conv-pin",
-			participants: JSON.stringify(["human-conv-pin", "agent-conv-pin"]),
+			hostId: humanId,
+			initiatorId: humanId,
+			participants: JSON.stringify([humanId, agentId]),
 			pinned: false,
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-conv-pin", app);
+		const port = buildSeamPort(agentId, app);
 		await port.conversation.updateThread(threadId, { pinned: true });
 
 		const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
@@ -280,150 +297,176 @@ describe("CoreApiPort.conversation — Increment 2 conversation wave (RED)", () 
 	test("insertMessage reaches the real POST /api/threads/:id/messages route (senderId derives from the threaded actor, not the body)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-insertmessage");
-		await seedAgent(db, "agent-conv-insertmessage");
-		const threadId = "thread-conv-insertmessage";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-insertmessage"));
+		const agentId = ids("agent-conv-insertmessage");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-conv-insertmessage");
+		const hostId = ids("task-conv-msg");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-conv-msg",
-			initiatorId: "agent-conv-insertmessage",
-			participants: JSON.stringify(["agent-conv-insertmessage"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-conv-insertmessage", app);
+		const port = buildSeamPort(agentId, app);
 		const created = await port.conversation.insertMessage({
 			threadId,
 			type: "plain",
 			payload: { text: "hello from the seam" },
-			clientKey: `ck-${crypto.randomUUID()}`,
+			clientKey: ids("ck-insertmessage"),
 		});
 
 		expect(created.id).toBeTruthy();
 		const [row] = await db.select().from(messages).where(eq(messages.id, created.id)).limit(1);
 		expect(row).toBeDefined();
-		expect(row?.senderId).toBe("agent-conv-insertmessage");
+		expect(row?.senderId).toBe(agentId);
 		expect(JSON.parse(row?.payload ?? "{}")).toMatchObject({ text: "hello from the seam" });
 	});
 
 	test("listInboxBySenderExclusion reaches a real sender-exclusion inbox route, scoped to the calling actor", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-inbox");
-		await seedAgent(db, "agent-conv-inbox-self");
-		await seedAgent(db, "agent-conv-inbox-other");
-		const threadId = "thread-conv-inbox";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-inbox"));
+		const selfAgentId = ids("agent-conv-inbox-self");
+		const otherAgentId = ids("agent-conv-inbox-other");
+		await seedAgent(db, selfAgentId);
+		await seedAgent(db, otherAgentId);
+		const threadId = ids("thread-conv-inbox");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "agent",
-			hostId: "agent-conv-inbox-self",
-			initiatorId: "agent-conv-inbox-other",
-			participants: JSON.stringify(["agent-conv-inbox-self", "agent-conv-inbox-other"]),
+			hostId: selfAgentId,
+			initiatorId: otherAgentId,
+			participants: JSON.stringify([selfAgentId, otherAgentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
+		const msgFromOther = ids("msg-conv-inbox-from-other");
+		const msgFromSelf = ids("msg-conv-inbox-from-self");
 		await db.insert(messages).values({
-			id: "msg-conv-inbox-from-other",
-			senderId: "agent-conv-inbox-other",
+			id: msgFromOther,
+			senderId: otherAgentId,
 			threadId,
 			type: "plain",
 			payload: JSON.stringify({ text: "for you" }),
-			clientKey: "ck-inbox-other",
+			clientKey: ids("ck-inbox-other"),
 			createdAt: NOW,
 		});
 		await db.insert(messages).values({
-			id: "msg-conv-inbox-from-self",
-			senderId: "agent-conv-inbox-self",
+			id: msgFromSelf,
+			senderId: selfAgentId,
 			threadId,
 			type: "plain",
 			payload: JSON.stringify({ text: "from me" }),
-			clientKey: "ck-inbox-self",
+			clientKey: ids("ck-inbox-self"),
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-conv-inbox-self", app);
+		const port = buildSeamPort(selfAgentId, app);
 		const rows = await port.conversation.listInboxBySenderExclusion(50);
 
-		const ids = rows.map((r) => r.message.id);
-		expect(ids).toContain("msg-conv-inbox-from-other");
-		expect(ids).not.toContain("msg-conv-inbox-from-self");
+		const resultIds = rows.map((r) => r.message.id);
+		expect(resultIds).toContain(msgFromOther);
+		expect(resultIds).not.toContain(msgFromSelf);
 	});
 
 	test("findOrCreateDirectThread reaches a real DM find-or-create route (sender derives from the actor)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-directthread");
-		await seedAgent(db, "agent-conv-direct-a");
-		await seedAgent(db, "agent-conv-direct-b");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-directthread"));
+		const agentA = ids("agent-conv-direct-a");
+		const agentB = ids("agent-conv-direct-b");
+		await seedAgent(db, agentA);
+		await seedAgent(db, agentB);
 
-		const port = buildSeamPort("agent-conv-direct-a", app);
-		const created = await port.conversation.findOrCreateDirectThread("agent-conv-direct-b");
+		const port = buildSeamPort(agentA, app);
+		const created = await port.conversation.findOrCreateDirectThread(agentB);
 
 		expect(created.id).toBeTruthy();
 		const [row] = await db.select().from(threads).where(eq(threads.id, created.id)).limit(1);
 		expect(row).toBeDefined();
 		const parts = JSON.parse(row?.participants ?? "[]") as string[];
-		expect(parts.sort()).toEqual(["agent-conv-direct-a", "agent-conv-direct-b"].sort());
+		expect(parts.sort()).toEqual([agentA, agentB].sort());
 	});
 
 	test("findOrCreateDirectThread is idempotent — a second call for the same pair reuses the same thread", async ({
+		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-directthread-idem");
-		const port = buildSeamPort("agent-conv-direct-idem-a", app);
-		const first = await port.conversation.findOrCreateDirectThread("agent-conv-direct-idem-b");
-		const second = await port.conversation.findOrCreateDirectThread("agent-conv-direct-idem-b");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-directthread-idem"));
+		const agentA = ids("agent-conv-direct-idem-a");
+		const agentB = ids("agent-conv-direct-idem-b");
+		await seedAgent(db, agentA);
+		await seedAgent(db, agentB);
+		const port = buildSeamPort(agentA, app);
+		const first = await port.conversation.findOrCreateDirectThread(agentB);
+		const second = await port.conversation.findOrCreateDirectThread(agentB);
 		expect(second.id).toBe(first.id);
 	});
 
 	test("getFirstThreadByHost reaches the real GET /api/threads?host_kind=&host_id= route", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-firstbyhost");
-		await seedAgent(db, "agent-conv-firstbyhost");
-		const threadId = "thread-conv-firstbyhost";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-firstbyhost"));
+		const agentId = ids("agent-conv-firstbyhost");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-conv-firstbyhost");
+		const hostId = ids("bet-conv-firstbyhost");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "bet",
-			hostId: "bet-conv-firstbyhost",
-			initiatorId: "agent-conv-firstbyhost",
-			participants: JSON.stringify(["agent-conv-firstbyhost"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-conv-firstbyhost", app);
-		const found = await port.conversation.getFirstThreadByHost("bet", "bet-conv-firstbyhost");
+		const port = buildSeamPort(agentId, app);
+		const found = await port.conversation.getFirstThreadByHost("bet", hostId);
 
 		expect(found?.id).toBe(threadId);
 	});
 
-	test("getFirstThreadByHost against a host with no thread resolves undefined", async ({ app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-firstbyhost-404");
-		const port = buildSeamPort("agent-conv-firstbyhost-none", app);
-		const found = await port.conversation.getFirstThreadByHost("bet", "bet-conv-no-thread");
+	test("getFirstThreadByHost against a host with no thread resolves undefined", async ({
+		app,
+		ids,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-firstbyhost-404"));
+		const port = buildSeamPort(ids("agent-conv-firstbyhost-none"), app);
+		const found = await port.conversation.getFirstThreadByHost("bet", ids("bet-conv-no-thread"));
 		expect(found).toBeUndefined();
 	});
 
 	test("a conversation write with no credentials is rejected, not silently bypassed (auth/boundary middleware ran)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-noauth");
-		await seedAgent(db, "agent-conv-noauth");
-		const threadId = "thread-conv-noauth";
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-conv-key-noauth"));
+		const agentId = ids("agent-conv-noauth");
+		await seedAgent(db, agentId);
+		const threadId = ids("thread-conv-noauth");
+		const hostId = ids("task-conv-noauth");
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "task",
-			hostId: "task-conv-noauth",
-			initiatorId: "agent-conv-noauth",
-			participants: JSON.stringify(["agent-conv-noauth"]),
+			hostId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
@@ -440,7 +483,7 @@ describe("CoreApiPort.conversation — Increment 2 conversation wave (RED)", () 
 				threadId,
 				type: "plain",
 				payload: { text: "should never land" },
-				clientKey: `ck-${crypto.randomUUID()}`,
+				clientKey: ids("ck-noauth"),
 			}),
 		).rejects.toThrow();
 	});

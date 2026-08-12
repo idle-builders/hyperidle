@@ -8,14 +8,15 @@
 
 import { findOrCreateDirectThread } from "@hyperidle/conversation";
 import { type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 const NOW = new Date().toISOString();
 
-async function seedUsers(db: HyperIdleDb): Promise<void> {
+async function seedUsers(db: HyperIdleDb, senderId: string, recipientId: string): Promise<void> {
 	await db.insert(users).values({
-		id: "sender-1",
+		id: senderId,
 		name: "Sender Agent",
 		role: "founder",
 		status: "active",
@@ -23,7 +24,7 @@ async function seedUsers(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
-		id: "agent-recipient",
+		id: recipientId,
 		name: "Agent Recipient",
 		role: "builder",
 		status: "active",
@@ -33,84 +34,68 @@ async function seedUsers(db: HyperIdleDb): Promise<void> {
 }
 
 describe("findOrCreateDirectThread — recipientKind (Q1 §3.1)", () => {
-	test("creates a thread with hostKind='agent' when recipientKind='agent'", async ({ db }) => {
-		await seedUsers(db);
-		const threadId = await findOrCreateDirectThread(
-			db,
-			"sender-1",
-			"agent-recipient",
-			NOW,
-			"agent",
-		);
+	test("creates a thread with hostKind='agent' when recipientKind='agent'", async ({ db, ids }) => {
+		const senderId = ids("sender-1");
+		const recipientId = ids("agent-recipient");
+		await seedUsers(db, senderId, recipientId);
+		const threadId = await findOrCreateDirectThread(db, senderId, recipientId, NOW, "agent");
 
-		const rows = await db.select().from(threads);
-		const row = rows.find((t) => t.id === threadId);
+		const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 		expect(row).toBeDefined();
 		expect(row?.hostKind).toBe("agent");
-		expect(row?.hostId).toBe("agent-recipient");
+		expect(row?.hostId).toBe(recipientId);
 		const parts = JSON.parse(row?.participants ?? "[]") as string[];
-		expect(parts).toContain("sender-1");
-		expect(parts).toContain("agent-recipient");
+		expect(parts).toContain(senderId);
+		expect(parts).toContain(recipientId);
 	});
 
-	test("creates a thread with hostKind='user' when recipientKind='user'", async ({ db }) => {
-		await seedUsers(db);
-		const threadId = await findOrCreateDirectThread(db, "sender-1", "agent-recipient", NOW, "user");
+	test("creates a thread with hostKind='user' when recipientKind='user'", async ({ db, ids }) => {
+		const senderId = ids("sender-1");
+		const recipientId = ids("agent-recipient");
+		await seedUsers(db, senderId, recipientId);
+		const threadId = await findOrCreateDirectThread(db, senderId, recipientId, NOW, "user");
 
-		const rows = await db.select().from(threads);
-		const row = rows.find((t) => t.id === threadId);
+		const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 		expect(row).toBeDefined();
 		expect(row?.hostKind).toBe("user");
-		expect(row?.hostId).toBe("agent-recipient");
+		expect(row?.hostId).toBe(recipientId);
 	});
 
-	test("defaults to hostKind='agent' when recipientKind is omitted", async ({ db }) => {
-		await seedUsers(db);
-		const threadId = await findOrCreateDirectThread(db, "sender-1", "agent-recipient", NOW);
+	test("defaults to hostKind='agent' when recipientKind is omitted", async ({ db, ids }) => {
+		const senderId = ids("sender-1");
+		const recipientId = ids("agent-recipient");
+		await seedUsers(db, senderId, recipientId);
+		const threadId = await findOrCreateDirectThread(db, senderId, recipientId, NOW);
 
-		const rows = await db.select().from(threads);
-		const row = rows.find((t) => t.id === threadId);
+		const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
 		expect(row).toBeDefined();
 		expect(row?.hostKind).toBe("agent");
 	});
 
-	test("returns existing thread id on second call with the same params", async ({ db }) => {
-		await seedUsers(db);
-		const id1 = await findOrCreateDirectThread(db, "sender-1", "agent-recipient", NOW, "agent");
-		const id2 = await findOrCreateDirectThread(db, "sender-1", "agent-recipient", NOW, "agent");
+	test("returns existing thread id on second call with the same params", async ({ db, ids }) => {
+		const senderId = ids("sender-1");
+		const recipientId = ids("agent-recipient");
+		await seedUsers(db, senderId, recipientId);
+		const id1 = await findOrCreateDirectThread(db, senderId, recipientId, NOW, "agent");
+		const id2 = await findOrCreateDirectThread(db, senderId, recipientId, NOW, "agent");
 		expect(id1).toBe(id2);
 	});
 
-	test("creates separate threads for agent vs user recipient kinds", async ({ db }) => {
-		await seedUsers(db);
-		const agentThreadId = await findOrCreateDirectThread(
-			db,
-			"sender-1",
-			"agent-recipient",
-			NOW,
-			"agent",
-		);
-		const userThreadId = await findOrCreateDirectThread(
-			db,
-			"sender-1",
-			"agent-recipient",
-			NOW,
-			"user",
-		);
+	test("creates separate threads for agent vs user recipient kinds", async ({ db, ids }) => {
+		const senderId = ids("sender-1");
+		const recipientId = ids("agent-recipient");
+		await seedUsers(db, senderId, recipientId);
+		const agentThreadId = await findOrCreateDirectThread(db, senderId, recipientId, NOW, "agent");
+		const userThreadId = await findOrCreateDirectThread(db, senderId, recipientId, NOW, "user");
 		expect(agentThreadId).not.toBe(userThreadId);
 	});
 
-	test("stores initiatorId = senderId on newly created threads", async ({ db }) => {
-		await seedUsers(db);
-		const threadId = await findOrCreateDirectThread(
-			db,
-			"sender-1",
-			"agent-recipient",
-			NOW,
-			"agent",
-		);
-		const rows = await db.select().from(threads);
-		const row = rows.find((t) => t.id === threadId);
-		expect(row?.initiatorId).toBe("sender-1");
+	test("stores initiatorId = senderId on newly created threads", async ({ db, ids }) => {
+		const senderId = ids("sender-1");
+		const recipientId = ids("agent-recipient");
+		await seedUsers(db, senderId, recipientId);
+		const threadId = await findOrCreateDirectThread(db, senderId, recipientId, NOW, "agent");
+		const [row] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1);
+		expect(row?.initiatorId).toBe(senderId);
 	});
 });

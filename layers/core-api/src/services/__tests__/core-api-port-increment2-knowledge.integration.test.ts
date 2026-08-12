@@ -227,14 +227,19 @@ describe("CoreApiPort.knowledge.search — Increment 2 knowledge wave (RED)", ()
 	test("search reaches the real full-text-search route and respects the requested limit", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-search");
-		await seedAgent(db, "agent-know-search1");
-		await seedKnowledgeItem(db, { id: "ki-search-1", title: "Widget rollout pattern" });
-		await seedKnowledgeItem(db, { id: "ki-search-2", title: "Widget onboarding pattern" });
-		await seedKnowledgeItem(db, { id: "ki-search-3", title: "Widget deprecation pattern" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-search"));
+		const agentId = ids("agent-know-search1");
+		await seedAgent(db, agentId);
+		const ki1 = ids("ki-search-1");
+		const ki2 = ids("ki-search-2");
+		const ki3 = ids("ki-search-3");
+		await seedKnowledgeItem(db, { id: ki1, title: "Widget rollout pattern" });
+		await seedKnowledgeItem(db, { id: ki2, title: "Widget onboarding pattern" });
+		await seedKnowledgeItem(db, { id: ki3, title: "Widget deprecation pattern" });
 
-		const port = buildSeamPort("agent-know-search1", app);
+		const port = buildSeamPort(agentId, app);
 		const results = await port.knowledge.search("Widget", { limit: 2 });
 
 		expect(results.length).toBeLessThanOrEqual(2);
@@ -248,11 +253,13 @@ describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", ()
 	test("create reaches the real POST /knowledge route with write_memory's full field fidelity (kind + explicit layer land)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-create");
-		await seedAgent(db, "agent-know-create1");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-create"));
+		const agentId = ids("agent-know-create1");
+		await seedAgent(db, agentId);
 
-		const port = buildSeamPort("agent-know-create1", app);
+		const port = buildSeamPort(agentId, app);
 		const created = await port.knowledge.create({
 			layer: "L3",
 			kind: "pattern",
@@ -263,7 +270,7 @@ describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", ()
 			status: "draft",
 			scopeKind: "factory",
 			scopeId: null,
-			updatedBy: "agent:agent-know-create1",
+			updatedBy: `agent:${agentId}`,
 		});
 
 		expect(created.version).toBe(1);
@@ -289,34 +296,47 @@ describe("CoreApiPort.knowledge.create — Increment 2 knowledge wave (RED)", ()
 });
 
 describe("CoreApiPort.knowledge item-read methods — Increment 2 knowledge wave (RED)", () => {
-	test("findKnowledgeItemVersionById reaches the real item-detail route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-version");
-		await seedAgent(db, "agent-know-version1");
-		await seedKnowledgeItem(db, { id: "ki-version-1", version: 3 });
+	test("findKnowledgeItemVersionById reaches the real item-detail route", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-version"));
+		const agentId = ids("agent-know-version1");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-version-1");
+		await seedKnowledgeItem(db, { id: kiId, version: 3 });
 
-		const port = buildSeamPort("agent-know-version1", app);
-		const found = await port.knowledge.findKnowledgeItemVersionById("ki-version-1");
+		const port = buildSeamPort(agentId, app);
+		const found = await port.knowledge.findKnowledgeItemVersionById(kiId);
 
-		expect(found?.id).toBe("ki-version-1");
+		expect(found?.id).toBe(kiId);
 		expect(found?.version).toBe(3);
 	});
 
 	test("findKnowledgeItemVersionById against a nonexistent item resolves undefined (no throw)", async ({
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-version-404");
-		const port = buildSeamPort("agent-know-version-missing", app);
-		const found = await port.knowledge.findKnowledgeItemVersionById("no-such-item");
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-version-404"));
+		const port = buildSeamPort(ids("agent-know-version-missing"), app);
+		const found = await port.knowledge.findKnowledgeItemVersionById(ids("no-such-item"));
 		expect(found).toBeUndefined();
 	});
 
-	test("findKnowledgeItemStatusById reaches the real item-detail route", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-status");
-		await seedAgent(db, "agent-know-status1");
-		await seedKnowledgeItem(db, { id: "ki-status-1", status: "provisional" });
+	test("findKnowledgeItemStatusById reaches the real item-detail route", async ({
+		db,
+		app,
+		ids,
+	}) => {
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-status"));
+		const agentId = ids("agent-know-status1");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-status-1");
+		await seedKnowledgeItem(db, { id: kiId, status: "provisional" });
 
-		const port = buildSeamPort("agent-know-status1", app);
-		const found = await port.knowledge.findKnowledgeItemStatusById("ki-status-1");
+		const port = buildSeamPort(agentId, app);
+		const found = await port.knowledge.findKnowledgeItemStatusById(kiId);
 
 		expect(found?.status).toBe("provisional");
 	});
@@ -326,43 +346,44 @@ describe("CoreApiPort.knowledge conflict methods — Increment 2 knowledge wave 
 	test("findOpenConflictByItemAndProposer reaches the real conflict-lookup route", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-findconflict");
-		await seedAgent(db, "agent-know-conflict1");
-		await seedKnowledgeItem(db, { id: "ki-conflict-1" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-findconflict"));
+		const agentId = ids("agent-know-conflict1");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-conflict-1");
+		await seedKnowledgeItem(db, { id: kiId });
+		const conflictId = ids("conflict-existing-1");
 		await db.insert(knowledgeConflicts).values({
-			id: "conflict-existing-1",
-			itemId: "ki-conflict-1",
+			id: conflictId,
+			itemId: kiId,
 			versionBase: 1,
 			versionCurrent: 1,
 			proposedBody: "proposed replacement text",
-			proposedBy: "agent:agent-know-conflict1",
+			proposedBy: `agent:${agentId}`,
 			status: "open",
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-know-conflict1", app);
-		const found = await port.knowledge.findOpenConflictByItemAndProposer(
-			"ki-conflict-1",
-			"agent:agent-know-conflict1",
-		);
+		const port = buildSeamPort(agentId, app);
+		const found = await port.knowledge.findOpenConflictByItemAndProposer(kiId, `agent:${agentId}`);
 
-		expect(found?.id).toBe("conflict-existing-1");
+		expect(found?.id).toBe(conflictId);
 	});
 
 	test("findOpenConflictByItemAndProposer resolves undefined when no open conflict exists for that proposer", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-findconflict-none");
-		await seedAgent(db, "agent-know-conflict2");
-		await seedKnowledgeItem(db, { id: "ki-conflict-2" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-findconflict-none"));
+		const agentId = ids("agent-know-conflict2");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-conflict-2");
+		await seedKnowledgeItem(db, { id: kiId });
 
-		const port = buildSeamPort("agent-know-conflict2", app);
-		const found = await port.knowledge.findOpenConflictByItemAndProposer(
-			"ki-conflict-2",
-			"agent:agent-know-conflict2",
-		);
+		const port = buildSeamPort(agentId, app);
+		const found = await port.knowledge.findOpenConflictByItemAndProposer(kiId, `agent:${agentId}`);
 
 		expect(found).toBeUndefined();
 	});
@@ -370,39 +391,46 @@ describe("CoreApiPort.knowledge conflict methods — Increment 2 knowledge wave 
 	test("createKnowledgeConflict reaches the real conflict-create route (a real row lands in the DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-createconflict");
-		await seedAgent(db, "agent-know-conflict3");
-		await seedKnowledgeItem(db, { id: "ki-conflict-3", version: 2 });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-createconflict"));
+		const agentId = ids("agent-know-conflict3");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-conflict-3");
+		await seedKnowledgeItem(db, { id: kiId, version: 2 });
+		const conflictId = ids("conflict-created-1");
 
-		const port = buildSeamPort("agent-know-conflict3", app);
+		const port = buildSeamPort(agentId, app);
 		await port.knowledge.createKnowledgeConflict({
-			id: "conflict-created-1",
-			itemId: "ki-conflict-3",
+			id: conflictId,
+			itemId: kiId,
 			versionBase: 2,
 			versionCurrent: 2,
 			proposedBody: "a proposed edit",
 			proposedMeta: null,
-			proposedBy: "agent:agent-know-conflict3",
+			proposedBy: `agent:${agentId}`,
 			createdAt: NOW,
 		});
 
 		const [row] = await db
 			.select()
 			.from(knowledgeConflicts)
-			.where(eq(knowledgeConflicts.id, "conflict-created-1"))
+			.where(eq(knowledgeConflicts.id, conflictId))
 			.limit(1);
-		expect(row?.itemId).toBe("ki-conflict-3");
+		expect(row?.itemId).toBe(kiId);
 		expect(row?.status).toBe("open");
-		expect(row?.proposedBy).toBe("agent:agent-know-conflict3");
+		expect(row?.proposedBy).toBe(`agent:${agentId}`);
 	});
 
 	test("a conflict write with no credentials is rejected, not silently bypassed (auth/boundary middleware ran)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-noauth");
-		await seedKnowledgeItem(db, { id: "ki-conflict-noauth" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-noauth"));
+		const kiId = ids("ki-conflict-noauth");
+		await seedKnowledgeItem(db, { id: kiId });
+		const conflictId = ids("conflict-noauth-1");
 
 		const port = buildCoreApiPort(
 			createInProcessCoreApiTransport(app),
@@ -410,8 +438,8 @@ describe("CoreApiPort.knowledge conflict methods — Increment 2 knowledge wave 
 
 		await expect(
 			port.knowledge.createKnowledgeConflict({
-				id: "conflict-noauth-1",
-				itemId: "ki-conflict-noauth",
+				id: conflictId,
+				itemId: kiId,
 				versionBase: 1,
 				versionCurrent: 1,
 				proposedBody: "should never land",
@@ -427,18 +455,21 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 	test("promoteKnowledgeItem reaches the real promote route (status transitions in the DB)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-promote");
-		await seedAgent(db, "agent-know-promote1");
-		await seedKnowledgeItem(db, { id: "ki-promote-1", status: "provisional" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-promote"));
+		const agentId = ids("agent-know-promote1");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-promote-1");
+		await seedKnowledgeItem(db, { id: kiId, status: "provisional" });
 
-		const port = buildSeamPort("agent-know-promote1", app);
+		const port = buildSeamPort(agentId, app);
 		const result = await port.knowledge.promoteKnowledgeItem({
-			knowledgeItemId: "ki-promote-1",
+			knowledgeItemId: kiId,
 			fromStatus: "provisional",
 			toStatus: "validated",
 			reason: "reviewed and confirmed",
-			editor: "agent:agent-know-promote1",
+			editor: `agent:${agentId}`,
 		});
 
 		expect(result.ok).toBe(true);
@@ -449,7 +480,7 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 		const [row] = await db
 			.select()
 			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "ki-promote-1"))
+			.where(eq(knowledgeItems.id, kiId))
 			.limit(1);
 		expect(row?.status).toBe("validated");
 	});
@@ -457,13 +488,17 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 	test("promoteKnowledgeItem to 'validated' with an open conflict returns the domain CONFLICT_OPEN result (no throw, no state change)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-promote-conflict");
-		await seedAgent(db, "agent-know-promote2");
-		await seedKnowledgeItem(db, { id: "ki-promote-2", status: "provisional" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-promote-conflict"));
+		const agentId = ids("agent-know-promote2");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-promote-2");
+		await seedKnowledgeItem(db, { id: kiId, status: "provisional" });
+		const conflictId = ids("conflict-blocking-1");
 		await db.insert(knowledgeConflicts).values({
-			id: "conflict-blocking-1",
-			itemId: "ki-promote-2",
+			id: conflictId,
+			itemId: kiId,
 			versionBase: 1,
 			versionCurrent: 1,
 			proposedBody: "blocking edit",
@@ -472,13 +507,13 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 			createdAt: NOW,
 		});
 
-		const port = buildSeamPort("agent-know-promote2", app);
+		const port = buildSeamPort(agentId, app);
 		const result = await port.knowledge.promoteKnowledgeItem({
-			knowledgeItemId: "ki-promote-2",
+			knowledgeItemId: kiId,
 			fromStatus: "provisional",
 			toStatus: "validated",
 			reason: undefined,
-			editor: "agent:agent-know-promote2",
+			editor: `agent:${agentId}`,
 		});
 
 		expect(result.ok).toBe(false);
@@ -489,7 +524,7 @@ describe("CoreApiPort.knowledge.promoteKnowledgeItem — Increment 2 knowledge w
 		const [row] = await db
 			.select()
 			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, "ki-promote-2"))
+			.where(eq(knowledgeItems.id, kiId))
 			.limit(1);
 		expect(row?.status).toBe("provisional");
 	});
@@ -499,18 +534,21 @@ describe("CoreApiPort.knowledge attention-score methods — Increment 2 knowledg
 	test("upsertKnowledgeAppProjectionAttentionScore reaches the real attention-score route (projection row upserted)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-attention");
-		await seedAgent(db, "agent-know-attention1");
-		await seedKnowledgeItem(db, { id: "ki-attention-1" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-attention"));
+		const agentId = ids("agent-know-attention1");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-attention-1");
+		await seedKnowledgeItem(db, { id: kiId });
 
-		const port = buildSeamPort("agent-know-attention1", app);
-		await port.knowledge.upsertKnowledgeAppProjectionAttentionScore("ki-attention-1", "0.75");
+		const port = buildSeamPort(agentId, app);
+		await port.knowledge.upsertKnowledgeAppProjectionAttentionScore(kiId, "0.75");
 
 		const [row] = await db
 			.select()
 			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, "ki-attention-1"))
+			.where(eq(knowledgeAppProjection.knowledgeItemId, kiId))
 			.limit(1);
 		expect(row?.attentionScore).toBe("0.75");
 	});
@@ -518,13 +556,16 @@ describe("CoreApiPort.knowledge attention-score methods — Increment 2 knowledg
 	test("recomputeAttentionScoreForItem reaches the real recompute route and returns the recomputed score", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-recompute");
-		await seedAgent(db, "agent-know-recompute1");
-		await seedKnowledgeItem(db, { id: "ki-recompute-1" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-recompute"));
+		const agentId = ids("agent-know-recompute1");
+		await seedAgent(db, agentId);
+		const kiId = ids("ki-recompute-1");
+		await seedKnowledgeItem(db, { id: kiId });
 
-		const port = buildSeamPort("agent-know-recompute1", app);
-		const result = await port.knowledge.recomputeAttentionScoreForItem("ki-recompute-1");
+		const port = buildSeamPort(agentId, app);
+		const result = await port.knowledge.recomputeAttentionScoreForItem(kiId);
 
 		expect(typeof result.current).toBe("number");
 	});
@@ -532,16 +573,18 @@ describe("CoreApiPort.knowledge attention-score methods — Increment 2 knowledg
 	test("an attention-score write with no credentials is rejected, not silently bypassed (auth/boundary middleware ran)", async ({
 		db,
 		app,
+		ids,
 	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-knowledge-key-attention-noauth");
-		await seedKnowledgeItem(db, { id: "ki-attention-noauth" });
+		vi.stubEnv("HYPERIDLE_API_KEY", ids("inc2-knowledge-key-attention-noauth"));
+		const kiId = ids("ki-attention-noauth");
+		await seedKnowledgeItem(db, { id: kiId });
 
 		const port = buildCoreApiPort(
 			createInProcessCoreApiTransport(app),
 		) as unknown as SeamCoreApiPortIncrement2Knowledge;
 
 		await expect(
-			port.knowledge.upsertKnowledgeAppProjectionAttentionScore("ki-attention-noauth", "0.9"),
+			port.knowledge.upsertKnowledgeAppProjectionAttentionScore(kiId, "0.9"),
 		).rejects.toThrow();
 	});
 });

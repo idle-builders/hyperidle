@@ -35,6 +35,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import { mountFilesystemsForAgent } from "@hyperidle/run-orchestration";
@@ -44,10 +45,6 @@ import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";
-const HUMAN_ID = "u-au26-f2-owner";
-const AGENT_ID = "agent-au26-f2-target";
-const TEAM_ID = "team-au26-f2";
-const TEAM_MEMBERS_ID = "tm-au26-f2";
 
 let tmpDir: string;
 let sandboxPath: string;
@@ -69,31 +66,39 @@ afterEach(() => {
 	fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-async function seedPrincipals(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: TEAM_ID, name: "AU26 F2", phase: "build", createdAt: NOW });
+async function seedPrincipals(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{ humanId: string; agentId: string; teamId: string; teamMembersId: string }> {
+	const humanId = ids("u-au26-f2-owner");
+	const agentId = ids("agent-au26-f2-target");
+	const teamId = ids("team-au26-f2");
+	const teamMembersId = ids("tm-au26-f2");
+	await db.insert(teams).values({ id: teamId, name: "AU26 F2", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: TEAM_MEMBERS_ID, teamId: TEAM_ID, capacity: 3, activeBets: 0, formedAt: NOW });
+		.values({ id: teamMembersId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values([
 		{
-			id: HUMAN_ID,
+			id: humanId,
 			kind: "human",
 			name: "AU26 Owner",
 			role: "founder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: teamMembersId,
 			createdAt: NOW,
 		},
 		{
-			id: AGENT_ID,
+			id: agentId,
 			kind: "ai",
 			name: "AU26 Target Agent",
 			role: "builder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: teamMembersId,
 			createdAt: NOW,
 		},
 	]);
+	return { humanId, agentId, teamId, teamMembersId };
 }
 
 /**
@@ -105,6 +110,8 @@ async function emitAndDrain(
 	db: HyperIdleDb,
 	eventBus: { emit: unknown },
 	idempotencyKey: string,
+	agentId: string,
+	humanId: string,
 ): Promise<{ readonly payloadJson: string | null }> {
 	await enqueueWorkIntent(db, {
 		kind: "assistant_turn",
@@ -112,16 +119,16 @@ async function emitAndDrain(
 		sourceId: `${idempotencyKey}-message`,
 		idempotencyKey,
 		bakedRequest: {
-			defaultAgentId: AGENT_ID,
+			defaultAgentId: agentId,
 			sourceKind: "assistant",
 			sourceId: `${idempotencyKey}-message`,
 			streamId: `thread:${idempotencyKey}-thread`,
-			userId: HUMAN_ID,
+			userId: humanId,
 			sourceCorrelation: {
 				threadId: `${idempotencyKey}-thread`,
 				messageId: `${idempotencyKey}-message`,
-				userId: HUMAN_ID,
-				assistantAgentId: AGENT_ID,
+				userId: humanId,
+				assistantAgentId: agentId,
 			},
 		},
 	});
@@ -138,10 +145,15 @@ async function emitAndDrain(
 }
 
 /** Assign `vaultDir` to the agent as a doc_set filesystem. */
-async function assignFilesystem(db: HyperIdleDb, id: string): Promise<void> {
+async function assignFilesystem(
+	db: HyperIdleDb,
+	id: string,
+	teamId: string,
+	agentId: string,
+): Promise<void> {
 	await db.insert(filesystems).values({
 		id,
-		teamId: TEAM_ID,
+		teamId,
 		source: "local",
 		kind: "doc_set",
 		connectionId: null,
@@ -152,7 +164,7 @@ async function assignFilesystem(db: HyperIdleDb, id: string): Promise<void> {
 	});
 	await db
 		.insert(filesystemInjections)
-		.values({ agentUserId: AGENT_ID, filesystemId: id, createdAt: NOW });
+		.values({ agentUserId: agentId, filesystemId: id, createdAt: NOW });
 }
 
 /**
@@ -167,6 +179,7 @@ async function assignFilesystem(db: HyperIdleDb, id: string): Promise<void> {
  */
 async function provisionFilesystems(
 	db: HyperIdleDb,
+	agentId: string,
 ): Promise<Awaited<ReturnType<typeof mountFilesystemsForAgent>>> {
 	const mounter = new RegistryFilesystemMounter({
 		gitRunnerFactory: () => {
@@ -176,10 +189,9 @@ async function provisionFilesystems(
 		db,
 	});
 	return mountFilesystemsForAgent({
-		agentId: AGENT_ID,
+		agentId,
 		filesystems: {
-			listInjectedForProvisioning: (agentId: string) =>
-				listInjectedFilesystemsForProvisioning(db, agentId),
+			listInjectedForProvisioning: (id: string) => listInjectedFilesystemsForProvisioning(db, id),
 		},
 		sandboxPath,
 		mounter,
@@ -190,26 +202,35 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 	test("a filesystem assigned AFTER the intent is emitted and drained is still mounted at spawn", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrincipals(db);
+		const { humanId, agentId, teamId } = await seedPrincipals(db, ids);
 
 		// 1. The emit is genuinely over before the filesystem exists.
-		const { payloadJson } = await emitAndDrain(db, eventBus, "au26-f2-add-after-emit");
-		expect(await db.select().from(filesystems)).toEqual([]);
+		const { payloadJson } = await emitAndDrain(
+			db,
+			eventBus,
+			"au26-f2-add-after-emit",
+			agentId,
+			humanId,
+		);
+		const fsRows = await db.select().from(filesystems);
+		expect(fsRows).toEqual([]);
 
 		// The request carries NOTHING about filesystems — the bake is gone, so
 		// there is no snapshot for the spawn to go stale against.
 		expect(payloadJson ?? "").not.toContain("injectedFilesystems");
 
 		// 2. NOW the operator assigns the filesystem to the agent.
-		await assignFilesystem(db, "fs-au26-f2-added-late");
+		const fsId = ids("fs-au26-f2-added-late");
+		await assignFilesystem(db, fsId, teamId, agentId);
 
 		// 3. The session spawns.
-		const mounted = await provisionFilesystems(db);
+		const mounted = await provisionFilesystems(db, agentId);
 
 		// 4. The late-assigned filesystem is mounted — a real symlink into the
 		//    real sandbox, made by the real mounter.
-		expect(mounted.map((m) => m.id)).toEqual(["fs-au26-f2-added-late"]);
+		expect(mounted.map((m) => m.id)).toEqual([fsId]);
 		const linkPath = path.join(sandboxPath, "late-vault");
 		expect(fs.lstatSync(linkPath).isSymbolicLink()).toBe(true);
 		expect(fs.readFileSync(path.join(linkPath, "index.md"), "utf-8")).toBe("# Late vault\n");
@@ -218,17 +239,17 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 	test("a filesystem UNASSIGNED after the intent is emitted and drained is not mounted at spawn", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedPrincipals(db);
-		await assignFilesystem(db, "fs-au26-f2-removed-late");
+		const { humanId, agentId, teamId } = await seedPrincipals(db, ids);
+		const fsId = ids("fs-au26-f2-removed-late");
+		await assignFilesystem(db, fsId, teamId, agentId);
 
-		await emitAndDrain(db, eventBus, "au26-f2-remove-after-emit");
+		await emitAndDrain(db, eventBus, "au26-f2-remove-after-emit", agentId, humanId);
 
-		await db
-			.delete(filesystemInjections)
-			.where(eq(filesystemInjections.filesystemId, "fs-au26-f2-removed-late"));
+		await db.delete(filesystemInjections).where(eq(filesystemInjections.filesystemId, fsId));
 
-		const mounted = await provisionFilesystems(db);
+		const mounted = await provisionFilesystems(db, agentId);
 
 		expect(mounted).toEqual([]);
 		expect(fs.existsSync(path.join(sandboxPath, "late-vault"))).toBe(false);
@@ -236,10 +257,11 @@ describe("injected filesystems are read live at spawn, never carried on the requ
 
 	test("an agent with no injected filesystems mounts nothing and does not throw", async ({
 		db,
+		ids,
 	}) => {
-		await seedPrincipals(db);
+		const { agentId } = await seedPrincipals(db, ids);
 
-		const mounted = await provisionFilesystems(db);
+		const mounted = await provisionFilesystems(db, agentId);
 
 		expect(mounted).toEqual([]);
 		expect(fs.readdirSync(sandboxPath)).toEqual([]);
