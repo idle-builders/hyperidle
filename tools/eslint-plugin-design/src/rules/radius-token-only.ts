@@ -23,8 +23,20 @@
  * radius in the app computes to a value ON the documented scale, so a future
  * computed-style measurement reads clean instead of reporting the pill as an
  * off-scale outlier again.
+ *
+ * @lore AZ7 AQ-011 form-control exemption: `Checkbox.tsx`'s 20×20px box uses
+ * `rounded-[6px]` — off the 4-value scale by VALUE, not just spelling, and
+ * deliberately so (none of 0/10/16/9999 reads right on a small checkbox; the
+ * design-system's own comment there predates AZ7 and cites this exemption).
+ * `no-off-scale-radius` never actually enforced this exemption — it silently
+ * missed the site entirely (the `[...].join(" ")` walker gap, see
+ * `util.ts`'s `collectClassStringsFromExpressionDeep` lore) — so this is the
+ * first time the exemption needed encoding for real. `Toggle.tsx` needs no
+ * exemption (already token-pill throughout); it is listed anyway so a future
+ * hand-rolled form control doesn't have to rediscover this list.
  */
 
+import { basename } from "node:path";
 import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
 import {
@@ -32,6 +44,10 @@ import {
 	collectClassStringsFromJSXAttributeDeep,
 	createRule,
 } from "../util.js";
+
+// AQ-011: "Form control chrome (checkboxes, radio buttons, toggles) may use
+// off-scale radii." These are the design-system files that BUILD that chrome.
+const FORM_CONTROL_BASENAME_RE = /^(Checkbox|Toggle)\.tsx$/;
 
 // Named or arbitrary radius utility, with an optional side/corner infix
 // (t/r/b/l/tl/tr/bl/br/s/e/ss/se/es/ee — Tailwind v4's logical + physical sides).
@@ -65,6 +81,7 @@ export const radiusTokenOnly: Rule.RuleModule = createRule({
 		},
 	},
 	create(context) {
+		if (FORM_CONTROL_BASENAME_RE.test(basename(context.filename))) return {};
 		return {
 			JSXAttribute(rawNode: unknown) {
 				const node = rawNode as JSXAttribute;

@@ -222,13 +222,13 @@ function WelcomeVisual(): JSX.Element {
 				>
 					<div className="flex items-center gap-[6px] mb-[6px]">
 						<span
-							className="block w-[8px] h-[8px] rounded-full shrink-0"
+							className="block w-[8px] h-[8px] rounded-[var(--r-pill)] shrink-0"
 							style={{ background: dotColor }}
 						/>
-						<span className="block h-[6px] rounded-full bg-[var(--border-subtle)] w-3/5" />
+						<span className="block h-[6px] rounded-[var(--r-pill)] bg-[var(--border-subtle)] w-3/5" />
 					</div>
-					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-[90%] mb-[3px]" />
-					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-full w-3/5" />
+					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-[var(--r-pill)] w-[90%] mb-[3px]" />
+					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-[var(--r-pill)] w-3/5" />
 				</div>
 			))}
 		</div>

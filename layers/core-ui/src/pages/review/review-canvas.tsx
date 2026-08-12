@@ -165,7 +165,7 @@ export function AnchoredThreadCard({
 		<div className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] overflow-hidden">
 			<div className="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
 				<span
-					className="h-[6px] w-[6px] rounded-full bg-[var(--accent-primary)]"
+					className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]"
 					aria-hidden="true"
 				/>
 				<span className="font-mono text-[11px] text-[var(--text-secondary)]">

@@ -58,7 +58,7 @@ export function Toast({ variant, icon, title, message, onClose }: ToastProps): J
 			{icon && (
 				<div
 					aria-hidden="true"
-					className={`h-[20px] w-[20px] shrink-0 rounded-full flex items-center justify-center text-[12px] font-bold ${styles.iconBg} ${styles.iconText}`}
+					className={`h-[20px] w-[20px] shrink-0 rounded-[var(--r-pill)] flex items-center justify-center text-[12px] font-bold ${styles.iconBg} ${styles.iconText}`}
 				>
 					{icon}
 				</div>

@@ -255,7 +255,7 @@ export function NotificationPopover({
 									>
 										{/* 1. Urgency dot */}
 										<span
-											className="shrink-0 rounded-full"
+											className="shrink-0 rounded-[var(--r-pill)]"
 											style={{
 												display: "inline-block",
 												width: "6px",

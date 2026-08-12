@@ -9,6 +9,7 @@
 import tsParser from "@typescript-eslint/parser";
 import authz from "eslint-plugin-authz";
 import design from "eslint-plugin-design";
+import { configs as designHearthConfigs } from "eslint-plugin-design/hearth-config";
 import drizzle from "eslint-plugin-drizzle";
 import reactCompiler from "eslint-plugin-react-compiler";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -89,44 +90,19 @@ export default [
 		},
 	},
 
-	// K6 — Design lint rules for the web package. All warn-level: the wider
-	// codebase still has documented backlog (see eslint-plugin-design/waivers.md).
-	{
-		files: ["layers/core-ui/src/**/*.tsx"],
-		ignores: ["layers/core-ui/src/**/*.stories.tsx"],
-		languageOptions: {
-			parser: tsParser,
-			parserOptions: {
-				ecmaFeatures: { jsx: true },
-			},
-		},
-		plugins: { design },
-		rules: {
-			"design/no-hardcoded-color": "warn",
-			"design/no-off-grid-spacing": "warn",
-			"design/no-off-scale-radius": "warn",
-			"design/no-off-scale-font-size": "warn",
-			"design/no-ai-aesthetic": "warn",
-			"design/no-raw-tailwind-color": "warn",
-			"design/require-ds-attribute": "warn",
-			"design/require-stories-sibling": "warn",
-			"design/require-focus-on-interactive": "warn",
-			// AF16 AC-2: no button is a no-op — enforces every <button> has an action.
-			// Warn-level so the baseline codebase scan can identify and wire/remove
-			// findings without blocking CI while the sweep is in-flight.
-			"design/no-op-button": "warn",
-			// @lore W2: density rules (use-density-tokens, no-density-tokens) removed.
-			// The density system was stripped in W2.
-			// AI2 AC-3 (static half): no raw z-index Tailwind classes on overlay surfaces.
-			// All z-layers must come from the --z-* token scale.
-			// Promoted from warn → error: code is clean post-migration (C-3 review finding).
-			"design/no-raw-overlay-z": "error",
-			// AI2 AC-5: no native-dialog boilerplate (showModal/setAttribute("open")/cancel event)
-			// in migrated overlay surfaces. Use useDialogBehavior/Dialog instead.
-			// Promoted from warn → error: code is clean post-migration (C-3 review finding).
-			"design/no-dialog-boilerplate": "error",
-		},
-	},
+	// AZ7: the K6 (core-ui) and K8 (design-system) design-lint blocks are
+	// replaced by `eslint-plugin-design/hearth-config`'s `configs.hearth` — a
+	// single severity table (`RULE_SEVERITY` in hearth-config.ts) that is total
+	// over every rule the plugin exports, asserted by hearth-config.test.ts.
+	// File globs and ignores are preserved verbatim from the blocks below (kept
+	// here as historical reference — do not re-add them as a THIRD source of
+	// truth for the same rules):
+	//   K6 was `layers/core-ui/src/**/*.tsx` ignoring `*.stories.tsx`.
+	//   K8 was `framework/design-system/src/**/*.tsx` ignoring `*.stories.tsx`.
+	// @lore AF16 AC-2 (no-op-button) and AI2 AC-3/AC-5 (no-raw-overlay-z,
+	// no-dialog-boilerplate) severities now live in hearth-config.ts's
+	// RULE_SEVERITY table, same values as before this change.
+	...designHearthConfigs.hearth,
 
 	// K6-AC2 — Promote design/no-op-button to error for production pages and
 	// components (excludes stories and test fixtures so false-positive test
@@ -265,39 +241,10 @@ export default [
 		},
 	},
 
-	// K8 — Design lint rules for the design-system package. Rules with zero
-	// surviving warnings post-K7 are promoted to `error` here; the two rules
-	// with documented designer-call exceptions remain `warn`. See
-	// `tools/eslint-plugin-design/waivers.md` for the per-warning waiver
-	// list.
-	{
-		files: ["framework/design-system/src/**/*.tsx"],
-		ignores: ["framework/design-system/src/**/*.stories.tsx"],
-		languageOptions: {
-			parser: tsParser,
-			parserOptions: {
-				ecmaFeatures: { jsx: true },
-			},
-		},
-		plugins: { design },
-		rules: {
-			// Promoted to error — clean post-K7 in design-system.
-			"design/no-hardcoded-color": "error",
-			"design/no-off-scale-radius": "error",
-			"design/no-off-scale-font-size": "error",
-			"design/no-raw-tailwind-color": "error",
-			"design/require-ds-attribute": "error",
-			"design/require-stories-sibling": "error",
-			"design/require-focus-on-interactive": "error",
-			// Promoted to error post-U10 — all design-system components now conform to the Hearth 6px grid.
-			"design/no-off-grid-spacing": "error",
-			"design/no-ai-aesthetic": "error",
-			// AI6 — tracking + motion token enforcement.
-			"design/no-hardcoded-tracking": "error",
-			"design/no-off-scale-duration": "error",
-			// @lore W2: density rules removed. Density system stripped in W2.
-		},
-	},
+	// K8 (design-system's design-lint block) is folded into the AZ7
+	// `designHearthConfigs.hearth` spread near the top of this file — see the
+	// AZ7 comment above the K6/K8 replacement for what moved where. See
+	// `tools/eslint-plugin-design/waivers.md` for the per-warning waiver list.
 
 	// M1 — Mock-data guard (warn-level baseline). Promotion to error is M4.
 	// Both rules share one block: same file set, same ignores.

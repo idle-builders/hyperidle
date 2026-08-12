@@ -134,7 +134,7 @@ function Avatar({
 		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 	return (
 		<div
-			className={`inline-flex items-center justify-center rounded-full border-[1.5px] font-[600] shrink-0 ${color}`}
+			className={`inline-flex items-center justify-center rounded-[var(--r-pill)] border-[1.5px] font-[600] shrink-0 ${color}`}
 			style={{ width: size, height: size, fontSize: size <= 22 ? 10 : 12 }}
 			aria-hidden="true"
 		>
@@ -153,7 +153,7 @@ function ParticipantGroup({
 			{people.map((p, i) => (
 				<div
 					key={p.id}
-					className="rounded-full ring-2 ring-[var(--surface-page)]"
+					className="rounded-[var(--r-pill)] ring-2 ring-[var(--surface-page)]"
 					style={{ marginLeft: i === 0 ? 0 : -9, zIndex: people.length - i }}
 				>
 					<Avatar who={p} size={26} />

@@ -27,6 +27,12 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 			filename: "Foo.tsx",
 			code: 'const J = <div className={["rounded-[var(--r-subtle)]", "border"].join(" ")} />;',
 		},
+		// AQ-011 form-control exemption: Checkbox.tsx may use an off-scale,
+		// non-token radius on its own box — the rule is fully off for this file.
+		{
+			filename: "framework/design-system/src/Checkbox.tsx",
+			code: 'const J = <div className="rounded-[6px]" />;',
+		},
 	],
 	invalid: [
 		// rounded-full — the pill's second, now-forbidden spelling (Trade-off 1).

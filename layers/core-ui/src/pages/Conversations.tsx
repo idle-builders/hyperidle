@@ -407,7 +407,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 			>
 				<span
 					aria-hidden="true"
-					className="w-[6px] h-[6px] rounded-full bg-[var(--accent-primary)] animate-pulse shrink-0"
+					className="w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] animate-pulse shrink-0"
 				/>
 				<span
 					className="sr-only"

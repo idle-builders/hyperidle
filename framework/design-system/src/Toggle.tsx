@@ -62,7 +62,7 @@ export function Toggle({
 					disabled={disabled}
 					onClick={() => onChange?.(!on)}
 					className={[
-						"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full",
+						"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-[var(--r-pill)]",
 						"border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 						"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 						on
@@ -73,7 +73,7 @@ export function Toggle({
 					{/* Thumb */}
 					<span
 						className={[
-							"absolute top-[2px] h-[18px] w-[18px] rounded-full",
+							"absolute top-[2px] h-[18px] w-[18px] rounded-[var(--r-pill)]",
 							"bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]",
 							"transition-transform",
 							"duration-[var(--motion-fast)]",
@@ -104,7 +104,7 @@ export function Toggle({
 				disabled={disabled}
 				onClick={() => onChange?.(!on)}
 				className={[
-					"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-full",
+					"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-[var(--r-pill)]",
 					"border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 					on
@@ -115,7 +115,7 @@ export function Toggle({
 				{/* Thumb */}
 				<span
 					className={[
-						"absolute top-[2px] h-[18px] w-[18px] rounded-full",
+						"absolute top-[2px] h-[18px] w-[18px] rounded-[var(--r-pill)]",
 						"bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]",
 						"transition-transform",
 						"duration-[var(--motion-fast)]",

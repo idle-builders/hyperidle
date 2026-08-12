@@ -30,9 +30,9 @@ export function Progress({ value, label, variant = "green" }: ProgressProps): JS
 					<span className="text-[12px] font-mono text-[var(--text-tertiary)]">{clampedValue}%</span>
 				</div>
 			)}
-			<div className="h-[8px] w-full bg-[var(--surface-container)] rounded-full overflow-hidden">
+			<div className="h-[8px] w-full bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden">
 				<div
-					className={`h-full rounded-full transition-[width] duration-[var(--motion-slow)] ease-[var(--motion-ease)] ${fillClass}`}
+					className={`h-full rounded-[var(--r-pill)] transition-[width] duration-[var(--motion-slow)] ease-[var(--motion-ease)] ${fillClass}`}
 					style={{ width: `${clampedValue}%` }}
 					role="progressbar"
 					aria-valuenow={clampedValue}

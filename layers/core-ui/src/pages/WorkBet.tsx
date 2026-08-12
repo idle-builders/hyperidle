@@ -175,7 +175,7 @@ function AnchoredMessages({
 				return (
 					<div
 						key={msg.id}
-						className="text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded"
+						className="text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded-[var(--r-subtle)]"
 					>
 						{text}
 					</div>

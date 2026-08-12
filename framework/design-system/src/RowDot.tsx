@@ -25,7 +25,10 @@ export interface RowDotProps {
 	title?: string;
 }
 
-const TONE_COLOR: Record<RowTone, string> = {
+// @lore AZ7 E7 (§1.6 finding #3): exported so consumers that need a tone→color
+// ladder (e.g. SettingsHarnesses.tsx) reuse this one instead of forking a
+// private copy. RowDot itself stays the presentation; TONE_COLOR is the data.
+export const TONE_COLOR: Record<RowTone, string> = {
 	success: "var(--status-success)",
 	warning: "var(--status-warning)",
 	error: "var(--status-error)",
@@ -42,7 +45,7 @@ export function RowDot({ tone, label, title }: RowDotProps): JSX.Element {
 				role="img"
 				aria-label={label}
 				title={title}
-				className="w-[6px] h-[6px] rounded-full shrink-0 inline-block"
+				className="w-[6px] h-[6px] rounded-[var(--r-pill)] shrink-0 inline-block"
 				style={{ background: color }}
 			/>
 		);
@@ -52,7 +55,7 @@ export function RowDot({ tone, label, title }: RowDotProps): JSX.Element {
 		<span
 			aria-hidden="true"
 			title={title}
-			className="w-[6px] h-[6px] rounded-full shrink-0 inline-block"
+			className="w-[6px] h-[6px] rounded-[var(--r-pill)] shrink-0 inline-block"
 			style={{ background: color }}
 		/>
 	);

@@ -218,7 +218,7 @@ function ReviewActionOperationView({
 								>
 									<span
 										aria-hidden="true"
-										className="mt-[7px] h-[4px] w-[4px] shrink-0 rounded-full bg-[var(--text-tertiary)]"
+										className="mt-[7px] h-[4px] w-[4px] shrink-0 rounded-[var(--r-pill)] bg-[var(--text-tertiary)]"
 									/>
 									<span>{item}</span>
 								</li>
@@ -236,7 +236,7 @@ function ReviewActionOperationView({
 					>
 						<span
 							aria-hidden="true"
-							className="mt-[3px] h-[12px] w-[12px] shrink-0 rounded-full border-2 border-[var(--status-error)]"
+							className="mt-[3px] h-[12px] w-[12px] shrink-0 rounded-[var(--r-pill)] border-2 border-[var(--status-error)]"
 						/>
 						<div>
 							<div className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-error)]">
@@ -293,7 +293,7 @@ function ExecutingBand(): JSX.Element {
 		>
 			<span
 				aria-label="executing"
-				className="h-[14px] w-[14px] shrink-0 rounded-full border-2 border-[var(--text-tertiary)] border-t-transparent"
+				className="h-[14px] w-[14px] shrink-0 rounded-[var(--r-pill)] border-2 border-[var(--text-tertiary)] border-t-transparent"
 				style={{ animation: "spin 0.75s linear infinite" }}
 			/>
 			<span className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
@@ -329,7 +329,7 @@ function OutcomeBand({
 		>
 			<span
 				aria-hidden="true"
-				className="mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-full"
+				className="mt-[2px] flex h-[14px] w-[14px] shrink-0 items-center justify-center rounded-[var(--r-pill)]"
 				style={{ background: ok ? "var(--status-success)" : "var(--status-error)" }}
 			>
 				<svg width="9" height="9" viewBox="0 0 12 12" fill="none">
@@ -399,7 +399,7 @@ function IrreversibleBadge(): JSX.Element {
 		>
 			<span
 				aria-hidden="true"
-				className="h-[5px] w-[5px] rounded-full bg-[var(--status-warning)]"
+				className="h-[5px] w-[5px] rounded-[var(--r-pill)] bg-[var(--status-warning)]"
 			/>
 			Irreversible
 		</span>

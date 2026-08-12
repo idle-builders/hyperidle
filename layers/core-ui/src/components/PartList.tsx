@@ -80,7 +80,7 @@ function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX
 		<span
 			aria-hidden="true"
 			data-ds-component="GroupAvatar"
-			className={`inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border text-[10px] font-[600] ${tint}`}
+			className={`inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border text-[10px] font-[600] ${tint}`}
 		>
 			{initialsOf(name)}
 		</span>

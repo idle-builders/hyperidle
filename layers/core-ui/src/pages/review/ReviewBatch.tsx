@@ -184,10 +184,10 @@ const FLAG_LABEL: Record<FlagKind, string> = {
 function FlagPill({ kind }: { readonly kind: FlagKind }): JSX.Element {
 	return (
 		<span
-			className="inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-full text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]"
+			className="inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-[var(--r-pill)] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]"
 			title={FLAG_LABEL[kind]}
 		>
-			<span className="h-[6px] w-[6px] rounded-full shrink-0 bg-[var(--status-error)]" />
+			<span className="h-[6px] w-[6px] rounded-[var(--r-pill)] shrink-0 bg-[var(--status-error)]" />
 			{FLAG_LABEL[kind]}
 		</span>
 	);
@@ -281,7 +281,7 @@ function ReviewBatchView({
 
 				{/* the win — one calm line of impact */}
 				<div className="flex items-center gap-[9px] px-[18px] py-[9px] border-t border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--status-success)_6%,transparent)]">
-					<span className="h-[6px] w-[6px] rounded-full bg-[var(--status-success)] shrink-0" />
+					<span className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-success)] shrink-0" />
 					<span className="text-[13px] text-[var(--text-secondary)]">
 						{batch.metric.label} would drop{" "}
 						<span className="line-through text-[var(--text-tertiary)] tabular-nums">
@@ -326,7 +326,7 @@ function ReviewBatchView({
 									className="w-full flex items-center gap-[12px] px-[15px] py-[12px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
 								>
 									{/* left edge: priority index */}
-									<span className="flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--status-error)]">
+									<span className="flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--status-error)]">
 										{i + 1}
 									</span>
 
@@ -382,7 +382,7 @@ function ReviewBatchView({
 										{item.draftedReply ? (
 											<div className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] overflow-hidden">
 												<div className="flex items-center gap-[6px] px-[12px] py-[6px] border-b border-[var(--border-subtle)]">
-													<span className="h-[16px] w-[16px] rounded-full bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[9px] font-[700] inline-flex items-center justify-center shrink-0">
+													<span className="h-[16px] w-[16px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[9px] font-[700] inline-flex items-center justify-center shrink-0">
 														AI
 													</span>
 													<span className="text-[11px] font-[600] text-[var(--text-secondary)]">
@@ -404,7 +404,7 @@ function ReviewBatchView({
 											<div className="flex items-center gap-[6px]">
 												<span
 													aria-hidden="true"
-													className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-full bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0"
+													className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-[var(--r-pill)] bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0"
 												>
 													!
 												</span>
@@ -452,7 +452,7 @@ function ReviewBatchView({
 									aria-expanded={open}
 									className="w-full flex items-center gap-[12px] px-[15px] py-[9px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
 								>
-									<span className="flex items-center justify-center h-[22px] min-w-[22px] px-[6px] shrink-0 rounded-full bg-[color-mix(in_oklab,var(--text-tertiary)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--text-secondary)]">
+									<span className="flex items-center justify-center h-[22px] min-w-[22px] px-[6px] shrink-0 rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-tertiary)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--text-secondary)]">
 										{g.count}
 									</span>
 									<div className="flex flex-col gap-[3px] min-w-0 flex-1">

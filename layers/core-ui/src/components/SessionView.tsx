@@ -99,7 +99,7 @@ function SessionAvatar({ who, size = 26 }: { who: PartAuthor; size?: number }): 
 	return (
 		<div
 			aria-hidden="true"
-			className={`inline-flex items-center justify-center rounded-full border-[1.5px] font-[600] shrink-0 ${tint}`}
+			className={`inline-flex items-center justify-center rounded-[var(--r-pill)] border-[1.5px] font-[600] shrink-0 ${tint}`}
 			style={{ width: size, height: size, fontSize: size <= 22 ? 10 : 12 }}
 		>
 			{initialsOf(who.name)}
@@ -113,7 +113,7 @@ function ParticipantGroup({ people }: { people: readonly PartAuthor[] }): JSX.El
 			{people.map((p, i) => (
 				<div
 					key={p.id}
-					className="rounded-full ring-2 ring-[var(--surface-page)]"
+					className="rounded-[var(--r-pill)] ring-2 ring-[var(--surface-page)]"
 					style={{ marginLeft: i === 0 ? 0 : -9, zIndex: people.length - i }}
 				>
 					<SessionAvatar who={p} size={26} />
@@ -620,7 +620,7 @@ function SessionComposer({
 						onClick={onStop}
 						className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--status-error)] text-[var(--text-on-accent)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--status-error-hover)]"
 					>
-						<span className="h-[10px] w-[10px] rounded-[2px] bg-current" />
+						<span className="h-[10px] w-[10px] rounded-none bg-current" />
 					</button>
 				) : (
 					<button
@@ -694,7 +694,7 @@ function SessionComposer({
 				{running && (
 					<>
 						<span className="mr-[3px] inline-flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]">
-							<span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
+							<span className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
 							{elapsedLabel}
 						</span>
 						<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)]">
@@ -770,7 +770,7 @@ export function SessionView({
 						<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
 							<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
 								{running && (
-									<span className="inline-block h-[6px] w-[6px] rounded-full bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
+									<span className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
 								)}
 								Session
 							</span>

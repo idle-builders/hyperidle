@@ -61,7 +61,7 @@ export function KnowledgeTopicGroup({
 				<div className="flex items-center gap-[6px]">
 					{/* Health dot — sr-only visually but kept for accessibility and tests */}
 					<span
-						className={`inline-block h-2 w-2 rounded-full shrink-0 sr-only ${HEALTH_DOT_CLASS[health]}`}
+						className={`inline-block h-2 w-2 rounded-[var(--r-pill)] shrink-0 sr-only ${HEALTH_DOT_CLASS[health]}`}
 						aria-label={`Health: ${HEALTH_DOT_LABEL[health]}`}
 						data-testid={`topic-health-${topic}`}
 						data-health={health}

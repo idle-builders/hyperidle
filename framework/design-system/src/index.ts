@@ -145,7 +145,7 @@ export { RoleCombobox } from "./RoleCombobox.js";
 export type { ItemListContextValue, RowCell, RowProps } from "./Row.js";
 export { ItemListContext, Row } from "./Row.js";
 export type { RowDotProps, RowTone } from "./RowDot.js";
-export { RowDot } from "./RowDot.js";
+export { RowDot, TONE_COLOR } from "./RowDot.js";
 export type { ScopePickerOption, ScopePickerProps } from "./ScopePicker.js";
 export { ScopePicker } from "./ScopePicker.js";
 export type { SearchFieldProps } from "./SearchField.js";

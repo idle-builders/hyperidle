@@ -445,7 +445,7 @@ function WorkTeamLoaded({
 									{
 										content: (
 											<span
-												className="w-[24px] h-[24px] rounded-full shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
+												className="w-[24px] h-[24px] rounded-[var(--r-pill)] shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
 												style={{ background: "var(--accent-deep-dim)" }}
 												aria-label={routine.agentName}
 												title={routine.agentName}

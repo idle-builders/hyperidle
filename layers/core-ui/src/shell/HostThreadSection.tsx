@@ -310,7 +310,7 @@ export function HostThreadSection({
 			{prefill && (
 				<div
 					data-testid="host-thread-prefill-chip"
-					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded text-[var(--text-tertiary)]"
+					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded-[var(--r-pill)] text-[var(--text-tertiary)]"
 				>
 					<span>Re:</span>
 					<span className="truncate">{prefill.blockExcerpt}</span>

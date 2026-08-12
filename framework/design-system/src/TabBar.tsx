@@ -55,7 +55,7 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 	return (
 		<div
 			{...dsProps("TabBar", "0")}
-			className="inline-flex items-center bg-[var(--surface-container)] rounded-full p-[3px] gap-[3px]"
+			className="inline-flex items-center bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px] gap-[3px]"
 			role="tablist"
 		>
 			{tabs.map((tab) => {
@@ -68,7 +68,7 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 						aria-selected={isActive}
 						onClick={() => onChange?.(tab.id)}
 						className={[
-							"px-[12px] py-[6px] rounded-full text-[13px]",
+							"px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px]",
 							"transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 							"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 							isActive

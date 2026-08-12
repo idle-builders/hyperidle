@@ -174,10 +174,10 @@ export function SessionActivityPanel({
 						{isLive && (
 							<span
 								role="status"
-								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-full bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
+								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
 								aria-label="Live session"
 							>
-								<span className="w-[5px] h-[5px] rounded-full bg-[var(--accent-primary)] animate-pulse" />
+								<span className="w-[5px] h-[5px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] animate-pulse" />
 								Live
 							</span>
 						)}

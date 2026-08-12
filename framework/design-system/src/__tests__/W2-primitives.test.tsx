@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // W2: new Tier 0 primitives — these imports will fail until files are created.
 import { Avatar, AvatarGroup } from "../Avatar.js";
-import { Button } from "../Button.js";
+import { Button, type ButtonProps } from "../Button.js";
 import { Checkbox } from "../Checkbox.js";
 import { Input } from "../Input.js";
 import { Progress } from "../Progress.js";
@@ -241,7 +241,7 @@ describe("W2 — Button variants (AC-3)", () => {
 		container.remove();
 	});
 
-	const variants = ["primary", "secondary", "ghost", "destructive", "amber"] as const;
+	const variants = ["primary", "secondary", "ghost", "destructive"] as const;
 
 	for (const variant of variants) {
 		it(`Button variant="${variant}" renders`, async () => {
@@ -260,6 +260,29 @@ describe("W2 — Button variants (AC-3)", () => {
 		const btn = container.querySelector("button");
 		expect(btn).not.toBeNull();
 		expect(btn?.getAttribute("type")).toBe("submit");
+	});
+
+	it('Button size="icon" renders square (AZ7 Set 1)', async () => {
+		await act(async () => {
+			root.render(createElement(Button, { size: "icon", "aria-label": "Add" }, "+"));
+		});
+		const btn = container.querySelector("button");
+		expect(btn).not.toBeNull();
+		expect(btn?.className).toContain("w-[44px]");
+		expect(btn?.className).toContain("h-[44px]");
+	});
+
+	// AZ7 E1: the closed variant/size set IS a type. A @ts-expect-error line
+	// that stops erroring (because someone widened the union) fails npm run
+	// check — the guard cannot silently rot. amber was deleted (zero
+	// production uses); a 5th variant or a 4th size must be a type error.
+	it("the variant/size unions are closed (compile-time guard)", () => {
+		// @ts-expect-error — "amber" was removed from ButtonProps["variant"] (AZ7 Set 1)
+		const invalidVariant: NonNullable<ButtonProps["variant"]> = "amber";
+		// @ts-expect-error — "lg" was never a member of ButtonProps["size"]
+		const invalidSize: NonNullable<ButtonProps["size"]> = "lg";
+		expect(invalidVariant).toBe("amber");
+		expect(invalidSize).toBe("lg");
 	});
 });
 

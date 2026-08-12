@@ -55,7 +55,7 @@ export function NotificationRow({
 			<span
 				data-testid="severity-icon-circle"
 				aria-hidden="true"
-				className="inline-flex w-[24px] h-[24px] rounded-full shrink-0 items-center justify-center"
+				className="inline-flex w-[24px] h-[24px] rounded-[var(--r-pill)] shrink-0 items-center justify-center"
 				style={{ backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
 			/>
 			<StatusChip status={severity} />

@@ -17,7 +17,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 		<div {...dsProps("SearchField", "1")} className="relative flex w-full items-center">
 			<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-tertiary)]">
 				{loading ? (
-					<span className="inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--border-subtle)] border-t-[var(--accent-primary)] animate-spin" />
+					<span className="inline-block h-[14px] w-[14px] rounded-[var(--r-pill)] border-2 border-[var(--border-subtle)] border-t-[var(--accent-primary)] animate-spin" />
 				) : (
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

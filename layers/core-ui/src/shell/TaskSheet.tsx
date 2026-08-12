@@ -490,7 +490,7 @@ export function TaskSheet({
 						{REQUEST_INTENTS.map((intent) => (
 							<label
 								key={intent.id}
-								className="flex items-center gap-2 min-h-[44px] px-3 rounded cursor-pointer hover:bg-[var(--surface-elevated)]"
+								className="flex items-center gap-2 min-h-[44px] px-3 rounded-[var(--r-subtle)] cursor-pointer hover:bg-[var(--surface-elevated)]"
 							>
 								<input
 									type="radio"

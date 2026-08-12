@@ -96,7 +96,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 							<Link
 								to={`/artifacts/${summary.artifactId}`}
 								data-artifact-id={summary.artifactId}
-								className="flex flex-col gap-0.5 px-3 py-2 rounded hover:bg-[var(--surface-container)] text-sm"
+								className="flex flex-col gap-0.5 px-3 py-2 rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)] text-sm"
 							>
 								<div className="flex items-center justify-between gap-2">
 									<span className="font-medium text-[var(--text-primary)] truncate">

@@ -208,7 +208,7 @@ function SectionHeader({
 			<span data-section-label={view}>{label}</span>
 			{badgeCount != null && badgeCount > 0 && (
 				<span
-					className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
+					className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[var(--r-pill)] text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
 					data-testid={
 						view === "knowledge"
 							? "knowledge-triage-badge"
@@ -314,7 +314,7 @@ function SettingsFooter({
 					<span>Notifications</span>
 					{hasUnread && (
 						<span
-							className="absolute top-[6px] right-[9px] w-[6px] h-[6px] rounded-full bg-[var(--status-error)]"
+							className="absolute top-[6px] right-[9px] w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--status-error)]"
 							data-testid="notification-unread-dot"
 							aria-hidden="true"
 						/>

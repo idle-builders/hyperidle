@@ -27,6 +27,7 @@ import {
 	ErrorState,
 	ItemList,
 	Row,
+	RowDot,
 	SkeletonList,
 	SplitView,
 	StatusChip,
@@ -295,14 +296,18 @@ export function SettingsHarnesses(): JSX.Element {
 							{sorted.map((descriptor) => {
 								const sl = statusLine(descriptor);
 								const clickable = hasDetail(descriptor);
-								const dotColor =
+								// AZ7 E7 (§1.6 finding #3): Status → RowTone mapping mirrors the
+								// original hand-rolled ladder exactly (healthy→success,
+								// behind→warning, error|blocked→error, else→info); the dot itself
+								// is now RowDot, not a private span + private color ladder.
+								const dotTone =
 									sl.tone === "healthy"
-										? "var(--status-success)"
+										? ("success" as const)
 										: sl.tone === "behind"
-											? "var(--status-warning)"
+											? ("warning" as const)
 											: sl.tone === "error" || sl.tone === "blocked"
-												? "var(--status-error)"
-												: "var(--status-info)";
+												? ("error" as const)
+												: ("info" as const);
 								const titleNode = (
 									<span className="flex items-center gap-[6px]">
 										<span className="text-[14px] font-[600] text-[var(--text-primary)]">
@@ -321,13 +326,7 @@ export function SettingsHarnesses(): JSX.Element {
 										as="li"
 										title={titleNode}
 										subtitle={sl.text}
-										lead={
-											<span
-												className="inline-block rounded-full"
-												style={{ width: 6, height: 6, backgroundColor: dotColor }}
-												aria-hidden="true"
-											/>
-										}
+										lead={<RowDot tone={dotTone} title={sl.text} />}
 										selected={selectedType === descriptor.type}
 										onClick={clickable ? () => handleRowClick(descriptor) : undefined}
 									/>
