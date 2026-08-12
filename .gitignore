@@ -106,3 +106,6 @@ framework/design-system/viewer/**/*.d.ts.map
 
 # docs audit working artifacts (not repo content)
 .docs-audit/
+
+# derived trace graph artifact (rebuilt by tools/trace/trace-build.ts)
+tools/trace/graph.json

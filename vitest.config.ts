@@ -9,6 +9,7 @@ const PROJECTS = [
 	"tools/eval",
 	"tools/setup",
 	"tools/repo-gates",
+	"tools/trace",
 	"applications/remote-server",
 	"applications/remote-worker",
 	"framework/domain-model",

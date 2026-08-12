@@ -1,0 +1,20 @@
+{
+	"name": "@hyperidle/trace",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"description": "The feature/code tracer — a graph model of the whole repo (entry points, cross-file calls, events, seams, DI wiring) serving 'what is used where' queries to agents via CLI and MCP.",
+	"scripts": {
+		"check": "tsc --noEmit",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"typescript": "^6.0.3",
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@types/node": "^24",
+		"vitest": "^4.1.9"
+	}
+}

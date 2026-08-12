@@ -177,6 +177,12 @@ Branch naming: `<type>/<workpackage-id>-<description>`. Commit: imperative mood,
 
 ---
 
+## Code Tracing — before you grep
+
+For "where is this used / what does a change to it affect" questions, use the `hyperidle-trace` MCP tools (`trace_uses`, `trace_door`, `trace_event`, `trace_doors`) instead of grep/read chains — the code graph follows connections grep cannot (cross-file calls, startup wiring, the core↔agent boundary, event chains). CLI fallback: `tools/trace/`. A "no matches" is not proof of unused — confirm an important negative with a targeted grep. Query patterns and caveats: the `trace` skill.
+
+---
+
 ## Explore Agent
 
 Use the built-in Explore agent (subagent_type=Explore) for codebase exploration and research that spans more than 3 queries — finding files by pattern, searching code for keywords, understanding how subsystems connect. Prefer Explore over manual grep chains when the search space is broad or uncertain. The pipeline uses Explore for `/pipeline:retro` (Phase 6) and any read-heavy research tasks.

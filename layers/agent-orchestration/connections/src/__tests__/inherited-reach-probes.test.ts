@@ -136,8 +136,13 @@ describe("inherited reach probe behavior (moved from harness-discovery)", () => 
 			"duplicate: local - ✘ Failed to connect",
 			"pending: local - ⏸ Pending approval",
 		].join("\n");
+		// @lore AN1: no cwd here used to mean "repo root", which silently merged the
+		// repo's own .mcp.json into the facts once one existed (AY1 added hyperidle-trace).
+		// This test is about CLI parsing only — isolate it in an empty temp dir.
+		const cwd = await temporaryDirectory("an1-claude-precedence-");
 		const reach = createInheritedReach();
 		await reach.refresh({
+			cwd,
 			env: {},
 			run: reachRunner({ "claude mcp list": response(stdout) }),
 		});
