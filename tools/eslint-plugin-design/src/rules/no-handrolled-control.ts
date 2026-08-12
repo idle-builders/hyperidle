@@ -100,8 +100,8 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
 		docs: {
-		description:
-			"Forbid a raw <button>/<input>/<textarea>/<select> in layers/core-ui/src that repaints a design-system control's chrome — a DaisyUI btn*/input*/textarea*/select*/file-input* class, or an accent/status fill. Use Button/Input/SearchField/Select/Composer from @hyperidle/design-system instead.",
+			description:
+				"Forbid a raw <button>/<input>/<textarea>/<select> in layers/core-ui/src that repaints a design-system control's chrome — a DaisyUI btn*/input*/textarea*/select*/file-input* class, or an accent/status fill. Use Button/Input/SearchField/Select/Composer from @hyperidle/design-system instead.",
 			recommended: true,
 		},
 		schema: [],
@@ -121,7 +121,7 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 			JSXOpeningElement(rawNode: unknown) {
 				const node = rawNode as JSXOpeningElement;
 				const tag = node.name.type === "JSXIdentifier" ? node.name.name : null;
-				if (!tag || !CONTROL_TAGS.has(tag)) return;
+				if (!(tag && CONTROL_TAGS.has(tag))) return;
 				const attr = classNameAttrOf(node);
 				if (!attr) return;
 				const strings = collectClassStringsFromJSXAttributeDeep(attr, resolveIdentifier);
