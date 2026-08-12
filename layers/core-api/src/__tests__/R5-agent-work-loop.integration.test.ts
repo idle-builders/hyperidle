@@ -32,6 +32,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -67,50 +68,50 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	// @lore U1: `teams` is the domain entity (formerly `products`).
 	// `teamMembers` is the membership group (formerly `teams`).
 	// bets/tasks.teamId references teams.id; users.teamId references teamMembers.id.
 	await db
 		.insert(teams)
-		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
+		.values({ id: ids("team"), name: "Test Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.values({ id: ids("tm"), teamId: ids("team"), capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
-		id: "b1",
-		teamId: "team-1",
+		id: ids("bet"),
+		teamId: ids("team"),
 		description: "Implement feature X",
 		status: "active",
 		createdAt: NOW,
 	});
 	await db.insert(users).values([
 		{
-			id: "agent-a",
+			id: ids("agent"),
 			name: "Builder Agent",
 			role: "builder",
-			teamId: "tm-1",
+			teamId: ids("tm"),
 			status: "active",
 			createdAt: NOW,
 		},
 		{
 			// @lore AF11-IDOR: kind="human" is required so createAuthMiddleware resolves
-			// "founder-1" as the authenticated principal via `users WHERE kind = 'human' LIMIT 1`.
+			// the founder as the authenticated principal via `users WHERE kind = 'human' LIMIT 1`.
 			// Previously relied on X-Identity header override; now uses auth principal directly.
-			id: "founder-1",
+			id: ids("founder"),
 			kind: "human",
 			name: "Founder",
 			role: "founder",
-			teamId: "tm-1",
+			teamId: ids("tm"),
 			status: "active",
 			createdAt: NOW,
 		},
 	]);
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "b1",
-		teamId: "team-1",
-		ownerAgentId: "agent-a",
+		id: ids("task"),
+		betId: ids("bet"),
+		teamId: ids("team"),
+		ownerAgentId: ids("agent"),
 		title: "Parent Task",
 		state: "in_progress",
 		createdAt: NOW,
@@ -118,13 +119,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 }
 
-function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdleDb> {
+function makeContext(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+	ids: ScopedIds,
+): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus,
-		agentId: "agent-a",
-		sessionId: "session-1",
-		taskId: "task-1",
+		agentId: ids("agent"),
+		sessionId: ids("session"),
+		taskId: ids("task"),
 		sandboxPath: path.join(os.tmpdir(), `hi-r5-integration-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
@@ -142,9 +147,14 @@ describe("R5: Agent Work Loop integration", () => {
 
 	// AC1, AC5: create_task tool inserts task visible in GET /api/bets/:id
 	describe("AC1 & AC5: create_task tool — task visible in bet detail", () => {
-		test("created task appears in GET /api/bets/:id tasks array", async ({ db, app, eventBus }) => {
-			await seedBase(db);
-			const ctx = makeContext(db, eventBus);
+		test("created task appears in GET /api/bets/:id tasks array", async ({
+			db,
+			app,
+			eventBus,
+			ids,
+		}) => {
+			await seedBase(db, ids);
+			const ctx = makeContext(db, eventBus, ids);
 			const createTaskTool = buildCreateTaskTool(app);
 
 			// Agent calls create_task
@@ -155,7 +165,7 @@ describe("R5: Agent Work Loop integration", () => {
 			const { taskId: newTaskId } = createResult.data as { taskId: string };
 
 			// GET /api/bets/:id should include both the original task and the new one
-			const res = await app.request("/api/bets/b1", {
+			const res = await app.request(`/api/bets/${ids("bet")}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
@@ -176,14 +186,18 @@ describe("R5: Agent Work Loop integration", () => {
 			expect(newTask).toBeDefined();
 			expect(newTask?.title).toBe("Subtask 1");
 			expect(newTask?.state).toBe("proposed");
-			expect(newTask?.ownerAgentId).toBe("agent-a");
-			expect(newTask?.betId).toBe("b1");
+			expect(newTask?.ownerAgentId).toBe(ids("agent"));
+			expect(newTask?.betId).toBe(ids("bet"));
 		});
 
-		test("session's own task starts as in_progress in bet detail (AC5)", async ({ db, app }) => {
-			await seedBase(db);
+		test("session's own task starts as in_progress in bet detail (AC5)", async ({
+			db,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
 
-			const res = await app.request("/api/bets/b1", {
+			const res = await app.request(`/api/bets/${ids("bet")}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
@@ -192,7 +206,7 @@ describe("R5: Agent Work Loop integration", () => {
 				tasks: Array<{ id: string; state: string }>;
 			};
 
-			const sessionTask = body.tasks.find((t) => t.id === "task-1");
+			const sessionTask = body.tasks.find((t) => t.id === ids("task"));
 			expect(sessionTask).toBeDefined();
 			expect(sessionTask?.state).toBe("in_progress");
 		});
@@ -200,9 +214,14 @@ describe("R5: Agent Work Loop integration", () => {
 
 	// AC2: submit_review tool posts a review message visible in the bet's thread
 	describe("AC2: submit_review tool — review message in bet host thread", () => {
-		test("submitted review message appears in bet host thread", async ({ db, eventBus, app }) => {
-			await seedBase(db);
-			const ctx = makeContext(db, eventBus);
+		test("submitted review message appears in bet host thread", async ({
+			db,
+			eventBus,
+			app,
+			ids,
+		}) => {
+			await seedBase(db, ids);
+			const ctx = makeContext(db, eventBus, ids);
 			const submitReviewTool = buildSubmitReviewTool(app);
 
 			// Agent submits review (fallback path — no artifactRef)
@@ -225,7 +244,7 @@ describe("R5: Agent Work Loop integration", () => {
 			const [thread] = await db.select().from(threads).where(eq(threads.id, threadId));
 			expect(thread).toBeDefined();
 			expect(thread?.hostKind).toBe("bet");
-			expect(thread?.hostId).toBe("b1");
+			expect(thread?.hostId).toBe(ids("bet"));
 
 			// Message should exist
 			const [msg] = await db.select().from(messages).where(eq(messages.id, messageId));
@@ -240,9 +259,10 @@ describe("R5: Agent Work Loop integration", () => {
 			db,
 			eventBus,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
-			const ctx = makeContext(db, eventBus);
+			await seedBase(db, ids);
+			const ctx = makeContext(db, eventBus, ids);
 			const submitReviewTool = buildSubmitReviewTool(app);
 
 			const reviewResult = await submitReviewTool.handler(
@@ -268,9 +288,10 @@ describe("R5: Agent Work Loop integration", () => {
 			db,
 			eventBus,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
-			const ctx = makeContext(db, eventBus);
+			await seedBase(db, ids);
+			const ctx = makeContext(db, eventBus, ids);
 			const submitReviewTool = buildSubmitReviewTool(app);
 			const readInboxTool = buildReadInboxTool(app);
 
@@ -294,8 +315,8 @@ describe("R5: Agent Work Loop integration", () => {
 			// Ensure founder is a participant so they can post the verdict
 			const [thread] = await db.select().from(threads).where(eq(threads.id, threadId));
 			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
-			if (!participants.includes("founder-1")) {
-				const updated = [...participants, "founder-1"];
+			if (!participants.includes(ids("founder"))) {
+				const updated = [...participants, ids("founder")];
 				await db
 					.update(threads)
 					.set({ participants: JSON.stringify(updated) })
@@ -308,7 +329,7 @@ describe("R5: Agent Work Loop integration", () => {
 				method: "POST",
 				headers: {
 					...authHeaders(),
-					"X-Identity": "founder-1",
+					"X-Identity": ids("founder"),
 				},
 				body: JSON.stringify({
 					type: "verdict",
@@ -343,8 +364,9 @@ describe("R5: Agent Work Loop integration", () => {
 		test("GET /api/bets/:id returns tokensActual with byTier after session with tokens", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 
 			// Directly write tokensActualJson to the bet to simulate teardown
 			// This tests the GET /api/bets/:id parsing, which is already implemented.
@@ -358,9 +380,9 @@ describe("R5: Agent Work Loop integration", () => {
 			await db
 				.update(bets)
 				.set({ tokensActualJson: JSON.stringify(tokenData) })
-				.where(eq(bets.id, "b1"));
+				.where(eq(bets.id, ids("bet")));
 
-			const res = await app.request("/api/bets/b1", {
+			const res = await app.request(`/api/bets/${ids("bet")}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
