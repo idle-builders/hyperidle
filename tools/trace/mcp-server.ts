@@ -208,3 +208,21 @@ server.registerTool(
 const transport = new StdioServerTransport();
 await server.connect(transport);
 console.error(`[hyperidle-trace] MCP server ready at ${repoRoot}`);
+
+// @lore Harnesses spawn this server at session start. Warm the graph here so
+// an agent's first query never pays for a full build and a fresh worktree
+// needs no manual trace-build step. loadGraph is synchronous, so while the
+// warmup builds, incoming requests simply queue on the event loop and are
+// answered from the warm artifact the moment it lands — no race, no double
+// build (handlers' own loadGraph() then hits the cached-head fast path).
+setTimeout(() => {
+	const t0 = Date.now();
+	try {
+		const graph = loadGraph();
+		console.error(
+			`[hyperidle-trace] graph warm (${graph.head.slice(0, 8)}) in ${Date.now() - t0}ms`,
+		);
+	} catch (err) {
+		console.error(`[hyperidle-trace] warmup failed: ${err}`);
+	}
+}, 0);

@@ -1,0 +1,6 @@
+# Codex project-scoped config (loaded only when this project is trusted).
+# Registers the HyperIdle code-graph MCP server for this repo only.
+
+[mcp_servers.hyperidle-trace]
+command = "npx"
+args = ["tsx", "tools/trace/mcp-server.ts"]
