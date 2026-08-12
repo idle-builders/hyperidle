@@ -33,7 +33,7 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 			filename: "framework/design-system/src/Checkbox.tsx",
 			code: 'const J = <div className="rounded-[6px]" />;',
 		},
-		// AZ7 review-round-2 NEW-1: the deliberately conservative boundary of
+		// @lore AZ7 review-round-2 NEW-1: the deliberately conservative boundary of
 		// createConstIdentifierResolver — a `let` is never followed, even when
 		// it happens to hold a token-legal string, because the resolver cannot
 		// prove it isn't reassigned to something else elsewhere.
@@ -99,7 +99,7 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 			code: 'const J = <div className={["rounded-[6px]", "border"].join(" ")} />;',
 			errors: [{ messageId: "notAToken" }],
 		},
-		// AZ7 review-round-2 NEW-1: CommentRow.tsx’s exact shape — a ternary
+		// @lore AZ7 review-round-2 NEW-1: CommentRow.tsx’s exact shape — a ternary
 		// of two class strings assigned to a `const`, only THEN passed to
 		// className. Reproduces `avatarClass` (both branches carry
 		// `rounded-full`); must report through the identifier.

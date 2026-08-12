@@ -98,7 +98,7 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			code: 'const J = <button className={["btn", "btn-ghost"].join(" ")} />;',
 			errors: [{ messageId: "daisyControl" }, { messageId: "daisyControl" }],
 		},
-		// AZ7 review-round-2 NEW-1: a control’s chrome built in a same-file
+		// @lore AZ7 review-round-2 NEW-1: a control’s chrome built in a same-file
 		// `const` before reaching className must be caught through the identifier.
 		{
 			filename: "layers/core-ui/src/pages/Foo.tsx",

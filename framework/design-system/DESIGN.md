@@ -273,10 +273,17 @@ ternary and similar module-level extracted class-string constants are
 covered this way — see `createConstIdentifierResolver` in
 `tools/eslint-plugin-design/src/util.ts`). It does **not** follow a `let`/
 reassignable binding, a value imported from another file, or a string built
-at runtime from a prop/state value it cannot statically resolve. A radius
-built through one of those three shapes would still pass silently — the same
-failure mode that let `CommentRow.tsx`'s `rounded-full` ship invisible to
-`npm run lint` until review round 2 caught it by browser measurement.
+at runtime from a prop/state value it cannot statically resolve. Nor is the
+boundary limited to those three: a `const` bound to an object-literal member
+access (`const cls = RADII.pill`) is statically resolvable in principle but
+is not followed either — the resolver only chases a `const`'s own
+initializer expression, not a property read off it — and neither is
+mid-token string concatenation (`"rounded-" + "full"`), which the walker
+never reassembles into `rounded-full` before testing it against the token
+regex. A radius built through any of these shapes would still pass silently
+— the same failure mode that let `CommentRow.tsx`'s `rounded-full` ship
+invisible to `npm run lint` until review round 2 caught it by browser
+measurement.
 
 ### Status presentation — 2 members
 
