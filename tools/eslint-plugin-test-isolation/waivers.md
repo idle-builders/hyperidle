@@ -12,9 +12,6 @@ Shape: one `## <rule-name>` heading per rule; entries are
 increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
-- `layers/core-api/src/__tests__/AC1-task-outcome.integration.test.ts`
-- `layers/core-api/src/__tests__/AC2-retro.integration.test.ts`
-- `layers/core-api/src/__tests__/AD4-policy-engine.integration.test.ts`
 - `layers/core-api/src/__tests__/AD5-dep-unblock-event.integration.test.ts`
 - `layers/core-api/src/__tests__/AD8b-new-tools.integration.test.ts`
 - `layers/core-api/src/__tests__/AE6-artifact-normalization.integration.test.ts`
@@ -128,7 +125,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/users/src/__tests__/runnable-agent.integration.test.ts`
 
 ## no-unscoped-table-read
-- `layers/core-api/src/__tests__/AC2-retro.integration.test.ts`
 - `layers/core-api/src/__tests__/AF15-teams-idempotency.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
 - `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts`

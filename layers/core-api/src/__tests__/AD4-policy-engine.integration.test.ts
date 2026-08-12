@@ -41,6 +41,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { NotificationEvent } from "@hyperidle/domain-model";
 import { isSilenced } from "@hyperidle/notifications";
 import { getTeamMembers } from "@hyperidle/org";
@@ -133,32 +134,32 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	// -------------------------------------------------------------------------
 	// Seed base entities for each test
 	// -------------------------------------------------------------------------
-	async function seedBase(db: HyperIdleDb): Promise<void> {
+	async function seedBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 		await db.insert(teams).values({
-			id: "ad4-team-1",
+			id: ids("ad4-team-1"),
 			name: "AD4 Test Team",
 			phase: "build",
 			createdAt: NOW,
 		});
 		await db.insert(teamMembers).values({
-			id: "ad4-tm-1",
-			teamId: "ad4-team-1",
+			id: ids("ad4-tm-1"),
+			teamId: ids("ad4-team-1"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: NOW,
 		});
 		await db.insert(users).values([
 			{
-				id: "ad4-agent-1",
+				id: ids("ad4-agent-1"),
 				kind: "ai",
 				name: "Builder Agent",
 				role: "builder",
 				status: "idle",
-				teamId: "ad4-tm-1",
+				teamId: ids("ad4-tm-1"),
 				createdAt: NOW,
 			},
 			{
-				id: "ad4-human-1",
+				id: ids("ad4-human-1"),
 				kind: "human",
 				name: "Founder",
 				role: "founder",
@@ -168,7 +169,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 			},
 			// policy_engine sender row required for messages FK
 			{
-				id: "policy_engine",
+				id: ids("policy_engine"),
 				kind: "ai",
 				name: "Policy Engine",
 				role: "system",
@@ -177,11 +178,11 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 			},
 		]);
 		await db.insert(threads).values({
-			id: "ad4-thread-1",
+			id: ids("ad4-thread-1"),
 			hostKind: "task",
-			hostId: "task-1",
-			initiatorId: "ad4-agent-1",
-			participants: JSON.stringify(["ad4-agent-1"]),
+			hostId: ids("task-1"),
+			initiatorId: ids("ad4-agent-1"),
+			participants: JSON.stringify([ids("ad4-agent-1")]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
@@ -192,6 +193,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	// -------------------------------------------------------------------------
 	async function seedVerdicts(
 		db: HyperIdleDb,
+		ids: ScopedIds,
 		count: number,
 		decision: "approve" | "reject",
 	): Promise<void> {
@@ -203,15 +205,15 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 				id: verdictThreadId,
 				hostKind: "task",
 				hostId: `verdict-task-${i}-${decision}`,
-				initiatorId: "ad4-agent-1",
-				participants: JSON.stringify(["ad4-agent-1"]),
+				initiatorId: ids("ad4-agent-1"),
+				participants: JSON.stringify([ids("ad4-agent-1")]),
 				lastActiveAt: FIVE_DAYS_AGO,
 				createdAt: FIVE_DAYS_AGO,
 			});
 
 			await db.insert(items).values({
 				id: itemId,
-				sourceAgentId: "ad4-agent-1",
+				sourceAgentId: ids("ad4-agent-1"),
 				kind: "approval",
 				title: `Past item ${i}`,
 				riskTier: "low",
@@ -221,7 +223,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 			await db.insert(messages).values({
 				id: crypto.randomUUID(),
-				senderId: "ad4-human-1",
+				senderId: ids("ad4-human-1"),
 				threadId: verdictThreadId,
 				type: "verdict",
 				payload: JSON.stringify({ decision }),
@@ -237,6 +239,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	// -------------------------------------------------------------------------
 	async function createItem(
 		db: HyperIdleDb,
+		ids: ScopedIds,
 		_eventBus: import("@hyperidle/event-bus").EventBus,
 		overrides: Partial<{
 			id: string;
@@ -249,12 +252,12 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 		const itemId = overrides.id ?? crypto.randomUUID();
 		await db.insert(items).values({
 			id: itemId,
-			sourceAgentId: overrides.sourceAgentId ?? "ad4-agent-1",
+			sourceAgentId: overrides.sourceAgentId ?? ids("ad4-agent-1"),
 			kind: overrides.kind ?? "approval",
 			title: "Test item",
 			riskTier: overrides.riskTier ?? "low",
 			blocking: overrides.blocking ?? false,
-			threadId: "ad4-thread-1",
+			threadId: ids("ad4-thread-1"),
 			createdAt: NOW,
 		});
 		return itemId;
@@ -262,13 +265,14 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 	function emitItemCreated(
 		eventBus: import("@hyperidle/event-bus").EventBus,
+		ids: ScopedIds,
 		itemId: string,
 	): void {
 		eventBus.emit({
 			type: "item_created",
 			streamId: crypto.randomUUID(),
 			itemId,
-			conversationId: "ad4-thread-1",
+			conversationId: ids("ad4-thread-1"),
 			kind: "approval",
 			timestamp: Date.now(),
 		});
@@ -281,66 +285,68 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	describe("AU20 policy completeness contract — approval-rate query", () => {
 		test("combines both attribution paths, applies the time window, and returns newest verdicts first", async ({
 			db,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 
 			const legacyItemId = crypto.randomUUID();
 			await db.insert(items).values({
 				id: legacyItemId,
-				sourceAgentId: "ad4-agent-1",
+				sourceAgentId: ids("ad4-agent-1"),
 				kind: "approval",
 				title: "Legacy-attributed item",
-				threadId: "ad4-thread-1",
+				threadId: ids("ad4-thread-1"),
 				createdAt: FIVE_DAYS_AGO,
 			});
 			await db.insert(messages).values([
 				{
-					id: "contract-legacy-approve",
-					senderId: "ad4-human-1",
-					threadId: "ad4-thread-1",
+					id: ids("contract-legacy-approve"),
+					senderId: ids("ad4-human-1"),
+					threadId: ids("ad4-thread-1"),
 					type: "verdict",
 					payload: JSON.stringify({ decision: "approve" }),
-					clientKey: "contract-legacy-approve",
+					clientKey: ids("contract-legacy-approve"),
 					legacyItemId,
 					createdAt: FIVE_DAYS_AGO,
 				},
 				{
-					id: "contract-thread-reject",
-					senderId: "ad4-human-1",
-					threadId: "ad4-thread-1",
+					id: ids("contract-thread-reject"),
+					senderId: ids("ad4-human-1"),
+					threadId: ids("ad4-thread-1"),
 					type: "verdict",
 					payload: JSON.stringify({ decision: "reject" }),
-					clientKey: "contract-thread-reject",
+					clientKey: ids("contract-thread-reject"),
 					createdAt: NOW,
 				},
 				{
-					id: "contract-expired-approve",
-					senderId: "ad4-human-1",
-					threadId: "ad4-thread-1",
+					id: ids("contract-expired-approve"),
+					senderId: ids("ad4-human-1"),
+					threadId: ids("ad4-thread-1"),
 					type: "verdict",
 					payload: JSON.stringify({ decision: "approve-with-comments" }),
-					clientKey: "contract-expired-approve",
+					clientKey: ids("contract-expired-approve"),
 					createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
 				},
 			]);
 
-			const result = await computeApprovalRate(db, "ad4-agent-1", 30, policyEngineDeps, 2);
+			const result = await computeApprovalRate(db, ids("ad4-agent-1"), 30, policyEngineDeps, 2);
 
 			expect(result.approvalRate).toBe(0.5);
 			expect(result.totalVerdicts).toBe(2);
 			expect(result.recentVerdicts).toEqual([
-				{ decision: "reject", threadId: "ad4-thread-1", createdAt: NOW },
-				{ decision: "approve", threadId: "ad4-thread-1", createdAt: FIVE_DAYS_AGO },
+				{ decision: "reject", threadId: ids("ad4-thread-1"), createdAt: NOW },
+				{ decision: "approve", threadId: ids("ad4-thread-1"), createdAt: FIVE_DAYS_AGO },
 			]);
 		});
 
 		test("returns the stable empty result when an agent has no verdict history", async ({
-			db
+			db,
+			ids,
 		}) => {
-			await seedBase(db);
+			await seedBase(db, ids);
 
 			await expect(
-				computeApprovalRate(db, "agent-without-history", 30, policyEngineDeps),
+				computeApprovalRate(db, ids("agent-without-history"), 30, policyEngineDeps),
 			).resolves.toEqual({ approvalRate: 0, totalVerdicts: 0, recentVerdicts: [] });
 		});
 	});
@@ -352,14 +358,15 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	test("TC1: high approval rate (10/10 approve) + low risk → auto-resolve", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		// Seed 10 approvals — rate = 1.0 (>= 0.90 threshold)
-		await seedBase(db);
-		await seedVerdicts(db, 10, "approve");
+		await seedBase(db, ids);
+		await seedVerdicts(db, ids, 10, "approve");
 
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { riskTier: "low" });
-		emitItemCreated(eventBus, itemId);
+		const itemId = await createItem(db, ids, eventBus, { riskTier: "low" });
+		emitItemCreated(eventBus, ids, itemId);
 
 		await vi.waitFor(async () => {
 			const verdicts = await getPolicyEngineVerdicts(db, itemId);
@@ -368,24 +375,28 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 
 		const verdicts = await getPolicyEngineVerdicts(db, itemId);
 		expect(verdicts[0]?.decision).toBe("approve");
-		expect(verdicts[0]?.approverId).toBe("policy_engine");
+		expect(verdicts[0]?.approverId).toBe(ids("policy_engine"));
 	});
 
 	// =========================================================================
 	// TC2: Medium approval rate (>= 0.70, < 0.90) + low risk → queue
 	// =========================================================================
 
-	test("TC2: medium approval rate (7/10 approve) + low risk → queue", async ({ db, eventBus }) => {
+	test("TC2: medium approval rate (7/10 approve) + low risk → queue", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
 		// 7 approvals + 3 rejections = 70% rate (>= 0.70 queue threshold, < 0.90 auto-resolve)
-		await seedBase(db);
-		await seedVerdicts(db, 7, "approve");
-		await seedVerdicts(db, 3, "reject");
+		await seedBase(db, ids);
+		await seedVerdicts(db, ids, 7, "approve");
+		await seedVerdicts(db, ids, 3, "reject");
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { riskTier: "low" });
-		emitItemCreated(eventBus, itemId);
+		const itemId = await createItem(db, ids, eventBus, { riskTier: "low" });
+		emitItemCreated(eventBus, ids, itemId);
 
 		await vi.waitFor(async () => {
 			const [currentItem] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
@@ -408,17 +419,18 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	test("TC3: low approval rate (5/10 approve) + low risk → push notification", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		// 5 approvals + 5 rejections = 50% rate (< 0.70 threshold)
-		await seedBase(db);
-		await seedVerdicts(db, 5, "approve");
-		await seedVerdicts(db, 5, "reject");
+		await seedBase(db, ids);
+		await seedVerdicts(db, ids, 5, "approve");
+		await seedVerdicts(db, ids, 5, "reject");
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { riskTier: "low" });
-		emitItemCreated(eventBus, itemId);
+		const itemId = await createItem(db, ids, eventBus, { riskTier: "low" });
+		emitItemCreated(eventBus, ids, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 		expect(notifications[0]?.targetId).toBe(itemId);
@@ -431,16 +443,17 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	test("TC4: high approval rate (5/5 = 100%) but only 5 verdicts → push (cold start)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		// 5/5 approvals = 100% rate BUT only 5 verdicts — below min_verdicts=10
-		await seedBase(db);
-		await seedVerdicts(db, 5, "approve");
+		await seedBase(db, ids);
+		await seedVerdicts(db, ids, 5, "approve");
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { riskTier: "low" });
-		emitItemCreated(eventBus, itemId);
+		const itemId = await createItem(db, ids, eventBus, { riskTier: "low" });
+		emitItemCreated(eventBus, ids, itemId);
 
 		// Should push (not auto-resolve) — insufficient evidence
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
@@ -454,15 +467,19 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	// TC5: High approval rate + high risk → push (risk overrides trust)
 	// =========================================================================
 
-	test("TC5: high approval rate (10/10) + high risk → always push", async ({ db, eventBus }) => {
-		await seedBase(db);
-		await seedVerdicts(db, 10, "approve");
+	test("TC5: high approval rate (10/10) + high risk → always push", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		await seedBase(db, ids);
+		await seedVerdicts(db, ids, 10, "approve");
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { riskTier: "high" });
-		emitItemCreated(eventBus, itemId);
+		const itemId = await createItem(db, ids, eventBus, { riskTier: "high" });
+		emitItemCreated(eventBus, ids, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 
@@ -478,15 +495,16 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	test("TC6: skill-change kind → always push regardless of approval rate", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedBase(db);
-		await seedVerdicts(db, 10, "approve");
+		await seedBase(db, ids);
+		await seedVerdicts(db, ids, 10, "approve");
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { kind: "skill_change", riskTier: "low" });
-		emitItemCreated(eventBus, itemId);
+		const itemId = await createItem(db, ids, eventBus, { kind: "skill_change", riskTier: "low" });
+		emitItemCreated(eventBus, ids, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 
@@ -498,14 +516,14 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	// TC7: No verdicts (cold start) → push
 	// =========================================================================
 
-	test("TC7: no verdicts (cold start) → push notification", async ({ db, eventBus }) => {
+	test("TC7: no verdicts (cold start) → push notification", async ({ db, eventBus, ids }) => {
 		// No seedVerdicts call — agent has no history
-		await seedBase(db);
+		await seedBase(db, ids);
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { riskTier: "low" });
-		emitItemCreated(eventBus, itemId);
+		const itemId = await createItem(db, ids, eventBus, { riskTier: "low" });
+		emitItemCreated(eventBus, ids, itemId);
 
 		await vi.waitFor(() => expect(notifications).toHaveLength(1));
 	});
@@ -517,18 +535,19 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	test("TC8: silence mode + non-blocking item → queue (regardless of approval rate)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedBase(db);
+		await seedBase(db, ids);
 		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
 
 		// Even high-trust agent — silenced non-blocking items are queued
-		await seedVerdicts(db, 10, "approve");
+		await seedVerdicts(db, ids, 10, "approve");
 
 		const notifications: NotificationEvent[] = [];
 		eventBus.on("notification", (e) => notifications.push(e));
 		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { riskTier: "low", blocking: false });
-		emitItemCreated(eventBus, itemId);
+		const itemId = await createItem(db, ids, eventBus, { riskTier: "low", blocking: false });
+		emitItemCreated(eventBus, ids, itemId);
 
 		await vi.waitFor(async () => {
 			const [currentItem] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);

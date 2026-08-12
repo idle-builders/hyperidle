@@ -22,6 +22,7 @@ import {
 	teamMembers,
 	teams,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -33,11 +34,11 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedRetroBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
+async function seedRetroBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
+	await db.insert(teams).values({ id: ids("t1"), name: "Alpha", phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
-		id: "tm1",
-		teamId: "t1",
+		id: ids("tm1"),
+		teamId: ids("t1"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
@@ -45,39 +46,39 @@ async function seedRetroBase(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(bets).values([
 		{
-			id: "bet-completed",
-			teamId: "t1",
+			id: ids("bet-completed"),
+			teamId: ids("t1"),
 			description: "Validate the onboarding hypothesis",
 			status: "completed",
 			hypothesis: "Users will complete onboarding in under 5 minutes.",
 			createdAt: NOW,
 		},
 		{
-			id: "bet-completed-no-hyp",
-			teamId: "t1",
+			id: ids("bet-completed-no-hyp"),
+			teamId: ids("t1"),
 			description: "No hypothesis bet",
 			status: "completed",
 			hypothesis: null,
 			createdAt: NOW,
 		},
 		{
-			id: "bet-killed",
-			teamId: "t1",
+			id: ids("bet-killed"),
+			teamId: ids("t1"),
 			description: "Killed bet",
 			status: "killed",
 			hypothesis: "Some hypothesis.",
 			createdAt: NOW,
 		},
 		{
-			id: "bet-active",
-			teamId: "t1",
+			id: ids("bet-active"),
+			teamId: ids("t1"),
 			description: "Active bet",
 			status: "active",
 			createdAt: NOW,
 		},
 		{
-			id: "bet-draft",
-			teamId: "t1",
+			id: ids("bet-draft"),
+			teamId: ids("t1"),
 			description: "Draft bet",
 			status: "draft",
 			createdAt: NOW,
@@ -90,11 +91,12 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	test("AC2-1: writes bet outcome fields and creates retro knowledge item atomically", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -122,7 +124,7 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const retroKi = allKi.find((k) => k.id === retroId);
 		expect(retroKi).toBeDefined();
 		expect(retroKi?.scopeKind).toBe("bet");
-		expect(retroKi?.scopeId).toBe("bet-completed");
+		expect(retroKi?.scopeId).toBe(ids("bet-completed"));
 		vi.unstubAllEnvs();
 	});
 
@@ -130,11 +132,12 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	test("AC2-2: knowledge item body contains ## Reality and ## Learnings sections", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -165,11 +168,12 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	test("AC2-2: fabric row meta contains betId, hypothesis snapshot, and verdict", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -186,7 +190,7 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		expect(fabricRow).toBeDefined();
 
 		const meta = JSON.parse(fabricRow?.meta ?? "{}") as Record<string, unknown>;
-		expect(meta.betId).toBe("bet-completed");
+		expect(meta.betId).toBe(ids("bet-completed"));
 		expect(meta.hypothesis).toBe("Users will complete onboarding in under 5 minutes.");
 		expect(meta.verdict).toBe("partial");
 		expect(meta.validatedAt).toBeTruthy();
@@ -197,12 +201,13 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	test("AC2-3: second retro call upserts (no duplicate), version incremented", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
 		// First retro
-		const res1 = await app.request("/api/bets/bet-completed/retro", {
+		const res1 = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -215,7 +220,7 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const retroId1 = body1.retroKnowledgeItemId as string;
 
 		// Second retro
-		const res2 = await app.request("/api/bets/bet-completed/retro", {
+		const res2 = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -232,7 +237,9 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 
 		// Only one knowledge item for this bet
 		const allKi = await db.select().from(knowledgeItems);
-		const retroItems = allKi.filter((k) => k.scopeKind === "bet" && k.scopeId === "bet-completed");
+		const retroItems = allKi.filter(
+			(k) => k.scopeKind === "bet" && k.scopeId === ids("bet-completed"),
+		);
 		expect(retroItems).toHaveLength(1);
 
 		// Version must be incremented
@@ -244,12 +251,13 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	test("AC2-4: hypothesis snapshot in retro body is taken at creation time, immutable to later changes", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
 		// Record retro with original hypothesis
-		const res1 = await app.request("/api/bets/bet-completed/retro", {
+		const res1 = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -272,10 +280,10 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		await db
 			.update(bets)
 			.set({ hypothesis: "UPDATED HYPOTHESIS — should not appear in retro" })
-			.where(eq(bets.id, "bet-completed"));
+			.where(eq(bets.id, ids("bet-completed")));
 
 		// Do a second retro — it must preserve the ORIGINAL hypothesis snapshot, not the new one
-		const res2 = await app.request("/api/bets/bet-completed/retro", {
+		const res2 = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -294,11 +302,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// AC2-10: Fabric row kind='reflection'
-	test("AC2-10: fabric row has kind='reflection'", async ({ db, app }) => {
+	test("AC2-10: fabric row has kind='reflection'", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -318,11 +326,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// AC2-11: Knowledge item status='active'
-	test("AC2-11: retro knowledge item has status='active'", async ({ db, app }) => {
+	test("AC2-11: retro knowledge item has status='active'", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -341,11 +349,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// AC2-14: Retro endpoint rejects non-completed/killed bets with 400
-	test("AC2-14: rejects retro for active bet with 400", async ({ db, app }) => {
+	test("AC2-14: rejects retro for active bet with 400", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-active/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-active")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "Too early." }),
@@ -354,11 +362,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC2-14: rejects retro for draft bet with 400", async ({ db, app }) => {
+	test("AC2-14: rejects retro for draft bet with 400", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-draft/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-draft")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "Too early." }),
@@ -367,9 +375,9 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC2-14: returns 404 for non-existent bet", async ({ app }) => {
+	test("AC2-14: returns 404 for non-existent bet", async ({ app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/nonexistent/retro", {
+		const res = await app.request(`/api/bets/${ids("nonexistent")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "Does not exist." }),
@@ -381,12 +389,13 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	// AC2-15: Knowledge item title = "Retro: {bet title}"
 	test("AC2-15: knowledge item title follows 'Retro: {bet title}' format", async ({
 		db,
-		app
+		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -407,11 +416,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// Happy path on killed bet
-	test("AC2-1: records retro on killed bet", async ({ db, app }) => {
+	test("AC2-1: records retro on killed bet", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-killed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-killed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -429,12 +438,13 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	// No hypothesis case — body frontmatter should note it
 	test("AC2-2: body indicates no hypothesis when bet has no hypothesis", async ({
 		db,
-		app
+		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed-no-hyp/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed-no-hyp")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -457,12 +467,13 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	// Learnings empty — body should have placeholder
 	test("AC2-2: body has learnings placeholder when learnings not provided", async ({
 		db,
-		app
+		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -483,11 +494,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// Validation: missing verdict rejected
-	test("rejects retro without verdict (400)", async ({ db, app }) => {
+	test("rejects retro without verdict (400)", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ summary: "No verdict provided" }),
@@ -497,11 +508,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// Validation: summary too long
-	test("rejects retro with summary exceeding 2000 chars (400)", async ({ db, app }) => {
+	test("rejects retro with summary exceeding 2000 chars (400)", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ verdict: "validated", summary: "x".repeat(2001) }),
@@ -511,11 +522,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// Validation: learnings too long
-	test("rejects retro with learnings exceeding 4000 chars (400)", async ({ db, app }) => {
+	test("rejects retro with learnings exceeding 4000 chars (400)", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
+		await seedRetroBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
@@ -529,9 +540,9 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// 401 without auth
-	test("returns 401 without authentication", async ({ app }) => {
+	test("returns 401 without authentication", async ({ app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ verdict: "validated", summary: "Unauthorized." }),
@@ -541,11 +552,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 });
 
-async function seedDraftBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
+async function seedDraftBase(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
+	await db.insert(teams).values({ id: ids("t1"), name: "Alpha", phase: "build", createdAt: NOW });
 	await db.insert(teamMembers).values({
-		id: "tm1",
-		teamId: "t1",
+		id: ids("tm1"),
+		teamId: ids("t1"),
 		capacity: 5,
 		activeBets: 0,
 		formedAt: NOW,
@@ -553,8 +564,8 @@ async function seedDraftBase(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(bets).values([
 		{
-			id: "bet-completed",
-			teamId: "t1",
+			id: ids("bet-completed"),
+			teamId: ids("t1"),
 			description: "Validate the onboarding hypothesis",
 			status: "completed",
 			hypothesis: "Users will complete onboarding in under 5 minutes.",
@@ -562,8 +573,8 @@ async function seedDraftBase(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 		{
-			id: "bet-active",
-			teamId: "t1",
+			id: ids("bet-active"),
+			teamId: ids("t1"),
 			description: "Active bet",
 			status: "active",
 			createdAt: NOW,
@@ -573,9 +584,9 @@ async function seedDraftBase(db: HyperIdleDb): Promise<void> {
 	// Seed some tasks for the draft endpoint
 	await db.insert(tasks).values([
 		{
-			id: "task-1",
-			betId: "bet-completed",
-			teamId: "t1",
+			id: ids("task-1"),
+			betId: ids("bet-completed"),
+			teamId: ids("t1"),
 			title: "Build onboarding wizard",
 			state: "done",
 			outcomeVerdict: "met",
@@ -583,9 +594,9 @@ async function seedDraftBase(db: HyperIdleDb): Promise<void> {
 			updatedAt: NOW,
 		},
 		{
-			id: "task-2",
-			betId: "bet-completed",
-			teamId: "t1",
+			id: ids("task-2"),
+			betId: ids("bet-completed"),
+			teamId: ids("t1"),
 			title: "Analytics integration",
 			state: "done",
 			outcomeVerdict: "partially_met",
@@ -600,11 +611,12 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 	test("AC2-5: returns { verdict, summary, learnings } for completed bet with tasks", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedDraftBase(db);
+		await seedDraftBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-completed/retro/draft", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro/draft`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({}),
@@ -625,21 +637,22 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 	// AC2-5: Draft with no tasks returns generic content (not an error)
 	test("AC2-5: returns draft for bet with no tasks (generic stub content)", async ({
 		db,
-		app
+		app,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedDraftBase(db);
+		await seedDraftBase(db, ids);
 
 		// Insert bet with no tasks
 		await db.insert(bets).values({
-			id: "bet-no-tasks",
-			teamId: "t1",
+			id: ids("bet-no-tasks"),
+			teamId: ids("t1"),
 			description: "Bet with no tasks",
 			status: "completed",
 			createdAt: NOW,
 		});
 
-		const res = await app.request("/api/bets/bet-no-tasks/retro/draft", {
+		const res = await app.request(`/api/bets/${ids("bet-no-tasks")}/retro/draft`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({}),
@@ -653,11 +666,11 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 	});
 
 	// AC2-6: Draft endpoint rejects non-completed/killed bets
-	test("AC2-6: rejects draft for active bet with 400", async ({ db, app }) => {
+	test("AC2-6: rejects draft for active bet with 400", async ({ db, app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedDraftBase(db);
+		await seedDraftBase(db, ids);
 
-		const res = await app.request("/api/bets/bet-active/retro/draft", {
+		const res = await app.request(`/api/bets/${ids("bet-active")}/retro/draft`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({}),
@@ -666,9 +679,9 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC2-6: returns 404 for non-existent bet", async ({ app }) => {
+	test("AC2-6: returns 404 for non-existent bet", async ({ app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/nonexistent/retro/draft", {
+		const res = await app.request(`/api/bets/${ids("nonexistent")}/retro/draft`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({}),
@@ -678,9 +691,9 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 	});
 
 	// 401 without auth
-	test("returns 401 without authentication", async ({ app }) => {
+	test("returns 401 without authentication", async ({ app, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/bet-completed/retro/draft", {
+		const res = await app.request(`/api/bets/${ids("bet-completed")}/retro/draft`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({}),
