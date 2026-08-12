@@ -17,21 +17,8 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AF17-propagation-bootstrap.integration.test.ts` — P10: `system:propagation` is a production-fixed bootstrap user id (applyFactoryCoreState seeds it); cannot scope without changing production
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
 - `layers/core-api/src/__tests__/bets.integration.test.ts` — createTestDb test at line 515 uses its own isolated DB; literal id is safe within that isolated scope
+- `layers/core-api/src/__tests__/configuration-projection-boot.integration.test.ts` — `modelId: "claude-sonnet-4-6"` is a configuration value (model identifier), not an entity id; scoping would break the test
 
-- `layers/core-api/src/__tests__/bet-decomposition-removal.integration.test.ts`
-- `layers/core-api/src/__tests__/bets.q3.integration.test.ts`
-- `layers/core-api/src/__tests__/builtin-routines.integration.test.ts`
-- `layers/core-api/src/__tests__/configuration-projection-boot.integration.test.ts`
-- `layers/core-api/src/__tests__/conversations.integration.test.ts`
-- `layers/core-api/src/__tests__/core-api-serves-no-agent-run-decorations.integration.test.ts`
-- `layers/core-api/src/__tests__/create-item.integration.test.ts`
-- `layers/core-api/src/__tests__/create-task.integration.test.ts`
-- `layers/core-api/src/__tests__/daily-digest.integration.test.ts`
-- `layers/core-api/src/__tests__/dependency-watcher.integration.test.ts`
-- `layers/core-api/src/__tests__/dependency-watcher.perf.integration.test.ts`
-- `layers/core-api/src/__tests__/explicit-session-start.production.integration.test.ts`
-- `layers/core-api/src/__tests__/handoff-protocol.integration.test.ts`
-- `layers/core-api/src/__tests__/handoff-to.integration.test.ts`
 - `layers/core-api/src/__tests__/knowledge-signals.integration.test.ts`
 - `layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts`
 - `layers/core-api/src/__tests__/log-task.integration.test.ts`
@@ -88,11 +75,7 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
 
 - `layers/core-api/src/__tests__/attention-service.integration.test.ts`
-- `layers/core-api/src/__tests__/builtin-routines.integration.test.ts`
 - `layers/core-api/src/__tests__/create-routine.integration.test.ts`
-- `layers/core-api/src/__tests__/explicit-session-start.production.integration.test.ts`
-- `layers/core-api/src/__tests__/handoff-protocol.integration.test.ts`
-- `layers/core-api/src/__tests__/handoff-to.integration.test.ts`
 - `layers/core-api/src/__tests__/knowledge-access.integration.test.ts`
 - `layers/core-api/src/__tests__/knowledge.integration.test.ts`
 - `layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts`
