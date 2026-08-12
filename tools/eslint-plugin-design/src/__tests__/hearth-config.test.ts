@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { configs, RULE_SEVERITY } from "../hearth-config.js";
+import { configs, DEDICATED_BLOCK_RULES, RULE_SEVERITY } from "../hearth-config.js";
 import { rules } from "../index.js";
 
 describe("hearth-config totality", () => {
@@ -26,6 +26,25 @@ describe("hearth-config totality", () => {
 				allowed.has(severity.designSystem),
 				`${name}.designSystem = ${severity.designSystem}`,
 			).toBe(true);
+		}
+	});
+
+	// AZ7 post-ship durability review (B1): a rule set to "off" in BOTH scopes
+	// is effectively unwired — it runs on zero files and reads as healthy
+	// forever, which is the exact D2 failure this table was built to prevent.
+	// Every entry must be at error or warn in at least one scope, UNLESS it
+	// has a dedicated block in eslint.config.ts (listed in DEDICATED_BLOCK_RULES).
+	// Break-tested: temporarily setting a non-dedicated-block rule to
+	// {coreUi: "off", designSystem: "off"} turns this test red; reverting
+	// turns it green.
+	it("never sets a rule to off in every scope unless it has a dedicated block (the D2 escape hatch)", () => {
+		for (const [name, severity] of Object.entries(RULE_SEVERITY)) {
+			const bothOff = severity.coreUi === "off" && severity.designSystem === "off";
+			const hasDedicatedBlock = DEDICATED_BLOCK_RULES.has(name);
+			expect(
+				bothOff && !hasDedicatedBlock,
+				`${name} is off in both scopes and has no dedicated block — either wire it at error/warn in at least one scope, add it to DEDICATED_BLOCK_RULES with a dedicated eslint.config.ts block, or delete the rule`,
+			).toBe(false);
 		}
 	});
 

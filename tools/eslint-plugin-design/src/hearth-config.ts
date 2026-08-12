@@ -10,13 +10,27 @@
  * `no-local-status-builder`, `no-handrolled-select`, `no-raw-settings-textarea`
  * — were exported by the plugin but named in NO config block at any severity,
  * and read as passing forever because a rule wired to zero files prints
- * nothing).
+ * nothing). The latter two were deleted post-ship once their predicates were
+ * proven subsumed by `no-handrolled-control` (wired at error) with zero
+ * remaining population.
  *
- * A rule set to `"off"` here is not unwired — it means "not part of this
- * blanket K6/K8-shaped sweep; governed by its own dedicated block elsewhere
- * in `eslint.config.ts`" (e.g. `no-raw-actor-fetch` is scoped to
- * `layers/core-ui/src/hooks/**` only; `no-handrolled-page-header` is scoped
- * to `pages/**` only). Every rule still gets an explicit, reviewable entry.
+ * A rule set to `"off"` in one scope is not unwired — it means "not part of
+ * this blanket K6/K8-shaped sweep in that scope; governed by its own dedicated
+ * block elsewhere in `eslint.config.ts` with a narrower file glob" (e.g.
+ * `no-raw-actor-fetch` is scoped to `layers/core-ui/src/hooks/**` only;
+ * `no-handrolled-page-header` is scoped to `pages/**` only). Every rule still
+ * gets an explicit, reviewable entry, and every rule is at error or warn in
+ * at least one scope — a rule off in BOTH scopes would be the exact D2
+ * failure this table was built to prevent.
+ *
+ * @lore AZ7 post-ship durability review (B1): a rule set to `"off"` in BOTH
+ * scopes is effectively unwired — it runs on zero files and reads as healthy
+ * forever, which is the exact D2 failure this table was built to prevent.
+ * Every entry here MUST be at error in at least one scope; the totality test
+ * enforces this mechanically. If a rule's predicate becomes subsumed by
+ * another wired rule (as `no-handrolled-select` and `no-raw-settings-textarea`
+ * were by `no-handrolled-control`), delete the rule rather than leaving it
+ * off/off.
  */
 
 import type { ESLint, Linter } from "eslint";
@@ -67,19 +81,38 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	"no-hardcoded-tracking": { coreUi: "off", designSystem: "error" },
 	"no-off-scale-duration": { coreUi: "off", designSystem: "error" },
 
-	// ── Governed by their own dedicated eslint.config.ts blocks, not the
-	// blanket K6/K8 sweep — "off" here, not unwired ─────────────────────────
+	// ── Governed by their own dedicated eslint.config.ts blocks with narrower
+	// file scopes than the blanket K6/K8 sweep — "off" here because the hearth
+	// block's wider scope would contradict the dedicated block's intent (e.g.
+	// no-handrolled-page-header is scoped to pages/** only with specific file
+	// ignores; no-unknown-cast excludes test files). These are documented
+	// exceptions to the "no off/off" rule enforced by the totality test. ─────
 	"no-ungated-stream-drain": { coreUi: "off", designSystem: "off" },
 	"no-mock-data-import": { coreUi: "off", designSystem: "off" },
 	"no-mock-data-symbol": { coreUi: "off", designSystem: "off" },
 	"no-handrolled-page-header": { coreUi: "off", designSystem: "off" },
 	"no-handrolled-page-scaffold": { coreUi: "off", designSystem: "off" },
-	"no-handrolled-select": { coreUi: "off", designSystem: "off" },
 	"no-undefined-font-heading": { coreUi: "off", designSystem: "off" },
 	"no-raw-actor-fetch": { coreUi: "off", designSystem: "off" },
-	"no-raw-settings-textarea": { coreUi: "off", designSystem: "off" },
 	"no-unknown-cast": { coreUi: "off", designSystem: "off" },
 };
+
+// @lore AZ7 post-ship durability review (B1): these rules are set to off/off in
+// RULE_SEVERITY because they have dedicated blocks in eslint.config.ts with
+// narrower file scopes and/or specific ignores that the hearth block's wider
+// scope would contradict. This allowlist is exported for the totality test to
+// exclude from the "no off/off" assertion. Adding a new rule to this list
+// requires a dedicated block in eslint.config.ts — the test enforces this.
+export const DEDICATED_BLOCK_RULES: ReadonlySet<string> = new Set([
+	"no-ungated-stream-drain",
+	"no-mock-data-import",
+	"no-mock-data-symbol",
+	"no-handrolled-page-header",
+	"no-handrolled-page-scaffold",
+	"no-undefined-font-heading",
+	"no-raw-actor-fetch",
+	"no-unknown-cast",
+]);
 
 function pickRules(scope: keyof ScopedSeverity): Linter.RulesRecord {
 	const out: Linter.RulesRecord = {};

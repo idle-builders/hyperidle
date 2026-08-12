@@ -15,8 +15,8 @@
  * @lore AG5: Not folded into Menu (AG5): a searchable entity-directory panel with
  * browse/selected/sending states + composer, not a transient action menu.
  * Uses role=listbox (entity directory), not role=menu (action list) — different
- * ARIA semantics, different interaction model. The no-handrolled-select lint rule
- * does not flag it because it does not use DaisyUI select classes.
+ * ARIA semantics, different interaction model. The no-handrolled-control lint
+ * rule does not flag it because it does not use DaisyUI control classes.
  */
 
 import { Avatar, Button, Input, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
