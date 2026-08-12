@@ -25,10 +25,14 @@ ruleTester.run("shadow-token-only", shadowTokenOnly, {
 			filename: "Foo.tsx",
 			code: 'const J = <div style={{ boxShadow: "var(--shadow-default)" }} />;',
 		},
-		// The browser image is subject-authored content rather than Hearth chrome.
+		{
+			filename: "Foo.tsx",
+			code: 'const css = ".card { box-shadow: var(--shadow-default); }";',
+		},
+		// Only the marked preview node is subject-authored content; sibling Hearth chrome remains governed.
 		{
 			filename: "layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx",
-			code: 'const J = <div style={{ boxShadow: "0 8px 32px rgba(0,0,0,.18)" }} />;',
+			code: 'const J = <div data-shadow-subject="true" className="shadow-lg" style={{ boxShadow: "0 8px 32px rgba(0,0,0,.18)" }} />;',
 		},
 	],
 	invalid: [
@@ -51,6 +55,26 @@ ruleTester.run("shadow-token-only", shadowTokenOnly, {
 			filename: "Foo.tsx",
 			code: 'const classes = ["shadow-sm", open && "shadow-[0_2px_8px_#000]"]; const J = <div className={classes} />;',
 			errors: [{ messageId: "rawShadow" }, { messageId: "rawShadow" }],
+		},
+		{
+			filename: "layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx",
+			code: 'const J = <div style={{ boxShadow: "0 8px 32px rgba(0,0,0,.18)" }} />;',
+			errors: [{ messageId: "rawShadow" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: "const J = <div style={{ boxShadow: `0 8px 32px ${color}` }} />;",
+			errors: [{ messageId: "rawShadow" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const css = ".card { box-shadow: 0 8px 32px rgba(0,0,0,.18); }";',
+			errors: [{ messageId: "rawShadow" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div className="[&>*]:shadow-lg" />;',
+			errors: [{ messageId: "rawShadow" }],
 		},
 	],
 });

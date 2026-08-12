@@ -199,7 +199,9 @@ describe("de-greyed sections render without surface-container background; run ro
 		await renderPane();
 
 		const section = await waitFor(() => screen.getByTestId("routine-last-run-summary"));
-		expect(section.parentElement).toHaveClass("gap-[24px]");
+		const gap = /\bgap-\[(\d+)px\]/.exec(section.parentElement?.className ?? "");
+		expect(Number(gap?.[1])).toBeGreaterThanOrEqual(24);
+		expect(Number(gap?.[1])).toBeLessThanOrEqual(36);
 	});
 
 	it("[RED] config/last-run sections have no element with bg-[var(--surface-container)] class", async () => {

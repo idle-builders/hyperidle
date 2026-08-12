@@ -6,7 +6,7 @@ import { ruleTester } from "./setup.js";
 RuleTester.describe = describe as unknown as typeof RuleTester.describe;
 RuleTester.it = it as unknown as typeof RuleTester.it;
 
-// AZ15: composition spacing uses the Hearth vocabulary numerically. Semantics
+// Composition spacing uses the Hearth vocabulary numerically. Semantics
 // are reviewed as ranges; this rule does not prescribe an endpoint in a range.
 ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 	valid: [
@@ -30,7 +30,7 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 		// Negative overlap and auto/percentage positioning are not positive composition gaps.
 		{
 			filename: "Foo.tsx",
-			code: 'const J = <div className="-mt-2 ml-auto mr-[10%]" />;',
+			code: 'const J = <div className="-mt-2 ml-[-6px] ml-auto mr-[10%]" />;',
 		},
 		// A small gap inside an intrinsic control is control-internal spacing.
 		{
@@ -40,7 +40,7 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 		// Compact pill contents are control internals, not surface composition.
 		{
 			filename: "Foo.tsx",
-			code: 'const J = <span className="inline-flex items-center gap-1 rounded-[var(--r-pill)] px-2 py-1">Tag</span>;',
+			code: 'const J = <span data-spacing-role="compact-pill" className="inline-flex items-center gap-1 px-2 py-1">Tag</span>;',
 		},
 		// Tiny positioning beside explicitly sized glyph geometry is optical alignment.
 		{
@@ -50,6 +50,10 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 		{
 			filename: "Foo.tsx",
 			code: 'const classes = ["gap-[6px]", active && "mt-[12px]"]; const J = <div className={classes} />;',
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <><div data-spacing-role="overlay-offset" className="mt-1" /><span data-spacing-role="optical-offset" className="mt-[7px]" /><span data-spacing-role="coordinate" className="ml-[105px]" /></>;',
 		},
 	],
 	invalid: [
@@ -72,6 +76,31 @@ ruleTester.run("no-off-grid-spacing", noOffGridSpacing, {
 			filename: "Foo.tsx",
 			code: 'const classes = ["gap-2", active && "mt-[5px]"]; const J = <div className={classes} />;',
 			errors: [{ messageId: "offGrid" }, { messageId: "offGrid" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <div className="gap-[5rem]" />;',
+			errors: [{ messageId: "unresolved" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <span className="inline-flex rounded-[var(--r-default)] px-24 gap-8">Not a pill</span>;',
+			errors: [{ messageId: "offGrid" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <span className="relative h-[20px] mt-16" />;',
+			errors: [{ messageId: "offGrid" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <span data-spacing-role="compact-pill" className="inline-flex gap-8 px-2 py-1">Bad pill</span>;',
+			errors: [{ messageId: "offGrid" }],
+		},
+		{
+			filename: "Foo.tsx",
+			code: 'const J = <span data-spacing-role="optical-offset" className="mt-16" />;',
+			errors: [{ messageId: "offGrid" }],
 		},
 	],
 });

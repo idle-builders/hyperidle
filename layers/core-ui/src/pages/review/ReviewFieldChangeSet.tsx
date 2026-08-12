@@ -205,7 +205,10 @@ function FieldRow({
 
 					{/* L3 — per-field provenance + needs-you detail, on demand */}
 					{expanded ? (
-						<div className="mt-[9px] ml-[105px] flex flex-col gap-[6px]">
+						<div
+							data-spacing-role="coordinate"
+							className="mt-[9px] ml-[105px] flex flex-col gap-[6px]"
+						>
 							<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
 								<ToolLogo tool="salesforce" size="sm" label="" />
 								<span>{field.source}</span>

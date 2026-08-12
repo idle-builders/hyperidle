@@ -97,15 +97,19 @@ function ContextChip({
 	onRemove: (i: number) => void;
 }): JSX.Element {
 	return (
-		<span className="inline-flex items-center gap-1 rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+		<span
+			data-spacing-role="compact-pill"
+			className="inline-flex items-center gap-1 rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-secondary)]"
+		>
 			<span className="font-mono text-[var(--text-tertiary)] uppercase text-[10px]">
 				{contextRef.kind}
 			</span>
 			<span className="max-w-[120px] truncate">{contextRef.label}</span>
 			<button
 				type="button"
+				data-spacing-role="compact-pill-control"
 				aria-label={`Remove ${contextRef.label}`}
-				className="ml-[6px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+				className="ml-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 				onClick={() => onRemove(index)}
 			>
 				×

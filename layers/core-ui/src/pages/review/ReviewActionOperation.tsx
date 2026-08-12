@@ -218,6 +218,7 @@ function ReviewActionOperationView({
 								>
 									<span
 										aria-hidden="true"
+										data-spacing-role="optical-offset"
 										className="mt-[7px] h-[4px] w-[4px] shrink-0 rounded-[var(--r-pill)] bg-[var(--text-tertiary)]"
 									/>
 									<span>{item}</span>
@@ -390,7 +391,8 @@ function OutcomeBand({
 function IrreversibleBadge(): JSX.Element {
 	return (
 		<span
-			className="inline-flex items-center gap-[6px] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+			data-spacing-role="compact-pill"
+			className="inline-flex items-center gap-[4px] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
 			style={{
 				borderRadius: "var(--r-pill)",
 				color: "var(--status-warning)",

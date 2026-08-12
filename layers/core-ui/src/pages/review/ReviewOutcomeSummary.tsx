@@ -127,6 +127,7 @@ function NeedsYouChip({
 			}}
 		>
 			<span
+				data-spacing-role="optical-offset"
 				className="mt-[2px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600] uppercase"
 				style={{
 					letterSpacing: "var(--tracking-caps-sm)",
@@ -139,7 +140,10 @@ function NeedsYouChip({
 			<span className="min-w-0 flex-1 text-[13px] leading-[1.4] text-[var(--text-primary)]">
 				{item.detail}
 			</span>
-			<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] transition-opacity duration-[var(--motion-fast)] group-hover:text-[var(--accent-deep)]">
+			<span
+				data-spacing-role="optical-offset"
+				className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] transition-opacity duration-[var(--motion-fast)] group-hover:text-[var(--accent-deep)]"
+			>
 				Jump ↓
 			</span>
 		</button>
@@ -161,6 +165,7 @@ function DoneRow({
 		>
 			<span
 				aria-hidden="true"
+				data-spacing-role="optical-offset"
 				className="mt-[1px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[12px] font-[700]"
 				style={{
 					background: cond.met ? "var(--surface-container)" : "var(--status-error-dim)",
@@ -183,7 +188,10 @@ function DoneRow({
 				) : null}
 			</span>
 			{cond.met ? null : (
-				<span className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] group-hover:text-[var(--accent-deep)]">
+				<span
+					data-spacing-role="optical-offset"
+					className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] group-hover:text-[var(--accent-deep)]"
+				>
 					Jump ↓
 				</span>
 			)}

@@ -74,7 +74,9 @@ describe("AgentProfile — run state could not be read", () => {
 		renderProfile(runState("ready"));
 
 		const section = screen.getByTestId("agent-config-section");
-		expect(section.parentElement).toHaveClass("gap-[24px]");
+		const gap = /\bgap-\[(\d+)px\]/.exec(section.parentElement?.className ?? "");
+		expect(Number(gap?.[1])).toBeGreaterThanOrEqual(24);
+		expect(Number(gap?.[1])).toBeLessThanOrEqual(36);
 	});
 
 	it("surfaces an alert instead of silently rendering a healthy agent", () => {

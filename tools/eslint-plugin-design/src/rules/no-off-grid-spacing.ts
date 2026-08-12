@@ -1,7 +1,7 @@
 /**
  * design/no-off-grid-spacing
  *
- * AZ15 enforces the numeric Hearth vocabulary for authored composition:
+ * Enforces the numeric Hearth vocabulary for authored composition:
  * {0,3,6,9,12,18,24,36,48}px. Relationship semantics remain review guidance
  * with ranges, not a mechanically prescribed endpoint.
  *
@@ -24,7 +24,7 @@ import {
 const COMPOSITION_CLASS = /^(gap(?:-[xy])?|space-[xy]|m[trblxy]?)-(.+)$/;
 const TOKEN_VALUE = /^\[var\(--space-(?:1|2|3|4|6|8|12|16)\)\]$/;
 const ARBITRARY_PX = /^\[(\d+(?:\.\d+)?)px\]$/;
-const GEOMETRY_VALUE = /^(?:auto|full|screen|min|max|fit|px|\[.*(?:%|vw|vh|calc\().*\])$/;
+const NON_NUMERIC_MARGIN = /^(?:auto|full|screen|min|max|fit|\[.*(?:%|vw|vh|calc\().*\])$/;
 
 function stripVariants(raw: string): string {
 	let token = raw;
@@ -53,17 +53,27 @@ function isIntrinsicControl(attr: JSXAttribute): boolean {
 	);
 }
 
-function isCompactPill(allClasses: string): boolean {
-	return (
-		/\binline-flex\b/.test(allClasses) &&
-		/\brounded-/.test(allClasses) &&
-		/\bp[xy]-/.test(allClasses)
-	);
-}
-
-function isOpticalMargin(allClasses: string): boolean {
-	return (
-		/\b(?:h|w)-\[[^\]]+\]/.test(allClasses) && /\b(?:shrink-0|absolute|relative)\b/.test(allClasses)
+function hasSpacingRole(attr: JSXAttribute, role: string): boolean {
+	const opening = (
+		attr as JSXAttribute & {
+			parent?: {
+				attributes?: Array<{
+					type?: string;
+					name?: { type?: string; name?: string };
+					value?: { type?: string; value?: unknown } | null;
+				}>;
+			};
+		}
+	).parent;
+	return Boolean(
+		opening?.attributes?.some(
+			(candidate) =>
+				candidate.type === "JSXAttribute" &&
+				candidate.name?.type === "JSXIdentifier" &&
+				candidate.name.name === "data-spacing-role" &&
+				candidate.value?.type === "Literal" &&
+				candidate.value.value === role,
+		),
 	);
 }
 
@@ -79,6 +89,8 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 		messages: {
 			offGrid:
 				"Composition class '{{cls}}' resolves to {{n}}px outside the Hearth spacing vocabulary {0,3,6,9,12,18,24,36,48}px. Use an existing vocabulary value appropriate to the relationship.",
+			unresolved:
+				"Composition class '{{cls}}' uses an unresolved arbitrary value. Use a supported numeric utility or an existing Hearth spacing token.",
 		},
 	},
 	create(context) {
@@ -95,7 +107,11 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 				const strings = collectClassStringsFromJSXAttributeDeep(node, resolveIdentifier);
 				const allClasses = strings.map(({ text }) => text).join(" ");
 				const intrinsicControl = isIntrinsicControl(node);
-				const compactPill = isCompactPill(allClasses);
+				const compactPill = hasSpacingRole(node, "compact-pill");
+				const compactPillControl = hasSpacingRole(node, "compact-pill-control");
+				const opticalOffset = hasSpacingRole(node, "optical-offset");
+				const overlayOffset = hasSpacingRole(node, "overlay-offset");
+				const coordinate = hasSpacingRole(node, "coordinate");
 				const reported = new Set<string>();
 
 				for (const { text, node: stringNode } of strings) {
@@ -106,24 +122,41 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 						if (!match) continue;
 						const [, property, value] = match;
 						if (!property || !value) continue;
-						if (TOKEN_VALUE.test(value) || GEOMETRY_VALUE.test(value)) continue;
+						if (TOKEN_VALUE.test(value)) continue;
+						if (/^\[-/.test(value)) continue;
+						if (property.startsWith("m") && NON_NUMERIC_MARGIN.test(value)) continue;
+
+						const pixels = spacingPixels(value);
+						if (pixels === null) {
+							if (value.startsWith("[")) {
+								context.report({
+									node: asReportNode(stringNode),
+									messageId: "unresolved",
+									data: { cls: token },
+								});
+							}
+							continue;
+						}
 						if (
 							property.startsWith("gap") &&
+							pixels <= 4 &&
 							((intrinsicControl && /\binline-flex\b/.test(allClasses)) || compactPill)
 						)
 							continue;
-						if (property.startsWith("m") && isOpticalMargin(allClasses)) continue;
-
-						const pixels = spacingPixels(value);
-						if (pixels !== null && /^m(?:l|r|x)$/.test(property) && pixels > 48) continue;
+						if (property.startsWith("m") && pixels <= 4 && compactPillControl) continue;
+						if (property.startsWith("m") && pixels <= 4 && overlayOffset) continue;
+						if (property.startsWith("m") && pixels <= 9 && opticalOffset) continue;
+						if (/^m(?:l|r|x)$/.test(property) && coordinate) continue;
+						if (/^m(?:l|r|x)$/.test(property) && pixels > 48 && /\babsolute\b/.test(allClasses))
+							continue;
 						if (
-							pixels !== null &&
 							pixels <= 2 &&
 							property.startsWith("m") &&
-							/\bshrink-0\b/.test(allClasses)
+							/\b(?:shrink-0|absolute|relative)\b/.test(allClasses) &&
+							/\b(?:h|w)-\[[^\]]+\]/.test(allClasses)
 						)
 							continue;
-						if (pixels !== null && !SPACING_ALLOWLIST.has(pixels)) {
+						if (!SPACING_ALLOWLIST.has(pixels)) {
 							const findingKey = `${stringNode.loc?.start.line ?? 0}:${stringNode.loc?.start.column ?? 0}:${token}`;
 							if (reported.has(findingKey)) continue;
 							reported.add(findingKey);

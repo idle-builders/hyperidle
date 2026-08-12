@@ -13,6 +13,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ItemList } from "../ItemList.js";
+import { Row } from "../Row.js";
 
 // biome-ignore lint/style/useNamingConvention: React flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -214,6 +215,27 @@ describe("ItemList (AG6 T3)", () => {
 			const el = container.firstElementChild as HTMLElement;
 			// Flush variant must not add the contained surface wrapper background
 			expect(el?.className ?? "").not.toContain("surface-container");
+		});
+
+		it("keeps populated rows contiguous and separates them with dividers", () => {
+			act(() => {
+				root.render(
+					createElement(
+						ItemList,
+						{ isEmpty: false, "data-testid": "rows" },
+						createElement(Row, { title: "First", "data-testid": "row-first" }),
+						createElement(Row, { title: "Second", "data-testid": "row-second" }),
+					),
+				);
+			});
+			const list = container.querySelector("[data-testid='rows']") as HTMLElement;
+			const rows = list.querySelectorAll("[data-ds-component='Row']");
+			expect(list.className).not.toMatch(/\bgap-/);
+			expect(rows.length).toBe(2);
+			for (const row of rows) {
+				expect(row.className).toContain("border-b");
+				expect(row.className).toContain("last:border-b-0");
+			}
 		});
 	});
 

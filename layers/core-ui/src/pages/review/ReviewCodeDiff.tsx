@@ -692,7 +692,10 @@ function ReviewCodeDiffView({
 				<div className="flex items-start gap-[12px]">
 					<div className="min-w-0 flex-1">
 						<div className="flex items-center gap-[9px] text-[12px] text-[var(--text-tertiary)]">
-							<span className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-success)]">
+							<span
+								data-spacing-role="compact-pill"
+								className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-success)]"
+							>
 								Open
 							</span>
 						</div>

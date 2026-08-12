@@ -63,7 +63,7 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	// see `configs.hearth` below — since this table only scopes .tsx severity.
 	"no-local-status-builder": { coreUi: "error", designSystem: "off" },
 
-	// ── AZ15: numeric composition vocabulary and elevation tokens ───────────
+	// ── Numeric composition vocabulary and elevation tokens ────────────────
 	"no-off-grid-spacing": { coreUi: "error", designSystem: "error" },
 	"shadow-token-only": { coreUi: "error", designSystem: "error" },
 

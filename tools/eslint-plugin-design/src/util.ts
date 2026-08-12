@@ -25,7 +25,7 @@ import type { JSXAttribute } from "estree-jsx";
  * @lore U10: Changed from 4px grid {0,4,8,12,16,20,24,32,40,48} to Hearth 6px
  * grid {0,3,6,9,12,18,24,36,48}. Note: 4px and 8px (formerly on-grid) are now
  * off-grid. 2px is no longer a special sub-grid case — it is simply off-grid.
- * AZ15 applies this vocabulary to composition gaps/margins. Padding, control
+ * This rule applies the vocabulary to composition gaps/margins. Padding, control
  * internals, fixed geometry, optical offsets, coordinates, overlap, resets and
  * subject-authored content have separate owners or narrow structural exclusions.
  *

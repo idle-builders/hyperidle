@@ -202,6 +202,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 											</span>
 											{recipient.hasActiveSession && (
 												<span
+													data-spacing-role="compact-pill"
 													className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
 													aria-label="Live session"
 												>

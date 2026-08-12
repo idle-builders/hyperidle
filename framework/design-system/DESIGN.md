@@ -140,8 +140,8 @@ Warm-tinted. Three levels. Light mode uses `rgba(44, 36, 26, ...)` so shadows ha
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `--shadow-subtle` | `0 1px 4px rgba(44,36,26,0.06)` | `0 1px 4px rgba(0,0,0,0.3)` | Active sidebar items, pill tabs, main panel |
-| `--shadow-default` | `0 4px 12px rgba(44,36,26,0.08)` | `0 4px 12px rgba(0,0,0,0.4)` | Cards, bet cards, toast, app preview |
+| `--shadow-subtle` | `0 1px 4px rgba(44,36,26,0.06)` | `0 1px 4px rgba(0,0,0,0.3)` | Active sidebar items, pill tabs |
+| `--shadow-default` | `0 4px 12px rgba(44,36,26,0.08)` | `0 4px 12px rgba(0,0,0,0.4)` | Main panel, cards, bet cards, toast, app preview |
 | `--shadow-elevated` | `0 8px 24px rgba(44,36,26,0.1)` | `0 8px 24px rgba(0,0,0,0.5)` | Bet card hover, onboarding card, modals |
 
 Shipping Hearth chrome uses only `none` and these three tokens. Subtle marks active or lightly lifted chrome; default gives cards/panels tactile weight; elevated is for floating overlays and deliberate hover escalation. Raw Tailwind or arbitrary elevation shadows are forbidden. Focus, validation, and selected-state rings communicate state rather than depth and are narrowly exempt; third-party or subject-authored preview content is not Hearth chrome.

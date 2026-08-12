@@ -327,6 +327,7 @@ function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element
 					{isAfter ? "After" : "Before"}
 				</span>
 				<span
+					data-spacing-role="compact-pill"
 					className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600]"
 					style={{
 						color: isAfter ? "var(--status-success)" : "var(--status-error)",
@@ -466,7 +467,10 @@ function NeedsSection({
 								</span>
 							</span>
 							{target ? (
-								<span className="mt-[1px] shrink-0 whitespace-nowrap text-[12px] font-[500] text-[var(--accent-deep)]">
+								<span
+									data-spacing-role="optical-offset"
+									className="mt-[1px] shrink-0 whitespace-nowrap text-[12px] font-[500] text-[var(--accent-deep)]"
+								>
 									Jump →
 								</span>
 							) : null}
