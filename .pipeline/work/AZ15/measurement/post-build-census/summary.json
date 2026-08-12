@@ -1,0 +1,2006 @@
+{
+  "generatedAt": "2026-08-12T22:15:08.392Z",
+  "scope": {
+    "roots": [
+      "layers/core-ui/src",
+      "framework/design-system/src"
+    ],
+    "excluded": "tests, stories, fixtures, mocks, dev-only",
+    "filesScanned": 241
+  },
+  "totalAuthoredOccurrences": 2629,
+  "byCategory": [
+    {
+      "key": "padding",
+      "count": 773
+    },
+    {
+      "key": "composition",
+      "count": 754
+    },
+    {
+      "key": "geometry",
+      "count": 667
+    },
+    {
+      "key": "control-internal",
+      "count": 263
+    },
+    {
+      "key": "authored-artifact-content",
+      "count": 61
+    },
+    {
+      "key": "canvas-coordinate",
+      "count": 49
+    },
+    {
+      "key": "css-reset",
+      "count": 41
+    },
+    {
+      "key": "optical-offset",
+      "count": 13
+    },
+    {
+      "key": "negative-overlap",
+      "count": 8
+    }
+  ],
+  "byValue": [
+    {
+      "key": "12 | --space-4 | true",
+      "count": 427
+    },
+    {
+      "key": "6 | --space-2 | true",
+      "count": 393
+    },
+    {
+      "key": "9 | --space-3 | true",
+      "count": 389
+    },
+    {
+      "key": "3 | --space-1 | true",
+      "count": 216
+    },
+    {
+      "key": "18 | --space-6 | true",
+      "count": 191
+    },
+    {
+      "key": "0 | zero | true",
+      "count": 176
+    },
+    {
+      "key": "24 | --space-8 | true",
+      "count": 143
+    },
+    {
+      "key": "8 | null | false",
+      "count": 63
+    },
+    {
+      "key": "44 | null | false",
+      "count": 46
+    },
+    {
+      "key": "16 | null | false",
+      "count": 43
+    },
+    {
+      "key": "36 | --space-12 | true",
+      "count": 43
+    },
+    {
+      "key": "4 | null | false",
+      "count": 41
+    },
+    {
+      "key": "28 | null | false",
+      "count": 30
+    },
+    {
+      "key": "2 | null | false",
+      "count": 29
+    },
+    {
+      "key": "1 | null | false",
+      "count": 28
+    },
+    {
+      "key": "null | null | false",
+      "count": 28
+    },
+    {
+      "key": "10 | null | false",
+      "count": 27
+    },
+    {
+      "key": "20 | null | false",
+      "count": 25
+    },
+    {
+      "key": "32 | null | false",
+      "count": 24
+    },
+    {
+      "key": "11 | null | false",
+      "count": 22
+    },
+    {
+      "key": "48 | --space-16 | true",
+      "count": 19
+    },
+    {
+      "key": "7 | null | false",
+      "count": 15
+    },
+    {
+      "key": "760 | null | false",
+      "count": 13
+    },
+    {
+      "key": "120 | null | false",
+      "count": 10
+    },
+    {
+      "key": "140 | null | false",
+      "count": 10
+    },
+    {
+      "key": "22 | null | false",
+      "count": 10
+    },
+    {
+      "key": "14 | null | false",
+      "count": 9
+    },
+    {
+      "key": "960 | null | false",
+      "count": 9
+    },
+    {
+      "key": "100 | null | false",
+      "count": 8
+    },
+    {
+      "key": "13 | null | false",
+      "count": 8
+    },
+    {
+      "key": "200 | null | false",
+      "count": 7
+    },
+    {
+      "key": "5 | null | false",
+      "count": 7
+    },
+    {
+      "key": "64 | null | false",
+      "count": 7
+    },
+    {
+      "key": "15 | null | false",
+      "count": 6
+    },
+    {
+      "key": "320 | null | false",
+      "count": 6
+    },
+    {
+      "key": "80 | null | false",
+      "count": 6
+    },
+    {
+      "key": "800 | null | false",
+      "count": 6
+    },
+    {
+      "key": "88 | null | false",
+      "count": 5
+    },
+    {
+      "key": "180 | null | false",
+      "count": 4
+    },
+    {
+      "key": "240 | null | false",
+      "count": 4
+    },
+    {
+      "key": "640 | null | false",
+      "count": 4
+    },
+    {
+      "key": "-2 | null | false",
+      "count": 3
+    },
+    {
+      "key": "-6 | --space-2 | true",
+      "count": 3
+    },
+    {
+      "key": "280 | null | false",
+      "count": 3
+    },
+    {
+      "key": "29 | null | false",
+      "count": 3
+    },
+    {
+      "key": "30 | null | false",
+      "count": 3
+    },
+    {
+      "key": "40 | null | false",
+      "count": 3
+    },
+    {
+      "key": "400 | null | false",
+      "count": 3
+    },
+    {
+      "key": "480 | null | false",
+      "count": 3
+    },
+    {
+      "key": "560 | null | false",
+      "count": 3
+    },
+    {
+      "key": "720 | null | false",
+      "count": 3
+    },
+    {
+      "key": "-1 | null | false",
+      "count": 2
+    },
+    {
+      "key": "-4 | null | false",
+      "count": 2
+    },
+    {
+      "key": "1024 | null | false",
+      "count": 2
+    },
+    {
+      "key": "256 | null | false",
+      "count": 2
+    },
+    {
+      "key": "26 | null | false",
+      "count": 2
+    },
+    {
+      "key": "260 | null | false",
+      "count": 2
+    },
+    {
+      "key": "360 | null | false",
+      "count": 2
+    },
+    {
+      "key": "520 | null | false",
+      "count": 2
+    },
+    {
+      "key": "60 | null | false",
+      "count": 2
+    },
+    {
+      "key": "72 | null | false",
+      "count": 2
+    },
+    {
+      "key": "768 | null | false",
+      "count": 2
+    },
+    {
+      "key": "96 | null | false",
+      "count": 2
+    },
+    {
+      "key": "-6 | --space-2 | false",
+      "count": 1
+    },
+    {
+      "key": "-8 | null | false",
+      "count": 1
+    },
+    {
+      "key": "-9 | --space-3 | true",
+      "count": 1
+    },
+    {
+      "key": "105 | null | false",
+      "count": 1
+    },
+    {
+      "key": "128 | null | false",
+      "count": 1
+    },
+    {
+      "key": "160 | null | false",
+      "count": 1
+    },
+    {
+      "key": "238 | null | false",
+      "count": 1
+    },
+    {
+      "key": "380 | null | false",
+      "count": 1
+    },
+    {
+      "key": "42 | null | false",
+      "count": 1
+    },
+    {
+      "key": "420 | null | false",
+      "count": 1
+    },
+    {
+      "key": "440 | null | false",
+      "count": 1
+    },
+    {
+      "key": "62 | null | false",
+      "count": 1
+    },
+    {
+      "key": "620 | null | false",
+      "count": 1
+    },
+    {
+      "key": "68 | null | false",
+      "count": 1
+    },
+    {
+      "key": "680 | null | false",
+      "count": 1
+    },
+    {
+      "key": "860 | null | false",
+      "count": 1
+    },
+    {
+      "key": "90 | null | false",
+      "count": 1
+    },
+    {
+      "key": "920 | null | false",
+      "count": 1
+    }
+  ],
+  "byAuthoredFormValue": [
+    {
+      "key": "arbitrary-px | 12 | --space-4 | true",
+      "count": 393
+    },
+    {
+      "key": "arbitrary-px | 6 | --space-2 | true",
+      "count": 391
+    },
+    {
+      "key": "arbitrary-px | 9 | --space-3 | true",
+      "count": 385
+    },
+    {
+      "key": "arbitrary-px | 3 | --space-1 | true",
+      "count": 216
+    },
+    {
+      "key": "arbitrary-px | 18 | --space-6 | true",
+      "count": 191
+    },
+    {
+      "key": "tailwind-alias | 0 | zero | true",
+      "count": 157
+    },
+    {
+      "key": "arbitrary-px | 24 | --space-8 | true",
+      "count": 141
+    },
+    {
+      "key": "arbitrary-px | 44 | null | false",
+      "count": 46
+    },
+    {
+      "key": "arbitrary-px | 36 | --space-12 | true",
+      "count": 43
+    },
+    {
+      "key": "tailwind-alias | 12 | --space-4 | true",
+      "count": 34
+    },
+    {
+      "key": "arbitrary-px | 8 | null | false",
+      "count": 32
+    },
+    {
+      "key": "tailwind-alias | 8 | null | false",
+      "count": 31
+    },
+    {
+      "key": "arbitrary-px | 28 | null | false",
+      "count": 30
+    },
+    {
+      "key": "unresolved | null | null | false",
+      "count": 28
+    },
+    {
+      "key": "arbitrary-px | 10 | null | false",
+      "count": 27
+    },
+    {
+      "key": "arbitrary-px | 2 | null | false",
+      "count": 26
+    },
+    {
+      "key": "arbitrary-px | 20 | null | false",
+      "count": 25
+    },
+    {
+      "key": "arbitrary-px | 16 | null | false",
+      "count": 24
+    },
+    {
+      "key": "arbitrary-px | 32 | null | false",
+      "count": 23
+    },
+    {
+      "key": "arbitrary-px | 1 | null | false",
+      "count": 22
+    },
+    {
+      "key": "arbitrary-px | 11 | null | false",
+      "count": 22
+    },
+    {
+      "key": "tailwind-alias | 4 | null | false",
+      "count": 21
+    },
+    {
+      "key": "arbitrary-px | 4 | null | false",
+      "count": 20
+    },
+    {
+      "key": "arbitrary-px | 0 | zero | true",
+      "count": 19
+    },
+    {
+      "key": "arbitrary-px | 48 | --space-16 | true",
+      "count": 19
+    },
+    {
+      "key": "tailwind-alias | 16 | null | false",
+      "count": 19
+    },
+    {
+      "key": "arbitrary-px | 7 | null | false",
+      "count": 15
+    },
+    {
+      "key": "arbitrary-px | 760 | null | false",
+      "count": 13
+    },
+    {
+      "key": "arbitrary-px | 120 | null | false",
+      "count": 10
+    },
+    {
+      "key": "arbitrary-px | 140 | null | false",
+      "count": 10
+    },
+    {
+      "key": "arbitrary-px | 22 | null | false",
+      "count": 10
+    },
+    {
+      "key": "arbitrary-px | 14 | null | false",
+      "count": 9
+    },
+    {
+      "key": "arbitrary-px | 960 | null | false",
+      "count": 9
+    },
+    {
+      "key": "arbitrary-px | 100 | null | false",
+      "count": 8
+    },
+    {
+      "key": "arbitrary-px | 13 | null | false",
+      "count": 8
+    },
+    {
+      "key": "arbitrary-px | 200 | null | false",
+      "count": 7
+    },
+    {
+      "key": "arbitrary-px | 5 | null | false",
+      "count": 7
+    },
+    {
+      "key": "tailwind-alias | 64 | null | false",
+      "count": 7
+    },
+    {
+      "key": "arbitrary-px | 15 | null | false",
+      "count": 6
+    },
+    {
+      "key": "arbitrary-px | 320 | null | false",
+      "count": 6
+    },
+    {
+      "key": "arbitrary-px | 80 | null | false",
+      "count": 6
+    },
+    {
+      "key": "arbitrary-px | 800 | null | false",
+      "count": 6
+    },
+    {
+      "key": "tailwind-alias | 1 | null | false",
+      "count": 6
+    },
+    {
+      "key": "arbitrary-px | 88 | null | false",
+      "count": 5
+    },
+    {
+      "key": "arbitrary-px | 180 | null | false",
+      "count": 4
+    },
+    {
+      "key": "arbitrary-px | 240 | null | false",
+      "count": 4
+    },
+    {
+      "key": "arbitrary-px | 640 | null | false",
+      "count": 4
+    },
+    {
+      "key": "css-token | 9 | --space-3 | true",
+      "count": 4
+    },
+    {
+      "key": "arbitrary-px | -2 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | -6 | --space-2 | true",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | 280 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | 29 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | 30 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | 40 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | 400 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | 480 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | 560 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | 720 | null | false",
+      "count": 3
+    },
+    {
+      "key": "tailwind-alias | 2 | null | false",
+      "count": 3
+    },
+    {
+      "key": "arbitrary-px | -1 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 1024 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 26 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 260 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 360 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 520 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 60 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 72 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 768 | null | false",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | 96 | null | false",
+      "count": 2
+    },
+    {
+      "key": "tailwind-alias | -4 | null | false",
+      "count": 2
+    },
+    {
+      "key": "tailwind-alias | 24 | --space-8 | true",
+      "count": 2
+    },
+    {
+      "key": "tailwind-alias | 6 | --space-2 | true",
+      "count": 2
+    },
+    {
+      "key": "arbitrary-px | -6 | --space-2 | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | -8 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 105 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 160 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 238 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 256 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 380 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 42 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 420 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 440 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 62 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 620 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 68 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 680 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 860 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 90 | null | false",
+      "count": 1
+    },
+    {
+      "key": "arbitrary-px | 920 | null | false",
+      "count": 1
+    },
+    {
+      "key": "css-token | -9 | --space-3 | true",
+      "count": 1
+    },
+    {
+      "key": "tailwind-alias | 128 | null | false",
+      "count": 1
+    },
+    {
+      "key": "tailwind-alias | 256 | null | false",
+      "count": 1
+    },
+    {
+      "key": "tailwind-alias | 32 | null | false",
+      "count": 1
+    }
+  ],
+  "byPropertyOrientation": [
+    {
+      "key": "gap | horizontal",
+      "count": 357
+    },
+    {
+      "key": "padding-inline | horizontal",
+      "count": 342
+    },
+    {
+      "key": "padding-block | vertical",
+      "count": 327
+    },
+    {
+      "key": "gap | vertical",
+      "count": 248
+    },
+    {
+      "key": "h | all/unknown",
+      "count": 169
+    },
+    {
+      "key": "w | all/unknown",
+      "count": 168
+    },
+    {
+      "key": "padding | all/unknown",
+      "count": 160
+    },
+    {
+      "key": "margin-top | vertical",
+      "count": 114
+    },
+    {
+      "key": "min-w | all/unknown",
+      "count": 114
+    },
+    {
+      "key": "margin-bottom | vertical",
+      "count": 81
+    },
+    {
+      "key": "min-h | all/unknown",
+      "count": 79
+    },
+    {
+      "key": "padding-bottom | vertical",
+      "count": 59
+    },
+    {
+      "key": "max-w | all/unknown",
+      "count": 58
+    },
+    {
+      "key": "padding-top | vertical",
+      "count": 51
+    },
+    {
+      "key": "padding-left | horizontal",
+      "count": 42
+    },
+    {
+      "key": "margin | all/unknown",
+      "count": 32
+    },
+    {
+      "key": "padding-right | horizontal",
+      "count": 32
+    },
+    {
+      "key": "margin-left | horizontal",
+      "count": 20
+    },
+    {
+      "key": "right | horizontal",
+      "count": 17
+    },
+    {
+      "key": "top | vertical",
+      "count": 15
+    },
+    {
+      "key": "width | horizontal",
+      "count": 15
+    },
+    {
+      "key": "bottom | vertical",
+      "count": 14
+    },
+    {
+      "key": "max-h | all/unknown",
+      "count": 12
+    },
+    {
+      "key": "gap | all/unknown",
+      "count": 10
+    },
+    {
+      "key": "gap | two-dimensional",
+      "count": 10
+    },
+    {
+      "key": "left | horizontal",
+      "count": 10
+    },
+    {
+      "key": "height | vertical",
+      "count": 9
+    },
+    {
+      "key": "margin-inline | horizontal",
+      "count": 8
+    },
+    {
+      "key": "max-width | horizontal",
+      "count": 8
+    },
+    {
+      "key": "translate-y | vertical",
+      "count": 8
+    },
+    {
+      "key": "min-width | horizontal",
+      "count": 7
+    },
+    {
+      "key": "column-gap | horizontal",
+      "count": 6
+    },
+    {
+      "key": "row-gap | vertical",
+      "count": 6
+    },
+    {
+      "key": "inset | all/unknown",
+      "count": 5
+    },
+    {
+      "key": "translate-x | horizontal",
+      "count": 5
+    },
+    {
+      "key": "inset-y | vertical",
+      "count": 3
+    },
+    {
+      "key": "margin-block | vertical",
+      "count": 3
+    },
+    {
+      "key": "inset-x | horizontal",
+      "count": 2
+    },
+    {
+      "key": "margin-right | horizontal",
+      "count": 1
+    },
+    {
+      "key": "min-height | vertical",
+      "count": 1
+    },
+    {
+      "key": "space-y | vertical",
+      "count": 1
+    }
+  ],
+  "byFamily": [
+    {
+      "key": "review",
+      "count": 712
+    },
+    {
+      "key": "design-system",
+      "count": 624
+    },
+    {
+      "key": "shared-components",
+      "count": 323
+    },
+    {
+      "key": "work",
+      "count": 274
+    },
+    {
+      "key": "shell",
+      "count": 250
+    },
+    {
+      "key": "settings",
+      "count": 151
+    },
+    {
+      "key": "knowledge",
+      "count": 136
+    },
+    {
+      "key": "core-ui-other",
+      "count": 91
+    },
+    {
+      "key": "conversations",
+      "count": 68
+    }
+  ],
+  "compositionByValue": [
+    {
+      "key": "6 | --space-2 | true",
+      "count": 218
+    },
+    {
+      "key": "9 | --space-3 | true",
+      "count": 203
+    },
+    {
+      "key": "12 | --space-4 | true",
+      "count": 143
+    },
+    {
+      "key": "3 | --space-1 | true",
+      "count": 98
+    },
+    {
+      "key": "18 | --space-6 | true",
+      "count": 48
+    },
+    {
+      "key": "24 | --space-8 | true",
+      "count": 23
+    },
+    {
+      "key": "1 | null | false",
+      "count": 6
+    },
+    {
+      "key": "4 | null | false",
+      "count": 5
+    },
+    {
+      "key": "2 | null | false",
+      "count": 4
+    },
+    {
+      "key": "36 | --space-12 | true",
+      "count": 2
+    },
+    {
+      "key": "8 | null | false",
+      "count": 2
+    },
+    {
+      "key": "0 | zero | true",
+      "count": 1
+    },
+    {
+      "key": "7 | null | false",
+      "count": 1
+    }
+  ],
+  "compositionByPropertyOrientation": [
+    {
+      "key": "gap | horizontal",
+      "count": 307
+    },
+    {
+      "key": "gap | vertical",
+      "count": 243
+    },
+    {
+      "key": "margin-top | vertical",
+      "count": 87
+    },
+    {
+      "key": "margin-bottom | vertical",
+      "count": 72
+    },
+    {
+      "key": "gap | two-dimensional",
+      "count": 10
+    },
+    {
+      "key": "margin-left | horizontal",
+      "count": 10
+    },
+    {
+      "key": "column-gap | horizontal",
+      "count": 6
+    },
+    {
+      "key": "row-gap | vertical",
+      "count": 6
+    },
+    {
+      "key": "margin-inline | horizontal",
+      "count": 5
+    },
+    {
+      "key": "gap | all/unknown",
+      "count": 3
+    },
+    {
+      "key": "margin-block | vertical",
+      "count": 3
+    },
+    {
+      "key": "margin-right | horizontal",
+      "count": 1
+    },
+    {
+      "key": "space-y | vertical",
+      "count": 1
+    }
+  ],
+  "compositionByFamily": [
+    {
+      "key": "review",
+      "count": 221
+    },
+    {
+      "key": "work",
+      "count": 137
+    },
+    {
+      "key": "design-system",
+      "count": 111
+    },
+    {
+      "key": "settings",
+      "count": 86
+    },
+    {
+      "key": "shared-components",
+      "count": 80
+    },
+    {
+      "key": "core-ui-other",
+      "count": 41
+    },
+    {
+      "key": "knowledge",
+      "count": 36
+    },
+    {
+      "key": "shell",
+      "count": 30
+    },
+    {
+      "key": "conversations",
+      "count": 12
+    }
+  ],
+  "compositionByLikelyRelationship": [
+    {
+      "key": "close-related-content | low",
+      "count": 303
+    },
+    {
+      "key": "horizontal-inline-peers | low",
+      "count": 265
+    },
+    {
+      "key": "group-or-content-stack | low",
+      "count": 81
+    },
+    {
+      "key": "unclassified-composition | low",
+      "count": 78
+    },
+    {
+      "key": "section-or-major-stack | low",
+      "count": 17
+    },
+    {
+      "key": "label-to-content | low",
+      "count": 10
+    }
+  ],
+  "compositionCrossTab": [
+    {
+      "key": "6 | gap | horizontal | review | horizontal-inline-peers",
+      "count": 38
+    },
+    {
+      "key": "9 | gap | horizontal | review | horizontal-inline-peers",
+      "count": 23
+    },
+    {
+      "key": "9 | gap | horizontal | design-system | horizontal-inline-peers",
+      "count": 17
+    },
+    {
+      "key": "9 | gap | vertical | settings | close-related-content",
+      "count": 17
+    },
+    {
+      "key": "12 | gap | vertical | review | group-or-content-stack",
+      "count": 16
+    },
+    {
+      "key": "6 | gap | vertical | work | close-related-content",
+      "count": 16
+    },
+    {
+      "key": "12 | gap | vertical | settings | group-or-content-stack",
+      "count": 14
+    },
+    {
+      "key": "12 | gap | horizontal | review | unclassified-composition",
+      "count": 13
+    },
+    {
+      "key": "6 | gap | vertical | review | close-related-content",
+      "count": 13
+    },
+    {
+      "key": "6 | gap | horizontal | shared-components | horizontal-inline-peers",
+      "count": 12
+    },
+    {
+      "key": "24 | gap | vertical | work | section-or-major-stack",
+      "count": 11
+    },
+    {
+      "key": "3 | gap | vertical | review | close-related-content",
+      "count": 11
+    },
+    {
+      "key": "6 | gap | horizontal | design-system | horizontal-inline-peers",
+      "count": 11
+    },
+    {
+      "key": "9 | gap | horizontal | work | horizontal-inline-peers",
+      "count": 11
+    },
+    {
+      "key": "9 | gap | vertical | shared-components | close-related-content",
+      "count": 11
+    },
+    {
+      "key": "9 | gap | horizontal | shared-components | horizontal-inline-peers",
+      "count": 10
+    },
+    {
+      "key": "3 | gap | vertical | work | close-related-content",
+      "count": 9
+    },
+    {
+      "key": "6 | gap | vertical | design-system | close-related-content",
+      "count": 9
+    },
+    {
+      "key": "9 | gap | horizontal | review | close-related-content",
+      "count": 9
+    },
+    {
+      "key": "12 | gap | horizontal | design-system | horizontal-inline-peers",
+      "count": 8
+    },
+    {
+      "key": "12 | gap | vertical | work | group-or-content-stack",
+      "count": 8
+    },
+    {
+      "key": "18 | gap | vertical | settings | group-or-content-stack",
+      "count": 8
+    },
+    {
+      "key": "9 | gap | horizontal | shared-components | close-related-content",
+      "count": 8
+    },
+    {
+      "key": "9 | gap | vertical | design-system | close-related-content",
+      "count": 8
+    },
+    {
+      "key": "9 | gap | vertical | review | close-related-content",
+      "count": 8
+    },
+    {
+      "key": "12 | gap | vertical | shared-components | group-or-content-stack",
+      "count": 7
+    },
+    {
+      "key": "3 | gap | horizontal | review | horizontal-inline-peers",
+      "count": 7
+    },
+    {
+      "key": "3 | margin-top | vertical | review | close-related-content",
+      "count": 7
+    },
+    {
+      "key": "3 | margin-top | vertical | work | close-related-content",
+      "count": 7
+    },
+    {
+      "key": "6 | gap | horizontal | work | horizontal-inline-peers",
+      "count": 7
+    },
+    {
+      "key": "6 | margin-left | horizontal | work | close-related-content",
+      "count": 7
+    },
+    {
+      "key": "9 | gap | horizontal | knowledge | horizontal-inline-peers",
+      "count": 7
+    },
+    {
+      "key": "9 | gap | horizontal | settings | horizontal-inline-peers",
+      "count": 7
+    },
+    {
+      "key": "12 | gap | horizontal | settings | horizontal-inline-peers",
+      "count": 6
+    },
+    {
+      "key": "12 | gap | vertical | knowledge | group-or-content-stack",
+      "count": 6
+    },
+    {
+      "key": "6 | margin-bottom | vertical | work | close-related-content",
+      "count": 6
+    },
+    {
+      "key": "6 | margin-top | vertical | review | close-related-content",
+      "count": 6
+    },
+    {
+      "key": "6 | margin-top | vertical | work | close-related-content",
+      "count": 6
+    },
+    {
+      "key": "9 | gap | vertical | work | close-related-content",
+      "count": 6
+    },
+    {
+      "key": "12 | gap | horizontal | review | horizontal-inline-peers",
+      "count": 5
+    },
+    {
+      "key": "18 | gap | vertical | review | group-or-content-stack",
+      "count": 5
+    },
+    {
+      "key": "18 | margin-bottom | vertical | core-ui-other | unclassified-composition",
+      "count": 5
+    },
+    {
+      "key": "3 | gap | vertical | design-system | close-related-content",
+      "count": 5
+    },
+    {
+      "key": "3 | margin-top | vertical | design-system | close-related-content",
+      "count": 5
+    },
+    {
+      "key": "6 | gap | horizontal | knowledge | horizontal-inline-peers",
+      "count": 5
+    },
+    {
+      "key": "6 | gap | horizontal | review | close-related-content",
+      "count": 5
+    },
+    {
+      "key": "6 | gap | horizontal | settings | horizontal-inline-peers",
+      "count": 5
+    },
+    {
+      "key": "6 | gap | vertical | knowledge | close-related-content",
+      "count": 5
+    },
+    {
+      "key": "9 | gap | horizontal | design-system | close-related-content",
+      "count": 5
+    },
+    {
+      "key": "9 | gap | horizontal | work | close-related-content",
+      "count": 5
+    },
+    {
+      "key": "9 | margin-bottom | vertical | work | close-related-content",
+      "count": 5
+    },
+    {
+      "key": "12 | gap | horizontal | work | horizontal-inline-peers",
+      "count": 4
+    },
+    {
+      "key": "12 | gap | horizontal | work | unclassified-composition",
+      "count": 4
+    },
+    {
+      "key": "12 | margin-top | vertical | review | unclassified-composition",
+      "count": 4
+    },
+    {
+      "key": "18 | margin-top | vertical | review | unclassified-composition",
+      "count": 4
+    },
+    {
+      "key": "3 | gap | vertical | settings | close-related-content",
+      "count": 4
+    },
+    {
+      "key": "3 | gap | vertical | shared-components | close-related-content",
+      "count": 4
+    },
+    {
+      "key": "6 | gap | horizontal | settings | close-related-content",
+      "count": 4
+    },
+    {
+      "key": "6 | gap | vertical | design-system | horizontal-inline-peers",
+      "count": 4
+    },
+    {
+      "key": "6 | gap | vertical | settings | close-related-content",
+      "count": 4
+    },
+    {
+      "key": "6 | margin-bottom | vertical | core-ui-other | close-related-content",
+      "count": 4
+    },
+    {
+      "key": "6 | margin-bottom | vertical | shared-components | label-to-content",
+      "count": 4
+    },
+    {
+      "key": "6 | margin-top | vertical | core-ui-other | close-related-content",
+      "count": 4
+    },
+    {
+      "key": "9 | gap | horizontal | settings | close-related-content",
+      "count": 4
+    },
+    {
+      "key": "1 | margin-top | vertical | review | close-related-content",
+      "count": 3
+    },
+    {
+      "key": "12 | gap | horizontal | settings | unclassified-composition",
+      "count": 3
+    },
+    {
+      "key": "12 | gap | two-dimensional | review | unclassified-composition",
+      "count": 3
+    },
+    {
+      "key": "12 | gap | vertical | core-ui-other | group-or-content-stack",
+      "count": 3
+    },
+    {
+      "key": "12 | gap | vertical | shell | group-or-content-stack",
+      "count": 3
+    },
+    {
+      "key": "12 | margin-bottom | vertical | design-system | unclassified-composition",
+      "count": 3
+    },
+    {
+      "key": "18 | margin-bottom | vertical | design-system | unclassified-composition",
+      "count": 3
+    },
+    {
+      "key": "24 | gap | vertical | settings | section-or-major-stack",
+      "count": 3
+    },
+    {
+      "key": "3 | gap | horizontal | design-system | horizontal-inline-peers",
+      "count": 3
+    },
+    {
+      "key": "6 | gap | horizontal | core-ui-other | horizontal-inline-peers",
+      "count": 3
+    },
+    {
+      "key": "6 | gap | horizontal | shell | horizontal-inline-peers",
+      "count": 3
+    },
+    {
+      "key": "6 | margin-bottom | vertical | design-system | close-related-content",
+      "count": 3
+    },
+    {
+      "key": "9 | gap | horizontal | core-ui-other | horizontal-inline-peers",
+      "count": 3
+    },
+    {
+      "key": "9 | gap | horizontal | shell | horizontal-inline-peers",
+      "count": 3
+    },
+    {
+      "key": "9 | margin-bottom | vertical | core-ui-other | close-related-content",
+      "count": 3
+    },
+    {
+      "key": "1 | margin-top | vertical | shared-components | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "12 | gap | horizontal | design-system | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "12 | gap | horizontal | shared-components | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "12 | gap | two-dimensional | shared-components | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "12 | gap | vertical | conversations | group-or-content-stack",
+      "count": 2
+    },
+    {
+      "key": "12 | margin-bottom | vertical | review | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "12 | margin-bottom | vertical | settings | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "12 | margin-top | vertical | review | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "12 | margin-top | vertical | work | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "18 | column-gap | horizontal | review | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "18 | gap | two-dimensional | work | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "18 | gap | vertical | shared-components | group-or-content-stack",
+      "count": 2
+    },
+    {
+      "key": "18 | margin-bottom | vertical | design-system | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "18 | margin-inline | horizontal | review | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "18 | margin-top | vertical | work | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "2 | margin-top | vertical | review | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "2 | margin-top | vertical | shared-components | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "24 | gap | horizontal | knowledge | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "24 | gap | horizontal | work | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "24 | margin-bottom | vertical | core-ui-other | unclassified-composition",
+      "count": 2
+    },
+    {
+      "key": "3 | gap | horizontal | design-system | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "3 | gap | horizontal | knowledge | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "3 | gap | horizontal | shared-components | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "3 | gap | horizontal | shell | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "3 | gap | vertical | shell | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "3 | margin-block | vertical | design-system | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "3 | margin-top | vertical | review | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "3 | margin-top | vertical | settings | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "3 | margin-top | vertical | shell | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "3 | row-gap | vertical | review | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "4 | gap | horizontal | review | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "4 | gap | horizontal | shared-components | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "6 | gap | horizontal | conversations | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "6 | gap | horizontal | core-ui-other | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "6 | gap | horizontal | work | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "6 | gap | vertical | conversations | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "6 | gap | vertical | shell | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "6 | margin-bottom | vertical | core-ui-other | label-to-content",
+      "count": 2
+    },
+    {
+      "key": "6 | margin-bottom | vertical | review | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "6 | margin-bottom | vertical | shared-components | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "6 | margin-inline | horizontal | shell | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "8 | gap | all/unknown | design-system | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | gap | horizontal | conversations | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | gap | horizontal | conversations | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "9 | gap | horizontal | knowledge | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | gap | horizontal | shell | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | gap | vertical | design-system | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "9 | margin-bottom | vertical | design-system | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | margin-bottom | vertical | review | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | margin-bottom | vertical | settings | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | margin-top | vertical | review | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | margin-top | vertical | work | close-related-content",
+      "count": 2
+    },
+    {
+      "key": "9 | row-gap | vertical | review | horizontal-inline-peers",
+      "count": 2
+    },
+    {
+      "key": "0 | gap | vertical | review | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "1 | margin-top | vertical | review | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "12 | column-gap | horizontal | review | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "12 | gap | all/unknown | design-system | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "12 | gap | horizontal | conversations | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "12 | gap | horizontal | core-ui-other | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "12 | gap | horizontal | design-system | label-to-content",
+      "count": 1
+    },
+    {
+      "key": "12 | gap | horizontal | knowledge | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "12 | gap | horizontal | shell | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "12 | gap | vertical | design-system | group-or-content-stack",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-block | vertical | design-system | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-bottom | vertical | core-ui-other | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-bottom | vertical | review | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-bottom | vertical | work | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-top | vertical | core-ui-other | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-top | vertical | knowledge | group-or-content-stack",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-top | vertical | review | group-or-content-stack",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-top | vertical | shared-components | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "12 | margin-top | vertical | work | group-or-content-stack",
+      "count": 1
+    },
+    {
+      "key": "18 | gap | horizontal | design-system | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "18 | gap | horizontal | review | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "18 | gap | horizontal | work | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "18 | gap | vertical | design-system | group-or-content-stack",
+      "count": 1
+    },
+    {
+      "key": "18 | gap | vertical | knowledge | group-or-content-stack",
+      "count": 1
+    },
+    {
+      "key": "18 | gap | vertical | shell | group-or-content-stack",
+      "count": 1
+    },
+    {
+      "key": "18 | margin-bottom | vertical | shell | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "18 | margin-bottom | vertical | work | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "18 | margin-inline | horizontal | review | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "18 | margin-top | vertical | core-ui-other | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "18 | margin-top | vertical | work | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "24 | column-gap | horizontal | work | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "24 | gap | vertical | design-system | section-or-major-stack",
+      "count": 1
+    },
+    {
+      "key": "24 | gap | vertical | knowledge | section-or-major-stack",
+      "count": 1
+    },
+    {
+      "key": "3 | gap | horizontal | work | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "3 | gap | vertical | knowledge | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-bottom | vertical | core-ui-other | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-bottom | vertical | design-system | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-bottom | vertical | review | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-left | horizontal | design-system | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-left | horizontal | knowledge | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-right | horizontal | shared-components | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-top | vertical | core-ui-other | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-top | vertical | design-system | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-top | vertical | knowledge | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-top | vertical | shared-components | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-top | vertical | shell | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "3 | margin-top | vertical | work | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "3 | row-gap | vertical | review | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "3 | space-y | vertical | work | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "36 | gap | vertical | review | section-or-major-stack",
+      "count": 1
+    },
+    {
+      "key": "36 | margin-bottom | vertical | core-ui-other | unclassified-composition",
+      "count": 1
+    },
+    {
+      "key": "4 | gap | horizontal | shell | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "6 | column-gap | horizontal | review | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "6 | gap | horizontal | conversations | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | gap | horizontal | design-system | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | gap | horizontal | shell | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | gap | two-dimensional | settings | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | gap | vertical | core-ui-other | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | gap | vertical | shared-components | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | margin-bottom | vertical | core-ui-other | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "6 | margin-bottom | vertical | review | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | margin-bottom | vertical | shared-components | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "6 | margin-bottom | vertical | shell | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | margin-bottom | vertical | work | label-to-content",
+      "count": 1
+    },
+    {
+      "key": "6 | margin-left | horizontal | review | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | margin-top | vertical | review | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "6 | margin-top | vertical | shared-components | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "6 | row-gap | vertical | work | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "7 | margin-top | vertical | review | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "9 | column-gap | horizontal | review | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "9 | gap | horizontal | core-ui-other | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "9 | gap | horizontal | shared-components | label-to-content",
+      "count": 1
+    },
+    {
+      "key": "9 | gap | two-dimensional | design-system | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "9 | gap | two-dimensional | review | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "9 | gap | vertical | shell | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "9 | gap | vertical | shell | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "9 | margin-bottom | vertical | design-system | label-to-content",
+      "count": 1
+    },
+    {
+      "key": "9 | margin-bottom | vertical | work | horizontal-inline-peers",
+      "count": 1
+    },
+    {
+      "key": "9 | margin-top | vertical | shared-components | close-related-content",
+      "count": 1
+    },
+    {
+      "key": "9 | margin-top | vertical | work | horizontal-inline-peers",
+      "count": 1
+    }
+  ],
+  "offVocabularyComposition": [
+    {
+      "key": "1 | arbitrary-px | margin-top | vertical",
+      "count": 6
+    },
+    {
+      "key": "2 | arbitrary-px | margin-top | vertical",
+      "count": 4
+    },
+    {
+      "key": "4 | arbitrary-px | gap | horizontal",
+      "count": 4
+    },
+    {
+      "key": "4 | tailwind-alias | gap | horizontal",
+      "count": 1
+    },
+    {
+      "key": "7 | arbitrary-px | margin-top | vertical",
+      "count": 1
+    },
+    {
+      "key": "8 | arbitrary-px | gap | all/unknown",
+      "count": 1
+    },
+    {
+      "key": "8 | tailwind-alias | gap | all/unknown",
+      "count": 1
+    }
+  ]
+}

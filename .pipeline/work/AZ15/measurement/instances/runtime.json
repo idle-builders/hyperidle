@@ -1,0 +1,34 @@
+{
+  "generatedAt": "2026-08-12T22:17:16.172Z",
+  "baseUrl": "http://127.0.0.1:5185",
+  "evidence": [
+    {
+      "id": "global-search-desktop",
+      "width": 1280,
+      "height": 720,
+      "route": "/conversations",
+      "component": "GlobalSearchPanel",
+      "measurement": {
+        "width": 640,
+        "height": 99,
+        "gap": "9px",
+        "padding": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(44, 36, 26, 0.1) 0px 8px 24px 0px"
+      }
+    },
+    {
+      "id": "global-search-narrow",
+      "width": 760,
+      "height": 900,
+      "route": "/conversations",
+      "component": "GlobalSearchPanel",
+      "measurement": {
+        "width": 640,
+        "height": 99,
+        "gap": "9px",
+        "padding": "12px",
+        "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(44, 36, 26, 0.1) 0px 8px 24px 0px"
+      }
+    }
+  ]
+}

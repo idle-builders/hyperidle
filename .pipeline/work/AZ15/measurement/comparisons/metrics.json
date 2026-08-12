@@ -1,0 +1,179 @@
+{
+  "generatedAt": "2026-08-12T21:53:01.960Z",
+  "cases": [
+    {
+      "id": "section-dense-desktop",
+      "surface": "dense",
+      "relation": "section",
+      "width": 1440,
+      "height": 1000,
+      "variants": [
+        {
+          "variant": "a",
+          "sectionGap": "24px",
+          "groupGap": "12px",
+          "closeGap": "6px",
+          "surfaceHeight": 754,
+          "bodyScrollHeight": 754,
+          "pageBodyHeight": 674,
+          "sectionContentSpan": 626
+        },
+        {
+          "variant": "b",
+          "sectionGap": "36px",
+          "groupGap": "12px",
+          "closeGap": "6px",
+          "surfaceHeight": 790,
+          "bodyScrollHeight": 790,
+          "pageBodyHeight": 710,
+          "sectionContentSpan": 662
+        }
+      ]
+    },
+    {
+      "id": "section-sparse-desktop",
+      "surface": "sparse",
+      "relation": "section",
+      "width": 1440,
+      "height": 1000,
+      "variants": [
+        {
+          "variant": "a",
+          "sectionGap": "24px",
+          "groupGap": "12px",
+          "closeGap": "6px",
+          "surfaceHeight": 640,
+          "bodyScrollHeight": 640,
+          "pageBodyHeight": 516,
+          "sectionContentSpan": 468
+        },
+        {
+          "variant": "b",
+          "sectionGap": "36px",
+          "groupGap": "12px",
+          "closeGap": "6px",
+          "surfaceHeight": 640,
+          "bodyScrollHeight": 640,
+          "pageBodyHeight": 552,
+          "sectionContentSpan": 504
+        }
+      ]
+    },
+    {
+      "id": "group-dense-desktop",
+      "surface": "dense",
+      "relation": "group",
+      "width": 1440,
+      "height": 1000,
+      "variants": [
+        {
+          "variant": "a",
+          "sectionGap": "24px",
+          "groupGap": "12px",
+          "closeGap": "6px",
+          "surfaceHeight": 754,
+          "bodyScrollHeight": 754,
+          "pageBodyHeight": 674,
+          "sectionContentSpan": 626
+        },
+        {
+          "variant": "b",
+          "sectionGap": "24px",
+          "groupGap": "18px",
+          "closeGap": "6px",
+          "surfaceHeight": 766,
+          "bodyScrollHeight": 766,
+          "pageBodyHeight": 686,
+          "sectionContentSpan": 638
+        }
+      ]
+    },
+    {
+      "id": "group-sparse-narrow",
+      "surface": "sparse",
+      "relation": "group",
+      "width": 760,
+      "height": 1000,
+      "variants": [
+        {
+          "variant": "a",
+          "sectionGap": "24px",
+          "groupGap": "12px",
+          "closeGap": "6px",
+          "surfaceHeight": 770,
+          "bodyScrollHeight": 770,
+          "pageBodyHeight": 690,
+          "sectionContentSpan": 654
+        },
+        {
+          "variant": "b",
+          "sectionGap": "24px",
+          "groupGap": "18px",
+          "closeGap": "6px",
+          "surfaceHeight": 788,
+          "bodyScrollHeight": 788,
+          "pageBodyHeight": 708,
+          "sectionContentSpan": 672
+        }
+      ]
+    },
+    {
+      "id": "close-dense-narrow",
+      "surface": "dense",
+      "relation": "close",
+      "width": 760,
+      "height": 1000,
+      "variants": [
+        {
+          "variant": "a",
+          "sectionGap": "24px",
+          "groupGap": "12px",
+          "closeGap": "6px",
+          "surfaceHeight": 742,
+          "bodyScrollHeight": 742,
+          "pageBodyHeight": 662,
+          "sectionContentSpan": 626
+        },
+        {
+          "variant": "b",
+          "sectionGap": "24px",
+          "groupGap": "12px",
+          "closeGap": "9px",
+          "surfaceHeight": 766,
+          "bodyScrollHeight": 766,
+          "pageBodyHeight": 686,
+          "sectionContentSpan": 650
+        }
+      ]
+    },
+    {
+      "id": "close-sparse-desktop",
+      "surface": "sparse",
+      "relation": "close",
+      "width": 1440,
+      "height": 1000,
+      "variants": [
+        {
+          "variant": "a",
+          "sectionGap": "24px",
+          "groupGap": "12px",
+          "closeGap": "6px",
+          "surfaceHeight": 640,
+          "bodyScrollHeight": 640,
+          "pageBodyHeight": 516,
+          "sectionContentSpan": 468
+        },
+        {
+          "variant": "b",
+          "sectionGap": "24px",
+          "groupGap": "12px",
+          "closeGap": "9px",
+          "surfaceHeight": 640,
+          "bodyScrollHeight": 640,
+          "pageBodyHeight": 528,
+          "sectionContentSpan": 480
+        }
+      ]
+    }
+  ]
+}
