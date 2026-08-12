@@ -229,7 +229,6 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 	test("notification event with kind=auto_unblock produces NO notification_queue row", async ({
 		db,
 		eventBus,
-		ids,
 	}) => {
 		const dispose = installNotifications(db, eventBus, notificationsDeps);
 

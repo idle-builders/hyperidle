@@ -15,16 +15,8 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AD4-policy-engine.integration.test.ts` — P10: `policy_engine` is a production-fixed system user id (policy engine uses it as sender for auto-verdicts); cannot scope without changing production
 - `layers/core-api/src/__tests__/AF15-model-gateway-partial.integration.test.ts` — P10: serverConfig.id="default" is a production singleton (only one config row exists); cannot scope without changing production
 - `layers/core-api/src/__tests__/AF17-propagation-bootstrap.integration.test.ts` — P10: `system:propagation` is a production-fixed bootstrap user id (applyFactoryCoreState seeds it); cannot scope without changing production
-- `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
-- `layers/core-api/src/__tests__/AL7-reviews-loader-redo.integration.test.ts`
-- `layers/core-api/src/__tests__/AL7-two-session-loop.integration.test.ts`
-- `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts`
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
-- `layers/core-api/src/__tests__/S1-auth-routes.integration.test.ts`
-- `layers/core-api/src/__tests__/S1-e2e-flow.integration.test.ts`
-- `layers/core-api/src/__tests__/S1-invite-code.integration.test.ts`
-- `layers/core-api/src/__tests__/bets.integration.test.ts`
-- `layers/core-api/src/__tests__/notifications/AF8-notification-delivery.integration.test.ts`
+- `layers/core-api/src/__tests__/bets.integration.test.ts` — createTestDb test at line 515 uses its own isolated DB; literal id is safe within that isolated scope
 
 - `layers/core-api/src/__tests__/M3-auth-middleware.integration.test.ts`
 - `layers/core-api/src/__tests__/M3-lifecycle-propagation-auth.integration.test.ts`
@@ -117,11 +109,8 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/users/src/__tests__/runnable-agent.integration.test.ts`
 
 ## no-unscoped-table-read
-- `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
-- `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts`
+- `layers/core-api/src/__tests__/AO1-filesystems.integration.test.ts` — AC4 before/after comparison reads of knowledgeItems and serverConfig to prove filesystem registration didn't touch other tables; legitimate negative-proof pattern
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
-- `layers/core-api/src/__tests__/S1-invite-code.integration.test.ts`
-- `layers/core-api/src/__tests__/bets.integration.test.ts`
 
 - `layers/core-api/src/__tests__/R7-knowledge-e2e.integration.test.ts`
 - `layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts`

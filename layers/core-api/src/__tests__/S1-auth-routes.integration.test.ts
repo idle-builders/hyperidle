@@ -58,7 +58,7 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("creates an invite code when called with admin API key", async ({ db, eventBus, ids }) => {
+	test("creates an invite code when called with admin API key", async ({ db, eventBus }) => {
 		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
@@ -99,7 +99,7 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		expect(res.status).toBe(403);
 	});
 
-	test("returns 401 when no credentials provided", async ({ db, eventBus, ids }) => {
+	test("returns 401 when no credentials provided", async ({ db, eventBus }) => {
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/invite", {
@@ -291,8 +291,9 @@ describe("S1 — GET /api/auth/me (local mode — unchanged)", () => {
 	});
 
 	test("returns user identity via X-API-Key in local mode", async ({ db, eventBus, ids }) => {
+		const localId = ids("local-me");
 		await db.insert(users).values({
-			id: "u-local-me",
+			id: localId,
 			kind: "human",
 			name: "Local User",
 			email: "local@example.com",
@@ -307,10 +308,10 @@ describe("S1 — GET /api/auth/me (local mode — unchanged)", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { id: string; name: string };
-		expect(body.id).toBe("u-local-me");
+		expect(body.id).toBe(localId);
 	});
 
-	test("returns 401 without credentials in local mode", async ({ db, eventBus, ids }) => {
+	test("returns 401 without credentials in local mode", async ({ db, eventBus }) => {
 		const app = await createTestApp({ db, eventBus });
 
 		const res = await app.request("/api/auth/me");

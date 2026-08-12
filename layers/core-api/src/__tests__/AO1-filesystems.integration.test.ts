@@ -218,14 +218,14 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(typeof got.resourceRef).toBe("object");
 		});
 
-		test("GET /api/filesystems/:id → 404 for unknown id", async ({ app, ids }) => {
+		test("GET /api/filesystems/:id → 404 for unknown id", async ({ app }) => {
 			const res = await app.request("/api/filesystems/does-not-exist", { headers: auth() });
 			expect(res.status).toBe(404);
 		});
 
 		// M2: teamId absent (no matching teams row) → 404 (FK violation caught at insert)
 		// This exercises the catch-based FK guard in filesystems.ts (the ONLY real enforcement path).
-		test("POST with non-existent teamId → 404 NOT_FOUND", async ({ app, ids }) => {
+		test("POST with non-existent teamId → 404 NOT_FOUND", async ({ app }) => {
 			const res = await app.request("/api/filesystems", {
 				method: "POST",
 				headers: auth(),
@@ -846,7 +846,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(body2.filesystems.map((f) => f.id)).not.toContain(fsId);
 		});
 
-		test("DELETE /api/filesystems/:id on unknown id → 404", async ({ app, ids }) => {
+		test("DELETE /api/filesystems/:id on unknown id → 404", async ({ app }) => {
 			const res = await app.request("/api/filesystems/no-such-fs", {
 				method: "DELETE",
 				headers: auth(),
@@ -860,7 +860,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 	// ─────────────────────────────────────────────────────────────────────
 
 	describe("AC8: Migration — correct tables, columns, constraints", () => {
-		test("filesystems table exists after migration", async ({ db, ids }) => {
+		test("filesystems table exists after migration", async ({ db }) => {
 			const result = await db.execute(
 				sql.raw(
 					`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'filesystems'`,
@@ -870,7 +870,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(rows.length).toBe(1);
 		});
 
-		test("filesystem_injections table exists after migration", async ({ db, ids }) => {
+		test("filesystem_injections table exists after migration", async ({ db }) => {
 			const result = await db.execute(
 				sql.raw(
 					`SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'filesystem_injections'`,
@@ -880,7 +880,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(rows.length).toBe(1);
 		});
 
-		test("filesystems table has source column (not agent_user_id)", async ({ db, ids }) => {
+		test("filesystems table has source column (not agent_user_id)", async ({ db }) => {
 			const result = await db.execute(
 				sql.raw(
 					`SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='filesystems' ORDER BY ordinal_position`,
@@ -918,7 +918,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 			expect(cols).toContain("created_at");
 		});
 
-		test("filesystems_team_idx index exists", async ({ db, ids }) => {
+		test("filesystems_team_idx index exists", async ({ db }) => {
 			const result = await db.execute(
 				sql.raw(
 					`SELECT indexname FROM pg_indexes WHERE schemaname='public' AND tablename='filesystems'`,

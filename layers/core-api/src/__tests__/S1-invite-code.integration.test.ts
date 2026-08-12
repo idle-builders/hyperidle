@@ -15,7 +15,7 @@
 import { type HyperIdleDb, inviteCodes, loginSessions, users } from "@hyperidle/db";
 import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { claimInvite, createInvite } from "@hyperidle/users";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -142,8 +142,8 @@ describe("S1 — claimInvite (happy path)", () => {
 		).toHaveLength(1);
 
 		const adminId = ids("admin");
-		const claimedUsers = (await db.select().from(users)).filter(
-			(user) => user.name.startsWith("Concurrent ") && user.id !== adminId,
+		const claimedUsers = (await db.select().from(users).where(ne(users.id, adminId))).filter(
+			(user) => user.name.startsWith("Concurrent "),
 		);
 		expect(claimedUsers).toHaveLength(1);
 		const sessions = await db

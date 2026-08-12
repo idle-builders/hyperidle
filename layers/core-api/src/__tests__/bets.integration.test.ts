@@ -84,9 +84,9 @@ describe("Bet Endpoints (E3)", () => {
 		const { teamId } = await seedTeamAndMembers(db, ids);
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, Array<Record<string, unknown>>>;
+		const body = (await res.json()) as { draft: unknown[]; active: unknown[]; completed: unknown[]; killed: unknown[] };
 		// Scoped: only our team's bets count
-		const own = (group: Array<Record<string, unknown>>) => group.filter((b) => b.teamId === teamId);
+		const own = (group: unknown[]) => (group as Array<Record<string, unknown>>).filter((b) => b.teamId === teamId);
 		expect(own(body.draft)).toHaveLength(0);
 		expect(own(body.active)).toHaveLength(0);
 		expect(own(body.completed)).toHaveLength(0);
