@@ -39,6 +39,7 @@ The dividing line is **decision vs. doing** — not severity, and not size. Seve
 | AZ13 | Sidebar navigation is one system | frontend | M | — | **planned** — an unlabelled secondary list duplicates the main list in a different order; opening settings removes primary navigation entirely. A work package because whether that list earns its space is a product decision. See `work/AZ13/plan.md`. |
 | AZ14 | One rule for opening and editing an object | frontend/contract | M | — | **planned** — registered 2026-08-11 from the founder walkthrough. Routines and agents open a split pane; bets, tasks, knowledge, threads and artifacts take the page; notifications, assistant and search float above it — nothing about the objects explains the grouping. Editing splits the same way: a bet's pitch is an always-live inline editor, a knowledge item is read-only behind an Edit button. A work package because the rule, once set, governs every object. See `work/AZ14/plan.md`. |
 | AZ15 | Spacing and elevation hold across the product | frontend/contract | M | — | **planned** — registered 2026-08-11 from the founder walkthrough: *"there are so many spaces with weird spacing or non at all."* The only significant complaint with **no evidence behind it yet** — neither audit pass measured spacing or elevation. Its round therefore begins with measurement, then decides the proportional system. See `work/AZ15/plan.md`. |
+| AZ16 | Every design token is enforced | frontend/contract | M | — | **planned** — registered 2026-08-12 after AZ7's post-ship durability review: AZ7 gated radius, color vocabulary, controls and status at `error`, but the typography, motion and border families still sit where AZ7's population sat before it — `no-off-scale-font-size` and `no-raw-tailwind-color` at `warn` for core-ui (never executed: `npm run lint --quiet` skips warn rules entirely), `no-hardcoded-tracking` and `no-off-scale-duration` unwired for core-ui, and no rule at all for font family, weight, line height, easing or border width. Promotes/wires the existing rules with populations cleared, adds rules for the ungated families, and makes the gate set total over `tokens.css` — a token family with no gate fails verification. Spacing and shadow tokens stay AZ15's axis. See `work/AZ16/plan.md`. |
 
 ## Dependency graph
 
@@ -49,6 +50,7 @@ The dividing line is **decision vs. doing** — not severity, and not size. Seve
 
 - `AZ7` early — it closes the sets a large share of the bug list migrates onto. Doing bug-list Batch D before AZ7 means adopting a status treatment AZ7 will change.
 - `AZ15` after `AZ7` if convenient — closing the control set removes noise from the spacing measurement.
+- `AZ16` after `AZ15` if convenient — both promote rules in the same severity table, and AZ15's spacing decisions may move nearby populations. Not a dependency.
 - `AZ6`, `AZ13`, `AZ14`, `AZ15` each carry a real decision; get those artifacts in front of the founder early so their builds are not gated waiting on approval.
 - The bug list runs in parallel with all of it. Batches A and B touch nothing a work package decides.
 
