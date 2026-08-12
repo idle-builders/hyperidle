@@ -30,11 +30,21 @@
  * (the same pattern `no-op-button`/`require-focus-on-interactive` already use
  * in this plugin) covers every control shape; there is no second node type to
  * visit.
+ *
+ * @lore AZ7 review-round-2 NEW-1: shares `radius-token-only`'s
+ * `resolveIdentifier` upgrade — a raw control's chrome built via a same-file
+ * `const` (`className={controlClass}`) is now followed to its initializer
+ * instead of reading as clean. See `createConstIdentifierResolver` in `util.ts`.
  */
 
 import type { Rule } from "eslint";
 import type { JSXOpeningElement } from "estree-jsx";
-import { asReportNode, collectClassStringsFromJSXAttributeDeep, createRule } from "../util.js";
+import {
+	asReportNode,
+	collectClassStringsFromJSXAttributeDeep,
+	createConstIdentifierResolver,
+	createRule,
+} from "../util.js";
 
 const CONTROL_TAGS: ReadonlySet<string> = new Set(["button", "input", "textarea", "select"]);
 
@@ -103,6 +113,7 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 	create(context) {
 		const filename = context.filename;
 		if (!isInScope(filename)) return {};
+		const resolveIdentifier = createConstIdentifierResolver(context);
 
 		return {
 			JSXOpeningElement(rawNode: unknown) {
@@ -111,7 +122,7 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 				if (!tag || !CONTROL_TAGS.has(tag)) return;
 				const attr = classNameAttrOf(node);
 				if (!attr) return;
-				const strings = collectClassStringsFromJSXAttributeDeep(attr);
+				const strings = collectClassStringsFromJSXAttributeDeep(attr, resolveIdentifier);
 				for (const { text, node: strNode } of strings) {
 					for (const raw of text.split(/\s+/).filter(Boolean)) {
 						const token = raw.replace(/^[a-z-]+:/, "");

@@ -34,15 +34,42 @@ const isProd = (rel) =>
 	!/\.(test|stories|spec)\.tsx$/.test(rel) && !rel.split("/").some((s) => s.startsWith("__"));
 
 const DYN = "«dyn»";
-function classTextOf(attr) {
+
+// AZ7 review-round-2 NEW-1: same identifier-resolution as scan.mjs's
+// buildConstMap — a class string held in a same-file `const` before reaching
+// className used to be invisible here too, sharing the blind spot with
+// scan.mjs and `design/radius-token-only` (see the lore comment on
+// `createConstIdentifierResolver` in `tools/eslint-plugin-design/src/util.ts`).
+function buildConstMap(sf) {
+	const map = new Map();
+	function walk(node) {
+		if (ts.isVariableDeclarationList(node) && (node.flags & ts.NodeFlags.Const) !== 0) {
+			for (const decl of node.declarations) {
+				if (ts.isIdentifier(decl.name) && decl.initializer) {
+					if (map.has(decl.name.text)) {
+						map.set(decl.name.text, null);
+					} else {
+						map.set(decl.name.text, decl.initializer);
+					}
+				}
+			}
+		}
+		ts.forEachChild(node, walk);
+	}
+	walk(sf);
+	return map;
+}
+
+function classTextOf(attr, constMap) {
 	const out = [];
+	const seen = new Set();
 	function visit(n) {
 		if (!n) return;
 		if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return void out.push(n.text);
 		if (ts.isTemplateExpression(n)) {
 			out.push(n.head.text);
 			for (const sp of n.templateSpans) {
-				out.push(DYN);
+				visit(sp.expression);
 				out.push(sp.literal.text);
 			}
 			return;
@@ -57,6 +84,14 @@ function classTextOf(attr) {
 			return;
 		}
 		if (ts.isParenthesizedExpression(n)) return visit(n.expression);
+		if (ts.isIdentifier(n) && constMap) {
+			const init = constMap.get(n.text);
+			if (init && !seen.has(n.text)) {
+				seen.add(n.text);
+				visit(init);
+				return;
+			}
+		}
 		out.push(DYN);
 	}
 	visit(attr.initializer);
@@ -65,11 +100,12 @@ function classTextOf(attr) {
 const els = [];
 for (const rel of acc) {
 	const sf = ts.createSourceFile(rel, readFileSync(join(ROOT, rel), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+	const constMap = buildConstMap(sf);
 	(function v(node) {
 		if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
 			let cls = "";
 			for (const a of node.attributes.properties)
-				if (ts.isJsxAttribute(a) && a.name.getText(sf) === "className") cls = classTextOf(a);
+				if (ts.isJsxAttribute(a) && a.name.getText(sf) === "className") cls = classTextOf(a, constMap);
 			els.push({
 				file: rel,
 				line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,

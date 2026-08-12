@@ -42,11 +42,24 @@
  * shape AU31/AU32 deliberately removed elsewhere in the codebase. Keyed to
  * the exact design-system path instead — only the two files that actually
  * BUILD this chrome are exempt, not anything sharing their name.
+ *
+ * @lore AZ7 review-round-2 NEW-1: `collectClassStringsFromJSXAttributeDeep`
+ * now takes a `resolveIdentifier` (from `createConstIdentifierResolver`) so a
+ * class string built in a same-file `const` — `CommentRow.tsx`'s
+ * `avatarClass` ternary, or a module-level extracted class-string constant —
+ * is followed to its initializer instead of being invisible. See the
+ * resolver's own doc comment in `util.ts` for the exact (deliberately
+ * conservative) resolution rule and why this rule was blind to it before.
  */
 
 import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
-import { asReportNode, collectClassStringsFromJSXAttributeDeep, createRule } from "../util.js";
+import {
+	asReportNode,
+	collectClassStringsFromJSXAttributeDeep,
+	createConstIdentifierResolver,
+	createRule,
+} from "../util.js";
 
 // AQ-011: "Form control chrome (checkboxes, radio buttons, toggles) may use
 // off-scale radii." These are the exact design-system files that BUILD that
@@ -95,6 +108,7 @@ export const radiusTokenOnly: Rule.RuleModule = createRule({
 	},
 	create(context) {
 		if (isFormControlFile(context.filename)) return {};
+		const resolveIdentifier = createConstIdentifierResolver(context);
 		return {
 			JSXAttribute(rawNode: unknown) {
 				const node = rawNode as JSXAttribute;
@@ -103,7 +117,7 @@ export const radiusTokenOnly: Rule.RuleModule = createRule({
 						? node.name.name
 						: null;
 				if (name !== "className") return;
-				const strings = collectClassStringsFromJSXAttributeDeep(node);
+				const strings = collectClassStringsFromJSXAttributeDeep(node, resolveIdentifier);
 				for (const { text, node: strNode } of strings) {
 					for (const raw of text.split(/\s+/).filter(Boolean)) {
 						// Strip responsive/state variant prefixes (hover:, lg:, dark:, …)

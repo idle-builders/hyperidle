@@ -33,6 +33,14 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 			filename: "framework/design-system/src/Checkbox.tsx",
 			code: 'const J = <div className="rounded-[6px]" />;',
 		},
+		// AZ7 review-round-2 NEW-1: the deliberately conservative boundary of
+		// createConstIdentifierResolver — a `let` is never followed, even when
+		// it happens to hold a token-legal string, because the resolver cannot
+		// prove it isn't reassigned to something else elsewhere.
+		{
+			filename: "Foo.tsx",
+			code: 'let cls = "rounded-full"; cls = "rounded-[var(--r-pill)]"; const J = <div className={cls} />;',
+		},
 	],
 	invalid: [
 		// AZ7 N3 (review round 1): the exemption is keyed to the design
@@ -89,6 +97,30 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 		{
 			filename: "Foo.tsx",
 			code: 'const J = <div className={["rounded-[6px]", "border"].join(" ")} />;',
+			errors: [{ messageId: "notAToken" }],
+		},
+		// AZ7 review-round-2 NEW-1: CommentRow.tsx’s exact shape — a ternary
+		// of two class strings assigned to a `const`, only THEN passed to
+		// className. Reproduces `avatarClass` (both branches carry
+		// `rounded-full`); must report through the identifier.
+		{
+			filename: "Foo.tsx",
+			code: 'const isAgent = true; const avatarClass = isAgent ? "rounded-full bg-a" : "rounded-full bg-b"; const J = <span className={avatarClass} />;',
+			errors: [{ messageId: "notAToken" }, { messageId: "notAToken" }],
+		},
+		// A module-level extracted class-string constant — the more common
+		// real-world shape the repo sweep found (e.g. ArtifactStackItem.tsx’s
+		// PILL, ErrorState.tsx’s RETRY_BTN_CLASS).
+		{
+			filename: "Foo.tsx",
+			code: 'const PILL = "rounded-full"; const J = <span className={PILL} />;',
+			errors: [{ messageId: "notAToken" }],
+		},
+		// A template-literal interpolation of an identifier — Avatar.tsx’s
+		// shape (a `${colorClass}` inside a template literal className).
+		{
+			filename: "Foo.tsx",
+			code: 'const colorClass = "rounded-full"; const J = <div className={`inline-flex ${colorClass}`} />;',
 			errors: [{ messageId: "notAToken" }],
 		},
 	],

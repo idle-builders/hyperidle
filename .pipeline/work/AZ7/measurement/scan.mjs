@@ -53,11 +53,49 @@ if (files.length === 0) throw new Error("HARD FAIL: zero production .tsx files")
 
 // ---- JSX parsing -----------------------------------------------------------
 const DYN = "«dyn»";
-function classTextOf(attr) {
+
+// AZ7 review-round-2 NEW-1: a class string held in a same-file `const` before
+// reaching `className` (CommentRow.tsx's `avatarClass` ternary; ~30 more
+// sites are module-level extracted class-string constants, e.g.
+// ArtifactStackItem.tsx's PILL) used to be invisible to this scanner — an
+// Identifier matched none of the visit() cases and fell through to DYN.
+// buildConstMap resolves single-declarator `const NAME = <expr>` bindings
+// per-file so visit() can follow an Identifier to its initializer, the same
+// (deliberately conservative — const only, single declarator) resolution
+// `createConstIdentifierResolver` in `tools/eslint-plugin-design/src/util.ts`
+// does for the ESLint rule, so the two report the same population.
+function buildConstMap(sf) {
+	const map = new Map();
+	function walk(node) {
+		if (
+			ts.isVariableDeclarationList(node) &&
+			(node.flags & ts.NodeFlags.Const) !== 0
+		) {
+			for (const decl of node.declarations) {
+				if (ts.isIdentifier(decl.name) && decl.initializer) {
+					// A name declared more than once in the file (shadowing across
+					// scopes) is ambiguous under this simple per-file map — drop it
+					// rather than guess which declaration a given reference means.
+					if (map.has(decl.name.text)) {
+						map.set(decl.name.text, null);
+					} else {
+						map.set(decl.name.text, decl.initializer);
+					}
+				}
+			}
+		}
+		ts.forEachChild(node, walk);
+	}
+	walk(sf);
+	return map;
+}
+
+function classTextOf(attr, constMap) {
 	// Concatenate every string literal reachable inside the className attribute.
 	// Non-literal parts become the DYN marker so a dynamic recipe is not silently
 	// counted as a static one.
 	const out = [];
+	const seen = new Set();
 	function visit(n) {
 		if (!n) return;
 		if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
@@ -67,7 +105,7 @@ function classTextOf(attr) {
 		if (ts.isTemplateExpression(n)) {
 			out.push(n.head.text);
 			for (const sp of n.templateSpans) {
-				out.push(DYN);
+				visit(sp.expression);
 				out.push(sp.literal.text);
 			}
 			return;
@@ -94,6 +132,14 @@ function classTextOf(attr) {
 			return;
 		}
 		if (ts.isParenthesizedExpression(n)) return visit(n.expression);
+		if (ts.isIdentifier(n) && constMap) {
+			const init = constMap.get(n.text);
+			if (init && !seen.has(n.text)) {
+				seen.add(n.text);
+				visit(init);
+				return;
+			}
+		}
 		out.push(DYN);
 	}
 	visit(attr.initializer);
@@ -104,6 +150,7 @@ const elements = []; // {file,line,tag,cls,attrs:Set}
 for (const rel of files) {
 	const src = readFileSync(join(ROOT, rel), "utf8");
 	const sf = ts.createSourceFile(rel, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+	const constMap = buildConstMap(sf);
 	function visit(node) {
 		if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
 			const tag = node.tagName.getText(sf);
@@ -116,7 +163,7 @@ for (const rel of files) {
 				}
 				const n = a.name.getText(sf);
 				attrNames.push(n);
-				if (n === "className") cls = classTextOf(a);
+				if (n === "className") cls = classTextOf(a, constMap);
 			}
 			const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
 			elements.push({ file: rel, line: line + 1, tag, cls, attrs: attrNames });

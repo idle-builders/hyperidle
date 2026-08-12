@@ -13,8 +13,8 @@
  */
 
 import { basename } from "node:path";
-import type { JSSyntaxElement, Rule } from "eslint";
-import type { TemplateElement } from "estree";
+import type { JSSyntaxElement, Rule, Scope } from "eslint";
+import type { Node as ESTreeNode, TemplateElement } from "estree";
 import type { JSXAttribute } from "estree-jsx";
 
 /**
@@ -280,6 +280,81 @@ export function collectClassStringsFromJSXAttribute(
 }
 
 /**
+ * Resolves a bare `Identifier` to the initializer expression of the single
+ * same-file `const` it is bound to, so the deep collector can look THROUGH a
+ * variable indirection instead of stopping at it.
+ *
+ * @lore AZ7 review-round-2 NEW-1: `CommentRow.tsx` builds `avatarClass` as a
+ * ternary of two class strings, assigns it to a `const`, and only THEN passes
+ * it to `className`. Every className-scanning tool in this repo (this deep
+ * collector, `scan.mjs`, `predicates.mjs`) walked `className={avatarClass}`
+ * and saw only an `Identifier` node — none of the switch cases matched, so
+ * the two strings underneath (one carrying `rounded-full`, the pill's
+ * forbidden second spelling) were invisible. The same shape turned out NOT to
+ * be a one-off: a repo sweep (grep for a bare-identifier `className={...}`)
+ * across every package's `src/` under `layers/` and `framework/` found ~30
+ * more sites — mostly module-level extracted class-string constants (`ArtifactStackItem.tsx`'s
+ * `ROW`/`PILL`, `ErrorState.tsx`'s `RETRY_BTN_CLASS`, …) rather than local
+ * ternaries, but the AST shape (an `Identifier` in class-string position) and
+ * the blind spot are identical.
+ *
+ * Deliberately conservative — a false negative (miss a real violation) is
+ * preferable to a false positive (report a violation on a variable that could
+ * take a different value at runtime, which would make the rule wrong, not
+ * just incomplete): only follows a variable that
+ *   1. resolves to exactly ONE `const` declaration (not `let`/`var` — nothing
+ *      to chase if the binding can be reassigned after its `const` init), and
+ *   2. has exactly one WRITE reference anywhere in scope (the initializer
+ *      itself) — so a `const` that is never reassigned (TypeScript wouldn't
+ *      allow re-assignment anyway, but this also rules out destructuring
+ *      rebinds and shadowing edge cases the scope manager might resolve
+ *      unexpectedly).
+ * A cycle guard (`seen`) stops runaway recursion; real cycles should be
+ * impossible in valid JS (a `const` cannot reference a not-yet-declared
+ * `const`), but the guard costs nothing and removes the need to prove that.
+ */
+export type IdentifierResolver = (identifierNode: unknown) => unknown | null;
+
+/**
+ * Builds an `IdentifierResolver` bound to a specific rule's `context`, using
+ * ESLint's scope manager (`context.sourceCode.getScope`) to find the
+ * declaration a given `Identifier` node resolves to.
+ */
+export function createConstIdentifierResolver(context: Rule.RuleContext): IdentifierResolver {
+	return (identifierNode: unknown): unknown | null => {
+		const node = identifierNode as { type?: string; name?: string };
+		if (!node || node.type !== "Identifier" || typeof node.name !== "string") return null;
+		let scope: Scope.Scope;
+		try {
+			// Single audited cast from `unknown` — `identifierNode` is always a
+			// real ESTree node handed in by a rule's own AST walk; the eslint
+			// `Scope`/`SourceCode` types just don't share a structural type with
+			// the plugin's own permissive `WalkNode` shape.
+			scope = context.sourceCode.getScope(identifierNode as ESTreeNode);
+		} catch {
+			return null;
+		}
+		let cur: Scope.Scope | null = scope;
+		let variable: Scope.Variable | undefined;
+		while (cur) {
+			variable = cur.variables.find((v) => v.name === node.name);
+			if (variable) break;
+			cur = cur.upper;
+		}
+		if (!variable) return null;
+		if (variable.defs.length !== 1) return null;
+		const def = variable.defs[0];
+		if (!def || def.type !== "Variable") return null;
+		const declaration = (def as { parent?: { kind?: string } }).parent;
+		if (declaration?.kind !== "const") return null;
+		const writes = variable.references.filter((r) => r.isWrite());
+		if (writes.length !== 1) return null;
+		const declarator = def.node as { init?: unknown } | null;
+		return declarator?.init ?? null;
+	};
+}
+
+/**
  * Deep variant of `collectClassStringsFromExpression` — walks EVERY call
  * expression's arguments and, for a member-call receiver (`[...].join(" ")`),
  * the receiver too. The shallow collector only widens into `cn()`/`clsx()`-style
@@ -299,11 +374,21 @@ export function collectClassStringsFromJSXAttribute(
  * `no-handrolled-control`) use the deep variant so their site counts match the
  * measurement's `predicate-sites.json`, which is what `migration-backlog.md`
  * and the scope-line arithmetic in the approved plan are built from.
+ *
+ * @lore AZ7 review-round-2 NEW-1: accepts an optional `resolveIdentifier` —
+ * see `createConstIdentifierResolver` — so a bare `Identifier` in class-string
+ * position (`className={avatarClass}`, or a template-literal interpolation
+ * `${colorClass}`) can be followed to its same-file `const` initializer
+ * instead of being silently invisible. Optional and defaulted to a no-op so
+ * every existing call site (and the 20+ rules on the shallow collector) is
+ * unaffected unless a rule opts in.
  */
 export function collectClassStringsFromExpressionDeep(
 	expr: unknown,
+	resolveIdentifier?: IdentifierResolver,
 ): Array<{ text: string; node: AnyNode }> {
 	const out: Array<{ text: string; node: AnyNode }> = [];
+	const seen = new Set<unknown>();
 	function walk(n: unknown): void {
 		if (!n || typeof n !== "object") return;
 		const node = n as WalkNode;
@@ -368,6 +453,13 @@ export function collectClassStringsFromExpressionDeep(
 				walk((node as { expression?: unknown }).expression);
 				return;
 			}
+			case "Identifier": {
+				if (!resolveIdentifier || seen.has(node)) return;
+				seen.add(node);
+				const resolved = resolveIdentifier(node);
+				if (resolved) walk(resolved);
+				return;
+			}
 		}
 	}
 	walk(expr);
@@ -381,6 +473,7 @@ export function collectClassStringsFromExpressionDeep(
  */
 export function collectClassStringsFromJSXAttributeDeep(
 	attr: unknown,
+	resolveIdentifier?: IdentifierResolver,
 ): Array<{ text: string; node: AnyNode }> {
 	if (!attr || typeof attr !== "object") return [];
 	const a = attr as { value?: WalkNode | null };
@@ -390,7 +483,7 @@ export function collectClassStringsFromJSXAttributeDeep(
 		return [{ text: v.value as string, node: v as JSSyntaxElement }];
 	}
 	if (v.type === "JSXExpressionContainer") {
-		return collectClassStringsFromExpressionDeep(v.expression);
+		return collectClassStringsFromExpressionDeep(v.expression, resolveIdentifier);
 	}
 	return [];
 }
