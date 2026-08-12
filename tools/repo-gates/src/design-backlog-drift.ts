@@ -4,10 +4,13 @@
  *
  * `.pipeline/work/AZ7/migration-backlog.md` is not hand-written — it is a
  * straight render of `predicates.mjs`'s element scan (see the file's own
- * "Regenerate:" line). AZ7 review round 3 (R3-1) found the committed backlog
- * had drifted from its own generator: round 2 changed the scanner (identifier
- * following, template-literal span resolution) and never re-ran it, so the
- * tracked file quietly stopped matching the code it claims to enumerate.
+ * "Regenerate:" line).
+ *
+ * @lore A prior review round found the committed backlog had drifted from
+ * its own generator: a scanner change (identifier following, template-literal
+ * span resolution) was never re-run against the tracked file, so it quietly
+ * stopped matching the code it claims to enumerate. See
+ * `.pipeline/work/AZ7/review.md` for the finding.
  *
  * This gate re-runs the real generator pair (`predicates.mjs` +
  * `render-backlog.mjs`, unmodified, in a throwaway output location so the

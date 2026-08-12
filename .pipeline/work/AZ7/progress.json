@@ -1,8 +1,8 @@
 {
   "id": "AZ7",
   "title": "Close the visual system",
-  "status": "built",
-  "phase": "review-fix-3-complete",
+  "status": "done",
+  "phase": "review-4-accepted",
   "procedure": "founder-approved custom procedure (plan.md, 2026-08-11): one combined refine+design+architecture artifact -> founder approval -> same-session build (tests then code) -> one fresh review round. No separate refine/design/architecture/critique phases, no second human gate.",
   "worktree": "/Users/tg/hyperidle/.claude/worktrees/pipeline-az7-dbd5ab",
   "branch": "claude/pipeline-az7-dbd5ab",
@@ -76,6 +76,17 @@
         "left alone": "NB3-3 (cycle guard defending an author-documented-impossible state) recorded, not started, per the review's own scoping.",
         "verify": "npm run check (tools/eslint-plugin-design + tools/repo-gates typecheck clean), tools/eslint-plugin-design vitest suite green (305/305), full npm run verify and npm run test run before reporting done (see session report)."
       }
+    },
+    {
+      "phase": "review-4",
+      "result": "DONE — fresh independent reviewer, no blocking findings. Work accepted.",
+      "evidence": {
+        "backlog (AC6)": "46 backlog items (59 control sites / 24 files, 44 chip sites / 22 files); migration-backlog.md regenerates byte-identically from predicates.mjs + render-backlog.mjs.",
+        "lint config": "design/radius-token-only confirmed at severity 2 (error) in the config npm run lint actually uses; 0 design errors across the 442 production .tsx files under framework/design-system/src and layers/core-ui/src.",
+        "radius": "0 elements computing a radius over 10000px, checked across 8 page loads in the running app.",
+        "icon button geometry": "32×32 at 1440px viewport, 44px at 768px — matches the review-fix-1 (B1) measurement.",
+        "verify/test": "npm run verify exits 0 with the design:backlog:check gate step visible in the run. npm run test: 265 files / 2571 tests green."
+      }
     }
   ],
   "artifacts": [
@@ -92,11 +103,12 @@
       "decision": "APPROVED \u2014 recommended scope split (S4.1): radii, inputs, status close fully; buttons close partly (63 sites); remainder enumerated. No size cuts (all five axes, full enforcement). Icon buttons: one size=\"icon\", painted proof required. E5 recess rule: OUT, left to AZ15. Confirmed assumptions: delete Button variant=\"amber\"; rounded-[var(--r-pill)] is the one spelling of pill."
     }
   ],
-  "evaluations": 0,
+  "evaluations": 1,
   "verdicts": [
     "eval1: NOT-DONE (5 blocking, all since fixed)",
     "eval2: NOT-DONE (NEW-1: rounded-full in CommentRow.tsx, un-hidden by the B1 @source fix, invisible to the rule because the class string is in a variable)",
-    "eval3: NOT-DONE (R3-1: migration-backlog.md stale against its own regenerated scanner; 5 sites in 2 files unlisted; two tracked sentences false)"
+    "eval3: NOT-DONE (R3-1: migration-backlog.md stale against its own regenerated scanner; 5 sites in 2 files unlisted; two tracked sentences false)",
+    "eval4: DONE (no blocking findings; work accepted)"
   ],
   "parked": null,
   "notes": [
