@@ -15,6 +15,7 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { createInvite, createLoginSession, revokeLoginSession } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -25,7 +26,8 @@ import { disposeApp } from "../app.js";
 const TEST_API_KEY = "test-key-s1-e2e";
 const NOW = new Date().toISOString();
 
-async function seedAdmin(db: HyperIdleDb, id = "u-e2e-admin"): Promise<void> {
+async function seedAdmin(db: HyperIdleDb, ids: ScopedIds): Promise<string> {
+	const id = ids("admin");
 	await db
 		.insert(users)
 		.values({
@@ -38,6 +40,7 @@ async function seedAdmin(db: HyperIdleDb, id = "u-e2e-admin"): Promise<void> {
 			createdAt: NOW,
 		})
 		.onConflictDoNothing();
+	return id;
 }
 
 function apiKeyHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -64,8 +67,9 @@ describe("S1 — E2E: Admin creates invite → user claims → bearer token work
 	test("full flow: admin creates invite → user claims → /me returns correct user", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedAdmin(db);
+		await seedAdmin(db, ids);
 		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		// Step 1: Admin creates invite
@@ -116,12 +120,12 @@ describe("S1 — E2E: Expired session → 401 SESSION_EXPIRED", () => {
 		if (app) disposeApp(app);
 	});
 
-	test("expired session returns 401 SESSION_EXPIRED", async ({ db, eventBus }) => {
-		await seedAdmin(db, "u-e2e-admin");
+	test("expired session returns 401 SESSION_EXPIRED", async ({ db, eventBus, ids }) => {
+		await seedAdmin(db, ids);
 		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		// Create a session with 1ms TTL
-		const { token } = await createLoginSession(db, "u-e2e-admin", 1);
+		const { token } = await createLoginSession(db, ids("admin"), 1);
 
 		// Advance fake timers to expire the session
 		vi.useFakeTimers();
@@ -150,11 +154,11 @@ describe("S1 — E2E: Revoked session → 401 SESSION_REVOKED", () => {
 		if (app) disposeApp(app);
 	});
 
-	test("revoked session returns 401 SESSION_REVOKED", async ({ db, eventBus }) => {
-		await seedAdmin(db, "u-e2e-admin");
+	test("revoked session returns 401 SESSION_REVOKED", async ({ db, eventBus, ids }) => {
+		await seedAdmin(db, ids);
 		app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const { token, session } = await createLoginSession(db, "u-e2e-admin");
+		const { token, session } = await createLoginSession(db, ids("admin"));
 		await revokeLoginSession(db, session.id);
 
 		const res = await app.request("/api/auth/me", {
@@ -178,9 +182,9 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 		if (app) disposeApp(app);
 	});
 
-	test("local mode: X-API-Key still works", async ({ db, eventBus }) => {
+	test("local mode: X-API-Key still works", async ({ db, eventBus, ids }) => {
 		await db.insert(users).values({
-			id: "u-e2e-local",
+			id: ids("local"),
 			kind: "human",
 			name: "Local Mode User",
 			email: "local@e2e.com",
@@ -195,12 +199,12 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { id: string };
-		expect(body.id).toBe("u-e2e-local");
+		expect(body.id).toBe(ids("local"));
 	});
 
-	test("local mode: Bearer token is NOT accepted", async ({ db, eventBus }) => {
+	test("local mode: Bearer token is NOT accepted", async ({ db, eventBus, ids }) => {
 		await db.insert(users).values({
-			id: "u-e2e-local",
+			id: ids("local"),
 			kind: "human",
 			name: "Local Mode User",
 			email: "local@e2e.com",
@@ -210,7 +214,7 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 		});
 		app = await createTestApp({ db, eventBus }); // no sharedMode — defaults to local
 
-		const { token } = await createLoginSession(db, "u-e2e-local");
+		const { token } = await createLoginSession(db, ids("local"));
 		const res = await app.request("/api/auth/me", {
 			// biome-ignore lint/style/useNamingConvention: HTTP header name
 			headers: { Authorization: `Bearer ${token}` },
@@ -221,9 +225,10 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 	test("local mode: claim endpoint is NOT accessible without auth (no public claim route)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		await db.insert(users).values({
-			id: "u-e2e-local",
+			id: ids("local"),
 			kind: "human",
 			name: "Local Mode User",
 			email: "local@e2e.com",
@@ -233,7 +238,7 @@ describe("S1 — E2E: Local mode — auth unchanged", () => {
 		});
 		app = await createTestApp({ db, eventBus }); // no sharedMode — defaults to local
 
-		const invite = await createInvite(db, "u-e2e-local", "member");
+		const invite = await createInvite(db, ids("local"), "member");
 		const res = await app.request("/api/auth/claim", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -262,11 +267,12 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 	test("two users post to thread → each message has correct senderId matching user", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedAdmin(db, "u-e2e-admin");
+		await seedAdmin(db, ids);
 		// Seed a second user
 		await db.insert(users).values({
-			id: "u-e2e-user2",
+			id: ids("user2"),
 			kind: "human",
 			name: "User Two",
 			email: "user2@e2e.com",
@@ -277,8 +283,8 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		// Get tokens for both users
-		const { token: token1 } = await createLoginSession(db, "u-e2e-admin");
-		const { token: token2 } = await createLoginSession(db, "u-e2e-user2");
+		const { token: token1 } = await createLoginSession(db, ids("admin"));
+		const { token: token2 } = await createLoginSession(db, ids("user2"));
 
 		// Create a thread first (as admin via API key)
 		const threadRes = await app.request("/api/threads", {
@@ -287,8 +293,8 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 			body: JSON.stringify({
 				hostKind: "product",
 				hostId: "prod-e2e",
-				initiatorId: "u-e2e-admin",
-				participants: ["u-e2e-admin", "u-e2e-user2"],
+				initiatorId: ids("admin"),
+				participants: [ids("admin"), ids("user2")],
 			}),
 		});
 
@@ -348,8 +354,8 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 			);
 
 			if (u1Msg && u2Msg) {
-				expect(u1Msg.senderId).toBe("u-e2e-admin");
-				expect(u2Msg.senderId).toBe("u-e2e-user2");
+				expect(u1Msg.senderId).toBe(ids("admin"));
+				expect(u2Msg.senderId).toBe(ids("user2"));
 			}
 		}
 	});
@@ -370,11 +376,12 @@ describe("S1 — Security: token never appears in response except at creation", 
 	test("claim response contains token only once (not in subsequent /me)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedAdmin(db, "u-e2e-admin");
+		await seedAdmin(db, ids);
 		app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const invite = await createInvite(db, "u-e2e-admin", "member");
+		const invite = await createInvite(db, ids("admin"), "member");
 		const claimRes = await app.request("/api/auth/claim", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -392,8 +399,12 @@ describe("S1 — Security: token never appears in response except at creation", 
 		expect(meBody).not.toContain(token);
 	});
 
-	test("invite response does NOT include a bearer token (just code)", async ({ db, eventBus }) => {
-		await seedAdmin(db, "u-e2e-admin");
+	test("invite response does NOT include a bearer token (just code)", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		await seedAdmin(db, ids);
 		app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/invite", {

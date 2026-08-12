@@ -14,6 +14,7 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { createInvite, createLoginSession } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
@@ -22,7 +23,8 @@ import { createTestApp } from "../__testing__/test-utils.js";
 const TEST_API_KEY = "test-key-s1-routes";
 const NOW = new Date().toISOString();
 
-async function seedAdminUser(db: HyperIdleDb, id = "u-admin-r1"): Promise<void> {
+async function seedAdminUser(db: HyperIdleDb, ids: ScopedIds): Promise<string> {
+	const id = ids("admin");
 	await db
 		.insert(users)
 		.values({
@@ -35,6 +37,7 @@ async function seedAdminUser(db: HyperIdleDb, id = "u-admin-r1"): Promise<void> 
 			createdAt: NOW,
 		})
 		.onConflictDoNothing();
+	return id;
 }
 
 function apiKeyHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -55,8 +58,8 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("creates an invite code when called with admin API key", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
+	test("creates an invite code when called with admin API key", async ({ db, eventBus, ids }) => {
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/invite", {
@@ -71,8 +74,8 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		expect(typeof body.expiresAt).toBe("string");
 	});
 
-	test("defaults to member role when role is not specified", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
+	test("defaults to member role when role is not specified", async ({ db, eventBus, ids }) => {
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/invite", {
@@ -83,11 +86,11 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		expect(res.status).toBe(201);
 	});
 
-	test("returns 403 when called with Bearer token (non-admin)", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
+	test("returns 403 when called with Bearer token (non-admin)", async ({ db, eventBus, ids }) => {
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const { token } = await createLoginSession(db, "u-admin-r1");
+		const { token } = await createLoginSession(db, ids("admin"));
 		const res = await app.request("/api/auth/invite", {
 			method: "POST",
 			headers: bearerHeaders(token),
@@ -96,7 +99,7 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		expect(res.status).toBe(403);
 	});
 
-	test("returns 401 when no credentials provided", async ({ db, eventBus }) => {
+	test("returns 401 when no credentials provided", async ({ db, eventBus, ids }) => {
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/invite", {
@@ -107,7 +110,7 @@ describe("S1 — POST /api/auth/invite (admin-only, shared mode)", () => {
 		expect(res.status).toBe(401);
 	});
 
-	test("returns 400 for invalid role", async ({ db, eventBus }) => {
+	test("returns 400 for invalid role", async ({ db, eventBus, ids }) => {
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/invite", {
@@ -131,11 +134,12 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 	test("returns token and user for valid claim (no auth header needed)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedAdminUser(db, "u-admin-r1");
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const invite = await createInvite(db, "u-admin-r1", "member");
+		const invite = await createInvite(db, ids("admin"), "member");
 		const res = await app.request("/api/auth/claim", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -148,11 +152,11 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 		expect(body.user.name).toBe("New Member");
 	});
 
-	test("returns 410 INVITE_CLAIMED for already-claimed invite", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
+	test("returns 410 INVITE_CLAIMED for already-claimed invite", async ({ db, eventBus, ids }) => {
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const invite = await createInvite(db, "u-admin-r1", "member");
+		const invite = await createInvite(db, ids("admin"), "member");
 		// First claim
 		await app.request("/api/auth/claim", {
 			method: "POST",
@@ -170,11 +174,11 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 		expect(body.code).toBe("INVITE_CLAIMED");
 	});
 
-	test("returns 410 INVITE_EXPIRED for expired invite", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
+	test("returns 410 INVITE_EXPIRED for expired invite", async ({ db, eventBus, ids }) => {
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const invite = await createInvite(db, "u-admin-r1", "member", -(8 * 24 * 60 * 60 * 1000));
+		const invite = await createInvite(db, ids("admin"), "member", -(8 * 24 * 60 * 60 * 1000));
 		const res = await app.request("/api/auth/claim", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -185,7 +189,7 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 		expect(body.code).toBe("INVITE_EXPIRED");
 	});
 
-	test("returns 404 for unknown invite code", async ({ db, eventBus }) => {
+	test("returns 404 for unknown invite code", async ({ db, eventBus, ids }) => {
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/claim", {
@@ -196,11 +200,15 @@ describe("S1 — POST /api/auth/claim (public, no auth)", () => {
 		expect(res.status).toBe(404);
 	});
 
-	test("returned token works for subsequent authenticated requests", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
+	test("returned token works for subsequent authenticated requests", async ({
+		db,
+		eventBus,
+		ids,
+	}) => {
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const invite = await createInvite(db, "u-admin-r1", "member");
+		const invite = await createInvite(db, ids("admin"), "member");
 		const claimRes = await app.request("/api/auth/claim", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -227,11 +235,11 @@ describe("S1 — POST /api/auth/logout", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("revokes the current session and returns ok:true", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
+	test("revokes the current session and returns ok:true", async ({ db, eventBus, ids }) => {
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const { token } = await createLoginSession(db, "u-admin-r1");
+		const { token } = await createLoginSession(db, ids("admin"));
 		const res = await app.request("/api/auth/logout", {
 			method: "POST",
 			headers: bearerHeaders(token),
@@ -241,11 +249,11 @@ describe("S1 — POST /api/auth/logout", () => {
 		expect(body.ok).toBe(true);
 	});
 
-	test("after logout, Bearer token returns 401 SESSION_REVOKED", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
+	test("after logout, Bearer token returns 401 SESSION_REVOKED", async ({ db, eventBus, ids }) => {
+		await seedAdminUser(db, ids);
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
-		const { token } = await createLoginSession(db, "u-admin-r1");
+		const { token } = await createLoginSession(db, ids("admin"));
 
 		// Logout
 		await app.request("/api/auth/logout", {
@@ -262,7 +270,7 @@ describe("S1 — POST /api/auth/logout", () => {
 		expect(body.code).toBe("SESSION_REVOKED");
 	});
 
-	test("returns 400 when using API key (no session to revoke)", async ({ db, eventBus }) => {
+	test("returns 400 when using API key (no session to revoke)", async ({ db, eventBus, ids }) => {
 		const app = await createTestApp({ db, eventBus, sharedMode: true });
 
 		const res = await app.request("/api/auth/logout", {
@@ -282,7 +290,7 @@ describe("S1 — GET /api/auth/me (local mode — unchanged)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns user identity via X-API-Key in local mode", async ({ db, eventBus }) => {
+	test("returns user identity via X-API-Key in local mode", async ({ db, eventBus, ids }) => {
 		await db.insert(users).values({
 			id: "u-local-me",
 			kind: "human",
@@ -302,7 +310,7 @@ describe("S1 — GET /api/auth/me (local mode — unchanged)", () => {
 		expect(body.id).toBe("u-local-me");
 	});
 
-	test("returns 401 without credentials in local mode", async ({ db, eventBus }) => {
+	test("returns 401 without credentials in local mode", async ({ db, eventBus, ids }) => {
 		const app = await createTestApp({ db, eventBus });
 
 		const res = await app.request("/api/auth/me");
@@ -319,9 +327,9 @@ describe("S1 — POST /api/auth/ws-token (shared mode uses userId from context)"
 		vi.unstubAllEnvs();
 	});
 
-	test("mints a ws-token for Bearer auth in shared mode", async ({ db, eventBus }) => {
-		await seedAdminUser(db, "u-admin-r1");
-		const { token } = await createLoginSession(db, "u-admin-r1");
+	test("mints a ws-token for Bearer auth in shared mode", async ({ db, eventBus, ids }) => {
+		await seedAdminUser(db, ids);
+		const { token } = await createLoginSession(db, ids("admin"));
 		const { createUpgradeTokenStore } = await import("@hyperidle/users");
 		const store = createUpgradeTokenStore();
 		// registerWebSocket is required to mount the ws-token route (app.ts design)
