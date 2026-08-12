@@ -3,10 +3,10 @@
   "title": "Spacing and elevation hold across the product",
   "track": "AZ",
   "phase": "ship",
-  "status": "verified-ready-for-push",
-  "revision": 11,
+  "status": "shipped-awaiting-human-merge",
+  "revision": 12,
   "updatedAt": "2026-08-13",
-  "revisionReason": "The consolidated domain branch is exactly based on fresh origin/main and npm run verify passes from commit a434c56c. The committed state is ready to push, open as a non-draft PR, and wait for required CI.",
+  "revisionReason": "The consolidated domain branch is pushed and non-draft PR #494 targets main. Its first CI cycle passed full verification, affected unit/component tests, affected service integration, and release guards. This final pipeline-state revision must repeat verification and CI before attestation.",
   "branch": "feat/spacing-elevation-coherence",
   "worktree": "/Users/tg/Development/hyperidle/.worktrees/AZ15",
   "baseCommit": "48cf8d5d9d5908b32cffab426a0c2ac04f8794c1",
@@ -23,7 +23,8 @@
       "ship consolidation — DONE",
       "fresh-main reconciliation — DONE (origin/main 48cf8d5d; branch 0 behind)",
       "clean-tree verification — DONE",
-      "push, non-draft PR and required CI — IN PROGRESS"
+      "push and non-draft PR — DONE",
+      "required CI — DONE on product/consolidation head; final state-only commit rerun required before attestation"
     ]
   },
   "artifacts": {
@@ -74,5 +75,14 @@
     "deletedUntrackedReview": true,
     "governance": "Original outside-production-roots floor 1062 restored after generated evidence removal; governance PASS with 1327 live matches and 265 slack below the 266 stop threshold."
   },
-  "nextAction": "Push the domain-named branch, open a non-draft main-targeting PR, and wait for every required CI check."
+  "pullRequest": {
+    "number": 494,
+    "url": "https://github.com/ambrovia/hyperidle/pull/494",
+    "title": "Enforce coherent spacing and elevation",
+    "base": "main",
+    "head": "feat/spacing-elevation-coherence",
+    "draft": false,
+    "firstCiCycle": "PASS — npm run verify, affected unit/component tests, affected service integration, release verify, and release guard; release test skipped by policy"
+  },
+  "nextAction": "Human merge only after the final pipeline-state commit remains locally verified and required CI is green; the ship agent does not merge."
 }
