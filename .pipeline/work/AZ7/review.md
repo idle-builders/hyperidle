@@ -400,3 +400,18 @@ sound — both rules run over all 442 `.tsx` files with no exception after the t
    of what it proves, not a defect.
 7. `no-local-status-builder` is a name-matching heuristic (pre-existing from AI4); AZ7's contribution was
    wiring it at `error`. Noted so scenario 2's pass is not read as broader than it is.
+
+---
+
+## Post-review cleanup (founder instruction, 2026-08-12)
+
+Round 1's **N7** and round 2's **NB-6** both flagged the committed measurement snapshots — ~10,000 lines of
+generator output mixing before-AZ7 and after-AZ7 state with nothing marking which was which. Both are now
+resolved by deletion: the nine JSON files (`predicate-sites`, `surface-sites`, `radius-sites`,
+`status-sites`, `button-recipes`, `input-recipes`, `summary`, `predicate-summary`, `css-radius`) are gone,
+10,106 lines removed. The four scripts that produce them stay — `predicates.mjs` and `render-backlog.mjs`
+are load-bearing for the `design:backlog:check` gate, `scan.mjs` and `measure.eslint.config.ts` are the
+documented reproduction of §1's numbers. `measurement/README.md` records the commands.
+
+References to these JSON files elsewhere in this file and in `combined-round.md` describe what the
+generators *emit* when run, which is still accurate — the output simply is not checked in.
