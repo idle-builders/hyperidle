@@ -13,7 +13,9 @@ describe("SearchField", () => {
 		render(<SearchField placeholder="Search..." />);
 		const input = screen.getByPlaceholderText("Search...");
 		expect(input).toHaveClass("w-full", "h-[32px]");
-		expect(input.className).toContain("bg-[var(--surface-container)]");
+		// AZ7 B3: a text input is Set 3's --surface-elevated job, not
+		// --surface-container (which is a recessed fill).
+		expect(input.className).toContain("bg-[var(--surface-elevated)]");
 	});
 
 	it("has rounded-[var(--r-default)] radius", () => {

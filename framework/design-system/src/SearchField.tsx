@@ -38,7 +38,13 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 			<input
 				ref={ref}
 				type="text"
-				className="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-container)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,background,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-deep)] focus:bg-[var(--surface-page)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
+				// @lore AZ7 B3 (review round 1): fill was --surface-container (a recessed
+				// fill, wrong job for an input — Set 3 gives text inputs
+				// --surface-elevated, combined-round.md §2 Set 3 + §5.1) with a focus
+				// state that swapped to --surface-page, giving the page-canvas token a
+				// second job on focus (the same defect fixed on Button's hover tint).
+				// Matches Input.tsx's pattern: one fill, border + ring for focus.
+				className="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
 				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange?.(e.target.value)}
