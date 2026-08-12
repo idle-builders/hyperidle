@@ -5,6 +5,7 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -18,16 +19,22 @@ function buildLogTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>[nu
 	)!;
 }
 
-async function seed(db: HyperIdleDb): Promise<void> {
+async function seed(db: HyperIdleDb, ids: ScopedIds): Promise<{ taskId: string; agentId: string }> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	const teamId = ids("p1");
+	const tmId = ids("t1");
+	const agentId = ids("agent-a");
+	const betId = ids("b1");
+	const threadId = ids("thread-task-1");
+	const taskId = ids("task-1");
+	await db.insert(teams).values({ id: teamId, name: "Test", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: tmId, teamId, capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(bets).values({
-		id: "b1",
-		teamId: "p1",
+		id: betId,
+		teamId,
 		description: "Test bet",
 		appetite: "small",
 		status: "active",
@@ -35,44 +42,45 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(users).values({
-		id: "agent-a",
+		id: agentId,
 		name: "A",
 		role: "builder",
-		teamId: "t1",
+		teamId: tmId,
 		status: "active",
 		createdAt: now,
 	});
 
 	await db.insert(threads).values({
-		id: "thread-task-1",
+		id: threadId,
 		hostKind: "task",
-		hostId: "task-1",
-		initiatorId: "agent-1",
-		participants: JSON.stringify(["agent-1"]),
+		hostId: taskId,
+		initiatorId: ids("agent-1"),
+		participants: JSON.stringify([ids("agent-1")]),
 		lastActiveAt: now,
 		createdAt: now,
 	});
 
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "b1",
-		teamId: "p1",
-		ownerAgentId: "agent-a",
+		id: taskId,
+		betId,
+		teamId,
+		ownerAgentId: agentId,
 		title: "T1",
 		state: "in_progress",
-		threadId: "thread-task-1",
+		threadId,
 		createdAt: now,
 		updatedAt: now,
 	});
+	return { taskId, agentId };
 }
 
-function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
+function makeContext(db: HyperIdleDb, agentId: string, taskId: string): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus: new EventBus(),
-		agentId: "agent-a",
+		agentId,
 		sessionId: "session-1",
-		taskId: "task-1",
+		taskId,
 		sandboxPath: path.join(os.tmpdir(), `hi-d4-logtask-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
@@ -80,50 +88,56 @@ function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
 
 describe("log_task tool", () => {
 	describe("AC3: appends 'Discovered X' to task.notes", () => {
-		test("appends note prose to task.notes", async ({ db, app }) => {
+		test("appends note prose to task.notes", async ({ db, app, ids }) => {
 			const logTaskTool = buildLogTaskTool(app);
-			await seed(db);
+			const { taskId, agentId } = await seed(db, ids);
 			// I1 C2 decision: log_task writes agent-authored prose (not
 			// audit entries) to tasks.notes. The storage representation is
 			// implementation-defined (JSON array of note objects OR plain
 			// text with a separator) — the assertion here only checks that
 			// the note content shows up somewhere in the notes column.
-			const result = await logTaskTool.handler({ note: "Discovered X" }, makeContext(db));
+			const result = await logTaskTool.handler(
+				{ note: "Discovered X" },
+				makeContext(db, agentId, taskId),
+			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
-			expect((result.data as { taskId: string }).taskId).toBe("task-1");
+			expect((result.data as { taskId: string }).taskId).toBe(taskId);
 
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 			expect(task?.notes ?? "").toContain("Discovered X");
 		});
 
-		test("preserves pre-existing notes content when appending", async ({ db, app }) => {
+		test("preserves pre-existing notes content when appending", async ({ db, app, ids }) => {
 			const logTaskTool = buildLogTaskTool(app);
-			await seed(db);
+			const { taskId, agentId } = await seed(db, ids);
 			// Seed notes with prior agent prose; log_task must preserve it
 			// and append the new note. We use prose (not JSON) to reflect
 			// C2's plain-text lane; if the impl keeps JSON, the assertions
 			// still hold via substring match.
 			const priorNote = "earlier thought";
-			await db.update(tasks).set({ notes: priorNote }).where(eq(tasks.id, "task-1"));
+			await db.update(tasks).set({ notes: priorNote }).where(eq(tasks.id, taskId));
 
-			const result = await logTaskTool.handler({ note: "Another note" }, makeContext(db));
+			const result = await logTaskTool.handler(
+				{ note: "Another note" },
+				makeContext(db, agentId, taskId),
+			);
 			expect(result.success).toBe(true);
 
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 			const notesText = task?.notes ?? "";
 			expect(notesText).toContain(priorNote);
 			expect(notesText).toContain("Another note");
 		});
 
-		test("appends multiple notes in order", async ({ db, app }) => {
+		test("appends multiple notes in order", async ({ db, app, ids }) => {
 			const logTaskTool = buildLogTaskTool(app);
-			await seed(db);
-			await logTaskTool.handler({ note: "First" }, makeContext(db));
-			await logTaskTool.handler({ note: "Second" }, makeContext(db));
-			await logTaskTool.handler({ note: "Third" }, makeContext(db));
+			const { taskId, agentId } = await seed(db, ids);
+			await logTaskTool.handler({ note: "First" }, makeContext(db, agentId, taskId));
+			await logTaskTool.handler({ note: "Second" }, makeContext(db, agentId, taskId));
+			await logTaskTool.handler({ note: "Third" }, makeContext(db, agentId, taskId));
 
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 			const notesText = task?.notes ?? "";
 			// All three must appear, in order.
 			const posFirst = notesText.indexOf("First");
@@ -137,35 +151,39 @@ describe("log_task tool", () => {
 
 	// ---------------- I1 C2/C3: log_task must never touch auditTrail ----------------
 	describe("I1 C2/C3: log_task never writes to tasks.auditTrail", () => {
-		test("leaves auditTrail untouched when appending a note", async ({ db, app }) => {
+		test("leaves auditTrail untouched when appending a note", async ({ db, app, ids }) => {
 			const logTaskTool = buildLogTaskTool(app);
-			await seed(db);
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			const { taskId, agentId } = await seed(db, ids);
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 			const auditBefore = task?.auditTrail ?? null;
 
-			const result = await logTaskTool.handler({ note: "Discovered Y" }, makeContext(db));
+			const result = await logTaskTool.handler(
+				{ note: "Discovered Y" },
+				makeContext(db, agentId, taskId),
+			);
 			expect(result.success).toBe(true);
 
-			const [after] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			const [after] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 			expect(after?.auditTrail ?? null).toBe(auditBefore);
 		});
 
 		test("does not corrupt a pre-existing auditTrail entry (state transition)", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			const logTaskTool = buildLogTaskTool(app);
-			await seed(db);
+			const { taskId, agentId } = await seed(db, ids);
 			const now = new Date().toISOString();
 			const existing = [{ from: "accepted", to: "in_progress", timestamp: now }];
 			await db
 				.update(tasks)
 				.set({ auditTrail: JSON.stringify(existing) })
-				.where(eq(tasks.id, "task-1"));
+				.where(eq(tasks.id, taskId));
 
-			await logTaskTool.handler({ note: "Another note" }, makeContext(db));
+			await logTaskTool.handler({ note: "Another note" }, makeContext(db, agentId, taskId));
 
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+			const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
 			// auditTrail is still the pristine state transition — log_task
 			// did not append its note to the wrong column.
 			const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<Record<string, unknown>>;
@@ -178,32 +196,32 @@ describe("log_task tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when note is empty", async ({ db, app }) => {
+		test("returns INVALID_INPUT when note is empty", async ({ db, app, ids }) => {
 			const logTaskTool = buildLogTaskTool(app);
-			await seed(db);
-			const result = await logTaskTool.handler({ note: "" }, makeContext(db));
+			const { taskId, agentId } = await seed(db, ids);
+			const result = await logTaskTool.handler({ note: "" }, makeContext(db, agentId, taskId));
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT when note is missing", async ({ db, app }) => {
+		test("returns INVALID_INPUT when note is missing", async ({ db, app, ids }) => {
 			const logTaskTool = buildLogTaskTool(app);
-			await seed(db);
+			const { taskId, agentId } = await seed(db, ids);
 			const result = await logTaskTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{} as any,
-				makeContext(db),
+				makeContext(db, agentId, taskId),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, app }) => {
+		test("returns NOT_FOUND when ctx.taskId does not exist", async ({ db, app, ids }) => {
 			const logTaskTool = buildLogTaskTool(app);
-			await seed(db);
-			const ctx = { ...makeContext(db), taskId: "ghost-task" };
+			const { agentId } = await seed(db, ids);
+			const ctx = { ...makeContext(db, agentId, ids("task-1")), taskId: ids("ghost-task") };
 			const result = await logTaskTool.handler({ note: "x" }, ctx);
 			expect(result.success).toBe(false);
 			if (result.success) return;

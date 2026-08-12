@@ -8,6 +8,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import type { DomainEvent } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -19,74 +20,95 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
+	teamId: string;
+	tmId: string;
+	agentId: string;
+	betId: string;
+	taskId: string;
+	routine1Id: string;
+	routine2Id: string;
+}> {
+	const now = new Date().toISOString();
+	const teamId = ids("prod-1");
+	const tmId = ids("team-1");
+	const agentId = ids("agent-1");
+	const betId = ids("bet-1");
+	const taskId = ids("task-1");
+	const routine1Id = ids("routine-1");
+	const routine2Id = ids("routine-2");
+
 	// Seed required data
 	await db.insert(teams).values({
-		id: "prod-1",
+		id: teamId,
 		name: "Test Product",
 		phase: "build",
-		createdAt: new Date().toISOString(),
+		createdAt: now,
 	});
 
 	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
+		id: tmId,
+		teamId,
 		capacity: 3,
 		activeBets: 0,
-		formedAt: new Date().toISOString(),
+		formedAt: now,
 	});
 
 	await db.insert(users).values({
-		id: "agent-1",
+		id: agentId,
 		name: "Builder Bot",
 		role: "builder",
 		status: "idle",
-		teamId: "team-1",
-		createdAt: new Date().toISOString(),
+		teamId: tmId,
+		createdAt: now,
 	});
 
 	// Seed a bet and task for FK references in session creation
 	await db.insert(bets).values({
-		id: "bet-1",
-		teamId: "prod-1",
+		id: betId,
+		teamId,
 		description: "Test",
 		appetite: "small",
 		status: "active",
-		createdAt: new Date().toISOString(),
+		createdAt: now,
 	});
 
 	await db.insert(tasks).values({
-		id: "task-1",
-		betId: "bet-1",
-		teamId: "prod-1",
+		id: taskId,
+		betId,
+		teamId,
 		title: "Test Task",
 		state: "in_progress",
-		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString(),
+		createdAt: now,
+		updatedAt: now,
 	});
 
 	// Seed routines (AA1: name, teamId, state are now required)
 	await db.insert(routines).values([
 		{
-			id: "routine-1",
+			id: routine1Id,
 			name: "Test routine 1",
-			teamId: "prod-1",
+			teamId,
 			state: "active",
-			ownerAgentId: "agent-1",
+			ownerAgentId: agentId,
 			triggerType: "heartbeat",
 			triggerConfig: JSON.stringify({ intervalMs: 60000 }),
 			active: true,
 		},
 		{
-			id: "routine-2",
+			id: routine2Id,
 			name: "Test routine 2",
-			teamId: "prod-1",
+			teamId,
 			state: "active",
-			ownerAgentId: "agent-1",
+			ownerAgentId: agentId,
 			triggerType: "calendar",
 			active: true,
 		},
 	]);
+	return { teamId, tmId, agentId, betId, taskId, routine1Id, routine2Id };
 }
 
 describe("Routine Endpoints (E6)", () => {
@@ -100,13 +122,15 @@ describe("Routine Endpoints (E6)", () => {
 
 	// AC4: GET /api/routines — list with trigger config, last/next run
 	describe("AC4: GET /api/routines — list all routines", () => {
-		test("returns all routines", async ({ db, app }) => {
-			await seedBase(db);
+		test("returns all routines", async ({ db, app, ids }) => {
+			const { routine1Id, routine2Id } = await seedBase(db, ids);
 			const res = await app.request("/api/routines", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Array<Record<string, unknown>>;
-			expect(body).toHaveLength(2);
+			// P6: global list — assert our routines are present
+			expect(body.find((r) => r.id === routine1Id)).toBeDefined();
+			expect(body.find((r) => r.id === routine2Id)).toBeDefined();
 			expect(body[0]).toHaveProperty("triggerType");
 			expect(body[0]).toHaveProperty("triggerConfig");
 			expect(body[0]).toHaveProperty("lastRunAt");
@@ -116,9 +140,9 @@ describe("Routine Endpoints (E6)", () => {
 
 	// AC5: PATCH /api/routines/:id — update (enable/disable, change config)
 	describe("AC5: PATCH /api/routines/:id — update routine", () => {
-		test("disables a routine", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/routine-1", {
+		test("disables a routine", async ({ db, app, ids }) => {
+			const { routine1Id } = await seedBase(db, ids);
+			const res = await app.request(`/api/routines/${routine1Id}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ active: false }),
@@ -129,9 +153,9 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.active).toBe(false);
 		});
 
-		test("updates trigger config and autonomy level", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/routine-1", {
+		test("updates trigger config and autonomy level", async ({ db, app, ids }) => {
+			const { routine1Id } = await seedBase(db, ids);
+			const res = await app.request(`/api/routines/${routine1Id}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ triggerConfig: '{"intervalMs":120000}', autonomyLevel: 3 }),
@@ -143,9 +167,9 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.autonomyLevel).toBe(3);
 		});
 
-		test("returns 404 for unknown routine", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/nonexistent", {
+		test("returns 404 for unknown routine", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/routines/${ids("nonexistent")}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ active: false }),
@@ -156,9 +180,9 @@ describe("Routine Endpoints (E6)", () => {
 
 	// AC6: POST /api/routines/:id/retire — retire
 	describe("AC6: POST /api/routines/:id/retire — retire routine", () => {
-		test("retires a routine by setting active=false", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/routine-1/retire", {
+		test("retires a routine by setting active=false", async ({ db, app, ids }) => {
+			const { routine1Id } = await seedBase(db, ids);
+			const res = await app.request(`/api/routines/${routine1Id}/retire`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -168,9 +192,9 @@ describe("Routine Endpoints (E6)", () => {
 			expect(body.active).toBe(false);
 		});
 
-		test("returns 404 for unknown routine", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/nonexistent/retire", {
+		test("returns 404 for unknown routine", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/routines/${ids("nonexistent")}/retire`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -180,12 +204,12 @@ describe("Routine Endpoints (E6)", () => {
 
 	// AC7: POST /api/routines/:id/trigger — manually trigger for testing
 	describe("AC7: POST /api/routines/:id/trigger — manual trigger", () => {
-		test("creates a session request", async ({ db, app, eventBus }) => {
-			await seedBase(db);
+		test("creates a session request", async ({ db, app, ids, eventBus }) => {
+			const { routine1Id } = await seedBase(db, ids);
 			const emitted: DomainEvent[] = [];
 			eventBus.on("session_started", (e) => emitted.push(e));
 
-			const res = await app.request("/api/routines/routine-1/trigger", {
+			const res = await app.request(`/api/routines/${routine1Id}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -196,27 +220,31 @@ describe("Routine Endpoints (E6)", () => {
 			expect(typeof body.runId).toBe("string");
 
 			// Durable handoff records a run+intent; request creation belongs to the worker.
-			const allSessions = await db.select().from(sessions);
-			expect(allSessions).toHaveLength(0);
+			// P1: scope the sessions read by our team's task
+			const mySessions = await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.taskId, ids("task-1")));
+			expect(mySessions).toHaveLength(0);
 
 			expect(emitted).toHaveLength(0);
 		});
 
-		test("updates routine lastRunAt", async ({ db, app }) => {
-			await seedBase(db);
-			await app.request("/api/routines/routine-1/trigger", {
+		test("updates routine lastRunAt", async ({ db, app, ids }) => {
+			const { routine1Id } = await seedBase(db, ids);
+			await app.request(`/api/routines/${routine1Id}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
 
-			const allRoutines = await db.select().from(routines);
-			const updated = allRoutines.find((r) => r.id === "routine-1");
+			// P1: scope by routine id
+			const [updated] = await db.select().from(routines).where(eq(routines.id, routine1Id));
 			expect(updated?.lastRunAt).toBeTruthy();
 		});
 
-		test("returns 404 for unknown routine", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/nonexistent/trigger", {
+		test("returns 404 for unknown routine", async ({ db, app, ids }) => {
+			await seedBase(db, ids);
+			const res = await app.request(`/api/routines/${ids("nonexistent")}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -224,11 +252,11 @@ describe("Routine Endpoints (E6)", () => {
 		});
 
 		// G4 AC8: manual trigger must refuse to fire disabled routines
-		test("returns 403 ROUTINE_DISABLED when routine.active=0", async ({ db, app }) => {
-			await seedBase(db);
-			await db.update(routines).set({ active: false }).where(eq(routines.id, "routine-1"));
+		test("returns 403 ROUTINE_DISABLED when routine.active=0", async ({ db, app, ids }) => {
+			const { routine1Id } = await seedBase(db, ids);
+			await db.update(routines).set({ active: false }).where(eq(routines.id, routine1Id));
 
-			const res = await app.request("/api/routines/routine-1/trigger", {
+			const res = await app.request(`/api/routines/${routine1Id}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -237,12 +265,15 @@ describe("Routine Endpoints (E6)", () => {
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.code).toBe("FORBIDDEN");
 
-			// Must not have created a session
-			const allSessions = await db.select().from(sessions);
-			expect(allSessions).toHaveLength(0);
+			// Must not have created a session — scoped by our task
+			const mySessions = await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.taskId, ids("task-1")));
+			expect(mySessions).toHaveLength(0);
 
 			// Must not have updated lastRunAt
-			const [updated] = await db.select().from(routines).where(eq(routines.id, "routine-1"));
+			const [updated] = await db.select().from(routines).where(eq(routines.id, routine1Id));
 			expect(updated?.lastRunAt).toBeNull();
 		});
 
@@ -250,41 +281,46 @@ describe("Routine Endpoints (E6)", () => {
 		test("invokes builtin handler for builtin:knowledge-decay (no session)", async ({
 			db,
 			app,
+			ids,
 		}) => {
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 			// Seed builtin routine directly (bypass G4 seed helper in this test file).
 			// AA1: name, teamId, state are now required columns.
+			const builtinId = ids("builtin:knowledge-decay");
 			await db.insert(routines).values({
-				id: "builtin:knowledge-decay",
+				id: builtinId,
 				name: "Knowledge decay",
-				teamId: "prod-1",
+				teamId,
 				state: "active",
-				ownerAgentId: "agent-1",
+				ownerAgentId: agentId,
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 2 * * *" }),
 				active: true,
 			});
 
-			const sessionsBefore = await db.select().from(sessions);
+			const sessionsBefore = await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.taskId, ids("task-1")));
 
-			const res = await app.request("/api/routines/builtin:knowledge-decay/trigger", {
+			const res = await app.request(`/api/routines/${builtinId}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.routineId).toBe("builtin:knowledge-decay");
+			expect(body.routineId).toBe(builtinId);
 			expect(body.fired).toBe(true);
 
-			// Builtin manual trigger must NOT create a session
-			const sessionsAfter = await db.select().from(sessions);
+			// Builtin manual trigger must NOT create a session — scoped
+			const sessionsAfter = await db
+				.select()
+				.from(sessions)
+				.where(eq(sessions.taskId, ids("task-1")));
 			expect(sessionsAfter).toHaveLength(sessionsBefore.length);
 
-			const [updated] = await db
-				.select()
-				.from(routines)
-				.where(eq(routines.id, "builtin:knowledge-decay"));
+			const [updated] = await db.select().from(routines).where(eq(routines.id, builtinId));
 			expect(updated?.lastRunAt).toBeTruthy();
 		});
 	});

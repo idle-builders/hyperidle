@@ -31,10 +31,11 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	test("GET /api/knowledge/:layer response items include a 'signals' field", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		// @lore O2: knowledgeItems no longer has layer/scopeId/kind/meta columns.
 		await seedKnowledgeItem(db, {
-			id: "item-l22-1",
+			id: ids("item-l22-1"),
 			topic: "testing",
 			title: "Item item-l22-1",
 			body: "Test body",
@@ -54,16 +55,19 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		// The response must include a flat 'items' array
 		expect(body.items).toBeDefined();
 		expect(Array.isArray(body.items)).toBe(true);
-		expect((body.items as unknown[]).length).toBeGreaterThan(0);
+		// P6: scoped — the global list contains our item
+		const items = body.items as Array<{ id: string }>;
+		expect(items.find((i) => i.id === ids("item-l22-1"))).toBeDefined();
 	});
 
 	// Signals contain the expected fields
 	test("signals field contains lastActivityAt, accessCount30d, citationCount, relevanceScore", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		await seedKnowledgeItem(db, {
-			id: "item-l22-2",
+			id: ids("item-l22-2"),
 			topic: "testing",
 			title: "Item item-l22-2",
 			body: "Test body",
@@ -75,10 +79,10 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
 		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId: "item-l22-2",
+			id: ids("access-1"),
+			itemId: ids("item-l22-2"),
 			accessorKind: "human",
-			accessorId: "user-1",
+			accessorId: ids("user-1"),
 			accessedAt: daysAgo(1),
 		});
 
@@ -87,7 +91,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 			items: Array<{ id: string; signals: Record<string, unknown> }>;
 		};
 
-		const item = body.items.find((i) => i.id === "item-l22-2");
+		const item = body.items.find((i) => i.id === ids("item-l22-2"));
 		expect(item).toBeDefined();
 		if (!item) return;
 		expect(item.signals).toBeDefined();
@@ -104,9 +108,10 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	test("items with no access data have null signals — never fake zeros (AC-8)", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		await seedKnowledgeItem(db, {
-			id: "item-l22-3",
+			id: ids("item-l22-3"),
 			topic: "testing",
 			title: "Item item-l22-3",
 			body: "Test body",
@@ -122,7 +127,7 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 			items: Array<{ id: string; signals: Record<string, unknown> }>;
 		};
 
-		const item = body.items.find((i) => i.id === "item-l22-3");
+		const item = body.items.find((i) => i.id === ids("item-l22-3"));
 		expect(item).toBeDefined();
 		if (!item) return;
 		const { signals } = item;
@@ -135,9 +140,13 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	});
 
 	// citationCount is always null in L22 (staged) — AC-3
-	test("citationCount is always null on signals (citation staged — AC-3)", async ({ db, app }) => {
+	test("citationCount is always null on signals (citation staged — AC-3)", async ({
+		db,
+		app,
+		ids,
+	}) => {
 		await seedKnowledgeItem(db, {
-			id: "item-l22-4",
+			id: ids("item-l22-4"),
 			topic: "testing",
 			title: "Item item-l22-4",
 			body: "Test body",
@@ -149,10 +158,10 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
 		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId: "item-l22-4",
+			id: ids("access-4"),
+			itemId: ids("item-l22-4"),
 			accessorKind: "human",
-			accessorId: "user-1",
+			accessorId: ids("user-1"),
 			accessedAt: daysAgo(1),
 		});
 
@@ -161,14 +170,14 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 			items: Array<{ id: string; signals: Record<string, unknown> }>;
 		};
 
-		const item = body.items.find((i) => i.id === "item-l22-4");
+		const item = body.items.find((i) => i.id === ids("item-l22-4"));
 		expect(item?.signals.citationCount).toBeNull();
 	});
 
 	// Items with access data have non-null accessCount30d
-	test("items with access data have non-null accessCount30d", async ({ db, app }) => {
+	test("items with access data have non-null accessCount30d", async ({ db, app, ids }) => {
 		await seedKnowledgeItem(db, {
-			id: "item-l22-5",
+			id: ids("item-l22-5"),
 			topic: "testing",
 			title: "Item item-l22-5",
 			body: "Test body",
@@ -180,17 +189,17 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
 		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId: "item-l22-5",
+			id: ids("access-5a"),
+			itemId: ids("item-l22-5"),
 			accessorKind: "human",
-			accessorId: "user-1",
+			accessorId: ids("user-1"),
 			accessedAt: daysAgo(1),
 		});
 		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId: "item-l22-5",
+			id: ids("access-5b"),
+			itemId: ids("item-l22-5"),
 			accessorKind: "human",
-			accessorId: "user-1",
+			accessorId: ids("user-1"),
 			accessedAt: daysAgo(2),
 		});
 
@@ -199,17 +208,17 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 			items: Array<{ id: string; signals: Record<string, unknown> }>;
 		};
 
-		const item = body.items.find((i) => i.id === "item-l22-5");
+		const item = body.items.find((i) => i.id === ids("item-l22-5"));
 		expect(item?.signals.accessCount30d).toBe(2);
 	});
 
-	// Empty DB returns empty items array
-	test("empty layer returns empty items array with signals field present", async ({ app }) => {
-		// @lore O2: No layer filtering — when DB is empty, all items (empty).
+	// P4 re-home: was "empty DB returns empty items array". In a populated
+	// world, assert that an id we did NOT insert is absent from the response.
+	test("items array does not contain items we did not insert", async ({ app, ids }) => {
 		const res = await app.request("/api/knowledge", { headers: authHeaders() });
-		const body = (await res.json()) as { items: unknown[] };
+		const body = (await res.json()) as { items: Array<{ id: string }> };
 		expect(body.items).toBeDefined();
 		expect(Array.isArray(body.items)).toBe(true);
-		expect(body.items.length).toBe(0);
+		expect(body.items.find((i) => i.id === ids("nonexistent"))).toBeUndefined();
 	});
 });

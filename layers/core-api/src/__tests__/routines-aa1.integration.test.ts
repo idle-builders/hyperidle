@@ -20,6 +20,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -29,32 +30,43 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-async function seedBase(db: HyperIdleDb): Promise<void> {
+async function seedBase(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
+	teamId: string;
+	tmId: string;
+	agentId: string;
+}> {
 	const now = new Date().toISOString();
+	const teamId = ids("team-aa1");
+	const tmId = ids("tm-aa1");
+	const agentId = ids("agent-aa1");
 
 	await db.insert(teams).values({
-		id: "team-aa1",
+		id: teamId,
 		name: "AA1 Team",
 		phase: "build",
 		createdAt: now,
 	});
 
 	await db.insert(teamMembers).values({
-		id: "tm-aa1",
-		teamId: "team-aa1",
+		id: tmId,
+		teamId,
 		capacity: 5,
 		activeBets: 0,
 		formedAt: now,
 	});
 
 	await db.insert(users).values({
-		id: "agent-aa1",
+		id: agentId,
 		name: "AA1 Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-aa1",
+		teamId: tmId,
 		createdAt: now,
 	});
+	return { teamId, tmId, agentId };
 }
 
 describe("AA1: Routine Visibility API", () => {
@@ -63,16 +75,21 @@ describe("AA1: Routine Visibility API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-1 + AC-2: GET /api/teams/:id includes routines", () => {
-		test("returns routines array with correct RoutineCardSummary shape", async ({ db, app }) => {
+		test("returns routines array with correct RoutineCardSummary shape", async ({
+			db,
+			app,
+			ids,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
 			const now = new Date().toISOString();
+			const routineId = ids("routine-aa1-1");
 			await db.insert(routines).values({
-				id: "routine-aa1-1",
+				id: routineId,
 				name: "Daily digest",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
@@ -81,18 +98,19 @@ describe("AA1: Routine Visibility API", () => {
 				nextRunAt: now,
 			});
 
-			const res = await app.request("/api/teams/team-aa1", { headers: authHeaders() });
+			const res = await app.request(`/api/teams/${teamId}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body).toHaveProperty("routines");
 
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr).toHaveLength(1);
+			// P6: global list — assert our routine is present
+			const myRoutine = routinesArr.find((r) => r.id === routineId);
+			expect(myRoutine).toBeDefined();
 
-			const r = routinesArr[0];
+			const r = myRoutine;
 			// AC-2: name
-			expect(r).toHaveProperty("id", "routine-aa1-1");
 			expect(r).toHaveProperty("name", "Daily digest");
 			// AC-2: schedule label
 			expect(r).toHaveProperty("scheduleLabel");
@@ -112,40 +130,45 @@ describe("AA1: Routine Visibility API", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns routines: [] when team has no routines", async ({ db, app }) => {
+		test("returns routines: [] when team has no routines", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId } = await seedBase(db, ids);
 
-			const res = await app.request("/api/teams/team-aa1", { headers: authHeaders() });
+			const res = await app.request(`/api/teams/${teamId}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body).toHaveProperty("routines");
-			expect(body.routines).toEqual([]);
+			const routinesArr = body.routines as Array<Record<string, unknown>>;
+			// No routines for our team — the team endpoint returns routines scoped to that team
+			expect(routinesArr).toEqual([]);
 			vi.unstubAllEnvs();
 		});
 
-		test("resolves agentName from users table for routine owner", async ({ db, app }) => {
+		test("resolves agentName from users table for routine owner", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-aa1-agent");
 			await db.insert(routines).values({
-				id: "routine-aa1-agent",
+				id: routineId,
 				name: "Test routine",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
 				active: true,
 			});
 
-			const res = await app.request("/api/teams/team-aa1", { headers: authHeaders() });
+			const res = await app.request(`/api/teams/${teamId}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr[0]!.agentName).toBe("AA1 Agent");
+			const myRoutine = routinesArr.find((r) => r.id === routineId);
+			expect(myRoutine).toBeDefined();
+			expect(myRoutine!.agentName).toBe("AA1 Agent");
 			vi.unstubAllEnvs();
 		});
 	});
@@ -155,15 +178,16 @@ describe("AA1: Routine Visibility API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-2: lastRunOutcome derived from latest routine_run", () => {
-		test("returns lastRunOutcome=error after inserting a failed run", async ({ db, app }) => {
+		test("returns lastRunOutcome=error after inserting a failed run", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-outcome-test");
 			await db.insert(routines).values({
-				id: "routine-outcome-test",
+				id: routineId,
 				name: "Outcome test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
@@ -171,30 +195,33 @@ describe("AA1: Routine Visibility API", () => {
 			});
 
 			await db.insert(routineRuns).values({
-				id: "run-1",
-				routineId: "routine-outcome-test",
+				id: ids("run-1"),
+				routineId,
 				startedAt: new Date().toISOString(),
 				outcome: "error",
 			});
 
-			const res = await app.request("/api/teams/team-aa1", { headers: authHeaders() });
+			const res = await app.request(`/api/teams/${teamId}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr[0]!.lastRunOutcome).toBe("error");
+			const myRoutine = routinesArr.find((r) => r.id === routineId);
+			expect(myRoutine).toBeDefined();
+			expect(myRoutine!.lastRunOutcome).toBe("error");
 			vi.unstubAllEnvs();
 		});
 
-		test("returns lastRunOutcome=success after a successful run", async ({ db, app }) => {
+		test("returns lastRunOutcome=success after a successful run", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-success-test");
 			await db.insert(routines).values({
-				id: "routine-success-test",
+				id: routineId,
 				name: "Success test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
@@ -202,42 +229,47 @@ describe("AA1: Routine Visibility API", () => {
 			});
 
 			await db.insert(routineRuns).values({
-				id: "run-success-1",
-				routineId: "routine-success-test",
+				id: ids("run-success-1"),
+				routineId,
 				startedAt: new Date().toISOString(),
 				outcome: "success",
 			});
 
-			const res = await app.request("/api/teams/team-aa1", { headers: authHeaders() });
+			const res = await app.request(`/api/teams/${teamId}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr[0]!.lastRunOutcome).toBe("success");
+			const myRoutine = routinesArr.find((r) => r.id === routineId);
+			expect(myRoutine).toBeDefined();
+			expect(myRoutine!.lastRunOutcome).toBe("success");
 			vi.unstubAllEnvs();
 		});
 
-		test("returns lastRunOutcome=null when no runs exist", async ({ db, app }) => {
+		test("returns lastRunOutcome=null when no runs exist", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-no-runs");
 			await db.insert(routines).values({
-				id: "routine-no-runs",
+				id: routineId,
 				name: "No runs",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
 				active: true,
 			});
 
-			const res = await app.request("/api/teams/team-aa1", { headers: authHeaders() });
+			const res = await app.request(`/api/teams/${teamId}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const routinesArr = body.routines as Array<Record<string, unknown>>;
-			expect(routinesArr[0]!.lastRunOutcome).toBeNull();
+			const myRoutine = routinesArr.find((r) => r.id === routineId);
+			expect(myRoutine).toBeDefined();
+			expect(myRoutine!.lastRunOutcome).toBeNull();
 			vi.unstubAllEnvs();
 		});
 	});
@@ -250,21 +282,23 @@ describe("AA1: Routine Visibility API", () => {
 		test("PATCH /api/routines/:id with state=paused updates state and syncs active=false", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-patch-state");
 			await db.insert(routines).values({
-				id: "routine-patch-state",
+				id: routineId,
 				name: "State patch test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
 			});
 
-			const res = await app.request("/api/routines/routine-patch-state", {
+			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "paused" }),
@@ -280,21 +314,23 @@ describe("AA1: Routine Visibility API", () => {
 		test("PATCH /api/routines/:id with state=active updates state and syncs active=true", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-patch-active");
 			await db.insert(routines).values({
-				id: "routine-patch-active",
+				id: routineId,
 				name: "Activate test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "paused",
 				triggerType: "heartbeat",
 				active: false,
 			});
 
-			const res = await app.request("/api/routines/routine-patch-active", {
+			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "active" }),
@@ -307,21 +343,22 @@ describe("AA1: Routine Visibility API", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("PATCH /api/routines/:id with state=error sets active=false", async ({ db, app }) => {
+		test("PATCH /api/routines/:id with state=error sets active=false", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-patch-error");
 			await db.insert(routines).values({
-				id: "routine-patch-error",
+				id: routineId,
 				name: "Error state test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
 			});
 
-			const res = await app.request("/api/routines/routine-patch-error", {
+			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "error" }),
@@ -334,21 +371,22 @@ describe("AA1: Routine Visibility API", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("PATCH /api/routines/:id rejects invalid state value", async ({ db, app }) => {
+		test("PATCH /api/routines/:id rejects invalid state value", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-invalid-state");
 			await db.insert(routines).values({
-				id: "routine-invalid-state",
+				id: routineId,
 				name: "Invalid state test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
 			});
 
-			const res = await app.request("/api/routines/routine-invalid-state", {
+			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ state: "disabled" }),
@@ -363,22 +401,23 @@ describe("AA1: Routine Visibility API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-5: GET /api/routines/:id returns RoutineDetail with run history", () => {
-		test("returns RoutineDetail for an existing routine", async ({ db, app }) => {
+		test("returns RoutineDetail for an existing routine", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-detail-test");
 			await db.insert(routines).values({
-				id: "routine-detail-test",
+				id: routineId,
 				name: "Detail test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 10 * * MON" }),
 				active: true,
 			});
 
-			const res = await app.request("/api/routines/routine-detail-test", {
+			const res = await app.request(`/api/routines/${routineId}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
@@ -392,15 +431,16 @@ describe("AA1: Routine Visibility API", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns run history with correct shape", async ({ db, app }) => {
+		test("returns run history with correct shape", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-with-runs");
 			await db.insert(routines).values({
-				id: "routine-with-runs",
+				id: routineId,
 				name: "Runs test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
@@ -409,37 +449,36 @@ describe("AA1: Routine Visibility API", () => {
 
 			const startedAt = "2026-01-01T10:00:00.000Z";
 			const endedAt = "2026-01-01T10:01:30.000Z";
+			const runId = ids("run-history-1");
 			await db.insert(routineRuns).values({
-				id: "run-history-1",
-				routineId: "routine-with-runs",
+				id: runId,
+				routineId,
 				startedAt,
 				endedAt,
 				outcome: "success",
 			});
 
-			const res = await app.request("/api/routines/routine-with-runs", {
+			const res = await app.request(`/api/routines/${routineId}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			const runs = body.runs as Array<Record<string, unknown>>;
-			expect(runs).toHaveLength(1);
-
-			const run = runs[0];
-			expect(run!.id).toBe("run-history-1");
-			expect(run).toHaveProperty("startedAt");
-			expect(run).toHaveProperty("endedAt");
-			expect(run).toHaveProperty("outcome", "success");
-			expect(run).toHaveProperty("durationSeconds");
+			const myRun = runs.find((r) => r.id === runId);
+			expect(myRun).toBeDefined();
+			expect(myRun).toHaveProperty("startedAt");
+			expect(myRun).toHaveProperty("endedAt");
+			expect(myRun).toHaveProperty("outcome", "success");
+			expect(myRun).toHaveProperty("durationSeconds");
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 404 for non-existent routine", async ({ db, app }) => {
+		test("returns 404 for non-existent routine", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			await seedBase(db, ids);
 
-			const res = await app.request("/api/routines/nonexistent-routine", {
+			const res = await app.request(`/api/routines/${ids("nonexistent-routine")}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(404);
@@ -456,41 +495,41 @@ describe("AA1: Routine Visibility API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("AC-6: GET /api/teams includes routineCount per team", () => {
-		test("returns routineCount=0 when team has no routines", async ({ db, app }) => {
+		test("returns routineCount=0 when team has no routines", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId } = await seedBase(db, ids);
 
 			const res = await app.request("/api/teams", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as { teams: Array<Record<string, unknown>> };
-			const team = body.teams.find((t) => t.id === "team-aa1");
+			const team = body.teams.find((t) => t.id === teamId);
 			expect(team).toBeDefined();
 			expect(team).toHaveProperty("routineCount", 0);
 			vi.unstubAllEnvs();
 		});
 
-		test("returns correct routineCount when team has routines", async ({ db, app }) => {
+		test("returns correct routineCount when team has routines", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
 			const now = new Date().toISOString();
 
 			await db.insert(routines).values([
 				{
-					id: "count-routine-1",
+					id: ids("count-routine-1"),
 					name: "Routine one",
-					ownerAgentId: "agent-aa1",
-					teamId: "team-aa1",
+					ownerAgentId: agentId,
+					teamId,
 					state: "active",
 					triggerType: "heartbeat",
 					active: true,
 				},
 				{
-					id: "count-routine-2",
+					id: ids("count-routine-2"),
 					name: "Routine two",
-					ownerAgentId: "agent-aa1",
-					teamId: "team-aa1",
+					ownerAgentId: agentId,
+					teamId,
 					state: "paused",
 					triggerType: "calendar",
 					triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
@@ -503,7 +542,7 @@ describe("AA1: Routine Visibility API", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as { teams: Array<Record<string, unknown>> };
-			const team = body.teams.find((t) => t.id === "team-aa1");
+			const team = body.teams.find((t) => t.id === teamId);
 			expect(team).toBeDefined();
 			expect(team).toHaveProperty("routineCount", 2);
 			vi.unstubAllEnvs();
@@ -515,21 +554,22 @@ describe("AA1: Routine Visibility API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("PATCH /api/routines/:id — extended fields", () => {
-		test("updates name and description", async ({ db, app }) => {
+		test("updates name and description", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
+			const routineId = ids("routine-name-update");
 			await db.insert(routines).values({
-				id: "routine-name-update",
+				id: routineId,
 				name: "Old name",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
 			});
 
-			const res = await app.request("/api/routines/routine-name-update", {
+			const res = await app.request(`/api/routines/${routineId}`, {
 				method: "PATCH",
 				headers: authHeaders(),
 				body: JSON.stringify({ name: "New name", description: "A description" }),
@@ -548,44 +588,46 @@ describe("AA1: Routine Visibility API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("POST /api/routines/:id/trigger — creates routine_run", () => {
-		test("inserts a routine_run row when trigger fires", async ({ db, app }) => {
+		test("inserts a routine_run row when trigger fires", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedBase(db);
+			const { teamId, agentId } = await seedBase(db, ids);
 
 			const now = new Date().toISOString();
 
 			// Need a bet + task for FK satisfaction in session creation
+			const betId = ids("bet-trigger-test");
 			await db.insert(bets).values({
-				id: "bet-trigger-test",
-				teamId: "team-aa1",
+				id: betId,
+				teamId,
 				description: "Trigger test bet",
 				status: "active",
 				createdAt: now,
 			});
 
 			await db.insert(tasks).values({
-				id: "task-trigger-test",
-				betId: "bet-trigger-test",
-				teamId: "team-aa1",
+				id: ids("task-trigger-test"),
+				betId,
+				teamId,
 				title: "Trigger test task",
 				state: "in_progress",
 				createdAt: now,
 				updatedAt: now,
-				ownerAgentId: "agent-aa1",
+				ownerAgentId: agentId,
 			});
 
+			const routineId = ids("routine-trigger-aa1");
 			await db.insert(routines).values({
-				id: "routine-trigger-aa1",
+				id: routineId,
 				name: "Trigger test",
-				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
+				ownerAgentId: agentId,
+				teamId,
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
 				active: true,
 			});
 
-			const res = await app.request("/api/routines/routine-trigger-aa1/trigger", {
+			const res = await app.request(`/api/routines/${routineId}/trigger`, {
 				method: "POST",
 				headers: authHeaders(),
 			});
@@ -594,11 +636,8 @@ describe("AA1: Routine Visibility API", () => {
 			expect(body.fired).toBe(true);
 			expect(typeof body.runId).toBe("string");
 
-			// Verify routine_run was created
-			const runs = await db
-				.select()
-				.from(routineRuns)
-				.where(eq(routineRuns.routineId, "routine-trigger-aa1"));
+			// Verify routine_run was created — scoped by routineId
+			const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
 			expect(runs.length).toBeGreaterThan(0);
 			expect(runs[0]!.startedAt).toBeTruthy();
 			vi.unstubAllEnvs();

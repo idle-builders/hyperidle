@@ -5,6 +5,7 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -18,34 +19,34 @@ function buildSendMessageTool(app: Hono): ReturnType<typeof buildToolDefinitions
 	)!;
 }
 
-async function seedFactory(db: HyperIdleDb): Promise<void> {
+async function seedFactory(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
-	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
+	await db.insert(teams).values({ id: ids("p1"), name: "Test", phase: "build", createdAt: now });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
+		.values({ id: ids("t1"), teamId: ids("p1"), capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(users).values([
 		{
-			id: "agent-a",
+			id: ids("agent-a"),
 			name: "A",
 			role: "builder",
-			teamId: "t1",
+			teamId: ids("t1"),
 			status: "active",
 			createdAt: now,
 		},
 		{
-			id: "agent-b",
+			id: ids("agent-b"),
 			name: "B",
 			role: "builder",
-			teamId: "t1",
+			teamId: ids("t1"),
 			status: "active",
 			createdAt: now,
 		},
 	]);
 }
 
-function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdleDb> {
+function makeContext(db: HyperIdleDb, agentId: string): ToolContext<HyperIdleDb> {
 	return {
 		db,
 		eventBus: new EventBus(),
@@ -59,12 +60,12 @@ function makeContext(db: HyperIdleDb, agentId = "agent-a"): ToolContext<HyperIdl
 
 describe("send_message tool", () => {
 	describe("AC2: sends to agent B appears in B's inbox", () => {
-		test("creates a message row with correct sender and recipient", async ({ db, app }) => {
+		test("creates a message row with correct sender and recipient", async ({ db, app, ids }) => {
 			const sendMessageTool = buildSendMessageTool(app);
-			await seedFactory(db);
+			await seedFactory(db, ids);
 			const result = await sendMessageTool.handler(
-				{ to: "agent-b", body: "Hello from A" },
-				makeContext(db, "agent-a"),
+				{ to: ids("agent-b"), body: "Hello from A" },
+				makeContext(db, ids("agent-a")),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -74,19 +75,19 @@ describe("send_message tool", () => {
 			// derived from the host_id/participants on the thread (legacy
 			// `recipient_id` column dropped — see plan §5.3).
 			const [inserted] = await db.select().from(messages).where(eq(messages.id, data.messageId));
-			expect(inserted?.senderId).toBe("agent-a");
+			expect(inserted?.senderId).toBe(ids("agent-a"));
 			const payload = JSON.parse(inserted?.payload ?? "{}") as { text?: string };
 			expect(payload.text).toBe("Hello from A");
 			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
-			expect(thread?.hostId).toBe("agent-b");
+			expect(thread?.hostId).toBe(ids("agent-b"));
 		});
 
-		test("creates a new direct thread when none exists", async ({ db, app }) => {
+		test("creates a new direct thread when none exists", async ({ db, app, ids }) => {
 			const sendMessageTool = buildSendMessageTool(app);
-			await seedFactory(db);
+			await seedFactory(db, ids);
 			const result = await sendMessageTool.handler(
-				{ to: "agent-b", body: "First message" },
-				makeContext(db, "agent-a"),
+				{ to: ids("agent-b"), body: "First message" },
+				makeContext(db, ids("agent-a")),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -96,21 +97,21 @@ describe("send_message tool", () => {
 			// recipient as host_id (plan §5.3 thread-primitive projection).
 			const [thread] = await db.select().from(threads).where(eq(threads.id, data.threadId));
 			expect(thread?.hostKind).toBe("agent");
-			expect(thread?.hostId).toBe("agent-b");
+			expect(thread?.hostId).toBe(ids("agent-b"));
 			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
-			expect(participants.sort()).toEqual(["agent-a", "agent-b"]);
+			expect(participants.sort()).toEqual([ids("agent-a"), ids("agent-b")].sort());
 		});
 
-		test("reuses existing direct thread between the same two agents", async ({ db, app }) => {
+		test("reuses existing direct thread between the same two agents", async ({ db, app, ids }) => {
 			const sendMessageTool = buildSendMessageTool(app);
-			await seedFactory(db);
+			await seedFactory(db, ids);
 			const first = await sendMessageTool.handler(
-				{ to: "agent-b", body: "Message 1" },
-				makeContext(db, "agent-a"),
+				{ to: ids("agent-b"), body: "Message 1" },
+				makeContext(db, ids("agent-a")),
 			);
 			const second = await sendMessageTool.handler(
-				{ to: "agent-b", body: "Message 2" },
-				makeContext(db, "agent-a"),
+				{ to: ids("agent-b"), body: "Message 2" },
+				makeContext(db, ids("agent-a")),
 			);
 			expect(first.success).toBe(true);
 			expect(second.success).toBe(true);
@@ -123,12 +124,12 @@ describe("send_message tool", () => {
 			expect(threadMsgs).toHaveLength(2);
 		});
 
-		test("persists optional subject when provided", async ({ db, app }) => {
+		test("persists optional subject when provided", async ({ db, app, ids }) => {
 			const sendMessageTool = buildSendMessageTool(app);
-			await seedFactory(db);
+			await seedFactory(db, ids);
 			const result = await sendMessageTool.handler(
-				{ to: "agent-b", subject: "Urgent", body: "Hi" },
-				makeContext(db, "agent-a"),
+				{ to: ids("agent-b"), subject: "Urgent", body: "Hi" },
+				makeContext(db, ids("agent-a")),
 			);
 			expect(result.success).toBe(true);
 			if (!result.success) return;
@@ -142,37 +143,37 @@ describe("send_message tool", () => {
 	});
 
 	describe("AC9: invalid input returns structured error", () => {
-		test("returns INVALID_INPUT when body is empty", async ({ db, app }) => {
+		test("returns INVALID_INPUT when body is empty", async ({ db, app, ids }) => {
 			const sendMessageTool = buildSendMessageTool(app);
-			await seedFactory(db);
+			await seedFactory(db, ids);
 			const result = await sendMessageTool.handler(
-				{ to: "agent-b", body: "" },
-				makeContext(db, "agent-a"),
+				{ to: ids("agent-b"), body: "" },
+				makeContext(db, ids("agent-a")),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns INVALID_INPUT when `to` is missing", async ({ db, app }) => {
+		test("returns INVALID_INPUT when `to` is missing", async ({ db, app, ids }) => {
 			const sendMessageTool = buildSendMessageTool(app);
-			await seedFactory(db);
+			await seedFactory(db, ids);
 			const result = await sendMessageTool.handler(
 				// biome-ignore lint/suspicious/noExplicitAny: deliberately invalid
 				{ body: "no recipient" } as any,
-				makeContext(db, "agent-a"),
+				makeContext(db, ids("agent-a")),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;
 			expect(result.code).toBe("INVALID_INPUT");
 		});
 
-		test("returns NOT_FOUND when recipient agent does not exist", async ({ db, app }) => {
+		test("returns NOT_FOUND when recipient agent does not exist", async ({ db, app, ids }) => {
 			const sendMessageTool = buildSendMessageTool(app);
-			await seedFactory(db);
+			await seedFactory(db, ids);
 			const result = await sendMessageTool.handler(
-				{ to: "ghost", body: "anyone?" },
-				makeContext(db, "agent-a"),
+				{ to: ids("ghost"), body: "anyone?" },
+				makeContext(db, ids("agent-a")),
 			);
 			expect(result.success).toBe(false);
 			if (result.success) return;

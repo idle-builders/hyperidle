@@ -25,6 +25,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 
@@ -64,16 +65,21 @@ export function makeContext(
  * Seed the minimum domain needed by every G1 facilitator tool suite:
  * product, team, an active facilitator agent, and an item thread.
  */
-export async function seedBase(db: HyperIdleDb): Promise<void> {
+export async function seedBase(db: HyperIdleDb, ids?: ScopedIds): Promise<void> {
 	// @lore U1: teams is the domain entity (formerly products); teamMembers is the membership group.
-	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: NOW });
+	const teamId = ids ? ids("p1") : "p1";
+	const tmId = ids ? ids("t1") : "t1";
+	const agentId = ids ? ids("agent-fac") : "agent-fac";
+	const threadId = ids ? ids("th1") : "th1";
+	const hostId = ids ? ids("task-1") : "task-1";
+	await db.insert(teams).values({ id: teamId, name: "Test", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
+		.values({ id: tmId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	await db.insert(users).values({
-		id: "agent-fac",
+		id: agentId,
 		name: "Facilitator",
 		role: "facilitator",
 		status: "active",
@@ -81,11 +87,11 @@ export async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(threads).values({
-		id: "th1",
+		id: threadId,
 		hostKind: "task",
-		hostId: "task-1",
-		initiatorId: "agent-fac",
-		participants: JSON.stringify(["agent-fac"]),
+		hostId,
+		initiatorId: agentId,
+		participants: JSON.stringify([agentId]),
 		lastActiveAt: NOW,
 		createdAt: NOW,
 	});

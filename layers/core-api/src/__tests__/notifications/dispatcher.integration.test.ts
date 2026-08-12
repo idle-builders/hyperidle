@@ -13,7 +13,6 @@ import type { RoutineFiredEvent } from "@hyperidle/domain-model";
 import {
 	enqueue,
 	installNotifications,
-	listNotifications,
 	type Notification,
 	type NotificationAdapter,
 	updateConfig,
@@ -66,7 +65,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("subscribes to item_created and pushes on blocking items", async ({ db, eventBus }) => {
+	test("subscribes to item_created and pushes on blocking items", async ({ db, eventBus, ids }) => {
 		const adapter = createFakeAdapter();
 		const app = await createTestApp({
 			db,
@@ -79,19 +78,20 @@ describe("H2 Dispatcher integration via createApp", () => {
 		});
 		try {
 			await enable(db);
-			const threadId = "thread-app-1";
+			const threadId = ids("thread-app-1");
+			const itemId = ids("it-100");
 			await db.insert(threads).values({
 				id: threadId,
 				hostKind: "task",
-				hostId: "task-1",
-				initiatorId: "agent-1",
-				participants: JSON.stringify(["agent-1"]),
+				hostId: ids("task-1"),
+				initiatorId: ids("agent-1"),
+				participants: JSON.stringify([ids("agent-1")]),
 				lastActiveAt: "2026-04-18T00:00:00.000Z",
 				createdAt: "2026-04-18T00:00:00.000Z",
 			});
 
 			await db.insert(itemsTable).values({
-				id: "it-100",
+				id: itemId,
 				kind: "approval",
 				title: "Blocking it",
 				body: "Body",
@@ -102,8 +102,8 @@ describe("H2 Dispatcher integration via createApp", () => {
 
 			eventBus.emit({
 				type: "item_created",
-				streamId: "s",
-				itemId: "it-100",
+				streamId: ids("s"),
+				itemId,
 				conversationId: threadId,
 				kind: "approval",
 				timestamp: Date.now(),
@@ -123,6 +123,7 @@ describe("H2 Dispatcher integration via createApp", () => {
 	test("routine_fired with daily_digest marker triggers runDailyDigest", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const adapter = createFakeAdapter();
 		const app = await createTestApp({
@@ -137,10 +138,11 @@ describe("H2 Dispatcher integration via createApp", () => {
 		try {
 			await enable(db);
 			const now = "2026-04-18T00:00:00.000Z";
+			const queueId = ids("q-1");
 			await enqueue(db, {
-				id: "q-1",
+				id: queueId,
 				eventType: "item_created",
-				subjectId: "foo",
+				subjectId: ids("foo"),
 				severity: "digest",
 				title: "Queued digest item",
 				body: "body",
@@ -153,16 +155,13 @@ describe("H2 Dispatcher integration via createApp", () => {
 
 			const event: RoutineFiredEvent = {
 				type: "routine_fired",
-				streamId: "s",
-				routineId: "seed-routine-daily_digest",
-				agentId: "cos",
+				streamId: ids("s"),
+				routineId: "seed-routine-daily_digest", // @lore production convention: handler matches on "daily_digest" substring
+				agentId: ids("cos"),
 				timestamp: Date.now(),
 			};
 			eventBus.emit(event);
-			await vi.waitFor(async () => {
-				const rows = await listNotifications(db, { kind: "all" });
-				expect(rows[0]!.status).toBe("sent");
-			});
+			await vi.waitFor(() => expect(adapter.calls.length).toBeGreaterThanOrEqual(1));
 
 			expect(adapter.calls.length).toBeGreaterThanOrEqual(1);
 		} finally {
