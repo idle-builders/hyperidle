@@ -372,9 +372,12 @@ export function createConstIdentifierResolver(context: Rule.RuleContext): Identi
  * rules already at `error` in production; widening it in place risks surfacing
  * new findings in files those rules currently read as clean, outside this
  * work package's scope. The two new AZ7 rules (`radius-token-only`,
- * `no-handrolled-control`) use the deep variant so their site counts match the
- * measurement's `predicate-sites.json`, which is what `migration-backlog.md`
- * and the scope-line arithmetic in the approved plan are built from.
+ * `no-handrolled-control`) use the deep variant so their site counts are
+ * comparable to the measurement's `predicate-sites.json` (same traversal
+ * shape), which is what `migration-backlog.md` and the scope-line arithmetic
+ * in the approved plan are built from. The two counts are an approximation,
+ * not an exact match: the scanner keys its const map by name-per-file, while
+ * ESLint resolves by lexical scope — shadowing diverges both directions.
  *
  * @lore AZ7 review-round-2 NEW-1: accepts an optional `resolveIdentifier` —
  * see `createConstIdentifierResolver` — so a bare `Identifier` in class-string

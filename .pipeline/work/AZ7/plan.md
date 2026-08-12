@@ -156,8 +156,12 @@ where the rules were warn or absent.
 ### §3.2 How this package's enforcement avoids the same fate
 
 1. Every rule lands at error, cleared to zero survivors in the same PR —
-   error is the only severity `--quiet` still runs. No baseline, no severity
-   dial, no per-file allowance (AU31/AU32 removed those).
+    error is the only severity `--quiet` still runs. No baseline, no severity
+    dial. Per-file carve-outs exist only where §4/§8 document them, each
+    citing its reason (the 2-file no-hardcoded-color off block for review
+    canvases, the path-keyed Checkbox/Toggle radius exemption, the 3
+    documented eslint-disable sites in §4). AU31/AU32 removed the broad
+    per-file allowance those carve-outs replaced.
 2. Wiring is structural: `hearth-config.ts` exports one flat-config block
    built from a single severity table total over the plugin's rules, asserted
    by a test — a rule can no longer be exported and wired nowhere.

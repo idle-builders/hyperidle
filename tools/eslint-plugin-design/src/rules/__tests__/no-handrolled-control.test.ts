@@ -80,6 +80,13 @@ ruleTester.run("no-handrolled-control", noHandrolledControl, {
 			code: 'const J = <textarea className="textarea textarea-bordered" />;',
 			errors: [{ messageId: "daisyControl" }, { messageId: "daisyControl" }],
 		},
+		// DaisyUI file-input* class on a raw <input type="file">. file-input is
+		// a full-chrome DaisyUI control class (like btn/input), not a modifier.
+		{
+			filename: "layers/core-ui/src/pages/Foo.tsx",
+			code: 'const J = <input type="file" className="file-input file-input-bordered" />;',
+			errors: [{ messageId: "daisyControl" }, { messageId: "daisyControl" }],
+		},
 		// A raw button painting an accent fill directly.
 		{
 			filename: "layers/core-ui/src/pages/Foo.tsx",

@@ -11,7 +11,7 @@
  *
  * Predicate (plan.md §5.2): on a raw `<button>|<input>|<textarea>|<select>`
  * under `layers/core-ui/src/**`, a violation is:
- *   1. a class token matching `^(btn|input|textarea|select)(-[a-z0-9]+)*$` —
+ *   1. a class token matching `^(btn|input|textarea|select|file-input)(-[a-z0-9]+)*$` —
  *      the DaisyUI control-component vocabulary, which carries the WHOLE
  *      fill/border/height/radius package a design-system component already owns; OR
  *   2. a `bg-[var(--accent-*)]` / `bg-[var(--status-*)]` class — the element is
@@ -48,9 +48,11 @@ import {
 
 const CONTROL_TAGS: ReadonlySet<string> = new Set(["button", "input", "textarea", "select"]);
 
-// DaisyUI control-component classes: btn*, input*, textarea*, select* — but
-// NOT checkbox*/toggle*/radio*/range* (the AQ-011 form-control exemption).
-const DAISY_CONTROL_RE = /^(btn|input|textarea|select)(-[a-z0-9]+)*$/;
+// DaisyUI control-component classes: btn*, input*, textarea*, select*,
+// file-input* — but NOT checkbox*/toggle*/radio*/range* (the AQ-011
+// form-control exemption). file-input is a full-chrome DaisyUI control class
+// (like btn/input), not a modifier on <input type="file">.
+const DAISY_CONTROL_RE = /^(btn|input|textarea|select|file-input)(-[a-z0-9]+)*$/;
 
 // An accent or status fill painted directly on the raw element, instead of
 // coming from a design-system component's variant system.
@@ -98,8 +100,8 @@ export const noHandrolledControl: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
 		docs: {
-			description:
-				"Forbid a raw <button>/<input>/<textarea>/<select> in layers/core-ui/src that repaints a design-system control's chrome — a DaisyUI btn*/input*/textarea*/select* class, or an accent/status fill. Use Button/Input/SearchField/Select/Composer from @hyperidle/design-system instead.",
+		description:
+			"Forbid a raw <button>/<input>/<textarea>/<select> in layers/core-ui/src that repaints a design-system control's chrome — a DaisyUI btn*/input*/textarea*/select*/file-input* class, or an accent/status fill. Use Button/Input/SearchField/Select/Composer from @hyperidle/design-system instead.",
 			recommended: true,
 		},
 		schema: [],
