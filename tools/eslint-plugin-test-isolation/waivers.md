@@ -21,7 +21,6 @@ increment 1 by running both rules over the whole lane.
 
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts`
-- `layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-conversation.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-knowledge.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-org-routine-handoff.integration.test.ts`
