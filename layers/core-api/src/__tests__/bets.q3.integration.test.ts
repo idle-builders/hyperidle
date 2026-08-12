@@ -15,6 +15,7 @@
  */
 
 import { bets, teamMembers, teams } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { transitionBet, type WorkDeps } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -33,67 +34,58 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
+async function seedTeam(db: import("@hyperidle/db").HyperIdleDb, ids: ScopedIds): Promise<void> {
+	const now = new Date().toISOString();
+	await db.insert(teams).values({
+		id: ids("prod-1"),
+		name: "Test Product",
+		phase: "build",
+		createdAt: now,
+	});
+	await db.insert(teamMembers).values({
+		id: ids("team-1"),
+		teamId: ids("prod-1"),
+		capacity: 2,
+		activeBets: 0,
+		formedAt: now,
+	});
+}
+
 describe("Bet Endpoints (Q3)", () => {
 	// ── T2: teamId, revisionLog seeded, description .min(1) ─────────────────────
 
 	describe("T2: AC8 — teamId required", () => {
-		test("creates a bet with teamId referencing teams domain entity", async ({ db, app }) => {
+		test("creates a bet with teamId referencing teams domain entity", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
 					// @lore U1: teamId references teams.id (domain entity), not teamMembers.id
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Build feature Z",
 				}),
 			});
 
 			expect(res.status).toBe(201);
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.teamId).toBe("prod-1");
+			expect(body.teamId).toBe(ids("prod-1"));
 			// @lore U1: status is "draft" (formerly "shaped")
 			expect(body.status).toBe("draft");
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 400 when teamId does not exist", async ({ db, app }) => {
+		test("returns 400 when teamId does not exist", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "nonexistent-team",
+					teamId: ids("nonexistent-team"),
 					description: "Build feature V",
 				}),
 			});
@@ -104,28 +96,15 @@ describe("Bet Endpoints (Q3)", () => {
 	});
 
 	describe("T2: AC10 — description validation (.min(1))", () => {
-		test("returns 400 when description is empty string", async ({ db, app }) => {
+		test("returns 400 when description is empty string", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "",
 				}),
 			});
@@ -134,28 +113,15 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 201 with non-empty description", async ({ db, app }) => {
+		test("returns 201 with non-empty description", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "A valid description",
 				}),
 			});
@@ -169,28 +135,16 @@ describe("Bet Endpoints (Q3)", () => {
 		test("creates bet with initial revisionLog entry containing status=draft", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Build feature X",
 				}),
 			});
@@ -212,28 +166,15 @@ describe("Bet Endpoints (Q3)", () => {
 	// ── T3: GET /api/bets/canvas enriched ────────────────────────────────────────
 
 	describe("T3: canvas endpoint enrichment", () => {
-		test("returns bets with team name in canvas response", async ({ db, app }) => {
+		test("returns bets with team name in canvas response", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "# Canvas Feature\n\nThis is the description body.",
 				}),
 			});
@@ -247,8 +188,10 @@ describe("Bet Endpoints (Q3)", () => {
 				capacity: { used: number; max: number };
 			};
 
-			expect(body.draft).toHaveLength(1);
-			const bet = body.draft[0];
+			// P6: scope — find our bet
+			const myBets = body.draft.filter((b) => b.teamId === ids("prod-1"));
+			expect(myBets).toHaveLength(1);
+			const bet = myBets[0];
 			// T3: must include team name (U1: field is "team" not "product")
 			expect(bet?.team).toBe("Test Product");
 			vi.unstubAllEnvs();
@@ -257,28 +200,16 @@ describe("Bet Endpoints (Q3)", () => {
 		test("returns derived title from description first line in canvas response", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "# My Feature Title\n\nThis is the description body.",
 				}),
 			});
@@ -290,7 +221,8 @@ describe("Bet Endpoints (Q3)", () => {
 				draft: Array<Record<string, unknown>>;
 			};
 
-			const bet = body.draft[0];
+			const myBets = body.draft.filter((b) => b.teamId === ids("prod-1"));
+			const bet = myBets[0];
 			// title derived from first line, stripping "# "
 			expect(bet?.title).toBe("My Feature Title");
 			vi.unstubAllEnvs();
@@ -300,28 +232,15 @@ describe("Bet Endpoints (Q3)", () => {
 		// or '—' when null" and "returns formatted appetite string when
 		// costAppetite is set" are HARD-DELETED — the canvas `appetite` field and
 		// `bets.costAppetiteMinor/costAppetiteCurrency` are gone, no replacement.
-		test("returns teamId in canvas bet shape", async ({ db, app }) => {
+		test("returns teamId in canvas bet shape", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Description for teamId check",
 				}),
 			});
@@ -331,48 +250,38 @@ describe("Bet Endpoints (Q3)", () => {
 				draft: Array<Record<string, unknown>>;
 			};
 
-			const bet = body.draft[0];
+			const myBets = body.draft.filter((b) => b.teamId === ids("prod-1"));
+			const bet = myBets[0];
 			// @lore U1: teamId references teams.id (domain entity)
-			expect(bet?.teamId).toBe("prod-1");
+			expect(bet?.teamId).toBe(ids("prod-1"));
 			vi.unstubAllEnvs();
 		});
 
 		test("uses batch team lookup — does not include undefined team entries", async ({
 			db,
 			app,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			// Two bets for the same team — team name must appear on both
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ teamId: "prod-1", description: "Bet A" }),
+				body: JSON.stringify({ teamId: ids("prod-1"), description: "Bet A" }),
 			});
 			await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
-				body: JSON.stringify({ teamId: "prod-1", description: "Bet B" }),
+				body: JSON.stringify({ teamId: ids("prod-1"), description: "Bet B" }),
 			});
 
 			const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
 			const body = (await res.json()) as { draft: Array<Record<string, unknown>> };
 
-			for (const bet of body.draft) {
+			const myBets = body.draft.filter((b) => b.teamId === ids("prod-1"));
+			for (const bet of myBets) {
 				// @lore U1: field is "team" not "product"
 				expect(bet.team).toBe("Test Product");
 			}
@@ -383,28 +292,15 @@ describe("Bet Endpoints (Q3)", () => {
 	// ── T4: PATCH field="description" ────────────────────────────────────────────
 
 	describe("T4: AC6 — PATCH description field", () => {
-		test("returns 200 and updated description on draft bet", async ({ db, app }) => {
+		test("returns 200 and updated description on draft bet", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Original description",
 				}),
 			});
@@ -429,28 +325,15 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("adds revisionLog entry on description PATCH", async ({ db, app }) => {
+		test("adds revisionLog entry on description PATCH", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Original description",
 				}),
 			});
@@ -480,28 +363,15 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 400 when description value is empty string", async ({ db, app }) => {
+		test("returns 400 when description value is empty string", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Original description",
 				}),
 			});
@@ -522,28 +392,15 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 200 when patching description on active bet", async ({ db, app }) => {
+		test("returns 200 when patching description on active bet", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Original description",
 				}),
 			});
@@ -576,28 +433,16 @@ describe("Bet Endpoints (Q3)", () => {
 			db,
 			app,
 			eventBus,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Original description",
 				}),
 			});
@@ -622,28 +467,15 @@ describe("Bet Endpoints (Q3)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 400 when patching description on killed bet", async ({ db, app }) => {
+		test("returns 400 when patching description on killed bet", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Original description",
 				}),
 			});
@@ -674,28 +506,15 @@ describe("Bet Endpoints (Q3)", () => {
 	// ── T4: AC7 — version history tracks both founder and agent edits ─────────────
 
 	describe("T4: AC7 — revision history tracks multiple actors", () => {
-		test("revisionLog records actor from auth context", async ({ db, app }) => {
+		test("revisionLog records actor from auth context", async ({ db, app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-			await db.insert(teams).values({
-				id: "prod-1",
-				name: "Test Product",
-				phase: "build",
-				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
+			await seedTeam(db, ids);
 
 			const createRes = await app.request("/api/bets", {
 				method: "POST",
 				headers: authHeaders(),
 				body: JSON.stringify({
-					teamId: "prod-1",
+					teamId: ids("prod-1"),
 					description: "Initial description",
 				}),
 			});
@@ -705,7 +524,7 @@ describe("Bet Endpoints (Q3)", () => {
 			// PATCH with a different actor (simulate agent call)
 			const patchRes = await app.request(`/api/bets/${betId}`, {
 				method: "PATCH",
-				headers: { ...authHeaders(), "X-User-Id": "agent-001" },
+				headers: { ...authHeaders(), "X-User-Id": ids("agent-001") },
 				body: JSON.stringify({
 					field: "description",
 					value: "Agent-updated description",

@@ -37,6 +37,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import type { RuntimePorts } from "@hyperidle/run-orchestration";
 import { drainIntents } from "@hyperidle/session-requests";
@@ -68,10 +69,11 @@ async function bootRealServer(db: HyperIdleDb): Promise<{ handle: ServerHandle; 
 /** Seeds a team with one active AI agent eligible as a bet decomposer (role catalog category "team"). */
 async function seedTeamWithEligibleAgent(
 	db: HyperIdleDb,
+	ids: ScopedIds,
 ): Promise<{ teamParentId: string; membershipId: string }> {
 	const now = new Date().toISOString();
-	const teamParentId = "inc10a-team-parent";
-	const membershipId = "inc10a-team";
+	const teamParentId = ids("inc10a-team-parent");
+	const membershipId = ids("inc10a-team");
 	await db
 		.insert(teams)
 		.values({ id: teamParentId, name: "Inc10a", phase: "build", createdAt: now });
@@ -83,7 +85,7 @@ async function seedTeamWithEligibleAgent(
 		formedAt: now,
 	});
 	await db.insert(users).values({
-		id: "inc10a-agent",
+		id: ids("inc10a-agent"),
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
@@ -101,8 +103,9 @@ describe("committing a bet no longer triggers the built-in bet_decomposition mec
 
 	test("committing an active bet with an eligible decomposer agent records no bet_decomposition work intent", async ({
 		db,
+		ids,
 	}) => {
-		const { teamParentId } = await seedTeamWithEligibleAgent(db);
+		const { teamParentId } = await seedTeamWithEligibleAgent(db, ids);
 		const { handle, baseUrl } = await bootRealServer(db);
 		try {
 			const createRes = await fetch(`${baseUrl}/api/bets`, {
@@ -141,8 +144,9 @@ describe("committing a bet no longer triggers the built-in bet_decomposition mec
 
 	test("a committed bet's row carries no decompositionStatus/decompositionBlockerReason columns", async ({
 		db,
+		ids,
 	}) => {
-		const { teamParentId } = await seedTeamWithEligibleAgent(db);
+		const { teamParentId } = await seedTeamWithEligibleAgent(db, ids);
 		const { handle, baseUrl } = await bootRealServer(db);
 		try {
 			const createRes = await fetch(`${baseUrl}/api/bets`, {
@@ -216,21 +220,22 @@ describe("the generic explicit-session-start mechanism against a bet's task stil
 	test("explicit session start against a bet's task still provisions a real agent session", async ({
 		db,
 		app,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
-			.values({ id: "inc10a-b-team-parent", name: "Inc10aB", phase: "build", createdAt: now });
+			.values({ id: ids("inc10a-b-team-parent"), name: "Inc10aB", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "inc10a-b-team",
-			teamId: "inc10a-b-team-parent",
+			id: ids("inc10a-b-team"),
+			teamId: ids("inc10a-b-team-parent"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(users).values([
 			{
-				id: "inc10a-b-human",
+				id: ids("inc10a-b-human"),
 				kind: "human",
 				name: "Founder",
 				role: "founder",
@@ -238,27 +243,27 @@ describe("the generic explicit-session-start mechanism against a bet's task stil
 				createdAt: now,
 			},
 			{
-				id: "inc10a-b-agent",
+				id: ids("inc10a-b-agent"),
 				kind: "ai",
 				name: "Agent",
 				role: "builder",
 				status: "idle",
-				teamId: "inc10a-b-team",
+				teamId: ids("inc10a-b-team"),
 				createdAt: now,
 			},
 		]);
 		await db.insert(bets).values({
-			id: "inc10a-b-bet",
-			teamId: "inc10a-b-team-parent",
+			id: ids("inc10a-b-bet"),
+			teamId: ids("inc10a-b-team-parent"),
 			description: "Preserved capability bet",
 			status: "active",
 			createdAt: now,
 		});
-		const { tasks } = await import("@hyperidle/db");
-		await db.insert(tasks).values({
-			id: "inc10a-b-task",
-			betId: "inc10a-b-bet",
-			teamId: "inc10a-b-team-parent",
+		const { tasks: tasksTable } = await import("@hyperidle/db");
+		await db.insert(tasksTable).values({
+			id: ids("inc10a-b-task"),
+			betId: ids("inc10a-b-bet"),
+			teamId: ids("inc10a-b-team-parent"),
 			title: "Preserved capability task",
 			state: "in_progress",
 			createdAt: now,
@@ -270,11 +275,11 @@ describe("the generic explicit-session-start mechanism against a bet's task stil
 			headers: {
 				"X-API-Key": key,
 				"Content-Type": "application/json",
-				"Idempotency-Key": "inc10a-b",
+				"Idempotency-Key": ids("inc10a-b"),
 			},
 			body: JSON.stringify({
-				agentId: "inc10a-b-agent",
-				taskId: "inc10a-b-task",
+				agentId: ids("inc10a-b-agent"),
+				taskId: ids("inc10a-b-task"),
 				modelTier: "workhorse",
 			}),
 		});

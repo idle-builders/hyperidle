@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { agentRunConfig, serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import { listConfiguration } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -23,8 +24,9 @@ describe("configuration projection boot wiring", () => {
 
 	test("createServer projects built-in defaults and legacy rows without a manual backfill call", async ({
 		db,
+		ids,
 	}) => {
-		await seedLegacyRows(db);
+		await seedLegacyRows(db, ids);
 
 		const handle = await bootTestServer(db, "au2-config-boot");
 		try {
@@ -33,9 +35,9 @@ describe("configuration projection boot wiring", () => {
 			expect(entries).toContainEqual(
 				expect.objectContaining({
 					kind: "agent",
-					key: "agent.au2-agent-1",
+					key: `agent.${ids("au2-agent-1")}`,
 					activeValue: expect.objectContaining({
-						id: "au2-agent-1",
+						id: ids("au2-agent-1"),
 						name: "AU2 Builder",
 						harnessType: "builtin",
 					}),
@@ -49,7 +51,7 @@ describe("configuration projection boot wiring", () => {
 			expect(entries).toContainEqual(
 				expect.objectContaining({
 					kind: "mcp_server",
-					key: "mcp_server.au2-human-1.github",
+					key: `mcp_server.${ids("au2-human-1")}.github`,
 					activeValue: expect.objectContaining({ service: "github", authSource: "mcp" }),
 					origin: expect.objectContaining({ type: "builtin" }),
 				}),
@@ -106,32 +108,32 @@ function serverBaseUrl(handle: ServerHandle): string {
 	return `http://127.0.0.1:${address.port}`;
 }
 
-async function seedLegacyRows(db: HyperIdleDb): Promise<void> {
+async function seedLegacyRows(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	await db.insert(teams).values({
-		id: "au2-team-1",
+		id: ids("au2-team-1"),
 		name: "AU2 Team",
 		phase: "build",
 		createdAt: NOW,
 	});
 	await db.insert(teamMembers).values({
-		id: "au2-members-1",
-		teamId: "au2-team-1",
+		id: ids("au2-members-1"),
+		teamId: ids("au2-team-1"),
 		capacity: 2,
 		activeBets: 0,
 		formedAt: NOW,
 	});
 	await db.insert(users).values([
 		{
-			id: "au2-agent-1",
+			id: ids("au2-agent-1"),
 			kind: "ai",
 			name: "AU2 Builder",
 			role: "builder",
 			status: "active",
-			teamId: "au2-members-1",
+			teamId: ids("au2-members-1"),
 			createdAt: NOW,
 		},
 		{
-			id: "au2-human-1",
+			id: ids("au2-human-1"),
 			kind: "human",
 			name: "Founder",
 			role: "founder",
@@ -141,7 +143,7 @@ async function seedLegacyRows(db: HyperIdleDb): Promise<void> {
 	]);
 	// AU26 G1: the run config lives in `agent_run_config` now.
 	await db.insert(agentRunConfig).values({
-		agentUserId: "au2-agent-1",
+		agentUserId: ids("au2-agent-1"),
 		systemPrompt: "Build AU2.",
 		harnessType: "builtin",
 		modelTierPreference: "workhorse",
@@ -149,8 +151,8 @@ async function seedLegacyRows(db: HyperIdleDb): Promise<void> {
 		modelProvider: "anthropic",
 	});
 	await db.insert(serviceConnections).values({
-		id: "au2-connection-1",
-		userId: "au2-human-1",
+		id: ids("au2-connection-1"),
+		userId: ids("au2-human-1"),
 		service: "github",
 		authSource: "mcp",
 		serverUrl: "https://mcp.example.test",
