@@ -84,46 +84,52 @@ describe("agent_run_admission_failed — task_run reaction fires for a REAL migr
 		db,
 		app,
 		eventBus,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
+		const teamId = ids("team-au21-trun-mig");
+		const teamMembersId = ids("team-au21-trun-mig-members");
+		const agentId = ids("agent-au21-trun-mig");
+		const betId = ids("bet-au21-trun-mig");
+		const taskId = ids("task-au21-trun-mig");
 		await db
 			.insert(teams)
-			.values({ id: "team-au21-trun-mig", name: "Team", phase: "build", createdAt: now });
+			.values({ id: teamId, name: "Team", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "team-au21-trun-mig-members",
-			teamId: "team-au21-trun-mig",
+			id: teamMembersId,
+			teamId,
 			capacity: 5,
 			activeBets: 0,
 			formedAt: now,
 		});
 		await db.insert(users).values({
-			id: "agent-au21-trun-mig",
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
 			status: "active",
-			teamId: "team-au21-trun-mig-members",
+			teamId: teamMembersId,
 			createdAt: now,
 		});
 		await db.insert(bets).values({
-			id: "bet-au21-trun-mig",
-			teamId: "team-au21-trun-mig",
+			id: betId,
+			teamId,
 			description: "task_run migration proof bet",
 			status: "active",
 			createdAt: now,
 		});
 		await db.insert(tasks).values({
-			id: "task-au21-trun-mig",
-			betId: "bet-au21-trun-mig",
-			teamId: "team-au21-trun-mig",
-			ownerAgentId: "agent-au21-trun-mig",
+			id: taskId,
+			betId,
+			teamId,
+			ownerAgentId: agentId,
 			title: "task_run migration proof task",
 			state: "proposed",
 			createdAt: now,
 			updatedAt: now,
 		});
 
-		const res = await app.request("/api/tasks/task-au21-trun-mig/transition", {
+		const res = await app.request(`/api/tasks/${taskId}/transition`, {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ state: "accepted" }),
@@ -133,7 +139,7 @@ describe("agent_run_admission_failed — task_run reaction fires for a REAL migr
 		const [attempt] = await db
 			.select()
 			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "task-au21-trun-mig"));
+			.where(eq(taskDispatchAttempts.taskId, taskId));
 		expect(attempt).toBeDefined();
 
 		const [intentBeforeDrain] = await db

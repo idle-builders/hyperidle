@@ -22,6 +22,7 @@
  */
 
 import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
@@ -41,26 +42,31 @@ async function seedAgent(db: HyperIdleDb, id: string): Promise<void> {
 describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)", () => {
 	test("enqueueWorkIntent persists an optional pre-baked request alongside the bare identity", async ({
 		db,
+		ids,
 	}) => {
+		const agentId = ids("wave0-baked-agent");
+		const messageId = ids("wave0-baked-message");
+		const threadId = ids("wave0-baked-thread");
+		const humanId = ids("wave0-baked-human");
 		const bakedRequest = {
-			defaultAgentId: "wave0-baked-agent",
+			defaultAgentId: agentId,
 			sourceKind: "assistant" as const,
-			sourceId: "wave0-baked-message",
-			streamId: "thread:wave0-baked-thread",
-			userId: "wave0-baked-human",
+			sourceId: messageId,
+			streamId: `thread:${threadId}`,
+			userId: humanId,
 			sourceCorrelation: {
-				threadId: "wave0-baked-thread",
-				messageId: "wave0-baked-message",
-				userId: "wave0-baked-human",
-				assistantAgentId: "wave0-baked-agent",
+				threadId,
+				messageId,
+				userId: humanId,
+				assistantAgentId: agentId,
 			},
 		};
 
 		await enqueueWorkIntent(db, {
 			kind: "assistant_turn",
 			sourceKind: "thread_message",
-			sourceId: "wave0-baked-message",
-			idempotencyKey: "wave0-baked-persist",
+			sourceId: messageId,
+			idempotencyKey: ids("wave0-baked-persist"),
 			// NOTE: `bakedRequest` does not exist on `WorkIntentInput` yet — this
 			// wave's items 7/8 must widen it and persist it on the row. TS will
 			// flag this as an excess property until then; vitest (esbuild, no
@@ -72,7 +78,7 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 		const [row] = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "wave0-baked-message"));
+			.where(eq(agentWorkIntents.sourceId, messageId));
 		expect(row).toBeDefined();
 		// The field must round-trip through the row so the drain can read it back
 		// without re-resolving. GREEN phase picked a `bakedRequestJson` (text,
@@ -86,27 +92,32 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 	test("drainIntents uses a baked payload directly, performing ZERO domain reads", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
+		const agentId = ids("wave0-baked-agent-2");
+		const messageId = ids("wave0-baked-message-2");
+		const threadId = ids("wave0-baked-thread-2");
+		const humanId = ids("wave0-baked-human-2");
 		const bakedRequest = {
-			defaultAgentId: "wave0-baked-agent-2",
+			defaultAgentId: agentId,
 			sourceKind: "assistant" as const,
-			sourceId: "wave0-baked-message-2",
-			streamId: "thread:wave0-baked-thread-2",
-			userId: "wave0-baked-human-2",
+			sourceId: messageId,
+			streamId: `thread:${threadId}`,
+			userId: humanId,
 			sourceCorrelation: {
-				threadId: "wave0-baked-thread-2",
-				messageId: "wave0-baked-message-2",
-				userId: "wave0-baked-human-2",
-				assistantAgentId: "wave0-baked-agent-2",
+				threadId,
+				messageId,
+				userId: humanId,
+				assistantAgentId: agentId,
 			},
 		};
 		// The baked payload is trusted AS GIVEN (the emit-time resolver already
 		// validated the agent) — the drain performs no `users` read of its own,
 		// but the rows still need to exist to satisfy `agent_session_requests`'s
 		// real FKs on `agent_id`/`user_id`.
-		await seedAgent(db, "wave0-baked-agent-2");
+		await seedAgent(db, agentId);
 		await db.insert(users).values({
-			id: "wave0-baked-human-2",
+			id: humanId,
 			kind: "human",
 			name: "Human",
 			role: "founder",
@@ -120,8 +131,8 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 			sourceKind: "thread_message",
 			// A source that does NOT exist — if the drain ever falls through to
 			// real resolution, it throws InvalidAgentWorkSourceError immediately.
-			sourceId: "wave0-baked-message-2",
-			idempotencyKey: "wave0-baked-zero-read",
+			sourceId: messageId,
+			idempotencyKey: ids("wave0-baked-zero-read"),
 			// See the note in the previous test — not yet a real field.
 			bakedRequest,
 		});
@@ -139,7 +150,7 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 		const [intent] = await db
 			.select()
 			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "wave0-baked-message-2"));
+			.where(eq(agentWorkIntents.sourceId, messageId));
 		expect(intent?.status).toBe("handed_off");
 		expect(intent?.requestId).toBeTruthy();
 
@@ -148,8 +159,8 @@ describe("agent_work_intents — baked-payload co-existence (Wave 0 scaffolding)
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, intent?.requestId ?? ""));
 		expect(request).toMatchObject({
-			agentId: "wave0-baked-agent-2",
-			streamId: "thread:wave0-baked-thread-2",
+			agentId,
+			streamId: `thread:${threadId}`,
 		});
 	});
 });

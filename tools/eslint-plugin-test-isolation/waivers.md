@@ -21,10 +21,7 @@ increment 1 by running both rules over the whole lane.
 
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts`
-- `layers/core-api/src/services/__tests__/agent-run-admission-failed-task-run-migration.integration.test.ts`
 - `layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts`
-- `layers/core-api/src/services/__tests__/agent-work-intent-baked-payload.integration.test.ts`
-- `layers/core-api/src/services/__tests__/agent-work-intent-supersede.integration.test.ts`
 - `layers/core-api/src/services/__tests__/assistant-turn-b3-coherence-trigger.integration.test.ts`
 - `layers/core-api/src/services/__tests__/connections-added-after-emit.integration.test.ts`
 - `layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts`

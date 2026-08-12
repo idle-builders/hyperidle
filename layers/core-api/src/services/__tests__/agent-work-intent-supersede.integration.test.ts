@@ -47,10 +47,13 @@ describe("agent_work_intents — Decision B‴ supersede (not-yet-started)", () 
 	test("a newer pending intent for the same (kind, sourceId) supersedes the older one", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const now = new Date().toISOString();
+		const agentId = ids("wave0-supersede-agent");
+		const itemId = ids("wave0-supersede-item");
 		await db.insert(users).values({
-			id: "wave0-supersede-agent",
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -60,21 +63,21 @@ describe("agent_work_intents — Decision B‴ supersede (not-yet-started)", () 
 		const [item] = await db
 			.insert(knowledgeItems)
 			.values({
-				id: "wave0-supersede-item",
+				id: itemId,
 				scopeKind: "factory",
 				title: "Wave 0 supersede item",
 				body: "Body",
 				format: "markdown",
 				status: "draft",
-				updatedBy: "wave0-supersede-agent",
+				updatedBy: agentId,
 				createdAt: now,
 				updatedAt: now,
 			})
 			.returning();
 		// The owner writes the projection row alongside the item.
 		await db.insert(knowledgeAppProjection).values({
-			id: "wave0-supersede-item-projection",
-			knowledgeItemId: "wave0-supersede-item",
+			id: ids("wave0-supersede-item-projection"),
+			knowledgeItemId: itemId,
 		});
 
 		// @lore this test's identity/session-request assertions were written
@@ -91,8 +94,8 @@ describe("agent_work_intents — Decision B‴ supersede (not-yet-started)", () 
 			kind: "knowledge_action",
 			sourceKind: "knowledge_action",
 			sourceId: item?.id ?? "",
-			requestedBy: "wave0-supersede-agent",
-			idempotencyKey: "wave0-supersede-v1",
+			requestedBy: agentId,
+			idempotencyKey: ids("wave0-supersede-v1"),
 			bakedRequest,
 		});
 		// Force the older row unambiguously earlier so ordering can never be a
@@ -107,8 +110,8 @@ describe("agent_work_intents — Decision B‴ supersede (not-yet-started)", () 
 			kind: "knowledge_action",
 			sourceKind: "knowledge_action",
 			sourceId: item?.id ?? "",
-			requestedBy: "wave0-supersede-agent",
-			idempotencyKey: "wave0-supersede-v2",
+			requestedBy: agentId,
+			idempotencyKey: ids("wave0-supersede-v2"),
 			bakedRequest,
 		});
 
