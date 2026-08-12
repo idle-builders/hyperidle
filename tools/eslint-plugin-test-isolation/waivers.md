@@ -46,6 +46,7 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/users.integration.test.ts`
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/bootstrap/__tests__/factory-state.integration.test.ts`
+- `layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts` — reads all `items` to find one containing a specific marker; legitimate search pattern
 - `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts` — reads all `items` to find one containing a specific marker; legitimate search pattern
 - `layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts` — reads all `agentSessionRequests` to verify all 3 have status "completed"; legitimate bulk verification
 - `layers/core-api/src/services/__tests__/connections-added-after-emit.integration.test.ts` — reads all `serviceConnections` to verify none exist before adding one; legitimate negative-proof pattern
