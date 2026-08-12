@@ -313,7 +313,12 @@ export function collectClassStringsFromJSXAttribute(
  * impossible in valid JS (a `const` cannot reference a not-yet-declared
  * `const`), but the guard costs nothing and removes the need to prove that.
  */
-export type IdentifierResolver = (identifierNode: unknown) => unknown | null;
+// AZ7 review-round-3 NB3-1: `unknown | null` is exactly `unknown` in TypeScript
+// (`null` is already a member of `unknown`), so the `| null` said nothing about
+// what callers get back. The real contract is narrower: either an AST node
+// (an object with at least a `type`, matched by the `walk` switch in the deep
+// collector) or `null` when resolution fails — never a primitive.
+export type IdentifierResolver = (identifierNode: unknown) => { type: string } | null;
 
 /**
  * Builds an `IdentifierResolver` bound to a specific rule's `context`, using
@@ -321,19 +326,15 @@ export type IdentifierResolver = (identifierNode: unknown) => unknown | null;
  * declaration a given `Identifier` node resolves to.
  */
 export function createConstIdentifierResolver(context: Rule.RuleContext): IdentifierResolver {
-	return (identifierNode: unknown): unknown | null => {
+	return (identifierNode: unknown): { type: string } | null => {
 		const node = identifierNode as { type?: string; name?: string };
 		if (!node || node.type !== "Identifier" || typeof node.name !== "string") return null;
-		let scope: Scope.Scope;
-		try {
-			// Single audited cast from `unknown` — `identifierNode` is always a
-			// real ESTree node handed in by a rule's own AST walk; the eslint
-			// `Scope`/`SourceCode` types just don't share a structural type with
-			// the plugin's own permissive `WalkNode` shape.
-			scope = context.sourceCode.getScope(identifierNode as ESTreeNode);
-		} catch {
-			return null;
-		}
+		// AZ7 review-round-3 NB3-2: no try/catch here — `.claude/rules/typescript.md`
+		// says let unexpected errors propagate. `getScope` is called the same way,
+		// uncaught, in `require-ds-attribute.ts:123` on this same plugin; if it
+		// throws on a node from this rule's own AST walk that is a real bug in the
+		// walk (an unlinked/synthetic node), not a condition to hide behind `null`.
+		const scope: Scope.Scope = context.sourceCode.getScope(identifierNode as ESTreeNode);
 		let cur: Scope.Scope | null = scope;
 		let variable: Scope.Variable | undefined;
 		while (cur) {
@@ -349,7 +350,7 @@ export function createConstIdentifierResolver(context: Rule.RuleContext): Identi
 		if (declaration?.kind !== "const") return null;
 		const writes = variable.references.filter((r) => r.isWrite());
 		if (writes.length !== 1) return null;
-		const declarator = def.node as { init?: unknown } | null;
+		const declarator = def.node as { init?: { type: string } } | null;
 		return declarator?.init ?? null;
 	};
 }
