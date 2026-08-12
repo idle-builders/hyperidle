@@ -46,14 +46,27 @@ export const readJson = <T>(rel: string): T =>
 export const readRepoFile = (rel: string): string =>
 	readFileSync(path.join(REPO_ROOT, rel), "utf8");
 
-/**
- * Floor on the census itself. If `git ls-files` ever returns a near-empty set — wrong cwd, a broken
- * git invocation, a shallow checkout — every rule would pass vacuously.
+/*
+ * There is deliberately no floor on the total tracked-file count.
  *
- * Held in the middle of the `floors-tight` band rather than near zero: a floor with 70% slack, which
- * is where this started, cannot fail until two thirds of the repository has disappeared.
+ * @lore AZ7: `census:tracked-files` used to declare one, as a banded `magnitude` floor. It was
+ * removed because it measured the wrong thing twice over.
+ *
+ * Architectural governance asserts ACCESS PATTERNS — who may import what, which service owns a
+ * table, which world a file belongs to. A failure has to name an architectural fact. This one could
+ * only ever say "748 of slack where 745 is allowed", which names nothing about the architecture and
+ * tells no one what to fix except "write a bigger number here".
+ *
+ * It was also redundant. Its stated job was catching a census that came back near-empty — a wrong
+ * cwd, a broken git invocation — so that no rule passes vacuously. But every detector floor already
+ * catches that, and harder: on an empty census `detector:import` reports 0 live against a floor of
+ * 3637 and fails immediately. The repo-wide count added no detection on top, while `floors-tight`
+ * required it to be re-measured every time the repository grew a fifth. That is a maintained number
+ * whose only effect was turning ordinary growth red.
+ *
+ * What survives is the boolean the floor was standing in for: `governance-lint` refuses to report a
+ * verdict over an EMPTY census. Empty is the real failure; any other count is architecture's job.
  */
-export const MIN_TRACKED_FILES = 3351;
 
 /**
  * Minimum crossings each detector must find, MEASURED against the live tree and set in the MIDDLE of
@@ -120,12 +133,6 @@ export function declaredFloors(
 			floor: pattern.minFiles,
 			floorKind: pattern.floorKind,
 		})),
-		{
-			id: "census:tracked-files",
-			live: census.files.length,
-			floor: MIN_TRACKED_FILES,
-			floorKind: "magnitude" as const,
-		},
 	];
 }
 
@@ -186,10 +193,12 @@ export function presentToolingFiles(): string[] {
  * commit — and CI, running on the committed tree, then fails. It is a false green in the loop where
  * it matters most, because the whole point of the local run is to predict CI.
  *
- * It is not hypothetical: it bit this work package. `MIN_TRACKED_FILES` was recomputed against a
- * census missing four not-yet-staged rule files, the run was green, and the commit that followed was
- * red — the floor's slack had gone out of band the moment those files became tracked. The reviewer
- * had already named this exact divergence; the fix was not applied, and then it happened.
+ * It is not hypothetical: it bit AU28. A repo-wide file-count floor was recomputed against a census
+ * missing four not-yet-staged rule files, the run was green, and the commit that followed was red —
+ * the floor's slack had gone out of band the moment those files became tracked. The reviewer had
+ * already named this exact divergence; the fix was not applied, and then it happened. That floor is
+ * gone now (see the note above `declaredFloors`), but the staged/unstaged divergence it exposed is
+ * real for every rule, which is why this reads the working tree and not just the index.
  *
  * The cost is that a scratch file you never intend to commit is now linted. That is the correct
  * trade: if it is in the working tree and not gitignored, committing it is one `git add -A` away,
