@@ -75,7 +75,7 @@
   --color-border-strong: var(--border-strong);
 }
 
-@source "../../design-system/src/**/*.{ts,tsx}";
+@source "../../../framework/design-system/src/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
 
 /*
