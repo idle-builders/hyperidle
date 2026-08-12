@@ -18,8 +18,10 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/AU9-assistant-handoff-realbinary.integration.test.ts`
 - `layers/core-api/src/__tests__/bets.integration.test.ts` — createTestDb test at line 515 uses its own isolated DB; literal id is safe within that isolated scope
 - `layers/core-api/src/__tests__/configuration-projection-boot.integration.test.ts` — `modelId: "claude-sonnet-4-6"` is a configuration value (model identifier), not an entity id; scoping would break the test
-
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
+- `layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts` — `toolId: "commit_file"` is a tool identifier (configuration value), not an entity id
+- `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts` — `toolId: "commit_file"` and `approvedToolId: "commit_file"` are tool identifiers (configuration values), not entity ids
+- `layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts` — `scopeId: "building"` is a community name (configuration value), not an entity id
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-conversation.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-knowledge.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-org-routine-handoff.integration.test.ts`
@@ -44,6 +46,9 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/users.integration.test.ts`
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/bootstrap/__tests__/factory-state.integration.test.ts`
+- `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts` — reads all `items` to find one containing a specific marker; legitimate search pattern
+- `layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts` — reads all `agentSessionRequests` to verify all 3 have status "completed"; legitimate bulk verification
+- `layers/core-api/src/services/__tests__/connections-added-after-emit.integration.test.ts` — reads all `serviceConnections` to verify none exist before adding one; legitimate negative-proof pattern
 - `layers/core-api/src/services/__tests__/direct-thread.recipientKind.integration.test.ts`
 - `layers/core-api/src/services/__tests__/filesystems-added-after-emit.integration.test.ts`
 - `layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts`
