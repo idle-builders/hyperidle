@@ -118,7 +118,7 @@ export function floorVerdict(record: FloorRecord): FloorVerdict {
 }
 
 export interface FloorsTightInput {
-	/** Every floor the build declares — detector, classification pattern, and the census floor. */
+	/** Every floor the build declares — detector and classification pattern. */
 	readonly floors: readonly FloorRecord[];
 }
 
@@ -128,9 +128,11 @@ export function floorsTight(input: FloorsTightInput): Rule {
 		description:
 			"every declared magnitude floor still sits close enough to its live count to measure something",
 		scope: () => input.floors.map((f) => f.id),
-		// The population is the floor set itself: 9 detector + 10 classification pattern + the census
-		// floor. Deleting a floor rather than fixing it trips DeadRuleError.
-		minScope: 20,
+		// The population is the floor set itself: 9 detector + 10 classification pattern floors.
+		// (The census floor was deleted by this branch's "Delete the tracked-files census floor"
+		// commit — 19 floors remain, all detector or classification-pattern.) Deleting a floor
+		// rather than fixing it trips DeadRuleError, which is what forced this re-count.
+		minScope: 19,
 		evaluate: (_census: Census): readonly Finding[] =>
 			input.floors
 				.map((floor) => floorVerdict(floor))
