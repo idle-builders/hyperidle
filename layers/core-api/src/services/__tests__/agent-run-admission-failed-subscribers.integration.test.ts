@@ -62,6 +62,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { attentionReviewReasoningMarker } from "@hyperidle/review";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { and, eq } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
@@ -71,11 +72,12 @@ const NOW = new Date().toISOString();
 
 async function seedTeam(
 	db: HyperIdleDb,
-	id: string,
+	ids: ScopedIds,
+	prefix: string,
 ): Promise<{ teamId: string; membersId: string }> {
-	const teamId = `${id}-team`;
-	const membersId = `${id}-members`;
-	await db.insert(teams).values({ id: teamId, name: id, phase: "build", createdAt: NOW });
+	const teamId = ids(`${prefix}-team`);
+	const membersId = ids(`${prefix}-members`);
+	await db.insert(teams).values({ id: teamId, name: prefix, phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
 		.values({ id: membersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
@@ -102,14 +104,17 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	test("routine_run: finalizes the run to outcome=error (replacing failOrRelease's deleted direct write)", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-routine");
-		await seedAgent(db, "w0-sub-routine-owner", { teamMembersId: membersId });
+		const { teamId, membersId } = await seedTeam(db, ids, "w0-sub-routine");
+		const ownerAgentId = ids("w0-sub-routine-owner");
+		await seedAgent(db, ownerAgentId, { teamMembersId: membersId });
+		const routineId = ids("w0-sub-routine");
 		await db.insert(routines).values({
-			id: "w0-sub-routine",
+			id: routineId,
 			name: "Wave 0 subscriber routine",
 			teamId,
-			ownerAgentId: "w0-sub-routine-owner",
+			ownerAgentId,
 			triggerType: "manual",
 			state: "active",
 			active: false, // deactivated — forces InvalidAgentWorkSourceError at drain
@@ -117,8 +122,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const [run] = await db
 			.insert(routineRuns)
 			.values({
-				id: "w0-sub-routine-run",
-				routineId: "w0-sub-routine",
+				id: ids("w0-sub-routine-run"),
+				routineId,
 				startedAt: NOW,
 				outcome: "running",
 			})
@@ -138,7 +143,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			kind: "routine_run",
 			sourceKind: "routine_run",
 			sourceId: run?.id ?? "",
-			idempotencyKey: "w0-sub-routine-run",
+			idempotencyKey: ids("w0-sub-routine-run"),
 		});
 		await drainIntents(deps);
 
@@ -152,21 +157,25 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 	});
 
-	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-task");
+	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus, ids }) => {
+		const { teamId, membersId } = await seedTeam(db, ids, "w0-sub-task");
+		const agentId = ids("w0-sub-task-agent");
+		const betId = ids("w0-sub-task-bet");
+		const taskId = ids("w0-sub-task");
+		const attemptId = ids("w0-sub-task-attempt");
 		// The dispatch attempt's agent is not runnable (paused) — forces
 		// requireRunnableActor's InvalidAgentWorkSourceError at drain.
-		await seedAgent(db, "w0-sub-task-agent", { teamMembersId: membersId, status: "paused" });
+		await seedAgent(db, agentId, { teamMembersId: membersId, status: "paused" });
 		await db.insert(bets).values({
-			id: "w0-sub-task-bet",
+			id: betId,
 			teamId,
 			description: "Wave 0 subscriber bet",
 			status: "active",
 			createdAt: NOW,
 		});
 		await db.insert(tasks).values({
-			id: "w0-sub-task",
-			betId: "w0-sub-task-bet",
+			id: taskId,
+			betId,
 			teamId,
 			title: "Wave 0 subscriber task",
 			state: "accepted",
@@ -176,10 +185,10 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const [attempt] = await db
 			.insert(taskDispatchAttempts)
 			.values({
-				id: "w0-sub-task-attempt",
-				taskId: "w0-sub-task",
+				id: attemptId,
+				taskId,
 				occasion: "accepted",
-				agentId: "w0-sub-task-agent",
+				agentId,
 				ordinal: 1,
 				status: "requested",
 				createdAt: NOW,
@@ -208,20 +217,25 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	test("session_start: marks the explicitSessionStarts row failed, no automatic retry", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-start");
+		const { teamId, membersId } = await seedTeam(db, ids, "w0-sub-start");
+		const agentId = ids("w0-sub-start-agent");
+		const betId = ids("w0-sub-start-bet");
+		const taskId = ids("w0-sub-start-task");
+		const startId = ids("w0-sub-start");
 		// The requested agent is not runnable — forces InvalidAgentWorkSourceError.
-		await seedAgent(db, "w0-sub-start-agent", { teamMembersId: membersId, status: "retired" });
+		await seedAgent(db, agentId, { teamMembersId: membersId, status: "retired" });
 		await db.insert(bets).values({
-			id: "w0-sub-start-bet",
+			id: betId,
 			teamId,
 			description: "Wave 0 subscriber bet",
 			status: "active",
 			createdAt: NOW,
 		});
 		await db.insert(tasks).values({
-			id: "w0-sub-start-task",
-			betId: "w0-sub-start-bet",
+			id: taskId,
+			betId,
 			teamId,
 			title: "Wave 0 subscriber task",
 			state: "accepted",
@@ -231,12 +245,12 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const [start] = await db
 			.insert(explicitSessionStarts)
 			.values({
-				id: "w0-sub-start",
-				taskId: "w0-sub-start-task",
-				requestedAgentId: "w0-sub-start-agent",
+				id: startId,
+				taskId,
+				requestedAgentId: agentId,
 				requestedModelTier: "fast",
-				requestedBy: "w0-sub-start-agent",
-				idempotencyKey: "w0-sub-start-key",
+				requestedBy: agentId,
+				idempotencyKey: ids("w0-sub-start-key"),
 				status: "requested",
 				createdAt: NOW,
 				updatedAt: NOW,
@@ -248,7 +262,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			kind: "session_start",
 			sourceKind: "explicit_session_start",
 			sourceId: start?.id ?? "",
-			idempotencyKey: "w0-sub-start-intent",
+			idempotencyKey: ids("w0-sub-start-intent"),
 		});
 		await drainIntents(deps);
 
@@ -265,27 +279,30 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	test("knowledge_action: creates a review-flagged item, no run-record mutation", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		await seedAgent(db, "w0-sub-knowledge-agent");
+		const agentId = ids("w0-sub-knowledge-agent");
+		const itemId = ids("w0-sub-knowledge-item");
+		await seedAgent(db, agentId);
 		const [item] = await db
 			.insert(knowledgeItems)
 			.values({
-				id: "w0-sub-knowledge-item",
+				id: itemId,
 				scopeKind: "factory",
 				title: "Wave 0 subscriber item",
 				body: "Body",
 				format: "markdown",
 				// archived — forces "Knowledge item is unavailable".
 				status: "archived",
-				updatedBy: "w0-sub-knowledge-agent",
+				updatedBy: agentId,
 				createdAt: NOW,
 				updatedAt: NOW,
 			})
 			.returning();
 		// The owner writes the projection row alongside the item.
 		await db.insert(knowledgeAppProjection).values({
-			id: "w0-sub-knowledge-item-projection",
-			knowledgeItemId: "w0-sub-knowledge-item",
+			id: ids("w0-sub-knowledge-item-projection"),
+			knowledgeItemId: itemId,
 		});
 
 		const deps = { ...queueDeps(db), eventBus };
@@ -293,7 +310,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			kind: "knowledge_action",
 			sourceKind: "knowledge_action",
 			sourceId: `knowledge:${item?.id}`,
-			idempotencyKey: "w0-sub-knowledge-action",
+			idempotencyKey: ids("w0-sub-knowledge-action"),
 		});
 		await drainIntents(deps);
 
@@ -315,19 +332,27 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	test("reengagement: reuses the existing retry-count liveness-net pattern", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-reengage");
-		await seedAgent(db, "w0-sub-reengage-agent", { teamMembersId: membersId });
+		const { teamId, membersId } = await seedTeam(db, ids, "w0-sub-reengage");
+		const agentId = ids("w0-sub-reengage-agent");
+		const betId = ids("w0-sub-reengage-bet");
+		const taskId = ids("w0-sub-reengage-task");
+		const threadId = ids("w0-sub-reengage-thread");
+		const messageId = ids("w0-sub-reengage-message");
+		const artifactId = ids("w0-sub-reengage-artifact");
+		const callId = ids("w0-sub-reengage-call");
+		await seedAgent(db, agentId, { teamMembersId: membersId });
 		await db.insert(bets).values({
-			id: "w0-sub-reengage-bet",
+			id: betId,
 			teamId,
 			description: "Wave 0 subscriber reengagement bet",
 			status: "active",
 			createdAt: NOW,
 		});
 		await db.insert(tasks).values({
-			id: "w0-sub-reengage-task",
-			betId: "w0-sub-reengage-bet",
+			id: taskId,
+			betId,
 			teamId,
 			title: "Wave 0 subscriber task",
 			state: "in_progress",
@@ -335,48 +360,48 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			updatedAt: NOW,
 		});
 		await db.insert(threads).values({
-			id: "w0-sub-reengage-thread",
+			id: threadId,
 			hostKind: "task",
-			hostId: "w0-sub-reengage-task",
-			initiatorId: "w0-sub-reengage-agent",
-			participants: JSON.stringify(["w0-sub-reengage-agent"]),
+			hostId: taskId,
+			initiatorId: agentId,
+			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,
 			createdAt: NOW,
 		});
 		await db.insert(messages).values({
-			id: "w0-sub-reengage-message",
-			senderId: "w0-sub-reengage-agent",
-			threadId: "w0-sub-reengage-thread",
+			id: messageId,
+			senderId: agentId,
+			threadId,
 			type: "review",
 			payload: JSON.stringify({ title: "Approve", reasoning: ["needed"] }),
-			clientKey: "w0-sub-reengage-message",
+			clientKey: messageId,
 			createdAt: NOW,
 		});
 		await db.insert(artifacts).values({
-			id: "w0-sub-reengage-artifact",
-			producingTaskId: "w0-sub-reengage-task",
+			id: artifactId,
+			producingTaskId: taskId,
 			kind: "action_operation",
 			createdAt: NOW,
 		});
 		await db.insert(proposedCalls).values({
-			id: "w0-sub-reengage-call",
-			reviewMessageId: "w0-sub-reengage-message",
-			subjectThreadId: "w0-sub-reengage-thread",
-			artifactId: "w0-sub-reengage-artifact",
-			originSessionId: "w0-sub-reengage-origin",
+			id: callId,
+			reviewMessageId: messageId,
+			subjectThreadId: threadId,
+			artifactId,
+			originSessionId: ids("w0-sub-reengage-origin"),
 			toolId: "commit_file",
 			args: JSON.stringify({ path: "result.txt" }),
-			identityHash: "w0-sub-reengage-hash",
+			identityHash: ids("w0-sub-reengage-hash"),
 			reversibility: "irreversible",
 			// held — forces "Proposed call grant is not eligible" (call.status !== "granted").
 			status: "held",
-			stagedByAgentId: "w0-sub-reengage-agent",
+			stagedByAgentId: agentId,
 			createdAt: NOW,
 		});
 		await db.insert(tailoredGrants).values({
-			proposedCallId: "w0-sub-reengage-call",
-			taskScope: "w0-sub-reengage-task",
-			agentScope: "w0-sub-reengage-agent",
+			proposedCallId: callId,
+			taskScope: taskId,
+			agentScope: agentId,
 			approvedToolId: "commit_file",
 			approvedArgs: JSON.stringify({ path: "result.txt" }),
 			retryCount: 0,
@@ -387,8 +412,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		await enqueueWorkIntent(db, {
 			kind: "reengagement",
 			sourceKind: "proposed_call",
-			sourceId: "w0-sub-reengage-call",
-			idempotencyKey: "w0-sub-reengage-intent",
+			sourceId: callId,
+			idempotencyKey: ids("w0-sub-reengage-intent"),
 		});
 		await drainIntents(deps);
 
@@ -396,7 +421,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			const [grant] = await db
 				.select()
 				.from(tailoredGrants)
-				.where(eq(tailoredGrants.proposedCallId, "w0-sub-reengage-call"));
+				.where(eq(tailoredGrants.proposedCallId, callId));
 			expect(grant?.retryCount).toBe(1);
 			const retryIntents = await db
 				.select()
@@ -404,7 +429,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 				.where(
 					and(
 						eq(agentWorkIntents.kind, "reengagement"),
-						eq(agentWorkIntents.sourceId, "w0-sub-reengage-call"),
+						eq(agentWorkIntents.sourceId, callId),
 					),
 				);
 			// The original + a fresh re-provision intent recorded by the liveness net.
@@ -415,11 +440,16 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	test("assistant_turn: informational only — no mutation of the source message", async ({
 		db,
 		eventBus,
+		ids,
 	}) => {
 		const now = NOW;
+		const humanId = ids("w0-sub-assistant-human");
+		const assistantAgentId = `ast-${humanId}`;
+		const threadId = ids("w0-sub-assistant-thread");
+		const messageId = ids("w0-sub-assistant-message");
 		await db.insert(users).values([
 			{
-				id: "w0-sub-assistant-human",
+				id: humanId,
 				kind: "human",
 				name: "Human",
 				role: "founder",
@@ -427,7 +457,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 				createdAt: now,
 			},
 			{
-				id: "ast-w0-sub-assistant-human",
+				id: assistantAgentId,
 				kind: "ai",
 				name: "Assistant",
 				role: "assistant",
@@ -436,21 +466,21 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			},
 		]);
 		await db.insert(threads).values({
-			id: "w0-sub-assistant-thread",
+			id: threadId,
 			hostKind: "user",
-			hostId: "w0-sub-assistant-human",
-			initiatorId: "w0-sub-assistant-human",
-			participants: JSON.stringify(["w0-sub-assistant-human", "ast-w0-sub-assistant-human"]),
+			hostId: humanId,
+			initiatorId: humanId,
+			participants: JSON.stringify([humanId, assistantAgentId]),
 			lastActiveAt: now,
 			createdAt: now,
 		});
 		await db.insert(messages).values({
-			id: "w0-sub-assistant-message",
-			senderId: "w0-sub-assistant-human",
-			threadId: "w0-sub-assistant-thread",
+			id: messageId,
+			senderId: humanId,
+			threadId,
 			type: "plain",
 			payload: JSON.stringify({ text: "hello" }),
-			clientKey: "w0-sub-assistant-message",
+			clientKey: messageId,
 			// deletedAt set — forces "Assistant source message is unavailable".
 			deletedAt: now,
 			createdAt: now,
@@ -464,8 +494,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		await enqueueWorkIntent(db, {
 			kind: "assistant_turn",
 			sourceKind: "thread_message",
-			sourceId: "w0-sub-assistant-message",
-			idempotencyKey: "w0-sub-assistant-intent",
+			sourceId: messageId,
+			idempotencyKey: ids("w0-sub-assistant-intent"),
 		});
 		await expect(drainIntents(deps)).resolves.not.toThrow();
 
@@ -478,7 +508,7 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const [message] = await db
 			.select()
 			.from(messages)
-			.where(eq(messages.id, "w0-sub-assistant-message"));
+			.where(eq(messages.id, messageId));
 		expect(message?.deletedAt).toBe(now);
 		expect(message?.redactedAt).toBeNull();
 	});

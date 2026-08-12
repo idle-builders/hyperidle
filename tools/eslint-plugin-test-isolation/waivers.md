@@ -20,7 +20,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/configuration-projection-boot.integration.test.ts` — `modelId: "claude-sonnet-4-6"` is a configuration value (model identifier), not an entity id; scoping would break the test
 
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
-- `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-conversation.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-knowledge.integration.test.ts`
 - `layers/core-api/src/services/__tests__/core-api-port-increment2-org-routine-handoff.integration.test.ts`
@@ -45,7 +44,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/users.integration.test.ts`
 - `layers/core-api/src/__tests__/write-memory.integration.test.ts`
 - `layers/core-api/src/bootstrap/__tests__/factory-state.integration.test.ts`
-- `layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts`
 - `layers/core-api/src/services/__tests__/direct-thread.recipientKind.integration.test.ts`
 - `layers/core-api/src/services/__tests__/filesystems-added-after-emit.integration.test.ts`
 - `layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts`
