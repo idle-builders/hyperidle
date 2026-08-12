@@ -52,8 +52,20 @@ export interface InputProps
 // @lore POLISH-060 A3: AQ-015 requires touch targets ≥ 44px at ≤ 1024px.
 // min-h-[44px] is the base (mobile-first); lg:min-h-[36px] relaxes on desktop
 // (1024px+) so settings forms read at the right density.
+//
+// @lore AZ7 review-round-2 NB-2: this height pair used to live INSIDE
+// INPUT_BASE, shared by both input and textarea mode. CSS cascade order is
+// determined by each utility's position in the generated stylesheet, not by
+// where its class token sits in the `className` string — so textarea mode's
+// own `min-h-[80px]` (appended after `${INPUT_BASE}` in the template
+// literal) never actually won at ≥1024px: `lg:min-h-[36px]` still applied,
+// measured on RecipientPicker's message box. Splitting the height utilities
+// out of the shared base means the textarea never carries `lg:min-h-[36px]`
+// at all, so there is no competing rule for `min-h-[80px]` to lose to.
 const INPUT_BASE =
-	"w-full text-[15px] px-[12px] py-[10px] min-h-[44px] lg:min-h-[36px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
+
+const INPUT_SINGLE_LINE_HEIGHT = "min-h-[44px] lg:min-h-[36px]";
 
 const INPUT_ERROR =
 	"border-[var(--status-error)] focus:border-[var(--status-error)] focus:shadow-[0_0_0_3px_var(--status-error-dim)]";
@@ -86,7 +98,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 				<input
 					ref={ref as React.Ref<HTMLInputElement>}
 					id={inputId}
-					className={`${INPUT_BASE} ${borderClass}`}
+					className={`${INPUT_BASE} ${INPUT_SINGLE_LINE_HEIGHT} ${borderClass}`}
 					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
 					aria-invalid={error ? "true" : undefined}
 					{...rest}
