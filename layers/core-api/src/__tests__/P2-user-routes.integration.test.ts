@@ -33,35 +33,35 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 	// AC4: /api/users replaces /api/agents
 	// -------------------------------------------------------------------------
 	describe("AC4: /api/users route exists (was /api/agents)", () => {
-		test("GET /api/users returns 200 and list of users", async ({ app, db }) => {
+		test("GET /api/users returns 200 and list of users", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db
 				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+				.values({ id: ids("prod-p2"), name: "P2 Product", phase: "build", createdAt: NOW });
 			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
+				id: ids("team-p2"),
+				teamId: ids("prod-p2"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
 			});
 			await db.insert(users).values([
 				{
-					id: "user-p2-1",
+					id: ids("user-p2-1"),
 					kind: "ai",
 					name: "Builder Bot",
 					role: "builder",
 					status: "active",
-					teamId: "team-p2",
+					teamId: ids("team-p2"),
 					createdAt: NOW,
 				},
 				{
-					id: "user-p2-2",
+					id: ids("user-p2-2"),
 					kind: "ai",
 					name: "Growth Bot",
 					role: "growth",
 					status: "active",
-					teamId: "team-p2",
+					teamId: ids("team-p2"),
 					createdAt: NOW,
 				},
 			]);
@@ -84,25 +84,25 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		// design rationale (separate routes, separate authorization model).
 
 		// @lore AU26 J1: the `activeSessions` count is gone from this response.
-		test("GET /api/users returns users with their identity fields", async ({ app, db }) => {
+		test("GET /api/users returns users with their identity fields", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db
 				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+				.values({ id: ids("prod-p2"), name: "P2 Product", phase: "build", createdAt: NOW });
 			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
+				id: ids("team-p2"),
+				teamId: ids("prod-p2"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
 			});
 			await db.insert(users).values({
-				id: "user-p2-1",
+				id: ids("user-p2-1"),
 				kind: "ai",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-p2",
+				teamId: ids("team-p2"),
 				createdAt: NOW,
 			});
 
@@ -114,35 +114,35 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("GET /api/users returns kind field on each user", async ({ app, db }) => {
+		test("GET /api/users returns kind field on each user", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db
 				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+				.values({ id: ids("prod-p2"), name: "P2 Product", phase: "build", createdAt: NOW });
 			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
+				id: ids("team-p2"),
+				teamId: ids("prod-p2"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
 			});
 			await db.insert(users).values([
 				{
-					id: "user-p2-1",
+					id: ids("user-p2-1"),
 					kind: "ai",
 					name: "Builder Bot",
 					role: "builder",
 					status: "active",
-					teamId: "team-p2",
+					teamId: ids("team-p2"),
 					createdAt: NOW,
 				},
 				{
-					id: "user-p2-2",
+					id: ids("user-p2-2"),
 					kind: "ai",
 					name: "Growth Bot",
 					role: "growth",
 					status: "active",
-					teamId: "team-p2",
+					teamId: ids("team-p2"),
 					createdAt: NOW,
 				},
 			]);
@@ -162,38 +162,38 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 	// AC10: user detail endpoint
 	// -------------------------------------------------------------------------
 	describe("AC10: GET /api/users/:id — user detail", () => {
-		test("returns 200 with user details", async ({ app, db }) => {
+		test("returns 200 with user details", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db
 				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+				.values({ id: ids("prod-p2"), name: "P2 Product", phase: "build", createdAt: NOW });
 			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
+				id: ids("team-p2"),
+				teamId: ids("prod-p2"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
 			});
 			await db.insert(users).values({
-				id: "user-p2-1",
+				id: ids("user-p2-1"),
 				kind: "ai",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-p2",
+				teamId: ids("team-p2"),
 				createdAt: NOW,
 			});
-			const res = await app.request("/api/users/user-p2-1", { headers: authHeaders() });
+			const res = await app.request(`/api/users/${ids("user-p2-1")}`, { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.id).toBe("user-p2-1");
+			expect(body.id).toBe(ids("user-p2-1"));
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 404 for unknown user id", async ({ app }) => {
+		test("returns 404 for unknown user id", async ({ app, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/users/nonexistent-id", {
+			const res = await app.request(`/api/users/${ids("nonexistent")}`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(404);
@@ -205,32 +205,32 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 	// AC10: user inbox endpoints
 	// -------------------------------------------------------------------------
 	describe("AC10: GET /api/users/:id/inbox — user inbox", () => {
-		test("returns 200 with empty inbox array by default", async ({ app, db }) => {
+		test("returns 200 with empty inbox array by default", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db
 				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+				.values({ id: ids("prod-p2"), name: "P2 Product", phase: "build", createdAt: NOW });
 			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
+				id: ids("team-p2"),
+				teamId: ids("prod-p2"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
 			});
 			await db.insert(users).values({
-				id: "user-p2-1",
+				id: ids("user-p2-1"),
 				// AF11: kind='human' so auth middleware resolves this user as the principal.
 				// GET /api/users/:id/inbox is principal-self only (AC5 AF11); principal must
-				// match the inbox owner. With kind='human', resolved principal = "user-p2-1".
+				// match the inbox owner. With kind='human', resolved principal = ids("user-p2-1").
 				kind: "human",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-p2",
+				teamId: ids("team-p2"),
 				createdAt: NOW,
 			});
 
-			const res = await app.request("/api/users/user-p2-1/inbox", {
+			const res = await app.request(`/api/users/${ids("user-p2-1")}/inbox`, {
 				headers: authHeaders(),
 			});
 			expect(res.status).toBe(200);
@@ -248,25 +248,26 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		test("GET /api/users returns users array without factorySettings dependency", async ({
 			app,
 			db,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db
 				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
+				.values({ id: ids("prod-p2"), name: "P2 Product", phase: "build", createdAt: NOW });
 			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
+				id: ids("team-p2"),
+				teamId: ids("prod-p2"),
 				capacity: 5,
 				activeBets: 0,
 				formedAt: NOW,
 			});
 			await db.insert(users).values({
-				id: "user-p2-1",
+				id: ids("user-p2-1"),
 				kind: "ai",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-p2",
+				teamId: ids("team-p2"),
 				createdAt: NOW,
 			});
 

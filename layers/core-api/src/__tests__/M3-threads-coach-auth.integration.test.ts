@@ -13,6 +13,9 @@ import { test } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-m3-threads";
 
+/** Production-fixed system agent id (coach.ts COC_AGENT_ID) — never scope. */
+const COC_AGENT_ID = "seed-agent-cos";
+
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
@@ -49,7 +52,7 @@ describe("M3 — Assistant route readSenderId uses auth context, not DEFAULT_FOU
 
 		// Seed the system agent (required for the assistant route — /api/threads/coach)
 		await db.insert(users).values({
-			id: "seed-agent-cos" /* P10: production-fixed id */,
+			id: COC_AGENT_ID /* P10: production-fixed id */,
 			name: "System Agent",
 			role: "assistant",
 			status: "active",

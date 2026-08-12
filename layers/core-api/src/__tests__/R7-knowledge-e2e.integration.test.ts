@@ -250,8 +250,11 @@ describe("R7 AC-1: write_memory creates items with status=draft", () => {
 		const data = result.data as { knowledgeItemId: string };
 
 		// Direct DB query to simulate what the route returns
-		const allItems = await db.select().from(knowledgeItems);
-		const ourItem = allItems.find((i) => i.id === data.knowledgeItemId);
+		const [ourItem] = await db
+			.select()
+			.from(knowledgeItems)
+			.where(eq(knowledgeItems.id, data.knowledgeItemId))
+			.limit(1);
 
 		expect(ourItem).toBeDefined();
 		// The item must have draft status so the KnowledgeList triage tab shows it
