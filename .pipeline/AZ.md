@@ -20,7 +20,7 @@ The dividing line is **decision vs. doing** — not severity, and not size. Seve
 |---|---|---|
 | Test | Closes a contract other work must obey, or needs the founder to choose between real alternatives | Correct end state already obvious; verifiable by looking; nothing downstream depends on the choice |
 | Count | 7 | ~110 |
-| Where | `work/<id>/plan.md`, registered below | [`AZ-bugs.md`](AZ-bugs.md) |
+| Where | `work/<id>/plan.md`, registered below | [`AZ-bugs.md`](work/AZ-bugs/AZ-bugs.md) |
 
 **The bug list is the main artifact of this track.** One agent picks the next unchecked item, fixes it, proves it in the running app, ticks it, moves on — no refine, no design, no architecture, no review gate. Batch several per session where they share a file.
 
@@ -54,7 +54,7 @@ The dividing line is **decision vs. doing** — not severity, and not size. Seve
 
 ## Retired registrations
 
-Registered 2026-08-11 and demoted the same day when the decision-vs-doing line was drawn. **None of the work is dropped** — every item moved to [`AZ-bugs.md`](AZ-bugs.md), where it is worked without ceremony. Plans remain in git history.
+Registered 2026-08-11 and demoted the same day when the decision-vs-doing line was drawn. **None of the work is dropped** — every item moved to [`AZ-bugs.md`](work/AZ-bugs/AZ-bugs.md), where it is worked without ceremony. Plans remain in git history.
 
 | Was | Title | Now |
 |---|---|---|
