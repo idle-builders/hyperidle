@@ -12,6 +12,7 @@ Shape: one `## <rule-name>` heading per rule; entries are
 increment 1 by running both rules over the whole lane.
 
 ## no-literal-entity-ids
+- `layers/core-api/src/__tests__/AF15-model-gateway-partial.integration.test.ts` — P10: serverConfig.id="default" is a production singleton (only one config row exists); cannot scope without changing production
 - `layers/core-api/src/__tests__/AF17-propagation-bootstrap.integration.test.ts` — P10: `system:propagation` is a production-fixed bootstrap user id (applyFactoryCoreState seeds it); cannot scope without changing production
 - `layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts`
 - `layers/core-api/src/__tests__/AL7-reviews-loader-redo.integration.test.ts`
