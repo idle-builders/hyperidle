@@ -86,7 +86,11 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 				<textarea
 					data-testid="composer-textarea"
 					rows={1}
-					className="flex-1 min-h-[44px] resize-none bg-[var(--surface-page)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+					// @lore AZ7 review-round-2 NB-3: was `bg-[var(--surface-page)]` — the
+					// page-canvas token used as a fill, the same Set 3 second-job
+					// defect B3 already fixed on SearchField. `--surface-elevated` is
+					// the closed Input set's fill (DESIGN.md: "text inputs").
+					className="flex-1 min-h-[44px] resize-none bg-[var(--surface-elevated)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] text-[15px] focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
 					placeholder="Reply to thread…"
 					value={text}
 					onChange={(e): void => setText(e.target.value)}
