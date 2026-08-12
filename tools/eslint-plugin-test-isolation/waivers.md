@@ -22,9 +22,6 @@ increment 1 by running both rules over the whole lane.
 - `layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts`
 - `layers/core-api/src/__tests__/session-review-creator.integration.test.ts`
 - `layers/core-api/src/__tests__/sessions.integration.test.ts`
-- `layers/core-api/src/__tests__/submit-review.integration.test.ts`
-- `layers/core-api/src/__tests__/task-state-machine.integration.test.ts`
-- `layers/core-api/src/__tests__/tasks.integration.test.ts`
 - `layers/core-api/src/__tests__/two-app-mount-session-routes.integration.test.ts`
 - `layers/core-api/src/__tests__/users.integration.test.ts`
 - `layers/core-api/src/__tests__/work-service.integration.test.ts`
