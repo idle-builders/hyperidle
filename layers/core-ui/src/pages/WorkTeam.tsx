@@ -313,15 +313,15 @@ function WorkTeamLoaded({
 						value={`${burn.activeBets} / ${burn.capacity}`}
 						sub="active bets"
 					/>
-					{/* Status tile — derives from roster; empty → "—"/"No agents" */}
+					{/* Agent Health tile — derives from roster; empty → "—"/"No agents" */}
 					{(() => {
 						if (roster.length === 0) {
-							return <StatTile label="Status" value="—" sub="No agents" />;
+							return <StatTile label="Agent Health" value="—" sub="No agents" />;
 						}
 						if (rosterRunStateUnknown) {
 							return (
 								<StatTile
-									label="Status"
+									label="Agent Health"
 									value="—"
 									sub={rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state"}
 								/>
@@ -332,16 +332,27 @@ function WorkTeamLoaded({
 						);
 						const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
 						const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
-						// AZ7 E7 (§1.6 finding #2): "Attention" was a word that exists
-						// nowhere in the Status vocabulary, sitting on the page whose
-						// header chip reads BLOCKED/BEHIND/HEALTHY. "Behind" is that
-						// same vocabulary's word for "needs attention, not a clean
-						// healthy" — the header StatusChip renders it identically
-						// (Status.toUpperCase() when no label is given, same as here).
+						// @lore AZ7 B4 (review round 1): this tile rolls up
+						// RosterRunState.healthLevel ("healthy" | "warning" | "critical",
+						// @hyperidle/domain-model team.ts) — a per-agent run-health signal,
+						// computed client-side by useRosterRunState. It is NOT
+						// deriveTeamStatus's "healthy" | "behind" | "blocked" (bets over
+						// capacity / a blocked task; core-api/routes/teams-routes.ts),
+						// which is what the header StatusChip at :728 renders. Two
+						// genuinely different measurements over the same team. The first
+						// attempt reused the header's own word ("Behind") for this tile,
+						// which read as a second, contradicting status for the same
+						// object whenever the two happened to disagree (e.g. header
+						// BLOCKED, tile "Behind" — looks like a typo, is actually two
+						// unrelated facts). Fixed by giving this tile its own label
+						// ("Agent Health", not "Status") and its own vocabulary
+						// ("Needs attention" / "On track", neither of which is a
+						// StatusChip word) so it can never be misread as a second
+						// opinion on team.status.
 						return (
 							<StatTile
-								label="Status"
-								value={hasAttention ? "Behind" : "Healthy"}
+								label="Agent Health"
+								value={hasAttention ? "Needs attention" : "On track"}
 								sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
 							/>
 						);
@@ -598,7 +609,7 @@ function WorkTeamLoaded({
 											]
 										: []),
 									{
-										// AZ7 E7 (§1.6 finding #1): the agent's operational status now
+										// @lore AZ7 E7: the agent's operational status now
 										// reads through StatusChip like every other status on this page
 										// (the team header chip, bet StatusChips) — same word, same
 										// treatment, instead of the raw lowercase domain string.
@@ -612,7 +623,7 @@ function WorkTeamLoaded({
 										"data-testid": "agent-status",
 									},
 									{
-										// RowCell.tone is deleted (AZ7 Set 5) — the error tint moves onto
+										// @lore AZ7 Set 5: RowCell.tone is deleted — the error tint moves onto
 										// the content itself.
 										content: contextIsError ? (
 											<span className="text-[var(--status-error)]">{contextText}</span>

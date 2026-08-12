@@ -5,8 +5,8 @@
  * AC-1: 1280–2560px — sections visible, no clipped text, no row exceeds readable measure.
  *        Composition test: content column wrapper exists with expected classes.
  * AC-2: Related values read paired — stat tiles each render label+value together.
- * AC-3: Empty team looks intentional — Status tile MUST read "—" / "No agents",
- *        NOT "Healthy". All tiles always render. Every section header+empty present.
+ * AC-3: Empty team looks intentional — Agent Health tile MUST read "—" / "No agents",
+ *        NOT "On track". All tiles always render. Every section header+empty present.
  * AC-4: Narrow layout + all behaviors unchanged — existing testids preserved.
  *        (Existing AA1/AB2/AB3 tests cover the rest; this file adds the new tile ACs.)
  *
@@ -14,13 +14,15 @@
  * [RED]   = new AG1 assertion — will FAIL until implementation (T2)
  * [GREEN] = asserts preserved existing behavior — expected to pass now
  *
- * @lore AG1: stat tiles (Capacity, Status) replace the KeyValue list in the
- * burn section. The Status tile is mandatory — empty roster → "—" / "No agents",
- * never "Healthy". See plans/AG1/design/approved.md §2 + §4a.
+ * @lore AG1: stat tiles (Capacity, Agent Health) replace the KeyValue list in
+ * the burn section. The Agent Health tile is mandatory — empty roster →
+ * "—" / "No agents", never "On track". See plans/AG1/design/approved.md §2 + §4a.
+ * Renamed from "Status" to "Agent Health" in AZ7 B4 — see WorkTeam.tsx's tile
+ * comment for why.
  *
  * @lore AU21 Increment 14a: the Burn/Cap tiles this file originally covered
  * are HARD-DELETED along with the rest of the cost-cap feature — no
- * replacement. Only Capacity/Status remain.
+ * replacement. Only Capacity/Agent Health remain.
  */
 
 import type { RosterMember, TeamDetail } from "@hyperidle/domain-model";
@@ -101,7 +103,7 @@ const AGENT_HEALTHY: RosterMember = {
 	agentCategory: "team",
 };
 
-/** Warning-health roster member — triggers "Behind" on Status tile (AZ7: word aligned to the Status vocabulary, was "Attention") */
+/** Warning-health roster member — triggers "Needs attention" on the Agent Health tile (AZ7 B4: this tile's own vocabulary, distinct from team.status's chip words) */
 const AGENT_WARNING: RosterMember = {
 	agentId: "agent-w",
 	name: "Warning Agent",
@@ -182,7 +184,7 @@ const TEAM_ALL_HEALTHY: TeamDetail = {
 	roster: [AGENT_HEALTHY],
 };
 
-/** Team with one warning agent — Status → "Behind" (AZ7 §1.6 finding #2) */
+/** Team with one warning agent — Agent Health → "Needs attention" (AZ7 B4) */
 const TEAM_WITH_WARNING: TeamDetail = {
 	...POPULATED_TEAM,
 	roster: [AGENT_HEALTHY, AGENT_WARNING],
@@ -286,11 +288,11 @@ describe("AG1 AC-2 — stat tiles in burn section", () => {
 		expect(label).toBeDefined();
 	});
 
-	it("[RED] renders a tile labeled 'Status' inside team-burn-vs-cap (mandatory 2nd tile)", () => {
+	it("[RED] renders a tile labeled 'Agent Health' inside team-burn-vs-cap (mandatory 2nd tile)", () => {
 		renderPage(POPULATED_TEAM);
 		const section = screen.getByTestId("team-burn-vs-cap");
 		const label = Array.from(section.querySelectorAll("span")).find(
-			(el) => el.textContent?.trim().toUpperCase() === "STATUS",
+			(el) => el.textContent?.trim().toUpperCase() === "AGENT HEALTH",
 		);
 		expect(label).toBeDefined();
 	});
@@ -323,16 +325,16 @@ describe("AG1 AC-2 — stat tiles in burn section", () => {
 // [RED] — new empty-roster assertion for Status tile value and sublabel
 // ---------------------------------------------------------------------------
 
-describe("AG1 AC-3 — empty team status tile", () => {
-	it("[RED] Status tile shows '—' value when roster is empty (NOT 'Healthy')", () => {
+describe("AG1 AC-3 — empty team agent-health tile", () => {
+	it("[RED] Agent Health tile shows '—' value when roster is empty (NOT 'On track')", () => {
 		renderPage(EMPTY_TEAM);
 		const section = screen.getByTestId("team-burn-vs-cap");
-		// The Status tile value text must be the neutral dash, not "Healthy"
-		// Find the value span that follows the "STATUS" label span within a tile
+		// The Agent Health tile value text must be the neutral dash, not "On track"
+		// Find the value span that follows the "AGENT HEALTH" label span within a tile
 		const tiles = section.querySelectorAll("[data-testid='stat-tile']");
 		const statusTile = Array.from(tiles).find((tile) =>
 			Array.from(tile.querySelectorAll("span")).some(
-				(s) => s.textContent?.trim().toUpperCase() === "STATUS",
+				(s) => s.textContent?.trim().toUpperCase() === "AGENT HEALTH",
 			),
 		);
 		expect(statusTile).toBeDefined();
@@ -340,30 +342,30 @@ describe("AG1 AC-3 — empty team status tile", () => {
 		expect(valueSpan?.textContent?.trim()).toBe("—");
 	});
 
-	it("[RED] Status tile shows 'No agents' sublabel when roster is empty", () => {
+	it("[RED] Agent Health tile shows 'No agents' sublabel when roster is empty", () => {
 		renderPage(EMPTY_TEAM);
 		const section = screen.getByTestId("team-burn-vs-cap");
-		// Sublabel "No agents" must appear within the status tile
+		// Sublabel "No agents" must appear within the tile
 		const tiles = section.querySelectorAll("[data-testid='stat-tile']");
 		const statusTile = Array.from(tiles).find((tile) =>
 			Array.from(tile.querySelectorAll("span")).some(
-				(s) => s.textContent?.trim().toUpperCase() === "STATUS",
+				(s) => s.textContent?.trim().toUpperCase() === "AGENT HEALTH",
 			),
 		);
 		expect(statusTile?.textContent).toContain("No agents");
 	});
 
-	it("[RED] empty roster — Status tile must NOT contain the text 'Healthy'", () => {
+	it("[RED] empty roster — Agent Health tile must NOT contain the text 'On track'", () => {
 		renderPage(EMPTY_TEAM);
 		const section = screen.getByTestId("team-burn-vs-cap");
 		const tiles = section.querySelectorAll("[data-testid='stat-tile']");
 		const statusTile = Array.from(tiles).find((tile) =>
 			Array.from(tile.querySelectorAll("span")).some(
-				(s) => s.textContent?.trim().toUpperCase() === "STATUS",
+				(s) => s.textContent?.trim().toUpperCase() === "AGENT HEALTH",
 			),
 		);
-		// Must not read "Healthy" — that would be a false positive on an agentless team
-		expect(statusTile?.textContent).not.toContain("Healthy");
+		// Must not read "On track" — that would be a false positive on an agentless team
+		expect(statusTile?.textContent).not.toContain("On track");
 	});
 
 	it("[RED] all 2 tiles render even when the team is empty (no 1-tile fallback)", () => {
@@ -389,45 +391,51 @@ describe("AG1 AC-3 — empty team status tile", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-3: Populated roster — Status tile shows "Healthy" / "Behind"
+// AC-3: Populated roster — Agent Health tile shows "On track" / "Needs attention"
 // [RED] — new tile value assertions for non-empty roster
+//
+// @lore AZ7 B4: values and label deliberately do NOT reuse team.status's
+// vocabulary ("healthy" | "behind" | "blocked", core-api's deriveTeamStatus) —
+// this tile rolls up a different signal (per-agent RosterRunState.healthLevel)
+// and must not read as a second, possibly-contradicting opinion on the header
+// StatusChip's word. See WorkTeam.tsx's Agent Health tile comment.
 // ---------------------------------------------------------------------------
 
-describe("AG1 AC-3 — populated roster status tile values", () => {
-	it("[RED] Status tile shows 'Healthy' when all roster members have healthy healthLevel", () => {
+describe("AG1 AC-3 — populated roster agent-health tile values", () => {
+	it("[RED] Agent Health tile shows 'On track' when all roster members have healthy healthLevel", () => {
 		renderPage(TEAM_ALL_HEALTHY);
 		const section = screen.getByTestId("team-burn-vs-cap");
 		const tiles = section.querySelectorAll("[data-testid='stat-tile']");
 		const statusTile = Array.from(tiles).find((tile) =>
 			Array.from(tile.querySelectorAll("span")).some(
-				(s) => s.textContent?.trim().toUpperCase() === "STATUS",
+				(s) => s.textContent?.trim().toUpperCase() === "AGENT HEALTH",
 			),
 		);
 		const valueSpan = statusTile?.querySelectorAll("span")[1];
-		expect(valueSpan?.textContent?.trim()).toBe("Healthy");
+		expect(valueSpan?.textContent?.trim()).toBe("On track");
 	});
 
-	it("[RED] Status tile shows 'Behind' when any roster member has warning/critical healthLevel (AZ7: word aligned to Status vocabulary)", () => {
+	it("[RED] Agent Health tile shows 'Needs attention' when any roster member has warning/critical healthLevel", () => {
 		renderPage(TEAM_WITH_WARNING);
 		const section = screen.getByTestId("team-burn-vs-cap");
 		const tiles = section.querySelectorAll("[data-testid='stat-tile']");
 		const statusTile = Array.from(tiles).find((tile) =>
 			Array.from(tile.querySelectorAll("span")).some(
-				(s) => s.textContent?.trim().toUpperCase() === "STATUS",
+				(s) => s.textContent?.trim().toUpperCase() === "AGENT HEALTH",
 			),
 		);
 		const valueSpan = statusTile?.querySelectorAll("span")[1];
-		expect(valueSpan?.textContent?.trim()).toBe("Behind");
+		expect(valueSpan?.textContent?.trim()).toBe("Needs attention");
 	});
 
-	it("[RED] Status tile shows idle agent count in sublabel for non-empty roster", () => {
+	it("[RED] Agent Health tile shows idle agent count in sublabel for non-empty roster", () => {
 		// TEAM_WITH_WARNING: AGENT_WARNING has operationalStatus="idle"
 		renderPage(TEAM_WITH_WARNING);
 		const section = screen.getByTestId("team-burn-vs-cap");
 		const tiles = section.querySelectorAll("[data-testid='stat-tile']");
 		const statusTile = Array.from(tiles).find((tile) =>
 			Array.from(tile.querySelectorAll("span")).some(
-				(s) => s.textContent?.trim().toUpperCase() === "STATUS",
+				(s) => s.textContent?.trim().toUpperCase() === "AGENT HEALTH",
 			),
 		);
 		// sublabel should contain "idle agents" (count may vary)
