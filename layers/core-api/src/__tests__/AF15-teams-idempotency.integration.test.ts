@@ -71,7 +71,10 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 			body: JSON.stringify(teamBody(ids)),
 		});
 
-		const [teamCount] = await db.select({ count: count() }).from(teams);
+		const [teamCount] = await db
+			.select({ count: count() })
+			.from(teams)
+			.where(eq(teams.name, teamBody(ids).name));
 		expect(teamCount?.count).toBe(1);
 		vi.unstubAllEnvs();
 	});
@@ -90,7 +93,20 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 			body: JSON.stringify(teamBody(ids)),
 		});
 
-		const [tmCount] = await db.select({ count: count() }).from(teamMembers);
+		const [tmCount] = await db
+			.select({ count: count() })
+			.from(teamMembers)
+			.where(
+				eq(
+					teamMembers.teamId,
+					(
+						await db
+							.select({ id: teams.id })
+							.from(teams)
+							.where(eq(teams.name, teamBody(ids).name))
+					)[0]?.id ?? "",
+				),
+			);
 		expect(tmCount?.count).toBe(1);
 		vi.unstubAllEnvs();
 	});

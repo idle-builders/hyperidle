@@ -120,8 +120,7 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 
 		// Use the returned id to verify the knowledge item exists in DB
 		const retroId = body.retroKnowledgeItemId as string;
-		const allKi = await db.select().from(knowledgeItems);
-		const retroKi = allKi.find((k) => k.id === retroId);
+		const [retroKi] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, retroId));
 		expect(retroKi).toBeDefined();
 		expect(retroKi?.scopeKind).toBe("bet");
 		expect(retroKi?.scopeId).toBe(ids("bet-completed"));
@@ -150,8 +149,8 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		const retroId = body.retroKnowledgeItemId as string;
 
-		const allKi = await db.select().from(knowledgeItems);
-		const ki = allKi.find((k) => k.id === retroId);
+		const allKi = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, retroId));
+		const ki = allKi[0];
 		expect(ki).toBeDefined();
 
 		// Body must contain the two required markdown sections
@@ -185,8 +184,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		const retroId = body.retroKnowledgeItemId as string;
 
-		const allFabric = await db.select().from(knowledgeAppProjection);
-		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
+		const allFabric = await db
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, retroId));
+		const fabricRow = allFabric[0];
 		expect(fabricRow).toBeDefined();
 
 		const meta = JSON.parse(fabricRow?.meta ?? "{}") as Record<string, unknown>;
@@ -236,7 +238,7 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		expect(retroId2).toBe(retroId1);
 
 		// Only one knowledge item for this bet
-		const allKi = await db.select().from(knowledgeItems);
+		const allKi = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, retroId1));
 		const retroItems = allKi.filter(
 			(k) => k.scopeKind === "bet" && k.scopeId === ids("bet-completed"),
 		);
@@ -270,8 +272,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const retroId = body1.retroKnowledgeItemId as string;
 
 		// Verify the hypothesis in the retro fabric meta matches the original
-		const allFabric = await db.select().from(knowledgeAppProjection);
-		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
+		const allFabric = await db
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, retroId));
+		const fabricRow = allFabric[0];
 		const metaBefore = JSON.parse(fabricRow?.meta ?? "{}") as Record<string, unknown>;
 		expect(metaBefore.hypothesis).toBe("Users will complete onboarding in under 5 minutes.");
 
@@ -294,8 +299,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		expect(res2.status).toBe(200);
 
 		// Check that the fabric meta still has the original hypothesis from first retro
-		const allFabricAfter = await db.select().from(knowledgeAppProjection);
-		const fabricRowAfter = allFabricAfter.find((f) => f.knowledgeItemId === retroId);
+		const allFabricAfter = await db
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, retroId));
+		const fabricRowAfter = allFabricAfter[0];
 		const metaAfter = JSON.parse(fabricRowAfter?.meta ?? "{}") as Record<string, unknown>;
 		expect(metaAfter.hypothesis).toBe("Users will complete onboarding in under 5 minutes.");
 		vi.unstubAllEnvs();
@@ -318,8 +326,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		const retroId = body.retroKnowledgeItemId as string;
 
-		const allFabric = await db.select().from(knowledgeAppProjection);
-		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
+		const allFabric = await db
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, retroId));
+		const fabricRow = allFabric[0];
 		expect(fabricRow).toBeDefined();
 		expect(fabricRow?.kind).toBe("reflection");
 		vi.unstubAllEnvs();
@@ -342,8 +353,8 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		const retroId = body.retroKnowledgeItemId as string;
 
-		const allKi = await db.select().from(knowledgeItems);
-		const ki = allKi.find((k) => k.id === retroId);
+		const allKi = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, retroId));
+		const ki = allKi[0];
 		expect(ki?.status).toBe("active");
 		vi.unstubAllEnvs();
 	});
@@ -407,8 +418,8 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		const retroId = body.retroKnowledgeItemId as string;
 
-		const allKi = await db.select().from(knowledgeItems);
-		const ki = allKi.find((k) => k.id === retroId);
+		const allKi = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, retroId));
+		const ki = allKi[0];
 		expect(ki?.title).toMatch(/^Retro:/);
 		// The title must include the bet description (used as title by deriveTitle)
 		expect(ki?.title).toContain("Validate the onboarding hypothesis");
@@ -456,8 +467,11 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		const retroId = body.retroKnowledgeItemId as string;
 
-		const allFabric = await db.select().from(knowledgeAppProjection);
-		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
+		const allFabric = await db
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, retroId));
+		const fabricRow = allFabric[0];
 		const meta = JSON.parse(fabricRow?.meta ?? "{}") as Record<string, unknown>;
 		// Hypothesis in meta must indicate no hypothesis
 		expect(meta.hypothesis).toMatch(/no hypothesis/i);
@@ -486,8 +500,8 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 		const body = (await res.json()) as Record<string, unknown>;
 		const retroId = body.retroKnowledgeItemId as string;
 
-		const allKi = await db.select().from(knowledgeItems);
-		const ki = allKi.find((k) => k.id === retroId);
+		const allKi = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, retroId));
+		const ki = allKi[0];
 		// Should have some content in Learnings section, not empty
 		expect(ki?.body).toContain("## Learnings");
 		vi.unstubAllEnvs();
