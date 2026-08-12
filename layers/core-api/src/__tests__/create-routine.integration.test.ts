@@ -79,7 +79,7 @@ describe("create_routine tool", () => {
 		expect(routine!.ownerAgentId).toBe(agentId);
 		expect(routine!.triggerConfig).toBe(JSON.stringify({ cron: "0 9 * * 1-5" }));
 		expect(routine!.stubTaskId).toBeNull();
-		expect(await db.select().from(tasks)).toHaveLength(0);
+		expect(await db.select().from(tasks).where(eq(tasks.teamId, teamId))).toHaveLength(0);
 	});
 
 	test("returns ok({ routineId, name, nextRunAt })", async ({ db, app }) => {

@@ -462,7 +462,7 @@ describe("Knowledge Endpoints (E4)", () => {
 				}),
 			});
 
-			const logs = await db.select().from(knowledgeEditLog);
+			const logs = await db.select().from(knowledgeEditLog).where(eq(knowledgeEditLog.itemId, id));
 			// Should have at least entries for title and body changes
 			expect(logs.length).toBeGreaterThanOrEqual(2);
 			const titleLog = logs.find((l: { field: string }) => l.field === "title");

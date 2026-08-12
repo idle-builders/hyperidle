@@ -5,6 +5,8 @@
  * 1. framework/db schema has knowledge_access_log table (T1)
  * 2. packages/server/src/routes/knowledge.ts inserts access-log rows (T5)
  */
+
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { seedKnowledgeItem } from "./_helpers.js";
 
@@ -48,8 +50,11 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 
 		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		const rows = await db.select().from(knowledgeAccessLog);
-		const count = rows.filter((r: { itemId: string }) => r.itemId === id).length;
+		const count = await db
+			.select()
+			.from(knowledgeAccessLog)
+			.where(eq(knowledgeAccessLog.itemId, id))
+			.then((rows) => rows.length);
 		expect(count).toBe(1);
 	});
 
@@ -75,8 +80,11 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		}
 
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		const rows = await db.select().from(knowledgeAccessLog);
-		const count = rows.filter((r: { itemId: string }) => r.itemId === id).length;
+		const count = await db
+			.select()
+			.from(knowledgeAccessLog)
+			.where(eq(knowledgeAccessLog.itemId, id))
+			.then((rows) => rows.length);
 		expect(count).toBe(3);
 	});
 
@@ -90,8 +98,11 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 		expect(res.status).toBe(404);
 
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		const rows = await db.select().from(knowledgeAccessLog);
-		const count = rows.filter((r: { itemId: string }) => r.itemId === nonExistentId).length;
+		const count = await db
+			.select()
+			.from(knowledgeAccessLog)
+			.where(eq(knowledgeAccessLog.itemId, nonExistentId))
+			.then((rows) => rows.length);
 		expect(count).toBe(0);
 	});
 
@@ -128,8 +139,11 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 
 		// The access-log row was still created (normal path)
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		const rows = await db.select().from(knowledgeAccessLog);
-		const count = rows.filter((r: { itemId: string }) => r.itemId === id).length;
+		const count = await db
+			.select()
+			.from(knowledgeAccessLog)
+			.where(eq(knowledgeAccessLog.itemId, id))
+			.then((rows) => rows.length);
 		expect(count).toBe(1);
 	});
 
@@ -153,8 +167,11 @@ describe("Knowledge access-log creation (L22 AC-1)", () => {
 
 		// knowledgeAccessLog exported from @hyperidle/db since T1
 		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		const rows = await db.select().from(knowledgeAccessLog);
-		const row = rows.find((r: { itemId: string }) => r.itemId === id);
+		const rows = await db
+			.select()
+			.from(knowledgeAccessLog)
+			.where(eq(knowledgeAccessLog.itemId, id));
+		const row = rows[0];
 
 		expect(row).toBeDefined();
 		expect(row?.itemId).toBe(id);

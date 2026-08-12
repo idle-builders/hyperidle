@@ -27,11 +27,12 @@ import { users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 
 describe("requireRunnableAgent — shared ast-<userId> runnability invariant", () => {
-	test("resolves the real user row for an active AI agent", async ({ db }) => {
+	test("resolves the real user row for an active AI agent", async ({ db, ids }) => {
 		const { requireRunnableAgent } = await import("../index.js");
 		const now = new Date().toISOString();
+		const agentId = ids("wave0-runnable-agent");
 		await db.insert(users).values({
-			id: "wave0-runnable-agent",
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -39,15 +40,16 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 			createdAt: now,
 		});
 
-		const agent = await requireRunnableAgent(db, "wave0-runnable-agent");
-		expect(agent).toMatchObject({ id: "wave0-runnable-agent", kind: "ai", status: "active" });
+		const agent = await requireRunnableAgent(db, agentId);
+		expect(agent).toMatchObject({ id: agentId, kind: "ai", status: "active" });
 	});
 
-	test("resolves an idle AI agent as runnable", async ({ db }) => {
+	test("resolves an idle AI agent as runnable", async ({ db, ids }) => {
 		const { requireRunnableAgent } = await import("../index.js");
 		const now = new Date().toISOString();
+		const agentId = ids("wave0-idle-agent");
 		await db.insert(users).values({
-			id: "wave0-idle-agent",
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -55,16 +57,20 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 			createdAt: now,
 		});
 
-		await expect(requireRunnableAgent(db, "wave0-idle-agent")).resolves.toMatchObject({
-			id: "wave0-idle-agent",
+		await expect(requireRunnableAgent(db, agentId)).resolves.toMatchObject({
+			id: agentId,
 		});
 	});
 
-	test("rejects a human user id (never trusts the human sender as the agent)", async ({ db }) => {
+	test("rejects a human user id (never trusts the human sender as the agent)", async ({
+		db,
+		ids,
+	}) => {
 		const { requireRunnableAgent } = await import("../index.js");
 		const now = new Date().toISOString();
+		const humanId = ids("wave0-human-sender");
 		await db.insert(users).values({
-			id: "wave0-human-sender",
+			id: humanId,
 			kind: "human",
 			name: "Human",
 			role: "founder",
@@ -72,14 +78,15 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 			createdAt: now,
 		});
 
-		await expect(requireRunnableAgent(db, "wave0-human-sender")).rejects.toThrow();
+		await expect(requireRunnableAgent(db, humanId)).rejects.toThrow();
 	});
 
-	test("rejects a deactivated (non active/idle) AI agent", async ({ db }) => {
+	test("rejects a deactivated (non active/idle) AI agent", async ({ db, ids }) => {
 		const { requireRunnableAgent } = await import("../index.js");
 		const now = new Date().toISOString();
+		const agentId = ids("wave0-retired-agent");
 		await db.insert(users).values({
-			id: "wave0-retired-agent",
+			id: agentId,
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
@@ -87,11 +94,11 @@ describe("requireRunnableAgent — shared ast-<userId> runnability invariant", (
 			createdAt: now,
 		});
 
-		await expect(requireRunnableAgent(db, "wave0-retired-agent")).rejects.toThrow();
+		await expect(requireRunnableAgent(db, agentId)).rejects.toThrow();
 	});
 
-	test("rejects an id that does not correspond to any user row", async ({ db }) => {
+	test("rejects an id that does not correspond to any user row", async ({ db, ids }) => {
 		const { requireRunnableAgent } = await import("../index.js");
-		await expect(requireRunnableAgent(db, "wave0-does-not-exist")).rejects.toThrow();
+		await expect(requireRunnableAgent(db, ids("wave0-does-not-exist"))).rejects.toThrow();
 	});
 });

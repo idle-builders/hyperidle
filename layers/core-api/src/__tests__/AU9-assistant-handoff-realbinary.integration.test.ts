@@ -31,12 +31,16 @@ describe("[harness:builtin] assistant durable handoff", () => {
 
 	test("real production message reaches one request, session, and assistant reply", async ({
 		db,
+		ids,
 	}) => {
 		process.env.HYPERIDLE_API_KEY = "au9-real-key";
 		const now = new Date().toISOString();
+		const humanId = ids("au9-real-human");
+		const astId = ids("ast-au9-real-human");
+		const threadId = ids("au9-real-thread");
 		await db.insert(users).values([
 			{
-				id: "au9-real-human",
+				id: humanId,
 				kind: "human",
 				name: "Founder",
 				role: "founder",
@@ -44,7 +48,7 @@ describe("[harness:builtin] assistant durable handoff", () => {
 				createdAt: now,
 			},
 			{
-				id: "ast-au9-real-human",
+				id: astId,
 				kind: "ai",
 				name: "Assistant",
 				role: "assistant",
@@ -62,17 +66,17 @@ describe("[harness:builtin] assistant durable handoff", () => {
 		// `DbCredentialResolver` path (see the seeded `openrouter_api_key`
 		// below).
 		await db.insert(agentRunConfig).values({
-			agentUserId: "ast-au9-real-human",
+			agentUserId: astId,
 			harnessType: "builtin",
 			modelId: "deepseek/deepseek-v4-flash",
 			modelProvider: "openrouter",
 		});
 		await db.insert(threads).values({
-			id: "au9-real-thread",
+			id: threadId,
 			hostKind: "user",
-			hostId: "au9-real-human",
-			initiatorId: "au9-real-human",
-			participants: JSON.stringify(["au9-real-human", "ast-au9-real-human"]),
+			hostId: humanId,
+			initiatorId: humanId,
+			participants: JSON.stringify([humanId, astId]),
 			lastActiveAt: now,
 			createdAt: now,
 		});
@@ -127,30 +131,30 @@ describe("[harness:builtin] assistant durable handoff", () => {
 			if (!address || typeof address === "string")
 				throw new Error("Test server has no TCP address");
 			const response = await fetch(
-				`http://127.0.0.1:${address.port}/api/threads/au9-real-thread/messages`,
+				`http://127.0.0.1:${address.port}/api/threads/${threadId}/messages`,
 				{
 					method: "POST",
 					headers: { "X-API-Key": "au9-real-key", "Content-Type": "application/json" },
 					body: JSON.stringify({
 						type: "plain",
 						payload: { text: "Reply with exactly: durable handoff works" },
-						clientKey: "au9-real-message",
+						clientKey: ids("au9-real-message"),
 					}),
 				},
 			);
 			expect(response.status).toBe(201);
 			await expect
 				.poll(
-					async () =>
-						(await db.select().from(messages).where(eq(messages.senderId, "ast-au9-real-human")))
-							.length,
+					async () => (await db.select().from(messages).where(eq(messages.senderId, astId))).length,
 					{ timeout: 120_000 },
 				)
 				.toBe(1);
 			// AU27 Increment 6: the assistant now flows through the SAME durable
 			// poller as every other kind — no second execution entry (AC-5).
-			expect(await db.select().from(agentSessionRequests)).toHaveLength(1);
-			expect(await db.select().from(sessions)).toHaveLength(1);
+			expect(
+				await db.select().from(agentSessionRequests).where(eq(agentSessionRequests.agentId, astId)),
+			).toHaveLength(1);
+			expect(await db.select().from(sessions).where(eq(sessions.agentId, astId))).toHaveLength(1);
 
 			// W2 fix (review): a message merely EXISTING from the assistant is not
 			// proof of a real reply — Increment 5's never-silent notice ("I
@@ -160,10 +164,7 @@ describe("[harness:builtin] assistant durable handoff", () => {
 			// the row-count assertion above. Assert the actual reply TEXT the
 			// prompt asked for, and explicitly rule out the notice — same fix
 			// `assistant-reply-live-harness.integration.test.ts` already applies.
-			const [assistantReply] = await db
-				.select()
-				.from(messages)
-				.where(eq(messages.senderId, "ast-au9-real-human"));
+			const [assistantReply] = await db.select().from(messages).where(eq(messages.senderId, astId));
 			const payload = JSON.parse(assistantReply?.payload ?? "{}") as { text?: string };
 			expect(
 				payload.text,

@@ -244,10 +244,9 @@ describe("attention-service", () => {
 		expect(received.length).toBe(1);
 
 		// items row exists
-		const rows = await db.select().from(items);
-		const review = rows.find((r) => r.kind === "knowledge");
-		expect(review).toBeDefined();
-		expect(review?.verb).toBe("review");
+		const rows = await db.select().from(items).where(eq(items.kind, "knowledge"));
+		expect(rows.length).toBe(1);
+		expect(rows[0]?.verb).toBe("review");
 	});
 
 	test("recomputeOne does NOT fire ItemCreatedEvent when prior was already >= 0.7", async ({

@@ -80,10 +80,12 @@ describe("applyFactoryCoreState — first-boot core state (AU29 AC 7)", () => {
 		db,
 	}) => {
 		const first = await applyFactoryCoreState(db);
+		const beforeCount = (await db.select().from(users)).length;
 		const second = await applyFactoryCoreState(db);
+		const afterCount = (await db.select().from(users)).length;
 
 		expect(second.map((r) => r.id).sort()).toEqual(first.map((r) => r.id).sort());
-		const allUsers = await db.select().from(users);
-		expect(allUsers).toHaveLength(7);
+		// Idempotent: second call adds no new users
+		expect(afterCount).toBe(beforeCount);
 	});
 });
