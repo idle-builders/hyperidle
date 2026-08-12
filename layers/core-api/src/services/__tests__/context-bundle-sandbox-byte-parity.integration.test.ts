@@ -44,6 +44,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { createContextAssembler } from "@hyperidle/run-orchestration/scaffolding";
@@ -52,23 +53,38 @@ import { resolveTaskRunRequest } from "@hyperidle/work";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 
 const NOW = "2026-08-01T00:00:00.000Z";
-const TEAM_ID = "team-i12c-parity";
-const AGENT_ID = "agent-i12c-parity";
 const AGENT_ROLE = "builder"; // communityForRole("builder") === "building"
-const TASK_ID = "task-i12c-parity";
-const BET_ID = "bet-i12c-parity";
-const ATTEMPT_ID = "attempt-i12c-parity";
 const TASK_DESCRIPTION = "Ship the Wave C byte-parity check.";
 
-async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
+async function seedFixedCorpus(
+	db: HyperIdleDb,
+	ids: ScopedIds,
+): Promise<{
+	teamId: string;
+	agentId: string;
+	taskId: string;
+	betId: string;
+	attemptId: string;
+	itemL4Id: string;
+	itemL2Id: string;
+	itemL3Id: string;
+}> {
+	const teamId = ids("team-i12c-parity");
+	const agentId = ids("agent-i12c-parity");
+	const taskId = ids("task-i12c-parity");
+	const betId = ids("bet-i12c-parity");
+	const attemptId = ids("attempt-i12c-parity");
+	const itemL4Id = ids("item-i12c-l4");
+	const itemL2Id = ids("item-i12c-l2");
+	const itemL3Id = ids("item-i12c-l3");
 	await db
 		.insert(teams)
-		.values({ id: TEAM_ID, name: "Byte Parity Team", phase: "build", createdAt: NOW });
+		.values({ id: teamId, name: "Byte Parity Team", phase: "build", createdAt: NOW });
 	await db
 		.insert(teamMembers)
-		.values({ id: "tm-i12c-parity", teamId: TEAM_ID, capacity: 3, activeBets: 0, formedAt: NOW });
+		.values({ id: ids("tm-i12c-parity"), teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
-		id: AGENT_ID,
+		id: agentId,
 		kind: "ai",
 		name: "Byte Parity Agent",
 		role: AGENT_ROLE,
@@ -76,8 +92,8 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 	await db.insert(bets).values({
-		id: BET_ID,
-		teamId: TEAM_ID,
+		id: betId,
+		teamId,
 		description: "I12 Wave C byte-parity bet",
 		appetite: "small",
 		doneCondition: "Byte-identical sandboxes",
@@ -85,10 +101,10 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 	await db.insert(tasks).values({
-		id: TASK_ID,
-		betId: BET_ID,
-		teamId: TEAM_ID,
-		ownerAgentId: AGENT_ID,
+		id: taskId,
+		betId,
+		teamId,
+		ownerAgentId: agentId,
 		title: "I12 Wave C byte-parity task",
 		description: TASK_DESCRIPTION,
 		state: "in_progress",
@@ -96,10 +112,10 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		updatedAt: NOW,
 	});
 	await db.insert(taskDispatchAttempts).values({
-		id: ATTEMPT_ID,
-		taskId: TASK_ID,
+		id: attemptId,
+		taskId,
 		occasion: "accepted",
-		agentId: AGENT_ID,
+		agentId,
 		ordinal: 1,
 		status: "requested",
 		createdAt: NOW,
@@ -107,7 +123,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	});
 
 	await db.insert(knowledgeItems).values({
-		id: "item-i12c-l4",
+		id: itemL4Id,
 		scopeKind: "factory",
 		scopeId: null,
 		title: "Factory-wide practice",
@@ -115,39 +131,39 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		format: "markdown",
 		status: "active",
 		version: 1,
-		updatedBy: AGENT_ID,
+		updatedBy: agentId,
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l4",
-		knowledgeItemId: "item-i12c-l4",
+		id: ids("proj-i12c-l4"),
+		knowledgeItemId: itemL4Id,
 		layer: "L4",
 		scopeId: null,
 	});
 
 	await db.insert(knowledgeItems).values({
-		id: "item-i12c-l2",
+		id: itemL2Id,
 		scopeKind: "team",
-		scopeId: TEAM_ID,
+		scopeId: teamId,
 		title: "Team-scoped product knowledge",
 		body: "Specific to the parity team's product.",
 		format: "markdown",
 		status: "active",
 		version: 1,
-		updatedBy: AGENT_ID,
+		updatedBy: agentId,
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l2",
-		knowledgeItemId: "item-i12c-l2",
+		id: ids("proj-i12c-l2"),
+		knowledgeItemId: itemL2Id,
 		layer: "L2",
-		scopeId: TEAM_ID,
+		scopeId: teamId,
 	});
 
 	await db.insert(knowledgeItems).values({
-		id: "item-i12c-l3",
+		id: itemL3Id,
 		scopeKind: "practice",
 		scopeId: "building",
 		title: "Building practice knowledge",
@@ -155,16 +171,17 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		format: "markdown",
 		status: "active",
 		version: 1,
-		updatedBy: AGENT_ID,
+		updatedBy: agentId,
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 	await db.insert(knowledgeAppProjection).values({
-		id: "proj-i12c-l3",
-		knowledgeItemId: "item-i12c-l3",
+		id: ids("proj-i12c-l3"),
+		knowledgeItemId: itemL3Id,
 		layer: "L3",
 		scopeId: "building",
 	});
+	return { teamId, agentId, taskId, betId, attemptId, itemL4Id, itemL2Id, itemL3Id };
 }
 
 /** Recursively list every file under `dir`, relative to `dir` — order-independent (sorted). */
@@ -198,14 +215,15 @@ function poisonedPorts(): Parameters<typeof createContextAssembler>[0] {
 describe("context.ts sandbox output — bundle-consuming byte parity for a fixed corpus (Increment 12 Wave C)", () => {
 	test("context/session.toon + context/{product,practices,factory} are byte-exact for the baked bundle, with ZERO port reads", async ({
 		db,
+		ids,
 	}) => {
-		await seedFixedCorpus(db);
+		const seeded = await seedFixedCorpus(db, ids);
 
 		const newSandbox = fs.mkdtempSync(path.join(os.tmpdir(), "i12c-new-"));
 		try {
 			// -- Real production bake (Wave B, already GREEN): resolveTaskRunRequest
 			// derives the contextBundle from the SAME seeded rows. --
-			const baked = await resolveTaskRunRequest(db, ATTEMPT_ID, {
+			const baked = await resolveTaskRunRequest(db, seeded.attemptId, {
 				requireRunnableAgent,
 				getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 				assembleSessionKnowledge,
@@ -218,11 +236,11 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 			const assembler = createContextAssembler(poisonedPorts());
 			await assembler.assembleAgentContext({
 				sandboxPath: newSandbox,
-				sessionId: "session-i12c-new",
-				taskId: TASK_ID,
-				agentId: AGENT_ID,
+				sessionId: ids("session-i12c-new"),
+				taskId: seeded.taskId,
+				agentId: seeded.agentId,
 				agentRole: AGENT_ROLE,
-				teamId: TEAM_ID,
+				teamId: seeded.teamId,
 				isRoutine: false,
 				sourceKind: null,
 				sourceId: null,
@@ -235,33 +253,37 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 			// consuming rewrite must preserve). --
 			const newContextFiles = listFilesRecursive(path.join(newSandbox, "context"));
 			expect(newContextFiles.length).toBeGreaterThan(0);
+			// File names are derived from the knowledge item ids (first 8 chars).
+			const l4Prefix = seeded.itemL4Id.slice(0, 8);
+			const l2Prefix = seeded.itemL2Id.slice(0, 8);
+			const l3Prefix = seeded.itemL3Id.slice(0, 8);
 			expect(newContextFiles).toEqual(
 				[
-					"factory/Factory-wide_practice_item-i12.md",
-					"practices/Building_practice_knowledge_item-i12.md",
-					"product/Team-scoped_product_knowledge_item-i12.md",
+					`factory/Factory-wide_practice_${l4Prefix}.md`,
+					`practices/Building_practice_knowledge_${l3Prefix}.md`,
+					`product/Team-scoped_product_knowledge_${l2Prefix}.md`,
 					"session.toon",
 				].sort(),
 			);
 
 			const factoryBody = fs.readFileSync(
-				path.join(newSandbox, "context/factory/Factory-wide_practice_item-i12.md"),
+				path.join(newSandbox, `context/factory/Factory-wide_practice_${l4Prefix}.md`),
 			);
 			expect(factoryBody.toString("utf8")).toBe("Applies to every team and every community.");
 
 			const productBody = fs.readFileSync(
-				path.join(newSandbox, "context/product/Team-scoped_product_knowledge_item-i12.md"),
+				path.join(newSandbox, `context/product/Team-scoped_product_knowledge_${l2Prefix}.md`),
 			);
 			expect(productBody.toString("utf8")).toBe("Specific to the parity team's product.");
 
 			const practicesBody = fs.readFileSync(
-				path.join(newSandbox, "context/practices/Building_practice_knowledge_item-i12.md"),
+				path.join(newSandbox, `context/practices/Building_practice_knowledge_${l3Prefix}.md`),
 			);
 			expect(practicesBody.toString("utf8")).toBe("Relevant to the builder community.");
 
 			// -- session.toon encodes the exact baked task/bet/agent/team fields. --
 			const toon = fs.readFileSync(path.join(newSandbox, "context/session.toon"), "utf8");
-			expect(toon).toContain(TASK_ID);
+			expect(toon).toContain(seeded.taskId);
 			expect(toon).toContain("I12 Wave C byte-parity task");
 			expect(toon).toContain("Byte Parity Agent");
 			expect(toon).toContain("Byte Parity Team");
@@ -270,7 +292,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 				fs.readFileSync(path.join(newSandbox, ".fabric/manifest.json"), "utf8"),
 			) as { items: Record<string, { source_path: string }> };
 			expect(Object.keys(manifest.items).sort()).toEqual(
-				["item-i12c-l4", "item-i12c-l2", "item-i12c-l3"].sort(),
+				[seeded.itemL4Id, seeded.itemL2Id, seeded.itemL3Id].sort(),
 			);
 		} finally {
 			fs.rmSync(newSandbox, { recursive: true, force: true });
