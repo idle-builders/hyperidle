@@ -8,6 +8,7 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { seedTeam } from "./_helpers.js";
@@ -22,12 +23,12 @@ function authHeaders(): Record<string, string> {
  * @lore P2: Profile now comes from `users WHERE kind='human'` instead of
  * factorySettings founder_name/email keys. Seed a human user for profile tests.
  */
-async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
+async function seedFounderProfile(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(users)
 		.values({
-			id: "test-founder-1",
+			id: ids("founder"),
 			kind: "human",
 			name: "Test Founder",
 			email: "test@hyperidle.dev",
@@ -39,18 +40,28 @@ async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 }
 
 describe("M3 — GET /api/settings (B1)", () => {
-	test("returns 200 with profile, products, users, notifications", async ({ app, db }) => {
+	test("returns 200 with profile, products, users, notifications", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const now = new Date().toISOString();
-		await seedFounderProfile(db);
+		await seedFounderProfile(db, ids);
 
 		// Seed 2 products
-		await seedTeam(db, { id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
-		await seedTeam(db, { id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
+		await seedTeam(db, {
+			id: ids("team-1"),
+			name: "Product Alpha",
+			phase: "build",
+			createdAt: now,
+		});
+		await seedTeam(db, {
+			id: ids("team-2"),
+			name: "Product Beta",
+			phase: "archived",
+			createdAt: now,
+		});
 
 		// Seed 2 AI users (formerly agents)
 		await db.insert(users).values({
-			id: "agent-1",
+			id: ids("agent-1"),
 			kind: "ai",
 			name: "Builder Bot",
 			role: "builder",
@@ -59,7 +70,7 @@ describe("M3 — GET /api/settings (B1)", () => {
 		});
 
 		await db.insert(users).values({
-			id: "agent-2",
+			id: ids("agent-2"),
 			kind: "ai",
 			name: "Reviewer Bot",
 			role: "reviewer",
@@ -92,8 +103,13 @@ describe("M3 — GET /api/settings (B1)", () => {
 		expect(body.profile.name).toBe("Test Founder");
 		expect(body.profile.email).toBe("test@hyperidle.dev");
 		expect(body.profile.avatarUrl).toBeNull();
-		expect(body.teams).toHaveLength(2);
-		expect(body.users).toHaveLength(2);
+		// P6: global list endpoint — assert my scoped rows are present
+		const myTeamIds = new Set([ids("team-1"), ids("team-2")]);
+		const myTeams = body.teams.filter((t) => myTeamIds.has(t.id));
+		expect(myTeams).toHaveLength(2);
+		const myUserIds = new Set([ids("agent-1"), ids("agent-2")]);
+		const myUsers = body.users.filter((u) => myUserIds.has(u.id));
+		expect(myUsers).toHaveLength(2);
 		expect(body.notifications).toBeDefined();
 		vi.unstubAllEnvs();
 	});
@@ -101,12 +117,23 @@ describe("M3 — GET /api/settings (B1)", () => {
 	test("products include active flag derived from phase (archived=inactive)", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const now = new Date().toISOString();
-		await seedFounderProfile(db);
-		await seedTeam(db, { id: "prod-1", name: "Product Alpha", phase: "build", createdAt: now });
-		await seedTeam(db, { id: "prod-2", name: "Product Beta", phase: "archived", createdAt: now });
+		await seedFounderProfile(db, ids);
+		await seedTeam(db, {
+			id: ids("team-1"),
+			name: "Product Alpha",
+			phase: "build",
+			createdAt: now,
+		});
+		await seedTeam(db, {
+			id: ids("team-2"),
+			name: "Product Beta",
+			phase: "archived",
+			createdAt: now,
+		});
 
 		const res = await app.request("/api/settings", { headers: authHeaders() });
 		// @lore U1: `products` renamed to `teams` in the settings response.
@@ -114,19 +141,19 @@ describe("M3 — GET /api/settings (B1)", () => {
 			teams: Array<{ id: string; active: boolean }>;
 		};
 
-		const prod1 = body.teams.find((p) => p.id === "prod-1");
-		const prod2 = body.teams.find((p) => p.id === "prod-2");
+		const prod1 = body.teams.find((p) => p.id === ids("team-1"));
+		const prod2 = body.teams.find((p) => p.id === ids("team-2"));
 		expect(prod1?.active).toBe(true); // phase "build" → active
 		expect(prod2?.active).toBe(false); // phase "archived" → inactive
 		vi.unstubAllEnvs();
 	});
 
-	test("users include paused flag derived from status", async ({ app, db }) => {
+	test("users include paused flag derived from status", async ({ app, db, ids }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const now = new Date().toISOString();
-		await seedFounderProfile(db);
+		await seedFounderProfile(db, ids);
 		await db.insert(users).values({
-			id: "agent-1",
+			id: ids("agent-1"),
 			kind: "ai",
 			name: "Builder Bot",
 			role: "builder",
@@ -134,7 +161,7 @@ describe("M3 — GET /api/settings (B1)", () => {
 			createdAt: now,
 		});
 		await db.insert(users).values({
-			id: "agent-2",
+			id: ids("agent-2"),
 			kind: "ai",
 			name: "Reviewer Bot",
 			role: "reviewer",
@@ -147,8 +174,8 @@ describe("M3 — GET /api/settings (B1)", () => {
 			users: Array<{ id: string; paused: boolean }>;
 		};
 
-		const agent1 = body.users.find((a) => a.id === "agent-1");
-		const agent2 = body.users.find((a) => a.id === "agent-2");
+		const agent1 = body.users.find((a) => a.id === ids("agent-1"));
+		const agent2 = body.users.find((a) => a.id === ids("agent-2"));
 		expect(agent1?.paused).toBe(false); // status "idle"
 		expect(agent2?.paused).toBe(true); // status "paused"
 		vi.unstubAllEnvs();
@@ -166,9 +193,10 @@ describe("M3 — PATCH /api/settings persists notification preferences (B1)", ()
 	test("PATCH with notifications.reviewAlerts=false persists and re-GET reflects change", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedFounderProfile(db);
+		await seedFounderProfile(db, ids);
 		// First PATCH
 		const patchRes = await app.request("/api/settings", {
 			method: "PATCH",

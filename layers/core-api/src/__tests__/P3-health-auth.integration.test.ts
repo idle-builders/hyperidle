@@ -47,11 +47,11 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 200 with valid API key", async ({ app, db }) => {
+		test("returns 200 with valid API key", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Seed a human user so auth resolves properly
 			await db.insert(users).values({
-				id: "u-health-test",
+				id: ids("health-user"),
 				kind: "human",
 				name: "Health Test User",
 				role: "founder",
@@ -65,10 +65,10 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("response includes status: 'ok'", async ({ app, db }) => {
+		test("response includes status: 'ok'", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
-				id: "u-health-status",
+				id: ids("health-status"),
 				kind: "human",
 				name: "Health Status User",
 				role: "founder",
@@ -83,10 +83,10 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("response includes a timestamp string", async ({ app, db }) => {
+		test("response includes a timestamp string", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
-				id: "u-health-ts",
+				id: ids("health-ts"),
 				kind: "human",
 				name: "Timestamp User",
 				role: "founder",
@@ -102,10 +102,10 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("response includes a userId field", async ({ app, db }) => {
+		test("response includes a userId field", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
-				id: "u-health-userid",
+				id: ids("health-userid"),
 				kind: "human",
 				name: "User ID Test",
 				role: "founder",
@@ -121,10 +121,10 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns userId that matches the seeded human user", async ({ app, db }) => {
+		test("returns userId that matches the seeded human user", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
-				id: "u-expected-id",
+				id: ids("expected"),
 				kind: "human",
 				name: "Expected User",
 				role: "founder",
@@ -135,7 +135,7 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 
 			const res = await app.request("/api/health/auth", { headers: authHeaders() });
 			const body = (await res.json()) as { userId: string };
-			expect(body.userId).toBe("u-expected-id");
+			expect(body.userId).toBe(ids("expected"));
 			vi.unstubAllEnvs();
 		});
 

@@ -7,6 +7,7 @@
  */
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -20,12 +21,12 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
  * P2: seed a human founder user row (replaces factorySettings.founder_id lookup).
  * The auth middleware queries `users WHERE kind = 'human' LIMIT 1`.
  */
-async function seedFounderUser(db: HyperIdleDb, founderId: string): Promise<void> {
+async function seedFounderUser(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(users)
 		.values({
-			id: founderId,
+			id: ids("founder"),
 			kind: "human",
 			name: "Test Founder",
 			email: "test@hyperidle.dev",
@@ -40,14 +41,15 @@ describe("M3 — Assistant route readSenderId uses auth context, not DEFAULT_FOU
 	test("assistant thread has initiatorId from auth context, not hardcoded 'u-founder'", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const now = new Date().toISOString();
-		await seedFounderUser(db, "test-founder-1");
+		await seedFounderUser(db, ids);
 
 		// Seed the system agent (required for the assistant route — /api/threads/coach)
 		await db.insert(users).values({
-			id: "seed-agent-cos",
+			id: "seed-agent-cos" /* P10: production-fixed id */,
 			name: "System Agent",
 			role: "assistant",
 			status: "active",
@@ -61,7 +63,7 @@ describe("M3 — Assistant route readSenderId uses auth context, not DEFAULT_FOU
 		const body = (await res.json()) as { thread?: { initiatorId?: string } };
 		const initiatorId = body.thread?.initiatorId;
 		// Should be the seeded founder id, NOT the hardcoded "u-founder"
-		expect(initiatorId).toBe("test-founder-1");
+		expect(initiatorId).toBe(ids("founder"));
 		expect(initiatorId).not.toBe("u-founder");
 		vi.unstubAllEnvs();
 	});
@@ -71,32 +73,33 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 	test("POST /api/threads without X-Identity uses auth context userId, not 'u-founder'", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const now = new Date().toISOString();
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
-		await seedFounderUser(db, "test-founder-1");
+		await seedFounderUser(db, ids);
 
 		// @lore U1: `teams` is the domain entity (formerly `products`); `teamMembers` is the membership group.
 		await db
 			.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+			.values({ id: ids("team"), name: "Test Product", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
+			id: ids("tm"),
+			teamId: ids("team"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
 		});
-		// Note: "test-founder-1" is already seeded by seedFounderUser above — no duplicate insert.
+		// Note: founder is already seeded by seedFounderUser above — no duplicate insert.
 
 		const res = await app.request("/api/threads", {
 			method: "POST",
 			headers: authHeaders(), // No X-Identity header
 			body: JSON.stringify({
 				hostKind: "bet",
-				hostId: "bet-new-1",
-				participants: ["test-founder-1"],
+				hostId: ids("bet"),
+				participants: [ids("founder")],
 				initialMessage: {
 					type: "plain",
 					payload: { text: "Thread started." },
@@ -121,18 +124,19 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 	test("readInitialSenderId falls back to auth context userId when no X-Identity is set", async ({
 		app,
 		db,
+		ids,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		const now = new Date().toISOString();
 		// P2: seedFounderUser seeds kind='human' so auth middleware resolves this user
-		await seedFounderUser(db, "test-founder-1");
+		await seedFounderUser(db, ids);
 
 		await db
 			.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
+			.values({ id: ids("team"), name: "Test Product", phase: "build", createdAt: now });
 		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
+			id: ids("tm"),
+			teamId: ids("team"),
 			capacity: 3,
 			activeBets: 0,
 			formedAt: now,
@@ -142,7 +146,7 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		// A review-type message triggers the readInitialSenderId code path.
 		// Seed an agent participant so the agent lookup inside readInitialSenderId can find a non-founder
 		await db.insert(users).values({
-			id: "agent-builder-1",
+			id: ids("agent-builder"),
 			name: "Builder Agent",
 			role: "builder",
 			status: "active",
@@ -154,14 +158,14 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 			headers: authHeaders(), // No X-Identity — falls through to readInitialSenderId
 			body: JSON.stringify({
 				hostKind: "bet",
-				hostId: "bet-review-1",
-				participants: ["test-founder-1", "agent-builder-1"],
+				hostId: ids("bet-review"),
+				participants: [ids("founder"), ids("agent-builder")],
 				initialMessage: {
 					type: "review",
 					payload: {
 						title: "Review: please confirm.",
 						reasoning: ["The implementation looks correct."],
-						artifactRef: { id: "artifact-1", kind: "text_diff" },
+						artifactRef: { id: ids("artifact"), kind: "text_diff" },
 					},
 					clientKey: crypto.randomUUID(),
 				},

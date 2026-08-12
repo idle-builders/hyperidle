@@ -15,6 +15,7 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
+import type { ScopedIds } from "@hyperidle/db/test-fixtures";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { seedTeam } from "./_helpers.js";
@@ -25,12 +26,12 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json" };
 }
 
-async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
+async function seedFounderProfile(db: HyperIdleDb, ids: ScopedIds): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(users)
 		.values({
-			id: "p3-settings-founder",
+			id: ids("founder"),
 			kind: "human",
 			name: "P3 Settings Founder",
 			email: "p3settings@hyperidle.dev",
@@ -43,9 +44,13 @@ async function seedFounderProfile(db: HyperIdleDb): Promise<void> {
 
 describe("P3 AC-10 — Settings route: server_config backing", () => {
 	describe("GET /api/settings — notification prefs from server_config", () => {
-		test("returns default notification prefs when server_config is empty", async ({ app, db }) => {
+		test("returns default notification prefs when server_config is empty", async ({
+			app,
+			db,
+			ids,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedFounderProfile(db);
+			await seedFounderProfile(db, ids);
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);
 
@@ -72,9 +77,10 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 		test("PATCH reviewAlerts=false persists and re-GET reflects the change", async ({
 			app,
 			db,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedFounderProfile(db);
+			await seedFounderProfile(db, ids);
 			const patchRes = await app.request("/api/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -92,9 +98,13 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 		// reflects the change" is HARD-DELETED — the `costAlerts` settings field
 		// is HARD-DELETED, no replacement.
 
-		test("PATCH quietHoursStart persists and re-GET reflects the change", async ({ app, db }) => {
+		test("PATCH quietHoursStart persists and re-GET reflects the change", async ({
+			app,
+			db,
+			ids,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedFounderProfile(db);
+			await seedFounderProfile(db, ids);
 			await app.request("/api/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -109,9 +119,9 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("successive PATCH calls are cumulative (deep-merge)", async ({ app, db }) => {
+		test("successive PATCH calls are cumulative (deep-merge)", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedFounderProfile(db);
+			await seedFounderProfile(db, ids);
 			await app.request("/api/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -134,9 +144,9 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 200 with the updated settings in the response", async ({ app, db }) => {
+		test("returns 200 with the updated settings in the response", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedFounderProfile(db);
+			await seedFounderProfile(db, ids);
 			const patchRes = await app.request("/api/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -154,9 +164,9 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 	});
 
 	describe("Persistence: uses server_config table not just in-memory", () => {
-		test("changes persist in the DB (readable by readServerConfig)", async ({ app, db }) => {
+		test("changes persist in the DB (readable by readServerConfig)", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedFounderProfile(db);
+			await seedFounderProfile(db, ids);
 			await app.request("/api/settings", {
 				method: "PATCH",
 				headers: authHeaders(),
@@ -172,12 +182,12 @@ describe("P3 AC-10 — Settings route: server_config backing", () => {
 	});
 
 	describe("Products and users still returned (AC-17 compatibility)", () => {
-		test("GET /api/settings still returns profile section", async ({ app, db }) => {
+		test("GET /api/settings still returns profile section", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await seedFounderProfile(db);
+			await seedFounderProfile(db, ids);
 			const now = new Date().toISOString();
 			await seedTeam(db, {
-				id: "p3-prod-1",
+				id: ids("team"),
 				name: "P3 Test Product",
 				phase: "build",
 				createdAt: now,

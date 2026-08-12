@@ -35,11 +35,11 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 	// AC7: auth resolves from users table
 	// -------------------------------------------------------------------------
 	describe("AC7: auth middleware resolves userId from users table", () => {
-		test("resolves userId from the human user row in users table", async ({ app, db }) => {
+		test("resolves userId from the human user row in users table", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Seed a human user — NOT using factorySettings
 			await db.insert(users).values({
-				id: "u-human-auth-test",
+				id: ids("human"),
 				kind: "human",
 				name: "Auth Test Human",
 				role: "founder",
@@ -52,17 +52,21 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as { id: string; name: string; email: string };
-			expect(body.id).toBe("u-human-auth-test");
+			expect(body.id).toBe(ids("human"));
 			expect(body.id).not.toBe("u-founder"); // should resolve the actual human user
 			vi.unstubAllEnvs();
 		});
 
-		test("resolves the first human user when multiple human rows exist", async ({ app, db }) => {
+		test("resolves the first human user when multiple human rows exist", async ({
+			app,
+			db,
+			ids,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Seed two human users
 			await db.insert(users).values([
 				{
-					id: "u-human-first",
+					id: ids("human-1"),
 					kind: "human",
 					name: "First Human",
 					role: "founder",
@@ -71,7 +75,7 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 					createdAt: NOW,
 				},
 				{
-					id: "u-human-second",
+					id: ids("human-2"),
 					kind: "human",
 					name: "Second Human",
 					role: "founder",
@@ -86,7 +90,7 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 
 			const body = (await res.json()) as { id: string };
 			// One of the two human users is returned — NOT "u-founder" fallback
-			expect(["u-human-first", "u-human-second"]).toContain(body.id);
+			expect([ids("human-1"), ids("human-2")]).toContain(body.id);
 			vi.unstubAllEnvs();
 		});
 
@@ -102,15 +106,10 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("does NOT resolve auth from factorySettings founder_id", async ({ app, db }) => {
+		test("does NOT resolve auth from factorySettings founder_id", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			// Seed factorySettings with a different founder_id — it should be IGNORED
-			// (factorySettings may still exist for other keys, but founder_id is removed)
-			// Note: factorySettings table still exists but founder_id key is no longer used
-			// The human user in the users table is what matters
-
 			await db.insert(users).values({
-				id: "u-real-human",
+				id: ids("real-human"),
 				kind: "human",
 				name: "Real Human",
 				role: "founder",
@@ -124,7 +123,7 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 
 			const body = (await res.json()) as { id: string };
 			// Should resolve from users table, not from factorySettings
-			expect(body.id).toBe("u-real-human");
+			expect(body.id).toBe(ids("real-human"));
 			vi.unstubAllEnvs();
 		});
 	});
@@ -133,10 +132,10 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 	// AC7: GET /api/auth/me returns data from users table
 	// -------------------------------------------------------------------------
 	describe("AC7: GET /api/auth/me returns data from users table row", () => {
-		test("returns name and email from the human user row", async ({ app, db }) => {
+		test("returns name and email from the human user row", async ({ app, db, ids }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
-				id: "u-me-test",
+				id: ids("me"),
 				kind: "human",
 				name: "Jane Founder",
 				role: "founder",
@@ -155,17 +154,21 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 				email: string;
 				avatarUrl: string | null;
 			};
-			expect(body.id).toBe("u-me-test");
+			expect(body.id).toBe(ids("me"));
 			expect(body.name).toBe("Jane Founder");
 			expect(body.email).toBe("jane@hyperidle.com");
 			expect(body.avatarUrl).toBe("https://cdn.example.com/jane.png");
 			vi.unstubAllEnvs();
 		});
 
-		test("returns empty string for email when human user has no email", async ({ app, db }) => {
+		test("returns empty string for email when human user has no email", async ({
+			app,
+			db,
+			ids,
+		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await db.insert(users).values({
-				id: "u-no-email",
+				id: ids("no-email"),
 				kind: "human",
 				name: "No Email Founder",
 				role: "founder",
@@ -199,11 +202,12 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 		test("GET /api/settings returns profile from users table, not factorySettings", async ({
 			app,
 			db,
+			ids,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Seed human user with specific data
 			await db.insert(users).values({
-				id: "u-settings-test",
+				id: ids("settings-human"),
 				kind: "human",
 				name: "Settings Founder",
 				role: "founder",
@@ -213,7 +217,12 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 			});
 
 			// Also seed a product so settings works
-			await seedTeam(db, { id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW });
+			await seedTeam(db, {
+				id: ids("team"),
+				name: "Auth Product",
+				phase: "build",
+				createdAt: NOW,
+			});
 
 			const res = await app.request("/api/settings", { headers: authHeaders() });
 			expect(res.status).toBe(200);
