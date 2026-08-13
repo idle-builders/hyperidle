@@ -6,9 +6,9 @@
   "worktree": ".worktrees/AU40-pipeline",
   "branch": "chore/AU40-isolate-false-test-lane",
   "base": "origin/main@fe723ab87",
-  "phase": "architecture",
-  "status": "blocked",
-  "smallestActionToResume": "Maintainer must choose the AU40 ownership boundary: (A) narrow stop-and-join to the leak owners proven causal by no-isolate owner-to-victim runs, or (B) expand to every async app/runtime owner implied by the current whole-server shutdown guarantee. Option B likely exceeds the repository's 1,000-line simplicity stop and should become separately scoped work if chosen.",
+  "phase": "concept-gate",
+  "status": "awaiting-human-review",
+  "smallestActionToResume": "Maintainer approves or rejects the revised causal-owner architecture; build begins only after approval.",
   "sessions": [
     {
       "phase": "preflight",
@@ -69,12 +69,36 @@
       "started": "2026-08-13",
       "result": "awaiting-maintainer-decision",
       "notes": "No build or concept approval occurred. Decide whether AU40 proves and fixes only measured causal leak owners, or expands into production-wide async shutdown ownership; broad expansion likely breaches the 1,000-line simplicity limit."
+    },
+    {
+      "phase": "maintainer-boundary-ruling",
+      "started": "2026-08-13",
+      "result": "approved-option-a",
+      "notes": "AU40 stops/joins only leak owners proven causal by no-isolate owner-to-victim evidence; production-wide async shutdown cleanup is separate scope"
+    },
+    {
+      "phase": "architecture-resume",
+      "started": "2026-08-13",
+      "result": "ok",
+      "notes": "architecture narrowed to config flip plus only owners proven by three-run owner-to-victim reproduction; broad shutdown work removed; estimated 250-650 LOC"
+    },
+    {
+      "phase": "architecture-critique-resumed",
+      "started": "2026-08-13",
+      "result": "pass",
+      "notes": "fresh reviewer found zero blockers; causal discovery loop, narrow cleanup contracts, full stability proof, and CI timing evidence cover all ACs"
+    },
+    {
+      "phase": "concept-gate",
+      "started": "2026-08-13",
+      "result": "awaiting-maintainer-approval",
+      "notes": "approve revised option-A architecture before build: service-only isolate false, truncation unchanged, causal owner proof before edits, five default plus one shuffled run"
     }
   ],
   "evaluations": {
     "refine-critique": 0,
     "design-critique": 0,
-    "architecture-critique": 3,
+    "architecture-critique": 4,
     "review": 0
   },
   "artifacts": [
@@ -82,7 +106,14 @@
     ".pipeline/work/AU40/architecture.md",
     ".pipeline/work/AU40/feasibility.md"
   ],
-  "approvals": [],
+  "approvals": [
+    {
+      "gate": "architecture-boundary",
+      "by": "maintainer",
+      "date": "2026-08-13",
+      "decision": "option A — causal owners only; broad shutdown cleanup separate"
+    }
+  ],
   "verdicts": [
     {
       "gate": "architecture-critique",
@@ -104,6 +135,13 @@
       "verdict": "FAIL",
       "date": "2026-08-13",
       "blocking": 1
+    },
+    {
+      "gate": "architecture-critique-resumed",
+      "attempt": 1,
+      "verdict": "PASS",
+      "date": "2026-08-13",
+      "blocking": 0
     }
   ]
 }
