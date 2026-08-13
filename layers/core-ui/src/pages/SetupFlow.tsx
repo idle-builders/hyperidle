@@ -31,7 +31,7 @@
  * every CLI harness carries its own login — and it spans all three ModelProviders.
  */
 
-import { Button, Input, Select } from "@hyperidle/design-system";
+import { Button, Input, PageHeader, PageScaffold, Select } from "@hyperidle/design-system";
 import type { ModelProvider } from "@hyperidle/domain-model";
 import {
 	AGENT_ROLE_CATALOG,
@@ -572,11 +572,11 @@ export function SetupFlow(): JSX.Element {
 	);
 
 	return (
-		<div className="flex items-center justify-center min-h-screen bg-[var(--surface-page)] p-[24px]">
+		<PageScaffold header={<PageHeader title="Setup" />}>
 			{/* W3 AC-53: Card with shadow */}
 			<div
 				data-testid="onboarding-card"
-				className="w-full max-w-[520px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
+				className="w-[calc(100%-48px)] max-w-[520px] m-auto bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
 			>
 				{/* Brand + tagline */}
 				<div
@@ -971,6 +971,6 @@ export function SetupFlow(): JSX.Element {
 					</div>
 				</form>
 			</div>
-		</div>
+		</PageScaffold>
 	);
 }

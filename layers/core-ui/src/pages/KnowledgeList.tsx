@@ -931,7 +931,7 @@ export function KnowledgeList({
 
 	if (loading) {
 		return (
-			<PageScaffold data-testid="knowledge-list-page">
+			<PageScaffold header={<PageHeader title="Knowledge" />} data-testid="knowledge-list-page">
 				<SkeletonList rows={6} ariaLabel="Loading knowledge" />
 			</PageScaffold>
 		);
@@ -939,7 +939,7 @@ export function KnowledgeList({
 
 	if (error) {
 		return (
-			<PageScaffold data-testid="knowledge-list-page">
+			<PageScaffold header={<PageHeader title="Knowledge" />} data-testid="knowledge-list-page">
 				<ErrorState
 					title="Couldn't load knowledge"
 					description={error.message}

@@ -26,6 +26,7 @@ import { composeArtifactBody } from "./kinds/compose-artifact-body.js";
 interface ArtifactPreviewSurfaceBase {
 	kind: string;
 	preview: unknown;
+	documentTitle?: string;
 }
 
 /**
@@ -98,6 +99,7 @@ function renderBody(
 	preview: unknown,
 	size: "gallery" | "full",
 	sanitizeHtml?: (raw: string) => string,
+	documentTitle?: string,
 ): JSX.Element {
 	if (size === "full") {
 		if (preview == null) {
@@ -105,7 +107,7 @@ function renderBody(
 		}
 		return (
 			<RendererErrorBoundary size="full">
-				{composeArtifactBody(kind, preview, sanitizeHtml)}
+				{composeArtifactBody(kind, preview, sanitizeHtml, documentTitle)}
 			</RendererErrorBoundary>
 		);
 	}
@@ -134,7 +136,7 @@ function renderBody(
 }
 
 export function ArtifactPreviewSurface(props: ArtifactPreviewSurfaceProps): JSX.Element {
-	const { kind, preview } = props;
+	const { kind, preview, documentTitle } = props;
 	const size = props.size ?? "gallery";
 	const sizeClass = size === "full" ? SURFACE_FULL : SURFACE_GALLERY;
 	return (
@@ -144,7 +146,7 @@ export function ArtifactPreviewSurface(props: ArtifactPreviewSurfaceProps): JSX.
 			data-size={size}
 			data-kind={kind}
 		>
-			{renderBody(kind, preview, size, props.sanitizeHtml)}
+			{renderBody(kind, preview, size, props.sanitizeHtml, documentTitle)}
 		</div>
 	);
 }

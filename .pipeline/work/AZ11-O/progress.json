@@ -1,0 +1,51 @@
+{
+  "id": "AZ11-O",
+  "title": "Page orientation and document outline",
+  "phase": "ship",
+  "status": "shipping",
+  "procedure": "Founder-approved custom procedure: one combined refine+design+architecture round, founder approval, same-agent tests then code, one fresh review only; review repairs returned to the same builder with no second review or gate",
+  "sessions": [
+    {
+      "started": "2026-08-13",
+      "branch": "frontend/AZ11-O-page-orientation-outline",
+      "base": "252150565",
+      "result": "built-and-verified"
+    }
+  ],
+  "artifacts": ["plan.md", "progress.json"],
+  "approvals": [
+    {
+      "gate": "combined-round",
+      "date": "2026-08-13",
+      "by": "founder",
+      "decision": "approved without changes"
+    },
+    {
+      "gate": "ship-exception",
+      "date": "2026-08-13",
+      "by": "founder",
+      "decision": "approved shipping after builder-verified B1-B5 repairs; no second review permitted"
+    }
+  ],
+  "evaluations": [
+    {
+      "phase": "implementation-review",
+      "attempt": 1,
+      "verdict": "NOT-DONE",
+      "blocking": 5,
+      "date": "2026-08-13",
+      "resolution": "All five findings received red-first repairs and direct verification by the same builder; founder authorized the explicit ship exception"
+    }
+  ],
+  "verification": {
+    "focused": "83/83",
+    "e2e": "5/5",
+    "affected": "244 files / 2287 tests",
+    "full": "569 files / 6240 tests",
+    "check": "pass — 55 packages",
+    "lint": "pass",
+    "verify": "pass",
+    "budget": "919/920"
+  },
+  "pr": null
+}

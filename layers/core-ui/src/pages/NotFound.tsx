@@ -1,4 +1,4 @@
-import { Button, ErrorState } from "@hyperidle/design-system";
+import { Button, ErrorState, PageHeader, PageScaffold } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -38,38 +38,37 @@ export function NotFound(): JSX.Element {
 	const navigate = useNavigate();
 
 	return (
-		<div
-			className="flex flex-col h-full items-center justify-center p-[48px_24px]"
-			data-testid="not-found-page"
-		>
-			<ErrorState
-				title="Page not found"
-				description="The page you're looking for doesn't exist or has been moved. If you followed a link, it may be outdated."
-				icon={SAD_FACE_ICON}
-				iconBg="rgba(217,119,6,0.08)"
-				action={
-					<>
-						{/* AI5: shared Button primitive (primary/secondary). */}
-						<Button
-							variant="primary"
-							onClick={() => navigate("/conversations")}
-							data-testid="not-found-go-to-conversations"
-						>
-							Go to conversations
-						</Button>
-						<Button
-							variant="secondary"
-							// Z8-148: navigate(-1) exits the app on direct entry (history.length === 1).
-							// Fall back to /work (WorkOverview) when there is no history to go back to.
-							// AD9: was /work/portfolio.
-							onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/work"))}
-							data-testid="not-found-go-back"
-						>
-							Go back
-						</Button>
-					</>
-				}
-			/>
-		</div>
+		<PageScaffold header={<PageHeader title="Page not found" />} data-testid="not-found-page">
+			<div className="flex min-h-full items-center justify-center p-[48px_24px]">
+				<ErrorState
+					title=""
+					description="The page you're looking for doesn't exist or has been moved. If you followed a link, it may be outdated."
+					icon={SAD_FACE_ICON}
+					iconBg="rgba(217,119,6,0.08)"
+					action={
+						<>
+							{/* AI5: shared Button primitive (primary/secondary). */}
+							<Button
+								variant="primary"
+								onClick={() => navigate("/conversations")}
+								data-testid="not-found-go-to-conversations"
+							>
+								Go to conversations
+							</Button>
+							<Button
+								variant="secondary"
+								// Z8-148: navigate(-1) exits the app on direct entry (history.length === 1).
+								// Fall back to /work (WorkOverview) when there is no history to go back to.
+								// AD9: was /work/portfolio.
+								onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/work"))}
+								data-testid="not-found-go-back"
+							>
+								Go back
+							</Button>
+						</>
+					}
+				/>
+			</div>
+		</PageScaffold>
 	);
 }

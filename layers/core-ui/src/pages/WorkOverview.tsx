@@ -96,7 +96,7 @@ export function WorkOverviewView({
 	// Error state — W3: render static user-facing copy only; error.message stays off the screen.
 	if (error) {
 		return (
-			<PageScaffold data-testid="work-overview-page-error">
+			<PageScaffold header={<PageHeader title="Teams" />} data-testid="work-overview-page-error">
 				<ErrorState
 					title="Couldn't load teams"
 					description="Check your connection and try again."
@@ -109,7 +109,7 @@ export function WorkOverviewView({
 	// Empty state (0 teams — defensive; FirstRunRedirect normally routes to /setup)
 	if (teams.length === 0) {
 		return (
-			<PageScaffold data-testid="work-overview-page-empty">
+			<PageScaffold header={<PageHeader title="Teams" />} data-testid="work-overview-page-empty">
 				<EmptyState
 					title="No teams yet"
 					description="Teams group your agents and bets. Finish setup to create your first team."

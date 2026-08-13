@@ -21,7 +21,9 @@ describe("KnowledgeDetail", () => {
 
 	it("renders item title for known item", () => {
 		renderPage("k1");
-		expect(screen.getByText("Architecture Decision: Auth Strategy")).toBeInTheDocument();
+		expect(
+			screen.getByRole("heading", { level: 1, name: "Architecture Decision: Auth Strategy" }),
+		).toBeInTheDocument();
 	});
 
 	it("renders item content", () => {
@@ -47,6 +49,8 @@ describe("KnowledgeDetail", () => {
 
 	it("renders fallback for unknown knowledge item", () => {
 		renderPage("nonexistent");
-		expect(screen.getByText("Unknown Knowledge Item")).toBeInTheDocument();
+		expect(
+			screen.getByRole("heading", { level: 1, name: "Unknown Knowledge Item" }),
+		).toBeInTheDocument();
 	});
 });

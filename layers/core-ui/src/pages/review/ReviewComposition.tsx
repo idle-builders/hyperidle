@@ -1,4 +1,11 @@
-import { Button, Composer, PageScaffold, SplitView } from "@hyperidle/design-system";
+import {
+	Breadcrumb,
+	Button,
+	Composer,
+	PageHeader,
+	PageScaffold,
+	SplitView,
+} from "@hyperidle/design-system";
 import {
 	type AnchorRef,
 	type VerdictDecision,
@@ -210,14 +217,21 @@ function FrameHeader({
 }): JSX.Element {
 	const s = subject;
 	return (
-		<header className="flex flex-col gap-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[24px] py-[18px]">
-			<nav className="flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]">
-				<span className="font-[500] text-[var(--text-secondary)]">Bet: {s.betTitle}</span>
-				<span aria-hidden="true">›</span>
-				<span className="truncate text-[var(--text-primary)]">{s.taskTitle ?? s.title}</span>
-			</nav>
-
-			<div className="flex items-start gap-[18px]">
+		<PageHeader
+			title={s.title}
+			leading={
+				<Breadcrumb
+					segments={[
+						{ label: "Work", to: "/work" },
+						{ label: s.betTitle, to: `/work/bet/${s.betId}` },
+						...(s.taskId && s.taskTitle
+							? [{ label: s.taskTitle, to: `/work/bet/${s.betId}/task/${s.taskId}` }]
+							: []),
+						{ label: s.title },
+					]}
+				/>
+			}
+			subtitle={
 				<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-[18px] gap-y-[9px]">
 					<div className="flex items-center gap-[6px]">
 						<AgentAvatar name={s.authorName} />
@@ -241,7 +255,8 @@ function FrameHeader({
 						{s.tokens} · {s.producedAgo}
 					</span>
 				</div>
-
+			}
+			actions={
 				<Verdict
 					menuOpen={menuOpen}
 					onToggleMenu={onToggleMenu}
@@ -249,8 +264,8 @@ function FrameHeader({
 					resolved={resolved}
 					activeDecision={subject.verdict?.decision}
 				/>
-			</div>
-		</header>
+			}
+		/>
 	);
 }
 
@@ -671,9 +686,9 @@ function ExaminePane({
 					<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
 						<KindBadge kind={artifact.kind} />
 						<ToolLogo tool={artifact.tool as ToolId} size="sm" />
-						<span className="min-w-0 flex-1 truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">
+						<h2 className="min-w-0 flex-1 truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">
 							{artifact.title}
-						</span>
+						</h2>
 						<button
 							type="button"
 							onClick={() => {

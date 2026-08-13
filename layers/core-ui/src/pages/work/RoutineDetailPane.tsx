@@ -286,9 +286,9 @@ function RoutineDetailPaneLoaded({
 				/* Pane header with name + save/cancel + status */
 				<div className="flex items-center gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)] shrink-0">
 					<div className="flex-1 flex items-center gap-[9px]">
-						<span className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight truncate">
+						<h2 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight truncate">
 							{routine.name}
-						</span>
+						</h2>
 						<StatusChip status={routineStateToStatus(currentState)} />
 					</div>
 					<div className="flex items-center gap-[6px] shrink-0">

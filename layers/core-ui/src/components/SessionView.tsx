@@ -770,9 +770,9 @@ export function SessionView({
 								{identity.host}
 							</span>
 						</div>
-						<h1 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">
+						<h2 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">
 							{identity.title}
-						</h1>
+						</h2>
 					</div>
 					<span className="h-[20px] w-px bg-[var(--border-subtle)]" />
 					<ParticipantGroup people={[identity.agent, identity.viewer]} />

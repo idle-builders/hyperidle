@@ -197,8 +197,13 @@ function AgentProfileLoaded({
 	// @lore AB1 S4: Team agents link back to their team page; others to conversations.
 	// parentPathFor(/agents/:id) returns /conversations (generic fallback); page overrides
 	// to team-aware path when teamId is present.
-	const agentParentPath = data.teamId ? `/work/team/${data.teamId}` : "/conversations";
-	const agentParentLabel = data.teamName ?? "Agents";
+	const agentSegments = data.teamId
+		? ([
+				{ label: "Work", to: "/work" },
+				{ label: data.teamName ?? "Team", to: `/work/team/${data.teamId}` },
+				{ label: data.name },
+			] as const)
+		: ([{ label: "Conversations", to: "/conversations" }, { label: data.name }] as const);
 
 	return (
 		<PageScaffold
@@ -209,7 +214,7 @@ function AgentProfileLoaded({
 					title={data.name}
 					leading={
 						<Breadcrumb
-							segments={[{ label: agentParentLabel, to: agentParentPath }, { label: data.name }]}
+							segments={agentSegments}
 							leading={
 								!sidebarMobile ? (
 									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />

@@ -37,6 +37,8 @@ export interface KnowledgeBodyProps {
 	body: string;
 	/** Knowledge item id — passed as host.id to deriveBlocks. */
 	hostId: string;
+	/** Route document title; enables page-safe authored heading levels. */
+	documentTitle?: string;
 	/**
 	 * Optional data-testid override. Defaults to "knowledge-body".
 	 * The edit-mode preview passes "knowledge-edit-preview".
@@ -95,6 +97,7 @@ function AnchoredMessages({
 export function KnowledgeBody({
 	body,
 	hostId,
+	documentTitle,
 	testId = "knowledge-body",
 	onOpenBlockActions,
 	messagesByBlockId,
@@ -124,12 +127,13 @@ export function KnowledgeBody({
 			{blocks.length === 0 ? (
 				<p className="text-[var(--text-tertiary)] text-sm m-0">(no content yet)</p>
 			) : (
-				blocks.map((block) => (
+				blocks.map((block, blockIndex) => (
 					// T4: relative wrapper so AssistantAttachButton can be positioned in the gutter.
 					<div key={block.id} className="relative group/block-attach">
 						<Block
 							id={block.id}
 							payload={block.payload}
+							outline={documentTitle ? { documentTitle, blockIndex, levelOffset: 1 } : undefined}
 							sanitizeHtml={sanitizeHtml}
 							onOpenActions={
 								onOpenBlockActions !== undefined ? () => onOpenBlockActions(block.id) : undefined

@@ -5,7 +5,7 @@ import {
 	type ReactNode,
 	useCallback,
 } from "react";
-
+import type { AuthoredOutlineContext } from "./block/HeadingPayload.js";
 import { renderPayload } from "./block/render-payload.js";
 
 function isEditableTarget(target: HTMLElement): boolean {
@@ -68,6 +68,8 @@ export interface BlockProps {
 	onCopyPermalink?: (id: BlockId) => void;
 	/** Invoked when the user opens the actions popover (Enter / Space). */
 	onOpenActions?: () => void;
+	/** Page-owned outline shift for authored content. */
+	outline?: AuthoredOutlineContext;
 }
 
 /**
@@ -89,6 +91,7 @@ export function Block({
 	className,
 	onCopyPermalink,
 	onOpenActions,
+	outline,
 }: BlockProps): JSX.Element {
 	const kind = payload.kind;
 	const effectiveState = kind === "unknown" ? "unknown" : state;
@@ -120,7 +123,8 @@ export function Block({
 				{slots?.gutterLeading}
 			</div>
 			<div className="flex flex-col gap-[9px] min-w-0">
-				{renderPayload(payload, sanitizeHtml)}
+				{/* @lore Suppress only the heading payload; filtering the Block would sever its stable anchor, handle, and discussion slots. */}
+				{renderPayload(payload, sanitizeHtml, outline)}
 				{slots?.inlineAfterPayload}
 			</div>
 		</article>

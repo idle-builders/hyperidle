@@ -16,10 +16,17 @@
  */
 
 // hearth-internal-padding
-import { BodyEditor, Button, PageScaffold, Select } from "@hyperidle/design-system";
+import {
+	BodyEditor,
+	Breadcrumb,
+	Button,
+	PageHeader,
+	PageScaffold,
+	Select,
+} from "@hyperidle/design-system";
 import { deriveTitleFromPitch } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { apiFetch } from "../services/api-fetch.js";
@@ -118,39 +125,18 @@ export function WorkBetCreate(): JSX.Element {
 		<PageScaffold
 			data-testid="bet-create-page"
 			header={
-				/* Bordered header */
-				<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-					{/* Breadcrumb */}
-					<nav aria-label="Breadcrumb" className="text-[13px] text-[var(--text-tertiary)] mb-[6px]">
-						<Link
-							to="/work"
-							className="hover:text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
-						>
-							Work
-						</Link>{" "}
-						/ New bet
-					</nav>
-					{/* Title preview + actions row */}
-					<div className="flex items-center justify-between gap-[12px]">
-						{/* Read-only derived title preview — bet title is derived, not typed */}
-						<span
-							data-testid="bet-create-title-preview"
-							style={{
-								fontSize: "20px",
-								fontWeight: 600,
-								letterSpacing: "-0.01em",
-								color: derivedTitle ? "var(--text-primary)" : "var(--text-tertiary)",
-								flex: 1,
-								minWidth: 0,
-								overflow: "hidden",
-								textOverflow: "ellipsis",
-								whiteSpace: "nowrap",
-								fontFamily: "var(--font-sans)",
-							}}
-						>
-							{derivedTitle || "Untitled bet"}
-						</span>
-						<div className="flex items-center gap-[9px] shrink-0">
+				<PageHeader
+					title={
+						<span data-testid="bet-create-title-preview">{derivedTitle || "Untitled bet"}</span>
+					}
+					leading={
+						<Breadcrumb
+							segments={[{ label: "Work", to: "/work" }, { label: "New bet" }]}
+							LinkComponent={RRLink}
+						/>
+					}
+					actions={
+						<>
 							<Button variant="secondary" size="sm" onClick={handleCancel} disabled={submitting}>
 								Cancel
 							</Button>
@@ -163,9 +149,9 @@ export function WorkBetCreate(): JSX.Element {
 							>
 								{submitting ? "Creating…" : "Create"}
 							</Button>
-						</div>
-					</div>
-				</header>
+						</>
+					}
+				/>
 			}
 		>
 			{/* Responsive two-column layout */}

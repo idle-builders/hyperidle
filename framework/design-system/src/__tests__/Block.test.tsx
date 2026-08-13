@@ -125,6 +125,40 @@ describe("<Block />", () => {
 	});
 
 	describe("Semantic HTML per kind (AC-29)", () => {
+		it("demotes authored headings, caps h6, and suppresses only a matching first heading", async () => {
+			const sourcePaint = ["24px", "20px", "18px", "16px", "15px", "13px"];
+			for (const level of [1, 2, 3, 4, 5, 6] as const) {
+				await renderBlock(
+					{ ...HEADING, level },
+					{
+						outline: { documentTitle: "Different title", blockIndex: 0, levelOffset: 1 },
+					},
+				);
+				const heading = container.querySelector(`h${Math.min(6, level + 1)}`);
+				expect(heading).toHaveClass(`text-[${sourcePaint[level - 1]}]`);
+			}
+
+			let opened = 0;
+			await renderBlock(HEADING, {
+				outline: { documentTitle: "hello!", blockIndex: 0, levelOffset: 1 },
+				onOpenActions: () => opened++,
+				slots: {
+					gutterLeading: <button type="button">Handle</button>,
+					inlineAfterPayload: "Discuss",
+				},
+			});
+			const shell = container.querySelector("article[data-block-id]") as HTMLElement;
+			expect(shell.querySelector("h1,h2,h3,h4,h5,h6")).toBeNull();
+			expect(shell).toHaveTextContent("HandleDiscuss");
+			shell.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+			expect(opened).toBe(1);
+
+			await renderBlock(HEADING, {
+				outline: { documentTitle: "Hello", blockIndex: 1, levelOffset: 1 },
+			});
+			expect(container.querySelector("h3")).toHaveTextContent("Hello");
+		});
+
 		for (const c of cases) {
 			it(`${c.kind} renders a <${c.tag}>`, async () => {
 				await renderBlock(c.payload);

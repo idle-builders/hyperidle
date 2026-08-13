@@ -33,7 +33,7 @@ export interface BreadcrumbSegment {
 
 export interface BreadcrumbProps {
 	/** Ordered list of path segments, last being the current page. */
-	segments: ReadonlyArray<BreadcrumbSegment>;
+	segments: readonly [BreadcrumbSegment, ...BreadcrumbSegment[]];
 	/** Optional slot rendered before the first segment (e.g. NavHistoryCluster). */
 	leading?: ReactNode;
 	/**
@@ -46,6 +46,7 @@ export interface BreadcrumbProps {
 		className?: string;
 		children: ReactNode;
 		"data-testid"?: string;
+		"data-breadcrumb-role"?: "root" | "intermediate" | "current";
 	}>;
 }
 
@@ -69,6 +70,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 			className?: string;
 			children: ReactNode;
 			"data-testid"?: string;
+			"data-breadcrumb-role"?: "root" | "intermediate" | "current";
 		}): JSX.Element {
 			return (
 				<a href={to} className={className} {...rest}>
@@ -81,7 +83,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 
 	if (leading) {
 		items.push(
-			<span key="leading" className="inline-flex items-center">
+			<span key="leading" className="inline-flex shrink-0 items-center">
 				{leading}
 			</span>,
 		);
@@ -91,13 +93,14 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 		const isLast = i === segments.length - 1;
 		const isFirst = i === 0;
 		const isMiddle = !(isFirst || isLast);
+		const role = isFirst && !isLast ? "root" : isLast ? "current" : "intermediate";
 
 		if (i > 0) {
 			items.push(
 				<span
 					key={`sep-${i}`}
 					aria-hidden="true"
-					className="text-[color:var(--text-secondary)] select-none mx-[3px]"
+					className="shrink-0 text-[color:var(--text-secondary)] select-none mx-[3px]"
 				>
 					/
 				</span>,
@@ -109,9 +112,10 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 				<Link
 					key={`seg-${i}`}
 					to={seg.to}
-					className={[LINK_CLASS, isMiddle ? "max-w-[120px] truncate" : ""]
+					className={[LINK_CLASS, isMiddle ? "min-w-0 max-w-[120px] truncate" : "shrink-0"]
 						.filter(Boolean)
 						.join(" ")}
+					data-breadcrumb-role={role}
 					{...(seg.testId ? { "data-testid": seg.testId } : {})}
 				>
 					{seg.label}
@@ -121,10 +125,15 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 			items.push(
 				<span
 					key={`seg-${i}`}
-					className={[CURRENT_CLASS, isLast && !isFirst ? "max-w-[180px] truncate" : ""]
+					className={[
+						isLast ? CURRENT_CLASS : "text-[color:var(--text-secondary)]",
+						isLast ? "min-w-[6ch] max-w-[180px] flex-1 truncate" : "min-w-0 max-w-[120px] truncate",
+					]
 						.filter(Boolean)
 						.join(" ")}
-					aria-current="page"
+					{...(isLast ? { "aria-current": "page" as const } : {})}
+					data-breadcrumb-role={role}
+					{...(seg.testId ? { "data-testid": seg.testId } : {})}
 				>
 					{seg.label}
 				</span>,
@@ -135,7 +144,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 	return (
 		<nav
 			aria-label="Breadcrumb"
-			className="flex items-center text-[13px] flex-wrap"
+			className="flex min-w-0 flex-nowrap items-center overflow-hidden text-[13px]"
 			{...dsProps("Breadcrumb", "1")}
 		>
 			{items}

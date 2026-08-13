@@ -804,6 +804,7 @@ function KnowledgeDetailView({
 								// The deprecated KnowledgeScope item.scope is NOT read here (WARNING-A3).
 								...(item.scopeName ? [{ label: item.scopeName }] : []),
 								...(item.topic ? [{ label: item.topic }] : []),
+								{ label: item.title },
 							]}
 							leading={
 								!sidebarMobile ? (
@@ -1006,6 +1007,7 @@ function KnowledgeDetailView({
 						<KnowledgeBody
 							body={savedContent}
 							hostId={item.id}
+							documentTitle={item.title}
 							onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
 							messagesByBlockId={messagesByBlockId}
 						/>

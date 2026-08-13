@@ -55,6 +55,7 @@ describe("ArtifactPreview (single_full_preview)", () => {
 			root.render(
 				createElement(ArtifactPreview, {
 					sanitizeHtml: passthrough,
+					showTitle: false,
 					data: fixture(
 						"text",
 						{ kind: "text", body: "Ship X decision: proceed with PostgreSQL", format: "plain" },
@@ -65,6 +66,7 @@ describe("ArtifactPreview (single_full_preview)", () => {
 		});
 		expect(container.textContent).toContain("TEXT");
 		expect(container.textContent).toContain("decision");
+		expect(container.textContent?.match(/Task title/g)).toHaveLength(1);
 	});
 
 	// @lore AF16 T9: "PREVIEW NOT YET RENDERED" replaced with "No preview available" (full size).

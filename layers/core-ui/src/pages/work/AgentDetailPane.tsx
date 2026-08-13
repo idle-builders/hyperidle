@@ -156,9 +156,9 @@ export function AgentDetailPane({
 			header={
 				/* Pane header — Save / Cancel + agent name */
 				<div className="flex items-center gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)] shrink-0">
-					<span className="flex-1 text-[17px] font-semibold text-[var(--text-primary)] leading-tight truncate">
+					<h2 className="flex-1 text-[17px] font-semibold text-[var(--text-primary)] leading-tight truncate">
 						{agentName}
-					</span>
+					</h2>
 					{isDirty && (
 						<span className="text-[11px] text-[var(--text-tertiary)] shrink-0">
 							Unsaved changes

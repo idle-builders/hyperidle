@@ -17,7 +17,7 @@
 // Presentational isolation component: local useState for the desktop/mobile
 // toggle + flag-panel expand; verdict callbacks are no-ops in the story.
 
-import { Button } from "@hyperidle/design-system";
+import { Button, headingIdentityMatches } from "@hyperidle/design-system";
 import type { AnchorRef, Block } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
@@ -152,9 +152,11 @@ function ViewportToggle({
 export function EmailRender({
 	data,
 	viewport,
+	documentTitle,
 }: {
 	readonly data: RenderedEmail;
 	readonly viewport: Viewport;
+	readonly documentTitle?: string;
 }): JSX.Element {
 	const width = viewport === "mobile" ? 380 : 600;
 	return (
@@ -179,7 +181,8 @@ export function EmailRender({
 
 			{/* hero */}
 			<div style={{ padding: viewport === "mobile" ? "24px 20px" : "32px 36px" }}>
-				<h1
+				<h2
+					hidden={documentTitle ? headingIdentityMatches(data.heroHeadline, documentTitle) : false}
 					style={{
 						margin: 0,
 						fontSize: viewport === "mobile" ? 22 : 28,
@@ -189,7 +192,7 @@ export function EmailRender({
 					}}
 				>
 					{data.heroHeadline}
-				</h1>
+				</h2>
 
 				{data.bodyParas.map((p) => (
 					<p
@@ -239,6 +242,7 @@ export function EmailRender({
 
 export interface ReviewRenderedInContextProps {
 	readonly data?: RenderedEmail;
+	readonly documentTitle?: string;
 	readonly artifactId?: string;
 	readonly blocks?: ReadonlyArray<Block>;
 	readonly onApprove?: () => void;
@@ -259,6 +263,7 @@ export interface ReviewRenderedInContextProps {
  */
 function ReviewRenderedInContextView({
 	data = FIXTURE,
+	documentTitle,
 	artifactId = "",
 	blocks = [],
 	onApprove,
@@ -377,7 +382,7 @@ function ReviewRenderedInContextView({
 						borderRadius: "var(--r-default)",
 					}}
 				>
-					<EmailRender data={data} viewport={viewport} />
+					<EmailRender data={data} viewport={viewport} documentTitle={documentTitle} />
 					{composerOpen && anchor ? (
 						<div className="mt-[18px] flex gap-[12px] pl-[12px]">
 							<InlineComposer
@@ -580,7 +585,12 @@ export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.El
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
-			<ReviewRenderedInContextView data={data} artifactId={artifact.id} blocks={blocks} />
+			<ReviewRenderedInContextView
+				data={data}
+				documentTitle={artifact.title}
+				artifactId={artifact.id}
+				blocks={blocks}
+			/>
 		</div>
 	);
 }
