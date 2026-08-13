@@ -187,7 +187,7 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		expect(screen.queryByRole("button", { name: /^reject$/i })).toBeNull();
 
 		// Resolved review echo renders + its quiet "View review".
-		expect(screen.getAllByRole("button", { name: /view review/i }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("button", { name: /inspect review/i }).length).toBeGreaterThan(0);
 	});
 
 	it("types + Send POSTs a plain message with refs:[] and a uuid clientKey", async () => {

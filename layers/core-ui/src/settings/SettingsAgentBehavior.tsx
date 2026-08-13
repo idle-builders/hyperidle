@@ -22,6 +22,7 @@ import type {
 } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { useUiPreference } from "../hooks/useUiPreference.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 
@@ -85,9 +86,11 @@ export function SettingsAgentBehavior(): JSX.Element {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [draft, setDraft] = useState<Record<string, string | boolean | null>>({});
 	const [saving, setSaving] = useState(false);
+	const [editing, setEditing] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
 	const [ratio, setRatio] = useUiPreference("settings.agentBehavior", 0.42);
+	const { sidebarMobile } = useViewportBreakpoint();
 
 	const load = useCallback(async (): Promise<void> => {
 		setStatus("loading");
@@ -143,12 +146,25 @@ export function SettingsAgentBehavior(): JSX.Element {
 		setSelectedId(item.id);
 		setSplitMode("split");
 		setSaveError(null);
+		setEditing(false);
 		setDraft(
 			Object.fromEntries(item.editableFields.map((field) => [field.id, field.value])) as Record<
 				string,
 				string | boolean | null
 			>,
 		);
+	}
+
+	function cancelEditing(): void {
+		if (!selected) return;
+		setDraft(
+			Object.fromEntries(selected.editableFields.map((field) => [field.id, field.value])) as Record<
+				string,
+				string | boolean | null
+			>,
+		);
+		setSaveError(null);
+		setEditing(false);
 	}
 
 	async function saveSelected(): Promise<void> {
@@ -173,6 +189,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 					body.item.editableFields.map((field) => [field.id, field.value]),
 				) as Record<string, string | boolean | null>,
 			);
+			setEditing(false);
 			showToast("Agent behavior saved");
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Could not save agent behavior.";
@@ -303,7 +320,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 						)}
 					</div>
 
-					{selected.editableFields.length > 0 ? (
+					{selected.editableFields.length > 0 && editing ? (
 						<div className="flex flex-col gap-[9px]">
 							{selected.editableFields.map((field) => (
 								<EditableField
@@ -322,19 +339,24 @@ export function SettingsAgentBehavior(): JSX.Element {
 								<Button size="sm" onClick={() => void saveSelected()} disabled={saving}>
 									{saving ? "Saving" : "Save"}
 								</Button>
-								{selected.links?.map((link) => (
-									<a
-										key={link.href}
-										href={link.href}
-										className="inline-flex min-h-[32px] items-center rounded-[var(--r-pill)] border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-primary)]"
-									>
-										{link.label}
-									</a>
-								))}
+								<Button
+									size="sm"
+									variant="ghost"
+									aria-label="Cancel agent behavior editing"
+									onClick={cancelEditing}
+									disabled={saving}
+								>
+									Cancel
+								</Button>
 							</div>
 						</div>
 					) : (
 						<div className="flex flex-wrap gap-[6px]">
+							{selected.editableFields.length > 0 && (
+								<Button size="sm" onClick={() => setEditing(true)}>
+									Edit agent behavior
+								</Button>
+							)}
 							{selected.links?.map((link) => (
 								<a
 									key={link.href}
@@ -367,6 +389,8 @@ export function SettingsAgentBehavior(): JSX.Element {
 				onRatioChange={setRatio}
 				origin={origin}
 				destination={destination}
+				compact={sidebarMobile}
+				originLabel="agent behavior"
 			/>
 		</div>
 	);

@@ -78,6 +78,7 @@ export function useBetDescriptionSave({
 
 	const save = useCallback(
 		(content: string): void => {
+			setStatus("saving");
 			// Clear any pending debounce timer
 			if (debounceTimerRef.current !== null) {
 				clearTimeout(debounceTimerRef.current);
@@ -85,8 +86,6 @@ export function useBetDescriptionSave({
 
 			debounceTimerRef.current = setTimeout(() => {
 				if (unmountedRef.current) return;
-				setStatus("saving");
-
 				apiFetch(`/api/bets/${betIdRef.current}`, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },

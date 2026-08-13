@@ -283,8 +283,12 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		expect(text).not.toBe("—");
 	});
 
-	test("notification popover shows relative label matching shared register", async ({ page }) => {
+	test("notification closes the utility, navigates, and retains temporal Back", async ({
+		page,
+	}) => {
 		await page.goto("/");
+		await expect(page).toHaveURL(/\/work\/team\/test-team-1$/);
+		const originUrl = page.url();
 		// Click the sidebar notification button (data-testid="sidebar-notification-btn")
 		const notifBtn = page.locator("[data-testid='sidebar-notification-btn']");
 		await notifBtn.click();
@@ -296,6 +300,11 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		await expect(timeEl).not.toBeEmpty();
 		const text = await timeEl.textContent();
 		expect(text).not.toBe("—");
+		await page.getByTestId("notification-row-ai3-seed-notif").locator("[role='button']").click();
+		await expect(popover).toHaveCount(0);
+		await expect(page).toHaveURL(/\/conversations\/ai3-seed-thread$/);
+		await page.goBack();
+		await expect(page).toHaveURL(originUrl);
 	});
 
 	/**

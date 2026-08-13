@@ -54,11 +54,15 @@ import { useSessionActivity } from "../hooks/useSessionActivity";
 import type { ThreadDetail } from "../hooks/useThreadDetail";
 import { useThreadDetail } from "../hooks/useThreadDetail";
 import { useUiPreference } from "../hooks/useUiPreference.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import type { AppShellOutletContext } from "../layouts/AppShell";
 import { apiFetch } from "../services/api-fetch.js";
 import { resolveHostRoute } from "../services/host-route.js";
 import { createOpenHandler } from "../services/open-handler.js";
 import { ToastContext } from "../shell/ToastRegion";
+import { ArtifactPermalink } from "./ArtifactPermalink.js";
+import { KnowledgeDetail } from "./KnowledgeDetail.js";
+import { ReviewPage } from "./review/ReviewPage.js";
 
 // ---------------------------------------------------------------------------
 // AF14 AC4: Blocking/Unread chip bar removed from Conversations page — neither chip
@@ -270,9 +274,26 @@ function classifyHttpError(status: number): string {
 	return `Couldn't record response (HTTP ${status}).`;
 }
 
+function InspectDestination({ path }: { path: string }): JSX.Element {
+	const [pathname, hash = ""] = path.split("#");
+	const artifact = pathname?.match(/^\/artifacts\/([^/]+)$/);
+	if (artifact?.[1]) return <ArtifactPermalink overrideId={artifact[1]} />;
+	const knowledge = pathname?.match(/^\/knowledge\/([^/]+)$/);
+	if (knowledge?.[1]) {
+		return (
+			<KnowledgeDetail overrideKnowledgeId={knowledge[1]} overrideHash={hash ? `#${hash}` : ""} />
+		);
+	}
+	const review = pathname?.match(/^\/work\/bet\/([^/]+)\/review\/([^/]+)$/);
+	if (review?.[1] && review[2])
+		return <ReviewPage overrideBetId={review[1]} overrideReviewId={review[2]} />;
+	return <EmptyState title="Unavailable" description="This reference cannot be inspected here." />;
+}
+
 function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const { status, data, error, retry } = useThreadDetail(threadId);
 	const navigate = useNavigate();
+	const { sidebarMobile } = useViewportBreakpoint();
 	// AM1: viewer identity for own-message ("You") styling in the Part column.
 	const { user } = useCurrentUser();
 	const viewerId = user?.id ?? "";
@@ -284,17 +305,10 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	const toast = useContext(ToastContext);
 
 	// AM5 T6: SplitView ratio persistence per surface (hooks must be unconditional)
-	const [dialInRatio, setDialInRatio] = useUiPreference("conversation.dial-in", 0.6);
-	const [sessionRatio, setSessionRatio] = useUiPreference("conversation.session", 0.6);
-
-	// Q1 §4.6: dial-in state
-	const [dialInSessionId, setDialInSessionId] = useState<string | null>(null);
-
-	// AM3: session-reference open state — fired by the `session` OpenTarget when a
-	// `session-reference` Embed is clicked in the conversation. The page owns the
-	// placement (a right-panel split, consistent with dial-in). A sub-agent tool row
-	// fires the SAME open seam → the same surface, recursed.
-	const [openedSessionId, setOpenedSessionId] = useState<string | null>(null);
+	const [inspectRatio, setInspectRatio] = useUiPreference("conversation.inspect", 0.6);
+	const [inspection, setInspection] = useState<
+		{ kind: "dial" | "session"; sessionId: string } | { kind: "path"; path: string } | null
+	>(null);
 
 	// Q1 §4.6: check for active session when viewing a task-hosted thread
 	const taskId = data?.thread.hostKind === "task" ? (data.thread.hostId ?? null) : null;
@@ -314,7 +328,9 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 			}
 			if (e.key === "d" || e.key === "D") {
 				e.preventDefault();
-				setDialInSessionId((prev) => (prev ? null : (activeSession.id ?? null)));
+				setInspection((current) =>
+					current?.kind === "dial" ? null : { kind: "dial", sessionId: activeSession.id },
+				);
 			}
 		};
 		document.addEventListener("keydown", handler);
@@ -396,13 +412,13 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// Only shown for task threads with an active session.
 	// hearth-internal-padding
 	const dialInButton =
-		activeSession && !dialInSessionId ? (
+		activeSession && inspection?.kind !== "dial" ? (
 			/* AI5: shared Button primitive (secondary). The live-pulse dot is one of
 			   the 3 AC3-allowlisted animate-pulse survivors and is preserved. */
 			<Button
 				variant="secondary"
 				size="sm"
-				onClick={() => setDialInSessionId(activeSession.id)}
+				onClick={() => setInspection({ kind: "dial", sessionId: activeSession.id })}
 				data-testid="dial-in-btn"
 			>
 				<span
@@ -442,7 +458,8 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// `session-reference` Embed or a sub-agent tool row is clicked (AC1).
 	const openTarget = createOpenHandler(navigate, {
 		betId: reviewBetId,
-		onOpenSession: (sessionId) => setOpenedSessionId(sessionId),
+		onInspectPath: (path) => setInspection({ kind: "path", path }),
+		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
 	});
 	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
@@ -455,96 +472,37 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		hostRoute,
 	};
 
-	// Q1 §4.6: companion split layout when dialed in
-	// AM5 T6: reconciled onto SplitView (surfaceKey="conversation.dial-in")
-	if (dialInSessionId) {
-		const agentId = activeSession?.agentId ?? data.thread.hostId;
-		const agentIdentity = data.identities[agentId];
-		const agentName = agentIdentity?.name ?? agentId;
-
-		return (
-			<PageScaffold body="managed" data-testid="conversations-page">
-				<SplitView
-					surfaceKey="conversation.dial-in"
-					mode="split"
-					dividerRatio={dialInRatio}
-					onRatioChange={setDialInRatio}
-					onModeChange={(mode) => {
-						if (mode === "fold-back") setDialInSessionId(null);
-					}}
-					origin={
-						<ConversationSurface
-							parts={parts}
-							onOpen={openTarget}
-							header={header}
-							participants={participants}
-							onSend={onSend}
-							scroll
-						/>
-					}
-					destination={
-						<SessionActivityPanel
-							sessionId={dialInSessionId}
-							agentName={agentName}
-							taskTitle={data.thread.hostId}
-							onClose={() => setDialInSessionId(null)}
-						/>
-					}
+	const agentId = activeSession?.agentId ?? data.thread.hostId;
+	const agentIdentity = data.identities[agentId];
+	const agentName = agentIdentity?.name ?? agentId;
+	const viewerName = data.identities[viewerId]?.name ?? viewerId;
+	const inspectionDestination =
+		inspection?.kind === "dial" ? (
+			<SessionActivityPanel
+				sessionId={inspection.sessionId}
+				agentName={agentName}
+				taskTitle={data.thread.hostId}
+				onClose={() => setInspection(null)}
+			/>
+		) : inspection?.kind === "session" ? (
+			<div data-testid="session-view-panel">
+				<SessionViewPanel
+					sessionId={inspection.sessionId}
+					agentId={agentId}
+					agentName={agentName}
+					threadTitle={header.title}
+					hostTitle={header.hostTitle}
+					viewerId={viewerId}
+					viewerName={viewerName}
+					onClose={() => setInspection(null)}
+					onOpen={openTarget}
 				/>
-			</PageScaffold>
+			</div>
+		) : inspection?.kind === "path" ? (
+			<InspectDestination path={inspection.path} />
+		) : (
+			<div />
 		);
-	}
-
-	// AM3 AC1: companion split layout when a session-reference Embed is opened.
-	// Fires when `onOpenSession(sessionId)` is called by the open-handler seam.
-	// Consistent placement with dial-in; the page owns placement, SessionView owns
-	// rendering. The open-handler `case "session"` is now wired (no longer a no-op).
-	// AM5 T6: reconciled onto SplitView (surfaceKey="conversation.session")
-	if (openedSessionId) {
-		const agentId = activeSession?.agentId ?? data.thread.hostId;
-		const agentIdentity = data.identities[agentId];
-		const agentName = agentIdentity?.name ?? agentId;
-		const viewerName = data.identities[viewerId]?.name ?? viewerId;
-
-		return (
-			<PageScaffold body="managed" data-testid="conversations-page">
-				<SplitView
-					surfaceKey="conversation.session"
-					mode="split"
-					dividerRatio={sessionRatio}
-					onRatioChange={setSessionRatio}
-					onModeChange={(mode) => {
-						if (mode === "fold-back") setOpenedSessionId(null);
-					}}
-					origin={
-						<ConversationSurface
-							parts={parts}
-							onOpen={openTarget}
-							header={header}
-							participants={participants}
-							onSend={onSend}
-							scroll
-						/>
-					}
-					destination={
-						<div data-testid="session-view-panel">
-							<SessionViewPanel
-								sessionId={openedSessionId}
-								agentId={agentId}
-								agentName={agentName}
-								threadTitle={header.title}
-								hostTitle={header.hostTitle}
-								viewerId={viewerId}
-								viewerName={viewerName}
-								onClose={() => setOpenedSessionId(null)}
-								onOpen={openTarget}
-							/>
-						</div>
-					}
-				/>
-			</PageScaffold>
-		);
-	}
 
 	// P5: Hint #4 — review-verdict. Trigger: thread is loaded with review messages.
 	const hasReviewMessages = data.messages.some((m) => m.type === "review");
@@ -585,15 +543,27 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 			}
 			body="managed"
 		>
-			{/* ConversationSurface takes the managed body; it manages its own
-			    internal scroll (scroll prop). */}
-			<ConversationSurface
-				parts={parts}
-				onOpen={openTarget}
-				header={header}
-				participants={participants}
-				onSend={onSend}
-				scroll
+			<SplitView
+				compact={sidebarMobile}
+				originLabel="conversation"
+				surfaceKey="conversation.inspect"
+				mode={inspection ? "split" : "fold-back"}
+				dividerRatio={inspectRatio}
+				onRatioChange={setInspectRatio}
+				onModeChange={(mode) => {
+					if (mode === "fold-back") setInspection(null);
+				}}
+				origin={
+					<ConversationSurface
+						parts={parts}
+						onOpen={openTarget}
+						header={header}
+						participants={participants}
+						onSend={onSend}
+						scroll
+					/>
+				}
+				destination={inspectionDestination}
 			/>
 		</PageScaffold>
 	);

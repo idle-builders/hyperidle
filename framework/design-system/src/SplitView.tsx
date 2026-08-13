@@ -44,6 +44,8 @@ export interface SplitViewProps {
 	onRatioChange?: (ratio: number) => void;
 	/** @lore AM5 T6: per-surface persistence key — web composes SplitView + useUiPreference(surfaceKey, default) to persist the divider ratio in localStorage. SplitView itself stays presentational; this prop is informational for the stories viewer only. */
 	surfaceKey?: string;
+	compact?: boolean;
+	originLabel?: string;
 }
 
 // ── Icons (inline, currentColor) — the icon mode controls ────────────────────
@@ -147,6 +149,8 @@ export function SplitView({
 	dividerRatio,
 	onModeChange,
 	onRatioChange,
+	compact = false,
+	originLabel = "previous view",
 }: SplitViewProps): JSX.Element {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [ratio, setRatio] = useState(dividerRatio);
@@ -172,9 +176,18 @@ export function SplitView({
 		window.addEventListener("pointerup", up);
 	}
 
+	function resizeByKeyboard(e: React.KeyboardEvent): void {
+		if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+		e.preventDefault();
+		const next = Math.min(0.8, Math.max(0.2, ratio + (e.key === "ArrowRight" ? 0.05 : -0.05)));
+		setRatio(next);
+		onRatioChange?.(next);
+	}
+
 	const showOrigin = mode !== "full";
 	const showDest = mode !== "fold-back";
 	const isSplit = mode === "split";
+	const compactDestination = compact && showDest;
 
 	return (
 		// Two floating layers on the warm page canvas. The ROOT is the page surface
@@ -194,6 +207,7 @@ export function SplitView({
 				// card shadow) — no border; the shadow gives it tactile lift. Scrolls
 				// its own content. In `full` the origin is hidden entirely.
 				<div
+					hidden={compactDestination}
 					className="flex min-w-0 flex-col overflow-auto rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]"
 					style={{
 						flexGrow: isSplit ? 0 : 1,
@@ -204,22 +218,28 @@ export function SplitView({
 				</div>
 			) : null}
 
-			{isSplit ? (
+			{isSplit && !compact ? (
 				// The draggable SEAM — lives IN the gap between the two cards (the gap
 				// IS the separator now). Transparent track over the canvas; a centered
 				// grip pill marks it. Same smooth pointer logic as before, just
 				// repositioned into the inter-card gap. Negative margins let the hit
 				// area span the full `--space-3` gap without widening the layout.
-				<button
-					type="button"
+				<div
+					role="separator"
+					tabIndex={0}
 					aria-label="Resize panels"
+					aria-orientation="vertical"
+					aria-valuemin={20}
+					aria-valuemax={80}
+					aria-valuenow={Math.round(ratio * 100)}
 					onPointerDown={startDrag}
+					onKeyDown={resizeByKeyboard}
 					className={`group relative -mx-[var(--space-3)] flex w-[var(--space-3)] shrink-0 cursor-col-resize items-center justify-center bg-transparent transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]`}
 				>
 					<span
 						className={`pointer-events-none h-[36px] w-[3px] rounded-[var(--r-pill)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${dragging ? "bg-[var(--accent-primary)]" : "bg-[var(--border-strong)] group-hover:bg-[var(--accent-primary)]"}`}
 					/>
-				</button>
+				</div>
 			) : null}
 
 			{showDest ? (
@@ -231,25 +251,41 @@ export function SplitView({
 					className="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]"
 					style={{ flexGrow: 1, flexBasis: isSplit ? `${(1 - ratio) * 100}%` : "100%" }}
 				>
+					{compactDestination ? (
+						<div
+							data-compact-return
+							className="shrink-0 border-b border-[var(--border-subtle)] px-[12px] py-[6px]"
+						>
+							<button
+								type="button"
+								className="min-h-[44px] rounded-[var(--r-pill)] px-[12px] text-[13px] font-medium text-[var(--accent-deep)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+								onClick={() => onModeChange?.("fold-back")}
+							>
+								Back to {originLabel}
+							</button>
+						</div>
+					) : null}
 					{/* Contextual mode controls — destination (right) card only.
 					    split → [expand-to-full, fold-back];  full → [collapse-to-split].
 					    No "fold to split" affordance is shown when already full. */}
-					<div className="absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]">
-						{isSplit ? (
-							<>
-								<ControlButton label="Expand to full" onClick={() => onModeChange?.("full")}>
-									<ExpandIcon />
+					{!compactDestination ? (
+						<div className="absolute right-[12px] top-[12px] z-10 flex items-center gap-[6px]">
+							{isSplit ? (
+								<>
+									<ControlButton label="Expand to full" onClick={() => onModeChange?.("full")}>
+										<ExpandIcon />
+									</ControlButton>
+									<ControlButton label="Fold back" onClick={() => onModeChange?.("fold-back")}>
+										<CloseIcon />
+									</ControlButton>
+								</>
+							) : (
+								<ControlButton label="Collapse to split" onClick={() => onModeChange?.("split")}>
+									<CollapseIcon />
 								</ControlButton>
-								<ControlButton label="Fold back" onClick={() => onModeChange?.("fold-back")}>
-									<CloseIcon />
-								</ControlButton>
-							</>
-						) : (
-							<ControlButton label="Collapse to split" onClick={() => onModeChange?.("split")}>
-								<CollapseIcon />
-							</ControlButton>
-						)}
-					</div>
+							)}
+						</div>
+					) : null}
 					<div className="min-h-0 flex-1 overflow-auto">{destination}</div>
 				</div>
 			) : null}

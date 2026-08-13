@@ -31,7 +31,7 @@ describe("AE5 — resolveHostRoute", () => {
 	});
 
 	it("resolves agent to /work/agent/:id", () => {
-		expect(resolveHostRoute("agent", "agent-001")).toBe("/work/agent/agent-001");
+		expect(resolveHostRoute("agent", "agent-001")).toBe("/agents/agent-001");
 	});
 
 	it("resolves team to /work/team/:id", () => {

@@ -13,10 +13,6 @@
  *     Present in Electron Chromium renderer and Chromium-based dev browsers.
  *     Falls back to false when absent (forward button simply stays hidden).
  *
- * @lore AG4: Does not use useLocation() — avoids requiring a Router context,
- * which makes the hook usable in tests without a Router wrapper and also
- * usable in any component tree. Updates are driven by popstate events (fired
- * by RR on back/forward/push) which is sufficient to stay in sync.
  */
 
 import { useEffect, useState } from "react";
@@ -45,13 +41,14 @@ function readAvailability(): HistoryAvailability {
 	return { canGoBack, canGoForward };
 }
 
-export function useHistoryAvailability(): HistoryAvailability {
+export function useHistoryAvailability(locationKey?: string): HistoryAvailability {
 	const [availability, setAvailability] = useState<HistoryAvailability>(readAvailability);
 
 	// Re-read on popstate events (fired by RR on navigate(-1), navigate(1),
 	// and also on route pushes in some RR versions). This is the primary update
 	// mechanism and works without requiring a Router context.
 	useEffect(() => {
+		void locationKey;
 		// Read immediately on mount to capture any state that was set before mount.
 		setAvailability(readAvailability());
 
@@ -62,7 +59,7 @@ export function useHistoryAvailability(): HistoryAvailability {
 		return () => {
 			window.removeEventListener("popstate", onPopState);
 		};
-	}, []);
+	}, [locationKey]);
 
 	return availability;
 }

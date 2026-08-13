@@ -46,7 +46,7 @@ Compose Tier-2 components into major page sections. Shell regions live in `layer
 
 - **Sidebar** (`layers/core-ui/src/shell/Sidebar.tsx`) — 200px fixed-width vertical navigation with three labeled sections (Conversations / Work / Knowledge) and Settings pinned at the bottom. Structure → [`docs/information-architecture/app-shell-always-present.md`](../information-architecture/app-shell-always-present.md).
 
-Other shell surfaces (AppShell, DesktopTitleBar, AssistantOverlay, TaskSheet) live in `layers/core-ui/src/shell/`. View-specific region components live alongside their page files.
+Other shell surfaces (AppShell, DesktopTitleBar, and AssistantOverlay) live in `layers/core-ui/src/shell/`. View-specific region components live alongside their page files.
 
 Note: `ArtifactView`, `ReviewHeader`, `Canvas`, `Kanban`, and `PitchSelector` no longer exist as components. Review rendering is now handled by the canvas registry (`layers/core-ui/src/pages/review/canvas-registry.ts`).
 

@@ -49,6 +49,31 @@ const MOCK_ACTIVITY = [
 	},
 ];
 
+const ARTIFACT_ID = "inline-inspect-artifact";
+const THREAD_MESSAGES = [
+	...Array.from({ length: 24 }, (_, index) => ({
+		id: `context-${index}`,
+		threadId: TASK_THREAD.id,
+		senderId: "agent-1",
+		clientKey: `context-key-${index}`,
+		type: "plain",
+		payload: { text: `Preserved conversation context line ${index + 1}.`, refs: [] },
+		createdAt: NOW_ISO,
+	})),
+	{
+		id: "artifact-reference",
+		threadId: TASK_THREAD.id,
+		senderId: "agent-1",
+		clientKey: "artifact-reference-key",
+		type: "plain",
+		payload: {
+			text: "Inspect the rendered artifact without leaving this thread.",
+			refs: [{ kind: "artifact", id: ARTIFACT_ID }],
+		},
+		createdAt: NOW_ISO,
+	},
+];
+
 test.describe("Q1 — Session Dial-In", () => {
 	test.beforeEach(async ({ page }) => {
 		// Mock thread list with task thread
@@ -70,10 +95,27 @@ test.describe("Q1 — Session Dial-In", () => {
 				contentType: "application/json",
 				body: JSON.stringify({
 					thread: TASK_THREAD,
-					messages: [],
+					messages: THREAD_MESSAGES,
 					headMessageId: null,
 					nextMessagesCursor: null,
 					identities: { "agent-1": { name: "Builder Bot", role: "builder" } },
+				}),
+			});
+		});
+
+		await page.route(`**/api/artifacts/${ARTIFACT_ID}`, async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					id: ARTIFACT_ID,
+					producingTaskId: "task-1",
+					producingTaskTitle: "Object-opening task",
+					kind: "text",
+					label: "Evidence",
+					preview: { kind: "text", body: "Inline artifact pane rendered." },
+					threadCount: 0,
+					createdAt: NOW_ISO,
 				}),
 			});
 		});
@@ -171,6 +213,63 @@ test.describe("Q1 — Session Dial-In", () => {
 
 		// Activity entries (tool call "bash") should be visible
 		await expect(page.getByText(/bash/i)).toBeVisible({ timeout: 5000 });
+	});
+
+	for (const viewport of [
+		{ name: "1440x900", width: 1440, height: 900 },
+		{ name: "1024x768", width: 1024, height: 768 },
+		{ name: "375x812", width: 375, height: 812 },
+	]) {
+		test(`${viewport.name}: Inspect has a coherent split fallback`, async ({ page }) => {
+			await page.setViewportSize(viewport);
+			await page.goto("/conversations/task-thread-id");
+			await expect(page.getByTestId("dial-in-btn")).toBeVisible();
+			await page.getByTestId("dial-in-btn").click();
+			await expect(page.getByTestId("session-activity-panel")).toBeVisible();
+			if (viewport.width <= 768) {
+				await expect(page.getByRole("button", { name: "Back to conversation" })).toBeVisible();
+				await expect(page.getByRole("separator")).toHaveCount(0);
+				expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+					true,
+				);
+			} else {
+				await expect(page.getByRole("separator", { name: "Resize panels" })).toBeVisible();
+			}
+			await page.screenshot({
+				path: `test-results/session-inspect-${viewport.name}.png`,
+				fullPage: true,
+			});
+		});
+	}
+
+	test("inline artifact Inspect preserves the live thread draft, scroll, and route", async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 375, height: 812 });
+		await page.goto("/conversations/task-thread-id");
+		await page.getByRole("button", { name: "Conversation actions" }).click();
+		const draft = page.locator("[data-testid='conversation-surface'] textarea");
+		await draft.fill("Draft that must survive Inspect");
+		const scroll = page.locator("[data-testid='conversation-surface'] main > div").first();
+		await scroll.evaluate((node) => {
+			node.scrollTop = Math.max(1, node.scrollHeight - node.clientHeight - 20);
+		});
+		const beforeScroll = await scroll.evaluate((node) => node.scrollTop);
+
+		await page.getByRole("button", { name: `Open ${ARTIFACT_ID}` }).click();
+		await expect(page).toHaveURL(/\/conversations\/task-thread-id$/);
+		await expect(page.getByText("Inline artifact pane rendered.")).toBeVisible();
+		await expect(page.getByRole("button", { name: "Back to conversation" })).toBeVisible();
+		await page.screenshot({
+			path: "test-results/artifact-inspect-375x812.png",
+			fullPage: true,
+		});
+
+		await page.getByRole("button", { name: "Back to conversation" }).click();
+		await expect(draft).toHaveValue("Draft that must survive Inspect");
+		expect(Math.abs((await scroll.evaluate((node) => node.scrollTop)) - beforeScroll)).toBeLessThan(
+			12,
+		);
 	});
 
 	// AC7: interjection — user can post a message via the thread composer

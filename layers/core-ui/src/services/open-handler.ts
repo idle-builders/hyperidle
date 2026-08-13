@@ -31,7 +31,9 @@
  */
 
 import type { OpenHandler, OpenTarget } from "@hyperidle/conversation-parts";
+import type { HostKind } from "@hyperidle/domain-model";
 import { resolveHostRoute } from "./host-route.js";
+import { type ProductObjectKind, presentationFor } from "./object-presentation.js";
 
 export type NavigateFn = (path: string) => void;
 
@@ -53,6 +55,33 @@ export interface OpenHandlerContext {
 	 * the surface is opened via this callback (the page owns the placement).
 	 */
 	readonly onOpenSession?: (sessionId: string) => void;
+	readonly onInspectPath?: (path: string) => void;
+}
+
+function objectKindForHost(hostKind: HostKind): ProductObjectKind | null {
+	switch (hostKind) {
+		case "bet":
+		case "task":
+		case "knowledge_item":
+		case "artifact":
+		case "agent":
+		case "team":
+			return hostKind;
+		case "user":
+		case "factory":
+			return null;
+	}
+}
+
+function openInspect(
+	kind: ProductObjectKind,
+	path: string,
+	navigate: NavigateFn,
+	ctx?: OpenHandlerContext,
+): void {
+	if (presentationFor(kind, "inspect") !== "pane") return;
+	if (ctx?.onInspectPath) ctx.onInspectPath(path);
+	else navigate(path);
 }
 
 export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext): OpenHandler {
@@ -60,14 +89,20 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 		switch (target.route) {
 			case "host": {
 				const path = resolveHostRoute(target.hostKind, target.hostId);
-				if (path === null) return;
+				const kind = objectKindForHost(target.hostKind);
+				if (path === null || kind === null) return;
 				// @lore AM5 T8: append #block-<encodeURIComponent(blockId)> for block-anchored open (AC2).
 				// No selector concat — the fragment is matched by value at the scroll site (KnowledgeDetail).
-				navigate(target.blockId ? `${path}#block-${encodeURIComponent(target.blockId)}` : path);
+				openInspect(
+					kind,
+					target.blockId ? `${path}#block-${encodeURIComponent(target.blockId)}` : path,
+					navigate,
+					ctx,
+				);
 				return;
 			}
 			case "artifact":
-				navigate(`/artifacts/${target.artifactId}`);
+				openInspect("artifact", `/artifacts/${target.artifactId}`, navigate, ctx);
 				return;
 			case "review": {
 				// Prefer the page-supplied betId (authoritative — it has thread→host
@@ -78,14 +113,18 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				const betId = pageBetId ?? targetBetId;
 				// No bet → no valid review route. Documented no-op (no dead URL).
 				if (betId === null) return;
-				navigate(`/work/bet/${betId}/review/${target.reviewId}`);
+				const path = `/work/bet/${betId}/review/${target.reviewId}`;
+				if (target.intent === "inspect") openInspect("review", path, navigate, ctx);
+				else navigate(path);
 				return;
 			}
 			case "session":
 				// AM3: fire the page-supplied callback to open/recurse the session view.
 				// A sub-agent tool row carries the same `session` OpenTarget → same surface.
 				// No navigation: the surface is opened via the callback (page owns placement).
-				ctx?.onOpenSession?.(target.sessionId);
+				if (presentationFor("session", "inspect") === "pane") {
+					ctx?.onOpenSession?.(target.sessionId);
+				}
 				return;
 		}
 	};

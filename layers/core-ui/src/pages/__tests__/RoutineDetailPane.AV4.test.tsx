@@ -112,6 +112,10 @@ async function renderPane(
 	);
 }
 
+async function enterRoutineEdit(): Promise<void> {
+	await userEvent.setup().click(screen.getByRole("button", { name: "Edit routine" }));
+}
+
 beforeEach(() => {
 	mockApiFetch.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
 });
@@ -126,19 +130,20 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("editable prompt saves via PATCH and refetches the routine", () => {
-	it("[RED] renders a Prompt textarea containing the routine description", async () => {
+	it("rests in read mode and exposes an explicit Edit entry", async () => {
 		await renderPane();
-
-		await waitFor(() => {
-			const textarea = screen.getByRole("textbox", { name: /prompt/i });
-			expect(textarea).toBeInTheDocument();
-			expect((textarea as HTMLTextAreaElement).value).toBe("Send the daily digest to the team.");
-		});
+		expect(screen.queryByRole("textbox", { name: /prompt/i })).toBeNull();
+		expect(screen.getByText("Send the daily digest to the team.")).toBeInTheDocument();
+		await enterRoutineEdit();
+		expect(screen.getByRole("textbox", { name: /prompt/i })).toHaveValue(
+			"Send the daily digest to the team.",
+		);
 	});
 
 	it("[RED] editing prompt and clicking Save calls apiFetch PATCH on the routine endpoint with updated description", async () => {
 		const user = userEvent.setup();
 		await renderPane();
+		await user.click(screen.getByRole("button", { name: "Edit routine" }));
 
 		const textarea = await waitFor(() => screen.getByRole("textbox", { name: /prompt/i }));
 		await user.clear(textarea);
@@ -176,6 +181,7 @@ describe("editable prompt saves via PATCH and refetches the routine", () => {
 				<RoutineDetailPane routineId="r1" />
 			</MemoryRouter>,
 		);
+		await user.click(screen.getByRole("button", { name: "Edit routine" }));
 
 		const textarea = await waitFor(() => screen.getByRole("textbox", { name: /prompt/i }));
 		await user.clear(textarea);
@@ -187,6 +193,19 @@ describe("editable prompt saves via PATCH and refetches the routine", () => {
 		await waitFor(() => {
 			expect(refetch).toHaveBeenCalled();
 		});
+	});
+
+	it("Cancel restores the edit-start snapshot without saving", async () => {
+		const user = userEvent.setup();
+		await renderPane();
+		await user.click(screen.getByRole("button", { name: "Edit routine" }));
+		const prompt = screen.getByRole("textbox", { name: /prompt/i });
+		await user.clear(prompt);
+		await user.type(prompt, "Discard me");
+		await user.click(screen.getByRole("button", { name: "Cancel routine editing" }));
+		expect(screen.queryByRole("textbox", { name: /prompt/i })).toBeNull();
+		expect(screen.getByText("Send the daily digest to the team.")).toBeInTheDocument();
+		expect(mockApiFetch).not.toHaveBeenCalled();
 	});
 });
 
@@ -260,6 +279,7 @@ describe("de-greyed sections render without surface-container background; run ro
 describe("editable schedule saves triggerConfig via PATCH", () => {
 	it("renders a schedule select pre-populated from the routine triggerConfig", async () => {
 		await renderPane();
+		await enterRoutineEdit();
 
 		await waitFor(() => {
 			// "0 9 * * *" matches the preset "Every day at 9am"
@@ -272,6 +292,7 @@ describe("editable schedule saves triggerConfig via PATCH", () => {
 	it("picking a different schedule preset and saving sends triggerConfig in PATCH body", async () => {
 		const user = userEvent.setup();
 		await renderPane();
+		await enterRoutineEdit();
 
 		const scheduleSelect = await waitFor(() => screen.getByRole("combobox", { name: /schedule/i }));
 		// Pick "Every hour" preset (cron: "0 * * * *")
@@ -299,6 +320,7 @@ describe("editable schedule saves triggerConfig via PATCH", () => {
 	it("selecting Custom and typing a cron sends the custom cron in triggerConfig on save", async () => {
 		const user = userEvent.setup();
 		await renderPane();
+		await enterRoutineEdit();
 
 		const scheduleSelect = await waitFor(() => screen.getByRole("combobox", { name: /schedule/i }));
 		await user.selectOptions(scheduleSelect, "custom");
@@ -338,6 +360,7 @@ describe("editable schedule saves triggerConfig via PATCH", () => {
 describe("silent toggle sends boolean silent via PATCH", () => {
 	it("renders a silent toggle initialized from routine.silent (false by default)", async () => {
 		await renderPane();
+		await enterRoutineEdit();
 
 		await waitFor(() => {
 			const silentToggle = screen.getByRole("checkbox", { name: /silent/i });
@@ -349,6 +372,7 @@ describe("silent toggle sends boolean silent via PATCH", () => {
 	it("toggling silent to true and saving sends silent=true in PATCH body", async () => {
 		const user = userEvent.setup();
 		await renderPane();
+		await enterRoutineEdit();
 
 		const silentToggle = await waitFor(() => screen.getByRole("checkbox", { name: /silent/i }));
 		await user.click(silentToggle);
@@ -376,6 +400,7 @@ describe("silent toggle sends boolean silent via PATCH", () => {
 			routine: { ...ROUTINE_DETAIL.routine, silent: true },
 		};
 		await renderPane("r1", silentDetail);
+		await enterRoutineEdit();
 
 		await waitFor(() => {
 			const silentToggle = screen.getByRole("checkbox", { name: /silent/i });
@@ -390,6 +415,7 @@ describe("silent toggle sends boolean silent via PATCH", () => {
 			routine: { ...ROUTINE_DETAIL.routine, silent: true },
 		};
 		await renderPane("r1", silentDetail);
+		await enterRoutineEdit();
 
 		const silentToggle = await waitFor(() => screen.getByRole("checkbox", { name: /silent/i }));
 		await user.click(silentToggle);

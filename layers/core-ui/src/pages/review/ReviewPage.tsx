@@ -31,6 +31,8 @@ export type ReviewLoader = (params: {
 
 interface ReviewPageProps {
 	readonly loader?: ReviewLoader;
+	readonly overrideBetId?: string;
+	readonly overrideReviewId?: string;
 }
 
 async function defaultLoader({
@@ -109,8 +111,17 @@ function hostMessagesToReviewComments(
  * `/work/bet/:betId/review/:reviewId` and renders the ReviewComposition surface.
  * The optional `loader` prop is used by tests to avoid a real fetch.
  */
-export function ReviewPage({ loader = defaultLoader }: ReviewPageProps = {}): JSX.Element {
-	const { betId = "", reviewId = "" } = useParams<{ betId: string; reviewId: string }>();
+export function ReviewPage({
+	loader = defaultLoader,
+	overrideBetId,
+	overrideReviewId,
+}: ReviewPageProps = {}): JSX.Element {
+	const { betId: routeBetId = "", reviewId: routeReviewId = "" } = useParams<{
+		betId: string;
+		reviewId: string;
+	}>();
+	const betId = overrideBetId ?? routeBetId;
+	const reviewId = overrideReviewId ?? routeReviewId;
 	const [subject, setSubject] = useState<ComposedReviewSubject | null>(null);
 	const [error, setError] = useState<Error | null>(null);
 	const { user } = useCurrentUser();

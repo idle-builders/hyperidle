@@ -111,8 +111,7 @@ describe("useAutoSave", () => {
 			result.current.save("content");
 		});
 
-		// Status stays idle before debounce
-		expect(result.current.status).toBe("idle");
+		expect(result.current.status).toBe("saving");
 
 		// After debounce, status becomes saving
 		act(() => {

@@ -294,6 +294,8 @@ describe("Settings Agent behavior surface", () => {
 
 		const section = await screen.findByTestId("settings-section-agent-behavior");
 		await user.click(within(section).getByText("Daily product scan"));
+		expect(within(section).queryByLabelText("Agent")).toBeNull();
+		await user.click(within(section).getByRole("button", { name: "Edit agent behavior" }));
 		await user.selectOptions(within(section).getByLabelText("Agent"), "agent-ops-lead");
 		await user.clear(within(section).getByLabelText("Prompt source"));
 		await user.type(within(section).getByLabelText("Prompt source"), "Escalate blockers.");
@@ -307,6 +309,20 @@ describe("Settings Agent behavior surface", () => {
 		expect(screen.getByTestId("settings-section-agents")).toBeInTheDocument();
 		expect(screen.getByTestId("settings-section-agent-backends")).toBeInTheDocument();
 		expect(screen.getByTestId("settings-section-connections")).toBeInTheDocument();
+	});
+
+	it("Cancel restores the selected behavior snapshot without saving", async () => {
+		const user = userEvent.setup();
+		renderSettingsPage();
+		const section = await screen.findByTestId("settings-section-agent-behavior");
+		await user.click(within(section).getByText("Daily product scan"));
+		await user.click(within(section).getByRole("button", { name: "Edit agent behavior" }));
+		await user.selectOptions(within(section).getByLabelText("Agent"), "agent-ops-lead");
+		await user.click(
+			within(section).getByRole("button", { name: "Cancel agent behavior editing" }),
+		);
+		expect(within(section).queryByLabelText("Agent")).toBeNull();
+		expect(within(section).getAllByText(/Product Manager/).length).toBeGreaterThan(0);
 	});
 
 	it("keeps MCP URL changes read-only in Agent behavior and routes to Connections", async () => {

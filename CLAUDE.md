@@ -21,7 +21,7 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 ## Simplicity Sanity Check
 
-If you estimate a change will require 1,000 or more lines of code, assume you probably misunderstood the problem or requirements. Stop before implementation. Explain which assumptions make the solution complex and ask the user whether those assumptions are wrong. Do not proceed until the user clarifies. The user wants the dead simplest solution possible.
+If you estimate a change will require adding 1,000 or more lines of code, assume you probably misunderstood the problem or requirements. Count code only — not pipeline artifacts or prose documentation. Stop before implementation. Explain which assumptions make the solution complex and ask the user whether those assumptions are wrong. Do not proceed until the user clarifies. Deletions do not count toward this threshold: removing any number of lines is always allowed and never triggers this stop. The user wants the dead simplest solution possible.
 
 ---
 

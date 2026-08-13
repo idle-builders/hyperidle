@@ -136,7 +136,6 @@ interface RoutineDetailPaneLoadedProps {
 function RoutineDetailPaneLoaded({
 	detail,
 	routineId,
-	onClose,
 	refetch,
 }: RoutineDetailPaneLoadedProps): JSX.Element {
 	const { routine, runs } = detail;
@@ -174,6 +173,7 @@ function RoutineDetailPaneLoaded({
 	// Silent toggle
 	const [silent, setSilent] = useState<boolean>(routine.silent ?? false);
 	const [saving, setSaving] = useState(false);
+	const [editing, setEditing] = useState(false);
 
 	// Action state
 	const [currentState, setCurrentState] = useState(routine.state);
@@ -192,6 +192,16 @@ function RoutineDetailPaneLoaded({
 
 	const isCustomSchedule = scheduleValue === "custom";
 	const resolvedCron = isCustomSchedule ? customCron.trim() : scheduleValue;
+
+	const cancelEditing = useCallback((): void => {
+		setName(routine.name);
+		setDescription(routine.description ?? "");
+		setAutonomyLevel(String(routine.autonomyLevel ?? ""));
+		setScheduleValue(initialScheduleValue);
+		setCustomCron(initialCustomCron);
+		setSilent(routine.silent ?? false);
+		setEditing(false);
+	}, [routine, initialScheduleValue, initialCustomCron]);
 
 	const handleSave = useCallback(async (): Promise<void> => {
 		setSaving(true);
@@ -217,6 +227,7 @@ function RoutineDetailPaneLoaded({
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			showToast("Routine saved");
 			refetch();
+			setEditing(false);
 		} catch {
 			showToast("Failed to save routine");
 		} finally {
@@ -281,21 +292,40 @@ function RoutineDetailPaneLoaded({
 						<StatusChip status={routineStateToStatus(currentState)} />
 					</div>
 					<div className="flex items-center gap-[6px] shrink-0">
-						{onClose && (
-							<Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={saving}>
+						{editing ? (
+							<Button
+								variant="ghost"
+								size="sm"
+								type="button"
+								aria-label="Cancel routine editing"
+								onClick={cancelEditing}
+								disabled={saving}
+							>
 								Cancel
 							</Button>
+						) : null}
+						{editing ? (
+							<Button
+								variant="primary"
+								size="sm"
+								type="button"
+								onClick={handleSave}
+								disabled={saving || actionPending}
+							>
+								{saving && <span className="loading loading-spinner loading-xs" />}
+								Save
+							</Button>
+						) : (
+							<Button
+								variant="primary"
+								size="sm"
+								type="button"
+								aria-label="Edit routine"
+								onClick={() => setEditing(true)}
+							>
+								Edit
+							</Button>
 						)}
-						<Button
-							variant="primary"
-							size="sm"
-							type="button"
-							onClick={handleSave}
-							disabled={saving || actionPending}
-						>
-							{saving && <span className="loading loading-spinner loading-xs" />}
-							Save
-						</Button>
 					</div>
 				</div>
 			}
@@ -305,133 +335,137 @@ function RoutineDetailPaneLoaded({
 				<section aria-label="Routine configuration">
 					<SectionLabel label="Configuration" as="h2" />
 
-					{/* Editable name */}
-					<div className="flex flex-col gap-[6px] mb-[9px]">
-						<label
-							className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
-							htmlFor="routine-name-input"
-						>
-							Name
-						</label>
-						<Input
-							id="routine-name-input"
-							aria-label="Name"
-							type="text"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							disabled={saving}
-						/>
-					</div>
+					{editing ? (
+						<>
+							<div className="flex flex-col gap-[6px] mb-[9px]">
+								<label
+									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									htmlFor="routine-name-input"
+								>
+									Name
+								</label>
+								<Input
+									id="routine-name-input"
+									aria-label="Name"
+									type="text"
+									value={name}
+									onChange={(e) => setName(e.target.value)}
+									disabled={saving}
+								/>
+							</div>
 
-					{/* Editable prompt (= description) */}
-					<div className="flex flex-col gap-[6px] mb-[9px]">
-						<label
-							className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
-							htmlFor="routine-prompt-textarea"
-						>
-							Prompt
-						</label>
-						<p className="text-[12px] text-[var(--text-tertiary)]">
-							The run instruction handed to the agent each time this routine fires.
-						</p>
-						<Input
-							textarea
-							id="routine-prompt-textarea"
-							aria-label="Prompt"
-							rows={6}
-							value={description}
-							onChange={(e) => setDescription(e.target.value)}
-							disabled={saving}
-							placeholder="Describe what this routine should do each run…"
-						/>
-					</div>
+							<div className="flex flex-col gap-[6px] mb-[9px]">
+								<label
+									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									htmlFor="routine-prompt-textarea"
+								>
+									Prompt
+								</label>
+								<p className="text-[12px] text-[var(--text-tertiary)]">
+									The run instruction handed to the agent each time this routine fires.
+								</p>
+								<Input
+									textarea
+									id="routine-prompt-textarea"
+									aria-label="Prompt"
+									rows={6}
+									value={description}
+									onChange={(e) => setDescription(e.target.value)}
+									disabled={saving}
+									placeholder="Describe what this routine should do each run…"
+								/>
+							</div>
 
-					{/* Autonomy level select */}
-					<div className="flex flex-col gap-[6px] mb-[9px]">
-						<label
-							className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
-							htmlFor="routine-autonomy-select"
-						>
-							Autonomy
-						</label>
-						<Select
-							id="routine-autonomy-select"
-							aria-label="Autonomy level"
-							size="sm"
-							value={autonomyLevel}
-							onChange={(e) => setAutonomyLevel(e.target.value)}
-							disabled={saving}
-							options={[
-								{ value: "", label: "Default" },
-								{ value: "1", label: "L1 — Every run reviewed" },
-								{ value: "2", label: "L2 — Human reviews" },
-								{ value: "3", label: "L3 — Autonomous, human on error" },
-								{ value: "4", label: "L4 — Fully autonomous" },
-							]}
-						/>
-					</div>
+							<div className="flex flex-col gap-[6px] mb-[9px]">
+								<label
+									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									htmlFor="routine-autonomy-select"
+								>
+									Autonomy
+								</label>
+								<Select
+									id="routine-autonomy-select"
+									aria-label="Autonomy level"
+									size="sm"
+									value={autonomyLevel}
+									onChange={(e) => setAutonomyLevel(e.target.value)}
+									disabled={saving}
+									options={[
+										{ value: "", label: "Default" },
+										{ value: "1", label: "L1 — Every run reviewed" },
+										{ value: "2", label: "L2 — Human reviews" },
+										{ value: "3", label: "L3 — Autonomous, human on error" },
+										{ value: "4", label: "L4 — Fully autonomous" },
+									]}
+								/>
+							</div>
 
-					{/* Schedule picker */}
-					<div className="flex flex-col gap-[6px] mb-[9px]">
-						<label
-							className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
-							htmlFor="routine-schedule-select"
-						>
-							Schedule
-						</label>
-						<Select
-							id="routine-schedule-select"
-							aria-label="Schedule"
-							size="sm"
-							value={scheduleValue}
-							onChange={(e) => setScheduleValue(e.target.value)}
-							disabled={saving}
-							options={[
-								...SCHEDULE_PRESETS.map((p) => ({ value: p.cron, label: p.label })),
-								{ value: "custom", label: "Custom…" },
-							]}
-						/>
-					</div>
+							<div className="flex flex-col gap-[6px] mb-[9px]">
+								<label
+									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									htmlFor="routine-schedule-select"
+								>
+									Schedule
+								</label>
+								<Select
+									id="routine-schedule-select"
+									aria-label="Schedule"
+									size="sm"
+									value={scheduleValue}
+									onChange={(e) => setScheduleValue(e.target.value)}
+									disabled={saving}
+									options={[
+										...SCHEDULE_PRESETS.map((p) => ({ value: p.cron, label: p.label })),
+										{ value: "custom", label: "Custom…" },
+									]}
+								/>
+							</div>
 
-					{/* Custom cron input — only shown when "Custom…" is selected */}
-					{isCustomSchedule && (
-						<div className="flex flex-col gap-[6px] mb-[9px]">
-							<label
-								className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
-								htmlFor="routine-custom-cron-input"
-							>
-								Custom cron
-							</label>
-							<Input
-								id="routine-custom-cron-input"
-								aria-label="Custom cron expression"
-								type="text"
-								value={customCron}
-								onChange={(e) => setCustomCron(e.target.value)}
-								disabled={saving}
-								placeholder="e.g. 30 6 * * 2"
-							/>
+							{isCustomSchedule && (
+								<div className="flex flex-col gap-[6px] mb-[9px]">
+									<label
+										className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+										htmlFor="routine-custom-cron-input"
+									>
+										Custom cron
+									</label>
+									<Input
+										id="routine-custom-cron-input"
+										aria-label="Custom cron expression"
+										type="text"
+										value={customCron}
+										onChange={(e) => setCustomCron(e.target.value)}
+										disabled={saving}
+										placeholder="e.g. 30 6 * * 2"
+									/>
+								</div>
+							)}
+
+							<div className="flex items-center gap-[9px] mb-[9px]">
+								<input
+									id="routine-silent-toggle"
+									aria-label="Silent"
+									type="checkbox"
+									className="checkbox checkbox-sm"
+									checked={silent}
+									onChange={(e) => setSilent(e.target.checked)}
+									disabled={saving}
+								/>
+								<label
+									className="text-[12px] text-[var(--text-secondary)] cursor-pointer"
+									htmlFor="routine-silent-toggle"
+								>
+									Silent — don't post on each run
+								</label>
+							</div>
+						</>
+					) : (
+						<div className="flex flex-col gap-[9px]">
+							<KeyValue label="Prompt" value={routine.description || "—"} layout="stacked" />
+							<KeyValue label="Autonomy" value={autonomyLabel} />
+							<KeyValue label="Silent" value={routine.silent ? "On" : "Off"} />
 						</div>
 					)}
-
-					{/* Silent toggle */}
-					<div className="flex items-center gap-[9px] mb-[9px]">
-						<input
-							id="routine-silent-toggle"
-							aria-label="Silent"
-							type="checkbox"
-							className="checkbox checkbox-sm"
-							checked={silent}
-							onChange={(e) => setSilent(e.target.checked)}
-							disabled={saving}
-						/>
-						<label
-							className="text-[12px] text-[var(--text-secondary)] cursor-pointer"
-							htmlFor="routine-silent-toggle"
-						>
-							Silent — don't post on each run
-						</label>
-					</div>
 
 					{/* Read-only metadata stack — on page surface, no grey card */}
 					<div className="flex flex-col gap-[9px] mt-[12px]">

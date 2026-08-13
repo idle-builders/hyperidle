@@ -1,0 +1,261 @@
+{
+  "workPackage": "AZ14",
+  "title": "One rule for opening and editing an object",
+  "track": "AZ",
+  "phase": "ship",
+  "status": "shipping",
+  "revision": 15,
+  "updatedAt": "2026-08-13",
+  "revisionReason": "Review is DONE, retro is complete, durable phase content is consolidated into plan.md, and the work package is entering clean-tree verification and PR shipping.",
+  "branch": "feat/object-opening-editing-rule",
+  "worktree": "/Users/tg/Development/hyperidle/.worktrees/AZ14",
+  "baseCommit": "48cf8d5d",
+  "procedure": {
+    "source": ".pipeline/work/AZ14/plan.md §Execution procedure",
+    "completed": [
+      "one combined refine + design + architecture round",
+      "founder concept gate",
+      "same-agent tests-first build",
+      "one fresh-agent implementation review",
+      "same-builder closure of all seven blocking findings",
+      "fresh-agent simplification challenge and final-diff simplification pass",
+      "focused, real-route, visual, repository-wide, and configured verification",
+      "final pre-ship WP-ID leakage hygiene",
+      "retro",
+      "ship consolidation"
+    ],
+    "next": "Commit the consolidated intended diff, reconcile fresh origin/main, verify from a clean committed tree, push, open a non-draft PR, and wait for required CI. Do not merge."
+  },
+  "artifacts": {
+    "plan": ".pipeline/work/AZ14/plan.md",
+    "progress": ".pipeline/work/AZ14/progress.json",
+    "retro": ".pipeline/work/AZ14/retro.jsonl",
+    "generatedBacklog": ".pipeline/work/AZ7/migration-backlog.md",
+    "supersededRemoved": [
+      ".pipeline/work/AZ14/round.md",
+      ".pipeline/work/AZ14/review.md",
+      ".pipeline/work/AZ14/simplification.md",
+      ".pipeline/work/AZ14/evidence/"
+    ]
+  },
+  "decision": {
+    "presentationRule": "Rows take you there (page). Context actions open beside you (pane). Tools float above you (overlay).",
+    "phoneRule": "At <=768px an Inspect pane is destination-only, full width, with Back to its still-mounted origin.",
+    "editingRule": "Existing editable prose rests rendered; Edit enters editing; Done/Save exits only after acknowledged persistence. Errors and conflicts retain the draft/editor. Cancel restores the entry snapshot for atomic configuration prose."
+  },
+  "approvals": [
+    {
+      "gate": "combined concept and architecture",
+      "by": "founder",
+      "date": "2026-08-12",
+      "decision": "APPROVED — exact rule and editing model now consolidated in plan.md §Approved decision; response: yeah makes sense"
+    },
+    {
+      "gate": "addition-only complexity threshold clarification",
+      "by": "founder",
+      "date": "2026-08-12",
+      "decision": "APPROVED — only additions of 1,000 or more lines trigger the stop; deletion volume never does."
+    },
+    {
+      "gate": "cross-work-package generated artifact",
+      "by": "founder",
+      "date": "2026-08-13",
+      "decision": "APPROVED — run npm run design:backlog and accept only its mechanical AZ7 migration-backlog update; response: yeah fine"
+    },
+    {
+      "gate": "code-only addition threshold and simplification challenge",
+      "by": "founder",
+      "date": "2026-08-13",
+      "decision": "CLARIFIED — count code only, excluding pipeline artifacts and prose docs; deletions never count; the fresh simplification challenge and its binding limits are consolidated in plan.md."
+    }
+  ],
+  "reviewFindingClosures": [
+    {
+      "finding": 1,
+      "status": "closed",
+      "receipt": "Contextual artifact, knowledge/block-host, resolved-review, and session references bind to one Conversations-owned SplitView destination while the mounted origin remains intact. Structural review requests retain Navigate→page. Component tests plus artifact/session real-route E2E prove the distinction."
+    },
+    {
+      "finding": 2,
+      "status": "closed",
+      "receipt": "WorkBet and Knowledge mark queued debounced work as saving immediately; Done stays disabled while saving/error/conflict and exits only after acknowledgement. Failure-retention unit evidence remains, and both real-route save-barrier E2Es pass."
+    },
+    {
+      "finding": 3,
+      "status": "closed",
+      "receipt": "Routine, Settings Agents, and Agent Behavior now rest in read/inspect mode, expose explicit Edit, Save only on success, and Cancel restores the entry snapshot without persistence. Focused component suites pass."
+    },
+    {
+      "finding": 4,
+      "status": "closed",
+      "receipt": "History availability refreshes on React Router location keys. AppShell records scroll/focus by location key, restores them on temporal Back, and retains direct-link structural Up fallback. Routine real-route E2E proves exact row focus and scroll restoration; search/notification prove SPA push Back."
+    },
+    {
+      "finding": 5,
+      "status": "closed",
+      "receipt": "Compact is wired to all Inspect SplitView consumers. The mounted origin is visually folded, the return control is normal-flow, the desktop separator remains keyboard-operable, and the phone Back/close overlap is absent. Required viewport E2E and screenshot inspection pass."
+    },
+    {
+      "finding": 6,
+      "status": "closed",
+      "receipt": "The real-route matrix covers routine Back/scroll/focus, inline artifact Inspect/fold-back origin state, WorkBet and Knowledge save barriers, search and notification navigation, compact session/artifact behavior, and painted 1440x900, 1024x768, and 375x812 states. Final required run: 15/15 passed."
+    },
+    {
+      "finding": 7,
+      "status": "closed",
+      "receipt": "All authoritative documents named in review.md were corrected, including deleted TaskSheet behavior and the Open/Inspect/Navigate distinction. Generated AZ7 backlog output was refreshed and checked after causal deletions/line shifts."
+    }
+  ],
+  "evidence": {
+    "redReceipt": "Initial focused AZ14 run produced 24 intended failures across Inspect placement, save barriers, explicit routine/Settings editing, compact Back layout, and SPA history-key refresh. No implementation preceded those regression tests.",
+    "focusedBeforeFinalSimplification": "npx vitest run over nine AZ14 suites: PASS — 9 files, 95 tests. Stale-contract follow-up: PASS — 4 files, 50 tests.",
+    "focusedAfterFinalSimplification": "npx vitest run useAutoSave, useBetDescriptionSave, WorkBet.pitch, KnowledgeDetail.edit: PASS — 4 files, 44 tests.",
+    "fullTests": "npm run test: PASS — 239 files, 2,475 tests after the final simplification cuts.",
+    "focusedE2E": "npx playwright test over q1-session-dial-in, navigation, bet-description-edit, W3-knowledge-edit, global-search, and time-vocabulary with grep 'AZ14|Done remains': PASS — 15/15.",
+    "visualReceipt": "Ten deterministic PNGs were generated and visually inspected: session Inspect at 1440x900, 1024x768, 375x812; bet read at all three; knowledge read at all three; compact artifact Inspect at 375x812. Inspection found the compact Knowledge metadata column crushing prose; KnowledgeDetail was corrected to stack at phone width, the phone screenshot was regenerated, and the result was reinspected as coherent with no horizontal overflow. Compact session Back and destination close no longer overlap.",
+    "check": "npm run check within final npm run verify: PASS — all 55 packages.",
+    "lint": "npm run lint within final npm run verify: PASS — formatting, ESLint, governance fixtures, attacks, and live scan; only repository baseline warnings remain.",
+    "generatedArtifact": "npm run design:backlog refreshed only .pipeline/work/AZ7/migration-backlog.md. Diff audit shows the deleted TaskSheet item removed, total control sites 59/24→58/23, numbering shifts, and AZ14-touched line references only. A second causal refresh changed RoutineDetailPane 451→445 after safe comment deletions. npm run design:backlog:check: PASS — 45 items.",
+    "verify": "Final npm run verify: PASS — typecheck, lint/governance, knip, knip:production, dependency manifest, mock inventory, design backlog check, core-ui Vite build, and desktop bundle validation.",
+    "preShipHygiene": "Byte-aware rg -a -i '\\bAZ14\\b' outside .pipeline/**: no matches. The docs heading, neutral test labels, fixture IDs, and the AppShell source comment no longer leak the work-package ID. Screenshot-producing E2Es write to the standard ignored layers/core-ui/test-results location; inspected generated evidence was removed after consolidation. Affected SplitView/object-map unit suite: PASS — 1 file, 14 tests. Renamed real-route E2E cases: PASS — 14/14. Root npm run check: PASS — all 55 packages. A mistakenly invoked package-local npm run check reported its pre-existing rootDir/E2E-support mismatch; it is not the configured repository gate and caused no change.",
+    "diffAudit": "git diff --check: PASS. Raw code-only additions including the untracked resolver: 973 (952 tracked + 21 untracked), comprising 537 production/tooling and 436 tests/E2E; 2,254 tracked code deletions. This is below the founder's 1,000-addition stop. Overall tracked diff before this progress rewrite: 62 files, 999 insertions, 2,297 deletions."
+  },
+  "acceptanceCriteria": [
+    {
+      "id": "AC1",
+      "status": "proven",
+      "evidence": "object-presentation.ts defines all ten product-object nouns and the total Navigate→page, Inspect→pane, Act→overlay mapping. AM5-T6 exhaustively asserts every noun/intent combination; docs record the same rule."
+    },
+    {
+      "id": "AC2",
+      "status": "proven",
+      "evidence": "Rows/routines/search/notifications Navigate to canonical pages; contextual artifact, knowledge/block host, resolved review, and session affordances Inspect through the shared SplitView. Structural review Open remains Navigate. The confirmed-dead TaskSheet/shim/story/test family is removed."
+    },
+    {
+      "id": "AC3",
+      "status": "proven",
+      "evidence": "WorkBet and Knowledge rest rendered and retain editor/draft on pending/error/conflict until acknowledged save. Routine, Settings Agents, and Agent Behavior use explicit read→Edit with Save/Cancel snapshot semantics. Unit and real-route save-barrier evidence is green."
+    },
+    {
+      "id": "AC4",
+      "status": "proven",
+      "evidence": "SPA pushes update Back availability; temporal Back restores exact routine-origin URL, scroll, and focused row. Search and notification preserve origin through Back; direct links retain labelled structural Up fallback."
+    },
+    {
+      "id": "AC5",
+      "status": "proven",
+      "evidence": "All Inspect SplitViews have compact behavior. Desktop/tablet retain readable side-by-side panes and a semantic keyboard separator; phone shows one full-width destination with normal-flow Back to the still-mounted origin. Required screenshots passed visual inspection."
+    }
+  ],
+  "changedFiles": {
+    "pipelineAndRules": [
+      ".pipeline/work/AZ7/migration-backlog.md (founder-authorized generated output)",
+      ".pipeline/work/AZ14/evidence/artifact-inspect-375x812.png",
+      ".pipeline/work/AZ14/evidence/bet-read-1024x768.png",
+      ".pipeline/work/AZ14/evidence/bet-read-1440x900.png",
+      ".pipeline/work/AZ14/evidence/bet-read-375x812.png",
+      ".pipeline/work/AZ14/evidence/knowledge-read-1024x768.png",
+      ".pipeline/work/AZ14/evidence/knowledge-read-1440x900.png",
+      ".pipeline/work/AZ14/evidence/knowledge-read-375x812.png",
+      ".pipeline/work/AZ14/evidence/session-inspect-1024x768.png",
+      ".pipeline/work/AZ14/evidence/session-inspect-1440x900.png",
+      ".pipeline/work/AZ14/evidence/session-inspect-375x812.png",
+      ".pipeline/work/AZ14/progress.json",
+      ".pipeline/work/AZ14/review.md",
+      ".pipeline/work/AZ14/round.md",
+      ".pipeline/work/AZ14/simplification.md",
+      "CLAUDE.md (founder-owned threshold clarification preserved)",
+      "tools/governance/src/lib/repo-census.ts (causal floor tightening 1062→1205 prescribed by npm run governance:floors after dead development-file deletion)"
+    ],
+    "docs": [
+      "docs/guides/user/the-interface.md",
+      "docs/guides/user/three-core-views.md",
+      "docs/human-interface-layer/open-contract.md",
+      "docs/information-architecture/cross-view-navigation-map.md",
+      "docs/requirements/usability-requirements.md",
+      "docs/ui-design/our-components.md"
+    ],
+    "production": [
+      "framework/conversation-parts/src/part.ts",
+      "framework/design-system/src/SplitView.tsx",
+      "layers/core-ui/src/components/parts/ReviewResolvedPart.tsx",
+      "layers/core-ui/src/hooks/useAutoSave.ts",
+      "layers/core-ui/src/hooks/useBetDescriptionSave.ts",
+      "layers/core-ui/src/hooks/useHistoryAvailability.ts",
+      "layers/core-ui/src/layouts/AppShell.tsx",
+      "layers/core-ui/src/lib/url-utils.ts (deleted)",
+      "layers/core-ui/src/pages/ArtifactPermalink.tsx",
+      "layers/core-ui/src/pages/Conversations.tsx",
+      "layers/core-ui/src/pages/KnowledgeDetail.tsx",
+      "layers/core-ui/src/pages/WorkBet.tsx",
+      "layers/core-ui/src/pages/WorkTeam.tsx",
+      "layers/core-ui/src/pages/review/ReviewComposition.tsx",
+      "layers/core-ui/src/pages/review/ReviewPage.tsx",
+      "layers/core-ui/src/pages/work/RoutineDetailPane.tsx",
+      "layers/core-ui/src/services/host-route.ts",
+      "layers/core-ui/src/services/host-threads.ts",
+      "layers/core-ui/src/services/object-presentation.ts",
+      "layers/core-ui/src/services/open-handler.ts",
+      "layers/core-ui/src/services/task-threads.ts (deleted)",
+      "layers/core-ui/src/settings/SettingsAgentBehavior.tsx",
+      "layers/core-ui/src/settings/SettingsAgents.tsx",
+      "layers/core-ui/src/settings/SettingsHarnesses.tsx",
+      "layers/core-ui/src/shell/TaskSheet.tsx (deleted)"
+    ],
+    "testsStoriesAndE2E": [
+      "layers/core-ui/__e2e__/W3-knowledge-edit.spec.ts",
+      "layers/core-ui/__e2e__/bet-description-edit.spec.ts",
+      "layers/core-ui/__e2e__/global-search.spec.ts",
+      "layers/core-ui/__e2e__/navigation.spec.ts",
+      "layers/core-ui/__e2e__/q1-session-dial-in.spec.ts",
+      "layers/core-ui/__e2e__/time-vocabulary.spec.ts",
+      "layers/core-ui/src/__tests__/AG4-useHistoryAvailability.test.ts",
+      "layers/core-ui/src/__tests__/AM1-PartList.test.tsx",
+      "layers/core-ui/src/__tests__/AM5-T6-splitview.test.tsx",
+      "layers/core-ui/src/__tests__/AM5-T7-host-route.test.ts",
+      "layers/core-ui/src/__tests__/Conversations.context-link.test.tsx",
+      "layers/core-ui/src/__tests__/Conversations.part-migration.test.tsx",
+      "layers/core-ui/src/__tests__/KnowledgeDetail.edit.test.tsx",
+      "layers/core-ui/src/__tests__/TaskSheet.AF12-sessions.test.tsx (deleted)",
+      "layers/core-ui/src/__tests__/TaskSheet.test.tsx (deleted)",
+      "layers/core-ui/src/__tests__/WorkBet.description.test.tsx",
+      "layers/core-ui/src/__tests__/WorkTeam.AA1.test.tsx",
+      "layers/core-ui/src/__tests__/task-threads.service.test.ts (deleted)",
+      "layers/core-ui/src/hooks/__tests__/useAutoSave.test.ts",
+      "layers/core-ui/src/hooks/__tests__/useBetDescriptionSave.test.ts",
+      "layers/core-ui/src/pages/__tests__/RoutineDetailPane.AV4.test.tsx",
+      "layers/core-ui/src/pages/__tests__/WorkBet.share-block.test.tsx",
+      "layers/core-ui/src/pages/__tests__/settings-agent-behavior.test.tsx",
+      "layers/core-ui/src/services/__tests__/task-threads-shim.test.ts (deleted)",
+      "layers/core-ui/src/settings/__tests__/SettingsAgents.splitview.test.tsx",
+      "layers/core-ui/src/shell/TaskSheet.stories.tsx (deleted)",
+      "layers/core-ui/src/shell/__tests__/TaskSheet.artifact-section.test.tsx (deleted)",
+      "layers/core-ui/src/shell/__tests__/TaskSheet.session.test.tsx (deleted)",
+      "layers/core-ui/src/shell/__tests__/TaskSheet.thread.test.tsx (deleted)"
+    ]
+  },
+  "correctionsAndTradeoffs": [
+    "The first routed Inspect attempt nested Routes under a conversation route and failed in the real browser; it was corrected to one Conversations SplitView that reuses the existing routed page bodies through narrow override props.",
+    "The final visual audit caught compact Knowledge's desktop-width metadata aside crushing prose. The existing layout now stacks at phone width; regenerated 375x812 evidence was reinspected.",
+    "Global-search pointer action was blocked by its focus-trap/body interaction in Playwright. The real accessible BetCard button dispatch path was used to prove the app callback; navigation, utility close, and exact temporal Back all pass.",
+    "The fresh final-diff simplifier removed four redundant unit-test blocks while retaining transition tests, failure-retention coverage, and both real-route save-barrier journeys. Final affected suites, full tests, and verify stayed green.",
+    "url-utils.ts deletion is causal: at base, TaskSheet.tsx was its only production importer and isValidHarnessUrl its only export; deleting confirmed-dead TaskSheet made the utility unreachable. WorkBet.share-block only removes mocks for TaskSheet, task-threads, and url-utils. host-threads changes only remove now-false TaskSheet/shim lore.",
+    "The TaskSheet family deletion reduced development-file census enough to trigger governance floor looseness. npm run governance:floors prescribed raising outside-production-roots 1062→1205; the floor was tightened, never lowered or bypassed.",
+    "The authorized AZ7 artifact contains generator-only deletion/renumbering and line shifts from AZ14 changes; no predicate, generator, or unrelated work-package content changed."
+  ],
+  "scopeBoundaries": [
+    "No new object routes, pane deep-link scheme, persistence/API/schema change, shared save-flush abstraction, history service, shared configuration controller, or overlay redesign.",
+    "No mega E2E fixture; existing route suites were extended surgically.",
+    "The review's non-blocking work-package identifier leak was resolved as mandatory ship hygiene; no unrelated review scope was added.",
+    "No other work-package artifact changed beyond the explicitly founder-approved generated AZ7 backlog.",
+    "No second review, extra human gate, merge, tag, or release is part of this run."
+  ],
+  "evaluations": 1,
+  "verdicts": [
+    "evaluation 1: NOT DONE — seven blocking findings persisted in review.md",
+    "same-builder review-fix closure: all seven findings closed with tests, real-route evidence, rendered inspection, and green configured verification; no second review permitted",
+    "final orchestrator state reconciliation: DONE — all five ACs proven and no blocking finding remains"
+  ],
+  "openBlockers": [],
+  "nextAction": "Finish clean-tree verification, push, open a non-draft PR to main, and wait for required CI. Do not merge."
+}

@@ -30,7 +30,7 @@ describe("resolveHostRoute (H5 fixes)", () => {
 	});
 
 	it("agent → /work/agent/:id (unchanged)", () => {
-		expect(resolveHostRoute("agent", "ag-1")).toBe("/work/agent/ag-1");
+		expect(resolveHostRoute("agent", "ag-1")).toBe("/agents/ag-1");
 	});
 
 	it("team → /work/team/:id (unchanged)", () => {

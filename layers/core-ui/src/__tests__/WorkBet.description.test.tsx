@@ -98,6 +98,10 @@ function renderWithBet(bet: BetDetail): ReturnType<typeof render> {
 	);
 }
 
+function enterEditMode(): void {
+	fireEvent.click(screen.getByRole("button", { name: "Edit bet content" }));
+}
+
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
@@ -108,8 +112,9 @@ describe("T3 — WorkBet description editing", () => {
 	// AC-1: BodyEditor shown for mutable statuses (draft, active)
 	// ----------------------------------------------------------------
 	describe("AC-1: BodyEditor shown for mutable statuses", () => {
-		it("shows BodyEditor (not BetPitch) for a draft bet", () => {
+		it("shows BodyEditor after explicit Edit for a draft bet", () => {
 			renderWithBet(makeBet("draft"));
+			enterEditMode();
 
 			// BodyEditor must be present
 			expect(screen.getByTestId("mock-body-editor")).toBeInTheDocument();
@@ -118,8 +123,9 @@ describe("T3 — WorkBet description editing", () => {
 			expect(document.querySelector("[data-testid='bet-pitch']")).toBeNull();
 		});
 
-		it("shows BodyEditor (not BetPitch) for an active bet", () => {
+		it("shows BodyEditor after explicit Edit for an active bet", () => {
 			renderWithBet(makeBet("active"));
+			enterEditMode();
 
 			expect(screen.getByTestId("mock-body-editor")).toBeInTheDocument();
 			expect(document.querySelector("[data-testid='bet-pitch']")).toBeNull();
@@ -127,12 +133,14 @@ describe("T3 — WorkBet description editing", () => {
 
 		it("wraps BodyEditor in a container with data-testid='bet-description-editor'", () => {
 			renderWithBet(makeBet("draft"));
+			enterEditMode();
 			expect(screen.getByTestId("bet-description-editor")).toBeInTheDocument();
 		});
 
 		it("passes the bet description as initialContent to BodyEditor", () => {
 			const description = "# My Bet\n\nSome content here.";
 			renderWithBet(makeBet("draft", { description }));
+			enterEditMode();
 
 			const editor = screen.getByTestId("mock-body-editor");
 			// The mock renders a textarea with defaultValue = initialContent
@@ -185,11 +193,23 @@ describe("T3 — WorkBet description editing", () => {
 
 		it("saving indicator element is present for mutable statuses", () => {
 			renderWithBet(makeBet("draft"));
+			enterEditMode();
 			expect(screen.getByTestId("bet-save-indicator")).toBeInTheDocument();
+		});
+
+		it("keeps Done disabled and the draft visible while a change awaits acknowledgement", () => {
+			renderWithBet(makeBet("draft", { description: "" }));
+			enterEditMode();
+			fireEvent.change(screen.getByTestId("mock-body-editor"), {
+				target: { value: "Pending bet content" },
+			});
+			expect(screen.getByRole("button", { name: "Done editing bet content" })).toBeDisabled();
+			expect(screen.getByTestId("bet-description-editor")).toBeInTheDocument();
 		});
 
 		it("saving indicator is empty (idle state) by default", () => {
 			renderWithBet(makeBet("draft"));
+			enterEditMode();
 			const indicator = screen.getByTestId("bet-save-indicator");
 			// In idle state, the indicator text should be empty
 			expect(indicator.textContent?.trim()).toBe("");
@@ -200,6 +220,7 @@ describe("T3 — WorkBet description editing", () => {
 			fetchSpy.mockImplementation(() => new Promise(() => {}));
 
 			renderWithBet(makeBet("draft", { description: "" }));
+			enterEditMode();
 
 			const editor = screen.getByTestId("mock-body-editor");
 			fireEvent.change(editor, { target: { value: "New content" } });
@@ -220,6 +241,7 @@ describe("T3 — WorkBet description editing", () => {
 			fetchSpy.mockResolvedValue(new Response("{}", { status: 200 }));
 
 			renderWithBet(makeBet("draft", { description: "" }));
+			enterEditMode();
 
 			const editor = screen.getByTestId("mock-body-editor");
 			fireEvent.change(editor, { target: { value: "Updated content" } });
@@ -279,6 +301,7 @@ describe("T3 — WorkBet description editing", () => {
 		it("uses bet.description (not bet.pitch) as the content field", () => {
 			const description = "# Feature\n\nThe description content.";
 			renderWithBet(makeBet("draft", { description }));
+			enterEditMode();
 
 			const editor = screen.getByTestId("mock-body-editor") as HTMLTextAreaElement;
 			expect(editor.value).toBe(description);

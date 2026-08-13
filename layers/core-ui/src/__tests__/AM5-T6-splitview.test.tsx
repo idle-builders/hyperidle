@@ -95,6 +95,30 @@ describe("useUiPreference", () => {
 
 // ── 3. SplitView modes ───────────────────────────────────────────────────────────
 describe("SplitView: modes", () => {
+	it("uses a destination-only compact fallback with a labelled return", async () => {
+		const { SplitView } = await import("@hyperidle/design-system");
+		const onModeChange = vi.fn();
+		const { getByRole, getByTestId, queryByRole } = render(
+			<SplitView
+				origin={<div data-testid="compact-origin">origin</div>}
+				destination={<div data-testid="compact-destination">destination</div>}
+				mode="split"
+				dividerRatio={0.5}
+				compact
+				originLabel="conversation"
+				onModeChange={onModeChange}
+			/>,
+		);
+		expect(getByTestId("compact-origin")).not.toBeVisible();
+		expect(getByTestId("compact-destination")).toBeVisible();
+		expect(queryByRole("separator")).toBeNull();
+		const back = getByRole("button", { name: "Back to conversation" });
+		expect(back.parentElement).toHaveAttribute("data-compact-return");
+		expect(back.parentElement?.className).not.toContain("absolute");
+		back.click();
+		expect(onModeChange).toHaveBeenCalledWith("fold-back");
+	});
+
 	it("fold-back: hides destination", async () => {
 		const { SplitView } = await import("@hyperidle/design-system");
 		const { container } = render(
@@ -142,12 +166,43 @@ describe("SplitView: modes", () => {
 
 // ── 4. AC3 regression: review route stays green (open-handler) ──────────────────
 describe("AC3: review open-handler route (regression guard)", () => {
-	it("review target navigates to /work/bet/:betId/review/:reviewId", async () => {
+	it("maps every product object by opening intent", async () => {
+		const { PRODUCT_OBJECT_KINDS, presentationFor } = await import(
+			"../services/object-presentation.js"
+		);
+		for (const kind of PRODUCT_OBJECT_KINDS) {
+			expect(presentationFor(kind, "navigate")).toBe("page");
+			expect(presentationFor(kind, "inspect")).toBe("pane");
+			expect(presentationFor(kind, "act")).toBe("overlay");
+		}
+	});
+	it("contextual references use the page-owned Inspect placement", async () => {
 		const { createOpenHandler } = await import("../services/open-handler.js");
 		const nav = vi.fn();
-		const handler = createOpenHandler(nav, { betId: "bet-1" });
-		handler({ route: "review", betId: "bet-1", reviewId: "rev-1" });
+		const inspect = vi.fn();
+		const handler = createOpenHandler(nav, { betId: "bet-1", onInspectPath: inspect });
+		handler({ route: "artifact", artifactId: "art-1" });
+		handler({ route: "host", hostKind: "knowledge_item", hostId: "knowledge-1", blockId: "b 1" });
+		handler({ route: "review", betId: "bet-1", reviewId: "rev-1", intent: "inspect" });
+		expect(inspect.mock.calls.map(([path]) => path)).toEqual([
+			"/artifacts/art-1",
+			"/knowledge/knowledge-1#block-b%201",
+			"/work/bet/bet-1/review/rev-1",
+		]);
+		expect(nav).not.toHaveBeenCalled();
+	});
+
+	it("structural Open review still navigates to the review page", async () => {
+		const { createOpenHandler } = await import("../services/open-handler.js");
+		const nav = vi.fn();
+		const inspect = vi.fn();
+		createOpenHandler(nav, { betId: "bet-1", onInspectPath: inspect })({
+			route: "review",
+			betId: "bet-1",
+			reviewId: "rev-1",
+		});
 		expect(nav).toHaveBeenCalledWith("/work/bet/bet-1/review/rev-1");
+		expect(inspect).not.toHaveBeenCalled();
 	});
 });
 

@@ -4,7 +4,7 @@
  * Strategy: page.route() mocks for all API calls. No DB seeding.
  *
  * AC covered:
- *   AC-1: BodyEditor renders for draft/active bets (mutable statuses).
+ *   AC-1: Draft/active bets rest rendered; Edit reveals BodyEditor.
  *   AC-2: BetPitch (read-only blocks) renders for completed/killed bets.
  *   AC-5: Saving indicator shows on PATCH, then shows Saved.
  *
@@ -100,32 +100,47 @@ async function setupBetRoute(
 }
 
 test.describe("T3 — Bet description WYSIWYG editing (E2E)", () => {
-	// AC-1: BodyEditor renders for active bet
-	test("AC-1: active bet shows BodyEditor (bet-description-editor), not read-only BetPitch", async ({
-		page,
-	}) => {
+	// AC-1: active bet rests rendered and enters editing explicitly.
+	test("AC-1: active bet rests rendered and Edit reveals BodyEditor", async ({ page }) => {
 		await setupBetRoute(page, makeActiveBetFixture());
 		await page.goto(`/work/bet/${BET_ID}`);
 		await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
-		// BodyEditor section must be present for active bet
 		const editor = page.locator('[data-testid="bet-description-editor"]');
+		await expect(editor).toHaveCount(0);
+		await page.getByRole("button", { name: "Edit bet content" }).click();
 		await expect(editor).toBeVisible();
-
-		// Read-only BetPitch section must NOT be present
-		const readOnly = page.locator('[data-testid="bet-pitch"]');
-		await expect(readOnly).toHaveCount(0);
 	});
 
 	// AC-1: BodyEditor also renders for draft bet
-	test("AC-1: draft bet shows BodyEditor (mutable)", async ({ page }) => {
+	test("AC-1: draft bet also requires explicit Edit", async ({ page }) => {
 		await setupBetRoute(page, makeDraftBetFixture());
 		await page.goto(`/work/bet/${BET_ID}`);
 		await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
 
 		const editor = page.locator('[data-testid="bet-description-editor"]');
+		await expect(editor).toHaveCount(0);
+		await page.getByRole("button", { name: "Edit bet content" }).click();
 		await expect(editor).toBeVisible();
 	});
+
+	for (const viewport of [
+		{ name: "1440x900", width: 1440, height: 900 },
+		{ name: "1024x768", width: 1024, height: 768 },
+		{ name: "375x812", width: 375, height: 812 },
+	]) {
+		test(`${viewport.name}: bet prose rests rendered`, async ({ page }) => {
+			await page.setViewportSize(viewport);
+			await setupBetRoute(page, makeActiveBetFixture());
+			await page.goto(`/work/bet/${BET_ID}`);
+			await expect(page.getByRole("button", { name: "Edit bet content" })).toBeVisible();
+			await expect(page.locator('[data-testid="bet-description-editor"]')).toHaveCount(0);
+			await page.screenshot({
+				path: `test-results/bet-read-${viewport.name}.png`,
+				fullPage: true,
+			});
+		});
+	}
 
 	// AC-2: Completed bet shows read-only BetPitch, no editor
 	test("AC-2: completed bet shows read-only BetPitch, no BodyEditor", async ({ page }) => {
@@ -156,9 +171,7 @@ test.describe("T3 — Bet description WYSIWYG editing (E2E)", () => {
 	});
 
 	// AC-5: Saving indicator appears on description PATCH
-	test("AC-5: PATCH /api/bets/:id is called with description field on content change", async ({
-		page,
-	}) => {
+	test("bet Done waits for acknowledged description PATCH", async ({ page }) => {
 		let patchBody: Record<string, unknown> | null = null;
 
 		await setupBetRoute(page, makeActiveBetFixture());
@@ -173,17 +186,24 @@ test.describe("T3 — Bet description WYSIWYG editing (E2E)", () => {
 					body: JSON.stringify({ ok: true }),
 				});
 			}
-			return route.continue();
+			return route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify(makeActiveBetFixture()),
+			});
 		});
 
 		await page.goto(`/work/bet/${BET_ID}`);
 		await expect(page.locator('[data-testid="work-bet-page"]')).toBeVisible();
+		await page.getByRole("button", { name: "Edit bet content" }).click();
 		await expect(page.locator('[data-testid="bet-description-editor"]')).toBeVisible();
 
 		// Trigger input on the ProseMirror contenteditable
 		const proseMirror = page.locator('[data-testid="bet-description-editor"] .ProseMirror');
 		await proseMirror.click();
 		await proseMirror.type("Updated content");
+		const done = page.getByRole("button", { name: "Done editing bet content" });
+		await expect(done).toBeDisabled();
 
 		// Wait for the PATCH to be fired (debounced at 1500ms — use a generous timeout)
 		await expect.poll(() => patchBody !== null, { timeout: 5000 }).toBe(true);
@@ -192,5 +212,8 @@ test.describe("T3 — Bet description WYSIWYG editing (E2E)", () => {
 		expect(patchBody?.field).toBe("description");
 		expect(typeof patchBody?.value).toBe("string");
 		expect(patchBody?.reason).toBe("Edited by user");
+		await expect(done).toBeEnabled();
+		await done.click();
+		await expect(page.locator('[data-testid="bet-description-editor"]')).toHaveCount(0);
 	});
 });

@@ -13,7 +13,7 @@ test.describe("Global Search", () => {
 		await page.keyboard.press("Meta+k");
 		await expect(page.getByRole("dialog")).toBeVisible();
 		// Search input should be auto-focused
-		const input = page.getByRole("textbox");
+		const input = page.getByRole("dialog").getByRole("textbox");
 		await expect(input).toBeFocused();
 	});
 
@@ -41,7 +41,9 @@ test.describe("Global Search", () => {
 		await expect(page.getByTestId("search-empty")).toBeVisible();
 	});
 
-	test("clicking a work result navigates to /work/bet/{id} (I4 N3)", async ({ page }) => {
+	test("search result closes the utility, navigates, and retains temporal Back", async ({
+		page,
+	}) => {
 		// Mock the search API to return a predictable work result.
 		await page.route("**/api/search*", async (route) => {
 			await route.fulfill({
@@ -54,7 +56,7 @@ test.describe("Global Search", () => {
 							id: "b99",
 							title: "E2E Work Result",
 							product: "HyperIdle",
-							status: "committed",
+							status: "active",
 							appetite: "2 weeks",
 						},
 					],
@@ -63,12 +65,22 @@ test.describe("Global Search", () => {
 			});
 		});
 
+		const originUrl = await page.waitForURL(/\/work\/team\//).then(() => page.url());
 		await page.keyboard.press("Meta+k");
-		const input = page.getByRole("textbox");
-		await input.fill("e2e");
+		const input = page.getByRole("dialog").getByRole("textbox");
+		await input.evaluate((element) => {
+			Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
+				element,
+				"e2e",
+			);
+			element.dispatchEvent(new Event("input", { bubbles: true }));
+		});
 		await expect(page.getByText("E2E Work Result")).toBeVisible();
-		await page.getByText("E2E Work Result").click();
+		await page.getByRole("button", { name: /E2E Work Result/ }).dispatchEvent("click");
 		await expect(page).toHaveURL(/\/work\/bet\/b99$/);
+		await expect(page.getByRole("dialog")).toHaveCount(0);
+		await page.goBack();
+		await expect(page).toHaveURL(originUrl);
 	});
 
 	test("clearing the query clears the results (I4 N2)", async ({ page }) => {
