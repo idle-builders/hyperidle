@@ -1,0 +1,109 @@
+{
+  "wp": "AU40",
+  "title": "Capture the measured isolate:false prize",
+  "track": "AU",
+  "tier": "production",
+  "worktree": ".worktrees/AU40-pipeline",
+  "branch": "chore/AU40-isolate-false-test-lane",
+  "base": "origin/main@fe723ab87",
+  "phase": "architecture",
+  "status": "blocked",
+  "smallestActionToResume": "Maintainer must choose the AU40 ownership boundary: (A) narrow stop-and-join to the leak owners proven causal by no-isolate owner-to-victim runs, or (B) expand to every async app/runtime owner implied by the current whole-server shutdown guarantee. Option B likely exceeds the repository's 1,000-line simplicity stop and should become separately scoped work if chosen.",
+  "sessions": [
+    {
+      "phase": "preflight",
+      "started": "2026-08-13",
+      "result": "ok",
+      "notes": "registry, dependency graph, plan, pipeline config, and declared rules confirmed; dependency-free production-tier WP; isolated worktree created from current origin/main and bootstrapped"
+    },
+    {
+      "phase": "refine",
+      "started": "2026-08-13",
+      "result": "skipped",
+      "notes": "plan explicitly says pre-build refinement is not required; outcome, measured failure set, and constraints are settled"
+    },
+    {
+      "phase": "design",
+      "started": "2026-08-13",
+      "result": "skipped",
+      "notes": "no user-facing UI surface or UX decision changes"
+    },
+    {
+      "phase": "architecture",
+      "started": "2026-08-13",
+      "result": "ok",
+      "notes": "architecture.md and feasibility.md written; current no-isolate probe found 2,865 tests, 25 failures in 14 files, expected lifecycle/mock leak shapes, and two unrelated ENOSPC failures; one sequential build task"
+    },
+    {
+      "phase": "architecture-critique",
+      "started": "2026-08-13",
+      "result": "fail",
+      "notes": "attempt 1: one blocker — lifecycle and runtime drain disposers cancel future triggers but do not join in-flight async work; one non-blocking mock-census correction"
+    },
+    {
+      "phase": "architecture-revision",
+      "started": "2026-08-13",
+      "result": "ok",
+      "notes": "revision defines idempotent stop-and-join contracts for lifecycle projection and run-runtime wake/reap, async propagation, shutdown order, deferred regression proofs, and corrected mock census"
+    },
+    {
+      "phase": "architecture-critique-2",
+      "started": "2026-08-13",
+      "result": "fail",
+      "notes": "attempt 2: two blockers — routine scheduler stop does not join active tick/reap/fire work; direct createTestApp ownership census misses constructors with no disposal"
+    },
+    {
+      "phase": "architecture-revision-2",
+      "started": "2026-08-13",
+      "result": "ok",
+      "notes": "construction-door census found 162 direct DB-backed test apps; architecture uses one test-only owner registry, covers other direct boot/runtime/server sites, adds routine scheduler stop-and-join, and estimates 550-800 changed lines"
+    },
+    {
+      "phase": "architecture-critique-3",
+      "started": "2026-08-13",
+      "result": "fail",
+      "notes": "attempt 3: stop/join census still omits in-flight async handoff/writeback subscribers, builtin reaction, retention, notification, policy retry, and sandbox reap while architecture claims all drain work settles before DB close; retry cap exhausted"
+    },
+    {
+      "phase": "blocked",
+      "started": "2026-08-13",
+      "result": "awaiting-maintainer-decision",
+      "notes": "No build or concept approval occurred. Decide whether AU40 proves and fixes only measured causal leak owners, or expands into production-wide async shutdown ownership; broad expansion likely breaches the 1,000-line simplicity limit."
+    }
+  ],
+  "evaluations": {
+    "refine-critique": 0,
+    "design-critique": 0,
+    "architecture-critique": 3,
+    "review": 0
+  },
+  "artifacts": [
+    ".pipeline/work/AU40/plan.md",
+    ".pipeline/work/AU40/architecture.md",
+    ".pipeline/work/AU40/feasibility.md"
+  ],
+  "approvals": [],
+  "verdicts": [
+    {
+      "gate": "architecture-critique",
+      "attempt": 1,
+      "verdict": "FAIL",
+      "date": "2026-08-13",
+      "blocking": 1
+    },
+    {
+      "gate": "architecture-critique",
+      "attempt": 2,
+      "verdict": "FAIL",
+      "date": "2026-08-13",
+      "blocking": 2
+    },
+    {
+      "gate": "architecture-critique",
+      "attempt": 3,
+      "verdict": "FAIL",
+      "date": "2026-08-13",
+      "blocking": 1
+    }
+  ]
+}
