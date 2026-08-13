@@ -31,6 +31,7 @@
 import type { PartAuthor } from "@hyperidle/conversation-parts";
 import { derivePartsFromMessages } from "@hyperidle/conversation-parts";
 import {
+	Breadcrumb,
 	Button,
 	EmptyState,
 	ErrorState,
@@ -368,7 +369,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	if (status === "loading") {
 		return (
-			<PageScaffold data-testid="conversations-page">
+			<PageScaffold header={<PageHeader title="Conversation" />} data-testid="conversations-page">
 				<div className="flex flex-col gap-3">
 					<SkeletonList rows={3} ariaLabel="Loading thread" />
 				</div>
@@ -378,7 +379,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	if (status === "not-found") {
 		return (
-			<PageScaffold data-testid="conversations-page">
+			<PageScaffold header={<PageHeader title="Conversation" />} data-testid="conversations-page">
 				<EmptyState
 					title="Thread not found"
 					description="This thread may have been resolved, archived, or the link is incorrect."
@@ -391,7 +392,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	if (status === "error") {
 		return (
-			<PageScaffold data-testid="conversations-page">
+			<PageScaffold header={<PageHeader title="Conversation" />} data-testid="conversations-page">
 				<div className="flex flex-col gap-3">
 					<ErrorState
 						title="Failed to load thread"
@@ -405,7 +406,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	}
 
 	if (!data) {
-		return <div className="h-full" data-testid="conversations-page" />;
+		return (
+			<PageScaffold header={<PageHeader title="Conversation" />} data-testid="conversations-page">
+				{null}
+			</PageScaffold>
+		);
 	}
 
 	// Q1 §4.6: "Dial in" button — secondary style with pulsing live dot.
@@ -511,35 +516,32 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		<PageScaffold
 			data-testid="conversations-page"
 			header={
-				/* AM1: ConversationSurface owns the thread header (title + host context
-				    link). A thin action bar above it carries the dial-in affordance +
-				    the review-verdict hint — chrome the design header does not own. */
-				(dialInButton || (hintReviewVerdict.visible && hasReviewMessages)) && (
-					<div className="flex flex-col gap-[6px] border-b border-[var(--border-subtle)] px-[18px] py-[9px]">
-						{dialInButton && <div className="flex justify-end">{dialInButton}</div>}
-						{hintReviewVerdict.visible && hasReviewMessages && (
-							<div
-								role="status"
-								data-testid={hintReviewVerdict.testId}
-								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[12px] flex flex-col gap-[6px]"
-							>
-								<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-									{hintReviewVerdict.copy}
-								</p>
-								<div className="flex gap-[9px]">
-									<Button
-										variant="ghost"
-										size="sm"
-										className="text-[var(--text-tertiary)]"
-										onClick={hintReviewVerdict.dismiss}
-									>
-										Got it
-									</Button>
-								</div>
-							</div>
-						)}
-					</div>
-				)
+				<PageHeader
+					title={threadTitle}
+					leading={
+						<Breadcrumb
+							segments={[{ label: "Conversations", to: "/conversations" }, { label: threadTitle }]}
+							LinkComponent={Link}
+						/>
+					}
+					actions={
+						<>
+							{dialInButton}
+							{hintReviewVerdict.visible && hasReviewMessages && (
+								<Button variant="ghost" size="sm" onClick={hintReviewVerdict.dismiss}>
+									Got it
+								</Button>
+							)}
+						</>
+					}
+					subtitle={
+						hintReviewVerdict.visible && hasReviewMessages ? (
+							<span role="status" data-testid={hintReviewVerdict.testId}>
+								{hintReviewVerdict.copy}
+							</span>
+						) : undefined
+					}
+				/>
 			}
 			body="managed"
 		>

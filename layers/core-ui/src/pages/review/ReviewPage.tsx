@@ -1,4 +1,4 @@
-import { PageScaffold } from "@hyperidle/design-system";
+import { ErrorState, PageHeader, PageScaffold } from "@hyperidle/design-system";
 import type {
 	AnchorRef,
 	BlockId,
@@ -196,18 +196,19 @@ export function ReviewPage({
 
 	if (error) {
 		return (
-			<div className="p-[24px] text-[var(--status-error)]">
-				<p>Could not load review.</p>
-				<p className="text-[13px] text-[var(--text-tertiary)]">{error.message}</p>
-			</div>
+			<PageScaffold header={<PageHeader title="Review" />}>
+				<div className="p-[24px]">
+					<ErrorState title="Could not load review" description={error.message} />
+				</div>
+			</PageScaffold>
 		);
 	}
 
 	if (!(subject && reviewSubject)) {
 		return (
-			<div className="p-[24px] text-[var(--text-secondary)]">
-				<p>Loading review…</p>
-			</div>
+			<PageScaffold header={<PageHeader title="Review" />}>
+				<div className="p-[24px] text-[var(--text-secondary)]">Loading review…</div>
+			</PageScaffold>
 		);
 	}
 

@@ -3,6 +3,7 @@ import type { JSX } from "react";
 
 import { CodePayload } from "./CodePayload.js";
 import { DividerPayload } from "./DividerPayload.js";
+import type { AuthoredOutlineContext } from "./HeadingPayload.js";
 import { HeadingPayload } from "./HeadingPayload.js";
 import { HtmlPayload } from "./HtmlPayload.js";
 import { ImagePayload } from "./ImagePayload.js";
@@ -20,10 +21,18 @@ import { UnknownPayload } from "./UnknownPayload.js";
 export function renderPayload(
 	payload: BlockPayload,
 	sanitizeHtml?: (raw: string) => string,
-): JSX.Element {
+	outline?: AuthoredOutlineContext,
+): JSX.Element | null {
 	switch (payload.kind) {
 		case "heading":
-			return <HeadingPayload level={payload.level} inline={payload.inline} />;
+			return (
+				<HeadingPayload
+					level={payload.level}
+					inline={payload.inline}
+					text={payload.text}
+					outline={outline}
+				/>
+			);
 		case "paragraph":
 			return <ParagraphPayload inline={payload.inline} />;
 		case "list":

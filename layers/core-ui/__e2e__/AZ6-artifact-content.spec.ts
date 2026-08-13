@@ -40,7 +40,7 @@ test.beforeEach(async ({ page }) => {
 
 test("the artifact's own letter case survives to the screen", async ({ page }) => {
 	await page.goto("/artifacts/az6-prose");
-	const heading = page.locator("[data-ds-component='ArtifactPreviewSurface'] h1").first();
+	const heading = page.locator("[data-ds-component='ArtifactPreviewSurface'] h2").first();
 
 	// What the user reads, not what the DOM holds: innerText reflects text-transform.
 	await expect(heading).toBeVisible();
@@ -51,7 +51,7 @@ test("the panel imposes neither uppercase nor a monospace face on the content", 
 	page,
 }) => {
 	await page.goto("/artifacts/az6-prose");
-	const heading = page.locator("[data-ds-component='ArtifactPreviewSurface'] h1").first();
+	const heading = page.locator("[data-ds-component='ArtifactPreviewSurface'] h2").first();
 
 	await expect(heading).toHaveCSS("text-transform", "none");
 	const fontFamily = await heading.evaluate((el) => getComputedStyle(el).fontFamily);
@@ -83,7 +83,7 @@ test("the panel does not tint the content it wraps", async ({ page }) => {
 		}, token);
 
 	const headingColour = await surface
-		.locator("h1")
+		.locator("h2")
 		.first()
 		.evaluate((el) => getComputedStyle(el).color);
 	const bodyColour = await surface
@@ -98,7 +98,7 @@ test("the panel does not tint the content it wraps", async ({ page }) => {
 test("content starts at the left edge of the panel, not in a centred column", async ({ page }) => {
 	await page.goto("/artifacts/az6-prose");
 	const surface = page.locator("[data-ds-component='ArtifactPreviewSurface']");
-	const heading = surface.locator("h1").first();
+	const heading = surface.locator("h2").first();
 
 	const panel = await surface.boundingBox();
 	const text = await heading.boundingBox();

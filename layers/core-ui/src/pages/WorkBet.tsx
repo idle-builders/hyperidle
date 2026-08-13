@@ -196,6 +196,7 @@ function AnchoredMessages({
 interface BetPitchProps {
 	description: string;
 	betId: string;
+	documentTitle: string;
 	/** Called when the user opens a block's actions menu (Space/Enter on block). Sets openBlockId. */
 	onOpenBlockActions?: (blockId: string) => void;
 	messagesByBlockId?: ReadonlyMap<string, ReadonlyArray<Message>>;
@@ -206,6 +207,7 @@ interface BetPitchProps {
 function BetPitch({
 	description,
 	betId,
+	documentTitle,
 	onOpenBlockActions,
 	messagesByBlockId,
 	onShareBlock: _onShareBlock,
@@ -238,12 +240,13 @@ function BetPitch({
 	if (blocks.length === 0) return null;
 	return (
 		<section aria-label="Bet pitch" data-testid="bet-pitch">
-			{blocks.map((b) => (
+			{blocks.map((b, blockIndex) => (
 				// T4: relative wrapper so AssistantAttachButton can be absolutely positioned in the gutter.
 				<div key={b.id} className="relative group/block-attach">
 					<Block
 						id={b.id}
 						payload={b.payload}
+						outline={{ documentTitle, blockIndex, levelOffset: 1 }}
 						onOpenActions={
 							onOpenBlockActions !== undefined ? () => onOpenBlockActions(b.id) : undefined
 						}
@@ -661,12 +664,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			<PageScaffold
 				header={
 					<PageHeader
-						title={
-							<>
-								<div className="skeleton h-[13px] w-[120px] mb-[6px]" />
-								<div className="skeleton h-[20px] w-[280px]" />
-							</>
-						}
+						title="Bet"
+						subtitle={<span className="skeleton block h-[13px] w-[120px]" />}
 					/>
 				}
 				data-testid="work-bet-page"
@@ -681,7 +680,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	if (!overrideBet && fetched.error) {
 		return (
-			<PageScaffold data-testid="work-bet-page">
+			<PageScaffold header={<PageHeader title="Bet" />} data-testid="work-bet-page">
 				<div className="p-[24px]">
 					<ErrorState title="Failed to load bet" description={fetched.error.message} />
 				</div>
@@ -691,7 +690,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	if (!bet) {
 		return (
-			<PageScaffold data-testid="work-bet-page">
+			<PageScaffold header={<PageHeader title="Bet" />} data-testid="work-bet-page">
 				<div className="p-[24px]">
 					<ErrorState title="Bet not found" description="The requested bet could not be found." />
 				</div>
@@ -754,11 +753,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					leading={
 						/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
 						<Breadcrumb
-							segments={[
-								{ label: "Work", to: "/work" },
-								{ label: bet.team, to: "/work" },
-								{ label: bet.title },
-							]}
+							segments={[{ label: "Work", to: "/work" }, { label: bet.team }, { label: bet.title }]}
 							leading={
 								!sidebarMobile ? (
 									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
@@ -1268,6 +1263,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							<BetPitch
 								description={bet.description}
 								betId={bet.id}
+								documentTitle={bet.title}
 								onOpenBlockActions={(blockId) => setOpenBlockId(blockId)}
 								messagesByBlockId={messagesByBlockId}
 								onShareBlock={handleShareBlock}

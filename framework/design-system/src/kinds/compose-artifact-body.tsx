@@ -85,6 +85,7 @@ export function composeArtifactBody(
 	kind: string,
 	preview: unknown,
 	sanitizeHtml?: (raw: string) => string,
+	documentTitle?: string,
 ): JSX.Element {
 	if (!preview || typeof preview !== "object") {
 		// A supported kind saved in the wrong shape is a different thing from a kind
@@ -104,12 +105,13 @@ export function composeArtifactBody(
 			}
 			return (
 				<div className="flex flex-col gap-[9px]">
-					{blocks.map((block: BlockData) => (
+					{blocks.map((block: BlockData, blockIndex) => (
 						<Block
 							key={block.id}
 							id={block.id}
 							payload={block.payload}
 							sanitizeHtml={sanitizeHtml}
+							outline={documentTitle ? { documentTitle, blockIndex, levelOffset: 1 } : undefined}
 						/>
 					))}
 				</div>

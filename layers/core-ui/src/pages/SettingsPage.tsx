@@ -11,7 +11,7 @@
  * switching tabs. This matches the approved mockup for the settings screen.
  */
 
-import { PageScaffold } from "@hyperidle/design-system";
+import { PageHeader, PageScaffold } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
 import { SettingsAgentBehavior } from "../settings/SettingsAgentBehavior.js";
@@ -40,13 +40,7 @@ export function SettingsPage(): JSX.Element {
 		<PageScaffold
 			data-testid="settings-page"
 			header={
-				/* Settings header */
-				<header className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]">
-					<h2 className="text-[20px] font-[600] tracking-[-0.01em]">Settings</h2>
-					<p className="text-[13px] text-[var(--text-tertiary)] mt-[3px]">
-						Manage your profile, team, and app preferences.
-					</p>
-				</header>
+				<PageHeader title="Settings" subtitle="Manage your profile, team, and app preferences." />
 			}
 		>
 			<div

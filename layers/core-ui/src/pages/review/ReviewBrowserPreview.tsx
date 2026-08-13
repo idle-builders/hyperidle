@@ -18,6 +18,7 @@
 // Presentational isolation component: verdict callbacks are no-ops in the story; no
 // local state needed (the page is static — there is nothing to toggle).
 
+import { headingIdentityMatches } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
@@ -93,7 +94,13 @@ const FIXTURE: PreviewPage = {
 // this IS the deployed page as a visitor sees it (must read as a real web page,
 // not as Hearth chrome).
 
-function RenderedPage({ data }: { readonly data: PreviewPage }): JSX.Element {
+function RenderedPage({
+	data,
+	documentTitle,
+}: {
+	readonly data: PreviewPage;
+	readonly documentTitle?: string;
+}): JSX.Element {
 	return (
 		<div style={{ background: "#fbf8f2", color: "#26221b", fontSize: 14 }}>
 			{/* page nav */}
@@ -154,7 +161,8 @@ function RenderedPage({ data }: { readonly data: PreviewPage }): JSX.Element {
 				>
 					{data.eyebrow}
 				</span>
-				<h1
+				<h2
+					hidden={documentTitle ? headingIdentityMatches(data.headline, documentTitle) : false}
 					style={{
 						margin: "12px auto 0",
 						maxWidth: 560,
@@ -164,7 +172,7 @@ function RenderedPage({ data }: { readonly data: PreviewPage }): JSX.Element {
 					}}
 				>
 					{data.headline}
-				</h1>
+				</h2>
 				<p
 					style={{
 						margin: "12px auto 0",
@@ -313,6 +321,7 @@ function TrafficLights(): JSX.Element {
 
 export interface ReviewBrowserPreviewProps {
 	readonly data?: PreviewPage;
+	readonly documentTitle?: string;
 	readonly onApprove?: () => void;
 	readonly onRequestChanges?: () => void;
 }
@@ -330,6 +339,7 @@ export interface ReviewBrowserPreviewProps {
  */
 function ReviewBrowserPreviewView({
 	data = FIXTURE,
+	documentTitle,
 	onApprove,
 	onRequestChanges,
 }: ReviewBrowserPreviewProps): JSX.Element {
@@ -420,7 +430,7 @@ function ReviewBrowserPreviewView({
 				</div>
 
 				{/* the rendered page (the artifact) */}
-				<RenderedPage data={data} />
+				<RenderedPage data={data} documentTitle={documentTitle} />
 			</div>
 
 			{/* verdict gate — basic pill pair; the frame owns resolution */}
@@ -505,7 +515,7 @@ export function ReviewBrowserPreview({ artifact }: ReviewCanvasProps): JSX.Eleme
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
-			<ReviewBrowserPreviewView data={data} />
+			<ReviewBrowserPreviewView data={data} documentTitle={artifact.title} />
 		</div>
 	);
 }

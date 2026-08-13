@@ -83,7 +83,7 @@ export function PageHeader({
 			{...dsProps("PageHeader", "1")}
 			{...(testId ? { "data-testid": testId } : {})}
 		>
-			{leading && <div className="mb-[6px]">{leading}</div>}
+			{leading && <div className="mb-[6px] min-w-0 overflow-hidden">{leading}</div>}
 
 			<div className="flex items-center justify-between gap-[12px]">
 				<TitleTag className={pageTitleClassName}>{title}</TitleTag>

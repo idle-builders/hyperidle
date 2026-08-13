@@ -24,7 +24,11 @@ describe("ReviewComposition", () => {
 	it("AC1: renders the bet/task breadcrumb, prompt, outcome, KPIs and visible proof", () => {
 		renderComposition();
 
-		expect(screen.getByText(`Bet: ${REVIEW_COMPOSITION_SUBJECT.betTitle}`)).toBeInTheDocument();
+		expect(
+			within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText(
+				REVIEW_COMPOSITION_SUBJECT.betTitle,
+			),
+		).toBeInTheDocument();
 		expect(screen.getByText(`“${REVIEW_COMPOSITION_SUBJECT.prompt}”`)).toBeInTheDocument();
 		expect(screen.getByText(REVIEW_COMPOSITION_SUBJECT.outcome)).toBeInTheDocument();
 		for (const kpi of REVIEW_COMPOSITION_SUBJECT.resultKpis) {

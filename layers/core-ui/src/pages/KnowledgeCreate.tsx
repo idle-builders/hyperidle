@@ -139,7 +139,7 @@ export function KnowledgeCreate(): JSX.Element {
 					leading={
 						/* AG4: DS Breadcrumb — create page, NO leading cluster (not a detail route) */
 						<Breadcrumb
-							segments={[{ label: "Knowledge", to: "/knowledge" }, { label: "New" }]}
+							segments={[{ label: "Knowledge", to: "/knowledge" }, { label: "New knowledge" }]}
 							LinkComponent={RRLink}
 						/>
 					}

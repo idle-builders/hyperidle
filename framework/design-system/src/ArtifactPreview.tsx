@@ -18,6 +18,8 @@ export interface ArtifactPreviewProps {
 	 * The `html` kind does not use it — that kind is isolated, not stripped.
 	 */
 	sanitizeHtml: (raw: string) => string;
+	/** Page routes may move the repeated display title into PageHeader. */
+	showTitle?: boolean;
 }
 
 const WRAP =
@@ -34,6 +36,7 @@ export function ArtifactPreview({
 	discussion,
 	state = "populated",
 	sanitizeHtml,
+	showTitle = true,
 }: ArtifactPreviewProps): JSX.Element {
 	return (
 		<div {...dsProps("ArtifactPreview", "2")} className={WRAP} data-state={state}>
@@ -52,13 +55,14 @@ export function ArtifactPreview({
 					<ArtifactTimestamp value={data.createdAt} />
 					<span className="ml-auto text-[var(--text-tertiary)] normal-case">{data.id}</span>
 				</div>
-				<div className={TITLE}>{artifactDisplayTitle(data)}</div>
+				{showTitle && <div className={TITLE}>{artifactDisplayTitle(data)}</div>}
 			</div>
 			<ArtifactPreviewSurface
 				kind={data.kind}
 				preview={data.preview}
 				size="full"
 				sanitizeHtml={sanitizeHtml}
+				documentTitle={artifactDisplayTitle(data)}
 			/>
 			{discussion ? <div className={DISCUSSION}>{discussion}</div> : null}
 		</div>

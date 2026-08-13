@@ -194,9 +194,9 @@ function ConversationHeader({
 							</span>
 						)}
 					</div>
-					<h1 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">
+					<h2 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">
 						{header.title}
-					</h1>
+					</h2>
 				</div>
 				<div className="flex items-center gap-[9px]">
 					<ParticipantGroup people={participants} />

@@ -128,12 +128,8 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 				data-testid="task-detail-loading"
 				header={
 					<PageHeader
-						title={
-							<>
-								<div className="skeleton h-[13px] w-[240px] mb-[6px]" />
-								<div className="skeleton h-[20px] w-[320px]" />
-							</>
-						}
+						title="Task"
+						subtitle={<span className="skeleton block h-[13px] w-[240px]" />}
 					/>
 				}
 			>
@@ -147,7 +143,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	// Error state
 	if (betError) {
 		return (
-			<PageScaffold data-testid="task-detail-error">
+			<PageScaffold header={<PageHeader title="Task" />} data-testid="task-detail-error">
 				<div role="alert" className="p-[24px]">
 					<ErrorState
 						title="Failed to load task"
@@ -163,7 +159,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	const task = bet?.tasks.find((t) => t.id === taskId);
 	if (!(bet && task)) {
 		return (
-			<PageScaffold data-testid="task-detail-not-found">
+			<PageScaffold header={<PageHeader title="Task" />} data-testid="task-detail-not-found">
 				<div className="p-[24px]">
 					<p className="text-[13px] text-[var(--text-secondary)]">Task not found.</p>
 				</div>
@@ -192,7 +188,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 							<Breadcrumb
 								segments={[
 									{ label: "Work", to: "/work" },
-									{ label: bet.team, to: "/work" },
+									{ label: bet.team },
 									{ label: bet.title, to: `/work/bet/${bet.id}` },
 									{ label: task.title },
 								]}
