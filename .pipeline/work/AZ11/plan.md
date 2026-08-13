@@ -1,5 +1,7 @@
 # AZ11 — One page geometry
 
+> **Superseded by maintainer amendment, 2026-08-13.** Two independent reviews of the combined implementation found that this plan joined page orientation/document outline with standard/managed geometry and asked static tooling to prove runtime behavior. The founder approved replacement by [`AZ11-O`](../AZ11-O/plan.md) followed by [`AZ11-G`](../AZ11-G/plan.md). This file remains the authority for the failed combined run and its retained evidence; no new build may execute this plan.
+
 ## Work package
 
 **Outcome.** Every page places its title, its content and its navigation in the same place, so moving between pages feels like moving inside one product.
