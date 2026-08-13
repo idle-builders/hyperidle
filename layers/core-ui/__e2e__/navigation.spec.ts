@@ -116,9 +116,7 @@ async function mockBetAndTeam(page: import("@playwright/test").Page) {
 }
 
 test.describe("AG4 — Back, Up, and Shortcuts", () => {
-	test("routine Navigate and temporal Back restore team scroll and row focus", async ({
-		page,
-	}) => {
+	test("routine Navigate and temporal Back restore team scroll and row focus", async ({ page }) => {
 		await mockBetAndTeam(page);
 		await page.route("**/api/routines/routine-ag4-11", async (route) => {
 			await route.fulfill({
