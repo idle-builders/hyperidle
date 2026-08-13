@@ -11,7 +11,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGitRunner } from "../git/git-runner.js";
 
 // Helper: create a minimal bare git repo with one commit for use as a remote.
@@ -66,11 +66,19 @@ describe("GitRunner — real on-disk round-trip (filesystem inbound verbs)", () 
 		const cloneDir = path.join(tmpDir, "cloned-for-bundle");
 		fs.mkdirSync(cloneDir, { recursive: true });
 
-		const runner = createGitRunner(cloneDir);
+		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+		const runner = createGitRunner(cloneDir, { logger });
 		await runner.clone(bareDir, "main");
 
 		const bundlePath = path.join(tmpDir, "captured.bundle");
 		await runner.bundle(bundlePath, "refs/heads/main");
+		expect(logger.debug).toHaveBeenLastCalledWith(
+			"git spawn",
+			expect.objectContaining({
+				args: ["bundle", "create", bundlePath, "refs/heads/main"],
+				timeoutMs: 120_000,
+			}),
+		);
 
 		expect(fs.existsSync(bundlePath)).toBe(true);
 		// A valid git bundle starts with "# v2 git bundle\n".

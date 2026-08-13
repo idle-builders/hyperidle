@@ -222,7 +222,11 @@ describe("AM4 AC2 — POST /api/harnesses/redetect", () => {
 		// bucket (resetAt = firstCall + 5_000ms) and letting the second call through —
 		// a load-dependent flake unrelated to the behavior under test. Only Date.now is
 		// mocked (not timers), so real async/DB work is unaffected.
-		const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+		// Freeze at the current epoch. A stale fixed epoch makes PGlite's real
+		// timers calculate multi-year delays and flood concurrent workers with
+		// TimeoutOverflowWarning while this spy is active.
+		const frozenNow = Date.now();
+		const nowSpy = vi.spyOn(Date, "now").mockReturnValue(frozenNow);
 		try {
 			// First call
 			const res1 = await app.request("/api/harnesses/redetect", {

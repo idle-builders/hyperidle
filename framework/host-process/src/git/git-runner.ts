@@ -169,6 +169,7 @@ interface SpawnResult {
 
 const DEFAULT_LOCAL_MS = 5_000;
 const DEFAULT_PUSH_MS = 30_000;
+const DEFAULT_WORKTREE_MS = 120_000;
 
 /**
  * Strip credentials from a URL-like argv value before logging.
@@ -461,7 +462,9 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			if (bundlePath.startsWith("-") || ref.startsWith("-")) {
 				throw new Error(`git bundle: bundlePath and ref must not start with '-'`);
 			}
-			await runExpectOk(["bundle", "create", bundlePath, ref], localMs);
+			// Bundle creation traverses and compresses repository history; like worktree
+			// lifecycle, it is artifact filesystem work rather than metadata-only git.
+			await runExpectOk(["bundle", "create", bundlePath, ref], DEFAULT_WORKTREE_MS);
 		},
 		async worktreeAdd(
 			worktreePath: string,
@@ -479,7 +482,10 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			if (opts?.createBranch) args.push("-b", branch);
 			args.push("--", worktreePath);
 			if (!opts?.createBranch) args.push(branch);
-			await runExpectOk(args, localMs);
+			// @lore AU40: `git worktree add` runs the target repo's post-checkout
+			// hook. HyperIdle's hook bootstraps a fresh worktree, so worktree lifecycle
+			// verbs cannot share the 5s timeout used by metadata-only operations.
+			await runExpectOk(args, DEFAULT_WORKTREE_MS);
 		},
 		async worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void> {
 			// @lore AO2: --force removes even with untracked/modified files.
@@ -490,7 +496,9 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			const args: string[] = ["worktree", "remove"];
 			if (opts?.force) args.push("--force");
 			args.push("--", worktreePath);
-			await runExpectOk(args, localMs);
+			// A bootstrapped worktree contains node_modules and local DB state; removing
+			// that tree is a filesystem operation, not a metadata-only git operation.
+			await runExpectOk(args, DEFAULT_WORKTREE_MS);
 		},
 		async restoreStaged(paths: readonly string[]): Promise<void> {
 			if (paths.length === 0) return;

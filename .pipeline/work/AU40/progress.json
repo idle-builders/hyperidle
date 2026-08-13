@@ -5,10 +5,10 @@
   "tier": "production",
   "worktree": ".worktrees/AU40-pipeline",
   "branch": "chore/AU40-isolate-false-test-lane",
-  "base": "origin/main@cdb9e2d37",
+  "base": "origin/main@a54c352d6",
   "phase": "build",
-  "status": "blocked",
-  "smallestActionToResume": "Resolve the pre-existing git-worktree-live-proof full-lane failure outside AU40 or obtain scope direction; then run required repository gates and five-plus-one stability runs.",
+  "status": "build-complete",
+  "smallestActionToResume": "Run implementation review; after approval, ship and record GitHub Actions timing evidence.",
   "sessions": [
     {
       "phase": "preflight",
@@ -117,6 +117,24 @@
       "started": "2026-08-13",
       "result": "blocked",
       "notes": "npm run check, npm run lint, npm run test, and npm run verify pass. Full no-isolate: 2,865 total, 2,860 passed, 4 pending, sole git-worktree-live-proof mount failure. Full isolate:true control has identical counts and failure; victim alone passes. Five consecutive plus shuffled service runs cannot start honestly until this pre-existing full-lane blocker is separately resolved or added to scope. Disk healthy with 70 GiB free."
+    },
+    {
+      "phase": "maintainer-full-green-ruling",
+      "started": "2026-08-13",
+      "result": "approved-and-required",
+      "notes": "maintainer ruled the live-git full-lane failure is AU40's issue because a clean origin/main-based branch must be mergeable; fix it without weakening or exclusion"
+    },
+    {
+      "phase": "build-resume",
+      "started": "2026-08-13",
+      "result": "ok",
+      "notes": "clean branch rebased onto current origin/main a54c352d6; live-git failure traced to 5s GitRunner timeouts on worktree add/remove and bundle artifact creation; scoped 120s filesystem-operation timeout fixed the real adapter without changing the test timeout"
+    },
+    {
+      "phase": "build-complete",
+      "started": "2026-08-14",
+      "result": "ok",
+      "notes": "final code passes focused proofs, check, lint, affected test, verify, five consecutive full service runs, and seed-4040 shuffled-file run; each full run discovered 2,865 tests with 2,861 passed and 4 skipped; total branch diff remains below 1,000 changed lines"
     }
   ],
   "evaluations": {
@@ -197,10 +215,45 @@
       "green": "each unchanged pair passed 3/3"
     },
     {
-      "owner": null,
+      "owners": ["GitRunner.worktreeAdd", "GitRunner.worktreeRemove", "GitRunner.bundle"],
       "victim": "git-worktree-live-proof",
-      "kind": "pre-existing live-git mount failure",
-      "evidence": "fails as first file on its worker under both full isolate:false and full isolate:true; green alone; excluded by approved causal-owner boundary"
+      "kind": "artifact filesystem commands shared the 5s metadata-only Git timeout",
+      "red": "real post-checkout bootstrap completed but worktree add returned timeout exit -2; then remove returned -2 deleting bootstrapped dependencies; full-lane bundle creation returned -2 under normal four-worker load",
+      "repair": "120s timeout only for worktree add/remove and bundle; all metadata-only Git commands remain at 5s; test timeout and assertions unchanged",
+      "green": "focused live proof passed; real runner test pins bundle argv and 120s timeout; five consecutive full service runs passed"
+    },
+    {
+      "owner": "AM4-harnesses redetect rate-limit test",
+      "kind": "stale Date.now epoch caused PGlite timer overflow warning flood",
+      "red": "focused owner emitted 3,565 / 4,459 / 4,242 TimeoutOverflowWarning messages across three runs; warning delay exactly matched real now minus the frozen 2023 epoch",
+      "repair": "freeze Date.now at the current epoch captured before spying; rate-limit assertions and real work unchanged",
+      "green": "focused owner emitted 0 / 0 / 0 overflow warnings across three runs"
+    },
+    {
+      "owner": "AR4c-assistant-config",
+      "kind": "file relied on inherited HYPERIDLE_API_KEY state",
+      "red": "seed-4040 shuffled-file run produced 401 responses in AR4c when a preceding owner cleaned its env stub",
+      "repair": "file-local API-key setup/cleanup and explicit API-key request headers",
+      "green": "focused AR4c file passed 4/4; seed-4040 shuffled-file service run passed all 2,865 tests"
     }
-  ]
+  ],
+  "finalEvidence": {
+    "focused": [
+      "git-worktree-live-proof: 1/1 passed",
+      "git-runner integration: 8/8 passed with bundle timeout contract",
+      "AM4 warning proof: red 3565/4459/4242, green 0/0/0",
+      "AR4c assistant config: 4/4 passed"
+    ],
+    "gates": {
+      "check": "PASS — 55 packages, zero type errors",
+      "lint": "PASS — governance fixtures 63, attacks 69, live tree zero known violations",
+      "test": "PASS — 18 files, 138 tests",
+      "verify": "PASS — check, lint, knip, dependency gates, inventories, web build, desktop build"
+    },
+    "serviceStability": {
+      "counts": "331 files passed, 1 skipped; 2,861 tests passed, 4 skipped; 2,865 total",
+      "consecutiveDurationsSeconds": [293.57, 176.32, 162.94, 142.54, 155.15],
+      "shuffle": "seed 4040, files only, PASS, 2,865 total, 304.54s"
+    }
+  }
 }
