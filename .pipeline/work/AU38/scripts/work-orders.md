@@ -1,0 +1,385 @@
+# AU38 work orders (measured, not estimated)
+
+Lane: 2865 tests — 2485 passed, 376 failed, 4 pending.
+Files failing: 105. By class: OTHER=43, ASSERTION=69, COLLISION=1.
+Files with extracted collision values (codemod-able): 0.
+
+| file | failed | classes | collision values (table.column) |
+|---|---|---|---|
+| framework/db/src/__tests__/session-requests.integration.test.ts | 2 | OTHER | — |
+| layers/agent-orchestration/connections/src/__tests__/connection-store-completeness.integration.test.ts | 1 | ASSERTION | — |
+| layers/agent-orchestration/run-orchestration/src/__tests__/agent-run-boundary.integration.test.ts | 3 | OTHER | — |
+| layers/agent-orchestration/run-orchestration/src/__tests__/agent-session-runtime.integration.test.ts | 4 | OTHER | — |
+| layers/agent-orchestration/run-orchestration/src/__tests__/baked-transcript-mapping.integration.test.ts | 2 | OTHER | — |
+| layers/agent-orchestration/run-orchestration/src/__tests__/calling-thread-id-bake.integration.test.ts | 2 | OTHER | — |
+| layers/agent-orchestration/session-requests/src/__tests__/agent-lifecycle-projectors.integration.test.ts | 1 | ASSERTION | — |
+| layers/agent-orchestration/session-requests/src/__tests__/agent-session-requests.integration.test.ts | 8 | OTHER | — |
+| layers/agent-orchestration/session-requests/src/__tests__/durable-queue-regressions.integration.test.ts | 6 | OTHER | — |
+| layers/agent-orchestration/src/__tests__/boot-lifecycle-drain.integration.test.ts | 1 | OTHER | — |
+| layers/agent-orchestration/src/__tests__/factory-run-config.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/AD4-policy-engine.integration.test.ts | 10 | OTHER | — |
+| layers/core-api/src/__tests__/AD7-search.integration.test.ts | 8 | ASSERTION+OTHER | — |
+| layers/core-api/src/__tests__/AF11-idor-regression.integration.test.ts | 4 | ASSERTION | — |
+| layers/core-api/src/__tests__/AF15-model-gateway-partial.integration.test.ts | 5 | OTHER | — |
+| layers/core-api/src/__tests__/AF15-org-teams.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/AF17-team-routines.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/agent-layer-boot-recovery.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts | 3 | OTHER | — |
+| layers/core-api/src/__tests__/agent-orchestration-run-reads.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/agent-work-intent-recovery.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/agent-work-intent-retention.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/__tests__/agent-work-intent-schema.integration.test.ts | 8 | OTHER | — |
+| layers/core-api/src/__tests__/AH6-lane-gates-broken-turn.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/__tests__/AL7-two-session-loop.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/__tests__/AN1-connections.integration.test.ts | 26 | OTHER | — |
+| layers/core-api/src/__tests__/api-e2e.integration.test.ts | 4 | ASSERTION | — |
+| layers/core-api/src/__tests__/AR4c-assistant-config.integration.test.ts | 4 | ASSERTION | — |
+| layers/core-api/src/__tests__/attention-service.integration.test.ts | 5 | OTHER+ASSERTION | — |
+| layers/core-api/src/__tests__/AU36-reach-wiring.integration.test.ts | 2 | OTHER | — |
+| layers/core-api/src/__tests__/bet-state-machine.integration.test.ts | 23 | OTHER | — |
+| layers/core-api/src/__tests__/bet-state-machine.L14.integration.test.ts | 6 | OTHER | — |
+| layers/core-api/src/__tests__/bets.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/builtin-routines.integration.test.ts | 6 | ASSERTION | — |
+| layers/core-api/src/__tests__/calling-thread-bindings.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/conversation-user-store-reads.integration.test.ts | 9 | ASSERTION+OTHER | — |
+| layers/core-api/src/__tests__/conversation-user-store-writes.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/__tests__/conversations.integration.test.ts | 3 | ASSERTION | — |
+| layers/core-api/src/__tests__/create-conflict-review.integration.test.ts | 5 | OTHER | — |
+| layers/core-api/src/__tests__/explicit-session-start.production.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/handoff-protocol.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/handoff-to.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/knowledge-scope-name.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/knowledge.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts | 23 | OTHER | — |
+| layers/core-api/src/__tests__/M3-auth-middleware.integration.test.ts | 4 | ASSERTION | — |
+| layers/core-api/src/__tests__/M3-lifecycle-propagation-auth.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/__tests__/M3-settings-routes.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/M3-threads-coach-auth.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/__tests__/notifications/AF8-notification-delivery.integration.test.ts | 3 | ASSERTION | — |
+| layers/core-api/src/__tests__/notifications/notification-queue.integration.test.ts | 15 | ASSERTION+OTHER | — |
+| layers/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts | 6 | ASSERTION | — |
+| layers/core-api/src/__tests__/notifications/notifications-routes.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts | 7 | ASSERTION | — |
+| layers/core-api/src/__tests__/O2-schema-migration.integration.test.ts | 3 | COLLISION+ASSERTION | — |
+| layers/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/P2-auth-resolution.integration.test.ts | 7 | ASSERTION | — |
+| layers/core-api/src/__tests__/P2-user-routes.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/P3-health-auth.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/policy-engine.integration.test.ts | 14 | OTHER | — |
+| layers/core-api/src/__tests__/R7-bet-lifecycle.integration.test.ts | 8 | OTHER | — |
+| layers/core-api/src/__tests__/read-inbox.integration.test.ts | 5 | OTHER | — |
+| layers/core-api/src/__tests__/reply-tool.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/S1-auth-middleware.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/S1-auth-routes.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/S1-e2e-flow.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/server-disposal.integration.test.ts | 5 | OTHER+ASSERTION | — |
+| layers/core-api/src/__tests__/session-review-creator.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/silence-policy.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/__tests__/status.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/tasks.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/team-harness-default-propagation.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/tool-registry.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/__tests__/two-app-mount-session-routes.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/__tests__/users.integration.test.ts | 3 | ASSERTION | — |
+| layers/core-api/src/__tests__/work-service.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/bootstrap/__tests__/factory-state.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts | 5 | ASSERTION+OTHER | — |
+| layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/routes/__tests__/AK1-renamed-fields.integration.test.ts | 3 | ASSERTION | — |
+| layers/core-api/src/routes/__tests__/AW1-builtin-credential-readiness.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/routes/__tests__/coach.routes.integration.test.ts | 15 | OTHER | — |
+| layers/core-api/src/routes/__tests__/knowledge.validation.integration.test.ts | 2 | OTHER | — |
+| layers/core-api/src/routes/__tests__/threads.assistant-turn-baked-emit.integration.test.ts | 2 | ASSERTION | — |
+| layers/core-api/src/routes/__tests__/threads.assistant-turn-transcript-bake.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/routes/__tests__/threads.routes.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/routes/__tests__/typed-routes.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/services/__tests__/agent-orchestration-port.integration.test.ts | 5 | OTHER | — |
+| layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/services/__tests__/agent-work-intent-baked-payload.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/services/__tests__/connections-added-after-emit.integration.test.ts | 2 | OTHER | — |
+| layers/core-api/src/services/__tests__/connections-provisioning-e2e.integration.test.ts | 4 | OTHER+ASSERTION | — |
+| layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/services/__tests__/core-api-port-increment2-conversation.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/services/__tests__/credential-runtime-path.integration.test.ts | 2 | OTHER | — |
+| layers/core-api/src/services/__tests__/fail-loud-secret.integration.test.ts | 1 | ASSERTION | — |
+| layers/core-api/src/services/__tests__/filesystems-added-after-emit.integration.test.ts | 2 | OTHER | — |
+| layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts | 1 | OTHER | — |
+| layers/core-api/src/services/__tests__/session-knowledge-assembler-ranking-parity.integration.test.ts | 2 | ASSERTION | — |
+| tools/setup/src/__tests__/demo-world-rich.integration.test.ts | 4 | ASSERTION | — |
+| tools/setup/src/__tests__/factory-and-demo.integration.test.ts | 1 | ASSERTION | — |
+
+## Sample errors (first 2 per file)
+### framework/db/src/__tests__/session-requests.integration.test.ts
+- session request schema creates durable request rows with source-scoped idempotency: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+- session request schema sessions can be task-free while retaining request/source correlation: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/agent-orchestration/connections/src/__tests__/connection-store-completeness.integration.test.ts
+- connection store completeness contract connection store composes auth-source/user/id filters and persists updates: AssertionError: expected [ …(12) ] to deeply equal [ …(2) ]
+### layers/agent-orchestration/run-orchestration/src/__tests__/agent-run-boundary.integration.test.ts
+- agent run boundary executes a durable request through the agent-layer boundary and publishes lifecycle: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+- agent run boundary keeps failed execution lifecycle uniform when runtime throws: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/agent-orchestration/run-orchestration/src/__tests__/agent-session-runtime.integration.test.ts
+- agent session runtime consumer runSession claims request, marks running before runSession, and marks terminal: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+- agent session runtime consumer request is running before harness run starts: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/agent-orchestration/run-orchestration/src/__tests__/baked-transcript-mapping.integration.test.ts
+- consumeAgentSessionRequest — baked transcript mapping (Increment 4) maps baked raw transcript rows to generic chat messages, keyed on the running agent's own id: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+- consumeAgentSessionRequest — baked transcript mapping (Increment 4) omits transcript when the drained payload carries none: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/agent-orchestration/run-orchestration/src/__tests__/calling-thread-id-bake.integration.test.ts
+- consumeAgentSessionRequest — callingThreadId bake (Increment 1) parses callingThreadId off the drained request's payloadJson onto provisionParams: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+- consumeAgentSessionRequest — callingThreadId bake (Increment 1) omits callingThreadId when the drained payload carries none (e.g. routine_run): Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/agent-orchestration/session-requests/src/__tests__/agent-lifecycle-projectors.integration.test.ts
+- reapExpired — lifecycle retention contract removes projected lifecycle facts older than retention: AssertionError: expected [ Array(1) ] to have a length of +0 but got 1
+### layers/agent-orchestration/session-requests/src/__tests__/agent-session-requests.integration.test.ts
+- agent session request repository createRequestForTest is idempotent by source/action key: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+- agent session request repository createRequestForTest returns the existing row under concurrent duplicate creates: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/agent-orchestration/session-requests/src/__tests__/durable-queue-regressions.integration.test.ts
+- durable request and intent lease fencing renewal at expiry cannot resurrect request custody: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+- durable request and intent lease fencing tokenless and stale release are no-ops for a claimed request: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/agent-orchestration/src/__tests__/boot-lifecycle-drain.integration.test.ts
+- bootAgentOrchestration — lifecycle-projection drain (relocated from core-api) starts the drain internally, and dispose() stops it cleanly: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/agent-orchestration/src/__tests__/factory-run-config.integration.test.ts
+- applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC 7) a missing template read preserves the agent's existing systemPrompt instead of nulling it: AssertionError: expected '# You are a Facilitator for the `{{co…' to be 'pre-existing prompt that must survive' // Object.is equality
+### layers/core-api/src/__tests__/AD4-policy-engine.integration.test.ts
+- AD4 Policy Engine — approval-rate-based trust AU20 policy completeness contract — approval-rate query combines both attribution paths, applies the time window, and returns newest verdicts first: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, $4, $5, $6, default, default, $7
+- AD4 Policy Engine — approval-rate-based trust AU20 policy completeness contract — approval-rate query returns the stable empty result when an agent has no verdict history: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, $4, $5, $6, default, default, $7
+### layers/core-api/src/__tests__/AD7-search.integration.test.ts
+- GET /api/search — AD7 search backend TC-4: returns matching conversations with id, title, snippet, timestamp, kind: AssertionError: expected [] to have a length of 1 but got +0
+- GET /api/search — AD7 search backend TC-5: excludes conversations where current user is not a participant: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, default, defaul
+### layers/core-api/src/__tests__/AF11-idor-regression.integration.test.ts
+- AF11 CRITICAL-1 — GET /api/threads/assistant IDOR via X-Identity spoofed X-Identity header is ignored — returns attacker's own thread, not victim's: AssertionError: expected '0162a3d4-e9c8-4d23-8417-9845ff3f90c3' to be 'aa849068-fd3d-48bc-ad1a-b68ff7aa26c4' // Object.is equality
+- AF11 CRITICAL-1 sibling — GET /api/threads/coach IDOR via X-Identity spoofed X-Identity header is ignored — returns attacker's own coach thread, not victim's: AssertionError: expected '0162a3d4-e9c8-4d23-8417-9845ff3f90c3' to be 'ae77cfbc-370c-4afb-bd71-9fe16ddd7c7b' // Object.is equality
+### layers/core-api/src/__tests__/AF15-model-gateway-partial.integration.test.ts
+- AF15 AC-2 — PATCH /api/model-gateway partial-tier merge accepts { fast: { apiKey: 'newkey' } } — re-key on already-oai tier (provider omitted): Error: Failed query: insert into "server_config" ("id", "config", "updated_at") values ($1, $2, $3)
+- AF15 AC-2 — PATCH /api/model-gateway partial-tier merge PATCH fast.model preserves reasoning tier config (AH1: hasApiKey always false — key in server_credentials): Error: Failed query: insert into "server_config" ("id", "config", "updated_at") values ($1, $2, $3)
+### layers/core-api/src/__tests__/AF15-org-teams.integration.test.ts
+- AF15 AC-6 — GET /api/org includes teams list GET /api/org returns teams array alongside edges and users: AssertionError: expected [ Array(151) ] to have a length of 1 but got 151
+- AF15 AC-6 — GET /api/org includes teams list GET /api/org returns empty teams array when no teamMembers exist: AssertionError: expected [ Array(152) ] to have a length of +0 but got 152
+### layers/core-api/src/__tests__/AF17-team-routines.integration.test.ts
+- AF17 AC3: POST /api/teams provisions built-in routines each routine id contains the team id (per-team id scheme): AssertionError: expected 200 to be 201 // Object.is equality
+### layers/core-api/src/__tests__/agent-layer-boot-recovery.integration.test.ts
+- agent-layer boot recovery an awaited first sweep reconciles pending intents, expired claims, running recovery, requested terminations, and retention — each exactly once: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/core-api/src/__tests__/agent-lifecycle-projection.integration.test.ts
+- crash-after-202 recovery resolves a durably-stored termination cause shutdown recovers to failed/RUNTIME_LOST: Error: Failed query: insert into "agent_lifecycle_inbox" ("request_id", "source_kind", "source_id", "state", "session_id", "failure_code", "occurred_at", "projected_at", "claim_token", "claim_expires_
+- crash-after-202 recovery resolves a durably-stored termination cause handoff recovers to completed — never cancelled: Error: Failed query: insert into "agent_lifecycle_inbox" ("request_id", "source_kind", "source_id", "state", "session_id", "failure_code", "occurred_at", "projected_at", "claim_token", "claim_expires_
+### layers/core-api/src/__tests__/agent-orchestration-run-reads.integration.test.ts
+- agent-orchestration run reads active counts, unscoped, omit agents with no active run: AssertionError: expected { …(26) } to deeply equal { …(2) }
+### layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts
+- atomic production handoffs accepted-task event observes exactly one durable attempt and one intent: AssertionError: expected [ 1, 2 ] to deeply equal [ 1, 1 ]
+- atomic production handoffs real assistant message command: the message survives even when the intent write fails (AU31 §3.1 site 5): AssertionError: expected 403 to be 500 // Object.is equality
+### layers/core-api/src/__tests__/agent-work-intent-recovery.integration.test.ts
+- intent recovery drives the real drain two concurrent drains create exactly one request and hand off exactly one intent: AssertionError: expected [] to have a length of 1 but got +0
+- intent recovery drives the real drain an expired claim is reclaimed exactly once even under two concurrent drains: AssertionError: expected [] to have a length of 1 but got +0
+### layers/core-api/src/__tests__/agent-work-intent-retention.integration.test.ts
+- terminal intent retention preserves 29-day terminal rows and deletes 31-day terminal rows: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/core-api/src/__tests__/agent-work-intent-schema.integration.test.ts
+- agent_work_intents durable-rows checks accepts claimed with both claim_token and claim_expires_at: Error: Failed query: insert into "agent_work_intents" ("id", "kind", "source_kind", "source_id", "requested_by", "idempotency_key", "status", "claim_token", "claim_expires_at", "request_id", "attempts
+- agent_work_intents durable-rows checks accepts handed_off with a correlated request_id: Error: Failed query: insert into "agent_work_intents" ("id", "kind", "source_kind", "source_id", "requested_by", "idempotency_key", "status", "claim_token", "claim_expires_at", "request_id", "attempts
+### layers/core-api/src/__tests__/AH6-lane-gates-broken-turn.integration.test.ts
+- AH6 §7 — the assistant-turn trigger (service-integration) Term 1: a human message on the assistant thread records an assistant_turn intent (trigger is load-bearing): AssertionError: expected [ 201, 200 ] to include 403
+### layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts
+- AC2: reversible call flows with no capture a reversible tool invocation returns the tool result (not AWAITING_REVIEW): Error: CoreApiPort.conversation.listInboxBySenderExclusion: request failed (500): {"error":"Internal server error","code":"INTERNAL_ERROR"}
+### layers/core-api/src/__tests__/AL7-two-session-loop.integration.test.ts
+- AC11: work continues in session 2 after the approved op executes registry stays functional after approved commit_file: reversible tool succeeds: Error: CoreApiPort.conversation.listInboxBySenderExclusion: request failed (500): {"error":"Internal server error","code":"INTERNAL_ERROR"}
+### layers/core-api/src/__tests__/AN1-connections.integration.test.ts
+- AN1 — /api/connections routes AC1 — POST token connection → appears in GET with auth source recorded GET /api/connections lists the created token connection: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, $6, default, $7
+- AN1 — /api/connections routes AC1 — POST token connection → appears in GET with auth source recorded POST mcp → 201 with authSource:'mcp': Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, $6, default, $7
+### layers/core-api/src/__tests__/api-e2e.integration.test.ts
+- E2E API Integration (I5) Bets GET /api/bets/canvas returns canvas data: AssertionError: expected 35 to be 5 // Object.is equality
+- E2E API Integration (I5) Conversations POST /api/threads/:id/messages records a verdict (canonical L1 surface): AssertionError: expected 403 to be 201 // Object.is equality
+### layers/core-api/src/__tests__/AR4c-assistant-config.integration.test.ts
+- AR4c: PATCH /api/users/:userId/assistant — harness+model config PATCH valid harness+model → 200 + row updated: AssertionError: expected 401 to be 200 // Object.is equality
+- AR4c: PATCH /api/users/:userId/assistant — harness+model config PATCH incompatible triple (openai-compatible provider) → 422, no write: AssertionError: expected 401 to be 422 // Object.is equality
+### layers/core-api/src/__tests__/attention-service.integration.test.ts
+- attention-service recomputeMany: 1000 items completes in <1s: Error: Failed query: insert into "knowledge_items" ("id", "scope_kind", "scope_id", "topic", "title", "body", "format", "status", "version", "updated_by", "created_at", "updated_at") values ($1, defau
+- attention-service a second upward crossing does NOT create a duplicate review item: AssertionError: expected false to be true // Object.is equality
+### layers/core-api/src/__tests__/AU36-reach-wiring.integration.test.ts
+- AU36 — reach wiring end to end redetect wire — POST /api/harnesses/redetect refreshes inherited reach facts seeded after boot appear in GET after redetect: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, $6, default, $7
+- AU36 — reach wiring end to end AC2 — harness switch A→B→A leaves reach identical GET /api/connections is byte-identical across the switch: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, $6, default, $7
+### layers/core-api/src/__tests__/bet-state-machine.integration.test.ts
+- bet-state-machine transitionBet increments team activeBets on active transition: Error: Failed query: insert into "teams" ("id", "name", "phase", "brief_path", "architecture_path", "brand_path", "principles_path", "factory_db_path", "created_at", "functions") values ($1, $2, $3, d
+- bet-state-machine transitionBet throws CapacityExceededError when team is at capacity: Error: Failed query: insert into "teams" ("id", "name", "phase", "brief_path", "architecture_path", "brand_path", "principles_path", "factory_db_path", "created_at", "functions") values ($1, $2, $3, d
+### layers/core-api/src/__tests__/bet-state-machine.L14.integration.test.ts
+- L14 — RevisionLogEntry actor field (T1) transitionBet with actor option actor is undefined in log when no actor is provided (backward compat): Error: Failed query: insert into "teams" ("id", "name", "phase", "brief_path", "architecture_path", "brand_path", "principles_path", "factory_db_path", "created_at", "functions") values ($1, $2, $3, d
+- L14 — RevisionLogEntry actor field (T1) transitionBet with actor option passes actor through kill transition (draft → killed): Error: Failed query: insert into "teams" ("id", "name", "phase", "brief_path", "architecture_path", "brand_path", "principles_path", "factory_db_path", "created_at", "functions") values ($1, $2, $3, d
+### layers/core-api/src/__tests__/bets.integration.test.ts
+- Bet Endpoints (E3) AC1: returns bets grouped by status: AssertionError: expected [ { …(17) }, { …(17) }, …(10) ] to have a length of 1 but got 12
+- Bet Endpoints (E3) AC11: returns draft, active, and capacity info: AssertionError: expected [ { …(6) }, { …(6) }, { …(6) }, …(6) ] to have a length of 1 but got 9
+### layers/core-api/src/__tests__/builtin-routines.integration.test.ts
+- G4: Built-in Routines AC3: Post-Bet Retro fires on bet_state_changed(toState=completed) event when handler is registered: AssertionError: expected [ { …(16) }, { …(16) }, …(2) ] to have a length of 1 but got 4
+- G4: Built-in Routines AC3: Post-Bet Retro does not create a second review when the same bet ships twice (G4 WARN-3): AssertionError: expected [ { …(16) }, { …(16) }, …(3) ] to have a length of 1 but got 5
+### layers/core-api/src/__tests__/calling-thread-bindings.integration.test.ts
+- resolveOrCreateCallingThread creates a hostKind:task thread when none exists, with the founder and the agent as participants: AssertionError: expected [ …(2) ] to deeply equal [ 'founder-calling-thread-1', …(1) ]
+- resolveOrCreateCallingThread falls back to the agent as the sole participant when no human user exists: AssertionError: expected [ …(2) ] to deeply equal [ 'agent-calling-thread-3' ]
+### layers/core-api/src/__tests__/conversation-user-store-reads.integration.test.ts
+- user-store reads listUsers with kind filters by kind: AssertionError: expected [ 'u-au36-human', …(52) ] to deeply equal [ 'hu1' ]
+- user-store reads listUsers with teamIds+kind+status filters active AI users and orders by id: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, $4, $5, $6, default, default, $7
+### layers/core-api/src/__tests__/conversation-user-store-writes.integration.test.ts
+- conversation-store row writes insertThread writes the row: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, default, $4, $5, default, defaul
+### layers/core-api/src/__tests__/conversations.integration.test.ts
+- Conversations Endpoints (E2) GET /api/conversations lists threads sorted by recency (default): AssertionError: expected [ { …(10) } ] to have a length of 2 but got 1
+- Conversations Endpoints (E2) GET /api/conversations sorts by attention_score when requested falls through to recency (O2: attentionScore stripped from items): AssertionError: expected undefined to be '7fd37dd1-299a-42d2-b2a8-93262976f98e' // Object.is equality
+### layers/core-api/src/__tests__/create-conflict-review.integration.test.ts
+- create_conflict_review tool inserts an open knowledge_conflicts row referencing the item: Error: Failed query: insert into "knowledge_items" ("id", "scope_kind", "scope_id", "topic", "title", "body", "format", "status", "version", "updated_by", "created_at", "updated_at") values ($1, defau
+- create_conflict_review tool NOT_FOUND for unknown knowledgeItemId: Error: Failed query: insert into "teams" ("id", "name", "phase", "brief_path", "architecture_path", "brand_path", "principles_path", "factory_db_path", "created_at", "functions") values ($1, $2, $3, d
+### layers/core-api/src/__tests__/explicit-session-start.production.integration.test.ts
+- explicit session production contract same idempotency key replays one pending start and one intent: AssertionError: expected 0 to be greater than or equal to 1
+### layers/core-api/src/__tests__/handoff-protocol.integration.test.ts
+- Handoff Protocol I1 M2: handoff wraps all DB mutations in one transaction concurrent handoffs claim task once without duplicate intent or audit: AssertionError: expected [ { …(16) }, { …(16) }, …(9) ] to have a length of 1 but got 11
+### layers/core-api/src/__tests__/handoff-to.integration.test.ts
+- AU26 H1 — handoff's run-end write emits no session_ended and creates no review item, even for a high-risk task: AssertionError: expected [ { …(16) }, { …(16) }, …(8) ] to have a length of +0 but got 10
+### layers/core-api/src/__tests__/knowledge-scope-name.integration.test.ts
+- GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/scopeId user item returns scopeName = user name: AssertionError: expected 404 to be 200 // Object.is equality
+- GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/scopeId missing user entity → 'Private' (never UUID): AssertionError: expected 404 to be 200 // Object.is equality
+### layers/core-api/src/__tests__/knowledge.integration.test.ts
+- Knowledge Endpoints (E4) AC1: GET /api/knowledge/:layer — list by layer grouped by topic, kind returns items for a given layer grouped by topic and kind: AssertionError: expected 14 to be 4 // Object.is equality
+- Knowledge Endpoints (E4) AC1: GET /api/knowledge/:layer — list by layer grouped by topic, kind returns empty groups for a layer with no items: AssertionError: expected 14 to be +0 // Object.is equality
+### layers/core-api/src/__tests__/lifecycle-propagation.integration.test.ts
+- registerLifecyclePropagation — session -> task logs propagation_log entry with status=applied when transition succeeds: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, default, $2, default, $3, $4, default, d
+- registerLifecyclePropagation — session -> task does NOT transition task when session ends with outcome=crashed (F2): Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, default, $2, default, $3, $4, default, d
+### layers/core-api/src/__tests__/M3-auth-middleware.integration.test.ts
+- M3 — Auth middleware: createAuthMiddleware(db) (A3) sets userId on context from users table (kind=human): AssertionError: expected '33d1daca-1a39-48a3-8558-ae09d905339b' to be '15443896-ed29-489a-a9c2-cbd2f6ae760f' // Object.is equality
+- M3 — Auth middleware: createAuthMiddleware(db) (A3) falls back to u-founder when no human user is seeded (backward compat): AssertionError: expected '33d1daca-1a39-48a3-8558-ae09d905339b' to be 'u-founder' // Object.is equality
+### layers/core-api/src/__tests__/M3-lifecycle-propagation-auth.integration.test.ts
+- M3 — lifecycle-propagation: thread participants use users-table founder id (A9) propagation thread participants include users-table founder id, not 'u-founder': Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, default, $2, default, $3, $4, default, d
+### layers/core-api/src/__tests__/M3-settings-routes.integration.test.ts
+- M3 — GET /api/settings (B1) returns 200 with profile, products, users, notifications: AssertionError: expected 'Founder' to be 'Test Founder' // Object.is equality
+### layers/core-api/src/__tests__/M3-threads-coach-auth.integration.test.ts
+- M3 — Assistant route readSenderId uses auth context, not DEFAULT_FOUNDER_ID (A6) assistant thread has initiatorId from auth context, not hardcoded 'u-founder': Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, default, $2, default, $3, $4, default, d
+### layers/core-api/src/__tests__/notifications/AF8-notification-delivery.integration.test.ts
+- AF8 AC2 — notification event produces typed, source-linked row policy-engine push notification → row with typeKey=review_request and thread-keyed sourceLink: AssertionError: expected null to be 'review_request' // Object.is equality
+- AF8 AC3 — auto_unblock event is filtered out (ambient, not a notification) notification event with kind=auto_unblock produces NO notification_queue row: AssertionError: expected [ { …(19) }, { …(19) } ] to have a length of +0 but got 2
+### layers/core-api/src/__tests__/notifications/notification-queue.integration.test.ts
+- enqueue with dedupeBy: returns existing id when pending row matches eventType+subjectId: AssertionError: expected [ { …(19) }, { …(19) }, …(13) ] to have a length of 1 but got 15
+- enqueue with dedupeBy: inserts when no matching pending row exists: AssertionError: expected [ { …(19) }, { …(19) }, …(14) ] to have a length of 1 but got 16
+### layers/core-api/src/__tests__/notifications/notifications-completeness.integration.test.ts
+- enqueue — queue-cap eviction digest row is silently dropped when queue is at cap (no blocking/digest eviction of blocking rows): AssertionError: expected [ { id: 'd-oldest', …(18) }, …(1) ] to have a length of +0 but got 2
+- readConfig — direct call returns disabled config before any config write: AssertionError: expected true to be false // Object.is equality
+### layers/core-api/src/__tests__/notifications/notifications-routes.integration.test.ts
+- H2 /api/notifications routes POST /digest runs the digest and marks rows sent: AssertionError: expected 2 to be 1 // Object.is equality
+### layers/core-api/src/__tests__/notifications/R8-signal-to-noise.integration.test.ts
+- R8 AC3 — Blocker alerts respect blockerAlerts preference blockerAlerts=true (default) pushes blocking item: AssertionError: expected [] to have a length of 1 but got +0
+- R8 AC4 — Review alerts respect reviewAlerts preference reviewAlerts=true (default) pushes review item (kind=review, riskTier=high): AssertionError: expected [] to have a length of 1 but got +0
+### layers/core-api/src/__tests__/O2-schema-migration.integration.test.ts
+- O2 — Schema Migration & Route Rewrite 11. Route purity — conversations POST /items works without routing POST /api/conversations/items emits item_created event: error: duplicate key value violates unique constraint "products_pkey"
+- O2 — Schema Migration & Route Rewrite 12. Sessions work without stripped schema fields PATCH /api/sessions/:id ends session without tokensInput/tokensOutput fields: error: duplicate key value violates unique constraint "products_pkey"
+### layers/core-api/src/__tests__/O3-service-move-bootstrap.integration.test.ts
+- O3 AC-5: registerCoreDomainServices + registerAgentLayerServices returns the exact named owners and invokes every distinct cleanup effect: AssertionError: expected [ …(15) ] to deeply equal [ …(15) ]
+### layers/core-api/src/__tests__/P2-auth-resolution.integration.test.ts
+- P2 — Auth middleware resolves user from users table (AC7) AC7: auth middleware resolves userId from users table resolves userId from the human user row in users table: AssertionError: expected 'u-au36-human' to be 'a9ad247d-345b-4cb7-b566-0f107152bc14' // Object.is equality
+- P2 — Auth middleware resolves user from users table (AC7) AC7: auth middleware resolves userId from users table resolves the first human user when multiple human rows exist: AssertionError: expected [ …(2) ] to include 'u-au36-human'
+### layers/core-api/src/__tests__/P2-user-routes.integration.test.ts
+- P2 — /api/users endpoints (AC4, AC10) AC10: GET /api/users/:id/inbox — user inbox returns 200 with empty inbox array by default: AssertionError: expected 403 to be 200 // Object.is equality
+### layers/core-api/src/__tests__/P3-health-auth.integration.test.ts
+- P3 AC-6 — Health check for shared mode GET /api/health/auth returns userId that matches the seeded human user: AssertionError: expected 'u-au36-human' to be '001bd047-0933-46a4-a118-709e20048d64' // Object.is equality
+### layers/core-api/src/__tests__/policy-engine.integration.test.ts
+- Policy Engine (E7) AC2: medium approval rate (7/10) + low risk -> queue silently: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, $4, $5, $6, default, default, $7
+- Policy Engine (E7) AC3: L2 + low risk -> push notification: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, $2, $3, $4, $5, $6, default, default, $7
+### layers/core-api/src/__tests__/R7-bet-lifecycle.integration.test.ts
+- R7 AC-3: Bet lifecycle transitions (draft → active → completed) POST /api/bets/:id/commit transitions draft → active: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, default, $2, default, $3, $4, default, d
+- R7 AC-3: Bet lifecycle transitions (draft → active → completed) transitionBet service transitions active → completed: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, default, $2, default, $3, $4, default, d
+### layers/core-api/src/__tests__/read-inbox.integration.test.ts
+- read_inbox tool AC1: agent with 3 messages returns all 3 returns all messages addressed to the agent: Error: CoreApiPort.conversation.listInboxBySenderExclusion: request failed (500): {"error":"Internal server error","code":"INTERNAL_ERROR"}
+- read_inbox tool AC1: agent with 3 messages returns all 3 orders messages newest first by createdAt DESC: Error: CoreApiPort.conversation.listInboxBySenderExclusion: request failed (500): {"error":"Internal server error","code":"INTERNAL_ERROR"}
+### layers/core-api/src/__tests__/reply-tool.integration.test.ts
+- reply tool AC-7 (superseded): no calling thread — falls back to a direct thread with the human a routine_run-style session (no ctx.threadId) lands its reply in a direct thread with the sole human: AssertionError: expected [ …(2) ] to include '1cd2b2ec-707a-4239-ac14-3272aeceace1'
+### layers/core-api/src/__tests__/S1-auth-middleware.integration.test.ts
+- S1 — Auth middleware: local mode (sharedMode=false) accepts X-API-Key and sets userId from users table: AssertionError: expected '33d1daca-1a39-48a3-8558-ae09d905339b' to be 'u-local-1' // Object.is equality
+- S1 — Auth middleware: shared mode (sharedMode=true) falls back to admin API key when Bearer token is absent: AssertionError: expected '33d1daca-1a39-48a3-8558-ae09d905339b' to be 'u-shared-1' // Object.is equality
+### layers/core-api/src/__tests__/S1-auth-routes.integration.test.ts
+- S1 — GET /api/auth/me (local mode — unchanged) returns user identity via X-API-Key in local mode: AssertionError: expected 'u-au36-human' to be '714df503-6171-46a6-a2bb-e47fd8db8bce' // Object.is equality
+### layers/core-api/src/__tests__/S1-e2e-flow.integration.test.ts
+- S1 — E2E: Local mode — auth unchanged local mode: X-API-Key still works: AssertionError: expected 'u-au36-human' to be 'f576458f-800a-4718-8eb1-01bb214d1bba' // Object.is equality
+### layers/core-api/src/__tests__/server-disposal.integration.test.ts
+- ordered asynchronous server disposal runs all six shutdown phases exactly once in the required order: Error: Failed query: select "id", "config", "updated_at" from "server_config" where "server_config"."id" = $1 limit $2
+- ordered asynchronous server disposal returns one shared promise and does not repeat phases across concurrent disposal: Error: Failed query: select "id", "config", "updated_at" from "server_config" where "server_config"."id" = $1 limit $2
+### layers/core-api/src/__tests__/session-review-creator.integration.test.ts
+- registerReviewSubscriptions returns an unsubscribe function that stops handling events: AssertionError: expected [ { …(16) } ] to have a length of +0 but got 1
+### layers/core-api/src/__tests__/silence-policy.integration.test.ts
+- isSilenced returns false when silence_mode is not set: AssertionError: expected true to be false // Object.is equality
+- isSilenced returns false when current time is outside silence window: AssertionError: expected true to be false // Object.is equality
+### layers/core-api/src/__tests__/status.integration.test.ts
+- Status Endpoints (E6) AC12: GET /api/status — factory-wide status returns the agent-state census and uptime: AssertionError: expected 14 to be 1 // Object.is equality
+### layers/core-api/src/__tests__/tasks.integration.test.ts
+- Task Endpoints (E3) AC8: GET /api/tasks — list with filters returns empty array when no tasks match: AssertionError: expected [ { …(18) }, { …(18) }, …(194) ] to have a length of +0 but got 196
+### layers/core-api/src/__tests__/team-harness-default-propagation.integration.test.ts
+- primary harness persisted as team default assistant stub carries a non-null harnessType equal to the persisted team default: AssertionError: expected 200 to be 201 // Object.is equality
+### layers/core-api/src/__tests__/tool-registry.integration.test.ts
+- buildToolRegistry invoke() routes to the matching handler by name: Error: CoreApiPort.conversation.listInboxBySenderExclusion: request failed (500): {"error":"Internal server error","code":"INTERNAL_ERROR"}
+### layers/core-api/src/__tests__/two-app-mount-session-routes.integration.test.ts
+- agent-orchestration's own app, mounted beside core-api's the four relocated session routes answer through the composed app GET /api/sessions/starts/:startId projects the caller's own start: AssertionError: expected 404 to be 202 // Object.is equality
+### layers/core-api/src/__tests__/users.integration.test.ts
+- User Endpoints /api/users (E6 — renamed from agents) AC8: GET /api/users/:id/inbox returns messages for the user: AssertionError: expected 403 to be 200 // Object.is equality
+- User Endpoints /api/users (E6 — renamed from agents) AC9: POST /api/users/:id/inbox — send message sends a message and creates thread if needed: AssertionError: expected '33d1daca-1a39-48a3-8558-ae09d905339b' to be 'ef235f1b-e4e1-4c0e-be42-8fe6a2d60c6f' // Object.is equality
+### layers/core-api/src/__tests__/work-service.integration.test.ts
+- work-service listBets applies limit and offset together: AssertionError: expected [] to have a length of 1 but got +0
+### layers/core-api/src/bootstrap/__tests__/factory-state.integration.test.ts
+- applyFactoryCoreState — first-boot core state (AU29 AC 7) creates the propagation user, roster users and the knowledge seed: AssertionError: expected [ 'Agent A', 'Agent A', …(40) ] to deeply equal [ 'Build Facilitator', …(4) ]
+### layers/core-api/src/routes/__tests__/AF14-threads.integration.test.ts
+- AF14 AC1 — GET /api/threads returns human-readable titles DM thread title is the other participant's name: AssertionError: expected 403 to be 200 // Object.is equality
+- AF14 AC1 — GET /api/threads returns human-readable titles bet-scoped thread title is the bet's derived title: AssertionError: expected 403 to be 200 // Object.is equality
+### layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts
+- creation is relinquished across identity and run config (AU31 §3.1 sites 1-3) POST /api/agents: the agent survives even when the run-config write fails: AssertionError: expected 201 to be greater than or equal to 500
+- creation is relinquished across identity and run config (AU31 §3.1 sites 1-3) POST /api/teams: the team survives even when the run-config defaults write fails: AssertionError: expected 201 to be greater than or equal to 500
+### layers/core-api/src/routes/__tests__/AK1-renamed-fields.integration.test.ts
+- AK1 — assistant route uses systemPrompt (not soulPrompt) GET /api/users/:id/assistant returns systemPrompt field (not soulPrompt): AssertionError: expected 403 to be 200 // Object.is equality
+- AK1 — assistant route uses systemPrompt (not soulPrompt) PATCH /api/users/:id/assistant accepts systemPrompt field and returns it: AssertionError: expected 403 to be 200 // Object.is equality
+### layers/core-api/src/routes/__tests__/AW1-builtin-credential-readiness.integration.test.ts
+- AW1 — built-in readiness reflects stored credentials stays unauthenticated when only another provider's credential exists: AssertionError: expected 'ready' to be 'unauthenticated' // Object.is equality
+- AW1 — built-in readiness reflects stored credentials needs every provider covered when tiers span more than one: AssertionError: expected 'ready' to be 'unauthenticated' // Object.is equality
+### layers/core-api/src/routes/__tests__/coach.routes.integration.test.ts
+- L21 — GET /api/threads/coach AC-13: creates coach thread when absent returns a thread with hostKind='user' on first call: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, default, $2, default, $3, $4, default, d
+- L21 — GET /api/threads/coach AC-13: creates coach thread when absent returns a thread with pinned=true on first call: Error: Failed query: insert into "users" ("id", "kind", "name", "team_id", "role", "status", "email", "avatar_url", "created_at", "agent_category") values ($1, default, $2, default, $3, $4, default, d
+### layers/core-api/src/routes/__tests__/knowledge.validation.integration.test.ts
+- I2 V4 — GET /api/knowledge/search escapes LIKE wildcards ?q=_ does NOT return every row (the underscore must be a literal): Error: Failed query: insert into "knowledge_items" ("id", "scope_kind", "scope_id", "topic", "title", "body", "format", "status", "version", "updated_by", "created_at", "updated_at") values ($1, defau
+- I2 V4 — GET /api/knowledge/search escapes LIKE wildcards ?q=% does NOT return every row (the percent must be a literal): Error: Failed query: insert into "knowledge_items" ("id", "scope_kind", "scope_id", "topic", "title", "body", "format", "status", "version", "updated_by", "created_at", "updated_at") values ($1, defau
+### layers/core-api/src/routes/__tests__/threads.assistant-turn-baked-emit.integration.test.ts
+- assistant_turn is resolved and baked at emit time (POST /api/threads/:id/messages) posting a plain message on the assistant thread bakes the assistant_turn request onto the recorded intent: AssertionError: expected 403 to be 201 // Object.is equality
+- assistant_turn is resolved and baked at emit time (POST /api/threads/:id/messages) the drain hands off the real emitted assistant_turn intent from its baked payload — ZERO conversation/users domain reads: AssertionError: expected 403 to be 201 // Object.is equality
+### layers/core-api/src/routes/__tests__/threads.assistant-turn-transcript-bake.integration.test.ts
+- assistant_turn bakes the thread's conversational transcript at emit time (Increment 11) the baked intent's transcript includes prior thread history AND the just-posted triggering message, in order: AssertionError: expected 403 to be 201 // Object.is equality
+### layers/core-api/src/routes/__tests__/threads.routes.integration.test.ts
+- L8 — GET /api/threads list rows carry hasUnresolvedReview participant_id scope returns hasUnresolvedReview per row: AssertionError: expected 403 to be 200 // Object.is equality
+### layers/core-api/src/routes/__tests__/typed-routes.integration.test.ts
+- D2. GET /api/bets returns betListResponseSchema-conforming response returns 200 with a grouped bet list carrying a real bet: AssertionError: expected false to be true // Object.is equality
+### layers/core-api/src/services/__tests__/agent-orchestration-port.integration.test.ts
+- AgentOrchestrationPort — §11 contract-test harness builds an AgentOrchestrationPort over a real in-process core-api app and reaches the real session-history route: Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+- AgentOrchestrationPort — §11 contract-test harness an unknown source resolves an empty array through the real route (not thrown): Error: Failed query: insert into "agent_session_requests" ("id", "source_kind", "source_id", "stream_id", "task_id", "agent_id", "team_id", "user_id", "prompt_mode", "payload_json", "source_correlatio
+### layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts
+- agent_run_admission_failed — reengagement reaction fires for a REAL migrated (baked) intent a real baked reengagement intent that fails terminally at drain still re-provisions via the liveness-net pattern: AssertionError: expected [ { …(9) }, { …(9) } ] to have a length of 1 but got 2
+### layers/core-api/src/services/__tests__/agent-run-admission-failed-subscribers.integration.test.ts
+- agent_run_admission_failed — per-kind core-api reactions assistant_turn: informational only — no mutation of the source message: AssertionError: expected [ { …(9) }, { …(9) } ] to have a length of 1 but got 2
+### layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts
+- agent session request sources all execution sources enter real session provisioning: AssertionError: expected [ 'cancelled', 'completed', …(53) ] to deeply equal [ 'completed', 'completed', …(1) ]
+### layers/core-api/src/services/__tests__/agent-work-intent-baked-payload.integration.test.ts
+- agent_work_intents — baked-payload co-existence (Wave 0 scaffolding) drainIntents uses a baked payload directly, performing ZERO domain reads: AssertionError: expected 'pending' to be 'handed_off' // Object.is equality
+### layers/core-api/src/services/__tests__/connections-added-after-emit.integration.test.ts
+- held connections are read live at spawn, never carried on the request a connection added AFTER the intent is emitted and drained is still provisioned at spawn: Error: the drain did not hand off a request row
+- held connections are read live at spawn, never carried on the request a connection REMOVED after the intent is emitted and drained is not provisioned at spawn: Error: the drain did not hand off a request row
+### layers/core-api/src/services/__tests__/connections-provisioning-e2e.integration.test.ts
+- real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at spawn) -> buildProvisioningPlan -> applyProvisioningPlan respawn idempotent: same codex-toml entries in a fresh sandbox after destroying the first: Error: Failed query: insert into "service_connections" ("id", "user_id", "service", "auth_source", "encrypted_token", "server_url", "health", "last_validated_at", "created_at", "updated_at") values ($
+- real end-to-end: DB row -> listHeldConnectionsForProvisioning (live at spawn) -> buildProvisioningPlan -> applyProvisioningPlan two services (stripe token + figma mcp) both provisioned from one generic path: Error: Failed query: insert into "service_connections" ("id", "user_id", "service", "auth_source", "encrypted_token", "server_url", "health", "last_validated_at", "created_at", "updated_at") values ($
+### layers/core-api/src/services/__tests__/context-bundle-sandbox-byte-parity.integration.test.ts
+- context.ts sandbox output — bundle-consuming byte parity for a fixed corpus (Increment 12 Wave C) context/session.toon + context/{product,practices,factory} are byte-exact for the baked bundle, with ZERO port reads: AssertionError: expected [ …(12) ] to deeply equal [ …(4) ]
+### layers/core-api/src/services/__tests__/core-api-port-increment2-conversation.integration.test.ts
+- CoreApiPort.conversation — Increment 2 conversation wave (RED) listInboxBySenderExclusion reaches a real sender-exclusion inbox route, scoped to the calling actor: AssertionError: expected [ …(50) ] to include 'f13658de-b066-447e-aa6a-f9b70cf8bd67'
+### layers/core-api/src/services/__tests__/credential-runtime-path.integration.test.ts
+- AH1 AC4 — key reaches the runtime resolver (deterministic harness) anthropic provider path resolveModelTier throws MissingCredentialError when no key stored (not null-silent): Error: promise resolved "{ provider: 'anthropic', …(3) }" instead of rejecting
+- AH1 AC4 — key reaches the runtime resolver (deterministic harness) openai-compatible provider path resolveModelTier throws MissingCredentialError for openai-compatible when no key stored: Error: promise resolved "{ provider: 'openai-compatible', …(3) }" instead of rejecting
+### layers/core-api/src/services/__tests__/fail-loud-secret.integration.test.ts
+- AH1 AC3 — fail-loud root secret (route boundary) PUT /api/credentials/:name — write boundary does NOT write a row when PUT is refused with no encryption secret: AssertionError: expected [ { name: 'anthropic_api_key', …(4) } ] to have a length of +0 but got 1
+### layers/core-api/src/services/__tests__/filesystems-added-after-emit.integration.test.ts
+- injected filesystems are read live at spawn, never carried on the request a filesystem assigned AFTER the intent is emitted and drained is still mounted at spawn: Error: the drain did not hand off a request row
+- injected filesystems are read live at spawn, never carried on the request a filesystem UNASSIGNED after the intent is emitted and drained is not mounted at spawn: Error: the drain did not hand off a request row
+### layers/core-api/src/services/__tests__/routine-scheduler-relocation.integration.test.ts
+- relocated fireBuiltinRoutine post-bet-retro: creates a review item via ordinary core-api imports (conversation + work), no DispatchPorts: Error: Failed query: insert into "routines" ("id", "name", "description", "owner_agent_id", "team_id", "trigger_type", "trigger_config", "skill_id", "done_condition", "state_key", "delegation_allowed"
+### layers/core-api/src/services/__tests__/session-knowledge-assembler-ranking-parity.integration.test.ts
+- assembleSessionKnowledge — ranking parity with the pre-migration path (Increment 12) returns exactly the expected item-id set for the fixed corpus (budget/scope/community filter): AssertionError: expected [ …(6) ] to deeply equal [ …(3) ]
+- assembleSessionKnowledge — ranking parity with the pre-migration path (Increment 12) each returned item's layer identifies the correct sandbox zone it belongs to: AssertionError: expected 8 to be 3 // Object.is equality
+### tools/setup/src/__tests__/demo-world-rich.integration.test.ts
+- AX1: lived-in demo world bets span all four lifecycles with outcomes on closed bets: AssertionError: 3d1890ae-62f7-4361-af23-08bae845c93c verdict: expected null to be truthy
+- AX1: lived-in demo world tasks cover all eight states and resolve to bets, teams, owners: AssertionError: expected [ …(36) ] to have a length of +0 but got 36
+### tools/setup/src/__tests__/factory-and-demo.integration.test.ts
+- A2: Seed script seeds one System Agent (assistant), ≥5 Facilitators, ≥1 Product Manager (AC1): AssertionError: expected 6 to be 5 // Object.is equality
