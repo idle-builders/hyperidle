@@ -3,10 +3,10 @@
   "title": "One rule for opening and editing an object",
   "track": "AZ",
   "phase": "ship",
-  "status": "shipping",
-  "revision": 15,
+  "status": "shipped-awaiting-human-merge",
+  "revision": 16,
   "updatedAt": "2026-08-13",
-  "revisionReason": "Review is DONE, retro is complete, durable phase content is consolidated into plan.md, and the work package is entering clean-tree verification and PR shipping.",
+  "revisionReason": "The domain branch is rebased onto current main, clean-tree verification passed, the intended commits are pushed, and non-draft PR #495 targets main. Required CI must be green before final attestation.",
   "branch": "feat/object-opening-editing-rule",
   "worktree": "/Users/tg/Development/hyperidle/.worktrees/AZ14",
   "baseCommit": "48cf8d5d",
@@ -22,9 +22,12 @@
       "focused, real-route, visual, repository-wide, and configured verification",
       "final pre-ship WP-ID leakage hygiene",
       "retro",
-      "ship consolidation"
+      "ship consolidation",
+      "fresh-main reconciliation",
+      "clean-tree verification",
+      "push and non-draft PR creation"
     ],
-    "next": "Commit the consolidated intended diff, reconcile fresh origin/main, verify from a clean committed tree, push, open a non-draft PR, and wait for required CI. Do not merge."
+    "next": "Verify this final pipeline-state commit, push it, and wait for required CI. Do not merge."
   },
   "artifacts": {
     "plan": ".pipeline/work/AZ14/plan.md",
@@ -116,7 +119,7 @@
     "check": "npm run check within final npm run verify: PASS — all 55 packages.",
     "lint": "npm run lint within final npm run verify: PASS — formatting, ESLint, governance fixtures, attacks, and live scan; only repository baseline warnings remain.",
     "generatedArtifact": "npm run design:backlog refreshed only .pipeline/work/AZ7/migration-backlog.md. Diff audit shows the deleted TaskSheet item removed, total control sites 59/24→58/23, numbering shifts, and AZ14-touched line references only. A second causal refresh changed RoutineDetailPane 451→445 after safe comment deletions. npm run design:backlog:check: PASS — 45 items.",
-    "verify": "Final npm run verify: PASS — typecheck, lint/governance, knip, knip:production, dependency manifest, mock inventory, design backlog check, core-ui Vite build, and desktop bundle validation.",
+    "verify": "Clean committed-tree npm run verify after rebasing onto current main: PASS — all 55 package typechecks, formatting and lint/governance gates, knip, knip:production, dependency manifest, mock inventory, design backlog check, core-ui Vite build, and desktop bundle validation.",
     "preShipHygiene": "Byte-aware rg -a -i '\\bAZ14\\b' outside .pipeline/**: no matches. The docs heading, neutral test labels, fixture IDs, and the AppShell source comment no longer leak the work-package ID. Screenshot-producing E2Es write to the standard ignored layers/core-ui/test-results location; inspected generated evidence was removed after consolidation. Affected SplitView/object-map unit suite: PASS — 1 file, 14 tests. Renamed real-route E2E cases: PASS — 14/14. Root npm run check: PASS — all 55 packages. A mistakenly invoked package-local npm run check reported its pre-existing rootDir/E2E-support mismatch; it is not the configured repository gate and caused no change.",
     "diffAudit": "git diff --check: PASS. Raw code-only additions including the untracked resolver: 973 (952 tracked + 21 untracked), comprising 537 production/tooling and 436 tests/E2E; 2,254 tracked code deletions. This is below the founder's 1,000-addition stop. Overall tracked diff before this progress rewrite: 62 files, 999 insertions, 2,297 deletions."
   },
@@ -256,6 +259,14 @@
     "same-builder review-fix closure: all seven findings closed with tests, real-route evidence, rendered inspection, and green configured verification; no second review permitted",
     "final orchestrator state reconciliation: DONE — all five ACs proven and no blocking finding remains"
   ],
+  "pullRequest": {
+    "number": 495,
+    "url": "https://github.com/ambrovia/hyperidle/pull/495",
+    "title": "Unify object opening and editing",
+    "base": "main",
+    "head": "feat/object-opening-editing-rule",
+    "draft": false
+  },
   "openBlockers": [],
-  "nextAction": "Finish clean-tree verification, push, open a non-draft PR to main, and wait for required CI. Do not merge."
+  "nextAction": "Verify and push this final state record, then wait for all required PR checks to pass. Human merge only; do not merge here."
 }
