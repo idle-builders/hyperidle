@@ -5,10 +5,10 @@
   "tier": "production",
   "worktree": ".worktrees/AU40-pipeline",
   "branch": "chore/AU40-isolate-false-test-lane",
-  "base": "origin/main@fe723ab87",
-  "phase": "concept-gate",
-  "status": "awaiting-human-review",
-  "smallestActionToResume": "Maintainer approves or rejects the revised causal-owner architecture; build begins only after approval.",
+  "base": "origin/main@cdb9e2d37",
+  "phase": "build",
+  "status": "in-progress",
+  "smallestActionToResume": "Reproduce same-worker owner-to-victim pairs under isolate:false, then add failing cleanup evidence before the smallest causal repair.",
   "sessions": [
     {
       "phase": "preflight",
@@ -91,8 +91,20 @@
     {
       "phase": "concept-gate",
       "started": "2026-08-13",
-      "result": "awaiting-maintainer-approval",
-      "notes": "approve revised option-A architecture before build: service-only isolate false, truncation unchanged, causal owner proof before edits, five default plus one shuffled run"
+      "result": "approved",
+      "notes": "maintainer approved revised option-A architecture: service-only isolate false, truncation unchanged, causal owner proof before edits, five default plus one shuffled run"
+    },
+    {
+      "phase": "build-preflight",
+      "started": "2026-08-13",
+      "result": "ok",
+      "notes": "branch rebased onto current origin/main cdb9e2d37 before implementation; frontend-only main advance"
+    },
+    {
+      "phase": "write-tests",
+      "started": "2026-08-13",
+      "result": "in-progress",
+      "notes": "existing isolate:false full-lane failures are initial red evidence; builder first captures causal same-worker predecessor pairs, then adds focused cleanup tests"
     }
   ],
   "evaluations": {
@@ -112,6 +124,12 @@
       "by": "maintainer",
       "date": "2026-08-13",
       "decision": "option A — causal owners only; broad shutdown cleanup separate"
+    },
+    {
+      "gate": "concept",
+      "by": "maintainer",
+      "date": "2026-08-13",
+      "decision": "approved revised causal-owner architecture"
     }
   ],
   "verdicts": [
