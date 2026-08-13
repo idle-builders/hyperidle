@@ -77,30 +77,19 @@ async function truncateAllTables(db: HyperIdleDb): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Pool — one instance per test FILE, pre-warmed at startup
+// Pool — one instance per service-test WORKER, pre-warmed at startup
 //
-// @lore pool-does-not-span-files: the comment here used to claim this pool
-// "survives vitest's per-file module reloads" and that one PGlite instance is
-// "reused across all 40-50 test files that thread processes". That is NOT what
-// happens. The service project runs with `isolate: true`, which gives every test
-// file a fresh execution context — so `globalThis` is fresh too, `warmPool()`
-// sees `warmed: false`, and each file allocates its own instance.
+// @lore pool-spans-service-files: the service project runs with `isolate: false`,
+// so each worker keeps one module context and one PGlite instance across files.
+// Harness tests remain isolated and serial.
 //
 // Measured (VITEST_TRACE_FILE, three files, same pid): three `allocate` events,
 // ~1.47s each — 1.18s PGlite WASM boot + 0.30s migration. Across the 324-file
 // service lane that is ~476s, which matches vitest's own reported
 // `setup 472.89s` and is roughly HALF the lane's total CPU time.
 //
-// The pooling below is still live and correct WITHIN a file (checkout/checkin
-// across that file's tests, with a truncate between). It just does not, and
-// currently cannot, span files.
-//
-// Fixing it means taking PGlite out of process — one server per worker that
-// files connect to over a socket, so a file pays a connect (~ms) instead of a
-// WASM boot — or pointing the lane at a real Postgres in CI, which
-// `createPostgresDb` in ../connection.ts already supports. `isolate: false` is
-// NOT the fix: it is load-bearing against ES-module mock leakage (see the
-// integration-isolation lore in vitest.integration.config.ts).
+// Every checkout still truncates all public tables before each test. Sharing the
+// worker pool removes repeated WASM boot/migration cost without changing DB cleanup.
 // ---------------------------------------------------------------------------
 
 interface PoolState {

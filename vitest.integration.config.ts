@@ -80,11 +80,10 @@ export default defineConfig({
 					],
 					exclude: [...SHARED_EXCLUDE, ...HARNESS_INCLUDE],
 					pool: "threads",
-					// @lore integration-isolation: isolate:true fixes ES-module mock leakage in the threads pool
-					// (vi.mock("./llm-client") was non-deterministically bypassed with isolate:false
-					// because builtin-harness-adapter was pre-loaded by other files before the mock
-					// could hoist). The PGlite pool lives on globalThis so it survives reloads.
-					isolate: true,
+					// @lore integration-isolation: service files share one module context per worker so
+					// the PGlite pool survives across files. Tests must dispose background owners and
+					// remove file-local mocks; per-test database truncation remains unchanged.
+					isolate: false,
 					setupFiles: ["framework/db/src/__testing__/vitest-integration-setup.ts"],
 				},
 			},

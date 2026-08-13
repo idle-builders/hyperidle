@@ -18,8 +18,10 @@ import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { describe, expect } from "vitest";
+import { afterEach, describe, expect } from "vitest";
 import { test, vi } from "../__testing__/test-fixtures.js";
+
+afterEach(() => vi.unstubAllEnvs());
 
 /**
  * @lore AU31 §3.2/B2: both tools reach `ports.coreApi.*` (the seam) — each is

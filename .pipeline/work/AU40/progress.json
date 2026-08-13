@@ -7,8 +7,8 @@
   "branch": "chore/AU40-isolate-false-test-lane",
   "base": "origin/main@cdb9e2d37",
   "phase": "build",
-  "status": "in-progress",
-  "smallestActionToResume": "Reproduce same-worker owner-to-victim pairs under isolate:false, then add failing cleanup evidence before the smallest causal repair.",
+  "status": "blocked",
+  "smallestActionToResume": "Resolve the pre-existing git-worktree-live-proof full-lane failure outside AU40 or obtain scope direction; then run required repository gates and five-plus-one stability runs.",
   "sessions": [
     {
       "phase": "preflight",
@@ -103,8 +103,20 @@
     {
       "phase": "write-tests",
       "started": "2026-08-13",
-      "result": "in-progress",
-      "notes": "existing isolate:false full-lane failures are initial red evidence; builder first captures causal same-worker predecessor pairs, then adds focused cleanup tests"
+      "result": "ok",
+      "notes": "temporary worker/order diagnostics plus an exact sequencer proved every edited owner red three times with the named victim alone green; diagnostics were removed"
+    },
+    {
+      "phase": "write-code",
+      "started": "2026-08-13",
+      "result": "blocked-on-pre-existing-full-lane-failure",
+      "notes": "service isolate:false and 17 proven local leak repairs implemented; every focused pair is green three times. Full isolate:false and isolate:true controls both leave only git-worktree-live-proof failing at mount; it is first on its worker and green alone, so option-A causal scope excludes it"
+    },
+    {
+      "phase": "build-verification",
+      "started": "2026-08-13",
+      "result": "blocked",
+      "notes": "npm run check, npm run lint, npm run test, and npm run verify pass. Full no-isolate: 2,865 total, 2,860 passed, 4 pending, sole git-worktree-live-proof mount failure. Full isolate:true control has identical counts and failure; victim alone passes. Five consecutive plus shuffled service runs cannot start honestly until this pre-existing full-lane blocker is separately resolved or added to scope. Disk healthy with 70 GiB free."
     }
   ],
   "evaluations": {
@@ -160,6 +172,35 @@
       "verdict": "PASS",
       "date": "2026-08-13",
       "blocking": 0
+    }
+  ],
+  "causalEvidence": [
+    {
+      "owners": ["server-disposal", "factory-run-config", "agent-and-team-creation-atomicity"],
+      "kind": "file-local mock registry/evaluated-module state",
+      "red": "each exact owner-to-victim order failed 3/3; each victim alone green",
+      "repair": "reset evaluated modules before the hoisted mock; explicitly unmock only the file's modules after the suite",
+      "green": "each unchanged pair passed 3/3"
+    },
+    {
+      "owners": ["agent-run-admission-failed-task-run-migration", "agent-run-admission-failed-routine-run-migration", "agent-run-admission-failed-knowledge-action-migration", "agent-run-admission-failed-reengagement-migration"],
+      "kind": "test-created PostgreSQL trigger survives row truncation",
+      "red": "each exact owner-to-victim order failed 3/3; victims alone green",
+      "repair": "drop only the owner's named trigger in finally",
+      "green": "each unchanged pair passed 3/3"
+    },
+    {
+      "owners": ["agent-orchestration-port-session-activity", "agent-orchestration-port", "assistant-turn-b3-coherence-trigger", "core-api-port", "core-api-port-increment2-work-users", "core-api-port-increment2-org-routine-handoff", "core-api-port-increment2-conversation", "core-api-port-increment2-knowledge", "agent-behavior-settings", "threads.assistant-turn-transcript-bake", "create-bet", "AD8b-new-tools", "create-bet-coreapiport-migration"],
+      "kind": "HYPERIDLE_API_KEY stub survives file boundary",
+      "red": "each exact owner-to-auth-sensitive-victim order failed 3/3 with 401; victims alone green",
+      "repair": "file-local afterEach vi.unstubAllEnvs",
+      "green": "each unchanged pair passed 3/3"
+    },
+    {
+      "owner": null,
+      "victim": "git-worktree-live-proof",
+      "kind": "pre-existing live-git mount failure",
+      "evidence": "fails as first file on its worker under both full isolate:false and full isolate:true; green alone; excluded by approved causal-owner boundary"
     }
   ]
 }

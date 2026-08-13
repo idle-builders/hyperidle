@@ -1,7 +1,12 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { sql } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+
+// @lore AU40 shared integration workers: this suite mocks modules commonly loaded by
+// earlier service files. Clear evaluated modules before Vitest resolves its hoisted
+// mocks, then remove only this suite's registrations when it ends.
+vi.hoisted(() => vi.resetModules());
 
 const shutdown = vi.hoisted(() => {
 	const state = {
@@ -108,6 +113,15 @@ vi.mock("@hyperidle/db", async (importOriginal) => {
 			};
 		},
 	};
+});
+
+afterAll(() => {
+	vi.doUnmock("@hyperidle/agent-orchestration");
+	vi.doUnmock("../app.js");
+	vi.doUnmock("../routes/ws.js");
+	vi.doUnmock("@hono/node-server");
+	vi.doUnmock("@hyperidle/db");
+	vi.resetModules();
 });
 
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
