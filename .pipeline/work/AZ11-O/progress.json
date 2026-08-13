@@ -14,7 +14,7 @@
     {
       "started": "2026-08-13",
       "phase": "ship",
-      "result": "ready-pr-open; local verify green; required CI pending",
+      "result": "ready-pr-open; local verify and required CI green",
       "notes": "Consolidated plan, removed superseded artifacts and generated evidence, rebased without conflict onto origin/main, and opened ready PR #499"
     }
   ],
@@ -56,7 +56,7 @@
   "pr": {
     "number": 499,
     "url": "https://github.com/ambrovia/hyperidle/pull/499",
-    "ci": "pending",
+    "ci": "green",
     "merge": "human"
   }
 }
