@@ -51,6 +51,8 @@ The sidebar is one continuous surface with four stable regions:
 
 Desktop uses a fixed 276px sidebar. At 768px and below, the sidebar is hidden behind Menu and opens as a 300px modal drawer. The icon-strip structure changes only above 768px; 44px interactive targets remain through 1024px and compact only above that width. Mobile detail routes keep both Back and Menu available. The drawer is portalled beside `#root`, with its scrim immediately below the drawer layer, so inert page content cannot disable the drawer itself.
 
+The desktop sidebar is unboxed: its root is transparent so the navigation sits directly on the shell background rather than inside a second white card. The mobile drawer keeps an opaque overlay surface because it must separate navigation from the scrimmed page behind it.
+
 Long navigator labels may use visual ellipsis, but each row exposes its complete label through its accessible name and native pointer title. The implementation adds no new data contract, grouping, filter, sorting, hierarchy or team-scope fiction. Existing list pages remain until a domain follow-up proves equivalent access.
 
 ## Evidence and review resolution

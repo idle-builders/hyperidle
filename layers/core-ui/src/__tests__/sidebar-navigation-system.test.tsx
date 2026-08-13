@@ -22,9 +22,11 @@ const props = {
 
 describe("sidebar navigation system", () => {
 	test("renders product identity and the stable destinations in approved order", () => {
-		render(<Sidebar {...props} />);
+		const { container } = render(<Sidebar {...props} />);
 
 		expect(screen.getByText("HyperIdle")).toBeVisible();
+		expect(container.querySelector("aside")).toHaveClass("bg-transparent");
+		expect(container.querySelector("aside")).not.toHaveClass("bg-[var(--surface-elevated)]");
 		const primary = screen.getByRole("navigation", { name: "Main navigation" });
 		expect(
 			within(primary)

@@ -640,7 +640,7 @@ export function Sidebar({
 		<aside
 			data-ds-shell="Sidebar"
 			aria-label="App sidebar"
-			className="flex h-full w-full shrink-0 flex-col bg-[var(--surface-elevated)]"
+			className="flex h-full w-full shrink-0 flex-col bg-transparent"
 		>
 			<header className="flex h-[56px] shrink-0 items-center justify-between px-[12px] min-[1025px]:h-[54px]">
 				<div className="flex min-w-0 items-center gap-[9px] text-[15px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
