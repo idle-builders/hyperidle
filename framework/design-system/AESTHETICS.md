@@ -149,17 +149,18 @@ They organize without shouting. They are structural markers, not content.
 
 ---
 
-## AQ-014: Sidebar matches 03-hearth.html
+## AQ-014: Sidebar is a stable navigator shell
 
-Every full-screen mockup includes the Hearth sidebar:
+Every full-screen desktop mockup includes the Hearth sidebar:
 - Brand wordmark ("HyperIdle") at top, 15px bold
-- Bet items with colored 8px status dots
-- Team items (no dots)
-- Divider between sections (1px `--border-subtle`)
-- Active item: `--surface-elevated` background, `--shadow-subtle`, `--text-primary` color, medium weight
+- Grouped Search and Assistant tools in the top corner
+- Notifications, Conversations, Work, and Knowledge as one stable destination set
+- A single domain-owned navigator taking the remaining vertical space
+- Settings as the bottom-right utility
+- Active item: quiet filled surface, `--text-primary` color, medium weight
 - Hover: subtle background tint
-- 200px width
-- 12px padding
+- 276px width; 300px drawer on phone
+- Phone destination set: four 44px icon targets with full accessible labels
 
 ---
 

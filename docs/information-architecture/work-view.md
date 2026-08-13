@@ -6,7 +6,7 @@ Structure and layout only. Bet lifecycle semantics live in [bets-shape-commit-ch
 
 ## 1. Routes — the three-level drill
 
-Work is a three-level drill: team list → team → bet, extended by task/review/routine sub-pages. The sidebar fast-nav lists teams (`layers/core-ui/src/shell/Sidebar.tsx:65-93`); the main pane drills down. Routes (`layers/core-ui/src/router.tsx:75-88`):
+Work is a three-level drill: team list → team → bet, extended by task/review/routine sub-pages. The provisional domain navigator lists teams when there are multiple; its registered follow-up owns the richer scope and work-item model. The main pane drills down. Routes (`layers/core-ui/src/router.tsx:75-88`):
 
 | Route | Page | Level |
 |---|---|---|

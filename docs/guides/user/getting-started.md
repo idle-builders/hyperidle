@@ -125,9 +125,9 @@ The server reads `ANTHROPIC_API_KEY` and passes it to agents. Use a `.env` file 
 
 Take 60 seconds to look around. Top to bottom in the **sidebar**:
 
-- **Search field** in the top row, with the **Assistant button** (robot icon) to its right.
-- **Three sections: Conversations / Work / Knowledge** — click to switch views.
-- **Fast-nav list** below — the head of the active section's items: threads, teams, or knowledge items.
+- **HyperIdle identity**, with **Search** and **Assistant** grouped in the top-right corner.
+- **Notifications / Conversations / Work / Knowledge** — one stable set for attention and context switching.
+- **Domain navigator** below — most of the sidebar is reserved for scanning and opening items from the active domain.
 - **Settings** pinned at the bottom.
 
 The **main pane** shows your team. No bets yet means an empty state with a **New bet** button.

@@ -142,6 +142,9 @@ describe("AE4 AC-2 — Mobile drawer: hamburger, open, close", () => {
 			expect(screen.getByTestId("mobile-drawer")).toBeInTheDocument();
 		});
 		expect(screen.getByTestId("mobile-scrim")).toBeInTheDocument();
+		expect(screen.getByTestId("mobile-scrim")).toHaveStyle({
+			zIndex: "calc(var(--z-drawer) - 1)",
+		});
 	});
 
 	it("at mobile (375px): drawer contains the sidebar", async () => {
@@ -218,13 +221,13 @@ describe("AE4 AC-2 — Mobile drawer: hamburger, open, close", () => {
 		});
 	});
 
-	it("at mobile (375px): on a detail route (/conversations/:id), back button appears instead of hamburger", async () => {
+	it("at mobile (375px): a detail route keeps both Back and navigation access", async () => {
 		setViewportWidth(375);
 		renderShell("/conversations/thread-123");
 		await waitFor(() => {
 			expect(screen.getByTestId("mobile-back-button")).toBeInTheDocument();
 		});
-		expect(screen.queryByTestId("mobile-hamburger")).not.toBeInTheDocument();
+		expect(screen.getByTestId("mobile-hamburger")).toBeInTheDocument();
 	});
 
 	it("at mobile (375px): main content area is full-width (no sidebar in flow)", async () => {

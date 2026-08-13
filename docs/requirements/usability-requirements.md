@@ -4,7 +4,7 @@ Behavioral UX requirements for the human interface. Shell structure and page lay
 
 ## UX-1: One App, One Door
 
-**UX-1.1** The desktop app is a single Electron window with two persistent zones: a Sidebar (left, 200px fixed width, three labeled sections — Conversations, Work, Knowledge — `layers/core-ui/src/shell/Sidebar.tsx`) and a Main pane showing the active view. Exactly three views exist: `conversations | work | knowledge` (`shell-types.ts`). Shell layout detail: [app-shell](../information-architecture/app-shell-always-present.md).
+**UX-1.1** The desktop app is a single Electron window with two persistent zones: a Sidebar (left, 276px fixed width) and a Main pane showing the active view. The Sidebar exposes Notifications plus the three selectable domains `conversations | work | knowledge`; on phone the same 300px composition is hidden behind Menu. Shell layout detail: [app-shell](../information-architecture/app-shell-always-present.md).
 
 **UX-1.2** Ambient state is embedded within each view — filter chips, health indicators, badges. Notification inbox is a Sidebar-anchored popover (`layers/core-ui/src/shell/NotificationPopover.tsx`: unseen dots clear on open, per-type mute, dismiss); there is no top-bar bell or global toast stream. Ambient indicators may change color, count, or animate — they cannot demand attention. Anything that needs attention routes to Conversations.
 

@@ -2,22 +2,23 @@
 
 The shell is the fixed frame around every view: **Sidebar | Main**, two columns only (`layers/core-ui/src/layouts/AppShell.tsx` — Sidebar plus the routed `<Outlet>`). It provides:
 
-1. **View switching** — navigation between Conversations, Work, and Knowledge
-2. **Per-section fast-nav** — the head of the active section's items (threads / teams / knowledge items), swapping when a different section is selected
+1. **Context switching** — four stable destinations: Notifications, Conversations, Work, and Knowledge
+2. **Domain navigator** — one large region whose provisional content changes with the active domain
 3. **Main content** — the active view's content
 4. **Ambient awareness** — blocking counts, triage counts, and unread notifications visible without leaving the current view
 
 For the end-user walkthrough of this surface, see [guides/user/the-interface](../guides/user/the-interface.md). For the Sidebar as a component (tiers, composition), see [ui-design/our-components](../ui-design/our-components.md).
 
-## 1. Sidebar layout (SidebarV2, shipped AD9)
+## 1. Sidebar layout (Navigator shell)
 
 `layers/core-ui/src/shell/Sidebar.tsx`, top to bottom:
 
-1. **Search row** — a `SearchField` spanning the sidebar width, with the **Assistant icon button** (robot glyph, `sidebar-assistant-btn`, Sidebar.tsx:243) immediately to its right on the same flex row. ⌘K activates global search (`hooks/useCommandK.ts`).
-2. **Three selectable section items: Conversations / Work / Knowledge** (in that order). Exactly one is active at a time. The active item's icon is `--text-primary`; inactive icons are `--text-tertiary` (Sidebar.tsx:154, 196-207).
-3. **Separator** (`--border-subtle`).
-4. **Shared fast-nav list** — ONE list region below the separator showing the head of the currently-active section's items; it **swaps** when a different section is selected — never three stacked lists (Sidebar.tsx:484-588). Conversations: recent threads (max 5). Work: teams — suppressed entirely when there are fewer than 2 teams (AD3 AC-1, Sidebar.tsx:538). Knowledge: knowledge items (max 5).
-5. **Footer strip** pinned at the bottom, separator above: a **Notifications button** (`sidebar-notification-btn`, opens the NotificationPopover; AF8) and the **Settings gear** — icon-only, no visible label ("Settings" text renders only in the sidebar body when settings is open; Sidebar.tsx:358-360).
+1. **Identity and tools** — HyperIdle mark + wordmark at left; Search and Assistant remain separate accessible actions inside one compact visual group at right. ⌘K still activates global search.
+2. **Four stable destinations: Notifications / Conversations / Work / Knowledge.** Desktop renders labelled rows. In the 300px phone drawer they become a four-icon strip with full accessible names. Conversations, Work and Knowledge select the active domain; Notifications retains its existing inbox behavior until its registered follow-up.
+3. **Domain navigator** — the flexing, scrollable region receives most sidebar space. The shell preserves the current provisional rows (five recent threads, the team set when there are multiple teams, or five Knowledge items). Registered domain follow-ups own the domain-specific structure, controls, canonical order and any list-page retirement.
+4. **Footer** — icon-only Settings pinned at bottom right. Settings changes Main without replacing the destination strip or active domain navigator.
+
+Desktop width is **276px**. Below the shell breakpoint, the sidebar is hidden behind **Menu** and opens as a **300px drawer**. Detail routes keep both Back and Menu so drilling into an object never strands global navigation.
 
 Team capacity/status is **not** surfaced in the shell — that stat strip lives on the WorkTeam page.
 
@@ -27,14 +28,14 @@ Team capacity/status is **not** surfaced in the shell — that stat strip lives 
 - **Knowledge** section header carries a triage-count badge for draft + needs_human items (`knowledge-triage-badge`).
 
 Both testids are set conditionally on a single `<span>` element via a ternary on `view` (`Sidebar.tsx:209-222`).
-- **Notifications footer button** shows a red unseen-notification dot (`notification-unread-dot`, Sidebar.tsx:318). Notification behavior itself: [human-interface-layer/notification-primitive](../human-interface-layer/notification-primitive.md).
+- **Notifications** shows a red unseen-notification dot. Notification behavior itself: [human-interface-layer/notification-primitive](../human-interface-layer/notification-primitive.md).
 
 ## 2. Navigation grammar
 
-Uniform across all three sections:
+Uniform across the three selectable domains:
 
-- **Selecting a section item** → marks it active + swaps the fast-nav list + navigates `<main>` to that section's overview (`/conversations`, `/work`, `/knowledge`).
-- **Clicking a fast-nav item** → navigates directly to that subpage (`/conversations/:threadId`, `/work/team/:teamId`, `/knowledge/:knowledgeId`).
+- **Selecting a destination** → marks its domain active + swaps the provisional navigator + navigates `<main>` to that domain's current entry route (`/conversations`, `/work`, `/knowledge`).
+- **Clicking a navigator item** → navigates directly to that object (`/conversations/:threadId`, `/work/team/:teamId`, `/knowledge/:knowledgeId`). Long labels expose their full value through pointer title and accessible name.
 - **One exception (AD3/AC11):** Work with exactly 1 team lands directly on `/work/team/:onlyId` — `WorkOverview.tsx:194-196` short-circuits with a redirect so a solo-team founder never sees a 1-row list.
 
 Cross-view edges (what links to what across the three views): [cross-view-navigation-map](./cross-view-navigation-map.md).
@@ -80,7 +81,7 @@ View-local shortcuts (e.g. the session dial-in toggle) are documented per view: 
 
 ## 5. Settings (overlay)
 
-Settings opens **in-shell**: the sidebar body swaps to a "Settings" heading + settings nav, and Main renders `SettingsPage`. Escape closes and returns to the previous view (P4 AC-21, `AppShell.tsx:347-368`). Deep-link `/settings` redirects to `/conversations?settings=open`.
+Settings opens **in-shell**: Main renders `SettingsPage`, while the primary destinations and selected domain navigator persist unchanged. The Settings utility is marked current; Escape closes and returns to the previous view. Deep-link `/settings` redirects to `/conversations?settings=open`.
 
 `SettingsPage` is a **stacked single scrollable page** (content max-width 680px, no per-section tabs — W3 AC-47/AC-52) with 11 sections in order (`SettingsPage.tsx`):
 

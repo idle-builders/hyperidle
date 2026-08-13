@@ -1,0 +1,56 @@
+{
+  "workPackage": "AZ13",
+  "title": "Sidebar navigation is one system",
+  "track": "AZ",
+  "phase": "ship",
+  "status": "in-progress",
+  "updatedAt": "2026-08-13",
+  "procedure": {
+    "source": ".pipeline/work/AZ13/plan.md §Execution procedure",
+    "phases": [
+      "combined refine+design+architecture round — approved",
+      "same-agent build: tests then code — complete",
+      "one fresh-agent review round — complete; blockers resolved by builder",
+      "retro — complete",
+      "ship — in progress"
+    ]
+  },
+  "worktree": "/Users/tg/Development/hyperidle/.worktrees/AZ13",
+  "branch": "feat/sidebar-navigation-system",
+  "baseCommit": "25ae1f65beb339073baaa5615dbe064c01132d1d",
+  "artifacts": {
+    "consolidatedPlan": ".pipeline/work/AZ13/plan.md",
+    "retro": ".pipeline/work/AZ13/retro.jsonl",
+    "desktopEvidence": ".pipeline/work/AZ13/evidence/implementation/desktop-conversations.png",
+    "phoneEvidence": ".pipeline/work/AZ13/evidence/implementation/mobile-conversations-open.png"
+  },
+  "approvals": [
+    {
+      "phase": "concept-gate",
+      "approvedAt": "2026-08-13",
+      "evidence": "Founder response: ‘yeah great I like it.’",
+      "direction": "Iteration 4 — domain switcher + dynamic navigator"
+    }
+  ],
+  "evaluations": 1,
+  "verdicts": [
+    {
+      "phase": "review",
+      "verdict": "NOT DONE",
+      "resolution": "All five blocking groups were corrected in the builder resolution pass; 89 focused tests, targeted design lint and full repository verification then passed. The approved procedure permits one review round only."
+    }
+  ],
+  "parked": null,
+  "notes": [
+    "Implementation, focused live desktop/phone verification and full repository verification are complete.",
+    "The eight attached sidebar screenshots were used as inspiration and evidence, not requirements.",
+    "Live desktop and 390px inspection grounded the combined-round findings.",
+    "Founder requested several rendered sidebar proposals before approval; concept gate reopened on 2026-08-12.",
+    "Three rejected visual rounds preceded the approved structure; their superseded render artifacts were removed during ship consolidation.",
+    "V4 was shaped directly with the founder: four stable reset destinations, one large domain-owned navigator outlet, combined Search/Assistant entry, icon-only Settings, and team scope in the footer for this iteration.",
+    "The retained selected-direction evidence includes three 1280x800 desktop states and three 390x844 phone states.",
+    "Production evidence includes the implemented 1280x800 desktop shell and 390x844 phone drawer.",
+    "AZ17–AZ21 are registered as the required domain-navigator and Search/Assistant follow-ups.",
+    "The single fresh review round found breakpoint/touch, design-token, identifier-leakage, follow-up-ownership and verification blockers; every blocker was resolved without a second review round."
+  ]
+}

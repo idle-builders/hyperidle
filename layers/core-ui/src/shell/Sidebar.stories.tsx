@@ -39,7 +39,7 @@ const sampleTeams = [
 
 export function ConversationsActive(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex", width: "200px" }}>
+		<div style={{ height: "720px", display: "flex", width: "276px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -53,7 +53,7 @@ export function ConversationsActive(): JSX.Element {
 
 export function WorkActive(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex", width: "200px" }}>
+		<div style={{ height: "720px", display: "flex", width: "276px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="work"
@@ -68,7 +68,7 @@ export function WorkActive(): JSX.Element {
 
 export function KnowledgeActive(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex", width: "200px" }}>
+		<div style={{ height: "720px", display: "flex", width: "276px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="knowledge"
@@ -82,7 +82,7 @@ export function KnowledgeActive(): JSX.Element {
 
 export function EmptySections(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex", width: "200px" }}>
+		<div style={{ height: "720px", display: "flex", width: "276px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -96,7 +96,7 @@ export function EmptySections(): JSX.Element {
 
 export function WithSelectedThread(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex", width: "200px" }}>
+		<div style={{ height: "720px", display: "flex", width: "276px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -111,7 +111,7 @@ export function WithSelectedThread(): JSX.Element {
 
 export function AssistantOverlayOpen(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex", width: "200px" }}>
+		<div style={{ height: "720px", display: "flex", width: "276px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
@@ -126,32 +126,13 @@ export function AssistantOverlayOpen(): JSX.Element {
 
 export function SettingsOverlayOpen(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex", width: "200px" }}>
+		<div style={{ height: "720px", display: "flex", width: "276px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"
 				threads={sampleThreads}
 				teams={sampleTeams}
 				settingsOpen={true}
-				settingsNavItems={
-					<ul>
-						<li>
-							<button type="button" className="btn btn-ghost btn-sm w-full justify-start">
-								Profile
-							</button>
-						</li>
-						<li>
-							<button type="button" className="btn btn-ghost btn-sm w-full justify-start">
-								Appearance
-							</button>
-						</li>
-						<li>
-							<button type="button" className="btn btn-ghost btn-sm w-full justify-start">
-								Notifications
-							</button>
-						</li>
-					</ul>
-				}
 				userInitials="TG"
 			/>
 		</div>
@@ -160,7 +141,7 @@ export function SettingsOverlayOpen(): JSX.Element {
 
 export function WithUserAvatar(): JSX.Element {
 	return (
-		<div style={{ height: "600px", display: "flex", width: "200px" }}>
+		<div style={{ height: "720px", display: "flex", width: "276px" }}>
 			<Sidebar
 				{...commonProps}
 				activeView="conversations"

@@ -76,10 +76,8 @@ describe("Sidebar — AC-1: structure and brand", () => {
 
 	it("renders a divider in the bottom strip area", () => {
 		const { container } = render(<Sidebar {...defaultProps} />);
-		// visual-parity-audit: section dividers (hr between Conversations/Work/Knowledge)
-		// removed in favour of margin spacing. Only the divider before the user row remains.
-		const separators = container.querySelectorAll("hr, [role='separator']");
-		expect(separators.length).toBeGreaterThanOrEqual(1);
+		const utilities = container.querySelector("[data-sidebar-bottom]");
+		expect(utilities?.className ?? "").toContain("border-t");
 	});
 
 	it("renders bottom strip with Assistant trigger and Settings (avatar) button", () => {
@@ -294,7 +292,7 @@ describe("Sidebar — AC-7: Active sub-item styling", () => {
 		// Check for the elevated bg class on the selected thread item
 		const selectedItem = container.querySelector("[data-thread-id='t-selected']");
 		expect(selectedItem).toBeInTheDocument();
-		expect(selectedItem?.className ?? "").toMatch(/bg-\[var\(--surface-elevated\)\]|selected/);
+		expect(selectedItem?.className ?? "").toContain("bg-[var(--accent-primary-dim)]");
 	});
 
 	it("selected team sub-item has selected=true on its NavItem", () => {
@@ -305,7 +303,7 @@ describe("Sidebar — AC-7: Active sub-item styling", () => {
 		);
 		const selectedItem = container.querySelector("[data-team-id='team-active']");
 		expect(selectedItem).toBeInTheDocument();
-		expect(selectedItem?.className ?? "").toMatch(/bg-\[var\(--surface-elevated\)\]|selected/);
+		expect(selectedItem?.className ?? "").toContain("bg-[var(--accent-primary-dim)]");
 	});
 });
 

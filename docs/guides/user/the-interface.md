@@ -9,7 +9,7 @@
 
 The app is two columns:
 
-- **Sidebar** (left): Top-level navigation. Search field + Assistant button on the top row. Three section buttons (Conversations / Work / Knowledge) — click to switch views and land on that section's overview. A shared fast-nav list below the separator shows the head of the active section's items (threads / teams / knowledge items); it swaps when you switch sections. Notifications (bell) and Settings are pinned at the bottom.
+- **Sidebar** (left): Context switching and scanning. HyperIdle identity and the grouped Search / Assistant actions sit at the top. Notifications, Conversations, Work, and Knowledge stay in one stable destination set. The large region below shows the active domain's current navigator (provisionally recent threads, teams, or Knowledge items). Settings is pinned at the bottom. On phone the same sidebar is hidden behind Menu.
 - **Main Pane**: Where the work happens — section overviews, team views, review threads, knowledge items.
 
 Full shell structure (routes, nav grammar, badges) lives in [App Shell](../../information-architecture/app-shell-always-present.md).
@@ -71,7 +71,7 @@ Agents send in-app notifications when they need your attention. Every notificati
 
 ### Notification inbox
 
-Click the bell icon at the bottom of the sidebar to open your notification inbox.
+Click **Notifications** in the stable destination set to open your notification inbox.
 
 - **Unseen dot** — a red dot on the bell means you have unseen notifications. It clears when you open the inbox.
 - **Row anatomy** — each notification shows a colored urgency dot, the title, the type label, and how long ago it arrived. Immediate notifications sort first; within each urgency group, newest first. (Delivery order is a structural dispatch rule — see [notification primitive](../../human-interface-layer/notification-primitive.md) for detail.)
@@ -93,7 +93,7 @@ Primitive depth (queue, digest, cadence discipline) lives in [the notification p
 
 ## Assistant Overlay
 
-The **Assistant** button sits in the sidebar's top row, next to the search field. Clicking it opens your personal AI assistant as a chat overlay anchored to the bottom-right of the window. The overlay deliberately does not close when you click outside it — you can browse the Main Pane and attach context while it's open. Only Escape or the trigger button close it.
+The **Assistant** action sits with Search in the sidebar's top-right tool group. Clicking it opens your personal AI assistant as a chat overlay anchored to the bottom-right of the window. The overlay deliberately does not close when you click outside it — you can browse the Main Pane and attach context while it's open. Only Escape or the trigger button close it.
 
 **Setup notices** — If the assistant can't respond, it shows a guidance card explaining why:
 
