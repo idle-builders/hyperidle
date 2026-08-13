@@ -1,54 +1,100 @@
 /**
  * design/no-off-grid-spacing
  *
- * Maps to AQ-001 / AQ-002.
- * Source: AESTHETICS.md § Spacing & Density — U10 Hearth override (§ U10 changelog).
- * Hearth 6px grid allowlist: {0,3,6,9,12,18,24,36,48} px. No 2px sub-grid.
+ * Enforces the numeric Hearth vocabulary for authored composition:
+ * {0,3,6,9,12,18,24,36,48}px. Relationship semantics remain review guidance
+ * with ranges, not a mechanically prescribed endpoint.
  *
- * @lore U10: Updated from 4px grid to Hearth 6px grid. The SUB_GRID_VALUE
- * constant and `subGrid` messageId are removed — Hearth has no 2px sub-grid
- * as a general rule. Values 4px, 8px, and 16px (formerly on the 4px grid)
- * are now off-grid. Component-internal padding (buttons: 10px/7px, inputs: 10px)
- * and sub-element gaps (badges: 4px, toggle-text: 2px) are exempt per AQ-001;
- * use a `// hearth-internal-padding` file-level directive in component files.
+ * Padding/control internals, fixed geometry, negative overlap, canvas
+ * coordinates and subject-authored content are deliberately outside this
+ * predicate. This prevents the rule from becoming a second owner for AZ7
+ * control internals or AZ11 page geometry.
  */
 
 import type { Rule } from "eslint";
 import type { JSXAttribute } from "estree-jsx";
-import { collectClassStringsFromJSXAttribute, createRule, SPACING_ALLOWLIST } from "../util.js";
+import {
+	asReportNode,
+	collectClassStringsFromJSXAttributeDeep,
+	createConstIdentifierResolver,
+	createRule,
+	SPACING_ALLOWLIST,
+} from "../util.js";
 
-// (p|m|gap)(x|y|t|r|b|l)?-[Npx]
-const ARBITRARY_SPACING = /\b(p|m|gap)([xytrbl])?-\[(\d+)px\]/g;
+const COMPOSITION_CLASS = /^(gap(?:-[xy])?|space-[xy]|m[trblxy]?)-(.+)$/;
+const TOKEN_VALUE = /^\[var\(--space-(?:1|2|3|4|6|8|12|16)\)\]$/;
+const ARBITRARY_PX = /^\[(\d+(?:\.\d+)?)px\]$/;
+const NON_NUMERIC_MARGIN = /^(?:auto|full|screen|min|max|fit|\[.*(?:%|vw|vh|calc\().*\])$/;
+
+function stripVariants(raw: string): string {
+	let token = raw;
+	while (/^[^:[\]]+:/.test(token)) token = token.replace(/^[^:[\]]+:/, "");
+	return token;
+}
+
+function spacingPixels(value: string): number | null {
+	const arbitrary = ARBITRARY_PX.exec(value);
+	if (arbitrary) return Number(arbitrary[1]);
+	if (value === "px") return 1;
+	if (/^\d+(?:\.\d+)?$/.test(value)) return Number(value) * 4;
+	return null;
+}
+
+function isIntrinsicControl(attr: JSXAttribute): boolean {
+	const opening = (attr as JSXAttribute & { parent?: { name?: { type?: string; name?: string } } })
+		.parent;
+	const name = opening?.name;
+	return (
+		name?.type === "JSXIdentifier" &&
+		(name.name === "button" ||
+			name.name === "input" ||
+			name.name === "select" ||
+			name.name === "textarea")
+	);
+}
+
+function hasSpacingRole(attr: JSXAttribute, role: string): boolean {
+	const opening = (
+		attr as JSXAttribute & {
+			parent?: {
+				attributes?: Array<{
+					type?: string;
+					name?: { type?: string; name?: string };
+					value?: { type?: string; value?: unknown } | null;
+				}>;
+			};
+		}
+	).parent;
+	return Boolean(
+		opening?.attributes?.some(
+			(candidate) =>
+				candidate.type === "JSXAttribute" &&
+				candidate.name?.type === "JSXIdentifier" &&
+				candidate.name.name === "data-spacing-role" &&
+				candidate.value?.type === "Literal" &&
+				candidate.value.value === role,
+		),
+	);
+}
 
 export const noOffGridSpacing: Rule.RuleModule = createRule({
 	meta: {
 		type: "problem",
 		docs: {
 			description:
-				"Forbid arbitrary spacing values that are not on the Hearth 6px grid (allowlist from AESTHETICS.md § Spacing & Density — U10 Hearth override).",
+				"Require authored composition gaps and margins to use the numeric Hearth spacing vocabulary.",
 			recommended: true,
 		},
 		schema: [],
 		messages: {
 			offGrid:
-				"Spacing class '{{cls}}' uses {{n}}px which is off the Hearth 6px grid.  → fix: pick one of {3,6,9,12,18,24,36,48}px or use a Hearth spacing token (var(--space-1) through var(--space-16)).",
+				"Composition class '{{cls}}' resolves to {{n}}px outside the Hearth spacing vocabulary {0,3,6,9,12,18,24,36,48}px. Use an existing vocabulary value appropriate to the relationship.",
+			unresolved:
+				"Composition class '{{cls}}' uses an unresolved arbitrary value. Use a supported numeric utility or an existing Hearth spacing token.",
 		},
 	},
 	create(context) {
-		function checkClassString(text: string, node: unknown): void {
-			const reportNode = node as Rule.Node;
-			for (const match of text.matchAll(ARBITRARY_SPACING)) {
-				const [cls, , , nStr] = match;
-				const n = Number(nStr);
-				if (!SPACING_ALLOWLIST.has(n)) {
-					context.report({
-						node: reportNode,
-						messageId: "offGrid",
-						data: { cls, n: String(n) },
-					});
-				}
-			}
-		}
+		const resolveIdentifier = createConstIdentifierResolver(context);
 		return {
 			JSXAttribute(rawNode: unknown) {
 				const node = rawNode as JSXAttribute;
@@ -57,9 +103,70 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 						? node.name.name
 						: null;
 				if (name !== "className") return;
-				const strings = collectClassStringsFromJSXAttribute(node);
-				for (const { text } of strings) {
-					checkClassString(text, node);
+
+				const strings = collectClassStringsFromJSXAttributeDeep(node, resolveIdentifier);
+				const allClasses = strings.map(({ text }) => text).join(" ");
+				const intrinsicControl = isIntrinsicControl(node);
+				const compactPill = hasSpacingRole(node, "compact-pill");
+				const compactPillControl = hasSpacingRole(node, "compact-pill-control");
+				const opticalOffset = hasSpacingRole(node, "optical-offset");
+				const overlayOffset = hasSpacingRole(node, "overlay-offset");
+				const coordinate = hasSpacingRole(node, "coordinate");
+				const reported = new Set<string>();
+
+				for (const { text, node: stringNode } of strings) {
+					for (const raw of text.split(/\s+/).filter(Boolean)) {
+						if (raw.startsWith("-")) continue;
+						const token = stripVariants(raw);
+						const match = COMPOSITION_CLASS.exec(token);
+						if (!match) continue;
+						const [, property, value] = match;
+						if (!property || !value) continue;
+						if (TOKEN_VALUE.test(value)) continue;
+						if (/^\[-/.test(value)) continue;
+						if (property.startsWith("m") && NON_NUMERIC_MARGIN.test(value)) continue;
+
+						const pixels = spacingPixels(value);
+						if (pixels === null) {
+							if (value.startsWith("[")) {
+								context.report({
+									node: asReportNode(stringNode),
+									messageId: "unresolved",
+									data: { cls: token },
+								});
+							}
+							continue;
+						}
+						if (
+							property.startsWith("gap") &&
+							pixels <= 4 &&
+							((intrinsicControl && /\binline-flex\b/.test(allClasses)) || compactPill)
+						)
+							continue;
+						if (property.startsWith("m") && pixels <= 4 && compactPillControl) continue;
+						if (property.startsWith("m") && pixels <= 4 && overlayOffset) continue;
+						if (property.startsWith("m") && pixels <= 9 && opticalOffset) continue;
+						if (/^m(?:l|r|x)$/.test(property) && coordinate) continue;
+						if (/^m(?:l|r|x)$/.test(property) && pixels > 48 && /\babsolute\b/.test(allClasses))
+							continue;
+						if (
+							pixels <= 2 &&
+							property.startsWith("m") &&
+							/\b(?:shrink-0|absolute|relative)\b/.test(allClasses) &&
+							/\b(?:h|w)-\[[^\]]+\]/.test(allClasses)
+						)
+							continue;
+						if (!SPACING_ALLOWLIST.has(pixels)) {
+							const findingKey = `${stringNode.loc?.start.line ?? 0}:${stringNode.loc?.start.column ?? 0}:${token}`;
+							if (reported.has(findingKey)) continue;
+							reported.add(findingKey);
+							context.report({
+								node: asReportNode(stringNode),
+								messageId: "offGrid",
+								data: { cls: token, n: String(pixels) },
+							});
+						}
+					}
 				}
 			},
 		};

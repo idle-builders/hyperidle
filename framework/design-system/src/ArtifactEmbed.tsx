@@ -29,7 +29,7 @@ export interface ArtifactEmbedProps {
 	viewSlot?: ReactNode;
 }
 
-const WRAP = "flex flex-col gap-[4px]";
+const WRAP = "flex flex-col gap-[6px]";
 const IDENTITY =
 	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-tertiary)] tracking-[var(--tracking-caps-sm)] uppercase";
 const VIEW = "text-[var(--text-secondary)] font-sans text-[13px] normal-case [letter-spacing:0]";

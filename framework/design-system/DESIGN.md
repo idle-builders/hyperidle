@@ -104,18 +104,22 @@ Section headers use uppercase, wide letter-spacing (0.06em-0.08em), and tertiary
 
 ## Spacing
 
-6px grid. Generous. One size per component -- no density system.
+Closed composition vocabulary. One size per component -- no density system. Tokens name available values; semantic relationships use guidance ranges rather than an authoritative one-token mapping.
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| `--space-1` | 3px | Minimal gaps (checkbox-label, step dots) |
-| `--space-2` | 6px | Tight gaps (badge groups, avatar overlap offset) |
-| `--space-3` | 9px | Default gap (toggle text, message action padding) |
-| `--space-4` | 12px | Standard padding (thread row, sidebar items) |
-| `--space-6` | 18px | Card padding, section spacing, message gaps |
-| `--space-8` | 24px | Page gutter, main panel padding |
-| `--space-12` | 36px | Large spacing (empty state card padding) |
-| `--space-16` | 48px | Page-level margins |
+| `--space-1` | 3px | Minimum composition increment; compact metadata |
+| `--space-2` | 6px | Close relations; labels, icons, badges |
+| `--space-3` | 9px | Roomy close relations; peer actions |
+| `--space-4` | 12px | Compact group separation; standard padding |
+| `--space-6` | 18px | Roomy group separation; card padding |
+| `--space-8` | 24px | Cued major sections; page gutter |
+| `--space-12` | 36px | Weak-cue or sparse major sections |
+| `--space-16` | 48px | Exceptional page-level/expressive separation |
+
+`0px` is also part of the vocabulary: use it for contiguous divided rows and intentional resets. Suggested vertical ranges are `3–9px` for close relations (normally `6–9px`), `12–18px` for related groups, and `24–36px` for major sections. Suggested horizontal ranges are `3–9px` for icon/text and metadata, `9–12px` for peer actions, `18–24px` for distinct clusters/columns, and `36–48px` only for rare broad layouts.
+
+Choose the compact end when the viewport is narrow, the surface is dense, or headings/borders/background changes already establish hierarchy. Choose the roomy end for larger or multiline type, sparse content, or weak boundaries. Do not add space between contiguous list rows, use `48px` as a routine section gap, or invent a raw value when hierarchy is weak. Control internals, padding/geometry, optical offsets, canvas coordinates, negative overlap, resets, and subject-authored content are separate concerns and require narrow structural treatment.
 
 ### Key measurements
 
@@ -136,9 +140,11 @@ Warm-tinted. Three levels. Light mode uses `rgba(44, 36, 26, ...)` so shadows ha
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `--shadow-subtle` | `0 1px 4px rgba(44,36,26,0.06)` | `0 1px 4px rgba(0,0,0,0.3)` | Active sidebar items, pill tabs, main panel |
-| `--shadow-default` | `0 4px 12px rgba(44,36,26,0.08)` | `0 4px 12px rgba(0,0,0,0.4)` | Cards, bet cards, toast, app preview |
+| `--shadow-subtle` | `0 1px 4px rgba(44,36,26,0.06)` | `0 1px 4px rgba(0,0,0,0.3)` | Active sidebar items, pill tabs |
+| `--shadow-default` | `0 4px 12px rgba(44,36,26,0.08)` | `0 4px 12px rgba(0,0,0,0.4)` | Main panel, cards, bet cards, toast, app preview |
 | `--shadow-elevated` | `0 8px 24px rgba(44,36,26,0.1)` | `0 8px 24px rgba(0,0,0,0.5)` | Bet card hover, onboarding card, modals |
+
+Shipping Hearth chrome uses only `none` and these three tokens. Subtle marks active or lightly lifted chrome; default gives cards/panels tactile weight; elevated is for floating overlays and deliberate hover escalation. Raw Tailwind or arbitrary elevation shadows are forbidden. Focus, validation, and selected-state rings communicate state rather than depth and are narrowly exempt; third-party or subject-authored preview content is not Hearth chrome.
 
 ---
 

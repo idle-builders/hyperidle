@@ -185,7 +185,7 @@ export function ThreadRow({
 				{/* Preview/snippet — color differentiates read/unread (audit L-18, L-19) */}
 				<p
 					className={[
-						"text-[13px] truncate mt-[1px]",
+						"text-[13px] truncate mt-[3px]",
 						unread ? "text-[var(--text-secondary)]" : "text-[var(--text-tertiary)]",
 					].join(" ")}
 				>

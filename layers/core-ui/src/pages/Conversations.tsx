@@ -568,7 +568,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 								<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 									{hintReviewVerdict.copy}
 								</p>
-								<div className="flex gap-2">
+								<div className="flex gap-[9px]">
 									<Button
 										variant="ghost"
 										size="sm"

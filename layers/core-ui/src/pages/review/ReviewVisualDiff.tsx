@@ -253,6 +253,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 					<div className="flex min-w-0 flex-col gap-[3px]">
 						<div className="flex items-center gap-[6px]">
 							<span
+								data-spacing-role="compact-pill"
 								className="inline-flex items-center gap-[4px] px-[9px] py-[3px] text-[11px] font-[600] text-[var(--status-warning)]"
 								style={{ background: "var(--accent-secondary-dim)", borderRadius: "var(--r-pill)" }}
 							>

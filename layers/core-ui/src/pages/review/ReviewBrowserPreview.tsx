@@ -192,6 +192,7 @@ function RenderedPage({ data }: { readonly data: PreviewPage }): JSX.Element {
 				{data.tiers.map((tier) => (
 					<div
 						key={tier.name}
+						data-shadow-subject="true"
 						style={{
 							width: 256,
 							display: "flex",

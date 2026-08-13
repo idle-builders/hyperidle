@@ -73,6 +73,14 @@ describe("W3 AC-47 — Settings stacked single-page layout", () => {
 		expect(screen.getByTestId("settings-section-profile")).toBeInTheDocument();
 	});
 
+	it("keeps a section title close to the content it names", () => {
+		renderSettingsPage();
+		const section = screen.getByTestId("settings-section-profile");
+		const gap = /\bgap-\[(\d+)px\]/.exec(section.className);
+		expect(Number(gap?.[1])).toBeGreaterThanOrEqual(6);
+		expect(Number(gap?.[1])).toBeLessThanOrEqual(9);
+	});
+
 	it("Org chart section visible (data-testid='settings-section-org-chart')", () => {
 		renderSettingsPage();
 		expect(screen.getByTestId("settings-section-org-chart")).toBeInTheDocument();

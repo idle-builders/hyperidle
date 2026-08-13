@@ -161,7 +161,7 @@ function AnchoredMessages({
 }: AnchoredMessagesProps): JSX.Element | null {
 	if (messages.length === 0) return null;
 	return (
-		<div data-testid="anchored-messages" className="flex flex-col gap-1 mt-1">
+		<div data-testid="anchored-messages" className="flex flex-col gap-[3px] mt-[3px]">
 			{anchorLost && (
 				<span
 					data-testid="anchor-lost-indicator"
@@ -356,7 +356,7 @@ function ConsequencePreviewDialog({
 			{/* AF12: honest cascade copy. The SAVED line drops "immediately" (capacity
 			    is not freed the instant Kill is clicked) and the NOTE qualifier states
 			    that running agents finish their current step before halting. */}
-			<div className="text-xs text-[var(--text-tertiary)] space-y-1 mb-3">
+			<div className="text-xs text-[var(--text-tertiary)] space-y-[3px] mb-3">
 				<p>
 					<span className="font-semibold text-error">STOPS:</span> In-progress tasks are killed and
 					their sessions are stopped.
@@ -386,7 +386,7 @@ function ConsequencePreviewDialog({
 			/>
 
 			{error && (
-				<p role="alert" className="text-xs text-error mt-2">
+				<p role="alert" className="text-xs text-error mt-[6px]">
 					{error}
 				</p>
 			)}
@@ -890,7 +890,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
 							{hintAddCredential.copy}
 						</p>
-						<div className="flex gap-2">
+						<div className="flex gap-[9px]">
 							<Button
 								variant="ghost"
 								size="sm"
@@ -915,7 +915,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				)}
 
 				{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-[9px]">
 					<Button variant="ghost" size="sm" onClick={() => setAddKnowledgeOpen(true)}>
 						Add knowledge
 					</Button>
@@ -1257,7 +1257,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					/>
 					{/* T3: Conditional rendering based on bet status mutability. */}
 					{canEditDescription ? (
-						<div className="flex flex-col gap-2" data-testid="bet-description-editor">
+						<div className="flex flex-col gap-[9px]" data-testid="bet-description-editor">
 							<BodyEditor
 								initialContent={bet.description}
 								onChange={handleDescriptionChange}
@@ -1367,7 +1367,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 											<div className="text-[15px] text-[var(--text-primary)] truncate">
 												{task.title}
 											</div>
-											<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[2px]">
+											<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px]">
 												{metaParts.join(" · ")}
 											</div>
 										</div>

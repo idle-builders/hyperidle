@@ -63,8 +63,9 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	// see `configs.hearth` below — since this table only scopes .tsx severity.
 	"no-local-status-builder": { coreUi: "error", designSystem: "off" },
 
-	// ── AZ15's axis (spacing) — stays warn; not this work package's scope ───
-	"no-off-grid-spacing": { coreUi: "warn", designSystem: "error" },
+	// ── Numeric composition vocabulary and elevation tokens ────────────────
+	"no-off-grid-spacing": { coreUi: "error", designSystem: "error" },
+	"shadow-token-only": { coreUi: "error", designSystem: "error" },
 
 	// ── Unchanged from the former K6/K8 blocks ──────────────────────────────
 	"no-off-scale-font-size": { coreUi: "warn", designSystem: "error" },

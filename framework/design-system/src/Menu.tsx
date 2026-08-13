@@ -161,6 +161,7 @@ export function Menu({
 	return (
 		<div
 			{...dsProps("Menu", "1")}
+			data-spacing-role="overlay-offset"
 			ref={menuRef}
 			role="menu"
 			aria-label={label}

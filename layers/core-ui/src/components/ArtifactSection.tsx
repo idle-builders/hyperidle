@@ -106,7 +106,7 @@ export function ArtifactSection({
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
 				{heading && (
-					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
 						{heading}
 					</h2>
 				)}
@@ -138,7 +138,7 @@ export function ArtifactSection({
 		if (!heading) return null;
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading}>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
 					{heading}
 				</h2>
 				<ErrorState
@@ -157,7 +157,7 @@ export function ArtifactSection({
 
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading}>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
 					{heading}
 				</h2>
 				<EmptyState
@@ -178,7 +178,7 @@ export function ArtifactSection({
 	return (
 		<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
 			{heading && (
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
 					{heading}
 				</h2>
 			)}
@@ -222,14 +222,14 @@ export function ArtifactSection({
 						type="button"
 						data-testid="artifact-section-view-all"
 						onClick={onViewAll}
-						className="text-xs text-[var(--text-tertiary)] mt-2 inline-block hover:text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)]"
+						className="text-xs text-[var(--text-tertiary)] mt-[9px] inline-block hover:text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)]"
 					>
 						View all
 					</button>
 				) : (
 					<span
 						data-testid="artifact-section-view-all"
-						className="text-xs text-[var(--text-tertiary)] mt-2 inline-block"
+						className="text-xs text-[var(--text-tertiary)] mt-[9px] inline-block"
 					>
 						View all
 					</span>

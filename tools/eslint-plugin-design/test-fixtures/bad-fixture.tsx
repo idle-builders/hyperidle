@@ -26,7 +26,7 @@ export const Bad = (): JSX.Element => (
 		{" "}
 		{/* expect: design/require-focus-on-interactive */}
 		<span style={{ color: "#ff00aa" }} /> {/* expect: design/no-hardcoded-color */}
-		<span className="p-[5px]" /> {/* expect: design/no-off-grid-spacing */}
+		<span className="gap-[5px]" /> {/* expect: design/no-off-grid-spacing */}
 		<span className="rounded-[4px]" /> {/* expect: design/radius-token-only (arbitrary — not a --r-* token) */}
 		<span className="rounded-md" /> {/* expect: design/radius-token-only (named — not a --r-* token) */}
 		<span className="text-[22px]" /> {/* expect: design/no-off-scale-font-size */}

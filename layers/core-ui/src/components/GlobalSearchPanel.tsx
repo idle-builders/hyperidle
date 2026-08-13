@@ -179,7 +179,7 @@ export function GlobalSearchPanel({
 						transform: "translateX(-50%)",
 						zIndex: overlayProps.style.zIndex,
 					}}
-					className="max-w-[640px] w-full p-3 flex flex-col gap-2 max-h-[80vh] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)]"
+					className="max-w-[640px] w-full p-3 flex flex-col gap-[9px] max-h-[80vh] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)]"
 				>
 					<SearchField
 						placeholder="Search conversations, work, knowledge..."
@@ -201,7 +201,7 @@ export function GlobalSearchPanel({
 						/>
 					)}
 
-					<div className="overflow-y-auto flex flex-col gap-1">
+					<div className="overflow-y-auto flex flex-col gap-[3px]">
 						{search.results.conversations.length > 0 && (
 							<div>
 								<h3 className="text-xs font-semibold text-[var(--text-tertiary)] px-2 py-1">

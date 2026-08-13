@@ -55,7 +55,7 @@ Perfection is when there is nothing left to take away (Saint-Exupery, via Ant De
 **Practical rules:**
 - One accent family for interaction: lemon drop (`--accent-primary`) for fills, cocoa/beige (`--accent-deep`) for text and icons. Amber is a secondary accent for attention-drawing elements (budget badges) — it doubles as status-warning, but its role as accent-secondary is an accent role, not a status decoration.
 - Two typeface families maximum. Hierarchy through weight, not family switching.
-- Spacing from a closed scale. No arbitrary values.
+- Composition spacing comes from the closed `0 / 3 / 6 / 9 / 12 / 18 / 24 / 36 / 48px` vocabulary. Proximity is proportional guidance, not a one-value-per-noun lookup: close relations normally use `3–9px`, related groups `12–18px`, and major vertical sections `24–36px`; `48px` is exceptional. Density, typography, boundaries, surfaces, wrapping, and viewport determine the endpoint within a range.
 - Color reserved for meaning. The default state is warm-neutral; color signals "pay attention here."
 
 ### 4. Content First, Chrome Last

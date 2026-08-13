@@ -300,7 +300,7 @@ function RoutineDetailPaneLoaded({
 				</div>
 			}
 		>
-			<div className="flex flex-col gap-[12px] p-[24px]">
+			<div className="flex flex-col gap-[24px] p-[24px]">
 				{/* Editable fields — on page surface (no grey card) */}
 				<section aria-label="Routine configuration">
 					<SectionLabel label="Configuration" as="h2" />

@@ -52,7 +52,7 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	if (entry.type === "tool_call") {
 		const { toolName, argsSummary } = entry.data;
 		return (
-			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
+			<div className="flex items-start gap-[9px] py-[6px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
 				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
 					<svg
 						viewBox="0 0 16 16"
@@ -84,7 +84,7 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 	if (entry.type === "reasoning") {
 		const { excerpt } = entry.data;
 		return (
-			<div className="flex items-start gap-[8px] py-[6px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
+			<div className="flex items-start gap-[9px] py-[6px] px-[8px] rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)]">
 				{/* Q1 review issue #12: SVG icon instead of emoji 💭 */}
 				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
 					<ReasoningIcon />
@@ -165,7 +165,7 @@ export function SessionActivityPanel({
 			className="flex flex-col h-full bg-[var(--surface-container)] border-l border-[var(--border-subtle)]"
 		>
 			{/* Header */}
-			<div className="flex items-center gap-[8px] px-[12px] py-[10px] border-b border-[var(--border-subtle)] flex-shrink-0">
+			<div className="flex items-center gap-[9px] px-[12px] py-[10px] border-b border-[var(--border-subtle)] flex-shrink-0">
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-[6px]">
 						<span className="text-[13px] font-medium text-[var(--text-primary)] truncate">
@@ -174,6 +174,7 @@ export function SessionActivityPanel({
 						{isLive && (
 							<span
 								role="status"
+								data-spacing-role="compact-pill"
 								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
 								aria-label="Live session"
 							>

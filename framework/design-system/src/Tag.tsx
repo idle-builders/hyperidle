@@ -40,6 +40,7 @@ export function Tag({ label, kind }: TagProps): JSX.Element {
 		return (
 			<span
 				{...dsProps("Tag", "1")}
+				data-spacing-role="compact-pill"
 				className={`${TAG_BASE} bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]`}
 			>
 				{label}
@@ -49,6 +50,7 @@ export function Tag({ label, kind }: TagProps): JSX.Element {
 	return (
 		<span
 			{...dsProps("Tag", "1")}
+			data-spacing-role="compact-pill"
 			className={`${TAG_BASE} ${meta.tintClass}`}
 			aria-label={`${meta.ariaLabel}: ${label}`}
 		>

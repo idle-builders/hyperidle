@@ -25,9 +25,9 @@ import type { JSXAttribute } from "estree-jsx";
  * @lore U10: Changed from 4px grid {0,4,8,12,16,20,24,32,40,48} to Hearth 6px
  * grid {0,3,6,9,12,18,24,36,48}. Note: 4px and 8px (formerly on-grid) are now
  * off-grid. 2px is no longer a special sub-grid case — it is simply off-grid.
- * Component-internal padding (buttons: 10px/7px, inputs: 10px) and sub-element
- * gaps (badges: 4px, toggle-text: 2px) are exempt per AQ-001 component-internal
- * exemption; they should use a file-level `// hearth-internal-padding` directive.
+ * This rule applies the vocabulary to composition gaps/margins. Padding, control
+ * internals, fixed geometry, optical offsets, coordinates, overlap, resets and
+ * subject-authored content have separate owners or narrow structural exclusions.
  *
  * @lore K6 review SEV-1: 0 was missing — `p-[0px]` is implicitly valid (the
  * zero case the spec table omits because nobody writes it explicitly, but it

@@ -49,7 +49,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 			<section
 				data-testid="artifact-threads-summary"
 				aria-label="Artifact discussion"
-				className="flex flex-col gap-2"
+				className="flex flex-col gap-[9px]"
 			>
 				<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
 					ARTIFACT DISCUSSION
@@ -74,7 +74,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 		<section
 			data-testid="artifact-threads-summary"
 			aria-label="Artifact discussion"
-			className="flex flex-col gap-2"
+			className="flex flex-col gap-[9px]"
 		>
 			{/* M4: header copy matches design — "ARTIFACT DISCUSSION" */}
 			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
@@ -90,19 +90,19 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 					dataTestId="artifact-threads-summary-empty"
 				/>
 			) : (
-				<ul className="flex flex-col gap-1">
+				<ul className="flex flex-col gap-[3px]">
 					{data.summaries.map((summary) => (
 						<li key={summary.artifactId}>
 							<Link
 								to={`/artifacts/${summary.artifactId}`}
 								data-artifact-id={summary.artifactId}
-								className="flex flex-col gap-0.5 px-3 py-2 rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)] text-sm"
+								className="flex flex-col gap-[3px] px-3 py-2 rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)] text-sm"
 							>
-								<div className="flex items-center justify-between gap-2">
+								<div className="flex items-center justify-between gap-[9px]">
 									<span className="font-medium text-[var(--text-primary)] truncate">
 										{summary.artifactTitle}
 									</span>
-									<div className="flex items-center gap-2 shrink-0 text-xs text-[var(--text-tertiary)]">
+									<div className="flex items-center gap-[9px] shrink-0 text-xs text-[var(--text-tertiary)]">
 										{summary.lastMessageAt && <span>{relativeShort(summary.lastMessageAt)}</span>}
 										<span>{summary.messageCount}</span>
 									</div>

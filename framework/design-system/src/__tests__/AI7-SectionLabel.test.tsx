@@ -136,10 +136,12 @@ describe("AI7 — SectionLabel component", () => {
 			expect(heading?.className).toContain("items-center");
 		});
 
-		it("has mb-[9px] spacing", () => {
+		it("keeps the label/content relation in the close range", () => {
 			const { container } = render(<SectionLabel label="Members" />);
 			const heading = container.querySelector("h3");
-			expect(heading?.className).toContain("mb-[9px]");
+			const margin = /\bmb-\[(\d+)px\]/.exec(heading?.className ?? "");
+			expect(Number(margin?.[1])).toBeGreaterThanOrEqual(6);
+			expect(Number(margin?.[1])).toBeLessThanOrEqual(9);
 		});
 	});
 

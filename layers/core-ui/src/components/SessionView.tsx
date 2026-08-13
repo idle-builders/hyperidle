@@ -143,7 +143,7 @@ function QueuedBubble({
 					<span className="text-[13px] font-[600] text-[var(--text-secondary)]">
 						{msg.author.name}
 					</span>
-					<span className="inline-flex items-center gap-[4px] text-[11px] text-[var(--text-tertiary)]">
+					<span className="inline-flex items-center gap-[6px] text-[11px] text-[var(--text-tertiary)]">
 						<svg
 							viewBox="0 0 16 16"
 							className="h-[11px] w-[11px] shrink-0"

@@ -65,7 +65,7 @@ export function BlockRefEmbed({
 				data-testid="block-ref-embed-degraded"
 				className="border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)]"
 			>
-				<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+				<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
 					Block from {hostLabel ?? hostKind}
 				</div>
 				<div className="text-[12px] text-[var(--text-tertiary)] italic">
@@ -99,7 +99,7 @@ export function BlockRefEmbed({
 	// Uses button wrapper only when onOpen is provided (keyboard + pointer accessible, backward compat).
 	const cardContent = (
 		<>
-			<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+			<div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
 				Block from {hostLabel ?? hostKind}
 			</div>
 			<div className="text-[13px] text-[var(--text-secondary)]">{renderPayload(payload)}</div>
