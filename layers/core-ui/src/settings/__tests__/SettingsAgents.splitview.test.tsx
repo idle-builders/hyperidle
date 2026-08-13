@@ -158,12 +158,13 @@ describe("Assistant is a row in the agents list", () => {
 		});
 	});
 
-	it("clicking Nova (ast-*) opens the shared editor pane", async () => {
+	it("a generic agent row rests read-only and opens the shared editor only from Edit", async () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
 		await waitFor(() => screen.getByText("Nova"));
-		await user.click(screen.getByText("Nova"));
+		expect(screen.queryByLabelText(/name/i)).toBeNull();
+		await user.click(screen.getByRole("button", { name: "Edit Nova" }));
 
 		// Editor pane should be visible
 		await waitFor(() => {
@@ -215,7 +216,7 @@ describe("Assistant is a row in the agents list", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => screen.getByText("Atlas"));
-		await user.click(screen.getByText("Atlas"));
+		await user.click(screen.getByRole("button", { name: "Edit Atlas" }));
 
 		await waitFor(() => expect(fetchedTemplates).toContain("builder"));
 	});
@@ -239,7 +240,7 @@ describe("Agent editor model dropdown uses discovered descriptor.models", () => 
 		render(<SettingsAgents />);
 
 		await waitFor(() => screen.getByText("Atlas"));
-		await user.click(screen.getByText("Atlas"));
+		await user.click(screen.getByRole("button", { name: "Edit Atlas" }));
 
 		await waitFor(() => {
 			const modelSelect = screen.getByRole("combobox", { name: /model/i });

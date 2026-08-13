@@ -36,6 +36,7 @@ import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability"
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { hasCaps, statusLine } from "./harness-presentation.js";
 import { SettingsModels } from "./SettingsModels.js";
@@ -181,6 +182,7 @@ export function SettingsHarnesses(): JSX.Element {
 	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
 	const [ratio, setRatio] = useUiPreference("settings.backends", 0.42);
 	const [selectedType, setSelectedType] = useState<string | null>(null);
+	const { sidebarMobile } = useViewportBreakpoint();
 
 	// ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -269,6 +271,8 @@ export function SettingsHarnesses(): JSX.Element {
 			onRatioChange={setRatio}
 			mode={splitMode}
 			onModeChange={setSplitMode}
+			compact={sidebarMobile}
+			originLabel="agent backends"
 			origin={
 				<div className="flex flex-col gap-[12px] p-[3px]">
 					{/* Section header */}

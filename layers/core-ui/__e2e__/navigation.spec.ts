@@ -53,6 +53,17 @@ function makeTeamDetailResponse() {
 				progressTotal: 3,
 			},
 		],
+		routines: Array.from({ length: 12 }, (_, index) => ({
+			id: `routine-ag4-${index}`,
+			name: `AG4 Routine ${index}`,
+			state: "active",
+			scheduleLabel: "Daily",
+			agentName: "Agent 0",
+			agentInitials: "A0",
+			lastRunAt: null,
+			lastRunOutcome: null,
+			nextRunAt: null,
+		})),
 	};
 }
 
@@ -92,9 +103,62 @@ async function mockBetAndTeam(page: import("@playwright/test").Page) {
 			await route.continue();
 		}
 	});
+	await page.route("**/api/agents*", (route) =>
+		route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+	);
+	await page.route("**/api/artifacts*", async (route) => {
+		return route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({ items: [], nextCursor: null }),
+		});
+	});
 }
 
 test.describe("AG4 — Back, Up, and Shortcuts", () => {
+	test("routine Navigate and temporal Back restore team scroll and row focus", async ({ page }) => {
+		await mockBetAndTeam(page);
+		await page.route("**/api/routines/routine-ag4-11", async (route) => {
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					routine: {
+						id: "routine-ag4-11",
+						name: "AG4 Routine 11",
+						description: "A durable routine prompt.",
+						state: "active",
+						triggerType: "schedule",
+						triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
+						scheduleLabel: "Daily",
+						agentName: "Agent 0",
+						autonomyLevel: 2,
+						silent: false,
+						lastRunAt: null,
+						lastRunOutcome: null,
+						nextRunAt: null,
+						createdAt: "2026-08-13T08:00:00.000Z",
+					},
+					runs: [],
+				}),
+			});
+		});
+		await page.goto(`/work/team/${TEAM_ID}`);
+		const row = page.getByTestId("routine-row").filter({ hasText: "AG4 Routine 11" });
+		await row.scrollIntoViewIfNeeded();
+		await row.focus();
+		const scroller = page.locator("[data-page-scroll]").first();
+		const before = await scroller.evaluate((node) => node.scrollTop);
+		await row.click();
+		await expect(page).toHaveURL(/\/work\/routine\/routine-ag4-11$/);
+		await expect(page.getByRole("button", { name: "Edit routine" })).toBeVisible();
+
+		await page.goBack();
+		await expect(page).toHaveURL(new RegExp(`/work/team/${TEAM_ID}$`));
+		await expect(row).toBeFocused();
+		expect(await scroller.evaluate((node) => node.scrollTop)).toBe(before);
+	});
+
 	// AC-3: Every detail screen shows hierarchy breadcrumb + structural up-path
 	test("AC-3: bet detail renders Breadcrumb nav with Work + parent link", async ({ page }) => {
 		await mockBetAndTeam(page);

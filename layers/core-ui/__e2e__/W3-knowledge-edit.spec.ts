@@ -104,6 +104,22 @@ test.describe("W3 AC-44 — Knowledge edit mode transition", () => {
 		const saveIndicator = page.locator("[data-testid='save-indicator'], [data-save-status]");
 		await expect(saveIndicator).toBeVisible();
 	});
+
+	for (const viewport of [
+		{ name: "1440x900", width: 1440, height: 900 },
+		{ name: "1024x768", width: 1024, height: 768 },
+		{ name: "375x812", width: 375, height: 812 },
+	]) {
+		test(`${viewport.name}: knowledge prose rests rendered`, async ({ page }) => {
+			await page.setViewportSize(viewport);
+			await expect(page.getByRole("button", { name: /^edit$/i })).toBeVisible();
+			await expect(page.getByTestId("knowledge-edit-panel")).toHaveCount(0);
+			await page.screenshot({
+				path: `test-results/knowledge-read-${viewport.name}.png`,
+				fullPage: true,
+			});
+		});
+	}
 });
 
 test.describe("W3 AC-45 — Done returns to read mode", () => {
@@ -158,6 +174,20 @@ test.describe("W3 AC-45 — Done returns to read mode", () => {
 			"[data-testid='knowledge-editor-area'], [class*='editor-area']",
 		);
 		await expect(editorArea).not.toBeVisible();
+	});
+
+	test("Done remains a save barrier until the latest body change is acknowledged", async ({
+		page,
+	}) => {
+		await page.getByRole("button", { name: /^edit$/i }).click();
+		const editor = page.getByTestId("knowledge-edit-panel").locator('[contenteditable="true"]');
+		await editor.click();
+		await editor.pressSequentially(" Saved through the barrier.");
+		const done = page.getByRole("button", { name: /^done$/i });
+		await expect(done).toBeDisabled();
+		await expect(done).toBeEnabled({ timeout: 5000 });
+		await done.click();
+		await expect(page.getByTestId("knowledge-edit-panel")).toHaveCount(0);
 	});
 });
 

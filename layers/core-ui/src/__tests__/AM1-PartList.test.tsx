@@ -204,7 +204,7 @@ describe("AM1 PartList — message-type Parts (AC3)", () => {
 	it("resolved Part: verdict echo via the label vocabulary + quiet View review, no buttons", () => {
 		render(<PartList parts={[resolvedPart]} onOpen={vi.fn()} />);
 		expect(screen.getByText(/approved/i)).toBeDefined();
-		expect(screen.getByText(/view review/i)).toBeDefined();
+		expect(screen.getByText(/inspect review/i)).toBeDefined();
 		expect(screen.queryByText(/open review/i)).toBeNull();
 	});
 });

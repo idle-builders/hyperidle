@@ -48,10 +48,10 @@ export function ReviewResolvedPart({
 			</div>
 			<button
 				type="button"
-				onClick={() => onOpen({ route: "review", ...part.reviewTarget })}
+				onClick={() => onOpen({ route: "review", ...part.reviewTarget, intent: "inspect" })}
 				className="inline-flex shrink-0 items-center gap-[3px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--accent-deep)]"
 			>
-				View review
+				Inspect review
 				<svg
 					viewBox="0 0 16 16"
 					fill="currentColor"

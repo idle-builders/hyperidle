@@ -6,6 +6,7 @@ import {
 } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import { useUiPreference } from "../../hooks/useUiPreference.js";
+import { useViewportBreakpoint } from "../../hooks/useViewportBreakpoint.js";
 import { getReviewCanvas } from "./canvas-registry.js";
 import { ReviewActionOperation } from "./ReviewActionOperation.js";
 import { ReviewCanvasProvider, useReviewAnchors } from "./review-canvas.js";
@@ -727,6 +728,7 @@ export function ReviewComposition({
 	const [menuOpen, setMenuOpen] = useState(false);
 	// AM5 T6: SplitView ratio persistence for the review surface
 	const [reviewRatio, setReviewRatio] = useUiPreference("review", 0.55);
+	const { sidebarMobile } = useViewportBreakpoint();
 
 	const activeArtifact = subject.artifacts.find((a) => a.id === activeId) ?? null;
 	const resolved = resolvedProp ?? subject.verdict?.decision !== undefined;
@@ -816,6 +818,8 @@ export function ReviewComposition({
 					}}
 					origin={reviewListPane}
 					destination={<ExaminePane artifact={activeArtifact} onClose={() => setActiveId(null)} />}
+					compact={sidebarMobile}
+					originLabel="review"
 				/>
 			) : (
 				<div className="h-full w-full">{reviewListPane}</div>

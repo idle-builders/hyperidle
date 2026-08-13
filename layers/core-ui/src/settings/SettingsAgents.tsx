@@ -39,6 +39,7 @@ import {
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useUiPreference } from "../hooks/useUiPreference.js";
+import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { fetchActiveRunCounts } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
@@ -111,6 +112,7 @@ export function SettingsAgents(): JSX.Element {
 	// SplitView state
 	const [splitMode, setSplitMode] = useState<FoldMode>("fold-back");
 	const [ratio, setRatio] = useUiPreference("settings.agents", 0.42);
+	const { sidebarMobile } = useViewportBreakpoint();
 
 	// Editor state (for the selected agent)
 	const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -474,6 +476,17 @@ export function SettingsAgents(): JSX.Element {
 							selected={isSelected}
 							actions={
 								<div className="flex gap-[6px]">
+									<Button
+										variant="ghost"
+										size="sm"
+										aria-label={`Edit ${agent.name}`}
+										onClick={(event) => {
+											event.stopPropagation();
+											void handleAgentClick(agent);
+										}}
+									>
+										Edit
+									</Button>
 									{confirmingDeleteId === agent.id ? (
 										<Button
 											variant="ghost"
@@ -502,7 +515,6 @@ export function SettingsAgents(): JSX.Element {
 									)}
 								</div>
 							}
-							onClick={() => void handleAgentClick(agent)}
 						/>
 					);
 				})}
@@ -578,6 +590,8 @@ export function SettingsAgents(): JSX.Element {
 			onRatioChange={setRatio}
 			origin={agentListOrigin}
 			destination={agentEditorDestination}
+			compact={sidebarMobile}
+			originLabel="agents"
 		/>
 	);
 }

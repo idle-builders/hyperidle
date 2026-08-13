@@ -34,7 +34,7 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 ## UX-4: Work View
 
-**UX-4.1** The Work view drills down: Work Overview (portfolio) → Team → Bet Detail → Task → session jump-out with outcome and token chips (`WorkOverview.tsx` → `WorkTeam.tsx` → `WorkBet.tsx` → `WorkTask.tsx`; TaskSheet session section). Breadcrumbs navigate back up.
+**UX-4.1** The Work view drills down: Work Overview (portfolio) → Team → Bet Detail → Task, with session references inspecting alongside their origin (`WorkOverview.tsx` → `WorkTeam.tsx` → `WorkBet.tsx` → `WorkTask.tsx`). Breadcrumbs navigate back up.
 
 **UX-4.2** Bet statuses are `draft | active | completed | killed` (`framework/domain-model/src/types.ts`; `at_risk` boolean replaces the old behind sub-state). Lifecycle semantics: [bets-shape-commit-change-ship](../process-layer/bets-shape-commit-change-ship.md).
 
@@ -44,7 +44,7 @@ Primitive semantics: [notification-primitive](../human-interface-layer/notificat
 
 **UX-4.5** No backlog. Work is a continuous flow — no backlog surface or table exists anywhere.
 
-**UX-4.6** The task view is list-only. Canvas and Kanban surfaces are removed and will not be added (`layers/core-ui/src/shell/TaskSheet.tsx` — `@lore` U9: Canvas and Kanban components removed).
+**UX-4.6** The task view is list-only. Canvas and Kanban surfaces are removed and will not be added (`layers/core-ui/src/pages/WorkTask.tsx`).
 
 ## UX-5: Knowledge View
 

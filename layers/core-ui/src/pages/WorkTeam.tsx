@@ -481,9 +481,7 @@ function WorkTeamLoaded({
 									{ content: lastRunLabel, width: 60, numeric: true },
 								]}
 								onClick={() => {
-									// @lore AV4: routine row click opens split pane via ?routine param
-									// (AC#1). Deep link via /work/routine/:id still works via WorkRoutine.
-									setSearchParams({ routine: routine.id });
+									navigate(`/work/routine/${encodeURIComponent(routine.id)}`);
 								}}
 							/>
 						);
@@ -744,6 +742,8 @@ function WorkTeamLoaded({
 			>
 				{selectedRoutineId !== null ? (
 					<SplitView
+						compact={sidebarMobile}
+						originLabel="team"
 						surfaceKey="work.routine"
 						mode="split"
 						dividerRatio={routineRatio}
@@ -761,6 +761,8 @@ function WorkTeamLoaded({
 					/>
 				) : selectedAgentId !== null ? (
 					<SplitView
+						compact={sidebarMobile}
+						originLabel="team"
 						surfaceKey="work.agent"
 						mode="split"
 						dividerRatio={agentRatio}

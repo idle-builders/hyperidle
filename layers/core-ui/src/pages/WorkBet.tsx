@@ -67,15 +67,12 @@ import { AssistantContext } from "../contexts/AssistantContext.js";
 import { useLatestRunOutcomes } from "../hooks/useAgentRunState.js";
 import { useBet } from "../hooks/useBet";
 import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
-import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
-import { postRequestMessage, resolveOrCreateTaskThread } from "../services/task-threads";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
-import { TaskSheet } from "../shell/TaskSheet";
 import type { BetDetail } from "../types/bet";
 import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
 import { deriveInitials } from "../utils/initials.js";
@@ -416,7 +413,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const { betId: routeBetId } = useParams<{ betId: string }>();
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
-	const { user } = useCurrentUser();
 	const onOpenArtifact = useArtifactOpen();
 	const hintAddCredential = useHint("add-credential");
 	// T4: AssistantContext for block share action
@@ -430,9 +426,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	const [sortColumn] = useState<SortColumn | null>(null);
 	const [sortDirection] = useState<SortDirection>("asc");
-
-	// L13: TaskSheet state — selectedTaskId tracks which task row was clicked.
-	const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
 	// AC1: Bet outcome section state — 'view' | 'editing'
 	const [outcomeEditMode, setOutcomeEditMode] = useState<"view" | "editing">("view");
@@ -474,6 +467,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	// mounted for draft/active bets (no Edit/Done toggle). Block actions are only
 	// available in immutable statuses (completed/killed) via BetPitch.
 	const canEditDescription = bet ? BET_DESCRIPTION_MUTABLE_STATUSES.has(bet.status) : false;
+	const [descriptionEditing, setDescriptionEditing] = useState(false);
 
 	// T3: Track the initial description content for dirty-check in handleDescriptionChange.
 	// useRef so it doesn't cause re-renders and survives across the debounce.
@@ -537,32 +531,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const sortedTasks = useMemo(
 		() => sortTasks(tasksWithOutcome, sortColumn, sortDirection),
 		[tasksWithOutcome, sortColumn, sortDirection],
-	);
-
-	// L13: Derive selectedTask from the bet's task list for TaskSheet.
-	const selectedTask =
-		selectedTaskId !== null
-			? (tasksWithOutcome.find((t) => t.id === selectedTaskId) ?? null)
-			: null;
-
-	// L13: TaskSheet callbacks — mirror WorkTeam.tsx patterns.
-	// @lore M3 A12: FOUNDER_ID constant deleted; use user?.id from useCurrentUser.
-	const handleResolveThreadId = useCallback(
-		(taskId: string): Promise<string> => resolveOrCreateTaskThread(taskId, user?.id ?? "", null),
-		[user],
-	);
-
-	const handlePostRequest = useCallback(
-		(threadId: string, text: string, clientKey: string): Promise<void> =>
-			postRequestMessage(threadId, text, clientKey),
-		[],
-	);
-
-	const handleNavigateToThread = useCallback(
-		(threadId: string): void => {
-			navigate(`/conversations/chat?thread=${encodeURIComponent(threadId)}`);
-		},
-		[navigate],
 	);
 
 	// AF12: activate a draft bet via POST /commit. On failure, surface a
@@ -1222,41 +1190,56 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							/* C-01: For draft/active (canEditDescription=true), show save-status indicator.
 								   For completed/killed (canEditDescription=false), hide entirely — pitch is immutable. */
 							canEditDescription ? (
-								<span
-									className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px]"
-									aria-live="polite"
-									data-testid="pitch-save-indicator"
-								>
-									{saveStatus === "saving" && "Saving..."}
-									{saveStatus === "saved" && (
-										<>
-											<svg
-												width="12"
-												height="12"
-												viewBox="0 0 12 12"
-												fill="none"
-												aria-hidden="true"
-											>
-												<path
-													d="M2 6l3 3 5-5"
-													stroke="currentColor"
-													strokeWidth="1.5"
-													strokeLinecap="round"
-													strokeLinejoin="round"
-												/>
-											</svg>
-											Saved
-										</>
-									)}
-									{saveStatus === "error" && (
-										<span className="text-[var(--status-error)]">Save failed</span>
-									)}
-								</span>
+								<div className="flex items-center gap-[9px]">
+									<span
+										className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px]"
+										aria-live="polite"
+										data-testid="pitch-save-indicator"
+									>
+										{saveStatus === "saving" && "Saving..."}
+										{saveStatus === "saved" && (
+											<>
+												<svg
+													width="12"
+													height="12"
+													viewBox="0 0 12 12"
+													fill="none"
+													aria-hidden="true"
+												>
+													<path
+														d="M2 6l3 3 5-5"
+														stroke="currentColor"
+														strokeWidth="1.5"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+													/>
+												</svg>
+												Saved
+											</>
+										)}
+										{saveStatus === "error" && (
+											<span className="text-[var(--status-error)]">Save failed</span>
+										)}
+									</span>
+									<Button
+										variant="ghost"
+										size="sm"
+										aria-label={
+											descriptionEditing ? "Done editing bet content" : "Edit bet content"
+										}
+										disabled={
+											descriptionEditing && (saveStatus === "saving" || saveStatus === "error")
+										}
+										onClick={() => setDescriptionEditing((editing) => !editing)}
+									>
+										{descriptionEditing ? "Done" : "Edit"}
+									</Button>
+								</div>
 							) : undefined
 						}
 					/>
 					{/* T3: Conditional rendering based on bet status mutability. */}
-					{canEditDescription ? (
+					{canEditDescription && descriptionEditing ? (
 						<div className="flex flex-col gap-[9px]" data-testid="bet-description-editor">
 							<BodyEditor
 								initialContent={bet.description}
@@ -1273,7 +1256,9 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								{saveStatus === "saving" && "Saving..."}
 								{saveStatus === "saved" && "Saved"}
 								{saveStatus === "error" && (
-									<span className="text-[var(--status-error)]">Save failed</span>
+									<span className="text-[var(--status-error)]" role="alert">
+										Save failed — retry
+									</span>
 								)}
 							</span>
 						</div>
@@ -1449,16 +1434,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 				{/* L18: Per-bet artifact thread summary */}
 				<ArtifactThreadsSummary betId={bet.id} />
-
-				{/* L13: TaskSheet — opens when a task row is clicked */}
-				<TaskSheet
-					task={selectedTask}
-					open={selectedTaskId !== null}
-					onClose={() => setSelectedTaskId(null)}
-					resolveThreadId={handleResolveThreadId}
-					postRequest={handlePostRequest}
-					onNavigateToThread={handleNavigateToThread}
-				/>
 			</div>
 			{/* end bet-detail-body */}
 		</PageScaffold>

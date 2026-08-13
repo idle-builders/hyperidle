@@ -17,8 +17,9 @@ import { useArtifact } from "../hooks/useArtifacts.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { sanitizeHtml } from "../utils/sanitize-html.js";
 
-export function ArtifactPermalink(): JSX.Element {
-	const { id = "" } = useParams<{ id: string }>();
+export function ArtifactPermalink({ overrideId }: { overrideId?: string } = {}): JSX.Element {
+	const { id: routeId = "" } = useParams<{ id: string }>();
+	const id = overrideId ?? routeId;
 	const { data, error, isLoading } = useArtifact(id);
 
 	if (isLoading) {

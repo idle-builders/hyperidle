@@ -16,13 +16,13 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 | From | To | Trigger |
 |---|---|---|
 | Thread list | Thread detail | Click ThreadSections row → `/conversations/:threadId` |
+| Thread detail | Session Inspect | Dial In or an inline session reference → shared SplitView; on phone the session fills Main with “Back to conversation” |
 
 ## Conversations ↔ Work (cross-view)
 
 | From | To | Trigger |
 |---|---|---|
 | Review Part in a thread | ReviewPage | "Open review" (`ReviewRequestPart.tsx:63`) → `/work/bet/:betId/review/:reviewId` (`router.tsx:88`) |
-| Bet detail TaskSheet | Conversation thread | Navigate `/conversations/chat?thread=…` (`WorkBet.tsx`); redirects to the canonical thread URL |
 
 ## Within Work
 
@@ -30,6 +30,7 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 |---|---|---|
 | Work overview | Team view | Click team row → `/work/team/:teamId` (`WorkOverview.tsx:186-196`); the 1-team short-circuit skips the overview entirely (`WorkOverview.tsx:194`) |
 | Team view | Bet detail | Click BetRow (`WorkTeam.tsx`) → `/work/bet/:betId` |
+| Team view | Routine detail | Click routine row → `/work/routine/:routineId` |
 | Team view | New bet | "+ bet" → full page `/work/bet/new` (WorkBetCreate, `router.tsx:85`) — not an overlay |
 | Bet detail | Task detail | Click task row → `/work/bet/:betId/task/:taskId` (`router.tsx:87`) |
 | Bet detail | Team view | Breadcrumb (`WorkBet.tsx`, DS Breadcrumb + NavHistoryCluster) |
@@ -41,6 +42,10 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 | Knowledge list | Item detail | Click KnowledgeRow → `/knowledge/:knowledgeId` (`router.tsx:92`) |
 | Item detail | Knowledge list | Breadcrumb (`KnowledgeDetail.tsx`) |
 | Item detail | Related item | Related-items sidebar (`structuredRelatedItems`, `KnowledgeDetail.tsx:109,327-328`) |
+
+## Back versus Up
+
+Back is temporal and returns through browser history. Breadcrumbs are structural Up links. On a phone detail route, the header uses Back when an in-app history entry exists; a direct deep link instead exposes a labelled `Up to Work`, `Up to Knowledge`, or `Up to Conversations` action.
 
 ## Knowledge ↔ Conversations (cross-view)
 

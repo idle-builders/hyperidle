@@ -124,6 +124,22 @@ describe("KnowledgeDetail — T2 edit mode (BodyEditor + auto-save)", () => {
 		expect(screen.getByTestId("knowledge-body")).toBeInTheDocument();
 	});
 
+	it("keeps Done disabled and the draft visible after save failure", async () => {
+		fetchSpy
+			.mockResolvedValueOnce(new Response("Not Found", { status: 404 }))
+			.mockResolvedValueOnce(new Response("failed", { status: 500 }));
+		const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+		renderPage("k1");
+		await user.click(screen.getByRole("button", { name: /edit/i }));
+		await user.type(screen.getByTestId("body-editor-textarea"), " pending");
+		await vi.advanceTimersByTimeAsync(1600);
+		await waitFor(() =>
+			expect(screen.getByTestId("save-indicator")).toHaveTextContent("Save failed"),
+		);
+		expect(screen.getByRole("button", { name: /done/i })).toBeDisabled();
+		expect(screen.getByTestId("mock-body-editor")).toBeInTheDocument();
+	});
+
 	it("shows save indicator 'Saving...' when auto-save is in flight", async () => {
 		// First call = GET from useKnowledgeItem (returns 404 to fall back to fixture)
 		// Subsequent PATCH calls never resolve — keeps saving state

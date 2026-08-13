@@ -30,7 +30,7 @@ export function resolveHostRoute(hostKind: HostKind, hostId: string): string | n
 			// @lore AM5 H5: artifact route fixed from dead /work/artifact/:id to /artifacts/:id.
 			return `/artifacts/${hostId}`;
 		case "agent":
-			return `/work/agent/${hostId}`;
+			return `/agents/${hostId}`;
 		case "team":
 			return `/work/team/${hostId}`;
 		case "user":

@@ -1,14 +1,8 @@
 /**
  * host-threads.ts — L18 generalised host-thread service.
  *
- * Replaces / supersedes task-threads.ts. Exposes
  *  - resolveOrCreateHostThread(hostKind, hostId, founderId, agentParticipantId)
  *  - postPlainHostMessage(threadId, text, clientKey, blockId?)
- *
- * @lore L18: task-threads.ts is now a re-export shim pointing here. The old
- * postRequestMessage name was misleading (the message type is "plain", not
- * "request"); the L18 generalisation drops the misnomer. Existing TaskSheet
- * callers compile unchanged via the shim in task-threads.ts.
  *
  * @lore L18: The blockId field rides inside the plain-message payload (opaque
  * string to the server). Thread re-fetch picks up the new message;

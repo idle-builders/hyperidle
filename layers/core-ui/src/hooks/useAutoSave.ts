@@ -161,6 +161,7 @@ export function useAutoSave({
 
 	const save = useCallback(
 		(content: string): void => {
+			setStatus("saving");
 			// Clear any pending debounce timer
 			if (debounceTimerRef.current !== null) {
 				clearTimeout(debounceTimerRef.current);
@@ -168,8 +169,6 @@ export function useAutoSave({
 
 			debounceTimerRef.current = setTimeout(() => {
 				if (unmountedRef.current) return;
-				setStatus("saving");
-
 				executePatch(endpointRef.current, content, versionRef.current, updatedByRef.current)
 					.then((res) => handleSaveResponse(res))
 					.catch(() => {

@@ -218,7 +218,12 @@ export type OpenTarget =
 			readonly blockId?: string;
 	  }
 	| { readonly route: "artifact"; readonly artifactId: string }
-	| { readonly route: "review"; readonly betId: string; readonly reviewId: string }
+	| {
+			readonly route: "review";
+			readonly betId: string;
+			readonly reviewId: string;
+			readonly intent?: "navigate" | "inspect";
+	  }
 	| { readonly route: "session"; readonly sessionId: string };
 
 /** The single open-hook the renderer calls. Page binds to navigate(); story to console.info. */

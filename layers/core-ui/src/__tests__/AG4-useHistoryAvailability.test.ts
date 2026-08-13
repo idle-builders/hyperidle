@@ -145,5 +145,18 @@ describe("AG4 — useHistoryAvailability", () => {
 			});
 			expect(result.current.canGoBack).toBe(true);
 		});
+
+		it("re-reads history after a React Router push changes the location key", () => {
+			stubHistoryState(0);
+			stubNavigationApi(false);
+			const { result, rerender } = renderHook(
+				({ locationKey }) => useHistoryAvailability(locationKey),
+				{ initialProps: { locationKey: "default" } },
+			);
+			expect(result.current.canGoBack).toBe(false);
+			stubHistoryState(1);
+			rerender({ locationKey: "pushed" });
+			expect(result.current.canGoBack).toBe(true);
+		});
 	});
 });

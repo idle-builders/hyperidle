@@ -289,9 +289,13 @@ export interface KnowledgeDetailProps {
 	 * system stories which render outside the /knowledge/:knowledgeId route.
 	 */
 	overrideKnowledgeId?: string;
+	overrideHash?: string;
 }
 
-export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = {}): JSX.Element {
+export function KnowledgeDetail({
+	overrideKnowledgeId,
+	overrideHash,
+}: KnowledgeDetailProps = {}): JSX.Element {
 	const { knowledgeId: routeKnowledgeId } = useParams<{ knowledgeId: string }>();
 	const knowledgeId = overrideKnowledgeId ?? routeKnowledgeId;
 
@@ -338,6 +342,7 @@ export function KnowledgeDetail({ overrideKnowledgeId }: KnowledgeDetailProps = 
 			item={item}
 			legacySource={legacySource}
 			routeKnowledgeId={knowledgeId}
+			overrideHash={overrideHash}
 		/>
 	);
 }
@@ -515,12 +520,14 @@ interface KnowledgeDetailViewProps {
 	legacySource?: string;
 	/** Q2: The route-resolved knowledge id. Supersedes item.id for API calls. */
 	routeKnowledgeId?: string;
+	overrideHash?: string;
 }
 
 function KnowledgeDetailView({
 	item,
 	legacySource,
 	routeKnowledgeId,
+	overrideHash,
 }: KnowledgeDetailViewProps): JSX.Element {
 	// Q2: Use the route-resolved id for API calls to avoid FALLBACK_DETAIL.id = "unknown"
 	const effectiveKnowledgeId = routeKnowledgeId ?? item.id;
@@ -543,7 +550,8 @@ function KnowledgeDetailView({
 	// scrollIntoView?.() is the optional-call guard (jsdom leaves it undefined; precedent
 	// HostThreadSection.tsx, WorkBet.tsx). React 18: schedule via rAF so the KnowledgeBody
 	// render is complete (https://react.dev/reference/react/useEffect).
-	const { hash } = useLocation();
+	const { hash: routeHash } = useLocation();
+	const hash = overrideHash ?? routeHash;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: savedContent triggers re-scroll after content changes (blocks re-render with new data-block-id attrs)
 	useEffect(() => {
 		if (!hash.startsWith("#block-")) return;
@@ -845,7 +853,14 @@ function KnowledgeDetailView({
 									Edit
 								</Button>
 							) : editing ? (
-								<Button variant="primary" size="sm" onClick={exitEdit}>
+								<Button
+									variant="primary"
+									size="sm"
+									onClick={exitEdit}
+									disabled={
+										saveStatus === "saving" || saveStatus === "error" || saveStatus === "conflict"
+									}
+								>
 									Done
 								</Button>
 							) : null}
@@ -871,7 +886,7 @@ function KnowledgeDetailView({
 				/>
 			}
 		>
-			<div className="flex gap-[24px] p-[24px] max-w-[960px] mx-auto w-full">
+			<div className="flex flex-col md:flex-row gap-[24px] p-[24px] max-w-[960px] mx-auto w-full">
 				{/* Main content column */}
 				<div className="flex flex-col gap-[24px] flex-1 min-w-0">
 					{amendableBanner && (
@@ -1009,7 +1024,7 @@ function KnowledgeDetailView({
 				{/* Metadata aside — card containers, no left border */}
 				<aside
 					data-testid="knowledge-metadata-aside"
-					className="w-[240px] shrink-0 flex flex-col gap-[18px]"
+					className="w-full md:w-[240px] shrink-0 flex flex-col gap-[18px]"
 					aria-label="Knowledge metadata"
 				>
 					{/* Q2: Scope change dialog */}

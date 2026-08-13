@@ -10,7 +10,7 @@ A conversation is a calm, single-column read of the messages you and your agents
 
 ### References show inline, not as bare links
 
-When a message points at something — a code artifact, an image, a knowledge doc — it renders as a compact **reference chip** you click to open the real thing. A linked session shows as a quiet "Show session" chip; clicking it opens the **Session view** in a right panel alongside the conversation. Every other reference navigates to its own view. The conversation never renders a viewer in place.
+When a message points at something — a code artifact, an image, or a knowledge doc — it renders as a compact **reference chip**. Clicking a contextual reference inspects the real object in a pane alongside the conversation, preserving your reading position and draft. **Back to conversation** folds the pane away. Structural **Open** actions still navigate to the object's full page.
 
 ### Session view — watching an agent work
 
@@ -30,7 +30,7 @@ The session view is read-plus-queue, not a decision surface. Verdicts happen on 
 
 ### Reviews open on the review page
 
-A review request shows compactly in the conversation: a "Review requested" marker, the proposal line, the change-set as a reference chip, and one **Open review** button. You never approve or reject inside the conversation. Once decided, the conversation shows a one-line echo — "✓ Approved by …" — with a quiet **View review** link back.
+A review request shows compactly in the conversation: a "Review requested" marker, the proposal line, the change-set as a reference chip, and one **Open review** button that navigates to the review page. You never approve or reject inside the conversation. Once decided, the conversation shows a one-line echo — "✓ Approved by …" — with a quiet **Inspect review** action that opens the resolved review beside the conversation.
 
 ### Review verdicts
 

@@ -51,21 +51,8 @@ vi.mock("../../shell/HostThreadSection.js", () => ({
 	HostThreadSection: () => <div data-testid="host-thread-section" />,
 }));
 
-vi.mock("../../shell/TaskSheet", () => ({
-	TaskSheet: () => null,
-}));
-
-vi.mock("../../services/task-threads", () => ({
-	resolveOrCreateTaskThread: vi.fn(),
-	postRequestMessage: vi.fn(),
-}));
-
 vi.mock("../../services/api-fetch.js", () => ({
 	apiFetch: vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }),
-}));
-
-vi.mock("../../lib/url-utils.js", () => ({
-	isValidHarnessUrl: () => false,
 }));
 
 vi.mock("../../pages/knowledge/KnowledgeCreateDialog", () => ({
