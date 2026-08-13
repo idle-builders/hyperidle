@@ -1,13 +1,9 @@
 /**
- * U6 — Sidebar settings overlay tests.
- *
- * AC-8: Settings button opens settings overlay in sidebar (settingsNavItems
- *       replaces body content when settingsOpen=true).
+ * Settings keeps the primary shell and domain navigator intact.
  */
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { JSX } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
 
@@ -32,17 +28,7 @@ const baseProps = {
 	settingsOpen: false,
 };
 
-function SettingsNavStub(): JSX.Element {
-	return (
-		<nav data-testid="settings-nav-stub">
-			<button type="button">Profile</button>
-			<button type="button">Appearance</button>
-			<button type="button">Notifications</button>
-		</nav>
-	);
-}
-
-describe("Sidebar — AC-8: Settings overlay in sidebar", () => {
+describe("Sidebar — persistent navigation while Settings is open", () => {
 	it("Settings button is present in the bottom strip", () => {
 		render(<Sidebar {...baseProps} />);
 		expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
@@ -56,33 +42,19 @@ describe("Sidebar — AC-8: Settings overlay in sidebar", () => {
 		expect(onSettingsClick).toHaveBeenCalledOnce();
 	});
 
-	it("renders settingsNavItems in the sidebar body when settingsOpen=true", () => {
-		render(<Sidebar {...baseProps} settingsOpen={true} settingsNavItems={<SettingsNavStub />} />);
-		expect(screen.getByTestId("settings-nav-stub")).toBeInTheDocument();
-	});
-
-	it("does NOT render settingsNavItems when settingsOpen=false", () => {
-		render(<Sidebar {...baseProps} settingsOpen={false} settingsNavItems={<SettingsNavStub />} />);
-		expect(screen.queryByTestId("settings-nav-stub")).not.toBeInTheDocument();
-	});
-
-	it("hides the normal section content (threads/teams/scopes) when settingsOpen=true", () => {
+	it("keeps the active domain navigator visible when settingsOpen=true", () => {
 		const threads = [{ id: "t1", title: "Thread One", hasUnresolvedReview: false }];
-		render(
-			<Sidebar
-				{...baseProps}
-				settingsOpen={true}
-				settingsNavItems={<SettingsNavStub />}
-				threads={threads}
-			/>,
-		);
-		// Normal section content should not be visible when settings is open
-		expect(screen.queryByText("Thread One")).not.toBeInTheDocument();
+		render(<Sidebar {...baseProps} settingsOpen={true} threads={threads} />);
+		expect(screen.getByText("Thread One")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /^conversations$/i })).toBeInTheDocument();
 	});
 
-	it("shows 'Settings' heading in the sidebar body when settingsOpen=true", () => {
-		render(<Sidebar {...baseProps} settingsOpen={true} settingsNavItems={<SettingsNavStub />} />);
-		// Settings heading should be visible in the sidebar
-		expect(screen.getByText(/^settings$/i)).toBeInTheDocument();
+	it("marks the Settings utility as current without replacing the navigator", () => {
+		render(<Sidebar {...baseProps} settingsOpen={true} />);
+		expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		expect(screen.queryByText(/^settings$/i)).not.toBeInTheDocument();
 	});
 });

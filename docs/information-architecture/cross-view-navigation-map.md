@@ -6,9 +6,9 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 
 | From | To | Trigger |
 |---|---|---|
-| Any view | Conversations / Work / Knowledge | Sidebar section item; `⌘/Ctrl+1/2/3` (`useNavShortcuts.ts`) |
+| Any view | Notifications / Conversations / Work / Knowledge | Stable Sidebar destination; `⌘/Ctrl+1/2/3` for the three selectable domains (`useNavShortcuts.ts`) |
 | Any view | Back / Forward in history | `⌘/Ctrl+[` / `⌘/Ctrl+]` (`useNavShortcuts.ts`); NavHistoryCluster |
-| Any view | Thread / Team / Knowledge item | Sidebar fast-nav row → `/conversations/:threadId`, `/work/team/:teamId`, `/knowledge/:knowledgeId` |
+| Any view | Thread / Team / Knowledge item | Sidebar domain-navigator row → `/conversations/:threadId`, `/work/team/:teamId`, `/knowledge/:knowledgeId` |
 | Any view | Settings | Sidebar gear (`Sidebar.tsx:324-361` SettingsFooter) → in-shell settings overlay (`AppShell` `settingsOpen`) — see [app-shell-always-present.md §5](app-shell-always-present.md) |
 
 ## Within Conversations

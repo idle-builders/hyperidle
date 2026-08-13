@@ -19,12 +19,12 @@ The dividing line is **decision vs. doing** — not severity, and not size. Seve
 | | Goes to a **work package** | Goes to the **bug list** |
 |---|---|---|
 | Test | Closes a contract other work must obey, or needs the founder to choose between real alternatives | Correct end state already obvious; verifiable by looking; nothing downstream depends on the choice |
-| Count | 9 active/complete registrations | ~110 |
+| Count | 14 active/complete registrations | ~110 |
 | Where | `work/<id>/plan.md`, registered below | [`AZ-bugs.md`](work/AZ-bugs/AZ-bugs.md) |
 
 **The bug list is the main artifact of this track.** One agent picks the next unchecked item, fixes it, proves it in the running app, ticks it, moves on — no refine, no design, no architecture, no review gate. Batch several per session where they share a file.
 
-**Execution procedure for the work packages — human-approved, 2026-08-11.** The original packages use their recorded procedure. The AZ11 amendment approved 2026-08-13 replaces its failed combined run with two sequential packages, each receiving fresh detailed architecture and critique before tests and code. AZ11-O builds and merges first; AZ11-G starts from fresh `main` afterward.
+**Execution procedure for the work packages — human-approved, 2026-08-11.** The original packages use their recorded procedure. The AZ11 amendment approved 2026-08-13 replaces its failed combined run with two sequential packages, each receiving fresh detailed architecture and critique before tests and code. AZ11-O builds and merges first; AZ11-G starts from fresh `main` afterward. AZ17–AZ21 were registered after AZ13 established the shared shell; each plan states the pre-build work its domain genuinely needs.
 
 ---
 
@@ -38,15 +38,21 @@ The dividing line is **decision vs. doing** — not severity, and not size. Seve
 | AZ11 | One page geometry | frontend/contract | M | AZ2 | **superseded 2026-08-13** — two failed implementation reviews showed the combined package joined independently reviewable orientation/document-outline and geometry outcomes, while an omnibus lint/E2E mechanism overclaimed runtime proof and crossed the repository complexity warning. Founder approved replacement by AZ11-O then AZ11-G. The failed-run artifacts remain under `work/AZ11/` as evidence. |
 | AZ11-O | Page orientation and document outline | frontend/contract | M | AZ2 | **planned** — exact breadcrumb identity/Artifact ancestry and `Setup`/`Page not found` copy approved 2026-08-13; owns header-first, one-H1, and authored-heading semantics. See `work/AZ11-O/plan.md`. |
 | AZ11-G | One page geometry | frontend/contract | M | AZ11-O | **planned** — applies approved centered 1120px Option B across standard and managed surfaces after AZ11-O establishes every PageHeader substrate; preserves 680/760 measures and Block internal geometry. See `work/AZ11-G/plan.md`. |
-| AZ13 | Sidebar navigation is one system | frontend | M | — | **planned** — an unlabelled secondary list duplicates the main list in a different order; opening settings removes primary navigation entirely. A work package because whether that list earns its space is a product decision. See `work/AZ13/plan.md`. |
+| AZ13 | Sidebar navigation is one system | frontend | M | — | **implemented, shipping** — the founder-approved shell is a 276px fixed desktop bar and 300px mobile drawer: HyperIdle identity + grouped Search/Assistant entry, four stable domain switches, one large domain-owned navigator, and icon-only Settings. Primary navigation persists through Settings; mobile detail routes keep Back and Menu. Domain richness is deliberately split into AZ17–AZ21. See `work/AZ13/plan.md`. |
 | AZ14 | One rule for opening and editing an object | frontend/contract | M | — | **planned** — registered 2026-08-11 from the founder walkthrough. Routines and agents open a split pane; bets, tasks, knowledge, threads and artifacts take the page; notifications, assistant and search float above it — nothing about the objects explains the grouping. Editing splits the same way: a bet's pitch is an always-live inline editor, a knowledge item is read-only behind an Edit button. A work package because the rule, once set, governs every object. See `work/AZ14/plan.md`. |
 | AZ15 | Spacing and elevation hold across the product | frontend/contract | M | — | **planned** — registered 2026-08-11 from the founder walkthrough: *"there are so many spaces with weird spacing or non at all."* The only significant complaint with **no evidence behind it yet** — neither audit pass measured spacing or elevation. Its round therefore begins with measurement, then decides the proportional system. See `work/AZ15/plan.md`. |
 | AZ16 | Every design token is enforced | frontend/contract | M | — | **planned** — registered 2026-08-12 after AZ7's post-ship durability review: AZ7 gated radius, color vocabulary, controls and status at `error`, but the typography, motion and border families still sit where AZ7's population sat before it — `no-off-scale-font-size` and `no-raw-tailwind-color` at `warn` for core-ui (never executed: `npm run lint --quiet` skips warn rules entirely), `no-hardcoded-tracking` and `no-off-scale-duration` unwired for core-ui, and no rule at all for font family, weight, line height, easing or border width. Promotes/wires the existing rules with populations cleared, adds rules for the ungated families, and makes the gate set total over `tokens.css` — a token family with no gate fails verification. Spacing and shadow tokens stay AZ15's axis. See `work/AZ16/plan.md`. |
+| AZ17 | Notifications navigator | frontend | M | AZ13 | **planned** — make attention scanning, organization and destination-opening native to the domain-owned navigator; retire redundant notification navigation only after parity. See `work/AZ17/plan.md`. |
+| AZ18 | Conversations navigator | frontend | M | AZ13 | **planned** — move conversation scanning, resuming and organization into the navigator under one ordering contract; retire the full list only after its retained journeys are covered. See `work/AZ18/plan.md`. |
+| AZ19 | Work navigator | frontend | M | AZ13 | **planned** — settle team scope, work-object structure and truthful status in the navigator, with any list-page retirement gated on equivalent access. See `work/AZ19/plan.md`. |
+| AZ20 | Knowledge navigator | frontend | M | AZ13 | **planned** — replace the arbitrary five-row head with a scalable, canonical browse structure suitable for deep knowledge sets and phone drawers. See `work/AZ20/plan.md`. |
+| AZ21 | Search and Assistant entry surface | frontend | M | AZ13 | **planned** — turn AZ13's visually grouped triggers into one coherent intent entry while preserving the distinct Search and Assistant outcomes. See `work/AZ21/plan.md`. |
 
 ## Dependency graph
 
 - `AZ11-O` → `AZ2`: AZ2 settles the PageScaffold header/body and scroll substrate used by the orientation/document-outline contract.
 - `AZ11-G` → `AZ11-O`: Setup, NotFound, and Artifact need AZ11-O's PageHeader/outline substrate before all 17 header/body relationships can be implemented and verified.
+- `AZ17`, `AZ18`, `AZ19`, `AZ20`, `AZ21` → `AZ13`: each follow-up needs AZ13's stable domain switcher and dynamic navigator region before it can own domain content or the shared header entry.
 - Every other work package is independent.
 
 **Sequencing preferences (not dependencies).**
@@ -55,6 +61,7 @@ The dividing line is **decision vs. doing** — not severity, and not size. Seve
 - `AZ15` after `AZ7` if convenient — closing the control set removes noise from the spacing measurement.
 - `AZ16` after `AZ15` if convenient — both promote rules in the same severity table, and AZ15's spacing decisions may move nearby populations. Not a dependency.
 - `AZ6`, `AZ13`, `AZ14`, `AZ15` each carry a real decision; get those artifacts in front of the founder early so their builds are not gated waiting on approval.
+- `AZ17`–`AZ21` may proceed independently after AZ13. Their list-page removals are outcomes to prove per domain, not a track-wide big-bang migration.
 - The bug list runs in parallel with all of it. Batches A and B touch nothing a work package decides.
 
 ## Retired registrations

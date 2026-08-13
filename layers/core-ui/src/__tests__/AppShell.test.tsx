@@ -131,11 +131,13 @@ describe("AppShell", () => {
 
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
-		// P4: SettingsPanel modal removed. Settings overlay is now a shell-state
-		// content swap — Sidebar shows settings nav items, Main shows the active section.
+		// Settings changes Main while the global shell and domain navigator persist.
 		await waitFor(() => {
-			// Settings appears in both the sidebar label and the page header when open
-			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
+			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
+			expect(screen.getByRole("button", { name: /^conversations$/i })).toBeInTheDocument();
 		});
 	});
 

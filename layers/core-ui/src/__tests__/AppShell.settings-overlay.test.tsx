@@ -70,11 +70,12 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 			expect(screen.getByRole("button", { name: /settings/i })).toBeInTheDocument();
 		});
 		await user.click(screen.getByRole("button", { name: /settings/i }));
-		// P4: settings overlay is now a shell-state content swap (not a dialog).
-		// Wait for Settings nav to appear in the Sidebar.
+		// Settings is an icon-only persistent shell control.
 		await waitFor(() => {
-			// Settings appears in both the sidebar label and the page header when open
-			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
+			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
 		});
 		// @lore AD8a: historical — With the overlay open, there should be no "Active Bets" label (Rail removed).
 		expect(screen.queryByText("Active Bets")).toBeNull();
@@ -87,11 +88,12 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 			expect(screen.getByTestId("main-content")).toBeInTheDocument();
 		});
 		await user.click(screen.getByRole("button", { name: /settings/i }));
-		// P4: settings overlay is now a shell-state content swap (not a dialog).
-		// Wait for Settings nav to appear.
+		// P4: settings remains a shell-state content swap (not a dialog).
 		await waitFor(() => {
-			// Settings appears in both the sidebar label and the page header when open
-			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
+			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
 		});
 		// @lore P4 fix: main-content shows settings section content when settings is open
 		// so it must NOT be aria-hidden (screen readers need to access the forms).
@@ -108,15 +110,17 @@ describe("AppShell — Settings overlay + Command-K priority (J3)", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 		// P4: settings overlay is now a shell-state content swap (not a dialog).
 		await waitFor(() => {
-			// Settings appears in both the sidebar label and the page header when open
-			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
+			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
 		});
 
 		// Fire Command-K. Settings must close; search dialog must open.
 		await user.keyboard("{Meta>}k{/Meta}");
 
 		await waitFor(() => {
-			expect(screen.queryByText("Settings")).not.toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /settings/i })).not.toHaveAttribute("aria-current");
 		});
 		await waitFor(() => {
 			expect(screen.getByRole("dialog", { name: /global search/i })).toBeInTheDocument();

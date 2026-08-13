@@ -1,25 +1,16 @@
 /**
- * @lore U6: Sidebar replaces the IconRail | Submenu | Rail trio.
- * A 200px fixed-width vertical navigation with three labeled sections
- * (Conversations, Work, Knowledge), dynamic sub-items under each, and a
- * bottom strip for CoC trigger and settings access.
+ * @lore sidebar-system: Sidebar is the persistent context-switching shell. Desktop uses
+ * a 276px fixed column; mobile uses the same composition in a 300px drawer.
+ * Search and Assistant are grouped in the brand row, four stable destinations
+ * sit above a domain-owned navigator, and Settings stays in the footer.
  *
  * @lore U6: The Sidebar is a Tier 3 shell composition, NOT a design-system
  * primitive. Sub-items use raw <li><button> elements (not NavItem from
  * @hyperidle/design-system) because NavItem's interface does not expose the
- * data-thread-id / data-team-id attributes needed for E2E selectors, and the
- * sub-item density requirement (28px min-h) is below NavItem's default
- * --density-row-h which would add unnecessary padding. DaisyUI primitives are
- * used for section headers and bottom buttons.
+ * data-thread-id / data-team-id attributes needed for E2E selectors.
  *
- * @lore AQ-015 (touch targets): section header buttons must satisfy >= 44px
- * touch target at tablet/mobile viewports. After the visual-parity-audit fix,
- * the section headers use natural height from padding (no min-h-[44px]). The
- * buttons remain fully interactive; touch-target compliance at <= 1024px is
- * satisfied by the 14px font + 6px/12px padding producing ~38px rendered
- * height. The AQ-015 hard rule applies at viewport <= 1024px; desktop sidebars
- * are exempt per the U6 lore comment about sub-items. Section header height
- * slightly below 44px is an accepted tradeoff per the mockup spec.
+ * @lore AQ-015: destination, tool, list, and utility controls use 44px targets
+ * on mobile and compact to 32–36px only in the fixed desktop column.
  *
  * @lore visual-parity-audit / testing-library quirk: The "conversations"
  * section header previously hid its visible label to avoid getByText clashing
@@ -32,16 +23,10 @@
  * Tests updated to use exact-match queries for the header vs substring for the
  * empty state, OR getByRole for the header button.
  *
- * @lore AD9: Sidebar redesigned to SidebarV2 layout (founder /human-design-review
- * approved). New layout top→bottom:
- *   1. Search field + Assistant icon button (same row, top of sidebar)
- *   2. Three selectable section items (Conversations / Work / Knowledge)
- *   3. Separator
- *   4. ONE shared fast-nav list (swaps content by active section)
- *   5. Settings pinned at bottom
- * The existing SidebarProps API is preserved; new knowledgeItems prop added for
- * Knowledge fast-nav. SectionHeader retain data-section-header attr for E2E
- * selectors. Uniform hover treatment across top-level + fast-nav rows.
+ * @lore sidebar-system: Settings changes Main but never replaces the active domain
+ * navigator. Domain-specific navigator richness is intentionally deferred to
+ * registered follow-up work packages; these provisional lists preserve current
+ * data and behavior without creating new sorting/grouping contracts here.
  *
  * @lore AD9: The fast-nav renders a custom <ul><li> list (not ItemList+Row) so
  * that each item can carry data-thread-id / data-team-id / data-knowledge-id
@@ -51,8 +36,7 @@
  */
 
 // hearth-internal-padding
-import { SearchField } from "@hyperidle/design-system";
-import type { JSX, ReactNode } from "react";
+import type { JSX } from "react";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 
@@ -108,9 +92,6 @@ export interface SidebarProps {
 	/** Search hint trigger — opens Cmd+K panel */
 	onSearchClick: () => void;
 
-	/** Settings mode: replaces body with settings nav */
-	settingsNavItems?: ReactNode;
-
 	/** User avatar */
 	avatarUrl?: string;
 	userInitials?: string;
@@ -129,7 +110,7 @@ export interface SidebarProps {
 
 	/**
 	 * AF8: count of unseen notifications. When > 0, a red dot renders on the
-	 * notification trigger button in the bottom strip.
+	 * notification destination at the top of the stable switcher.
 	 */
 	unseenNotificationCount?: number;
 
@@ -163,6 +144,89 @@ interface SectionHeaderProps {
 	badgeCount?: number;
 }
 
+function BrandMark(): JSX.Element {
+	return (
+		<svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 500 500" aria-hidden="true">
+			<defs>
+				<linearGradient
+					id="sidebar-brand-up"
+					x1="0"
+					y1="250"
+					x2="0"
+					y2="70"
+					gradientUnits="userSpaceOnUse"
+				>
+					<stop offset="0%" stopColor="var(--surface-container)" />
+					<stop offset="100%" stopColor="var(--text-primary)" />
+				</linearGradient>
+				<linearGradient
+					id="sidebar-brand-down"
+					x1="0"
+					y1="250"
+					x2="0"
+					y2="430"
+					gradientUnits="userSpaceOnUse"
+				>
+					<stop offset="0%" stopColor="var(--surface-container)" />
+					<stop offset="100%" stopColor="var(--text-primary)" />
+				</linearGradient>
+			</defs>
+			<path d="M110 250c80 0 106-150 110-180 4 30 30 180 110 180Z" fill="url(#sidebar-brand-up)" />
+			<path
+				d="M170 250c80 0 106 150 110 180 4-30 30-180 110-180Z"
+				fill="url(#sidebar-brand-down)"
+			/>
+		</svg>
+	);
+}
+
+function NotificationButton({
+	unseenNotificationCount,
+	onClick,
+	open,
+}: {
+	unseenNotificationCount?: number;
+	onClick?: () => void;
+	open?: boolean;
+}): JSX.Element {
+	const hasUnread = (unseenNotificationCount ?? 0) > 0;
+	return (
+		<button
+			type="button"
+			data-testid="sidebar-notification-btn"
+			onClick={onClick}
+			aria-label="Notifications"
+			aria-expanded={open}
+			className="relative flex h-[44px] w-full items-center justify-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] text-[14px] font-[500] text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[769px]:justify-start min-[1025px]:h-[36px]"
+		>
+			<span className="inline-flex text-[var(--text-tertiary)]" aria-hidden="true">
+				<svg
+					width="17"
+					height="17"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.8"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+					<path d="M10 21h4" />
+				</svg>
+			</span>
+			<span className="hidden min-[769px]:inline">Notifications</span>
+			{hasUnread && (
+				<span
+					className="ml-auto h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-error)]"
+					data-testid="notification-unread-dot"
+					aria-hidden="true"
+				/>
+			)}
+		</button>
+	);
+}
+
 function SectionHeader({
 	view,
 	activeView,
@@ -182,7 +246,7 @@ function SectionHeader({
 			aria-label={label}
 			aria-current={isActive ? "page" : undefined}
 			className={[
-				"flex w-full items-center gap-[9px] px-[12px] py-[6px]",
+				"flex h-[44px] w-full items-center justify-center gap-[9px] px-[9px] min-[769px]:justify-start min-[1025px]:h-[36px]",
 				"font-[family-name:var(--font-sans)] text-[14px]",
 				"rounded-[var(--r-subtle)] mb-[3px]",
 				"transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
@@ -205,7 +269,9 @@ function SectionHeader({
 			>
 				{icon}
 			</span>
-			<span data-section-label={view}>{label}</span>
+			<span className="hidden min-[769px]:inline" data-section-label={view}>
+				{label}
+			</span>
 			{badgeCount != null && badgeCount > 0 && (
 				<span
 					className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[var(--r-pill)] text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
@@ -247,8 +313,7 @@ function AssistantIconButton({
 			// A pressed/open TOGGLE state, not an action Button (Button has no
 			// built-in pressed treatment distinct from its 4 action variants).
 			className={[
-				"inline-flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[var(--r-default)]",
-				"border border-[var(--border-subtle)]",
+				"inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
 				"transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 				// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
 				// selected tint — not a no-handrolled-control violation.
@@ -276,55 +341,65 @@ function AssistantIconButton({
 	);
 }
 
+function SearchAssistantTools({
+	onSearchClick,
+	onAssistantClick,
+	assistantOpen,
+}: {
+	onSearchClick: () => void;
+	onAssistantClick: () => void;
+	assistantOpen: boolean;
+}): JSX.Element {
+	return (
+		<fieldset
+			className="flex shrink-0 overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			aria-label="Search and assistant tools"
+		>
+			<button
+				type="button"
+				data-testid="sidebar-search-hint"
+				onClick={onSearchClick}
+				aria-label="Search"
+				title="Search (⌘K)"
+				className="inline-flex h-[44px] w-[44px] items-center justify-center text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] min-[1025px]:h-[32px] min-[1025px]:w-[32px]"
+			>
+				<svg
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.8"
+					strokeLinecap="round"
+					aria-hidden="true"
+				>
+					<circle cx="10.5" cy="10.5" r="6.5" />
+					<path d="m15.5 15.5 4 4" />
+				</svg>
+			</button>
+			<span className="my-[6px] w-px bg-[var(--border-subtle)]" aria-hidden="true" />
+			<AssistantIconButton open={assistantOpen} onClick={onAssistantClick} />
+		</fieldset>
+	);
+}
+
 // ---------------------------------------------------------------------------
-// Settings footer — pinned at the BOTTOM (AD9 fix 3).
-// Separator above + gear icon + "Settings" label.
-// Same hover treatment as top-level items (accent-tinted color-mix).
+// Settings footer — a persistent icon-only utility pinned at the bottom.
 // ---------------------------------------------------------------------------
 
 function SettingsFooter({
 	active,
 	onClick,
-	unseenNotificationCount,
-	onNotificationClick,
-	notificationPopoverOpen,
 }: {
 	active: boolean;
 	onClick: () => void;
-	unseenNotificationCount?: number;
-	onNotificationClick?: () => void;
-	notificationPopoverOpen?: boolean;
 }): JSX.Element {
-	const hasUnread = (unseenNotificationCount ?? 0) > 0;
 	return (
-		<div className="shrink-0" data-sidebar-bottom>
-			<hr className="border-t border-[var(--border-subtle)] mx-[6px] mb-[6px]" />
-			{/* AF8: Notification button — renders when onNotificationClick is wired.
-			    The unread dot (notification-unread-dot) appears when unseenNotificationCount > 0. */}
-			{onNotificationClick && (
-				<button
-					type="button"
-					data-testid="sidebar-notification-btn"
-					onClick={onNotificationClick}
-					aria-label="Notifications"
-					aria-expanded={notificationPopoverOpen}
-					className="relative flex w-full items-center gap-[9px] px-[12px] py-[6px] font-[family-name:var(--font-sans)] text-[14px] rounded-[var(--r-subtle)] mb-[3px] text-[var(--text-secondary)] font-[500] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
-				>
-					<span className="inline-flex text-[var(--text-tertiary)]" aria-hidden="true">
-						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-							<path d="M8 1a5 5 0 00-5 5v2.586l-.707.707A1 1 0 003 11h10a1 1 0 00.707-1.707L13 8.586V6a5 5 0 00-5-5zm0 13a2 2 0 01-2-2h4a2 2 0 01-2 2z" />
-						</svg>
-					</span>
-					<span>Notifications</span>
-					{hasUnread && (
-						<span
-							className="absolute top-[6px] right-[9px] w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--status-error)]"
-							data-testid="notification-unread-dot"
-							aria-hidden="true"
-						/>
-					)}
-				</button>
-			)}
+		<nav
+			className="flex shrink-0 justify-end border-t border-[var(--border-subtle)] p-[6px]"
+			data-sidebar-bottom
+			aria-label="App utilities"
+		>
 			<button
 				type="button"
 				data-testid="sidebar-settings-btn"
@@ -333,7 +408,7 @@ function SettingsFooter({
 				aria-label="Settings"
 				aria-current={active ? "page" : undefined}
 				className={[
-					"flex w-full items-center gap-[9px] px-[12px] py-[6px]",
+					"flex h-[44px] w-[44px] items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
 					"font-[family-name:var(--font-sans)] text-[14px]",
 					"rounded-[var(--r-subtle)]",
 					"transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
@@ -359,11 +434,8 @@ function SettingsFooter({
 						/>
 					</svg>
 				</span>
-				{/* @lore P4 AC: Settings footer is icon-only (no visible text). "Settings"
-				    text appears ONLY in the sidebar body heading when settingsOpen=true.
-				    This allows P4 test: after Escape, queryByText("Settings") returns null. */}
 			</button>
-		</div>
+		</nav>
 	);
 }
 
@@ -373,8 +445,7 @@ function SettingsFooter({
 // @lore AD9: Uses a plain <li><div role="button"> pattern instead of Row as="li"
 // so each item carries data-thread-id / data-team-id / data-knowledge-id for
 // E2E selectors. Row does not accept arbitrary data-* props. Selected state
-// replicates Row's bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]
-// class directly (same tokens, no abstraction gap).
+// uses the shell's shared accent-primary-dim row treatment.
 //
 // @lore AD9: aria-current="page" on the selected item satisfies the
 // "active sub-item has aria-current" accessibility test.
@@ -411,12 +482,7 @@ function FastNavItem({
 			data-team-id={dataTeamId}
 			data-knowledge-id={dataKnowledgeId}
 			aria-current={selected ? "page" : undefined}
-			className={[
-				"border-b border-[var(--border-subtle)] last:border-b-0",
-				selected
-					? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] rounded-[var(--r-subtle)]"
-					: "",
-			]
+			className={[selected ? "bg-[var(--accent-primary-dim)] rounded-[var(--r-subtle)]" : ""]
 				.filter(Boolean)
 				.join(" ")}
 		>
@@ -424,8 +490,9 @@ function FastNavItem({
 				type="button"
 				data-testid={dataTestId}
 				onClick={onClick}
+				title={label}
 				className={[
-					"flex items-center w-full px-[24px] min-h-[44px]",
+					"flex h-[44px] w-full items-center rounded-[var(--r-subtle)] px-[9px] min-[1025px]:h-[34px]",
 					"text-[13px] font-[500] text-[var(--text-primary)] truncate",
 					"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
 					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
@@ -439,19 +506,6 @@ function FastNavItem({
 				<span className="truncate">{label}</span>
 			</button>
 		</li>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// Settings heading — rendered in sidebar body when settingsOpen=true.
-// P4 AC: "Settings heading in Sidebar body" appears when open, disappears on close.
-// ---------------------------------------------------------------------------
-
-function SettingsHeading(): JSX.Element {
-	return (
-		<p className="px-[12px] py-[6px] font-[family-name:var(--font-mono)] text-[12px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-secondary)]">
-			Settings
-		</p>
 	);
 }
 
@@ -475,7 +529,6 @@ export function Sidebar({
 	onSettingsClick,
 	settingsOpen,
 	onSearchClick,
-	settingsNavItems,
 	knowledgeTriageCount,
 	conversationsBlockingCount,
 	unseenNotificationCount,
@@ -500,19 +553,6 @@ export function Sidebar({
 	const emptyMessage = fastNavEmpty[activeView];
 
 	function renderFastNavItems(): JSX.Element | null {
-		if (settingsOpen) {
-			// Settings mode: show "Settings" heading + settings nav items.
-			// @lore P4 AC: "Settings" text in sidebar body appears when settingsOpen=true
-			// and disappears when closed (Escape / settings button click). The footer
-			// button is icon-only (aria-label only) so "Settings" text is ONLY in the body.
-			return (
-				<>
-					<SettingsHeading />
-					{settingsNavItems && <div className="flex flex-col gap-[3px]">{settingsNavItems}</div>}
-				</>
-			);
-		}
-
 		if (activeView === "conversations") {
 			if (visibleThreads.length === 0) {
 				return (
@@ -593,51 +633,41 @@ export function Sidebar({
 			);
 		}
 
-		return <></>;
+		return null;
 	}
 
 	return (
 		<aside
 			data-ds-shell="Sidebar"
-			aria-label="Main navigation"
-			className="flex flex-col w-full shrink-0 h-full p-[12px] gap-[12px]"
+			aria-label="App sidebar"
+			className="flex h-full w-full shrink-0 flex-col bg-[var(--surface-elevated)]"
 		>
-			{/* 1 + 2: Search field + Assistant icon button on the same row.
-			    AD9: use SearchField.shortcutKey="⌘K" — the DS component renders a
-			    kbd pill at the right edge natively. AssistantIconButton is to the right
-			    of the search field (per SidebarV2 founder-approved design).
-			    @lore AD9: data-testid="sidebar-search-hint" on the wrapper satisfies the
-			    W3 AC-1 test that queries by testid. The wrapper's onClick triggers
-			    onSearchClick so clicking anywhere on the row (not just the input) opens
-			    the Cmd+K panel — same UX as the old hint-button pattern. */}
-			<div className="flex items-center gap-[6px] shrink-0">
-				{/* biome-ignore lint/a11y/noStaticElementInteractions: div wraps SearchField (interactive); onClick is a hint for the Cmd+K trigger, actual input focus is handled by SearchField itself */}
-				{/* biome-ignore lint/a11y/useKeyWithClickEvents: SearchField is a real keyboard-accessible input; wrapper div onClick only supplements pointer interaction for the Cmd+K hint */}
-				<div
-					className="flex-1 min-w-0"
-					data-testid="sidebar-search-hint"
-					onClick={() => onSearchClick()}
-				>
-					<SearchField
-						placeholder="Search"
-						value=""
-						onChange={() => onSearchClick()}
-						shortcutKey="⌘K"
-					/>
+			<header className="flex h-[56px] shrink-0 items-center justify-between px-[12px] min-[1025px]:h-[54px]">
+				<div className="flex min-w-0 items-center gap-[9px] text-[15px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
+					<BrandMark />
+					<span>HyperIdle</span>
 				</div>
-				<AssistantIconButton
-					open={assistantOverlayOpen ?? false}
-					onClick={onAssistantClick ?? (() => undefined)}
+				<SearchAssistantTools
+					onSearchClick={onSearchClick}
+					onAssistantClick={onAssistantClick ?? (() => undefined)}
+					assistantOpen={assistantOverlayOpen ?? false}
 				/>
-			</div>
+			</header>
 
-			{/* 3: Three selectable top-level section items */}
-			<nav className="flex flex-col shrink-0" aria-label="Main navigation">
+			<nav
+				className="grid h-[52px] shrink-0 grid-cols-4 gap-[3px] border-b border-[var(--border-subtle)] px-[9px] pb-[3px] min-[769px]:h-auto min-[769px]:grid-cols-1 min-[769px]:gap-0 min-[769px]:pb-[9px] min-[769px]:pt-[6px]"
+				aria-label="Main navigation"
+			>
+				<NotificationButton
+					unseenNotificationCount={unseenNotificationCount}
+					onClick={onNotificationClick}
+					open={notificationPopoverOpen}
+				/>
 				{VIEW_IDS.map((view) => (
 					<SectionHeader
 						key={view}
 						view={view}
-						activeView={settingsOpen ? "" : activeView}
+						activeView={activeView}
 						onViewChange={(v) => {
 							onViewChange(v);
 						}}
@@ -652,23 +682,16 @@ export function Sidebar({
 				))}
 			</nav>
 
-			{/* 4: Separator */}
-			<hr className="border-t border-[var(--border-subtle)] mx-[6px] shrink-0" />
-
-			{/* 5: Shared fast-nav area — ONE list, content swaps on section change.
-			    When settingsOpen, shows the settingsNavItems instead. */}
-			<div className="flex-1 min-h-0 overflow-y-auto" data-fastnav-section={activeView}>
-				{renderFastNavItems()}
+			<div className="flex min-h-0 flex-1 flex-col" data-fastnav-section={activeView}>
+				<div className="flex h-[44px] shrink-0 items-center px-[12px] font-[family-name:var(--font-mono)] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)] min-[769px]:px-[18px]">
+					{VIEW_ICONS[activeView].label}
+				</div>
+				<div className="min-h-0 flex-1 overflow-y-auto px-[9px] pb-[18px]">
+					{renderFastNavItems()}
+				</div>
 			</div>
 
-			{/* 6: Settings pinned at the BOTTOM (AD9 fix 3) */}
-			<SettingsFooter
-				active={settingsOpen}
-				onClick={onSettingsClick}
-				unseenNotificationCount={unseenNotificationCount}
-				onNotificationClick={onNotificationClick}
-				notificationPopoverOpen={notificationPopoverOpen}
-			/>
+			<SettingsFooter active={settingsOpen} onClick={onSettingsClick} />
 		</aside>
 	);
 }

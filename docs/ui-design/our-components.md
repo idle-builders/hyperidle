@@ -44,7 +44,7 @@ Note: `PitchCard` was deleted. The design system ships ~70 components; the list 
 
 Compose Tier-2 components into major page sections. Shell regions live in `layers/core-ui/src/shell/`.
 
-- **Sidebar** (`layers/core-ui/src/shell/Sidebar.tsx`) — 200px fixed-width vertical navigation with three labeled sections (Conversations / Work / Knowledge) and Settings pinned at the bottom. Structure → [`docs/information-architecture/app-shell-always-present.md`](../information-architecture/app-shell-always-present.md).
+- **Sidebar** (`layers/core-ui/src/shell/Sidebar.tsx`) — 276px desktop / 300px phone-drawer context switcher: identity and grouped tools, four stable destinations, one large domain navigator, and Settings pinned at the bottom. Structure → [`docs/information-architecture/app-shell-always-present.md`](../information-architecture/app-shell-always-present.md).
 
 Other shell surfaces (AppShell, DesktopTitleBar, and AssistantOverlay) live in `layers/core-ui/src/shell/`. View-specific region components live alongside their page files.
 

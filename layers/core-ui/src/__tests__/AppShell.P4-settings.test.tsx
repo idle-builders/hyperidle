@@ -118,8 +118,8 @@ describe("AppShell — P4 Settings overlay", () => {
 		vi.restoreAllMocks();
 	});
 
-	// AC-11: Settings button opens settings overlay showing settings nav in Sidebar
-	it("settings button shows 'Settings' title in Sidebar body", async () => {
+	// Settings remains a persistent shell control while Main changes to Settings.
+	it("settings button selects Settings and opens Settings in Main", async () => {
 		const user = userEvent.setup();
 		renderShell();
 
@@ -130,15 +130,18 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			// Settings appears in both the sidebar label and the page header when open
+			expect(screen.getByRole("button", { name: /settings/i })).toHaveAttribute(
+				"aria-current",
+				"page",
+			);
 			expect(screen.getAllByText("Settings").length).toBeGreaterThanOrEqual(1);
 		});
 	});
 
-	// AC-12: Settings sections in Sidebar
+	// Settings sections remain a single stacked page in Main.
 	// AF15: Updated — "teams" removed (no SettingsTeams component),
 	// "agents" and "worker" added. Count is now 9 sections.
-	it("shows settings section NavItems in Sidebar when settings is open", async () => {
+	it("shows the stacked settings sections in Main when settings is open", async () => {
 		const user = userEvent.setup();
 		renderShell();
 
@@ -149,17 +152,11 @@ describe("AppShell — P4 Settings overlay", () => {
 		await user.click(screen.getByRole("button", { name: /settings/i }));
 
 		await waitFor(() => {
-			// W3: SettingsPage renders all sections simultaneously. Some labels
-			// appear in both the Sidebar NavItems AND the SettingsPage headings.
-			// Use getAllByText(...).length >= 1 to handle duplicates gracefully.
+			// SettingsPage renders all sections simultaneously in Main.
 			expect(screen.getAllByText("Profile").length).toBeGreaterThanOrEqual(1);
-			// "Org chart" may appear in both sidebar NavItem AND SettingsPage section heading
 			expect(screen.getAllByText("Org chart").length).toBeGreaterThanOrEqual(1);
-			// "Credentials" may appear in both sidebar NavItem AND SettingsPage section heading
 			expect(screen.getAllByText("Credentials").length).toBeGreaterThanOrEqual(1);
-			// "Notifications" now appears in both sidebar NavItem AND SettingsPage section heading
 			expect(screen.getAllByText("Notifications").length).toBeGreaterThanOrEqual(1);
-			// "Appearance" appears in both sidebar + SettingsPage section heading
 			expect(screen.getAllByText("Appearance").length).toBeGreaterThanOrEqual(1);
 			// AF15 AC-1: "Agents" section added (SettingsAgents now mounted)
 			expect(screen.getAllByText("Agents").length).toBeGreaterThanOrEqual(1);

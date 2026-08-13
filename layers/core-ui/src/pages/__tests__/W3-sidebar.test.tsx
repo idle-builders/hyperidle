@@ -34,22 +34,18 @@ function makeProps(overrides: Partial<SidebarProps> = {}): SidebarProps {
 	};
 }
 
-describe("W3 AC-1 — Sidebar bottom strip", () => {
-	it("renders a search hint row with Cmd+K badge", () => {
+describe("W3 AC-1 — Sidebar utility controls", () => {
+	it("renders the compact search control", () => {
 		render(<Sidebar {...makeProps()} />);
 		// Sidebar must show a search hint element
 		const searchHint = screen.getByTestId("sidebar-search-hint");
 		expect(searchHint).toBeInTheDocument();
 	});
 
-	it("renders ⌘K keyboard shortcut in search hint", () => {
+	it("exposes the ⌘K keyboard shortcut on the compact search control", () => {
 		render(<Sidebar {...makeProps()} />);
-		// The search hint must contain a kbd element with ⌘K (Unicode command symbol)
-		// visual-parity-audit: changed from "Cmd+K" text to "⌘K" Unicode to match mockup
 		const searchHint = screen.getByTestId("sidebar-search-hint");
-		const kbd = searchHint.querySelector("kbd");
-		expect(kbd).not.toBeNull();
-		expect(kbd?.textContent).toMatch(/⌘K|cmd\+k/i);
+		expect(searchHint).toHaveAttribute("title", expect.stringMatching(/⌘K|cmd\+k/i));
 	});
 
 	// @lore AD8a: regression guard — old agent display name must not appear.
