@@ -1338,7 +1338,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										// hand-rolled row pending UI-060.
 										// @lore AZ7 N1: hover:bg-[var(--accent-primary-dim)] is Set 3's
 										// row-hover tint — not a no-handrolled-control violation.
-										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[var(--accent-primary-dim)] transition-colors duration-[var(--motion-fast)] text-left w-full"
+										className="flex items-center gap-[12px] py-[12px] border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none cursor-pointer hover:bg-[var(--accent-primary-dim)] text-left w-full"
 										onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
 										aria-label={task.title}
 									>

@@ -25,8 +25,8 @@ function hasForeignMarker(opening: AstNode): boolean {
 }
 
 /** Foreign content exempts only color, typography, and border declarations in its subtree. */
-export function isInForeignTokenSubject(node: AstNode): boolean {
-	let current: AstNode | undefined = node;
+export function isInForeignTokenSubject(rawNode: unknown): boolean {
+	let current: AstNode | undefined = rawNode as AstNode;
 	while (current) {
 		if (current.type === "JSXElement") {
 			const opening = current.openingElement as AstNode | undefined;

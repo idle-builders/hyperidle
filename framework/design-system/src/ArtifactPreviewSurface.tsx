@@ -44,8 +44,7 @@ const SURFACE_GALLERY = "min-h-[96px] flex items-center justify-center";
 const SURFACE_FULL = "min-h-[240px] flex flex-col items-stretch";
 
 /** The small caps caption treatment — on the caption, never on the panel. */
-const CAPTION =
-	"font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase text-[var(--text-tertiary)]";
+const CAPTION = "uppercase text-[var(--text-tertiary)]";
 
 /** Honest no-preview affordance — replaces "PREVIEW NOT YET RENDERED" / "PREVIEW PENDING". */
 function NoPreviewText({ size }: { size: "gallery" | "full" }): JSX.Element {

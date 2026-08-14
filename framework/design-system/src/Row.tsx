@@ -152,7 +152,7 @@ export function Row({
 		"flex items-center gap-[12px]",
 		"min-h-[44px]",
 		px,
-		"border-b border-[var(--border-subtle)] last:border-b-0",
+		"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none",
 		selectedClasses,
 	]
 		.filter(Boolean)
@@ -235,11 +235,12 @@ export function Row({
 		// move onto a w-full inner div so the hover background fills edge-to-edge
 		// instead of being inset inside the li's px-[24px]. This matches the <button>
 		// branch behaviour and fixes WorkOverview / KnowledgeList / WorkTeam li-rows.
-		// The li separator classes ("border-b border-[var(--border-subtle)] last:border-b-0")
+		// The li separator classes ("border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none")
 		// stay on the li so the row divider is always full-width.
 
 		// Separator classes stay on <li>; all layout/padding/hover move to the inner div.
-		const liSeparatorClass = "border-b border-[var(--border-subtle)] last:border-b-0";
+		const liSeparatorClass =
+			"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none";
 
 		// @lore AD9 W1 (review fix): The inner div must NOT inherit the separator classes
 		// (border-b / last:border-b-0) from baseClasses — those stay on the <li> only.

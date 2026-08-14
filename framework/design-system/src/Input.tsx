@@ -63,7 +63,7 @@ export interface InputProps
 // out of the shared base means the textarea never carries `lg:min-h-[36px]`
 // at all, so there is no competing rule for `min-h-[80px]` to lose to.
 const INPUT_BASE =
-	"w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"w-full px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[var(--bw-default)] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const INPUT_SINGLE_LINE_HEIGHT = "min-h-[44px] lg:min-h-[36px]";
 

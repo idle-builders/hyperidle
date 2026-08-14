@@ -27,7 +27,7 @@ export interface TagProps {
  * § 3.1.2.
  */
 const TAG_BASE =
-	"inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] font-[family-name:var(--font-sans)] text-[12px] leading-[1.4] whitespace-nowrap border-none";
+	"inline-flex items-center gap-[4px] px-[8px] py-[2px] rounded-[var(--r-pill)] whitespace-nowrap border-none";
 
 export function Tag({ label, kind }: TagProps): JSX.Element {
 	// @lore J1 review: defensive guard — if a caller passes an arbitrary

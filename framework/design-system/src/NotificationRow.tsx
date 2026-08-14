@@ -47,7 +47,7 @@ export function NotificationRow({
 			 * avatar. Trailing timestamp stays literal 12 px (chrome).
 			 * @lore U8: left colored border (3px) and icon circle added per Hearth restyle.
 			 */
-			className="flex items-center gap-[12px] py-[12px] px-[24px] rounded-[var(--r-subtle)] transition-colors duration-[var(--motion-fast)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] "
+			className="flex items-center gap-[12px] py-[12px] px-[24px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] "
 			style={{ borderLeftColor: color }}
 			data-testid="severity-border"
 		>

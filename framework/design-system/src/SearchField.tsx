@@ -52,7 +52,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				// state that swapped to --surface-page, giving the page-canvas token a
 				// second job on focus (the same defect fixed on Button's hover tint).
 				// Matches Input.tsx's pattern: one fill,  + ring for focus.
-				className="type-input border-[var(--bw-thin)] w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)]   text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
+				className="type-input border-[var(--bw-thin)] w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
 				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange?.(e.target.value)}
@@ -61,7 +61,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				{value && (
 					<button
 						type="button"
-						className="type-control inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)]  cursor-pointer border-none p-0 transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]"
+						className="type-control inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] cursor-pointer border-none p-0 hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]"
 						aria-label="clear"
 						onClick={() => onChange?.("")}
 					>

@@ -30,9 +30,8 @@ export interface ArtifactEmbedProps {
 }
 
 const WRAP = "flex flex-col gap-[6px]";
-const IDENTITY =
-	"flex items-center gap-[6px] font-mono text-[11px] text-[var(--text-tertiary)] tracking-[var(--tracking-caps-sm)] uppercase";
-const VIEW = "text-[var(--text-secondary)] font-sans text-[13px] normal-case [letter-spacing:0]";
+const IDENTITY = "flex items-center gap-[6px] text-[var(--text-tertiary)] uppercase";
+const VIEW = "text-[var(--text-secondary)] normal-case";
 const ARROW =
 	"ml-auto cursor-pointer px-[6px] py-[4px] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px]";
 

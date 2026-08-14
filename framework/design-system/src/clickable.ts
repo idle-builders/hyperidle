@@ -12,7 +12,7 @@ type ClickableResult = Pick<
  * pass their own classes via the second argument and the helper merges.
  */
 const FOCUS_CLASSES =
-	"cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] transition-colors duration-[var(--motion-fast)]";
+	"cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]";
 
 /**
  * Returns accessibility-correct props for making a div behave as a clickable button.

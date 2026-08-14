@@ -526,7 +526,7 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 			// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
 			// selected tint — not a no-handrolled-control violation.
 			className={[
-				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border-[var(--bw-thin)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left",
 				active
 					? "border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
 					: "border-[var(--border-subtle)] hover:border-[var(--border-default)]",

@@ -60,7 +60,13 @@ ruleTester.run("motion-profile-only", motionProfileOnly, {
 ruleTester.run("border-width-profile-only", borderWidthProfileOnly, {
 	valid: [
 		{
-			code: 'const view = <div className="border-width-thin border-[var(--border-subtle)]" />;',
+			code: 'const view = <div className="border-[var(--bw-thin)] border-[var(--border-subtle)]" />;',
+		},
+		{
+			code: 'const view = <div className="border-s-[var(--bw-default)] border-e-[var(--bw-strong)]" />;',
+		},
+		{
+			code: 'const view = <div style={{ borderInlineStartWidth: "var(--bw-default)" }} />;',
 		},
 		{
 			code: 'const view = <section data-token-subject="foreign"><div className="border-2" /></section>;',
@@ -68,7 +74,7 @@ ruleTester.run("border-width-profile-only", borderWidthProfileOnly, {
 	],
 	invalid: [
 		{
-			code: 'const view = <div className="border border-s-2 border-[1.5px]" />;',
+			code: 'const view = <div className="border border-s-2 border-[1.5px] border-width-thin" />;',
 			errors: [{ messageId: "rawBorderWidth" }],
 		},
 		{

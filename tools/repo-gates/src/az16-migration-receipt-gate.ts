@@ -26,7 +26,7 @@ for (const name of [
 	"motion-site-manifest.tsv",
 	"border-site-manifest.tsv",
 ]) {
-	const destinationColumn = name.startsWith("typography") ? 6 : 7;
+	const destinationColumn = name.startsWith("typography") ? 6 : 8;
 	for (const row of rows(resolve(work, name))) {
 		auditSites.push({ siteId: row[0] ?? "", destination: row[destinationColumn] ?? "" });
 	}

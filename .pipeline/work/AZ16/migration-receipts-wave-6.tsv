@@ -1,4 +1,9 @@
 audit_site_id	audit_destination	outcome	profile	final_path	final_locator
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::818631a0ec87::1	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::a7a380472688::1	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::a7a380472688::2	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::a7a380472688::3	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::a7a380472688::4	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
 layers/core-ui/src/pages/AgentAddDialog.tsx::AgentAddDialog::h3::e250b956cb4c::1	label	PROFILE	label	layers/core-ui/src/pages/AgentAddDialog.tsx	AgentAddDialog:h3
 layers/core-ui/src/pages/AgentAddDialog.tsx::AgentAddDialog::h3::e250b956cb4c::2	label	PROFILE	label	layers/core-ui/src/pages/AgentAddDialog.tsx	AgentAddDialog:h3
 layers/core-ui/src/pages/AgentAddDialog.tsx::AgentAddDialog::p::ae109ad69ff7::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentAddDialog.tsx	AgentAddDialog:p

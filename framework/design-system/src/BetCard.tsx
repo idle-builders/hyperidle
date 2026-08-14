@@ -195,7 +195,7 @@ export function BetCard({
 						className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden"
 					>
 						<div
-							className="h-full rounded-[var(--r-pill)] transition-[width] duration-[var(--motion-default)]"
+							className="h-full rounded-[var(--r-pill)]"
 							style={{
 								width: `${progressPct}%`,
 								background: progressFillColor(status),

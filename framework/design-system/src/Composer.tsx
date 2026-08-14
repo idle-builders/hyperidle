@@ -105,7 +105,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					disabled={submitting || !text.trim()}
 					// L1 step9 (Design-C4): 44px minimum touch target.
 					// U8: pill shape (r-pill) per Hearth send button spec; accent-primary background.
-					className="type-control px-[12px] min-h-[44px] rounded-[var(--r-pill)]   bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] self-stretch transition-all duration-[var(--motion-default)]"
+					className="type-control px-[12px] min-h-[44px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] self-stretch"
 				>
 					{submitting ? "Sending…" : "Send"}
 				</button>

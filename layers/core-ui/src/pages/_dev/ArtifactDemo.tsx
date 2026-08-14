@@ -21,10 +21,9 @@ import { useArtifacts } from "../../hooks/useArtifacts.js";
 import { sanitizeHtml } from "../../utils/sanitize-html.js";
 
 const BANNER =
-	"bg-[var(--surface-elevated)] text-[var(--text-secondary)] font-mono text-[11px] tracking-[0.02em] uppercase rounded-[var(--r-subtle)] px-[12px] py-[8px]";
+	"bg-[var(--surface-elevated)] text-[var(--text-secondary)] uppercase rounded-[var(--r-subtle)] px-[12px] py-[8px]";
 const SECTION = "flex flex-col gap-[9px]";
-const SECTION_LABEL =
-	"font-mono text-[11px] tracking-[0.02em] uppercase text-[var(--text-tertiary)]";
+const SECTION_LABEL = "uppercase text-[var(--text-tertiary)]";
 const GRID = "grid grid-cols-2 gap-[12px]";
 
 function noop(): void {
@@ -62,10 +61,12 @@ export function ArtifactDemo(): JSX.Element | null {
 	const second = items[1] ?? first;
 	return (
 		<div className="p-[24px] flex flex-col gap-[24px]">
-			<div className={BANNER}>L3 layout preview — production wiring lands in L11 / L12.</div>
+			<div className={`type-data ${BANNER}`}>
+				L3 layout preview — production wiring lands in L11 / L12.
+			</div>
 
 			<section className={SECTION}>
-				<div className={SECTION_LABEL}>Gallery card</div>
+				<div className={`type-data ${SECTION_LABEL}`}>Gallery card</div>
 				<div className={GRID}>
 					{items.slice(0, 4).map((a) => (
 						<ArtifactGalleryCard key={a.id} data={a} onOpen={noop} />
@@ -74,7 +75,7 @@ export function ArtifactDemo(): JSX.Element | null {
 			</section>
 
 			<section className={SECTION}>
-				<div className={SECTION_LABEL}>Stack item</div>
+				<div className={`type-data ${SECTION_LABEL}`}>Stack item</div>
 				<div className="flex flex-col gap-[0px]">
 					{items.slice(0, 4).map((a) => (
 						<ArtifactStackItem key={a.id} data={a} onOpen={noop} />
@@ -83,12 +84,12 @@ export function ArtifactDemo(): JSX.Element | null {
 			</section>
 
 			<section className={SECTION}>
-				<div className={SECTION_LABEL}>Single full preview</div>
+				<div className={`type-data ${SECTION_LABEL}`}>Single full preview</div>
 				<ArtifactPreview data={first} sanitizeHtml={sanitizeHtml} />
 			</section>
 
 			<section className={SECTION}>
-				<div className={SECTION_LABEL}>Embed (chrome-less)</div>
+				<div className={`type-data ${SECTION_LABEL}`}>Embed (chrome-less)</div>
 				<ArtifactEmbed data={second} onOpen={noop} />
 			</section>
 		</div>

@@ -157,6 +157,7 @@ export function EmailRender({
 	const width = viewport === "mobile" ? 380 : 600;
 	return (
 		<div
+			data-token-subject="foreign"
 			className="mx-auto overflow-hidden "
 			style={{
 				maxWidth: width,

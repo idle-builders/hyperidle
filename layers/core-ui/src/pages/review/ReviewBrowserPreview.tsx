@@ -102,7 +102,10 @@ function RenderedPage({
 	readonly documentTitle?: string;
 }): JSX.Element {
 	return (
-		<div style={{ background: "#fbf8f2", color: "#26221b", fontSize: 14 }}>
+		<div
+			data-token-subject="foreign"
+			style={{ background: "#fbf8f2", color: "#26221b", fontSize: 14 }}
+		>
 			{/* page nav */}
 			<nav
 				style={{

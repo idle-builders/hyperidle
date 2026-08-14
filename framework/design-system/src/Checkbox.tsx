@@ -45,7 +45,7 @@ export function Checkbox({
 					aria-hidden="true"
 					className={[
 						"h-[20px] w-[20px] rounded-[6px] ",
-						"transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+						"",
 						"flex items-center justify-center",
 						checked
 							? "bg-[var(--accent-primary)] border-[var(--accent-primary)]"

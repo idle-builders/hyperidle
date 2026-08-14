@@ -22,6 +22,7 @@ import {
 	createRule,
 	RAW_TAILWIND_PALETTE,
 } from "../util.js";
+import { isInForeignTokenSubject } from "./profile-rule-utils.js";
 
 const PALETTE_GROUP = RAW_TAILWIND_PALETTE.join("|");
 const RAW_PALETTE_REGEX = new RegExp(
@@ -55,6 +56,7 @@ export const noRawTailwindColor: Rule.RuleModule = createRule({
 		return {
 			JSXAttribute(rawNode: unknown) {
 				const node = rawNode as JSXAttribute;
+				if (isInForeignTokenSubject(node)) return;
 				const name =
 					node.type === "JSXAttribute" && node.name.type === "JSXIdentifier"
 						? node.name.name

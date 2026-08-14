@@ -41,7 +41,7 @@ function ToolbarButton({
 			onClick={onClick}
 			aria-label={ariaLabel}
 			aria-pressed={isActive}
-			className={`type-control ${`w-[28px] h-[28px] flex items-center justify-center rounded-[var(--r-subtle)]   cursor-pointer transition-colors ${
+			className={`type-control ${`w-[28px] h-[28px] flex items-center justify-center rounded-[var(--r-subtle)] cursor-pointer ${
 				isActive
 					? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 					: "text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]"

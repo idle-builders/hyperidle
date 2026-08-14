@@ -10,15 +10,33 @@ import {
 type AstNode = { type: string; parent?: AstNode; [key: string]: unknown };
 
 const RAW_STYLE_FIELDS =
-	/^(?:border(?:Top|Right|Bottom|Left|Inline|InlineStart|InlineEnd|Block|BlockStart|BlockEnd)?Width|border)$/;
+	/^border(?:(?:Top|Right|Bottom|Left|Inline|InlineStart|InlineEnd|Block|BlockStart|BlockEnd)(?:Width)?|Width)?$/;
+const PROFILE_VALUE =
+	/^(?:none|var\(--bw-(?:thin|default|strong)\)(?:\s+\w+\s+.+)?|BORDER_WIDTH_STYLE\.(?:thin|default|strong))$/;
 
 function hasRawBorderWidth(text: string): boolean {
 	return text.split(/\s+/).some((raw) => {
 		const token = raw.replace(/^(?:[a-z-]+:)+/, "");
-		if (token.startsWith("border-width-")) return false;
+		if (token === "border-none") return false;
+		if (/^border(?:-(?:x|y|t|r|b|l|s|e))?-\[var\(--bw-(?:thin|default|strong)\)\]$/.test(token))
+			return false;
 		if (/^border(?:-(?:x|y|t|r|b|l|s|e))?$/.test(token)) return true;
 		if (/^border(?:-(?:x|y|t|r|b|l|s|e))?-(?:0|2|4|8)$/.test(token)) return true;
-		return /^border(?:-(?:x|y|t|r|b|l|s|e))?-\[(?:\d|var\(--bw-)/.test(token);
+		if (/^border-width-/.test(token)) return true;
+		return /^border(?:-(?:x|y|t|r|b|l|s|e))?-\[(?:\d|length:|var\(--bw-)/.test(token);
+	});
+}
+
+function rawInlineBorderFields(context: Rule.RuleContext, node: AstNode): string[] {
+	const fields = stylePropertyNames(node).filter((name) => RAW_STYLE_FIELDS.test(name));
+	if (fields.length === 0) return [];
+	const text = context.sourceCode.getText(node as Rule.Node);
+	return fields.filter((field) => {
+		const match = new RegExp(
+			`${field}\\s*:\\s*(?:["'\x60]([^"'\x60]+)["'\x60]|([A-Z_]+\\.[a-z-]+))`,
+		).exec(text);
+		if (match && PROFILE_VALUE.test(match[1] ?? match[2] ?? "")) return false;
+		return !new RegExp(`${field}[\\s\\S]*var\\(--bw-(?:thin|default|strong)\\)`).test(text);
 	});
 }
 
@@ -45,7 +63,7 @@ export const borderWidthProfileOnly: Rule.RuleModule = createRule({
 				visitors.jsxAttribute(rawNode);
 				const node = rawNode as AstNode;
 				if (isInForeignTokenSubject(node)) return;
-				const fields = stylePropertyNames(node).filter((name) => RAW_STYLE_FIELDS.test(name));
+				const fields = rawInlineBorderFields(context, node);
 				if (fields.length > 0) {
 					reportProfileViolation(context, node, "rawBorderWidth", fields.join(", "));
 				}

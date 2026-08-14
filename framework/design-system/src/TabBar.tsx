@@ -36,7 +36,7 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 							onClick={() => onChange?.(tab.id)}
 							className={`type-control ${[
 								"pb-[6px] px-[9px]   -mb-[1px]",
-								"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+								"",
 								"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 								isActive
 									? "text-[var(--accent-deep)]  border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
@@ -69,7 +69,7 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 						onClick={() => onChange?.(tab.id)}
 						className={`type-control ${[
 							"px-[12px] py-[6px] rounded-[var(--r-pill)] ",
-							"transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+							"",
 							"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 							isActive
 								? "bg-[var(--surface-elevated)] text-[var(--accent-deep)]  shadow-[var(--shadow-subtle)]"

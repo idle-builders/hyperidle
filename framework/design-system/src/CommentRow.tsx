@@ -252,8 +252,8 @@ export function CommentRow({
 	// canvas and holds content" — an avatar chip is exactly that, not the
 	// canvas itself.
 	const avatarClass = isAgent
-		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-deep)] shrink-0"
-		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[13px] font-[600] border-[1.5px] border-[var(--border-subtle)] shrink-0";
+		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[var(--bw-strong)] border-[var(--accent-deep)] shrink-0"
+		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--bw-strong)] border-[var(--border-subtle)] shrink-0";
 
 	// @lore AH6: data-sender-kind="ai"|"human" is the stable Playwright selector
 	// for AI vs human message bubbles. Derives from CommentRowSender.isAgent.

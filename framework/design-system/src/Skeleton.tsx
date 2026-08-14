@@ -26,8 +26,7 @@ const DEFAULT_ROWS = 3;
  * to 14px, making 1rem = 14px instead of the browser default 16px. The HTML
  * reference uses hardcoded pixel values, so we must match exactly.
  */
-const SKELETON_BAR =
-	"bg-[var(--surface-container)] rounded-[var(--r-default)] animate-[skeleton-pulse_1.8s_ease-in-out_infinite]";
+const SKELETON_BAR = "bg-[var(--surface-container)] rounded-[var(--r-default)]";
 
 export interface SkeletonProps {
 	/** Bar width (CSS length or %). Default "100%". */

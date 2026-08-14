@@ -25,7 +25,7 @@ const STATUS_DOT_COLORS: Record<NonNullable<NavItemProps["statusDot"]>, string> 
  * pill radius, min-w 18px. Previously used text-secondary color + mono font + 11px size.
  */
 const COUNT_BADGE_CLASSES =
-	"inline-flex items-center justify-center min-w-[18px] px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[12px] font-[500] text-[var(--accent-deep)] text-center";
+	"inline-flex items-center justify-center min-w-[18px] px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] text-center";
 
 export function NavItem({
 	label,
@@ -53,15 +53,15 @@ export function NavItem({
 	const baseClasses = [
 		"flex w-full items-center gap-[6px] text-left",
 		"py-[6px] px-[12px]",
-		"font-[family-name:var(--font-sans)] text-[13px] font-[400]",
+		"",
 		"text-[var(--text-secondary)]",
 		"rounded-[var(--r-subtle)] border-none",
 		"cursor-pointer",
-		"transition-[background] duration-[var(--motion-default)] ease-[var(--motion-ease)]",
+		"",
 	].join(" ");
 
 	const stateClasses = selected
-		? "bg-[var(--surface-elevated)] text-[var(--text-primary)] font-[500] shadow-[var(--shadow-subtle)]"
+		? "bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-[var(--shadow-subtle)]"
 		: "bg-transparent hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)]";
 
 	return (

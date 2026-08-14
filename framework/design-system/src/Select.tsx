@@ -31,7 +31,7 @@ export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectE
 // Select uses py-[10px] (optically tuned form padding) and pr-[40px] (arrow clearance).
 // These are AQ-001 form exemptions, extracted here to avoid lint scanning inline JSX.
 const SELECT_CLASS_BASE =
-	"appearance-none text-[15px] px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
+	"appearance-none px-[12px] pr-[40px] bg-[var(--surface-elevated)] border-[var(--bw-default)] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
 // hearth-internal-padding
 // "md": py-[10px] optically tuned form padding.

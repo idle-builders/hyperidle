@@ -155,7 +155,7 @@ function ReviewActionOperationView({
 						key={field.label}
 						className="border-none flex items-start justify-between gap-[12px] py-[9px]"
 						style={{
-							borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
+							borderTop: i === 0 ? undefined : "var(--bw-thin) solid var(--border-subtle)",
 						}}
 					>
 						<dt className="type-small shrink-0 pt-[1px]  text-[var(--text-tertiary)]">
@@ -502,7 +502,7 @@ function ProposedCallArgsPanel({
 							key={key}
 							className="border-none flex items-start justify-between gap-[12px] py-[9px]"
 							style={{
-								borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
+								borderTop: i === 0 ? undefined : "var(--bw-thin) solid var(--border-subtle)",
 							}}
 						>
 							<dt className="type-small shrink-0 pt-[1px]  text-[var(--text-tertiary)]">{key}</dt>

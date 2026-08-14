@@ -70,10 +70,9 @@ export function BlockHandle({
 				strokeLinecap="round"
 				strokeLinejoin="round"
 				aria-hidden="true"
-				className="motion-move motion-reduce:!transition-none"
+				className="motion-move"
 				style={{
 					transform: open ? "rotate(90deg)" : undefined,
-					transition: "transform var(--motion-fast, 120ms)",
 				}}
 			>
 				<polyline points="9 18 15 12 9 6" />

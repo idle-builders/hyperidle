@@ -26,7 +26,9 @@ function isAllowedAnimationFrame(filename: string, node: AstNode): boolean {
 	const normalized = filename.replace(/\\/g, "/");
 	if (normalized.endsWith("framework/design-system/src/RoleCombobox.tsx")) return true;
 	if (normalized.endsWith("layers/core-ui/src/pages/KnowledgeDetail.tsx")) return true;
-	if (!normalized.endsWith("layers/core-ui/src/AppShell.tsx")) return false;
+	if (!normalized.endsWith("layers/core-ui/src/layouts/AppShell.tsx")) return false;
+	const args = (node.arguments as AstNode[] | undefined) ?? [];
+	if (args[0]?.type === "Identifier" && args[0].name === "restore") return true;
 	let current: AstNode | undefined = node.parent;
 	while (current) {
 		if (current.type === "FunctionDeclaration") {

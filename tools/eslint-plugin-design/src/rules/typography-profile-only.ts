@@ -10,7 +10,7 @@ import {
 type AstNode = { type: string; parent?: AstNode; [key: string]: unknown };
 
 const RAW_TYPE_TOKEN =
-	/(?:^|\s)(?:[a-z-]+:)*(?:font-(?:sans|mono|thin|extralight|light|normal|medium|semibold|bold|extrabold|black|\[(?:\d+|var\(--font-[^)]+\)|[^\]]*,[^\]]*)\])|text-(?:xs|sm|base|lg|xl|2xl|3xl|\[(?:length:)?(?:-?\d|var\(--text-(?:xs|sm|base|lg|xl|2xl|3xl)\))[^\]]*\])|leading-(?:none|tight|snug|normal|relaxed|loose|\[[^\]]+\])|tracking-(?:tighter|tight|normal|wide|wider|widest|\[[^\]]+\])|\[letter-spacing:[^\]]+\])/;
+	/(?:^|\s)(?:[a-z-]+:)*(?:font-(?:sans|mono|thin|extralight|light|normal|medium|semibold|bold|extrabold|black|\[(?:\d+|(?:family-name:)?var\(--font-[^)]+\)|[^\]]*,[^\]]*)\])|text-(?:xs|sm|base|lg|xl|2xl|3xl|\[(?:length:)?(?:-?\d|var\(--text-(?:xs|sm|base|lg|xl|2xl|3xl)\))[^\]]*\])|leading-(?:none|tight|snug|normal|relaxed|loose|\[[^\]]+\])|tracking-(?:tighter|tight|normal|wide|wider|widest|\[[^\]]+\])|\[letter-spacing:[^\]]+\])/;
 
 const RAW_STYLE_FIELDS = new Set([
 	"font",

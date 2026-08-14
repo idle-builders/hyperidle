@@ -119,7 +119,7 @@ function NeedsYouChip({
 		<button
 			type="button"
 			onClick={() => onJump?.(item.jumpLabel)}
-			className="motion-feedback border-[var(--bw-thin)] group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)]  px-[12px] py-[9px] text-left   [transition-timing-function:var(--motion-ease)] hover:opacity-90 active:translate-y-[1px]"
+			className="motion-feedback border-[var(--bw-thin)] group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[12px] py-[9px] text-left hover:opacity-90 active:translate-y-[1px]"
 			style={{
 				borderColor: isError ? "var(--status-error)" : "var(--border-default)",
 				background: isError ? "var(--status-error-dim)" : "var(--surface-page)",
@@ -157,7 +157,7 @@ function DoneRow({
 		<button
 			type="button"
 			onClick={() => onJump?.(cond.jumpLabel)}
-			className="group flex w-full items-start gap-[9px] px-[3px] py-[6px] text-left   [transition-timing-function:var(--motion-ease)] active:translate-y-[1px]"
+			className="group flex w-full items-start gap-[9px] px-[3px] py-[6px] text-left active:translate-y-[1px]"
 		>
 			<span
 				aria-hidden="true"

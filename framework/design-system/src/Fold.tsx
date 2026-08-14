@@ -28,7 +28,7 @@ export function Fold({ label, cta = "Show", onShow }: FoldProps): JSX.Element {
 			type="button"
 			onClick={onShow}
 			{...dsProps("Fold", "1")}
-			className="type-control inline-flex items-center gap-[6px]   text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-secondary)]"
+			className="type-control inline-flex items-center gap-[6px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
 		>
 			<span style={{ transform: "rotate(-90deg)", display: "inline-flex" }}>
 				<svg

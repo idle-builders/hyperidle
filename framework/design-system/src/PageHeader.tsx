@@ -36,8 +36,7 @@ import { PageFrame } from "./PageFrame.js";
  * @lore AI7: The class string is the single source of truth for the page-title
  * treatment. Any drift fails the PageHeader.test.tsx pin assertions loudly.
  */
-export const pageTitleClassName =
-	"text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate";
+export const pageTitleClassName = "text-[var(--text-primary)] min-w-0 truncate";
 
 export const paneTitleClassName =
 	"text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate";

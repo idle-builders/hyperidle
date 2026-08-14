@@ -59,7 +59,7 @@ function Glyph({ d, size = 13 }: { d: string; size?: number }): JSX.Element {
 
 // Same outer shell in BOTH modes — identical look. Only the trailing slot differs.
 const SHELL =
-	"group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] text-[12px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]";
+	"group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--bw-thin)] border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] hover:border-[var(--border-default)]";
 
 export function ReferenceChip({
 	kind,
@@ -71,7 +71,7 @@ export function ReferenceChip({
 }: ReferenceChipProps): JSX.Element {
 	const openBody = (
 		<>
-			<span className="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
+			<span className="flex shrink-0 items-center text-[var(--text-tertiary)] group-hover/refchip:text-[var(--text-secondary)]">
 				<Glyph d={ICON[kind]} size={13} />
 			</span>
 			<span className="type-small truncate  text-[var(--text-primary)]">{label}</span>
@@ -93,7 +93,7 @@ export function ReferenceChip({
 				className={`type-control ${`${SHELL} pr-[9px] text-left`}`}
 			>
 				{openBody}
-				<span className="motion-feedback flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-deep)]">
+				<span className="motion-feedback flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-deep)]">
 					<Glyph d={ICON_ARROW} size={11} />
 				</span>
 			</button>
@@ -122,7 +122,7 @@ export function ReferenceChip({
 				onClick={onRemove}
 				aria-label={`Remove ${label}`}
 				title="Remove"
-				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
+				className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-secondary)]"
 			>
 				<Glyph d={ICON_REMOVE} size={11} />
 			</button>

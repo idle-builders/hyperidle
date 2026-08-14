@@ -7,8 +7,7 @@ export interface ArtifactTimestampProps {
 	format?: "relative" | "absolute";
 }
 
-const BASE =
-	"font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]";
+const BASE = "text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]";
 
 export function ArtifactTimestamp({
 	value,

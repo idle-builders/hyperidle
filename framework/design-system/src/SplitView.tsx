@@ -221,7 +221,7 @@ export function SplitView({
 					aria-valuenow={Math.round(ratio * 100)}
 					onPointerDown={startDrag}
 					onKeyDown={resizeByKeyboard}
-					className="relative -mx-[var(--space-3)] w-[var(--space-3)] shrink-0 cursor-col-resize border-0 bg-transparent focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+					className="relative -mx-[var(--space-3)] w-[var(--space-3)] shrink-0 cursor-col-resize border-none bg-transparent focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 				/>
 			) : null}
 

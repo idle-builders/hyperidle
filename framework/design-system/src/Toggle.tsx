@@ -63,7 +63,7 @@ export function Toggle({
 					onClick={() => onChange?.(!on)}
 					className={[
 						"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-[var(--r-pill)]",
-						" transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+						"",
 						"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 						on
 							? "bg-[var(--accent-primary)] border-[var(--accent-primary)]"
@@ -75,13 +75,10 @@ export function Toggle({
 						className={`motion-spring ${[
 							"absolute top-[2px] h-[18px] w-[18px] rounded-[var(--r-pill)]",
 							"bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]",
-							"transition-transform",
-							"duration-[var(--motion-fast)]",
+							"",
+							"",
 							on ? "translate-x-[22px]" : "translate-x-[2px]",
 						].join(" ")}`}
-						style={{
-							transitionTimingFunction: "var(--easing-expressive)",
-						}}
 					/>
 				</button>
 				<span className="sr-only">{label}</span>
@@ -105,7 +102,7 @@ export function Toggle({
 				onClick={() => onChange?.(!on)}
 				className={[
 					"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-[var(--r-pill)]",
-					" transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+					"",
 					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 					on
 						? "bg-[var(--accent-primary)] border-[var(--accent-primary)]"
@@ -117,13 +114,10 @@ export function Toggle({
 					className={`motion-spring ${[
 						"absolute top-[2px] h-[18px] w-[18px] rounded-[var(--r-pill)]",
 						"bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]",
-						"transition-transform",
-						"duration-[var(--motion-fast)]",
+						"",
+						"",
 						on ? "translate-x-[22px]" : "translate-x-[2px]",
 					].join(" ")}`}
-					style={{
-						transitionTimingFunction: "var(--easing-expressive)",
-					}}
 				/>
 			</button>
 			{/* Text */}

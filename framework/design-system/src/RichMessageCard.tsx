@@ -98,7 +98,7 @@ function toneClass(tone: VerdictButtonSpec["tone"]): string {
 }
 
 const BUTTON_CLASS_BASE =
-	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] text-[14px] font-semibold border focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] border-[var(--bw-thin)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const REASONING_INLINE_THRESHOLD = 80;
 
@@ -172,7 +172,6 @@ function ChevronDown({ open }: { open: boolean }): JSX.Element {
 			strokeWidth={2}
 			style={{
 				transform: open ? "rotate(0deg)" : "rotate(-90deg)",
-				transition: "transform var(--motion-default) var(--motion-ease)",
 			}}
 			aria-hidden="true"
 		>
