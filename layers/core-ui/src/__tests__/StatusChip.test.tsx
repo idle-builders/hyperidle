@@ -87,12 +87,13 @@ describe("StatusChip", () => {
 		}
 	});
 
-	it("uses font-[family-name:var(--font-mono)] and text-[11px] classes for terminal aesthetic", () => {
+	it("uses the complete data typography profile for its terminal aesthetic", () => {
 		render(<StatusChip status="healthy" />);
 		const chip = screen.getByText("HEALTHY");
 		expect(chip).toHaveClass("uppercase");
-		expect(chip.className).toContain("font-[family-name:var(--font-mono)]");
-		expect(chip.className).toContain("text-[11px]");
+		expect(chip.className).toContain("type-data");
+		expect(chip.className).not.toContain("font-[family-name:var(--font-mono)]");
+		expect(chip.className).not.toContain("text-[11px]");
 	});
 
 	it("renders visually distinct chips for blocked and error statuses", () => {

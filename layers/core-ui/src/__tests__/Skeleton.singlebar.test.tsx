@@ -17,10 +17,11 @@ describe("Skeleton (single bar)", () => {
 		expect(region).toHaveAttribute("aria-label", "Loading block reference");
 	});
 
-	it("uses the shared skeleton-pulse animation (not animate-pulse)", () => {
+	it("uses the shared loading motion profile (not a raw animation)", () => {
 		const { container } = render(<Skeleton ariaLabel="Loading" />);
 		const outer = container.firstElementChild;
-		expect(outer?.className).toContain("animate-[skeleton-pulse_1.8s_ease-in-out_infinite]");
+		expect(outer?.className).toContain("motion-loading");
+		expect(outer?.className).not.toContain("skeleton-pulse");
 		expect(outer?.className).not.toContain("animate-pulse");
 	});
 

@@ -32,11 +32,11 @@ describe("KnowledgeRow — J7 factory mode", () => {
 		expect(factoryRow.className).not.toContain("py-[16px]");
 	});
 
-	it("applies bold font to the title in factory mode", () => {
+	it("keeps the title on the complete copy profile in factory mode", () => {
 		render(<KnowledgeRow {...defaultProps} factoryMode version="v2.1" />);
 		const title = screen.getByLabelText(`Knowledge: ${defaultProps.title}`);
-		// U8: font-heading removed (Hearth uses system-ui everywhere); factoryMode uses font-bold only.
-		expect(title.className).toContain("font-bold");
+		expect(title.className).toContain("type-copy");
+		expect(title.className).not.toContain("font-bold");
 		expect(title.className).not.toContain("font-heading");
 		// Must NOT be serif — AC: "NOT serif"
 		expect(title.className).not.toContain("font-serif");

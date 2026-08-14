@@ -56,25 +56,13 @@ describe("AI7 — SectionLabel component", () => {
 			expect(heading?.className).toContain("uppercase");
 		});
 
-		it("label carries tracking-[var(--tracking-caps-sm)] (token, NOT literal 0.06em)", () => {
+		it("label consumes the complete label typography profile", () => {
 			const { container } = render(<SectionLabel label="Members" />);
 			const heading = container.querySelector("h3");
-			// The token form must be used — no-hardcoded-tracking is error on DS src
-			expect(heading?.className).toContain("tracking-[var(--tracking-caps-sm)]");
-			// Literal form must NOT appear
+			expect(heading?.className).toContain("type-label");
 			expect(heading?.className).not.toContain("tracking-[0.06em]");
-		});
-
-		it("label carries the 13px text size", () => {
-			const { container } = render(<SectionLabel label="Members" />);
-			const heading = container.querySelector("h3");
-			expect(heading?.className).toContain("text-[13px]");
-		});
-
-		it("label carries font-[600]", () => {
-			const { container } = render(<SectionLabel label="Members" />);
-			const heading = container.querySelector("h3");
-			expect(heading?.className).toContain("font-[600]");
+			expect(heading?.className).not.toContain("text-[13px]");
+			expect(heading?.className).not.toContain("font-[600]");
 		});
 
 		it("label carries the tertiary text color", () => {

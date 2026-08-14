@@ -136,12 +136,12 @@ describe("preview chrome does not restyle the content it wraps", () => {
 		const { container } = render(
 			<ArtifactPreviewSurface kind="text" preview={null} size="gallery" />,
 		);
-		// The gallery placeholder is still the small monospace caption…
+		// The gallery placeholder consumes the complete monospace data profile…
 		expect(container.textContent).toContain("No preview");
 		const caption = container.querySelector("[data-artifact-caption]");
-		expect(caption?.className ?? "").toContain("font-mono");
+		expect(caption?.className ?? "").toContain("type-data");
 		// …but the panel itself no longer imposes it.
 		const surface = container.querySelector("[data-ds-component='ArtifactPreviewSurface']");
-		expect(surface?.className ?? "").not.toContain("font-mono");
+		expect(surface?.className ?? "").not.toContain("type-data");
 	});
 });

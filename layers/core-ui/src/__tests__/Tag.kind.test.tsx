@@ -42,7 +42,7 @@ describe("Tag with kind", () => {
 		const { container } = render(<Tag label="plain" />);
 		const tag = screen.getByText("plain");
 		expect(tag.tagName).toBe("SPAN");
-		expect(tag).toHaveClass("inline-flex", "text-[12px]");
+		expect(tag).toHaveClass("inline-flex", "type-metadata");
 		expect(tag.className).toContain("rounded-[var(--r-pill)]");
 		expect(tag.className).not.toContain("rounded-[var(--r2)]");
 		// No icon must be injected when kind is absent.
@@ -57,7 +57,7 @@ describe("Tag with kind", () => {
 		const unknownKind = "insight" as unknown as TagKind;
 		const { container } = render(<Tag label="weird" kind={unknownKind} />);
 		const tag = screen.getByText("weird");
-		expect(tag).toHaveClass("inline-flex", "text-[12px]");
+		expect(tag).toHaveClass("inline-flex", "type-metadata");
 		expect(tag.className).toContain("rounded-[var(--r-pill)]");
 		expect(tag.className).not.toContain("rounded-[var(--r2)]");
 		expect(container.querySelector("svg")).toBeNull();
