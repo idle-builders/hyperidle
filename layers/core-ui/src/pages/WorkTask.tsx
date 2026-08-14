@@ -79,18 +79,18 @@ function SessionRow({
 		<div
 			key={id}
 			data-testid="session-row"
-			className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0"
+			className="border-b-[var(--bw-thin)] border-none flex items-center gap-[12px] py-[12px]  border-[var(--border-subtle)] "
 		>
 			<div className="flex-1 min-w-0">
-				<div className="text-[14px] font-[500] text-[var(--text-primary)] truncate">{title}</div>
-				<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px]">{agent}</div>
+				<div className="type-copy   text-[var(--text-primary)] truncate">{title}</div>
+				<div className="type-metadata  text-[var(--text-tertiary)] truncate mt-[3px]">{agent}</div>
 			</div>
 			{/* AC1: Session effectiveness score — float displayed to 2dp */}
 			{effectivenessScore !== null && effectivenessScore !== undefined && (
 				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: span receives aria-label for assistive text
 				<span
 					data-testid="session-effectiveness-score"
-					className="text-[12px] font-mono tabular-nums text-[var(--text-secondary)] shrink-0"
+					className="type-data   tabular-nums text-[var(--text-secondary)] shrink-0"
 					aria-label={`Effectiveness: ${effectivenessScore.toFixed(2)}`}
 				>
 					{effectivenessScore.toFixed(2)}
@@ -98,7 +98,7 @@ function SessionRow({
 			)}
 			<div className="flex items-center gap-[6px] shrink-0">
 				{isActive && <LiveDot />}
-				<span className="text-[12px] font-[500] text-[var(--text-secondary)]">
+				<span className="type-metadata   text-[var(--text-secondary)]">
 					{isActive ? "Active" : isDone ? "Done" : status}
 				</span>
 			</div>
@@ -170,7 +170,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 				data-testid="task-detail-not-found"
 			>
 				<div className="p-[24px]">
-					<p className="text-[13px] text-[var(--text-secondary)]">Task not found.</p>
+					<p className="type-small  text-[var(--text-secondary)]">Task not found.</p>
 				</div>
 			</PageScaffold>
 		);
@@ -233,21 +233,17 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 				{/* W3 AC-28: Bordered metadata cell grid */}
 				<div
 					data-testid="task-meta-strip"
-					className="bg-[var(--surface-page)] rounded-[var(--r-default)] border border-[var(--border-subtle)] flex overflow-hidden"
+					className="border-[var(--bw-thin)] bg-[var(--surface-page)] rounded-[var(--r-default)]  border-[var(--border-subtle)] flex overflow-hidden"
 				>
 					{/* Owner */}
-					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
-						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-							Owner
-						</span>
-						<span className="text-[13px] font-[500] text-[var(--text-primary)]">{task.owner}</span>
+					<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Owner</span>
+						<span className="type-small   text-[var(--text-primary)]">{task.owner}</span>
 					</div>
 					{/* Status — StatusChip + LiveDot for in_progress.
 						    AI4: Replaced plain text + local LiveDot with design-system StatusChip. */}
-					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
-						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-							Status
-						</span>
+					<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Status</span>
 						<div className="flex items-center gap-[6px] mt-[3px]">
 							{task.state === "in_progress" && <LiveDot />}
 							<StatusChip
@@ -258,26 +254,22 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					</div>
 					{/* Started */}
 					{task.startedAt && (
-						<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
-							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Started
-							</span>
+						<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
+							<span className="type-label   uppercase  text-[var(--text-tertiary)]">Started</span>
 							<span
 								data-testid="task-started-at"
-								className="text-[13px] font-[500] text-[var(--text-primary)]"
+								className="type-small   text-[var(--text-primary)]"
 							>
 								{relativeLong(task.startedAt)}
 							</span>
 						</div>
 					)}
 					{/* Sessions */}
-					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px] border-r border-[var(--border-subtle)]">
-						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-							Sessions
-						</span>
+					<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Sessions</span>
 						<span
 							data-testid="task-session-count"
-							className="text-[13px] font-[500] text-[var(--text-primary)]"
+							className="type-small   text-[var(--text-primary)]"
 						>
 							{activeSessions.length} active / {completedSessions.length} completed
 						</span>
@@ -289,12 +281,10 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					</div>
 					{/* AC1: Outcome cell — always rendered; shows "--" when not evaluated */}
 					<div className="flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]">
-						<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-							Outcome
-						</span>
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Outcome</span>
 						<span
 							data-testid="task-outcome-cell"
-							className="text-[13px] font-[500] text-[var(--text-primary)]"
+							className="type-small   text-[var(--text-primary)]"
 						>
 							{task.outcomeVerdict
 								? task.outcomeVerdict.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -307,7 +297,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 				<section data-testid="task-sessions-section">
 					<SectionLabel label="Sessions" divider />
 					{sessions.length === 0 ? (
-						<p className="text-[12px] text-[var(--text-tertiary)]">No sessions yet.</p>
+						<p className="type-metadata  text-[var(--text-tertiary)]">No sessions yet.</p>
 					) : (
 						<div className="flex flex-col">
 							{sessions.map((s) => (

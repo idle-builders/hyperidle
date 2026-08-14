@@ -723,7 +723,7 @@ function WorkTeamLoaded({
 				/>
 			}
 			subtitle={
-				<span className="text-[13px] text-[var(--text-tertiary)]">
+				<span className="type-small text-[var(--text-tertiary)]">
 					Phase: {team.phase}
 					{leadName && ` · Lead: ${leadName}`}
 				</span>

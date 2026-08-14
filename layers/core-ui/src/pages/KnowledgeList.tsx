@@ -606,7 +606,7 @@ function KnowledgeListContent({
 							{/* Y4: keyboard hint bar — only shown when triage has items */}
 							<div
 								data-testid="triage-keyboard-hint"
-								className="flex items-center gap-[12px] py-[9px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]"
+								className="type-metadata flex items-center gap-[12px] py-[9px] border-t-[var(--bw-thin)] border-[var(--border-subtle)] text-[var(--text-tertiary)]"
 							>
 								<span>
 									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">

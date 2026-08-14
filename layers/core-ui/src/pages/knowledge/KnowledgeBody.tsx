@@ -69,7 +69,7 @@ function AnchoredMessages({
 			{anchorLost && (
 				<span
 					data-testid="anchor-lost-indicator"
-					className="text-xs text-[var(--text-tertiary)] italic"
+					className="type-metadata  text-[var(--text-tertiary)] italic"
 				>
 					anchor lost
 				</span>
@@ -80,7 +80,7 @@ function AnchoredMessages({
 				return (
 					<div
 						key={msg.id}
-						className="text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded-[var(--r-subtle)]"
+						className="type-metadata  text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded-[var(--r-subtle)]"
 					>
 						{text}
 					</div>
@@ -125,7 +125,7 @@ export function KnowledgeBody({
 	return (
 		<div data-knowledge-body data-testid={testId} className="flex flex-col">
 			{blocks.length === 0 ? (
-				<p className="text-[var(--text-tertiary)] text-sm m-0">(no content yet)</p>
+				<p className="type-small text-[var(--text-tertiary)]  m-0">(no content yet)</p>
 			) : (
 				blocks.map((block, blockIndex) => (
 					// T4: relative wrapper so AssistantAttachButton can be positioned in the gutter.

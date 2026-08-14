@@ -29,7 +29,7 @@ import { SettingsWorker } from "../settings/SettingsWorker.js";
 /** Shared section title style: 13px/600 uppercase, text-tertiary, border-bottom */
 function SectionTitle({ children }: { children: string }): JSX.Element {
 	return (
-		<h2 className="text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] pb-[6px] border-b border-[var(--border-subtle)]">
+		<h2 className="border-b-[var(--bw-thin)] type-label   uppercase  text-[var(--text-tertiary)] pb-[6px]  border-[var(--border-subtle)]">
 			{children}
 		</h2>
 	);

@@ -14,7 +14,10 @@ function parseTsv(path) {
 function ownsWave(path) {
 	if (wave === 4) return path.startsWith("framework/design-system/");
 	if (wave === 7) return path.startsWith("layers/core-ui/src/pages/review/");
-	if (wave === 6) return path.startsWith("layers/core-ui/src/pages/");
+	if (wave === 6)
+		return path.startsWith("layers/core-ui/src/pages/")
+			&& !path.startsWith("layers/core-ui/src/pages/review/")
+			&& !path.split("/").some((segment) => segment.startsWith("_"));
 	return path.startsWith("layers/core-ui/") && !path.startsWith("layers/core-ui/src/pages/");
 }
 

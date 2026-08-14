@@ -161,7 +161,7 @@ export function AgentDetailPane({
 					actions={
 						<>
 							{isDirty && (
-								<span className="text-[11px] text-[var(--text-tertiary)] shrink-0">
+								<span className="type-metadata text-[var(--text-tertiary)] shrink-0">
 									Unsaved changes
 								</span>
 							)}

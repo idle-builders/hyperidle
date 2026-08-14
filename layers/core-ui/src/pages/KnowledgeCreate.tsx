@@ -187,13 +187,13 @@ export function KnowledgeCreate(): JSX.Element {
 						<p
 							role="alert"
 							data-testid="knowledge-create-error"
-							className="text-[12px] text-[var(--status-error)]"
+							className="type-metadata  text-[var(--status-error)]"
 						>
 							{error}
 						</p>
 					)}
 					<div
-						className="border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
+						className="border-[var(--bw-default)]  border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
 						style={{ minHeight: "300px" }}
 					>
 						<BodyEditor
@@ -219,9 +219,7 @@ export function KnowledgeCreate(): JSX.Element {
 					>
 						{/* Scope picker — 3 static pills */}
 						<div className="flex flex-col gap-[6px]">
-							<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-								Scope
-							</span>
+							<span className="type-label   uppercase  text-[var(--text-tertiary)]">Scope</span>
 							{/* AI5: consolidated to the shared ScopePicker primitive (select mode).
 								    Team is disabled while submitting or when the user has no team. */}
 							<ScopePicker

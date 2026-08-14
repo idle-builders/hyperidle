@@ -189,16 +189,16 @@ export function AgentAddDialog({
 					/>
 				</div>
 				{roleDescription && (
-					<p className="text-[12px] text-[var(--text-tertiary)]">{roleDescription}</p>
+					<p className="type-metadata  text-[var(--text-tertiary)]">{roleDescription}</p>
 				)}
 			</div>
 
 			{/* System prompt section */}
 			<div className="mt-[18px]">
-				<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
+				<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">
 					SYSTEM PROMPT
 				</h3>
-				<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">
+				<p className="type-metadata  text-[var(--text-tertiary)] mb-[6px]">
 					Personality, style, and values. You define the system prompt; the harness provides tools,
 					context, and knowledge.
 				</p>
@@ -216,7 +216,7 @@ export function AgentAddDialog({
 
 			{/* Config section — starts expanded in create mode */}
 			<div className="mt-[12px]">
-				<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
+				<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">
 					CONFIGURATION
 				</h3>
 				<div className="flex flex-wrap gap-[12px]">
