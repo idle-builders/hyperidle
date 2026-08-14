@@ -120,8 +120,8 @@ describe("X3 AC-4: GET /api/agents returns AI agents with config fields", () => 
 		expect(Array.isArray(body)).toBe(true);
 	});
 
-	test("returns 401 without auth header", async ({ app }) => {
-		const res = await app.request("/api/agents");
+	test("returns 401 without auth header", async ({ requestWithoutAuth }) => {
+		const res = await requestWithoutAuth("/api/agents");
 		expect(res.status).toBe(401);
 	});
 
@@ -588,8 +588,8 @@ describe("X3 AC-8: GET /api/agents/templates/:role returns template content", ()
 		expect(res.status).toBe(404);
 	});
 
-	test("returns 401 without auth header", async ({ app }) => {
-		const res = await app.request("/api/agents/templates/product_manager");
+	test("returns 401 without auth header", async ({ requestWithoutAuth }) => {
+		const res = await requestWithoutAuth("/api/agents/templates/product_manager");
 		expect(res.status).toBe(401);
 	});
 });

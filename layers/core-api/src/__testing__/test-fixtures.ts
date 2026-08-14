@@ -2,7 +2,11 @@ import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
+import {
+	type DbFixtures,
+	test as dbTest,
+	registerFixtureOrchestrationCleanup,
+} from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { findUser } from "@hyperidle/users";
@@ -13,6 +17,8 @@ import { registerAgentRunAdmissionReactions } from "../services/agent-run-admiss
 import { registerAssistantTurnCoherenceTrigger } from "../services/assistant-turn-coherence-trigger.js";
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
+
+let nextFixtureAppId = 0;
 
 /**
  * AU31 §3.2 clause 6 — the service-lane fixture's transport: dials
@@ -45,6 +51,8 @@ function createFixtureAgentOrchestrationTransport(
 
 export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
+	/** Send a request without the fixture's default API key for auth rejection tests. */
+	requestWithoutAuth: Hono["request"];
 	eventBus: EventBus;
 	/**
 	 * AU31 §3.2 — a real `AgentOrchestrationPort` over a throwaway
@@ -53,6 +61,40 @@ export interface IntegrationFixtures extends DbFixtures {
 	 * fixture (e.g. `dispatch-test-helpers.ts`'s `fireStoredRoutine`).
 	 */
 	agentOrchestration: AgentOrchestrationPort;
+}
+
+export function withoutServiceTestAuth(
+	transport: (request: Request) => Response | Promise<Response>,
+): (request: Request) => Promise<Response> {
+	return (request) => {
+		const headers = new Headers(request.headers);
+		headers.set("X-HyperIdle-Test-Without-Auth", "true");
+		return Promise.resolve(transport(new Request(request, { headers })));
+	};
+}
+
+export async function createServiceTestApp(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+): Promise<{ app: Hono; authApiKey: string }> {
+	const authApiKey = `hyperidle-service-test-${++nextFixtureAppId}`;
+	const app = await createTestApp({
+		db,
+		eventBus,
+		authApiKey,
+		registerExtraRoutes: registerTestRoutes,
+	});
+	const rawFetch = app.fetch.bind(app);
+	// @lore The shared service fixture owns authentication explicitly. Its app
+	// must remain valid when another isolate:false file changes process.env.
+	app.fetch = (request, env, executionCtx) => {
+		const headers = new Headers(request.headers);
+		const omitDefaultAuth = headers.has("X-HyperIdle-Test-Without-Auth");
+		headers.delete("X-HyperIdle-Test-Without-Auth");
+		if (!omitDefaultAuth) headers.set("X-API-Key", authApiKey);
+		return rawFetch(new Request(request, { headers }), env, executionCtx);
+	};
+	return { app, authApiKey };
 }
 
 export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
@@ -88,6 +130,10 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	eventBus: async ({ db }, use) => {
 		const eventBus = new EventBus();
 		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
+		registerFixtureOrchestrationCleanup(db, () => {
+			orchestrationBoot.dispose();
+			return orchestrationBoot.joinLifecycleDrain();
+		});
 		const agentOrchestration: AgentOrchestrationPort = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
@@ -111,6 +157,10 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// usable whether or not a test also requests `eventBus`/`app`.
 	agentOrchestration: async ({ db, eventBus }, use) => {
 		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
+		registerFixtureOrchestrationCleanup(db, () => {
+			orchestrationBoot.dispose();
+			return orchestrationBoot.joinLifecycleDrain();
+		});
 		const port = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
@@ -128,9 +178,16 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		// @lore AU28: the middleware-exercising routes (/protected-test, /test-validate,
 		// /test-error) are mounted from here — the development world registering into
 		// production. `app.ts` no longer imports them.
-		const app = await createTestApp({ db, eventBus, registerExtraRoutes: registerTestRoutes });
+		const { app } = await createServiceTestApp(db, eventBus);
 		await use(app);
 		disposeApp(app);
+	},
+	requestWithoutAuth: async ({ app }, use) => {
+		await use((input, requestInit, env, executionCtx) => {
+			const headers = new Headers(requestInit?.headers);
+			headers.set("X-HyperIdle-Test-Without-Auth", "true");
+			return app.request(input, { ...requestInit, headers }, env, executionCtx);
+		});
 	},
 });
 

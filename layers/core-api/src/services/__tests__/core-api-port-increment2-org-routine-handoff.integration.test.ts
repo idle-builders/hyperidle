@@ -90,7 +90,16 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import {
+	afterEach,
+	describe,
+	expect,
+	test,
+	vi,
+	withoutServiceTestAuth,
+} from "../../__testing__/test-fixtures.js";
+
+afterEach(() => vi.unstubAllEnvs());
 
 const NOW = "2026-07-28T00:00:00.000Z";
 
@@ -399,7 +408,7 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 
 		// No withActorTransport wrapping — no X-API-Key on the request.
 		const port = buildCoreApiPort(
-			createInProcessCoreApiTransport(app),
+			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
 		) as unknown as SeamCoreApiPortIncrement2OrgRoutineHandoff;
 
 		await expect(
@@ -576,7 +585,7 @@ describe("CoreApiPort.work.handoffTask — Increment 2 org/routine/handoff wave 
 		const { taskId, sessionId } = await seedHandoffFixture(db, "noauth");
 
 		const port = buildCoreApiPort(
-			createInProcessCoreApiTransport(app),
+			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
 		) as unknown as SeamCoreApiPortIncrement2OrgRoutineHandoff;
 
 		await expect(

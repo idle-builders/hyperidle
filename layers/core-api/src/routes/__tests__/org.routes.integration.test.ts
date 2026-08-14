@@ -56,8 +56,8 @@ describe("org routes", () => {
 	});
 
 	describe("GET /api/org", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/org", { method: "GET" });
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/org", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 
@@ -86,8 +86,8 @@ describe("org routes", () => {
 	});
 
 	describe("PUT /api/org/edges", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/org/edges", { method: "PUT" });
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/org/edges", { method: "PUT" });
 			expect(res.status).toBe(401);
 		});
 
@@ -194,8 +194,8 @@ describe("org routes", () => {
 	});
 
 	describe("DELETE /api/org/edges/:id", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/org/edges/some-id", { method: "DELETE" });
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/org/edges/some-id", { method: "DELETE" });
 			expect(res.status).toBe(401);
 		});
 

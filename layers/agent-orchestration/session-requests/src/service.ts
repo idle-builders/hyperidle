@@ -215,28 +215,65 @@ async function processLifecycleInternal(
 		}
 	}
 }
+export type LifecycleProjectionDrainStop = (() => void) & {
+	readonly join: () => Promise<void>;
+};
+
 function startLifecycleInternal(
 	db: HyperIdleDb,
 	deps: LifecycleProjectionDeps,
 	options: { readonly pollIntervalMs?: number } = {},
-) {
-	let active = false;
-	const drain = async () => {
-		if (active) return;
-		active = true;
-		try {
-			await processLifecycleInternal(db, deps);
-		} finally {
-			active = false;
-		}
+): LifecycleProjectionDrainStop {
+	let stopping = false;
+	let active: Promise<void> | null = null;
+	const failures: unknown[] = [];
+	let joinPromise: Promise<void> | null = null;
+	let timer: ReturnType<typeof setInterval> | undefined;
+
+	const drain = (): void => {
+		if (stopping || active) return;
+		// @lore A fire-and-forget lifecycle drain still needs a rejection handler
+		// in its launch turn. Retain that failure for the fixture-only join seam;
+		// returning the rejecting work promise here would reintroduce an unhandled
+		// rejection in production callers that intentionally only use sync stop.
+		const observed = processLifecycleInternal(db, deps).then(
+			() => {},
+			(error: unknown) => {
+				failures.push(error);
+			},
+		);
+		active = observed;
+		void observed.then(() => {
+			if (active === observed) active = null;
+		});
 	};
-	void drain();
+	drain();
 	// Node clamps overflowing delays to 1ms, which turns a disabled/long-lived
 	// drain into a hot loop. Clamp explicitly to the largest supported delay.
 	const pollIntervalMs = Math.min(Math.max(1, options.pollIntervalMs ?? 1e3), 2_147_483_647);
-	const timer = setInterval(() => void drain(), pollIntervalMs);
+	timer = setInterval(drain, pollIntervalMs);
 	timer.unref();
-	return () => clearInterval(timer);
+
+	const stopPhase = (): void => {
+		if (stopping) return;
+		stopping = true;
+		if (timer) clearInterval(timer);
+	};
+	const join = (): Promise<void> => {
+		stopPhase();
+		if (!joinPromise) {
+			joinPromise = (async () => {
+				if (active) await active;
+				const retained = failures.splice(0);
+				if (retained.length === 1) throw retained[0];
+				if (retained.length > 1) {
+					throw new AggregateError(retained, "Lifecycle projection drains failed");
+				}
+			})();
+		}
+		return joinPromise;
+	};
+	return Object.assign(stopPhase, { join });
 }
 
 async function appendLifecycleFactInternal(

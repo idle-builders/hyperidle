@@ -72,6 +72,12 @@ async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	`);
 }
 
+async function allowSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	await db.execute(
+		sql`drop trigger if exists au21_reject_session_request_write on agent_session_requests`,
+	);
+}
+
 describe("agent_run_admission_failed — knowledge_action reaction fires for a REAL migrated (baked) intent", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -127,25 +133,29 @@ describe("agent_run_admission_failed — knowledge_action reaction fires for a R
 		expect(intentBeforeDrain?.bakedRequestJson).toBeTruthy();
 
 		await rejectSessionRequestWrites(db);
+		try {
+			const emitted: AgentRunAdmissionFailedEvent[] = [];
+			eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
 
-		const emitted: AgentRunAdmissionFailedEvent[] = [];
-		eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
+			const deps = { ...queueDeps(db), eventBus };
+			await drainIntents(deps, { maxAttempts: 1 });
 
-		const deps = { ...queueDeps(db), eventBus };
-		await drainIntents(deps, { maxAttempts: 1 });
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0]).toMatchObject({
+				kind: "knowledge_action",
+				sourceId: "knowledge:item-au21-know-mig",
+				terminal: true,
+			});
 
-		expect(emitted).toHaveLength(1);
-		expect(emitted[0]).toMatchObject({
-			kind: "knowledge_action",
-			sourceId: "knowledge:item-au21-know-mig",
-			terminal: true,
-		});
-
-		await vi.waitFor(async () => {
-			const reviewItems = await db.select().from(items);
-			const marker = attentionReviewReasoningMarker("item-au21-know-mig");
-			const flagged = reviewItems.find((row) => (row.reasoning ?? "").includes(marker));
-			expect(flagged).toBeDefined();
-		});
+			await vi.waitFor(async () => {
+				const reviewItems = await db.select().from(items);
+				const marker = attentionReviewReasoningMarker("item-au21-know-mig");
+				const flagged = reviewItems.find((row) => (row.reasoning ?? "").includes(marker));
+				expect(flagged).toBeDefined();
+			});
+		} finally {
+			// @lore shared-pglite-workers: TRUNCATE clears rows, not schema triggers.
+			await allowSessionRequestWrites(db);
+		}
 	});
 });

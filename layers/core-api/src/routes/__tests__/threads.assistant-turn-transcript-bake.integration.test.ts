@@ -30,8 +30,10 @@
 
 import { agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
+
+afterEach(() => vi.unstubAllEnvs());
 
 const ACTOR_OVERRIDE_HEADER = "x-hyperidle-actor-id";
 

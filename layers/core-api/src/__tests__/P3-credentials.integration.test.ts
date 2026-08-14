@@ -59,8 +59,8 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			}
 		});
 
-		test("returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/credentials");
+		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/credentials");
 			expect(res.status).toBe(401);
 		});
 
@@ -120,8 +120,8 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", {
 				method: "PUT",
 				body: JSON.stringify({ value: CREDENTIAL_VALUE }),
 			});
@@ -195,8 +195,8 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", {
+		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", {
 				method: "DELETE",
 			});
 			expect(res.status).toBe(401);
@@ -231,8 +231,8 @@ describe("P3 AC-9 — Credential CRUD endpoints", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
+		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key/validate", {
 				method: "POST",
 			});
 			expect(res.status).toBe(401);

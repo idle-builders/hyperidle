@@ -40,8 +40,8 @@ describe("GET /api/reviews/:reviewId", () => {
 		expect(res.status).toBe(404);
 	});
 
-	test("returns 401 without an API key", async ({ app }) => {
-		const res = await app.request("/api/reviews/rev-1", { method: "GET" });
+	test("returns 401 without an API key", async ({ requestWithoutAuth }) => {
+		const res = await requestWithoutAuth("/api/reviews/rev-1", { method: "GET" });
 		expect(res.status).toBe(401);
 	});
 });

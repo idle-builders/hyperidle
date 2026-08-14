@@ -159,9 +159,9 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("requires authentication", async ({ app }) => {
+		test("requires authentication", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/org");
+			const res = await requestWithoutAuth("/api/org");
 			expect(res.status).toBe(401);
 			vi.unstubAllEnvs();
 		});
@@ -456,9 +456,9 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("requires authentication", async ({ app }) => {
+		test("requires authentication", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/org/edges", {
+			const res = await requestWithoutAuth("/api/org/edges", {
 				method: "PUT",
 				body: JSON.stringify({
 					fromUserId: "u-human-org",
@@ -596,9 +596,9 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("requires authentication", async ({ app }) => {
+		test("requires authentication", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/org/edges/some-id", {
+			const res = await requestWithoutAuth("/api/org/edges/some-id", {
 				method: "DELETE",
 			});
 			expect(res.status).toBe(401);

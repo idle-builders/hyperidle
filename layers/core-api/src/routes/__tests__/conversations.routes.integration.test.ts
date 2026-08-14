@@ -62,8 +62,10 @@ describe("conversations routes", () => {
 	});
 
 	describe("conversations auth", () => {
-		test("returns 401 without auth header on GET /api/conversations", async ({ app }) => {
-			const res = await app.request("/api/conversations", { method: "GET" });
+		test("returns 401 without auth header on GET /api/conversations", async ({
+			requestWithoutAuth,
+		}) => {
+			const res = await requestWithoutAuth("/api/conversations", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});

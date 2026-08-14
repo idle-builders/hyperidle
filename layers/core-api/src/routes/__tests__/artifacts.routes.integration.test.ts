@@ -65,8 +65,10 @@ describe("artifacts routes", () => {
 	});
 
 	describe("artifacts auth", () => {
-		test("returns 401 without auth header on GET /api/artifacts", async ({ app }) => {
-			const res = await app.request("/api/artifacts?axis=task&taskId=x", { method: "GET" });
+		test("returns 401 without auth header on GET /api/artifacts", async ({
+			requestWithoutAuth,
+		}) => {
+			const res = await requestWithoutAuth("/api/artifacts?axis=task&taskId=x", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});

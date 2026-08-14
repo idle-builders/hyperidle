@@ -152,7 +152,8 @@ describe("Git worktree live proof on this repo", () => {
 			sandboxPath,
 			auth: null,
 		});
-		expect(mountResult.success).toBe(true);
+		expect(mountResult.error, mountResult.error).toBeUndefined();
+		expect(mountResult).toEqual({ success: true, sandboxPath });
 
 		// Working tree present in sandbox.
 		expect(fs.existsSync(path.join(sandboxPath, "package.json"))).toBe(true);

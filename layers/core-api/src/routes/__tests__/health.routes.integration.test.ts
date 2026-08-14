@@ -34,8 +34,8 @@ describe("health routes", () => {
 	});
 
 	describe("GET /api/health/auth", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/health/auth", { method: "GET" });
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/health/auth", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 

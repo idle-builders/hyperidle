@@ -1,0 +1,83 @@
+{
+  "wp": "AU40",
+  "title": "Capture the measured isolate:false prize",
+  "track": "AU",
+  "tier": "production",
+  "worktree": ".worktrees/AU40-pipeline",
+  "branch": "chore/AU40-isolate-false-test-lane",
+  "base": "origin/main@a54c352d6",
+  "phase": "architecture-amendment",
+  "status": "blocked",
+  "smallestActionToResume": "Maintainer must approve extending the fixture ownership contract to every direct bootAgentOrchestration caller using the pooled fixture DB; amendment critique retry cap is exhausted.",
+  "approvals": [
+    "Maintainer approved service-only isolate:false with per-test truncation unchanged.",
+    "Maintainer limited initial repairs to proven causal owners, then authorized actual cross-worker environment proof when full-green review failures varied by victim.",
+    "Maintainer defined the 1,000-line stop as net added code."
+  ],
+  "reviewHistory": [
+    { "attempt": 1, "verdict": "NOT DONE", "reason": "seed 4040 failed five tests and causal receipts were not independently auditable" },
+    { "attempt": 2, "verdict": "NOT DONE", "reason": "seed 4040 produced variable auth-sensitive victims; Git long-operation timeout overrides were incomplete" },
+    { "attempt": 3, "verdict": "NOT DONE", "reason": "fresh seed 4040 failed five tests after a green default; agent-work-intent state changed before assertion and explicit-session then failed, showing fixture-started background work still crosses boundaries" }
+  ],
+  "adjudications": [
+    {
+      "attempt": 1,
+      "decision": "return to architecture",
+      "reason": "three fresh implementation evaluations disproved per-file causal cleanup as a complete strategy",
+      "changedStrategy": "define deterministic stop-and-join only for background work started by the shared service-test fixture, not production-wide shutdown"
+    }
+  ],
+  "architectureAmendmentCritiques": [
+    { "attempt": 1, "verdict": "FAIL", "reason": "async public dispose conflicted with production sync bags; size accounting included pipeline artifacts" },
+    { "attempt": 2, "verdict": "FAIL", "reason": "fixture could not aggregate body errors; drain rejection retention and cleanup error-path proofs were incomplete" },
+    { "attempt": 3, "verdict": "FAIL", "reason": "direct pooled-DB bootAgentOrchestration callers were omitted from fixture ownership census" }
+  ],
+  "orderedPairCommand": "npx vitest run --config vitest.integration.config.ts --project service OWNER VICTIM --maxWorkers=1 --minWorkers=1 --no-file-parallelism --reporter=verbose",
+  "orderedPairReceipts": [
+    { "owner": "layers/core-api/src/__tests__/server-disposal.integration.test.ts", "victim": "layers/core-api/src/__tests__/create-task.integration.test.ts", "red": "3/3 victim failures; victim alone green", "green": "3/3; 12/12 tests" },
+    { "owner": "layers/agent-orchestration/src/__tests__/factory-run-config.integration.test.ts", "victim": "layers/core-api/src/services/__tests__/agent-work-intent-baked-payload.integration.test.ts", "red": "3/3 victim failures; victim alone green", "green": "3/3; 5/5 tests" },
+    { "owner": "layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts", "victim": "layers/core-api/src/routes/__tests__/reviews.routes.integration.test.ts", "red": "3/3 victim failures; victim alone green", "green": "3/3; 6/6 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/agent-run-admission-failed-task-run-migration.integration.test.ts", "victim": "layers/core-api/src/services/__tests__/agent-work-intent-supersede.integration.test.ts", "red": "3/3 victim failures; victim alone green", "green": "3/3; 2/2 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/agent-run-admission-failed-routine-run-migration.integration.test.ts", "victim": "layers/core-api/src/services/__tests__/agent-work-intent-supersede.integration.test.ts", "red": "3/3 victim failures; victim alone green", "green": "3/3; 2/2 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/agent-run-admission-failed-knowledge-action-migration.integration.test.ts", "victim": "layers/agent-orchestration/src/__tests__/boot-lifecycle-drain.integration.test.ts", "red": "3/3 victim failures; victim alone green", "green": "3/3; 2/2 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/agent-run-admission-failed-reengagement-migration.integration.test.ts", "victim": "layers/core-api/src/services/__tests__/agent-session-request-sources.integration.test.ts", "red": "3/3 victim failures; victim alone green", "green": "3/3; 2/2 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/agent-orchestration-port-session-activity.integration.test.ts", "victim": "layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 6/6 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/agent-orchestration-port.integration.test.ts", "victim": "layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 8/8 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/assistant-turn-b3-coherence-trigger.integration.test.ts", "victim": "layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 4/4 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/core-api-port.integration.test.ts", "victim": "layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 7/7 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/core-api-port-increment2-work-users.integration.test.ts", "victim": "layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 17/17 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/core-api-port-increment2-org-routine-handoff.integration.test.ts", "victim": "layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 19/19 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/core-api-port-increment2-conversation.integration.test.ts", "victim": "layers/core-api/src/routes/__tests__/agent-and-team-creation-atomicity.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 15/15 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/core-api-port-increment2-knowledge.integration.test.ts", "victim": "layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 20/20 tests" },
+    { "owner": "layers/core-api/src/routes/__tests__/agent-behavior-settings.integration.test.ts", "victim": "layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 10/10 tests" },
+    { "owner": "layers/core-api/src/routes/__tests__/threads.assistant-turn-transcript-bake.integration.test.ts", "victim": "layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 7/7 tests" },
+    { "owner": "layers/core-api/src/__tests__/create-bet.integration.test.ts", "victim": "layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 12/12 tests" },
+    { "owner": "layers/core-api/src/__tests__/AD8b-new-tools.integration.test.ts", "victim": "layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 12/12 tests" },
+    { "owner": "layers/core-api/src/__tests__/create-bet-coreapiport-migration.integration.test.ts", "victim": "layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts", "red": "3/3 victim 401 failures; victim alone green", "green": "3/3; 8/8 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/agent-orchestration-port-writes.integration.test.ts", "victim": "layers/core-api/src/__tests__/AL7-two-session-loop.integration.test.ts", "red": "3/3 victim failed the same three tests with 401; victim alone 5/5 green", "green": "3/3; 21/21 tests" },
+    { "owner": "layers/core-api/src/services/__tests__/assistant-thread-pin-coreapi-subscriber.integration.test.ts", "victim": "layers/core-api/src/__tests__/AL7-two-session-loop.integration.test.ts", "red": "3/3 victim failed the same three tests with 401; victim alone 5/5 green", "green": "3/3; 21/21 tests" },
+    { "owner": "layers/core-api/src/__tests__/agent-work-intent-production.integration.test.ts", "victim": "layers/core-api/src/__tests__/explicit-session-start.production.integration.test.ts", "red": "seed-4040 nested cause was AU9 injected intent write failure; victim alone 6/6 green", "green": "3/3; 21/21 tests" }
+  ],
+  "systemicAuthEvidence": {
+    "reviewRed": "Exact seed 4040 failed 7 auth-sensitive tests in AL7-reviews-loader-redo and agent-and-team-creation-atomicity; another fresh run failed 13 tests across four files.",
+    "focusedRedCommand": "npx vitest run --config vitest.integration.config.ts --project service layers/core-api/src/__tests__/test-app-auth.integration.test.ts framework/host-process/src/__tests__/git-runner.integration.test.ts --reporter=verbose",
+    "focusedRed": "fixture request returned 401 after ambient key changed; Git bundle/worktree add/worktree remove all logged 120000 instead of configured localMs=17000",
+    "repair": "Each service fixture app captures a unique worker-local API key; ordinary requests and the in-process transport attach it. Sixty-two intentional missing/invalid-auth cases explicitly opt out. Production still defaults to deployment env. Git localMs overrides all local commands; 120s remains only the long-operation default.",
+    "rateLimitRegression": "A full default run proved a single shared fixture key pooled module-scoped credential limiter state and caused nine 429s. A focused two-app contract now proves unique keys and per-app authentication.",
+    "focusedGreenCommand": "npx vitest run --config vitest.integration.config.ts --project service layers/core-api/src/__tests__/test-app-auth.integration.test.ts layers/core-api/src/routes/__tests__/credentials.routes.integration.test.ts layers/core-api/src/routes/__tests__/credentials.store.integration.test.ts framework/host-process/src/__tests__/git-runner.integration.test.ts --reporter=verbose",
+    "focusedGreen": "fixture/auth/credential contracts 26/26 and Git runner 9/9 passed"
+  },
+  "finalEvidence": {
+    "seedCommand": "npx vitest run --config vitest.integration.config.ts --project service --sequence.shuffle.files --sequence.seed=4040 --reporter=json --outputFile=/tmp/au40-seed4040-final.json",
+    "seedResult": "PASS; 2865 passed, 4 skipped, 0 failed, 2869 total",
+    "defaultCommand": "npm run test:integration:service",
+    "fiveConsecutive": ["98.20s", "99.75s", "100.67s", "98.93s", "100.16s"],
+    "defaultResult": "each run: 332 files passed, 1 skipped; 2865 tests passed, 4 skipped",
+    "check": "PASS; 55 packages, zero type errors",
+    "lint": "PASS; Biome, ESLint, governance fixtures/attacks/live tree",
+    "test": "PASS; 20 files, 144 tests",
+    "verify": "PASS; check, lint, knip, dependency/inventory/design gates, web build, desktop build",
+    "netAdditions": "+677 lines after staging new files; below 1000",
+    "disk": "healthy"
+  }
+}

@@ -172,9 +172,9 @@ describe("PATCH /api/users/:id — profile update", () => {
 	});
 
 	// Unauthenticated request returns 401
-	test("returns 401 when no API key is provided", async ({ db, app }) => {
+	test("returns 401 when no API key is provided", async ({ db, requestWithoutAuth }) => {
 		await seedUser(db);
-		const res = await app.request("/api/users/u-human-1", {
+		const res = await requestWithoutAuth("/api/users/u-human-1", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ name: "Intruder" }),

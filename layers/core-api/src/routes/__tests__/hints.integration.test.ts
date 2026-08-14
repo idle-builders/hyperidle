@@ -144,8 +144,8 @@ describe("GET /api/hint-progress", () => {
 	});
 
 	// Auth: unauthenticated request returns 401
-	test("returns 401 when no API key is provided", async ({ app }) => {
-		const res = await app.request("/api/hint-progress", {
+	test("returns 401 when no API key is provided", async ({ requestWithoutAuth }) => {
+		const res = await requestWithoutAuth("/api/hint-progress", {
 			method: "GET",
 		});
 
@@ -259,8 +259,8 @@ describe("POST /api/hint-progress/:hintId/dismiss", () => {
 	});
 
 	// Auth: unauthenticated request returns 401
-	test("returns 401 when no API key is provided", async ({ app }) => {
-		const res = await app.request("/api/hint-progress/create-bet/dismiss", {
+	test("returns 401 when no API key is provided", async ({ requestWithoutAuth }) => {
+		const res = await requestWithoutAuth("/api/hint-progress/create-bet/dismiss", {
 			method: "POST",
 		});
 

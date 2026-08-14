@@ -22,6 +22,7 @@ import {
 	buildProposedCallWorkflowPort,
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
+	withActorTransport,
 } from "@hyperidle/agent-orchestration";
 import {
 	artifacts,
@@ -65,10 +66,14 @@ const test = baseTest.extend<{
 	buildToolRegistry: async ({ app }, use) => {
 		const transport = createInProcessCoreApiTransport(app);
 		const definitions = buildToolDefinitions(transport);
-		const workflowPort = buildProposedCallWorkflowPort(transport);
-		await use((ctx, options) =>
-			buildToolRegistryFromDefinitions<HyperIdleDb>(definitions, ctx, options, workflowPort),
-		);
+		await use((ctx, options) => {
+			// @lore authenticated-workflow-transport: review workflow calls cross the same
+			// authenticated core seam as tool definitions, with this registry's actor.
+			const workflowPort = buildProposedCallWorkflowPort(
+				withActorTransport(transport, { userId: ctx.agentId }),
+			);
+			return buildToolRegistryFromDefinitions<HyperIdleDb>(definitions, ctx, options, workflowPort);
+		});
 	},
 });
 

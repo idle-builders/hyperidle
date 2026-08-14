@@ -44,6 +44,8 @@ import type { Context, MiddlewareHandler } from "hono";
 export interface AuthMiddlewareOptions {
 	db: HyperIdleDb;
 	sharedMode: boolean;
+	/** Composition-owned key. Production omits this and reads the deployment env. */
+	apiKey?: string;
 }
 
 const authLogger = createLogger({ pkg: "server.auth" });
@@ -171,6 +173,7 @@ export function createAuthMiddleware(
 	options: AuthMiddlewareOptions,
 ): MiddlewareHandler<HyperIdleEnv> {
 	const { db, sharedMode } = options;
+	const expectedApiKey = options.apiKey ?? process.env.HYPERIDLE_API_KEY ?? "";
 
 	return async (c, next) => {
 		if (sharedMode) {
@@ -192,7 +195,7 @@ export function createAuthMiddleware(
 
 			// Shared mode: fall back to X-API-Key (admin key)
 			const apiKey = c.req.header("X-API-Key") ?? "";
-			const expectedKey = process.env.HYPERIDLE_API_KEY ?? "";
+			const expectedKey = expectedApiKey;
 
 			if (apiKey.length > 0 && constantTimeStringEqual(apiKey, expectedKey)) {
 				c.set("userId", await resolveApiKeyActorUserId(c, db));
@@ -211,7 +214,7 @@ export function createAuthMiddleware(
 
 		// Local mode: X-API-Key only (unchanged behavior)
 		const apiKey = c.req.header("X-API-Key") ?? "";
-		const expectedKey = process.env.HYPERIDLE_API_KEY ?? "";
+		const expectedKey = expectedApiKey;
 
 		if (!constantTimeStringEqual(apiKey, expectedKey)) {
 			return rejectUnauthorized(

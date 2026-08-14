@@ -6,7 +6,10 @@ import {
 	writeConfigurationOverride,
 } from "@hyperidle/settings";
 import { Hono } from "hono";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+
+afterEach(() => vi.unstubAllEnvs());
+
 import { authMiddleware } from "../../middleware/auth.js";
 
 const TEST_API_KEY = "test-key-au5-agent-behavior";

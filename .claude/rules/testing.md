@@ -114,6 +114,4 @@ Fixture sources — each package that has them keeps them in its own `src/__test
 
 Import a layer's fixtures from within that layer by relative path; `@hyperidle/db/test-fixtures` is the only one published as a subpath.
 
-The PGlite pool allocates one instance **per test file** and reuses it between the tests in that file via `TRUNCATE` (~40ms). No teardown needed in test files.
-
-It does NOT span files, despite what `test-pool.ts` claimed until recently: the service project runs with `isolate: true`, so each file gets a fresh context, `globalThis` resets, and `warmPool()` allocates again. Measured cost is ~1.47s per file (1.18s PGlite WASM boot + 0.30s migration) — across the 324-file lane, ~476s, roughly half its total CPU time. Fixing that means taking PGlite out of process or pointing the lane at a real Postgres; see the `@lore pool-does-not-span-files` note in `framework/db/src/__testing__/test-pool.ts`.
+The PGlite pool allocates one instance **per service-test worker** and reuses it across files. Every test still checks out the worker pool and runs `TRUNCATE` before application behavior. Service integration files therefore must clean up background work and file-local mocks before they finish. Harness integration keeps file isolation and runs serially.

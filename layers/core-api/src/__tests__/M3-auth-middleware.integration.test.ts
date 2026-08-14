@@ -56,9 +56,9 @@ describe("M3 — Auth middleware: createAuthMiddleware(db) (A3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns 401 when no API key is provided", async ({ app }) => {
+	test("returns 401 when no API key is provided", async ({ requestWithoutAuth }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/auth/me");
+		const res = await requestWithoutAuth("/api/auth/me");
 		expect(res.status).toBe(401);
 		vi.unstubAllEnvs();
 	});

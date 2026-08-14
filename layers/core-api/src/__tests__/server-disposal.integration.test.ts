@@ -1,7 +1,13 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
-import { afterEach, beforeEach, describe, expect, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+
+// @lore shared-integration-workers: this suite mocks modules commonly loaded by
+// earlier service files. Clear evaluated modules before Vitest resolves its hoisted
+// mocks, then remove only this suite's registrations when it ends.
+vi.hoisted(() => vi.resetModules());
 
 const shutdown = vi.hoisted(() => {
 	const state = {
@@ -41,9 +47,14 @@ vi.mock("@hyperidle/agent-orchestration", async (importOriginal) => {
 			options: Parameters<typeof actual.bootAgentOrchestration>[0],
 		) => {
 			const boot = await actual.bootAgentOrchestration(options);
+			registerFixtureOrchestrationCleanup(options.db, () => {
+				boot.dispose();
+				return boot.joinLifecycleDrain();
+			});
 			return {
 				...boot,
 				disposeRuntime: async () => {
+					await boot.disposeRuntime?.();
 					await shutdown.phase("run-runtime");
 					await shutdown.state.recordDurableShutdown?.();
 				},
@@ -108,6 +119,15 @@ vi.mock("@hyperidle/db", async (importOriginal) => {
 			};
 		},
 	};
+});
+
+afterAll(() => {
+	vi.doUnmock("@hyperidle/agent-orchestration");
+	vi.doUnmock("../app.js");
+	vi.doUnmock("../routes/ws.js");
+	vi.doUnmock("@hono/node-server");
+	vi.doUnmock("@hyperidle/db");
+	vi.resetModules();
 });
 
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";

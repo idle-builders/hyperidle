@@ -19,8 +19,11 @@ import {
 import { bets, teamMembers, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { describe, expect } from "vitest";
+import { afterEach, describe, expect } from "vitest";
 import { test, vi } from "../__testing__/test-fixtures.js";
+
+afterEach(() => vi.unstubAllEnvs());
+
 import { makeContext, NOW } from "./_helpers.js";
 
 /**

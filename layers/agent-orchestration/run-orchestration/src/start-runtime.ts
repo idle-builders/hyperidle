@@ -286,23 +286,43 @@ function disposeAll(disposers: Array<() => void>): unknown {
  * Only after that sweep does the intent/request drain start, scheduled every 1s,
  * with the reaper additionally scheduled every 6h.
  */
-async function bootAgentLayer(deps: RuntimeDeps): Promise<() => void> {
+interface AgentLayerHandle {
+	readonly stop: () => void;
+	readonly join: () => Promise<void>;
+}
+
+async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	assertStartable(deps);
 	const runtime = deps.runtime;
 	const eventBus = resolveEventBus(deps);
 	await recoverRunningRequests(deps.db, eventBus, deps.ports);
 	await deps.ports.sessionLifecycle.recoverRequestedTerminations(deps.db, eventBus);
 	await deps.ports.sessionRequests.reapExpired(deps.durableQueue);
-	let draining = false;
-	const wake = async () => {
-		if (draining) return;
-		draining = true;
-		try {
+	// @lore The service lane reuses a fixture DB after RuntimeHandle.dispose().
+	// Stop timer/event triggers synchronously, then let the already-async dispose
+	// path join the observed wake before that DB can be checked in and truncated.
+	let stopping = false;
+	let active: Promise<void> | null = null;
+	const failures: unknown[] = [];
+	let joinPromise: Promise<void> | null = null;
+	const wake = (): Promise<void> => {
+		if (stopping) return Promise.resolve();
+		if (active) return active;
+		const observed = (async () => {
 			await deps.ports.sessionRequests.drainIntents(deps.durableQueue);
 			if (runtime) await drainAgentSessionRequests(deps);
-		} finally {
-			draining = false;
-		}
+		})();
+		active = observed;
+		void observed.then(
+			() => {
+				if (active === observed) active = null;
+			},
+			(error: unknown) => {
+				failures.push(error);
+				if (active === observed) active = null;
+			},
+		);
+		return observed;
 	};
 	await wake();
 	// EventBus is a latency hint only; polling remains the process-death recovery path.
@@ -314,11 +334,28 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<() => void> {
 	);
 	reapTimer.unref();
 	timer.unref();
-	return () => {
+	const stop = (): void => {
+		if (stopping) return;
+		stopping = true;
 		clearInterval(timer);
 		clearInterval(reapTimer);
 		unsubscribe?.();
 	};
+	const join = (): Promise<void> => {
+		stop();
+		if (!joinPromise) {
+			joinPromise = (async () => {
+				if (active) await active.catch(() => undefined);
+				const retained = failures.splice(0);
+				if (retained.length === 1) throw retained[0];
+				if (retained.length > 1) {
+					throw new AggregateError(retained, "Agent runtime drains failed");
+				}
+			})();
+		}
+		return joinPromise;
+	};
+	return { stop, join };
 }
 
 /** Start recovery, durable drains, and reapers as one owned runtime resource. */
@@ -351,6 +388,7 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 	};
 	const ownedDeps = { ...deps, eventBus, ports };
 	const disposers: Array<() => void> = [];
+	let joinAgentLayer: (() => Promise<void>) | undefined;
 	const workerIngress = createWorkerIngress(
 		deps.composition.worker.pool,
 		deps.composition.worker.adapterFactory,
@@ -374,7 +412,9 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 					});
 			}),
 		);
-		disposers.push(await bootAgentLayer(ownedDeps));
+		const agentLayer = await bootAgentLayer(ownedDeps);
+		disposers.push(agentLayer.stop);
+		joinAgentLayer = agentLayer.join;
 		disposers.push(
 			createWritebackProcessor().subscribe({ ...deps.composition.writeback, eventBus }),
 		);
@@ -387,6 +427,7 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 		}
 	} catch (error) {
 		disposeAll(disposers);
+		await joinAgentLayer?.().catch(() => undefined);
 		throw error;
 	}
 	let disposed = false;
@@ -402,13 +443,20 @@ export async function startRuntime(deps: RuntimeDeps): Promise<RuntimeHandle> {
 			disposed = true;
 			const firstError = disposeAll(disposers);
 			let shutdownError: unknown;
+			let drainError: unknown;
 			try {
 				await markRunningAgentSessionRequestsForShutdown(deps.db, ports);
 			} catch (error) {
 				shutdownError = error;
 			}
+			try {
+				await joinAgentLayer?.();
+			} catch (error) {
+				drainError = error;
+			}
 			if (firstError) throw firstError;
 			if (shutdownError) throw shutdownError;
+			if (drainError) throw drainError;
 		},
 	};
 }

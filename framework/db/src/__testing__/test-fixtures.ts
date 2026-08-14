@@ -6,6 +6,23 @@ export interface DbFixtures {
 	db: HyperIdleDb;
 }
 
+type FixtureOrchestrationCleanup = () => void | Promise<void>;
+
+interface FixtureCleanupBag {
+	readonly owners: FixtureOrchestrationCleanup[];
+}
+
+export interface TestDbLease {
+	readonly db: HyperIdleDb;
+	readonly instance: Awaited<ReturnType<typeof checkout>>;
+	readonly release: () => Promise<void>;
+}
+
+// @lore isolate:false reuses the worker DB after this fixture returns. Key the
+// owner bag by its per-test wrapper, detach it before stopping every owner, and
+// await them all before checkin so no late projection can cross that boundary.
+const fixtureCleanupBags = new WeakMap<HyperIdleDb, FixtureCleanupBag>();
+
 /**
  * Unwrap drizzle-orm 0.45.2+ wrapped errors in tests.
  *
@@ -44,11 +61,58 @@ function wrapForTests(db: HyperIdleDb): HyperIdleDb {
 	});
 }
 
+export function registerFixtureOrchestrationCleanup(
+	db: HyperIdleDb,
+	cleanup: FixtureOrchestrationCleanup,
+): boolean {
+	const bag = fixtureCleanupBags.get(db);
+	if (!bag) return false;
+	bag.owners.push(cleanup);
+	return true;
+}
+
+export async function acquireTestDbLease(): Promise<TestDbLease> {
+	const instance = await checkout();
+	const db = wrapForTests(instance.db);
+	const bag: FixtureCleanupBag = { owners: [] };
+	fixtureCleanupBags.set(db, bag);
+	let releasePromise: Promise<void> | null = null;
+
+	const release = (): Promise<void> => {
+		if (!releasePromise) {
+			fixtureCleanupBags.delete(db);
+			const results = bag.owners.reverse().map((owner) => {
+				try {
+					return Promise.resolve(owner());
+				} catch (error) {
+					return Promise.reject(error);
+				}
+			});
+			releasePromise = Promise.allSettled(results).then((settled) => {
+				checkin(instance);
+				const failures = settled.flatMap((result) =>
+					result.status === "rejected" ? [result.reason] : [],
+				);
+				if (failures.length === 1) throw failures[0];
+				if (failures.length > 1) {
+					throw new AggregateError(failures, "Fixture orchestration cleanup failed");
+				}
+			});
+		}
+		return releasePromise;
+	};
+
+	return { db, instance, release };
+}
+
 export const test = base.extend<DbFixtures>({
 	db: async ({}, use) => {
-		const instance = await checkout();
-		await use(wrapForTests(instance.db));
-		checkin(instance);
+		const lease = await acquireTestDbLease();
+		try {
+			await use(lease.db);
+		} finally {
+			await lease.release();
+		}
 	},
 });
 

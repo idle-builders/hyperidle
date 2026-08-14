@@ -78,6 +78,8 @@ import { WsConnectionHub } from "./ws-connection-hub.js";
 import { createDbSubscribeAuthorizer } from "./ws-subscribe-authorizer.js";
 
 export interface CoreApiBootOptions extends AppOptions {
+	/** Explicit auth key for a composition root that must not depend on ambient env. */
+	readonly authApiKey?: string;
 	/**
 	 * The Application's Node-specific WS-upgrade adapter (from
 	 * `@hono/node-server`). When present — and `registerWebSocket` was not
@@ -376,6 +378,7 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 		middleware: createApiMiddlewareStack({
 			...(db ? { db } : {}),
 			sharedMode,
+			...(options?.authApiKey !== undefined ? { apiKey: options.authApiKey } : {}),
 		}),
 		disposers,
 		disposeWebSocket,

@@ -56,6 +56,7 @@ export interface ApiMiddlewareStack {
 export function createApiMiddlewareStack(deps: {
 	readonly db?: HyperIdleDb;
 	readonly sharedMode: boolean;
+	readonly apiKey?: string;
 }): ApiMiddlewareStack {
 	const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "300", 10);
 	const baseRateLimit =
@@ -76,7 +77,11 @@ export function createApiMiddlewareStack(deps: {
 		// M3 A3: with a db, auth resolves `userId` off the `users` table; without
 		// one (db-less test apps) the stateless middleware stands in.
 		auth: deps.db
-			? createAuthMiddleware({ db: deps.db, sharedMode: deps.sharedMode })
+			? createAuthMiddleware({
+					db: deps.db,
+					sharedMode: deps.sharedMode,
+					...(deps.apiKey !== undefined ? { apiKey: deps.apiKey } : {}),
+				})
 			: authMiddleware,
 		failClosed: failClosedAssertion(),
 		authMintLimiter: createRateLimiter({

@@ -38,7 +38,10 @@ import {
 } from "@hyperidle/agent-orchestration";
 import { bets, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+
+afterEach(() => vi.unstubAllEnvs());
+
 import { makeContext, NOW } from "./_helpers.js";
 
 async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId: string }> {

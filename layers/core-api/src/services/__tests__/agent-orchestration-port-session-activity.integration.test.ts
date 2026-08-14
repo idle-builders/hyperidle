@@ -25,7 +25,7 @@
  * module itself already exists from Increment 6).
  */
 
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 import {
 	buildAgentOrchestrationPort,
 	createInProcessAgentOrchestrationTransport,
@@ -38,6 +38,12 @@ interface SeamAgentOrchestrationPortWithActivity {
 		): Promise<ReadonlyArray<{ readonly type: string; readonly timestamp: number }>>;
 	};
 }
+
+afterEach(() => {
+	// @lore shared-integration-workers: auth env belongs to this file and
+	// must not turn the next file's unauthenticated fixture requests into 401s.
+	vi.unstubAllEnvs();
+});
 
 describe("AgentOrchestrationPort — session-activity gateway (§9 Increment 7)", () => {
 	test("reaches a real per-session activity route and returns entries the relocated buffer recorded", async ({

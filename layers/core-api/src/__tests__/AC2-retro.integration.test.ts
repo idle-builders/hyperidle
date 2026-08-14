@@ -520,9 +520,9 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 	});
 
 	// 401 without auth
-	test("returns 401 without authentication", async ({ app }) => {
+	test("returns 401 without authentication", async ({ requestWithoutAuth }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await requestWithoutAuth("/api/bets/bet-completed/retro", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ verdict: "validated", summary: "Unauthorized." }),
@@ -666,9 +666,9 @@ describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
 	});
 
 	// 401 without auth
-	test("returns 401 without authentication", async ({ app }) => {
+	test("returns 401 without authentication", async ({ requestWithoutAuth }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/bet-completed/retro/draft", {
+		const res = await requestWithoutAuth("/api/bets/bet-completed/retro/draft", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({}),

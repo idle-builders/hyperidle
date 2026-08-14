@@ -107,7 +107,9 @@ import {
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+
+afterEach(() => vi.unstubAllEnvs());
 
 const NOW = "2026-07-28T00:00:00.000Z";
 

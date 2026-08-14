@@ -72,6 +72,12 @@ async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	`);
 }
 
+async function allowSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	await db.execute(
+		sql`drop trigger if exists au21_reject_session_request_write on agent_session_requests`,
+	);
+}
+
 describe("agent_run_admission_failed — task_run reaction fires for a REAL migrated (baked) intent", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -144,26 +150,31 @@ describe("agent_run_admission_failed — task_run reaction fires for a REAL migr
 		expect(intentBeforeDrain?.bakedRequestJson).toBeTruthy();
 
 		await rejectSessionRequestWrites(db);
+		try {
+			const emitted: AgentRunAdmissionFailedEvent[] = [];
+			eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
 
-		const emitted: AgentRunAdmissionFailedEvent[] = [];
-		eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
+			const deps = { ...queueDeps(db), eventBus };
+			await drainIntents(deps, { maxAttempts: 1 });
 
-		const deps = { ...queueDeps(db), eventBus };
-		await drainIntents(deps, { maxAttempts: 1 });
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0]).toMatchObject({
+				kind: "task_run",
+				sourceId: attempt?.id,
+				terminal: true,
+			});
 
-		expect(emitted).toHaveLength(1);
-		expect(emitted[0]).toMatchObject({
-			kind: "task_run",
-			sourceId: attempt?.id,
-			terminal: true,
-		});
-
-		await vi.waitFor(async () => {
-			const [finalized] = await db
-				.select()
-				.from(taskDispatchAttempts)
-				.where(eq(taskDispatchAttempts.id, attempt?.id ?? ""));
-			expect(finalized?.status).toBe("failed");
-		});
+			await vi.waitFor(async () => {
+				const [finalized] = await db
+					.select()
+					.from(taskDispatchAttempts)
+					.where(eq(taskDispatchAttempts.id, attempt?.id ?? ""));
+				expect(finalized?.status).toBe("failed");
+			});
+		} finally {
+			// @lore shared-pglite-workers: TRUNCATE clears rows, not schema
+			// triggers. This fault must not reject the next file's legitimate writes.
+			await allowSessionRequestWrites(db);
+		}
 	});
 });

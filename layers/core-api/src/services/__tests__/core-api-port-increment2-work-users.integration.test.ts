@@ -78,7 +78,16 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import {
+	afterEach,
+	describe,
+	expect,
+	test,
+	vi,
+	withoutServiceTestAuth,
+} from "../../__testing__/test-fixtures.js";
+
+afterEach(() => vi.unstubAllEnvs());
 
 const NOW = "2026-07-27T00:00:00.000Z";
 
@@ -484,7 +493,7 @@ describe("CoreApiPort.work — Increment 2 (RED)", () => {
 		// No withActorTransport wrapping — no X-API-Key on the request. If the
 		// seam bypassed the real route's auth middleware, this would succeed.
 		const port = buildCoreApiPort(
-			createInProcessCoreApiTransport(app),
+			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
 		) as unknown as SeamCoreApiPortIncrement2;
 
 		await expect(

@@ -149,17 +149,17 @@ describe("E2E API Integration (I5)", () => {
 	// 1. Auth enforcement
 	// -------------------------------------------------------
 	describe("Auth enforcement", () => {
-		test("returns 401 when X-API-Key header is missing", async ({ db, app }) => {
+		test("returns 401 when X-API-Key header is missing", async ({ db, requestWithoutAuth }) => {
 			await seedBase(db);
-			const res = await app.request("/api/bets");
+			const res = await requestWithoutAuth("/api/bets");
 			expect(res.status).toBe(401);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("UNAUTHORIZED");
 		});
 
-		test("returns 401 when X-API-Key header is wrong", async ({ db, app }) => {
+		test("returns 401 when X-API-Key header is wrong", async ({ db, requestWithoutAuth }) => {
 			await seedBase(db);
-			const res = await app.request("/api/bets", {
+			const res = await requestWithoutAuth("/api/bets", {
 				headers: { "X-API-Key": "wrong-key" },
 			});
 			expect(res.status).toBe(401);

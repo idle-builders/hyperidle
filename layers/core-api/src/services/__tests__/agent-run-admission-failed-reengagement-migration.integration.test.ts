@@ -68,6 +68,12 @@ async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	`);
 }
 
+async function allowSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	await db.execute(
+		sql`drop trigger if exists au21_reengage_reject_session_request_write on agent_session_requests`,
+	);
+}
+
 describe("agent_run_admission_failed — reengagement reaction fires for a REAL migrated (baked) intent", () => {
 	test("a real baked reengagement intent that fails terminally at drain still re-provisions via the liveness-net pattern", async ({
 		db,
@@ -197,42 +203,46 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 		expect(intentBeforeDrain?.bakedRequestJson).toBeTruthy();
 
 		await rejectSessionRequestWrites(db);
+		try {
+			const emitted: AgentRunAdmissionFailedEvent[] = [];
+			eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
 
-		const emitted: AgentRunAdmissionFailedEvent[] = [];
-		eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
+			const { queueDeps } = await import("../../__testing__/durable-agent-queue-test-deps.js");
+			const deps = { ...queueDeps(db), eventBus };
+			await drainIntents(deps, { maxAttempts: 1 });
 
-		const { queueDeps } = await import("../../__testing__/durable-agent-queue-test-deps.js");
-		const deps = { ...queueDeps(db), eventBus };
-		await drainIntents(deps, { maxAttempts: 1 });
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0]).toMatchObject({
+				kind: "reengagement",
+				sourceId: proposedCallId,
+				terminal: true,
+			});
 
-		expect(emitted).toHaveLength(1);
-		expect(emitted[0]).toMatchObject({
-			kind: "reengagement",
-			sourceId: proposedCallId,
-			terminal: true,
-		});
+			await vi.waitFor(async () => {
+				const [grant] = await db
+					.select()
+					.from(tailoredGrants)
+					.where(eq(tailoredGrants.proposedCallId, proposedCallId));
+				expect(grant?.retryCount).toBe(1);
+				const retryIntents = await db
+					.select()
+					.from(agentWorkIntents)
+					.where(eq(agentWorkIntents.kind, "reengagement"));
+				// The original (baked, now-failed) + a fresh re-provision intent
+				// recorded by the liveness net's admission-failure reaction.
+				expect(retryIntents.length).toBeGreaterThanOrEqual(2);
 
-		await vi.waitFor(async () => {
-			const [grant] = await db
-				.select()
-				.from(tailoredGrants)
-				.where(eq(tailoredGrants.proposedCallId, proposedCallId));
-			expect(grant?.retryCount).toBe(1);
-			const retryIntents = await db
-				.select()
-				.from(agentWorkIntents)
-				.where(eq(agentWorkIntents.kind, "reengagement"));
-			// The original (baked, now-failed) + a fresh re-provision intent
-			// recorded by the liveness net's admission-failure reaction.
-			expect(retryIntents.length).toBeGreaterThanOrEqual(2);
-
-			// @lore AU26 E3: the K1 assertion here proved this retry site baked the
-			// owning human's held connections onto the fresh re-provision intent.
-			// That bake is deleted — connections are read live at spawn — so the
-			// fresh intent correctly carries none. What still matters is that the
-			// liveness net produced a real fresh intent at all.
-			const freshRetryIntent = retryIntents.find((row) => row.id !== intentBeforeDrain?.id);
-			expect(freshRetryIntent?.bakedRequestJson ?? "").not.toContain("injectedConnections");
-		});
+				// @lore AU26 E3: the K1 assertion here proved this retry site baked the
+				// owning human's held connections onto the fresh re-provision intent.
+				// That bake is deleted — connections are read live at spawn — so the
+				// fresh intent correctly carries none. What still matters is that the
+				// liveness net produced a real fresh intent at all.
+				const freshRetryIntent = retryIntents.find((row) => row.id !== intentBeforeDrain?.id);
+				expect(freshRetryIntent?.bakedRequestJson ?? "").not.toContain("injectedConnections");
+			});
+		} finally {
+			// @lore shared-pglite-workers: TRUNCATE clears rows, not schema triggers.
+			await allowSessionRequestWrites(db);
+		}
 	});
 });

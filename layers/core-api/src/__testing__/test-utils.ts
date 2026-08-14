@@ -5,6 +5,7 @@ import {
 	bootAgentOrchestration,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
+import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
@@ -20,6 +21,8 @@ import {
 const TRACE_FILE = process.env.VITEST_TRACE_FILE;
 
 export interface TestAppOptions extends AppOptions {
+	/** Explicit API key captured by this test app; never read from ambient env after construction. */
+	authApiKey?: string;
 	/**
 	 * A pre-booted orchestration Layer. Omitted → this harness boots one itself
 	 * (when a `db` is present), exactly as production does.
@@ -96,8 +99,14 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	const agentOrchestration =
 		options?.agentOrchestrationBoot ??
 		(options?.db ? await bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
+	if (options?.db && agentOrchestration) {
+		registerFixtureOrchestrationCleanup(options.db, () => {
+			agentOrchestration.dispose();
+			return agentOrchestration.joinLifecycleDrain();
+		});
+	}
 
-	const layerOptions: AppOptions = {
+	const layerOptions: TestAppOptions = {
 		...options,
 		agentOrchestration: agentOrchestrationPort,
 		...(options?.db ? { eventBus } : {}),
@@ -137,7 +146,14 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 		...(agentOrchestration ? [agentOrchestration.dispose] : []),
 	]);
 	// Close the construction cycle — every request from here on resolves.
-	realTransport = createInProcessAgentOrchestrationTransport(app);
+	const inProcessTransport = createInProcessAgentOrchestrationTransport(app);
+	realTransport = options?.authApiKey
+		? async (request) => {
+				const headers = new Headers(request.headers);
+				headers.set("X-API-Key", options.authApiKey as string);
+				return inProcessTransport(new Request(request, { headers }));
+			}
+		: inProcessTransport;
 
 	if (TRACE_FILE) {
 		const ms = Math.round((performance.now() - t0) * 10) / 10;

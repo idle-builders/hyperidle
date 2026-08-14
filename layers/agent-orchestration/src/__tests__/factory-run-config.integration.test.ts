@@ -19,6 +19,10 @@
  */
 import { vi } from "vitest";
 
+// @lore shared-integration-workers: the mocked factory-defaults module may
+// already be evaluated by an earlier file. Reset it before this file's hoisted mock.
+vi.hoisted(() => vi.resetModules());
+
 /**
  * Set by the "content !== null skip" test to force `readSystemPromptTemplateForRole` to return
  * null for one role, deterministically — every real template file in this repo exists, so the
@@ -36,12 +40,17 @@ vi.mock("@hyperidle/factory-defaults", async (importOriginal) => {
 });
 
 import { agentRunConfig, users } from "@hyperidle/db";
-import { afterEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { afterAll, afterEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { applyFactoryRunConfigDefaults } from "../factory-run-config.js";
 
 afterEach(() => {
 	nullTemplateRole = null;
+});
+
+afterAll(() => {
+	vi.doUnmock("@hyperidle/factory-defaults");
+	vi.resetModules();
 });
 
 const AH2 = {

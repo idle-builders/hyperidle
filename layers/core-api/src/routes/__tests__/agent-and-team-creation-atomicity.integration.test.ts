@@ -24,7 +24,11 @@
 import { teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import { describe, expect, test } from "../../__testing__/test-fixtures.js";
+import { afterAll, describe, expect, test } from "../../__testing__/test-fixtures.js";
+
+// @lore shared-integration-workers: this fault-injection mock must replace
+// an agent-run-config module that an earlier service file may already have loaded.
+vi.hoisted(() => vi.resetModules());
 
 const AGENT_NAME = "W10 Atomicity Agent";
 const TEAM_NAME = "W10 Atomicity Team";
@@ -42,6 +46,11 @@ vi.mock("@hyperidle/agent-run-config", async () => {
 			throw new Error("W10: team run config defaults write failed");
 		},
 	};
+});
+
+afterAll(() => {
+	vi.doUnmock("@hyperidle/agent-run-config");
+	vi.resetModules();
 });
 
 function authHeaders(): Record<string, string> {

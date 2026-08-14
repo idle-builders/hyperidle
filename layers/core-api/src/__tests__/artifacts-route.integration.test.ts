@@ -86,8 +86,8 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("401 when unauthenticated", async ({ app }) => {
-		const res = await app.request("/api/artifacts?axis=portfolio", {
+	test("401 when unauthenticated", async ({ requestWithoutAuth }) => {
+		const res = await requestWithoutAuth("/api/artifacts?axis=portfolio", {
 			headers: { "Content-Type": "application/json" },
 		});
 		expect(res.status).toBe(401);

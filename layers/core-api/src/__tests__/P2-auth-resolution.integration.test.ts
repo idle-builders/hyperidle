@@ -184,9 +184,9 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 401 without API key", async ({ app }) => {
+		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/auth/me");
+			const res = await requestWithoutAuth("/api/auth/me");
 			expect(res.status).toBe(401);
 			vi.unstubAllEnvs();
 		});

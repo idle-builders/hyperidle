@@ -103,8 +103,8 @@ describe("routines routes", () => {
 	});
 
 	describe("routines auth", () => {
-		test("returns 401 without auth header on GET /api/routines", async ({ app }) => {
-			const res = await app.request("/api/routines", { method: "GET" });
+		test("returns 401 without auth header on GET /api/routines", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/routines", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 	});

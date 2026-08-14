@@ -629,8 +629,8 @@ describe("Conversations Endpoints (E2)", () => {
 	// --- Auth ---
 
 	describe("Auth required", () => {
-		test("returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/conversations");
+		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/conversations");
 			expect(res.status).toBe(401);
 		});
 	});

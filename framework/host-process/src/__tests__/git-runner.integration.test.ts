@@ -11,7 +11,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createGitRunner } from "../git/git-runner.js";
 
 // Helper: create a minimal bare git repo with one commit for use as a remote.
@@ -66,16 +66,56 @@ describe("GitRunner — real on-disk round-trip (filesystem inbound verbs)", () 
 		const cloneDir = path.join(tmpDir, "cloned-for-bundle");
 		fs.mkdirSync(cloneDir, { recursive: true });
 
-		const runner = createGitRunner(cloneDir);
+		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+		const runner = createGitRunner(cloneDir, { logger });
 		await runner.clone(bareDir, "main");
 
 		const bundlePath = path.join(tmpDir, "captured.bundle");
 		await runner.bundle(bundlePath, "refs/heads/main");
+		expect(logger.debug).toHaveBeenLastCalledWith(
+			"git spawn",
+			expect.objectContaining({
+				args: ["bundle", "create", bundlePath, "refs/heads/main"],
+				timeoutMs: 120_000,
+			}),
+		);
 
 		expect(fs.existsSync(bundlePath)).toBe(true);
 		// A valid git bundle starts with "# v2 git bundle\n".
 		const header = fs.readFileSync(bundlePath, "utf-8").slice(0, 20);
 		expect(header).toMatch(/^# v\d git bundle/);
+	});
+
+	it("local timeout override wins for bundle and worktree lifecycle commands", async () => {
+		const bareDir = await createBareRepo(tmpDir);
+		const mainClone = await createWorkingClone(bareDir, tmpDir);
+		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+		const runner = createGitRunner(mainClone, { logger, timeouts: { localMs: 17_000 } });
+		const worktreePath = path.join(tmpDir, "override-worktree");
+
+		await runner.worktreeAdd(worktreePath, "agent/override", { createBranch: true });
+		await runner.bundle(path.join(tmpDir, "override.bundle"), "refs/heads/main");
+		await runner.worktreeRemove(worktreePath, { force: true });
+
+		for (const command of ["worktree", "bundle"]) {
+			expect(logger.debug).toHaveBeenCalledWith(
+				"git spawn",
+				expect.objectContaining({
+					args: expect.arrayContaining([command]),
+					timeoutMs: 17_000,
+				}),
+			);
+		}
+		const worktreeCalls = logger.debug.mock.calls.filter(
+			([message, details]) =>
+				message === "git spawn" &&
+				Array.isArray((details as { args?: unknown }).args) &&
+				(details as { args: unknown[] }).args[0] === "worktree",
+		);
+		expect(worktreeCalls).toHaveLength(2);
+		expect(
+			worktreeCalls.map(([, details]) => (details as { timeoutMs: number }).timeoutMs),
+		).toEqual([17_000, 17_000]);
 	});
 
 	it("worktreeAdd / worktreeRemove: creates and removes a worktree", async () => {

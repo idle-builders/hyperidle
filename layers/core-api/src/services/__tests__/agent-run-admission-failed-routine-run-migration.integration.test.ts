@@ -77,6 +77,12 @@ async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
 	`);
 }
 
+async function allowSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	await db.execute(
+		sql`drop trigger if exists au21_reject_session_request_write_rrun on agent_session_requests`,
+	);
+}
+
 /** Real production-mirroring ports — same shape as this wave's baked-emit test. */
 function makePorts(): RoutineSchedulerPorts & {
 	readonly requireRunnableAgent: typeof requireRunnableAgent;
@@ -189,25 +195,29 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 		expect(intentBeforeDrain?.bakedRequestJson).toBeTruthy();
 
 		await rejectSessionRequestWrites(db);
+		try {
+			const emitted: AgentRunAdmissionFailedEvent[] = [];
+			eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
 
-		const emitted: AgentRunAdmissionFailedEvent[] = [];
-		eventBus.on("agent_run_admission_failed", (event) => emitted.push(event));
+			const queueDrainDeps = { ...queueDeps(db), eventBus };
+			await drainIntents(queueDrainDeps, { maxAttempts: 1 });
 
-		const queueDrainDeps = { ...queueDeps(db), eventBus };
-		await drainIntents(queueDrainDeps, { maxAttempts: 1 });
+			expect(emitted).toHaveLength(1);
+			expect(emitted[0]).toMatchObject({
+				kind: "routine_run",
+				sourceId: fireResult.runId,
+				terminal: true,
+			});
 
-		expect(emitted).toHaveLength(1);
-		expect(emitted[0]).toMatchObject({
-			kind: "routine_run",
-			sourceId: fireResult.runId,
-			terminal: true,
-		});
-
-		const [finalizedRun] = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.id, fireResult.runId ?? ""));
-		expect(finalizedRun?.outcome).toBe("error");
-		expect(finalizedRun?.endedAt).toBeTruthy();
+			const [finalizedRun] = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.id, fireResult.runId ?? ""));
+			expect(finalizedRun?.outcome).toBe("error");
+			expect(finalizedRun?.endedAt).toBeTruthy();
+		} finally {
+			// @lore shared-pglite-workers: TRUNCATE clears rows, not schema triggers.
+			await allowSessionRequestWrites(db);
+		}
 	});
 });

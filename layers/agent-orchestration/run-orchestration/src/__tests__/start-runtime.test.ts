@@ -37,6 +37,14 @@ vi.mock("../worker-ingress.js", () => ({
 
 import { startRuntime } from "../start-runtime.js";
 
+function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+	let resolve: () => void = () => {};
+	const promise = new Promise<void>((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
+}
+
 function deps(): RuntimeDeps {
 	const ports = {
 		sessionRequests: {
@@ -96,6 +104,47 @@ describe("startRuntime resource ownership", () => {
 		expect(state.sandboxDispose).toHaveBeenCalledOnce();
 		expect(state.writebackDispose).toHaveBeenCalledOnce();
 		expect(() => runtime.registerWorkerWebSocket(...workerArgs)).toThrow("Runtime is disposed");
+	});
+
+	it("stops new intent wakes and waits for an active wake before disposal completes", async () => {
+		vi.useFakeTimers();
+		const runtimeDeps = deps();
+		const entered = deferred();
+		const release = deferred();
+		const disposalReachedShutdown = deferred();
+		let drainCalls = 0;
+		let listCalls = 0;
+		if (!runtimeDeps.ports) throw new Error("test runtime ports missing");
+		runtimeDeps.ports.sessionRequests.listSessionRequests = vi.fn(async () => {
+			listCalls += 1;
+			if (listCalls > 1) disposalReachedShutdown.resolve();
+			return [];
+		});
+		runtimeDeps.ports.sessionRequests.drainIntents = vi.fn(async () => {
+			drainCalls += 1;
+			if (drainCalls > 1) {
+				entered.resolve();
+				await release.promise;
+			}
+		});
+		const runtime = await startRuntime(runtimeDeps);
+		vi.advanceTimersByTime(1_000);
+		await entered.promise;
+
+		const disposal = runtime.dispose();
+		let disposed = false;
+		void disposal.then(() => {
+			disposed = true;
+		});
+		await disposalReachedShutdown.promise;
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(disposed).toBe(false);
+
+		release.resolve();
+		await disposal;
+		await vi.advanceTimersByTimeAsync(2_000);
+		expect(drainCalls).toBe(2);
 	});
 
 	it("rolls back resources when a later startup stage fails", async () => {

@@ -31,8 +31,8 @@ describe("credentials routes", () => {
 	});
 
 	describe("GET /api/credentials", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/credentials", { method: "GET" });
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/credentials", { method: "GET" });
 			expect(res.status).toBe(401);
 		});
 
@@ -75,8 +75,8 @@ describe("credentials routes", () => {
 	});
 
 	describe("PUT /api/credentials/:name", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", { method: "PUT" });
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", { method: "PUT" });
 			expect(res.status).toBe(401);
 		});
 
@@ -143,8 +143,10 @@ describe("credentials routes", () => {
 	});
 
 	describe("DELETE /api/credentials/:name", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key", { method: "DELETE" });
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", {
+				method: "DELETE",
+			});
 			expect(res.status).toBe(401);
 		});
 
@@ -181,8 +183,8 @@ describe("credentials routes", () => {
 	});
 
 	describe("POST /api/credentials/:name/validate", () => {
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/credentials/anthropic_api_key/validate", {
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/credentials/anthropic_api_key/validate", {
 				method: "POST",
 			});
 			expect(res.status).toBe(401);
