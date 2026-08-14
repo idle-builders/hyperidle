@@ -7,7 +7,8 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./mock-data-policy": "./src/mock-data-policy.ts",
-		"./hearth-config": "./src/hearth-config.ts"
+		"./hearth-config": "./src/hearth-config.ts",
+		"./token-family-owners": "./src/token-family-owners.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
