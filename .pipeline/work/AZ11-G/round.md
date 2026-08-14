@@ -11,6 +11,7 @@ HyperIdle gets one stable page frame without forcing every kind of content into 
 - Normal routed pages keep their title in one centered frame: maximum 1120px including 24px desktop gutters.
 - Content then uses the lane that fits its job.
 - Split panes stop using page geometry. Each pane uses a local header and local inset.
+- In split mode, the shell gives its main area directly to two sibling pane surfaces. There is no outer main card, inner canvas, or visible divider.
 - Existing routes, text, data, actions, split ratios, and scroll behavior stay unchanged.
 
 Why: the old requirement confused consistency with identical alignment. Lists, prose, editors, and panes have different spatial needs. The shared rule belongs at the page level; content measure belongs to the job.
@@ -98,7 +99,7 @@ One builder, one session.
    - keep centering for Read and Focus wrappers;
    - remove duplicate outer 24px padding now owned by `PageFrame`.
 5. Pass pane presentation only through the three real managed paths: Conversations, WorkTeam, and Review. Adapt their embedded Artifact, Knowledge, Routine, Agent, and Review content locally. When Conversations or WorkTeam opens a split, suppress its outer page header and render the same identity/actions in the origin pane header. Standalone Routine suppresses its local pane header.
-6. Leave `SplitView`, ratios, drag behavior, compact destination-only behavior, APIs, and state untouched.
+6. Keep `SplitView` ratios, invisible gap resizing, compact destination-only behavior, APIs, and state. In desktop split mode only, the shell's single-surface chrome becomes transparent and the two pane surfaces fill that same space directly.
 7. Limit Settings’ 680px Focus lane to simple form sections. Its existing split tools use Workbench width and local panes.
 8. Update `docs/ui-design/page-anatomy.md` with the stable-frame, lane, and local-pane rule.
 
@@ -157,7 +158,7 @@ DOC-CLASS: update — `docs/ui-design/page-anatomy.md` currently lacks the stabl
 - **B — family frame:** aligns each page internally but moves page identity between page types.
 - **Universal body alignment:** the failed earlier requirement; it destroys useful reading and focus lanes.
 - **Global `PageScaffold` default:** affects nested pane consumers and creates opt-out work.
-- **Changing `SplitView`:** unrelated to the selected rule.
+- **Nested split cards:** rejected after screenshot review; the two panes replace the shell card instead of sitting inside it.
 
 ## Approval effect
 
@@ -169,6 +170,8 @@ Founder approval of this artifact:
 - adds no further human gate before that review.
 
 Approval recorded: 2026-08-14. Founder selected Option C and said to continue.
+
+Follow-up approved 2026-08-14: split layouts provide room for two surfaces directly—no enclosing card, inner canvas, or divider.
 
 ## Build evidence
 

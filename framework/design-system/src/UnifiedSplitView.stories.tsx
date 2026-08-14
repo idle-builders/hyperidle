@@ -2,16 +2,15 @@
 //
 // The AM5 thesis, made visible: opening ANY reference, from ANYWHERE, lands in
 // ONE consistent split. Three variants — conversation, review, knowledge — each
-// composes the SAME `SplitView` primitive (two floating elevated cards on the
-// warm canvas, the gap between them the draggable seam, same icon mode-controls),
+// composes the SAME `SplitView` primitive (two sibling pane surfaces in the
+// shell's layout space, with a transparent draggable gap and the same controls),
 // and each destination is the SAME shape: the opened artifact rendered as a
 // (Kind, Representation) cell via the real `Block` base primitive. Only the
 // CONTENT differs. The three frames look structurally identical — that identity
 // IS the proof of unification.
 //
-// Round-3 surface treatment: origin + destination are two SEPARATE rounded white
-// cards (--surface-elevated) floating on the page canvas (--surface-page) with
-// --shadow-default; the --space-3 gap is the seam (drag handle lives in it).
+// Surface treatment: origin + destination are the only two rounded surfaces.
+// There is no enclosing card or inner canvas; the transparent gap resizes them.
 //
 // REUSE, NOT REINVENTION:
 //   • The fold container is the real `./SplitView` primitive (icon controls,

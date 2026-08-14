@@ -16,18 +16,13 @@
 //     content + Esc-close).
 //
 // So SplitView = chat's `flex-row` proportional split, generalized to a
-// content-agnostic `origin | seam | destination`, rendered as TWO FLOATING
-// LAYERS — two elevated rounded cards on the warm page canvas, the gap between
-// them the draggable seam — with contextual icon mode-controls floated over the
-// destination card.
+// content-agnostic `origin | seam | destination`, rendered as two sibling pane
+// surfaces directly in the layout's space. The gap is the resize target; there
+// is no enclosing card, inner canvas, or visible divider.
 //
-// Founder round-3 fix (two floating layers):
-//   • The split reads as two SEPARATE elevated rounded cards (--surface-elevated,
-//     --r-default, --shadow-default) floating on the warm page canvas
-//     (--surface-page) — NOT one bordered surface split by a divider stripe. The
-//     `--space-3` gap between the cards is the seam.
-//   • The draggable handle lives IN that gap (smooth drag KEPT — same pointer
-//     logic, repositioned to the inter-card seam).
+// Founder surface fix:
+//   • The split reads as two separate elevated rounded panes, with no outer card.
+//   • The transparent `--space-3` gap is an invisible draggable resize target.
 //   • Icon mode-controls KEPT, floated top-right over the destination card.
 //
 // Founder round-2 fixes (still in effect):

@@ -208,6 +208,30 @@ test("review with an artifact open uses two local panes", async ({ page }) => {
 		.click();
 	const split = page.locator("[data-ds-component='split-view']");
 	await expect(split).toBeVisible();
+	const main = page.getByTestId("main-content");
+	const originPane = split.locator(":scope > div").first();
+	const destinationPane = split.locator(":scope > div").last();
+	const [mainStyle, splitStyle, originStyle, destinationStyle] = await Promise.all(
+		[main, split, originPane, destinationPane].map((locator) =>
+			locator.evaluate((element) => {
+				const style = getComputedStyle(element);
+				return { backgroundColor: style.backgroundColor, boxShadow: style.boxShadow };
+			}),
+		),
+	);
+	expect(mainStyle).toEqual({ backgroundColor: "rgba(0, 0, 0, 0)", boxShadow: "none" });
+	expect(splitStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+	expect(originStyle.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+	expect(destinationStyle.backgroundColor).toBe(originStyle.backgroundColor);
+	const [mainBox, splitBox, originBox, destinationBox] = await Promise.all([
+		box(main),
+		box(split),
+		box(originPane),
+		box(destinationPane),
+	]);
+	expect(splitBox).toEqual(mainBox);
+	expect(destinationBox.x - (originBox.x + originBox.width)).toBeGreaterThan(0);
+	await expect(split.getByRole("separator").locator("span")).toHaveCount(0);
 	await expect(split.locator("[data-page-frame]")).toHaveCount(0);
 	await expect(split.locator("[data-ds-component='PageHeader'] h2")).toHaveCount(2);
 	const destinationTitle = split
@@ -218,4 +242,6 @@ test("review with an artifact open uses two local panes", async ({ page }) => {
 	await expect(destinationTitle).toBeVisible();
 	expect((await box(destinationTitle)).width).toBeGreaterThan(96);
 	await page.screenshot({ path: resolve(EVIDENCE, "inspect-review.png") });
+	await page.evaluate(() => document.documentElement.setAttribute("data-theme", "hearth-dark"));
+	await page.screenshot({ path: resolve(EVIDENCE, "inspect-review-dark.png") });
 });
