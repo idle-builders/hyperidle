@@ -361,7 +361,7 @@ describe("terminal-failure finalization of session-less running runs", () => {
 				await new Promise((resolve) => setTimeout(resolve, 15));
 			}
 		} finally {
-			stop();
+			await stop.join();
 		}
 
 		// The drain alone must NOT finalize the run — `routine`'s projector is

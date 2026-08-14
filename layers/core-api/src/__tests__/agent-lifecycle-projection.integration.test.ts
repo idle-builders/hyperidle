@@ -63,7 +63,7 @@ async function waitForProjection(
 			await new Promise((resolve) => setTimeout(resolve, 15));
 		}
 	} finally {
-		stop();
+		await stop.join();
 	}
 }
 
