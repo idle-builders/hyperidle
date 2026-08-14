@@ -90,3 +90,129 @@
 - Given a page that uses `text-[13.5px]`, `tracking-[0.04em]`, `duration-[130ms]` or a raw `border-[2px]`, when `npm run lint` runs, then it fails and names the rule and the offending class.
 - Given a new token family added to `tokens.css` with no gate, when verification runs, then it fails and names the ungated family.
 - Given the shipped app, when typography, motion and border values are counted by computed style, then each count equals the size of its token family.
+
+## Delivered semantic contract
+
+Every owned typography declaration consumes one complete profile. Children with no authored typography
+inherit normally. Raw five-field definitions are legal only in the central registry.
+
+| Public role | Complete definition | Final consumers |
+|---|---|---:|
+| `type-label` | sans / 11px / 1.25 / 600 / .06em | 116 |
+| `type-metadata` | sans / 12px / 1.4 / 500 / 0 | 231 |
+| `type-small` | sans / 13px / 1.4 / 400 / 0 | 232 |
+| `type-copy` | sans / 15px / 1.55 / 400 / 0 | 48 |
+| `type-control` | sans / 13px / 1.25 / 500 / 0 | 90 |
+| `type-input` | sans / 13px / 1.4 / 400 / 0; mobile 16px with the other fields unchanged | 11 |
+| `type-avatar-initial` | sans / stacked 9px, sm 10px, md 12px, lg 13px / 1 / 600 / 0 | 14 |
+| `type-subheading` | sans / 15px / 1.4 / 600 / 0 | 10 |
+| `type-lead` | sans / 17px / 1.25 / 600 / -.01em | 12 |
+| `type-title` | sans / 20px / 1.4 / 600 / -.01em | 11 |
+| `type-display` | sans / 24px / 1.25 / 600 / -.01em | 3 |
+| `type-metric` | sans / 24px / 1 / 600 / -.01em / tabular numerals | 7 |
+| `type-data` | mono / 12px / 1.4 / 500 / 0 | 99 |
+| `type-inline-code` | mono / 13px / 1.55 / 400 / 0 | 2 |
+
+Structural meaning wins over visual similarity: controls and inputs map to their control roles; avatar
+identity maps to `avatar-initial`; headings map by hierarchy; KPI values map to `metric`; uppercase
+structural captions (including KpiStat, StatTile, SectionLabel, field/table captions, and badges) map to
+`label`; block code maps to `data`; inline code maps to `inline-code`; remaining sites map to data,
+metadata, copy, or small. Count is not a separate role. Document h1/h2/h3 map to
+display/title/lead and h4–h6 map to subheading. ProseMirror `pre code` is block data.
+
+Avatar variants are container-driven: the shared Avatar follows its sm/md/lg size prop; overlapping
+BetCard, ThreadRow, and ConversationSurface groups use stacked; dense standalone 22–28px chrome uses
+sm; CommentRow uses md; SessionAvatar uses stacked in ParticipantGroup and sm in message/PartGroup.
+Owned strong/b and em/i remain semantic markup. Profiles own emphasis: strong/b is fixed at 600 and
+em/i is italic while inheriting the other profile fields. Three old local emphasis declarations were
+removed; foreign content remains untouched.
+
+Typography public syntax is `type-copy` in JSX, `@apply type-copy` in owned CSS/generated content, or
+`TYPE_STYLE.metric` when inline style is required.
+
+| Motion profile | Exact job | Final consumers |
+|---|---|---:|
+| `motion-feedback` | opacity/filter, 120ms, `cubic-bezier(.25,.1,.25,1)` | 9 |
+| `motion-move` | transform, 240ms, standard curve | 15 |
+| `motion-spring` | transform, 240ms, `cubic-bezier(.34,1.56,.64,1)` | 2 |
+| `motion-enter` | opacity+transform, 120ms, `cubic-bezier(0,0,.2,1)`, once | 1 |
+| `motion-activity` | opacity pulse, 1.4s, in-out, infinite | 7 |
+| `motion-loading` | skeleton opacity pulse, 1.8s, in-out, infinite | 6 |
+| `motion-busy` | rotation, 750ms, linear, infinite | 2 |
+
+Enter moves from `translateY(6px)` and opacity 0 to rest/opacity 1. Activity pulses .45→1→.45;
+loading .55→1→.55; both use `cubic-bezier(.4,0,.2,1)`. Busy rotates 0→360 degrees. Color,
+background, border, shadow, width, max-width,
+and `all` snap. Card lift profiles animate only transform; shadows and presses snap. Dead AppShell
+drawer, NeedsYouChip trailing-span, and DoneRow transitions were removed. Reduced mode globally applies
+`animation:none!important`, `transition:none!important`, and `scroll-behavior:auto!important` to every
+element and pseudo, including foreign previews. WAAPI and smooth scrolling are forbidden.
+
+Exactly four production rAF calls remain, all structural scheduling: RoleCombobox focus; KnowledgeDetail
+render-ready anchor scroll; AppShell restoration start; and AppShell's bounded retry inside `restore`.
+Lint binds those exact call identities and rejects any added, moved, or structurally changed call.
+
+Borders use `--bw-thin:1px`, `--bw-default:1.5px`, and `--bw-strong:2px`. Legal Tailwind forms are
+explicit `border[-t|-r|-b|-l|-x|-y|-s|-e]-[var(--bw-...)]` or `border-none`; CSS supports physical,
+logical, block/inline, and start/end width properties; inline JSX uses the token or
+`BORDER_WIDTH_STYLE`. Toast keeps the sole 1.5px status rail. Fourteen other conditional status/state
+rails were removed while normal outlines, separators, action borders, explicit borderless states, and
+TaskCard's normal thin outline remain. Avatar seams use strong; eight border-built glyphs became
+SVG/mask geometry.
+
+Foreign color, typography, and border input is limited to the two literal
+`data-token-subject="foreign"` roots in `ReviewBrowserPreview.RenderedPage` and
+`ReviewRenderedInContext.EmailRender`. Siblings and TrafficLights remain owned. Motion and reduced-mode
+rules never exempt foreign subtrees.
+
+Motion public syntax is `motion-feedback` in JSX, `@apply motion-feedback` in owned CSS, or
+`MOTION_STYLE.feedback` for required inline styles.
+
+## As-built enforcement and audit
+
+`framework/design-system/src/token-profiles.ts` owns typed inline profiles; `tokens.css` owns matching
+utilities and keyframes. ESLint rules `typography-profile-only`, `motion-profile-only`, and
+`border-width-profile-only` enforce production `.ts/.tsx` at error. The owned PostCSS verdict discovers
+production CSS dynamically and fails on zero files. Root lint also promotes raw Tailwind palette checks
+to error.
+
+`tools/eslint-plugin-design/src/token-family-owners.ts` is the shared fail-closed classification and
+owner registry used by ESLint and the CSS gate. It classifies all 78 token names / 143 declarations
+exactly once across thirteen value families plus the explained `component-geometry` non-family. The CSS
+gate parses `tokens.css`; an unknown token name, ownerless family, or unexplained non-family fails and
+names the token. AZ7 color/radius and AZ15 spacing/elevation ownership remain intact.
+
+Owner sets are color→hardcoded-color/raw-palette, radius→radius, spacing→off-grid spacing,
+shadow→shadow, z-index→overlay-z, all five typography families→typography profile,
+duration/easing→motion profile, and border width→border profile. Component geometry remains an
+explained non-family rather than an invented rule.
+
+The immutable pre-migration audit measured 891 typography sites / 1,630 fields, 146 motion jobs, and
+346 border sites (339 owned, 7 foreign), with zero unmapped. Six manifest/decision snapshots are frozen
+by SHA-256 and 1,383 checked migration receipts prove every audited destination. These files remain in
+the work folder because `npm run lint` executes their checksum and receipt gates.
+
+The final live census dynamically scans discovered production `.ts/.tsx/.css`, rejects raw survivors
+and unknown profiles, and reports 886 typography consumers, motion 9/15/2/1/7/6/2, and border token
+references thin 213 / default 17 / strong 11. The border audit destinations were 228/25/20 sites;
+equivalent branches consolidated into shared final class construction, so the approved live receipt
+expansion is 213/17/11. The gate compares measured values to that expansion and fails any mismatch; it
+never substitutes receipt totals for measured values.
+
+## Proof, procedure, and residual risk
+
+The named Playwright matrix owns seeded conversations, team, bet, knowledge, settings, and review
+routes. It checks every typography/motion/border profile by computed style, the actual interactive
+motion states, global reduced mode (including foreign roots), and painted Hearth light/dark plus mobile
+input output. Durable screenshots live in `evidence/`.
+
+Founder procedure was: one combined refine/design/architecture round, one founder concept approval,
+one builder session across nine sub-1,000-line waves, then exactly one fresh implementation review. That
+review found four blockers; the same builder repaired each red-first. No second review or further human
+gate was permitted. Final review verdict is DONE: focused blocker tests 23/23, lint PASS, typecheck 55/55,
+named Playwright 3/3, and verify PASS.
+
+The affected unit lane passes 573 files / 6,266 tests but retains two watcher timing failures in
+`layers/agent-orchestration/run-orchestration`. Both reproduce alone; the package has no branch diff or
+branch commits. The review run's separate four failures and two setup `ErrnoError: 44` errors did not
+recur. This is accepted non-blocking baseline evidence, not an AZ16 defect.
