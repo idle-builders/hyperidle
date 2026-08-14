@@ -63,7 +63,7 @@ export interface InputProps
 // out of the shared base means the textarea never carries `lg:min-h-[36px]`
 // at all, so there is no competing rule for `min-h-[80px]` to lose to.
 const INPUT_BASE =
-	"w-full text-[15px] px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"w-full px-[12px] py-[10px] bg-[var(--surface-elevated)] border-[var(--bw-default)] border-[var(--border-default)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] outline-hidden focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const INPUT_SINGLE_LINE_HEIGHT = "min-h-[44px] lg:min-h-[36px]";
 
@@ -80,15 +80,16 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 	return (
 		<div {...dsProps("Input", "0")} className={`flex flex-col gap-[6px] ${className}`}>
 			{label && (
-				<label htmlFor={inputId} className="text-[13px] font-medium text-[var(--text-primary)]">
+				<label htmlFor={inputId} className="type-small   text-[var(--text-primary)]">
 					{label}
 				</label>
 			)}
 			{textarea ? (
 				<textarea
+					data-az16-profile="input default"
 					ref={ref as React.Ref<HTMLTextAreaElement>}
 					id={inputId}
-					className={`${INPUT_BASE} ${borderClass} resize-y min-h-[80px] leading-[1.55]`}
+					className={`type-input ${`${INPUT_BASE} ${borderClass} resize-y min-h-[80px] `}`}
 					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
 					aria-invalid={error ? "true" : undefined}
 					rows={rows}
@@ -96,24 +97,22 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 				/>
 			) : (
 				<input
+					data-az16-profile="input default"
 					ref={ref as React.Ref<HTMLInputElement>}
 					id={inputId}
-					className={`${INPUT_BASE} ${INPUT_SINGLE_LINE_HEIGHT} ${borderClass}`}
+					className={`type-input ${`${INPUT_BASE} ${INPUT_SINGLE_LINE_HEIGHT} ${borderClass}`}`}
 					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
 					aria-invalid={error ? "true" : undefined}
 					{...rest}
 				/>
 			)}
 			{hint && !error && (
-				<span id={`${inputId}-hint`} className="text-[12px] text-[var(--text-tertiary)]">
+				<span id={`${inputId}-hint`} className="type-metadata  text-[var(--text-tertiary)]">
 					{hint}
 				</span>
 			)}
 			{error && (
-				<span
-					id={`${inputId}-error`}
-					className="text-[12px] font-medium text-[var(--status-error)]"
-				>
+				<span id={`${inputId}-error`} className="type-metadata   text-[var(--status-error)]">
 					{error}
 				</span>
 			)}

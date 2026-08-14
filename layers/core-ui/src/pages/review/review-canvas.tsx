@@ -104,14 +104,12 @@ export function InlineComposer({ anchor, onSubmit }: InlineComposerProps): JSX.E
 		<div className="min-w-0 flex-1">
 			{anchor.spotLabel ? (
 				<div className="mb-[6px] flex items-center gap-[6px]">
-					<span className="font-mono text-[11px] text-[var(--text-tertiary)]">on</span>
-					<span className="font-mono text-[11px] text-[var(--text-tertiary)]">
-						{anchor.spotLabel}
-					</span>
+					<span className="type-data   text-[var(--text-tertiary)]">on</span>
+					<span className="type-data   text-[var(--text-tertiary)]">{anchor.spotLabel}</span>
 				</div>
 			) : null}
 			{error ? (
-				<div className="mb-[6px] text-[12px] text-[var(--status-error)]" role="alert">
+				<div className="type-metadata mb-[6px]  text-[var(--status-error)]" role="alert">
 					{error}
 				</div>
 			) : null}
@@ -162,21 +160,21 @@ export function AnchoredThreadCard({
 	const showReplyComposer = !readOnly && replyOpen;
 
 	return (
-		<div className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] overflow-hidden">
-			<div className="flex items-center gap-[6px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
+		<div className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] overflow-hidden">
+			<div className="border-b-[var(--bw-thin)] flex items-center gap-[6px]  border-[var(--border-subtle)] px-[12px] py-[6px]">
 				<span
 					className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]"
 					aria-hidden="true"
 				/>
-				<span className="font-mono text-[11px] text-[var(--text-secondary)]">
+				<span className="type-data   text-[var(--text-secondary)]">
 					{anchor.spotLabel ?? "anchor"}
 				</span>
 				{orphan ? (
-					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]">
+					<span className="type-metadata ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px]  text-[var(--text-tertiary)]">
 						source changed
 					</span>
 				) : readOnly ? (
-					<span className="ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[10px] text-[var(--text-tertiary)]">
+					<span className="type-metadata ml-auto rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[1px]  text-[var(--text-tertiary)]">
 						resolved
 					</span>
 				) : null}
@@ -206,7 +204,7 @@ export function AnchoredThreadCard({
 						<button
 							type="button"
 							onClick={() => setReplyOpen(true)}
-							className="text-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+							className="type-control  text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
 						>
 							Reply
 						</button>

@@ -101,14 +101,14 @@ function renderCell(cell: RowCell, i: number): JSX.Element {
 			// biome-ignore lint/suspicious/noArrayIndexKey: fixed-position cell columns — order is stable by design
 			key={i}
 			data-testid={cell["data-testid"]}
-			className={[
-				"shrink-0 text-[11px] font-[family-name:var(--font-mono)] text-[var(--text-tertiary)] truncate",
+			className={`type-data ${[
+				"shrink-0   text-[var(--text-tertiary)] truncate",
 				align,
 				numericClass,
 				hideClass,
 			]
 				.filter(Boolean)
-				.join(" ")}
+				.join(" ")}`}
 			style={cellStyle}
 		>
 			{cell.content}
@@ -152,7 +152,7 @@ export function Row({
 		"flex items-center gap-[12px]",
 		"min-h-[44px]",
 		px,
-		"border-b border-[var(--border-subtle)] last:border-b-0",
+		"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none",
 		selectedClasses,
 	]
 		.filter(Boolean)
@@ -171,11 +171,13 @@ export function Row({
 				<span className="shrink-0 inline-flex items-center">{lead}</span>
 			)}
 			<span className="flex-1 min-w-0">
-				<span className="block text-[13px] font-[500] text-[var(--text-primary)] truncate flex-1">
+				<span className="type-small block   text-[var(--text-primary)] truncate flex-1">
 					{title}
 				</span>
 				{subtitle !== undefined && subtitle !== null && (
-					<span className="block text-[12px] text-[var(--text-tertiary)] truncate">{subtitle}</span>
+					<span className="type-metadata block  text-[var(--text-tertiary)] truncate">
+						{subtitle}
+					</span>
 				)}
 			</span>
 			{cells && cells.length > 0 && <>{cells.map((cell, i) => renderCell(cell, i))}</>}
@@ -233,11 +235,12 @@ export function Row({
 		// move onto a w-full inner div so the hover background fills edge-to-edge
 		// instead of being inset inside the li's px-[24px]. This matches the <button>
 		// branch behaviour and fixes WorkOverview / KnowledgeList / WorkTeam li-rows.
-		// The li separator classes ("border-b border-[var(--border-subtle)] last:border-b-0")
+		// The li separator classes ("border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none")
 		// stay on the li so the row divider is always full-width.
 
 		// Separator classes stay on <li>; all layout/padding/hover move to the inner div.
-		const liSeparatorClass = "border-b border-[var(--border-subtle)] last:border-b-0";
+		const liSeparatorClass =
+			"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none";
 
 		// @lore AD9 W1 (review fix): The inner div must NOT inherit the separator classes
 		// (border-b / last:border-b-0) from baseClasses — those stay on the <li> only.
@@ -267,11 +270,11 @@ export function Row({
 							<span className="shrink-0 inline-flex items-center">{lead}</span>
 						)}
 						<span className="flex-1 min-w-0">
-							<span className="block text-[13px] font-[500] text-[var(--text-primary)] truncate flex-1">
+							<span className="type-small block   text-[var(--text-primary)] truncate flex-1">
 								{title}
 							</span>
 							{subtitle !== undefined && subtitle !== null && (
-								<span className="block text-[12px] text-[var(--text-tertiary)] truncate">
+								<span className="type-metadata block  text-[var(--text-tertiary)] truncate">
 									{subtitle}
 								</span>
 							)}

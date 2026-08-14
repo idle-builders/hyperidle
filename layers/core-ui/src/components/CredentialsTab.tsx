@@ -194,19 +194,16 @@ export function CredentialsTab(): JSX.Element {
 					className="flex items-start gap-[9px] p-[12px] rounded-[var(--r-subtle)] bg-[color-mix(in_oklab,var(--status-warning)_10%,transparent)]"
 					role="alert"
 				>
-					<span className="text-[var(--status-warning)] text-[13px] leading-[1.5]">
+					<span className="type-small text-[var(--status-warning)]  ">
 						Encryption secret not configured. Set{" "}
-						<code className="font-[family-name:var(--font-mono)] text-[11px]">
-							HYPERIDLE_CREDENTIAL_KEY
-						</code>{" "}
-						to store credentials.
+						<code className="type-data  ">HYPERIDLE_CREDENTIAL_KEY</code> to store credentials.
 					</span>
 				</div>
 			)}
 
 			{/* Load error — show neutral chips, not an explosion */}
 			{loadError && !missingSecret && (
-				<p className="text-[13px] text-[var(--status-warning)] leading-[1.5]" role="alert">
+				<p className="type-small  text-[var(--status-warning)] " role="alert">
 					{loadError}
 				</p>
 			)}
@@ -279,10 +276,7 @@ export function CredentialsTab(): JSX.Element {
 										placeholder={`Enter ${entry.label}`}
 									/>
 									{saveError && editingName === entry.name && (
-										<p
-											className="text-[12px] text-[var(--status-error)] leading-[1.4]"
-											role="alert"
-										>
+										<p className="type-metadata  text-[var(--status-error)] " role="alert">
 											{saveError}
 										</p>
 									)}

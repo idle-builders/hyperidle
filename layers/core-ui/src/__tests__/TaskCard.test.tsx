@@ -48,10 +48,11 @@ describe("TaskCard", () => {
 	});
 
 	// Acceptance criterion: TaskCard in blocked state has red border (border-[var(--status-error)])
-	it("applies border-[var(--status-error)] class when state is blocked", () => {
+	it("keeps the normal outline when state is blocked", () => {
 		const { container } = render(<TaskCard {...defaultProps} state="blocked" />);
 		const root = container.firstElementChild;
-		expect(root?.className).toContain("border-[var(--status-error)]");
+		expect(root?.className).toContain("border-[var(--border-subtle)]");
+		expect(root?.className).not.toContain("border-[var(--status-error)]");
 	});
 
 	it("does not apply border-[var(--status-error)] class when state is not blocked", () => {

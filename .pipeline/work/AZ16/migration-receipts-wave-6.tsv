@@ -1,0 +1,257 @@
+audit_site_id	audit_destination	outcome	profile	final_path	final_locator
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::818631a0ec87::1	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::a7a380472688::1	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::a7a380472688::2	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::a7a380472688::3	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/_dev/ArtifactDemo.tsx::ArtifactDemo::div::a7a380472688::4	data	PROFILE	data	layers/core-ui/src/pages/_dev/ArtifactDemo.tsx	ArtifactDemo:div
+layers/core-ui/src/pages/AgentAddDialog.tsx::AgentAddDialog::h3::e250b956cb4c::1	label	PROFILE	label	layers/core-ui/src/pages/AgentAddDialog.tsx	AgentAddDialog:h3
+layers/core-ui/src/pages/AgentAddDialog.tsx::AgentAddDialog::h3::e250b956cb4c::2	label	PROFILE	label	layers/core-ui/src/pages/AgentAddDialog.tsx	AgentAddDialog:h3
+layers/core-ui/src/pages/AgentAddDialog.tsx::AgentAddDialog::p::ae109ad69ff7::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentAddDialog.tsx	AgentAddDialog:p
+layers/core-ui/src/pages/AgentAddDialog.tsx::AgentAddDialog::p::b0bece222616::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentAddDialog.tsx	AgentAddDialog:p
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::RRLink::f281bf779e05::1	control	PROFILE	control	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:RRLink
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::div::04c4bc5dbec9::1	thin	PROFILE	thin	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:div
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::div::04c4bc5dbec9::2	thin	PROFILE	thin	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:div
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::div::ab3874b0a9bb::1	small	PROFILE	small	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:div
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::div::b8aa9993d870::1	small	PROFILE	small	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:div
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::p::149dd274c5d9::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:p
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::p::b0bece222616::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:p
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::p::b0bece222616::2	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:p
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::p::b0bece222616::3	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:p
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::p::b0bece222616::4	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:p
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::pre::d7811dc7ffe5::1	data	PROFILE	data	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:pre
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::span::a9f836219b11::1	small	PROFILE	small	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:span
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::span::a9f836219b11::2	small	PROFILE	small	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:span
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::summary::2deb83a07b15::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:summary
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::table::7768fc124163::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:table
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::th::89b6477c536f::1	small	PROFILE	small	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:th
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::th::89b6477c536f::2	small	PROFILE	small	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:th
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::th::89b6477c536f::3	small	PROFILE	small	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:th
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::tr::ae6809dd95ad::1	NONE	NONE		layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:tr
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::tr::dec93f271d42::1	thin	PROFILE	thin	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:tr
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::tr::dec93f271d42::2	thin	PROFILE	thin	layers/core-ui/src/pages/AgentProfile.tsx	AgentProfileLoaded:tr
+layers/core-ui/src/pages/AgentProfile.tsx::CapabilityBadge::span::e6e7616c9f28::1	label	PROFILE	label	layers/core-ui/src/pages/AgentProfile.tsx	CapabilityBadge:span
+layers/core-ui/src/pages/Conversations.tsx::ConversationsDetail::span::animation::dbc18c18257a::1	activity	PROFILE	activity	layers/core-ui/src/pages/Conversations.tsx	ConversationsDetail:span
+layers/core-ui/src/pages/Conversations.tsx::SessionViewPanel::button::transition::05745f18412e::1	SNAP	SNAP		layers/core-ui/src/pages/Conversations.tsx	SessionViewPanel:button
+layers/core-ui/src/pages/KnowledgeCreate.tsx::KnowledgeCreate::div::d635c328e3db::1	default	PROFILE	default	layers/core-ui/src/pages/KnowledgeCreate.tsx	KnowledgeCreate:div
+layers/core-ui/src/pages/KnowledgeCreate.tsx::KnowledgeCreate::input::4af6fd109d0c::1	NONE	NONE		layers/core-ui/src/pages/KnowledgeCreate.tsx	KnowledgeCreate:input
+layers/core-ui/src/pages/KnowledgeCreate.tsx::KnowledgeCreate::p::ef0cb6f85a12::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeCreate.tsx	KnowledgeCreate:p
+layers/core-ui/src/pages/KnowledgeCreate.tsx::KnowledgeCreate::span::20387e59dc99::1	label	PROFILE	label	layers/core-ui/src/pages/KnowledgeCreate.tsx	KnowledgeCreate:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::BacklinksCard::RRLink::c38924cde0f0::1	control	PROFILE	control	layers/core-ui/src/pages/KnowledgeDetail.tsx	BacklinksCard:RRLink
+layers/core-ui/src/pages/KnowledgeDetail.tsx::BacklinksCard::p::518333891656::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	BacklinksCard:p
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::button::4af6fd109d0c::1	NONE	NONE		layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:button
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::button::4af6fd109d0c::2	NONE	NONE		layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:button
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::button::6d1575d0c9ea::1	control	PROFILE	control	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:button
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::button::f4f3c4822acf::1	control	PROFILE	control	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:button
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::call::smooth-scroll::6fe9502f0b27::1	REMOVE	REMOVE		layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:call
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::037401768bfd::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::374fa5bb19d9::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::4cca76e2695c::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::6fcf96dab25c::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::89a38f56c97e::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::be512cd92ec3::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::be512cd92ec3::2	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::be512cd92ec3::3	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::be512cd92ec3::4	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::be512cd92ec3::5	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::cf28feb824ba::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dacd8744d5cf::1	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dacd8744d5cf::2	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dacd8744d5cf::3	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::1	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::2	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::3	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::4	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::5	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::6	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:div
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::p::518333891656::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:p
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::42dbcb5ac1d2::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::549a76b0d582::1	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::549a76b0d582::2	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::549a76b0d582::3	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::549a76b0d582::4	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::549a76b0d582::5	small	PROFILE	small	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::a12ea2c4d783::1	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::a9707cb3c3bf::1	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::a9707cb3c3bf::2	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::c370d7afee2f::1	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::cb23f7c07c8c::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::span::f0f59f08367c::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeDetailView:span
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeOverflowMenu::button::c92068318757::1	glyph-repair	GLYPH_REPAIR		layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeOverflowMenu:button
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeOverflowMenu::button::d635c328e3db::1	default	PROFILE	default	layers/core-ui/src/pages/KnowledgeDetail.tsx	KnowledgeOverflowMenu:button
+layers/core-ui/src/pages/KnowledgeDetail.tsx::SaveIndicator::span::b439382df0ed::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeDetail.tsx	SaveIndicator:span
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::4af6fd109d0c::1	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeList:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::4af6fd109d0c::2	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeList:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::4af6fd109d0c::3	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeList:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::4af6fd109d0c::4	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeList:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::6bd37ec66f7f::1	control	PROFILE	control	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeList:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::e3c57ad5d34d::1	control	PROFILE	control	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeList:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::input::120394cc28fb::1	default	PROFILE	default	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeList:input
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::input::199f50457587::1	input	PROFILE	input	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeList:input
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::306a3a63f5a1::1	control	PROFILE	control	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::1	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::2	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::3	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::4	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::5	NONE	NONE		layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:button
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::div::05d8e4e432ec::1	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:div
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::div::76a4a4ebdba7::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:div
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::2560f4d24415::1	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::2560f4d24415::2	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::2560f4d24415::3	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::2560f4d24415::4	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::b4dc5da99c7e::1	data	PROFILE	data	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::1	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::2	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::3	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::4	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::5	thin	PROFILE	thin	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:kbd
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::p::cc2914dd6d14::1	copy	PROFILE	copy	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:p
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::span::657bb1036bd5::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:span
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::span::ac3a106ea579::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:span
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::span::ac3a106ea579::2	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:span
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::span::bd146b94fa65::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:span
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::span::bd146b94fa65::2	metadata	PROFILE	metadata	layers/core-ui/src/pages/KnowledgeList.tsx	KnowledgeListContent:span
+layers/core-ui/src/pages/SettingsPage.tsx::SectionTitle::h2::dec93f271d42::1	thin	PROFILE	thin	layers/core-ui/src/pages/SettingsPage.tsx	SectionTitle:h2
+layers/core-ui/src/pages/SettingsPage.tsx::SectionTitle::h2::dfed0c093826::1	label	PROFILE	label	layers/core-ui/src/pages/SettingsPage.tsx	SectionTitle:h2
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::28be68f358a1::1	control	PROFILE	control	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:button
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::d635c328e3db::1	default	PROFILE	default	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:button
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::d635c328e3db::2	default	PROFILE	default	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:button
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::dd09c3d1c188::1	control	PROFILE	control	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:button
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::transition::f79575a238dc::1	SNAP	SNAP		layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:button
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::transition::f79575a238dc::2	SNAP	SNAP		layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:button
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::div::2af27001f8fc::1	title	PROFILE	title	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:div
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::div::dacd8744d5cf::1	thin	PROFILE	thin	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:div
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::label::ff5cd2fa6df2::1	small	PROFILE	small	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:label
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::0ea1591973e1::1	small	PROFILE	small	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::187faed60292::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::187faed60292::2	metadata	PROFILE	metadata	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::187faed60292::3	metadata	PROFILE	metadata	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::38939e6699e6::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::3dffc2f19bb9::1	title	PROFILE	title	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::4d826c8dfc08::1	small	PROFILE	small	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::4d826c8dfc08::2	small	PROFILE	small	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::91378e00f1d7::1	copy	PROFILE	copy	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::p::bcd4cb40472f::1	copy	PROFILE	copy	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:p
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::1187ad7e884a::1	data	PROFILE	data	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::657bb1036bd5::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::73573c2997c5::1	copy	PROFILE	copy	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::8507c3a34a87::1	copy	PROFILE	copy	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::c4064e25c9c6::1	data	PROFILE	data	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::c8aca061bbba::1	copy	PROFILE	copy	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::e45fe2ad46c1::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::e4aef3dbc0b6::1	small	PROFILE	small	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::e4aef3dbc0b6::2	small	PROFILE	small	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::span::e4aef3dbc0b6::3	small	PROFILE	small	layers/core-ui/src/pages/SetupFlow.tsx	SetupFlow:span
+layers/core-ui/src/pages/WorkBet.tsx::AnchoredMessages::div::e279cca320dd::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	AnchoredMessages:div
+layers/core-ui/src/pages/WorkBet.tsx::AnchoredMessages::span::5413475484d4::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	AnchoredMessages:span
+layers/core-ui/src/pages/WorkBet.tsx::ConsequencePreviewDialog::div::5eafdaad8a98::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	ConsequencePreviewDialog:div
+layers/core-ui/src/pages/WorkBet.tsx::ConsequencePreviewDialog::p::4256f465835b::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	ConsequencePreviewDialog:p
+layers/core-ui/src/pages/WorkBet.tsx::ConsequencePreviewDialog::span::4afdf886418e::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	ConsequencePreviewDialog:span
+layers/core-ui/src/pages/WorkBet.tsx::ConsequencePreviewDialog::span::4afdf886418e::2	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	ConsequencePreviewDialog:span
+layers/core-ui/src/pages/WorkBet.tsx::ConsequencePreviewDialog::span::4afdf886418e::3	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	ConsequencePreviewDialog:span
+layers/core-ui/src/pages/WorkBet.tsx::ConsequencePreviewDialog::span::4bf269c748c4::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	ConsequencePreviewDialog:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::RRLink::0962aed034ba::1	control	PROFILE	control	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:RRLink
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::0ae5f1598950::1	glyph-repair	GLYPH_REPAIR		layers/core-ui/src/pages/WorkBet.tsx	WorkBet:button
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::45d0372042f8::1	NONE	NONE		layers/core-ui/src/pages/WorkBet.tsx	WorkBet:button
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::cd61db4e6146::1	control	PROFILE	control	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:button
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::d635c328e3db::1	default	PROFILE	default	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:button
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::d837cc89a180::1	control	PROFILE	control	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:button
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::dec93f271d42::1	thin	PROFILE	thin	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:button
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::transition::05745f18412e::1	SNAP	SNAP		layers/core-ui/src/pages/WorkBet.tsx	WorkBet:button
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::transition::05745f18412e::2	SNAP	SNAP		layers/core-ui/src/pages/WorkBet.tsx	WorkBet:button
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::call::smooth-scroll::6fe9502f0b27::1	REMOVE	REMOVE		layers/core-ui/src/pages/WorkBet.tsx	WorkBet:call
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::div::3a6853a376a8::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:div
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::div::dd53bfa8dcc0::1	copy	PROFILE	copy	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:div
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::label::656905b475ac::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:label
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::p::33f2574adbbb::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:p
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::p::342a9a31f8e4::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:p
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::p::342a9a31f8e4::2	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:p
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::p::36394049efe7::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:p
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::p::36394049efe7::2	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:p
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::p::417157dcd01e::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:p
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::p::54a54cbecba2::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:p
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::p::cc2914dd6d14::1	copy	PROFILE	copy	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:p
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::20387e59dc99::1	label	PROFILE	label	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::20387e59dc99::2	label	PROFILE	label	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::2246756fc721::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::2820c11a66e6::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::4dfaa7f64aec::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::50756b8b77c9::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::51e3f8b87522::1	metric	PROFILE	metric	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::6c678ccfcf65::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::a2763241953e::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::e472dc640ea3::1	label	PROFILE	label	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::span::e472dc640ea3::2	label	PROFILE	label	layers/core-ui/src/pages/WorkBet.tsx	WorkBet:span
+layers/core-ui/src/pages/WorkBetCreate.tsx::WorkBetCreate::div::75b50e169dad::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBetCreate.tsx	WorkBetCreate:div
+layers/core-ui/src/pages/WorkBetCreate.tsx::WorkBetCreate::div::d635c328e3db::1	default	PROFILE	default	layers/core-ui/src/pages/WorkBetCreate.tsx	WorkBetCreate:div
+layers/core-ui/src/pages/WorkBetCreate.tsx::WorkBetCreate::label::89d6b3d56b24::1	label	PROFILE	label	layers/core-ui/src/pages/WorkBetCreate.tsx	WorkBetCreate:label
+layers/core-ui/src/pages/WorkBetCreate.tsx::WorkBetCreate::p::0de8777cb476::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkBetCreate.tsx	WorkBetCreate:p
+layers/core-ui/src/pages/WorkBetCreate.tsx::WorkBetCreate::span::20387e59dc99::1	label	PROFILE	label	layers/core-ui/src/pages/WorkBetCreate.tsx	WorkBetCreate:span
+layers/core-ui/src/pages/WorkBetCreate.tsx::WorkBetCreate::span::ff75331ef358::1	small	PROFILE	small	layers/core-ui/src/pages/WorkBetCreate.tsx	WorkBetCreate:span
+layers/core-ui/src/pages/WorkOverview.tsx::WorkOverviewView::span::2246756fc721::1	small	PROFILE	small	layers/core-ui/src/pages/WorkOverview.tsx	WorkOverviewView:span
+layers/core-ui/src/pages/WorkTask.tsx::SessionRow::div::3a6853a376a8::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkTask.tsx	SessionRow:div
+layers/core-ui/src/pages/WorkTask.tsx::SessionRow::div::45d0372042f8::1	NONE	NONE		layers/core-ui/src/pages/WorkTask.tsx	SessionRow:div
+layers/core-ui/src/pages/WorkTask.tsx::SessionRow::div::596a8207defe::1	copy	PROFILE	copy	layers/core-ui/src/pages/WorkTask.tsx	SessionRow:div
+layers/core-ui/src/pages/WorkTask.tsx::SessionRow::div::dec93f271d42::1	thin	PROFILE	thin	layers/core-ui/src/pages/WorkTask.tsx	SessionRow:div
+layers/core-ui/src/pages/WorkTask.tsx::SessionRow::span::9f052ef6e845::1	data	PROFILE	data	layers/core-ui/src/pages/WorkTask.tsx	SessionRow:span
+layers/core-ui/src/pages/WorkTask.tsx::SessionRow::span::e53402ac9b8d::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkTask.tsx	SessionRow:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::07912dcab97e::1	thin	PROFILE	thin	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:div
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::07912dcab97e::2	thin	PROFILE	thin	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:div
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::07912dcab97e::3	thin	PROFILE	thin	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:div
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::07912dcab97e::4	thin	PROFILE	thin	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:div
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::dacd8744d5cf::1	thin	PROFILE	thin	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:div
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::p::b0bece222616::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:p
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::p::d3fe0a968b6d::1	small	PROFILE	small	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:p
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::0869166267c3::1	small	PROFILE	small	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::55659fdf0e9a::1	small	PROFILE	small	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::6ac2edf85473::1	label	PROFILE	label	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::6ac2edf85473::2	label	PROFILE	label	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::6ac2edf85473::3	label	PROFILE	label	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::6ac2edf85473::4	label	PROFILE	label	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::6ac2edf85473::5	label	PROFILE	label	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::6b8f9bf53b1d::1	small	PROFILE	small	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::span::b702432e453e::1	small	PROFILE	small	layers/core-ui/src/pages/WorkTask.tsx	WorkTask:span
+layers/core-ui/src/pages/WorkTeam.tsx::StatTile::div::dacd8744d5cf::1	thin	PROFILE	thin	layers/core-ui/src/pages/WorkTeam.tsx	StatTile:div
+layers/core-ui/src/pages/WorkTeam.tsx::StatTile::span::15efe5195389::1	label	PROFILE	label	layers/core-ui/src/pages/WorkTeam.tsx	StatTile:span
+layers/core-ui/src/pages/WorkTeam.tsx::StatTile::span::8ca67aba6f48::1	label	PROFILE	label	layers/core-ui/src/pages/WorkTeam.tsx	StatTile:span
+layers/core-ui/src/pages/WorkTeam.tsx::StatTile::span::de60e57861c8::1	metric	PROFILE	metric	layers/core-ui/src/pages/WorkTeam.tsx	StatTile:span
+layers/core-ui/src/pages/WorkTeam.tsx::WorkTeamLoaded::p::b1fddff2f7a7::1	small	PROFILE	small	layers/core-ui/src/pages/WorkTeam.tsx	WorkTeamLoaded:p
+layers/core-ui/src/pages/WorkTeam.tsx::WorkTeamLoaded::p::cc2914dd6d14::1	copy	PROFILE	copy	layers/core-ui/src/pages/WorkTeam.tsx	WorkTeamLoaded:p
+layers/core-ui/src/pages/WorkTeam.tsx::WorkTeamLoaded::span::2246756fc721::1	small	PROFILE	small	layers/core-ui/src/pages/WorkTeam.tsx	WorkTeamLoaded:span
+layers/core-ui/src/pages/WorkTeam.tsx::WorkTeamLoaded::span::5a9278b9719d::1	avatar-initial	PROFILE	avatar-initial	layers/core-ui/src/pages/WorkTeam.tsx	WorkTeamLoaded:span
+layers/core-ui/src/pages/WorkTeam.tsx::WorkTeamLoaded::span::6ef82105f064::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/WorkTeam.tsx	WorkTeamLoaded:span
+layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx::AnchoredMessages::div::e279cca320dd::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx	AnchoredMessages:div
+layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx::AnchoredMessages::span::5413475484d4::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx	AnchoredMessages:span
+layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx::KnowledgeBody::p::6d72693eeab4::1	small	PROFILE	small	layers/core-ui/src/pages/knowledge/KnowledgeBody.tsx	KnowledgeBody:p
+layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx::KnowledgeCreateDialog::p::39c9a962cdc0::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx	KnowledgeCreateDialog:p
+layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx::KnowledgeCreateDialog::span::2d05e7405d83::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx	KnowledgeCreateDialog:span
+layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx::KnowledgeCreateDialog::span::c50a689b0be3::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx	KnowledgeCreateDialog:span
+layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx::KnowledgeCreateDialog::span::c50a689b0be3::2	metadata	PROFILE	metadata	layers/core-ui/src/pages/knowledge/KnowledgeCreateDialog.tsx	KnowledgeCreateDialog:span
+layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx::ScopeChangeDialog::p::39c9a962cdc0::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx	ScopeChangeDialog:p
+layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx::ScopeChangeDialog::span::c50a689b0be3::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/knowledge/ScopeChangeDialog.tsx	ScopeChangeDialog:span
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::div::d0f2b36f7a58::1	small	PROFILE	small	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:div
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::div::dec93f271d42::1	thin	PROFILE	thin	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:div
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::h2::e6a7e40f2171::1	lead	PROFILE	lead	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:h2
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::h3::e250b956cb4c::1	label	PROFILE	label	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:h3
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::p::60dc82d20eb6::1	lead	PROFILE	lead	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:p
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::p::ae109ad69ff7::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:p
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::p::d099ad41b1b6::1	small	PROFILE	small	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:p
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::p::d099ad41b1b6::2	small	PROFILE	small	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:p
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::p::f3ecc0788b6d::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:p
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::span::12aa04cfae19::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/AgentDetailPane.tsx	AgentDetailPane:span
+layers/core-ui/src/pages/work/RoutineCreateDialog.tsx::RoutineCreateDialog::p::39c9a962cdc0::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineCreateDialog.tsx	RoutineCreateDialog:p
+layers/core-ui/src/pages/work/RoutineCreateDialog.tsx::RoutineCreateDialog::span::c50a689b0be3::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineCreateDialog.tsx	RoutineCreateDialog:span
+layers/core-ui/src/pages/work/RoutineCreateDialog.tsx::RoutineCreateDialog::span::c50a689b0be3::2	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineCreateDialog.tsx	RoutineCreateDialog:span
+layers/core-ui/src/pages/work/RoutineCreateDialog.tsx::RoutineCreateDialog::span::c50a689b0be3::3	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineCreateDialog.tsx	RoutineCreateDialog:span
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::div::dec93f271d42::1	thin	PROFILE	thin	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:div
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::h2::ff9782ec67bb::1	lead	PROFILE	lead	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:h2
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::label::51ceb651db7f::1	label	PROFILE	label	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:label
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::label::578b4d02d953::1	label	PROFILE	label	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:label
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::label::74ebf90fd12c::1	label	PROFILE	label	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:label
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::label::9038444dd2fb::1	label	PROFILE	label	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:label
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::label::b8f7ff237ff6::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:label
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::label::e7dd13c5270b::1	label	PROFILE	label	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:label
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::p::3481d4389393::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:p
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::p::b0bece222616::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:p
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::p::fccfb51dd8d0::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:p
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::span::7058b8869b99::1	metadata	PROFILE	metadata	layers/core-ui/src/pages/work/RoutineDetailPane.tsx	RoutineDetailPaneLoaded:span

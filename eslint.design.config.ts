@@ -44,5 +44,9 @@ export default [
 			"react-hooks/exhaustive-deps": "warn",
 		},
 	},
-	...designHearthConfigs.hearth.map((block) => ({ ...block, languageOptions })),
+	...designHearthConfigs.hearth.map((block) => ({
+		...block,
+		languageOptions,
+		plugins: { ...block.plugins, "react-hooks": reactHooks },
+	})),
 ];

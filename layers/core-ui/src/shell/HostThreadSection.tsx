@@ -164,7 +164,7 @@ export function HostThreadSection({
 	// so we guard with optional chaining on the method itself.
 	useEffect(() => {
 		if (prefill && composerRef.current) {
-			composerRef.current.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+			composerRef.current.scrollIntoView?.({ block: "nearest" });
 			composerRef.current.focus();
 		}
 	}, [prefill]);
@@ -254,10 +254,8 @@ export function HostThreadSection({
 					data-testid="host-thread-section-empty"
 					className="flex flex-col items-start gap-[6px] px-[12px] py-[12px] text-left"
 				>
-					<p className="text-[15px] font-medium text-[var(--text-primary)] leading-[1.4]">
-						No discussion yet.
-					</p>
-					<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4]">
+					<p className="type-copy   text-[var(--text-primary)] ">No discussion yet.</p>
+					<p className="type-metadata  text-[var(--text-tertiary)] ">
 						Be the first to post in this thread.
 					</p>
 				</div>
@@ -288,7 +286,7 @@ export function HostThreadSection({
 			{isFiltering && (
 				<button
 					type="button"
-					className="text-xs text-[var(--text-tertiary)] underline self-start"
+					className="type-control  text-[var(--text-tertiary)] underline self-start"
 					onClick={() => setShowAll(true)}
 				>
 					Show all messages
@@ -300,7 +298,7 @@ export function HostThreadSection({
 				<div
 					role="alert"
 					data-testid="host-thread-section-post-error"
-					className="text-xs text-error px-2 py-1"
+					className="type-metadata  text-error px-2 py-1"
 				>
 					{postError}
 				</div>
@@ -311,7 +309,7 @@ export function HostThreadSection({
 				<div
 					data-testid="host-thread-prefill-chip"
 					data-spacing-role="compact-pill"
-					className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--surface-elevated)] rounded-[var(--r-pill)] text-[var(--text-tertiary)]"
+					className="type-metadata flex items-center gap-1 px-2 py-1  bg-[var(--surface-elevated)] rounded-[var(--r-pill)] text-[var(--text-tertiary)]"
 				>
 					<span>Re:</span>
 					<span className="truncate">{prefill.blockExcerpt}</span>
@@ -319,7 +317,7 @@ export function HostThreadSection({
 						<button
 							type="button"
 							aria-label="Cancel block reply"
-							className="ml-auto shrink-0 leading-none"
+							className="type-control ml-auto shrink-0 "
 							onClick={onClearPrefill}
 						>
 							×
@@ -378,9 +376,9 @@ export function HostThreadSection({
 	return (
 		<section
 			aria-label={title}
-			className="flex flex-col gap-[12px] border-t border-[var(--border-subtle)] pt-[18px]"
+			className="border-t-[var(--bw-thin)] flex flex-col gap-[12px]  border-[var(--border-subtle)] pt-[18px]"
 		>
-			<h3 className="text-[13px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)] border-b border-[var(--border-subtle)] pb-[6px]">
+			<h3 className="border-b-[var(--bw-thin)] type-label   uppercase  text-[var(--text-tertiary)]  border-[var(--border-subtle)] pb-[6px]">
 				{title}
 			</h3>
 			{content}

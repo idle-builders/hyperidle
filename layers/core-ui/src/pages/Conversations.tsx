@@ -219,7 +219,7 @@ function SessionViewPanel({
 				type="button"
 				onClick={onClose}
 				aria-label="Close session view"
-				className="absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+				className="absolute top-[9px] right-[12px] z-[1] rounded-[var(--r-subtle)] p-[6px] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 			>
 				<svg
 					viewBox="0 0 12 12"
@@ -450,7 +450,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 			>
 				<span
 					aria-hidden="true"
-					className="w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] animate-pulse shrink-0"
+					className="motion-activity w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]  shrink-0"
 				/>
 				<span
 					className="sr-only"

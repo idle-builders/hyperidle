@@ -82,7 +82,7 @@ export function ToastRegion({ children }: ToastRegionProps): JSX.Element {
 				>
 					<div
 						role="status"
-						className="alert bg-[var(--surface-container)] text-[var(--text-secondary)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[12px] py-[8px] text-[13px]"
+						className="type-small border-[var(--bw-thin)] alert bg-[var(--surface-container)] text-[var(--text-secondary)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-[12px] py-[8px] "
 					>
 						{message}
 					</div>

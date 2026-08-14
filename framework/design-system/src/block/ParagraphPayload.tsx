@@ -9,5 +9,5 @@ export interface ParagraphPayloadProps {
 }
 
 export function ParagraphPayload({ inline }: ParagraphPayloadProps): JSX.Element {
-	return <p className="text-[var(--text-primary)] leading-[1.6] m-0">{renderInline(inline)}</p>;
+	return <p className="type-small text-[var(--text-primary)]  m-0">{renderInline(inline)}</p>;
 }

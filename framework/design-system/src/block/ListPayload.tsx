@@ -34,7 +34,7 @@ export function ListPayload({ ordered, start, items }: ListPayloadProps): JSX.El
 			style: { listStyleType: ordered ? "decimal" : "disc" },
 		},
 		items.map((it, i) => (
-			<li key={i} className="text-[var(--text-primary)] leading-[1.6]">
+			<li key={i} className="type-small text-[var(--text-primary)] ">
 				{it.children.map((c: BlockPayload, j: number) => (
 					<span key={j}>{renderPayload(c)}</span>
 				))}

@@ -581,11 +581,11 @@ export function SetupFlow(): JSX.Element {
 				{/* Brand + tagline */}
 				<div
 					data-testid="onboarding-brand"
-					className="text-[20px] font-[700] text-[var(--text-primary)] tracking-[-0.01em] mb-[6px]"
+					className="type-title   text-[var(--text-primary)]  mb-[6px]"
 				>
 					HyperIdle
 				</div>
-				<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[36px]">
+				<p className="type-copy  text-[var(--text-secondary)]  mb-[36px]">
 					Your agentic operating system. Humans steer, agents build.
 				</p>
 
@@ -593,10 +593,8 @@ export function SetupFlow(): JSX.Element {
 				<WelcomeVisual />
 
 				{/* Step heading */}
-				<p className="text-[20px] font-[600] text-[var(--text-primary)] tracking-[-0.01em] mb-[9px]">
-					Set up your workspace
-				</p>
-				<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[24px]">
+				<p className="type-title   text-[var(--text-primary)]  mb-[9px]">Set up your workspace</p>
+				<p className="type-copy  text-[var(--text-secondary)]  mb-[24px]">
 					Tell us your name and pick the engine your agents think with. Bring an API key, or use a
 					coding CLI you are already signed in to.
 				</p>
@@ -618,14 +616,14 @@ export function SetupFlow(): JSX.Element {
 
 					{/* AV1: Harness picker — agent engine selection */}
 					<div className="mb-[18px]" role="radiogroup" aria-label="Agent harness">
-						<p className="text-[13px] font-[500] text-[var(--text-primary)] mb-[6px]">
+						<p className="type-small   text-[var(--text-primary)] mb-[6px]">
 							Agent harness{" "}
-							<span className="font-[400] text-[var(--text-tertiary)]">
+							<span className="type-small  text-[var(--text-tertiary)]">
 								(the default engine for every agent on your team)
 							</span>
 						</p>
 						{/* ONE bordered container with hairline-divided rows — same as SettingsHarnesses */}
-						<div className="border border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
+						<div className="border-[var(--bw-thin)]  border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
 							{/* Built-in row — always first, always choosable. Owns its own
 							    credential entry: this is the one harness whose key we hold. */}
 							<div data-testid="harness-row-builtin">
@@ -643,10 +641,10 @@ export function SetupFlow(): JSX.Element {
 										className="shrink-0"
 									/>
 									<div className="flex-1 min-w-0">
-										<span className="text-[14px] font-[600] text-[var(--text-primary)] leading-[1.2]">
+										<span className="type-copy   text-[var(--text-primary)] ">
 											Built-in gateway
 										</span>
-										<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] mt-[3px]">
+										<p className="type-metadata  text-[var(--text-tertiary)]  mt-[3px]">
 											{builtinAlreadyAuthed
 												? "Ready — using the credential already on this machine"
 												: "Bring your own model credentials"}
@@ -769,10 +767,10 @@ export function SetupFlow(): JSX.Element {
 															className="shrink-0"
 														/>
 														<div className="flex-1 min-w-0">
-															<span className="text-[14px] font-[600] leading-[1.2] text-[var(--text-primary)]">
+															<span className="type-copy    text-[var(--text-primary)]">
 																{d.name}
 															</span>
-															<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] mt-[3px]">
+															<p className="type-metadata  text-[var(--text-tertiary)]  mt-[3px]">
 																{stateHintText(d)}
 															</p>
 														</div>
@@ -785,10 +783,10 @@ export function SetupFlow(): JSX.Element {
 													>
 														<span className="shrink-0 w-[16px] h-[16px]" aria-hidden="true" />
 														<div className="flex-1 min-w-0">
-															<span className="text-[14px] font-[600] leading-[1.2] text-[var(--text-secondary)]">
+															<span className="type-copy    text-[var(--text-secondary)]">
 																{d.name}
 															</span>
-															<p className="text-[12px] text-[var(--text-tertiary)] leading-[1.4] mt-[3px]">
+															<p className="type-metadata  text-[var(--text-tertiary)]  mt-[3px]">
 																{installHintText(d)}
 															</p>
 														</div>
@@ -803,12 +801,9 @@ export function SetupFlow(): JSX.Element {
 					{/* Repo path (optional) */}
 					<div className="mb-[18px]">
 						<div className="flex flex-col gap-[6px]">
-							<label
-								htmlFor="setup-repo"
-								className="text-[13px] font-[500] text-[var(--text-primary)]"
-							>
+							<label htmlFor="setup-repo" className="type-small   text-[var(--text-primary)]">
 								Project folder{" "}
-								<span className="font-[400] text-[var(--text-tertiary)]">(optional)</span>
+								<span className="type-small  text-[var(--text-tertiary)]">(optional)</span>
 							</label>
 							{/*
 							 * @lore AZ7 B2 (review round 1): was a hand-rolled <input>
@@ -855,21 +850,21 @@ export function SetupFlow(): JSX.Element {
 									onChange={(e) => setRepoPath(e.target.value)}
 								/>
 							</div>
-							<span className="text-[12px] text-[var(--text-tertiary)]">
+							<span className="type-metadata  text-[var(--text-tertiary)]">
 								Path to a git repository for agents to work in.
 							</span>
 							{/* AV1 Step B: Folder confirm row — shows after folder picked/detected */}
 							{folderInfo && (
 								<div className="flex items-center gap-[6px] mt-[3px]">
-									<span className="font-[family-name:var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+									<span className="type-data   text-[var(--text-primary)]">
 										{folderInfo.path.split(/[/\\]/).filter(Boolean).pop() ?? folderInfo.path}
 									</span>
 									{folderInfo.isGitRepo && folderInfo.branch ? (
-										<span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--text-tertiary)]">
+										<span className="type-data   text-[var(--text-tertiary)]">
 											@{folderInfo.branch}
 										</span>
 									) : (
-										<span className="text-[11px] text-[var(--text-tertiary)]">folder</span>
+										<span className="type-metadata  text-[var(--text-tertiary)]">folder</span>
 									)}
 								</div>
 							)}
@@ -878,9 +873,9 @@ export function SetupFlow(): JSX.Element {
 
 					{/* AE2: Function selector — preset pills */}
 					<div className="mb-[18px]">
-						<p className="text-[13px] font-[500] text-[var(--text-primary)] mb-[6px]">
+						<p className="type-small   text-[var(--text-primary)] mb-[6px]">
 							What are you building?{" "}
-							<span className="font-[400] text-[var(--text-tertiary)]">(pick a team type)</span>
+							<span className="type-small  text-[var(--text-tertiary)]">(pick a team type)</span>
 						</p>
 						<div className="flex flex-wrap gap-[6px] mb-[9px]">
 							{PRESETS.map((preset) => {
@@ -901,14 +896,14 @@ export function SetupFlow(): JSX.Element {
 										// A pressed/selected TOGGLE in a preset picker group, not an
 										// action Button (Button has no built-in pressed/selected
 										// treatment distinct from its 4 action variants).
-										className={[
-											"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)] text-[13px] font-[500]",
-											"border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+										className={`type-control ${[
+											"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)]  ",
+											"   ",
 											isSelected
 												? // eslint-disable-next-line design/no-handrolled-control -- see comment above
 													"border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
 												: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:border-[var(--border-strong)]",
-										].join(" ")}
+										].join(" ")}`}
 									>
 										{preset.label}
 									</button>
@@ -927,13 +922,13 @@ export function SetupFlow(): JSX.Element {
 											type="button"
 											aria-pressed={isActive}
 											onClick={() => toggleCustomFunction(fn)}
-											className={[
-												"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-subtle)] text-[13px] capitalize",
-												"border-[1.5px] transition-[border-color,background-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+											className={`type-control ${[
+												"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-subtle)]  capitalize",
+												"   ",
 												isActive
-													? "border-[var(--accent-deep)] bg-[var(--surface-elevated)] text-[var(--accent-deep)] font-[600]"
+													? "border-[var(--accent-deep)] bg-[var(--surface-elevated)] text-[var(--accent-deep)] "
 													: "border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-default)]",
-											].join(" ")}
+											].join(" ")}`}
 										>
 											{fn}
 										</button>
@@ -945,7 +940,7 @@ export function SetupFlow(): JSX.Element {
 						{/* AE2: Roster preview */}
 						<p
 							data-testid="roster-preview"
-							className="text-[12px] text-[var(--text-tertiary)] min-h-[18px]"
+							className="type-metadata  text-[var(--text-tertiary)] min-h-[18px]"
 						>
 							{rosterPreviewLabel(resolvedFunctions)}
 						</p>
@@ -956,7 +951,7 @@ export function SetupFlow(): JSX.Element {
 						<p
 							role="alert"
 							aria-live="polite"
-							className="text-[13px] text-[var(--status-error)] mb-[18px]"
+							className="type-small  text-[var(--status-error)] mb-[18px]"
 						>
 							{submitError}
 						</p>

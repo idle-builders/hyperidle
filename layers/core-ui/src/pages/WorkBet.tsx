@@ -162,7 +162,7 @@ function AnchoredMessages({
 			{anchorLost && (
 				<span
 					data-testid="anchor-lost-indicator"
-					className="text-xs text-[var(--text-tertiary)] italic"
+					className="type-metadata  text-[var(--text-tertiary)] italic"
 				>
 					anchor lost
 				</span>
@@ -173,7 +173,7 @@ function AnchoredMessages({
 				return (
 					<div
 						key={msg.id}
-						className="text-xs text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded-[var(--r-subtle)]"
+						className="type-metadata  text-[var(--text-tertiary)] px-2 py-1 bg-[var(--surface-container)] rounded-[var(--r-subtle)]"
 					>
 						{text}
 					</div>
@@ -356,21 +356,21 @@ function ConsequencePreviewDialog({
 			{/* AF12: honest cascade copy. The SAVED line drops "immediately" (capacity
 			    is not freed the instant Kill is clicked) and the NOTE qualifier states
 			    that running agents finish their current step before halting. */}
-			<div className="text-xs text-[var(--text-tertiary)] space-y-[3px] mb-3">
+			<div className="type-metadata  text-[var(--text-tertiary)] space-y-[3px] mb-3">
 				<p>
-					<span className="font-semibold text-error">STOPS:</span> In-progress tasks are killed and
+					<span className="type-small  text-error">STOPS:</span> In-progress tasks are killed and
 					their sessions are stopped.
 				</p>
 				<p>
-					<span className="font-semibold text-[var(--text-primary)]">CONTINUES:</span> Existing
+					<span className="type-small  text-[var(--text-primary)]">CONTINUES:</span> Existing
 					artifacts are preserved.
 				</p>
 				<p>
-					<span className="font-semibold text-[var(--text-primary)]">SAVED:</span> Team capacity is
+					<span className="type-small  text-[var(--text-primary)]">SAVED:</span> Team capacity is
 					freed.
 				</p>
 				<p>
-					<span className="font-semibold text-[var(--text-primary)]">NOTE:</span> Running agents
+					<span className="type-small  text-[var(--text-primary)]">NOTE:</span> Running agents
 					finish their current step before they halt.
 				</p>
 			</div>
@@ -386,7 +386,7 @@ function ConsequencePreviewDialog({
 			/>
 
 			{error && (
-				<p role="alert" className="text-xs text-error mt-[6px]">
+				<p role="alert" className="type-metadata  text-error mt-[6px]">
 					{error}
 				</p>
 			)}
@@ -569,7 +569,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					'[data-testid="composer-textarea"]',
 				);
 				if (textarea) {
-					textarea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+					textarea.scrollIntoView({ block: "nearest" });
 					textarea.focus();
 				}
 			}
@@ -782,10 +782,14 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									aria-haspopup="menu"
 									aria-expanded={betOverflowOpen}
 									/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-									className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)]"
+									className="border-[var(--bw-default)] inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
 									onClick={() => setBetOverflowOpen((v) => !v)}
 								>
-									&#xB7;&#xB7;&#xB7;
+									<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
+										<circle cx="3" cy="8" r="1" fill="currentColor" />
+										<circle cx="8" cy="8" r="1" fill="currentColor" />
+										<circle cx="13" cy="8" r="1" fill="currentColor" />
+									</svg>
 								</button>
 								<Menu
 									open={betOverflowOpen}
@@ -832,7 +836,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					subtitle={
 						/* AF12: activate failure surface (e.g. team at capacity → clean 400). */
 						activateError ? (
-							<p role="alert" className="text-[13px] text-error">
+							<p role="alert" className="type-small  text-error">
 								{activateError}
 							</p>
 						) : undefined
@@ -852,9 +856,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						data-testid={hintAddCredential.testId}
 						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
 					>
-						<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-							{hintAddCredential.copy}
-						</p>
+						<p className="type-copy  text-[var(--text-secondary)] ">{hintAddCredential.copy}</p>
 						<div className="flex gap-[9px]">
 							<Button
 								variant="ghost"
@@ -873,7 +875,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					<RRLink
 						to={`/knowledge/${bet.sourceKnowledge.id}`}
 						data-testid="bet-provenance-link"
-						className="text-[13px] text-[var(--accent-deep)] hover:underline"
+						className="type-control  text-[var(--accent-deep)] hover:underline"
 					>
 						From knowledge: {bet.sourceKnowledge.title}
 					</RRLink>
@@ -906,9 +908,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				<div data-testid="bet-stats-row" className="flex gap-[18px]">
 					{/* Progress stat card — AF16 T1 (Z8-019/020): branch on total>0, not object truthiness */}
 					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
-						<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-							Progress
-						</span>
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Progress</span>
 						{/* @lore AF16 T1: old guard `bet.progress ?` was truthy even when total=0,
 							    producing 0/0=NaN. Now branch on hasTasks (total>0). */}
 						{(() => {
@@ -920,7 +920,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								: 0;
 							return hasTasks ? (
 								<>
-									<span className="text-[24px] font-[600] tracking-[-0.01em] tabular-nums text-[var(--text-primary)]">
+									<span className="type-metric    tabular-nums text-[var(--text-primary)]">
 										{pct}%
 									</span>
 									<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden mt-[9px]">
@@ -932,7 +932,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									</div>
 								</>
 							) : (
-								<span className="text-[13px] text-[var(--text-secondary)] mt-[3px]">
+								<span className="type-small  text-[var(--text-secondary)] mt-[3px]">
 									No tasks yet
 								</span>
 							);
@@ -946,16 +946,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						data-stat-card="team"
 						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1"
 					>
-						<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-							Team
-						</span>
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Team</span>
 						<div className="flex items-center gap-[9px] mt-[9px]">
 							{/* AI5: shared Avatar primitive. Initials now derive via slice
 								    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
 							<Avatar initials={deriveInitials(bet.team)} size="sm" className="shrink-0" />
-							<span className="text-[13px] font-[500] text-[var(--text-primary)] truncate">
-								{bet.team}
-							</span>
+							<span className="type-small   text-[var(--text-primary)] truncate">{bet.team}</span>
 						</div>
 					</div>
 				</div>
@@ -975,20 +971,20 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									>
 										{/* Left column: hypothesis (read-only) */}
 										<div className="flex flex-col gap-[6px]">
-											<span className="text-[12px] font-[500] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+											<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 												Predicted
 											</span>
 											{bet.hypothesis ? (
 												<p
 													data-testid="retro-hypothesis-display"
-													className="text-[13px] text-[var(--text-secondary)] leading-[1.7]"
+													className="type-small  text-[var(--text-secondary)] "
 												>
 													{bet.hypothesis}
 												</p>
 											) : (
 												<p
 													data-testid="retro-hypothesis-display"
-													className="text-[13px] text-[var(--text-tertiary)] italic"
+													className="type-small  text-[var(--text-tertiary)] italic"
 												>
 													No hypothesis recorded
 												</p>
@@ -1014,7 +1010,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												</span>
 												<button
 													type="button"
-													className="text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
+													className="type-control  text-[var(--accent-deep)] hover:underline cursor-pointer"
 													onClick={() => {
 														setOutcomeVerdictForm(bet.outcomeVerdict ?? "");
 														setOutcomeSummaryForm(bet.outcomeSummary ?? "");
@@ -1026,7 +1022,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												</button>
 											</div>
 											{bet.outcomeSummary && (
-												<p className="text-[13px] text-[var(--text-secondary)] leading-[1.7]">
+												<p className="type-small  text-[var(--text-secondary)] ">
 													{bet.outcomeSummary}
 												</p>
 											)}
@@ -1035,10 +1031,10 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								) : (
 									/* Not evaluated state */
 									<div className="flex items-center gap-[9px]">
-										<span className="text-[13px] text-[var(--text-tertiary)]">Not evaluated</span>
+										<span className="type-small  text-[var(--text-tertiary)]">Not evaluated</span>
 										<button
 											type="button"
-											className="text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
+											className="type-control  text-[var(--accent-deep)] hover:underline cursor-pointer"
 											onClick={() => {
 												setOutcomeVerdictForm("");
 												setOutcomeSummaryForm("");
@@ -1069,20 +1065,20 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								>
 									{/* Left column: hypothesis (read-only) */}
 									<div className="flex flex-col gap-[6px]">
-										<span className="text-[12px] font-[500] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+										<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 											Predicted
 										</span>
 										{bet.hypothesis ? (
 											<p
 												data-testid="retro-hypothesis-display"
-												className="text-[13px] text-[var(--text-secondary)] leading-[1.7]"
+												className="type-small  text-[var(--text-secondary)] "
 											>
 												{bet.hypothesis}
 											</p>
 										) : (
 											<p
 												data-testid="retro-hypothesis-display"
-												className="text-[13px] text-[var(--text-tertiary)] italic"
+												className="type-small  text-[var(--text-tertiary)] italic"
 											>
 												No hypothesis recorded
 											</p>
@@ -1101,7 +1097,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												{retroDrafting ? "Drafting…" : "Draft with AI"}
 											</Button>
 											{retroDraftError && (
-												<span className="text-[12px] text-[var(--status-error)]">
+												<span className="type-metadata  text-[var(--status-error)]">
 													{retroDraftError}
 												</span>
 											)}
@@ -1110,7 +1106,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										<div className="flex flex-col gap-[6px]">
 											<label
 												htmlFor="outcome-verdict-select"
-												className="text-[12px] font-[500] text-[var(--text-secondary)]"
+												className="type-metadata   text-[var(--text-secondary)]"
 											>
 												Verdict
 											</label>
@@ -1152,7 +1148,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								</div>
 								{/* Error */}
 								{outcomeError && (
-									<p className="text-[12px] text-[var(--status-error)]">{outcomeError}</p>
+									<p className="type-metadata  text-[var(--status-error)]">{outcomeError}</p>
 								)}
 								{/* Actions */}
 								<div className="flex gap-[9px] justify-end">
@@ -1189,7 +1185,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							canEditDescription ? (
 								<div className="flex items-center gap-[9px]">
 									<span
-										className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px]"
+										className="type-metadata  text-[var(--status-success)] flex items-center gap-[3px]"
 										aria-live="polite"
 										data-testid="pitch-save-indicator"
 									>
@@ -1246,7 +1242,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								minHeight="200px"
 							/>
 							<span
-								className="text-xs text-[var(--text-tertiary)]"
+								className="type-metadata  text-[var(--text-tertiary)]"
 								aria-live="polite"
 								data-testid="bet-save-indicator"
 							>
@@ -1342,15 +1338,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										// hand-rolled row pending UI-060.
 										// @lore AZ7 N1: hover:bg-[var(--accent-primary-dim)] is Set 3's
 										// row-hover tint — not a no-handrolled-control violation.
-										className="flex items-center gap-[12px] py-[12px] border-b border-[var(--border-subtle)] last:border-b-0 cursor-pointer hover:bg-[var(--accent-primary-dim)] transition-colors duration-[var(--motion-fast)] text-left w-full"
+										className="flex items-center gap-[12px] py-[12px] border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none cursor-pointer hover:bg-[var(--accent-primary-dim)] text-left w-full"
 										onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
 										aria-label={task.title}
 									>
 										<div className="flex-1 min-w-0">
-											<div className="text-[15px] text-[var(--text-primary)] truncate">
+											<div className="type-copy  text-[var(--text-primary)] truncate">
 												{task.title}
 											</div>
-											<div className="text-[12px] text-[var(--text-tertiary)] truncate mt-[3px]">
+											<div className="type-metadata  text-[var(--text-tertiary)] truncate mt-[3px]">
 												{metaParts.join(" · ")}
 											</div>
 										</div>

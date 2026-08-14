@@ -1,0 +1,347 @@
+site_id	destination	reason
+framework/design-system/src/artifact-frame/build-srcdoc.ts::buildArtifactSrcdoc::generated:srcdoc:iframe::c36f3c8a2713::1	NONE	generated srcdoc iframe explicitly remains borderless
+framework/design-system/src/ArtifactFrame.tsx::ArtifactFrame::iframe::dacd8744d5cf::1	thin	ArtifactFrame iframe keeps its normal outline, separator, or action border with thin
+framework/design-system/src/ArtifactFrame.tsx::ArtifactFrame::iframe::5d29e7c55f34::1	NONE	ArtifactFrame iframe explicitly authors no border and remains borderless
+framework/design-system/src/ArtifactGalleryCard.tsx::ArtifactGalleryCard::button::dacd8744d5cf::1	thin	ArtifactGalleryCard button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Avatar.tsx::Avatar::div::d635c328e3db::1	strong	Avatar div uses the approved 2px avatar seam or strong outline
+framework/design-system/src/BetCard.tsx::BetCard::span::71baacbe93a2::1	strong	BetCard span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/BetCard.tsx::BetCard::span::71baacbe93a2::2	strong	BetCard span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/BetCard.tsx::BetCard::span::71baacbe93a2::3	strong	BetCard span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/BetCard.tsx::BetCard::span::71baacbe93a2::4	strong	BetCard span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/block/DividerPayload.tsx::DividerPayload::hr::5d29e7c55f34::1	NONE	DividerPayload hr explicitly authors no border and remains borderless
+framework/design-system/src/block/DividerPayload.tsx::DividerPayload::hr::05d8e4e432ec::1	thin	DividerPayload hr keeps its normal outline, separator, or action border with thin
+framework/design-system/src/block/ImagePayload.tsx::ImagePayload::figure::dacd8744d5cf::1	thin	ImagePayload figure keeps its normal outline, separator, or action border with thin
+framework/design-system/src/block/QuotePayload.tsx::QuotePayload::blockquote::f183f2868933::1	strong	QuotePayload blockquote uses the approved 2px avatar seam or strong outline
+framework/design-system/src/block/TablePayload.tsx::TablePayload::div::dacd8744d5cf::1	thin	TablePayload div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/block/TablePayload.tsx::TablePayload::th::dec93f271d42::1	thin	TablePayload th keeps its normal outline, separator, or action border with thin
+framework/design-system/src/block/TablePayload.tsx::TablePayload::td::dec93f271d42::1	thin	TablePayload td keeps its normal outline, separator, or action border with thin
+framework/design-system/src/block/UnknownPayload.tsx::UnknownPayload::div::f183f2868933::1	REMOVE	UnknownPayload div is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/block/UnknownPayload.tsx::UnknownPayload::span::dacd8744d5cf::1	thin	UnknownPayload span keeps its normal outline, separator, or action border with thin
+framework/design-system/src/body-editor.css::css:.body-editor .ProseMirror blockquote::css:.body-editor .ProseMirror blockquote::6f035d204b8d::1	strong	css:.body-editor .ProseMirror blockquote css:.body-editor .ProseMirror blockquote uses the approved 2px avatar seam or strong outline
+framework/design-system/src/body-editor.css::css:.body-editor .ProseMirror pre::css:.body-editor .ProseMirror pre::5eb0fe37aec7::1	thin	css:.body-editor .ProseMirror pre css:.body-editor .ProseMirror pre keeps its normal outline, separator, or action border with thin
+framework/design-system/src/body-editor.css::css:.body-editor .ProseMirror pre code::css:.body-editor .ProseMirror pre code::1879b503e310::1	NONE	css:.body-editor .ProseMirror pre code css:.body-editor .ProseMirror pre code explicitly authors no border and remains borderless
+framework/design-system/src/body-editor.css::css:.body-editor .ProseMirror th, .body-editor .ProseMirror td::css:.body-editor .ProseMirror th, .body-editor .ProseMirror td::5eb0fe37aec7::1	thin	css:.body-editor .ProseMirror th, .body-editor .ProseMirror td css:.body-editor .ProseMirror th, .body-editor .ProseMirror td keeps its normal outline, separator, or action border with thin
+framework/design-system/src/body-editor.css::css:.body-editor .ProseMirror hr::css:.body-editor .ProseMirror hr::1879b503e310::1	NONE	css:.body-editor .ProseMirror hr css:.body-editor .ProseMirror hr explicitly authors no border and remains borderless
+framework/design-system/src/body-editor/floating-toolbar.tsx::FloatingToolbar::div::dacd8744d5cf::1	thin	FloatingToolbar div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/body-editor/slash-menu.tsx::module::div::dacd8744d5cf::1	thin	module div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/body-editor/slash-menu.tsx::module::div::dacd8744d5cf::2	thin	module div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Button.tsx::module::button::d635c328e3db::1	default	module button uses the approved default 1.5px role
+framework/design-system/src/Checkbox.tsx::Checkbox::div::d635c328e3db::1	default	Checkbox div uses the approved default 1.5px role
+framework/design-system/src/Checkbox.tsx::Checkbox::span::1ae1ca144e76::1	GEOMETRY	Checkbox span uses a border-built glyph that migrates to SVG/mask geometry
+framework/design-system/src/Checkbox.tsx::Checkbox::span::87fb82b81267::1	GEOMETRY	Checkbox span uses a border-built glyph that migrates to SVG/mask geometry
+framework/design-system/src/CommentRow.tsx::CommentRow::span::d635c328e3db::1	strong	CommentRow span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/CommentRow.tsx::CommentRow::span::d635c328e3db::2	strong	CommentRow span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/Composer.tsx::Composer::textarea::d635c328e3db::1	default	Composer textarea uses the approved default 1.5px role
+framework/design-system/src/Dialog.tsx::Dialog::div::3ab722b8a119::1	thin	Dialog div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Dialog.tsx::Dialog::button::02f1974eca8f::1	NONE	Dialog button explicitly authors no border and remains borderless
+framework/design-system/src/Dialog.tsx::Dialog::div::f944d6a9b01e::1	thin	Dialog div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/diff/select-diff.tsx::UnknownDiff::section::dacd8744d5cf::1	thin	UnknownDiff section keeps its normal outline, separator, or action border with thin
+framework/design-system/src/DiscardConfirmStrip.tsx::DiscardConfirmStrip::div::f944d6a9b01e::1	thin	DiscardConfirmStrip div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/DiscardConfirmStrip.tsx::DiscardConfirmStrip::button::04c4bc5dbec9::1	thin	DiscardConfirmStrip button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/DiscardConfirmStrip.tsx::DiscardConfirmStrip::button::04c4bc5dbec9::2	thin	DiscardConfirmStrip button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/ErrorState.tsx::ErrorState::button::d635c328e3db::1	default	ErrorState button uses the approved default 1.5px role
+framework/design-system/src/ErrorState.tsx::ErrorState::button::d635c328e3db::2	default	ErrorState button uses the approved default 1.5px role
+framework/design-system/src/Input.tsx::module::textarea::d635c328e3db::1	default	module textarea uses the approved default 1.5px role
+framework/design-system/src/Input.tsx::module::input::d635c328e3db::1	default	module input uses the approved default 1.5px role
+framework/design-system/src/kinds/compose-artifact-body.tsx::DataRowsTable::div::dacd8744d5cf::1	thin	DataRowsTable div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/kinds/compose-artifact-body.tsx::DataRowsTable::tr::05d8e4e432ec::1	thin	DataRowsTable tr keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Menu.tsx::Menu::div::dacd8744d5cf::1	thin	Menu div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/NavItem.tsx::NavItem::button::4af6fd109d0c::1	NONE	NavItem button explicitly authors no border and remains borderless
+framework/design-system/src/NotificationRow.tsx::NotificationRow::div::8ab3b7644f54::1	REMOVE	NotificationRow div is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/PageHeader.tsx::PageHeader::header::dec93f271d42::1	thin	PageHeader header keeps its normal outline, separator, or action border with thin
+framework/design-system/src/ReferenceChip.tsx::ReferenceChip::button::dacd8744d5cf::1	thin	ReferenceChip button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/ReferenceChip.tsx::ReferenceChip::span::dacd8744d5cf::1	thin	ReferenceChip span keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::ResolvedView::section::dacd8744d5cf::1	thin	ResolvedView section keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::ResolvedView::button::4af6fd109d0c::1	NONE	ResolvedView button explicitly authors no border and remains borderless
+framework/design-system/src/RichMessageCard.tsx::RedactedView::section::dacd8744d5cf::1	thin	RedactedView section keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::RedactedView::section::f183f2868933::1	REMOVE	RedactedView section is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/RichMessageCard.tsx::renderActionFooter::div::05d8e4e432ec::1	thin	renderActionFooter div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::renderActionFooter::div::05d8e4e432ec::2	thin	renderActionFooter div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::renderActionFooter::button::dacd8744d5cf::1	thin	renderActionFooter button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::renderActionFooter::div::05d8e4e432ec::3	thin	renderActionFooter div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::renderActionFooter::button::dacd8744d5cf::2	thin	renderActionFooter button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::renderActionFooter::div::05d8e4e432ec::4	thin	renderActionFooter div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::renderActionFooter::button::dacd8744d5cf::3	thin	renderActionFooter button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::renderReasoning::button::4af6fd109d0c::1	NONE	renderReasoning button explicitly authors no border and remains borderless
+framework/design-system/src/RichMessageCard.tsx::RichMessageCard::section::dacd8744d5cf::1	thin	RichMessageCard section keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RichMessageCard.tsx::RichMessageCard::section::f183f2868933::1	REMOVE	RichMessageCard section is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/RoleCombobox.tsx::RoleCombobox::button::dacd8744d5cf::1	thin	RoleCombobox button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RoleCombobox.tsx::RoleCombobox::div::dacd8744d5cf::1	thin	RoleCombobox div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RoleCombobox.tsx::RoleCombobox::div::dec93f271d42::1	thin	RoleCombobox div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/RoleCombobox.tsx::RoleCombobox::ListboxOption::05d8e4e432ec::1	thin	RoleCombobox ListboxOption keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Row.tsx::Row::li::45d0372042f8::1	NONE	Row li explicitly authors no border and remains borderless
+framework/design-system/src/Row.tsx::Row::li::dec93f271d42::1	thin	Row li keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Row.tsx::Row::li::16a60ebee719::1	REMOVE	Row li is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/Row.tsx::Row::li::45d0372042f8::2	NONE	Row li explicitly authors no border and remains borderless
+framework/design-system/src/Row.tsx::Row::li::dec93f271d42::2	thin	Row li keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Row.tsx::Row::li::16a60ebee719::2	REMOVE	Row li is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/Row.tsx::Row::li::45d0372042f8::3	NONE	Row li explicitly authors no border and remains borderless
+framework/design-system/src/Row.tsx::Row::li::dec93f271d42::3	thin	Row li keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Row.tsx::Row::li::16a60ebee719::3	REMOVE	Row li is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/Row.tsx::Row::div::45d0372042f8::1	thin	Row normal separator stays thin
+framework/design-system/src/Row.tsx::Row::div::dec93f271d42::1	thin	Row normal separator stays thin
+framework/design-system/src/Row.tsx::Row::div::16a60ebee719::1	REMOVE	Row conditional state rail is removed
+framework/design-system/src/Row.tsx::Row::div::45d0372042f8::2	thin	Row normal separator stays thin
+framework/design-system/src/Row.tsx::Row::div::dec93f271d42::2	thin	Row normal separator stays thin
+framework/design-system/src/Row.tsx::Row::div::16a60ebee719::2	REMOVE	Row conditional state rail is removed
+framework/design-system/src/ScopePicker.tsx::ScopePicker::button::d635c328e3db::1	default	ScopePicker button uses the approved default 1.5px role
+framework/design-system/src/SearchField.tsx::module::span::cca9e18044ae::1	GEOMETRY	module span uses a border-built glyph that migrates to SVG/mask geometry
+framework/design-system/src/SearchField.tsx::module::input::dacd8744d5cf::1	thin	module input keeps its normal outline, separator, or action border with thin
+framework/design-system/src/SearchField.tsx::module::button::4af6fd109d0c::1	NONE	module button explicitly authors no border and remains borderless
+framework/design-system/src/SectionLabel.tsx::SectionLabel::Tag::dec93f271d42::1	thin	SectionLabel Tag keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Select.tsx::Select::select::d635c328e3db::1	default	Select select uses the approved default 1.5px role
+framework/design-system/src/Select.tsx::Select::span::725fb5bb2021::1	GEOMETRY	Select span uses a border-built glyph that migrates to SVG/mask geometry
+framework/design-system/src/Select.tsx::Select::span::ff710b7f3944::1	GEOMETRY	Select span uses a border-built glyph that migrates to SVG/mask geometry
+framework/design-system/src/Select.tsx::Select::span::b1c29f3e4143::1	GEOMETRY	Select span uses a border-built glyph that migrates to SVG/mask geometry
+framework/design-system/src/SplitView.tsx::ControlButton::button::dacd8744d5cf::1	thin	ControlButton button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/SplitView.tsx::SplitView::div::dec93f271d42::1	thin	SplitView div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/TabBar.tsx::TabBar::div::dec93f271d42::1	thin	TabBar div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/TabBar.tsx::TabBar::button::1ae1ca144e76::1	strong	TabBar button uses the approved 2px avatar seam or strong outline
+framework/design-system/src/Tag.tsx::Tag::span::4af6fd109d0c::1	NONE	Tag span explicitly authors no border and remains borderless
+framework/design-system/src/Tag.tsx::Tag::span::4af6fd109d0c::2	NONE	Tag span explicitly authors no border and remains borderless
+framework/design-system/src/TaskCard.tsx::TaskCard::div::dacd8744d5cf::1	thin	TaskCard keeps normal thin outline; conditional blocked-state outline color is removed separately
+framework/design-system/src/ThreadHostBanner.tsx::PresenceDot::span::d635c328e3db::1	strong	PresenceDot span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/ThreadHostBanner.tsx::ThreadHostBanner::div::dec93f271d42::1	thin	ThreadHostBanner div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/ThreadHostBanner.tsx::ThreadHostBanner::span::dacd8744d5cf::1	thin	ThreadHostBanner span keeps its normal outline, separator, or action border with thin
+framework/design-system/src/ThreadHostBanner.tsx::ThreadHostBanner::span::dacd8744d5cf::2	thin	ThreadHostBanner span keeps its normal outline, separator, or action border with thin
+framework/design-system/src/ThreadRow.tsx::ThreadRowPresenceDot::span::d635c328e3db::1	strong	ThreadRowPresenceDot span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/ThreadRow.tsx::ThreadRow::div::45d0372042f8::1	NONE	ThreadRow div explicitly authors no border and remains borderless
+framework/design-system/src/ThreadRow.tsx::ThreadRow::div::dec93f271d42::1	thin	ThreadRow div keeps its normal outline, separator, or action border with thin
+framework/design-system/src/ThreadRow.tsx::ThreadRow::div::16a60ebee719::1	REMOVE	ThreadRow div is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/ThreadRow.tsx::ThreadRow::div::16a60ebee719::2	REMOVE	ThreadRow div is a conditional non-Toast status/state rail and is removed
+framework/design-system/src/ThreadRow.tsx::ThreadRow::span::71baacbe93a2::1	strong	ThreadRow span uses the approved 2px avatar seam or strong outline
+framework/design-system/src/ThreadShell.tsx::buildRichSlots::button::dacd8744d5cf::1	thin	buildRichSlots button keeps its normal outline, separator, or action border with thin
+framework/design-system/src/Toast.tsx::Toast::div::116fc5820574::1	default	Toast div uses the approved default 1.5px role
+framework/design-system/src/Toggle.tsx::Toggle::button::d635c328e3db::1	default	Toggle button uses the approved default 1.5px role
+framework/design-system/src/Toggle.tsx::Toggle::button::d635c328e3db::2	default	Toggle button uses the approved default 1.5px role
+layers/core-ui/src/components/BlockRefEmbed.tsx::BlockRefEmbed::div::dacd8744d5cf::1	thin	BlockRefEmbed div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/BlockRefEmbed.tsx::BlockRefEmbed::button::dacd8744d5cf::1	thin	BlockRefEmbed button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/BlockRefEmbed.tsx::BlockRefEmbed::div::dacd8744d5cf::2	thin	BlockRefEmbed div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/ConversationSurface.tsx::Avatar::div::d635c328e3db::1	strong	Avatar div uses the approved 2px avatar seam or strong outline
+layers/core-ui/src/components/ConversationSurface.tsx::ConversationHeader::header::dec93f271d42::1	thin	ConversationHeader header keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/ConversationSurface.tsx::InsertMenu::div::dacd8744d5cf::1	thin	InsertMenu div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/ConversationSurface.tsx::ComposerReplyBanner::div::dec93f271d42::1	thin	ComposerReplyBanner div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/ConversationSurface.tsx::ComposerReplyBanner::div::e96549558938::1	strong	ComposerReplyBanner div uses the approved 2px avatar seam or strong outline
+layers/core-ui/src/components/ConversationSurface.tsx::ComposerInputRow::button::dacd8744d5cf::1	thin	ComposerInputRow button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/ConversationSurface.tsx::ComposerInputRow::button::dacd8744d5cf::2	thin	ComposerInputRow button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/ConversationSurface.tsx::ComposerInputRow::textarea::4af6fd109d0c::1	NONE	ComposerInputRow textarea explicitly authors no border and remains borderless
+layers/core-ui/src/components/ConversationSurface.tsx::Composer::div::dacd8744d5cf::1	thin	Composer div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/GlobalSearchPanel.tsx::GlobalSearchPanel::div::05d8e4e432ec::1	thin	GlobalSearchPanel div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/PartList.tsx::GroupAvatar::span::dacd8744d5cf::1	strong	GroupAvatar span uses the approved 2px avatar seam or strong outline
+layers/core-ui/src/components/parts/QuestionnairePart.tsx::QuestionnairePart::div::dacd8744d5cf::1	thin	QuestionnairePart div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/parts/QuestionnairePart.tsx::QuestionnairePart::li::dacd8744d5cf::1	thin	QuestionnairePart li keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/parts/ReasoningPart.tsx::ReasoningPart::p::886fcae2dc84::1	thin	ReasoningPart p keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/parts/ReviewRequestPart.tsx::ReviewRequestPart::div::dacd8744d5cf::1	thin	ReviewRequestPart div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/parts/ReviewResolvedPart.tsx::ReviewResolvedPart::div::dacd8744d5cf::1	thin	ReviewResolvedPart div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/parts/ToolPart.tsx::ToolPart::button::dacd8744d5cf::1	thin	ToolPart button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/parts/ToolPart.tsx::ToolPart::button::dacd8744d5cf::2	thin	ToolPart button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/parts/ToolPart.tsx::ToolPart::pre::886fcae2dc84::1	thin	ToolPart pre keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/RecipientPicker.tsx::RecipientPicker::div::dacd8744d5cf::1	thin	RecipientPicker div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/RecipientPicker.tsx::RecipientPicker::button::4af6fd109d0c::1	NONE	RecipientPicker button explicitly authors no border and remains borderless
+layers/core-ui/src/components/RecipientPicker.tsx::RecipientPicker::button::4af6fd109d0c::2	NONE	RecipientPicker button explicitly authors no border and remains borderless
+layers/core-ui/src/components/SessionActivityPanel.tsx::SessionActivityPanel::aside::c343980dde0c::1	thin	SessionActivityPanel aside keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionActivityPanel.tsx::SessionActivityPanel::div::dec93f271d42::1	thin	SessionActivityPanel div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionActivityPanel.tsx::SessionActivityPanel::button::4af6fd109d0c::1	NONE	SessionActivityPanel button explicitly authors no border and remains borderless
+layers/core-ui/src/components/SessionActivityPanel.tsx::SessionActivityPanel::div::dec93f271d42::2	thin	SessionActivityPanel div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionActivityPanel.tsx::SessionActivityPanel::div::05d8e4e432ec::1	thin	SessionActivityPanel div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionView.tsx::SessionAvatar::div::d635c328e3db::1	strong	SessionAvatar div uses the approved 2px avatar seam or strong outline
+layers/core-ui/src/components/SessionView.tsx::HardAggregate::div::886fcae2dc84::1	thin	HardAggregate div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionView.tsx::ChangedFilesPanel::div::dacd8744d5cf::1	thin	ChangedFilesPanel div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionView.tsx::ChangedFilesPanel::button::dacd8744d5cf::1	thin	ChangedFilesPanel button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionView.tsx::ChangedFilesPanel::div::05d8e4e432ec::1	thin	ChangedFilesPanel div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::div::dacd8744d5cf::1	thin	SessionComposer div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::button::dacd8744d5cf::1	thin	SessionComposer button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::textarea::4af6fd109d0c::1	NONE	SessionComposer textarea explicitly authors no border and remains borderless
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::div::05d8e4e432ec::1	thin	SessionComposer div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/SessionView.tsx::SessionView::header::dec93f271d42::1	thin	SessionView header keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/components/ThreadSections.tsx::ThreadSections::button::5d29e7c55f34::1	NONE	ThreadSections button explicitly authors no border and remains borderless
+layers/core-ui/src/components/ThreadSections.tsx::ThreadSections::section::b8ea6e901bc6::1	REMOVE	ThreadSections section is a conditional non-Toast status/state rail and is removed
+layers/core-ui/src/layouts/AppShell.tsx::AppShell::header::dec93f271d42::1	thin	AppShell header keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::div::04c4bc5dbec9::1	thin	AgentProfileLoaded div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::div::04c4bc5dbec9::2	thin	AgentProfileLoaded div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::tr::dec93f271d42::1	thin	AgentProfileLoaded tr keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::tr::ae6809dd95ad::1	NONE	AgentProfileLoaded tr explicitly authors no border and remains borderless
+layers/core-ui/src/pages/AgentProfile.tsx::AgentProfileLoaded::tr::dec93f271d42::2	thin	AgentProfileLoaded tr keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeCreate.tsx::KnowledgeCreate::input::4af6fd109d0c::1	NONE	KnowledgeCreate input explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeCreate.tsx::KnowledgeCreate::div::d635c328e3db::1	default	KnowledgeCreate div uses the approved default 1.5px role
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeOverflowMenu::button::d635c328e3db::1	default	KnowledgeOverflowMenu button uses the approved default 1.5px role
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dacd8744d5cf::1	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::button::4af6fd109d0c::1	NONE	KnowledgeDetailView button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dacd8744d5cf::2	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::button::4af6fd109d0c::2	NONE	KnowledgeDetailView button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dacd8744d5cf::3	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::1	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::2	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::3	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::4	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::5	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::div::dec93f271d42::6	thin	KnowledgeDetailView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::1	NONE	KnowledgeListContent button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::2	NONE	KnowledgeListContent button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::3	NONE	KnowledgeListContent button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::4	NONE	KnowledgeListContent button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::button::4af6fd109d0c::5	NONE	KnowledgeListContent button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::div::05d8e4e432ec::1	thin	KnowledgeListContent div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::1	thin	KnowledgeListContent kbd keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::2	thin	KnowledgeListContent kbd keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::3	thin	KnowledgeListContent kbd keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::4	thin	KnowledgeListContent kbd keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeListContent::kbd::dacd8744d5cf::5	thin	KnowledgeListContent kbd keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::4af6fd109d0c::1	NONE	KnowledgeList button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::4af6fd109d0c::2	NONE	KnowledgeList button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::4af6fd109d0c::3	NONE	KnowledgeList button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::button::4af6fd109d0c::4	NONE	KnowledgeList button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/KnowledgeList.tsx::KnowledgeList::input::120394cc28fb::1	default	KnowledgeList input uses the approved default 1.5px role
+layers/core-ui/src/pages/review/CanvasSourceHeader.tsx::CanvasSourceHeader::div::dec93f271d42::1	thin	CanvasSourceHeader div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/review-canvas.tsx::AnchoredThreadCard::div::dacd8744d5cf::1	thin	AnchoredThreadCard div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/review-canvas.tsx::AnchoredThreadCard::div::dec93f271d42::1	thin	AnchoredThreadCard div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::article::dacd8744d5cf::1	thin	ReviewActionOperationView article keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::div::dacd8744d5cf::1	thin	ReviewActionOperationView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::div::33a184dabf14::1	NONE	ReviewActionOperationView div explicitly authors no border and remains borderless
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::section::dacd8744d5cf::1	thin	ReviewActionOperationView section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::span::cca9e18044ae::1	GEOMETRY	ReviewActionOperationView span uses a border-built glyph that migrates to SVG/mask geometry
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::footer::05d8e4e432ec::1	thin	ReviewActionOperationView footer keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ExecutingBand::section::dacd8744d5cf::1	thin	ExecutingBand section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ExecutingBand::span::cca9e18044ae::1	GEOMETRY	ExecutingBand span uses a border-built glyph that migrates to SVG/mask geometry
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::OutcomeBand::section::dacd8744d5cf::1	thin	OutcomeBand section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ProposedCallArgsPanel::section::dacd8744d5cf::1	thin	ProposedCallArgsPanel section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ProposedCallArgsPanel::div::dec93f271d42::1	thin	ProposedCallArgsPanel div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ProposedCallArgsPanel::div::33a184dabf14::1	NONE	ProposedCallArgsPanel div explicitly authors no border and remains borderless
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::section::dacd8744d5cf::1	thin	ReviewBatchView section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::05d8e4e432ec::1	thin	ReviewBatchView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::dacd8744d5cf::1	thin	ReviewBatchView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::05d8e4e432ec::2	thin	ReviewBatchView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::blockquote::8ab3b7644f54::1	strong	ReviewBatchView blockquote uses the approved 2px avatar seam or strong outline
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::dacd8744d5cf::2	thin	ReviewBatchView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::dec93f271d42::1	thin	ReviewBatchView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::dacd8744d5cf::3	thin	ReviewBatchView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::8ab3b7644f54::1	REMOVE	ReviewBatchView div is a conditional non-Toast status/state rail and is removed
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::dacd8744d5cf::4	thin	ReviewBatchView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::05d8e4e432ec::3	thin	ReviewBatchView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::span::dacd8744d5cf::1	thin	ReviewBatchView span keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::RenderedPage::nav::3ab722b8a119::1	FOREIGN	RenderedPage nav is inside the exact foreign content root and preserves source fidelity
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::RenderedPage::div::b99b0feb1905::1	FOREIGN	RenderedPage div is inside the exact foreign content root and preserves source fidelity
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::RenderedPage::a::02f1974eca8f::1	FOREIGN	RenderedPage a is inside the exact foreign content root and preserves source fidelity
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::RenderedPage::div::f944d6a9b01e::1	FOREIGN	RenderedPage div is inside the exact foreign content root and preserves source fidelity
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::div::04c4bc5dbec9::1	thin	ReviewBrowserPreviewView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::div::3ab722b8a119::1	thin	ReviewBrowserPreviewView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::div::04c4bc5dbec9::2	thin	ReviewBrowserPreviewView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::div::f944d6a9b01e::1	thin	ReviewBrowserPreviewView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::button::04c4bc5dbec9::1	thin	ReviewBrowserPreviewView button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::ReviewedBox::button::d635c328e3db::1	default	ReviewedBox button uses the approved default 1.5px role
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::renderLineGutter::span::07912dcab97e::1	thin	renderLineGutter span keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::FileDiff::div::05d8e4e432ec::1	thin	FileDiff div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::FileCard::div::dacd8744d5cf::1	thin	FileCard div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::FileCard::p::05d8e4e432ec::1	thin	FileCard p keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::ReviewCodeDiffView::section::dacd8744d5cf::1	thin	ReviewCodeDiffView section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::ReviewCodeDiffView::div::05d8e4e432ec::1	thin	ReviewCodeDiffView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::ReviewCodeDiffView::button::dacd8744d5cf::1	thin	ReviewCodeDiffView button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::ReviewCodeDiffView::div::dacd8744d5cf::1	thin	ReviewCodeDiffView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::ReviewCodeDiffView::div::05d8e4e432ec::2	thin	ReviewCodeDiffView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::HumanAvatar::span::dacd8744d5cf::1	strong	HumanAvatar span uses the approved 2px avatar seam or strong outline
+layers/core-ui/src/pages/review/ReviewComposition.tsx::Verdict::button::dacd8744d5cf::1	thin	Verdict button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::Verdict::button::dacd8744d5cf::2	thin	Verdict button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::Verdict::div::dacd8744d5cf::1	thin	Verdict div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::TaskSection::div::8ab3b7644f54::1	strong	TaskSection div uses the approved 2px avatar seam or strong outline
+layers/core-ui/src/pages/review/ReviewComposition.tsx::KpiChip::div::dacd8744d5cf::1	thin	KpiChip div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::CheckoutCard::figure::dacd8744d5cf::1	thin	CheckoutCard figure keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::CheckoutCard::figcaption::dec93f271d42::1	thin	CheckoutCard figcaption keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::CheckoutCard::div::dacd8744d5cf::1	thin	CheckoutCard div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::CheckoutCard::div::05d8e4e432ec::1	thin	CheckoutCard div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::CheckoutCard::div::05d8e4e432ec::2	thin	CheckoutCard div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ArtifactRow::button::dacd8744d5cf::1	thin	ArtifactRow button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::CommentItem::button::dacd8744d5cf::1	thin	CommentItem button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ConversationSection::div::dacd8744d5cf::1	thin	ConversationSection div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ConversationSection::div::dacd8744d5cf::2	thin	ConversationSection div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ExaminePane::div::dec93f271d42::1	thin	ExaminePane div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ExaminePane::button::dacd8744d5cf::1	thin	ExaminePane button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ExaminePane::button::dacd8744d5cf::2	thin	ExaminePane button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx::FieldRow::div::45d0372042f8::1	NONE	FieldRow div explicitly authors no border and remains borderless
+layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx::FieldRow::div::dec93f271d42::1	thin	FieldRow div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx::ReviewFieldChangeSetView::div::dacd8744d5cf::1	thin	ReviewFieldChangeSetView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx::ReviewFieldChangeSetView::div::dec93f271d42::1	thin	ReviewFieldChangeSetView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx::ReviewFieldChangeSetView::div::05d8e4e432ec::1	thin	ReviewFieldChangeSetView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::Headline::div::dacd8744d5cf::1	thin	Headline div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::Headline::div::dacd8744d5cf::2	thin	Headline div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::RollForwardTable::div::dacd8744d5cf::1	thin	RollForwardTable div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::RollForwardTable::tr::dec93f271d42::1	thin	RollForwardTable tr keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::RollForwardTable::tr::dec93f271d42::2	thin	RollForwardTable tr keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::RollForwardTable::div::05d8e4e432ec::1	thin	RollForwardTable div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::ExceptionRow::div::dacd8744d5cf::1	thin	ExceptionRow div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::NeedsYouChip::button::dacd8744d5cf::1	thin	NeedsYouChip button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::ReviewOutcomeSummaryView::section::dacd8744d5cf::1	thin	ReviewOutcomeSummaryView section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::ReviewOutcomeSummaryView::header::dec93f271d42::1	thin	ReviewOutcomeSummaryView header keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::ReviewOutcomeSummaryView::span::d635c328e3db::1	default	ReviewOutcomeSummaryView span uses the approved default 1.5px role
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::ReviewOutcomeSummaryView::button::dacd8744d5cf::1	thin	ReviewOutcomeSummaryView button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ViewportToggle::div::04c4bc5dbec9::1	thin	ViewportToggle div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::EmailRender::div::04c4bc5dbec9::1	FOREIGN	EmailRender div is inside the exact foreign content root and preserves source fidelity
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::EmailRender::div::3ab722b8a119::1	FOREIGN	EmailRender div is inside the exact foreign content root and preserves source fidelity
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::EmailRender::div::f944d6a9b01e::1	FOREIGN	EmailRender div is inside the exact foreign content root and preserves source fidelity
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::section::04c4bc5dbec9::1	thin	ReviewRenderedInContextView section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::div::04c4bc5dbec9::1	thin	ReviewRenderedInContextView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::div::04c4bc5dbec9::2	thin	ReviewRenderedInContextView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::button::04c4bc5dbec9::1	thin	ReviewRenderedInContextView button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::div::b8ea6e901bc6::1	REMOVE	ReviewRenderedInContextView div is a conditional non-Toast status/state rail and is removed
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::div::04c4bc5dbec9::3	thin	ReviewRenderedInContextView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::div::04c4bc5dbec9::4	thin	ReviewRenderedInContextView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::div::f944d6a9b01e::1	thin	ReviewRenderedInContextView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::button::04c4bc5dbec9::2	thin	ReviewRenderedInContextView button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewUnknownCanvas.tsx::ReviewUnknownCanvas::div::dacd8744d5cf::1	thin	ReviewUnknownCanvas div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::MockScreen::div::dacd8744d5cf::1	thin	MockScreen div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::MockScreen::div::dec93f271d42::1	thin	MockScreen div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::Field::div::dacd8744d5cf::1	thin	Field div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::Thumb::div::dacd8744d5cf::1	thin	Thumb div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::ReviewVisualDiffView::section::dacd8744d5cf::1	thin	ReviewVisualDiffView section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::ReviewVisualDiffView::div::dacd8744d5cf::1	thin	ReviewVisualDiffView div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::ReviewVisualDiffView::button::dacd8744d5cf::1	thin	ReviewVisualDiffView button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/review/ToolLogo.tsx::ToolLogo::span::dacd8744d5cf::1	thin	ToolLogo span keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/SettingsPage.tsx::SectionTitle::h2::dec93f271d42::1	thin	SectionTitle h2 keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::div::dacd8744d5cf::1	thin	SetupFlow div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::d635c328e3db::1	default	SetupFlow button uses the approved default 1.5px role
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::d635c328e3db::2	default	SetupFlow button uses the approved default 1.5px role
+layers/core-ui/src/pages/work/AgentDetailPane.tsx::AgentDetailPane::div::dec93f271d42::1	thin	AgentDetailPane div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/work/RoutineDetailPane.tsx::RoutineDetailPaneLoaded::div::dec93f271d42::1	thin	RoutineDetailPaneLoaded div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::d635c328e3db::1	default	WorkBet button uses the approved default 1.5px role
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::45d0372042f8::1	NONE	WorkBet button explicitly authors no border and remains borderless
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::dec93f271d42::1	thin	WorkBet button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/WorkBetCreate.tsx::WorkBetCreate::div::d635c328e3db::1	default	WorkBetCreate div uses the approved default 1.5px role
+layers/core-ui/src/pages/WorkTask.tsx::SessionRow::div::45d0372042f8::1	NONE	SessionRow div explicitly authors no border and remains borderless
+layers/core-ui/src/pages/WorkTask.tsx::SessionRow::div::dec93f271d42::1	thin	SessionRow div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::dacd8744d5cf::1	thin	WorkTask div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::07912dcab97e::1	thin	WorkTask div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::07912dcab97e::2	thin	WorkTask div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::07912dcab97e::3	thin	WorkTask div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/WorkTask.tsx::WorkTask::div::07912dcab97e::4	thin	WorkTask div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/pages/WorkTeam.tsx::StatTile::div::dacd8744d5cf::1	thin	StatTile div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/AgentEditor.tsx::AgentEditor::div::dacd8744d5cf::1	thin	AgentEditor div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/AgentEditor.tsx::AgentEditor::div::dacd8744d5cf::2	thin	AgentEditor div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/SettingsAgentBehavior.tsx::SettingsAgentBehavior::div::dacd8744d5cf::1	thin	SettingsAgentBehavior div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/SettingsAgentBehavior.tsx::SettingsAgentBehavior::a::dacd8744d5cf::1	thin	SettingsAgentBehavior a keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/SettingsAppearance.tsx::SettingsAppearance::button::d635c328e3db::1	default	SettingsAppearance button uses the approved default 1.5px role
+layers/core-ui/src/settings/SettingsFilesystems.tsx::SettingsFilesystems::div::dacd8744d5cf::1	thin	SettingsFilesystems div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/SettingsHarnesses.tsx::SettingsHarnesses::div::dacd8744d5cf::1	thin	SettingsHarnesses div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/SettingsHarnesses.tsx::SettingsHarnesses::div::dec93f271d42::1	thin	SettingsHarnesses div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/SettingsModels.tsx::TierRow::div::dacd8744d5cf::1	thin	TierRow div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/settings/SettingsOrgChart.tsx::AddEdgeForm::div::d635c328e3db::1	default	AddEdgeForm div uses the approved default 1.5px role
+layers/core-ui/src/settings/SettingsWorker.tsx::SettingsWorker::div::05d8e4e432ec::1	thin	SettingsWorker div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/AssistantOverlay.tsx::ContextChip::span::dacd8744d5cf::1	thin	ContextChip span keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/AssistantOverlay.tsx::getNoticeConfig::button::dacd8744d5cf::1	thin	getNoticeConfig button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/AssistantOverlay.tsx::AssistantNoticeCard::div::120394cc28fb::1	default	AssistantNoticeCard div uses the approved default 1.5px role
+layers/core-ui/src/shell/AssistantOverlay.tsx::StaleRetryCard::div::120394cc28fb::1	default	StaleRetryCard div uses the approved default 1.5px role
+layers/core-ui/src/shell/AssistantOverlay.tsx::StaleRetryCard::button::dacd8744d5cf::1	thin	StaleRetryCard button keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/AssistantOverlay.tsx::AssistantOverlayInner::div::dec93f271d42::1	thin	AssistantOverlayInner div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/AssistantOverlay.tsx::AssistantOverlay::div::dacd8744d5cf::1	thin	AssistantOverlay div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/AssistantOverlay.tsx::AssistantOverlay::div::dec93f271d42::1	thin	AssistantOverlay div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/AssistantOverlay.tsx::AssistantOverlay::button::4af6fd109d0c::1	NONE	AssistantOverlay button explicitly authors no border and remains borderless
+layers/core-ui/src/shell/HostThreadSection.tsx::HostThreadSection::section::05d8e4e432ec::1	thin	HostThreadSection section keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/HostThreadSection.tsx::HostThreadSection::h3::dec93f271d42::1	thin	HostThreadSection h3 keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/NotificationPopover.tsx::NotificationPopover::div::dacd8744d5cf::1	thin	NotificationPopover div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/NotificationPopover.tsx::NotificationPopover::div::dec93f271d42::1	thin	NotificationPopover div keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/NotificationPopover.tsx::NotificationPopover::button::02f1974eca8f::1	NONE	NotificationPopover button explicitly authors no border and remains borderless
+layers/core-ui/src/shell/NotificationPopover.tsx::NotificationPopover::li::dec93f271d42::1	thin	NotificationPopover li keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/NotificationPopover.tsx::NotificationPopover::button::02f1974eca8f::2	NONE	NotificationPopover button explicitly authors no border and remains borderless
+layers/core-ui/src/shell/NotificationPopover.tsx::NotificationPopover::button::02f1974eca8f::3	NONE	NotificationPopover button explicitly authors no border and remains borderless
+layers/core-ui/src/shell/Sidebar.tsx::SearchAssistantTools::fieldset::dacd8744d5cf::1	thin	SearchAssistantTools fieldset keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/Sidebar.tsx::SettingsFooter::nav::05d8e4e432ec::1	thin	SettingsFooter nav keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/Sidebar.tsx::Sidebar::nav::dec93f271d42::1	thin	Sidebar nav keeps its normal outline, separator, or action border with thin
+layers/core-ui/src/shell/ToastRegion.tsx::ToastRegion::div::dacd8744d5cf::1	thin	ToastRegion div keeps its normal outline, separator, or action border with thin

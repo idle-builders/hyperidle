@@ -142,7 +142,7 @@ export function AgentDetailPane({
 	if (agent === null) {
 		return (
 			<PageScaffold>
-				<div className="flex h-full items-center justify-center p-[24px] text-[var(--text-tertiary)] text-[13px]">
+				<div className="type-small flex h-full items-center justify-center p-[24px] text-[var(--text-tertiary)] ">
 					No agent selected
 				</div>
 			</PageScaffold>
@@ -161,7 +161,7 @@ export function AgentDetailPane({
 					actions={
 						<>
 							{isDirty && (
-								<span className="text-[11px] text-[var(--text-tertiary)] shrink-0">
+								<span className="type-metadata text-[var(--text-tertiary)] shrink-0">
 									Unsaved changes
 								</span>
 							)}
@@ -189,20 +189,18 @@ export function AgentDetailPane({
 				<div className="flex items-start gap-[12px] mb-[18px]">
 					<Avatar initials={initials} size="sm" agent />
 					<div>
-						<p className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight">
-							{agentName}
-						</p>
-						<p className="text-[13px] text-[var(--text-secondary)] mt-[3px]">{roleLabel}</p>
-						<p className="text-[13px] text-[var(--text-secondary)] mt-[3px]">{roleDescription}</p>
+						<p className="type-lead   text-[var(--text-primary)] ">{agentName}</p>
+						<p className="type-small  text-[var(--text-secondary)] mt-[3px]">{roleLabel}</p>
+						<p className="type-small  text-[var(--text-secondary)] mt-[3px]">{roleDescription}</p>
 					</div>
 				</div>
 
 				{/* System prompt section */}
 				<div className="mt-[18px]">
-					<h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)] mb-[6px]">
+					<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">
 						SYSTEM PROMPT
 					</h3>
-					<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">
+					<p className="type-metadata  text-[var(--text-tertiary)] mb-[6px]">
 						Personality, style, and values. You define the system prompt; the harness provides
 						tools, context, and knowledge.
 					</p>
@@ -212,7 +210,7 @@ export function AgentDetailPane({
 							className="rounded-[var(--r-subtle)] p-[9px] mt-[6px] mb-[6px]"
 							style={{ background: "color-mix(in oklab, var(--status-warning) 6%, transparent)" }}
 						>
-							<p className="text-[12px] text-[var(--text-secondary)]">
+							<p className="type-metadata  text-[var(--text-secondary)]">
 								This agent is managed by app defaults. Your system prompt edits are preserved, but
 								operational configuration may refresh when defaults change.
 							</p>

@@ -51,9 +51,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 				aria-label="Artifact discussion"
 				className="flex flex-col gap-[9px]"
 			>
-				<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
-					ARTIFACT DISCUSSION
-				</h3>
+				<h3 className="type-label   uppercase  text-[var(--text-tertiary)]">ARTIFACT DISCUSSION</h3>
 				<ErrorState
 					title="Could not load artifact discussion"
 					description="An error occurred while loading artifact discussions for this bet."
@@ -77,9 +75,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 			className="flex flex-col gap-[9px]"
 		>
 			{/* M4: header copy matches design — "ARTIFACT DISCUSSION" */}
-			<h3 className="text-xs font-heading uppercase tracking-[0.02em] text-[var(--text-tertiary)]">
-				ARTIFACT DISCUSSION
-			</h3>
+			<h3 className="type-label   uppercase  text-[var(--text-tertiary)]">ARTIFACT DISCUSSION</h3>
 
 			{data.summaries.length === 0 ? (
 				/* AI5: shared compact EmptyState. */
@@ -96,19 +92,19 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 							<Link
 								to={`/artifacts/${summary.artifactId}`}
 								data-artifact-id={summary.artifactId}
-								className="flex flex-col gap-[3px] px-3 py-2 rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)] text-sm"
+								className="type-control flex flex-col gap-[3px] px-3 py-2 rounded-[var(--r-subtle)] hover:bg-[var(--surface-container)] "
 							>
 								<div className="flex items-center justify-between gap-[9px]">
-									<span className="font-medium text-[var(--text-primary)] truncate">
+									<span className="type-small  text-[var(--text-primary)] truncate">
 										{summary.artifactTitle}
 									</span>
-									<div className="flex items-center gap-[9px] shrink-0 text-xs text-[var(--text-tertiary)]">
+									<div className="type-metadata flex items-center gap-[9px] shrink-0  text-[var(--text-tertiary)]">
 										{summary.lastMessageAt && <span>{relativeShort(summary.lastMessageAt)}</span>}
 										<span>{summary.messageCount}</span>
 									</div>
 								</div>
 								{summary.lastMessageSnippet && (
-									<span className="text-xs text-[var(--text-tertiary)] truncate">
+									<span className="type-metadata  text-[var(--text-tertiary)] truncate">
 										{summary.lastMessageSnippet}
 									</span>
 								)}
@@ -123,7 +119,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 				<Link
 					data-testid="artifact-threads-summary-more"
 					to={`/artifacts?betId=${betId}`}
-					className="text-xs text-[var(--text-tertiary)] px-3 py-1 hover:text-[var(--text-primary)]"
+					className="type-control  text-[var(--text-tertiary)] px-3 py-1 hover:text-[var(--text-primary)]"
 				>
 					+{remaining} more artifact discussions →
 				</Link>

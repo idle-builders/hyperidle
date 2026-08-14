@@ -179,7 +179,7 @@ export function Dialog({
 								justifyContent: "space-between",
 								gap: "var(--space-4)",
 								padding: "var(--space-6)",
-								borderBottom: "1px solid var(--border-subtle)",
+								borderBottom: "var(--bw-thin) solid var(--border-subtle)",
 								flexShrink: 0,
 							}}
 						>
@@ -187,16 +187,17 @@ export function Dialog({
 								data-dialog-title=""
 								data-testid="dialog-title"
 								style={{
-									fontSize: "var(--text-base)", // 15px — intentional (design §4.1)
-									fontWeight: "var(--fw-semibold)", // 600
+									// 15px — intentional (design §4.1)
+									// 600
 									color: "var(--text-primary)",
-									lineHeight: "var(--leading-tight)",
+
 									flex: 1,
 									minWidth: 0,
 									overflow: "hidden",
 									textOverflow: "ellipsis",
 									whiteSpace: "nowrap",
 								}}
+								className="type-copy"
 							>
 								{title}
 							</span>
@@ -209,8 +210,7 @@ export function Dialog({
 									border: "none",
 									cursor: "pointer",
 									color: "var(--text-secondary)",
-									fontSize: "var(--text-base)",
-									lineHeight: 1,
+
 									padding: "var(--space-2)",
 									borderRadius: "var(--r-subtle)",
 									flexShrink: 0,
@@ -220,6 +220,7 @@ export function Dialog({
 									alignItems: "center",
 									justifyContent: "center",
 								}}
+								className="type-control"
 							>
 								{/* Close icon — inline SVG per AQ-105; lucide-react not installed in design-system */}
 								<svg
@@ -267,7 +268,7 @@ export function Dialog({
 								) : (
 									<div
 										style={{
-											borderTop: "1px solid var(--border-subtle)",
+											borderTop: "var(--bw-thin) solid var(--border-subtle)",
 											paddingTop: "var(--space-6)",
 											display: "flex",
 											justifyContent: "flex-end",

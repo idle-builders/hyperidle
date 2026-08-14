@@ -147,7 +147,7 @@ export function ScopeChangeDialog({
 				    (scope-picker is AI5-owned; the pill group is the one anatomy
 				    rendered at all 4 scope sites). New testid prefix scope-pill-change. */}
 				<div className="flex flex-col gap-[6px]">
-					<span className="text-xs text-[var(--text-tertiary)]">New scope</span>
+					<span className="type-metadata  text-[var(--text-tertiary)]">New scope</span>
 					<ScopePicker
 						options={SCOPE_CREATE_OPTIONS.map((opt) => ({
 							id: opt.id,
@@ -192,7 +192,7 @@ export function ScopeChangeDialog({
 				/>
 
 				{error && (
-					<p role="alert" className="text-xs text-error">
+					<p role="alert" className="type-metadata  text-error">
 						{error}
 					</p>
 				)}

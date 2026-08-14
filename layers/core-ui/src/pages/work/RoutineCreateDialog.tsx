@@ -160,7 +160,7 @@ export function RoutineCreateDialog({
 				{/* Team select — only shown when multiple teams */}
 				{teams.length > 1 && (
 					<label htmlFor="routine-create-team" className="flex flex-col gap-[3px]">
-						<span className="text-xs text-[var(--text-tertiary)]">
+						<span className="type-metadata  text-[var(--text-tertiary)]">
 							Team <span aria-hidden>(required)</span>
 						</span>
 						<Select
@@ -178,7 +178,7 @@ export function RoutineCreateDialog({
 
 				{/* Agent select */}
 				<label htmlFor="routine-create-agent" className="flex flex-col gap-[3px]">
-					<span className="text-xs text-[var(--text-tertiary)]">
+					<span className="type-metadata  text-[var(--text-tertiary)]">
 						Agent <span aria-hidden>(required)</span>
 					</span>
 					<Select
@@ -196,7 +196,7 @@ export function RoutineCreateDialog({
 
 				{/* Schedule picker */}
 				<label htmlFor="routine-create-schedule" className="flex flex-col gap-[3px]">
-					<span className="text-xs text-[var(--text-tertiary)]">
+					<span className="type-metadata  text-[var(--text-tertiary)]">
 						Schedule <span aria-hidden>(required)</span>
 					</span>
 					<Select
@@ -232,7 +232,7 @@ export function RoutineCreateDialog({
 				)}
 
 				{error && (
-					<p role="alert" className="text-xs text-error">
+					<p role="alert" className="type-metadata  text-error">
 						{error}
 					</p>
 				)}

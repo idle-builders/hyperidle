@@ -171,16 +171,14 @@ function buildRichSlots(
 		return {
 			header: (
 				<>
-					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase text-[var(--text-tertiary)]">
+					<div className="type-label flex items-center gap-[6px]    uppercase text-[var(--text-tertiary)]">
 						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]">
 							REVIEW
 						</span>
 					</div>
-					<h3 className="text-[14px] font-semibold text-[var(--text-primary)] m-0">
-						{payload.title}
-					</h3>
+					<h3 className="type-subheading   text-[var(--text-primary)] m-0">{payload.title}</h3>
 					{payload.reasoning.length > 0 ? (
-						<ol className="list-decimal pl-[18px] text-[13px] text-[var(--text-secondary)] m-0">
+						<ol className="type-small list-decimal pl-[18px]  text-[var(--text-secondary)] m-0">
 							{payload.reasoning.map((line: string, i: number) => (
 								// biome-ignore lint/suspicious/noArrayIndexKey: reasoning entries are immutable once sent.
 								<li key={`${message.id}-r-${i}`} className="my-[3px]">
@@ -201,15 +199,13 @@ function buildRichSlots(
 		return {
 			header: (
 				<>
-					<div className="flex items-center gap-[6px] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase text-[var(--text-tertiary)]">
+					<div className="type-label flex items-center gap-[6px]    uppercase text-[var(--text-tertiary)]">
 						<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]">
 							QUESTION
 						</span>
 					</div>
-					<h3 className="text-[14px] font-semibold text-[var(--text-primary)] m-0">
-						{payload.title}
-					</h3>
-					<p className="text-[13px] text-[var(--text-secondary)] m-0">{payload.question}</p>
+					<h3 className="type-subheading   text-[var(--text-primary)] m-0">{payload.title}</h3>
+					<p className="type-small  text-[var(--text-secondary)] m-0">{payload.question}</p>
 				</>
 			),
 			body: null,
@@ -227,7 +223,7 @@ function buildRichSlots(
 								disabled
 								aria-disabled="true"
 								title="Answer dispatch lands in a follow-up"
-								className="px-[9px] py-[6px] min-h-[44px] rounded-[var(--r-subtle)] text-[12px] font-medium border bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] disabled:opacity-50 disabled:cursor-not-allowed"
+								className="type-control border-[var(--bw-thin)] px-[9px] py-[6px] min-h-[44px] rounded-[var(--r-subtle)]    bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{opt}
 							</button>

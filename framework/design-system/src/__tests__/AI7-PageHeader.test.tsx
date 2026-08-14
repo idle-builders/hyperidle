@@ -49,15 +49,14 @@ describe("AI7 — PageHeader component", () => {
 			expect(heading.closest("[data-page-frame]")).not.toBeNull();
 		});
 
-		it("uses a local 18px inset and 17px h2 for pane presentation", () => {
+		it("uses a local 18px inset and semantic lead profile for pane presentation", () => {
 			const { container } = render(<PageHeader title="Inspector" presentation="pane" />);
 			const header = container.firstElementChild as HTMLElement;
 			const heading = screen.getByRole("heading", { level: 2 });
 			expect(header.className).toContain("pl-[18px]");
 			expect(header.className).toContain("pr-[18px]");
 			expect(header.className).toContain("py-[12px]");
-			expect(heading.className).toContain("text-[17px]");
-			expect(heading.className).toContain("font-[600]");
+			expect(heading.className).toContain("type-lead");
 			expect(heading.closest("[data-page-frame]")).toBeNull();
 		});
 
@@ -73,9 +72,7 @@ describe("AI7 — PageHeader component", () => {
 		it("level={2} title carries the same pageTitleClassName as default (visual treatment is level-invariant)", () => {
 			const { container } = render(<PageHeader title="My Page" level={2} />);
 			const h2 = container.querySelector("h2");
-			expect(h2?.className).toContain("text-[20px]");
-			expect(h2?.className).toContain("font-[600]");
-			expect(h2?.className).toContain("tracking-[-0.01em]");
+			expect(h2?.className).toContain("type-title");
 			expect(h2?.className).toContain("truncate");
 		});
 	});
@@ -86,11 +83,7 @@ describe("AI7 — PageHeader component", () => {
 			expect(pageTitleClassName.length).toBeGreaterThan(0);
 		});
 
-		it("pageTitleClassName includes the canonical title treatment tokens", () => {
-			// The primitive owns this literal — tests pin it so drift fails loudly.
-			expect(pageTitleClassName).toContain("text-[20px]");
-			expect(pageTitleClassName).toContain("font-[600]");
-			expect(pageTitleClassName).toContain("tracking-[-0.01em]");
+		it("pageTitleClassName includes the canonical title color", () => {
 			expect(pageTitleClassName).toContain("text-[var(--text-primary)]");
 		});
 
@@ -103,10 +96,8 @@ describe("AI7 — PageHeader component", () => {
 			const { container } = render(<PageHeader title="My Page" />);
 			const h1 = container.querySelector("h1");
 			expect(h1).toBeInTheDocument();
-			// Each token from pageTitleClassName should appear in the h1 className
-			expect(h1?.className).toContain("text-[20px]");
-			expect(h1?.className).toContain("font-[600]");
-			expect(h1?.className).toContain("tracking-[-0.01em]");
+			expect(h1?.className).toContain("type-title");
+			expect(h1?.className).toContain("text-[var(--text-primary)]");
 			expect(h1?.className).toContain("truncate");
 		});
 	});

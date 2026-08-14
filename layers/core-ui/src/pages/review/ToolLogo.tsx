@@ -84,26 +84,23 @@ export function ToolLogo({
 		({ label: tool, bg: "#675f56", fg: "#ffffff", mark: tool.slice(0, 1).toUpperCase() } as Brand);
 	const label = labelProp ?? brand.label;
 	const s = SIZE[size];
-	const isWide = brand.mark.length > 1;
 	return (
 		<span className="inline-flex items-center gap-[6px] align-middle" title={label}>
 			<span
 				aria-hidden="true"
-				className="inline-flex items-center justify-center shrink-0 font-semibold leading-none border border-[var(--border-subtle)]"
+				className="type-small border-[var(--bw-thin)] inline-flex items-center justify-center shrink-0    border-[var(--border-subtle)]"
 				style={{
 					width: s.box,
 					height: s.box,
 					borderRadius: s.radius,
 					background: brand.bg,
 					color: brand.fg,
-					fontSize: isWide ? s.font - 1 : s.font,
-					letterSpacing: isWide ? "-0.02em" : 0,
 				}}
 			>
 				{brand.mark}
 			</span>
 			{withLabel ? (
-				<span className="text-[12px] font-[500] text-[var(--text-secondary)]">{label}</span>
+				<span className="type-metadata   text-[var(--text-secondary)]">{label}</span>
 			) : null}
 		</span>
 	);

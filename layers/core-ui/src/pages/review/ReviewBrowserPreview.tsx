@@ -102,7 +102,10 @@ function RenderedPage({
 	readonly documentTitle?: string;
 }): JSX.Element {
 	return (
-		<div style={{ background: "#fbf8f2", color: "#26221b", fontSize: 14 }}>
+		<div
+			data-token-subject="foreign"
+			style={{ background: "#fbf8f2", color: "#26221b", fontSize: 14 }}
+		>
 			{/* page nav */}
 			<nav
 				style={{
@@ -345,19 +348,18 @@ function ReviewBrowserPreviewView({
 }: ReviewBrowserPreviewProps): JSX.Element {
 	return (
 		<div
-			className="flex flex-col gap-[18px] p-[18px] text-left"
+			className="type-small flex flex-col gap-[18px] p-[18px] text-left"
 			style={{
 				maxWidth: 760,
 				background: "var(--surface-page)",
 				color: "var(--text-primary)",
-				fontFamily: "var(--font-sans)",
 			}}
 		>
 			{/* the browser window — the frame IS the framing */}
 			<div
 				className="overflow-hidden"
 				style={{
-					border: "1px solid var(--border-default)",
+					border: "var(--bw-thin) solid var(--border-default)",
 					borderRadius: "var(--r-default)",
 					boxShadow: "var(--shadow-default)",
 				}}
@@ -367,7 +369,7 @@ function ReviewBrowserPreviewView({
 					className="flex items-center gap-[12px] px-[12px] py-[9px]"
 					style={{
 						background: "var(--surface-elevated)",
-						borderBottom: "1px solid var(--border-subtle)",
+						borderBottom: "var(--bw-thin) solid var(--border-subtle)",
 					}}
 				>
 					<TrafficLights />
@@ -375,28 +377,25 @@ function ReviewBrowserPreviewView({
 						className="flex min-w-0 flex-1 items-center gap-[9px] px-[12px] py-[6px]"
 						style={{
 							background: "var(--surface-container)",
-							border: "1px solid var(--border-subtle)",
+							border: "var(--bw-thin) solid var(--border-subtle)",
 							borderRadius: "var(--r-pill)",
 						}}
 					>
 						<span
 							aria-hidden="true"
-							className="shrink-0 text-[12px]"
+							className="type-metadata shrink-0 "
 							style={{ color: "var(--status-success)" }}
 						>
 							🔒
 						</span>
-						<span
-							className="truncate text-[12px]"
-							style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)" }}
-						>
+						<span className="type-data truncate " style={{ color: "var(--text-secondary)" }}>
 							{data.url}
 						</span>
 						<button
 							type="button"
 							aria-label="Reload preview"
-							className="ml-auto shrink-0 text-[13px] transition-transform"
-							style={{ color: "var(--text-tertiary)", transitionDuration: "var(--motion-fast)" }}
+							className="type-control ml-auto shrink-0  "
+							style={{ color: "var(--text-tertiary)" }}
 							onClick={() => {
 								// no-op: presentational reload affordance.
 							}}
@@ -411,8 +410,7 @@ function ReviewBrowserPreviewView({
 							rel="noopener noreferrer"
 							onClick={(e) => e.preventDefault()}
 							aria-label="Open preview in a new tab"
-							className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-deep)] transition-colors"
-							style={{ transitionDuration: "var(--motion-fast)" }}
+							className="type-control shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--accent-deep)] "
 						>
 							Open
 							<span aria-hidden="true">↗</span>
@@ -421,7 +419,7 @@ function ReviewBrowserPreviewView({
 						<span
 							aria-disabled="true"
 							title="Unsafe source link"
-							className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-tertiary)]"
+							className="type-metadata shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-tertiary)]"
 						>
 							Open
 							<span aria-hidden="true">↗</span>
@@ -436,17 +434,16 @@ function ReviewBrowserPreviewView({
 			{/* verdict gate — basic pill pair; the frame owns resolution */}
 			<div
 				className="flex items-center gap-[9px] pt-[12px]"
-				style={{ borderTop: "1px solid var(--border-subtle)" }}
+				style={{ borderTop: "var(--bw-thin) solid var(--border-subtle)" }}
 			>
 				<button
 					type="button"
 					onClick={() => onApprove?.()}
-					className="px-[18px] py-[10px] text-[13px] font-[600] transition-[opacity]"
+					className="type-control px-[18px] py-[10px]   "
 					style={{
 						background: "var(--accent-primary)",
 						color: "var(--surface-page)",
 						borderRadius: "var(--r-pill)",
-						transitionDuration: "var(--motion-fast)",
 					}}
 				>
 					Approve
@@ -454,13 +451,12 @@ function ReviewBrowserPreviewView({
 				<button
 					type="button"
 					onClick={() => onRequestChanges?.()}
-					className="px-[18px] py-[10px] text-[13px] font-[600] transition-[opacity]"
+					className="type-control px-[18px] py-[10px]   "
 					style={{
 						background: "var(--surface-elevated)",
 						color: "var(--text-primary)",
-						border: "1px solid var(--border-default)",
+						border: "var(--bw-thin) solid var(--border-default)",
 						borderRadius: "var(--r-pill)",
-						transitionDuration: "var(--motion-fast)",
 					}}
 				>
 					Request changes

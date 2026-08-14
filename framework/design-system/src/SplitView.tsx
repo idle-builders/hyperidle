@@ -125,7 +125,7 @@ function ControlButton({
 			aria-label={label}
 			title={label}
 			onClick={onClick}
-			className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:1px]"
+			className="border-[var(--bw-thin)] inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:1px]"
 		>
 			{children}
 		</button>
@@ -221,7 +221,7 @@ export function SplitView({
 					aria-valuenow={Math.round(ratio * 100)}
 					onPointerDown={startDrag}
 					onKeyDown={resizeByKeyboard}
-					className="relative -mx-[var(--space-3)] w-[var(--space-3)] shrink-0 cursor-col-resize border-0 bg-transparent focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+					className="relative -mx-[var(--space-3)] w-[var(--space-3)] shrink-0 cursor-col-resize border-none bg-transparent focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 				/>
 			) : null}
 
@@ -233,11 +233,11 @@ export function SplitView({
 					{compactDestination ? (
 						<div
 							data-compact-return
-							className="shrink-0 border-b border-[var(--border-subtle)] px-[12px] py-[6px]"
+							className="border-b-[var(--bw-thin)] shrink-0  border-[var(--border-subtle)] px-[12px] py-[6px]"
 						>
 							<button
 								type="button"
-								className="min-h-[44px] rounded-[var(--r-pill)] px-[12px] text-[13px] font-medium text-[var(--accent-deep)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+								className="type-control min-h-[44px] rounded-[var(--r-pill)] px-[12px]   text-[var(--accent-deep)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 								onClick={() => onModeChange?.("fold-back")}
 							>
 								Back to {originLabel}

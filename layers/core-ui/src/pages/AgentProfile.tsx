@@ -259,13 +259,14 @@ function AgentProfileLoaded({
 					<div
 						role="alert"
 						data-testid="run-state-unavailable"
-						className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
+						className="type-small rounded-[var(--r-subtle)] p-[12px]  text-[var(--text-secondary)]"
 						style={{
 							background: "color-mix(in oklab, var(--status-warning) 8%, transparent)",
-							border: "1px solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
+							border:
+								"var(--bw-thin) solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
 						}}
 					>
-						<span className="font-medium text-[var(--text-primary)]">Run state unavailable</span>
+						<span className="type-small  text-[var(--text-primary)]">Run state unavailable</span>
 						<span className="ml-[6px]">
 							This agent's runs could not be loaded, so health, recent runs and success rate are not
 							shown.
@@ -277,13 +278,14 @@ function AgentProfileLoaded({
 				{!runStateUnavailable && healthSignals.degraded && (
 					<div
 						role="alert"
-						className="rounded-[var(--r-subtle)] p-[12px] text-[13px] text-[var(--text-secondary)]"
+						className="type-small rounded-[var(--r-subtle)] p-[12px]  text-[var(--text-secondary)]"
 						style={{
 							background: "color-mix(in oklab, var(--status-warning) 8%, transparent)",
-							border: "1px solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
+							border:
+								"var(--bw-thin) solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
 						}}
 					>
-						<span className="font-medium text-[var(--text-primary)]">Health warning</span>
+						<span className="type-small  text-[var(--text-primary)]">Health warning</span>
 						{healthSignals.failureRate7d > 0.5 && (
 							<span className="ml-[6px]">
 								High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in last 7 days.
@@ -320,7 +322,7 @@ function AgentProfileLoaded({
 									/>
 								)}
 							</div>
-							<p className="text-[12px] text-[var(--text-tertiary)] mt-[3px]">
+							<p className="type-metadata  text-[var(--text-tertiary)] mt-[3px]">
 								{catalogEntry?.label ?? data.role}
 								{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
 								<span className="ml-[6px]">· Created {createdDate}</span>
@@ -330,7 +332,7 @@ function AgentProfileLoaded({
 								<div className="mt-[6px]" data-testid="agent-active-session">
 									<RRLink
 										to={`/work/bet/${encodeURIComponent(activeSession.betId)}/task/${encodeURIComponent(activeSession.taskId)}`}
-										className="text-[12px] text-[var(--accent-deep)] hover:underline"
+										className="type-control  text-[var(--accent-deep)] hover:underline"
 									>
 										↗ Active session: {activeSession.sessionId}
 									</RRLink>
@@ -362,10 +364,10 @@ function AgentProfileLoaded({
 					</div>
 					{data.systemPrompt && (
 						<details className="mt-[12px]">
-							<summary className="text-[12px] text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)] select-none">
+							<summary className="type-metadata  text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)] select-none">
 								System prompt
 							</summary>
-							<pre className="mt-[6px] text-[11px] text-[var(--text-secondary)] font-mono whitespace-pre-wrap break-all bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
+							<pre className="type-data mt-[6px]  text-[var(--text-secondary)]  whitespace-pre-wrap break-all bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
 								{data.systemPrompt}
 							</pre>
 						</details>
@@ -398,7 +400,7 @@ function AgentProfileLoaded({
 				>
 					<SectionLabel label="Review Track Record" as="h2" />
 					{data.reviewTrackRecord.totalVerdicts === 0 ? (
-						<p className="text-[12px] text-[var(--text-tertiary)]">No reviews recorded yet.</p>
+						<p className="type-metadata  text-[var(--text-tertiary)]">No reviews recorded yet.</p>
 					) : (
 						<div className="flex flex-col gap-[9px]">
 							<div className="flex gap-[24px] flex-wrap">
@@ -426,25 +428,25 @@ function AgentProfileLoaded({
 				>
 					<SectionLabel label="Recent Activity" as="h2" />
 					{runStateUnavailable ? (
-						<p className="text-[12px] text-[var(--text-tertiary)]">Runs could not be loaded.</p>
+						<p className="type-metadata  text-[var(--text-tertiary)]">Runs could not be loaded.</p>
 					) : !runStateSettled ? (
-						<p className="text-[12px] text-[var(--text-tertiary)]">Loading runs…</p>
+						<p className="type-metadata  text-[var(--text-tertiary)]">Loading runs…</p>
 					) : recentSessions.length === 0 ? (
-						<p className="text-[12px] text-[var(--text-tertiary)]">No sessions recorded.</p>
+						<p className="type-metadata  text-[var(--text-tertiary)]">No sessions recorded.</p>
 					) : (
-						<table className="w-full text-[12px]" aria-label="Recent agent session activity">
+						<table className="type-metadata w-full " aria-label="Recent agent session activity">
 							<thead>
-								<tr className="text-[var(--text-tertiary)] text-left border-b border-[var(--border-subtle)]">
-									<th className="pb-[6px] font-medium">Task</th>
-									<th className="pb-[6px] font-medium">Outcome</th>
-									<th className="pb-[6px] font-medium">When</th>
+								<tr className="border-b-[var(--bw-thin)] text-[var(--text-tertiary)] text-left  border-[var(--border-subtle)]">
+									<th className="type-small pb-[6px] ">Task</th>
+									<th className="type-small pb-[6px] ">Outcome</th>
+									<th className="type-small pb-[6px] ">When</th>
 								</tr>
 							</thead>
 							<tbody>
 								{recentSessions.map((session) => (
 									<tr
 										key={session.sessionId}
-										className="border-b border-[var(--border-subtle)] last:border-0"
+										className="border-b-[var(--bw-thin)] border-none  border-[var(--border-subtle)] "
 									>
 										<td className="py-[6px] text-[var(--text-primary)] truncate max-w-[200px]">
 											{session.taskTitle}
@@ -502,11 +504,11 @@ function AgentProfileLoaded({
 function CapabilityBadge({ label, supported }: { label: string; supported: boolean }): JSX.Element {
 	return (
 		<span
-			className={`text-[11px] font-medium px-[9px] py-[3px] rounded-[var(--r-pill)] ${
+			className={`type-label ${`  px-[9px] py-[3px] rounded-[var(--r-pill)] ${
 				supported
 					? "bg-[var(--accent-primary)] text-white"
 					: "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"
-			}`}
+			}`}`}
 		>
 			{label}
 		</span>

@@ -199,15 +199,12 @@ describe("ThreadSections component", () => {
 		expect(container.querySelector("[data-testid='thread-sections-empty']")).toBeNull();
 	});
 
-	it("Blocking section header is sticky and gets the danger-tint accent", () => {
-		// Design B1+B2 / approved.md §2 + §5.6: sticky top:0, z:2 + 3px
-		// danger left-border + 10% danger-tint background.
+	it("Blocking section header is sticky and keeps the danger tint without a status rail", () => {
 		const blocking: ThreadItem[] = [mk({ id: "b1", blocking: true })];
 		const { container } = render(<ThreadSections threads={blocking} now={NOW} />);
 		const section = container.querySelector("[data-thread-section='blocking']") as HTMLElement;
 		expect(section).not.toBeNull();
-		// border-left + tinted bg are inline style.
-		expect(section.style.borderLeft).toMatch(/3px solid var\(--status-error\)/);
+		expect(section.style.borderLeft).toBe("");
 		expect(section.style.background).toMatch(/color-mix/);
 		// Header has sticky positioning class.
 		const header = section.querySelector("h3") as HTMLElement;

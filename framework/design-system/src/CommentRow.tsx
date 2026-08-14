@@ -136,7 +136,7 @@ function MessagePayloads({
 	// If we have mention segments, render as mixed text+token content.
 	if (segments && segments.length > 0) {
 		return (
-			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] whitespace-pre-wrap break-words">
+			<p className="type-copy  text-[var(--text-secondary)]  whitespace-pre-wrap break-words">
 				{segments.map((seg: MentionSegment, i: number) =>
 					seg.type === "mention" && seg.mentionRef ? (
 						// biome-ignore lint/suspicious/noArrayIndexKey: segments are position-stable per render
@@ -153,13 +153,13 @@ function MessagePayloads({
 	if (payloads.length === 0) {
 		// Fall back to plain text rendering for empty-after-parse inputs.
 		return (
-			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] whitespace-pre-wrap break-words">
+			<p className="type-copy  text-[var(--text-secondary)]  whitespace-pre-wrap break-words">
 				{text}
 			</p>
 		);
 	}
 	return (
-		<div className="flex flex-col gap-[9px] text-[15px] text-[var(--text-secondary)] leading-[1.7]">
+		<div className="type-copy flex flex-col gap-[9px]  text-[var(--text-secondary)] ">
 			{payloads.map((payload: BlockPayload, i: number) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: payloads are position-stable within a single message render
 				<div key={i}>{renderPayload(payload, sanitizeHtml)}</div>
@@ -182,7 +182,7 @@ function MessagePayloads({
 function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): ReactNode {
 	if (isRedactedPayload(message.payload)) {
 		return (
-			<div className="italic text-[var(--text-tertiary)] text-[13px]">
+			<div className="type-small italic text-[var(--text-tertiary)] ">
 				Redacted by {message.payload.redactedBy} — {message.payload.reason}
 			</div>
 		);
@@ -192,7 +192,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 		case "verdict": {
 			const p = message.payload;
 			return (
-				<div className="flex items-center gap-[9px] text-[13px]">
+				<div className="type-small flex items-center gap-[9px] ">
 					<StatusChip status={verdictDecisionToStatus(p.decision)} />
 					<span className="text-[var(--text-secondary)]">{verdictDecisionLabel(p.decision)}</span>
 					{p.note ? <span className="text-[var(--text-tertiary)]">— {p.note}</span> : null}
@@ -252,8 +252,8 @@ export function CommentRow({
 	// canvas and holds content" — an avatar chip is exactly that, not the
 	// canvas itself.
 	const avatarClass = isAgent
-		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] text-[13px] font-[600] border-[1.5px] border-[var(--accent-deep)] shrink-0"
-		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[13px] font-[600] border-[1.5px] border-[var(--border-subtle)] shrink-0";
+		? "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[var(--bw-strong)] border-[var(--accent-deep)] shrink-0"
+		: "inline-flex items-center justify-center w-[36px] h-[36px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--bw-strong)] border-[var(--border-subtle)] shrink-0";
 
 	// @lore AH6: data-sender-kind="ai"|"human" is the stable Playwright selector
 	// for AI vs human message bubbles. Derives from CommentRowSender.isAgent.
@@ -266,26 +266,28 @@ export function CommentRow({
 			className="flex gap-[12px] py-[6px] px-[12px]"
 		>
 			{showSenderHeader ? (
-				<span className={avatarClass}>{sender.name.charAt(0).toUpperCase()}</span>
+				<span className={`type-avatar-initial type-avatar-initial--md ${avatarClass}`}>
+					{sender.name.charAt(0).toUpperCase()}
+				</span>
 			) : (
 				<span className="w-[36px] shrink-0" aria-hidden="true" />
 			)}
 			<div className="flex flex-col gap-[3px] min-w-0 flex-1">
 				{showSenderHeader ? (
 					<div className="flex items-baseline gap-[6px] mb-[3px]">
-						<span className="text-[13px] font-[600] text-[var(--text-primary)]">{sender.name}</span>
+						<span className="type-small   text-[var(--text-primary)]">{sender.name}</span>
 						{isAgent ? (
-							<span className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] text-[10px] font-[600] tracking-[var(--tracking-caps-sm)]">
+							<span className="type-label inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]   ">
 								Agent
 							</span>
 						) : null}
 						{timeString ? (
-							<span className="text-[12px] text-[var(--text-tertiary)]">{timeString}</span>
+							<span className="type-metadata  text-[var(--text-tertiary)]">{timeString}</span>
 						) : null}
 					</div>
 				) : null}
 				{inlineAnchor ? (
-					<div className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps-sm)]">
+					<div className="type-label  text-[var(--text-tertiary)] uppercase ">
 						INLINE COMMENT ON <span className="text-[var(--text-secondary)]">{inlineAnchor}</span>
 					</div>
 				) : null}

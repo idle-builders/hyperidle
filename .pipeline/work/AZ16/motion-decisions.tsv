@@ -1,0 +1,147 @@
+site_id	destination	reason
+framework/design-system/src/ArtifactGalleryCard.tsx::ArtifactGalleryCard::button::transition::625341b30b7e::1	move	ArtifactGalleryCard button hover lift migrates to transform-only move; shadow snaps
+framework/design-system/src/BetCard.tsx::BetCard::div::transition::625341b30b7e::1	move	BetCard div hover lift migrates to transform-only move; shadow snaps
+framework/design-system/src/BetCard.tsx::BetCard::div::transition::8bedfb8a8be3::1	SNAP	BetCard div changes an unsupported property, so it snaps without a transition
+framework/design-system/src/BlockHandle.tsx::BlockHandle::svg::transition::51c018079785::1	move	BlockHandle svg changes only transform and uses the 240ms move profile
+framework/design-system/src/body-editor/floating-toolbar.tsx::ToolbarButton::button::transition::05745f18412e::1	SNAP	ToolbarButton button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Breadcrumb.tsx::Breadcrumb::Link::transition::05745f18412e::1	SNAP	Breadcrumb Link changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Button.tsx::module::button::transition::d70080c7ab7b::1	SNAP	module button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Checkbox.tsx::Checkbox::div::transition::0fd331f01aa6::1	SNAP	Checkbox div changes an unsupported property, so it snaps without a transition
+framework/design-system/src/clickable.ts::ts:FOCUS_CLASSES::ts:FOCUS_CLASSES::transition::7c91294cb656::1	SNAP	ts:FOCUS_CLASSES ts:FOCUS_CLASSES changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Composer.tsx::Composer::button::transition::fcce6c4765c2::1	SNAP	Composer button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/ErrorState.tsx::ErrorState::button::transition::e59cf1f33b85::1	SNAP	ErrorState button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/ErrorState.tsx::ErrorState::button::transition::e59cf1f33b85::2	SNAP	ErrorState button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Fold.tsx::Fold::button::transition::05745f18412e::1	SNAP	Fold button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Input.tsx::module::textarea::transition::d1dc36977a09::1	SNAP	module textarea changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Input.tsx::module::input::transition::d1dc36977a09::1	SNAP	module input changes an unsupported property, so it snaps without a transition
+framework/design-system/src/KnowledgeRow.tsx::KnowledgeRow::div::transition::05745f18412e::1	SNAP	KnowledgeRow div changes an unsupported property, so it snaps without a transition
+framework/design-system/src/LiveDot.tsx::LiveDot::span::animation::dbc18c18257a::1	activity	LiveDot span shows continuous live activity with the approved pulse
+framework/design-system/src/NavItem.tsx::NavItem::button::transition::5d73e98bc02e::1	SNAP	NavItem button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/NotificationRow.tsx::NotificationRow::div::transition::05745f18412e::1	SNAP	NotificationRow div changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Progress.tsx::Progress::div::transition::8bedfb8a8be3::1	SNAP	Progress div changes an unsupported property, so it snaps without a transition
+framework/design-system/src/ReferenceChip.tsx::ReferenceChip::span::transition::05745f18412e::1	SNAP	ReferenceChip span changes an unsupported property, so it snaps without a transition
+framework/design-system/src/ReferenceChip.tsx::ReferenceChip::button::transition::05745f18412e::1	SNAP	ReferenceChip button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/ReferenceChip.tsx::ReferenceChip::span::transition::d366568eb3da::1	feedback	ReferenceChip posted arrow changes opacity 0 to 1 under group-hover/refchip and uses feedback
+framework/design-system/src/ReferenceChip.tsx::ReferenceChip::span::transition::05745f18412e::2	SNAP	ReferenceChip span changes an unsupported property, so it snaps without a transition
+framework/design-system/src/ReferenceChip.tsx::ReferenceChip::button::transition::05745f18412e::2	SNAP	ReferenceChip button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/RichMessageCard.tsx::ChevronDown::svg::transition::378919174c8b::1	move	ChevronDown svg changes only transform and uses the 240ms move profile
+framework/design-system/src/RoleCombobox.tsx::RoleCombobox::button::transition::05745f18412e::1	SNAP	RoleCombobox button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/ScopePicker.tsx::ScopePicker::button::transition::05745f18412e::1	SNAP	ScopePicker button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/SearchField.tsx::module::span::animation::8573909e3751::1	busy	module span shows ongoing busy rotation
+framework/design-system/src/SearchField.tsx::module::input::transition::d1dc36977a09::1	SNAP	module input changes an unsupported property, so it snaps without a transition
+framework/design-system/src/SearchField.tsx::module::button::transition::0c93f1e74292::1	SNAP	module button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Select.tsx::Select::select::transition::d1dc36977a09::1	SNAP	Select select changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Skeleton.tsx::Skeleton::div::animation::bb11b6ead2f5::1	loading	Skeleton div shows skeleton loading with the approved pulse
+framework/design-system/src/Skeleton.tsx::SkeletonList::div::animation::bb11b6ead2f5::1	loading	SkeletonList div shows skeleton loading with the approved pulse
+framework/design-system/src/Skeleton.tsx::SkeletonCard::div::animation::bb11b6ead2f5::1	loading	SkeletonCard div shows skeleton loading with the approved pulse
+framework/design-system/src/Skeleton.tsx::SkeletonCard::div::animation::bb11b6ead2f5::2	loading	SkeletonCard div shows skeleton loading with the approved pulse
+framework/design-system/src/Skeleton.tsx::SkeletonCard::div::animation::bb11b6ead2f5::3	loading	SkeletonCard div shows skeleton loading with the approved pulse
+framework/design-system/src/Skeleton.tsx::SkeletonCard::div::animation::bb11b6ead2f5::4	loading	SkeletonCard div shows skeleton loading with the approved pulse
+framework/design-system/src/SplitView.tsx::ControlButton::button::transition::05745f18412e::1	SNAP	ControlButton button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/SplitView.tsx::SplitView::div::transition::05745f18412e::1	SNAP	SplitView div changes an unsupported property, so it snaps without a transition
+framework/design-system/src/SplitView.tsx::SplitView::span::transition::05745f18412e::1	SNAP	SplitView span changes an unsupported property, so it snaps without a transition
+framework/design-system/src/TabBar.tsx::TabBar::button::transition::05745f18412e::1	SNAP	TabBar button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/TabBar.tsx::TabBar::button::transition::0fd331f01aa6::1	SNAP	TabBar button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/TaskCard.tsx::TaskCard::div::transition::625341b30b7e::1	move	TaskCard div hover lift migrates to transform-only move; shadow snaps
+framework/design-system/src/ThreadRow.tsx::ThreadRow::div::transition::05745f18412e::1	SNAP	ThreadRow div changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Toast.tsx::Toast::button::transition::05745f18412e::1	SNAP	Toast button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Toggle.tsx::Toggle::button::transition::05745f18412e::1	SNAP	Toggle button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Toggle.tsx::Toggle::span::transition::10c8f3ca9b6d::1	spring	Toggle span has a checked-state translate transform and uses spring
+framework/design-system/src/Toggle.tsx::Toggle::button::transition::05745f18412e::2	SNAP	Toggle button changes an unsupported property, so it snaps without a transition
+framework/design-system/src/Toggle.tsx::Toggle::span::transition::10c8f3ca9b6d::2	spring	Toggle span has a checked-state translate transform and uses spring
+framework/design-system/src/tokens.css::module::css:[class*="animate-[skeleton-pulse"], .skeleton::animation::a36d7193800c::1	REMOVE	module css:[class*="animate-[skeleton-pulse"], .skeleton is obsolete or forbidden authored motion and is removed
+layers/core-ui/src/components/ArtifactSection.tsx::ArtifactSection::button::transition::05745f18412e::1	SNAP	ArtifactSection button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/AssistantAttachButton.tsx::AssistantAttachButton::button::transition::05745f18412e::1	SNAP	AssistantAttachButton button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/BlockRefEmbed.tsx::BlockRefEmbed::button::transition::05745f18412e::1	SNAP	BlockRefEmbed button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/ConversationSurface.tsx::ConversationHeader::button::transition::05745f18412e::1	SNAP	ConversationHeader button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/ConversationSurface.tsx::InsertMenu::button::transition::05745f18412e::1	SNAP	InsertMenu button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/ConversationSurface.tsx::ComposerReplyBanner::button::transition::05745f18412e::1	SNAP	ComposerReplyBanner button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/ConversationSurface.tsx::ComposerInputRow::button::transition::05745f18412e::1	SNAP	ComposerInputRow button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/ConversationSurface.tsx::Composer::div::transition::e7341a0aeabf::1	SNAP	Composer div changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/parts/ReasoningPart.tsx::ReasoningPart::button::transition::05745f18412e::1	SNAP	ReasoningPart button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/parts/ReasoningPart.tsx::ReasoningPart::svg::transition::fec74409d468::1	move	ReasoningPart svg changes only transform and uses the 240ms move profile
+layers/core-ui/src/components/parts/ReviewResolvedPart.tsx::ReviewResolvedPart::button::transition::05745f18412e::1	SNAP	ReviewResolvedPart button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/parts/ToolPart.tsx::StatusGlyph::span::animation::6470fd79fd1b::1	activity	StatusGlyph span shows continuous live activity with the approved pulse
+layers/core-ui/src/components/parts/ToolPart.tsx::Caret::svg::transition::fec74409d468::1	move	Caret svg changes only transform and uses the 240ms move profile
+layers/core-ui/src/components/parts/ToolPart.tsx::ToolPart::button::transition::05745f18412e::1	SNAP	ToolPart button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/parts/ToolPart.tsx::ToolPart::button::transition::05745f18412e::2	SNAP	ToolPart button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/RecipientPicker.tsx::RecipientPicker::button::transition::5d73e98bc02e::1	SNAP	RecipientPicker button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/RecipientPicker.tsx::RecipientPicker::span::animation::dbc18c18257a::1	activity	RecipientPicker span shows continuous live activity with the approved pulse
+layers/core-ui/src/components/SessionActivityPanel.tsx::SessionActivityPanel::span::animation::dbc18c18257a::1	activity	SessionActivityPanel span shows continuous live activity with the approved pulse
+layers/core-ui/src/components/SessionActivityPanel.tsx::SessionActivityPanel::button::transition::0c93f1e74292::1	SNAP	SessionActivityPanel button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::QueuedBubble::button::transition::05745f18412e::1	SNAP	QueuedBubble button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::AggregateCaret::svg::transition::fec74409d468::1	move	AggregateCaret svg changes only transform and uses the 240ms move profile
+layers/core-ui/src/components/SessionView.tsx::HardAggregate::button::transition::05745f18412e::1	SNAP	HardAggregate button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::ChangedFilesPanel::button::transition::05745f18412e::1	SNAP	ChangedFilesPanel button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::ChangedFilesPanel::button::transition::05745f18412e::2	SNAP	ChangedFilesPanel button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::div::transition::e7341a0aeabf::1	SNAP	SessionComposer div changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::button::transition::05745f18412e::1	SNAP	SessionComposer button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::button::transition::05745f18412e::2	SNAP	SessionComposer button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::button::transition::05745f18412e::3	SNAP	SessionComposer button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::button::transition::05745f18412e::4	SNAP	SessionComposer button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/components/SessionView.tsx::SessionComposer::span::animation::6470fd79fd1b::1	activity	SessionComposer span shows continuous live activity with the approved pulse
+layers/core-ui/src/components/SessionView.tsx::SessionView::span::animation::6470fd79fd1b::1	activity	SessionView span shows continuous live activity with the approved pulse
+layers/core-ui/src/layouts/AppShell.tsx::AppShell::div::transition::1c7e914ee588::1	REMOVE	AppShell drawer mounts already at translateX(0) and has no rendered transform state change; remove the dead transition
+layers/core-ui/src/pages/Conversations.tsx::SessionViewPanel::button::transition::05745f18412e::1	SNAP	SessionViewPanel button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/Conversations.tsx::ConversationsDetail::span::animation::dbc18c18257a::1	activity	ConversationsDetail span shows continuous live activity with the approved pulse
+layers/core-ui/src/pages/KnowledgeDetail.tsx::KnowledgeDetailView::call::smooth-scroll::6fe9502f0b27::1	REMOVE	KnowledgeDetailView call is obsolete or forbidden authored motion and is removed
+layers/core-ui/src/pages/review/CanvasSourceHeader.tsx::CanvasSourceHeader::a::transition::05745f18412e::1	SNAP	CanvasSourceHeader a changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::button::transition::8e7c5509dd0a::1	feedback	ReviewActionOperationView button changes only opacity/filter and uses the 120ms feedback profile
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::button::transition::8e7c5509dd0a::2	feedback	ReviewActionOperationView button changes only opacity/filter and uses the 120ms feedback profile
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ReviewActionOperationView::button::transition::d86284f34e78::1	feedback	ReviewActionOperationView button changes only opacity/filter and uses the 120ms feedback profile
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::ExecutingBand::span::animation::d133882f9f86::1	busy	ExecutingBand span shows ongoing busy rotation
+layers/core-ui/src/pages/review/ReviewActionOperation.tsx::Chevron::svg::transition::83424b52de1c::1	move	Chevron svg changes only transform and uses the 240ms move profile
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::div::transition::0b8ba8091f3b::1	SNAP	ReviewBatchView div changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::button::transition::05745f18412e::1	SNAP	ReviewBatchView button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::span::transition::52833c47e829::1	move	ReviewBatch item caret changes transform through the open conditional and uses move
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::button::transition::05745f18412e::2	SNAP	ReviewBatchView button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewBatch.tsx::ReviewBatchView::span::transition::52833c47e829::2	move	ReviewBatch group caret changes transform through the open conditional and uses move
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::button::transition::08d950ccc9ad::1	REMOVE	ReviewBrowserPreviewView button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::a::transition::5730535060b2::1	SNAP	ReviewBrowserPreviewView a changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::button::transition::79d4402b5748::1	REMOVE	ReviewBrowserPreviewView button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx::ReviewBrowserPreviewView::button::transition::79d4402b5748::2	REMOVE	ReviewBrowserPreviewView button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::Chevron::svg::transition::78c25bd66bb5::1	move	Chevron svg changes only transform and uses the 240ms move profile
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::ReviewedBox::button::transition::05745f18412e::1	SNAP	ReviewedBox button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewCodeDiff.tsx::ReviewCodeDiffView::button::transition::05745f18412e::1	SNAP	ReviewCodeDiffView button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::Verdict::button::transition::05745f18412e::1	SNAP	Verdict button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::Verdict::button::transition::05745f18412e::2	SNAP	Verdict button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::Verdict::button::transition::05745f18412e::3	SNAP	Verdict button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::TaskSection::button::transition::05745f18412e::1	SNAP	TaskSection button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::NeedsSection::button::transition::05745f18412e::1	SNAP	NeedsSection button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ArtifactRow::button::transition::05745f18412e::1	SNAP	ArtifactRow button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ArtifactRow::span::transition::c777ef266b2d::1	move	ArtifactRow span changes only transform and uses the 240ms move profile
+layers/core-ui/src/pages/review/ReviewComposition.tsx::CommentItem::button::transition::05745f18412e::1	SNAP	CommentItem button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ExaminePane::button::transition::05745f18412e::1	SNAP	ExaminePane button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewComposition.tsx::ExaminePane::button::transition::05745f18412e::2	SNAP	ExaminePane button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx::FieldRow::button::transition::f298d7c4bf47::1	REMOVE	FieldRow button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewFieldChangeSet.tsx::ReviewFieldChangeSetView::button::transition::f298d7c4bf47::1	REMOVE	ReviewFieldChangeSetView button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::Headline::button::transition::476f687b40e4::1	feedback	Headline button actual opacity state uses feedback
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::Headline::span::transition::ef085d48e181::1	move	Headline span actual transform state uses move
+layers/core-ui/src/pages/review/ReviewMetricsMoved.tsx::RollForwardTable::button::transition::476f687b40e4::1	feedback	RollForwardTable button actual opacity state uses feedback
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::NeedsYouChip::button::transition::427352ada88f::1	feedback	NeedsYouChip button keeps opacity feedback while active transform press snaps
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::NeedsYouChip::span::transition::d366568eb3da::1	REMOVE	NeedsYouChip trailing span changes color only and never opacity; remove the dead opacity transition
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::DoneRow::button::transition::cd2b1ad8db4f::1	SNAP	DoneRow button active transform press snaps; remove transform transition
+layers/core-ui/src/pages/review/ReviewOutcomeSummary.tsx::ReviewOutcomeSummaryView::button::transition::5fc032651350::1	feedback	ReviewOutcomeSummaryView button changes only opacity/filter and uses the 120ms feedback profile
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ViewportToggle::button::transition::79d4402b5748::1	REMOVE	ViewportToggle button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::EmailRender::div::transition::e9574175e153::1	SNAP	EmailRender div changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::button::transition::79d4402b5748::1	REMOVE	ReviewRenderedInContextView button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::span::transition::9c73725c533c::1	move	ReviewRenderedInContextView span changes only transform and uses the 240ms move profile
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::button::transition::79d4402b5748::2	REMOVE	ReviewRenderedInContextView button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx::ReviewRenderedInContextView::button::transition::79d4402b5748::3	REMOVE	ReviewRenderedInContextView button declares transition but has no matching authored state change; remove the dead transition
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::ReviewVisualDiffView::button::transition::0c93f1e74292::1	SNAP	ReviewVisualDiffView button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/review/ReviewVisualDiff.tsx::ReviewVisualDiffView::button::transition::b70281083273::1	SNAP	ReviewVisualDiffView button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::transition::f79575a238dc::1	SNAP	SetupFlow button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/SetupFlow.tsx::SetupFlow::button::transition::f79575a238dc::2	SNAP	SetupFlow button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::call::smooth-scroll::6fe9502f0b27::1	REMOVE	WorkBet call is obsolete or forbidden authored motion and is removed
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::transition::05745f18412e::1	SNAP	WorkBet button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/pages/WorkBet.tsx::WorkBet::button::transition::05745f18412e::2	SNAP	WorkBet button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/settings/SettingsAppearance.tsx::SettingsAppearance::button::transition::05745f18412e::1	SNAP	SettingsAppearance button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/shell/AssistantOverlay.tsx::AssistantOverlay::div::animation::2237d3609cc9::1	enter	AssistantOverlay div is a one-shot opacity/transform entrance
+layers/core-ui/src/shell/AssistantOverlay.tsx::AssistantOverlay::button::transition::05745f18412e::1	SNAP	AssistantOverlay button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/shell/HostThreadSection.tsx::HostThreadSection::call::smooth-scroll::6fe9502f0b27::1	REMOVE	HostThreadSection call is obsolete or forbidden authored motion and is removed
+layers/core-ui/src/shell/NotificationPopover.tsx::NotificationPopover::span::transition::cd2c2bad81d4::1	feedback	NotificationPopover span changes only opacity/filter and uses the 120ms feedback profile
+layers/core-ui/src/shell/Sidebar.tsx::SectionHeader::button::transition::0c93f1e74292::1	SNAP	SectionHeader button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/shell/Sidebar.tsx::AssistantIconButton::button::transition::a975472b577e::1	SNAP	AssistantIconButton button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/shell/Sidebar.tsx::SearchAssistantTools::button::transition::05745f18412e::1	SNAP	SearchAssistantTools button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/shell/Sidebar.tsx::SettingsFooter::button::transition::0c93f1e74292::1	SNAP	SettingsFooter button changes an unsupported property, so it snaps without a transition
+layers/core-ui/src/shell/Sidebar.tsx::FastNavItem::button::transition::05745f18412e::1	SNAP	FastNavItem button changes an unsupported property, so it snaps without a transition

@@ -44,8 +44,8 @@ export function Checkbox({
 				<div
 					aria-hidden="true"
 					className={[
-						"h-[20px] w-[20px] rounded-[6px] border-[1.5px]",
-						"transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+						"h-[20px] w-[20px] rounded-[6px] ",
+						"",
 						"flex items-center justify-center",
 						checked
 							? "bg-[var(--accent-primary)] border-[var(--accent-primary)]"
@@ -53,12 +53,13 @@ export function Checkbox({
 					].join(" ")}
 				>
 					{checked && (
-						/* CSS checkmark: rotated L-shape */
-						<span className="block h-[10px] w-[6px] border-b-[2px] border-r-[2px] border-[var(--text-on-accent)] rotate-45 translate-y-[-1px]" />
+						<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[12px] w-[12px]">
+							<path d="m3 8 3 3 7-7" fill="none" stroke="var(--text-on-accent)" strokeWidth="2" />
+						</svg>
 					)}
 				</div>
 			</div>
-			<span className="text-[13px] text-[var(--text-primary)]">{label}</span>
+			<span className="type-small  text-[var(--text-primary)]">{label}</span>
 		</label>
 	);
 }

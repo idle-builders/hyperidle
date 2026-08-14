@@ -376,7 +376,7 @@ function BacklinksCard({
 						<li key={ri.id} data-testid="related-item">
 							<RRLink
 								to={`/knowledge/${ri.id}`}
-								className="flex items-center gap-[9px] py-[6px] text-[13px] text-[var(--accent-deep)] hover:underline cursor-pointer"
+								className="type-control flex items-center gap-[9px] py-[6px]  text-[var(--accent-deep)] hover:underline cursor-pointer"
 							>
 								{ri.title}
 							</RRLink>
@@ -384,7 +384,7 @@ function BacklinksCard({
 					))}
 				</ul>
 			) : (
-				<p className="text-[13px] text-[var(--text-tertiary)]">No related items.</p>
+				<p className="type-small  text-[var(--text-tertiary)]">No related items.</p>
 			)}
 		</div>
 	);
@@ -466,10 +466,14 @@ function KnowledgeOverflowMenu({
 				aria-expanded={overflowOpen}
 				aria-haspopup="menu"
 				/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-				className="inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] text-[16px] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
+				className="border-[var(--bw-default)] inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
 				onClick={onToggle}
 			>
-				···
+				<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
+					<circle cx="3" cy="8" r="1" fill="currentColor" />
+					<circle cx="8" cy="8" r="1" fill="currentColor" />
+					<circle cx="13" cy="8" r="1" fill="currentColor" />
+				</svg>
 			</button>
 			{/* Conditional wrapper carries the testid — disappears when closed so
 			    E2E not.toBeVisible() passes (Menu renders null when open=false but
@@ -493,7 +497,7 @@ function KnowledgeOverflowMenu({
 function SaveIndicator({ saveStatus }: { saveStatus: string }): JSX.Element {
 	return (
 		<span
-			className="text-[12px] text-[var(--status-success)] flex items-center gap-[3px]"
+			className="type-metadata  text-[var(--status-success)] flex items-center gap-[3px]"
 			aria-live="polite"
 			data-testid="save-indicator"
 			data-save-status={saveStatus}
@@ -566,7 +570,7 @@ function KnowledgeDetailView({
 			const el = Array.from(document.querySelectorAll("[data-block-id]")).find(
 				(node) => node.getAttribute("data-block-id") === decoded,
 			);
-			(el as HTMLElement | undefined)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+			(el as HTMLElement | undefined)?.scrollIntoView?.({ block: "start" });
 		});
 		return () => cancelAnimationFrame(raf);
 	}, [hash, savedContent]);
@@ -831,20 +835,20 @@ function KnowledgeDetailView({
 						>
 							<StatusChip status={knowledgeStatusToStatus(item.status)} />
 							<span
-								className="text-[12px] text-[var(--text-tertiary)] font-mono tabular-nums"
+								className="type-data  text-[var(--text-tertiary)]  tabular-nums"
 								data-testid="knowledge-confidence"
 								title="Confidence"
 							>
 								confidence {formatConfidence(item.confidence)}
 							</span>
 							<span
-								className="text-[12px] text-[var(--text-tertiary)]"
+								className="type-metadata  text-[var(--text-tertiary)]"
 								data-testid="knowledge-origin-agent"
 							>
 								by {item.originAgent ?? "unknown"}
 							</span>
 							<span
-								className="text-[12px] text-[var(--text-tertiary)]"
+								className="type-metadata  text-[var(--text-tertiary)]"
 								data-testid="knowledge-updated-at"
 							>
 								{item.timestamp}
@@ -907,7 +911,7 @@ function KnowledgeDetailView({
 					{amendableBanner && (
 						<div
 							role="alert"
-							className="alert-info flex items-start gap-[9px] px-[12px] py-[9px] text-[13px] bg-[var(--status-info-dim)] text-[var(--status-info)] rounded-[var(--r-subtle)]"
+							className="type-small alert-info flex items-start gap-[9px] px-[12px] py-[9px]  bg-[var(--status-info-dim)] text-[var(--status-info)] rounded-[var(--r-subtle)]"
 							data-testid="factory-amendable-banner"
 						>
 							<span>Amendable under review — edits route through the review queue.</span>
@@ -918,13 +922,13 @@ function KnowledgeDetailView({
 					{archiveError !== null && (
 						<div
 							role="alert"
-							className="flex items-center justify-between gap-[9px] px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="archive-error"
 						>
 							<span className="text-[var(--status-error)]">{archiveError}</span>
 							<button
 								type="button"
-								className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
+								className="type-control  text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
 								onClick={() => setArchiveError(null)}
 							>
 								Dismiss
@@ -936,13 +940,13 @@ function KnowledgeDetailView({
 					{promoteError !== null && (
 						<div
 							role="alert"
-							className="flex items-center justify-between gap-[9px] px-[12px] py-[9px] text-[13px] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="promote-error"
 						>
 							<span className="text-[var(--status-error)]">{promoteError}</span>
 							<button
 								type="button"
-								className="text-[12px] text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
+								className="type-control  text-[var(--text-tertiary)] bg-transparent border-none cursor-pointer"
 								onClick={() => setPromoteError(null)}
 							>
 								Dismiss
@@ -954,9 +958,7 @@ function KnowledgeDetailView({
 					{conflictVersion !== null && (
 						<div
 							role="alert"
-							className="flex items-center justify-between gap-[9px] px-[12px] py-[9px] text-[13px]
-								           bg-[var(--surface-container)] border border-[var(--border-subtle)]
-								           rounded-[var(--r-subtle)]"
+							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px] bg-[var(--surface-container)] border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="conflict-banner"
 						>
 							<span className="text-[var(--text-secondary)]">
@@ -970,7 +972,7 @@ function KnowledgeDetailView({
 					)}
 
 					{legacySource && (
-						<p className="text-[13px] text-[var(--text-tertiary)]">{legacySource}</p>
+						<p className="type-small  text-[var(--text-tertiary)]">{legacySource}</p>
 					)}
 
 					{/* L18 + T4: Block actions popover.
@@ -1056,19 +1058,19 @@ function KnowledgeDetailView({
 					{/* Metadata card */}
 					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
 						<SectionLabel label="Metadata" as="h2" />
-						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Kind</span>
 							{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
-							<span className="text-[var(--text-primary)] font-[500]">{item.kind ?? "—"}</span>
+							<span className="type-small text-[var(--text-primary)] ">{item.kind ?? "—"}</span>
 						</div>
 						{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
 						<div
-							className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]"
+							className="type-small border-b-[var(--bw-thin)] flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
 							data-testid="knowledge-scope-row"
 						>
 							<span className="text-[var(--text-tertiary)]">Scope</span>
 							<span className="flex items-center gap-[6px]">
-								<span className="text-[var(--text-primary)] font-[500]">
+								<span className="type-small text-[var(--text-primary)] ">
 									{/* AV3: resolved name takes priority; bucket fallback only when absent */}
 									{item.scopeName ?? scopeKindToLabel(item.scopeKind ?? "factory")}
 								</span>
@@ -1084,7 +1086,7 @@ function KnowledgeDetailView({
 									</Button>
 								) : (
 									<span
-										className="text-[12px] text-[var(--text-tertiary)]"
+										className="type-metadata  text-[var(--text-tertiary)]"
 										data-testid="knowledge-scope-readonly"
 									>
 										Read-only
@@ -1092,46 +1094,43 @@ function KnowledgeDetailView({
 								)}
 							</span>
 						</div>
-						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Status</span>
 							<StatusChip status={knowledgeStatusToStatus(item.status)} />
 						</div>
-						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Confidence</span>
-							<span className="text-[var(--text-primary)] font-[500] font-mono tabular-nums">
+							<span className="type-data text-[var(--text-primary)]   tabular-nums">
 								{formatConfidence(item.confidence)}
 							</span>
 						</div>
-						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Last edited</span>
-							<span className="text-[var(--text-primary)] font-[500]">
+							<span className="type-small text-[var(--text-primary)] ">
 								{absoluteDateTime(item.timestamp)}
 							</span>
 						</div>
-						<div className="flex justify-between items-center py-[6px] border-b border-[var(--border-subtle)] text-[13px]">
+						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Editor</span>
 							{/* Resolve updatedBy to display name:
 							    - If it matches the current user's id, show their name.
 							    - If it's a UUID with no name mapping, show truncated monospace.
 							    - Fallback: "Unknown". */}
 							{item.updatedBy && item.updatedBy === user?.id ? (
-								<span className="text-[var(--text-primary)] font-[500]">{user.name}</span>
+								<span className="type-small text-[var(--text-primary)] ">{user.name}</span>
 							) : item.updatedBy && item.updatedBy !== "Unknown" ? (
-								<span
-									className="text-[var(--text-primary)] font-[500] font-mono text-[11px]"
-									title={item.updatedBy}
-								>
+								<span className="type-data text-[var(--text-primary)]   " title={item.updatedBy}>
 									{item.updatedBy.length > 12 ? `${item.updatedBy.slice(0, 8)}…` : item.updatedBy}
 								</span>
 							) : (
-								<span className="text-[var(--text-primary)] font-[500]">
+								<span className="type-small text-[var(--text-primary)] ">
 									{item.updatedBy ?? "Unknown"}
 								</span>
 							)}
 						</div>
-						<div className="flex justify-between items-center py-[6px] text-[13px]">
+						<div className="type-small flex justify-between items-center py-[6px] ">
 							<span className="text-[var(--text-tertiary)]">Access count</span>
-							<span className="text-[var(--text-primary)] font-[500] font-mono tabular-nums">
+							<span className="type-data text-[var(--text-primary)]   tabular-nums">
 								{item.accessCount ?? 0}
 							</span>
 						</div>

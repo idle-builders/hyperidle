@@ -70,7 +70,7 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	// ── Unchanged from the former K6/K8 blocks ──────────────────────────────
 	"no-off-scale-font-size": { coreUi: "warn", designSystem: "error" },
 	"no-ai-aesthetic": { coreUi: "warn", designSystem: "error" },
-	"no-raw-tailwind-color": { coreUi: "warn", designSystem: "error" },
+	"no-raw-tailwind-color": { coreUi: "error", designSystem: "error" },
 	"require-ds-attribute": { coreUi: "warn", designSystem: "error" },
 	"require-stories-sibling": { coreUi: "warn", designSystem: "error" },
 	"require-focus-on-interactive": { coreUi: "warn", designSystem: "error" },
@@ -81,6 +81,9 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	"no-dialog-boilerplate": { coreUi: "error", designSystem: "off" },
 	"no-hardcoded-tracking": { coreUi: "off", designSystem: "error" },
 	"no-off-scale-duration": { coreUi: "off", designSystem: "error" },
+	"typography-profile-only": { coreUi: "error", designSystem: "error" },
+	"motion-profile-only": { coreUi: "error", designSystem: "error" },
+	"border-width-profile-only": { coreUi: "error", designSystem: "error" },
 
 	// ── Governed by their own dedicated eslint.config.ts blocks with narrower
 	// file scopes than the blanket K6/K8 sweep — "off" here because the hearth
@@ -156,23 +159,15 @@ export const configs: { hearth: Linter.Config[] } = {
 			plugins: { design: designPlugin },
 			rules: { "design/no-local-status-builder": "error" },
 		},
-		// AZ7 E4: no-hardcoded-color promotion carve-out for the two review
-		// canvases whose whole job is to render a THIRD-PARTY page/email
-		// faithfully — pre-existing @lore in both files states this
-		// explicitly ("the rendered page/email body is the one place neutral
-		// [page|email] styling is allowed, because that IS the artifact under
-		// review"). The review CHROME around each canvas still uses Hearth
-		// tokens only and is still covered by the coreUi block above — this
-		// block is scoped to the two files, not their whole surface, and
-		// later blocks win per-rule in ESLint flat config (same pattern as
-		// AJ3/AM1's ordering notes elsewhere in eslint.config.ts).
 		{
-			files: [
-				"layers/core-ui/src/pages/review/ReviewBrowserPreview.tsx",
-				"layers/core-ui/src/pages/review/ReviewRenderedInContext.tsx",
-			],
+			files: ["layers/core-ui/src/**/*.{ts,tsx}", "framework/design-system/src/**/*.{ts,tsx}"],
+			ignores: ["**/*.stories.tsx", "**/__tests__/**", "**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
 			plugins: { design: designPlugin },
-			rules: { "design/no-hardcoded-color": "off" },
+			rules: {
+				"design/typography-profile-only": "error",
+				"design/motion-profile-only": "error",
+				"design/border-width-profile-only": "error",
+			},
 		},
 	],
 };

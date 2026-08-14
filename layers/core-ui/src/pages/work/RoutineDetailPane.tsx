@@ -353,7 +353,7 @@ function RoutineDetailPaneLoaded({
 						<>
 							<div className="flex flex-col gap-[6px] mb-[9px]">
 								<label
-									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									className="type-label uppercase     text-[var(--text-tertiary)]"
 									htmlFor="routine-name-input"
 								>
 									Name
@@ -370,12 +370,12 @@ function RoutineDetailPaneLoaded({
 
 							<div className="flex flex-col gap-[6px] mb-[9px]">
 								<label
-									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									className="type-label uppercase     text-[var(--text-tertiary)]"
 									htmlFor="routine-prompt-textarea"
 								>
 									Prompt
 								</label>
-								<p className="text-[12px] text-[var(--text-tertiary)]">
+								<p className="type-metadata  text-[var(--text-tertiary)]">
 									The run instruction handed to the agent each time this routine fires.
 								</p>
 								<Input
@@ -392,7 +392,7 @@ function RoutineDetailPaneLoaded({
 
 							<div className="flex flex-col gap-[6px] mb-[9px]">
 								<label
-									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									className="type-label uppercase     text-[var(--text-tertiary)]"
 									htmlFor="routine-autonomy-select"
 								>
 									Autonomy
@@ -416,7 +416,7 @@ function RoutineDetailPaneLoaded({
 
 							<div className="flex flex-col gap-[6px] mb-[9px]">
 								<label
-									className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+									className="type-label uppercase     text-[var(--text-tertiary)]"
 									htmlFor="routine-schedule-select"
 								>
 									Schedule
@@ -438,7 +438,7 @@ function RoutineDetailPaneLoaded({
 							{isCustomSchedule && (
 								<div className="flex flex-col gap-[6px] mb-[9px]">
 									<label
-										className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]"
+										className="type-label uppercase     text-[var(--text-tertiary)]"
 										htmlFor="routine-custom-cron-input"
 									>
 										Custom cron
@@ -466,7 +466,7 @@ function RoutineDetailPaneLoaded({
 									disabled={saving}
 								/>
 								<label
-									className="text-[12px] text-[var(--text-secondary)] cursor-pointer"
+									className="type-metadata  text-[var(--text-secondary)] cursor-pointer"
 									htmlFor="routine-silent-toggle"
 								>
 									Silent — don't post on each run
@@ -507,7 +507,7 @@ function RoutineDetailPaneLoaded({
 							className="flex items-center gap-[9px] mt-[18px]"
 							data-testid="routine-delete-inline"
 						>
-							<span className="text-xs text-[var(--text-secondary)] flex-1">
+							<span className="type-metadata  text-[var(--text-secondary)] flex-1">
 								Delete this routine? History will be preserved.
 							</span>
 							<Button
@@ -567,9 +567,9 @@ function RoutineDetailPaneLoaded({
 				<section aria-label="Last run summary" data-testid="routine-last-run-summary">
 					<SectionLabel label="Last Run Summary" as="h2" />
 					{routine.lastRunSummary ? (
-						<p className="text-xs text-[var(--text-secondary)]">{routine.lastRunSummary}</p>
+						<p className="type-metadata  text-[var(--text-secondary)]">{routine.lastRunSummary}</p>
 					) : (
-						<p className="text-xs text-[var(--text-tertiary)]">No previous runs</p>
+						<p className="type-metadata  text-[var(--text-tertiary)]">No previous runs</p>
 					)}
 				</section>
 

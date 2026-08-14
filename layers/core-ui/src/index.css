@@ -156,23 +156,19 @@
 	}
 
 	[data-knowledge-body] :is(h1) {
-		font-size: var(--text-2xl);
-		font-weight: 600;
+	@apply type-display;
 		margin-top: 6px;
 	}
 	[data-knowledge-body] :is(h2) {
-		font-size: var(--text-xl);
-		font-weight: 600;
+	@apply type-title;
 		margin-top: 6px;
 	}
 	[data-knowledge-body] :is(h3) {
-		font-size: var(--text-base);
-		font-weight: 600;
+	@apply type-lead;
 		margin-top: 6px;
 	}
 	[data-knowledge-body] :is(h4, h5, h6) {
-		font-size: var(--text-base);
-		font-weight: 600;
+	@apply type-subheading;
 		color: var(--text-secondary);
 		margin-top: 6px;
 	}

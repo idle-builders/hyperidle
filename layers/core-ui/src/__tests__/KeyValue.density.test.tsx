@@ -12,10 +12,10 @@ import { describe, expect, it } from "vitest";
  * that is no longer needed now that density tokens are fully stripped.
  */
 describe("KeyValue — font-size (W2: literal Hearth values)", () => {
-	it("value carries text-[15px] (Hearth base, formerly density-text)", () => {
+	it("value carries the copy profile", () => {
 		render(<KeyValue label="Owner" value="Alice" />);
 		const value = screen.getByText("Alice");
-		expect(value).toHaveClass("text-[15px]");
+		expect(value).toHaveClass("type-copy");
 	});
 
 	it("value does not carry stale text-[14px] fallback class", () => {
@@ -23,6 +23,6 @@ describe("KeyValue — font-size (W2: literal Hearth values)", () => {
 		render(<KeyValue label="Owner" value="Alice" />);
 		const value = screen.getByText("Alice");
 		expect(value).not.toHaveClass("text-[14px]");
-		expect(value).toHaveClass("text-[15px]");
+		expect(value).toHaveClass("type-copy");
 	});
 });

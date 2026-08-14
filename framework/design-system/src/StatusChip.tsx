@@ -106,7 +106,7 @@ const KNOWN_STATUSES: ReadonlySet<string> = new Set<Status>([
 ]);
 
 const CHIP_BASE =
-	"inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-[var(--r-pill)] font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps-sm)] uppercase font-medium leading-[1.4] whitespace-nowrap shrink-0";
+	"inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-[var(--r-pill)] uppercase whitespace-nowrap shrink-0";
 
 export function StatusChip({ status, label }: StatusChipProps): JSX.Element {
 	const safeStatus: Status | "unknown" =
@@ -117,7 +117,7 @@ export function StatusChip({ status, label }: StatusChipProps): JSX.Element {
 	return (
 		<span
 			{...dsProps("StatusChip", "1")}
-			className={`${CHIP_BASE} ${style.chip}`}
+			className={`type-data ${`${CHIP_BASE} ${style.chip}`}`}
 			title={safeStatus}
 			data-status={safeStatus}
 		>

@@ -63,7 +63,7 @@ export function Toggle({
 					onClick={() => onChange?.(!on)}
 					className={[
 						"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-[var(--r-pill)]",
-						"border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+						"",
 						"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 						on
 							? "bg-[var(--accent-primary)] border-[var(--accent-primary)]"
@@ -72,16 +72,14 @@ export function Toggle({
 				>
 					{/* Thumb */}
 					<span
-						className={[
+						data-az16-profile="spring"
+						className={`motion-spring ${[
 							"absolute top-[2px] h-[18px] w-[18px] rounded-[var(--r-pill)]",
 							"bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]",
-							"transition-transform",
-							"duration-[var(--motion-fast)]",
+							"",
+							"",
 							on ? "translate-x-[22px]" : "translate-x-[2px]",
-						].join(" ")}
-						style={{
-							transitionTimingFunction: "var(--easing-expressive)",
-						}}
+						].join(" ")}`}
 					/>
 				</button>
 				<span className="sr-only">{label}</span>
@@ -105,7 +103,7 @@ export function Toggle({
 				onClick={() => onChange?.(!on)}
 				className={[
 					"relative inline-flex shrink-0 h-[24px] w-[44px] items-center rounded-[var(--r-pill)]",
-					"border-[1.5px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+					"",
 					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 					on
 						? "bg-[var(--accent-primary)] border-[var(--accent-primary)]"
@@ -114,27 +112,21 @@ export function Toggle({
 			>
 				{/* Thumb */}
 				<span
-					className={[
+					data-az16-profile="spring"
+					className={`motion-spring ${[
 						"absolute top-[2px] h-[18px] w-[18px] rounded-[var(--r-pill)]",
 						"bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]",
-						"transition-transform",
-						"duration-[var(--motion-fast)]",
+						"",
+						"",
 						on ? "translate-x-[22px]" : "translate-x-[2px]",
-					].join(" ")}
-					style={{
-						transitionTimingFunction: "var(--easing-expressive)",
-					}}
+					].join(" ")}`}
 				/>
 			</button>
 			{/* Text */}
 			<div className="flex flex-col" style={{ gap: "2px" }}>
-				<span className="text-[13px] font-medium text-[var(--text-primary)] leading-[1.25]">
-					{label}
-				</span>
+				<span className="type-small   text-[var(--text-primary)] ">{label}</span>
 				{description && (
-					<span className="text-[12px] text-[var(--text-tertiary)] leading-[1.55]">
-						{description}
-					</span>
+					<span className="type-metadata  text-[var(--text-tertiary)] ">{description}</span>
 				)}
 			</div>
 		</label>

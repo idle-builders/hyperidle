@@ -166,13 +166,13 @@ export function WorkBetCreate(): JSX.Element {
 						<p
 							role="alert"
 							data-testid="bet-create-error"
-							className="text-[12px] text-[var(--status-error)]"
+							className="type-metadata  text-[var(--status-error)]"
 						>
 							{error}
 						</p>
 					)}
 					<div
-						className="border-[1.5px] border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
+						className="border-[var(--bw-default)]  border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
 						style={{ minHeight: "300px" }}
 					>
 						{/*
@@ -192,7 +192,7 @@ export function WorkBetCreate(): JSX.Element {
 						 */}
 						{fromKnowledgeId != null && knowledgeLoading ? (
 							<div
-								className="flex items-center justify-center h-[260px] text-[13px] text-[var(--text-tertiary)]"
+								className="type-small flex items-center justify-center h-[260px]  text-[var(--text-tertiary)]"
 								data-testid="bet-create-knowledge-loading"
 							>
 								Loading…
@@ -220,10 +220,8 @@ export function WorkBetCreate(): JSX.Element {
 						{singleTeam ? (
 							/* Single-team static line: labelled commitment, not bare inline text */
 							<div className="flex flex-col gap-[6px]">
-								<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-									Team
-								</span>
-								<span className="text-[13px] text-[var(--text-primary)]">
+								<span className="type-label   uppercase  text-[var(--text-tertiary)]">Team</span>
+								<span className="type-small  text-[var(--text-primary)]">
 									{teams[0]?.name ?? ""}
 								</span>
 							</div>
@@ -231,7 +229,7 @@ export function WorkBetCreate(): JSX.Element {
 							<div className="flex flex-col gap-[6px]">
 								<label
 									htmlFor="bet-create-team"
-									className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]"
+									className="type-label   uppercase  text-[var(--text-tertiary)]"
 								>
 									Team <span aria-hidden>(required)</span>
 								</label>

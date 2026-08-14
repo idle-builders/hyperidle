@@ -60,7 +60,7 @@ function StatusGlyph({ status }: { status: ToolPartShape["status"] }): JSX.Eleme
 			<span
 				role="img"
 				aria-label="running"
-				className="inline-block h-[7px] w-[7px] shrink-0 rounded-[var(--r-pill)] bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]"
+				className="motion-activity inline-block h-[7px] w-[7px] shrink-0 rounded-[var(--r-pill)] bg-[var(--accent-secondary)] "
 			/>
 		);
 	}
@@ -102,11 +102,7 @@ function StatusGlyph({ status }: { status: ToolPartShape["status"] }): JSX.Eleme
 		);
 	}
 	return (
-		<span
-			role="img"
-			aria-label="neutral"
-			className="text-[12px] leading-none text-[var(--text-tertiary)]"
-		>
+		<span role="img" aria-label="neutral" className="type-metadata   text-[var(--text-tertiary)]">
 			–
 		</span>
 	);
@@ -116,7 +112,7 @@ function Caret({ open }: { open: boolean }): JSX.Element {
 	return (
 		<svg
 			viewBox="0 0 12 12"
-			className="h-[11px] w-[11px] shrink-0 text-[var(--text-tertiary)] transition-transform duration-[var(--motion-fast)]"
+			className="motion-move h-[11px] w-[11px] shrink-0 text-[var(--text-tertiary)]  "
 			style={{ transform: open ? "rotate(90deg)" : "none" }}
 			aria-hidden="true"
 		>
@@ -162,14 +158,14 @@ export function ToolPart({
 							}
 						: undefined
 				}
-				className={`flex items-center gap-[9px] py-[3px] text-[13px] ${canExpand ? "cursor-pointer" : ""}`}
+				className={`type-small ${`flex items-center gap-[9px] py-[3px]  ${canExpand ? "cursor-pointer" : ""}`}`}
 			>
 				<span className="text-[var(--text-tertiary)]">
 					<ToolIcon kind={part.toolKind} />
 				</span>
-				<span className="shrink-0 font-[500] text-[var(--text-secondary)]">{part.verb}</span>
+				<span className="type-small shrink-0  text-[var(--text-secondary)]">{part.verb}</span>
 				{part.target ? (
-					<span className="min-w-0 flex-1 truncate font-mono text-[12px] text-[var(--text-tertiary)]">
+					<span className="type-data min-w-0 flex-1 truncate   text-[var(--text-tertiary)]">
 						{part.target}
 					</span>
 				) : (
@@ -184,16 +180,16 @@ export function ToolPart({
 							e.stopPropagation();
 							onOpen(diffEmbed.target);
 						}}
-						className="inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] px-[9px] py-[3px] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-default)]"
+						className="border-[var(--bw-thin)] inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]   hover:border-[var(--border-default)]"
 					>
-						<span className="font-mono text-[11px] text-[var(--text-tertiary)]">
+						<span className="type-data   text-[var(--text-tertiary)]">
 							{diffEmbed.label.split("/").pop()}
 						</span>
-						<span className="font-mono tabular-nums text-[12px] leading-none">
-							<span className="font-[600] text-[var(--status-success)]">
+						<span className="type-data  tabular-nums  ">
+							<span className="type-small  text-[var(--status-success)]">
 								{diffEmbed.meta.split("/")[0]}
 							</span>{" "}
-							<span className="font-[600] text-[var(--status-error)]">
+							<span className="type-small  text-[var(--status-error)]">
 								{diffEmbed.meta.split("/")[1]}
 							</span>
 						</span>
@@ -209,7 +205,7 @@ export function ToolPart({
 							onOpen({ route: "session", sessionId: part.opensSession?.sessionId ?? "" });
 						}}
 						title={`Open the ${part.opensSession.label} session`}
-						className="inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] px-[9px] py-[3px] text-[11px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--accent-deep)] hover:text-[var(--accent-deep)]"
+						className="type-control border-[var(--bw-thin)] inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:border-[var(--accent-deep)] hover:text-[var(--accent-deep)]"
 					>
 						<svg
 							viewBox="0 0 16 16"
@@ -236,11 +232,11 @@ export function ToolPart({
 			{/* expanded output — mono, capped height, failure gets destructive left rule */}
 			{open && part.output ? (
 				<pre
-					className={`ms-[24px] mt-[3px] max-h-64 overflow-auto whitespace-pre-wrap border-s ps-[12px] py-[6px] font-mono text-[12px] leading-[1.5] text-[var(--text-secondary)] ${
+					className={`type-data ${`ms-[24px] mt-[3px] max-h-64 overflow-auto whitespace-pre-wrap  ps-[12px] py-[6px]    text-[var(--text-secondary)] ${
 						part.status === "failed"
 							? "border-[var(--status-error)]"
 							: "border-[var(--border-subtle)]"
-					}`}
+					}`}`}
 				>
 					{part.output}
 				</pre>

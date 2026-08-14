@@ -62,19 +62,17 @@ describe("EmptyState", () => {
 		expect(outer?.className).toContain("max-w-[420px]");
 	});
 
-	it("renders title at 20px/600 matching mockup typography", () => {
+	it("renders title with the title profile", () => {
 		render(<EmptyState title="Big title" description="desc" />);
 		const title = screen.getByText("Big title");
-		expect(title.className).toContain("text-[20px]");
-		expect(title.className).toContain("font-[600]");
+		expect(title.className).toContain("type-title");
 	});
 
-	it("renders description at 15px/text-secondary/1.7 line-height", () => {
+	it("renders description with the copy profile and secondary color", () => {
 		render(<EmptyState title="T" description="My description" />);
 		const desc = screen.getByText("My description");
-		expect(desc.className).toContain("text-[15px]");
+		expect(desc.className).toContain("type-copy");
 		expect(desc.className).toContain("text-[var(--text-secondary)]");
-		expect(desc.className).toContain("leading-[1.7]");
 	});
 
 	it("renders icon in a 48x48 tinted container when icon prop is provided", () => {

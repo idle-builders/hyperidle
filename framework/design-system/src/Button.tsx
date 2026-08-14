@@ -63,29 +63,30 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 	// overrides at 1024px+. No JS needed — pure responsive utility.
 	const sizeClass =
 		size === "sm"
-			? "text-[12px] py-[7px] px-[12px] min-h-[44px] lg:min-h-[32px]"
+			? "py-[7px] px-[12px] min-h-[44px] lg:min-h-[32px]"
 			: size === "icon"
-				? "p-0 w-[44px] h-[44px] min-h-[44px] lg:w-[32px] lg:h-[32px] lg:min-h-[32px] text-[13px]"
-				: "text-[13px] py-[10px] px-[18px] min-h-[44px] lg:min-h-[36px]";
+				? "p-0 w-[44px] h-[44px] min-h-[44px] lg:w-[32px] lg:h-[32px] lg:min-h-[32px]"
+				: "py-[10px] px-[18px] min-h-[44px] lg:min-h-[36px]";
 
 	const variantClass = VARIANT_CLASSES[variant];
 
 	return (
 		<button
+			data-az16-profile="control"
 			ref={ref}
 			{...dsProps("Button", "0")}
 			type={rest.type ?? "button"}
 			disabled={disabled}
-			className={[
-				"inline-flex items-center justify-center gap-[6px] rounded-[var(--r-pill)] border-[1.5px] font-medium cursor-pointer",
+			className={`type-control ${[
+				"inline-flex items-center justify-center gap-[6px] rounded-[var(--r-pill)]   cursor-pointer",
 				"active:scale-[0.97]",
 				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 				"disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
-				"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				"",
 				sizeClass,
 				variantClass,
 				className,
-			].join(" ")}
+			].join(" ")}`}
 			{...rest}
 		>
 			{children}

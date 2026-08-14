@@ -63,20 +63,18 @@ describe("ErrorState", () => {
 		expect(outer?.className).toContain("max-w-[440px]");
 	});
 
-	it("renders title at 20px/600/text-primary matching mockup", () => {
+	it("renders title with the title profile and primary color", () => {
 		render(<ErrorState title="Error occurred" description="Check logs." />);
 		const title = screen.getByText("Error occurred");
-		expect(title.className).toContain("text-[20px]");
-		expect(title.className).toContain("font-[600]");
+		expect(title.className).toContain("type-title");
 		expect(title.className).toContain("text-[var(--text-primary)]");
 	});
 
-	it("renders description at 15px/text-secondary/1.7 line-height", () => {
+	it("renders description with the copy profile and secondary color", () => {
 		render(<ErrorState title="T" description="My description" />);
 		const desc = screen.getByText("My description");
-		expect(desc.className).toContain("text-[15px]");
+		expect(desc.className).toContain("type-copy");
 		expect(desc.className).toContain("text-[var(--text-secondary)]");
-		expect(desc.className).toContain("leading-[1.7]");
 	});
 
 	it("renders default warning triangle icon by default", () => {

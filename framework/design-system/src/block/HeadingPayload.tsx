@@ -31,13 +31,13 @@ export function headingIdentityMatches(left: string, right: string): boolean {
 // @lore U8: heading level sizes use type-scale tokens for h1/h2 per Hearth AC
 // advisory; h3-h6 use fixed pixel values from the Hearth type scale spec.
 // font-heading removed: Hearth uses system-ui everywhere via --font-sans.
-const HEADING_SIZE: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
-	1: "text-[24px]",
-	2: "text-[20px]",
-	3: "text-[18px]",
-	4: "text-[16px]",
-	5: "text-[15px]",
-	6: "text-[13px]",
+const HEADING_PROFILE: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
+	1: "type-display",
+	2: "type-title",
+	3: "type-lead",
+	4: "type-subheading",
+	5: "type-subheading",
+	6: "type-subheading",
 };
 
 export function HeadingPayload({
@@ -53,7 +53,8 @@ export function HeadingPayload({
 	return createElement(
 		`h${effectiveLevel}`,
 		{
-			className: `${HEADING_SIZE[level]} text-[var(--text-primary)] leading-[1.2] tracking-[-0.005em] m-0 font-semibold`,
+			"data-az16-profile": HEADING_PROFILE[level].slice(5),
+			className: `${HEADING_PROFILE[level]} text-[var(--text-primary)] m-0`,
 		},
 		renderInline(inline),
 	);

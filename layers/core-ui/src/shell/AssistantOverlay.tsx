@@ -99,11 +99,9 @@ function ContextChip({
 	return (
 		<span
 			data-spacing-role="compact-pill"
-			className="inline-flex items-center gap-1 rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--text-secondary)]"
+			className="type-metadata border-[var(--bw-thin)] inline-flex items-center gap-1 rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5  text-[var(--text-secondary)]"
 		>
-			<span className="font-mono text-[var(--text-tertiary)] uppercase text-[10px]">
-				{contextRef.kind}
-			</span>
+			<span className="type-label  text-[var(--text-tertiary)] uppercase ">{contextRef.kind}</span>
 			<span className="max-w-[120px] truncate">{contextRef.label}</span>
 			<button
 				type="button"
@@ -180,7 +178,7 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 				affordance: (
 					<button
 						type="button"
-						className="text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+						className="type-control border-[var(--bw-thin)]   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 						onClick={onRetry}
 					>
 						Retry
@@ -209,10 +207,11 @@ function AssistantNoticeCard({
 
 	return (
 		<div
+			data-az16-profile="enter"
 			role="alert"
 			style={{
 				borderRadius: "var(--r-subtle)",
-				border: `1.5px solid ${config.colorToken}`,
+				border: `var(--bw-default) solid ${config.colorToken}`,
 				padding: "12px",
 				display: "flex",
 				flexDirection: "column",
@@ -221,31 +220,28 @@ function AssistantNoticeCard({
 		>
 			<div
 				style={{
-					fontSize: "13px",
-					fontWeight: 600,
 					color: config.colorToken,
 				}}
+				className="type-small"
 			>
 				{config.title}
 			</div>
 			<div
 				style={{
-					fontSize: "12px",
 					color: "var(--text-secondary)",
-					lineHeight: "1.5",
 				}}
+				className="type-small"
 			>
 				{config.description}
 				{notice.kind === "provider_error" && notice.code && (
 					<code
 						style={{
-							fontFamily: "var(--font-mono)",
-							fontSize: "11px",
 							background: "var(--surface-elevated)",
 							borderRadius: "var(--r-subtle)",
 							padding: "1px 4px",
 							marginLeft: "6px",
 						}}
+						className="type-data"
 					>
 						{notice.code}
 					</code>
@@ -275,9 +271,9 @@ function ThinkingRow(): JSX.Element {
 			<span className="loading loading-spinner loading-sm text-[var(--text-tertiary)]" />
 			<span
 				style={{
-					fontSize: "13px",
 					color: "var(--text-tertiary)",
 				}}
+				className="type-small"
 			>
 				Assistant is thinking…
 			</span>
@@ -295,23 +291,23 @@ function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
 			role="alert"
 			style={{
 				borderRadius: "var(--r-subtle)",
-				border: "1.5px solid var(--status-error)",
+				border: "var(--bw-default) solid var(--status-error)",
 				padding: "12px",
 				display: "flex",
 				flexDirection: "column",
 				gap: "6px",
 			}}
 		>
-			<div style={{ fontSize: "13px", fontWeight: 600, color: "var(--status-error)" }}>
+			<div style={{ color: "var(--status-error)" }} className="type-small">
 				Couldn't reach the model
 			</div>
-			<div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: "1.5" }}>
+			<div style={{ color: "var(--text-secondary)" }} className="type-small">
 				That didn't finish — try again.
 			</div>
 			<div style={{ marginTop: "3px" }}>
 				<button
 					type="button"
-					className="text-[12px] font-[500] px-[9px] py-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+					className="type-control border-[var(--bw-thin)]   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 					onClick={onRetry}
 				>
 					Retry
@@ -384,7 +380,7 @@ function AssistantOverlayInner({
 	if (status === "error" || !data) {
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-[9px] p-4">
-				<p className="text-sm text-[var(--text-secondary)]">
+				<p className="type-small  text-[var(--text-secondary)]">
 					{error ?? "Failed to load assistant thread"}
 				</p>
 				<Button variant="ghost" size="sm" onClick={retry}>
@@ -432,7 +428,7 @@ function AssistantOverlayInner({
 			{contextRefs.length > 0 && (
 				<div
 					data-testid="assistant-context-chips"
-					className="flex flex-wrap gap-[6px] border-b border-[var(--border-subtle)] px-3 py-2"
+					className="border-b-[var(--bw-thin)] flex flex-wrap gap-[6px]  border-[var(--border-subtle)] px-3 py-2"
 				>
 					{contextRefs.map((contextRef, i) => (
 						<ContextChip
@@ -536,29 +532,26 @@ export function AssistantOverlay({
 			aria-modal={overlayProps["aria-modal"]}
 			data-dialog-layer={overlayProps["data-dialog-layer"]}
 			onKeyDown={overlayProps.onKeyDown}
-			className={[
+			className={`motion-enter ${[
 				"fixed bottom-16 right-4",
 				"w-[360px] min-h-[200px] max-h-[70vh]",
 				"flex flex-col overflow-hidden",
-				"rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-overlay)]",
+				"rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-overlay)]",
 				"shadow-[var(--shadow-elevated)]",
-				"animate-[assistant-open_var(--motion-fast)_ease-out_forwards]",
-			].join(" ")}
+				"",
+			].join(" ")}`}
 			style={{ zIndex: overlayProps.style.zIndex }}
 		>
 			{/* Overlay header bar: "Assistant" title + close button */}
-			<div className="flex items-center justify-between px-[12px] py-[9px] border-b border-[var(--border-subtle)] shrink-0">
-				<h2
-					className="text-[15px] font-[600] text-[var(--text-primary)]"
-					id="assistant-overlay-title"
-				>
+			<div className="border-b-[var(--bw-thin)] flex items-center justify-between px-[12px] py-[9px]  border-[var(--border-subtle)] shrink-0">
+				<h2 className="type-subheading   text-[var(--text-primary)]" id="assistant-overlay-title">
 					Assistant
 				</h2>
 				<button
 					type="button"
 					aria-label="Close assistant"
 					/* AI5 AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
-					className="flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)]"
+					className="flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-pill)] bg-transparent border-none text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-deep)]  "
 					onClick={behavior.requestDismiss}
 				>
 					<svg

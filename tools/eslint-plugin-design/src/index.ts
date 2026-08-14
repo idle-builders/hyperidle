@@ -8,7 +8,8 @@
  */
 
 import type { ESLint, Rule } from "eslint";
-
+import { borderWidthProfileOnly } from "./rules/border-width-profile-only.js";
+import { motionProfileOnly } from "./rules/motion-profile-only.js";
 import { noAiAesthetic } from "./rules/no-ai-aesthetic.js";
 import { noDialogBoilerplate } from "./rules/no-dialog-boilerplate.js";
 import { noHandrolledControl } from "./rules/no-handrolled-control.js";
@@ -34,6 +35,7 @@ import { requireDsAttribute } from "./rules/require-ds-attribute.js";
 import { requireFocusOnInteractive } from "./rules/require-focus-on-interactive.js";
 import { requireStoriesSibling } from "./rules/require-stories-sibling.js";
 import { shadowTokenOnly } from "./rules/shadow-token-only.js";
+import { typographyProfileOnly } from "./rules/typography-profile-only.js";
 
 export const rules: Record<string, Rule.RuleModule> = {
 	// Classifying stream-drain lint guard (AC4 static)
@@ -62,6 +64,9 @@ export const rules: Record<string, Rule.RuleModule> = {
 	"require-ds-attribute": requireDsAttribute,
 	"require-stories-sibling": requireStoriesSibling,
 	"require-focus-on-interactive": requireFocusOnInteractive,
+	"typography-profile-only": typographyProfileOnly,
+	"motion-profile-only": motionProfileOnly,
+	"border-width-profile-only": borderWidthProfileOnly,
 };
 
 const plugin: ESLint.Plugin = {

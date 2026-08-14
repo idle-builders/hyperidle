@@ -27,7 +27,7 @@ export function ReasoningPart({ part }: { part: ReasoningPartShape }): JSX.Eleme
 				type="button"
 				onClick={() => setOpen((v) => !v)}
 				aria-expanded={open}
-				className="inline-flex items-center gap-[6px] py-[3px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-secondary)]"
+				className="type-control inline-flex items-center gap-[6px] py-[3px]   text-[var(--text-tertiary)]   hover:text-[var(--text-secondary)]"
 			>
 				{/* brain/thought icon */}
 				<svg viewBox="0 0 16 16" className="h-[12px] w-[12px] shrink-0" aria-hidden="true">
@@ -43,7 +43,7 @@ export function ReasoningPart({ part }: { part: ReasoningPartShape }): JSX.Eleme
 				<span className="italic">{label}</span>
 				<svg
 					viewBox="0 0 12 12"
-					className="h-[10px] w-[10px] shrink-0 text-[var(--text-tertiary)] transition-transform duration-[var(--motion-fast)]"
+					className="motion-move h-[10px] w-[10px] shrink-0 text-[var(--text-tertiary)]  "
 					style={{ transform: open ? "rotate(90deg)" : "none" }}
 					aria-hidden="true"
 				>
@@ -58,7 +58,7 @@ export function ReasoningPart({ part }: { part: ReasoningPartShape }): JSX.Eleme
 				</svg>
 			</button>
 			{open ? (
-				<p className="ms-[18px] mt-[3px] border-s border-[var(--border-subtle)] ps-[12px] text-[13px] italic leading-[1.6] text-[var(--text-tertiary)]">
+				<p className="border-s-[var(--bw-thin)] type-small ms-[18px] mt-[3px]  border-[var(--border-subtle)] ps-[12px]  italic  text-[var(--text-tertiary)]">
 					{part.text}
 				</p>
 			) : null}

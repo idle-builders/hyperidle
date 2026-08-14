@@ -188,9 +188,9 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 					ref={containerRef}
 					role="listbox"
 					aria-label="Slash commands"
-					className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
+					className="border-[var(--bw-thin)] bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 				>
-					<div className="px-[12px] py-[9px] text-[var(--text-tertiary)] text-[15px]">
+					<div className="type-copy px-[12px] py-[9px] text-[var(--text-tertiary)] ">
 						No results
 					</div>
 				</div>
@@ -202,7 +202,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 				ref={containerRef}
 				role="listbox"
 				aria-label="Slash commands"
-				className="bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
+				className="border-[var(--bw-thin)] bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 			>
 				{props.items.map((item, index) => (
 					<button
@@ -218,12 +218,8 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 						onClick={() => selectItem(index)}
 						onMouseEnter={() => setSelectedIndex(index)}
 					>
-						<span className="text-[var(--text-primary)] text-[15px] leading-tight">
-							{item.title}
-						</span>
-						<span className="text-[var(--text-tertiary)] text-[0.8125rem] leading-tight">
-							{item.description}
-						</span>
+						<span className="type-copy text-[var(--text-primary)]  ">{item.title}</span>
+						<span className="type-small text-[var(--text-tertiary)]  ">{item.description}</span>
 					</button>
 				))}
 			</div>

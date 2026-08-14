@@ -37,12 +37,12 @@ export function CanvasSourceHeader({
 		</>
 	);
 	return (
-		<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+		<div className="border-b-[var(--bw-thin)] flex items-center gap-[9px]  border-[var(--border-subtle)] px-[18px] py-[12px]">
 			<ToolLogo tool={tool} size="md" label={app} />
 			<div className="flex min-w-0 flex-1 items-baseline gap-[6px]">
-				<span className="text-[13px] font-[600] text-[var(--text-primary)]">{app}</span>
+				<span className="type-small   text-[var(--text-primary)]">{app}</span>
 				<span className="text-[var(--text-tertiary)]">·</span>
-				<span className="truncate text-[13px] text-[var(--text-secondary)]">{record}</span>
+				<span className="type-small truncate  text-[var(--text-secondary)]">{record}</span>
 			</div>
 			{trailing ? <div className="shrink-0">{trailing}</div> : null}
 			{safe ? (
@@ -50,14 +50,14 @@ export function CanvasSourceHeader({
 					href={href}
 					target="_blank"
 					rel="noopener noreferrer"
-					className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--accent-deep)] hover:bg-[var(--accent-primary-dim)] transition-colors duration-[var(--motion-fast)]"
+					className="type-control shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--accent-deep)] hover:bg-[var(--accent-primary-dim)]  "
 				>
 					{linkContent}
 				</a>
 			) : (
 				<span
 					aria-disabled="true"
-					className="shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-tertiary)]"
+					className="type-metadata shrink-0 inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-tertiary)]"
 					title="Unsafe source link"
 				>
 					{linkContent}

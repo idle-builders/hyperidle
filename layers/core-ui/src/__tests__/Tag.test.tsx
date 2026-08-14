@@ -11,7 +11,7 @@ describe("Tag", () => {
 	it("applies neutral chip classes with pill radius", () => {
 		render(<Tag label="bet" />);
 		const tag = screen.getByText("bet");
-		expect(tag).toHaveClass("inline-flex", "text-[12px]");
+		expect(tag).toHaveClass("inline-flex", "type-metadata");
 		expect(tag.className).toContain("rounded-[var(--r-pill)]");
 		expect(tag.className).not.toContain("rounded-[var(--r2)]");
 		expect(tag.className).toContain("text-[var(--text-secondary)]");

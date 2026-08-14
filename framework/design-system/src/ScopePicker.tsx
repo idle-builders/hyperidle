@@ -46,7 +46,7 @@ export interface ScopePickerProps {
 }
 
 const PILL_BASE =
-	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] text-[12px] font-[500] border-[1.5px] cursor-pointer transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
+	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-[var(--bw-default)] cursor-pointer focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
 
 const PILL_ACTIVE =
 	"bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]";
@@ -99,11 +99,11 @@ export function ScopePicker({
 							// caller clears its filter rather than filtering to "all".
 							onChange(mode === "filter" && option.id === options[0]?.id ? null : option.id);
 						}}
-						className={[
+						className={`type-control ${[
 							PILL_BASE,
 							isActive ? PILL_ACTIVE : PILL_INACTIVE,
 							isDisabled ? PILL_DISABLED : "",
-						].join(" ")}
+						].join(" ")}`}
 					>
 						{option.label}
 					</button>

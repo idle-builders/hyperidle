@@ -401,9 +401,7 @@ function WorkTeamLoaded({
 								data-testid={hintCreateBet.testId}
 								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[9px]"
 							>
-								<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-									{hintCreateBet.copy}
-								</p>
+								<p className="type-copy  text-[var(--text-secondary)] ">{hintCreateBet.copy}</p>
 								<div className="flex gap-[9px]">
 									<Button
 										variant="ghost"
@@ -479,7 +477,7 @@ function WorkTeamLoaded({
 									{
 										content: (
 											<span
-												className="w-[24px] h-[24px] rounded-[var(--r-pill)] shrink-0 flex items-center justify-center text-[9px] font-semibold text-[var(--accent-deep)]"
+												className="type-avatar-initial type-avatar-initial--sm w-[24px] h-[24px] rounded-[var(--r-pill)] shrink-0 flex items-center justify-center text-[var(--accent-deep)]"
 												style={{ background: "var(--accent-deep-dim)" }}
 												aria-label={routine.agentName}
 												title={routine.agentName}
@@ -526,9 +524,7 @@ function WorkTeamLoaded({
 						className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
 						style={{ background: "color-mix(in oklab, var(--accent-deep) 4%, transparent)" }}
 					>
-						<p className="text-[13px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
-							{hintReviewAgents.copy}
-						</p>
+						<p className="type-small  text-[var(--text-secondary)] ">{hintReviewAgents.copy}</p>
 						<div className="flex gap-[9px]">
 							<Button variant="ghost" size="sm" type="button" onClick={hintReviewAgents.dismiss}>
 								Got it
@@ -604,7 +600,9 @@ function WorkTeamLoaded({
 									<>
 										{member.name}
 										{member.isLead && (
-											<span className="ml-[6px] text-[var(--accent-deep)] text-[10px]">— Lead</span>
+											<span className="type-metadata ml-[6px] text-[var(--accent-deep)] ">
+												— Lead
+											</span>
 										)}
 									</>
 								}
@@ -723,7 +721,7 @@ function WorkTeamLoaded({
 				/>
 			}
 			subtitle={
-				<span className="text-[13px] text-[var(--text-tertiary)]">
+				<span className="type-small text-[var(--text-tertiary)]">
 					Phase: {team.phase}
 					{leadName && ` · Lead: ${leadName}`}
 				</span>
@@ -841,17 +839,24 @@ function StatTile({
 }): JSX.Element {
 	return (
 		<div
+			data-az16-profile="thin"
 			data-testid="stat-tile"
-			className="flex-1 min-w-[180px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] p-[18px] flex flex-col gap-[6px]"
+			className="border-[var(--bw-thin)] flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px] flex flex-col gap-[6px]"
 		>
-			<span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
+			<span
+				data-az16-profile="label"
+				className="type-label   uppercase   text-[var(--text-tertiary)]"
+			>
 				{label}
 			</span>
-			<span className="text-[20px] font-semibold text-[var(--text-primary)] tabular-nums">
+			<span
+				data-az16-profile="metric"
+				className="type-metric   text-[var(--text-primary)] tabular-nums"
+			>
 				{value}
 			</span>
 			{sub !== undefined && (
-				<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">{sub}</span>
+				<span className="type-label  text-[var(--text-tertiary)] tabular-nums">{sub}</span>
 			)}
 		</div>
 	);

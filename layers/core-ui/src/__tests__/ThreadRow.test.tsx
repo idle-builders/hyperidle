@@ -65,16 +65,18 @@ describe("ThreadRow", () => {
 		expect(spacer).toBeInTheDocument();
 	});
 
-	it("applies font-[600] weight on title when unread is true", () => {
+	it("uses the complete copy profile when unread is true", () => {
 		render(<ThreadRow {...defaultProps} unread={true} />);
 		const titleEl = screen.getByLabelText("Thread: Deploy pipeline stuck");
-		expect(titleEl.className).toContain("font-[600]");
+		expect(titleEl.className).toContain("type-copy");
+		expect(titleEl.className).not.toContain("font-[600]");
 	});
 
-	it("applies font-[400] weight on title when unread is false", () => {
+	it("uses the complete copy profile when unread is false", () => {
 		render(<ThreadRow {...defaultProps} unread={false} />);
 		const titleEl = screen.getByLabelText("Thread: Deploy pipeline stuck");
-		expect(titleEl.className).toContain("font-[400]");
+		expect(titleEl.className).toContain("type-copy");
+		expect(titleEl.className).not.toContain("font-[400]");
 	});
 
 	it("renders preview with text-secondary color when unread", () => {

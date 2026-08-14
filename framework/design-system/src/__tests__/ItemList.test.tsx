@@ -234,7 +234,7 @@ describe("ItemList (AG6 T3)", () => {
 			expect(rows.length).toBe(2);
 			for (const row of rows) {
 				expect(row.className).toContain("border-b");
-				expect(row.className).toContain("last:border-b-0");
+				expect(row.className).toContain("last:border-none");
 			}
 		});
 	});

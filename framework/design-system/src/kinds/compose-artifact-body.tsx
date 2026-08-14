@@ -51,12 +51,12 @@ import { ArtifactUnrenderable } from "./artifact-unrenderable.js";
 // InlineNode[][][] — out of AM5 scope. This is a plain lifted rows table.
 function DataRowsTable({ rows }: { rows: Record<string, string>[] }): JSX.Element {
 	return (
-		<div className="overflow-x-auto rounded-[var(--r-default)] border border-[var(--border-subtle)]">
-			<table className="w-full text-sm border-collapse">
+		<div className="border-[var(--bw-thin)] overflow-x-auto rounded-[var(--r-default)]  border-[var(--border-subtle)]">
+			<table className="type-small w-full  border-collapse">
 				<tbody>
 					{rows.map((row, ri) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: row keys are not unique; index is correct
-						<tr key={ri} className="border-t border-[var(--border-subtle)]">
+						<tr key={ri} className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)]">
 							{Object.entries(row).map(([k, v]) => (
 								<td key={k} className="py-1 pr-3 px-2 text-[var(--text-primary)]">
 									{v}
@@ -186,7 +186,7 @@ export function composeArtifactBody(
 						<div className="flex flex-col gap-[6px]">
 							{charts.map((chart) => (
 								<div key={chart.label} className="flex items-center gap-[9px]">
-									<span className="text-xs text-[var(--text-tertiary)] font-mono uppercase w-32 shrink-0">
+									<span className="type-label  text-[var(--text-tertiary)]  uppercase w-32 shrink-0">
 										{chart.label}
 									</span>
 									<Sparkline values={chart.values} label={chart.label} />

@@ -185,7 +185,7 @@ export function AgentEditor({
 	const isAssistant = agentId.startsWith("ast-");
 
 	return (
-		<div className="flex flex-col gap-[12px] p-[12px] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+		<div className="border-[var(--bw-thin)] flex flex-col gap-[12px] p-[12px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex gap-[9px] flex-wrap">
 				{/* Name */}
 				<div className="flex-1 min-w-[140px]">
@@ -204,9 +204,7 @@ export function AgentEditor({
 				{/* Role — RoleCombobox (open string + catalog) */}
 				<div className="flex-1 min-w-[140px]">
 					<div className="flex flex-col gap-[3px]">
-						<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-							Role
-						</span>
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Role</span>
 						<RoleCombobox
 							id={`edit-role-${agentId}`}
 							options={ROLE_OPTIONS}
@@ -225,7 +223,7 @@ export function AgentEditor({
 						id={`edit-harness-${agentId}`}
 						label="Harness"
 						size="sm"
-						className="max-md:text-[16px]"
+						className="type-input "
 						value={draft.harnessType}
 						onChange={(e) => {
 							const newHarness = e.target.value;
@@ -251,7 +249,7 @@ export function AgentEditor({
 							id={`edit-model-${agentId}`}
 							label="Model"
 							size="sm"
-							className="max-md:text-[16px]"
+							className="type-input "
 							value={draft.modelId}
 							onChange={(e) => {
 								onDraftChange((prev) => ({ ...prev, modelId: e.target.value }));
@@ -261,10 +259,8 @@ export function AgentEditor({
 						/>
 					) : (
 						<div className="flex flex-col gap-[3px]">
-							<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-								Model
-							</span>
-							<p className="text-[12px] text-[var(--text-tertiary)]">
+							<span className="type-label   uppercase  text-[var(--text-tertiary)]">Model</span>
+							<p className="type-metadata  text-[var(--text-tertiary)]">
 								This harness manages its own model selection.
 							</p>
 						</div>
@@ -312,17 +308,15 @@ export function AgentEditor({
 			{/* Filesystem injection — only when registry provided */}
 			{filesystems && filesystems.length > 0 && (
 				<div className="flex flex-col gap-[6px]">
-					<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-						Filesystems
-					</span>
-					<div className="flex flex-col overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-subtle)]">
+					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Filesystems</span>
+					<div className="border-[var(--bw-thin)] flex flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)]">
 						{filesystems
 							.filter((fs) => draft.filesystemIds.includes(fs.id))
 							.map((fs, index) => (
 								<div key={fs.id}>
 									{index > 0 ? <div className="h-px bg-[var(--border-subtle)]" /> : null}
 									<div className="flex items-center gap-[9px] px-[9px] py-[6px]">
-										<span className="min-w-0 flex-1 truncate font-[family-name:var(--font-mono)] text-[12px] text-[var(--text-primary)]">
+										<span className="type-data min-w-0 flex-1 truncate   text-[var(--text-primary)]">
 											{`${fsSourceLabel(fs.source)} · ${fs.resource}`}
 										</span>
 										<Button
@@ -347,7 +341,7 @@ export function AgentEditor({
 
 			{/* Inline 422 error */}
 			{error && (
-				<p className="text-[12px] text-[var(--status-error)]" role="alert">
+				<p className="type-metadata  text-[var(--status-error)]" role="alert">
 					{error}
 				</p>
 			)}

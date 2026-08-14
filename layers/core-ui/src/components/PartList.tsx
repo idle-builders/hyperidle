@@ -80,7 +80,7 @@ function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX
 		<span
 			aria-hidden="true"
 			data-ds-component="GroupAvatar"
-			className={`inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border text-[10px] font-[600] ${tint}`}
+			className={`type-avatar-initial type-avatar-initial--sm inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-[var(--r-pill)] ${tint}`}
 		>
 			{initialsOf(name)}
 		</span>
@@ -116,14 +116,10 @@ export function PartList({ parts, onOpen }: PartListProps): JSX.Element {
 						<div className={`flex flex-col gap-[9px] ${isSelf ? "max-w-[80%]" : ""}`}>
 							<div className="flex items-center gap-[9px]">
 								<GroupAvatar name={group.author.name} isAgent={isAgent} />
-								<span className="text-[13px] font-[600] text-[var(--text-primary)]">
-									{group.author.name}
-								</span>
-								{isSelf && (
-									<span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span>
-								)}
+								<span className="type-small   text-[var(--text-primary)]">{group.author.name}</span>
+								{isSelf && <span className="type-metadata   text-[var(--text-tertiary)]">You</span>}
 								{head && (
-									<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
+									<span className="type-metadata  tabular-nums text-[var(--text-tertiary)]">
 										{clockTime(head.createdAt)}
 									</span>
 								)}

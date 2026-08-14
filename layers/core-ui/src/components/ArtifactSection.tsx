@@ -106,7 +106,7 @@ export function ArtifactSection({
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
 				{heading && (
-					<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
+					<h2 className="type-label    uppercase  text-[var(--text-tertiary)] mb-[6px]">
 						{heading}
 					</h2>
 				)}
@@ -138,9 +138,7 @@ export function ArtifactSection({
 		if (!heading) return null;
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading}>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
-					{heading}
-				</h2>
+				<h2 className="type-label    uppercase  text-[var(--text-tertiary)] mb-[6px]">{heading}</h2>
 				<ErrorState
 					title="Failed to load artifacts"
 					description="An error occurred while loading artifacts."
@@ -157,9 +155,7 @@ export function ArtifactSection({
 
 		return (
 			<section data-testid="artifact-section-container" aria-label={heading}>
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
-					{heading}
-				</h2>
+				<h2 className="type-label    uppercase  text-[var(--text-tertiary)] mb-[6px]">{heading}</h2>
 				<EmptyState
 					title="No artifacts yet"
 					description={
@@ -178,9 +174,7 @@ export function ArtifactSection({
 	return (
 		<section data-testid="artifact-section-container" aria-label={heading ?? "Artifacts"}>
 			{heading && (
-				<h2 className="text-xs font-heading font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-[6px]">
-					{heading}
-				</h2>
+				<h2 className="type-label    uppercase  text-[var(--text-tertiary)] mb-[6px]">{heading}</h2>
 			)}
 
 			{layout === "gallery" && (
@@ -222,14 +216,14 @@ export function ArtifactSection({
 						type="button"
 						data-testid="artifact-section-view-all"
 						onClick={onViewAll}
-						className="text-xs text-[var(--text-tertiary)] mt-[9px] inline-block hover:text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)]"
+						className="type-control  text-[var(--text-tertiary)] mt-[9px] inline-block hover:text-[var(--text-secondary)]  "
 					>
 						View all
 					</button>
 				) : (
 					<span
 						data-testid="artifact-section-view-all"
-						className="text-xs text-[var(--text-tertiary)] mt-[9px] inline-block"
+						className="type-metadata  text-[var(--text-tertiary)] mt-[9px] inline-block"
 					>
 						View all
 					</span>

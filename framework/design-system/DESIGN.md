@@ -74,31 +74,26 @@ This variety is the Hearth signature, not inconsistency.
 
 ## Typography
 
-Two families. One scale. No density toggles.
+Typography is a closed set of complete semantic definitions. A consumer chooses one role; it never assembles size, line height, weight, tracking, or family separately. `TYPE_STYLE` is the inline-style API, `type-*` utilities are the CSS/JSX API, and raw definitions live only in `token-profiles.ts` and `tokens.css`.
 
-### Families
-| Token | Stack | Usage |
-|-------|-------|-------|
-| `--font-sans` | system-ui, -apple-system, Segoe UI, sans-serif | All UI text |
-| `--font-mono` | ui-monospace, SF Mono, Cascadia Code, monospace | Data labels, timestamps, code |
+| Role | Family | Size / line | Weight / tracking | Job |
+|------|--------|-------------|-------------------|-----|
+| `label` | sans | 11 / 1.25 | 600 / 0.06em | Uppercase structural labels |
+| `metadata` | sans | 12 / 1.4 | 500 / 0 | Timestamps and supporting facts |
+| `small` | sans | 13 / 1.4 | 400 / 0 | Compact prose and detail |
+| `copy` | sans | 15 / 1.55 | 400 / 0 | Main prose and messages |
+| `control` | sans | 13 / 1.25 | 500 / 0 | Buttons and compact controls |
+| `input` | sans | 13 / 1.4 | 400 / 0 | Authored input text; 16px at ≤768px |
+| `avatar-initial` | sans | 12 / 1 | 600 / 0 | Avatar initials; stacked/sm/md/lg variants are 9/10/12/13px |
+| `subheading` | sans | 15 / 1.4 | 600 / 0 | h4–h6 and compact panel headings |
+| `lead` | sans | 17 / 1.25 | 600 / -0.01em | Card and section titles |
+| `title` | sans | 20 / 1.4 | 600 / -0.01em | Page titles and h2 |
+| `display` | sans | 24 / 1.25 | 600 / -0.01em | Document h1 and display hierarchy |
+| `metric` | sans | 24 / 1 | 600 / -0.01em | KPI values; always tabular numerals |
+| `data` | mono | 12 / 1.4 | 500 / 0 | Structured values and code blocks |
+| `inline-code` | mono | 13 / 1.55 | 400 / 0 | Inline code only |
 
-### Scale
-
-| Step | Size | Weight | Usage |
-|------|------|--------|-------|
-| 3xl | 30px | 700 | Brand heading, page hero |
-| 2xl | 24px | 600 | Page titles |
-| xl | 20px | 600 | Section headings, main header titles |
-| lg | 17px | 500-600 | Card titles, bet names |
-| base | 15px | 400 | Body text, message content |
-| sm | 13px | 400-500 | Secondary text, previews, labels |
-| xs | 12px | 500-600 | Timestamps, metadata, section headers (uppercase) |
-| micro | 10px | 500 | Agent badge labels, avatar initials (sm), swatch labels |
-| count | 9px | 500 | Count badges (numeric only) |
-
-### Heading signature
-
-Section headers use uppercase, wide letter-spacing (0.06em-0.08em), and tertiary color -- the Hearth hallmark. They are quiet structural markers that organize without shouting.
+Plain descendants with no authored typography inherit normally. Authored `strong` and `em` preserve semantic markup but inherit their parent profile instead of introducing raw weight or italic drift.
 
 ---
 
@@ -150,7 +145,13 @@ Shipping Hearth chrome uses only `none` and these three tokens. Subtle marks act
 
 ## Borders
 
-Thicker than typical (1.5px default). Warm-toned. Three weights.
+Warm-toned, with three width jobs. Width and color are independent semantic choices.
+
+| Width token | Value | Job |
+|-------------|-------|-----|
+| `--bw-thin` | 1px | Dividers and quiet outlines |
+| `--bw-default` | 1.5px | Inputs, actions, and normal card outlines |
+| `--bw-strong` | 2px | Avatar cut-outs and deliberate strong boundaries |
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
@@ -162,15 +163,19 @@ Thicker than typical (1.5px default). Warm-toned. Three weights.
 
 ## Motion
 
-Gentle. Never attention-grabbing.
+Motion uses seven purpose profiles. Color, background, border, shadow, width, and max-width snap instead of animating.
 
-| Token | Duration | Usage |
-|-------|----------|-------|
-| `--motion-fast` | 120ms | Hover, checkbox, toast close |
-| `--motion-default` | 240ms | All transitions, tab switches, border color |
-| `--motion-slow` | 450ms | Progress bar fill, slow reveals |
+| Profile | Complete definition | Job |
+|---------|---------------------|-----|
+| `feedback` | opacity/filter · 120ms · standard | Hover/focus feedback |
+| `move` | transform · 240ms · standard | Spatial movement |
+| `spring` | transform · 240ms · expressive | Toggle/thumb movement |
+| `enter` | `hearth-enter` · 120ms ease-out · once | One-time entrance |
+| `activity` | opacity pulse · 1.4s ease-in-out · infinite | Live activity |
+| `loading` | skeleton opacity · 1.8s ease-in-out · infinite | Loading placeholders |
+| `busy` | rotation · 750ms linear · infinite | In-flight work |
 
-Easing: `cubic-bezier(0.25, 0.1, 0.25, 1)` for most transitions. Toggle thumb uses expressive easing: `cubic-bezier(0.34, 1.56, 0.64, 1)` for a slight overshoot.
+`MOTION_STYLE` is the inline API and `motion-*` utilities are the CSS/JSX API. With `prefers-reduced-motion: reduce`, all authored and foreign-preview animations and transitions are disabled and smooth scrolling becomes `auto` globally.
 
 ---
 
@@ -359,16 +364,9 @@ Same content kind = same container chrome, whether rendered as a block payload o
 
 The `block/*Payload.tsx` family is the reference. `kinds/*-renderer.tsx` must match it.
 
-### Motion tokens
+### Profile enforcement
 
-No bare `duration-[Nms]` or `ease-[ease]` in DS components. Use Hearth motion tokens:
-
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--motion-fast` | `120ms` | Hover, checkbox, toast close |
-| `--motion-default` | `240ms` | Most transitions |
-| `--motion-slow` | `450ms` | Progress bar, slow reveals |
-| `--motion-ease` | `cubic-bezier(0.25,0.1,0.25,1)` | All standard easing |
+Production TS/TSX and CSS consume the named typography, motion, and border-width profiles above. `npm run lint` discovers packages dynamically, rejects raw family values, verifies immutable migration receipts, and checks the final live profile census.
 
 ---
 
@@ -423,7 +421,7 @@ via `color-mix(in oklab, ...)`.
 
 ## Token Enforcement Gate
 
-Token resolution (`var(--x)` referencing a custom property defined in `tokens.css`) is not currently machine-checked — the AI1 `token-guard:check` was retired with the rest of the guard set in AU28 and has not yet been re-derived in the new governance lint.
+Token family ownership and profile consumption are machine-checked by the design ESLint rules plus the owned CSS, receipt, checksum, and live-census gates chained into `npm run lint`.
 
 **For contributors:**
 - Every `var(--…)` in shipped source must resolve to a name declared in `framework/design-system/src/tokens.css`.

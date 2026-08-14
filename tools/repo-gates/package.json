@@ -8,6 +8,7 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
+		"postcss": "^8.5.26",
 		"typescript": "^6.0.3",
 		"eslint-plugin-design": "*"
 	},

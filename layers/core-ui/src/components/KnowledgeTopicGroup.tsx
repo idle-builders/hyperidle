@@ -55,9 +55,7 @@ export function KnowledgeTopicGroup({
 				aria-controls={regionId}
 				onClick={() => setCollapsed((prev) => !prev)}
 			>
-				<span className="text-[12px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-					{topic}
-				</span>
+				<span className="type-label   uppercase  text-[var(--text-tertiary)]">{topic}</span>
 				<div className="flex items-center gap-[6px]">
 					{/* Health dot — sr-only visually but kept for accessibility and tests */}
 					<span
@@ -67,7 +65,7 @@ export function KnowledgeTopicGroup({
 						data-health={health}
 					/>
 					<span
-						className="text-[11px] text-[var(--text-tertiary)]"
+						className="type-metadata  text-[var(--text-tertiary)]"
 						aria-label={`${itemCount} items`}
 					>
 						{itemCount} items

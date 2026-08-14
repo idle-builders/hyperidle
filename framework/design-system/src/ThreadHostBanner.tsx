@@ -59,7 +59,7 @@ function PresenceDot({
 	const bg = status === "active" ? "bg-[var(--accent-primary)]" : "bg-[var(--status-error)]";
 	return (
 		<span
-			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--surface-container)] ${bg}`}
+			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-[var(--r-pill)]  border-[var(--surface-container)] ${bg}`}
 			aria-label={`${name} - ${status}`}
 		/>
 	);
@@ -102,7 +102,7 @@ export function ThreadHostBanner({
 	return (
 		<div
 			{...dsProps("ThreadHostBanner", "2")}
-			className="flex items-center gap-[12px] py-[12px] px-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="border-b-[var(--bw-thin)] flex items-center gap-[12px] py-[12px] px-[12px]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 		>
 			{/* Host label */}
 			<div className="flex items-center gap-[9px] min-w-0 flex-1">
@@ -110,12 +110,12 @@ export function ThreadHostBanner({
 				{hostHref ? (
 					<a
 						href={hostHref}
-						className="text-[var(--text-primary)] truncate font-medium hover:underline"
+						className="type-control text-[var(--text-primary)] truncate  hover:underline"
 					>
 						{hostTitle}
 					</a>
 				) : (
-					<span className="text-[var(--text-primary)] truncate font-medium">{hostTitle}</span>
+					<span className="type-small text-[var(--text-primary)] truncate ">{hostTitle}</span>
 				)}
 				{pinned ? <PinIcon /> : null}
 			</div>
@@ -132,7 +132,7 @@ export function ThreadHostBanner({
 					<span
 						key={p.id}
 						title={p.name}
-						className="relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]"
+						className="type-avatar-initial type-avatar-initial--sm border-[var(--bw-thin)] relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] border-[var(--border-subtle)]"
 					>
 						{p.name.charAt(0).toUpperCase()}
 						{p.isAgent && p.operationalStatus ? (
@@ -141,7 +141,7 @@ export function ThreadHostBanner({
 					</span>
 				))}
 				{overflow > 0 ? (
-					<span className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] text-[11px] font-medium border border-[var(--border-subtle)]">
+					<span className="type-avatar-initial type-avatar-initial--sm border-[var(--bw-thin)] inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] border-[var(--border-subtle)]">
 						+{overflow}
 					</span>
 				) : null}

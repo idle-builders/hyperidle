@@ -13,13 +13,11 @@ export interface ArtifactGalleryCardProps {
 }
 
 const CARD_BASE =
-	"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[12px] flex flex-col gap-[9px] cursor-pointer shadow-[var(--shadow-default)] border border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]";
-const HEADER =
-	"flex items-center gap-[6px] font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase text-[var(--text-secondary)]";
+	"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[12px] flex flex-col gap-[9px] cursor-pointer shadow-[var(--shadow-default)] border-[var(--bw-thin)] border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]";
+const HEADER = "flex items-center gap-[6px] uppercase text-[var(--text-secondary)]";
 // @lore L3 review fix D-B2: derived title row per approved.md §2 + HTML ref line 29.
-const TITLE = "text-[15px] font-medium text-[var(--text-primary)] leading-[1.3]";
-const FOOTER =
-	"flex items-center justify-between font-mono text-[11px] text-[var(--text-secondary)]";
+const TITLE = "text-[var(--text-primary)]";
+const FOOTER = "flex items-center justify-between text-[var(--text-secondary)]";
 const PILL =
 	"bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] rounded-[var(--r-pill)] px-[8px] py-[2px]";
 
@@ -32,13 +30,13 @@ export function ArtifactGalleryCard({
 	return (
 		<button
 			{...dsProps("ArtifactGalleryCard", "2")}
-			className={CARD_BASE}
+			className={`motion-move ${CARD_BASE}`}
 			onClick={onOpen}
 			type="button"
 			data-state={state}
 			aria-label={artifactDisplayTitle(data)}
 		>
-			<div className={HEADER}>
+			<div className={`type-data ${HEADER}`}>
 				<ArtifactKindBadge kind={data.kind} />
 				{data.label && (
 					<>
@@ -49,9 +47,9 @@ export function ArtifactGalleryCard({
 				<span className="text-[var(--text-tertiary)]">·</span>
 				<span>{data.producingTaskTitle}</span>
 			</div>
-			<div className={TITLE}>{artifactDisplayTitle(data)}</div>
+			<div className={`type-copy ${TITLE}`}>{artifactDisplayTitle(data)}</div>
 			<ArtifactPreviewSurface kind={data.kind} preview={data.preview} size="gallery" />
-			<div className={FOOTER}>
+			<div className={`type-data ${FOOTER}`}>
 				<span className="flex items-center gap-[6px]">
 					<ArtifactTimestamp value={data.createdAt} />
 				</span>

@@ -93,15 +93,23 @@ export interface SessionViewProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function SessionAvatar({ who, size = 26 }: { who: PartAuthor; size?: number }): JSX.Element {
+function SessionAvatar({
+	who,
+	size = 26,
+	variant = "sm",
+}: {
+	who: PartAuthor;
+	size?: number;
+	variant?: "stacked" | "sm";
+}): JSX.Element {
 	const tint = who.isAgent
 		? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 	return (
 		<div
 			aria-hidden="true"
-			className={`inline-flex items-center justify-center rounded-[var(--r-pill)] border-[1.5px] font-[600] shrink-0 ${tint}`}
-			style={{ width: size, height: size, fontSize: size <= 22 ? 10 : 12 }}
+			className={`type-avatar-initial type-avatar-initial--${variant} inline-flex items-center justify-center rounded-[var(--r-pill)] shrink-0 ${tint}`}
+			style={{ width: size, height: size }}
 		>
 			{initialsOf(who.name)}
 		</div>
@@ -117,7 +125,7 @@ function ParticipantGroup({ people }: { people: readonly PartAuthor[] }): JSX.El
 					className="rounded-[var(--r-pill)] ring-2 ring-[var(--surface-page)]"
 					style={{ marginLeft: i === 0 ? 0 : -9, zIndex: people.length - i }}
 				>
-					<SessionAvatar who={p} size={26} />
+					<SessionAvatar who={p} size={26} variant="stacked" />
 				</div>
 			))}
 		</div>
@@ -140,10 +148,8 @@ function QueuedBubble({
 			<div className="flex max-w-[80%] flex-col gap-[9px]">
 				<div className="flex items-center gap-[9px]">
 					<SessionAvatar who={msg.author} size={26} />
-					<span className="text-[13px] font-[600] text-[var(--text-secondary)]">
-						{msg.author.name}
-					</span>
-					<span className="inline-flex items-center gap-[6px] text-[11px] text-[var(--text-tertiary)]">
+					<span className="type-small   text-[var(--text-secondary)]">{msg.author.name}</span>
+					<span className="type-metadata inline-flex items-center gap-[6px]  text-[var(--text-tertiary)]">
 						<svg
 							viewBox="0 0 16 16"
 							className="h-[11px] w-[11px] shrink-0"
@@ -161,7 +167,7 @@ function QueuedBubble({
 						type="button"
 						onClick={onCancel}
 						aria-label="Remove queued message"
-						className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+						className="shrink-0 rounded-[var(--r-subtle)] p-[3px] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 					>
 						<svg
 							viewBox="0 0 12 12"
@@ -176,7 +182,7 @@ function QueuedBubble({
 					</button>
 				</div>
 				<div className="rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px]">
-					<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-secondary)]">{msg.text}</p>
+					<p className="type-copy m-0   text-[var(--text-secondary)]">{msg.text}</p>
 				</div>
 			</div>
 		</div>
@@ -189,7 +195,7 @@ function AggregateCaret({ open }: { open: boolean }): JSX.Element {
 	return (
 		<svg
 			viewBox="0 0 12 12"
-			className="h-[11px] w-[11px] shrink-0 text-[var(--text-tertiary)] transition-transform duration-[var(--motion-fast)]"
+			className="motion-move h-[11px] w-[11px] shrink-0 text-[var(--text-tertiary)]  "
 			style={{ transform: open ? "rotate(90deg)" : "none" }}
 			aria-hidden="true"
 		>
@@ -247,15 +253,15 @@ function HardAggregate({
 				type="button"
 				onClick={() => setOpen((v) => !v)}
 				aria-expanded={open}
-				className="flex w-full items-center gap-[9px] py-[3px] text-left text-[13px] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]"
+				className="type-control flex w-full items-center gap-[9px] py-[3px] text-left  text-[var(--text-secondary)]   hover:text-[var(--text-primary)]"
 			>
 				<AggregateCaret open={open} />
-				<span className="font-[500]">{aggregateVerb(tools)}</span>
-				<span className="text-[var(--text-tertiary)] text-[12px]">· {tools.length} steps</span>
+				<span className="type-small ">{aggregateVerb(tools)}</span>
+				<span className="type-metadata text-[var(--text-tertiary)] ">· {tools.length} steps</span>
 				{failedCount > 0 ? (
 					<span
 						data-ds-aggregate-failed={failedCount}
-						className="inline-flex items-center gap-[3px] text-[12px] font-[500] text-[var(--status-error)]"
+						className="type-metadata inline-flex items-center gap-[3px]   text-[var(--status-error)]"
 					>
 						<svg
 							viewBox="0 0 12 12"
@@ -278,7 +284,7 @@ function HardAggregate({
 			{open ? (
 				<div
 					data-ds-aggregate-expanded="true"
-					className="ms-[3px] mt-[3px] flex flex-col border-s border-[var(--border-subtle)] ps-[12px]"
+					className="border-s-[var(--bw-thin)] ms-[3px] mt-[3px] flex flex-col  border-[var(--border-subtle)] ps-[12px]"
 				>
 					{tools.map((t) => (
 						<ToolPart key={t.id} part={t} onOpen={onOpen} />
@@ -325,18 +331,16 @@ function ChangedFilesPanel({
 	return (
 		<div
 			data-ds-component="ChangedFilesPanel"
-			className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
+			className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
 		>
 			<div className="flex items-center gap-[9px] px-[12px] py-[9px]">
-				<span className="text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-					Changed files
-				</span>
-				<span className="font-mono tabular-nums text-[12px] text-[var(--text-secondary)]">
+				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Changed files</span>
+				<span className="type-data  tabular-nums  text-[var(--text-secondary)]">
 					{diffs.length}
 				</span>
-				<span className="inline-flex items-center gap-[6px] font-mono tabular-nums text-[12px] leading-none">
-					<span className="font-[600] text-[var(--status-success)]">+{totalAdded}</span>
-					<span className="font-[600] text-[var(--status-error)]">−{totalRemoved}</span>
+				<span className="type-data inline-flex items-center gap-[6px]  tabular-nums  ">
+					<span className="type-small  text-[var(--status-success)]">+{totalAdded}</span>
+					<span className="type-small  text-[var(--status-error)]">−{totalRemoved}</span>
 				</span>
 				<span className="flex-1" />
 				{/* View diff fires onOpen → ReviewCodeDiff (first diff as anchor) */}
@@ -349,13 +353,13 @@ function ChangedFilesPanel({
 								onOpen(first.embed.target);
 							}
 						}}
-						className="rounded-[var(--r-pill)] border border-[var(--border-default)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]"
+						className="type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:text-[var(--text-primary)]"
 					>
 						View diff
 					</button>
 				) : null}
 			</div>
-			<div className="border-t border-[var(--border-subtle)] px-[12px] py-[9px]">
+			<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] px-[12px] py-[9px]">
 				{diffs.map(({ embed, toolId }) => {
 					if (embed.kind !== "diff") return null;
 					const label = embed.label;
@@ -366,17 +370,17 @@ function ChangedFilesPanel({
 							type="button"
 							key={`${toolId}-${label}`}
 							onClick={() => onOpen(embed.target)}
-							className="flex w-full items-center gap-[9px] py-[3px] font-mono text-[12px] text-left transition-colors duration-[var(--motion-fast)] hover:text-[var(--text-primary)]"
+							className="type-control flex w-full items-center gap-[9px] py-[3px]   text-left   hover:text-[var(--text-primary)]"
 						>
 							<span className="min-w-0 flex-1 truncate">
 								<span className="text-[var(--text-tertiary)]">{dir}</span>
 								<span className="text-[var(--text-primary)]">{name}</span>
 							</span>
-							<span className="inline-flex items-center gap-[6px] font-mono tabular-nums text-[12px] leading-none">
-								<span className="font-[600] text-[var(--status-success)]">
+							<span className="type-data inline-flex items-center gap-[6px]  tabular-nums  ">
+								<span className="type-small  text-[var(--status-success)]">
 									{embed.meta.split("/")[0]}
 								</span>
-								<span className="font-[600] text-[var(--status-error)]">
+								<span className="type-small  text-[var(--status-error)]">
 									{embed.meta.split("/")[1]}
 								</span>
 							</span>
@@ -489,14 +493,10 @@ function SessionStream({
 						<div className={`flex flex-col gap-[9px] ${isSelf ? "max-w-[80%]" : ""}`}>
 							<div className="flex items-center gap-[9px]">
 								<SessionAvatar who={group.author} size={26} />
-								<span className="text-[13px] font-[600] text-[var(--text-primary)]">
-									{group.author.name}
-								</span>
-								{isSelf && (
-									<span className="text-[11px] font-[500] text-[var(--text-tertiary)]">You</span>
-								)}
+								<span className="type-small   text-[var(--text-primary)]">{group.author.name}</span>
+								{isSelf && <span className="type-metadata   text-[var(--text-tertiary)]">You</span>}
 								{head && (
-									<span className="text-[11px] tabular-nums text-[var(--text-tertiary)]">
+									<span className="type-metadata  tabular-nums text-[var(--text-tertiary)]">
 										{clockTime(head.createdAt)}
 									</span>
 								)}
@@ -585,7 +585,7 @@ function SessionComposer({
 	return (
 		<div
 			data-ds-component="SessionComposer"
-			className="rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-shadow duration-[var(--motion-fast)] focus-within:shadow-[var(--shadow-default)]"
+			className="border-[var(--bw-thin)] rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
 				{/* eslint-disable-next-line design/no-op-button -- Insert opens an attachment picker; AM3 scope covers the shell only, action is a future affordance -- tracked in #429 */}
@@ -593,7 +593,7 @@ function SessionComposer({
 					type="button"
 					aria-label="Insert"
 					aria-haspopup="menu"
-					className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+					className="border-[var(--bw-thin)] flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--border-default)] text-[var(--text-secondary)]   hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 				>
 					<ComposerGlyph d={ICON_PLUS} size={14} />
 				</button>
@@ -612,7 +612,7 @@ function SessionComposer({
 							? "Type to queue a message — it sends when the agent finishes"
 							: "Send a message…"
 					}
-					className="min-h-[48px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
+					className="type-input min-h-[48px] flex-1 resize-none border-none bg-transparent py-[3px]   text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
 				/>
 				{running ? (
 					<Button variant="destructive" size="icon" onClick={onStop} aria-label="Stop the agent">
@@ -626,13 +626,13 @@ function SessionComposer({
 			</div>
 
 			{/* descriptor pill row — model · per-model options + working state */}
-			<div className="flex items-center gap-[3px] border-t border-[var(--border-subtle)] px-[9px] py-[6px]">
+			<div className="border-t-[var(--bw-thin)] flex items-center gap-[3px]  border-[var(--border-subtle)] px-[9px] py-[6px]">
 				{descriptor && (
 					<>
 						<button
 							type="button"
 							onClick={handleModelCycle}
-							className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+							className="type-control inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 						>
 							{descriptor.models.find((m) => m.id === selectedModelId)?.label ?? selectedModelId}
 						</button>
@@ -655,7 +655,7 @@ function SessionComposer({
 												setOptionValues((prev) => ({ ...prev, [opt.key]: next.value }));
 											}
 										}}
-										className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+										className="type-control inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 									>
 										{displayLabel}
 									</button>
@@ -671,7 +671,7 @@ function SessionComposer({
 										onClick={() => {
 											setOptionValues((prev) => ({ ...prev, [opt.key]: !prev[opt.key] }));
 										}}
-										className={`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)] ${on ? "text-[var(--accent-deep)]" : "text-[var(--text-secondary)]"}`}
+										className={`type-control ${`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]     hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)] ${on ? "text-[var(--accent-deep)]" : "text-[var(--text-secondary)]"}`}`}
 									>
 										{opt.label}
 									</button>
@@ -684,11 +684,11 @@ function SessionComposer({
 				<span className="flex-1" />
 				{running && (
 					<>
-						<span className="mr-[3px] inline-flex items-center gap-[6px] text-[12px] text-[var(--text-tertiary)]">
-							<span className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
+						<span className="type-metadata mr-[3px] inline-flex items-center gap-[6px]  text-[var(--text-tertiary)]">
+							<span className="motion-activity inline-block h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-secondary)] " />
 							{elapsedLabel}
 						</span>
-						<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)]">
+						<span className="type-metadata inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[9px] py-[3px]   text-[var(--text-secondary)]">
 							Queues while working
 						</span>
 					</>
@@ -751,26 +751,26 @@ export function SessionView({
 	return (
 		<div
 			data-ds-component="SessionView"
-			className="flex h-full w-full flex-col bg-[var(--surface-page)]"
-			style={{ fontFamily: "var(--font-sans)" }}
+			className="type-small flex h-full w-full flex-col bg-[var(--surface-page)]"
+			style={{}}
 		>
 			{/* header — minimal session identity */}
-			<header className="flex shrink-0 items-center gap-[12px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
+			<header className="border-b-[var(--bw-thin)] flex shrink-0 items-center gap-[12px]  border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
 				<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-							<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
+						<div className="type-metadata flex items-center gap-[6px]  text-[var(--text-secondary)]">
+							<span className="type-label inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px]   uppercase  text-[var(--accent-deep)]">
 								{running && (
-									<span className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-secondary)] motion-safe:animate-[skeleton-pulse_1.4s_ease-in-out_infinite]" />
+									<span className="motion-activity inline-block h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-secondary)] " />
 								)}
 								Session
 							</span>
 							<span className="text-[var(--text-tertiary)]">·</span>
-							<span className="truncate font-[500] text-[var(--text-primary)]">
+							<span className="type-small truncate  text-[var(--text-primary)]">
 								{identity.host}
 							</span>
 						</div>
-						<h2 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">
+						<h2 className="type-lead mt-[3px] mb-0    text-[var(--text-primary)]">
 							{identity.title}
 						</h2>
 					</div>

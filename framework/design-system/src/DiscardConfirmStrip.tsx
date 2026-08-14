@@ -52,16 +52,16 @@ export function DiscardConfirmStrip({
 				justifyContent: "space-between",
 				gap: "var(--space-3)",
 				padding: "var(--space-3) 0",
-				borderTop: "1px solid var(--border-subtle)",
+				borderTop: "var(--bw-thin) solid var(--border-subtle)",
 				background: "color-mix(in srgb, var(--status-warning) 4%, transparent)",
 			}}
 		>
 			<span
 				style={{
-					fontSize: "var(--text-sm)",
 					color: "var(--text-secondary)",
 					flex: 1,
 				}}
+				className="type-small"
 			>
 				{copy.prompt}
 			</span>
@@ -72,15 +72,14 @@ export function DiscardConfirmStrip({
 					type="button"
 					onClick={onKeepEditing}
 					style={{
-						fontSize: "var(--text-sm)",
-						fontWeight: "var(--fw-medium)",
 						color: "var(--text-secondary)",
 						background: "transparent",
-						border: "1px solid var(--border-default)",
+						border: "var(--bw-thin) solid var(--border-default)",
 						borderRadius: "var(--r-subtle)",
 						padding: "var(--space-2) var(--space-4)",
 						cursor: "pointer",
 					}}
+					className="type-control"
 				>
 					{copy.keep}
 				</button>
@@ -89,15 +88,14 @@ export function DiscardConfirmStrip({
 					type="button"
 					onClick={onDiscard}
 					style={{
-						fontSize: "var(--text-sm)",
-						fontWeight: "var(--fw-medium)",
 						color: "var(--status-error)",
 						background: "transparent",
-						border: "1px solid var(--status-error)",
+						border: "var(--bw-thin) solid var(--status-error)",
 						borderRadius: "var(--r-subtle)",
 						padding: "var(--space-2) var(--space-4)",
 						cursor: "pointer",
 					}}
+					className="type-control"
 				>
 					{copy.discard}
 				</button>

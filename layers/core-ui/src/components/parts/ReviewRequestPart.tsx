@@ -26,7 +26,7 @@ export function ReviewRequestPart({
 	return (
 		<div
 			data-ds-component="ReviewRequestPart"
-			className="flex flex-col gap-[12px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[18px] shadow-[var(--shadow-default)]"
+			className="border-[var(--bw-thin)] flex flex-col gap-[12px] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[18px] shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-start gap-[9px]">
 				<span
@@ -44,12 +44,10 @@ export function ReviewRequestPart({
 					</svg>
 				</span>
 				<div className="min-w-0">
-					<div className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+					<div className="type-label   uppercase  text-[var(--text-tertiary)]">
 						Review requested
 					</div>
-					<p className="m-0 mt-[3px] text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
-						{part.title}
-					</p>
+					<p className="type-copy m-0 mt-[3px]    text-[var(--text-primary)]">{part.title}</p>
 				</div>
 			</div>
 			{part.changeSet !== null && (

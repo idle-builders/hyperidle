@@ -277,7 +277,7 @@ export function buildArtifactSrcdoc(html: string): string {
 		"<!doctype html><html>",
 		HEAD(ARTIFACT_FRAME_CSP, SHELL_STYLE),
 		"<body>",
-		`<iframe id="artifact" title="Artifact content" sandbox="${ARTIFACT_FRAME_SANDBOX}" srcdoc="${inner}" style="display:block;width:100%;height:100%;border:0"></iframe>`,
+		`<iframe id="artifact" title="Artifact content" sandbox="${ARTIFACT_FRAME_SANDBOX}" srcdoc="${inner}" style="display:block;width:100%;height:100%;border:none"></iframe>`,
 		SIZE_RELAY,
 		"</body></html>",
 	].join("");

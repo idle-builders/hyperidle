@@ -22,7 +22,7 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 		return (
 			<div
 				{...dsProps("TabBar", "0")}
-				className="flex items-end gap-[18px] border-b border-[var(--border-default)]"
+				className="border-b-[var(--bw-thin)] flex items-end gap-[18px]  border-[var(--border-default)]"
 				role="tablist"
 			>
 				{tabs.map((tab) => {
@@ -34,14 +34,14 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 							type="button"
 							aria-selected={isActive}
 							onClick={() => onChange?.(tab.id)}
-							className={[
-								"pb-[6px] px-[9px] text-[13px] border-b-[2px] -mb-[1px]",
-								"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+							className={`type-control ${[
+								"pb-[6px] px-[9px]   -mb-[1px]",
+								"",
 								"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 								isActive
-									? "text-[var(--accent-deep)] font-semibold border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
-									: "text-[var(--text-tertiary)] font-medium border-transparent hover:text-[var(--text-secondary)]",
-							].join(" ")}
+									? "text-[var(--accent-deep)]  border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
+									: "text-[var(--text-tertiary)]  border-transparent hover:text-[var(--text-secondary)]",
+							].join(" ")}`}
 						>
 							{tab.label}
 						</button>
@@ -67,14 +67,14 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 						type="button"
 						aria-selected={isActive}
 						onClick={() => onChange?.(tab.id)}
-						className={[
-							"px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px]",
-							"transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+						className={`type-control ${[
+							"px-[12px] py-[6px] rounded-[var(--r-pill)] ",
+							"",
 							"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 							isActive
-								? "bg-[var(--surface-elevated)] text-[var(--accent-deep)] font-semibold shadow-[var(--shadow-subtle)]"
-								: "text-[var(--text-secondary)] font-medium hover:text-[var(--text-primary)]",
-						].join(" ")}
+								? "bg-[var(--surface-elevated)] text-[var(--accent-deep)]  shadow-[var(--shadow-subtle)]"
+								: "text-[var(--text-secondary)]  hover:text-[var(--text-primary)]",
+						].join(" ")}`}
 					>
 						{tab.label}
 					</button>

@@ -82,9 +82,8 @@ function StandingPill({ standing }: { readonly standing: "Awaiting" | "Blocking"
 	const blocking = standing === "Blocking";
 	return (
 		<span
-			className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[600] uppercase"
+			className="type-label inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]   uppercase"
 			style={{
-				letterSpacing: "var(--tracking-caps)",
 				background: blocking ? "var(--status-error-dim)" : "var(--status-info-dim)",
 				color: blocking ? "var(--status-error)" : "var(--status-info)",
 			}}
@@ -102,7 +101,7 @@ function StandingPill({ standing }: { readonly standing: "Awaiting" | "Blocking"
 function TokensChip({ tokens }: { readonly tokens: number }): JSX.Element {
 	const tok = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
 	return (
-		<span className="inline-flex items-baseline gap-[6px] text-[13px] text-[var(--text-secondary)]">
+		<span className="type-small inline-flex items-baseline gap-[6px]  text-[var(--text-secondary)]">
 			<span className="[font-variant-numeric:tabular-nums]">{tok} tok</span>
 		</span>
 	);
@@ -120,7 +119,7 @@ function NeedsYouChip({
 		<button
 			type="button"
 			onClick={() => onJump?.(item.jumpLabel)}
-			className="group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] border px-[12px] py-[9px] text-left transition-[transform,opacity] duration-[var(--motion-fast)] [transition-timing-function:var(--motion-ease)] hover:opacity-90 active:translate-y-[1px]"
+			className="motion-feedback border-[var(--bw-thin)] group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[12px] py-[9px] text-left hover:opacity-90 active:translate-y-[1px]"
 			style={{
 				borderColor: isError ? "var(--status-error)" : "var(--border-default)",
 				background: isError ? "var(--status-error-dim)" : "var(--surface-page)",
@@ -128,21 +127,18 @@ function NeedsYouChip({
 		>
 			<span
 				data-spacing-role="optical-offset"
-				className="mt-[2px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600] uppercase"
+				className="type-label mt-[2px] inline-flex shrink-0 items-center rounded-[var(--r-pill)] px-[6px] py-[2px]   uppercase"
 				style={{
-					letterSpacing: "var(--tracking-caps-sm)",
 					background: isError ? "var(--status-error)" : "var(--surface-container)",
 					color: isError ? "var(--surface-elevated)" : "var(--status-warning)",
 				}}
 			>
 				{RISK_LABEL[item.category]}
 			</span>
-			<span className="min-w-0 flex-1 text-[13px] leading-[1.4] text-[var(--text-primary)]">
-				{item.detail}
-			</span>
+			<span className="type-small min-w-0 flex-1   text-[var(--text-primary)]">{item.detail}</span>
 			<span
 				data-spacing-role="optical-offset"
-				className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] transition-opacity duration-[var(--motion-fast)] group-hover:text-[var(--accent-deep)]"
+				className="type-metadata mt-[1px] shrink-0   text-[var(--text-tertiary)]   group-hover:text-[var(--accent-deep)]"
 			>
 				Jump ↓
 			</span>
@@ -161,12 +157,12 @@ function DoneRow({
 		<button
 			type="button"
 			onClick={() => onJump?.(cond.jumpLabel)}
-			className="group flex w-full items-start gap-[9px] px-[3px] py-[6px] text-left transition-[transform] duration-[var(--motion-fast)] [transition-timing-function:var(--motion-ease)] active:translate-y-[1px]"
+			className="group flex w-full items-start gap-[9px] px-[3px] py-[6px] text-left active:translate-y-[1px]"
 		>
 			<span
 				aria-hidden="true"
 				data-spacing-role="optical-offset"
-				className="mt-[1px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[12px] font-[700]"
+				className="type-metadata mt-[1px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[var(--r-pill)]  "
 				style={{
 					background: cond.met ? "var(--surface-container)" : "var(--status-error-dim)",
 					color: cond.met ? "var(--status-success)" : "var(--status-error)",
@@ -176,13 +172,13 @@ function DoneRow({
 			</span>
 			<span className="min-w-0 flex-1">
 				<span
-					className="text-[13px] leading-[1.4]"
+					className="type-small  "
 					style={{ color: cond.met ? "var(--text-secondary)" : "var(--text-primary)" }}
 				>
 					{cond.label}
 				</span>
 				{cond.note ? (
-					<span className="mt-[3px] block text-[12px] leading-[1.4] text-[var(--status-error)]">
+					<span className="type-metadata mt-[3px] block   text-[var(--status-error)]">
 						{cond.note}
 					</span>
 				) : null}
@@ -190,7 +186,7 @@ function DoneRow({
 			{cond.met ? null : (
 				<span
 					data-spacing-role="optical-offset"
-					className="mt-[1px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)] group-hover:text-[var(--accent-deep)]"
+					className="type-metadata mt-[1px] shrink-0   text-[var(--text-tertiary)] group-hover:text-[var(--accent-deep)]"
 				>
 					Jump ↓
 				</span>
@@ -232,16 +228,16 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 
 	return (
 		<section
-			className="w-full max-w-[760px] overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-left shadow-[var(--shadow-default)]"
+			className="border-[var(--bw-thin)] w-full max-w-[760px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-left shadow-[var(--shadow-default)]"
 			data-ds-component="ReviewOutcomeSummary"
 		>
 			{/* ── L1 ─ one glance ─────────────────────────────────────────── */}
-			<header className="flex flex-col gap-[12px] border-b border-[var(--border-subtle)] px-[18px] py-[18px]">
+			<header className="border-b-[var(--bw-thin)] flex flex-col gap-[12px]  border-[var(--border-subtle)] px-[18px] py-[18px]">
 				<div className="flex items-center justify-between gap-[12px]">
 					<div className="flex min-w-0 items-center gap-[9px]">
 						{/* agent author — green-distinct (AQ-012) */}
 						<span
-							className="inline-flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border-[1.5px] text-[10px] font-[600]"
+							className="type-metadata border-[var(--bw-default)] inline-flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-pill)]   "
 							style={{
 								background: "var(--accent-primary-dim)",
 								borderColor: "var(--accent-primary)",
@@ -250,8 +246,8 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 						>
 							{agentInitials}
 						</span>
-						<span className="flex min-w-0 items-center gap-[6px] text-[13px] text-[var(--text-secondary)]">
-							<span className="font-[600] text-[var(--text-primary)]">{agentName}</span>
+						<span className="type-small flex min-w-0 items-center gap-[6px]  text-[var(--text-secondary)]">
+							<span className="type-small  text-[var(--text-primary)]">{agentName}</span>
 							<span aria-hidden="true" className="text-[var(--text-tertiary)]">
 								→
 							</span>
@@ -262,7 +258,7 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 				</div>
 
 				{/* what was achieved — result-first, one sentence */}
-				<p className="text-[17px] font-[500] leading-[1.4] text-[var(--text-primary)]">
+				<p data-az16-profile="lead" className="type-lead    text-[var(--text-primary)]">
 					{achieved}
 				</p>
 
@@ -282,12 +278,10 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 				{/* done-conditions */}
 				<div className="flex flex-col gap-[6px]">
 					<div className="flex items-center justify-between gap-[12px]">
-						<h3 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-							Done conditions
-						</h3>
+						<h3 className="type-label   uppercase  text-[var(--text-tertiary)]">Done conditions</h3>
 						<span className="flex items-center gap-[9px]">
 							<span
-								className="text-[13px] font-[600] [font-variant-numeric:tabular-nums]"
+								className="type-small   [font-variant-numeric:tabular-nums]"
 								style={{
 									color: metCount === total ? "var(--status-success)" : "var(--status-warning)",
 								}}
@@ -298,7 +292,7 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 								<button
 									type="button"
 									onClick={() => setExpanded((v) => !v)}
-									className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-page)] px-[12px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] transition-[opacity] duration-[var(--motion-fast)] hover:opacity-80"
+									className="motion-feedback type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-page)] px-[12px] py-[3px]   text-[var(--text-secondary)]   hover:opacity-80"
 								>
 									{expanded ? "Collapse" : "Expand all"}
 								</button>
@@ -311,10 +305,10 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 						<DoneRow key={c.label} cond={c} onJump={onJump} />
 					))}
 					{!expanded && metCount > 0 ? (
-						<div className="flex items-center gap-[6px] px-[3px] py-[6px] text-[12px] text-[var(--text-tertiary)]">
+						<div className="type-metadata flex items-center gap-[6px] px-[3px] py-[6px]  text-[var(--text-tertiary)]">
 							<span
 								aria-hidden="true"
-								className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-[var(--r-pill)] text-[12px] font-[700]"
+								className="type-metadata inline-flex h-[18px] w-[18px] items-center justify-center rounded-[var(--r-pill)]  "
 								style={{ background: "var(--surface-container)", color: "var(--status-success)" }}
 							>
 								✓
@@ -328,10 +322,8 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 				{orderedNeedsYou.length > 0 ? (
 					<div className="flex flex-col gap-[9px]">
 						<div className="flex items-baseline gap-[9px]">
-							<h3 className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-								Needs you
-							</h3>
-							<span className="text-[12px] font-[600] text-[var(--status-error)] [font-variant-numeric:tabular-nums]">
+							<h3 className="type-label   uppercase  text-[var(--text-tertiary)]">Needs you</h3>
+							<span className="type-metadata   text-[var(--status-error)] [font-variant-numeric:tabular-nums]">
 								{orderedNeedsYou.length}
 							</span>
 						</div>

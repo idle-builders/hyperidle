@@ -127,7 +127,7 @@
 		/* Border widths — bw prefix avoids collision with border color tokens */
 		--bw-thin: 1px;
 		--bw-default: 1.5px;
-		--bw-strong: 2.5px;
+		--bw-strong: 2px;
 
 		/*
 		 * @lore W2 — --easing-expressive added for spring-like micro-interactions
@@ -348,7 +348,18 @@
 	}
 }
 
-/* ── Skeleton pulse animation ── */
+/* ── Purpose-based motion profiles ── */
+@keyframes hearth-loading {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.4;
+	}
+}
+
+/* Compatibility until the loading migration lands in Wave 4. */
 @keyframes skeleton-pulse {
 	0%,
 	100% {
@@ -359,6 +370,189 @@
 	}
 }
 
+@keyframes hearth-activity {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@keyframes hearth-enter {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes hearth-busy {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@utility type-label {
+	font-family: var(--font-sans);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	line-height: 1.25;
+}
+@utility type-metadata {
+	font-family: var(--font-sans);
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0;
+	line-height: 1.4;
+}
+@utility type-small {
+	font-family: var(--font-sans);
+	font-size: 13px;
+	font-weight: 400;
+	letter-spacing: 0;
+	line-height: 1.4;
+}
+@utility type-copy {
+	font-family: var(--font-sans);
+	font-size: 15px;
+	font-weight: 400;
+	letter-spacing: 0;
+	line-height: 1.55;
+}
+@utility type-control {
+	font-family: var(--font-sans);
+	font-size: 13px;
+	font-weight: 500;
+	letter-spacing: 0;
+	line-height: 1.25;
+}
+@utility type-input {
+	font-family: var(--font-sans);
+	font-size: 13px;
+	font-weight: 400;
+	letter-spacing: 0;
+	line-height: 1.4;
+}
+@media (max-width: 768px) {
+	input.type-input,
+	textarea.type-input,
+	select.type-input {
+		font-size: 16px;
+	}
+}
+@utility type-avatar-initial {
+	font-family: var(--font-sans);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0;
+	line-height: 1;
+}
+@utility type-avatar-initial--stacked {
+	font-size: 9px;
+}
+@utility type-avatar-initial--sm {
+	font-size: 10px;
+}
+@utility type-avatar-initial--md {
+	font-size: 12px;
+}
+@utility type-avatar-initial--lg {
+	font-size: 13px;
+}
+@utility type-subheading {
+	font-family: var(--font-sans);
+	font-size: 15px;
+	font-weight: 600;
+	letter-spacing: 0;
+	line-height: 1.4;
+}
+@utility type-lead {
+	font-family: var(--font-sans);
+	font-size: 17px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.25;
+}
+@utility type-title {
+	font-family: var(--font-sans);
+	font-size: 20px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.4;
+}
+@utility type-display {
+	font-family: var(--font-sans);
+	font-size: 24px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	line-height: 1.25;
+}
+@utility type-metric {
+	font-family: var(--font-sans);
+	font-size: 24px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.01em;
+	line-height: 1;
+}
+@utility type-data {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0;
+	line-height: 1.4;
+}
+@utility type-inline-code {
+	font-family: var(--font-mono);
+	font-size: 13px;
+	font-weight: 400;
+	letter-spacing: 0;
+	line-height: 1.55;
+}
+
+@utility motion-feedback {
+	transition-duration: 120ms;
+	transition-property: opacity, filter;
+	transition-timing-function: var(--motion-ease);
+}
+@utility motion-move {
+	transition-duration: 240ms;
+	transition-property: transform;
+	transition-timing-function: var(--motion-ease);
+}
+@utility motion-spring {
+	transition-duration: 240ms;
+	transition-property: transform;
+	transition-timing-function: var(--easing-expressive);
+}
+@utility motion-enter {
+	animation: hearth-enter 120ms ease-out 1;
+}
+@utility motion-activity {
+	animation: hearth-activity 1.4s ease-in-out infinite;
+}
+@utility motion-loading {
+	animation: hearth-loading 1.8s ease-in-out infinite;
+}
+@utility motion-busy {
+	animation: hearth-busy 750ms linear infinite;
+}
+
+@utility border-width-thin {
+	border-width: var(--bw-thin);
+}
+@utility border-width-default {
+	border-width: var(--bw-default);
+}
+@utility border-width-strong {
+	border-width: var(--bw-strong);
+}
 /*
  * ── Reduced-motion ──
  * @lore U3 — Token rename: --motion-medium → --motion-default. The reduced-
@@ -367,16 +561,15 @@
  * Components that consume --motion-fast/default/slow inherit this automatically.
  */
 @media (prefers-reduced-motion: reduce) {
-	:root,
-	[data-theme] {
-		--motion-fast: 1ms;
-		--motion-default: 1ms;
-		--motion-slow: 1ms;
-	}
-	[class*="animate-[skeleton-pulse"],
-	.skeleton {
-		/* biome-ignore lint/complexity/noImportantStyles: WCAG SC 2.3.3 — reduced-motion override must beat Tailwind's arbitrary-value `animate-[skeleton-pulse]` utility, which carries equal specificity. !important is the canonical mechanism (MDN, Material 3 motion). */
+	*,
+	*::before,
+	*::after {
+		/* biome-ignore lint/complexity/noImportantStyles: global accessibility override must beat authored component selectors. */
 		animation: none !important;
+		/* biome-ignore lint/complexity/noImportantStyles: global accessibility override must beat authored component selectors. */
+		transition: none !important;
+		/* biome-ignore lint/complexity/noImportantStyles: global accessibility override must beat authored smooth-scroll declarations. */
+		scroll-behavior: auto !important;
 	}
 }
 

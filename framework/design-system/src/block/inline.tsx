@@ -11,22 +11,15 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 		case "text":
 			return node.value;
 		case "strong":
-			return (
-				<strong key={key} className="text-[var(--text-primary)] font-semibold">
-					{renderInline(node.children)}
-				</strong>
-			);
+			return <strong key={key}>{renderInline(node.children)}</strong>;
 		case "emphasis":
-			return (
-				<em key={key} className="italic">
-					{renderInline(node.children)}
-				</em>
-			);
+			return <em key={key}>{renderInline(node.children)}</em>;
 		case "inlineCode":
 			return (
 				<code
 					key={key}
-					className="font-mono text-[0.92em] px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]"
+					data-az16-profile="inline-code"
+					className="type-inline-code   px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]"
 				>
 					{node.value}
 				</code>

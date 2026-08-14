@@ -185,6 +185,7 @@
 			"!eval-results-*.json"
 		]
 	},
+	"css": { "parser": { "tailwindDirectives": true } },
 	"overrides": [
 		{
 			"includes": ["knip.json"],

@@ -7,8 +7,7 @@ export interface ArtifactTimestampProps {
 	format?: "relative" | "absolute";
 }
 
-const BASE =
-	"font-mono text-[11px] text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]";
+const BASE = "text-[var(--text-secondary)] [font-variant-numeric:tabular-nums]";
 
 export function ArtifactTimestamp({
 	value,
@@ -16,7 +15,7 @@ export function ArtifactTimestamp({
 }: ArtifactTimestampProps): JSX.Element {
 	const text = format === "absolute" ? absoluteDate(value) : relativeLong(value);
 	return (
-		<span {...dsProps("ArtifactTimestamp", "1")} className={BASE} title={value}>
+		<span {...dsProps("ArtifactTimestamp", "1")} className={`type-data ${BASE}`} title={value}>
 			{text}
 		</span>
 	);

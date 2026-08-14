@@ -52,7 +52,7 @@ export interface BreadcrumbProps {
 
 const LINK_CLASS =
 	"text-[color:var(--text-secondary)] hover:text-[color:var(--accent-primary)] " +
-	"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] " +
+	"" +
 	"focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[color:var(--accent-primary)] focus-visible:outline-offset-[2px]";
 
 const CURRENT_CLASS = "text-[color:var(--text-primary)]";
@@ -144,7 +144,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 	return (
 		<nav
 			aria-label="Breadcrumb"
-			className="flex min-w-0 flex-nowrap items-center overflow-hidden text-[13px]"
+			className="type-small flex min-w-0 flex-nowrap items-center overflow-hidden "
 			{...dsProps("Breadcrumb", "1")}
 		>
 			{items}

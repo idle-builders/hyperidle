@@ -103,14 +103,14 @@ export function CodeDeltaRenderer({
 	return (
 		<pre
 			aria-label={`Code diff: ${delta.file}`}
-			className="bg-[var(--surface-container)] rounded-[var(--r-default)] overflow-x-auto text-xs font-mono leading-[1.4] m-0"
+			className="type-data bg-[var(--surface-container)] rounded-[var(--r-default)] overflow-x-auto    m-0"
 		>
 			{delta.hunks.map((hunk, hunkIndex) => (
 				<div key={`${hunkIndex}-${hunk.header}`}>
-					<div className="px-[12px] py-[6px] font-mono text-[12px] text-[var(--text-tertiary)] bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] select-none">
+					<div className="type-data px-[12px] py-[6px]   text-[var(--text-tertiary)] bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] select-none">
 						{hunk.header}
 					</div>
-					<div className="font-mono text-[12px] leading-[var(--leading-body)]">
+					<div className="type-data   ">
 						{hunk.lines.map((line, lineIndex) => {
 							const ref: DiffLineRef = {
 								hunkIndex,

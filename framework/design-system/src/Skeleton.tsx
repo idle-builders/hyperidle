@@ -26,8 +26,7 @@ const DEFAULT_ROWS = 3;
  * to 14px, making 1rem = 14px instead of the browser default 16px. The HTML
  * reference uses hardcoded pixel values, so we must match exactly.
  */
-const SKELETON_BAR =
-	"bg-[var(--surface-container)] rounded-[var(--r-default)] animate-[skeleton-pulse_1.8s_ease-in-out_infinite]";
+const SKELETON_BAR = "bg-[var(--surface-container)] rounded-[var(--r-default)]";
 
 export interface SkeletonProps {
 	/** Bar width (CSS length or %). Default "100%". */
@@ -57,6 +56,7 @@ export function Skeleton({
 }: SkeletonProps): JSX.Element {
 	return (
 		<div
+			data-az16-profile="loading"
 			{...dsProps("Skeleton", "2")}
 			role="status"
 			aria-label={ariaLabel}
@@ -70,7 +70,7 @@ export function Skeleton({
 			 * for dynamic dims and delivers the arbitrary dims the prop API promises.
 			 */
 			style={{ width, height }}
-			className={`${SKELETON_BAR} ${className}`}
+			className={`motion-loading ${`${SKELETON_BAR} ${className}`}`}
 		/>
 	);
 }
@@ -96,10 +96,11 @@ export function SkeletonList({
 		>
 			{Array.from({ length: rows }).map((_, i) => (
 				<div
+					data-az16-profile="loading"
 					// biome-ignore lint/suspicious/noArrayIndexKey: fixed-count placeholder rows.
 					key={i}
 					data-testid="skeleton-row"
-					className={`${SKELETON_BAR} h-[42px] w-full`}
+					className={`motion-loading ${`${SKELETON_BAR} h-[42px] w-full`}`}
 				/>
 			))}
 		</div>
@@ -127,10 +128,13 @@ export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.
 			 */
 			className="flex flex-col gap-[6px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px]"
 		>
-			<div className={`${SKELETON_BAR} h-[20px] w-[66%]`} />
-			<div className={`${SKELETON_BAR} h-[16px] w-full`} />
-			<div className={`${SKELETON_BAR} h-[16px] w-[83%]`} />
-			<div className={`${SKELETON_BAR} h-[16px] w-[75%]`} />
+			<div
+				data-az16-profile="loading"
+				className={`motion-loading ${`${SKELETON_BAR} h-[20px] w-[66%]`}`}
+			/>
+			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-full`}`} />
+			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-[83%]`}`} />
+			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-[75%]`}`} />
 		</div>
 	);
 }

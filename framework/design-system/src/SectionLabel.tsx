@@ -50,16 +50,16 @@ export function SectionLabel({
 }: SectionLabelProps): JSX.Element {
 	const headingClass = [
 		"flex items-center justify-between gap-[12px]",
-		"text-[13px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]",
+		"uppercase text-[var(--text-tertiary)]",
 		"mb-[9px]",
-		divider ? "pb-[6px] border-b border-[var(--border-subtle)]" : "",
+		divider ? "pb-[6px] border-b-[var(--bw-thin)] border-[var(--border-subtle)]" : "",
 	]
 		.filter(Boolean)
 		.join(" ");
 
 	return (
 		<Tag
-			className={headingClass}
+			className={`type-label ${headingClass}`}
 			{...dsProps("SectionLabel", "1")}
 			{...(testId ? { "data-testid": testId } : {})}
 		>

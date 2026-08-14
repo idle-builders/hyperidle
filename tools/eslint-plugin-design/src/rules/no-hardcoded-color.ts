@@ -20,6 +20,7 @@
 
 import type { Rule } from "eslint";
 import { createRule } from "../util.js";
+import { isInForeignTokenSubject } from "./profile-rule-utils.js";
 
 const HEX_REGEX = /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/;
 const RGB_REGEX = /\brgba?\s*\(/;
@@ -143,6 +144,7 @@ export const noHardcodedColor: Rule.RuleModule = createRule({
 		}
 		return {
 			Literal(node) {
+				if (isInForeignTokenSubject(node)) return;
 				if (typeof node.value !== "string") return;
 				if (!hasColorLiteral(node.value)) return;
 				if (!isInStylingContext(node)) return;
@@ -154,6 +156,7 @@ export const noHardcodedColor: Rule.RuleModule = createRule({
 				});
 			},
 			TemplateElement(node) {
+				if (isInForeignTokenSubject(node)) return;
 				const raw = node.value.cooked ?? node.value.raw;
 				if (typeof raw !== "string") return;
 				if (!hasColorLiteral(raw)) return;

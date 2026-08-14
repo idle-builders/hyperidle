@@ -36,11 +36,9 @@ import { PageFrame } from "./PageFrame.js";
  * @lore AI7: The class string is the single source of truth for the page-title
  * treatment. Any drift fails the PageHeader.test.tsx pin assertions loudly.
  */
-export const pageTitleClassName =
-	"text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate";
+export const pageTitleClassName = "text-[var(--text-primary)] min-w-0 truncate";
 
-export const paneTitleClassName =
-	"text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate";
+export const paneTitleClassName = "text-[var(--text-primary)] min-w-0 truncate";
 
 export interface PageHeaderProps {
 	/**
@@ -64,6 +62,8 @@ export interface PageHeaderProps {
 	level?: 1 | 2;
 	/** Routed page header or local split-pane header. */
 	presentation?: "page" | "pane";
+	/** Semantic role for a pane title. Page titles always use `title`. */
+	paneTitleProfile?: "lead" | "subheading";
 	/** Reserve the destination pane's top-right SplitView controls. */
 	reservePaneControls?: boolean;
 	/** Orientation row above the title (Breadcrumb + NavHistoryCluster). Injected by the page. */
@@ -80,6 +80,7 @@ export function PageHeader({
 	title,
 	level = 1,
 	presentation = "page",
+	paneTitleProfile = "lead",
 	reservePaneControls = false,
 	leading,
 	subtitle,
@@ -87,28 +88,41 @@ export function PageHeader({
 	"data-testid": testId,
 }: PageHeaderProps): JSX.Element {
 	const TitleTag = presentation === "pane" || level === 2 ? "h2" : "h1";
+	const resolvedTitleProfile = presentation === "pane" ? paneTitleProfile : "title";
 	const content = (
 		<>
 			{leading && <div className="mb-[6px] min-w-0 overflow-hidden">{leading}</div>}
 
 			<div className="flex items-center justify-between gap-[12px]">
-				<TitleTag className={presentation === "pane" ? paneTitleClassName : pageTitleClassName}>
+				<TitleTag
+					data-az16-profile={resolvedTitleProfile}
+					className={`${
+						resolvedTitleProfile === "subheading"
+							? "type-subheading"
+							: resolvedTitleProfile === "lead"
+								? "type-lead"
+								: "type-title"
+					} ${presentation === "pane" ? paneTitleClassName : pageTitleClassName}`}
+				>
 					{title}
 				</TitleTag>
 				{actions && <div className="flex items-center gap-[9px] shrink-0">{actions}</div>}
 			</div>
 
 			{subtitle && (
-				<div className="mt-[3px] text-[13px] text-[var(--text-tertiary)]">{subtitle}</div>
+				<div data-az16-profile="small" className="type-small mt-[3px]  text-[var(--text-tertiary)]">
+					{subtitle}
+				</div>
 			)}
 		</>
 	);
 	return (
 		<header
+			data-az16-profile="thin"
 			className={
 				presentation === "pane"
-					? `shrink-0 pl-[18px] ${reservePaneControls ? "pr-[84px]" : "pr-[18px]"} py-[12px] border-b border-[var(--border-subtle)]`
-					: "shrink-0 py-[18px] border-b border-[var(--border-subtle)]"
+					? `shrink-0 pl-[18px] ${reservePaneControls ? "pr-[84px]" : "pr-[18px]"} py-[12px] border-b-[var(--bw-thin)] border-[var(--border-subtle)]`
+					: "shrink-0 py-[18px] border-b-[var(--bw-thin)] border-[var(--border-subtle)]"
 			}
 			{...dsProps("PageHeader", "1")}
 			{...(testId ? { "data-testid": testId } : {})}

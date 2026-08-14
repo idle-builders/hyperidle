@@ -66,7 +66,7 @@ describe("GlobalSearchPanel Command-K visual (J3)", () => {
 		const { container } = render(<GlobalSearchPanel {...defaultProps} />);
 		const recent = container.querySelector('[data-testid="search-recent-queries"]');
 		expect(recent).not.toBeNull();
-		expect(recent?.className ?? "").toMatch(/font-mono/);
+		expect(recent?.className ?? "").toMatch(/type-data/);
 		// The region should be labeled for assistive tech.
 		expect(
 			recent?.getAttribute("aria-label") ?? recent?.getAttribute("aria-labelledby") ?? "",

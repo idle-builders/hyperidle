@@ -165,7 +165,7 @@ export function Menu({
 			ref={menuRef}
 			role="menu"
 			aria-label={label}
-			className={`absolute ${alignClass} top-full z-50 mt-1 min-w-[160px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[3px] flex flex-col gap-[3px]`}
+			className={`absolute ${alignClass} top-full z-50 mt-1 min-w-[160px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[3px] flex flex-col gap-[3px]`}
 		>
 			{items.map((item, index) => (
 				<button
@@ -182,13 +182,11 @@ export function Menu({
 					}}
 					onKeyDown={(e) => handleItemKeyDown(e, item, index)}
 					// hearth-internal-padding: py-[9px] is optically tuned item padding
-					className={`text-left text-[13px] px-[12px] py-[9px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px] w-full${item.destructive ? " text-[var(--status-error)]" : " text-[var(--text-primary)]"}`}
+					className={`type-control ${`text-left  px-[12px] py-[9px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px] w-full${item.destructive ? " text-[var(--status-error)]" : " text-[var(--text-primary)]"}`}`}
 				>
 					<span>{item.label}</span>
 					{item.shortcut ? (
-						<span className="font-mono text-[11px] text-[var(--text-tertiary)]">
-							{item.shortcut}
-						</span>
+						<span className="type-data   text-[var(--text-tertiary)]">{item.shortcut}</span>
 					) : null}
 				</button>
 			))}

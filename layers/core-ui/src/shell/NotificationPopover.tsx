@@ -135,21 +135,19 @@ export function NotificationPopover({
 			data-testid="notification-popover"
 			data-dialog-layer={overlayProps["data-dialog-layer"]}
 			// @lore AI2: z-30 removed; z-layer now via --z-overlay token in style prop (AC-3).
-			className="fixed bottom-16 left-4 flex w-[360px] flex-col overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
+			className="border-[var(--bw-thin)] fixed bottom-16 left-4 flex w-[360px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
 			style={{ zIndex: overlayProps.style.zIndex, maxHeight: "70vh" }}
 		>
 			{/* Header */}
 			<div
-				className="flex shrink-0 items-center justify-between border-b border-[var(--border-subtle)]"
+				className="border-b-[var(--bw-thin)] flex shrink-0 items-center justify-between  border-[var(--border-subtle)]"
 				style={{ padding: "12px 18px" }}
 			>
 				<span
 					style={{
-						fontFamily: "var(--font-sans)",
-						fontSize: "15px",
-						fontWeight: 600,
 						color: "var(--text-primary)",
 					}}
+					className="type-small"
 				>
 					Notifications
 				</span>
@@ -157,19 +155,19 @@ export function NotificationPopover({
 					type="button"
 					onClick={onClose}
 					aria-label="Close notifications"
-					className="flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--accent-deep)]"
+					className="border-none flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--accent-deep)]"
 					style={{
 						background: "none",
 						border: "none",
 						cursor: "pointer",
-						fontSize: "18px",
-						lineHeight: 1,
 						padding: "6px",
 						minWidth: "36px",
 						minHeight: "36px",
 					}}
 				>
-					×
+					<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
+						<path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+					</svg>
 				</button>
 			</div>
 
@@ -193,11 +191,10 @@ export function NotificationPopover({
 					>
 						<p
 							style={{
-								fontFamily: "var(--font-sans)",
-								fontSize: "13px",
 								color: "var(--text-secondary)",
 								margin: 0,
 							}}
+							className="type-small"
 						>
 							Couldn't load notifications
 						</p>
@@ -230,7 +227,7 @@ export function NotificationPopover({
 								<li
 									key={row.id}
 									data-testid={`notification-row-${row.id}`}
-									className="group relative border-b border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
+									className="border-b-[var(--bw-thin)] group relative  border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 								>
 									{/*
 									 * Single-line dense row: div with row-level keyboard/click for jump,
@@ -270,12 +267,9 @@ export function NotificationPopover({
 
 										{/* 2. Title */}
 										<span
-											className="flex-1 truncate"
+											className="type-small flex-1 truncate"
 											style={{
-												fontFamily: "var(--font-sans)",
-												fontSize: "15px",
 												color: "var(--text-primary)",
-												fontWeight: 500,
 											}}
 										>
 											{row.title}
@@ -284,13 +278,12 @@ export function NotificationPopover({
 										{/* 3. Type label */}
 										<span
 											style={{
-												fontFamily: "var(--font-mono)",
-												fontSize: "11px",
 												color: "var(--text-tertiary)",
-												letterSpacing: "var(--tracking-caps-sm)",
+
 												textTransform: "uppercase",
 												whiteSpace: "nowrap",
 											}}
+											className="type-label"
 										>
 											{typeLabel}
 										</span>
@@ -299,27 +292,26 @@ export function NotificationPopover({
 										<span
 											data-testid="notification-time"
 											style={{
-												fontFamily: "var(--font-sans)",
-												fontSize: "12px",
 												color: "var(--text-tertiary)",
 												fontVariantNumeric: "tabular-nums",
 												whiteSpace: "nowrap",
 												flexShrink: 0,
 											}}
+											className="type-small"
 										>
 											{relativeShort(row.createdAt)}
 										</span>
 
 										{/* 5. Trailing affordances — hover-reveal mute + dismiss */}
 										<span
-											className="flex shrink-0 items-center gap-[3px] opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+											className="motion-feedback flex shrink-0 items-center gap-[3px] opacity-0  group-hover:opacity-100 focus-within:opacity-100"
 											style={{ flexShrink: 0 }}
 										>
 											{/* Mute (bell-slash SVG glyph) */}
 											<button
 												type="button"
 												aria-label={`Mute ${typeLabel} notifications`}
-												className="flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+												className="border-none flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 												style={{
 													background: "none",
 													border: "none",
@@ -357,7 +349,7 @@ export function NotificationPopover({
 											<button
 												type="button"
 												aria-label="Dismiss notification"
-												className="flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+												className="border-none flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 												style={{
 													background: "none",
 													border: "none",
@@ -365,14 +357,20 @@ export function NotificationPopover({
 													padding: "3px",
 													minWidth: "36px",
 													minHeight: "36px",
-													fontSize: "16px",
 												}}
 												onClick={(e) => {
 													e.stopPropagation();
 													void markRead(row.id);
 												}}
 											>
-												×
+												<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
+													<path
+														d="m4 4 8 8m0-8-8 8"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="1.5"
+													/>
+												</svg>
 											</button>
 										</span>
 									</div>

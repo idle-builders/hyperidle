@@ -41,11 +41,11 @@ function ToolbarButton({
 			onClick={onClick}
 			aria-label={ariaLabel}
 			aria-pressed={isActive}
-			className={`w-[28px] h-[28px] flex items-center justify-center rounded-[var(--r-subtle)] text-[13px] font-medium cursor-pointer transition-colors ${
+			className={`type-control ${`w-[28px] h-[28px] flex items-center justify-center rounded-[var(--r-subtle)] cursor-pointer ${
 				isActive
 					? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 					: "text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)]"
-			}`}
+			}`}`}
 		>
 			{children}
 		</button>
@@ -83,7 +83,7 @@ export function FloatingToolbar({ editor }: FloatingToolbarProps): JSX.Element {
 			<div
 				role="toolbar"
 				aria-label="Text formatting"
-				className="flex items-center gap-[3px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] px-[3px] py-[3px]"
+				className="border-[var(--bw-thin)] flex items-center gap-[3px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)] shadow-[var(--shadow-elevated)] px-[3px] py-[3px]"
 			>
 				<ToolbarButton
 					onClick={() => editor.chain().focus().toggleBold().run()}

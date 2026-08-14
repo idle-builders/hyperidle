@@ -145,7 +145,7 @@ export function WorkOverviewView({
 				<PageHeader
 					title="Teams"
 					subtitle={
-						<span className="text-[13px] text-[var(--text-tertiary)]">
+						<span className="type-small  text-[var(--text-tertiary)]">
 							{teams.length} {teams.length === 1 ? "team" : "teams"}
 						</span>
 					}
