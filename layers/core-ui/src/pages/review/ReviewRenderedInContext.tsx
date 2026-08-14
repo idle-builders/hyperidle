@@ -91,10 +91,7 @@ export const FIXTURE: RenderedEmail = {
 
 function ChromeLabel({ children }: { readonly children: string }): JSX.Element {
 	return (
-		<span
-			className="text-[11px] font-[600] uppercase"
-			style={{ color: "var(--text-tertiary)", letterSpacing: "var(--tracking-caps-sm)" }}
-		>
+		<span className="type-label   uppercase" style={{ color: "var(--text-tertiary)" }}>
 			{children}
 		</span>
 	);
@@ -115,7 +112,7 @@ function ViewportToggle({
 			className="inline-flex items-center gap-[3px] p-[3px]"
 			style={{
 				background: "var(--surface-container)",
-				border: "1px solid var(--border-subtle)",
+				border: "var(--bw-thin) solid var(--border-subtle)",
 				borderRadius: "var(--r-pill)",
 			}}
 		>
@@ -128,13 +125,12 @@ function ViewportToggle({
 						role="tab"
 						aria-selected={active}
 						onClick={() => onChange(opt)}
-						className="px-[12px] py-[6px] text-[12px] font-[600] capitalize transition-[opacity]"
+						className="type-control px-[12px] py-[6px]   capitalize "
 						style={{
 							borderRadius: "var(--r-pill)",
 							background: active ? "var(--surface-elevated)" : "transparent",
 							color: active ? "var(--text-primary)" : "var(--text-secondary)",
 							boxShadow: active ? "var(--shadow-subtle)" : "none",
-							transitionDuration: "var(--motion-fast)",
 						}}
 					>
 						{opt}
@@ -161,15 +157,13 @@ export function EmailRender({
 	const width = viewport === "mobile" ? 380 : 600;
 	return (
 		<div
-			className="mx-auto overflow-hidden transition-[max-width]"
+			className="mx-auto overflow-hidden "
 			style={{
 				maxWidth: width,
 				width: "100%",
 				background: "#ffffff",
 				border: "1px solid #e2dcd2",
 				borderRadius: 12,
-				transitionDuration: "var(--motion-default)",
-				transitionTimingFunction: "var(--motion-ease)",
 			}}
 		>
 			{/* email header / logo bar */}
@@ -290,12 +284,11 @@ function ReviewRenderedInContextView({
 
 	return (
 		<div
-			className="flex flex-col gap-[18px] p-[18px] text-left"
+			className="type-small flex flex-col gap-[18px] p-[18px] text-left"
 			style={{
 				maxWidth: 760,
 				background: "var(--surface-page)",
 				color: "var(--text-primary)",
-				fontFamily: "var(--font-sans)",
 			}}
 		>
 			{/* ── L1: the inbox row ────────────────────────────────────────────── */}
@@ -304,16 +297,16 @@ function ReviewRenderedInContextView({
 				className="flex flex-col gap-[9px] p-[12px]"
 				style={{
 					background: "var(--surface-container)",
-					border: "1px solid var(--border-subtle)",
+					border: "var(--bw-thin) solid var(--border-subtle)",
 					borderRadius: "var(--r-default)",
 				}}
 			>
 				<div className="flex items-center gap-[9px]">
 					<ToolLogo tool="mailchimp" size="md" withLabel label="" />
-					<span className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+					<span className="type-metadata " style={{ color: "var(--text-tertiary)" }}>
 						·
 					</span>
-					<span className="text-[12px] font-[500]" style={{ color: "var(--text-secondary)" }}>
+					<span className="type-metadata  " style={{ color: "var(--text-secondary)" }}>
 						{data.audienceLabel}
 					</span>
 				</div>
@@ -323,13 +316,13 @@ function ReviewRenderedInContextView({
 					className="flex items-start gap-[12px] p-[12px]"
 					style={{
 						background: "var(--surface-elevated)",
-						border: "1px solid var(--border-subtle)",
+						border: "var(--bw-thin) solid var(--border-subtle)",
 						borderRadius: "var(--r-subtle)",
 						boxShadow: "var(--shadow-subtle)",
 					}}
 				>
 					<div
-						className="mt-[3px] flex h-[36px] w-[36px] shrink-0 items-center justify-center text-[15px] font-[700]"
+						className="type-copy mt-[3px] flex h-[36px] w-[36px] shrink-0 items-center justify-center  "
 						style={{
 							background: "var(--accent-primary-dim)",
 							color: "var(--accent-primary)",
@@ -340,23 +333,17 @@ function ReviewRenderedInContextView({
 					</div>
 					<div className="flex min-w-0 flex-1 flex-col gap-[3px]">
 						<div className="flex items-baseline justify-between gap-[12px]">
-							<span
-								className="truncate text-[15px] font-[700]"
-								style={{ color: "var(--text-primary)" }}
-							>
+							<span className="type-copy truncate  " style={{ color: "var(--text-primary)" }}>
 								{data.sender}
 							</span>
-							<span className="shrink-0 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+							<span className="type-metadata shrink-0 " style={{ color: "var(--text-tertiary)" }}>
 								{data.receivedAt}
 							</span>
 						</div>
-						<span
-							className="truncate text-[15px] font-[600]"
-							style={{ color: "var(--text-primary)" }}
-						>
+						<span className="type-copy truncate  " style={{ color: "var(--text-primary)" }}>
 							{data.subject}
 						</span>
-						<span className="truncate text-[13px]" style={{ color: "var(--text-secondary)" }}>
+						<span className="type-small truncate " style={{ color: "var(--text-secondary)" }}>
 							{data.preview}
 						</span>
 					</div>
@@ -378,7 +365,7 @@ function ReviewRenderedInContextView({
 					className="p-[24px]"
 					style={{
 						background: "var(--surface-container)",
-						border: "1px solid var(--border-subtle)",
+						border: "var(--bw-thin) solid var(--border-subtle)",
 						borderRadius: "var(--r-default)",
 					}}
 				>
@@ -415,36 +402,33 @@ function ReviewRenderedInContextView({
 					type="button"
 					onClick={() => setFlagsOpen((o) => !o)}
 					aria-expanded={flagsOpen}
-					className="flex items-center justify-between gap-[12px] p-[12px] text-left transition-[opacity]"
+					className="flex items-center justify-between gap-[12px] p-[12px] text-left "
 					style={{
 						background: "var(--surface-container)",
-						border: "1px solid var(--border-subtle)",
+						border: "var(--bw-thin) solid var(--border-subtle)",
 						borderRadius: "var(--r-default)",
-						transitionDuration: "var(--motion-fast)",
 					}}
 				>
 					<div className="flex items-center gap-[9px]">
 						<span
-							className="flex items-center gap-[6px] px-[9px] py-[3px] text-[12px] font-[600] uppercase"
+							className="type-label flex items-center gap-[6px] px-[9px] py-[3px]   uppercase"
 							style={{
 								background: "var(--accent-secondary-dim)",
 								color: "var(--status-warning)",
 								borderRadius: "var(--r-pill)",
-								letterSpacing: "var(--tracking-caps-sm)",
 							}}
 						>
 							{flagCount} flag{flagCount === 1 ? "" : "s"}
 						</span>
-						<span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+						<span className="type-small " style={{ color: "var(--text-secondary)" }}>
 							{flagCount > 0 ? "1 unverified claim · send plan · exclusions" : "No flags"}
 						</span>
 					</div>
 					<span
-						className="text-[12px] transition-transform"
+						className="motion-move type-metadata  "
 						style={{
 							color: "var(--text-tertiary)",
 							transform: flagsOpen ? "rotate(180deg)" : "none",
-							transitionDuration: "var(--motion-fast)",
 						}}
 						aria-hidden="true"
 					>
@@ -461,15 +445,14 @@ function ReviewRenderedInContextView({
 								className="flex flex-col gap-[3px] p-[12px]"
 								style={{
 									background: "var(--surface-container)",
-									borderLeft: "3px solid var(--status-warning)",
-									border: "1px solid var(--border-subtle)",
+									border: "var(--bw-thin) solid var(--border-subtle)",
 									borderRadius: "var(--r-subtle)",
 								}}
 							>
-								<span className="text-[13px] font-[600]" style={{ color: "var(--text-primary)" }}>
+								<span className="type-small  " style={{ color: "var(--text-primary)" }}>
 									“{claim.text}”
 								</span>
-								<span className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+								<span className="type-metadata " style={{ color: "var(--text-secondary)" }}>
 									{claim.reason}
 								</span>
 							</div>
@@ -480,20 +463,20 @@ function ReviewRenderedInContextView({
 							className="flex flex-col gap-[6px] p-[12px]"
 							style={{
 								background: "var(--surface-container)",
-								border: "1px solid var(--border-subtle)",
+								border: "var(--bw-thin) solid var(--border-subtle)",
 								borderRadius: "var(--r-subtle)",
 							}}
 						>
 							<div className="flex items-baseline justify-between gap-[12px]">
 								<ChromeLabel>Send plan</ChromeLabel>
 								<span
-									className="text-[13px] font-[600]"
+									className="type-small  "
 									style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
 								>
 									{data.sendPlan}
 								</span>
 							</div>
-							<span className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+							<span className="type-metadata " style={{ color: "var(--text-secondary)" }}>
 								{data.excludedNote}
 							</span>
 						</div>
@@ -504,17 +487,16 @@ function ReviewRenderedInContextView({
 			{/* verdict gate — the canvas surfaces it; the frame owns resolution */}
 			<div
 				className="flex items-center gap-[9px] pt-[12px]"
-				style={{ borderTop: "1px solid var(--border-subtle)" }}
+				style={{ borderTop: "var(--bw-thin) solid var(--border-subtle)" }}
 			>
 				<button
 					type="button"
 					onClick={() => onApprove?.()}
-					className="px-[18px] py-[10px] text-[13px] font-[600] transition-[opacity]"
+					className="type-control px-[18px] py-[10px]   "
 					style={{
 						background: "var(--accent-primary)",
 						color: "var(--surface-page)",
 						borderRadius: "var(--r-pill)",
-						transitionDuration: "var(--motion-fast)",
 					}}
 				>
 					Approve send
@@ -522,13 +504,12 @@ function ReviewRenderedInContextView({
 				<button
 					type="button"
 					onClick={() => onRequestChanges?.()}
-					className="px-[18px] py-[10px] text-[13px] font-[600] transition-[opacity]"
+					className="type-control px-[18px] py-[10px]   "
 					style={{
 						background: "var(--surface-elevated)",
 						color: "var(--text-primary)",
-						border: "1px solid var(--border-default)",
+						border: "var(--bw-thin) solid var(--border-default)",
 						borderRadius: "var(--r-pill)",
-						transitionDuration: "var(--motion-fast)",
 					}}
 				>
 					Request changes

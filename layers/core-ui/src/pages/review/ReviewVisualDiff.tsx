@@ -120,16 +120,16 @@ function MockScreen({ variant, active }: ScreenProps): JSX.Element {
 
 	return (
 		<div
-			className="overflow-hidden border border-[var(--border-default)] bg-[var(--surface-page)]"
+			className="border-[var(--bw-thin)] overflow-hidden  border-[var(--border-default)] bg-[var(--surface-page)]"
 			style={{ borderRadius: "var(--r-default)" }}
 		>
 			{/* hero band */}
 			<div
-				className="border-b border-[var(--border-subtle)] bg-[var(--surface-container)]"
+				className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 				style={{ padding: heroPad, ...(active === "hero" ? HL : {}) }}
 			>
-				<div className="text-[17px] font-[600] text-[var(--text-primary)]">Create your account</div>
-				<div className="mt-[3px] text-[12px] text-[var(--text-tertiary)]">
+				<div className="type-lead   text-[var(--text-primary)]">Create your account</div>
+				<div className="type-metadata mt-[3px]  text-[var(--text-tertiary)]">
 					Start your 14-day trial — no card required.
 				</div>
 			</div>
@@ -145,7 +145,7 @@ function MockScreen({ variant, active }: ScreenProps): JSX.Element {
 			{/* cta band */}
 			<div className="px-[18px] pb-[18px]" style={active === "cta" ? HL : undefined}>
 				<div
-					className="flex h-[36px] items-center justify-center text-[13px] font-[600] text-[var(--text-on-accent)]"
+					className="type-small flex h-[36px] items-center justify-center   text-[var(--text-on-accent)]"
 					style={{ background: ctaBg, borderRadius: "var(--r-pill)" }}
 				>
 					Create account
@@ -158,9 +158,9 @@ function MockScreen({ variant, active }: ScreenProps): JSX.Element {
 function Field({ label, placeholder }: { label: string; placeholder: string }): JSX.Element {
 	return (
 		<div>
-			<div className="mb-[3px] text-[11px] font-[500] text-[var(--text-secondary)]">{label}</div>
+			<div className="type-label mb-[3px]   text-[var(--text-secondary)]">{label}</div>
 			<div
-				className="flex h-[30px] items-center border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-[12px] text-[var(--text-placeholder)]"
+				className="type-metadata border-[var(--bw-thin)] flex h-[30px] items-center  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px]  text-[var(--text-placeholder)]"
 				style={{ borderRadius: "var(--r-subtle)" }}
 			>
 				{placeholder}
@@ -184,10 +184,10 @@ function RenderPane({
 		<div className="flex flex-col gap-[6px]">
 			<div className="flex items-center gap-[6px]">
 				<ToolLogo tool="figma" size="sm" label="" />
-				<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+				<span className="type-label   uppercase  text-[var(--text-secondary)]">
 					{isDesign ? "Design" : "Build"}
 				</span>
-				<span className="text-[11px] text-[var(--text-tertiary)] truncate">{source}</span>
+				<span className="type-metadata  text-[var(--text-tertiary)] truncate">{source}</span>
 			</div>
 			<MockScreen variant={variant} active={active} />
 		</div>
@@ -200,7 +200,7 @@ function Thumb({ variant }: { readonly variant: "design" | "build" }): JSX.Eleme
 	const ctaBg = isDesign ? "var(--accent-primary)" : "var(--accent-secondary)";
 	return (
 		<div
-			className="w-[72px] shrink-0 overflow-hidden border border-[var(--border-default)] bg-[var(--surface-page)]"
+			className="border-[var(--bw-thin)] w-[72px] shrink-0 overflow-hidden  border-[var(--border-default)] bg-[var(--surface-page)]"
 			style={{ borderRadius: "var(--r-subtle)" }}
 			aria-hidden="true"
 		>
@@ -236,7 +236,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 
 	return (
 		<section
-			className="flex flex-col border border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="border-[var(--bw-thin)] flex flex-col  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 			style={{
 				borderRadius: "var(--r-default)",
 				boxShadow: "var(--shadow-default)",
@@ -254,12 +254,12 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 						<div className="flex items-center gap-[6px]">
 							<span
 								data-spacing-role="compact-pill"
-								className="inline-flex items-center gap-[4px] px-[9px] py-[3px] text-[11px] font-[600] text-[var(--status-warning)]"
+								className="type-metadata inline-flex items-center gap-[4px] px-[9px] py-[3px]   text-[var(--status-warning)]"
 								style={{ background: "var(--accent-secondary-dim)", borderRadius: "var(--r-pill)" }}
 							>
 								{count} regions differ
 							</span>
-							<span className="text-[11px] text-[var(--text-tertiary)] truncate">
+							<span className="type-metadata  text-[var(--text-tertiary)] truncate">
 								{diff.frame} → {diff.builtIn}
 							</span>
 						</div>
@@ -269,7 +269,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 				{/* ── L2: at-size compare + mode toggle ── */}
 				<div className="flex items-center gap-[6px]">
 					<div
-						className="inline-flex gap-[3px] border border-[var(--border-subtle)] bg-[var(--surface-page)] p-[3px]"
+						className="border-[var(--bw-thin)] inline-flex gap-[3px]  border-[var(--border-subtle)] bg-[var(--surface-page)] p-[3px]"
 						style={{ borderRadius: "var(--r-pill)" }}
 						role="tablist"
 						aria-label="Compare mode"
@@ -283,7 +283,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 									role="tab"
 									aria-selected={on}
 									onClick={() => setMode(m.id)}
-									className="px-[12px] py-[6px] text-[12px] font-[500] transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+									className="type-control px-[12px] py-[6px]     "
 									style={{
 										borderRadius: "var(--r-pill)",
 										background: on ? "var(--accent-primary)" : "transparent",
@@ -296,7 +296,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 						})}
 					</div>
 					{mode === "overlay" || mode === "swipe" ? (
-						<label className="flex items-center gap-[6px] text-[11px] text-[var(--text-tertiary)]">
+						<label className="type-metadata flex items-center gap-[6px]  text-[var(--text-tertiary)]">
 							{mode === "overlay" ? "Build opacity" : "Reveal"}
 							<input
 								type="range"
@@ -320,7 +320,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 					<div className="flex flex-col gap-[6px]">
 						<div className="flex items-center gap-[6px]">
 							<ToolLogo tool="figma" size="sm" label="" />
-							<span className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-secondary)]">
+							<span className="type-label   uppercase  text-[var(--text-secondary)]">
 								Design under · Build over
 							</span>
 						</div>
@@ -351,7 +351,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 
 				{/* ── L3: flagged regions (relevance-ordered; click to highlight) ── */}
 				<div className="flex flex-col gap-[6px]">
-					<div className="text-[11px] font-[600] uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
+					<div className="type-label   uppercase  text-[var(--text-tertiary)]">
 						Differing regions
 					</div>
 					<div className="flex flex-wrap gap-[6px]">
@@ -364,14 +364,14 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 									type="button"
 									aria-pressed={on}
 									onClick={() => pick(r.id)}
-									className="flex flex-col gap-[3px] border px-[12px] py-[6px] text-left transition-[border-color,background] duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+									className="border-[var(--bw-thin)] flex flex-col gap-[3px]  px-[12px] py-[6px] text-left   "
 									style={{
 										borderRadius: "var(--r-subtle)",
 										borderColor: on ? "var(--accent-primary)" : "var(--border-default)",
 										background: on ? "var(--accent-primary-dim)" : "var(--surface-page)",
 									}}
 								>
-									<span className="flex items-center gap-[6px] text-[12px] font-[600] text-[var(--text-primary)]">
+									<span className="type-metadata flex items-center gap-[6px]   text-[var(--text-primary)]">
 										<span
 											aria-hidden="true"
 											className="inline-block h-[6px] w-[6px] rounded-[var(--r-pill)]"
@@ -381,7 +381,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 										/>
 										{r.label}
 									</span>
-									<span className="text-[11px] text-[var(--text-tertiary)]">
+									<span className="type-metadata  text-[var(--text-tertiary)]">
 										<span className="line-through">{r.design}</span> → {r.build}
 									</span>
 								</button>

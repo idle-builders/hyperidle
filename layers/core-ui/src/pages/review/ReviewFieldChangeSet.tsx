@@ -131,7 +131,7 @@ function FieldRow({
 
 	return (
 		<div
-			className="border-b border-[var(--border-subtle)] last:border-b-0"
+			className="border-b-[var(--bw-thin)] border-none  border-[var(--border-subtle)] "
 			style={
 				needs
 					? { background: "var(--accent-secondary-dim)" }
@@ -153,27 +153,27 @@ function FieldRow({
 
 				<div className="min-w-0 flex-1">
 					<div className="flex items-baseline gap-[9px]">
-						<span className="w-[96px] shrink-0 text-[12px] font-[500] text-[var(--text-tertiary)]">
+						<span className="type-metadata w-[96px] shrink-0   text-[var(--text-tertiary)]">
 							{field.label}
 						</span>
 
 						<div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-[9px] gap-y-[3px]">
 							{field.kind === "added" ? (
-								<span className="text-[13px] text-[var(--status-success)]">+ added</span>
+								<span className="type-small  text-[var(--status-success)]">+ added</span>
 							) : field.before != null ? (
-								<span className="text-[13px] text-[var(--text-tertiary)] line-through decoration-[var(--border-strong)]">
+								<span className="type-small  text-[var(--text-tertiary)] line-through decoration-[var(--border-strong)]">
 									<MoneyOrText text={field.before} money={money} />
 								</span>
 							) : (
-								<span className="text-[13px] text-[var(--text-tertiary)]">—</span>
+								<span className="type-small  text-[var(--text-tertiary)]">—</span>
 							)}
 
-							<span aria-hidden className="text-[12px] text-[var(--text-tertiary)]">
+							<span aria-hidden className="type-metadata  text-[var(--text-tertiary)]">
 								→
 							</span>
 
 							<span
-								className="rounded-[var(--r-subtle)] px-[6px] py-[3px] text-[15px] font-[600] text-[var(--text-primary)]"
+								className="type-copy rounded-[var(--r-subtle)] px-[6px] py-[3px]   text-[var(--text-primary)]"
 								style={{ background: "var(--accent-secondary-dim)" }}
 							>
 								<MoneyOrText text={field.after} money={money} />
@@ -181,7 +181,7 @@ function FieldRow({
 
 							{needs ? (
 								<span
-									className="rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[600]"
+									className="type-metadata rounded-[var(--r-pill)] px-[9px] py-[3px]  "
 									style={{
 										background: "var(--accent-secondary-dim)",
 										color: "var(--status-warning)",
@@ -196,8 +196,7 @@ function FieldRow({
 							type="button"
 							onClick={() => onToggleExpand(field.id)}
 							aria-expanded={expanded}
-							className="shrink-0 rounded-[var(--r-pill)] px-[9px] py-[3px] text-[12px] font-[500] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-							style={{ transition: "opacity var(--motion-fast) var(--motion-ease)" }}
+							className="type-control shrink-0 rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 						>
 							{expanded ? "Hide source" : "Source"}
 						</button>
@@ -209,13 +208,13 @@ function FieldRow({
 							data-spacing-role="coordinate"
 							className="mt-[9px] ml-[105px] flex flex-col gap-[6px]"
 						>
-							<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
+							<div className="type-metadata flex items-center gap-[6px]  text-[var(--text-secondary)]">
 								<ToolLogo tool="salesforce" size="sm" label="" />
 								<span>{field.source}</span>
 							</div>
 							{needs ? (
 								<div
-									className="rounded-[var(--r-subtle)] px-[9px] py-[6px] text-[12px]"
+									className="type-metadata rounded-[var(--r-subtle)] px-[9px] py-[6px] "
 									style={{
 										background: "var(--accent-secondary-dim)",
 										color: "var(--status-warning)",
@@ -270,16 +269,16 @@ export function ReviewFieldChangeSetView({
 
 	return (
 		<div
-			className="w-[640px] overflow-hidden rounded-[var(--r-default)] border border-[var(--border-default)]"
+			className="border-[var(--bw-thin)] w-[640px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)]"
 			style={{
 				background: "var(--surface-container)",
 				boxShadow: "var(--shadow-default)",
 			}}
 		>
 			{/* ── L1 — one-glance summary (tool/record now in source header) ── */}
-			<div className="border-b border-[var(--border-default)] px-[18px] py-[12px]">
+			<div className="border-b-[var(--bw-thin)]  border-[var(--border-default)] px-[18px] py-[12px]">
 				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-[6px] text-[13px] text-[var(--text-secondary)]">
+					<div className="type-small flex flex-wrap items-center gap-[6px]  text-[var(--text-secondary)]">
 						<span>1 record</span>
 						<span aria-hidden className="text-[var(--text-tertiary)]">
 							·
@@ -289,7 +288,7 @@ export function ReviewFieldChangeSetView({
 							·
 						</span>
 						<span
-							className="rounded-[var(--r-pill)] px-[6px] py-[3px] text-[12px] font-[600]"
+							className="type-metadata rounded-[var(--r-pill)] px-[6px] py-[3px]  "
 							style={{
 								background: "var(--accent-secondary-dim)",
 								color: "var(--status-warning)",
@@ -320,10 +319,9 @@ export function ReviewFieldChangeSetView({
 				type="button"
 				onClick={() => setShowUnchanged((v) => !v)}
 				aria-expanded={showUnchanged}
-				className="flex w-full items-center gap-[6px] px-[18px] py-[9px] text-left text-[12px] font-[500] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+				className="type-control flex w-full items-center gap-[6px] px-[18px] py-[9px] text-left   text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
 				style={{
 					background: "var(--surface-page)",
-					transition: "opacity var(--motion-fast) var(--motion-ease)",
 				}}
 			>
 				<span aria-hidden>{showUnchanged ? "▾" : "▸"}</span>
@@ -331,7 +329,7 @@ export function ReviewFieldChangeSetView({
 			</button>
 			{showUnchanged ? (
 				<div
-					className="px-[18px] py-[9px] text-[12px] text-[var(--text-tertiary)]"
+					className="type-metadata px-[18px] py-[9px]  text-[var(--text-tertiary)]"
 					style={{ background: "var(--surface-page)" }}
 				>
 					Owner, Lead source, Probability, Type, Account, and {changeSet.unchangedCount - 5} more
@@ -341,16 +339,16 @@ export function ReviewFieldChangeSetView({
 
 			{/* ── footer — per-field approve rollup (frame owns the final verdict) ── */}
 			<div
-				className="flex items-center justify-between border-t border-[var(--border-default)] px-[18px] py-[12px]"
+				className="border-t-[var(--bw-thin)] flex items-center justify-between  border-[var(--border-default)] px-[18px] py-[12px]"
 				style={{ background: "var(--surface-page)" }}
 			>
-				<span className="text-[12px] text-[var(--text-secondary)]">
+				<span className="type-metadata  text-[var(--text-secondary)]">
 					{approved.size} of {changeSet.changed.length} fields approved
 				</span>
 				<button
 					type="button"
 					onClick={() => setApproved(new Set(changeSet.changed.map((f) => f.id)))}
-					className="rounded-[var(--r-pill)] px-[12px] py-[6px] text-[13px] font-[600] text-[var(--text-on-accent)]"
+					className="type-control rounded-[var(--r-pill)] px-[12px] py-[6px]   text-[var(--text-on-accent)]"
 					style={{ background: "var(--accent-primary)" }}
 				>
 					Approve all fields

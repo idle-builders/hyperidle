@@ -228,9 +228,9 @@ const BAND_LABEL: Record<ChangedFile["band"], string> = {
 /** the +N/−M change badge — tabular-nums so the digits never shift column. */
 function ChangeBadge({ added, removed }: { added: number; removed: number }): JSX.Element {
 	return (
-		<span className="inline-flex items-center gap-[6px] text-[12px] font-mono tabular-nums leading-none">
-			<span className="text-[var(--status-success)] font-[600]">+{added}</span>
-			<span className="text-[var(--status-error)] font-[600]">−{removed}</span>
+		<span className="type-data inline-flex items-center gap-[6px]   tabular-nums ">
+			<span className="type-small text-[var(--status-success)] ">+{added}</span>
+			<span className="type-small text-[var(--status-error)] ">−{removed}</span>
 		</span>
 	);
 }
@@ -240,7 +240,7 @@ function Chevron({ open }: { open: boolean }): JSX.Element {
 		<svg
 			aria-hidden="true"
 			viewBox="0 0 12 12"
-			className="h-[12px] w-[12px] shrink-0 text-[var(--text-tertiary)] transition-transform duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+			className="motion-move h-[12px] w-[12px] shrink-0 text-[var(--text-tertiary)]   "
 			style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
 		>
 			<path
@@ -295,8 +295,8 @@ function ReviewedBox({
 			// Checkbox icon-only variant per design-system.md's promotion rule
 			// if a second consumer needs the same shape.
 			className={[
-				"inline-flex h-[18px] w-[18px] items-center justify-center rounded-[var(--r-subtle)] border-[1.5px] shrink-0",
-				"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				"inline-flex h-[18px] w-[18px] items-center justify-center rounded-[var(--r-subtle)]  shrink-0",
+				"  ",
 				reviewed
 					? // eslint-disable-next-line design/no-handrolled-control -- see comment above className
 						"bg-[var(--accent-primary)] border-[var(--accent-primary)] text-[var(--text-on-accent)]"
@@ -312,7 +312,7 @@ function ReviewedBox({
 function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element {
 	return (
 		<div className="flex flex-wrap items-center gap-[9px]">
-			<span className="inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[3px] text-[12px] font-[600] text-[var(--status-success)]">
+			<span className="type-metadata inline-flex items-center gap-[6px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[3px]   text-[var(--status-success)]">
 				<CheckGlyph />
 				All checks passed
 			</span>
@@ -320,7 +320,7 @@ function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element
 				{checks.map((c) => (
 					<span
 						key={c.label}
-						className="inline-flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]"
+						className="type-metadata inline-flex items-center gap-[6px]  text-[var(--text-secondary)]"
 					>
 						<span className="text-[var(--status-success)]">
 							<CheckGlyph />
@@ -328,14 +328,12 @@ function CiRow({ checks }: { readonly checks: readonly CiCheck[] }): JSX.Element
 						{c.label}
 					</span>
 				))}
-				<span className="inline-flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
+				<span className="type-metadata inline-flex items-center gap-[6px]  text-[var(--text-secondary)]">
 					<span className="text-[var(--status-success)]">
 						<CheckGlyph />
 					</span>
 					coverage
-					<span className="font-mono tabular-nums font-[600] text-[var(--status-success)]">
-						+0.4%
-					</span>
+					<span className="type-data  tabular-nums  text-[var(--status-success)]">+0.4%</span>
 				</span>
 			</div>
 		</div>
@@ -440,7 +438,7 @@ function FileDiff({
 			<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
 				{ref.oldNo ?? ""}
 			</span>
-			<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums border-r border-[var(--border-subtle)]">
+			<span className="border-r-[var(--bw-thin)] select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums  border-[var(--border-subtle)]">
 				{ref.newNo ?? ""}
 			</span>
 		</>
@@ -462,7 +460,7 @@ function FileDiff({
 				// (44px touch) — more than double this affordance's footprint —
 				// and would collide with the line-number gutter. Not a Button fit.
 				// eslint-disable-next-line design/no-handrolled-control -- see comment above
-				className="absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[12px] leading-none group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+				className="type-control absolute left-[68px] top-1/2 hidden h-[16px] w-[16px] -translate-y-1/2 items-center justify-center rounded-[var(--r-subtle)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]   group-hover/line:flex focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 			>
 				+
 			</button>
@@ -532,7 +530,7 @@ function FileDiff({
 	const delta = toDelta(filePath, hunks);
 
 	return (
-		<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-container)]">
+		<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] bg-[var(--surface-container)]">
 			<CodeDeltaRenderer
 				delta={delta}
 				renderLineGutter={renderLineGutter}
@@ -569,9 +567,9 @@ function FileCard({
 	const dir = file.path.slice(0, file.path.lastIndexOf("/") + 1);
 	const name = file.path.slice(file.path.lastIndexOf("/") + 1);
 	return (
-		<div className="overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
+		<div className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
 			{showBand ? (
-				<div className="px-[12px] pt-[9px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+				<div className="type-label px-[12px] pt-[9px]   uppercase  text-[var(--text-tertiary)]">
 					{BAND_LABEL[file.band]}
 				</div>
 			) : null}
@@ -590,16 +588,16 @@ function FileCard({
 				className="flex w-full cursor-pointer items-center gap-[9px] px-[12px] py-[9px] text-left"
 			>
 				<Chevron open={open} />
-				<span className="min-w-0 flex-1 truncate font-mono text-[13px] text-[var(--text-primary)]">
+				<span className="type-data min-w-0 flex-1 truncate   text-[var(--text-primary)]">
 					<span className="text-[var(--text-tertiary)]">{dir}</span>
-					<span className="font-[600]">{name}</span>
+					<span className="type-small ">{name}</span>
 				</span>
 				<ChangeBadge added={file.added} removed={file.removed} />
 				<ReviewedBox reviewed={file.reviewed} onToggle={onToggleReviewed} />
 			</div>
 			{/* "why this matters" lead — tertiary prose above the hunks, distinct from code. */}
 			{open && file.rationale ? (
-				<p className="border-t border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-[12px] leading-[1.45] text-[var(--text-tertiary)]">
+				<p className="border-t-[var(--bw-thin)] type-metadata  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
 					{file.rationale}
 				</p>
 			) : null}
@@ -685,16 +683,16 @@ function ReviewCodeDiffView({
 	return (
 		<section
 			aria-label="Code diff review"
-			className="w-full max-w-[860px] overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-[var(--shadow-default)]"
+			className="border-[var(--bw-thin)] w-full max-w-[860px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-[var(--shadow-default)]"
 		>
 			{/* ── L1: PR header ───────────────────────────────────────────────── */}
 			<header className="flex flex-col gap-[12px] p-[18px]">
 				<div className="flex items-start gap-[12px]">
 					<div className="min-w-0 flex-1">
-						<div className="flex items-center gap-[9px] text-[12px] text-[var(--text-tertiary)]">
+						<div className="type-metadata flex items-center gap-[9px]  text-[var(--text-tertiary)]">
 							<span
 								data-spacing-role="compact-pill"
-								className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-success)]"
+								className="type-label inline-flex items-center gap-[4px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-success)_14%,transparent)] px-[9px] py-[2px]   uppercase  text-[var(--status-success)]"
 							>
 								Open
 							</span>
@@ -706,15 +704,13 @@ function ReviewCodeDiffView({
 				</div>
 
 				{/* PR / ship message — the agent's plain-language summary, prose not code. */}
-				<p className="max-w-[68ch] text-[13px] leading-[1.55] text-[var(--text-secondary)]">
-					{description}
-				</p>
+				<p className="type-small max-w-[68ch]   text-[var(--text-secondary)]">{description}</p>
 
 				<CiRow checks={checks} />
 
-				<div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-[12px]">
-					<span className="text-[12px] text-[var(--text-secondary)]">
-						<span className="font-mono tabular-nums font-[600] text-[var(--text-primary)]">
+				<div className="border-t-[var(--bw-thin)] flex items-center justify-between  border-[var(--border-subtle)] pt-[12px]">
+					<span className="type-metadata  text-[var(--text-secondary)]">
+						<span className="type-data  tabular-nums  text-[var(--text-primary)]">
 							{files.length + trivia.count}
 						</span>{" "}
 						files changed · relevance-ranked
@@ -722,7 +718,7 @@ function ReviewCodeDiffView({
 					<button
 						type="button"
 						onClick={collapseOrExpandAll}
-						className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+						className="type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)]"
 					>
 						{allCollapsed ? "Expand" : "Collapse"} {files.length + trivia.count} files changed
 					</button>
@@ -752,15 +748,13 @@ function ReviewCodeDiffView({
 
 				{/* MINOR band — the separation header + note so the user knows these don't need review */}
 				<div className="mt-[3px] flex items-baseline gap-[6px] px-[12px] pt-[6px]">
-					<span className="text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-						Minor
-					</span>
-					<span className="text-[11px] text-[var(--text-tertiary)]">
+					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Minor</span>
+					<span className="type-metadata  text-[var(--text-tertiary)]">
 						generated &amp; formatting — safe to skip
 					</span>
 				</div>
 				{/* generated / trivia — collapsed to one row, never line-by-line */}
-				<div className="rounded-[var(--r-subtle)] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
+				<div className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
 					<button
 						type="button"
 						onClick={() => setTriviaOpen((v) => !v)}
@@ -768,8 +762,8 @@ function ReviewCodeDiffView({
 						className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
 					>
 						<Chevron open={triviaOpen} />
-						<span className="flex-1 text-[13px] text-[var(--text-secondary)]">
-							<span className="font-mono tabular-nums font-[600] text-[var(--text-primary)]">
+						<span className="type-small flex-1  text-[var(--text-secondary)]">
+							<span className="type-data  tabular-nums  text-[var(--text-primary)]">
 								{trivia.count}
 							</span>{" "}
 							files · {trivia.summary}
@@ -777,7 +771,7 @@ function ReviewCodeDiffView({
 						<ChangeBadge added={trivia.added} removed={trivia.removed} />
 					</button>
 					{triviaOpen ? (
-						<div className="border-t border-[var(--border-subtle)] px-[12px] py-[9px] font-mono text-[12px] text-[var(--text-tertiary)]">
+						<div className="border-t-[var(--bw-thin)] type-data  border-[var(--border-subtle)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
 							<div>openapi/schema.gen.ts</div>
 							<div>package-lock.json</div>
 							<div>src/checkout/styles.css</div>

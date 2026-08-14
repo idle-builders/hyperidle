@@ -159,7 +159,7 @@ function stripMotion(segment, value) {
 		}
 	}
 	segment = segment.replace(
-		/(^|[\s"'`])(?:motion-safe:|motion-reduce:)?(?:transition(?:-[^\s"'`}]+)?|duration-\[[^\]]+\]|ease-\[[^\]]+\]|animate-(?:\[[^\]]+\]|[a-z-]+))(?=$|[\s"'`}])/g,
+		/(^|[\s"'`])(?:motion-safe:|motion-reduce:)?(?:\[transition:[^\]]+\]|transition(?:-[^\s"'`}]+)?|duration-\[[^\]]+\]|ease-\[[^\]]+\]|animate-(?:\[[^\]]+\]|[a-z-]+))(?=$|[\s"'`}])/g,
 		"$1",
 	);
 	segment = segment.replace(

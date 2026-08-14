@@ -184,7 +184,7 @@ const FLAG_LABEL: Record<FlagKind, string> = {
 function FlagPill({ kind }: { readonly kind: FlagKind }): JSX.Element {
 	return (
 		<span
-			className="inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-[var(--r-pill)] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-[1.4] whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]"
+			className="type-label inline-flex items-center gap-[6px] px-[8px] py-[2px] rounded-[var(--r-pill)]   uppercase   whitespace-nowrap shrink-0 bg-[color-mix(in_oklab,var(--status-error)_14%,transparent)] text-[var(--status-error)]"
 			title={FLAG_LABEL[kind]}
 		>
 			<span className="h-[6px] w-[6px] rounded-[var(--r-pill)] shrink-0 bg-[var(--status-error)]" />
@@ -217,10 +217,8 @@ function Rollup({
 				: "text-[var(--text-primary)]";
 	return (
 		<div className="flex flex-col gap-[3px]">
-			<span className={`text-[24px] font-[600] leading-none tabular-nums ${valueColor}`}>
-				{value}
-			</span>
-			<span className="text-[12px] font-[500] text-[var(--text-secondary)]">{label}</span>
+			<span className={`type-metric ${`   tabular-nums ${valueColor}`}`}>{value}</span>
+			<span className="type-metadata   text-[var(--text-secondary)]">{label}</span>
 		</div>
 	);
 }
@@ -257,15 +255,15 @@ function ReviewBatchView({
 	const routineCount = batch.autoResolved + batch.drafted;
 
 	return (
-		<div className="mx-auto max-w-[760px] w-full font-[family-name:var(--font-sans)] text-[var(--text-primary)]">
+		<div className="type-small mx-auto max-w-[760px] w-full  text-[var(--text-primary)]">
 			{/* L1 — the rollup */}
-			<section className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
+			<section className="border-[var(--bw-thin)] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
 				<header className="flex items-start justify-between gap-[12px] px-[18px] pt-[15px] pb-[12px]">
 					<div className="flex flex-col gap-[3px] min-w-0">
 						<div className="flex items-center gap-[9px]">
 							<StatusChip status="behind" label={`${batch.needsYou} NEED YOU`} />
 						</div>
-						<p className="text-[12px] text-[var(--text-tertiary)] leading-snug">
+						<p className="type-metadata  text-[var(--text-tertiary)] ">
 							{batch.total} tickets · {batch.window}
 						</p>
 					</div>
@@ -280,14 +278,14 @@ function ReviewBatchView({
 				</div>
 
 				{/* the win — one calm line of impact */}
-				<div className="flex items-center gap-[9px] px-[18px] py-[9px] border-t border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--status-success)_6%,transparent)]">
+				<div className="border-t-[var(--bw-thin)] flex items-center gap-[9px] px-[18px] py-[9px]  border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--status-success)_6%,transparent)]">
 					<span className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-success)] shrink-0" />
-					<span className="text-[13px] text-[var(--text-secondary)]">
+					<span className="type-small  text-[var(--text-secondary)]">
 						{batch.metric.label} would drop{" "}
 						<span className="line-through text-[var(--text-tertiary)] tabular-nums">
 							{batch.metric.before}
 						</span>{" "}
-						<span className="font-[600] text-[var(--status-success)] tabular-nums">
+						<span className="type-small  text-[var(--status-success)] tabular-nums">
 							→ {batch.metric.after}
 						</span>{" "}
 						once the {batch.drafted} drafts send.
@@ -297,7 +295,7 @@ function ReviewBatchView({
 
 			{/* batch verdict — clear the routine 37 in one tap, leave the 4 for judgment */}
 			<div className="flex items-center justify-between gap-[12px] mt-[12px] mb-[6px] px-[3px]">
-				<span className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+				<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 					{batch.needsYou} flagged · {routineCount} routine
 				</span>
 				<Button variant="secondary" size="sm">
@@ -312,7 +310,7 @@ function ReviewBatchView({
 					return (
 						<li key={item.id}>
 							<div
-								className={`rounded-[var(--r-default)] border bg-[var(--surface-elevated)] overflow-hidden transition-[border-color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${
+								className={`rounded-[var(--r-default)]  bg-[var(--surface-elevated)] overflow-hidden    ${
 									open
 										? "border-[var(--status-error)] shadow-[var(--shadow-default)]"
 										: "border-[color-mix(in_oklab,var(--status-error)_35%,var(--border-subtle))]"
@@ -323,42 +321,42 @@ function ReviewBatchView({
 									type="button"
 									onClick={() => toggleItem(item.id)}
 									aria-expanded={open}
-									className="w-full flex items-center gap-[12px] px-[15px] py-[12px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+									className="w-full flex items-center gap-[12px] px-[15px] py-[12px] text-left cursor-pointer hover:bg-[var(--surface-page)]   "
 								>
 									{/* left edge: priority index */}
-									<span className="flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--status-error)]">
+									<span className="type-metadata flex items-center justify-center h-[22px] w-[22px] shrink-0 rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--status-error)_12%,transparent)]   tabular-nums text-[var(--status-error)]">
 										{i + 1}
 									</span>
 
 									<div className="flex flex-col gap-[3px] min-w-0 flex-1">
 										<div className="flex items-center gap-[9px] min-w-0">
-											<span className="text-[14px] font-[600] truncate">{item.customer}</span>
+											<span className="type-copy   truncate">{item.customer}</span>
 											{item.arr ? (
-												<span className="text-[12px] font-[600] tabular-nums text-[var(--accent-secondary)] shrink-0">
+												<span className="type-metadata   tabular-nums text-[var(--accent-secondary)] shrink-0">
 													{item.arr}
 												</span>
 											) : (
-												<span className="text-[12px] text-[var(--text-tertiary)] shrink-0">
+												<span className="type-metadata  text-[var(--text-tertiary)] shrink-0">
 													{item.account}
 												</span>
 											)}
-											<span className="text-[12px] text-[var(--text-tertiary)] shrink-0">
+											<span className="type-metadata  text-[var(--text-tertiary)] shrink-0">
 												· {SENTIMENT_LABEL[item.sentiment]}
 											</span>
 										</div>
-										<span className="text-[13px] text-[var(--text-secondary)] truncate">
+										<span className="type-small  text-[var(--text-secondary)] truncate">
 											{item.ref} · {item.flagReason}
 										</span>
 									</div>
 
 									<div className="flex items-center gap-[9px] shrink-0">
-										<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums hidden sm:inline">
+										<span className="type-metadata  text-[var(--text-tertiary)] tabular-nums hidden sm:inline">
 											{item.waited}
 										</span>
 										<FlagPill kind={item.flag} />
 										<span
 											aria-hidden="true"
-											className={`text-[var(--text-tertiary)] text-[12px] transition-transform duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${open ? "rotate-90" : ""}`}
+											className={`motion-move ${`type-metadata ${`text-[var(--text-tertiary)]     ${open ? "rotate-90" : ""}`}`}`}
 										>
 											▶
 										</span>
@@ -367,52 +365,52 @@ function ReviewBatchView({
 
 								{/* L3 — expanded context: customer's message + the drafted reply + per-item verdict */}
 								{open ? (
-									<div className="border-t border-[var(--border-subtle)] bg-[var(--surface-page)] px-[15px] py-[15px] flex flex-col gap-[12px]">
+									<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] bg-[var(--surface-page)] px-[15px] py-[15px] flex flex-col gap-[12px]">
 										{/* the customer's last message */}
 										<div className="flex flex-col gap-[6px]">
-											<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+											<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 												{item.customer} · {item.subject}
 											</span>
-											<blockquote className="text-[13px] leading-relaxed text-[var(--text-secondary)] border-l-[3px] border-[var(--border-default)] pl-[12px]">
+											<blockquote className="border-l-[var(--bw-strong)] type-small   text-[var(--text-secondary)]  border-[var(--border-default)] pl-[12px]">
 												{item.lastMessage}
 											</blockquote>
 										</div>
 
 										{/* the agent's drafted reply, rendered as it would send */}
 										{item.draftedReply ? (
-											<div className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] overflow-hidden">
-												<div className="flex items-center gap-[6px] px-[12px] py-[6px] border-b border-[var(--border-subtle)]">
-													<span className="h-[16px] w-[16px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] text-[9px] font-[700] inline-flex items-center justify-center shrink-0">
+											<div className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] overflow-hidden">
+												<div className="border-b-[var(--bw-thin)] flex items-center gap-[6px] px-[12px] py-[6px]  border-[var(--border-subtle)]">
+													<span className="type-metadata h-[16px] w-[16px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]   inline-flex items-center justify-center shrink-0">
 														AI
 													</span>
-													<span className="text-[11px] font-[600] text-[var(--text-secondary)]">
+													<span className="type-metadata   text-[var(--text-secondary)]">
 														Drafted reply — held for review
 													</span>
 												</div>
-												<p className="px-[12px] py-[12px] text-[13px] leading-relaxed text-[var(--text-primary)]">
+												<p className="type-small px-[12px] py-[12px]   text-[var(--text-primary)]">
 													{item.draftedReply}
 												</p>
 											</div>
 										) : (
-											<div className="rounded-[var(--r-subtle)] border border-dashed border-[var(--border-default)] px-[12px] py-[9px] text-[13px] text-[var(--text-tertiary)] italic">
+											<div className="border-[var(--bw-thin)] type-small rounded-[var(--r-subtle)]  border-dashed border-[var(--border-default)] px-[12px] py-[9px]  text-[var(--text-tertiary)] italic">
 												No reply drafted — policy routes this straight to you.
 											</div>
 										)}
 
 										{/* why the agent held — framed explanation, not just a red box */}
-										<div className="flex flex-col gap-[6px] rounded-[var(--r-subtle)] border-l-[3px] border-[var(--status-error)] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] px-[12px] py-[9px]">
+										<div className="flex flex-col gap-[6px] rounded-[var(--r-subtle)]  border-[var(--status-error)] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] px-[12px] py-[9px]">
 											<div className="flex items-center gap-[6px]">
 												<span
 													aria-hidden="true"
-													className="inline-flex h-[16px] w-[16px] items-center justify-center rounded-[var(--r-pill)] bg-[var(--status-error)] text-[var(--text-on-accent)] text-[11px] font-[700] leading-none shrink-0"
+													className="type-metadata inline-flex h-[16px] w-[16px] items-center justify-center rounded-[var(--r-pill)] bg-[var(--status-error)] text-[var(--text-on-accent)]    shrink-0"
 												>
 													!
 												</span>
-												<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-error)]">
+												<span className="type-label   uppercase  text-[var(--status-error)]">
 													Held for your review — why
 												</span>
 											</div>
-											<span className="text-[12px] leading-snug text-[var(--text-secondary)]">
+											<span className="type-metadata   text-[var(--text-secondary)]">
 												{item.draftNote}
 											</span>
 										</div>
@@ -445,45 +443,45 @@ function ReviewBatchView({
 					const open = openGroups.has(g.id);
 					return (
 						<li key={g.id}>
-							<div className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] overflow-hidden">
+							<div className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] overflow-hidden">
 								<button
 									type="button"
 									onClick={() => toggleGroup(g.id)}
 									aria-expanded={open}
-									className="w-full flex items-center gap-[12px] px-[15px] py-[9px] text-left cursor-pointer hover:bg-[var(--surface-page)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]"
+									className="w-full flex items-center gap-[12px] px-[15px] py-[9px] text-left cursor-pointer hover:bg-[var(--surface-page)]   "
 								>
-									<span className="flex items-center justify-center h-[22px] min-w-[22px] px-[6px] shrink-0 rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-tertiary)_12%,transparent)] text-[11px] font-[700] tabular-nums text-[var(--text-secondary)]">
+									<span className="type-metadata flex items-center justify-center h-[22px] min-w-[22px] px-[6px] shrink-0 rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--text-tertiary)_12%,transparent)]   tabular-nums text-[var(--text-secondary)]">
 										{g.count}
 									</span>
 									<div className="flex flex-col gap-[3px] min-w-0 flex-1">
-										<span className="text-[13px] font-[600] text-[var(--text-primary)] truncate">
+										<span className="type-small   text-[var(--text-primary)] truncate">
 											{g.count} {g.label.toLowerCase()}
 										</span>
-										<span className="text-[12px] text-[var(--text-tertiary)] truncate">
+										<span className="type-metadata  text-[var(--text-tertiary)] truncate">
 											{g.detail}
 										</span>
 									</div>
-									<span className="text-[11px] text-[var(--text-tertiary)] shrink-0">
+									<span className="type-metadata  text-[var(--text-tertiary)] shrink-0">
 										{open ? "Hide" : "Review"}
 									</span>
 									<span
 										aria-hidden="true"
-										className={`text-[var(--text-tertiary)] text-[12px] transition-transform duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${open ? "rotate-90" : ""}`}
+										className={`motion-move ${`type-metadata ${`text-[var(--text-tertiary)]     ${open ? "rotate-90" : ""}`}`}`}
 									>
 										▶
 									</span>
 								</button>
 								{open ? (
-									<div className="border-t border-[var(--border-subtle)] px-[15px] py-[12px] flex flex-wrap items-center gap-[6px]">
+									<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] px-[15px] py-[12px] flex flex-wrap items-center gap-[6px]">
 										{g.sample.map((ref) => (
 											<span
 												key={ref}
-												className="text-[12px] tabular-nums text-[var(--text-secondary)] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[3px]"
+												className="type-metadata border-[var(--bw-thin)]  tabular-nums text-[var(--text-secondary)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[3px]"
 											>
 												{ref}
 											</span>
 										))}
-										<span className="text-[12px] text-[var(--text-tertiary)]">
+										<span className="type-metadata  text-[var(--text-tertiary)]">
 											+{g.count - g.sample.length} more · open the full list to spot-check
 										</span>
 									</div>

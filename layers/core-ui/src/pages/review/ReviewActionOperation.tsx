@@ -110,7 +110,7 @@ function ReviewActionOperationView({
 
 	return (
 		<article
-			className="w-full max-w-[560px] overflow-hidden border border-[var(--border-default)] bg-[var(--surface-container)]"
+			className="border-[var(--bw-thin)] w-full max-w-[560px] overflow-hidden  border-[var(--border-default)] bg-[var(--surface-container)]"
 			style={{
 				borderRadius: "var(--r-default)",
 				boxShadow: "var(--shadow-default)",
@@ -120,35 +120,29 @@ function ReviewActionOperationView({
 			<header className="px-[18px] pt-[18px] pb-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px]">
-						<h2 className="text-[15px] font-[600] leading-none text-[var(--text-primary)]">
-							{operation.action}
-						</h2>
+						<h2 className="type-subheading    text-[var(--text-primary)]">{operation.action}</h2>
 						<IrreversibleBadge />
 					</div>
-					<p className="mt-[6px] text-[13px] leading-[1.45] text-[var(--text-secondary)]">
-						{operation.intent}
-					</p>
+					<p className="type-small mt-[6px]   text-[var(--text-secondary)]">{operation.intent}</p>
 				</div>
 			</header>
 
 			{/* the amount — the single loudest element on the canvas */}
 			<div
-				className="mx-[18px] flex items-baseline justify-between border px-[18px] py-[12px]"
+				className="border-[var(--bw-thin)] mx-[18px] flex items-baseline justify-between  px-[18px] py-[12px]"
 				style={{
 					borderRadius: "var(--r-subtle)",
 					borderColor: "var(--accent-secondary-dim)",
 					background: "var(--accent-secondary-dim)",
 				}}
 			>
-				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-					Refund amount
-				</span>
+				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Refund amount</span>
 				<span
-					className="text-[30px] font-[700] leading-none text-[var(--text-primary)]"
+					className="type-metric    text-[var(--text-primary)]"
 					style={{ fontVariantNumeric: "tabular-nums" }}
 				>
 					{operation.amount}
-					<span className="ml-[6px] text-[13px] font-[500] text-[var(--text-tertiary)]">
+					<span className="type-small ml-[6px]   text-[var(--text-tertiary)]">
 						{operation.currency}
 					</span>
 				</span>
@@ -159,27 +153,29 @@ function ReviewActionOperationView({
 				{operation.fields.map((field, i) => (
 					<div
 						key={field.label}
-						className="flex items-start justify-between gap-[12px] py-[9px]"
+						className="border-none flex items-start justify-between gap-[12px] py-[9px]"
 						style={{
 							borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
 						}}
 					>
-						<dt className="shrink-0 pt-[1px] text-[13px] text-[var(--text-tertiary)]">
+						<dt className="type-small shrink-0 pt-[1px]  text-[var(--text-tertiary)]">
 							{field.label}
 						</dt>
 						<dd className="min-w-0 text-right">
 							<div
-								className={
+								className={`type-data ${
 									field.mono
-										? "truncate font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]"
-										: "text-[13px] font-[500] text-[var(--text-primary)]"
-								}
+										? "truncate   text-[var(--text-primary)]"
+										: "  text-[var(--text-primary)]"
+								}`}
 								style={field.mono ? { fontVariantNumeric: "tabular-nums" } : undefined}
 							>
 								{field.value}
 							</div>
 							{field.sub ? (
-								<div className="mt-[3px] text-[12px] text-[var(--text-secondary)]">{field.sub}</div>
+								<div className="type-metadata mt-[3px]  text-[var(--text-secondary)]">
+									{field.sub}
+								</div>
 							) : null}
 						</dd>
 					</div>
@@ -198,8 +194,7 @@ function ReviewActionOperationView({
 				type="button"
 				onClick={() => setShowDetail((v) => !v)}
 				aria-expanded={showDetail}
-				className="mt-[6px] flex w-full items-center justify-between px-[18px] py-[9px] text-left text-[12px] font-[500] text-[var(--text-secondary)] transition-opacity hover:opacity-80"
-				style={{ transitionDuration: "var(--motion-fast)" }}
+				className="motion-feedback type-control mt-[6px] flex w-full items-center justify-between px-[18px] py-[9px] text-left   text-[var(--text-secondary)]  hover:opacity-80"
 			>
 				<span>Blast radius &amp; reversibility</span>
 				<Chevron open={showDetail} />
@@ -212,10 +207,7 @@ function ReviewActionOperationView({
 						<SectionCap>What this touches</SectionCap>
 						<ul className="mt-[6px] flex flex-col gap-[6px]">
 							{operation.blastRadius.map((item) => (
-								<li
-									key={item}
-									className="flex gap-[9px] text-[13px] leading-[1.4] text-[var(--text-secondary)]"
-								>
+								<li key={item} className="type-small flex gap-[9px]   text-[var(--text-secondary)]">
 									<span
 										aria-hidden="true"
 										data-spacing-role="optical-offset"
@@ -228,22 +220,30 @@ function ReviewActionOperationView({
 					</section>
 
 					<section
-						className="flex gap-[9px] border px-[12px] py-[9px]"
+						className="border-[var(--bw-thin)] flex gap-[9px]  px-[12px] py-[9px]"
 						style={{
 							borderRadius: "var(--r-subtle)",
 							borderColor: "var(--status-error-dim)",
 							background: "var(--status-error-dim)",
 						}}
 					>
-						<span
+						<svg
 							aria-hidden="true"
-							className="mt-[3px] h-[12px] w-[12px] shrink-0 rounded-[var(--r-pill)] border-2 border-[var(--status-error)]"
-						/>
+							viewBox="0 0 12 12"
+							className="mt-[3px] h-[12px] w-[12px] shrink-0"
+						>
+							<circle
+								cx="6"
+								cy="6"
+								r="4.5"
+								fill="none"
+								stroke="var(--status-error)"
+								strokeWidth="2"
+							/>
+						</svg>
 						<div>
-							<div className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--status-error)]">
-								Irreversible
-							</div>
-							<p className="mt-[3px] text-[13px] leading-[1.45] text-[var(--text-secondary)]">
+							<div className="type-label   uppercase  text-[var(--status-error)]">Irreversible</div>
+							<p className="type-small mt-[3px]   text-[var(--text-secondary)]">
 								{operation.reversibility}
 							</p>
 						</div>
@@ -252,23 +252,22 @@ function ReviewActionOperationView({
 			) : null}
 
 			{/* ── L3 · the pre-commit verdict gate ── */}
-			<footer className="mt-[6px] flex items-center justify-end gap-[9px] border-t border-[var(--border-subtle)] px-[18px] py-[12px]">
+			<footer className="border-t-[var(--bw-thin)] mt-[6px] flex items-center justify-end gap-[9px]  border-[var(--border-subtle)] px-[18px] py-[12px]">
 				<button
 					type="button"
 					onClick={onReject}
-					className="px-[18px] py-[7px] text-[13px] font-[600] text-[var(--text-secondary)] transition-opacity hover:opacity-80"
-					style={{ borderRadius: "var(--r-pill)", transitionDuration: "var(--motion-fast)" }}
+					className="motion-feedback type-control px-[18px] py-[7px]   text-[var(--text-secondary)]  hover:opacity-80"
+					style={{ borderRadius: "var(--r-pill)" }}
 				>
 					Reject
 				</button>
 				<button
 					type="button"
 					onClick={onApprove}
-					className="px-[18px] py-[7px] text-[13px] font-[600] text-[var(--text-on-accent)] transition-opacity hover:opacity-90"
+					className="motion-feedback type-control px-[18px] py-[7px]   text-[var(--text-on-accent)]  hover:opacity-90"
 					style={{
 						borderRadius: "var(--r-pill)",
 						background: "var(--accent-primary)",
-						transitionDuration: "var(--motion-fast)",
 					}}
 				>
 					Approve refund
@@ -285,21 +284,22 @@ function ReviewActionOperationView({
 function ExecutingBand(): JSX.Element {
 	return (
 		<section
-			className="mx-[18px] mt-[12px] flex items-center gap-[9px] border px-[12px] py-[9px]"
+			className="border-[var(--bw-thin)] mx-[18px] mt-[12px] flex items-center gap-[9px]  px-[12px] py-[9px]"
 			style={{
 				borderRadius: "var(--r-subtle)",
 				borderColor: "var(--border-default)",
 				background: "var(--surface-container)",
 			}}
 		>
-			<span
+			<svg
 				aria-label="executing"
-				className="h-[14px] w-[14px] shrink-0 rounded-[var(--r-pill)] border-2 border-[var(--text-tertiary)] border-t-transparent"
-				style={{ animation: "spin 0.75s linear infinite" }}
-			/>
-			<span className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-				Executing…
-			</span>
+				viewBox="0 0 16 16"
+				className="motion-busy h-[14px] w-[14px] shrink-0"
+			>
+				<circle cx="8" cy="8" r="6" fill="none" stroke="var(--border-subtle)" strokeWidth="2" />
+				<path d="M8 2a6 6 0 0 1 6 6" fill="none" stroke="var(--text-tertiary)" strokeWidth="2" />
+			</svg>
+			<span className="type-label   uppercase  text-[var(--text-tertiary)]">Executing…</span>
 		</section>
 	);
 }
@@ -319,7 +319,7 @@ function OutcomeBand({
 }): JSX.Element {
 	return (
 		<section
-			className="mx-[18px] mt-[12px] flex gap-[9px] border px-[12px] py-[9px]"
+			className="border-[var(--bw-thin)] mx-[18px] mt-[12px] flex gap-[9px]  px-[12px] py-[9px]"
 			style={{
 				borderRadius: "var(--r-subtle)",
 				borderColor: ok ? "var(--status-success)" : "var(--status-error)",
@@ -356,13 +356,13 @@ function OutcomeBand({
 			<div className="min-w-0 flex-1">
 				<div className="flex items-baseline justify-between gap-[9px]">
 					<span
-						className="text-[12px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+						className="type-label   uppercase "
 						style={{ color: ok ? "var(--status-success)" : "var(--status-error)" }}
 					>
 						{ok ? "Executed" : "Execution failed"}
 					</span>
 					<span
-						className="shrink-0 text-[12px] text-[var(--text-tertiary)]"
+						className="type-metadata shrink-0  text-[var(--text-tertiary)]"
 						style={{ fontVariantNumeric: "tabular-nums" }}
 					>
 						{outcome.executedAt}
@@ -370,7 +370,7 @@ function OutcomeBand({
 				</div>
 				{ok ? (
 					// the receipt is a short identity (e.g. `re_3Qs… · refunded`) — one line is fine.
-					<p className="mt-[3px] truncate font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+					<p className="type-data mt-[3px] truncate   text-[var(--text-primary)]">
 						{outcome.receipt}
 					</p>
 				) : (
@@ -379,7 +379,7 @@ function OutcomeBand({
 					// across lines — NEVER `truncate`, which would clip the thing the reviewer
 					// most needs to read. `whitespace-pre-wrap` preserves the tool's own newlines;
 					// `break-words` keeps long unbroken tokens inside the band.
-					<p className="mt-[3px] whitespace-pre-wrap break-words font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+					<p className="type-data mt-[3px] whitespace-pre-wrap break-words   text-[var(--text-primary)]">
 						{outcome.error}
 					</p>
 				)}
@@ -392,7 +392,7 @@ function IrreversibleBadge(): JSX.Element {
 	return (
 		<span
 			data-spacing-role="compact-pill"
-			className="inline-flex items-center gap-[4px] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+			className="type-label inline-flex items-center gap-[4px] px-[6px] py-[3px]   uppercase "
 			style={{
 				borderRadius: "var(--r-pill)",
 				color: "var(--status-warning)",
@@ -409,11 +409,7 @@ function IrreversibleBadge(): JSX.Element {
 }
 
 function SectionCap({ children }: { readonly children: string }): JSX.Element {
-	return (
-		<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-			{children}
-		</span>
-	);
+	return <span className="type-label   uppercase  text-[var(--text-tertiary)]">{children}</span>;
 }
 
 function Chevron({ open }: { readonly open: boolean }): JSX.Element {
@@ -424,10 +420,9 @@ function Chevron({ open }: { readonly open: boolean }): JSX.Element {
 			height="12"
 			viewBox="0 0 12 12"
 			fill="none"
-			className="transition-transform"
+			className="motion-move "
 			style={{
 				transform: open ? "rotate(180deg)" : "rotate(0deg)",
-				transitionDuration: "var(--motion-fast)",
 			}}
 		>
 			<path
@@ -487,16 +482,14 @@ function ProposedCallArgsPanel({
 	const argEntries = Object.entries(proposedCall.args);
 	return (
 		<section
-			className="overflow-hidden border border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
+			className="border-[var(--bw-thin)] overflow-hidden  border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
 			style={{ borderRadius: "var(--r-subtle)" }}
 			aria-label="Proposed call details"
 		>
-			<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[9px]">
-				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-					Tool
-				</span>
+			<div className="border-b-[var(--bw-thin)] flex items-center gap-[9px]  border-[var(--border-subtle)] px-[12px] py-[9px]">
+				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Tool</span>
 				<span
-					className="font-[var(--font-mono)] text-[13px] text-[var(--text-primary)]"
+					className="type-data   text-[var(--text-primary)]"
 					data-testid="proposed-call-tool-id"
 				>
 					{proposedCall.toolId}
@@ -507,14 +500,14 @@ function ProposedCallArgsPanel({
 					{argEntries.map(([key, value], i) => (
 						<div
 							key={key}
-							className="flex items-start justify-between gap-[12px] py-[9px]"
+							className="border-none flex items-start justify-between gap-[12px] py-[9px]"
 							style={{
 								borderTop: i === 0 ? undefined : "1px solid var(--border-subtle)",
 							}}
 						>
-							<dt className="shrink-0 pt-[1px] text-[13px] text-[var(--text-tertiary)]">{key}</dt>
+							<dt className="type-small shrink-0 pt-[1px]  text-[var(--text-tertiary)]">{key}</dt>
 							<dd
-								className="min-w-0 text-right font-[var(--font-mono)] text-[13px] text-[var(--text-primary)] break-all"
+								className="type-data min-w-0 text-right   text-[var(--text-primary)] break-all"
 								data-testid={`proposed-call-arg-${key}`}
 							>
 								{typeof value === "string" ? value : JSON.stringify(value)}

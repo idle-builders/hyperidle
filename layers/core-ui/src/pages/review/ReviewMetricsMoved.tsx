@@ -221,7 +221,7 @@ function DeltaPill({ delta }: { delta: number }): JSX.Element {
 	const up = delta >= 0;
 	return (
 		<span
-			className={`inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[6px] py-[3px] text-[12px] font-[600] ${NUM}`}
+			className={`type-metadata ${`inline-flex items-center gap-[3px] rounded-[var(--r-pill)] px-[6px] py-[3px]   ${NUM}`}`}
 			style={{
 				color: up ? "var(--status-success)" : "var(--status-error)",
 				background: up ? "var(--accent-primary-dim)" : "var(--status-error-dim)",
@@ -247,30 +247,28 @@ function Headline({
 	const delta = figure.current - figure.prior;
 	return (
 		<div
-			className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[12px]"
+			className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[12px]"
 			style={{ boxShadow: figure.headline ? "var(--shadow-default)" : undefined }}
 		>
 			<div className="flex items-baseline justify-between gap-[12px]">
-				<span className="text-[13px] font-[500] text-[var(--text-secondary)]">{figure.label}</span>
+				<span className="type-small   text-[var(--text-secondary)]">{figure.label}</span>
 				<DeltaPill delta={delta} />
 			</div>
-			<div
-				className={`mt-[6px] text-[24px] font-[700] leading-none text-[var(--text-primary)] ${NUM}`}
-			>
+			<div className={`type-metric ${`mt-[6px]    text-[var(--text-primary)] ${NUM}`}`}>
 				{usd(figure.current)}
 			</div>
-			<div className={`mt-[6px] text-[12px] text-[var(--text-tertiary)] ${NUM}`}>
+			<div className={`type-metadata ${`mt-[6px]  text-[var(--text-tertiary)] ${NUM}`}`}>
 				Apr {usd(figure.prior)} → May
 			</div>
 			<button
 				type="button"
 				onClick={onToggle}
-				className="mt-[9px] inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--accent-deep)] [transition:opacity_var(--motion-fast)_var(--motion-ease)] hover:opacity-70"
+				className="motion-feedback type-control mt-[9px] inline-flex items-center gap-[6px] text-[var(--accent-deep)]"
 				aria-expanded={expanded}
 			>
 				<span
 					aria-hidden="true"
-					className="inline-block [transition:transform_var(--motion-fast)_var(--motion-ease)]"
+					className="motion-move inline-block"
 					style={{ transform: expanded ? "rotate(90deg)" : "none" }}
 				>
 					▸
@@ -279,14 +277,14 @@ function Headline({
 			</button>
 			{expanded ? (
 				// L3 — per-figure provenance
-				<div className="mt-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
+				<div className="border-[var(--bw-thin)] mt-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
 					<div className="flex items-center gap-[6px]">
 						<ToolLogo tool={figure.provenance.tool} size="sm" label="" />
-						<span className="text-[12px] font-[600] text-[var(--text-primary)]">
+						<span className="type-metadata   text-[var(--text-primary)]">
 							{figure.provenance.source}
 						</span>
 					</div>
-					<p className={`mt-[6px] text-[12px] leading-[1.5] text-[var(--text-secondary)] ${NUM}`}>
+					<p className={`type-metadata ${`mt-[6px]   text-[var(--text-secondary)] ${NUM}`}`}>
 						{figure.provenance.detail}
 					</p>
 				</div>
@@ -309,45 +307,45 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 	const [showTrivia, setShowTrivia] = useState(false);
 	return (
 		<div
-			className="overflow-hidden rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)]"
+			className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)]"
 			style={{ boxShadow: "var(--shadow-default)" }}
 		>
 			<table className="w-full border-collapse text-left">
 				<thead>
-					<tr className="border-b border-[var(--border-default)]">
-						<th className="px-[12px] py-[9px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+					<tr className="border-b-[var(--bw-thin)]  border-[var(--border-default)]">
+						<th className="type-label px-[12px] py-[9px]   uppercase  text-[var(--text-tertiary)]">
 							Account
 						</th>
-						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						<th className="type-label px-[12px] py-[9px] text-right   uppercase  text-[var(--text-tertiary)]">
 							Opening
 						</th>
-						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						<th className="type-label px-[12px] py-[9px] text-right   uppercase  text-[var(--text-tertiary)]">
 							Activity
 						</th>
-						<th className="px-[12px] py-[9px] text-right text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+						<th className="type-label px-[12px] py-[9px] text-right   uppercase  text-[var(--text-tertiary)]">
 							Closing
 						</th>
 					</tr>
 				</thead>
 				<tbody>
 					{fixture.rows.map((r) => (
-						<tr key={r.id} className="border-b border-[var(--border-subtle)]">
-							<td className="px-[12px] py-[9px] text-[13px] text-[var(--text-primary)]">
+						<tr key={r.id} className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)]">
+							<td className="type-small px-[12px] py-[9px]  text-[var(--text-primary)]">
 								{r.label}
 							</td>
 							<td
-								className={`px-[12px] py-[9px] text-right text-[13px] text-[var(--text-secondary)] ${NUM}`}
+								className={`type-small ${`px-[12px] py-[9px] text-right  text-[var(--text-secondary)] ${NUM}`}`}
 							>
 								{usd(r.opening)}
 							</td>
 							<td
-								className={`px-[12px] py-[9px] text-right text-[13px] ${NUM}`}
+								className={`type-small ${`px-[12px] py-[9px] text-right  ${NUM}`}`}
 								style={r.changed ? changedCellStyle() : { color: "var(--text-tertiary)" }}
 							>
 								{r.changed ? signed(r.activity) : "—"}
 							</td>
 							<td
-								className={`px-[12px] py-[9px] text-right text-[13px] font-[500] ${NUM}`}
+								className={`type-small ${`px-[12px] py-[9px] text-right   ${NUM}`}`}
 								style={r.changed ? changedCellStyle() : { color: "var(--text-secondary)" }}
 							>
 								{usd(r.closing)}
@@ -359,7 +357,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 							<button
 								type="button"
 								onClick={() => setShowTrivia((v) => !v)}
-								className="text-[12px] font-[500] text-[var(--text-tertiary)] [transition:opacity_var(--motion-fast)_var(--motion-ease)] hover:opacity-70"
+								className="motion-feedback type-control text-[var(--text-tertiary)]"
 								aria-expanded={showTrivia}
 							>
 								{showTrivia ? "Hide" : "Show"} {fixture.trivia.count} items &lt; $100 (net{" "}
@@ -372,7 +370,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 
 			{/* tie-out strip — the control total that proves the roll-forward */}
 			<div
-				className="flex flex-wrap items-center gap-x-[6px] gap-y-[3px] border-t border-[var(--border-default)] px-[12px] py-[9px]"
+				className="border-t-[var(--bw-thin)] flex flex-wrap items-center gap-x-[6px] gap-y-[3px]  border-[var(--border-default)] px-[12px] py-[9px]"
 				style={{ background: "var(--accent-primary-dim)" }}
 			>
 				<span
@@ -382,11 +380,11 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 				>
 					✓
 				</span>
-				<span className={`text-[13px] text-[var(--text-primary)] ${NUM}`}>
+				<span className={`type-small ${` text-[var(--text-primary)] ${NUM}`}`}>
 					Opening {usd(fixture.tieOut.opening)} + activity {signed(fixture.tieOut.activity)} =
-					Closing <span className="font-[600]">{usd(fixture.tieOut.closing)}</span>
+					Closing <span className="type-small ">{usd(fixture.tieOut.closing)}</span>
 				</span>
-				<span className="text-[13px] font-[600]" style={{ color: "var(--status-success)" }}>
+				<span className="type-small  " style={{ color: "var(--status-success)" }}>
 					ties to bank
 				</span>
 			</div>
@@ -399,38 +397,38 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 	return (
 		<div
-			className="flex items-start gap-[12px] rounded-[var(--r-subtle)] border p-[12px]"
+			className="border-[var(--bw-thin)] flex items-start gap-[12px] rounded-[var(--r-subtle)]  p-[12px]"
 			style={{
 				borderColor: ex.needsYou ? "var(--status-error)" : "var(--border-subtle)",
 				background: ex.needsYou ? "var(--status-error-dim)" : "var(--surface-container)",
 			}}
 		>
 			<span
-				className={`shrink-0 text-[15px] font-[700] ${NUM}`}
+				className={`type-copy ${`shrink-0   ${NUM}`}`}
 				style={{ color: ex.needsYou ? "var(--status-error)" : "var(--text-secondary)" }}
 			>
 				{usdCents(ex.amount)}
 			</span>
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-[6px]">
-					<span className="text-[13px] font-[600] text-[var(--text-primary)]">{ex.title}</span>
+					<span className="type-small   text-[var(--text-primary)]">{ex.title}</span>
 					{ex.needsYou ? (
 						<span
-							className="rounded-[var(--r-pill)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+							className="type-label rounded-[var(--r-pill)] px-[6px] py-[3px]   uppercase "
 							style={{ background: "var(--status-error)", color: "var(--surface-page)" }}
 						>
 							Needs you
 						</span>
 					) : (
 						<span
-							className="rounded-[var(--r-pill)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)]"
+							className="type-label rounded-[var(--r-pill)] px-[6px] py-[3px]   uppercase "
 							style={{ background: "var(--status-info-dim)", color: "var(--status-info)" }}
 						>
 							Timing
 						</span>
 					)}
 				</div>
-				<p className={`mt-[3px] text-[12px] leading-[1.5] text-[var(--text-secondary)] ${NUM}`}>
+				<p className={`type-metadata ${`mt-[3px]   text-[var(--text-secondary)] ${NUM}`}`}>
 					{ex.detail}
 				</p>
 			</div>
@@ -459,14 +457,14 @@ function ReviewMetricsMovedView({
 		<div className="max-w-[760px] bg-[var(--surface-page)] text-[var(--text-primary)]">
 			<div className="p-[18px]">
 				{/* ── L1 ── one-glance summary (tool/period now in source header) ── */}
-				<p className={`text-[15px] leading-[1.5] text-[var(--text-primary)] ${NUM}`}>
-					Recognized revenue closed at <span className="font-[700]">{usd(headline.current)}</span>,
+				<p className={`type-copy ${`  text-[var(--text-primary)] ${NUM}`}`}>
+					Recognized revenue closed at <span className="type-small ">{usd(headline.current)}</span>,
 					up{" "}
-					<span className="font-[600]" style={{ color: "var(--status-success)" }}>
+					<span className="type-small " style={{ color: "var(--status-success)" }}>
 						{signed(headline.current - headline.prior)}
 					</span>{" "}
 					from April. The period ties to bank; biggest open item is a{" "}
-					<span className="font-[600]">{usdCents(fixture.exceptions[0]?.amount ?? 0)}</span> wire
+					<span className="type-small ">{usdCents(fixture.exceptions[0]?.amount ?? 0)}</span> wire
 					with no source.
 				</p>
 
@@ -482,17 +480,15 @@ function ReviewMetricsMovedView({
 				</div>
 
 				{/* ── L2 ── the structured proof: roll-forward + tie-out ── */}
-				<div className="mt-[18px] mb-[9px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+				<div className="type-label mt-[18px] mb-[9px]   uppercase  text-[var(--text-tertiary)]">
 					Roll-forward · reconciliation
 				</div>
 				<RollForwardTable fixture={fixture} />
 
 				{/* ── L3 ── exceptions list (floated, biggest $ first) ── */}
 				<div className="mt-[18px] mb-[9px] flex items-baseline gap-[6px]">
-					<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-						Exceptions
-					</span>
-					<span className={`text-[11px] text-[var(--text-tertiary)] ${NUM}`}>
+					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Exceptions</span>
+					<span className={`type-metadata ${` text-[var(--text-tertiary)] ${NUM}`}`}>
 						{fixture.exceptions.length}, by amount
 					</span>
 				</div>

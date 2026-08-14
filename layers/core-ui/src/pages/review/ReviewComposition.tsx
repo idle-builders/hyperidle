@@ -703,7 +703,7 @@ function ExaminePane({
 									onClick={() => {
 										/* no-op */
 									}}
-									className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+									className="type-control rounded-[var(--r-pill)] border-[var(--bw-thin)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 								>
 									Comment on this
 								</button>
@@ -715,9 +715,11 @@ function ExaminePane({
 								type="button"
 								aria-label="Close artifact"
 								onClick={onClose}
-								className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[14px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+								className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border-[var(--bw-thin)] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 							>
-								✕
+								<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[14px] w-[14px]">
+									<path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+								</svg>
 							</button>
 						}
 					/>
