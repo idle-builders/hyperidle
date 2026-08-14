@@ -42,7 +42,12 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import {
+	describe,
+	expect,
+	registerFixtureOrchestrationCleanup,
+	test,
+} from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, vi } from "vitest";
 import { bootAgentOrchestration } from "../boot.js";
@@ -183,6 +188,10 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 			// `bootCoreApi.resolveProvisioningOwnerUserId`'s own concern).
 			resolveProvisioningOwnerUserId: async () => OWNER_ID,
 		},
+	});
+	registerFixtureOrchestrationCleanup(db, () => {
+		agentOrchestration.dispose();
+		return agentOrchestration.joinLifecycleDrain();
 	});
 	return { agentOrchestration, agentExecution };
 }

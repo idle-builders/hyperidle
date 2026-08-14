@@ -2,7 +2,11 @@ import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { type DbFixtures, test as dbTest } from "@hyperidle/db/test-fixtures";
+import {
+	type DbFixtures,
+	test as dbTest,
+	registerFixtureOrchestrationCleanup,
+} from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { findUser } from "@hyperidle/users";
@@ -126,6 +130,10 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	eventBus: async ({ db }, use) => {
 		const eventBus = new EventBus();
 		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
+		registerFixtureOrchestrationCleanup(db, () => {
+			orchestrationBoot.dispose();
+			return orchestrationBoot.joinLifecycleDrain();
+		});
 		const agentOrchestration: AgentOrchestrationPort = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
@@ -149,6 +157,10 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// usable whether or not a test also requests `eventBus`/`app`.
 	agentOrchestration: async ({ db, eventBus }, use) => {
 		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
+		registerFixtureOrchestrationCleanup(db, () => {
+			orchestrationBoot.dispose();
+			return orchestrationBoot.joinLifecycleDrain();
+		});
 		const port = buildAgentOrchestrationPort(
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);

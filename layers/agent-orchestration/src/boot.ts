@@ -207,6 +207,8 @@ export interface AgentOrchestrationBoot {
 	 * supplied.
 	 */
 	readonly disposeRuntime?: () => Promise<void>;
+	/** Waits only for this boot's stopped lifecycle projection drain. */
+	readonly joinLifecycleDrain: () => Promise<void>;
 	/** Stops the activity buffer, unsubscribes the gateway, drops WS adapters. Does NOT dispose the run runtime — call `disposeRuntime()` first, same ordering as before this boot absorbed `startRuntime`. */
 	readonly dispose: () => void;
 	/**
@@ -412,6 +414,7 @@ export async function bootAgentOrchestration(
 			disposeDrain();
 			activityBuffer.stop();
 		},
+		joinLifecycleDrain: () => disposeDrain.join(),
 		serviceConnectionsReader: {
 			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
 		},

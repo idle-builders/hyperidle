@@ -1,4 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
+import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -46,9 +47,14 @@ vi.mock("@hyperidle/agent-orchestration", async (importOriginal) => {
 			options: Parameters<typeof actual.bootAgentOrchestration>[0],
 		) => {
 			const boot = await actual.bootAgentOrchestration(options);
+			registerFixtureOrchestrationCleanup(options.db, () => {
+				boot.dispose();
+				return boot.joinLifecycleDrain();
+			});
 			return {
 				...boot,
 				disposeRuntime: async () => {
+					await boot.disposeRuntime?.();
 					await shutdown.phase("run-runtime");
 					await shutdown.state.recordDurableShutdown?.();
 				},

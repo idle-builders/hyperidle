@@ -21,7 +21,12 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import {
+	describe,
+	expect,
+	registerFixtureOrchestrationCleanup,
+	test,
+} from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { bootAgentOrchestration } from "../boot.js";
@@ -121,6 +126,10 @@ describe("bootAgentOrchestration — lifecycle-projection drain (relocated from 
 		});
 
 		const boot = await bootAgentOrchestration({ db, eventBus: new EventBus() });
+		registerFixtureOrchestrationCleanup(db, () => {
+			boot.dispose();
+			return boot.joinLifecycleDrain();
+		});
 		try {
 			const deadline = Date.now() + 5_000;
 			for (;;) {

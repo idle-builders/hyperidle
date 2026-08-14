@@ -15,8 +15,21 @@
 import { agentLifecycleInbox, agentSessionRequests, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { describe } from "vitest";
-import { type DurableAgentQueueDeps, drainLifecycleProjections, reapExpired } from "../index.js";
+import { describe, vi } from "vitest";
+import {
+	type DurableAgentQueueDeps,
+	drainLifecycleProjections,
+	reapExpired,
+	startLifecycleProjectionDrain,
+} from "../index.js";
+
+function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+	let resolve: () => void = () => {};
+	const promise = new Promise<void>((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
+}
 
 function fakeDeps(): DurableAgentQueueDeps["lifecycleProjection"] & {
 	// AU21 correction: `routine` no longer has an injected lifecycle-projection
@@ -211,6 +224,83 @@ describe("drainLifecycleProjections — exhaustive DI port wiring", () => {
 		expect(deps.routineCalls).toHaveLength(0);
 		expect(deps.workCalls).toHaveLength(0);
 		expect(deps.explicitCalls).toHaveLength(0);
+	});
+});
+
+describe("startLifecycleProjectionDrain — stop and join", () => {
+	test("stop is synchronous while join waits for active work and prevents later ticks", async ({
+		db,
+	}) => {
+		const entered = deferred();
+		const release = deferred();
+		let projectionCalls = 0;
+		await seedRequest(
+			db,
+			"lp-held-drain-req",
+			"explicit_session_start",
+			"lp-held-drain-req",
+			"lp-held-session",
+		);
+		const deps = fakeDeps();
+		deps.explicitSessionStarts.projectTerminalState = async () => {
+			projectionCalls += 1;
+			entered.resolve();
+			await release.promise;
+		};
+
+		vi.useFakeTimers();
+		try {
+			const stop = startLifecycleProjectionDrain(queueDeps(db, deps), { pollIntervalMs: 10 });
+			await entered.promise;
+
+			expect(stop()).toBeUndefined();
+			const firstJoin = stop.join();
+			const secondJoin = stop.join();
+			let joined = false;
+			void firstJoin.then(() => {
+				joined = true;
+			});
+			await Promise.resolve();
+			expect(joined).toBe(false);
+			expect(secondJoin).toBe(firstJoin);
+
+			release.resolve();
+			await firstJoin;
+			await vi.advanceTimersByTimeAsync(30);
+			expect(projectionCalls).toBe(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	test("retains an immediately handled drain rejection for a later join", async ({ db }) => {
+		const failure = new Error("lifecycle drain failed");
+		const failingDb = new Proxy(db, {
+			get(target, property, receiver) {
+				if (property === "select") {
+					return () => {
+						throw failure;
+					};
+				}
+				return Reflect.get(target, property, receiver);
+			},
+		});
+		const unhandled: unknown[] = [];
+		const observeUnhandled = (reason: unknown): void => {
+			unhandled.push(reason);
+		};
+		process.on("unhandledRejection", observeUnhandled);
+		try {
+			const stop = startLifecycleProjectionDrain(queueDeps(failingDb, fakeDeps()), {
+				pollIntervalMs: 2_147_483_647,
+			});
+			await new Promise<void>((resolve) => setImmediate(resolve));
+
+			expect(unhandled).toEqual([]);
+			await expect(stop.join()).rejects.toBe(failure);
+		} finally {
+			process.off("unhandledRejection", observeUnhandled);
+		}
 	});
 });
 

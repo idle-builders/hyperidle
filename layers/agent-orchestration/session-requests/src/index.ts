@@ -11,6 +11,7 @@ export {
 	enqueueWorkIntent,
 	type FindQuery,
 	findSessionRequest,
+	type LifecycleProjectionDrainStop,
 	listPendingIntentsByKind,
 	listSessionRequests,
 	reapExpired,

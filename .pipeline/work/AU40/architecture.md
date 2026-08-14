@@ -15,9 +15,10 @@ next test.
 
 This is not production-wide shutdown redesign. It does not make all app disposers async, join run-runtime,
 routine-scheduler, observability, eval, or server work, or promise that production closes every database only
-after every async owner. The new fixture registry accepts only the awaitable orchestration drain cleanup
-created by `createTestApp` and the two fixture orchestration boots. Existing production `disposeApp` and server
-phase behavior stay unchanged.
+after every async owner. The new fixture registry accepts only awaitable orchestration-drain cleanup from
+`createTestApp`, the two fixture boots, and direct test-world boots using a pooled fixture DB. Existing
+production `disposeApp` and server phase behavior stay unchanged. Registration is not limited to the three
+shared fixture constructors.
 
 No assertion, test data, id, retry, sleep, lane membership, worker count, or database-wipe change is allowed.
 
@@ -50,11 +51,16 @@ The current ownership chain is exact:
 3. The optional `agentOrchestration` fixture calls the same boot again and starts an independent drain.
 4. The canonical `app` fixture calls `createServiceTestApp` → `createTestApp`; with a DB,
    `createTestApp` boots another orchestration handle and therefore another drain.
-5. All three teardown paths currently call synchronous `AgentOrchestrationBoot.dispose()`. It invokes the
+5. Four direct integration-test construction sites also boot against that pooled DB outside those fixture
+   constructors: provisioning wiring, boot lifecycle drain, two-app route collision, and the
+   server-disposal test's wrapper around the real boot.
+6. Three AU36 direct boots are passed immediately into `createTestApp`, so that function's pre-booted-handle
+   registration covers them before it composes core API. They do not need a second registration.
+7. All current teardown paths call synchronous `AgentOrchestrationBoot.dispose()`. It invokes the
    lifecycle stop returned by `startLifecycleProjectionDrain()`, but that stop only clears the interval.
    The immediate/timed `void drain()` may still be reading or mutating the database after fixture teardown,
    checkin, or the next truncate.
-6. Bare fixture boots omit `runtime`, and the canonical app omits `serviceBootstrap`. Therefore run-runtime
+8. Bare fixture boots omit `runtime`, and the canonical app omits `serviceBootstrap`. Therefore run-runtime
    and routine-scheduler are not part of this proven common owner.
 
 ### Accepted existing constraints
@@ -116,7 +122,7 @@ idempotent `.join()` and therefore also stops the drain if a higher fixture fail
 It does not dispose runtime, socket, gateway, or activity state. Production does not register or call this
 method, so no rejecting promise enters `disposeApp` or either server's synchronous app-disposer bag.
 
-Only the fixture ownership path is required to await the result:
+Only pooled-fixture ownership paths register the result:
 
 - core-api `eventBus` fixture: register `dispose()` followed by `joinLifecycleDrain()` for its boot, while its
   normal teardown still unregisters three reactions and calls synchronous `dispose()`;
@@ -127,13 +133,19 @@ Only the fixture ownership path is required to await the result:
   construction can fail;
 - canonical `app` fixture: keep `disposeApp(app)` for synchronous app subscriptions; fixture cleanup barrier
   invokes the separately registered join before DB checkin.
+- direct pooled-DB boot callers in
+  `boot-provisioning-wiring.integration.test.ts`, `boot-lifecycle-drain.integration.test.ts`,
+  `two-app-mount-session-routes.integration.test.ts`, and the real-boot wrapper in
+  `server-disposal.integration.test.ts`: register `dispose()` plus `joinLifecycleDrain()` immediately after
+  each successful boot. Existing explicit runtime/server disposal remains and keeps its current order.
 
-Caller census is reconciled against current source. Desktop and remote server put `dispose` into their
-synchronous app bags and await `disposeRuntime` in a separate shutdown phase; both stay unchanged. The eval
-fixture constructs a boot without disposing it; that pre-existing ownership gap is outside AU40. Test app
-composition and direct boot integration tests continue calling void `dispose`. The two direct
-`startLifecycleProjectionDrain` tests continue calling the returned stop as a function. Only the shared
-DB-fixture/createTestApp seam consumes the new join method.
+Caller census is reconciled against current source: ten test-world direct call expressions receive a pooled
+fixture DB. Three are the two core fixtures plus `createTestApp`; four are the explicit direct sites named
+above; three are AU36 boots immediately handed to `createTestApp`. All ten therefore reach the fixture
+barrier. Desktop and remote server production construction still put `dispose` into synchronous app bags and
+await `disposeRuntime` separately; neither production shutdown path changes. The eval fixture's bare boot is
+not a pooled service fixture owner and stays outside AU40. The two direct
+`startLifecycleProjectionDrain` integration helpers keep calling the source-compatible synchronous stop.
 
 ### 3.3 DB-fixture completion barrier
 
@@ -159,9 +171,10 @@ The lease never puts a body error into its `AggregateError`. `checkin` still hap
 primary pool cannot remain marked in use. The next test's checkout/truncate cannot begin until awaited fixture
 teardown completes. Duplicate registration/calls are safe because drain stop and join are idempotent.
 
-The registrar is not a general process shutdown service. `createTestApp` registers only the orchestration boot
-it created or was given; the two core fixture boots register only themselves. Routine, runtime, observability,
-Git, sockets, and arbitrary test promises cannot enter this bag under AU40.
+The registrar is not a general process shutdown service. It accepts only orchestration cleanup owned by the
+ten pooled-DB boot sites above: `createTestApp` registers the boot it created or was given, two core fixtures
+register themselves, and four direct integration sites register their boots. Routine, runtime, observability,
+Git, sockets, arbitrary test promises, and non-pooled boots cannot enter this bag under AU40.
 
 ## 4. Data flow
 
@@ -199,6 +212,15 @@ fixture use, canonical app use, assertion failures, and shuffled file boundaries
   fixture-owned, including before subsequent composition steps that can throw.
 - `layers/core-api/src/__testing__/test-fixtures.ts` — register direct fixture boots; canonical app retains sync
   `disposeApp`, with lifecycle completion guaranteed by the DB barrier.
+- `layers/agent-orchestration/src/__tests__/boot-provisioning-wiring.integration.test.ts` and
+  `boot-lifecycle-drain.integration.test.ts` — register their pooled-DB boots; keep current runtime and sync
+  disposal ordering.
+- `layers/core-api/src/__tests__/two-app-mount-session-routes.integration.test.ts` — register its standalone
+  pooled-DB boot before route assertions.
+- `layers/core-api/src/__tests__/server-disposal.integration.test.ts` — its existing real-boot test wrapper
+  registers the boot against `options.db`; production `createServer` and `ServerHandle.dispose` stay unchanged.
+- `layers/core-api/src/__tests__/AU36-reach-wiring.integration.test.ts` — no edit required: all three direct
+  boots are passed to `createTestApp`, whose pre-booted-handle path registers them.
 - a core fixture integration test — held lifecycle join keeps fixture teardown pending and repeated cleanup
   remains one-shot.
 
@@ -231,10 +253,10 @@ comparison and deployment env by default. Git argument validation/redaction is u
 One builder owns leaf stop, boot propagation, fixture barrier, and tests because their teardown ordering is
 one contract. No parallel leaf is safe.
 
-Current implementation net addition outside `.pipeline/**` is +320 code lines. The systemic delta is
-estimated at +140 to +260 net code lines:
-roughly 35–60 implementation/type lines, 25–45 fixture propagation lines, and 80–155 runtime tests. Projected
-code total is +460 to +580, below the maintainer's +1,000 stop. `.pipeline/**` artifacts are excluded from
+Current implementation net addition outside `.pipeline/**` is +320 code lines (589 added, 269 deleted). The
+systemic delta is estimated at +150 to +280 net code lines: roughly 35–60 implementation/type lines, 35–65
+fixture registration/caller lines, and 80–155 runtime tests. Projected code total is +470 to +600, below the
+maintainer's +1,000 stop. `.pipeline/**` artifacts are excluded from
 this cap. If code exceeds +1,000 net against `origin/main`, stop and request a split. This does not contradict
 `plan.md`.
 
@@ -242,7 +264,8 @@ this cap. If code exceeds +1,000 net against `origin/main`, stop and request a s
 
 1. Write failing lifecycle stop/join and single-test DB-fixture barrier proof.
 2. Implement tracked lifecycle stop plus separate boot join, retaining void boot disposal.
-3. Add the DB fixture owner bag and register/await only the three fixture/createTestApp orchestration paths.
+3. Add the DB fixture owner bag and register all ten pooled-DB direct boot sites through the three shared
+   constructors, four explicit test sites, and three AU36 handoffs to `createTestApp`.
 4. Run focused fixture, auth, Git, and prior per-file regression slices.
 5. Run check/lint/test/verify, then the full repeated and shuffled service gates.
 

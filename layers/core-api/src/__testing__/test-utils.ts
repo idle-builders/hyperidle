@@ -5,6 +5,7 @@ import {
 	bootAgentOrchestration,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
+import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { Hono } from "hono";
@@ -98,6 +99,12 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	const agentOrchestration =
 		options?.agentOrchestrationBoot ??
 		(options?.db ? await bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
+	if (options?.db && agentOrchestration) {
+		registerFixtureOrchestrationCleanup(options.db, () => {
+			agentOrchestration.dispose();
+			return agentOrchestration.joinLifecycleDrain();
+		});
+	}
 
 	const layerOptions: TestAppOptions = {
 		...options,

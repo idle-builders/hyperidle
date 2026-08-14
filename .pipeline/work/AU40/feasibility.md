@@ -44,15 +44,18 @@ that rejected before teardown without creating an unhandled rejection. Boot reta
 a distinct `joinLifecycleDrain()` method used only by fixtures. A per-test awaitable
 cleanup bag keyed by the wrapped fixture DB is the last common barrier. `createTestApp` can register
 `dispose()` plus the join as soon as its boot exists; the two direct orchestration fixtures register their
-boots. The DB fixture awaits the bag before checkin. Raw DB handles are not registered, and production
-app/server teardown does not change.
+boots. Four direct integration sites register the same cleanup immediately after boot, and three AU36 boots
+are covered when handed to `createTestApp`. The DB fixture awaits the bag before checkin. Raw DB handles are
+not registered, and production app/server teardown does not change.
 
 Caller fact-check: `startLifecycleProjectionDrain` has three executable call sites (boot plus two integration
-tests), all preserved by the callable stop type. Desktop and remote compose `AgentOrchestrationBoot.dispose`
-into synchronous app bags and separately await `disposeRuntime`; test app composition and direct boot tests
-also call void `dispose`. The eval fixture constructs a bare boot without cleanup; AU40 does not widen into
-that pre-existing production-tool ownership gap. No current caller needs to ignore or await a changed
-`dispose` result.
+tests), all preserved by the callable stop type. There are ten direct test-world
+`bootAgentOrchestration` call expressions on pooled fixture DBs: two core fixture boots, `createTestApp`, the
+provisioning-wiring helper, boot-lifecycle test, two-app test, server-disposal's real-boot wrapper, and three
+AU36 calls. The first seven register directly; AU36's three register through the pre-booted `createTestApp`
+path. Desktop and remote production app bags keep void `dispose` and separately await `disposeRuntime`. The
+eval fixture constructs a non-pooled bare boot and remains outside scope. No caller ignores or awaits a
+changed `dispose` result.
 
 ## 3. Load-bearing test feasibility
 
@@ -94,17 +97,17 @@ Vitest API; a nested subprocess/custom runner is disproportionate and excluded.
 
 ## 5. Size and verdict
 
-Current net added code against `origin/main`, excluding `.pipeline/**`, is +320 lines (583 added, 263
-deleted). Estimated systemic delta is +140 to +260 net code lines:
+Current net added code against `origin/main`, excluding `.pipeline/**`, is +320 lines (589 added, 269
+deleted). Estimated systemic delta is +150 to +280 net code lines:
 
 | part | estimate |
 |---|---:|
 | lifecycle stop + boot type/implementation | +35–60 |
-| DB/core fixture registration and propagation | +25–45 |
+| DB/core fixture registration and all direct pooled callers | +35–65 |
 | runtime tests | +80–155 |
-| projected code total | **+460–580** |
+| projected code total | **+470–600** |
 
-The design remains below +1,000 with 420–540 lines of expected headroom. Pipeline artifact lines do not count
+The design remains below +1,000 with 400–530 lines of expected headroom. Pipeline artifact lines do not count
 toward the maintainer cap. Stop for maintainer split if implementation code reaches +1,000 net; do not broaden
 into app/server/routine/runtime shutdown.
 

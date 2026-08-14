@@ -39,6 +39,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -277,6 +278,10 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		eventBus,
 	}) => {
 		const orchestration = await bootAgentOrchestration({ db, eventBus });
+		registerFixtureOrchestrationCleanup(db, () => {
+			orchestration.dispose();
+			return orchestration.joinLifecycleDrain();
+		});
 		const coreOnly = await createCoreApiApp({
 			db,
 			eventBus,
