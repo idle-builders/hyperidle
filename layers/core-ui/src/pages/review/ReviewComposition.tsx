@@ -692,15 +692,12 @@ function ExaminePane({
 					<PageHeader
 						presentation="pane"
 						reservePaneControls
-						title={
-							<span className="flex min-w-0 items-center gap-[9px]">
-								<KindBadge kind={artifact.kind} />
-								<ToolLogo tool={artifact.tool as ToolId} size="sm" />
-								<span className="truncate">{artifact.title}</span>
-							</span>
-						}
-						actions={
-							<>
+						leading={
+							<div className="flex min-w-0 items-center justify-between gap-[9px]">
+								<div className="flex min-w-0 items-center gap-[9px] overflow-hidden">
+									<KindBadge kind={artifact.kind} />
+									<ToolLogo tool={artifact.tool as ToolId} size="sm" />
+								</div>
 								<button
 									type="button"
 									onClick={() => {
@@ -710,15 +707,18 @@ function ExaminePane({
 								>
 									Comment on this
 								</button>
-								<button
-									type="button"
-									aria-label="Close artifact"
-									onClick={onClose}
-									className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[14px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
-								>
-									✕
-								</button>
-							</>
+							</div>
+						}
+						title={<span className="block truncate">{artifact.title}</span>}
+						actions={
+							<button
+								type="button"
+								aria-label="Close artifact"
+								onClick={onClose}
+								className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[14px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+							>
+								✕
+							</button>
 						}
 					/>
 				}

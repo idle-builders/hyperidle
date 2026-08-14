@@ -1,6 +1,6 @@
 # AZ11-G — Stable frame plus lane
 
-Status: implemented and awaiting the one fresh implementation review.
+Status: implemented; the one fresh implementation review is complete and its findings are repaired.
 
 This is the single combined requirements, design, and architecture artifact required by the founder procedure. Approval of this artifact replaces the conflicting “all visible content shares one left edge” rule in `plan.md`.
 
@@ -173,6 +173,7 @@ Approval recorded: 2026-08-14. Founder selected Option C and said to continue.
 ## Build evidence
 
 - Component and affected tests: 2,050 passed.
-- Painted browser checks: layout 4/4, page orientation 5/5, scrolling 21/21.
+- Painted browser checks: layout 4/4 and page orientation 5/5. The existing AZ2 scroll suite remains unchanged as approved.
 - Full-size screenshots inspected for Scan, Read, Workbench, Focus, Inspect, and compact Inspect.
 - `npm run check`, `npm run lint`, and `npm run verify`: passed.
+- Fresh-review repairs preserve the original Conversation breadcrumb and host link, give Review's destination title a readable row, and add painted proof for that title.

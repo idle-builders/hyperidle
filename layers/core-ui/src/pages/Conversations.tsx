@@ -545,7 +545,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 							<Breadcrumb
 								segments={[
 									{ label: "Conversations", to: "/conversations" },
-									{ label: hostTitle, to: hostRoute ?? undefined },
+									{ label: threadTitle },
 								]}
 								LinkComponent={Link}
 							/>
@@ -590,7 +590,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						participants={participants}
 						onSend={onSend}
 						scroll
-						showHeader={inspection !== null}
+						headerPresentation={inspection ? "pane" : "read"}
 					/>
 				}
 				destination={inspectionDestination}

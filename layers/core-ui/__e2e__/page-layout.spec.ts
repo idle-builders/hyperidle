@@ -210,5 +210,12 @@ test("review with an artifact open uses two local panes", async ({ page }) => {
 	await expect(split).toBeVisible();
 	await expect(split.locator("[data-page-frame]")).toHaveCount(0);
 	await expect(split.locator("[data-ds-component='PageHeader'] h2")).toHaveCount(2);
+	const destinationTitle = split
+		.locator(":scope > div")
+		.last()
+		.locator("h2")
+		.getByText(REVIEW_COMPOSITION_SUBJECT.artifacts[0]?.title ?? "", { exact: true });
+	await expect(destinationTitle).toBeVisible();
+	expect((await box(destinationTitle)).width).toBeGreaterThan(96);
 	await page.screenshot({ path: resolve(EVIDENCE, "inspect-review.png") });
 });

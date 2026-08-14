@@ -250,7 +250,7 @@ test.describe("AZ2 AC1/AC2/AC3/VS1 — team page reaches its end at every viewpo
 // ---------------------------------------------------------------------------
 // AC1/AC2 — /artifacts/:id, the second real defect (round.md §2.4). No
 // scaffold at all before the fix (shape E) — no root height, no scroll
-// region. A large code artifact forces content taller than the pane.
+// region. A large code diff forces content taller than the pane.
 // ---------------------------------------------------------------------------
 
 const ARTIFACT_ID = "artifact-az2";
@@ -261,17 +261,17 @@ function makeOverflowingArtifact() {
 		id: ARTIFACT_ID,
 		producingTaskId: "task-az2",
 		producingTaskTitle: "AZ2 fixture task",
-		kind: "code",
+		kind: "code_diff",
 		preview: {
-			kind: "code",
-			path: "layers/core-ui/src/Big.tsx",
-			lang: "tsx",
-			text: Array.from({ length: 20 }, (_, h) =>
-				Array.from(
-					{ length: 12 },
-					(_, l) => `line ${h}-${l} of a very long artifact that must scroll`,
-				).join("\n"),
-			).join("\n"),
+			kind: "code_diff",
+			file: "layers/core-ui/src/Big.tsx",
+			hunks: Array.from({ length: 20 }, (_, h) => ({
+				header: `@@ -${h * 10},10 +${h * 10},10 @@`,
+				lines: Array.from({ length: 12 }, (_, l) => ({
+					kind: "add" as const,
+					text: `+ line ${h}-${l} of a very long artifact that must scroll`,
+				})),
+			})),
 		},
 		threadCount: 0,
 		createdAt: "2026-04-28T12:00:00.000Z",
@@ -319,7 +319,6 @@ test.describe("AZ2 AC1/AC2 — /artifacts/:id reaches its end at every viewport"
 			await page.goto(ARTIFACT_URL);
 			await page.waitForSelector("[data-ds-component='ArtifactPreview']");
 			await page.waitForLoadState("networkidle");
-			await page.getByRole("button", { name: /Expand/ }).click();
 
 			const before = await measure(page);
 			expect(before.scrollContainers).toBeGreaterThanOrEqual(1);
@@ -327,7 +326,7 @@ test.describe("AZ2 AC1/AC2 — /artifacts/:id reaches its end at every viewport"
 		});
 	}
 
-	test("AC1: content after a large artifact is reachable by scrolling to the end", async ({
+	test("AC1: the last line of the artifact diff is reachable by scrolling to the end", async ({
 		page,
 	}) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
@@ -342,13 +341,11 @@ test.describe("AZ2 AC1/AC2 — /artifacts/:id reaches its end at every viewport"
 		await page.goto(ARTIFACT_URL);
 		await page.waitForSelector("[data-ds-component='ArtifactPreview']");
 		await page.waitForLoadState("networkidle");
-		await page.getByRole("button", { name: /Expand/ }).click();
-		await expect(page.locator("code")).toContainText(
-			"line 19-11 of a very long artifact that must scroll",
-		);
 
 		await scrollToEndOfContainer(page, "[data-page-scroll]");
-		await expect(page.getByRole("region", { name: "Discussion" })).toBeInViewport();
+		await expect(
+			page.getByText("line 19-11 of a very long artifact that must scroll"),
+		).toBeInViewport();
 	});
 });
 

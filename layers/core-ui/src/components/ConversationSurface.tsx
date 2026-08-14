@@ -76,8 +76,8 @@ export interface ConversationSurfaceProps {
 	/** Story-only visual toggles (default false; the page never sets these). */
 	scroll?: boolean;
 	composerActive?: boolean;
-	/** Page mode uses the outer PageHeader; split mode shows this local pane header. */
-	showHeader?: boolean;
+	/** Read mode keeps context in the readable lane; pane mode owns split identity. */
+	headerPresentation?: "read" | "pane";
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -169,54 +169,61 @@ function ConversationHeader({
 	header,
 	participants,
 	onActions,
+	presentation,
 }: {
 	header: ConversationSurfaceHeader;
 	participants: ReadonlyArray<ConversationSurfaceParticipant>;
 	onActions: () => void;
+	presentation: "read" | "pane";
 }): JSX.Element {
-	return (
-		<PageHeader
-			presentation="pane"
-			title={header.title}
-			leading={
-				<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-					<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
-						{header.hostKind}
-					</span>
-					<span className="text-[var(--text-tertiary)]">·</span>
-					{header.hostRoute ? (
-						<Link
-							to={header.hostRoute}
-							className="truncate font-[500] text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
-						>
-							{header.hostTitle}
-						</Link>
-					) : (
-						<span className="truncate font-[500] text-[var(--text-primary)]">
-							{header.hostTitle}
-						</span>
-					)}
+	const context = (
+		<div className="flex min-w-0 flex-1 items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
+			<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
+				{header.hostKind}
+			</span>
+			<span className="text-[var(--text-tertiary)]">·</span>
+			{header.hostRoute ? (
+				<Link
+					to={header.hostRoute}
+					className="truncate font-[500] text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
+				>
+					{header.hostTitle}
+				</Link>
+			) : (
+				<span className="truncate font-[500] text-[var(--text-primary)]">{header.hostTitle}</span>
+			)}
+		</div>
+	);
+	const controls = (
+		<>
+			<div className="flex items-center gap-[9px]">
+				<ParticipantGroup people={participants} />
+				<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">
+					{participants.length}
+				</span>
+			</div>
+			<button
+				type="button"
+				onClick={onActions}
+				aria-label="Conversation actions"
+				className="flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+			>
+				<Glyph d={ICON_MORE} size={16} />
+			</button>
+		</>
+	);
+	if (presentation === "read") {
+		return (
+			<header className="shrink-0 border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+				<div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-[12px]">
+					{context}
+					<div className="flex shrink-0 items-center gap-[9px]">{controls}</div>
 				</div>
-			}
-			actions={
-				<>
-					<div className="flex items-center gap-[9px]">
-						<ParticipantGroup people={participants} />
-						<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">
-							{participants.length}
-						</span>
-					</div>
-					<button
-						type="button"
-						onClick={onActions}
-						aria-label="Conversation actions"
-						className="flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
-					>
-						<Glyph d={ICON_MORE} size={16} />
-					</button>
-				</>
-			}
-		/>
+			</header>
+		);
+	}
+	return (
+		<PageHeader presentation="pane" title={header.title} leading={context} actions={controls} />
 	);
 }
 
@@ -461,7 +468,7 @@ export default function ConversationSurface({
 	onSend,
 	scroll = false,
 	composerActive = false,
-	showHeader = true,
+	headerPresentation = "pane",
 }: ConversationSurfaceProps): JSX.Element {
 	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
 	const [replyActive, setReplyActive] = useState(composerActive);
@@ -522,13 +529,12 @@ export default function ConversationSurface({
 				className="flex flex-col bg-[var(--surface-page)]"
 				style={{ flex: 1, minWidth: 0, ...(scroll ? { height: "100%" } : {}) }}
 			>
-				{showHeader && (
-					<ConversationHeader
-						header={header}
-						participants={participants}
-						onActions={() => setReplyActive((v) => !v)}
-					/>
-				)}
+				<ConversationHeader
+					header={header}
+					participants={participants}
+					onActions={() => setReplyActive((v) => !v)}
+					presentation={headerPresentation}
+				/>
 				<div
 					className="px-[18px] py-[12px]"
 					style={scroll ? { flex: 1, minHeight: 0, overflowY: "auto" } : undefined}
