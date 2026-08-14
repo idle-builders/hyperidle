@@ -325,10 +325,10 @@ describe("AC3: Worker token cannot access credentials or admin routes", () => {
 	});
 
 	test("worker token rejected by GET /api/credentials (requires HYPERIDLE_API_KEY)", async ({
-		app,
+		requestWithoutAuth,
 	}) => {
 		// Worker token is NOT the API key — should get 401
-		const res = await app.request("/api/credentials", {
+		const res = await requestWithoutAuth("/api/credentials", {
 			method: "GET",
 			headers: {
 				"X-API-Key": "worker-secret-token-af11",
@@ -339,9 +339,9 @@ describe("AC3: Worker token cannot access credentials or admin routes", () => {
 	});
 
 	test("worker token rejected by PUT /api/credentials/:name (requires HYPERIDLE_API_KEY)", async ({
-		app,
+		requestWithoutAuth,
 	}) => {
-		const res = await app.request("/api/credentials/anthropic_api_key", {
+		const res = await requestWithoutAuth("/api/credentials/anthropic_api_key", {
 			method: "PUT",
 			headers: {
 				"X-API-Key": "worker-secret-token-af11",

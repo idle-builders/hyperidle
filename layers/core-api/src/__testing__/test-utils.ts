@@ -20,6 +20,8 @@ import {
 const TRACE_FILE = process.env.VITEST_TRACE_FILE;
 
 export interface TestAppOptions extends AppOptions {
+	/** Explicit API key captured by this test app; never read from ambient env after construction. */
+	authApiKey?: string;
 	/**
 	 * A pre-booted orchestration Layer. Omitted → this harness boots one itself
 	 * (when a `db` is present), exactly as production does.
@@ -97,7 +99,7 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 		options?.agentOrchestrationBoot ??
 		(options?.db ? await bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
 
-	const layerOptions: AppOptions = {
+	const layerOptions: TestAppOptions = {
 		...options,
 		agentOrchestration: agentOrchestrationPort,
 		...(options?.db ? { eventBus } : {}),
@@ -137,7 +139,14 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 		...(agentOrchestration ? [agentOrchestration.dispose] : []),
 	]);
 	// Close the construction cycle — every request from here on resolves.
-	realTransport = createInProcessAgentOrchestrationTransport(app);
+	const inProcessTransport = createInProcessAgentOrchestrationTransport(app);
+	realTransport = options?.authApiKey
+		? async (request) => {
+				const headers = new Headers(request.headers);
+				headers.set("X-API-Key", options.authApiKey as string);
+				return inProcessTransport(new Request(request, { headers }));
+			}
+		: inProcessTransport;
 
 	if (TRACE_FILE) {
 		const ms = Math.round((performance.now() - t0) * 10) / 10;

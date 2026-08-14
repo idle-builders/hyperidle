@@ -86,6 +86,38 @@ describe("GitRunner — real on-disk round-trip (filesystem inbound verbs)", () 
 		expect(header).toMatch(/^# v\d git bundle/);
 	});
 
+	it("local timeout override wins for bundle and worktree lifecycle commands", async () => {
+		const bareDir = await createBareRepo(tmpDir);
+		const mainClone = await createWorkingClone(bareDir, tmpDir);
+		const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+		const runner = createGitRunner(mainClone, { logger, timeouts: { localMs: 17_000 } });
+		const worktreePath = path.join(tmpDir, "override-worktree");
+
+		await runner.worktreeAdd(worktreePath, "agent/override", { createBranch: true });
+		await runner.bundle(path.join(tmpDir, "override.bundle"), "refs/heads/main");
+		await runner.worktreeRemove(worktreePath, { force: true });
+
+		for (const command of ["worktree", "bundle"]) {
+			expect(logger.debug).toHaveBeenCalledWith(
+				"git spawn",
+				expect.objectContaining({
+					args: expect.arrayContaining([command]),
+					timeoutMs: 17_000,
+				}),
+			);
+		}
+		const worktreeCalls = logger.debug.mock.calls.filter(
+			([message, details]) =>
+				message === "git spawn" &&
+				Array.isArray((details as { args?: unknown }).args) &&
+				(details as { args: unknown[] }).args[0] === "worktree",
+		);
+		expect(worktreeCalls).toHaveLength(2);
+		expect(
+			worktreeCalls.map(([, details]) => (details as { timeoutMs: number }).timeoutMs),
+		).toEqual([17_000, 17_000]);
+	});
+
 	it("worktreeAdd / worktreeRemove: creates and removes a worktree", async () => {
 		const bareDir = await createBareRepo(tmpDir);
 		const mainClone = await createWorkingClone(bareDir, tmpDir);

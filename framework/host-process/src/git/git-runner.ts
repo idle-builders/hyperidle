@@ -152,7 +152,7 @@ export interface GitRunner {
 }
 
 export interface CreateGitRunnerOptions {
-	/** Override process timeouts in milliseconds. */
+	/** Override process timeouts in milliseconds, including long local filesystem operations. */
 	timeouts?: {
 		localMs?: number;
 		pushMs?: number;
@@ -318,6 +318,7 @@ async function spawnGit(
 export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions): GitRunner {
 	const logger = opts?.logger ?? createLogger({ pkg: "git-runner" });
 	const localMs = opts?.timeouts?.localMs ?? DEFAULT_LOCAL_MS;
+	const longLocalMs = opts?.timeouts?.localMs ?? DEFAULT_WORKTREE_MS;
 	const pushMs = opts?.timeouts?.pushMs ?? DEFAULT_PUSH_MS;
 
 	function run(
@@ -464,7 +465,7 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			}
 			// Bundle creation traverses and compresses repository history; like worktree
 			// lifecycle, it is artifact filesystem work rather than metadata-only git.
-			await runExpectOk(["bundle", "create", bundlePath, ref], DEFAULT_WORKTREE_MS);
+			await runExpectOk(["bundle", "create", bundlePath, ref], longLocalMs);
 		},
 		async worktreeAdd(
 			worktreePath: string,
@@ -485,7 +486,7 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			// @lore worktree-hook-timeout: `git worktree add` runs the target repo's post-checkout
 			// hook. HyperIdle's hook bootstraps a fresh worktree, so worktree lifecycle
 			// verbs cannot share the 5s timeout used by metadata-only operations.
-			await runExpectOk(args, DEFAULT_WORKTREE_MS);
+			await runExpectOk(args, longLocalMs);
 		},
 		async worktreeRemove(worktreePath: string, opts?: { force?: boolean }): Promise<void> {
 			// @lore AO2: --force removes even with untracked/modified files.
@@ -498,7 +499,7 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			args.push("--", worktreePath);
 			// A bootstrapped worktree contains node_modules and local DB state; removing
 			// that tree is a filesystem operation, not a metadata-only git operation.
-			await runExpectOk(args, DEFAULT_WORKTREE_MS);
+			await runExpectOk(args, longLocalMs);
 		},
 		async restoreStaged(paths: readonly string[]): Promise<void> {
 			if (paths.length === 0) return;

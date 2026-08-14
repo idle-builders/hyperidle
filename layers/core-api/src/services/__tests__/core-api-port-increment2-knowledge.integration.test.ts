@@ -106,7 +106,14 @@ import {
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import {
+	afterEach,
+	describe,
+	expect,
+	test,
+	vi,
+	withoutServiceTestAuth,
+} from "../../__testing__/test-fixtures.js";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -407,7 +414,7 @@ describe("CoreApiPort.knowledge conflict methods — Increment 2 knowledge wave 
 		await seedKnowledgeItem(db, { id: "ki-conflict-noauth" });
 
 		const port = buildCoreApiPort(
-			createInProcessCoreApiTransport(app),
+			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
 		) as unknown as SeamCoreApiPortIncrement2Knowledge;
 
 		await expect(
@@ -539,7 +546,7 @@ describe("CoreApiPort.knowledge attention-score methods — Increment 2 knowledg
 		await seedKnowledgeItem(db, { id: "ki-attention-noauth" });
 
 		const port = buildCoreApiPort(
-			createInProcessCoreApiTransport(app),
+			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
 		) as unknown as SeamCoreApiPortIncrement2Knowledge;
 
 		await expect(

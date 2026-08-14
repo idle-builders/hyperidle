@@ -20,11 +20,11 @@ describe("API Scaffold", () => {
 	});
 
 	describe("AC2: Request without API key returns 401", () => {
-		test("returns 401 with UNAUTHORIZED code for /api routes", async ({ app }) => {
+		test("returns 401 with UNAUTHORIZED code for /api routes", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 			// /api/health is public, so test a protected route
-			const protectedRes = await app.request("/api/protected-test");
+			const protectedRes = await requestWithoutAuth("/api/protected-test");
 			expect(protectedRes.status).toBe(401);
 
 			const body = (await protectedRes.json()) as ApiErrorResponse;
@@ -33,9 +33,9 @@ describe("API Scaffold", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 401 for missing X-API-Key header", async ({ app }) => {
+		test("returns 401 for missing X-API-Key header", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/protected-test", {
+			const res = await requestWithoutAuth("/api/protected-test", {
 				headers: {},
 			});
 
@@ -57,9 +57,9 @@ describe("API Scaffold", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 401 with invalid API key", async ({ app }) => {
+		test("returns 401 with invalid API key", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/protected-test", {
+			const res = await requestWithoutAuth("/api/protected-test", {
 				headers: { "X-API-Key": "wrong-key" },
 			});
 

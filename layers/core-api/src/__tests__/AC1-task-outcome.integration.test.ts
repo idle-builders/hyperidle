@@ -143,9 +143,9 @@ describe("PATCH /api/tasks/:id — AC1 task outcome (AC-2, AC-10, AC-12)", () =>
 	});
 
 	// 401 without auth
-	test("returns 401 without authentication", async ({ app }) => {
+	test("returns 401 without authentication", async ({ requestWithoutAuth }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/tasks/task-1", {
+		const res = await requestWithoutAuth("/api/tasks/task-1", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ outcomeVerdict: "met" }),

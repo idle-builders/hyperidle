@@ -251,7 +251,7 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 		expect(await port.sessions.getById("nope")).toBeNull();
 	});
 
-	test("every relocated route 401s without auth", async ({ db, app }) => {
+	test("every relocated route 401s without auth", async ({ db, requestWithoutAuth }) => {
 		await seed(db);
 		const cases: ReadonlyArray<readonly [string, string]> = [
 			["GET", "/api/sessions"],
@@ -262,7 +262,7 @@ describe("agent-orchestration's own app, mounted beside core-api's", () => {
 			["GET", "/api/agent-orchestration/sessions?sourceKind=task&sourceId=x"],
 		];
 		for (const [method, path] of cases) {
-			const res = await app.request(path, {
+			const res = await requestWithoutAuth(path, {
 				method,
 				...(method === "GET"
 					? {}

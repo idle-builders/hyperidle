@@ -40,9 +40,9 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 	});
 
 	describe("GET /api/health/auth", () => {
-		test("returns 401 without API key", async ({ app }) => {
+		test("returns 401 without API key", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/health/auth");
+			const res = await requestWithoutAuth("/api/health/auth");
 			expect(res.status).toBe(401);
 			vi.unstubAllEnvs();
 		});
@@ -139,9 +139,9 @@ describe("P3 AC-6 — Health check for shared mode", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("returns 401 with wrong API key", async ({ app }) => {
+		test("returns 401 with wrong API key", async ({ requestWithoutAuth }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const res = await app.request("/api/health/auth", {
+			const res = await requestWithoutAuth("/api/health/auth", {
 				headers: { "X-API-Key": "wrong-key" },
 			});
 			expect(res.status).toBe(401);

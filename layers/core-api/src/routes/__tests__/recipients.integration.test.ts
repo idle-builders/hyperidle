@@ -162,8 +162,8 @@ describe("GET /api/recipients (Q1 §3.3)", () => {
 	});
 
 	// Auth: requires API key
-	test("returns 401 without API key", async ({ app }) => {
-		const res = await app.request("/api/recipients");
+	test("returns 401 without API key", async ({ requestWithoutAuth }) => {
+		const res = await requestWithoutAuth("/api/recipients");
 		expect(res.status).toBe(401);
 	});
 

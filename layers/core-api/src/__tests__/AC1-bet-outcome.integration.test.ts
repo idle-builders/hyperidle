@@ -284,9 +284,9 @@ describe("POST /api/bets/:id/outcome — AC1 bet outcome (AC-1, AC-4, AC-9, AC-1
 	});
 
 	// 401 without auth
-	test("returns 401 without authentication", async ({ app }) => {
+	test("returns 401 without authentication", async ({ requestWithoutAuth }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/bet-completed/outcome", {
+		const res = await requestWithoutAuth("/api/bets/bet-completed/outcome", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ verdict: "validated" }),

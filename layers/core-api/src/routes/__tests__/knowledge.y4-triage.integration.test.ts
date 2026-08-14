@@ -263,8 +263,8 @@ describe("Y4 — GET /api/knowledge/triage-count", () => {
 		expect(Object.keys(body)).toEqual(["count"]);
 	});
 
-	test("requires authentication — returns 401 without API key", async ({ app }) => {
-		const res = await app.request("/api/knowledge/triage-count");
+	test("requires authentication — returns 401 without API key", async ({ requestWithoutAuth }) => {
+		const res = await requestWithoutAuth("/api/knowledge/triage-count");
 		// Must use the same auth middleware as other knowledge routes
 		expect(res.status).toBe(401);
 	});

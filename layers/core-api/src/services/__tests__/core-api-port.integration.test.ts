@@ -32,7 +32,14 @@ import {
 } from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
-import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import {
+	afterEach,
+	describe,
+	expect,
+	test,
+	vi,
+	withoutServiceTestAuth,
+} from "../../__testing__/test-fixtures.js";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -159,7 +166,7 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		// no X-API-Key. If the seam bypassed the real route's auth middleware,
 		// this would succeed; it must not.
 		const port = buildCoreApiPort(
-			createInProcessCoreApiTransport(app),
+			withoutServiceTestAuth(createInProcessCoreApiTransport(app)),
 		) as unknown as SeamCoreApiPort;
 
 		await expect(

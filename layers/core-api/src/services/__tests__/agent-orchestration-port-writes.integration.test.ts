@@ -421,10 +421,10 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 	});
 
 	test("auth/boundary middleware genuinely ran — a raw call with no credentials is rejected", async ({
-		app,
+		requestWithoutAuth,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-auth-boundary");
-		const res = await app.request(
+		const res = await requestWithoutAuth(
 			"/api/agent-orchestration/requests/pending-intents?kind=assistant_turn",
 		);
 		expect(res.status).not.toBe(200);

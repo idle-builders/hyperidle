@@ -85,8 +85,8 @@ describe("User Endpoints /api/users (E6 — renamed from agents)", () => {
 			expect(body[0]).toHaveProperty("role");
 		});
 
-		test("returns 401 without auth", async ({ app }) => {
-			const res = await app.request("/api/users");
+		test("returns 401 without auth", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/users");
 			expect(res.status).toBe(401);
 		});
 	});

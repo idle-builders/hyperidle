@@ -232,7 +232,7 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 
 	test("auth/boundary middleware genuinely ran — a call with no credentials is rejected, not bypassed", async ({
 		db,
-		app,
+		requestWithoutAuth,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "aop-test-key-noauth");
 		await seedRequest(db, "aop-noauth", {
@@ -244,7 +244,7 @@ describe("AgentOrchestrationPort — §11 contract-test harness", () => {
 		// A raw fetch straight at the mounted route, bypassing any port-level
 		// header injection — the route itself must still demand HYPERIDLE_API_KEY,
 		// same invariant `core-api-port.integration.test.ts` asserts for CoreApiPort.
-		const res = await app.request(
+		const res = await requestWithoutAuth(
 			"/api/agent-orchestration/sessions?sourceKind=task&sourceId=task-aop-noauth",
 		);
 		expect(res.status).not.toBe(200);

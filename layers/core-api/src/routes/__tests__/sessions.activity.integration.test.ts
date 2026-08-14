@@ -137,9 +137,9 @@ describe("GET /api/sessions/:id/activity (Q1 §3.2)", () => {
 	});
 
 	// Auth: requires API key
-	test("returns 401 without API key", async ({ db, app }) => {
+	test("returns 401 without API key", async ({ db, requestWithoutAuth }) => {
 		await seedSession(db);
-		const res = await app.request("/api/sessions/sess-1/activity");
+		const res = await requestWithoutAuth("/api/sessions/sess-1/activity");
 		expect(res.status).toBe(401);
 	});
 

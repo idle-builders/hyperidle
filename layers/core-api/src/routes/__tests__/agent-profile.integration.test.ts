@@ -204,9 +204,9 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.maxConcurrentSessions).toBe(2);
 	});
 
-	test("returns 401 without auth header", async ({ db, app }) => {
+	test("returns 401 without auth header", async ({ db, requestWithoutAuth }) => {
 		await seedPrereqs(db);
-		const res = await app.request("/api/agents/ab1-agent-builder/profile");
+		const res = await requestWithoutAuth("/api/agents/ab1-agent-builder/profile");
 		expect(res.status).toBe(401);
 	});
 

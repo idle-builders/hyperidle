@@ -87,14 +87,14 @@ describe("AN1 — /api/connections routes", () => {
 	// ─── Auth guard (Critique WARNING §4 route boundary) ───────────────────────
 
 	describe("auth guard — all routes require authentication", () => {
-		test("GET /api/connections returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/connections");
+		test("GET /api/connections returns 401 without API key", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/connections");
 			// AC: route exists and enforces auth
 			expect(res.status).toBe(401);
 		});
 
-		test("POST /api/connections returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/connections", {
+		test("POST /api/connections returns 401 without API key", async ({ requestWithoutAuth }) => {
+			const res = await requestWithoutAuth("/api/connections", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ service: "Stripe", authSource: "token", token: "tok123" }),
@@ -102,13 +102,17 @@ describe("AN1 — /api/connections routes", () => {
 			expect(res.status).toBe(401);
 		});
 
-		test("DELETE /api/connections/:id returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/connections/sc-nonexistent", { method: "DELETE" });
+		test("DELETE /api/connections/:id returns 401 without API key", async ({
+			requestWithoutAuth,
+		}) => {
+			const res = await requestWithoutAuth("/api/connections/sc-nonexistent", { method: "DELETE" });
 			expect(res.status).toBe(401);
 		});
 
-		test("POST /api/connections/:id/validate returns 401 without API key", async ({ app }) => {
-			const res = await app.request("/api/connections/sc-nonexistent/validate", {
+		test("POST /api/connections/:id/validate returns 401 without API key", async ({
+			requestWithoutAuth,
+		}) => {
+			const res = await requestWithoutAuth("/api/connections/sc-nonexistent/validate", {
 				method: "POST",
 			});
 			expect(res.status).toBe(401);

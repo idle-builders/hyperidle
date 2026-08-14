@@ -191,9 +191,9 @@ describe("PATCH /api/sessions/:id — AC1 session effectiveness (AC-3, AC-11, W-
 	});
 
 	// 401 without auth
-	test("returns 401 without authentication", async ({ app }) => {
+	test("returns 401 without authentication", async ({ requestWithoutAuth }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/sessions/session-1", {
+		const res = await requestWithoutAuth("/api/sessions/session-1", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ effectivenessScore: 0.5 }),

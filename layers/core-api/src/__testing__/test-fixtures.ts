@@ -14,6 +14,8 @@ import { registerAssistantTurnCoherenceTrigger } from "../services/assistant-tur
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
 
+let nextFixtureAppId = 0;
+
 /**
  * AU31 §3.2 clause 6 — the service-lane fixture's transport: dials
  * agent-orchestration's OWN bare app directly (never the composed core +
@@ -45,6 +47,8 @@ function createFixtureAgentOrchestrationTransport(
 
 export interface IntegrationFixtures extends DbFixtures {
 	app: Hono;
+	/** Send a request without the fixture's default API key for auth rejection tests. */
+	requestWithoutAuth: Hono["request"];
 	eventBus: EventBus;
 	/**
 	 * AU31 §3.2 — a real `AgentOrchestrationPort` over a throwaway
@@ -53,6 +57,40 @@ export interface IntegrationFixtures extends DbFixtures {
 	 * fixture (e.g. `dispatch-test-helpers.ts`'s `fireStoredRoutine`).
 	 */
 	agentOrchestration: AgentOrchestrationPort;
+}
+
+export function withoutServiceTestAuth(
+	transport: (request: Request) => Response | Promise<Response>,
+): (request: Request) => Promise<Response> {
+	return (request) => {
+		const headers = new Headers(request.headers);
+		headers.set("X-HyperIdle-Test-Without-Auth", "true");
+		return Promise.resolve(transport(new Request(request, { headers })));
+	};
+}
+
+export async function createServiceTestApp(
+	db: HyperIdleDb,
+	eventBus: EventBus,
+): Promise<{ app: Hono; authApiKey: string }> {
+	const authApiKey = `hyperidle-service-test-${++nextFixtureAppId}`;
+	const app = await createTestApp({
+		db,
+		eventBus,
+		authApiKey,
+		registerExtraRoutes: registerTestRoutes,
+	});
+	const rawFetch = app.fetch.bind(app);
+	// @lore The shared service fixture owns authentication explicitly. Its app
+	// must remain valid when another isolate:false file changes process.env.
+	app.fetch = (request, env, executionCtx) => {
+		const headers = new Headers(request.headers);
+		const omitDefaultAuth = headers.has("X-HyperIdle-Test-Without-Auth");
+		headers.delete("X-HyperIdle-Test-Without-Auth");
+		if (!omitDefaultAuth) headers.set("X-API-Key", authApiKey);
+		return rawFetch(new Request(request, { headers }), env, executionCtx);
+	};
+	return { app, authApiKey };
 }
 
 export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
@@ -128,9 +166,16 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 		// @lore AU28: the middleware-exercising routes (/protected-test, /test-validate,
 		// /test-error) are mounted from here — the development world registering into
 		// production. `app.ts` no longer imports them.
-		const app = await createTestApp({ db, eventBus, registerExtraRoutes: registerTestRoutes });
+		const { app } = await createServiceTestApp(db, eventBus);
 		await use(app);
 		disposeApp(app);
+	},
+	requestWithoutAuth: async ({ app }, use) => {
+		await use((input, requestInit, env, executionCtx) => {
+			const headers = new Headers(requestInit?.headers);
+			headers.set("X-HyperIdle-Test-Without-Auth", "true");
+			return app.request(input, { ...requestInit, headers }, env, executionCtx);
+		});
 	},
 });
 
