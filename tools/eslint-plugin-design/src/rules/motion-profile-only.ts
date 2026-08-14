@@ -22,26 +22,58 @@ function callName(node: AstNode): string | null {
 	return property?.type === "Literal" && typeof property.value === "string" ? property.value : null;
 }
 
-function isAllowedAnimationFrame(filename: string, node: AstNode): boolean {
-	const normalized = filename.replace(/\\/g, "/");
-	if (normalized.endsWith("framework/design-system/src/RoleCombobox.tsx")) return true;
-	if (normalized.endsWith("layers/core-ui/src/pages/KnowledgeDetail.tsx")) return true;
-	if (!normalized.endsWith("layers/core-ui/src/layouts/AppShell.tsx")) return false;
-	const args = (node.arguments as AstNode[] | undefined) ?? [];
-	if (args[0]?.type === "Identifier" && args[0].name === "restore") return true;
-	let current: AstNode | undefined = node.parent;
+function normalizedSource(context: Rule.RuleContext, node: AstNode): string {
+	return context.sourceCode.getText(node as Rule.Node).replace(/\s+/g, "");
+}
+
+function ancestorVariable(node: AstNode, name: string): boolean {
+	let current = node.parent;
 	while (current) {
-		if (current.type === "FunctionDeclaration") {
-			const id = current.id as { name?: string } | undefined;
-			return id?.name === "restore";
-		}
 		if (current.type === "VariableDeclarator") {
 			const id = current.id as { name?: string } | undefined;
-			return id?.name === "restore";
+			if (id?.name === name) return true;
 		}
 		current = current.parent;
 	}
 	return false;
+}
+
+function animationFrameIdentity(
+	context: Rule.RuleContext,
+	filename: string,
+	node: AstNode,
+): string | null {
+	const normalized = filename.replace(/\\/g, "/");
+	const source = normalizedSource(context, node);
+	if (normalized.endsWith("framework/design-system/src/RoleCombobox.tsx")) {
+		return source === "requestAnimationFrame(()=>inputRef.current?.focus())"
+			? "role-combobox-focus"
+			: null;
+	}
+	if (normalized.endsWith("layers/core-ui/src/pages/KnowledgeDetail.tsx")) {
+		const parent = node.parent as AstNode | undefined;
+		const id =
+			parent?.type === "VariableDeclarator" ? (parent.id as AstNode | undefined) : undefined;
+		return id?.type === "Identifier" &&
+			id.name === "raf" &&
+			source.includes('document.querySelectorAll("[data-block-id]")') &&
+			source.includes('node.getAttribute("data-block-id")===decoded') &&
+			source.includes('?.scrollIntoView?.({block:"start"})')
+			? "knowledge-anchor-scroll"
+			: null;
+	}
+	if (!normalized.endsWith("layers/core-ui/src/layouts/AppShell.tsx")) return null;
+	const parent = node.parent as AstNode | undefined;
+	const left =
+		parent?.type === "AssignmentExpression" ? (parent.left as AstNode | undefined) : undefined;
+	if (
+		source !== "window.requestAnimationFrame(restore)" ||
+		left?.type !== "Identifier" ||
+		left.name !== "frame"
+	) {
+		return null;
+	}
+	return ancestorVariable(node, "restore") ? "app-shell-restore-retry" : "app-shell-restore-start";
 }
 
 export const motionProfileOnly: Rule.RuleModule = createRule({
@@ -63,6 +95,7 @@ export const motionProfileOnly: Rule.RuleModule = createRule({
 	},
 	create(context) {
 		if (context.filename.replace(/\\/g, "/").endsWith("/token-profiles.ts")) return {};
+		const animationFrameIdentities = new Set<string>();
 		const visitors = createStyleStringVisitors(context, (text, node) => {
 			if (RAW_MOTION_TOKEN.test(text)) reportProfileViolation(context, node, "rawMotion", text);
 		});
@@ -90,8 +123,13 @@ export const motionProfileOnly: Rule.RuleModule = createRule({
 						context.report({ node: node as Rule.Node, messageId: "forbiddenMotionApi" });
 					}
 				}
-				if (name === "requestAnimationFrame" && !isAllowedAnimationFrame(context.filename, node)) {
-					context.report({ node: node as Rule.Node, messageId: "forbiddenAnimationFrame" });
+				if (name === "requestAnimationFrame") {
+					const identity = animationFrameIdentity(context, context.filename, node);
+					if (!identity || animationFrameIdentities.has(identity)) {
+						context.report({ node: node as Rule.Node, messageId: "forbiddenAnimationFrame" });
+					} else {
+						animationFrameIdentities.add(identity);
+					}
 				}
 			},
 		};

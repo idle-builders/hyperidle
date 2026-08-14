@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { collectDesignProfileCensus } from "../lib/design-profile-census.js";
+import {
+	collectDesignProfileCensus,
+	findLiveBorderCountMismatches,
+} from "../lib/design-profile-census.js";
 
 describe("AZ16 live profile census", () => {
 	test("counts semantic consumers separately from raw fields and foreign subjects", () => {
@@ -20,5 +23,14 @@ describe("AZ16 live profile census", () => {
 		expect(census.rawByFamily["font-size"]).toBe(0);
 		expect(census.rawByFamily.duration).toBe(0);
 		expect(census.invalidProfileSites).toEqual([]);
+	});
+
+	test("reports a live border count that differs from the approved receipt expansion", () => {
+		expect(
+			findLiveBorderCountMismatches(
+				{ thin: 1, default: 2, strong: 3 },
+				{ thin: 2, default: 2, strong: 3 },
+			),
+		).toEqual(["border.thin: expected 2, found 1"]);
 	});
 });

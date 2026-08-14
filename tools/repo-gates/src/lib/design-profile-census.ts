@@ -30,6 +30,7 @@ export const MOTION_PROFILES = [
 	"busy",
 ] as const;
 export const BORDER_WIDTH_PROFILES = ["thin", "default", "strong"] as const;
+export type BorderWidthProfile = (typeof BORDER_WIDTH_PROFILES)[number];
 
 export interface DesignSource {
 	path: string;
@@ -100,6 +101,19 @@ export interface DesignProfileCensus {
 	rawByFamily: Counts<OwnedTokenFamily>;
 	foreignByFamily: { typography: number; border: number; color: number };
 	invalidProfileSites: Array<{ path: string; locator: string; reason: string }>;
+}
+
+export function findLiveBorderCountMismatches(
+	actual: Readonly<Record<BorderWidthProfile, number>>,
+	expected: Readonly<Record<BorderWidthProfile, number>>,
+): string[] {
+	const mismatches: string[] = [];
+	for (const profile of BORDER_WIDTH_PROFILES) {
+		if (actual[profile] !== expected[profile]) {
+			mismatches.push(`border.${profile}: expected ${expected[profile]}, found ${actual[profile]}`);
+		}
+	}
+	return mismatches;
 }
 
 export function collectDesignProfileCensus(sources: readonly DesignSource[]): DesignProfileCensus {

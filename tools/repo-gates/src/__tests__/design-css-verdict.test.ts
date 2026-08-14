@@ -26,4 +26,21 @@ describe("AZ16 CSS design verdict", () => {
 			"color",
 		]);
 	});
+
+	test("rejects a declared token whose family has no registered owner", () => {
+		const findings = evaluateDesignCss([
+			{
+				path: "framework/design-system/src/tokens.css",
+				css: `:root { --brand-tempo: 180ms; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }`,
+			},
+		]);
+
+		expect(findings).toEqual([
+			expect.objectContaining({
+				family: "--brand-tempo",
+				message: expect.stringContaining("--brand-tempo"),
+			}),
+		]);
+	});
 });

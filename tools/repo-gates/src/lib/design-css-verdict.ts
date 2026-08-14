@@ -1,3 +1,8 @@
+import {
+	classifyTokenName,
+	NON_FAMILIES,
+	TOKEN_FAMILY_OWNERS,
+} from "eslint-plugin-design/token-family-owners";
 import postcss, { type AtRule, type Declaration, type Rule } from "postcss";
 
 export interface DesignCssSource {
@@ -75,11 +80,47 @@ function hasExactReducedContract(css: string): boolean {
 	return found;
 }
 
+function tokenFamilyFindings(source: DesignCssSource, root: postcss.Root): DesignCssFinding[] {
+	const findings: DesignCssFinding[] = [];
+	const seen = new Set<string>();
+	root.walkDecls(/^--/, (declaration) => {
+		if (seen.has(declaration.prop)) return;
+		seen.add(declaration.prop);
+		const classification = classifyTokenName(declaration.prop);
+		if (!classification) {
+			findings.push({
+				...finding(source, declaration, declaration.prop),
+				message: `token ${declaration.prop} has no classified family`,
+			});
+			return;
+		}
+		if (classification in TOKEN_FAMILY_OWNERS) {
+			const owners = TOKEN_FAMILY_OWNERS[classification as keyof typeof TOKEN_FAMILY_OWNERS];
+			if (owners.size === 0) {
+				findings.push({
+					...finding(source, declaration, classification),
+					message: `token family ${classification} has no gate owner`,
+				});
+			}
+			return;
+		}
+		const rationale = NON_FAMILIES[classification as keyof typeof NON_FAMILIES];
+		if (!rationale?.trim()) {
+			findings.push({
+				...finding(source, declaration, classification),
+				message: `non-family ${classification} has no rationale`,
+			});
+		}
+	});
+	return findings;
+}
+
 /** Pure CSS verdict used by tests and the executable gate. */
 export function evaluateDesignCss(sources: readonly DesignCssSource[]): DesignCssFinding[] {
 	const findings: DesignCssFinding[] = [];
 	for (const source of sources) {
 		const isRegistry = source.path.endsWith("framework/design-system/src/tokens.css");
+		const root = postcss.parse(source.css, { from: source.path });
 		if (isRegistry && !hasExactReducedContract(source.css)) {
 			findings.push({
 				path: source.path,
@@ -88,7 +129,7 @@ export function evaluateDesignCss(sources: readonly DesignCssSource[]): DesignCs
 				message: "missing exact global reduced-motion override",
 			});
 		}
-		const root = postcss.parse(source.css, { from: source.path });
+		if (isRegistry) findings.push(...tokenFamilyFindings(source, root));
 		root.walkDecls((declaration) => {
 			if (isRegistry) return;
 			const property = declaration.prop.toLowerCase();
