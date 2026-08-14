@@ -114,14 +114,10 @@ export function ErrorState({
 				// hearth-internal-padding
 				className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] text-left"
 			>
-				<p className="text-[15px] font-[600] text-[var(--text-primary)] leading-[1.4] tracking-[-0.01em] mb-[6px]">
-					{title}
-				</p>
-				<p className="text-[13px] text-[var(--text-secondary)] leading-[1.6] mb-[12px]">
-					{description}
-				</p>
+				<p className="type-copy   text-[var(--text-primary)]   mb-[6px]">{title}</p>
+				<p className="type-small  text-[var(--text-secondary)]  mb-[12px]">{description}</p>
 				{detail && (
-					<div className="text-[12px] font-[family-name:var(--font-mono)] text-[var(--text-tertiary)] bg-[var(--surface-container)] px-[12px] py-[9px] rounded-[var(--r-subtle)] mb-[12px] leading-[1.55]">
+					<div className="type-data   text-[var(--text-tertiary)] bg-[var(--surface-container)] px-[12px] py-[9px] rounded-[var(--r-subtle)] mb-[12px] ">
 						{detail}
 					</div>
 				)}
@@ -130,7 +126,7 @@ export function ErrorState({
 						{onRetry && (
 							<button
 								type="button"
-								className={RETRY_BTN_COMPACT_CLASS}
+								className={`type-control ${RETRY_BTN_COMPACT_CLASS}`}
 								onClick={onRetry}
 								data-testid="error-state-retry"
 							>
@@ -160,14 +156,10 @@ export function ErrorState({
 					{resolvedIcon}
 				</div>
 			)}
-			<p className="text-[20px] font-[600] text-[var(--text-primary)] leading-[1.4] tracking-[-0.01em] mb-[9px]">
-				{title}
-			</p>
-			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[18px]">
-				{description}
-			</p>
+			<p className="type-title   text-[var(--text-primary)]   mb-[9px]">{title}</p>
+			<p className="type-copy  text-[var(--text-secondary)]  mb-[18px]">{description}</p>
 			{detail && (
-				<div className="text-[13px] font-[family-name:var(--font-mono)] text-[var(--text-tertiary)] bg-[var(--surface-page)] px-[12px] py-[9px] rounded-[var(--r-subtle)] mb-[18px] leading-[1.55]">
+				<div className="type-data   text-[var(--text-tertiary)] bg-[var(--surface-page)] px-[12px] py-[9px] rounded-[var(--r-subtle)] mb-[18px] ">
 					{detail}
 				</div>
 			)}
@@ -176,7 +168,7 @@ export function ErrorState({
 					{onRetry && (
 						<button
 							type="button"
-							className={RETRY_BTN_CLASS}
+							className={`type-control ${RETRY_BTN_CLASS}`}
 							onClick={onRetry}
 							data-testid="error-state-retry"
 						>

@@ -26,17 +26,17 @@ const REASON_TEXT: Record<UnknownPayloadProps["reason"], string> = {
 
 export function UnknownPayload({ raw, reason }: UnknownPayloadProps): JSX.Element {
 	return (
-		<div className="border-l-2 border-[var(--status-warning)] pl-[12px] flex flex-col gap-[9px]">
+		<div className=" border-[var(--status-warning)] pl-[12px] flex flex-col gap-[9px]">
 			<div className="flex items-center gap-[9px]">
 				<span
-					className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] uppercase tracking-[var(--tracking-caps-sm)] text-[11px] font-semibold bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)] border border-[var(--status-warning)]"
+					className="type-label border-[var(--bw-thin)] inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] uppercase    bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)]  border-[var(--status-warning)]"
 					data-block-unknown-pill
 				>
 					Not shown
 				</span>
-				<span className="text-[12px] text-[var(--text-secondary)]">{REASON_TEXT[reason]}</span>
+				<span className="type-metadata  text-[var(--text-secondary)]">{REASON_TEXT[reason]}</span>
 			</div>
-			<pre className="font-mono text-[12px] leading-[1.5] bg-[var(--surface-container)] text-[var(--text-secondary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0 whitespace-pre-wrap">
+			<pre className="type-data    bg-[var(--surface-container)] text-[var(--text-secondary)] p-[12px] rounded-[var(--r-default)] overflow-x-auto m-0 whitespace-pre-wrap">
 				<code>{raw}</code>
 			</pre>
 		</div>

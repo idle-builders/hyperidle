@@ -17,7 +17,15 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 		<div {...dsProps("SearchField", "1")} className="relative flex w-full items-center">
 			<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-tertiary)]">
 				{loading ? (
-					<span className="inline-block h-[14px] w-[14px] rounded-[var(--r-pill)] border-2 border-[var(--border-subtle)] border-t-[var(--accent-primary)] animate-spin" />
+					<svg aria-hidden="true" viewBox="0 0 16 16" className="motion-busy h-[14px] w-[14px]">
+						<circle cx="8" cy="8" r="6" fill="none" stroke="var(--border-subtle)" strokeWidth="2" />
+						<path
+							d="M8 2a6 6 0 0 1 6 6"
+							fill="none"
+							stroke="var(--accent-primary)"
+							strokeWidth="2"
+						/>
+					</svg>
 				) : (
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -43,8 +51,8 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				// --surface-elevated, plan.md §2 Set 3 + §5.1) with a focus
 				// state that swapped to --surface-page, giving the page-canvas token a
 				// second job on focus (the same defect fixed on Button's hover tint).
-				// Matches Input.tsx's pattern: one fill, border + ring for focus.
-				className="w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-[var(--r-default)] font-[family-name:var(--font-sans)] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
+				// Matches Input.tsx's pattern: one fill,  + ring for focus.
+				className="type-input border-[var(--bw-thin)] w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)]   text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] transition-[border-color,box-shadow] duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
 				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange?.(e.target.value)}
@@ -53,7 +61,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				{value && (
 					<button
 						type="button"
-						className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] text-[12px] cursor-pointer border-none p-0 transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]"
+						className="type-control inline-flex items-center justify-center w-[18px] h-[18px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)]  cursor-pointer border-none p-0 transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-secondary)]"
 						aria-label="clear"
 						onClick={() => onChange?.("")}
 					>
@@ -79,7 +87,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 					   text-[10px] → text-[11px] (off-scale). The 56px right-inset on the
 					   input above is a designer-call exception (audit B.1.5) — it is the
 					   geometric minimum required to clear the clear-button + gap + kbd. */
-					<kbd className="inline-flex items-center justify-center min-w-[20px] h-[18px] px-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] font-[family-name:var(--font-mono)] text-[11px] font-medium">
+					<kbd className="type-data inline-flex items-center justify-center min-w-[20px] h-[18px] px-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)]   ">
 						{shortcutKey}
 					</kbd>
 				)}

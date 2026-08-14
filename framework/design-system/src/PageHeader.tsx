@@ -92,23 +92,28 @@ export function PageHeader({
 			{leading && <div className="mb-[6px] min-w-0 overflow-hidden">{leading}</div>}
 
 			<div className="flex items-center justify-between gap-[12px]">
-				<TitleTag className={presentation === "pane" ? paneTitleClassName : pageTitleClassName}>
+				<TitleTag
+					className={`${presentation === "pane" ? "type-lead" : "type-title"} ${
+						presentation === "pane" ? paneTitleClassName : pageTitleClassName
+					}`}
+				>
 					{title}
 				</TitleTag>
 				{actions && <div className="flex items-center gap-[9px] shrink-0">{actions}</div>}
 			</div>
 
 			{subtitle && (
-				<div className="mt-[3px] text-[13px] text-[var(--text-tertiary)]">{subtitle}</div>
+				<div className="type-small mt-[3px]  text-[var(--text-tertiary)]">{subtitle}</div>
 			)}
 		</>
 	);
 	return (
 		<header
+			data-az16-profile="thin"
 			className={
 				presentation === "pane"
-					? `shrink-0 pl-[18px] ${reservePaneControls ? "pr-[84px]" : "pr-[18px]"} py-[12px] border-b border-[var(--border-subtle)]`
-					: "shrink-0 py-[18px] border-b border-[var(--border-subtle)]"
+					? `shrink-0 pl-[18px] ${reservePaneControls ? "pr-[84px]" : "pr-[18px]"} py-[12px] border-b-[var(--bw-thin)] border-[var(--border-subtle)]`
+					: "shrink-0 py-[18px] border-b-[var(--bw-thin)] border-[var(--border-subtle)]"
 			}
 			{...dsProps("PageHeader", "1")}
 			{...(testId ? { "data-testid": testId } : {})}

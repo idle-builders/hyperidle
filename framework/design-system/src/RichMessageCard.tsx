@@ -165,7 +165,7 @@ function generateClientKey(): string {
 function ChevronDown({ open }: { open: boolean }): JSX.Element {
 	return (
 		<svg
-			className="w-[10px] h-[10px]"
+			className="motion-move w-[10px] h-[10px]"
 			viewBox="0 0 24 24"
 			fill="none"
 			stroke="currentColor"
@@ -201,27 +201,29 @@ function ResolvedView({
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
-			className="ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden"
+			className="border-[var(--bw-thin)] ml-[36px] bg-[var(--surface-elevated)]  border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden"
 		>
-			<div className="flex items-center gap-[9px] px-[12px] py-[9px] text-[13px] text-[var(--text-secondary)] flex-wrap">
-				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]">
+			<div className="type-small flex items-center gap-[9px] px-[12px] py-[9px]  text-[var(--text-secondary)] flex-wrap">
+				<span className="type-data inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]">
 					RESOLVED
 				</span>
-				<span className="font-mono text-[11px] tracking-[var(--tracking-caps-sm)] uppercase font-medium text-[var(--status-success)]">
+				<span className="type-label    uppercase  text-[var(--status-success)]">
 					{verdictDecisionLabel(resolved.decision)}
 				</span>
 				<span id={titleId} className="text-[var(--text-primary)]">
 					{title}
 				</span>
-				<span className="text-[var(--text-tertiary)] ml-[3px] text-[12px]">— {resolved.actor}</span>
-				<span className="text-[var(--text-tertiary)] text-[11px] tabular-nums">
+				<span className="type-metadata text-[var(--text-tertiary)] ml-[3px] ">
+					— {resolved.actor}
+				</span>
+				<span className="type-metadata text-[var(--text-tertiary)]  tabular-nums">
 					· {resolved.timestamp}
 				</span>
 				<button
 					type="button"
 					aria-expanded={resolved.reExpanded}
 					onClick={resolved.onReexpandToggle}
-					className="ml-auto bg-transparent border-none text-[var(--text-tertiary)] text-[12px] hover:text-[var(--text-primary)] cursor-pointer"
+					className="type-control ml-auto bg-transparent border-none text-[var(--text-tertiary)]  hover:text-[var(--text-primary)] cursor-pointer"
 				>
 					Re-expand
 				</button>
@@ -250,11 +252,11 @@ function RedactedView({
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
-			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
+			className={`ml-[36px] bg-[var(--surface-elevated)]  border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden ${blocking ? " border-l-[var(--status-error)]" : ""}`}
 		>
 			<div
 				id={titleId}
-				className="px-[12px] py-[9px] italic text-[var(--text-tertiary)] text-[13px]"
+				className="type-small px-[12px] py-[9px] italic text-[var(--text-tertiary)] "
 			>
 				{label} redacted by {payload.redactedBy} — {payload.reason}
 			</div>
@@ -348,7 +350,7 @@ export function RichMessageCard({
 			return (
 				<div
 					data-sticky="bottom"
-					className="sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--text-secondary)]"
+					className="type-small border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--text-secondary)]"
 					aria-live="polite"
 				>
 					Saving…
@@ -360,12 +362,12 @@ export function RichMessageCard({
 				<div
 					role="alert"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)] text-[13px] text-[var(--status-error)]"
+					className="type-small border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--status-error)]"
 				>
 					<span>{state.reason}</span>
 					<button
 						type="button"
-						className={`${BUTTON_CLASS_BASE} ${toneClass("ghost")} ml-auto`}
+						className={`type-control ${`${BUTTON_CLASS_BASE} ${toneClass("ghost")} ml-auto`}`}
 						onClick={handleRetry}
 					>
 						Retry
@@ -379,13 +381,13 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Verdict actions"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)]"
+					className="border-t-[var(--bw-thin)] sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
 				>
 					{VERDICT_BUTTONS.map((b) => (
 						<button
 							key={b.action}
 							type="button"
-							className={`${BUTTON_CLASS_BASE} ${toneClass(b.tone)}`}
+							className={`type-control ${`${BUTTON_CLASS_BASE} ${toneClass(b.tone)}`}`}
 							onClick={(): void => handleVerdict(b.action)}
 						>
 							{b.label}
@@ -400,7 +402,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Answer options"
 					data-sticky="bottom"
-					className="sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)] border-t border-[var(--border-subtle)]"
+					className="border-t-[var(--bw-thin)] sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
 				>
 					{/* @lore L11 step9 (S11): all-ghost on questionnaire answers —
 					    no spec-required preferred option, so a primary on
@@ -409,7 +411,7 @@ export function RichMessageCard({
 						<button
 							key={`${message.id}-opt-${opt}`}
 							type="button"
-							className={`${BUTTON_CLASS_BASE} ${toneClass("ghost")}`}
+							className={`type-control ${`${BUTTON_CLASS_BASE} ${toneClass("ghost")}`}`}
 							onClick={(): void => handleAnswer(opt)}
 						>
 							{opt}
@@ -427,7 +429,7 @@ export function RichMessageCard({
 		if (reasoning.length === 0) return null;
 		if (isShortReasoning(reasoning)) {
 			return (
-				<p className="px-[12px] pb-[9px] text-[13px] text-[var(--text-secondary)] m-0">
+				<p className="type-small px-[12px] pb-[9px]  text-[var(--text-secondary)] m-0">
 					{reasoning[0]}
 				</p>
 			);
@@ -438,13 +440,13 @@ export function RichMessageCard({
 					type="button"
 					onClick={(): void => setReasoningOpen((p) => !p)}
 					aria-expanded={reasoningOpen}
-					className="inline-flex items-center gap-[6px] mx-[12px] mb-[9px] px-[9px] py-[3px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] text-[12px] text-[var(--text-secondary)] cursor-pointer border-none w-fit hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
+					className="type-control inline-flex items-center gap-[6px] mx-[12px] mb-[9px] px-[9px] py-[3px] bg-[var(--surface-container)] rounded-[var(--r-subtle)]  text-[var(--text-secondary)] cursor-pointer border-none w-fit hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]"
 				>
 					<ChevronDown open={reasoningOpen} />
 					{reasoningOpen ? "Hide reasoning" : `${reasoning.length} reasons`}
 				</button>
 				{reasoningOpen ? (
-					<ol className="px-[12px] pb-[9px] pl-[36px] list-decimal text-[13px] text-[var(--text-secondary)] m-0">
+					<ol className="type-small px-[12px] pb-[9px] pl-[36px] list-decimal  text-[var(--text-secondary)] m-0">
 						{reasoning.map((line, i) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: reasoning entries are immutable once sent.
 							<li key={`${message.id}-r-${i}`} className="my-[3px]">
@@ -460,7 +462,7 @@ export function RichMessageCard({
 	const renderQuestionnaireBody = (): ReactNode => {
 		if (!isQuestionnaire || questionnaire.redacted) return null;
 		return (
-			<p className="px-[12px] pb-[9px] text-[13px] text-[var(--text-secondary)] m-0">
+			<p className="type-small px-[12px] pb-[9px]  text-[var(--text-secondary)] m-0">
 				{questionnaire.question}
 			</p>
 		);
@@ -477,24 +479,21 @@ export function RichMessageCard({
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
 			style={{ maxHeight: "min(var(--card-max-h), max-content)" }}
-			className={`ml-[36px] bg-[var(--surface-elevated)] border border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden flex flex-col ${blocking ? "border-l-2 border-l-[var(--status-error)]" : ""}`}
+			className={`ml-[36px] bg-[var(--surface-elevated)]  border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden flex flex-col ${blocking ? " border-l-[var(--status-error)]" : ""}`}
 		>
-			<div className="flex items-center gap-[9px] px-[12px] pt-[9px] pb-[6px] text-[12px] text-[var(--text-secondary)] flex-wrap">
-				<span className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[11px] font-mono tracking-[var(--tracking-caps-sm)] bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]">
+			<div className="type-metadata flex items-center gap-[9px] px-[12px] pt-[9px] pb-[6px]  text-[var(--text-secondary)] flex-wrap">
+				<span className="type-data inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--accent-primary)_18%,transparent)] text-[var(--accent-deep)]">
 					{tagLabel}
 				</span>
-				<span className="text-[var(--text-primary)] font-medium">{sender.name}</span>
+				<span className="type-small text-[var(--text-primary)] ">{sender.name}</span>
 				{sender.role ? <span className="text-[var(--text-tertiary)]">· {sender.role}</span> : null}
 				{blocking ? (
-					<span className="ml-auto text-[11px] font-mono tracking-[var(--tracking-caps-sm)] uppercase">
+					<span className="type-label ml-auto    uppercase">
 						<StatusChip status="blocked" />
 					</span>
 				) : null}
 			</div>
-			<h3
-				id={titleId}
-				className="px-[12px] pb-[6px] text-[16px] font-semibold text-[var(--text-primary)] m-0"
-			>
+			<h3 id={titleId} className="type-lead px-[12px] pb-[6px]   text-[var(--text-primary)] m-0">
 				{title}
 			</h3>
 			{renderReasoning()}

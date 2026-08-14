@@ -76,12 +76,12 @@ export function Select({
 	return (
 		<div {...dsProps("Select", "0")} className="flex flex-col gap-[6px]">
 			{label && (
-				<label htmlFor={selectId} className="text-[13px] font-medium text-[var(--text-primary)]">
+				<label htmlFor={selectId} className="type-small   text-[var(--text-primary)]">
 					{label}
 				</label>
 			)}
 			<div className="relative">
-				<select id={selectId} className={selectClass} {...rest}>
+				<select id={selectId} className={`type-input ${selectClass}`} {...rest}>
 					{placeholder && (
 						<option value="" disabled>
 							{placeholder}
@@ -93,11 +93,13 @@ export function Select({
 						</option>
 					))}
 				</select>
-				{/* CSS triangle arrow */}
-				<span
+				<svg
 					aria-hidden="true"
-					className="pointer-events-none absolute right-[12px] top-1/2 -translate-y-1/2 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-[var(--border-strong)]"
-				/>
+					viewBox="0 0 12 8"
+					className="pointer-events-none absolute right-[12px] top-1/2 h-[8px] w-[12px] -translate-y-1/2"
+				>
+					<path d="m1 1 5 5 5-5" fill="none" stroke="var(--border-strong)" strokeWidth="1.5" />
+				</svg>
 			</div>
 		</div>
 	);

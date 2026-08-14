@@ -70,7 +70,7 @@ export function BlockHandle({
 				strokeLinecap="round"
 				strokeLinejoin="round"
 				aria-hidden="true"
-				className="motion-reduce:!transition-none"
+				className="motion-move motion-reduce:!transition-none"
 				style={{
 					transform: open ? "rotate(90deg)" : undefined,
 					transition: "transform var(--motion-fast, 120ms)",
@@ -79,7 +79,7 @@ export function BlockHandle({
 				<polyline points="9 18 15 12 9 6" />
 			</svg>
 			{threadCount > 0 ? (
-				<span className="text-[11px] font-mono text-[var(--text-secondary)]">{threadCount}</span>
+				<span className="type-data   text-[var(--text-secondary)]">{threadCount}</span>
 			) : null}
 		</button>
 	);

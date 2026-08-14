@@ -66,7 +66,11 @@ export function NavItem({
 
 	return (
 		<li {...dsProps("NavItem", "1")}>
-			<button type="button" className={`${baseClasses} ${stateClasses}`} onClick={onClick}>
+			<button
+				type="button"
+				className={`type-control ${`${baseClasses} ${stateClasses}`}`}
+				onClick={onClick}
+			>
 				{icon && (
 					<span
 						className={`inline-flex items-center shrink-0 ${selected ? "text-[var(--accent-deep)]" : "text-[var(--text-tertiary)]"}`}
@@ -82,7 +86,7 @@ export function NavItem({
 				<span className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
 					{label}
 				</span>
-				{count != null && <span className={COUNT_BADGE_CLASSES}>{count}</span>}
+				{count != null && <span className={`type-metadata ${COUNT_BADGE_CLASSES}`}>{count}</span>}
 			</button>
 		</li>
 	);

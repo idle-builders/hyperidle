@@ -80,7 +80,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 	return (
 		<div {...dsProps("Input", "0")} className={`flex flex-col gap-[6px] ${className}`}>
 			{label && (
-				<label htmlFor={inputId} className="text-[13px] font-medium text-[var(--text-primary)]">
+				<label htmlFor={inputId} className="type-small   text-[var(--text-primary)]">
 					{label}
 				</label>
 			)}
@@ -88,7 +88,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 				<textarea
 					ref={ref as React.Ref<HTMLTextAreaElement>}
 					id={inputId}
-					className={`${INPUT_BASE} ${borderClass} resize-y min-h-[80px] leading-[1.55]`}
+					className={`type-input ${`${INPUT_BASE} ${borderClass} resize-y min-h-[80px] `}`}
 					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
 					aria-invalid={error ? "true" : undefined}
 					rows={rows}
@@ -98,22 +98,19 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 				<input
 					ref={ref as React.Ref<HTMLInputElement>}
 					id={inputId}
-					className={`${INPUT_BASE} ${INPUT_SINGLE_LINE_HEIGHT} ${borderClass}`}
+					className={`type-input ${`${INPUT_BASE} ${INPUT_SINGLE_LINE_HEIGHT} ${borderClass}`}`}
 					aria-describedby={hint ? `${inputId}-hint` : error ? `${inputId}-error` : undefined}
 					aria-invalid={error ? "true" : undefined}
 					{...rest}
 				/>
 			)}
 			{hint && !error && (
-				<span id={`${inputId}-hint`} className="text-[12px] text-[var(--text-tertiary)]">
+				<span id={`${inputId}-hint`} className="type-metadata  text-[var(--text-tertiary)]">
 					{hint}
 				</span>
 			)}
 			{error && (
-				<span
-					id={`${inputId}-error`}
-					className="text-[12px] font-medium text-[var(--status-error)]"
-				>
+				<span id={`${inputId}-error`} className="type-metadata   text-[var(--status-error)]">
 					{error}
 				</span>
 			)}

@@ -51,30 +51,32 @@ export function Toast({ variant, icon, title, message, onClose }: ToastProps): J
 	return (
 		<div
 			{...dsProps("Toast", "0")}
-			className={`bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-default)] p-[12px] flex items-start gap-[9px] max-w-[380px] border-l-[1.5px] ${styles.border}`}
+			className={`bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-default)] p-[12px] flex items-start gap-[9px] max-w-[380px]  ${styles.border}`}
 			role="alert"
 			aria-live="polite"
 		>
 			{icon && (
 				<div
 					aria-hidden="true"
-					className={`h-[20px] w-[20px] shrink-0 rounded-[var(--r-pill)] flex items-center justify-center text-[12px] font-bold ${styles.iconBg} ${styles.iconText}`}
+					className={`type-metadata ${`h-[20px] w-[20px] shrink-0 rounded-[var(--r-pill)] flex items-center justify-center   ${styles.iconBg} ${styles.iconText}`}`}
 				>
 					{icon}
 				</div>
 			)}
 			<div className="flex flex-col gap-[3px] flex-1 min-w-0">
-				<span className="text-[13px] font-semibold text-[var(--text-primary)]">{title}</span>
-				<span className="text-[13px] text-[var(--text-secondary)] leading-[1.55]">{message}</span>
+				<span className="type-small   text-[var(--text-primary)]">{title}</span>
+				<span className="type-small  text-[var(--text-secondary)] ">{message}</span>
 			</div>
 			{onClose && (
 				<button
 					type="button"
 					aria-label="Close notification"
 					onClick={onClose}
-					className="shrink-0 text-[17px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] leading-none"
+					className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
 				>
-					×
+					<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
+						<path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" />
+					</svg>
 				</button>
 			)}
 		</div>

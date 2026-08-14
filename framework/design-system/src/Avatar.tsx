@@ -27,9 +27,9 @@ export interface AvatarGroupProps {
 }
 
 const SIZE_CLASSES: Record<NonNullable<AvatarProps["size"]>, string> = {
-	sm: "h-[28px] w-[28px] text-[10px]",
-	md: "h-[36px] w-[36px] text-[12px]",
-	lg: "h-[48px] w-[48px] text-[13px]",
+	sm: "type-avatar-initial--sm h-[28px] w-[28px]",
+	md: "type-avatar-initial--md h-[36px] w-[36px]",
+	lg: "type-avatar-initial--lg h-[48px] w-[48px]",
 };
 
 export function Avatar({
@@ -46,7 +46,7 @@ export function Avatar({
 	return (
 		<div
 			{...dsProps("Avatar", "0")}
-			className={`inline-flex items-center justify-center rounded-[var(--r-pill)] border-[1.5px] font-semibold shrink-0 ${sizeClass} ${colorClass} ${className}`}
+			className={`type-avatar-initial ${`inline-flex items-center justify-center rounded-[var(--r-pill)]   shrink-0 ${sizeClass} ${colorClass} ${className}`}`}
 		>
 			{initials}
 		</div>

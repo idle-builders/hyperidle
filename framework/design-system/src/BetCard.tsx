@@ -126,14 +126,14 @@ export function BetCard({
 			{...dsProps("BetCard", "2")}
 			{...clickableProps(
 				onClick,
-				`bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[9px] shadow-[var(--shadow-default)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)]${isCompleted ? " opacity-75" : ""}`,
+				`motion-move bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[9px] shadow-[var(--shadow-default)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)]${isCompleted ? " opacity-75" : ""}`,
 			)}
 		>
 			{/* Top row: status dot + status badge + budget badge (right-aligned) */}
 			<div className="flex items-center gap-[6px]">
 				{leadAvatar && (
 					<span
-						className="inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-primary)] text-[11px] font-semibold"
+						className="type-avatar-initial type-avatar-initial--sm inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[var(--r-pill)] bg-[var(--surface-container)] text-[var(--text-primary)]"
 						aria-label={`Lead agent: ${leadAvatar.name}`}
 					>
 						{leadAvatar.initials}
@@ -155,7 +155,7 @@ export function BetCard({
 				)}
 				{/* Budget badge — amber, right-aligned via ml-auto */}
 				{budgetLabel && (
-					<span className="inline-flex items-center text-[12px] font-[500] px-[9px] py-[3px] rounded-[var(--r-pill)] leading-[1.4] whitespace-nowrap ml-auto bg-[color-mix(in_oklab,var(--status-warning)_10%,transparent)] text-[var(--accent-secondary)]">
+					<span className="type-metadata inline-flex items-center   px-[9px] py-[3px] rounded-[var(--r-pill)]  whitespace-nowrap ml-auto bg-[color-mix(in_oklab,var(--status-warning)_10%,transparent)] text-[var(--accent-secondary)]">
 						{budgetLabel}
 					</span>
 				)}
@@ -163,7 +163,7 @@ export function BetCard({
 
 			{/* Title */}
 			<span
-				className="text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] truncate"
+				className="type-lead    text-[var(--text-primary)] truncate"
 				aria-label={`Bet: ${title}`}
 			>
 				{title}
@@ -171,9 +171,7 @@ export function BetCard({
 
 			{/* Description */}
 			{description && (
-				<p className="text-[13px] text-[var(--text-secondary)] leading-[1.7] line-clamp-3">
-					{description}
-				</p>
+				<p className="type-small  text-[var(--text-secondary)]  line-clamp-3">{description}</p>
 			)}
 
 			{appetite && <KeyValue label="Appetite" value={appetite} />}
@@ -213,15 +211,15 @@ export function BetCard({
 									<span
 										// biome-ignore lint/suspicious/noArrayIndexKey: static display-only list
 										key={i}
-										className={[
-											"inline-flex w-[24px] h-[24px] items-center justify-center rounded-[var(--r-pill)] text-[9px] font-[600] shrink-0",
+										className={`type-avatar-initial type-avatar-initial--stacked ${[
+											"inline-flex w-[24px] h-[24px] items-center justify-center rounded-[var(--r-pill)]   shrink-0",
 											i === 0 ? "" : "-ml-[6px]",
 											a.agent
-												? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)]"
-												: "bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
+												? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]  border-[var(--surface-elevated)]"
+												: "bg-[var(--surface-page)] text-[var(--text-secondary)]  border-[var(--surface-elevated)]",
 										]
 											.join(" ")
-											.trim()}
+											.trim()}`}
 									>
 										{a.initials}
 									</span>
@@ -230,7 +228,7 @@ export function BetCard({
 						) : (
 							<span />
 						)}
-						<span className="text-[12px] font-mono text-[var(--text-tertiary)] tabular-nums">
+						<span className="type-data   text-[var(--text-tertiary)] tabular-nums">
 							{progressLabel}
 						</span>
 					</div>
@@ -244,15 +242,15 @@ export function BetCard({
 						<span
 							// biome-ignore lint/suspicious/noArrayIndexKey: static display-only list
 							key={i}
-							className={[
-								"inline-flex w-[24px] h-[24px] items-center justify-center rounded-[var(--r-pill)] text-[9px] font-[600] shrink-0",
+							className={`type-avatar-initial type-avatar-initial--stacked ${[
+								"inline-flex w-[24px] h-[24px] items-center justify-center rounded-[var(--r-pill)]   shrink-0",
 								i === 0 ? "" : "-ml-[6px]",
 								a.agent
-									? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)] border-[2px] border-[var(--surface-elevated)]"
-									: "bg-[var(--surface-page)] text-[var(--text-secondary)] border-[2px] border-[var(--surface-elevated)]",
+									? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]  border-[var(--surface-elevated)]"
+									: "bg-[var(--surface-page)] text-[var(--text-secondary)]  border-[var(--surface-elevated)]",
 							]
 								.join(" ")
-								.trim()}
+								.trim()}`}
 						>
 							{a.initials}
 						</span>

@@ -26,7 +26,7 @@ function ThreadRowPresenceDot({
 	const bg = status === "active" ? "bg-[var(--accent-primary)]" : "bg-[var(--status-error)]";
 	return (
 		<span
-			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-[var(--r-pill)] border-[1.5px] border-[var(--surface-elevated)] ${bg}`}
+			className={`absolute bottom-0 right-0 w-[6px] h-[6px] rounded-[var(--r-pill)]  border-[var(--surface-elevated)] ${bg}`}
 			aria-label={`${initials} - ${status}`}
 		/>
 	);
@@ -159,7 +159,7 @@ export function ThreadRow({
 						</svg>
 					)}
 					<span
-						className={["text-[15px] truncate", unread ? "font-[600]" : "font-[400]"].join(" ")}
+						className={`type-copy ${[" truncate", unread ? "" : ""].join(" ")}`}
 						aria-label={`Thread: ${title}`}
 					>
 						{title}
@@ -173,7 +173,7 @@ export function ThreadRow({
 						// second consumer surfaces.
 						<span
 							data-testid="thread-row-host-pill"
-							className="inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)] font-mono text-[10px] leading-[1.4] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"
+							className="type-data inline-flex items-center px-[6px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] whitespace-nowrap"
 						>
 							{hostTag}
 						</span>
@@ -184,10 +184,10 @@ export function ThreadRow({
 				</div>
 				{/* Preview/snippet — color differentiates read/unread (audit L-18, L-19) */}
 				<p
-					className={[
-						"text-[13px] truncate mt-[3px]",
+					className={`type-small ${[
+						" truncate mt-[3px]",
 						unread ? "text-[var(--text-secondary)]" : "text-[var(--text-tertiary)]",
-					].join(" ")}
+					].join(" ")}`}
 				>
 					{snippet}
 				</p>
@@ -199,7 +199,7 @@ export function ThreadRow({
 				{blocking && (
 					<span
 						data-testid="thread-row-blocking-badge"
-						className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] text-[var(--status-error)] whitespace-nowrap shrink-0"
+						className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] text-[var(--status-error)] whitespace-nowrap shrink-0"
 					>
 						Blocking
 					</span>
@@ -211,15 +211,15 @@ export function ThreadRow({
 						{avatars.map((a, i) => (
 							<span
 								key={`${a.initials}-${i}`}
-								className={[
+								className={`type-avatar-initial type-avatar-initial--stacked ${[
 									"relative w-[24px] h-[24px] rounded-[var(--r-pill)] inline-flex items-center justify-center shrink-0",
-									"text-[9px] font-[600] leading-none",
-									"border-[2px] border-[var(--surface-elevated)]",
+									"  ",
+									" border-[var(--surface-elevated)]",
 									i > 0 ? "ml-[-6px]" : "",
 									a.agent
 										? "bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]"
 										: "bg-[var(--surface-page)] border-[var(--border-default)] text-[var(--text-secondary)]",
-								].join(" ")}
+								].join(" ")}`}
 							>
 								{a.initials}
 								{a.agent && a.operationalStatus ? (
@@ -234,14 +234,14 @@ export function ThreadRow({
 				{messageCount !== undefined && (
 					<span
 						data-testid="thread-row-count-badge"
-						className={[
+						className={`type-metadata ${[
 							"inline-flex items-center justify-center",
-							"text-[12px] font-[500] px-[6px] py-[3px] rounded-[var(--r-pill)]",
+							"  px-[6px] py-[3px] rounded-[var(--r-pill)]",
 							"min-w-[20px] text-center whitespace-nowrap",
 							unread
 								? "bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
 								: "bg-[var(--surface-container)] text-[var(--text-secondary)]",
-						].join(" ")}
+						].join(" ")}`}
 					>
 						{messageCount}
 					</span>
@@ -249,7 +249,7 @@ export function ThreadRow({
 
 				<span
 					data-testid="thread-time"
-					className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap"
+					className="type-metadata  text-[var(--text-tertiary)] whitespace-nowrap"
 				>
 					{timestamp}
 				</span>

@@ -17,28 +17,24 @@
  * data-placeholder on the first paragraph and the CSS floats it in.
  */
 
+@reference "./tokens.css";
+
 .body-editor .ProseMirror {
+	@apply type-copy;
 	outline: none;
-	font-family: var(--font-sans);
-	font-size: var(--text-base);
-	line-height: var(--leading-body);
 	color: var(--text-primary);
 }
 
 /* Headings */
 .body-editor .ProseMirror h1 {
-	font-size: var(--text-2xl);
-	line-height: var(--leading-tight);
-	font-weight: var(--fw-semibold);
+	@apply type-display;
 	color: var(--text-primary);
 	margin-top: 1.5em;
 	margin-bottom: 0.5em;
 }
 
 .body-editor .ProseMirror h2 {
-	font-size: var(--text-xl);
-	line-height: var(--leading-tight);
-	font-weight: var(--fw-semibold);
+	@apply type-title;
 	color: var(--text-primary);
 	margin-top: 1.25em;
 	margin-bottom: 0.5em;
@@ -46,9 +42,7 @@
 
 /* @lore T1: h3 at 90% of h2 keeps it within the closed type scale (I4). */
 .body-editor .ProseMirror h3 {
-	font-size: calc(var(--text-xl) * 0.9);
-	line-height: var(--leading-tight);
-	font-weight: var(--fw-medium);
+	@apply type-lead;
 	color: var(--text-primary);
 	margin-top: 1em;
 	margin-bottom: 0.5em;
@@ -83,7 +77,7 @@
 
 /* Blockquote */
 .body-editor .ProseMirror blockquote {
-	border-left: 2px solid var(--border-strong);
+	border-left: var(--bw-strong) solid var(--border-strong);
 	padding-left: 1em;
 	color: var(--text-secondary);
 	margin-bottom: 0.5em;
@@ -91,8 +85,7 @@
 
 /* Inline code — less specific selector comes first per CSS specificity order */
 .body-editor .ProseMirror code {
-	font-family: var(--font-mono);
-	font-size: 0.875em;
+	@apply type-inline-code;
 	background: var(--surface-container);
 	padding: 0.125em 0.375em;
 	border-radius: var(--r-subtle);
@@ -102,7 +95,7 @@
 /* Code blocks */
 .body-editor .ProseMirror pre {
 	background: var(--surface-container);
-	border: 1px solid var(--border-subtle);
+	border: var(--bw-thin) solid var(--border-subtle);
 	border-radius: var(--r-subtle);
 	padding: 0.75em 1em;
 	margin-bottom: 0.5em;
@@ -113,8 +106,7 @@
  * avoid biome noDescendingSpecificity lint error. The pre code selector resets
  * the inline code styles that don't apply inside a code block. */
 .body-editor .ProseMirror pre code {
-	font-family: var(--font-mono);
-	font-size: 0.875em;
+	@apply type-data;
 	color: var(--text-primary);
 	background: none;
 	padding: 0;
@@ -131,16 +123,16 @@
 
 .body-editor .ProseMirror th,
 .body-editor .ProseMirror td {
-	border: 1px solid var(--border-default);
+	@apply type-copy;
+	border: var(--bw-thin) solid var(--border-default);
 	padding: 0.375em 0.75em;
 	text-align: left;
-	font-size: var(--text-base);
 	font-variant-numeric: tabular-nums;
 }
 
 .body-editor .ProseMirror th {
+	@apply type-small;
 	background: var(--surface-container);
-	font-weight: var(--fw-medium);
 	color: var(--text-primary);
 }
 
@@ -151,7 +143,7 @@
 /* Horizontal rule */
 .body-editor .ProseMirror hr {
 	border: none;
-	border-top: 1px solid var(--border-subtle);
+	border-top: var(--bw-thin) solid var(--border-subtle);
 	margin: 1em 0;
 }
 
@@ -167,11 +159,6 @@
 .body-editor .ProseMirror a {
 	color: var(--accent-primary);
 	text-decoration: underline;
-}
-
-/* Bold */
-.body-editor .ProseMirror strong {
-	font-weight: var(--fw-semibold);
 }
 
 /* Strikethrough */

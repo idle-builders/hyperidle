@@ -27,11 +27,11 @@ function UnknownDiff({ kind }: DiffRendererProps): JSX.Element {
 	return (
 		<section
 			aria-label="Unknown diff"
-			className="flex items-center gap-[9px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px]"
+			className="border-[var(--bw-thin)] flex items-center gap-[9px] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px]"
 		>
-			<span className="text-[12px] text-[var(--text-tertiary)]">
+			<span className="type-metadata  text-[var(--text-tertiary)]">
 				No diff renderer for kind:{" "}
-				<code className="font-mono text-[var(--text-secondary)]">{kind}</code>
+				<code className="type-data  text-[var(--text-secondary)]">{kind}</code>
 			</span>
 		</section>
 	);

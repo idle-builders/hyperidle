@@ -40,7 +40,7 @@ export function ArtifactEmbed({ data, onOpen, viewSlot }: ArtifactEmbedProps): J
 	const summary = summarizePreview(data.preview) ?? "[ no preview ]";
 	return (
 		<div {...dsProps("ArtifactEmbed", "2")} className={WRAP}>
-			<div className={IDENTITY}>
+			<div className={`type-data ${IDENTITY}`}>
 				<ArtifactKindBadge kind={data.kind} />
 				{data.label && (
 					<>
@@ -56,7 +56,7 @@ export function ArtifactEmbed({ data, onOpen, viewSlot }: ArtifactEmbedProps): J
 					→
 				</button>
 			</div>
-			<div className={VIEW}>{viewSlot ?? summary}</div>
+			<div className={`type-small ${VIEW}`}>{viewSlot ?? summary}</div>
 		</div>
 	);
 }

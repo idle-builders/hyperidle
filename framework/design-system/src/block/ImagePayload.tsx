@@ -37,7 +37,7 @@ export function ImagePayload({ alt, url, title }: ImagePayloadProps): JSX.Elemen
 		// data-component is a test-support marker (E2E selector hook; no behavior).
 		<figure
 			data-component="ImagePayload"
-			className="m-0 relative rounded-[var(--r-default)] border border-[var(--border-subtle)] overflow-hidden"
+			className="border-[var(--bw-thin)] m-0 relative rounded-[var(--r-default)]  border-[var(--border-subtle)] overflow-hidden"
 		>
 			<img src={url} alt={alt} title={title ?? undefined} className="block max-w-full h-auto" />
 			<button
@@ -59,7 +59,7 @@ export function ImagePayload({ alt, url, title }: ImagePayloadProps): JSX.Elemen
 				</svg>
 			</button>
 			{alt ? (
-				<figcaption className="text-[12px] text-[var(--text-tertiary)] px-[12px] py-[6px]">
+				<figcaption className="type-metadata  text-[var(--text-tertiary)] px-[12px] py-[6px]">
 					{alt}
 				</figcaption>
 			) : null}

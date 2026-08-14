@@ -41,7 +41,7 @@ export function ArtifactPreview({
 	return (
 		<div {...dsProps("ArtifactPreview", "2")} className={WRAP} data-state={state}>
 			<div className={HEADER}>
-				<div className={META}>
+				<div className={`type-data ${META}`}>
 					<ArtifactKindBadge kind={data.kind} />
 					{data.label && (
 						<>
@@ -55,7 +55,7 @@ export function ArtifactPreview({
 					<ArtifactTimestamp value={data.createdAt} />
 					<span className="ml-auto text-[var(--text-tertiary)] normal-case">{data.id}</span>
 				</div>
-				{showTitle && <div className={TITLE}>{artifactDisplayTitle(data)}</div>}
+				{showTitle && <div className={`type-title ${TITLE}`}>{artifactDisplayTitle(data)}</div>}
 			</div>
 			<ArtifactPreviewSurface
 				kind={data.kind}
@@ -64,7 +64,7 @@ export function ArtifactPreview({
 				sanitizeHtml={sanitizeHtml}
 				documentTitle={artifactDisplayTitle(data)}
 			/>
-			{discussion ? <div className={DISCUSSION}>{discussion}</div> : null}
+			{discussion ? <div className={`type-metadata ${DISCUSSION}`}>{discussion}</div> : null}
 		</div>
 	);
 }

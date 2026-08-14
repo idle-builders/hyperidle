@@ -50,7 +50,7 @@ const CAPTION =
 /** Honest no-preview affordance — replaces "PREVIEW NOT YET RENDERED" / "PREVIEW PENDING". */
 function NoPreviewText({ size }: { size: "gallery" | "full" }): JSX.Element {
 	return (
-		<span data-artifact-caption className={CAPTION}>
+		<span data-artifact-caption className={`type-data ${CAPTION}`}>
 			{size === "full" ? "No preview available" : "No preview"}
 		</span>
 	);
@@ -121,7 +121,7 @@ function renderBody(
 		const summary = def.summarize(preview);
 		if (summary)
 			return (
-				<span data-artifact-caption className={CAPTION}>
+				<span data-artifact-caption className={`type-data ${CAPTION}`}>
 					{summary}
 				</span>
 			);
@@ -129,7 +129,7 @@ function renderBody(
 	}
 	// Unregistered kind: name it rather than print a machine string.
 	return (
-		<span data-artifact-caption className={CAPTION}>
+		<span data-artifact-caption className={`type-data ${CAPTION}`}>
 			{kind} · no preview
 		</span>
 	);

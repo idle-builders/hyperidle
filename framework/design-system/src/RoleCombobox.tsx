@@ -181,9 +181,7 @@ export function RoleCombobox({
 			data-testid={dataTestId}
 			className="relative flex flex-col gap-[6px]"
 		>
-			<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-				Role
-			</span>
+			<span className="type-label   uppercase  text-[var(--text-tertiary)]">Role</span>
 
 			{/* Closed field */}
 			<button
@@ -205,7 +203,7 @@ export function RoleCombobox({
 				// measurement scanner), so both move to `--surface-elevated`
 				// together — leaving one fixed and one not would make a single
 				// component internally inconsistent about its own fill.
-				className={`flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left text-[13px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${
+				className={`type-control border-[var(--bw-thin)] flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left ${
 					disabled
 						? "cursor-not-allowed text-[var(--text-tertiary)] opacity-70"
 						: "text-[var(--text-primary)] hover:border-[var(--border-strong)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
@@ -219,8 +217,8 @@ export function RoleCombobox({
 
 			{/* Popover */}
 			{open && !disabled && (
-				<div className="absolute left-0 right-0 top-[62px] z-20 flex flex-col overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]">
-					<div className="border-b border-[var(--border-subtle)] p-[6px]">
+				<div className="border-[var(--bw-thin)] absolute left-0 right-0 top-[62px] z-20 flex flex-col overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]">
+					<div className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)] p-[6px]">
 						<input
 							ref={inputRef}
 							type="text"
@@ -233,7 +231,7 @@ export function RoleCombobox({
 							placeholder="Filter roles or type a new one…"
 							aria-label="Filter or define a role"
 							aria-activedescendant={`${listId}-opt-${highlight}`}
-							className="w-full rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px] text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none max-md:text-[16px]"
+							className="type-input w-full rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[9px] py-[6px]  text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none "
 						/>
 					</div>
 
@@ -255,11 +253,11 @@ export function RoleCombobox({
 									i === highlight ? "bg-[var(--surface-container)]" : ""
 								}`}
 							>
-								<span className="text-[13px] font-[500] text-[var(--text-primary)]">
-									{opt.label}
-								</span>
+								<span className="type-small   text-[var(--text-primary)]">{opt.label}</span>
 								{opt.description ? (
-									<span className="text-[12px] text-[var(--text-tertiary)]">{opt.description}</span>
+									<span className="type-metadata  text-[var(--text-tertiary)]">
+										{opt.description}
+									</span>
 								) : null}
 							</ListboxOption>
 						))}
@@ -270,13 +268,13 @@ export function RoleCombobox({
 								highlight={highlight === filtered.length}
 								onMouseEnter={() => setHighlight(filtered.length)}
 								onClick={() => commit(trimmed)}
-								className={`flex items-center gap-[6px] rounded-[var(--r-subtle)] border-t border-[var(--border-subtle)] px-[9px] py-[6px] ${
+								className={`flex items-center gap-[6px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] px-[9px] py-[6px] ${
 									highlight === filtered.length ? "bg-[var(--surface-container)]" : ""
 								}`}
 							>
-								<span className="text-[13px] text-[var(--accent-deep)]">＋</span>
-								<span className="text-[13px] text-[var(--text-primary)]">
-									Use new role: <span className="font-[600]">{trimmed}</span>
+								<span className="type-small  text-[var(--accent-deep)]">＋</span>
+								<span className="type-small  text-[var(--text-primary)]">
+									Use new role: <span className="type-small ">{trimmed}</span>
 								</span>
 							</ListboxOption>
 						) : null}

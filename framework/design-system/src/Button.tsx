@@ -76,8 +76,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 			{...dsProps("Button", "0")}
 			type={rest.type ?? "button"}
 			disabled={disabled}
-			className={[
-				"inline-flex items-center justify-center gap-[6px] rounded-[var(--r-pill)] border-[1.5px] font-medium cursor-pointer",
+			className={`type-control ${[
+				"inline-flex items-center justify-center gap-[6px] rounded-[var(--r-pill)]   cursor-pointer",
 				"active:scale-[0.97]",
 				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 				"disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
@@ -85,7 +85,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 				sizeClass,
 				variantClass,
 				className,
-			].join(" ")}
+			].join(" ")}`}
 			{...rest}
 		>
 			{children}

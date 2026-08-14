@@ -37,14 +37,12 @@ export function ArtifactStackItem({
 			<span className={LEFT}>
 				<ArtifactKindBadge kind={data.kind} />
 				{data.label && (
-					<span className="font-mono text-[11px] text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps-sm)]">
-						{data.label}
-					</span>
+					<span className="type-label   text-[var(--text-tertiary)] uppercase ">{data.label}</span>
 				)}
-				<span className={TASK}>{data.producingTaskTitle}</span>
-				<span className={TITLE}>{artifactDisplayTitle(data)}</span>
+				<span className={`type-data ${TASK}`}>{data.producingTaskTitle}</span>
+				<span className={`type-copy ${TITLE}`}>{artifactDisplayTitle(data)}</span>
 			</span>
-			<span className={RIGHT}>
+			<span className={`type-data ${RIGHT}`}>
 				{count > 0 ? (
 					<span className={PILL}>{count === 1 ? "1 thread" : `${count} threads`}</span>
 				) : null}

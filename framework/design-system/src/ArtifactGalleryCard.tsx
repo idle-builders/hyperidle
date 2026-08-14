@@ -32,13 +32,13 @@ export function ArtifactGalleryCard({
 	return (
 		<button
 			{...dsProps("ArtifactGalleryCard", "2")}
-			className={CARD_BASE}
+			className={`motion-move ${CARD_BASE}`}
 			onClick={onOpen}
 			type="button"
 			data-state={state}
 			aria-label={artifactDisplayTitle(data)}
 		>
-			<div className={HEADER}>
+			<div className={`type-data ${HEADER}`}>
 				<ArtifactKindBadge kind={data.kind} />
 				{data.label && (
 					<>
@@ -49,9 +49,9 @@ export function ArtifactGalleryCard({
 				<span className="text-[var(--text-tertiary)]">·</span>
 				<span>{data.producingTaskTitle}</span>
 			</div>
-			<div className={TITLE}>{artifactDisplayTitle(data)}</div>
+			<div className={`type-copy ${TITLE}`}>{artifactDisplayTitle(data)}</div>
 			<ArtifactPreviewSurface kind={data.kind} preview={data.preview} size="gallery" />
-			<div className={FOOTER}>
+			<div className={`type-data ${FOOTER}`}>
 				<span className="flex items-center gap-[6px]">
 					<ArtifactTimestamp value={data.createdAt} />
 				</span>

@@ -70,7 +70,7 @@ export function Skeleton({
 			 * for dynamic dims and delivers the arbitrary dims the prop API promises.
 			 */
 			style={{ width, height }}
-			className={`${SKELETON_BAR} ${className}`}
+			className={`motion-loading ${`${SKELETON_BAR} ${className}`}`}
 		/>
 	);
 }
@@ -99,7 +99,7 @@ export function SkeletonList({
 					// biome-ignore lint/suspicious/noArrayIndexKey: fixed-count placeholder rows.
 					key={i}
 					data-testid="skeleton-row"
-					className={`${SKELETON_BAR} h-[42px] w-full`}
+					className={`motion-loading ${`${SKELETON_BAR} h-[42px] w-full`}`}
 				/>
 			))}
 		</div>
@@ -127,10 +127,10 @@ export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.
 			 */
 			className="flex flex-col gap-[6px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px]"
 		>
-			<div className={`${SKELETON_BAR} h-[20px] w-[66%]`} />
-			<div className={`${SKELETON_BAR} h-[16px] w-full`} />
-			<div className={`${SKELETON_BAR} h-[16px] w-[83%]`} />
-			<div className={`${SKELETON_BAR} h-[16px] w-[75%]`} />
+			<div className={`motion-loading ${`${SKELETON_BAR} h-[20px] w-[66%]`}`} />
+			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-full`}`} />
+			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-[83%]`}`} />
+			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-[75%]`}`} />
 		</div>
 	);
 }

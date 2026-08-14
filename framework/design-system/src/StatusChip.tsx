@@ -117,7 +117,7 @@ export function StatusChip({ status, label }: StatusChipProps): JSX.Element {
 	return (
 		<span
 			{...dsProps("StatusChip", "1")}
-			className={`${CHIP_BASE} ${style.chip}`}
+			className={`type-data ${`${CHIP_BASE} ${style.chip}`}`}
 			title={safeStatus}
 			data-status={safeStatus}
 		>

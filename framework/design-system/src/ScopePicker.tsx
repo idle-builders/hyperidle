@@ -99,11 +99,11 @@ export function ScopePicker({
 							// caller clears its filter rather than filtering to "all".
 							onChange(mode === "filter" && option.id === options[0]?.id ? null : option.id);
 						}}
-						className={[
+						className={`type-control ${[
 							PILL_BASE,
 							isActive ? PILL_ACTIVE : PILL_INACTIVE,
 							isDisabled ? PILL_DISABLED : "",
-						].join(" ")}
+						].join(" ")}`}
 					>
 						{option.label}
 					</button>

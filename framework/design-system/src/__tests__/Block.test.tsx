@@ -126,7 +126,14 @@ describe("<Block />", () => {
 
 	describe("Semantic HTML per kind (AC-29)", () => {
 		it("demotes authored headings, caps h6, and suppresses only a matching first heading", async () => {
-			const sourcePaint = ["24px", "20px", "18px", "16px", "15px", "13px"];
+			const sourceProfiles = [
+				"type-display",
+				"type-title",
+				"type-lead",
+				"type-subheading",
+				"type-subheading",
+				"type-subheading",
+			];
 			for (const level of [1, 2, 3, 4, 5, 6] as const) {
 				await renderBlock(
 					{ ...HEADING, level },
@@ -135,7 +142,7 @@ describe("<Block />", () => {
 					},
 				);
 				const heading = container.querySelector(`h${Math.min(6, level + 1)}`);
-				expect(heading).toHaveClass(`text-[${sourcePaint[level - 1]}]`);
+				expect(heading).toHaveClass(sourceProfiles[level - 1]!);
 			}
 
 			let opened = 0;

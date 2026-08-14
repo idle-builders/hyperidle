@@ -74,7 +74,7 @@ export function ReferenceChip({
 			<span className="flex shrink-0 items-center text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] group-hover/refchip:text-[var(--text-secondary)]">
 				<Glyph d={ICON[kind]} size={13} />
 			</span>
-			<span className="truncate font-[500] text-[var(--text-primary)]">{label}</span>
+			<span className="type-small truncate  text-[var(--text-primary)]">{label}</span>
 			{meta && <span className="shrink-0 tabular-nums text-[var(--text-tertiary)]">{meta}</span>}
 		</>
 	);
@@ -90,10 +90,10 @@ export function ReferenceChip({
 				{...dsProps("ReferenceChip", "1")}
 				data-ds-mode="posted"
 				data-ds-kind={kind}
-				className={`${SHELL} pr-[9px] text-left`}
+				className={`type-control ${`${SHELL} pr-[9px] text-left`}`}
 			>
 				{openBody}
-				<span className="flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-deep)]">
+				<span className="motion-feedback flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-deep)]">
 					<Glyph d={ICON_ARROW} size={11} />
 				</span>
 			</button>
@@ -106,7 +106,7 @@ export function ReferenceChip({
 			{...dsProps("ReferenceChip", "1")}
 			data-ds-mode="draft"
 			data-ds-kind={kind}
-			className={SHELL}
+			className={`type-metadata ${SHELL}`}
 		>
 			<button
 				type="button"

@@ -28,11 +28,11 @@ export function TaskCard({
 			{...dsProps("TaskCard", "2")}
 			{...clickableProps(
 				onClick,
-				`bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] max-w-[320px] shadow-[var(--shadow-default)] border hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] transition-all duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${state === "blocked" ? "border-[var(--status-error)]" : "border-[var(--border-subtle)]"}`,
+				"motion-move border-[var(--bw-thin)] border-[var(--border-subtle)] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] max-w-[320px] shadow-[var(--shadow-default)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)]",
 			)}
 		>
 			<span
-				className="text-[15px] font-medium truncate text-[var(--text-primary)]"
+				className="type-copy   truncate text-[var(--text-primary)]"
 				aria-label={`Task: ${title}`}
 			>
 				{title}
@@ -41,7 +41,7 @@ export function TaskCard({
 				{betTag && <Tag label={betTag} />}
 				<StatusChip status={taskStateToStatus(state)} />
 			</div>
-			<span className="text-[12px] text-[var(--text-primary)]">{owner}</span>
+			<span className="type-metadata  text-[var(--text-primary)]">{owner}</span>
 			{actions}
 		</div>
 	);

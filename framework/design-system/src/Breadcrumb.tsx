@@ -144,7 +144,7 @@ export function Breadcrumb({ segments, leading, LinkComponent }: BreadcrumbProps
 	return (
 		<nav
 			aria-label="Breadcrumb"
-			className="flex min-w-0 flex-nowrap items-center overflow-hidden text-[13px]"
+			className="type-small flex min-w-0 flex-nowrap items-center overflow-hidden "
 			{...dsProps("Breadcrumb", "1")}
 		>
 			{items}

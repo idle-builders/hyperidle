@@ -18,7 +18,7 @@ function kindLabel(kind: string): string {
 
 export function ArtifactKindBadge({ kind }: ArtifactKindBadgeProps): JSX.Element {
 	return (
-		<span {...dsProps("ArtifactKindBadge", "1")} className={BADGE_BASE}>
+		<span {...dsProps("ArtifactKindBadge", "1")} className={`type-data ${BADGE_BASE}`}>
 			{kindLabel(kind)}
 		</span>
 	);

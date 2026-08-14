@@ -89,7 +89,7 @@ export function KnowledgeRow({
 		>
 			<div className="flex-1 min-w-0">
 				<div className="flex items-center gap-[12px]">
-					<span className={titleClass} aria-label={`Knowledge: ${title}`}>
+					<span className={`type-copy ${titleClass}`} aria-label={`Knowledge: ${title}`}>
 						{title}
 					</span>
 					{layer && <Tag label={layer} />}
@@ -98,10 +98,10 @@ export function KnowledgeRow({
 					{factoryMode && version && (
 						<span
 							/* @lore K7 / AESTHETICS.md § Spacing & Density row "Grid base unit" + § Typography
-							   row "Body size (default)": px-[6px] → px-[8px] (off-grid), text-[10px] → text-[11px]
+							   row "Body size (default)": px-[6px] → px-[8px] (off-grid), text-[10px] → type-data
 							   (off-scale). Tracking aligned to --tracking-caps via the recommendation row
 							   "Letter-spacing for caps". */
-							className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-tertiary)] shrink-0"
+							className="type-data inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-tertiary)] shrink-0"
 							data-testid="knowledge-version-pill"
 						>
 							{version}
@@ -112,29 +112,23 @@ export function KnowledgeRow({
 					// L22 signal triad: recency / freq / impact — em dash for absent values (AC-8)
 					<div
 						data-testid="knowledge-signals"
-						className="flex items-center gap-[12px] text-[12px] text-[var(--text-tertiary)]"
+						className="type-metadata flex items-center gap-[12px]  text-[var(--text-tertiary)]"
 					>
 						<span>
-							<span className="text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps)]">
-								recency
-							</span>{" "}
-							<span className="font-[var(--font-mono)] tabular-nums">{signals.recency ?? "—"}</span>
+							<span className="type-label text-[var(--text-tertiary)] uppercase ">recency</span>{" "}
+							<span className="type-data  tabular-nums">{signals.recency ?? "—"}</span>
 						</span>
 						<span aria-hidden="true">·</span>
 						<span>
-							<span className="text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps)]">
-								freq
-							</span>{" "}
-							<span className="font-[var(--font-mono)] tabular-nums">
+							<span className="type-label text-[var(--text-tertiary)] uppercase ">freq</span>{" "}
+							<span className="type-data  tabular-nums">
 								{signals.frequency != null ? String(signals.frequency) : "—"}
 							</span>
 						</span>
 						<span aria-hidden="true">·</span>
 						<span>
-							<span className="text-[var(--text-tertiary)] uppercase tracking-[var(--tracking-caps)]">
-								impact
-							</span>{" "}
-							<span className="font-[var(--font-mono)] tabular-nums">
+							<span className="type-label text-[var(--text-tertiary)] uppercase ">impact</span>{" "}
+							<span className="type-data  tabular-nums">
 								{signals.citation != null ? String(signals.citation) : "—"}
 							</span>
 						</span>
@@ -142,16 +136,18 @@ export function KnowledgeRow({
 				) : (
 					<>
 						{caption && (
-							<p className="text-[12px] text-[var(--text-secondary)] truncate">{caption}</p>
+							<p className="type-metadata  text-[var(--text-secondary)] truncate">{caption}</p>
 						)}
 						{/* W3 AC-35: preview text shown below title */}
 						{preview && !caption && (
-							<p className="text-[12px] text-[var(--text-secondary)] truncate">{preview}</p>
+							<p className="type-metadata  text-[var(--text-secondary)] truncate">{preview}</p>
 						)}
 					</>
 				)}
 			</div>
-			<span className="text-[12px] text-[var(--text-tertiary)] whitespace-nowrap">{timestamp}</span>
+			<span className="type-metadata  text-[var(--text-tertiary)] whitespace-nowrap">
+				{timestamp}
+			</span>
 			{actions}
 		</div>
 	);

@@ -17,10 +17,8 @@ export function KeyValue({ label, value, layout = "inline" }: KeyValueProps): JS
 		>
 			{/* @lore K7 / AESTHETICS.md § Typography row "Letter-spacing for caps":
 			    +0.02em (designer-call) on uppercase labels. */}
-			<span className="uppercase font-[family-name:var(--font-mono)] text-[11px] tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
-				{label}
-			</span>
-			<span className="text-[15px] text-[var(--text-primary)]">{value}</span>
+			<span className="type-label uppercase     text-[var(--text-tertiary)]">{label}</span>
+			<span className="type-copy  text-[var(--text-primary)]">{value}</span>
 		</div>
 	);
 }

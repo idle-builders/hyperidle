@@ -63,12 +63,8 @@ export function EmptyState({
 				// hearth-internal-padding
 				className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] text-left"
 			>
-				<p className="text-[15px] font-[600] text-[var(--text-primary)] leading-[1.4] tracking-[-0.01em] mb-[6px]">
-					{title}
-				</p>
-				<p className="text-[13px] text-[var(--text-secondary)] leading-[1.6] mb-[12px]">
-					{description}
-				</p>
+				<p className="type-copy   text-[var(--text-primary)]   mb-[6px]">{title}</p>
+				<p className="type-small  text-[var(--text-secondary)]  mb-[12px]">{description}</p>
 				{action && <div>{action}</div>}
 			</div>
 		);
@@ -90,12 +86,8 @@ export function EmptyState({
 					{icon}
 				</div>
 			)}
-			<p className="text-[20px] font-[600] text-[var(--text-primary)] leading-[1.4] tracking-[-0.01em] mb-[9px]">
-				{title}
-			</p>
-			<p className="text-[15px] text-[var(--text-secondary)] leading-[1.7] mb-[18px]">
-				{description}
-			</p>
+			<p className="type-title   text-[var(--text-primary)]   mb-[9px]">{title}</p>
+			<p className="type-copy  text-[var(--text-secondary)]  mb-[18px]">{description}</p>
 			{action && <div>{action}</div>}
 		</div>
 	);

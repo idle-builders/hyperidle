@@ -59,7 +59,7 @@ export function SectionLabel({
 
 	return (
 		<Tag
-			className={headingClass}
+			className={`type-label ${headingClass}`}
 			{...dsProps("SectionLabel", "1")}
 			{...(testId ? { "data-testid": testId } : {})}
 		>

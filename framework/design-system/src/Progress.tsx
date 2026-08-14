@@ -26,8 +26,8 @@ export function Progress({ value, label, variant = "green" }: ProgressProps): JS
 		<div {...dsProps("Progress", "0")} className="flex flex-col gap-[6px]">
 			{label && (
 				<div className="flex items-center justify-between">
-					<span className="text-[13px] text-[var(--text-secondary)]">{label}</span>
-					<span className="text-[12px] font-mono text-[var(--text-tertiary)]">{clampedValue}%</span>
+					<span className="type-small  text-[var(--text-secondary)]">{label}</span>
+					<span className="type-data   text-[var(--text-tertiary)]">{clampedValue}%</span>
 				</div>
 			)}
 			<div className="h-[8px] w-full bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden">

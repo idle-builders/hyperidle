@@ -23,12 +23,8 @@ export function KpiStat({ metrics }: KpiStatProps): JSX.Element {
 			<div className="flex flex-wrap gap-3">
 				{metrics.map((m) => (
 					<div key={m.label} className="flex flex-col">
-						<span className="text-[11px] font-mono uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-							{m.label}
-						</span>
-						<span className="text-base font-semibold text-[var(--text-primary)] tabular-nums">
-							{m.value}
-						</span>
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">{m.label}</span>
+						<span className="type-metric   text-[var(--text-primary)] tabular-nums">{m.value}</span>
 					</div>
 				))}
 			</div>

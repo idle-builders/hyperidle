@@ -336,7 +336,7 @@ describe("U8 — Hearth restyle structural elements", () => {
 			expect(card.className).toContain("shadow-default");
 		});
 
-		it("blocked state uses status-error token instead of danger", () => {
+		it("blocked state keeps the normal outline and uses StatusChip for state", () => {
 			act(() => {
 				root.render(
 					createElement(TaskCard, {
@@ -347,7 +347,8 @@ describe("U8 — Hearth restyle structural elements", () => {
 				);
 			});
 			const card = container.firstElementChild as HTMLElement;
-			expect(card.className).toContain("status-error");
+			expect(card.className).toContain("border-subtle");
+			expect(card.className).not.toContain("status-error");
 			expect(card.className).not.toContain("--danger");
 		});
 	});

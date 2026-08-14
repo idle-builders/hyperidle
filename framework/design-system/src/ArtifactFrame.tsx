@@ -105,7 +105,7 @@ export function ArtifactFrame({ html, title = "Artifact" }: ArtifactFrameProps):
 				className={FRAME_CLASS}
 			/>
 			<div className="flex items-center gap-[9px]">
-				<span data-artifact-sealed-note className="text-[12px] text-[var(--text-tertiary)]">
+				<span data-artifact-sealed-note className="type-metadata  text-[var(--text-tertiary)]">
 					{SEALED_NOTE}
 				</span>
 				<Button
@@ -125,7 +125,7 @@ export function ArtifactFrame({ html, title = "Artifact" }: ArtifactFrameProps):
 						title={`${title} (larger)`}
 						sandbox={ARTIFACT_FRAME_SANDBOX}
 						srcDoc={srcDoc}
-						className="block w-full h-[70vh] border-0 rounded-[var(--r-default)] bg-[var(--surface-page)]"
+						className="border-none block w-full h-[70vh]  rounded-[var(--r-default)] bg-[var(--surface-page)]"
 					/>
 				</Dialog>
 			)}
