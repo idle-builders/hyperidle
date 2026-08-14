@@ -211,5 +211,15 @@ export type { ToggleProps } from "./Toggle.js";
 export { Toggle } from "./Toggle.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";
+export type { BorderWidthProfile, MotionProfile, TypographyRole } from "./token-profiles.js";
+export {
+	AVATAR_INITIAL_STYLE,
+	BORDER_WIDTH_PROFILES,
+	BORDER_WIDTH_STYLE,
+	MOTION_PROFILES,
+	MOTION_STYLE,
+	TYPE_STYLE,
+	TYPOGRAPHY_ROLES,
+} from "./token-profiles.js";
 export type { UseDialogBehavior, UseDialogBehaviorOptions } from "./useDialogBehavior.js";
 export { ensureOverlayRoot, useDialogBehavior } from "./useDialogBehavior.js";

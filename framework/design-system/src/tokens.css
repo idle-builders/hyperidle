@@ -127,7 +127,7 @@
 		/* Border widths — bw prefix avoids collision with border color tokens */
 		--bw-thin: 1px;
 		--bw-default: 1.5px;
-		--bw-strong: 2.5px;
+		--bw-strong: 2px;
 
 		/*
 		 * @lore W2 — --easing-expressive added for spring-like micro-interactions
@@ -348,7 +348,18 @@
 	}
 }
 
-/* ── Skeleton pulse animation ── */
+/* ── Purpose-based motion profiles ── */
+@keyframes hearth-loading {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.4;
+	}
+}
+
+/* Compatibility until the loading migration lands in Wave 4. */
 @keyframes skeleton-pulse {
 	0%,
 	100% {
@@ -356,6 +367,185 @@
 	}
 	50% {
 		opacity: 0.4;
+	}
+}
+
+@keyframes hearth-activity {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.55;
+	}
+}
+
+@keyframes hearth-enter {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes hearth-busy {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@layer components {
+	.type-label {
+		font-family: var(--font-sans);
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		line-height: 1.25;
+	}
+	.type-metadata {
+		font-family: var(--font-sans);
+		font-size: 12px;
+		font-weight: 500;
+		letter-spacing: 0;
+		line-height: 1.4;
+	}
+	.type-small {
+		font-family: var(--font-sans);
+		font-size: 13px;
+		font-weight: 400;
+		letter-spacing: 0;
+		line-height: 1.4;
+	}
+	.type-copy {
+		font-family: var(--font-sans);
+		font-size: 15px;
+		font-weight: 400;
+		letter-spacing: 0;
+		line-height: 1.55;
+	}
+	.type-control {
+		font-family: var(--font-sans);
+		font-size: 13px;
+		font-weight: 500;
+		letter-spacing: 0;
+		line-height: 1.25;
+	}
+	.type-input {
+		font-family: var(--font-sans);
+		font-size: 13px;
+		font-weight: 400;
+		letter-spacing: 0;
+		line-height: 1.4;
+	}
+	.type-avatar-initial {
+		font-family: var(--font-sans);
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0;
+		line-height: 1;
+	}
+	.type-avatar-initial--stacked {
+		font-size: 9px;
+	}
+	.type-avatar-initial--sm {
+		font-size: 10px;
+	}
+	.type-avatar-initial--md {
+		font-size: 12px;
+	}
+	.type-avatar-initial--lg {
+		font-size: 13px;
+	}
+	.type-subheading {
+		font-family: var(--font-sans);
+		font-size: 15px;
+		font-weight: 600;
+		letter-spacing: 0;
+		line-height: 1.4;
+	}
+	.type-lead {
+		font-family: var(--font-sans);
+		font-size: 17px;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		line-height: 1.25;
+	}
+	.type-title {
+		font-family: var(--font-sans);
+		font-size: 20px;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		line-height: 1.4;
+	}
+	.type-display {
+		font-family: var(--font-sans);
+		font-size: 24px;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		line-height: 1.25;
+	}
+	.type-metric {
+		font-family: var(--font-sans);
+		font-size: 24px;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		letter-spacing: -0.01em;
+		line-height: 1;
+	}
+	.type-data {
+		font-family: var(--font-mono);
+		font-size: 12px;
+		font-weight: 500;
+		letter-spacing: 0;
+		line-height: 1.4;
+	}
+	.type-inline-code {
+		font-family: var(--font-mono);
+		font-size: 13px;
+		font-weight: 400;
+		letter-spacing: 0;
+		line-height: 1.55;
+	}
+
+	.motion-feedback {
+		transition-duration: 120ms;
+		transition-property: opacity, filter;
+		transition-timing-function: var(--motion-ease);
+	}
+	.motion-move {
+		transition-duration: 240ms;
+		transition-property: transform;
+		transition-timing-function: var(--motion-ease);
+	}
+	.motion-spring {
+		transition-duration: 240ms;
+		transition-property: transform;
+		transition-timing-function: var(--easing-expressive);
+	}
+	.motion-enter {
+		animation: hearth-enter 120ms ease-out 1;
+	}
+	.motion-activity {
+		animation: hearth-activity 1.4s ease-in-out infinite;
+	}
+	.motion-loading {
+		animation: hearth-loading 1.8s ease-in-out infinite;
+	}
+	.motion-busy {
+		animation: hearth-busy 750ms linear infinite;
+	}
+
+	.border-width-thin {
+		border-width: var(--bw-thin);
+	}
+	.border-width-default {
+		border-width: var(--bw-default);
+	}
+	.border-width-strong {
+		border-width: var(--bw-strong);
 	}
 }
 
@@ -367,16 +557,15 @@
  * Components that consume --motion-fast/default/slow inherit this automatically.
  */
 @media (prefers-reduced-motion: reduce) {
-	:root,
-	[data-theme] {
-		--motion-fast: 1ms;
-		--motion-default: 1ms;
-		--motion-slow: 1ms;
-	}
-	[class*="animate-[skeleton-pulse"],
-	.skeleton {
-		/* biome-ignore lint/complexity/noImportantStyles: WCAG SC 2.3.3 — reduced-motion override must beat Tailwind's arbitrary-value `animate-[skeleton-pulse]` utility, which carries equal specificity. !important is the canonical mechanism (MDN, Material 3 motion). */
+	*,
+	*::before,
+	*::after {
+		/* biome-ignore lint/complexity/noImportantStyles: global accessibility override must beat authored component selectors. */
 		animation: none !important;
+		/* biome-ignore lint/complexity/noImportantStyles: global accessibility override must beat authored component selectors. */
+		transition: none !important;
+		/* biome-ignore lint/complexity/noImportantStyles: global accessibility override must beat authored smooth-scroll declarations. */
+		scroll-behavior: auto !important;
 	}
 }
 
