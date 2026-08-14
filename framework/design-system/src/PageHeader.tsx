@@ -62,6 +62,8 @@ export interface PageHeaderProps {
 	level?: 1 | 2;
 	/** Routed page header or local split-pane header. */
 	presentation?: "page" | "pane";
+	/** Semantic role for a pane title. Page titles always use `title`. */
+	paneTitleProfile?: "lead" | "subheading";
 	/** Reserve the destination pane's top-right SplitView controls. */
 	reservePaneControls?: boolean;
 	/** Orientation row above the title (Breadcrumb + NavHistoryCluster). Injected by the page. */
@@ -78,6 +80,7 @@ export function PageHeader({
 	title,
 	level = 1,
 	presentation = "page",
+	paneTitleProfile = "lead",
 	reservePaneControls = false,
 	leading,
 	subtitle,
@@ -85,16 +88,21 @@ export function PageHeader({
 	"data-testid": testId,
 }: PageHeaderProps): JSX.Element {
 	const TitleTag = presentation === "pane" || level === 2 ? "h2" : "h1";
+	const resolvedTitleProfile = presentation === "pane" ? paneTitleProfile : "title";
 	const content = (
 		<>
 			{leading && <div className="mb-[6px] min-w-0 overflow-hidden">{leading}</div>}
 
 			<div className="flex items-center justify-between gap-[12px]">
 				<TitleTag
-					data-az16-profile={presentation === "pane" ? "lead" : "title"}
-					className={`${presentation === "pane" ? "type-lead" : "type-title"} ${
-						presentation === "pane" ? paneTitleClassName : pageTitleClassName
-					}`}
+					data-az16-profile={resolvedTitleProfile}
+					className={`${
+						resolvedTitleProfile === "subheading"
+							? "type-subheading"
+							: resolvedTitleProfile === "lead"
+								? "type-lead"
+								: "type-title"
+					} ${presentation === "pane" ? paneTitleClassName : pageTitleClassName}`}
 				>
 					{title}
 				</TitleTag>

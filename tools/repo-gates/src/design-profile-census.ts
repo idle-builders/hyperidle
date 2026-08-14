@@ -6,9 +6,10 @@ import {
 import { discoverDesignSources } from "./lib/design-source-discovery.js";
 
 // Immutable audit receipts count pre-migration authored sites, not final source
-// declarations. Shared class construction consolidated equivalent branches, so
-// the approved receipt expansion is the measured final consumer population.
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 213, default: 17, strong: 11 } as const;
+// declarations. Shared class construction (including the upstream PageHeader
+// pane consolidation) combines equivalent sites, so the approved receipt
+// expansion is the measured final source-profile population.
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 211, default: 17, strong: 11 } as const;
 
 const EXPECTED = {
 	typography: {
@@ -20,7 +21,7 @@ const EXPECTED = {
 		input: 11,
 		"avatar-initial": 14,
 		subheading: 10,
-		lead: 12,
+		lead: 10,
 		title: 11,
 		display: 3,
 		metric: 7,

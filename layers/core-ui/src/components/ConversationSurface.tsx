@@ -136,8 +136,8 @@ function Avatar({
 		: "bg-[var(--surface-container)] border-[var(--border-default)] text-[var(--text-secondary)]";
 	return (
 		<div
-			className={`inline-flex items-center justify-center rounded-[var(--r-pill)] border-[1.5px] font-[600] shrink-0 ${color}`}
-			style={{ width: size, height: size, fontSize: size <= 22 ? 10 : 12 }}
+			className={`type-avatar-initial type-avatar-initial--stacked inline-flex items-center justify-center rounded-[var(--r-pill)] shrink-0 ${color}`}
+			style={{ width: size, height: size }}
 			aria-hidden="true"
 		>
 			{initialsOf(who.name)}
@@ -256,7 +256,7 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 				background: "var(--surface-overlay)",
 				zIndex: 50,
 			}}
-			className="absolute w-[238px] rounded-[var(--r-default)] border border-[var(--border-default)] p-[3px] shadow-[var(--shadow-elevated)]"
+			className="border-[var(--bw-thin)] absolute w-[238px] rounded-[var(--r-default)]  border-[var(--border-default)] p-[3px] shadow-[var(--shadow-elevated)]"
 		>
 			{items.map((it) => (
 				<button
@@ -269,7 +269,7 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 					// consolidation onto the DS Composer (which owns its own menu
 					// shape); a partial Button swap here would be rework once that
 					// lands.
-					className={`flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] ${
+					className={`flex w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left   ${
 						// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
 						// selected tint — no longer a no-handrolled-control violation
 						// (the rule's predicate excludes this exact token).
@@ -285,13 +285,13 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 					>
 						<Glyph d={it.d} size={13} />
 					</span>
-					<span className="min-w-0 leading-[1.2]">
+					<span className="type-small min-w-0 ">
 						<span
-							className={`block text-[13px] font-[600] ${it.key ? "text-[var(--accent-deep)]" : "text-[var(--text-primary)]"}`}
+							className={`type-small ${`block   ${it.key ? "text-[var(--accent-deep)]" : "text-[var(--text-primary)]"}`}`}
 						>
 							{it.label}
 						</span>
-						<span className="block truncate text-[11px] text-[var(--text-tertiary)]">
+						<span className="type-metadata block truncate  text-[var(--text-tertiary)]">
 							{it.hint}
 						</span>
 					</span>
@@ -303,13 +303,13 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 
 function ComposerReplyBanner({ onCancel }: { onCancel: () => void }): JSX.Element {
 	return (
-		<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
+		<div className="border-b-[var(--bw-thin)] flex items-center gap-[9px]  border-[var(--border-subtle)] px-[12px] py-[6px]">
 			<span className="flex shrink-0 items-center text-[var(--accent-deep)]">
 				<Glyph d={ICON_REPLY} size={12} />
 			</span>
-			<div className="flex min-w-0 flex-1 items-baseline gap-[6px] border-l-[2px] border-[var(--accent-deep)] pl-[9px] text-[12px] leading-[1.4]">
+			<div className="border-l-[var(--bw-strong)] type-metadata flex min-w-0 flex-1 items-baseline gap-[6px]  border-[var(--accent-deep)] pl-[9px]  ">
 				<span className="shrink-0 text-[var(--text-secondary)]">
-					Replying to <span className="font-[600] text-[var(--text-primary)]">Atlas</span>
+					Replying to <span className="type-small  text-[var(--text-primary)]">Atlas</span>
 				</span>
 				<span className="truncate text-[var(--text-tertiary)]">
 					“Added WebAuthn registration and the dual-auth window…”
@@ -320,7 +320,7 @@ function ComposerReplyBanner({ onCancel }: { onCancel: () => void }): JSX.Elemen
 				onClick={onCancel}
 				aria-label="Cancel reply"
 				title="Cancel reply"
-				className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+				className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 			>
 				<Glyph d={ICON_REMOVE} size={11} />
 			</button>
@@ -386,8 +386,8 @@ function ComposerInputRow({
 					// selected tint — not a no-handrolled-control violation.
 					className={
 						insertMenuOpen
-							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
-							: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] border border-[var(--border-default)] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
+							: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--border-default)] text-[var(--text-secondary)]   hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 					}
 				>
 					<Glyph d={ICON_PLUS} size={14} />
@@ -398,7 +398,7 @@ function ComposerInputRow({
 				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
-				className="min-h-[72px] flex-1 resize-none border-none bg-transparent py-[3px] text-[15px] leading-[1.5] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
+				className="type-input min-h-[72px] flex-1 resize-none border-none bg-transparent py-[3px]   text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
 			/>
 			<Button variant="primary" size="icon" onClick={onSend} aria-label="Send message">
 				<Glyph d={ICON_SEND} size={15} />
@@ -435,7 +435,7 @@ function Composer({
 	return (
 		<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
 			<div className="mx-auto w-full max-w-[760px]">
-				<div className="relative rounded-[var(--r-default)] border border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] transition-shadow duration-[var(--motion-fast)] focus-within:shadow-[var(--shadow-default)]">
+				<div className="border-[var(--bw-thin)] relative rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]">
 					{active && <ComposerReplyBanner onCancel={onCancelReply} />}
 					{active && <ComposerDraftBody onOpen={onOpen} />}
 					<ComposerInputRow
@@ -518,11 +518,10 @@ export default function ConversationSurface({
 		<div
 			data-ds-component="ConversationSurface"
 			data-testid="conversation-surface"
-			className="w-full bg-[var(--surface-page)] text-[var(--text-primary)]"
+			className="type-small w-full bg-[var(--surface-page)] text-[var(--text-primary)]"
 			style={{
 				display: "flex",
 				...(scroll ? { height: "100%", overflow: "hidden" } : {}),
-				fontFamily: "var(--font-sans)",
 			}}
 		>
 			<main

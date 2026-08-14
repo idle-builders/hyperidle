@@ -49,15 +49,14 @@ describe("AI7 — PageHeader component", () => {
 			expect(heading.closest("[data-page-frame]")).not.toBeNull();
 		});
 
-		it("uses a local 18px inset and 17px h2 for pane presentation", () => {
+		it("uses a local 18px inset and semantic lead profile for pane presentation", () => {
 			const { container } = render(<PageHeader title="Inspector" presentation="pane" />);
 			const header = container.firstElementChild as HTMLElement;
 			const heading = screen.getByRole("heading", { level: 2 });
 			expect(header.className).toContain("pl-[18px]");
 			expect(header.className).toContain("pr-[18px]");
 			expect(header.className).toContain("py-[12px]");
-			expect(heading.className).toContain("text-[17px]");
-			expect(heading.className).toContain("font-[600]");
+			expect(heading.className).toContain("type-lead");
 			expect(heading.closest("[data-page-frame]")).toBeNull();
 		});
 

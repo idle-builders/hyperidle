@@ -32,13 +32,9 @@ import { type ToolId, ToolLogo } from "./ToolLogo.js";
 function SectionHead({ label, count }: { label: string; count?: string }): JSX.Element {
 	return (
 		<div className="mb-[12px] flex items-baseline gap-[9px]">
-			<h3 className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-				{label}
-			</h3>
+			<h3 className="type-label   uppercase  text-[var(--text-tertiary)]">{label}</h3>
 			{count ? (
-				<span className="font-mono text-[11px] tabular-nums text-[var(--text-tertiary)]">
-					{count}
-				</span>
+				<span className="type-data   tabular-nums text-[var(--text-tertiary)]">{count}</span>
 			) : null}
 			<span className="h-px flex-1 bg-[var(--border-subtle)]" />
 		</div>
@@ -82,7 +78,7 @@ const KIND_LABEL: Record<string, string> = {
 
 function KindBadge({ kind }: { kind: string }): JSX.Element {
 	return (
-		<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[3px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] leading-none text-[var(--text-tertiary)]">
+		<span className="type-label inline-flex items-center rounded-[var(--r-pill)] bg-[var(--surface-container)] px-[6px] py-[3px]   uppercase   text-[var(--text-tertiary)]">
 			{KIND_LABEL[kind as keyof typeof KIND_LABEL] ?? kind}
 		</span>
 	);
@@ -110,7 +106,7 @@ function AgentAvatar({ name }: { name: string }): JSX.Element {
 		<span
 			data-az16-profile="avatar-initial"
 			aria-hidden="true"
-			className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[10px] font-[700] text-white"
+			className="type-avatar-initial type-avatar-initial--sm inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-white"
 			style={{ background: "var(--accent-primary)" }}
 			title={name}
 		>
@@ -124,7 +120,7 @@ function HumanAvatar({ name }: { name: string }): JSX.Element {
 		<span
 			data-az16-profile="avatar-initial strong"
 			aria-hidden="true"
-			className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-container)] text-[10px] font-[600] text-[var(--text-secondary)]"
+			className="type-avatar-initial type-avatar-initial--sm border-[var(--bw-strong)] inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-container)] text-[var(--text-secondary)]"
 			title={name}
 		>
 			{name.slice(0, 2)}
@@ -168,7 +164,7 @@ function Verdict({
 				disabled={resolved}
 				onClick={() => onSubmit("request-changes")}
 				aria-pressed={activeDecision === "request-changes"}
-				className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[7px] text-[13px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+				className="type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[7px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				Request changes
 			</button>
@@ -178,12 +174,12 @@ function Verdict({
 				aria-label="More verdict options"
 				aria-expanded={menuOpen}
 				onClick={onToggleMenu}
-				className="inline-flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[15px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+				className="type-control border-[var(--bw-thin)] inline-flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				⋯
 			</button>
 			{menuOpen ? (
-				<div className="absolute right-0 top-[40px] z-10 w-[200px] overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] py-[6px] shadow-[var(--shadow-elevated)]">
+				<div className="border-[var(--bw-thin)] absolute right-0 top-[40px] z-10 w-[200px] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] py-[6px] shadow-[var(--shadow-elevated)]">
 					{OVERFLOW_DECISIONS.map((decision) => (
 						<button
 							key={decision}
@@ -193,10 +189,10 @@ function Verdict({
 								onToggleMenu();
 								onSubmit(decision);
 							}}
-							className={[
-								"block w-full px-[12px] py-[7px] text-left text-[13px] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:bg-[var(--surface-container)] disabled:cursor-not-allowed disabled:opacity-60",
+							className={`type-control ${[
+								"block w-full px-[12px] py-[7px] text-left     hover:bg-[var(--surface-container)] disabled:cursor-not-allowed disabled:opacity-60",
 								decision === "reject" ? "text-[var(--status-error)]" : "text-[var(--text-primary)]",
-							].join(" ")}
+							].join(" ")}`}
 						>
 							{verdictDecisionLabel(decision)}
 						</button>
@@ -251,7 +247,7 @@ function FrameHeader({
 						</span>
 						<span className="text-[var(--text-tertiary)]">→</span>
 						<HumanAvatar name={s.reviewerName} />
-						<span className="type-small text-[var(--text-secondary)]">{s.reviewerName}</span>
+						<span className="type-small  text-[var(--text-secondary)]">{s.reviewerName}</span>
 					</div>
 
 					{s.blocking ? <StatusDot tone="var(--status-error)" label="Blocking" /> : null}
@@ -305,7 +301,7 @@ function TaskSection({ subject }: { readonly subject: ComposedReviewSubject }): 
 					onClick={() => {
 						/* no-op */
 					}}
-					className="mt-[9px] inline-flex items-center gap-[6px] text-[12px] font-[500] text-[var(--accent-deep)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:brightness-95"
+					className="type-control mt-[9px] inline-flex items-center gap-[6px]   text-[var(--accent-deep)]    hover:brightness-95"
 				>
 					<span className="text-[var(--text-tertiary)]">{s.betTitle}</span>
 					<span aria-hidden="true" className="text-[var(--text-tertiary)]">
@@ -346,7 +342,7 @@ function KpiChip({ kpi }: { kpi: ReviewKpi }): JSX.Element {
 				{kpi.value}
 			</span>
 			{kpi.delta ? (
-				<span className="type-metadata" style={{ color: deltaColor }}>
+				<span className="type-metadata  " style={{ color: deltaColor }}>
 					{kpi.delta}
 				</span>
 			) : null}
@@ -366,14 +362,14 @@ function CheckoutProof(): JSX.Element {
 function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element {
 	const isAfter = variant === "after";
 	return (
-		<figure className="overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
-			<figcaption className="flex items-center justify-between border-b border-[var(--border-subtle)] px-[12px] py-[6px]">
-				<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+		<figure className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
+			<figcaption className="border-b-[var(--bw-thin)] flex items-center justify-between  border-[var(--border-subtle)] px-[12px] py-[6px]">
+				<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 					{isAfter ? "After" : "Before"}
 				</span>
 				<span
 					data-spacing-role="compact-pill"
-					className="inline-flex items-center gap-[4px] rounded-[var(--r-pill)] px-[6px] py-[2px] text-[10px] font-[600]"
+					className="type-metadata inline-flex items-center gap-[4px] rounded-[var(--r-pill)] px-[6px] py-[2px]  "
 					style={{
 						color: isAfter ? "var(--status-success)" : "var(--status-error)",
 						background: `color-mix(in oklab, ${isAfter ? "var(--status-success)" : "var(--status-error)"} 14%, transparent)`,
@@ -385,35 +381,35 @@ function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element
 
 			<div className="flex flex-col gap-[9px] p-[12px]">
 				<div className="flex flex-col gap-[6px]">
-					<span className="text-[11px] font-[500] text-[var(--text-tertiary)]">Promo code</span>
+					<span className="type-metadata   text-[var(--text-tertiary)]">Promo code</span>
 					<div className="flex items-center gap-[6px]">
 						<div
-							className={[
-								"flex-1 rounded-[var(--r-default)] border bg-[var(--surface-page)] px-[9px] py-[6px] font-mono text-[12px] text-[var(--text-primary)]",
+							className={`type-data ${[
+								"flex-1 rounded-[var(--r-default)]  bg-[var(--surface-page)] px-[9px] py-[6px]   text-[var(--text-primary)]",
 								isAfter ? "border-[var(--status-error)]" : "border-[var(--border-default)]",
-							].join(" ")}
+							].join(" ")}`}
 						>
 							SPRING24
 						</div>
-						<span className="rounded-[var(--r-default)] bg-[var(--surface-container)] px-[9px] py-[6px] text-[12px] font-[500] text-[var(--text-tertiary)]">
+						<span className="type-metadata rounded-[var(--r-default)] bg-[var(--surface-container)] px-[9px] py-[6px]   text-[var(--text-tertiary)]">
 							Apply
 						</span>
 					</div>
 					{isAfter ? (
-						<span className="text-[12px] font-[500] text-[var(--status-error)]">
+						<span className="type-metadata   text-[var(--status-error)]">
 							This code expired on Apr 3.
 						</span>
 					) : (
-						<span className="text-[12px] text-[var(--text-tertiary)]">No feedback shown.</span>
+						<span className="type-metadata  text-[var(--text-tertiary)]">No feedback shown.</span>
 					)}
 				</div>
 
-				<div className="flex flex-col gap-[3px] border-t border-[var(--border-subtle)] pt-[9px] font-mono text-[12px] tabular-nums">
+				<div className="border-t-[var(--bw-thin)] type-data flex flex-col gap-[3px]  border-[var(--border-subtle)] pt-[9px]   tabular-nums">
 					<ResultRow label="Subtotal" value="$120.00" />
 					<ResultRow label="Promo (SPRING24)" value={isAfter ? "—" : "−$24.00"} muted={isAfter} />
-					<div className="mt-[3px] flex items-center justify-between border-t border-[var(--border-subtle)] pt-[6px]">
-						<span className="font-[600] text-[var(--text-primary)]">Total</span>
-						<span className="font-[700] text-[var(--text-primary)]">
+					<div className="border-t-[var(--bw-thin)] mt-[3px] flex items-center justify-between  border-[var(--border-subtle)] pt-[6px]">
+						<span className="type-small  text-[var(--text-primary)]">Total</span>
+						<span className="type-small  text-[var(--text-primary)]">
 							{isAfter ? "$120.00" : "$96.00"}
 						</span>
 					</div>
@@ -450,9 +446,7 @@ function ResultSection({ subject }: { readonly subject: ComposedReviewSubject })
 		<section>
 			<SectionHead label="Result" />
 			<div className="flex flex-col gap-[18px]">
-				<p className="max-w-[78ch] text-[15px] leading-[1.6] text-[var(--text-primary)]">
-					{s.outcome}
-				</p>
+				<p className="type-copy max-w-[78ch]   text-[var(--text-primary)]">{s.outcome}</p>
 
 				<div className="flex flex-wrap gap-[9px]">
 					{s.resultKpis.map((kpi) => (
@@ -462,9 +456,9 @@ function ResultSection({ subject }: { readonly subject: ComposedReviewSubject })
 
 				<CheckoutProof />
 
-				<p className="text-[12px] text-[var(--text-tertiary)]">
+				<p className="type-metadata  text-[var(--text-tertiary)]">
 					Met the task:{" "}
-					<span className="font-mono font-[600] tabular-nums text-[var(--text-secondary)]">
+					<span className="type-data   tabular-nums text-[var(--text-secondary)]">
 						{met} of {s.intent.length}
 					</span>
 					{unmet ? ` — ${unmet.text.toLowerCase()} still open` : ""}
@@ -496,7 +490,7 @@ function NeedsSection({
 							type="button"
 							onClick={() => target && onJump(target)}
 							disabled={!target}
-							className="group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] disabled:cursor-default"
+							className="group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[9px] py-[6px] text-left   hover:bg-[var(--surface-container)] disabled:cursor-default"
 						>
 							<span
 								aria-hidden="true"
@@ -504,17 +498,15 @@ function NeedsSection({
 								style={{ background: NEED_TONE[need.kind] }}
 							/>
 							<span className="min-w-0 flex-1">
-								<span className="block text-[13px] font-[600] text-[var(--text-primary)]">
-									{need.label}
-								</span>
-								<span className="block text-[12px] leading-[1.45] text-[var(--text-secondary)]">
+								<span className="type-small block   text-[var(--text-primary)]">{need.label}</span>
+								<span className="type-metadata block   text-[var(--text-secondary)]">
 									{need.detail}
 								</span>
 							</span>
 							{target ? (
 								<span
 									data-spacing-role="optical-offset"
-									className="mt-[1px] shrink-0 whitespace-nowrap text-[12px] font-[500] text-[var(--accent-deep)]"
+									className="type-metadata mt-[1px] shrink-0 whitespace-nowrap   text-[var(--accent-deep)]"
 								>
 									Jump →
 								</span>
@@ -559,18 +551,16 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 			<ToolLogo tool={artifact.tool as ToolId} size="sm" />
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-[6px]">
-					<span className="truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">
-						{artifact.title}
-					</span>
+					<span className="type-data truncate    text-[var(--text-primary)]">{artifact.title}</span>
 				</div>
-				<p className="truncate text-[12px] text-[var(--text-secondary)]">
+				<p className="type-metadata truncate  text-[var(--text-secondary)]">
 					{artifact.summary ?? ""}
 				</p>
 			</div>
-			<span className="shrink-0 font-mono text-[12px] tabular-nums text-[var(--text-tertiary)]">
+			<span className="type-data shrink-0   tabular-nums text-[var(--text-tertiary)]">
 				{artifact.badge ?? ""}
 			</span>
-			<span className="shrink-0 text-[12px] font-[500] text-[var(--accent-deep)] transition-transform duration-[var(--motion-fast)] ease-[var(--motion-ease)] group-hover:translate-x-[3px]">
+			<span className="motion-move type-metadata shrink-0   text-[var(--accent-deep)]    group-hover:translate-x-[3px]">
 				Open →
 			</span>
 		</button>
@@ -619,15 +609,13 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 			)}
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-[6px]">
-					<span className="text-[13px] font-[600] text-[var(--text-primary)]">
-						{comment.author}
-					</span>
+					<span className="type-small   text-[var(--text-primary)]">{comment.author}</span>
 					{comment.authorIsAgent ? (
-						<span className="rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px] text-[10px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
+						<span className="type-label rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[6px] py-[1px]   uppercase  text-[var(--accent-deep)]">
 							agent
 						</span>
 					) : null}
-					<span className="text-[11px] text-[var(--text-tertiary)]">{comment.ago}</span>
+					<span className="type-metadata  text-[var(--text-tertiary)]">{comment.ago}</span>
 				</div>
 				{ref ? (
 					<button
@@ -635,16 +623,14 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 						onClick={() => {
 							if (comment.anchor) onJumpToAnchor(comment.anchor);
 						}}
-						className="mt-[3px] inline-flex items-center gap-[4px] rounded-[var(--r-pill)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px] text-[11px] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-secondary)]"
+						className="type-control border-[var(--bw-thin)] mt-[3px] inline-flex items-center gap-[4px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px]  text-[var(--text-tertiary)]    hover:text-[var(--text-secondary)]"
 						aria-label={comment.anchor ? `Go to anchor ${label}` : undefined}
 					>
 						<span className="text-[var(--text-tertiary)]">on</span>
-						<span className="font-mono text-[var(--text-secondary)]">{label}</span>
+						<span className="type-data  text-[var(--text-secondary)]">{label}</span>
 					</button>
 				) : null}
-				<p className="mt-[3px] text-[13px] leading-[1.5] text-[var(--text-secondary)]">
-					{comment.body}
-				</p>
+				<p className="type-small mt-[3px]   text-[var(--text-secondary)]">{comment.body}</p>
 			</div>
 		</div>
 	);
@@ -678,11 +664,11 @@ function ConversationSection({
 						}}
 					/>
 				) : onPostComment ? (
-					<div className="flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px] text-[13px] text-[var(--text-tertiary)]">
+					<div className="border-[var(--bw-thin)] type-small flex items-center gap-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px]  text-[var(--text-tertiary)]">
 						Review resolved — no new comments
 					</div>
 				) : (
-					<div className="flex items-center gap-[9px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-[13px] text-[var(--text-tertiary)]">
+					<div className="border-[var(--bw-thin)] type-small flex items-center gap-[9px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[9px]  text-[var(--text-tertiary)]">
 						Reply (composer not connected)
 					</div>
 				)}
@@ -714,6 +700,7 @@ function ExaminePane({
 				header={
 					<PageHeader
 						presentation="pane"
+						paneTitleProfile="subheading"
 						reservePaneControls
 						leading={
 							<div className="flex min-w-0 items-center justify-between gap-[9px]">

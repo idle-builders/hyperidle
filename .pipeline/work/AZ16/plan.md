@@ -96,7 +96,7 @@
 Every owned typography declaration consumes one complete profile. Children with no authored typography
 inherit normally. Raw five-field definitions are legal only in the central registry.
 
-| Public role | Complete definition | Final consumers |
+| Public role | Complete definition | Approved mapped sites |
 |---|---|---:|
 | `type-label` | sans / 11px / 1.25 / 600 / .06em | 116 |
 | `type-metadata` | sans / 12px / 1.4 / 500 / 0 | 231 |
@@ -193,11 +193,13 @@ by SHA-256 and 1,383 checked migration receipts prove every audited destination.
 the work folder because `npm run lint` executes their checksum and receipt gates.
 
 The final live census dynamically scans discovered production `.ts/.tsx/.css`, rejects raw survivors
-and unknown profiles, and reports 886 typography consumers, motion 9/15/2/1/7/6/2, and border token
-references thin 213 / default 17 / strong 11. The border audit destinations were 228/25/20 sites;
-equivalent branches consolidated into shared final class construction, so the approved live receipt
-expansion is 213/17/11. The gate compares measured values to that expansion and fails any mismatch; it
-never substitutes receipt totals for measured values.
+and unknown profiles, and reports 884 source profile references (including lead 10 and subheading 10),
+motion 9/15/2/1/7/6/2, and border token references thin 211 / default 17 / strong 11. The immutable
+audit destinations remain 228/25/20 border sites and 12 lead sites. Equivalent branches—and, after
+reconciliation with the latest main, three pane headers—share final class construction. Review keeps
+its approved subheading role through `PageHeader.paneTitleProfile`; the other shared pane titles use
+lead. The approved live border expansion is therefore 211/17/11. The gate compares measured values to
+that expansion and fails any mismatch; it never substitutes receipt totals for measured values.
 
 ## Proof, procedure, and residual risk
 

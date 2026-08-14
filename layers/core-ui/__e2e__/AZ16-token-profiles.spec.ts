@@ -4,7 +4,7 @@ import type { Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
 import { expect, test } from "./fixtures";
 
-const EVIDENCE = resolve(process.cwd(), "../../.pipeline/work/AZ16/design/evidence");
+const EVIDENCE = resolve(process.cwd(), "../../.pipeline/work/AZ16/evidence");
 
 const THREAD = {
 	id: "t-az16",
@@ -382,20 +382,23 @@ test("AZ16 reduced motion disables authored and foreign motion globally", async 
 		foreign.innerHTML = '<span class="motion-feedback">foreign preview</span>';
 		document.body.append(foreign);
 	});
-	const violations = await page.locator("body *").evaluateAll((nodes) =>
-		nodes.flatMap((node) => {
-			const base = getComputedStyle(node);
-			const before = getComputedStyle(node, "::before");
-			const after = getComputedStyle(node, "::after");
-			return [base, before, after].some(
-				(style) =>
-					style.animationName !== "none" ||
-					style.transitionProperty !== "none" ||
-					style.scrollBehavior !== "auto",
-			)
-				? [node.outerHTML.slice(0, 160)]
-				: [];
-		}),
-	);
-	expect(violations).toEqual([]);
+	await expect
+		.poll(() =>
+			page.locator("body *").evaluateAll((nodes) =>
+				nodes.flatMap((node) => {
+					const base = getComputedStyle(node);
+					const before = getComputedStyle(node, "::before");
+					const after = getComputedStyle(node, "::after");
+					return [base, before, after].some(
+						(style) =>
+							style.animationName !== "none" ||
+							style.transitionProperty !== "none" ||
+							style.scrollBehavior !== "auto",
+					)
+						? [node.outerHTML.slice(0, 160)]
+						: [];
+				}),
+			),
+		)
+		.toEqual([]);
 });

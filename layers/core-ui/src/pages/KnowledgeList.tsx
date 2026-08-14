@@ -400,7 +400,7 @@ function KnowledgeListContent({
 				data-testid="knowledge-sort-bar"
 				className="flex items-center gap-[9px] py-[9px]"
 			>
-				<span className="text-[12px] text-[var(--text-tertiary)]">Sort:</span>
+				<span className="type-metadata  text-[var(--text-tertiary)]">Sort:</span>
 				{KNOWLEDGE_SORT_OPTIONS.map((option) => {
 					const isActive = sort === option;
 					return (
@@ -413,11 +413,11 @@ function KnowledgeListContent({
 							// because it prevents getByRole("button") from finding these pills.
 							aria-checked={isActive}
 							onClick={() => onSortChange(option)}
-							className={
+							className={`type-control ${
 								isActive
-									? "text-[12px] text-[var(--accent-deep)] font-[600] cursor-pointer bg-transparent border-none capitalize"
-									: "text-[12px] text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none capitalize"
-							}
+									? " text-[var(--accent-deep)]  cursor-pointer bg-transparent border-none capitalize"
+									: " text-[var(--text-tertiary)] cursor-pointer bg-transparent border-none capitalize"
+							}`}
 						>
 							{option}
 						</button>
@@ -477,7 +477,7 @@ function KnowledgeListContent({
 															{
 																content: (
 																	<span
-																		className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+																		className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
 																		style={{
 																			background: "var(--surface-container)",
 																			color: "var(--text-secondary)",
@@ -496,7 +496,7 @@ function KnowledgeListContent({
 															{
 																content: (
 																	<span
-																		className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+																		className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
 																		style={kStyle}
 																	>
 																		{itemKind}
@@ -606,31 +606,31 @@ function KnowledgeListContent({
 							{/* Y4: keyboard hint bar — only shown when triage has items */}
 							<div
 								data-testid="triage-keyboard-hint"
-								className="type-metadata flex items-center gap-[12px] py-[9px] border-t-[var(--bw-thin)] border-[var(--border-subtle)] text-[var(--text-tertiary)]"
+								className="type-metadata border-t-[var(--bw-thin)] flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)]"
 							>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
 										j
 									</kbd>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)] ml-[3px]">
+									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)] ml-[3px]">
 										k
 									</kbd>
 									&nbsp;navigate
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
 										Enter
 									</kbd>
 									&nbsp;open
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
 										v
 									</kbd>
 									&nbsp;validate
 								</span>
 								<span>
-									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
+									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
 										x
 									</kbd>
 									&nbsp;reject
@@ -658,7 +658,7 @@ function KnowledgeListContent({
 									data-testid={hintKnowledgeEmpty.testId}
 									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[12px]"
 								>
-									<p className="text-[15px] text-[var(--text-secondary)] leading-[var(--leading-body)]">
+									<p className="type-copy  text-[var(--text-secondary)] ">
 										{hintKnowledgeEmpty.copy}
 									</p>
 									<div className="flex gap-[9px]">
@@ -706,7 +706,7 @@ function KnowledgeListContent({
 																{
 																	content: (
 																		<span
-																			className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+																			className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
 																			style={{
 																				background: "var(--surface-container)",
 																				color: "var(--text-secondary)",
@@ -725,7 +725,7 @@ function KnowledgeListContent({
 																{
 																	content: (
 																		<span
-																			className="inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] text-[12px] font-[500] whitespace-nowrap"
+																			className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
 																			style={kStyle}
 																		>
 																			{itemKind}
@@ -989,11 +989,11 @@ export function KnowledgeList({
 										type="button"
 										role="tab"
 										aria-selected={tab === "curated"}
-										className={
+										className={`type-control ${
 											tab === "curated"
-												? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-												: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-										}
+												? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+												: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+										}`}
 										onClick={() => {
 											tabManuallySelectedRef.current = true;
 											setTab("curated");
@@ -1005,11 +1005,11 @@ export function KnowledgeList({
 										type="button"
 										role="tab"
 										aria-selected={tab === "triage"}
-										className={
+										className={`type-control ${
 											tab === "triage"
-												? "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[600] bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-												: "px-[12px] py-[6px] rounded-[var(--r-pill)] text-[13px] font-[500] text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-										}
+												? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+												: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+										}`}
 										onClick={() => {
 											tabManuallySelectedRef.current = true;
 											setTab("triage");
@@ -1030,13 +1030,13 @@ export function KnowledgeList({
 									style={{
 										width: "200px",
 										borderRadius: "var(--r-pill)",
-										border: "1.5px solid var(--border-default)",
+										border: "var(--bw-default) solid var(--border-default)",
 										padding: "7px 12px",
-										fontSize: "13px",
 										background: "var(--surface-page)",
 										color: "var(--text-primary)",
 										outline: "none",
 									}}
+									className="type-input"
 								/>
 								{/* AI5: shared Button primitive. */}
 								<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
