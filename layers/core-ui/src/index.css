@@ -88,6 +88,21 @@
 @source "./**/*.{ts,tsx}";
 
 /*
+ * @lore Desktop split views replace the shell's single main surface.
+ * The shell keeps owning the available rectangle, but its chrome becomes
+ * transparent so SplitView's two sibling pane surfaces are the only layers.
+ */
+@media (min-width: 769px) {
+  [data-shell-surface="main"]:has(
+    [data-ds-component="split-view"][data-fold-mode="split"]
+  ) {
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/*
  * @lore upgrade-deferred-majors — DaisyUI v5 changed `.input` from
  * `display: block; width: 100%` (v4) to `display: inline-flex;
  * width: clamp(3rem, 20rem, 100%)` (v5). Raw `.input` usages without our DS

@@ -42,7 +42,7 @@
  */
 
 import type { OpenHandler, OpenTarget, Part } from "@hyperidle/conversation-parts";
-import { Button, ReferenceChip } from "@hyperidle/design-system";
+import { Button, PageHeader, ReferenceChip } from "@hyperidle/design-system";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PartList } from "./PartList.js";
@@ -76,6 +76,8 @@ export interface ConversationSurfaceProps {
 	/** Story-only visual toggles (default false; the page never sets these). */
 	scroll?: boolean;
 	composerActive?: boolean;
+	/** Read mode keeps context in the readable lane; pane mode owns split identity. */
+	headerPresentation?: "read" | "pane";
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -167,53 +169,61 @@ function ConversationHeader({
 	header,
 	participants,
 	onActions,
+	presentation,
 }: {
 	header: ConversationSurfaceHeader;
 	participants: ReadonlyArray<ConversationSurfaceParticipant>;
 	onActions: () => void;
+	presentation: "read" | "pane";
 }): JSX.Element {
-	return (
-		<header className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
-			<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
-				<div className="min-w-0 flex-1">
-					<div className="flex items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-						<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
-							{header.hostKind}
-						</span>
-						<span className="text-[var(--text-tertiary)]">·</span>
-						{header.hostRoute ? (
-							<Link
-								to={header.hostRoute}
-								className="truncate font-[500] text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
-							>
-								{header.hostTitle}
-							</Link>
-						) : (
-							<span className="truncate font-[500] text-[var(--text-primary)]">
-								{header.hostTitle}
-							</span>
-						)}
-					</div>
-					<h2 className="mt-[3px] mb-0 text-[17px] font-[600] leading-[1.25] text-[var(--text-primary)]">
-						{header.title}
-					</h2>
-				</div>
-				<div className="flex items-center gap-[9px]">
-					<ParticipantGroup people={participants} />
-					<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">
-						{participants.length}
-					</span>
-				</div>
-				<button
-					type="button"
-					onClick={onActions}
-					aria-label="Conversation actions"
-					className="flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+	const context = (
+		<div className="flex min-w-0 flex-1 items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
+			<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
+				{header.hostKind}
+			</span>
+			<span className="text-[var(--text-tertiary)]">·</span>
+			{header.hostRoute ? (
+				<Link
+					to={header.hostRoute}
+					className="truncate font-[500] text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
 				>
-					<Glyph d={ICON_MORE} size={16} />
-				</button>
+					{header.hostTitle}
+				</Link>
+			) : (
+				<span className="truncate font-[500] text-[var(--text-primary)]">{header.hostTitle}</span>
+			)}
+		</div>
+	);
+	const controls = (
+		<>
+			<div className="flex items-center gap-[9px]">
+				<ParticipantGroup people={participants} />
+				<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">
+					{participants.length}
+				</span>
 			</div>
-		</header>
+			<button
+				type="button"
+				onClick={onActions}
+				aria-label="Conversation actions"
+				className="flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+			>
+				<Glyph d={ICON_MORE} size={16} />
+			</button>
+		</>
+	);
+	if (presentation === "read") {
+		return (
+			<header className="shrink-0 border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+				<div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-[12px]">
+					{context}
+					<div className="flex shrink-0 items-center gap-[9px]">{controls}</div>
+				</div>
+			</header>
+		);
+	}
+	return (
+		<PageHeader presentation="pane" title={header.title} leading={context} actions={controls} />
 	);
 }
 
@@ -458,6 +468,7 @@ export default function ConversationSurface({
 	onSend,
 	scroll = false,
 	composerActive = false,
+	headerPresentation = "pane",
 }: ConversationSurfaceProps): JSX.Element {
 	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
 	const [replyActive, setReplyActive] = useState(composerActive);
@@ -522,6 +533,7 @@ export default function ConversationSurface({
 					header={header}
 					participants={participants}
 					onActions={() => setReplyActive((v) => !v)}
+					presentation={headerPresentation}
 				/>
 				<div
 					className="px-[18px] py-[12px]"

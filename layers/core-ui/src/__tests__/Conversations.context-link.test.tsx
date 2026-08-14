@@ -340,6 +340,9 @@ describe("AE5 — Conversations header context link", () => {
 		// Either a heading or inline text is acceptable — the key assertion is
 		// that it does NOT render as a navigable link to /work/task/task-123.
 		expect(heading ?? hostText).not.toBeNull();
+		const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+		expect(breadcrumb).toHaveTextContent("task-123");
+		expect(breadcrumb).not.toHaveTextContent("My Test Task");
 		// Confirm there is no link to the old dead task route
 		const links = document.querySelectorAll("a[href*='/work/task/task-123']");
 		expect(links).toHaveLength(0);

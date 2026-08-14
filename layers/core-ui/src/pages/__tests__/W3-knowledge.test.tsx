@@ -290,10 +290,10 @@ describe("W3 AC-37 — Curated/Triage tab switching", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-38: Knowledge list max-width 800px, centered
+// AC-38: Knowledge list keeps its 800px scan lane
 // ---------------------------------------------------------------------------
 describe("W3 AC-38 — Knowledge list max-width 800px", () => {
-	it("knowledge list container has max-w-[800px] and mx-auto", () => {
+	it("knowledge list keeps 800px measure without centering the scan lane", () => {
 		renderKnowledgeList();
 		// Check for max-width class pattern inside the page
 		const page = document.querySelector("[data-testid='knowledge-list-page']");
@@ -301,6 +301,7 @@ describe("W3 AC-38 — Knowledge list max-width 800px", () => {
 		// Content container inside page should have max-width
 		const contentDiv = page?.querySelector("[class*='max-w-\\[800px\\]']");
 		expect(contentDiv).not.toBeNull();
+		expect(contentDiv?.className).not.toMatch(/mx-auto/);
 	});
 });
 
@@ -421,14 +422,15 @@ describe("W3 AC-43 — Knowledge detail max-width 960px", () => {
 	// `data-testid="knowledge-detail-body"` on that div is superseded by the
 	// scaffold's own contract marker — round.md §4.2 migration table). The
 	// max-w-[960px] content div is the scroll body's direct child.
-	it("scroll body's direct child has max-w-[960px] and mx-auto", () => {
+	it("detail body keeps 960px measure inside the stable page frame", () => {
 		renderKnowledgeDetail();
 		const scroller = document.querySelector("[data-page-scroll]");
 		expect(scroller).not.toBeNull();
-		const inner = scroller?.firstElementChild;
-		expect(inner).not.toBeNull();
+		const frame = scroller?.querySelector("[data-page-frame]");
+		const inner = frame?.firstElementChild;
+		expect(frame).not.toBeNull();
 		expect(inner?.className).toMatch(/max-w-\[960px\]/);
-		expect(inner?.className).toMatch(/mx-auto/);
+		expect(inner?.className).not.toMatch(/mx-auto/);
 	});
 });
 

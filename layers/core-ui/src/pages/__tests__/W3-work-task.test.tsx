@@ -243,12 +243,13 @@ describe("W3 AC-31 — Artifacts section", () => {
 // AC-32: Content max-width 800px, centered
 // ---------------------------------------------------------------------------
 describe("W3 AC-32 — Task detail max-width 800px", () => {
-	it("detail body has max-w-[800px] and mx-auto classes", () => {
+	it("detail body keeps 800px measure and starts in the page frame", () => {
 		renderTaskPage();
 		const body = document.querySelector("[data-testid='task-detail-body']");
 		expect(body).not.toBeNull();
 		expect(body?.className).toMatch(/max-w-\[800px\]/);
-		expect(body?.className).toMatch(/mx-auto/);
+		expect(body?.className).not.toMatch(/mx-auto/);
+		expect(body?.closest("[data-page-frame]")).not.toBeNull();
 	});
 });
 

@@ -130,6 +130,7 @@ export function KnowledgeCreate(): JSX.Element {
 
 	return (
 		<PageScaffold
+			frame="page"
 			data-testid="knowledge-create-page"
 			header={
 				/* AI7: PageHeader with editable title input.
@@ -177,7 +178,7 @@ export function KnowledgeCreate(): JSX.Element {
 		>
 			{/* Two-column layout */}
 			<div
-				className="max-w-[960px] mx-auto w-full p-[24px] flex gap-[24px] items-start"
+				className="max-w-[960px] w-full py-[24px] flex gap-[24px] items-start"
 				data-testid="knowledge-create-body"
 			>
 				{/* Left: editor */}

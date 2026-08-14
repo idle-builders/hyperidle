@@ -12,14 +12,11 @@
 // duplicated split logic. See SplitView.stories.tsx header for the full extraction
 // rationale (chat = canonical base, review = converges onto this).
 //
-// Founder round-3 fix — TWO FLOATING LAYERS, not a divided surface:
-//   The split now reads as two SEPARATE elevated rounded cards floating on the warm
-//   page canvas — Hearth's existing layering language. The SplitView root shows
-//   `--surface-page` (the warm canvas); origin and destination are each their own
-//   `--surface-elevated` card with `--r-default` radius and `--shadow-default`. The
-//   GAP between the two cards (`--space-3`) is the seam, and the draggable handle
-//   lives IN that gap (same smooth pointer logic, just repositioned). No flush
-//   panes, no center divider stripe, no card border — the shadow + gap do the work.
+// Founder round-3 fix — TWO SURFACES, not a divided surface or nested cards:
+//   In split mode, origin and destination are sibling elevated cards. The root is
+//   transparent and adds no inset, so the app layout's background shows through
+//   their gap. In one-pane modes the wrapper adds no card chrome and inherits the
+//   shell's normal single surface. No divider stripe or extra canvas layer.
 //
 // @lore AM5 round-3: the old design was two flush panes split by a 5px divider
 // stripe on a single bordered surface. The founder asked for the established
@@ -154,11 +151,9 @@ export function SplitView({
 }: SplitViewProps): JSX.Element {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [ratio, setRatio] = useState(dividerRatio);
-	const [dragging, setDragging] = useState(false);
 
 	function startDrag(e: React.PointerEvent): void {
 		e.preventDefault();
-		setDragging(true);
 		const root = rootRef.current;
 		if (!root) return;
 		const move = (ev: PointerEvent): void => {
@@ -168,7 +163,6 @@ export function SplitView({
 			onRatioChange?.(next);
 		};
 		const up = (): void => {
-			setDragging(false);
 			window.removeEventListener("pointermove", move);
 			window.removeEventListener("pointerup", up);
 		};
@@ -188,27 +182,25 @@ export function SplitView({
 	const showDest = mode !== "fold-back";
 	const isSplit = mode === "split";
 	const compactDestination = compact && showDest;
+	const separatePaneSurfaces = isSplit && !compact;
+	const paneSurfaceClass = separatePaneSurfaces
+		? "rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]"
+		: "";
 
 	return (
-		// Two floating layers on the warm page canvas. The ROOT is the page surface
-		// (`--surface-page`) — NOT a single divided pane. `--space-3` padding +
-		// `gap-[var(--space-3)]` set the canvas margin and the inter-card seam.
+		// The root only arranges the panes. The app shell owns the available space.
 		<div
 			ref={rootRef}
 			data-ds-component="split-view"
 			data-ds-tier="2"
 			data-ds-source="design-system"
-			className="relative flex h-full w-full flex-row gap-[var(--space-3)] overflow-hidden bg-[var(--surface-page)] p-[var(--space-3)]"
+			className="relative flex h-full w-full flex-row gap-[var(--space-3)] overflow-hidden bg-transparent"
 			data-fold-mode={mode}
 		>
 			{showOrigin ? (
-				// Origin = its own elevated rounded card floating on the canvas.
-				// `--surface-elevated` + `--r-default` + `--shadow-default` (the warm
-				// card shadow) — no border; the shadow gives it tactile lift. Scrolls
-				// its own content. In `full` the origin is hidden entirely.
 				<div
 					hidden={compactDestination}
-					className="flex min-w-0 flex-col overflow-auto rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]"
+					className={`flex min-w-0 flex-col overflow-auto ${paneSurfaceClass}`}
 					style={{
 						flexGrow: isSplit ? 0 : 1,
 						flexBasis: isSplit ? `${ratio * 100}%` : "100%",
@@ -219,13 +211,8 @@ export function SplitView({
 			) : null}
 
 			{isSplit && !compact ? (
-				// The draggable SEAM — lives IN the gap between the two cards (the gap
-				// IS the separator now). Transparent track over the canvas; a centered
-				// grip pill marks it. Same smooth pointer logic as before, just
-				// repositioned into the inter-card gap. Negative margins let the hit
-				// area span the full `--space-3` gap without widening the layout.
-				<div
-					role="separator"
+				// Invisible resize target in the gap; the gap itself separates surfaces.
+				<hr
 					tabIndex={0}
 					aria-label="Resize panels"
 					aria-orientation="vertical"
@@ -234,21 +221,13 @@ export function SplitView({
 					aria-valuenow={Math.round(ratio * 100)}
 					onPointerDown={startDrag}
 					onKeyDown={resizeByKeyboard}
-					className={`group relative -mx-[var(--space-3)] flex w-[var(--space-3)] shrink-0 cursor-col-resize items-center justify-center bg-transparent transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]`}
-				>
-					<span
-						className={`pointer-events-none h-[36px] w-[3px] rounded-[var(--r-pill)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] ${dragging ? "bg-[var(--accent-primary)]" : "bg-[var(--border-strong)] group-hover:bg-[var(--accent-primary)]"}`}
-					/>
-				</div>
+					className="relative -mx-[var(--space-3)] w-[var(--space-3)] shrink-0 cursor-col-resize border-0 bg-transparent focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+				/>
 			) : null}
 
 			{showDest ? (
-				// Destination = its own separate elevated rounded card. Same surface +
-				// radius + shadow as origin — two distinct layers, not one split pane.
-				// Contextual controls float top-right OVER this card. In `full` it
-				// fills the canvas (still a rounded elevated card).
 				<div
-					className="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]"
+					className={`relative flex min-w-0 flex-col overflow-hidden ${paneSurfaceClass}`}
 					style={{ flexGrow: 1, flexBasis: isSplit ? `${(1 - ratio) * 100}%` : "100%" }}
 				>
 					{compactDestination ? (

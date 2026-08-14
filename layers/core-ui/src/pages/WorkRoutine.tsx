@@ -66,7 +66,11 @@ export function WorkRoutine({
 
 	if (loading) {
 		return (
-			<PageScaffold header={<PageHeader title="Routine" />} data-testid="work-routine-loading">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Routine" />}
+				data-testid="work-routine-loading"
+			>
 				<div className="flex flex-col gap-[12px] p-[24px]">
 					<SkeletonCard ariaLabel="Loading routine header" />
 					<SkeletonCard ariaLabel="Loading run history" />
@@ -77,7 +81,11 @@ export function WorkRoutine({
 
 	if (error !== null && error !== undefined) {
 		return (
-			<PageScaffold header={<PageHeader title="Routine" />} data-testid="work-routine-error">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Routine" />}
+				data-testid="work-routine-error"
+			>
 				<div className="p-[24px]">
 					<ErrorState title="Failed to load routine" description={error.message} />
 				</div>
@@ -87,7 +95,11 @@ export function WorkRoutine({
 
 	if (data === null) {
 		return (
-			<PageScaffold header={<PageHeader title="Routine" />} data-testid="work-routine-not-found">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Routine" />}
+				data-testid="work-routine-not-found"
+			>
 				<div className="p-[24px]">
 					<EmptyState
 						title="Routine not found"
@@ -129,7 +141,11 @@ export function WorkRoutine({
 			data-testid="work-routine-page"
 		>
 			{/* AV4: body delegates to shared RoutineDetailPane (de-greyed, editable). */}
-			<RoutineDetailPane routineId={routineId ?? ""} overrideData={overrideData} />
+			<RoutineDetailPane
+				routineId={routineId ?? ""}
+				overrideData={overrideData}
+				presentation="page"
+			/>
 		</PageScaffold>
 	);
 }

@@ -662,6 +662,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	if (loading || (!overrideBet && fetched.loading)) {
 		return (
 			<PageScaffold
+				frame="page"
 				header={
 					<PageHeader
 						title="Bet"
@@ -680,7 +681,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	if (!overrideBet && fetched.error) {
 		return (
-			<PageScaffold header={<PageHeader title="Bet" />} data-testid="work-bet-page">
+			<PageScaffold frame="page" header={<PageHeader title="Bet" />} data-testid="work-bet-page">
 				<div className="p-[24px]">
 					<ErrorState title="Failed to load bet" description={fetched.error.message} />
 				</div>
@@ -690,7 +691,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	if (!bet) {
 		return (
-			<PageScaffold header={<PageHeader title="Bet" />} data-testid="work-bet-page">
+			<PageScaffold frame="page" header={<PageHeader title="Bet" />} data-testid="work-bet-page">
 				<div className="p-[24px]">
 					<ErrorState title="Bet not found" description="The requested bet could not be found." />
 				</div>
@@ -745,6 +746,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 
 	return (
 		<PageScaffold
+			frame="page"
 			data-testid="work-bet-page"
 			header={
 				/* AI7: PageHeader owns the pinned title strip. */
@@ -841,7 +843,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			{/* W3 AC-25: max-width 800px centered detail body */}
 			<div
 				data-testid="bet-detail-body"
-				className="flex flex-col gap-[24px] max-w-[800px] mx-auto w-full p-[24px]"
+				className="flex flex-col gap-[24px] max-w-[800px] w-full py-[24px]"
 			>
 				{/* P5: Hint #2 — add-credential. Shows when the first bet is loaded. */}
 				{hintAddCredential.visible && (

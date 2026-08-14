@@ -247,10 +247,7 @@ export function ThreadSections({
 						/>
 					</div>
 				) : (
-					<div
-						className="flex flex-col max-w-[800px] mx-auto w-full"
-						data-testid="flat-thread-list"
-					>
+					<div className="flex flex-col max-w-[800px] w-full" data-testid="flat-thread-list">
 						{flatFiltered.map((t) => (
 							<ThreadRow
 								key={t.id}

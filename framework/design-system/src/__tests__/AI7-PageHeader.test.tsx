@@ -43,6 +43,33 @@ describe("AI7 — PageHeader component", () => {
 			expect(heading.textContent).toBe("My Page");
 		});
 
+		it("uses the stable frame and h1 for page presentation", () => {
+			render(<PageHeader title="My Page" presentation="page" />);
+			const heading = screen.getByRole("heading", { level: 1 });
+			expect(heading.closest("[data-page-frame]")).not.toBeNull();
+		});
+
+		it("uses a local 18px inset and 17px h2 for pane presentation", () => {
+			const { container } = render(<PageHeader title="Inspector" presentation="pane" />);
+			const header = container.firstElementChild as HTMLElement;
+			const heading = screen.getByRole("heading", { level: 2 });
+			expect(header.className).toContain("pl-[18px]");
+			expect(header.className).toContain("pr-[18px]");
+			expect(header.className).toContain("py-[12px]");
+			expect(heading.className).toContain("text-[17px]");
+			expect(heading.className).toContain("font-[600]");
+			expect(heading.closest("[data-page-frame]")).toBeNull();
+		});
+
+		it("can reserve destination pane controls without moving the left inset", () => {
+			const { container } = render(
+				<PageHeader title="Inspector" presentation="pane" reservePaneControls />,
+			);
+			const header = container.firstElementChild as HTMLElement;
+			expect(header.className).toContain("pl-[18px]");
+			expect(header.className).toContain("pr-[84px]");
+		});
+
 		it("level={2} title carries the same pageTitleClassName as default (visual treatment is level-invariant)", () => {
 			const { container } = render(<PageHeader title="My Page" level={2} />);
 			const h2 = container.querySelector("h2");
@@ -202,10 +229,11 @@ describe("AI7 — PageHeader component", () => {
 	});
 
 	describe("Strip classes (AC1)", () => {
-		it("header carries the canonical strip padding and border classes", () => {
+		it("page frame owns strip padding and header keeps the border", () => {
 			const { container } = render(<PageHeader title="Page" />);
 			const header = container.firstElementChild as HTMLElement;
-			expect(header.className).toContain("px-[24px]");
+			const frame = header.querySelector("[data-page-frame]") as HTMLElement;
+			expect(frame.className).toContain("px-[24px]");
 			expect(header.className).toContain("py-[18px]");
 			expect(header.className).toContain("border-b");
 		});

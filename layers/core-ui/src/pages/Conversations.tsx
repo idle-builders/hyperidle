@@ -278,16 +278,22 @@ function classifyHttpError(status: number): string {
 function InspectDestination({ path }: { path: string }): JSX.Element {
 	const [pathname, hash = ""] = path.split("#");
 	const artifact = pathname?.match(/^\/artifacts\/([^/]+)$/);
-	if (artifact?.[1]) return <ArtifactPermalink overrideId={artifact[1]} />;
+	if (artifact?.[1]) return <ArtifactPermalink overrideId={artifact[1]} presentation="pane" />;
 	const knowledge = pathname?.match(/^\/knowledge\/([^/]+)$/);
 	if (knowledge?.[1]) {
 		return (
-			<KnowledgeDetail overrideKnowledgeId={knowledge[1]} overrideHash={hash ? `#${hash}` : ""} />
+			<KnowledgeDetail
+				overrideKnowledgeId={knowledge[1]}
+				overrideHash={hash ? `#${hash}` : ""}
+				presentation="pane"
+			/>
 		);
 	}
 	const review = pathname?.match(/^\/work\/bet\/([^/]+)\/review\/([^/]+)$/);
 	if (review?.[1] && review[2])
-		return <ReviewPage overrideBetId={review[1]} overrideReviewId={review[2]} />;
+		return (
+			<ReviewPage overrideBetId={review[1]} overrideReviewId={review[2]} presentation="pane" />
+		);
 	return <EmptyState title="Unavailable" description="This reference cannot be inspected here." />;
 }
 
@@ -369,7 +375,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	if (status === "loading") {
 		return (
-			<PageScaffold header={<PageHeader title="Conversation" />} data-testid="conversations-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Conversation" />}
+				data-testid="conversations-page"
+			>
 				<div className="flex flex-col gap-3">
 					<SkeletonList rows={3} ariaLabel="Loading thread" />
 				</div>
@@ -379,7 +389,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	if (status === "not-found") {
 		return (
-			<PageScaffold header={<PageHeader title="Conversation" />} data-testid="conversations-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Conversation" />}
+				data-testid="conversations-page"
+			>
 				<EmptyState
 					title="Thread not found"
 					description="This thread may have been resolved, archived, or the link is incorrect."
@@ -392,7 +406,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	if (status === "error") {
 		return (
-			<PageScaffold header={<PageHeader title="Conversation" />} data-testid="conversations-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Conversation" />}
+				data-testid="conversations-page"
+			>
 				<div className="flex flex-col gap-3">
 					<ErrorState
 						title="Failed to load thread"
@@ -407,7 +425,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 
 	if (!data) {
 		return (
-			<PageScaffold header={<PageHeader title="Conversation" />} data-testid="conversations-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Conversation" />}
+				data-testid="conversations-page"
+			>
 				{null}
 			</PageScaffold>
 		);
@@ -516,32 +538,37 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		<PageScaffold
 			data-testid="conversations-page"
 			header={
-				<PageHeader
-					title={threadTitle}
-					leading={
-						<Breadcrumb
-							segments={[{ label: "Conversations", to: "/conversations" }, { label: threadTitle }]}
-							LinkComponent={Link}
-						/>
-					}
-					actions={
-						<>
-							{dialInButton}
-							{hintReviewVerdict.visible && hasReviewMessages && (
-								<Button variant="ghost" size="sm" onClick={hintReviewVerdict.dismiss}>
-									Got it
-								</Button>
-							)}
-						</>
-					}
-					subtitle={
-						hintReviewVerdict.visible && hasReviewMessages ? (
-							<span role="status" data-testid={hintReviewVerdict.testId}>
-								{hintReviewVerdict.copy}
-							</span>
-						) : undefined
-					}
-				/>
+				inspection ? undefined : (
+					<PageHeader
+						title={threadTitle}
+						leading={
+							<Breadcrumb
+								segments={[
+									{ label: "Conversations", to: "/conversations" },
+									{ label: threadTitle },
+								]}
+								LinkComponent={Link}
+							/>
+						}
+						actions={
+							<>
+								{dialInButton}
+								{hintReviewVerdict.visible && hasReviewMessages && (
+									<Button variant="ghost" size="sm" onClick={hintReviewVerdict.dismiss}>
+										Got it
+									</Button>
+								)}
+							</>
+						}
+						subtitle={
+							hintReviewVerdict.visible && hasReviewMessages ? (
+								<span role="status" data-testid={hintReviewVerdict.testId}>
+									{hintReviewVerdict.copy}
+								</span>
+							) : undefined
+						}
+					/>
+				)
 			}
 			body="managed"
 		>
@@ -563,6 +590,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						participants={participants}
 						onSend={onSend}
 						scroll
+						headerPresentation={inspection ? "pane" : "read"}
 					/>
 				}
 				destination={inspectionDestination}
@@ -626,6 +654,7 @@ export function Conversations(): JSX.Element {
 
 		return (
 			<PageScaffold
+				frame="page"
 				data-testid="conversations-page"
 				header={
 					/* AI7: PageHeader — Conversations list title + optional "New thread" action.

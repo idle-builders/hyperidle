@@ -39,6 +39,7 @@ import {
 	Input,
 	ItemList,
 	KeyValue,
+	PageHeader,
 	PageScaffold,
 	Row,
 	RowDot,
@@ -62,6 +63,7 @@ export interface RoutineDetailPaneProps {
 	onClose?: () => void;
 	/** Override routine data — used by stories and tests (no fetch). */
 	overrideData?: RoutineDetail | null;
+	presentation?: "page" | "pane";
 }
 
 const AUTONOMY_LABELS: Record<number, string> = {
@@ -84,6 +86,7 @@ export function RoutineDetailPane({
 	routineId,
 	onClose,
 	overrideData,
+	presentation = "pane",
 }: RoutineDetailPaneProps): JSX.Element {
 	const fetched = useRoutine(overrideData !== undefined ? undefined : routineId);
 	const data = overrideData !== undefined ? overrideData : fetched.data;
@@ -122,6 +125,7 @@ export function RoutineDetailPane({
 			routineId={routineId}
 			onClose={onClose}
 			refetch={refetch}
+			presentation={presentation}
 		/>
 	);
 }
@@ -131,12 +135,14 @@ interface RoutineDetailPaneLoadedProps {
 	routineId: string;
 	onClose?: () => void;
 	refetch: () => void;
+	presentation: "page" | "pane";
 }
 
 function RoutineDetailPaneLoaded({
 	detail,
 	routineId,
 	refetch,
+	presentation,
 }: RoutineDetailPaneLoadedProps): JSX.Element {
 	const { routine, runs } = detail;
 	const navigate = useNavigate();
@@ -281,56 +287,64 @@ function RoutineDetailPaneLoaded({
 
 	return (
 		<PageScaffold
+			frame={presentation === "page" ? "page" : "local"}
 			data-testid="routine-detail-pane"
 			header={
-				/* Pane header with name + save/cancel + status */
-				<div className="flex items-center gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)] shrink-0">
-					<div className="flex-1 flex items-center gap-[9px]">
-						<h2 className="text-[17px] font-semibold text-[var(--text-primary)] leading-tight truncate">
-							{routine.name}
-						</h2>
-						<StatusChip status={routineStateToStatus(currentState)} />
-					</div>
-					<div className="flex items-center gap-[6px] shrink-0">
-						{editing ? (
-							<Button
-								variant="ghost"
-								size="sm"
-								type="button"
-								aria-label="Cancel routine editing"
-								onClick={cancelEditing}
-								disabled={saving}
-							>
-								Cancel
-							</Button>
-						) : null}
-						{editing ? (
-							<Button
-								variant="primary"
-								size="sm"
-								type="button"
-								onClick={handleSave}
-								disabled={saving || actionPending}
-							>
-								{saving && <span className="loading loading-spinner loading-xs" />}
-								Save
-							</Button>
-						) : (
-							<Button
-								variant="primary"
-								size="sm"
-								type="button"
-								aria-label="Edit routine"
-								onClick={() => setEditing(true)}
-							>
-								Edit
-							</Button>
-						)}
-					</div>
-				</div>
+				presentation === "pane" ? (
+					<PageHeader
+						presentation="pane"
+						reservePaneControls
+						title={routine.name}
+						actions={
+							<>
+								<StatusChip status={routineStateToStatus(currentState)} />
+								{editing ? (
+									<Button
+										variant="ghost"
+										size="sm"
+										type="button"
+										aria-label="Cancel routine editing"
+										onClick={cancelEditing}
+										disabled={saving}
+									>
+										Cancel
+									</Button>
+								) : null}
+								{editing ? (
+									<Button
+										variant="primary"
+										size="sm"
+										type="button"
+										onClick={handleSave}
+										disabled={saving || actionPending}
+									>
+										{saving && <span className="loading loading-spinner loading-xs" />}
+										Save
+									</Button>
+								) : (
+									<Button
+										variant="primary"
+										size="sm"
+										type="button"
+										aria-label="Edit routine"
+										onClick={() => setEditing(true)}
+									>
+										Edit
+									</Button>
+								)}
+							</>
+						}
+					/>
+				) : undefined
 			}
 		>
-			<div className="flex flex-col gap-[24px] p-[24px]">
+			<div
+				className={
+					presentation === "page"
+						? "max-w-[960px] flex flex-col gap-[24px] py-[24px]"
+						: "flex flex-col gap-[24px] p-[18px]"
+				}
+			>
 				{/* Editable fields — on page surface (no grey card) */}
 				<section aria-label="Routine configuration">
 					<SectionLabel label="Configuration" as="h2" />

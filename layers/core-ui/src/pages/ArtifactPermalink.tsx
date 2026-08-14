@@ -25,14 +25,30 @@ import { useArtifact } from "../hooks/useArtifacts.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { sanitizeHtml } from "../utils/sanitize-html.js";
 
-export function ArtifactPermalink({ overrideId }: { overrideId?: string } = {}): JSX.Element {
+export function ArtifactPermalink({
+	overrideId,
+	presentation = "page",
+}: {
+	overrideId?: string;
+	presentation?: "page" | "pane";
+} = {}): JSX.Element {
 	const { id: routeId = "" } = useParams<{ id: string }>();
 	const id = overrideId ?? routeId;
 	const { data, error, isLoading } = useArtifact(id);
+	const frame = presentation === "page" ? "page" : "local";
 
 	if (isLoading) {
 		return (
-			<PageScaffold header={<PageHeader title="Artifact" />}>
+			<PageScaffold
+				frame={frame}
+				header={
+					<PageHeader
+						presentation={presentation}
+						reservePaneControls={presentation === "pane"}
+						title="Artifact"
+					/>
+				}
+			>
 				<div className="p-3 text-[var(--text-secondary)]">Loading…</div>
 			</PageScaffold>
 		);
@@ -40,7 +56,16 @@ export function ArtifactPermalink({ overrideId }: { overrideId?: string } = {}):
 	if (error || !data) {
 		if (error?.includes("404")) {
 			return (
-				<PageScaffold header={<PageHeader title="Artifact" />}>
+				<PageScaffold
+					frame={frame}
+					header={
+						<PageHeader
+							presentation={presentation}
+							reservePaneControls={presentation === "pane"}
+							title="Artifact"
+						/>
+					}
+				>
 					<div className="p-3">
 						<EmptyState title="Artifact not found" description="No artifact exists at this id." />
 					</div>
@@ -48,7 +73,16 @@ export function ArtifactPermalink({ overrideId }: { overrideId?: string } = {}):
 			);
 		}
 		return (
-			<PageScaffold header={<PageHeader title="Artifact" />}>
+			<PageScaffold
+				frame={frame}
+				header={
+					<PageHeader
+						presentation={presentation}
+						reservePaneControls={presentation === "pane"}
+						title="Artifact"
+					/>
+				}
+			>
 				<div className="p-3">
 					<ErrorState title="Failed to load artifact" description={error ?? "Unknown error"} />
 				</div>
@@ -60,8 +94,11 @@ export function ArtifactPermalink({ overrideId }: { overrideId?: string } = {}):
 	const taskIsTitle = headingIdentityMatches(data.producingTaskTitle, title);
 	return (
 		<PageScaffold
+			frame={frame}
 			header={
 				<PageHeader
+					presentation={presentation}
+					reservePaneControls={presentation === "pane"}
 					title={title}
 					leading={
 						<Breadcrumb
@@ -76,7 +113,11 @@ export function ArtifactPermalink({ overrideId }: { overrideId?: string } = {}):
 				/>
 			}
 		>
-			<div className="p-3 flex flex-col gap-3">
+			<div
+				className={
+					presentation === "page" ? "py-3 flex flex-col gap-3" : "p-[18px] flex flex-col gap-3"
+				}
+			>
 				<ArtifactPreview data={data} sanitizeHtml={sanitizeHtml} showTitle={false} />
 				<HostThreadSection hostKind="artifact" hostId={data.id} title="Discussion" />
 			</div>
