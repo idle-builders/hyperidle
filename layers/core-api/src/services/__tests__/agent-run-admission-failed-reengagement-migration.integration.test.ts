@@ -241,7 +241,7 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 				expect(freshRetryIntent?.bakedRequestJson ?? "").not.toContain("injectedConnections");
 			});
 		} finally {
-			// @lore AU40 shared PGlite workers: TRUNCATE clears rows, not schema triggers.
+			// @lore shared-pglite-workers: TRUNCATE clears rows, not schema triggers.
 			await allowSessionRequestWrites(db);
 		}
 	});

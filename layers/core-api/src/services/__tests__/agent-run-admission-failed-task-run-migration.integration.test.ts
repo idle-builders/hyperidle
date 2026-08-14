@@ -172,7 +172,7 @@ describe("agent_run_admission_failed — task_run reaction fires for a REAL migr
 				expect(finalized?.status).toBe("failed");
 			});
 		} finally {
-			// @lore AU40 shared PGlite workers: TRUNCATE clears rows, not schema
+			// @lore shared-pglite-workers: TRUNCATE clears rows, not schema
 			// triggers. This fault must not reject the next file's legitimate writes.
 			await allowSessionRequestWrites(db);
 		}

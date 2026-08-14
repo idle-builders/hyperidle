@@ -482,7 +482,7 @@ export function createGitRunner(repoPath: string, opts?: CreateGitRunnerOptions)
 			if (opts?.createBranch) args.push("-b", branch);
 			args.push("--", worktreePath);
 			if (!opts?.createBranch) args.push(branch);
-			// @lore AU40: `git worktree add` runs the target repo's post-checkout
+			// @lore worktree-hook-timeout: `git worktree add` runs the target repo's post-checkout
 			// hook. HyperIdle's hook bootstraps a fresh worktree, so worktree lifecycle
 			// verbs cannot share the 5s timeout used by metadata-only operations.
 			await runExpectOk(args, DEFAULT_WORKTREE_MS);

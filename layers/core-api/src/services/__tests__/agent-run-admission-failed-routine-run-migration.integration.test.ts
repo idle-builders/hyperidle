@@ -216,7 +216,7 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 			expect(finalizedRun?.outcome).toBe("error");
 			expect(finalizedRun?.endedAt).toBeTruthy();
 		} finally {
-			// @lore AU40 shared PGlite workers: TRUNCATE clears rows, not schema triggers.
+			// @lore shared-pglite-workers: TRUNCATE clears rows, not schema triggers.
 			await allowSessionRequestWrites(db);
 		}
 	});

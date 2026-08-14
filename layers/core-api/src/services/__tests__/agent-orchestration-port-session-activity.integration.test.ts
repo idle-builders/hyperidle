@@ -40,7 +40,7 @@ interface SeamAgentOrchestrationPortWithActivity {
 }
 
 afterEach(() => {
-	// @lore AU40 shared integration workers: auth env belongs to this file and
+	// @lore shared-integration-workers: auth env belongs to this file and
 	// must not turn the next file's unauthenticated fixture requests into 401s.
 	vi.unstubAllEnvs();
 });

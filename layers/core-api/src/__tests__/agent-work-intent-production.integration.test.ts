@@ -91,6 +91,10 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	});
 }
 
+// @lore shared-pglite-workers: row truncation does not remove a test-created trigger,
+// so the helper that installs this fault also owns its exact teardown.
+let cleanupRejectedIntentWrites: (() => Promise<void>) | undefined;
+
 async function seedProposedCallWorld(db: HyperIdleDb) {
 	await seedExplicitSessionAuthority(db);
 	const now = new Date().toISOString();
@@ -136,6 +140,9 @@ async function seedProposedCallWorld(db: HyperIdleDb) {
 
 async function rejectIntentWrites(db: HyperIdleDb) {
 	await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
+	cleanupRejectedIntentWrites = async () => {
+		await db.execute(sql`drop trigger if exists au9_reject_intent_write on agent_work_intents`);
+	};
 	await db.execute(sql`
 		create or replace function au9_reject_intent_write() returns trigger as $$
 		begin raise exception 'AU9 injected intent write failure'; end;
@@ -205,7 +212,11 @@ async function seedRoutineAuthority(db: HyperIdleDb) {
 
 describe("atomic production handoffs", () => {
 	beforeEach(() => vi.stubEnv("HYPERIDLE_API_KEY", "test-api-key"));
-	afterEach(() => vi.unstubAllEnvs());
+	afterEach(async () => {
+		vi.unstubAllEnvs();
+		await cleanupRejectedIntentWrites?.();
+		cleanupRejectedIntentWrites = undefined;
+	});
 
 	test("schema exposes authoritative sources for all seven atomic commands", async ({ db }) => {
 		const result = await db.execute(sql`

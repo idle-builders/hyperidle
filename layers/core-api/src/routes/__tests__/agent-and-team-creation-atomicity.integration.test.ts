@@ -26,7 +26,7 @@ import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { afterAll, describe, expect, test } from "../../__testing__/test-fixtures.js";
 
-// @lore AU40 shared integration workers: this fault-injection mock must replace
+// @lore shared-integration-workers: this fault-injection mock must replace
 // an agent-run-config module that an earlier service file may already have loaded.
 vi.hoisted(() => vi.resetModules());
 

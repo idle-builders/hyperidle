@@ -8,7 +8,7 @@
   "base": "origin/main@a54c352d6",
   "phase": "build",
   "status": "build-complete",
-  "smallestActionToResume": "Run implementation review; after approval, ship and record GitHub Actions timing evidence.",
+  "smallestActionToResume": "Run implementation review attempt 2; builder evidence is complete.",
   "sessions": [
     {
       "phase": "preflight",
@@ -135,13 +135,37 @@
       "started": "2026-08-14",
       "result": "ok",
       "notes": "final code passes focused proofs, check, lint, affected test, verify, five consecutive full service runs, and seed-4040 shuffled-file run; each full run discovered 2,865 tests with 2,861 passed and 4 skipped; total branch diff remains below 1,000 changed lines"
+    },
+    {
+      "phase": "implementation-review-1",
+      "started": "2026-08-14",
+      "result": "not-done",
+      "notes": "fresh seed-4040 shuffle failed 5 tests in bet-decomposition-removal and explicit-session-start.production while victims pass alone; exact causal receipts also need per-owner command/order/results. CI timing remains a later PR gate."
+    },
+    {
+      "phase": "build-fix-1",
+      "started": "2026-08-14",
+      "result": "blocked",
+      "notes": "proved and repaired two API-key owners, but clean seed-4040 still alternates among auth-sensitive and explicit-session victims; immediate candidate pairs X4→threads and create-bet→explicit are green 3/3, so causal-only architecture forbids guessing; branch diff is 934 changed lines"
+    },
+    {
+      "phase": "maintainer-complexity-ruling",
+      "started": "2026-08-14",
+      "result": "approved",
+      "notes": "1,000-line simplicity stop applies to net added code, not touched-line churn; cross-worker concurrency proof is authorized by the full-green ruling"
+    },
+    {
+      "phase": "build-fix-2",
+      "started": "2026-08-14",
+      "result": "ok",
+      "notes": "proved Vitest env restoration, AL7's unauthenticated raw workflow transport, and the AU9 fault trigger's four-worker overlap; repaired only those seams; exact seed, five defaults, focused pairs, check, lint, affected test, and verify pass"
     }
   ],
   "evaluations": {
     "refine-critique": 0,
     "design-critique": 0,
     "architecture-critique": 4,
-    "review": 0
+    "review": 1
   },
   "artifacts": [
     ".pipeline/work/AU40/plan.md",
@@ -190,6 +214,13 @@
       "verdict": "PASS",
       "date": "2026-08-13",
       "blocking": 0
+    },
+    {
+      "gate": "implementation-review",
+      "attempt": 1,
+      "verdict": "NOT DONE",
+      "date": "2026-08-14",
+      "blocking": 2
     }
   ],
   "causalEvidence": [
@@ -235,7 +266,48 @@
       "red": "seed-4040 shuffled-file run produced 401 responses in AR4c when a preceding owner cleaned its env stub",
       "repair": "file-local API-key setup/cleanup and explicit API-key request headers",
       "green": "focused AR4c file passed 4/4; seed-4040 shuffled-file service run passed all 2,865 tests"
+    },
+    {
+      "owner": "agent-orchestration-port-writes.integration.test.ts",
+      "victim": "AL7-two-session-loop.integration.test.ts",
+      "command": "AU40_EXACT_ORDER=owner,victim vitest service owner victim with one worker; three independent runs",
+      "red": "3/3 runs: victim failed the same 3 tests with 401; victim alone passed 5/5",
+      "repair": "file-local beforeEach/afterEach unstub plus an explicit server key in the protected no-credential test",
+      "green": "3/3 unchanged ordered runs passed 20/20"
+    },
+    {
+      "owner": "assistant-thread-pin-coreapi-subscriber.integration.test.ts",
+      "victim": "AL7-two-session-loop.integration.test.ts",
+      "command": "AU40_EXACT_ORDER=owner,victim vitest service owner victim with one worker; three independent runs",
+      "red": "3/3 runs: victim failed the same 3 tests with 401; victim alone passed 5/5",
+      "repair": "file-local afterEach vi.unstubAllEnvs",
+      "green": "3/3 unchanged ordered runs passed 6/6"
     }
+  ],
+  "auditableReceipts": [
+    {"owner":"server-disposal.integration.test.ts","victim":"create-task.integration.test.ts","command":"AU40_EXACT_ORDER=server-disposal,create-task; service project, one worker, 3 independent runs","red":"3/3 victim failures; victim alone green","repair":"reset modules before owner mock; unmock owner modules after suite","green":"3/3, 12/12 tests"},
+    {"owner":"factory-run-config.integration.test.ts","victim":"agent-work-intent-baked-payload.integration.test.ts","command":"AU40_EXACT_ORDER=factory-run-config,agent-work-intent-baked-payload; service project, one worker, 3 independent runs","red":"3/3 victim failures; victim alone green","repair":"reset modules before owner mock; unmock owner modules after suite","green":"3/3, 5/5 tests"},
+    {"owner":"agent-and-team-creation-atomicity.integration.test.ts","victim":"reviews.routes.integration.test.ts","command":"AU40_EXACT_ORDER=agent-and-team-creation-atomicity,reviews.routes; service project, one worker, 3 independent runs","red":"3/3 victim failures; victim alone green","repair":"reset modules before owner mock; unmock owner modules after suite","green":"3/3, 6/6 tests"},
+    {"owner":"agent-run-admission-failed-task-run-migration.integration.test.ts","victim":"agent-work-intent-supersede.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim failures; victim alone green","repair":"drop au21_reject_session_request_write in owner finally","green":"3/3, 2/2 tests"},
+    {"owner":"agent-run-admission-failed-routine-run-migration.integration.test.ts","victim":"agent-work-intent-supersede.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim failures; victim alone green","repair":"drop au21_reject_session_request_write_rrun in owner finally","green":"3/3, 2/2 tests"},
+    {"owner":"agent-run-admission-failed-knowledge-action-migration.integration.test.ts","victim":"boot-lifecycle-drain.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim failures; victim alone green","repair":"drop au21_reject_session_request_write in owner finally","green":"3/3, 2/2 tests"},
+    {"owner":"agent-run-admission-failed-reengagement-migration.integration.test.ts","victim":"agent-session-request-sources.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim failures; victim alone green","repair":"drop au21_reengage_reject_session_request_write in owner finally","green":"3/3, 2/2 tests"},
+    {"owner":"agent-orchestration-port-session-activity.integration.test.ts","victim":"agent-and-team-creation-atomicity.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 6/6 tests"},
+    {"owner":"agent-orchestration-port.integration.test.ts","victim":"agent-and-team-creation-atomicity.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 8/8 tests"},
+    {"owner":"assistant-turn-b3-coherence-trigger.integration.test.ts","victim":"agent-and-team-creation-atomicity.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 4/4 tests"},
+    {"owner":"core-api-port.integration.test.ts","victim":"agent-and-team-creation-atomicity.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 7/7 tests"},
+    {"owner":"core-api-port-increment2-work-users.integration.test.ts","victim":"agent-and-team-creation-atomicity.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 17/17 tests"},
+    {"owner":"core-api-port-increment2-org-routine-handoff.integration.test.ts","victim":"agent-and-team-creation-atomicity.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 19/19 tests"},
+    {"owner":"core-api-port-increment2-conversation.integration.test.ts","victim":"agent-and-team-creation-atomicity.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 15/15 tests"},
+    {"owner":"core-api-port-increment2-knowledge.integration.test.ts","victim":"AL7-proposed-call-capture.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 20/20 tests"},
+    {"owner":"agent-behavior-settings.integration.test.ts","victim":"AL7-proposed-call-capture.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 10/10 tests"},
+    {"owner":"threads.assistant-turn-transcript-bake.integration.test.ts","victim":"AL7-proposed-call-capture.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 7/7 tests"},
+    {"owner":"create-bet.integration.test.ts","victim":"AL7-proposed-call-capture.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 12/12 tests"},
+    {"owner":"AD8b-new-tools.integration.test.ts","victim":"AL7-proposed-call-capture.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 12/12 tests"},
+    {"owner":"create-bet-coreapiport-migration.integration.test.ts","victim":"AL7-proposed-call-capture.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim 401 failures; victim alone green","repair":"owner afterEach vi.unstubAllEnvs","green":"3/3, 8/8 tests"},
+    {"owner":"agent-orchestration-port-writes.integration.test.ts","victim":"AL7-two-session-loop.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim failed same 3 tests with 401; victim alone 5/5 green","repair":"service unstubEnvs plus explicit key in protected no-credential owner test; victim workflow transport attaches its actor/key","green":"3/3 combined owners+victim, 21/21 tests"},
+    {"owner":"assistant-thread-pin-coreapi-subscriber.integration.test.ts","victim":"AL7-two-session-loop.integration.test.ts","command":"AU40_EXACT_ORDER=owner,victim; service project, one worker, 3 independent runs","red":"3/3 victim failed same 3 tests with 401; victim alone 5/5 green","repair":"service unstubEnvs; victim workflow transport attaches its actor/key","green":"3/3 combined owners+victim, 21/21 tests"},
+    {"owner":"agent-work-intent-production.integration.test.ts","victim":"explicit-session-start.production.integration.test.ts","command":"seed-4040 four-worker run with worker map and gated nested error chain","red":"review seed failed victim 4/4 with 500; nested PGlite cause was `AU9 injected intent write failure` while owner trigger was active; victim alone 6/6 green","repair":"owner afterEach drops only au9_reject_intent_write","green":"owner→victim 3/3, 21/21; exact seed green"}
   ],
   "finalEvidence": {
     "focused": [
@@ -252,8 +324,8 @@
     },
     "serviceStability": {
       "counts": "331 files passed, 1 skipped; 2,861 tests passed, 4 skipped; 2,865 total",
-      "consecutiveDurationsSeconds": [293.57, 176.32, 162.94, 142.54, 155.15],
-      "shuffle": "seed 4040, files only, PASS, 2,865 total, 304.54s"
+      "consecutiveDurationsSeconds": [104, 105, 110, 103, 99],
+      "shuffle": "seed 4040, files only, PASS, 2,861 passed, 4 skipped, 0 failed, 2,865 total, 112.8s"
     }
   }
 }

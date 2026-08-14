@@ -80,6 +80,7 @@ export default defineConfig({
 					],
 					exclude: [...SHARED_EXCLUDE, ...HARNESS_INCLUDE],
 					pool: "threads",
+					unstubEnvs: true,
 					// @lore integration-isolation: service files share one module context per worker so
 					// the PGlite pool survives across files. Tests must dispose background owners and
 					// remove file-local mocks; per-test database truncation remains unchanged.

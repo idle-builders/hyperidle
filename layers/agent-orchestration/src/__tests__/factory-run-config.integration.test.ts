@@ -19,7 +19,7 @@
  */
 import { vi } from "vitest";
 
-// @lore AU40 shared integration workers: the mocked factory-defaults module may
+// @lore shared-integration-workers: the mocked factory-defaults module may
 // already be evaluated by an earlier file. Reset it before this file's hoisted mock.
 vi.hoisted(() => vi.resetModules());
 
