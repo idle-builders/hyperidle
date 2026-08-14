@@ -1,0 +1,32 @@
+{
+  "workPackage": "AZ11-G",
+  "title": "Stable page frame plus content lanes",
+  "track": "AZ",
+  "phase": "ship",
+  "status": "shipped-awaiting-human-merge",
+  "updatedAt": "2026-08-14",
+  "procedure": "One combined refine, design, and architecture round; founder approval; one tests-then-code build; one fresh review round; blocker closure; ship.",
+  "approval": "Founder approved Option C and the direct two-surface split treatment on 2026-08-14.",
+  "review": {
+    "freshRounds": 1,
+    "verdict": "DONE_AFTER_BLOCKER_CLOSURE",
+    "closure": "All review findings were repaired. The later direct-surface clarification was founder-approved and passed painted, component, affected-test, lint, typecheck, and full verification checks; the approved procedure adds no second review round."
+  },
+  "verification": {
+    "affectedTests": "PASS — 223 files, 2050 tests",
+    "paintedLayout": "PASS — 4/4 page-layout and 5/5 page-orientation; light and dark split screenshots inspected",
+    "verify": "PASS — typecheck, lint/governance, Knip, dependency and inventory checks, web build, desktop build",
+    "identifierScan": "PASS — no work-package identifier outside .pipeline"
+  },
+  "artifacts": ["plan.md", "progress.json", "retro.jsonl"],
+  "pullRequest": {
+    "number": 500,
+    "url": "https://github.com/ambrovia/hyperidle/pull/500",
+    "title": "Unify page frames and content lanes",
+    "base": "main",
+    "head": "feat/stable-page-frames",
+    "draft": false,
+    "ciPolicy": "Required checks must pass on the final ship commit before attestation."
+  },
+  "nextAction": "Human merge after required CI is green; the ship agent does not merge."
+}

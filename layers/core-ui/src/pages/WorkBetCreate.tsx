@@ -123,6 +123,7 @@ export function WorkBetCreate(): JSX.Element {
 
 	return (
 		<PageScaffold
+			frame="page"
 			data-testid="bet-create-page"
 			header={
 				<PageHeader
@@ -156,7 +157,7 @@ export function WorkBetCreate(): JSX.Element {
 		>
 			{/* Responsive two-column layout */}
 			<div
-				className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col sm:flex-row gap-[24px] items-start"
+				className="max-w-[960px] w-full py-[24px] flex flex-col sm:flex-row gap-[24px] items-start"
 				data-testid="bet-create-body"
 			>
 				{/* Left: editor */}

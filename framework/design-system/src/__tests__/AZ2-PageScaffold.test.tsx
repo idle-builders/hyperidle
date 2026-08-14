@@ -109,6 +109,26 @@ describe("AZ2 — PageScaffold component", () => {
 			const scrollerB = b.container.querySelector("[data-page-scroll]") as HTMLElement;
 			expect(scrollerA.className).toBe(scrollerB.className);
 		});
+
+		it('frame="page" places scroll content in the stable page frame', () => {
+			render(
+				<PageScaffold frame="page">
+					<div data-testid="page-child">content</div>
+				</PageScaffold>,
+			);
+			const child = screen.getByTestId("page-child");
+			expect(child.closest("[data-page-frame]")).not.toBeNull();
+			expect(child.closest("[data-page-scroll]")).not.toBeNull();
+		});
+
+		it('frame="local" is the default and adds no page frame', () => {
+			render(
+				<PageScaffold>
+					<div data-testid="local-child">content</div>
+				</PageScaffold>,
+			);
+			expect(screen.getByTestId("local-child").closest("[data-page-frame]")).toBeNull();
+		});
 	});
 
 	describe('body="managed"', () => {
@@ -140,6 +160,15 @@ describe("AZ2 — PageScaffold component", () => {
 				</PageScaffold>,
 			);
 			expect(screen.getByTestId("child")).toBeInTheDocument();
+		});
+
+		it("never adds page geometry around a managed child", () => {
+			render(
+				<PageScaffold body="managed" frame="page">
+					<div data-testid="managed-local">child</div>
+				</PageScaffold>,
+			);
+			expect(screen.getByTestId("managed-local").closest("[data-page-frame]")).toBeNull();
 		});
 	});
 });

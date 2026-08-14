@@ -125,6 +125,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	if (betLoading) {
 		return (
 			<PageScaffold
+				frame="page"
 				data-testid="task-detail-loading"
 				header={
 					<PageHeader
@@ -143,7 +144,11 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	// Error state
 	if (betError) {
 		return (
-			<PageScaffold header={<PageHeader title="Task" />} data-testid="task-detail-error">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Task" />}
+				data-testid="task-detail-error"
+			>
 				<div role="alert" className="p-[24px]">
 					<ErrorState
 						title="Failed to load task"
@@ -159,7 +164,11 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	const task = bet?.tasks.find((t) => t.id === taskId);
 	if (!(bet && task)) {
 		return (
-			<PageScaffold header={<PageHeader title="Task" />} data-testid="task-detail-not-found">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Task" />}
+				data-testid="task-detail-not-found"
+			>
 				<div className="p-[24px]">
 					<p className="text-[13px] text-[var(--text-secondary)]">Task not found.</p>
 				</div>
@@ -177,6 +186,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 
 	return (
 		<PageScaffold
+			frame="page"
 			data-testid="task-detail-page"
 			header={
 				/* AI7: PageHeader owns the pinned title strip. */
@@ -218,7 +228,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 			{/* W3 AC-32: max-width 800px centered body */}
 			<div
 				data-testid="task-detail-body"
-				className="flex flex-col gap-[24px] max-w-[800px] mx-auto w-full p-[24px] box-border"
+				className="flex flex-col gap-[24px] max-w-[800px] w-full py-[24px] box-border"
 			>
 				{/* W3 AC-28: Bordered metadata cell grid */}
 				<div

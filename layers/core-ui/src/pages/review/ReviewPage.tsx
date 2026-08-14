@@ -33,6 +33,7 @@ interface ReviewPageProps {
 	readonly loader?: ReviewLoader;
 	readonly overrideBetId?: string;
 	readonly overrideReviewId?: string;
+	readonly presentation?: "page" | "pane";
 }
 
 async function defaultLoader({
@@ -115,6 +116,7 @@ export function ReviewPage({
 	loader = defaultLoader,
 	overrideBetId,
 	overrideReviewId,
+	presentation = "page",
 }: ReviewPageProps = {}): JSX.Element {
 	const { betId: routeBetId = "", reviewId: routeReviewId = "" } = useParams<{
 		betId: string;
@@ -196,7 +198,10 @@ export function ReviewPage({
 
 	if (error) {
 		return (
-			<PageScaffold header={<PageHeader title="Review" />}>
+			<PageScaffold
+				frame={presentation === "page" ? "page" : "local"}
+				header={<PageHeader presentation={presentation} title="Review" />}
+			>
 				<div className="p-[24px]">
 					<ErrorState title="Could not load review" description={error.message} />
 				</div>
@@ -206,7 +211,10 @@ export function ReviewPage({
 
 	if (!(subject && reviewSubject)) {
 		return (
-			<PageScaffold header={<PageHeader title="Review" />}>
+			<PageScaffold
+				frame={presentation === "page" ? "page" : "local"}
+				header={<PageHeader presentation={presentation} title="Review" />}
+			>
 				<div className="p-[24px] text-[var(--text-secondary)]">Loading review…</div>
 			</PageScaffold>
 		);
@@ -222,6 +230,7 @@ export function ReviewPage({
 				onSubmitVerdict={handleSubmitVerdict}
 				onPostComment={user ? handlePostComment : undefined}
 				threadId={hostThread.data?.thread.id ?? ""}
+				presentation={presentation}
 			/>
 		</PageScaffold>
 	);

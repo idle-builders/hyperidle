@@ -1,8 +1,8 @@
 # Page Anatomy
 
-Every primary page shares the same scaffold: a pinned header strip, a scrolling body, and a single `<h1>`. **PageScaffold** owns the scroll contract; **PageHeader** and **SectionLabel** encode the header/section-opener treatment.
+Every primary page shares the same scaffold: a pinned header strip, a scrolling body, and a single `<h1>`. **PageFrame** owns stable horizontal page geometry. **PageScaffold** owns the scroll contract; **PageHeader** and **SectionLabel** encode the header/section-opener treatment.
 
-Source: `framework/design-system/src/PageScaffold.tsx`, `framework/design-system/src/PageHeader.tsx`, `framework/design-system/src/SectionLabel.tsx` (AI7, AZ2).
+Source: `framework/design-system/src/PageFrame.tsx`, `framework/design-system/src/PageScaffold.tsx`, `framework/design-system/src/PageHeader.tsx`, `framework/design-system/src/SectionLabel.tsx`.
 
 ---
 
@@ -14,7 +14,7 @@ Before AZ2, this section documented a *pattern* — a class-string combination e
 import { PageScaffold, PageHeader } from "@hyperidle/design-system";
 
 // Every primary page root
-<PageScaffold header={<PageHeader title="Page Name" />}>
+<PageScaffold frame="page" header={<PageHeader title="Page Name" />}>
   {/* page content — the scaffold owns the scroll region */}
 </PageScaffold>
 ```
@@ -24,13 +24,32 @@ import { PageScaffold, PageHeader } from "@hyperidle/design-system";
 - **`body="scroll"`** (default) — the scaffold owns the scroll region itself: `flex-1 overflow-y-auto`, marked `data-page-scroll` so e2e evidence and tests can find it without pinning a class literal.
 - **`body="managed"`** — the child owns its own scrolling (`SplitView`, `ConversationSurface`, a detail pane like `RoutineDetailPane`/`AgentDetailPane`). The scaffold still guarantees the child a bounded flex column to size against: `flex-1 min-h-0 flex flex-col overflow-hidden`. This is the exact shape the WorkTeam defect was missing — a block wrapper (`overflow-hidden`, no `flex-col`) gives a flex-1 child nothing to size against, so it grows to its full content height instead of clipping/scrolling.
 
+It also takes an explicit horizontal mode:
+
+- **`frame="page"`** — wraps a normal scrolling page body in `PageFrame`.
+- **`frame="local"`** (default) — adds no page geometry. Use it for split panes and nested content. Managed bodies always stay local because their child owns the layout.
+
+## Stable frame and content lanes
+
+`PageFrame` is a centered 1120px maximum including 24px desktop gutters. It keeps page identity stable while each body chooses the measure that fits its job:
+
+| Job | Body rule |
+|---|---|
+| Scan | Left-aligned, up to 800px |
+| Read | Centered, up to 760px |
+| Workbench | Left-aligned, usually 800–960px; may include a metadata rail |
+| Focus | Centered, up to 680px |
+| Inspect | No PageFrame; local 18px pane inset |
+
+Maximum width and centering belong to the content lane, not `PageFrame`. Lists and workbenches must not add `mx-auto`; prose and focused forms may. On compact layouts the lane fills the available frame width.
+
 **The real invariant** (proven in headless Chromium, not asserted): *a scrolling body must be a flex item of a flex column whose own height is bounded.* Three ways to break it, all fixed by routing through `PageScaffold` instead of hand-writing the classes: a block wrapper between root and body; a root that never fixes its own height (missing `h-full`); an intermediate flex column with visible overflow and no `min-h-0` reset.
 
 **`min-h-0` does *not* belong on the scroll body.** This surprises people, so it's worth stating plainly: a headless-Chromium probe proved it is a no-op there — an element whose computed `overflow-y` is not `visible` already receives an automatic flex-item minimum size of zero, so `overflow-y-auto` supplies the reset by itself. `min-h-0` earns its keep in exactly one place, the **managed** body's wrapper, which is an intermediate flex column that does not set its own overflow and therefore needs the explicit reset. If you're tempted to add `min-h-0` to a scroll body to fix a clipping bug, it won't — the real fix is almost always a missing bounded flex column ancestor (route through `body="managed"` or fix the wrapper between root and body).
 
 The AppShell page-host is `overflow-hidden` (`AppShell.tsx`). Window-level scroll is impossible — every page that needs any scroll must own an internal scroll region via `PageScaffold`. Applies to **every return branch** (loading, error, not-found, populated), not just the happy path.
 
-A page with no title strip (e.g. `ArtifactPermalink`) omits `header` entirely — `PageScaffold` renders the scroll body directly under the root.
+A page with no title strip omits `header` entirely — `PageScaffold` renders the scroll body directly under the root.
 
 ---
 
@@ -65,7 +84,9 @@ import { PageHeader, pageTitleClassName } from "@hyperidle/design-system";
 
 The exported `pageTitleClassName` constant lets pages with an editable title reuse the same typographic treatment without repeating the literal string. Composing it as an identifier expression is always compliant with the `no-handrolled-page-header` lint rule.
 
-`level` defaults to `1` (`<h1>`). Pass `level={2}` only for a sub-page whose title is not the document's top heading — none of the current pages need this.
+`presentation="page"` is the default. It places the header content in `PageFrame` and uses an `<h1>`. `presentation="pane"` uses an 18px local inset, 12px vertical padding, and a 17px/600 `<h2>` without `PageFrame`. When SplitView owns controls over the destination's top-right corner, set `reservePaneControls` on that destination header. When a split opens, suppress the outer page header and give each pane its local header instead.
+
+`level` remains available for a page-level sub-page heading. Prefer `presentation="pane"` for real split-pane titles.
 
 ---
 
@@ -98,6 +119,7 @@ import { SectionLabel } from "@hyperidle/design-system";
 | Element | Tag | Rule |
 |---|---|---|
 | Page title | `<h1>` | PageHeader `level` defaults to 1. One per page — no other element may be `<h1>`. |
+| Pane title | `<h2>` | PageHeader `presentation="pane"`; never wrapped in PageFrame. |
 | Section opener | `<h3>` | SectionLabel `as` defaults to `"h3"`. Pass `as="h2"` when the section label is the page's top body heading. |
 
 ---

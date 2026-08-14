@@ -120,9 +120,11 @@ export type { NavItemProps } from "./NavItem.js";
 export { NavItem } from "./NavItem.js";
 export type { NotificationRowProps } from "./NotificationRow.js";
 export { NotificationRow } from "./NotificationRow.js";
+export type { PageFrameProps } from "./PageFrame.js";
+export { PageFrame } from "./PageFrame.js";
 // ── AI7: PageHeader — canonical page-title strip (Tier 1) ──
 export type { PageHeaderProps } from "./PageHeader.js";
-export { PageHeader, pageTitleClassName } from "./PageHeader.js";
+export { PageHeader, pageTitleClassName, paneTitleClassName } from "./PageHeader.js";
 // ── AZ2: PageScaffold — canonical page scroll contract (Tier 1) ──
 export type { PageScaffoldProps } from "./PageScaffold.js";
 export { PageScaffold } from "./PageScaffold.js";

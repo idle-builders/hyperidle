@@ -302,11 +302,10 @@ describe("no-selection path DOM contract, reconciled onto PageScaffold (AZ2)", (
 		expect(scroller?.className).toContain("overflow-y-auto");
 	});
 
-	it("the scroll body's firstElementChild has max-w-[960px] + mx-auto when no selection", () => {
+	it("the no-selection body keeps 960px measure inside the stable page frame", () => {
 		const { container } = renderAtPath("/work/team/t1");
-		const scroller = container.querySelector("[data-page-scroll]");
-		const inner = scroller?.firstElementChild;
+		const inner = container.querySelector("[data-page-scroll] [data-page-frame] > div");
 		expect(inner?.className).toContain("max-w-[960px]");
-		expect(inner?.className).toContain("mx-auto");
+		expect(inner?.className).not.toContain("mx-auto");
 	});
 });

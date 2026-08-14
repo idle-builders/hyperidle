@@ -25,6 +25,7 @@
 // hearth-internal-padding
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
+import { PageFrame } from "./PageFrame.js";
 
 /**
  * Canonical page-title class string.
@@ -37,6 +38,9 @@ import { dsProps } from "./ds-attrs.js";
  */
 export const pageTitleClassName =
 	"text-[20px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate";
+
+export const paneTitleClassName =
+	"text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate";
 
 export interface PageHeaderProps {
 	/**
@@ -58,6 +62,10 @@ export interface PageHeaderProps {
 	 * ONLY the DOM tag changes, never the visual treatment (20px/600/-0.01em).
 	 */
 	level?: 1 | 2;
+	/** Routed page header or local split-pane header. */
+	presentation?: "page" | "pane";
+	/** Reserve the destination pane's top-right SplitView controls. */
+	reservePaneControls?: boolean;
 	/** Orientation row above the title (Breadcrumb + NavHistoryCluster). Injected by the page. */
 	leading?: ReactNode;
 	/** Meta line below the title row (e.g. "Phase: build · Lead: Dana"). */
@@ -71,28 +79,41 @@ export interface PageHeaderProps {
 export function PageHeader({
 	title,
 	level = 1,
+	presentation = "page",
+	reservePaneControls = false,
 	leading,
 	subtitle,
 	actions,
 	"data-testid": testId,
 }: PageHeaderProps): JSX.Element {
-	const TitleTag = level === 2 ? "h2" : "h1";
-	return (
-		<header
-			className="shrink-0 px-[24px] py-[18px] border-b border-[var(--border-subtle)]"
-			{...dsProps("PageHeader", "1")}
-			{...(testId ? { "data-testid": testId } : {})}
-		>
+	const TitleTag = presentation === "pane" || level === 2 ? "h2" : "h1";
+	const content = (
+		<>
 			{leading && <div className="mb-[6px] min-w-0 overflow-hidden">{leading}</div>}
 
 			<div className="flex items-center justify-between gap-[12px]">
-				<TitleTag className={pageTitleClassName}>{title}</TitleTag>
+				<TitleTag className={presentation === "pane" ? paneTitleClassName : pageTitleClassName}>
+					{title}
+				</TitleTag>
 				{actions && <div className="flex items-center gap-[9px] shrink-0">{actions}</div>}
 			</div>
 
 			{subtitle && (
 				<div className="mt-[3px] text-[13px] text-[var(--text-tertiary)]">{subtitle}</div>
 			)}
+		</>
+	);
+	return (
+		<header
+			className={
+				presentation === "pane"
+					? `shrink-0 pl-[18px] ${reservePaneControls ? "pr-[84px]" : "pr-[18px]"} py-[12px] border-b border-[var(--border-subtle)]`
+					: "shrink-0 py-[18px] border-b border-[var(--border-subtle)]"
+			}
+			{...dsProps("PageHeader", "1")}
+			{...(testId ? { "data-testid": testId } : {})}
+		>
+			{presentation === "page" ? <PageFrame>{content}</PageFrame> : content}
 		</header>
 	);
 }

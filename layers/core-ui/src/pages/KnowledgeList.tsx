@@ -362,7 +362,7 @@ function KnowledgeListContent({
 	}, [filteredTriageItems.length]);
 
 	return (
-		<div className="max-w-[800px] mx-auto w-full">
+		<div className="max-w-[800px] w-full">
 			{/*
 			 * AD6: Static 4-pill scope filter row.
 			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
@@ -370,7 +370,7 @@ function KnowledgeListContent({
 			 * The "All" pill (filterKinds=null) maps to value=null; selecting any
 			 * other pill resolves the id back to its SCOPE_PILL_OPTIONS entry.
 			 */}
-			<div className="px-[24px] pt-[12px]">
+			<div className="pt-[12px]">
 				<ScopePicker
 					mode="filter"
 					options={SCOPE_PILL_OPTIONS}
@@ -398,7 +398,7 @@ function KnowledgeListContent({
 				role="group"
 				aria-label="Sort order"
 				data-testid="knowledge-sort-bar"
-				className="flex items-center gap-[9px] px-[24px] py-[9px]"
+				className="flex items-center gap-[9px] py-[9px]"
 			>
 				<span className="text-[12px] text-[var(--text-tertiary)]">Sort:</span>
 				{KNOWLEDGE_SORT_OPTIONS.map((option) => {
@@ -428,11 +428,11 @@ function KnowledgeListContent({
 			{tab === "triage" ? (
 				<div className="flex flex-col" data-testid="knowledge-triage-view">
 					{apiLoading ? (
-						<div className="px-[24px] py-[12px]">
+						<div className="py-[12px]">
 							<SkeletonList rows={4} ariaLabel="Loading triage items" />
 						</div>
 					) : apiError ? (
-						<div className="px-[24px] py-[12px]">
+						<div className="py-[12px]">
 							<ErrorState title="Couldn't load knowledge" description={apiError} />
 						</div>
 					) : isTriageEmpty || filteredTriageItems.length === 0 ? (
@@ -606,7 +606,7 @@ function KnowledgeListContent({
 							{/* Y4: keyboard hint bar — only shown when triage has items */}
 							<div
 								data-testid="triage-keyboard-hint"
-								className="flex items-center gap-[12px] px-[24px] py-[9px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]"
+								className="flex items-center gap-[12px] py-[9px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]"
 							>
 								<span>
 									<kbd className="inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[11px] font-mono border border-[var(--border-subtle)]">
@@ -642,7 +642,7 @@ function KnowledgeListContent({
 			) : (
 				<div className="flex flex-col" data-testid="knowledge-curated-view">
 					{apiLoading ? (
-						<div className="px-[24px] py-[12px]">
+						<div className="py-[12px]">
 							<SkeletonList rows={4} ariaLabel="Loading curated items" />
 						</div>
 					) : isCuratedEmpty ? (
@@ -931,7 +931,11 @@ export function KnowledgeList({
 
 	if (loading) {
 		return (
-			<PageScaffold header={<PageHeader title="Knowledge" />} data-testid="knowledge-list-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Knowledge" />}
+				data-testid="knowledge-list-page"
+			>
 				<SkeletonList rows={6} ariaLabel="Loading knowledge" />
 			</PageScaffold>
 		);
@@ -939,7 +943,11 @@ export function KnowledgeList({
 
 	if (error) {
 		return (
-			<PageScaffold header={<PageHeader title="Knowledge" />} data-testid="knowledge-list-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Knowledge" />}
+				data-testid="knowledge-list-page"
+			>
 				<ErrorState
 					title="Couldn't load knowledge"
 					description={error.message}
@@ -955,6 +963,7 @@ export function KnowledgeList({
 
 	return (
 		<PageScaffold
+			frame="page"
 			data-testid="knowledge-list-page"
 			header={
 				/* AI7: PageHeader — Knowledge title + tabs + search + New button in actions.
