@@ -72,6 +72,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
 	return (
 		<button
+			data-az16-profile="control"
 			ref={ref}
 			{...dsProps("Button", "0")}
 			type={rest.type ?? "button"}

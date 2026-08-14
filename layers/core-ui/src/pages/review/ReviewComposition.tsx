@@ -91,7 +91,10 @@ function KindBadge({ kind }: { kind: string }): JSX.Element {
 /** status dot + label — calm. */
 function StatusDot({ tone, label }: { tone: string; label: string }): JSX.Element {
 	return (
-		<span className="inline-flex items-center gap-[6px] text-[12px] font-[600] text-[var(--text-secondary)]">
+		<span
+			data-az16-profile="metadata"
+			className="type-metadata inline-flex items-center gap-[6px]   text-[var(--text-secondary)]"
+		>
 			<span
 				aria-hidden="true"
 				className="h-[7px] w-[7px] rounded-[var(--r-pill)]"
@@ -105,6 +108,7 @@ function StatusDot({ tone, label }: { tone: string; label: string }): JSX.Elemen
 function AgentAvatar({ name }: { name: string }): JSX.Element {
 	return (
 		<span
+			data-az16-profile="avatar-initial"
 			aria-hidden="true"
 			className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[10px] font-[700] text-white"
 			style={{ background: "var(--accent-primary)" }}
@@ -118,6 +122,7 @@ function AgentAvatar({ name }: { name: string }): JSX.Element {
 function HumanAvatar({ name }: { name: string }): JSX.Element {
 	return (
 		<span
+			data-az16-profile="avatar-initial strong"
 			aria-hidden="true"
 			className="inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-container)] text-[10px] font-[600] text-[var(--text-secondary)]"
 			title={name}
@@ -241,12 +246,12 @@ function FrameHeader({
 				<div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-[18px] gap-y-[9px]">
 					<div className="flex items-center gap-[6px]">
 						<AgentAvatar name={s.authorName} />
-						<span className="text-[13px] font-[600] text-[var(--text-primary)]">
+						<span data-az16-profile="small" className="type-small   text-[var(--text-primary)]">
 							{s.authorName}
 						</span>
 						<span className="text-[var(--text-tertiary)]">→</span>
 						<HumanAvatar name={s.reviewerName} />
-						<span className="text-[13px] text-[var(--text-secondary)]">{s.reviewerName}</span>
+						<span className="type-small text-[var(--text-secondary)]">{s.reviewerName}</span>
 					</div>
 
 					{s.blocking ? <StatusDot tone="var(--status-error)" label="Blocking" /> : null}
@@ -257,7 +262,10 @@ function FrameHeader({
 						))}
 					</div>
 
-					<span className="font-mono text-[12px] tabular-nums text-[var(--text-tertiary)]">
+					<span
+						data-az16-profile="data"
+						className="type-data   tabular-nums text-[var(--text-tertiary)]"
+					>
 						{s.tokens} · {s.producedAgo}
 					</span>
 				</div>
@@ -282,8 +290,14 @@ function TaskSection({ subject }: { readonly subject: ComposedReviewSubject }): 
 	return (
 		<section>
 			<SectionHead label="The task" />
-			<div className="rounded-[var(--r-subtle)] border-l-[3px] border-[var(--border-default)] bg-[var(--surface-container)] px-[14px] py-[12px]">
-				<p className="max-w-[72ch] text-[14px] italic leading-[1.55] text-[var(--text-secondary)]">
+			<div
+				data-az16-profile="strong"
+				className="border-l-[var(--bw-strong)] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-container)] px-[14px] py-[12px]"
+			>
+				<p
+					data-az16-profile="copy"
+					className="type-copy max-w-[72ch]  italic  text-[var(--text-secondary)]"
+				>
 					“{s.prompt}”
 				</p>
 				<button
@@ -315,15 +329,24 @@ function KpiChip({ kpi }: { kpi: ReviewKpi }): JSX.Element {
 				? "var(--status-error)"
 				: "var(--text-tertiary)";
 	return (
-		<div className="flex flex-col gap-[3px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]">
-			<span className="text-[11px] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+		<div
+			data-az16-profile="thin"
+			className="border-[var(--bw-thin)] flex flex-col gap-[3px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]"
+		>
+			<span
+				data-az16-profile="label"
+				className="type-label  uppercase  text-[var(--text-tertiary)]"
+			>
 				{kpi.label}
 			</span>
-			<span className="font-mono text-[17px] font-[600] leading-none tabular-nums text-[var(--text-primary)]">
+			<span
+				data-az16-profile="metric"
+				className="type-metric     tabular-nums text-[var(--text-primary)]"
+			>
 				{kpi.value}
 			</span>
 			{kpi.delta ? (
-				<span className="text-[11px] font-[500]" style={{ color: deltaColor }}>
+				<span className="type-metadata" style={{ color: deltaColor }}>
 					{kpi.delta}
 				</span>
 			) : null}

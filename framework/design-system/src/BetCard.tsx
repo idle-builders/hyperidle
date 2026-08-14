@@ -123,6 +123,7 @@ export function BetCard({
 
 	return (
 		<div
+			data-az16-profile="move"
 			{...dsProps("BetCard", "2")}
 			{...clickableProps(
 				onClick,
@@ -163,6 +164,7 @@ export function BetCard({
 
 			{/* Title */}
 			<span
+				data-az16-profile="lead"
 				className="type-lead    text-[var(--text-primary)] truncate"
 				aria-label={`Bet: ${title}`}
 			>

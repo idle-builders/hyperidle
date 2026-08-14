@@ -258,7 +258,9 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 				</div>
 
 				{/* what was achieved — result-first, one sentence */}
-				<p className="type-lead    text-[var(--text-primary)]">{achieved}</p>
+				<p data-az16-profile="lead" className="type-lead    text-[var(--text-primary)]">
+					{achieved}
+				</p>
 
 				{/* tools used (mini-logo row) + tokens */}
 				<div className="flex flex-wrap items-center justify-between gap-x-[18px] gap-y-[9px]">

@@ -18,6 +18,7 @@ function renderNode(node: InlineNode, key: number): JSX.Element | string {
 			return (
 				<code
 					key={key}
+					data-az16-profile="inline-code"
 					className="type-inline-code   px-[3px] py-[3px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-primary)]"
 				>
 					{node.value}

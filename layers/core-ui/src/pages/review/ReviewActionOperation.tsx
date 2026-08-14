@@ -292,6 +292,7 @@ function ExecutingBand(): JSX.Element {
 			}}
 		>
 			<svg
+				data-az16-profile="busy"
 				aria-label="executing"
 				viewBox="0 0 16 16"
 				className="motion-busy h-[14px] w-[14px] shrink-0"

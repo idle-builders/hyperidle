@@ -207,6 +207,7 @@ function AssistantNoticeCard({
 
 	return (
 		<div
+			data-az16-profile="enter"
 			role="alert"
 			style={{
 				borderRadius: "var(--r-subtle)",

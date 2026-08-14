@@ -56,6 +56,7 @@ export function Skeleton({
 }: SkeletonProps): JSX.Element {
 	return (
 		<div
+			data-az16-profile="loading"
 			{...dsProps("Skeleton", "2")}
 			role="status"
 			aria-label={ariaLabel}
@@ -95,6 +96,7 @@ export function SkeletonList({
 		>
 			{Array.from({ length: rows }).map((_, i) => (
 				<div
+					data-az16-profile="loading"
 					// biome-ignore lint/suspicious/noArrayIndexKey: fixed-count placeholder rows.
 					key={i}
 					data-testid="skeleton-row"
@@ -126,7 +128,10 @@ export function SkeletonCard({ ariaLabel, dataTestId }: SkeletonCardProps): JSX.
 			 */
 			className="flex flex-col gap-[6px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px]"
 		>
-			<div className={`motion-loading ${`${SKELETON_BAR} h-[20px] w-[66%]`}`} />
+			<div
+				data-az16-profile="loading"
+				className={`motion-loading ${`${SKELETON_BAR} h-[20px] w-[66%]`}`}
+			/>
 			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-full`}`} />
 			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-[83%]`}`} />
 			<div className={`motion-loading ${`${SKELETON_BAR} h-[16px] w-[75%]`}`} />

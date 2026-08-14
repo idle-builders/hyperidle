@@ -841,17 +841,24 @@ function StatTile({
 }): JSX.Element {
 	return (
 		<div
+			data-az16-profile="thin"
 			data-testid="stat-tile"
-			className="flex-1 min-w-[180px] rounded-[var(--r-subtle)] border border-[var(--border-subtle)] p-[18px] flex flex-col gap-[6px]"
+			className="flex-1 min-w-[180px] rounded-[var(--r-subtle)] border-[var(--bw-thin)] border-[var(--border-subtle)] p-[18px] flex flex-col gap-[6px]"
 		>
-			<span className="font-[family-name:var(--font-mono)] text-[11px] uppercase tracking-[var(--tracking-caps)] font-medium text-[var(--text-tertiary)]">
+			<span
+				data-az16-profile="label"
+				className="type-label   uppercase   text-[var(--text-tertiary)]"
+			>
 				{label}
 			</span>
-			<span className="text-[20px] font-semibold text-[var(--text-primary)] tabular-nums">
+			<span
+				data-az16-profile="metric"
+				className="type-metric   text-[var(--text-primary)] tabular-nums"
+			>
 				{value}
 			</span>
 			{sub !== undefined && (
-				<span className="text-[11px] text-[var(--text-tertiary)] tabular-nums">{sub}</span>
+				<span className="type-label text-[var(--text-tertiary)] tabular-nums">{sub}</span>
 			)}
 		</div>
 	);

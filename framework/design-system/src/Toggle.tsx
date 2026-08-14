@@ -72,6 +72,7 @@ export function Toggle({
 				>
 					{/* Thumb */}
 					<span
+						data-az16-profile="spring"
 						className={`motion-spring ${[
 							"absolute top-[2px] h-[18px] w-[18px] rounded-[var(--r-pill)]",
 							"bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]",
@@ -111,6 +112,7 @@ export function Toggle({
 			>
 				{/* Thumb */}
 				<span
+					data-az16-profile="spring"
 					className={`motion-spring ${[
 						"absolute top-[2px] h-[18px] w-[18px] rounded-[var(--r-pill)]",
 						"bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]",

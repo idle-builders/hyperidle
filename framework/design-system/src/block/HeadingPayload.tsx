@@ -53,6 +53,7 @@ export function HeadingPayload({
 	return createElement(
 		`h${effectiveLevel}`,
 		{
+			"data-az16-profile": HEADING_PROFILE[level].slice(5),
 			className: `${HEADING_PROFILE[level]} text-[var(--text-primary)] m-0`,
 		},
 		renderInline(inline),

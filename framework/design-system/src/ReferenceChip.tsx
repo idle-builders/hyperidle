@@ -93,7 +93,10 @@ export function ReferenceChip({
 				className={`type-control ${`${SHELL} pr-[9px] text-left`}`}
 			>
 				{openBody}
-				<span className="motion-feedback flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-deep)]">
+				<span
+					data-az16-profile="feedback"
+					className="motion-feedback flex shrink-0 items-center text-[var(--text-tertiary)] opacity-0 group-hover/refchip:opacity-100 group-hover/refchip:text-[var(--accent-deep)]"
+				>
 					<Glyph d={ICON_ARROW} size={11} />
 				</span>
 			</button>

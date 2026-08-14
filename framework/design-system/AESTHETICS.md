@@ -45,6 +45,22 @@ The composition rule does not own control-internal padding/gaps, fixed geometry,
 
 ---
 
+## Semantic typography
+
+Choose text by purpose, never by visual size. Hearth's complete roles are `label`, `metadata`, `small`, `copy`, `control`, `input`, `avatar-initial`, `subheading`, `lead`, `title`, `display`, `metric`, `data`, and `inline-code`. Each role binds family, size, line height, weight, and tracking. This keeps hierarchy stable across pages and prevents a local font-size fix from silently changing rhythm.
+
+Structural uppercase captions use `label`; ordinary details and timestamps do not. KPI values use `metric`, including tabular numerals. Code blocks use `data`; only code inside prose uses `inline-code`. Text that authors no typography inherits its parent profile. Strong and emphasis markup carries meaning without inventing a local weight or italic treatment.
+
+---
+
+## Purpose motion and borders
+
+Motion exists only for a named job: `feedback`, `move`, `spring`, `enter`, `activity`, `loading`, or `busy`. Feedback never moves; movement never fades; colors, borders, shadows, and layout dimensions snap. Reduced-motion preference disables every animation, transition, and smooth scroll across the whole document, including foreign previews.
+
+Border width has three jobs: thin 1px dividers/outlines, default 1.5px action/input/card boundaries, and strong 2px avatar cut-outs or deliberate strong boundaries. Status stays in content and tint. Toast's 1.5px left rail is the sole structural status exception.
+
+---
+
 ## AQ-004: Status through content, not structure
 
 A bet card with "Active" status and one with "Blocked" status have the same shadow, same border radius, same padding, same structural treatment. The difference lives inside: a green dot vs a red dot, an "Active" badge vs a "Blocked" badge.
@@ -139,7 +155,7 @@ This distinction persists across all sizes (sm, md, lg) and contexts (message av
 ## AQ-013: Section headers are quiet
 
 Section headers (sidebar labels, topic headers, form section titles) use:
-- 12px font size
+- the complete `label` profile (11px / 600 / 1.25 / 0.06em / system sans)
 - Semibold weight (600)
 - Uppercase transform
 - Wide letter-spacing (0.06em)

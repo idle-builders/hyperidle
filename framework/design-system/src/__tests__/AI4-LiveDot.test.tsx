@@ -41,9 +41,9 @@ describe("LiveDot (AI4 AC3, Task 5)", () => {
 		expect(html).toContain('aria-hidden="true"');
 	});
 
-	it("rendered HTML includes animate-pulse class", () => {
+	it("rendered HTML includes the activity motion profile", () => {
 		const html = ReactDOMServer.renderToStaticMarkup(React.createElement(LiveDot));
-		expect(html).toContain("animate-pulse");
+		expect(html).toContain("motion-activity");
 	});
 
 	it("rendered HTML includes 6px width and height classes", () => {

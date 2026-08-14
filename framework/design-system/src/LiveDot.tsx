@@ -14,6 +14,7 @@ import type { JSX } from "react";
 export function LiveDot(): JSX.Element {
 	return (
 		<span
+			data-az16-profile="activity"
 			aria-hidden="true"
 			className="motion-activity inline-block w-[6px] h-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] shrink-0"
 		/>

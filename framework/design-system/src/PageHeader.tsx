@@ -38,8 +38,7 @@ import { PageFrame } from "./PageFrame.js";
  */
 export const pageTitleClassName = "text-[var(--text-primary)] min-w-0 truncate";
 
-export const paneTitleClassName =
-	"text-[17px] font-[600] tracking-[-0.01em] text-[var(--text-primary)] min-w-0 truncate";
+export const paneTitleClassName = "text-[var(--text-primary)] min-w-0 truncate";
 
 export interface PageHeaderProps {
 	/**
@@ -92,6 +91,7 @@ export function PageHeader({
 
 			<div className="flex items-center justify-between gap-[12px]">
 				<TitleTag
+					data-az16-profile={presentation === "pane" ? "lead" : "title"}
 					className={`${presentation === "pane" ? "type-lead" : "type-title"} ${
 						presentation === "pane" ? paneTitleClassName : pageTitleClassName
 					}`}
@@ -102,7 +102,9 @@ export function PageHeader({
 			</div>
 
 			{subtitle && (
-				<div className="type-small mt-[3px]  text-[var(--text-tertiary)]">{subtitle}</div>
+				<div data-az16-profile="small" className="type-small mt-[3px]  text-[var(--text-tertiary)]">
+					{subtitle}
+				</div>
 			)}
 		</>
 	);

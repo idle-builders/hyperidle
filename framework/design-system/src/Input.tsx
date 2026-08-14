@@ -86,6 +86,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 			)}
 			{textarea ? (
 				<textarea
+					data-az16-profile="input default"
 					ref={ref as React.Ref<HTMLTextAreaElement>}
 					id={inputId}
 					className={`type-input ${`${INPUT_BASE} ${borderClass} resize-y min-h-[80px] `}`}
@@ -96,6 +97,7 @@ export const Input = forwardRef<HTMLInputElement | HTMLTextAreaElement, InputPro
 				/>
 			) : (
 				<input
+					data-az16-profile="input default"
 					ref={ref as React.Ref<HTMLInputElement>}
 					id={inputId}
 					className={`type-input ${`${INPUT_BASE} ${INPUT_SINGLE_LINE_HEIGHT} ${borderClass}`}`}

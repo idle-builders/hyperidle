@@ -439,6 +439,13 @@
 	letter-spacing: 0;
 	line-height: 1.4;
 }
+@media (max-width: 768px) {
+	input.type-input,
+	textarea.type-input,
+	select.type-input {
+		font-size: 16px;
+	}
+}
 @utility type-avatar-initial {
 	font-family: var(--font-sans);
 	font-size: 12px;

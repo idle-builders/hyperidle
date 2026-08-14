@@ -17,7 +17,12 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 		<div {...dsProps("SearchField", "1")} className="relative flex w-full items-center">
 			<span className="pointer-events-none absolute left-[8px] flex items-center text-[var(--text-tertiary)]">
 				{loading ? (
-					<svg aria-hidden="true" viewBox="0 0 16 16" className="motion-busy h-[14px] w-[14px]">
+					<svg
+						data-az16-profile="busy"
+						aria-hidden="true"
+						viewBox="0 0 16 16"
+						className="motion-busy h-[14px] w-[14px]"
+					>
 						<circle cx="8" cy="8" r="6" fill="none" stroke="var(--border-subtle)" strokeWidth="2" />
 						<path
 							d="M8 2a6 6 0 0 1 6 6"
@@ -44,6 +49,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				)}
 			</span>
 			<input
+				data-az16-profile="input thin"
 				ref={ref}
 				type="text"
 				// @lore AZ7 B3 (review round 1): fill was --surface-container (a recessed
