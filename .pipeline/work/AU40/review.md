@@ -1,5 +1,17 @@
 # AU40 implementation review
 
+## Attempt 3 — NOT DONE (2026-08-14)
+
+Fresh default full service passed with 2,865 passed and 4 skipped. Fresh exact seed-4040 failed with
+2,860 passed, 5 failed, and 4 skipped. `agent-work-intent-production.integration.test.ts` observed an
+intent already changed from `pending`; `explicit-session-start.production.integration.test.ts` then had
+four downstream failures. AC2 and AC4 fail. Focused auth/Git evidence passed 35/35. Static auth ownership,
+Git timeout defaults/overrides, service-only isolate:false, harness isolation, truncation, assertions, net
+growth, and WP leakage checks passed. Causal receipts still lacked retained actual-order/raw-result evidence.
+
+**Verdict: NOT DONE.** Three implementation evaluations are exhausted; orchestrator adjudication returns to
+architecture with a shared fixture-background ownership strategy rather than further per-file cleanup.
+
 ## Attempt 2 — NOT DONE (2026-08-14)
 
 ### Blocking findings

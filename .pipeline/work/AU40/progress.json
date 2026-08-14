@@ -6,9 +6,9 @@
   "worktree": ".worktrees/AU40-pipeline",
   "branch": "chore/AU40-isolate-false-test-lane",
   "base": "origin/main@a54c352d6",
-  "phase": "build",
-  "status": "ready-for-review",
-  "smallestActionToResume": "Run implementation review attempt 3 against the committed branch.",
+  "phase": "architecture-amendment",
+  "status": "blocked",
+  "smallestActionToResume": "Maintainer must approve extending the fixture ownership contract to every direct bootAgentOrchestration caller using the pooled fixture DB; amendment critique retry cap is exhausted.",
   "approvals": [
     "Maintainer approved service-only isolate:false with per-test truncation unchanged.",
     "Maintainer limited initial repairs to proven causal owners, then authorized actual cross-worker environment proof when full-green review failures varied by victim.",
@@ -16,7 +16,21 @@
   ],
   "reviewHistory": [
     { "attempt": 1, "verdict": "NOT DONE", "reason": "seed 4040 failed five tests and causal receipts were not independently auditable" },
-    { "attempt": 2, "verdict": "NOT DONE", "reason": "seed 4040 produced variable auth-sensitive victims; Git long-operation timeout overrides were incomplete" }
+    { "attempt": 2, "verdict": "NOT DONE", "reason": "seed 4040 produced variable auth-sensitive victims; Git long-operation timeout overrides were incomplete" },
+    { "attempt": 3, "verdict": "NOT DONE", "reason": "fresh seed 4040 failed five tests after a green default; agent-work-intent state changed before assertion and explicit-session then failed, showing fixture-started background work still crosses boundaries" }
+  ],
+  "adjudications": [
+    {
+      "attempt": 1,
+      "decision": "return to architecture",
+      "reason": "three fresh implementation evaluations disproved per-file causal cleanup as a complete strategy",
+      "changedStrategy": "define deterministic stop-and-join only for background work started by the shared service-test fixture, not production-wide shutdown"
+    }
+  ],
+  "architectureAmendmentCritiques": [
+    { "attempt": 1, "verdict": "FAIL", "reason": "async public dispose conflicted with production sync bags; size accounting included pipeline artifacts" },
+    { "attempt": 2, "verdict": "FAIL", "reason": "fixture could not aggregate body errors; drain rejection retention and cleanup error-path proofs were incomplete" },
+    { "attempt": 3, "verdict": "FAIL", "reason": "direct pooled-DB bootAgentOrchestration callers were omitted from fixture ownership census" }
   ],
   "orderedPairCommand": "npx vitest run --config vitest.integration.config.ts --project service OWNER VICTIM --maxWorkers=1 --minWorkers=1 --no-file-parallelism --reporter=verbose",
   "orderedPairReceipts": [
