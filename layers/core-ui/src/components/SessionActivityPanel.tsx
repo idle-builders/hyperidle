@@ -64,16 +64,14 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 					</svg>
 				</span>
 				<div className="flex-1 min-w-0">
-					<span className="text-[12px] font-medium text-[var(--text-primary)] font-mono">
-						{toolName}
-					</span>
+					<span className="type-data   text-[var(--text-primary)] ">{toolName}</span>
 					{argsSummary && (
-						<p className="text-[11px] text-[var(--text-tertiary)] truncate">{argsSummary}</p>
+						<p className="type-metadata  text-[var(--text-tertiary)] truncate">{argsSummary}</p>
 					)}
 				</div>
 				<span
 					data-testid="activity-time"
-					className="flex-shrink-0 text-[10px] text-[var(--text-tertiary)] font-mono"
+					className="type-data flex-shrink-0  text-[var(--text-tertiary)] "
 				>
 					{time}
 				</span>
@@ -89,10 +87,10 @@ function ActivityEntryRow({ entry }: { entry: ActivityEntry }): JSX.Element | nu
 				<span className="flex-shrink-0 mt-[2px] inline-flex items-center justify-center w-[20px] h-[20px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[var(--text-tertiary)]">
 					<ReasoningIcon />
 				</span>
-				<p className="flex-1 text-[12px] text-[var(--text-secondary)] italic">{excerpt}</p>
+				<p className="type-metadata flex-1  text-[var(--text-secondary)] italic">{excerpt}</p>
 				<span
 					data-testid="activity-time"
-					className="flex-shrink-0 text-[10px] text-[var(--text-tertiary)] font-mono"
+					className="type-data flex-shrink-0  text-[var(--text-tertiary)] "
 				>
 					{time}
 				</span>
@@ -162,39 +160,35 @@ export function SessionActivityPanel({
 		<aside
 			aria-label={`Session activity for ${agentName}`}
 			data-testid="session-activity-panel"
-			className="flex flex-col h-full bg-[var(--surface-container)] border-l border-[var(--border-subtle)]"
+			className="border-l-[var(--bw-thin)] flex flex-col h-full bg-[var(--surface-container)]  border-[var(--border-subtle)]"
 		>
 			{/* Header */}
-			<div className="flex items-center gap-[9px] px-[12px] py-[10px] border-b border-[var(--border-subtle)] flex-shrink-0">
+			<div className="border-b-[var(--bw-thin)] flex items-center gap-[9px] px-[12px] py-[10px]  border-[var(--border-subtle)] flex-shrink-0">
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-[6px]">
-						<span className="text-[13px] font-medium text-[var(--text-primary)] truncate">
-							{agentName}
-						</span>
+						<span className="type-small   text-[var(--text-primary)] truncate">{agentName}</span>
 						{isLive && (
 							<span
 								role="status"
 								data-spacing-role="compact-pill"
-								className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
+								className="type-label inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)]   uppercase "
 								aria-label="Live session"
 							>
-								<span className="w-[5px] h-[5px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] animate-pulse" />
+								<span className="motion-activity w-[5px] h-[5px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] " />
 								Live
 							</span>
 						)}
 						{status === "ended" && (
-							<span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-[0.05em]">
-								Ended
-							</span>
+							<span className="type-label  text-[var(--text-tertiary)] uppercase ">Ended</span>
 						)}
 					</div>
-					<p className="text-[11px] text-[var(--text-tertiary)] truncate">{taskTitle}</p>
+					<p className="type-metadata  text-[var(--text-tertiary)] truncate">{taskTitle}</p>
 				</div>
 				<button
 					type="button"
 					aria-label="Close activity panel"
 					/* AI5 AQ-015: 44px touch floor ≤1024px, dense 24px ≥1280px. */
-					className="flex-shrink-0 inline-flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] border-none cursor-pointer transition-[background,color] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+					className="flex-shrink-0 inline-flex items-center justify-center w-[24px] h-[24px] min-h-[44px] min-w-[44px] xl:min-h-[24px] xl:min-w-[24px] rounded-[var(--r-subtle)] bg-transparent text-[var(--text-tertiary)] border-none cursor-pointer   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 					onClick={onClose}
 				>
 					<svg
@@ -213,7 +207,7 @@ export function SessionActivityPanel({
 			</div>
 
 			{/* Q1 review issue #11: filter tabs — AI5: shared TabBar (underline). */}
-			<div className="flex-shrink-0 px-[8px] pt-[6px] pb-[2px] border-b border-[var(--border-subtle)]">
+			<div className="border-b-[var(--bw-thin)] flex-shrink-0 px-[8px] pt-[6px] pb-[2px]  border-[var(--border-subtle)]">
 				<TabBar
 					variant="underline"
 					tabs={FILTER_TABS}
@@ -229,13 +223,13 @@ export function SessionActivityPanel({
 				onScroll={handleScroll}
 			>
 				{status === "connecting" && (
-					<div className="py-[16px] text-center text-[var(--text-tertiary)] text-[12px]">
+					<div className="type-metadata py-[16px] text-center text-[var(--text-tertiary)] ">
 						Connecting...
 					</div>
 				)}
 
 				{status === "error" && (
-					<div className="py-[16px] text-center text-[var(--status-error)] text-[12px]">
+					<div className="type-metadata py-[16px] text-center text-[var(--status-error)] ">
 						{error ?? "Failed to load activity"}
 					</div>
 				)}
@@ -275,7 +269,7 @@ export function SessionActivityPanel({
 
 			{/* Summary / footer */}
 			{status === "ended" && (
-				<div className="flex-shrink-0 px-[12px] py-[8px] border-t border-[var(--border-subtle)] text-[12px] text-[var(--text-tertiary)]">
+				<div className="border-t-[var(--bw-thin)] type-metadata flex-shrink-0 px-[12px] py-[8px]  border-[var(--border-subtle)]  text-[var(--text-tertiary)]">
 					Session complete — {entries.length} events recorded
 				</div>
 			)}

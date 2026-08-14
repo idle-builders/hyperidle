@@ -32,7 +32,7 @@ function renderText(text: string, mentions: ReadonlyArray<{ displayName: string 
 					// biome-ignore lint/suspicious/noArrayIndexKey: stable positional segments
 					<span
 						key={i}
-						className="rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px] font-[500] text-[var(--accent-deep)]"
+						className="type-small rounded-[var(--r-subtle)] bg-[var(--accent-primary-dim)] px-[3px]  text-[var(--accent-deep)]"
 					>
 						{seg}
 					</span>
@@ -57,7 +57,7 @@ export function ProsePart({
 	);
 	return (
 		<div data-ds-component="ProsePart">
-			<p className="m-0 text-[15px] leading-[1.55] text-[var(--text-primary)]">
+			<p className="type-copy m-0   text-[var(--text-primary)]">
 				{renderText(part.text, mentions)}
 			</p>
 			<EmbedRow embeds={part.embeds} onOpen={onOpen} />

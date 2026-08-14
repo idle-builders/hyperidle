@@ -58,7 +58,7 @@ describe("SearchField", () => {
 
 	it("shows loading spinner when loading", () => {
 		const { container } = render(<SearchField loading />);
-		const spinner = container.querySelector(".animate-spin");
+		const spinner = container.querySelector(".motion-busy");
 		expect(spinner).toBeInTheDocument();
 	});
 

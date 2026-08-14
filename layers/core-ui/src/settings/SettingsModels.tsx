@@ -118,9 +118,9 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 	const hasCredentialStatus = config.provider === "openrouter" || config.provider === "anthropic";
 
 	return (
-		<div className="flex flex-col gap-[12px] p-[12px] border border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+		<div className="border-[var(--bw-thin)] flex flex-col gap-[12px] p-[12px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex items-center gap-[12px] flex-wrap">
-				<span className="text-[13px] font-medium text-[var(--text-primary)] w-[80px] shrink-0">
+				<span className="type-small   text-[var(--text-primary)] w-[80px] shrink-0">
 					{tierLabel(tier)}
 				</span>
 
@@ -362,11 +362,11 @@ export function SettingsModels(): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[12px]">
 			{/* AH2: System default helper copy — clarifies scope */}
-			<p className="text-[12px] text-[var(--text-tertiary)]">
+			<p className="type-metadata  text-[var(--text-tertiary)]">
 				System default models. Used only when an agent has no per-agent model configured. Set
 				per-agent models in Settings → Agents.
 			</p>
-			{saving && <p className="text-[12px] text-[var(--text-tertiary)]">Saving…</p>}
+			{saving && <p className="type-metadata  text-[var(--text-tertiary)]">Saving…</p>}
 			{ALL_TIERS.map((tier) => (
 				<TierRow
 					key={tier}

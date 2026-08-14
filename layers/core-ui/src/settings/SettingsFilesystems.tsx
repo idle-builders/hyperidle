@@ -112,7 +112,7 @@ export function SettingsFilesystems(): JSX.Element {
 	if (status === "loading") {
 		return (
 			<div className="flex flex-col gap-[12px]">
-				<p className="text-[12px] text-[var(--text-tertiary)]">Loading filesystems…</p>
+				<p className="type-metadata  text-[var(--text-tertiary)]">Loading filesystems…</p>
 			</div>
 		);
 	}
@@ -120,20 +120,20 @@ export function SettingsFilesystems(): JSX.Element {
 	if (status === "error") {
 		return (
 			<div className="flex flex-col gap-[12px]">
-				<p className="text-[12px] text-[var(--status-error)]">Failed to load filesystems.</p>
+				<p className="type-metadata  text-[var(--status-error)]">Failed to load filesystems.</p>
 			</div>
 		);
 	}
 
 	return (
 		<div className="flex flex-col gap-[24px]">
-			<p className="max-w-[560px] text-[12px] text-[var(--text-tertiary)]">
+			<p className="type-metadata max-w-[560px]  text-[var(--text-tertiary)]">
 				Filesystems your team has registered — a code repository or a document set where work lives
 				and accrues history. Registered once here; inject into a bot from its config under Agents.
 			</p>
 			<div className="flex flex-col gap-[12px]">
 				<div className="flex items-center justify-between">
-					<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
+					<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 						Registered filesystems
 					</span>
 					<Button variant="ghost" size="sm" aria-label="Add a filesystem to the team registry">
@@ -141,9 +141,11 @@ export function SettingsFilesystems(): JSX.Element {
 					</Button>
 				</div>
 				{filesystems.length === 0 ? (
-					<p className="text-[12px] text-[var(--text-tertiary)]">No filesystems registered yet.</p>
+					<p className="type-metadata  text-[var(--text-tertiary)]">
+						No filesystems registered yet.
+					</p>
 				) : (
-					<div className="overflow-hidden rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]">
+					<div className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]">
 						{filesystems.map((fs, index) => (
 							<div key={fs.id}>
 								{index > 0 ? <div className="h-px bg-[var(--border-subtle)]" /> : null}
@@ -153,17 +155,17 @@ export function SettingsFilesystems(): JSX.Element {
 									</div>
 									<div className="flex min-w-0 flex-1 flex-col gap-[3px]">
 										<div className="flex items-center gap-[9px]">
-											<span className="truncate font-[family-name:var(--font-mono)] text-[13px] text-[var(--text-primary)]">
+											<span className="type-data truncate   text-[var(--text-primary)]">
 												{resourceDisplay(fs)}
 											</span>
 											{fs.resourceRef.branch ? (
-												<span className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--text-tertiary)]">
+												<span className="type-data   text-[var(--text-tertiary)]">
 													@{fs.resourceRef.branch}
 												</span>
 											) : null}
 											<Tag label={fs.kind} />
 										</div>
-										<span className="text-[12px] text-[var(--text-tertiary)]">
+										<span className="type-metadata  text-[var(--text-tertiary)]">
 											{fs.connectionId ? `Connection: ${fs.connectionId}` : "Local (no connection)"}
 										</span>
 									</div>

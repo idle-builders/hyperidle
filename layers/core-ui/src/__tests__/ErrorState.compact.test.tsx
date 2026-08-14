@@ -42,14 +42,12 @@ describe("ErrorState — compact", () => {
 		expect(container.querySelector(".w-\\[48px\\]")).toBeNull();
 	});
 
-	it("renders the title at 15px (not 20px) and desc at 13px (not 15px)", () => {
+	it("renders compact title and description with semantic profiles", () => {
 		render(<ErrorState compact title="Failed to load" description="The server errored." />);
 		const title = screen.getByText("Failed to load");
 		const desc = screen.getByText("The server errored.");
-		expect(title.className).toContain("text-[15px]");
-		expect(title.className).not.toContain("text-[20px]");
-		expect(desc.className).toContain("text-[13px]");
-		expect(desc.className).not.toContain("text-[15px]");
+		expect(title.className).toContain("type-copy");
+		expect(desc.className).toContain("type-small");
 	});
 
 	it("still exposes role=alert", () => {
@@ -73,7 +71,7 @@ describe("ErrorState — compact", () => {
 		expect(btn.className).toContain("xl:min-h-[30px]");
 	});
 
-	it("renders the detail mono block at 12px in compact mode", () => {
+	it("renders the detail block with the data profile", () => {
 		render(
 			<ErrorState
 				compact
@@ -83,7 +81,7 @@ describe("ErrorState — compact", () => {
 			/>,
 		);
 		const detail = screen.getByText("Error 502: upstream unavailable");
-		expect(detail.className).toContain("text-[12px]");
+		expect(detail.className).toContain("type-data");
 	});
 
 	it("keeps the full variant elevated with shadow when compact is false (default)", () => {

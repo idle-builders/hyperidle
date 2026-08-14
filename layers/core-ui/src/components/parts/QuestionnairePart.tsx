@@ -29,7 +29,7 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 	return (
 		<div
 			data-ds-component="QuestionnairePart"
-			className="rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-default)]"
+			className="border-[var(--bw-thin)] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-start gap-[9px]">
 				<span
@@ -46,9 +46,7 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 						<path d={ICON_QUESTION} />
 					</svg>
 				</span>
-				<p className="m-0 text-[15px] font-[600] leading-[1.4] text-[var(--text-primary)]">
-					{part.question}
-				</p>
+				<p className="type-copy m-0    text-[var(--text-primary)]">{part.question}</p>
 			</div>
 			<ul className="m-0 mt-[12px] flex list-none flex-wrap items-center gap-[6px] p-0 pl-[29px]">
 				{part.options.map((option) => (
@@ -60,7 +58,7 @@ export function QuestionnairePart({ part }: { part: QuestionnairePartValue }): J
 					// not artifact rendering. Out of AM5 scope. Explicitly decided, not forgotten.
 					<li
 						key={option}
-						className="inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[13px] font-[500] text-[var(--text-secondary)]"
+						className="type-small border-[var(--bw-thin)] inline-flex items-center gap-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]"
 					>
 						{option}
 					</li>

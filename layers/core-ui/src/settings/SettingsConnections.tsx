@@ -65,7 +65,7 @@ function authNote(s: ConnectionAuthSource): string | null {
 /** @lore AN1: inline single-use shape, not promoted to design system. */
 function ServiceMark({ service }: { service: string }): JSX.Element {
 	return (
-		<span className="inline-flex items-center justify-center h-[28px] w-[28px] rounded-[var(--r-subtle)] bg-[var(--surface-container)] text-[12px] font-[600] text-[var(--text-secondary)] shrink-0">
+		<span className="type-metadata inline-flex items-center justify-center h-[28px] w-[28px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]   text-[var(--text-secondary)] shrink-0">
 			{service.slice(0, 2)}
 		</span>
 	);
@@ -150,7 +150,7 @@ function AddConnectionDialog({ open, onClose, onAdded }: AddConnectionDialogProp
 			}
 		>
 			<div className="flex flex-col gap-[18px]">
-				<p className="text-[13px] text-[var(--text-secondary)]">
+				<p className="type-small  text-[var(--text-secondary)]">
 					Tools your harness is already logged into appear automatically — nothing to add here. Use
 					this to add a token or point at an MCP server.
 				</p>
@@ -179,7 +179,7 @@ function AddConnectionDialog({ open, onClose, onAdded }: AddConnectionDialogProp
 							value={token}
 							onChange={(e) => setToken(e.target.value)}
 						/>
-						<p className="text-[12px] text-[var(--text-tertiary)]">
+						<p className="type-metadata  text-[var(--text-tertiary)]">
 							Stored encrypted and resolved server-side. Your agents' tools use it to authenticate;
 							it is never shown back here.
 						</p>
@@ -198,13 +198,13 @@ function AddConnectionDialog({ open, onClose, onAdded }: AddConnectionDialogProp
 							value={serverUrl}
 							onChange={(e) => setServerUrl(e.target.value)}
 						/>
-						<p className="text-[12px] text-[var(--text-tertiary)]">
+						<p className="type-metadata  text-[var(--text-tertiary)]">
 							The server owns its own sign-in. HyperIdle registers no app and never appears on a
 							consent screen.
 						</p>
 					</div>
 				)}
-				{error ? <p className="text-[12px] text-[var(--status-error)]">{error}</p> : null}
+				{error ? <p className="type-metadata  text-[var(--status-error)]">{error}</p> : null}
 			</div>
 		</Dialog>
 	);
@@ -335,13 +335,13 @@ function SourceGroup({
 					label={label}
 					trailing={
 						autoDetected ? (
-							<span className="text-[11px] font-[400] tracking-normal normal-case text-[var(--text-tertiary)]">
+							<span className="type-label    normal-case text-[var(--text-tertiary)]">
 								Auto-detected
 							</span>
 						) : undefined
 					}
 				/>
-				<p className="text-[12px] text-[var(--text-tertiary)]">{help}</p>
+				<p className="type-metadata  text-[var(--text-tertiary)]">{help}</p>
 			</div>
 			<ItemList variant="flush" isEmpty={false}>
 				{sorted.map((c) => (
@@ -410,8 +410,8 @@ export function SettingsConnections(): JSX.Element {
 		<div className="flex flex-col gap-[24px]">
 			<div className="flex items-start justify-between gap-[12px]">
 				<div>
-					<h2 className="text-[20px] font-[600] text-[var(--text-primary)]">Connections</h2>
-					<p className="text-[13px] text-[var(--text-secondary)] mt-[3px] max-w-[520px]">
+					<h2 className="type-title   text-[var(--text-primary)]">Connections</h2>
+					<p className="type-small  text-[var(--text-secondary)] mt-[3px] max-w-[520px]">
 						External services your agents can use. A secret you paste is stored encrypted and never
 						shown back — your agents' tools use it to authenticate.
 					</p>
@@ -425,7 +425,7 @@ export function SettingsConnections(): JSX.Element {
 				<SkeletonList rows={3} ariaLabel="Loading connections" />
 			) : error ? (
 				<div className="flex flex-col gap-[9px]">
-					<p className="text-[13px] text-[var(--status-error)]">
+					<p className="type-small  text-[var(--status-error)]">
 						Couldn't load connections — please try again.
 					</p>
 					<Button
@@ -463,7 +463,7 @@ export function SettingsConnections(): JSX.Element {
 			)}
 
 			{removeError ? (
-				<p className="text-[13px] text-[var(--status-error)]" role="alert">
+				<p className="type-small  text-[var(--status-error)]" role="alert">
 					{removeError}
 				</p>
 			) : null}

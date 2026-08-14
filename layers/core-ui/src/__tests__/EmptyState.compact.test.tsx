@@ -31,19 +31,16 @@ describe("EmptyState — compact", () => {
 		expect(outer?.className).not.toContain("max-w-[420px]");
 	});
 
-	it("renders the title at 15px/600 (not 20px)", () => {
+	it("renders the compact title with the copy profile", () => {
 		render(<EmptyState compact title="No discussions" description="Start one." />);
 		const title = screen.getByText("No discussions");
-		expect(title.className).toContain("text-[15px]");
-		expect(title.className).toContain("font-[600]");
-		expect(title.className).not.toContain("text-[20px]");
+		expect(title.className).toContain("type-copy");
 	});
 
-	it("renders the description at 13px (not 15px)", () => {
+	it("renders the compact description with the small profile", () => {
 		render(<EmptyState compact title="No discussions" description="Start one." />);
 		const desc = screen.getByText("Start one.");
-		expect(desc.className).toContain("text-[13px]");
-		expect(desc.className).not.toContain("text-[15px]");
+		expect(desc.className).toContain("type-small");
 	});
 
 	it("never renders the 48px icon block even when an icon is passed", () => {

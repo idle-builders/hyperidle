@@ -103,10 +103,10 @@ export function SettingsWorker(): JSX.Element {
 	if (!electron) {
 		return (
 			<div className="flex flex-col gap-[12px]">
-				<p className="text-[13px] text-[var(--text-secondary)]">
+				<p className="type-small  text-[var(--text-secondary)]">
 					Worker mode requires the desktop app.
 				</p>
-				<p className="text-[12px] text-[var(--text-tertiary)]">
+				<p className="type-metadata  text-[var(--text-tertiary)]">
 					Install HyperIdle on your machine to register it as a worker.
 				</p>
 			</div>
@@ -117,10 +117,10 @@ export function SettingsWorker(): JSX.Element {
 	if (!sharedMode) {
 		return (
 			<div className="flex flex-col gap-[12px]">
-				<p className="text-[13px] text-[var(--text-secondary)]">
+				<p className="type-small  text-[var(--text-secondary)]">
 					Worker mode is only available in shared backend mode.
 				</p>
-				<p className="text-[12px] text-[var(--text-tertiary)]">
+				<p className="type-metadata  text-[var(--text-tertiary)]">
 					Switch to a shared backend server to register this device as a worker.
 				</p>
 			</div>
@@ -163,7 +163,7 @@ export function SettingsWorker(): JSX.Element {
 
 			{/* Max concurrent sessions */}
 			<div className="flex items-center gap-[12px]">
-				<span className="text-[13px] text-[var(--text-secondary)]">Max concurrent sessions</span>
+				<span className="type-small  text-[var(--text-secondary)]">Max concurrent sessions</span>
 				<div className="w-[88px]">
 					<Input
 						type="number"
@@ -178,10 +178,10 @@ export function SettingsWorker(): JSX.Element {
 
 			{/* Status section — only shown when enabled */}
 			{status.enabled && (
-				<div className="flex flex-col gap-[12px] border-t border-[var(--border-subtle)] pt-[12px]">
+				<div className="border-t-[var(--bw-thin)] flex flex-col gap-[12px]  border-[var(--border-subtle)] pt-[12px]">
 					{/* Connection status */}
 					<div className="flex items-center gap-[12px]">
-						<span className="text-[13px] text-[var(--text-secondary)]">Status</span>
+						<span className="type-small  text-[var(--text-secondary)]">Status</span>
 						<ConnectionStatusChip
 							state={
 								status.connected ? "connected" : status.enabled ? "connecting" : "disconnected"
@@ -191,8 +191,8 @@ export function SettingsWorker(): JSX.Element {
 
 					{/* Active sessions */}
 					<div className="flex items-center gap-[12px]">
-						<span className="text-[13px] text-[var(--text-secondary)]">Active sessions</span>
-						<span className="text-[13px] font-mono text-[var(--text-primary)]">
+						<span className="type-small  text-[var(--text-secondary)]">Active sessions</span>
+						<span className="type-data   text-[var(--text-primary)]">
 							{status.activeSessions} / {status.maxConcurrent}
 						</span>
 					</div>

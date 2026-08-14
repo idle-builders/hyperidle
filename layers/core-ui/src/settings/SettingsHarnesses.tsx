@@ -93,15 +93,11 @@ function BuiltinDetail(): JSX.Element {
 	return (
 		<div className="flex flex-col gap-[18px] p-[18px] overflow-y-auto h-full">
 			<div>
-				<p className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[12px]">
-					Model Tiers
-				</p>
+				<p className="type-label   uppercase  text-[var(--text-tertiary)] mb-[12px]">Model Tiers</p>
 				<SettingsModels />
 			</div>
 			<div>
-				<p className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[12px]">
-					Credentials
-				</p>
+				<p className="type-label   uppercase  text-[var(--text-tertiary)] mb-[12px]">Credentials</p>
 				<CredentialsTab />
 			</div>
 		</div>
@@ -125,26 +121,22 @@ function HarnessDetail({ descriptor }: HarnessDetailProps): JSX.Element {
 		<div className="flex flex-col gap-[12px] p-[18px] overflow-y-auto h-full">
 			{/* Header */}
 			<div className="flex items-center gap-[9px]">
-				<p className="text-[15px] font-[600] text-[var(--text-primary)]">{d.name}</p>
-				{version && (
-					<span className="text-[12px] font-mono text-[var(--text-tertiary)]">v{version}</span>
-				)}
+				<p className="type-copy   text-[var(--text-primary)]">{d.name}</p>
+				{version && <span className="type-data   text-[var(--text-tertiary)]">v{version}</span>}
 				<StatusChip status={discoveryStateToStatus(d.discovery.state)} label={sl.text} />
 			</div>
 
 			{/* Models list */}
 			{d.models.length > 0 && (
 				<div>
-					<p className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[9px]">
-						Models
-					</p>
+					<p className="type-label   uppercase  text-[var(--text-tertiary)] mb-[9px]">Models</p>
 					<div className="flex flex-col gap-[6px]">
 						{d.models.map((m) => (
 							<div
 								key={m.id}
-								className="flex items-center justify-between text-[13px] text-[var(--text-secondary)] py-[3px]"
+								className="type-small flex items-center justify-between  text-[var(--text-secondary)] py-[3px]"
 							>
-								<span className="font-mono text-[12px]">{m.id}</span>
+								<span className="type-data  ">{m.id}</span>
 								{m.label && <span className="text-[var(--text-tertiary)]">{m.label}</span>}
 							</div>
 						))}
@@ -155,10 +147,8 @@ function HarnessDetail({ descriptor }: HarnessDetailProps): JSX.Element {
 			{/* Auth action — show login command when kind is native_cli_login */}
 			{d.authAction.kind === "native_cli_login" && d.authAction.command && (
 				<div>
-					<p className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)] mb-[9px]">
-						Login
-					</p>
-					<code className="text-[12px] font-mono text-[var(--text-tertiary)] bg-[var(--surface-container)] px-[9px] py-[6px] rounded-[var(--r-subtle)] select-all block">
+					<p className="type-label   uppercase  text-[var(--text-tertiary)] mb-[9px]">Login</p>
+					<code className="type-data   text-[var(--text-tertiary)] bg-[var(--surface-container)] px-[9px] py-[6px] rounded-[var(--r-subtle)] select-all block">
 						{[...d.authAction.command].join(" ")}
 					</code>
 				</div>
@@ -277,11 +267,9 @@ export function SettingsHarnesses(): JSX.Element {
 				<div className="flex flex-col gap-[12px] p-[3px]">
 					{/* Section header */}
 					<div className="flex items-center justify-between">
-						<span className="text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--text-tertiary)]">
-							Providers
-						</span>
+						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Providers</span>
 						<div className="flex items-center gap-[9px]">
-							<span className="text-[12px] text-[var(--text-tertiary)]">Checked just now</span>
+							<span className="type-metadata  text-[var(--text-tertiary)]">Checked just now</span>
 							<Button
 								variant="ghost"
 								size="sm"
@@ -295,7 +283,7 @@ export function SettingsHarnesses(): JSX.Element {
 					</div>
 
 					{/* Backend rows */}
-					<div className="border border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
+					<div className="border-[var(--bw-thin)]  border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
 						<ItemList as="ul" isEmpty={sorted.length === 0} variant="flush">
 							{sorted.map((descriptor) => {
 								const sl = statusLine(descriptor);
@@ -314,11 +302,11 @@ export function SettingsHarnesses(): JSX.Element {
 												: ("info" as const);
 								const titleNode = (
 									<span className="flex items-center gap-[6px]">
-										<span className="text-[14px] font-[600] text-[var(--text-primary)]">
+										<span className="type-copy   text-[var(--text-primary)]">
 											{descriptor.name}
 										</span>
 										{descriptor.discovery.version && (
-											<span className="text-[12px] font-mono text-[var(--text-tertiary)]">
+											<span className="type-data   text-[var(--text-tertiary)]">
 												v{descriptor.discovery.version}
 											</span>
 										)}
@@ -343,10 +331,8 @@ export function SettingsHarnesses(): JSX.Element {
 			destination={
 				selectedDescriptor ? (
 					<div className="flex flex-col h-full">
-						<div className="flex items-center justify-between px-[18px] py-[12px] border-b border-[var(--border-subtle)]">
-							<p className="text-[13px] font-[600] text-[var(--text-primary)]">
-								{selectedDescriptor.name}
-							</p>
+						<div className="border-b-[var(--bw-thin)] flex items-center justify-between px-[18px] py-[12px]  border-[var(--border-subtle)]">
+							<p className="type-small   text-[var(--text-primary)]">{selectedDescriptor.name}</p>
 							<Button variant="ghost" size="sm" aria-label="Close detail" onClick={handleClose}>
 								✕
 							</Button>

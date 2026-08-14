@@ -318,7 +318,7 @@ export function ThreadSections({
 						// (color: var(--accent-primary); background: transparent; border: 0; padding: 0).
 						<button
 							type="button"
-							className="bg-transparent border-0 p-0 text-[12px] text-[var(--accent-deep)] hover:underline cursor-pointer"
+							className="type-control border-none bg-transparent  p-0  text-[var(--accent-deep)] hover:underline cursor-pointer"
 							aria-label="Clear filter"
 							onClick={onClearFilter}
 						>
@@ -360,7 +360,6 @@ export function ThreadSections({
 				const sectionStyle: CSSProperties | undefined = isBlocking
 					? {
 							background: "color-mix(in srgb, var(--status-error) 10%, var(--surface-container))",
-							borderLeft: "3px solid var(--status-error)",
 						}
 					: undefined;
 				const headerStickyClass = isBlocking
@@ -369,7 +368,7 @@ export function ThreadSections({
 				return (
 					<section key={section.id} data-thread-section={section.id} style={sectionStyle}>
 						<h3
-							className={`flex items-center gap-[9px] px-3 py-1 text-[11px] font-mono uppercase tracking-wider ${headerToneClass} ${headerStickyClass}`}
+							className={`type-label ${`flex items-center gap-[9px] px-3 py-1   uppercase  ${headerToneClass} ${headerStickyClass}`}`}
 						>
 							<span>{section.label}</span>
 							<span data-thread-section-count className="normal-case">
@@ -378,7 +377,7 @@ export function ThreadSections({
 						</h3>
 						{section.items.length === 0 ? (
 							<p
-								className="px-3 py-2 text-[12px] text-[var(--text-tertiary)]"
+								className="type-metadata px-3 py-2  text-[var(--text-tertiary)]"
 								data-testid="thread-section-active-quiet"
 							>
 								Quiet — nothing in flight.

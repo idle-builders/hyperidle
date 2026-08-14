@@ -206,7 +206,7 @@ export function SettingsOrgChart(): JSX.Element {
 
 	// Solo: show hint + form (mechanism defaults to "function")
 	const soloHint = isSolo ? (
-		<p className="text-[13px] text-[var(--text-secondary)]">
+		<p className="type-small  text-[var(--text-secondary)]">
 			Add a function (e.g. "Engineering") to describe your role, or add a second human to define
 			reporting lines.
 		</p>
@@ -331,7 +331,7 @@ function AddEdgeForm({
 	const canAdd = Boolean(fromUserId && target && !adding);
 
 	return (
-		<div className="flex flex-col gap-[12px] p-[18px] border-[1.5px] border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+		<div className="border-[var(--bw-default)] flex flex-col gap-[12px] p-[18px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex gap-[12px] flex-wrap">
 				{/* From */}
 				<div className="flex-1 min-w-[120px]">
@@ -424,7 +424,7 @@ function AddEdgeForm({
 				<p
 					role="alert"
 					data-testid="org-form-error"
-					className="text-[12px] text-[var(--status-error)]"
+					className="type-metadata  text-[var(--status-error)]"
 				>
 					{formError}
 				</p>

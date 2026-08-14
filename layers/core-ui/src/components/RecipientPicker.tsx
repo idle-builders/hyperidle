@@ -153,7 +153,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	return (
 		<div
 			data-testid="recipient-picker"
-			className="flex flex-col gap-[9px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)] border border-[var(--border-default)]"
+			className="border-[var(--bw-thin)] flex flex-col gap-[9px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)]  border-[var(--border-default)]"
 			onKeyDown={handleKeyDown}
 		>
 			{pickerState === "browsing" && (
@@ -170,12 +170,12 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 						aria-label="Recipients"
 					>
 						{status === "loading" && (
-							<div className="py-[8px] text-center text-[var(--text-tertiary)] text-[13px]">
+							<div className="type-small py-[8px] text-center text-[var(--text-tertiary)] ">
 								Loading...
 							</div>
 						)}
 						{status === "ready" && filteredRecipients.length === 0 && (
-							<div className="py-[8px] text-center text-[var(--text-tertiary)] text-[13px]">
+							<div className="type-small py-[8px] text-center text-[var(--text-tertiary)] ">
 								No recipients found
 							</div>
 						)}
@@ -186,7 +186,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 									type="button"
 									role="option"
 									aria-selected={false}
-									className="flex items-center gap-[9px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none transition-[background] duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
+									className="flex items-center gap-[9px] px-[8px] py-[6px] rounded-[var(--r-subtle)] text-left cursor-pointer bg-transparent border-none   hover:bg-[var(--surface-container)] focus:outline-none focus:bg-[var(--surface-container)]"
 									onClick={() => handleSelectRecipient(recipient)}
 								>
 									{/* AI5: shared Avatar primitive (initials now uppercased via deriveInitials). */}
@@ -197,21 +197,21 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 									/>
 									<span className="flex-1 min-w-0">
 										<span className="flex items-center gap-[6px]">
-											<span className="text-[13px] text-[var(--text-primary)] font-medium truncate">
+											<span className="type-small  text-[var(--text-primary)]  truncate">
 												{recipient.name}
 											</span>
 											{recipient.hasActiveSession && (
 												<span
 													data-spacing-role="compact-pill"
-													className="inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)] text-[10px] font-medium uppercase tracking-[0.05em]"
+													className="type-label inline-flex items-center gap-[4px] px-[6px] py-[1px] rounded-[var(--r-pill)] bg-[color-mix(in_oklab,var(--accent-primary)_14%,transparent)] text-[var(--accent-deep)]   uppercase "
 													aria-label="Live session"
 												>
-													<span className="w-[5px] h-[5px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] animate-pulse" />
+													<span className="motion-activity w-[5px] h-[5px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] " />
 													Live
 												</span>
 											)}
 										</span>
-										<span className="text-[11px] text-[var(--text-tertiary)]">
+										<span className="type-metadata  text-[var(--text-tertiary)]">
 											<Tag label={recipient.role} />
 										</span>
 									</span>
@@ -227,12 +227,10 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 					<div className="flex items-center gap-[9px] mb-[6px]">
 						{/* AI5: shared Avatar primitive. */}
 						<Avatar initials={deriveInitials(selected.name)} size="sm" className="flex-shrink-0" />
-						<span className="text-[13px] text-[var(--text-primary)] font-medium">
-							{selected.name}
-						</span>
+						<span className="type-small  text-[var(--text-primary)] ">{selected.name}</span>
 						<button
 							type="button"
-							className="ml-auto text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] bg-transparent border-none cursor-pointer"
+							className="type-control ml-auto  text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] bg-transparent border-none cursor-pointer"
 							onClick={() => {
 								setPickerState("browsing");
 								setSelected(null);
@@ -258,7 +256,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 						disabled={pickerState === "sending"}
 					/>
 					{sendError && (
-						<p className="text-[12px] text-[var(--status-error)]" role="alert">
+						<p className="type-metadata  text-[var(--status-error)]" role="alert">
 							{sendError}
 						</p>
 					)}

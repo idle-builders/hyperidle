@@ -204,7 +204,7 @@ export function GlobalSearchPanel({
 					<div className="overflow-y-auto flex flex-col gap-[3px]">
 						{search.results.conversations.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-[var(--text-tertiary)] px-2 py-1">
+								<h3 className="type-label   text-[var(--text-tertiary)] px-2 py-1">
 									Conversations
 								</h3>
 								{search.results.conversations.map((c) => {
@@ -234,9 +234,7 @@ export function GlobalSearchPanel({
 
 						{search.results.work.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-[var(--text-tertiary)] px-2 py-1">
-									Work
-								</h3>
+								<h3 className="type-label   text-[var(--text-tertiary)] px-2 py-1">Work</h3>
 								{search.results.work.map((w) => {
 									const idx = itemIndex++;
 									return (
@@ -263,9 +261,7 @@ export function GlobalSearchPanel({
 
 						{search.results.knowledge.length > 0 && (
 							<div>
-								<h3 className="text-xs font-semibold text-[var(--text-tertiary)] px-2 py-1">
-									Knowledge
-								</h3>
+								<h3 className="type-label   text-[var(--text-tertiary)] px-2 py-1">Knowledge</h3>
 								{search.results.knowledge.map((k) => {
 									const idx = itemIndex++;
 									return (
@@ -310,7 +306,7 @@ export function GlobalSearchPanel({
 					<div
 						data-testid="search-recent-queries"
 						aria-label="Recent queries"
-						className="font-mono text-xs text-[var(--text-tertiary)] border-t border-[var(--border-subtle)] pt-2 px-1"
+						className="type-data border-t-[var(--bw-thin)]   text-[var(--text-tertiary)]  border-[var(--border-subtle)] pt-2 px-1"
 					>
 						<span>No recent queries</span>
 					</div>

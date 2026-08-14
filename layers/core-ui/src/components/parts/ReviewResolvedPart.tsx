@@ -28,7 +28,7 @@ export function ReviewResolvedPart({
 	return (
 		<div
 			data-ds-component="ReviewResolvedPart"
-			className="flex items-center gap-[9px] rounded-[var(--r-default)] border border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-subtle)]"
+			className="border-[var(--bw-thin)] flex items-center gap-[9px] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-subtle)]"
 		>
 			<span className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[var(--status-success)]">
 				<svg
@@ -40,16 +40,16 @@ export function ReviewResolvedPart({
 					<path d={ICON_CHECK} />
 				</svg>
 			</span>
-			<div className="min-w-0 flex-1 leading-[1.4]">
-				<span className="text-[13px] text-[var(--text-secondary)]">
-					<span className="font-[600] text-[var(--text-primary)]">{titleCase(part.label)}</span> by{" "}
+			<div className="type-small min-w-0 flex-1 ">
+				<span className="type-small  text-[var(--text-secondary)]">
+					<span className="type-small  text-[var(--text-primary)]">{titleCase(part.label)}</span> by{" "}
 					{part.resolvedBy} · {part.summary}
 				</span>
 			</div>
 			<button
 				type="button"
 				onClick={() => onOpen({ route: "review", ...part.reviewTarget, intent: "inspect" })}
-				className="inline-flex shrink-0 items-center gap-[3px] text-[12px] font-[500] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:text-[var(--accent-deep)]"
+				className="type-control inline-flex shrink-0 items-center gap-[3px]   text-[var(--text-tertiary)]   hover:text-[var(--accent-deep)]"
 			>
 				Inspect review
 				<svg

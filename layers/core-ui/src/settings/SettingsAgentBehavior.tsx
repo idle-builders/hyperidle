@@ -227,7 +227,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 
 	const origin = (
 		<div className="flex flex-col gap-[18px] p-[12px]">
-			<p className="text-[13px] text-[var(--text-tertiary)]">
+			<p className="type-small  text-[var(--text-tertiary)]">
 				Inspect and edit the configuration that controls agent work.
 			</p>
 
@@ -235,10 +235,10 @@ export function SettingsAgentBehavior(): JSX.Element {
 				{Object.entries(CATEGORY_LABELS).map(([kind, label]) => (
 					<div
 						key={kind}
-						className="rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[6px]"
+						className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[6px]"
 					>
-						<div className="text-[12px] font-[600] text-[var(--text-primary)]">{label}</div>
-						<div className="text-[11px] text-[var(--text-tertiary)]">
+						<div className="type-metadata   text-[var(--text-primary)]">{label}</div>
+						<div className="type-label  text-[var(--text-tertiary)]">
 							{counts.get(kind as AgentBehaviorConfigView["kind"]) ?? 0} items
 						</div>
 					</div>
@@ -292,10 +292,8 @@ export function SettingsAgentBehavior(): JSX.Element {
 				<>
 					<div className="flex items-start justify-between gap-[12px]">
 						<div className="min-w-0">
-							<div className="text-[12px] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)]">
-								Rule detail
-							</div>
-							<div className="text-[13px] text-[var(--text-secondary)]">
+							<div className="type-label  uppercase  text-[var(--text-tertiary)]">Rule detail</div>
+							<div className="type-small  text-[var(--text-secondary)]">
 								{selected.description ?? selected.activeSummary}
 							</div>
 						</div>
@@ -333,7 +331,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 								/>
 							))}
 							{saveError && (
-								<p className="text-[12px] font-[500] text-[var(--status-error)]">{saveError}</p>
+								<p className="type-metadata   text-[var(--status-error)]">{saveError}</p>
 							)}
 							<div className="flex flex-wrap gap-[6px]">
 								<Button size="sm" onClick={() => void saveSelected()} disabled={saving}>
@@ -361,7 +359,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 								<a
 									key={link.href}
 									href={link.href}
-									className="inline-flex min-h-[32px] items-center rounded-[var(--r-pill)] border border-[var(--border-default)] px-[12px] text-[12px] font-[500] text-[var(--text-primary)]"
+									className="type-control border-[var(--bw-thin)] inline-flex min-h-[32px] items-center rounded-[var(--r-pill)]  border-[var(--border-default)] px-[12px]   text-[var(--text-primary)]"
 								>
 									{link.label}
 								</a>

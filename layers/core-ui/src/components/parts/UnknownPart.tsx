@@ -14,7 +14,7 @@ type UnknownPartValue = Extract<Part, { kind: "unknown" }>;
 export function UnknownPart({ part }: { part?: UnknownPartValue }): JSX.Element {
 	const label = part?.reason === "redacted" ? "Message redacted" : "Unsupported message";
 	return (
-		<div data-ds-component="UnknownPart" className="text-[13px] italic text-[var(--text-tertiary)]">
+		<div data-ds-component="UnknownPart" className="type-small  italic text-[var(--text-tertiary)]">
 			{label}
 		</div>
 	);

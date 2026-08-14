@@ -78,7 +78,7 @@ export function renderEmbed(embed: Embed, key: string, onOpen: OpenHandler): JSX
 		case "unknown":
 			// W5: a non-navigating reference (e.g. a message ref with no permalink route).
 			return (
-				<span key={key} className="text-[13px] text-[var(--text-tertiary)]">
+				<span key={key} className="type-small  text-[var(--text-tertiary)]">
 					{embed.label}
 				</span>
 			);

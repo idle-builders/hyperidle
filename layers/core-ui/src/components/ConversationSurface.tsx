@@ -177,20 +177,20 @@ function ConversationHeader({
 	presentation: "read" | "pane";
 }): JSX.Element {
 	const context = (
-		<div className="flex min-w-0 flex-1 items-center gap-[6px] text-[12px] text-[var(--text-secondary)]">
-			<span className="inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps-sm)] text-[var(--accent-deep)]">
+		<div className="type-metadata flex min-w-0 flex-1 items-center gap-[6px] text-[var(--text-secondary)]">
+			<span className="type-label inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] uppercase text-[var(--accent-deep)]">
 				{header.hostKind}
 			</span>
 			<span className="text-[var(--text-tertiary)]">·</span>
 			{header.hostRoute ? (
 				<Link
 					to={header.hostRoute}
-					className="truncate font-[500] text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
+					className="type-control truncate text-[var(--text-primary)] hover:text-[var(--accent-deep)] hover:underline"
 				>
 					{header.hostTitle}
 				</Link>
 			) : (
-				<span className="truncate font-[500] text-[var(--text-primary)]">{header.hostTitle}</span>
+				<span className="type-small truncate text-[var(--text-primary)]">{header.hostTitle}</span>
 			)}
 		</div>
 	);
@@ -198,7 +198,7 @@ function ConversationHeader({
 		<>
 			<div className="flex items-center gap-[9px]">
 				<ParticipantGroup people={participants} />
-				<span className="text-[12px] tabular-nums text-[var(--text-tertiary)]">
+				<span className="type-metadata tabular-nums text-[var(--text-tertiary)]">
 					{participants.length}
 				</span>
 			</div>
@@ -206,7 +206,7 @@ function ConversationHeader({
 				type="button"
 				onClick={onActions}
 				aria-label="Conversation actions"
-				className="flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] transition-colors duration-[var(--motion-fast)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
+				className="flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
 			>
 				<Glyph d={ICON_MORE} size={16} />
 			</button>
@@ -214,7 +214,7 @@ function ConversationHeader({
 	);
 	if (presentation === "read") {
 		return (
-			<header className="shrink-0 border-b border-[var(--border-subtle)] px-[18px] py-[12px]">
+			<header className="shrink-0 border-b-[var(--bw-thin)] border-[var(--border-subtle)] px-[18px] py-[12px]">
 				<div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-[12px]">
 					{context}
 					<div className="flex shrink-0 items-center gap-[9px]">{controls}</div>

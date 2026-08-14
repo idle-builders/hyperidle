@@ -66,7 +66,7 @@ export function SettingsAppearance(): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[18px] max-w-none">
-			<span className="text-[13px] font-[500] text-[var(--text-primary)]">Theme</span>
+			<span className="type-small   text-[var(--text-primary)]">Theme</span>
 			<div className="flex items-center gap-[12px] flex-wrap">
 				{THEME_OPTIONS.map((option) => {
 					const isActive = theme === option.value;
@@ -79,7 +79,7 @@ export function SettingsAppearance(): JSX.Element {
 							aria-label={`${option.label} theme`}
 							className={[
 								"flex flex-col items-start p-0 rounded-[var(--r-default)] overflow-hidden",
-								"border-[1.5px] transition-colors duration-[var(--motion-fast)]",
+								"  ",
 								"w-[120px] text-left cursor-pointer",
 								isActive
 									? "border-[var(--accent-deep)]"
@@ -96,9 +96,7 @@ export function SettingsAppearance(): JSX.Element {
 								style={{ height: "48px", ...swatchStyle(option.value) }}
 							/>
 							<div className="px-[12px] py-[9px]">
-								<span className="text-[13px] font-[500] text-[var(--text-primary)]">
-									{option.label}
-								</span>
+								<span className="type-small   text-[var(--text-primary)]">{option.label}</span>
 							</div>
 						</button>
 					);

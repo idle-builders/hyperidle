@@ -197,7 +197,7 @@ function NotificationButton({
 			onClick={onClick}
 			aria-label="Notifications"
 			aria-expanded={open}
-			className="relative flex h-[44px] w-full items-center justify-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] text-[14px] font-[500] text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[769px]:justify-start min-[1025px]:h-[36px]"
+			className="type-control relative flex h-[44px] w-full items-center justify-center gap-[9px] rounded-[var(--r-subtle)] px-[9px]   text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[769px]:justify-start min-[1025px]:h-[36px]"
 		>
 			<span className="inline-flex text-[var(--text-tertiary)]" aria-hidden="true">
 				<svg
@@ -245,17 +245,17 @@ function SectionHeader({
 			onClick={() => onViewChange(view)}
 			aria-label={label}
 			aria-current={isActive ? "page" : undefined}
-			className={[
+			className={`type-control ${[
 				"flex h-[44px] w-full items-center justify-center gap-[9px] px-[9px] min-[769px]:justify-start min-[1025px]:h-[36px]",
-				"font-[family-name:var(--font-sans)] text-[14px]",
+				" ",
 				"rounded-[var(--r-subtle)] mb-[3px]",
-				"transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				"  ",
 				// AD9: active item → elevated surface; inactive → accent-tinted hover
 				// to match the fast-nav Row hover (uniform surface grammar).
 				isActive
-					? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] font-[600]"
-					: "text-[var(--text-secondary)] font-[500] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
-			].join(" ")}
+					? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] "
+					: "text-[var(--text-secondary)]  hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
+			].join(" ")}`}
 		>
 			{/* AD9: active icon → --text-primary (founder call: green clashed with
 			    elevated surface); inactive → --text-tertiary for quiet/active contrast. */}
@@ -274,7 +274,7 @@ function SectionHeader({
 			</span>
 			{badgeCount != null && badgeCount > 0 && (
 				<span
-					className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[var(--r-pill)] text-[9px] font-[600] tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
+					className="type-data inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[var(--r-pill)]   tabular-nums bg-[var(--accent-primary)] text-[var(--text-on-accent)] ml-auto"
 					data-testid={
 						view === "knowledge"
 							? "knowledge-triage-badge"
@@ -314,7 +314,7 @@ function AssistantIconButton({
 			// built-in pressed treatment distinct from its 4 action variants).
 			className={[
 				"inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
-				"transition-[background,border-color,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+				"  ",
 				// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
 				// selected tint — not a no-handrolled-control violation.
 				open
@@ -352,7 +352,7 @@ function SearchAssistantTools({
 }): JSX.Element {
 	return (
 		<fieldset
-			className="flex shrink-0 overflow-hidden rounded-[var(--r-subtle)] border border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="border-[var(--bw-thin)] flex shrink-0 overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 			aria-label="Search and assistant tools"
 		>
 			<button
@@ -361,7 +361,7 @@ function SearchAssistantTools({
 				onClick={onSearchClick}
 				aria-label="Search"
 				title="Search (⌘K)"
-				className="inline-flex h-[44px] w-[44px] items-center justify-center text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] min-[1025px]:h-[32px] min-[1025px]:w-[32px]"
+				className="inline-flex h-[44px] w-[44px] items-center justify-center text-[var(--text-secondary)]  hover:text-[var(--text-primary)] min-[1025px]:h-[32px] min-[1025px]:w-[32px]"
 			>
 				<svg
 					width="16"
@@ -396,7 +396,7 @@ function SettingsFooter({
 }): JSX.Element {
 	return (
 		<nav
-			className="flex shrink-0 justify-end border-t border-[var(--border-subtle)] p-[6px]"
+			className="border-t-[var(--bw-thin)] flex shrink-0 justify-end  border-[var(--border-subtle)] p-[6px]"
 			data-sidebar-bottom
 			aria-label="App utilities"
 		>
@@ -407,15 +407,15 @@ function SettingsFooter({
 				onClick={onClick}
 				aria-label="Settings"
 				aria-current={active ? "page" : undefined}
-				className={[
+				className={`type-control ${[
 					"flex h-[44px] w-[44px] items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
-					"font-[family-name:var(--font-sans)] text-[14px]",
+					" ",
 					"rounded-[var(--r-subtle)]",
-					"transition-[background,color] duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+					"  ",
 					active
-						? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] font-[600]"
-						: "text-[var(--text-secondary)] font-[500] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
-				].join(" ")}
+						? "bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] text-[var(--text-primary)] "
+						: "text-[var(--text-secondary)]  hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
+				].join(" ")}`}
 			>
 				<span
 					className={
@@ -491,17 +491,17 @@ function FastNavItem({
 				data-testid={dataTestId}
 				onClick={onClick}
 				title={label}
-				className={[
+				className={`type-control ${[
 					"flex h-[44px] w-full items-center rounded-[var(--r-subtle)] px-[9px] min-[1025px]:h-[34px]",
-					"text-[13px] font-[500] text-[var(--text-primary)] truncate",
-					"transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)]",
+					"  text-[var(--text-primary)] truncate",
+					"  ",
 					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
 					!selected
 						? "hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 						: "",
 				]
 					.filter(Boolean)
-					.join(" ")}
+					.join(" ")}`}
 			>
 				<span className="truncate">{label}</span>
 			</button>
@@ -556,7 +556,7 @@ export function Sidebar({
 		if (activeView === "conversations") {
 			if (visibleThreads.length === 0) {
 				return (
-					<p className="px-[24px] py-[12px] text-[13px] text-[var(--text-tertiary)]">
+					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
 					</p>
 				);
@@ -587,7 +587,7 @@ export function Sidebar({
 			const visibleTeams = teams;
 			if (visibleTeams.length === 0) {
 				return (
-					<p className="px-[24px] py-[12px] text-[13px] text-[var(--text-tertiary)]">
+					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
 					</p>
 				);
@@ -612,7 +612,7 @@ export function Sidebar({
 			const visibleKnowledge = knowledgeItems.slice(0, 5);
 			if (visibleKnowledge.length === 0) {
 				return (
-					<p className="px-[24px] py-[12px] text-[13px] text-[var(--text-tertiary)]">
+					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
 					</p>
 				);
@@ -643,7 +643,7 @@ export function Sidebar({
 			className="flex h-full w-full shrink-0 flex-col bg-transparent"
 		>
 			<header className="flex h-[56px] shrink-0 items-center justify-between px-[12px] min-[1025px]:h-[54px]">
-				<div className="flex min-w-0 items-center gap-[9px] text-[15px] font-[600] tracking-[-0.01em] text-[var(--text-primary)]">
+				<div className="type-copy flex min-w-0 items-center gap-[9px]    text-[var(--text-primary)]">
 					<BrandMark />
 					<span>HyperIdle</span>
 				</div>
@@ -655,7 +655,7 @@ export function Sidebar({
 			</header>
 
 			<nav
-				className="grid h-[52px] shrink-0 grid-cols-4 gap-[3px] border-b border-[var(--border-subtle)] px-[9px] pb-[3px] min-[769px]:h-auto min-[769px]:grid-cols-1 min-[769px]:gap-0 min-[769px]:pb-[9px] min-[769px]:pt-[6px]"
+				className="border-b-[var(--bw-thin)] grid h-[52px] shrink-0 grid-cols-4 gap-[3px]  border-[var(--border-subtle)] px-[9px] pb-[3px] min-[769px]:h-auto min-[769px]:grid-cols-1 min-[769px]:gap-0 min-[769px]:pb-[9px] min-[769px]:pt-[6px]"
 				aria-label="Main navigation"
 			>
 				<NotificationButton
@@ -683,7 +683,7 @@ export function Sidebar({
 			</nav>
 
 			<div className="flex min-h-0 flex-1 flex-col" data-fastnav-section={activeView}>
-				<div className="flex h-[44px] shrink-0 items-center px-[12px] font-[family-name:var(--font-mono)] text-[11px] font-[600] uppercase tracking-[var(--tracking-caps)] text-[var(--text-tertiary)] min-[769px]:px-[18px]">
+				<div className="type-label flex h-[44px] shrink-0 items-center px-[12px]    uppercase  text-[var(--text-tertiary)] min-[769px]:px-[18px]">
 					{VIEW_ICONS[activeView].label}
 				</div>
 				<div className="min-h-0 flex-1 overflow-y-auto px-[9px] pb-[18px]">

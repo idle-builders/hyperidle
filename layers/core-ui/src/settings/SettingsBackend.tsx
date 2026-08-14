@@ -50,9 +50,9 @@ export function SettingsBackend(): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[6px] max-w-[400px]">
-			<span className="text-[13px] font-[500] text-[var(--text-primary)]">Mode</span>
-			<span className="text-[13px] text-[var(--text-secondary)]">{modeLabel}</span>
-			<span className="text-[12px] text-[var(--text-tertiary)]">{modeHint}</span>
+			<span className="type-small   text-[var(--text-primary)]">Mode</span>
+			<span className="type-small  text-[var(--text-secondary)]">{modeLabel}</span>
+			<span className="type-metadata  text-[var(--text-tertiary)]">{modeHint}</span>
 		</div>
 	);
 }

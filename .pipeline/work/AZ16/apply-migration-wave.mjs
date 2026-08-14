@@ -155,6 +155,14 @@ function stripMotion(segment, value) {
 			segment = segment.replace(new RegExp(`(?:animation|transition|scrollBehavior)\\s*:\\s*[^,}\\n]+,?[^\\S\\n]*`), "");
 		}
 	}
+	segment = segment.replace(
+		/(^|[\s"'`])(?:motion-safe:|motion-reduce:)?(?:transition(?:-[^\s"'`}]+)?|duration-\[[^\]]+\]|ease-\[[^\]]+\]|animate-(?:\[[^\]]+\]|[a-z-]+))(?=$|[\s"'`}])/g,
+		"$1",
+	);
+	segment = segment.replace(
+		/(?:animation|transition|transitionDuration|transitionProperty|transitionTimingFunction|scrollBehavior)\s*:\s*[^,}\n]+,?[^\S\n]*/g,
+		"",
+	);
 	return segment;
 }
 
