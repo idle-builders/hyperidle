@@ -84,9 +84,13 @@ export function WorkOverviewView({
 	// Loading state
 	if (loading) {
 		return (
-			<PageScaffold header={<PageHeader title="Teams" />} data-testid="work-overview-page-loading">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Teams" />}
+				data-testid="work-overview-page-loading"
+			>
 				{/* AD9: pt-[18px] (--space-6) loading gap so first skeleton bar clears the header border-b */}
-				<div className="max-w-[800px] mx-auto w-full pt-[18px]">
+				<div className="max-w-[800px] w-full pt-[18px]">
 					<SkeletonList rows={4} ariaLabel="Loading teams" />
 				</div>
 			</PageScaffold>
@@ -96,7 +100,11 @@ export function WorkOverviewView({
 	// Error state — W3: render static user-facing copy only; error.message stays off the screen.
 	if (error) {
 		return (
-			<PageScaffold header={<PageHeader title="Teams" />} data-testid="work-overview-page-error">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Teams" />}
+				data-testid="work-overview-page-error"
+			>
 				<ErrorState
 					title="Couldn't load teams"
 					description="Check your connection and try again."
@@ -109,7 +117,11 @@ export function WorkOverviewView({
 	// Empty state (0 teams — defensive; FirstRunRedirect normally routes to /setup)
 	if (teams.length === 0) {
 		return (
-			<PageScaffold header={<PageHeader title="Teams" />} data-testid="work-overview-page-empty">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Teams" />}
+				data-testid="work-overview-page-empty"
+			>
 				<EmptyState
 					title="No teams yet"
 					description="Teams group your agents and bets. Finish setup to create your first team."
@@ -128,6 +140,7 @@ export function WorkOverviewView({
 
 	return (
 		<PageScaffold
+			frame="page"
 			header={
 				<PageHeader
 					title="Teams"
@@ -145,7 +158,7 @@ export function WorkOverviewView({
 			}
 			data-testid="work-overview-page"
 		>
-			<div className="max-w-[800px] mx-auto w-full">
+			<div className="max-w-[800px] w-full">
 				<ItemList variant="flush" as="ul" isEmpty={false}>
 					{sorted.map((team) => {
 						const betCount = team.activeBets;

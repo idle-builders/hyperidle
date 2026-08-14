@@ -30,6 +30,7 @@
 
 import type { JSX, ReactNode } from "react";
 import { dsProps } from "./ds-attrs.js";
+import { PageFrame } from "./PageFrame.js";
 
 export interface PageScaffoldProps {
 	/** Pinned header strip. Normally a `<PageHeader>`. Omit for a page with no title strip. */
@@ -42,6 +43,8 @@ export interface PageScaffoldProps {
 	 *             bounded flex column to size against.
 	 */
 	body?: "scroll" | "managed";
+	/** Horizontal geometry for scroll pages. Managed children always stay local. */
+	frame?: "page" | "local";
 	children: ReactNode;
 	/** Test hook passthrough on the root element. */
 	"data-testid"?: string;
@@ -50,6 +53,7 @@ export interface PageScaffoldProps {
 export function PageScaffold({
 	header,
 	body = "scroll",
+	frame = "local",
 	children,
 	"data-testid": testId,
 }: PageScaffoldProps): JSX.Element {
@@ -64,7 +68,7 @@ export function PageScaffold({
 				<div className="flex-1 min-h-0 flex flex-col overflow-hidden">{children}</div>
 			) : (
 				<div className="flex-1 overflow-y-auto" data-page-scroll="">
-					{children}
+					{frame === "page" ? <PageFrame>{children}</PageFrame> : children}
 				</div>
 			)}
 		</div>

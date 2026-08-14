@@ -290,11 +290,13 @@ export interface KnowledgeDetailProps {
 	 */
 	overrideKnowledgeId?: string;
 	overrideHash?: string;
+	presentation?: "page" | "pane";
 }
 
 export function KnowledgeDetail({
 	overrideKnowledgeId,
 	overrideHash,
+	presentation = "page",
 }: KnowledgeDetailProps = {}): JSX.Element {
 	const { knowledgeId: routeKnowledgeId } = useParams<{ knowledgeId: string }>();
 	const knowledgeId = overrideKnowledgeId ?? routeKnowledgeId;
@@ -343,6 +345,7 @@ export function KnowledgeDetail({
 			legacySource={legacySource}
 			routeKnowledgeId={knowledgeId}
 			overrideHash={overrideHash}
+			presentation={presentation}
 		/>
 	);
 }
@@ -521,6 +524,7 @@ interface KnowledgeDetailViewProps {
 	/** Q2: The route-resolved knowledge id. Supersedes item.id for API calls. */
 	routeKnowledgeId?: string;
 	overrideHash?: string;
+	presentation?: "page" | "pane";
 }
 
 function KnowledgeDetailView({
@@ -528,6 +532,7 @@ function KnowledgeDetailView({
 	legacySource,
 	routeKnowledgeId,
 	overrideHash,
+	presentation = "page",
 }: KnowledgeDetailViewProps): JSX.Element {
 	// Q2: Use the route-resolved id for API calls to avoid FALLBACK_DETAIL.id = "unknown"
 	const effectiveKnowledgeId = routeKnowledgeId ?? item.id;
@@ -789,10 +794,13 @@ function KnowledgeDetailView({
 
 	return (
 		<PageScaffold
+			frame={presentation === "page" ? "page" : "local"}
 			data-testid="knowledge-detail-page"
 			header={
 				/* AI7: PageHeader — h1→h2 via primitive; leading=Breadcrumb; subtitle=metadata bar; actions=Edit/overflow */
 				<PageHeader
+					presentation={presentation}
+					reservePaneControls={presentation === "pane"}
 					title={item.title}
 					leading={
 						/* AG4: DS Breadcrumb replaces local KnowledgeDetailBreadcrumb fn */
@@ -887,7 +895,13 @@ function KnowledgeDetailView({
 				/>
 			}
 		>
-			<div className="flex flex-col md:flex-row gap-[24px] p-[24px] max-w-[960px] mx-auto w-full">
+			<div
+				className={
+					presentation === "page"
+						? "flex flex-col md:flex-row gap-[24px] py-[24px] max-w-[960px] w-full"
+						: "flex flex-col md:flex-row gap-[24px] p-[18px] w-full"
+				}
+			>
 				{/* Main content column */}
 				<div className="flex flex-col gap-[24px] flex-1 min-w-0">
 					{amendableBanner && (

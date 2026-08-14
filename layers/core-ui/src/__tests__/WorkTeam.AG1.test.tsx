@@ -228,18 +228,15 @@ describe("AG1 AC-1 — desktop content column wrapper", () => {
 
 	it("renders an inner content column with max-w-[960px]", () => {
 		const { container } = renderPage(POPULATED_TEAM);
-		const scroller = container.querySelector("[data-page-scroll]");
-		// The inner column child must cap at 960px
-		const inner = scroller?.firstElementChild;
+		const inner = container.querySelector("[data-page-scroll] [data-page-frame] > div");
 		expect(inner).not.toBeNull();
 		expect(inner?.className).toContain("max-w-[960px]");
 	});
 
-	it("inner column has centered auto margins (mx-auto)", () => {
+	it("inner column starts in the stable page frame", () => {
 		const { container } = renderPage(POPULATED_TEAM);
-		const scroller = container.querySelector("[data-page-scroll]");
-		const inner = scroller?.firstElementChild;
-		expect(inner?.className).toContain("mx-auto");
+		const inner = container.querySelector("[data-page-scroll] [data-page-frame] > div");
+		expect(inner?.className).not.toContain("mx-auto");
 	});
 
 	it("[GREEN] work-team-page testid is present in populated state", () => {

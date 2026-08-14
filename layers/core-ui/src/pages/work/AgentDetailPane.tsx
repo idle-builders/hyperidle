@@ -12,7 +12,7 @@
  */
 
 // hearth-internal-padding
-import { Avatar, Button, Input, PageScaffold, Select } from "@hyperidle/design-system";
+import { Avatar, Button, Input, PageHeader, PageScaffold, Select } from "@hyperidle/design-system";
 import type { RosterMember } from "@hyperidle/domain-model";
 import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -154,36 +154,37 @@ export function AgentDetailPane({
 			// Note: NO <Dialog> shell — no role="dialog" (AC#3 requirement).
 			data-testid="agent-detail-pane"
 			header={
-				/* Pane header — Save / Cancel + agent name */
-				<div className="flex items-center gap-[12px] px-[24px] py-[18px] border-b border-[var(--border-subtle)] shrink-0">
-					<h2 className="flex-1 text-[17px] font-semibold text-[var(--text-primary)] leading-tight truncate">
-						{agentName}
-					</h2>
-					{isDirty && (
-						<span className="text-[11px] text-[var(--text-tertiary)] shrink-0">
-							Unsaved changes
-						</span>
-					)}
-					<div className="flex items-center gap-[6px] shrink-0">
-						<Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={saving}>
-							Cancel
-						</Button>
-						<Button
-							variant="primary"
-							size="sm"
-							type="button"
-							onClick={() => void handleSave()}
-							disabled={saving}
-						>
-							{saving && <span className="loading loading-spinner loading-xs" />}
-							Save
-						</Button>
-					</div>
-				</div>
+				<PageHeader
+					presentation="pane"
+					reservePaneControls
+					title={agentName}
+					actions={
+						<>
+							{isDirty && (
+								<span className="text-[11px] text-[var(--text-tertiary)] shrink-0">
+									Unsaved changes
+								</span>
+							)}
+							<Button variant="ghost" size="sm" type="button" onClick={onClose} disabled={saving}>
+								Cancel
+							</Button>
+							<Button
+								variant="primary"
+								size="sm"
+								type="button"
+								onClick={() => void handleSave()}
+								disabled={saving}
+							>
+								{saving && <span className="loading loading-spinner loading-xs" />}
+								Save
+							</Button>
+						</>
+					}
+				/>
 			}
 		>
 			{/* Same content as AgentEditDialog, Dialog shell stripped */}
-			<div className="p-[24px]">
+			<div className="p-[18px]">
 				{/* Header */}
 				<div className="flex items-start gap-[12px] mb-[18px]">
 					<Avatar initials={initials} size="sm" agent />

@@ -207,12 +207,15 @@ describe("W3 AC-51 — Backend section showing mode", () => {
 // ---------------------------------------------------------------------------
 // AC-52: Settings content max-width 680px, centered
 // ---------------------------------------------------------------------------
-describe("W3 AC-52 — Settings max-width 680px", () => {
-	it("settings body container has max-w-[680px] and mx-auto", () => {
+describe("W3 AC-52 — Settings lanes", () => {
+	it("simple settings use a centered 680px lane inside the wider workbench", () => {
 		renderSettingsPage();
 		const settingsBody = document.querySelector("[data-testid='settings-body']");
-		expect(settingsBody).not.toBeNull();
-		expect(settingsBody?.className).toMatch(/max-w-\[680px\]/);
-		expect(settingsBody?.className).toMatch(/mx-auto/);
+		const profile = document.querySelector("[data-testid='settings-section-profile']");
+		const agents = document.querySelector("[data-testid='settings-section-agents']");
+		expect(settingsBody?.className).not.toMatch(/max-w-/);
+		expect(profile?.className).toMatch(/max-w-\[680px\]/);
+		expect(profile?.className).toMatch(/mx-auto/);
+		expect(agents?.className).toMatch(/max-w-\[960px\]/);
 	});
 });

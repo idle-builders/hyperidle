@@ -130,4 +130,5 @@ export interface ReviewCompositionProps {
 	readonly threadId?: string;
 	readonly initialOpenArtifactId?: string | null;
 	readonly resolved?: boolean;
+	readonly presentation?: "page" | "pane";
 }

@@ -208,16 +208,22 @@ function FrameHeader({
 	onToggleMenu,
 	onSubmitVerdict,
 	resolved,
+	presentation,
+	reservePaneControls,
 }: {
 	readonly subject: ComposedReviewSubject;
 	readonly menuOpen: boolean;
 	readonly onToggleMenu: () => void;
 	readonly onSubmitVerdict: (decision: VerdictDecision) => void;
 	readonly resolved?: boolean;
+	readonly presentation: "page" | "pane";
+	readonly reservePaneControls?: boolean;
 }): JSX.Element {
 	const s = subject;
 	return (
 		<PageHeader
+			presentation={presentation}
+			reservePaneControls={reservePaneControls}
 			title={s.title}
 			leading={
 				<Breadcrumb
@@ -683,30 +689,38 @@ function ExaminePane({
 		<aside className="flex h-full flex-col bg-[var(--surface-container)]">
 			<PageScaffold
 				header={
-					<div className="flex items-center gap-[9px] border-b border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
-						<KindBadge kind={artifact.kind} />
-						<ToolLogo tool={artifact.tool as ToolId} size="sm" />
-						<h2 className="min-w-0 flex-1 truncate font-mono text-[13px] font-[600] text-[var(--text-primary)]">
-							{artifact.title}
-						</h2>
-						<button
-							type="button"
-							onClick={() => {
-								/* no-op */
-							}}
-							className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
-						>
-							Comment on this
-						</button>
-						<button
-							type="button"
-							aria-label="Close artifact"
-							onClick={onClose}
-							className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[14px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
-						>
-							✕
-						</button>
-					</div>
+					<PageHeader
+						presentation="pane"
+						reservePaneControls
+						title={
+							<span className="flex min-w-0 items-center gap-[9px]">
+								<KindBadge kind={artifact.kind} />
+								<ToolLogo tool={artifact.tool as ToolId} size="sm" />
+								<span className="truncate">{artifact.title}</span>
+							</span>
+						}
+						actions={
+							<>
+								<button
+									type="button"
+									onClick={() => {
+										/* no-op */
+									}}
+									className="rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[12px] font-[500] text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+								>
+									Comment on this
+								</button>
+								<button
+									type="button"
+									aria-label="Close artifact"
+									onClick={onClose}
+									className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border border-[var(--border-default)] bg-[var(--surface-elevated)] text-[14px] leading-none text-[var(--text-secondary)] transition-colors duration-[var(--motion-fast)] ease-[var(--motion-ease)] hover:text-[var(--text-primary)]"
+								>
+									✕
+								</button>
+							</>
+						}
+					/>
 				}
 			>
 				<div className="flex flex-col gap-[18px] p-[18px]">
@@ -738,6 +752,7 @@ export function ReviewComposition({
 	threadId,
 	initialOpenArtifactId = null,
 	resolved: resolvedProp,
+	presentation = "page",
 }: ReviewCompositionProps): JSX.Element {
 	const [activeId, setActiveId] = useState<string | null>(initialOpenArtifactId);
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -746,6 +761,7 @@ export function ReviewComposition({
 	const { sidebarMobile } = useViewportBreakpoint();
 
 	const activeArtifact = subject.artifacts.find((a) => a.id === activeId) ?? null;
+	const listPresentation = activeArtifact ? "pane" : presentation;
 	const resolved = resolvedProp ?? subject.verdict?.decision !== undefined;
 
 	const openArtifact = useCallback((id: string) => {
@@ -794,6 +810,7 @@ export function ReviewComposition({
 	const reviewListPane = (
 		<div className="h-full bg-[var(--surface-page)] text-[var(--text-primary)]">
 			<PageScaffold
+				frame={listPresentation === "page" ? "page" : "local"}
 				header={
 					<FrameHeader
 						subject={subject}
@@ -801,10 +818,18 @@ export function ReviewComposition({
 						onToggleMenu={() => setMenuOpen((v) => !v)}
 						onSubmitVerdict={onSubmitVerdict}
 						resolved={resolved}
+						presentation={listPresentation}
+						reservePaneControls={presentation === "pane" && activeArtifact === null}
 					/>
 				}
 			>
-				<div className="flex max-w-[920px] flex-col gap-[36px] px-[24px] py-[24px]">
+				<div
+					className={
+						listPresentation === "page"
+							? "flex max-w-[920px] flex-col gap-[36px] py-[24px]"
+							: "flex flex-col gap-[36px] p-[18px]"
+					}
+				>
 					<TaskSection subject={subject} />
 					<ResultSection subject={subject} />
 					<NeedsSection subject={subject} onJump={openArtifact} />

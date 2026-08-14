@@ -116,8 +116,8 @@ export function WorkTeam({
 	// Loading state
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
-			<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
-				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
+				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
 					<SkeletonCard ariaLabel="Loading team header" />
 					<SkeletonCard ariaLabel="Loading burn vs cap" />
 					<SkeletonCard ariaLabel="Loading active bets" />
@@ -132,8 +132,12 @@ export function WorkTeam({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
-				<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
-					<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+				<PageScaffold
+					frame="page"
+					header={<PageHeader title="Team" />}
+					data-testid="work-team-page"
+				>
+					<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
 						<EmptyState
 							title="Team not found"
 							description="The team you are looking for does not exist or has been removed."
@@ -144,8 +148,8 @@ export function WorkTeam({
 			);
 		}
 		return (
-			<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
-				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
+				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
 					<ErrorState title="Failed to load team" description={error.message} />
 				</div>
 			</PageScaffold>
@@ -155,8 +159,8 @@ export function WorkTeam({
 	// Null data after loading/error — 404 from overrideData=null path
 	if (data === null) {
 		return (
-			<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
-				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
+				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
 					<EmptyState
 						title="Team not found"
 						description="The team you are looking for does not exist or has been removed."
@@ -173,8 +177,8 @@ export function WorkTeam({
 	// than crashing in WorkTeamLoaded at `data.team.leadAgentId`.
 	if (!data.team) {
 		return (
-			<PageScaffold header={<PageHeader title="Team" />} data-testid="work-team-page">
-				<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
+				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
 					<EmptyState
 						title="Team not found"
 						description="The team you are looking for does not exist or has been removed."
@@ -234,6 +238,7 @@ function WorkTeamLoaded({
 
 	const selectedRoutineId = searchParams.get("routine");
 	const selectedAgentId = searchParams.get("agent");
+	const hasSelection = selectedRoutineId !== null || selectedAgentId !== null;
 
 	// AB3: dialog state
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -292,7 +297,13 @@ function WorkTeamLoaded({
 	// no-selection path removes the now-redundant hand-written wrapper instead
 	// of just fixing its ancestor.
 	const teamBodyContent = (
-		<div className="max-w-[960px] mx-auto w-full p-[24px] flex flex-col gap-[24px]">
+		<div
+			className={
+				hasSelection
+					? "w-full p-[18px] flex flex-col gap-[24px]"
+					: "max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]"
+			}
+		>
 			{/* R4 — Team summary stat strip (AG1: replaces KeyValue burn list) */}
 			{/*
 			 * @lore AU21 Increment 14a: the Burn/Cap stat tiles + cap-utilization
@@ -693,8 +704,34 @@ function WorkTeamLoaded({
 			)}
 		</div>
 	); // end teamBodyContent
-
-	const hasSelection = selectedRoutineId !== null || selectedAgentId !== null;
+	const teamHeader = (presentation: "page" | "pane"): JSX.Element => (
+		<PageHeader
+			presentation={presentation}
+			title={team.name}
+			leading={
+				<Breadcrumb
+					segments={[
+						{ label: "Work", to: "/work", testId: "team-breadcrumb-back" },
+						{ label: team.name },
+					]}
+					leading={
+						!sidebarMobile ? (
+							<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
+						) : undefined
+					}
+					LinkComponent={RRLink}
+				/>
+			}
+			subtitle={
+				<span className="text-[13px] text-[var(--text-tertiary)]">
+					Phase: {team.phase}
+					{leadName && ` · Lead: ${leadName}`}
+				</span>
+			}
+			actions={<StatusChip status={team.status} />}
+		/>
+	);
+	const teamPane = <PageScaffold header={teamHeader("pane")}>{teamBodyContent}</PageScaffold>;
 
 	return (
 		<>
@@ -710,33 +747,8 @@ function WorkTeamLoaded({
 			    nothing and it grew to its full content height (round.md §2.3, shape
 			    C). Routine and agent selections are mutually exclusive (plan §2.4). */}
 			<PageScaffold
-				header={
-					<PageHeader
-						title={team.name}
-						leading={
-							/* AG4: DS Breadcrumb — team-breadcrumb-back testId preserved on first segment link */
-							<Breadcrumb
-								segments={[
-									{ label: "Work", to: "/work", testId: "team-breadcrumb-back" },
-									{ label: team.name },
-								]}
-								leading={
-									!sidebarMobile ? (
-										<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
-									) : undefined
-								}
-								LinkComponent={RRLink}
-							/>
-						}
-						subtitle={
-							<span className="text-[13px] text-[var(--text-tertiary)]">
-								Phase: {team.phase}
-								{leadName && ` · Lead: ${leadName}`}
-							</span>
-						}
-						actions={<StatusChip status={team.status} />}
-					/>
-				}
+				frame="page"
+				header={hasSelection ? undefined : teamHeader("page")}
 				body={hasSelection ? "managed" : "scroll"}
 				data-testid="work-team-page"
 			>
@@ -751,7 +763,7 @@ function WorkTeamLoaded({
 						onModeChange={(mode) => {
 							if (mode === "fold-back") setSearchParams({});
 						}}
-						origin={teamBodyContent}
+						origin={teamPane}
 						destination={
 							<RoutineDetailPane
 								routineId={selectedRoutineId}
@@ -770,7 +782,7 @@ function WorkTeamLoaded({
 						onModeChange={(mode) => {
 							if (mode === "fold-back") setSearchParams({});
 						}}
-						origin={teamBodyContent}
+						origin={teamPane}
 						destination={
 							<AgentDetailPane
 								agent={paneAgent}

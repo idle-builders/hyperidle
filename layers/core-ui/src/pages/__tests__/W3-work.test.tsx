@@ -289,11 +289,12 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 // AC-25: Bet detail content max-width 800px, centered
 // ---------------------------------------------------------------------------
 describe("W3 AC-25 — Bet detail max-width 800px", () => {
-	it("bet detail body container has max-w-[800px] and mx-auto", () => {
+	it("bet detail body keeps 800px measure and starts in the page frame", () => {
 		renderBet();
 		const detailBody = document.querySelector("[data-testid='bet-detail-body']");
 		expect(detailBody).not.toBeNull();
 		expect(detailBody?.className).toMatch(/max-w-\[800px\]/);
-		expect(detailBody?.className).toMatch(/mx-auto/);
+		expect(detailBody?.className).not.toMatch(/mx-auto/);
+		expect(detailBody?.closest("[data-page-frame]")).not.toBeNull();
 	});
 });

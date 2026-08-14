@@ -95,7 +95,11 @@ export function AgentProfile({
 
 	if (loading) {
 		return (
-			<PageScaffold header={<PageHeader title="Agent" />} data-testid="agent-profile-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Agent" />}
+				data-testid="agent-profile-page"
+			>
 				<div className="flex flex-col gap-[12px] p-[24px]">
 					<SkeletonCard ariaLabel="Loading agent profile header" />
 					<SkeletonCard ariaLabel="Loading agent configuration" />
@@ -109,7 +113,11 @@ export function AgentProfile({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
-				<PageScaffold header={<PageHeader title="Agent" />} data-testid="agent-profile-page">
+				<PageScaffold
+					frame="page"
+					header={<PageHeader title="Agent" />}
+					data-testid="agent-profile-page"
+				>
 					<div className="p-[24px]">
 						<EmptyState
 							title="Agent not found"
@@ -121,7 +129,11 @@ export function AgentProfile({
 			);
 		}
 		return (
-			<PageScaffold header={<PageHeader title="Agent" />} data-testid="agent-profile-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Agent" />}
+				data-testid="agent-profile-page"
+			>
 				<div className="p-[24px]">
 					<ErrorState title="Failed to load agent profile" description={error.message} />
 				</div>
@@ -131,7 +143,11 @@ export function AgentProfile({
 
 	if (data === null) {
 		return (
-			<PageScaffold header={<PageHeader title="Agent" />} data-testid="agent-profile-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title="Agent" />}
+				data-testid="agent-profile-page"
+			>
 				<div className="p-[24px]">
 					<EmptyState
 						title="Agent not found"
@@ -207,6 +223,7 @@ function AgentProfileLoaded({
 
 	return (
 		<PageScaffold
+			frame="page"
 			header={
 				/* AI7: PageHeader owns the pinned title strip.
 				    AG4: DS Breadcrumb in leading prop. Identity block stays in body scroll. */
@@ -236,7 +253,7 @@ function AgentProfileLoaded({
 			}
 			data-testid="agent-profile-page"
 		>
-			<div className="flex flex-col gap-[24px] p-[24px]">
+			<div className="flex max-w-[960px] flex-col gap-[24px] py-[24px]">
 				{/* AU26 W6: run state could not be read — say so, never imply health. */}
 				{runStateUnavailable && (
 					<div

@@ -38,20 +38,18 @@ function SectionTitle({ children }: { children: string }): JSX.Element {
 export function SettingsPage(): JSX.Element {
 	return (
 		<PageScaffold
+			frame="page"
 			data-testid="settings-page"
 			header={
 				<PageHeader title="Settings" subtitle="Manage your profile, team, and app preferences." />
 			}
 		>
-			<div
-				data-testid="settings-body"
-				className="flex flex-col gap-[24px] max-w-[680px] mx-auto w-full px-[24px] py-[24px]"
-			>
+			<div data-testid="settings-body" className="flex flex-col gap-[24px] w-full py-[24px]">
 				{/* W3 AC-47: Profile section */}
 				<section
 					id="settings-section-profile"
 					data-testid="settings-section-profile"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Profile</SectionTitle>
 					<SettingsProfile />
@@ -61,7 +59,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-orgchart"
 					data-testid="settings-section-org-chart"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Org chart</SectionTitle>
 					<SettingsOrgChart />
@@ -73,7 +71,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agents"
 					data-testid="settings-section-agents"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[960px] w-full"
 				>
 					<SectionTitle>Agents</SectionTitle>
 					<SettingsAgents />
@@ -82,7 +80,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agent-behavior"
 					data-testid="settings-section-agent-behavior"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Agent behavior</SectionTitle>
 					<SettingsAgentBehavior />
@@ -93,7 +91,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-filesystems"
 					data-testid="settings-section-filesystems"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Filesystems</SectionTitle>
 					<SettingsFilesystems />
@@ -103,7 +101,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agent-backends"
 					data-testid="settings-section-agent-backends"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[960px] w-full"
 				>
 					<SectionTitle>Agent backends</SectionTitle>
 					<SettingsHarnesses />
@@ -114,7 +112,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-connections"
 					data-testid="settings-section-connections"
-					className="flex flex-col"
+					className="flex flex-col max-w-[680px] mx-auto w-full"
 				>
 					<SettingsConnections />
 				</section>
@@ -125,7 +123,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-appearance"
 					data-testid="settings-section-appearance"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Appearance</SectionTitle>
 					<SettingsAppearance />
@@ -135,7 +133,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-credentials"
 					data-testid="settings-section-credentials"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Credentials</SectionTitle>
 					<CredentialsTab />
@@ -145,7 +143,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-notifications"
 					data-testid="settings-section-notifications"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Notifications</SectionTitle>
 					<SettingsNotifications />
@@ -155,7 +153,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-backend"
 					data-testid="settings-section-backend"
-					className="flex flex-col gap-[9px]"
+					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Backend</SectionTitle>
 					<SettingsBackend />
