@@ -215,7 +215,7 @@ export function Row({
 			<button
 				type="button"
 				{...commonProps}
-				className={`w-full ${clickable?.className ?? baseClasses}`}
+				className={`w-full text-left ${clickable?.className ?? baseClasses}`}
 				onClick={onClick}
 			>
 				{inner}
