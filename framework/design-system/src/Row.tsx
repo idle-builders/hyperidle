@@ -209,11 +209,13 @@ export function Row({
 	if (resolvedAs === "button") {
 		// Simple: onClick + no actions → native <button type="button">
 		// W2 fix: button also gets hover/focus classes from clickableProps.
+		// UI-060: w-full added so the button fills its container (matches the
+		// li-branch inner div which already has w-full on the layout class).
 		return (
 			<button
 				type="button"
 				{...commonProps}
-				className={clickable?.className ?? baseClasses}
+				className={`w-full ${clickable?.className ?? baseClasses}`}
 				onClick={onClick}
 			>
 				{inner}
