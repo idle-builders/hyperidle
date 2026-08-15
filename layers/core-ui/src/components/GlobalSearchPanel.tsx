@@ -2,6 +2,7 @@ import {
 	BetCard,
 	EmptyState,
 	ErrorState,
+	ensureOverlayRoot,
 	KnowledgeRow,
 	SearchField,
 	ThreadRow,
@@ -9,6 +10,7 @@ import {
 } from "@hyperidle/design-system";
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useGlobalSearch } from "../hooks/useGlobalSearch";
 import { useKeyboardNavigation } from "../hooks/useKeyboardNavigation";
 
@@ -137,8 +139,13 @@ export function GlobalSearchPanel({
 	 * max-w-[640px] SURVIVES on this same element — the sanctioned test asserts both attributes
 	 * on the same node. The scrim (backdrop) is rendered as a separate fixed sibling div.
 	 * See architecture.md §Sanctioned assertion changes #2.
+	 *
+	 * @lore UI-001: createPortal into #overlay-root (sibling of #root) prevents the
+	 * panel from being caught by the inert attribute that useDialogBehavior sets on
+	 * #root while a modal is open. Without the portal the input is inside the inerted
+	 * subtree and typing/Escape both become no-ops. Mirrors the Dialog.tsx pattern.
 	 */
-	return (
+	return createPortal(
 		<>
 			{/* Scrim / backdrop — closes on click */}
 			{/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop is a visual overlay; keyboard close is handled by Escape via useKeyboardNavigation */}
@@ -312,6 +319,7 @@ export function GlobalSearchPanel({
 					</div>
 				</div>
 			</FocusTrap>
-		</>
+		</>,
+		ensureOverlayRoot(),
 	);
 }
