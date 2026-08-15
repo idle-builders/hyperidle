@@ -8,6 +8,7 @@ import {
 	ThreadRow,
 	useDialogBehavior,
 } from "@hyperidle/design-system";
+import { relativeShort } from "@hyperidle/presentation-format";
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -193,7 +194,7 @@ export function GlobalSearchPanel({
 						value={search.query}
 						onChange={search.setQuery}
 						loading={search.loading}
-						shortcutKey="K"
+						shortcutKey="⌘K"
 						ref={focusRef}
 					/>
 
@@ -229,7 +230,7 @@ export function GlobalSearchPanel({
 												avatarUrl={AVATAR_PLACEHOLDER}
 												title={c.title}
 												snippet={c.snippet}
-												timestamp={c.timestamp}
+												timestamp={relativeShort(c.timestamp)}
 												kind={c.kind}
 												onClick={() => onNavigate("conversation", c.id)}
 											/>
@@ -284,7 +285,7 @@ export function GlobalSearchPanel({
 												title={k.title}
 												kind={k.kind}
 												status={k.status}
-												timestamp={k.timestamp}
+												timestamp={relativeShort(k.timestamp)}
 												onClick={() => onNavigate("knowledge", k.id)}
 											/>
 										</div>
@@ -309,14 +310,19 @@ export function GlobalSearchPanel({
 					 * render the row structure so the keyboard flow + layout
 					 * match spec. The data-testid lets tests and e2e pin the
 					 * region without coupling to visual text.
+					 * @lore UI: hide when results are on screen — "No recent queries"
+					 * shown alongside matches is contradictory. Only visible when
+					 * the result list is empty (no query or no matches).
 					 */}
-					<div
-						data-testid="search-recent-queries"
-						aria-label="Recent queries"
-						className="type-data border-t-[var(--bw-thin)]   text-[var(--text-tertiary)]  border-[var(--border-subtle)] pt-2 px-1"
-					>
-						<span>No recent queries</span>
-					</div>
+					{!search.hasResults && (
+						<div
+							data-testid="search-recent-queries"
+							aria-label="Recent queries"
+							className="type-data border-t-[var(--bw-thin)]   text-[var(--text-tertiary)]  border-[var(--border-subtle)] pt-2 px-1"
+						>
+							<span>No recent queries</span>
+						</div>
+					)}
 				</div>
 			</FocusTrap>
 		</>,
