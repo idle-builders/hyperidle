@@ -46,13 +46,18 @@ export interface ScopePickerProps {
 }
 
 const PILL_BASE =
-	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-[var(--bw-default)] cursor-pointer focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
+	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-[var(--bw-default)] focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
 
+// @lore UI-007: cursor-pointer lives on the enabled state classes (PILL_ACTIVE / PILL_INACTIVE),
+// NOT in PILL_BASE. Previously PILL_BASE carried cursor-pointer and PILL_DISABLED added
+// cursor-not-allowed — but Tailwind resolves both classes via stylesheet order, not HTML
+// order, so cursor-pointer sometimes won. Moving cursor-pointer out of the base ensures
+// disabled pills never inherit the pointer cursor.
 const PILL_ACTIVE =
-	"bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]";
+	"bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)] cursor-pointer";
 
 const PILL_INACTIVE =
-	"bg-transparent border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]";
+	"bg-transparent border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer";
 
 const PILL_DISABLED = "opacity-40 cursor-not-allowed";
 
