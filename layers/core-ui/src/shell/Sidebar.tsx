@@ -123,6 +123,18 @@ export interface SidebarProps {
 	 * AF8: whether the NotificationPopover is currently open (for aria-expanded).
 	 */
 	notificationPopoverOpen?: boolean;
+
+	/**
+	 * When true, the sidebar is rendered inside the mobile drawer (300px overlay).
+	 * Forces nav labels visible and stacks the nav items vertically regardless of
+	 * viewport width — the drawer itself is the breakpoint gate, not CSS media queries.
+	 *
+	 * @lore mobile-drawer-labels: nav items use `hidden min-[769px]:inline` for labels
+	 * so they collapse at narrow viewports. In the drawer the viewport width stays 375px
+	 * even though the drawer panel is wide enough for labels. Passing drawerMode={true}
+	 * overrides the breakpoint check so the drawer shows labeled items.
+	 */
+	drawerMode?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -142,6 +154,7 @@ interface SectionHeaderProps {
 	onViewChange: (view: ViewId) => void;
 	/** Optional badge count rendered to the right of the label */
 	badgeCount?: number;
+	drawerMode?: boolean;
 }
 
 function BrandMark(): JSX.Element {
@@ -184,10 +197,12 @@ function NotificationButton({
 	unseenNotificationCount,
 	onClick,
 	open,
+	drawerMode,
 }: {
 	unseenNotificationCount?: number;
 	onClick?: () => void;
 	open?: boolean;
+	drawerMode?: boolean;
 }): JSX.Element {
 	const hasUnread = (unseenNotificationCount ?? 0) > 0;
 	return (
@@ -197,7 +212,7 @@ function NotificationButton({
 			onClick={onClick}
 			aria-label="Notifications"
 			aria-expanded={open}
-			className="type-control relative flex h-[44px] w-full items-center justify-center gap-[9px] rounded-[var(--r-subtle)] px-[9px]   text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[769px]:justify-start min-[1025px]:h-[36px]"
+			className={`type-control relative flex h-[44px] w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px]   text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[1025px]:h-[36px] ${drawerMode ? "justify-start" : "justify-center min-[769px]:justify-start"}`}
 		>
 			<span className="inline-flex text-[var(--text-tertiary)]" aria-hidden="true">
 				<svg
@@ -215,7 +230,7 @@ function NotificationButton({
 					<path d="M10 21h4" />
 				</svg>
 			</span>
-			<span className="hidden min-[769px]:inline">Notifications</span>
+			<span className={drawerMode ? "inline" : "hidden min-[769px]:inline"}>Notifications</span>
 			{hasUnread && (
 				<span
 					className="ml-auto h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-error)]"
@@ -232,6 +247,7 @@ function SectionHeader({
 	activeView,
 	onViewChange,
 	badgeCount,
+	drawerMode,
 }: SectionHeaderProps): JSX.Element {
 	const isActive = view === activeView;
 	const { label, icon } = VIEW_ICONS[view];
@@ -246,7 +262,7 @@ function SectionHeader({
 			aria-label={label}
 			aria-current={isActive ? "page" : undefined}
 			className={`type-control ${[
-				"flex h-[44px] w-full items-center justify-center gap-[9px] px-[9px] min-[769px]:justify-start min-[1025px]:h-[36px]",
+				`flex h-[44px] w-full items-center gap-[9px] px-[9px] min-[1025px]:h-[36px] ${drawerMode ? "justify-start" : "justify-center min-[769px]:justify-start"}`,
 				" ",
 				"rounded-[var(--r-subtle)] mb-[3px]",
 				"  ",
@@ -269,7 +285,10 @@ function SectionHeader({
 			>
 				{icon}
 			</span>
-			<span className="hidden min-[769px]:inline" data-section-label={view}>
+			<span
+				className={drawerMode ? "inline" : "hidden min-[769px]:inline"}
+				data-section-label={view}
+			>
 				{label}
 			</span>
 			{badgeCount != null && badgeCount > 0 && (
@@ -534,6 +553,7 @@ export function Sidebar({
 	unseenNotificationCount,
 	onNotificationClick,
 	notificationPopoverOpen,
+	drawerMode,
 }: SidebarProps): JSX.Element {
 	// Cap threads at 5 for the fast-nav head
 	const visibleThreads = threads.slice(0, 5);
@@ -655,13 +675,18 @@ export function Sidebar({
 			</header>
 
 			<nav
-				className="border-b-[var(--bw-thin)] grid h-[52px] shrink-0 grid-cols-4 gap-[3px]  border-[var(--border-subtle)] px-[9px] pb-[3px] min-[769px]:h-auto min-[769px]:grid-cols-1 min-[769px]:gap-0 min-[769px]:pb-[9px] min-[769px]:pt-[6px]"
+				className={`border-b-[var(--bw-thin)] grid shrink-0  border-[var(--border-subtle)] px-[9px] ${
+					drawerMode
+						? "h-auto grid-cols-1 gap-0 pb-[9px] pt-[6px]"
+						: "h-[52px] grid-cols-4 gap-[3px] pb-[3px] min-[769px]:h-auto min-[769px]:grid-cols-1 min-[769px]:gap-0 min-[769px]:pb-[9px] min-[769px]:pt-[6px]"
+				}`}
 				aria-label="Main navigation"
 			>
 				<NotificationButton
 					unseenNotificationCount={unseenNotificationCount}
 					onClick={onNotificationClick}
 					open={notificationPopoverOpen}
+					drawerMode={drawerMode}
 				/>
 				{VIEW_IDS.map((view) => (
 					<SectionHeader
@@ -671,6 +696,7 @@ export function Sidebar({
 						onViewChange={(v) => {
 							onViewChange(v);
 						}}
+						drawerMode={drawerMode}
 						badgeCount={
 							view === "conversations"
 								? conversationsBlockingCount
