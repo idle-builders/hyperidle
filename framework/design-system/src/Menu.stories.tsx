@@ -103,6 +103,50 @@ export function AlignStart(): JSX.Element {
 	);
 }
 
+export function WithIcons(): JSX.Element {
+	const iconItems: MenuItem[] = [
+		{
+			id: "add",
+			label: "Add knowledge",
+			icon: (
+				<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+					<path d="M8 3v10M3 8h10" strokeLinecap="round" />
+				</svg>
+			),
+			onSelect: () => {},
+		},
+		{
+			id: "activate",
+			label: "Activate bet",
+			icon: (
+				<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+					<path d="M5 3.5l8 4.5-8 4.5V3.5z" />
+				</svg>
+			),
+			onSelect: () => {},
+		},
+		{
+			id: "kill",
+			label: "Kill",
+			destructive: true,
+			icon: (
+				<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+					<path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+				</svg>
+			),
+			onSelect: () => {},
+		},
+	];
+	return (
+		<div className="p-[18px] flex gap-[24px]">
+			<div>
+				<p className="text-[12px] text-[var(--text-tertiary)] mb-[6px]">Items with leading icons</p>
+				<ToggleMenu items={iconItems} label="Bet actions" align="end" />
+			</div>
+		</div>
+	);
+}
+
 export function DataAttrsPassthrough(): JSX.Element {
 	const betItems: MenuItem[] = [
 		{
