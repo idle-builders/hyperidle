@@ -14,14 +14,14 @@ const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 211, default: 17, strong: 11 }
 const EXPECTED = {
 	typography: {
 		label: 116,
-		metadata: 231,
+		metadata: 230,
 		small: 231,
 		copy: 45,
 		control: 90,
 		input: 11,
 		"avatar-initial": 14,
 		subheading: 10,
-		lead: 10,
+		lead: 9,
 		title: 11,
 		display: 3,
 		metric: 7,

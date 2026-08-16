@@ -34,6 +34,7 @@
 // hearth-internal-padding
 import {
 	Button,
+	Checkbox,
 	EmptyState,
 	ErrorState,
 	Input,
@@ -455,22 +456,13 @@ function RoutineDetailPaneLoaded({
 								</div>
 							)}
 
-							<div className="flex items-center gap-[9px] mb-[9px]">
-								<input
-									id="routine-silent-toggle"
-									aria-label="Silent"
-									type="checkbox"
-									className="checkbox checkbox-sm"
+							<div className="mb-[9px]">
+								<Checkbox
+									label="Silent — don't post on each run"
 									checked={silent}
-									onChange={(e) => setSilent(e.target.checked)}
+									onChange={(checked) => setSilent(checked)}
 									disabled={saving}
 								/>
-								<label
-									className="type-metadata  text-[var(--text-secondary)] cursor-pointer"
-									htmlFor="routine-silent-toggle"
-								>
-									Silent — don't post on each run
-								</label>
 							</div>
 						</>
 					) : (
