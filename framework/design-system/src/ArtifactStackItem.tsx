@@ -43,7 +43,9 @@ export function ArtifactStackItem({
 				<ArtifactKindBadge kind={data.kind} />
 				<span className={`type-copy ${TITLE}`}>{artifactDisplayTitle(data)}</span>
 				{data.label && (
-					<span className="type-label shrink-0 max-w-[100px] truncate text-[var(--text-tertiary)] uppercase">{data.label}</span>
+					<span className="type-label shrink-0 max-w-[100px] truncate text-[var(--text-tertiary)] uppercase">
+						{data.label}
+					</span>
 				)}
 				<span className={`type-data ${TASK}`}>{data.producingTaskTitle}</span>
 			</span>

@@ -17,7 +17,7 @@ const EXPECTED = {
 		metadata: 232,
 		small: 229,
 		copy: 45,
-		control: 90,
+		control: 92, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
 		input: 11,
 		"avatar-initial": 14,
 		subheading: 10,

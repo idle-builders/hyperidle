@@ -488,11 +488,11 @@ export function SettingsAgents(): JSX.Element {
 									>
 										Edit
 									</Button>
+									{/* @lore UI-066: one destructive variant app-wide — variant="destructive" replaces ghost+red-text */}
 									{confirmingDeleteId === agent.id ? (
 										<Button
-											variant="ghost"
+											variant="destructive"
 											size="sm"
-											className="text-[var(--status-error)]"
 											onClick={(e) => {
 												e.stopPropagation();
 												void handleDeleteConfirm(agent.id);
@@ -502,9 +502,8 @@ export function SettingsAgents(): JSX.Element {
 										</Button>
 									) : (
 										<Button
-											variant="ghost"
+											variant="destructive"
 											size="sm"
-											className="text-[var(--status-error)]"
 											aria-label={`Delete ${agent.name}`}
 											onClick={(e) => {
 												e.stopPropagation();

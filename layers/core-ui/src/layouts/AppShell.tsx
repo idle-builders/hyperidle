@@ -176,11 +176,25 @@ export function AppShell(): JSX.Element {
 	const drawerOverlayProps = drawerBehavior.getOverlayProps();
 	const drawerScrimProps = drawerBehavior.getScrimProps();
 
-	// @lore UI-002: The document-level Escape workaround was removed. The drawer is
-	// portalled into #overlay-root (a sibling of #root) via createPortal so the
-	// FocusTrap correctly traps focus inside the drawer div. Escape is handled by
-	// drawerOverlayProps.onKeyDown (bound to the drawer div) which calls
-	// drawerBehavior.requestDismiss() — the document-level duplicate is not needed.
+	// @lore UI-002 / AE4: focusTrapOptions.initialFocus=false leaves focus on the
+	// hamburger button (outside the portal) after the drawer opens, so the drawer's
+	// own onKeyDown handler never receives the Escape event. Document-level listener
+	// is the correct fix: it fires regardless of where focus lives and is guarded by
+	// drawerOpen so it only runs while the drawer is visible. capture=true runs before
+	// any bubble-phase handler and stops conflicting handlers from also seeing the key.
+	useEffect(() => {
+		if (!drawerOpen) return;
+		const handler = (e: KeyboardEvent): void => {
+			if (e.key === "Escape") {
+				e.preventDefault();
+				setDrawerOpen(false);
+			}
+		};
+		document.addEventListener("keydown", handler, true);
+		return () => {
+			document.removeEventListener("keydown", handler, true);
+		};
+	}, [drawerOpen]);
 
 	/**
 	 * AE4: Derive whether the current route is a "detail" route that should
