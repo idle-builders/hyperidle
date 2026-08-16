@@ -50,7 +50,7 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/domain-model";
 import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
-import { relativeShort } from "@hyperidle/presentation-format";
+import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
@@ -61,6 +61,20 @@ import { apiFetch } from "../services/api-fetch.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
 type KnowledgeTab = "triage" | "curated";
+
+/**
+ * UI-045: Convert topic slugs from the API ("GENERAL", "PRODUCT-IDENTITY") to
+ * human-readable title case ("General", "Product Identity").
+ * Splits on hyphens, underscores, and spaces; title-cases each word.
+ */
+function slugToTitle(slug: string): string {
+	return slug
+		.toLowerCase()
+		.split(/[-_\s]+/)
+		.filter(Boolean)
+		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+		.join(" ");
+}
 
 /**
  * S1 fix: hoisted to module scope — was rebuilt per-row as new Set([...]) inside .map(),
@@ -470,7 +484,9 @@ function KnowledgeListContent({
 											data-testid="knowledge-row"
 											data-focused={focusedIndex === index ? "true" : undefined}
 											title={item.title}
-											subtitle={item.body?.slice(0, 120) || undefined}
+											subtitle={
+												item.body ? stripMarkdown(item.body).slice(0, 120) || undefined : undefined
+											}
 											cells={[
 												...(isPrivate
 													? [
@@ -678,7 +694,7 @@ function KnowledgeListContent({
 						filteredGrouped.map((g) => (
 							<KnowledgeTopicGroup
 								key={g.topic}
-								topic={g.topic}
+								topic={slugToTitle(g.topic)}
 								itemCount={g.items.length}
 								staleCount={g.staleCount}
 								health={g.health}
@@ -699,7 +715,11 @@ function KnowledgeListContent({
 												as="li"
 												data-testid="knowledge-row"
 												title={item.title}
-												subtitle={item.body?.slice(0, 120) || undefined}
+												subtitle={
+													item.body
+														? stripMarkdown(item.body).slice(0, 120) || undefined
+														: undefined
+												}
 												cells={[
 													...(isPrivate
 														? [
