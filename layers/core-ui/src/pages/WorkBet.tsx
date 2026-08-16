@@ -798,6 +798,18 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 										{
 											id: "add-knowledge",
 											label: "Add knowledge",
+											icon: (
+												<svg
+													viewBox="0 0 16 16"
+													className="w-[16px] h-[16px]"
+													fill="none"
+													stroke="currentColor"
+													strokeWidth="1.5"
+													aria-hidden="true"
+												>
+													<path d="M8 3v10M3 8h10" strokeLinecap="round" />
+												</svg>
+											),
 											onSelect: () => setAddKnowledgeOpen(true),
 											dataAttrs: { "data-bet-action": "add-knowledge" },
 										} satisfies MenuItem,
@@ -806,6 +818,16 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													{
 														id: "activate",
 														label: "Activate bet",
+														icon: (
+															<svg
+																viewBox="0 0 16 16"
+																className="w-[16px] h-[16px]"
+																fill="currentColor"
+																aria-hidden="true"
+															>
+																<path d="M5 3.5l8 4.5-8 4.5V3.5z" />
+															</svg>
+														),
 														onSelect: () => handleAction("activate"),
 														dataAttrs: { "data-bet-action": "activate" },
 													} satisfies MenuItem,
@@ -816,6 +838,19 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													{
 														id: "unblock",
 														label: "Unblock",
+														icon: (
+															<svg
+																viewBox="0 0 16 16"
+																className="w-[16px] h-[16px]"
+																fill="none"
+																stroke="currentColor"
+																strokeWidth="1.5"
+																aria-hidden="true"
+															>
+																<rect x="4" y="7" width="8" height="6" rx="1" />
+																<path d="M6 7V5a2 2 0 0 1 4 0" strokeLinecap="round" />
+															</svg>
+														),
 														onSelect: () => handleAction("unblock"),
 														dataAttrs: { "data-bet-action": "unblock" },
 													} satisfies MenuItem,
@@ -827,6 +862,18 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 														id: "kill",
 														label: "Kill",
 														destructive: true,
+														icon: (
+															<svg
+																viewBox="0 0 16 16"
+																className="w-[16px] h-[16px]"
+																fill="none"
+																stroke="currentColor"
+																strokeWidth="1.5"
+																aria-hidden="true"
+															>
+																<path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+															</svg>
+														),
 														onSelect: () => handleAction("kill"),
 														dataAttrs: { "data-bet-action": "kill" },
 													} satisfies MenuItem,

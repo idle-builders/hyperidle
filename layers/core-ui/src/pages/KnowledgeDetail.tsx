@@ -10,6 +10,7 @@ import {
 	PageHeader,
 	PageScaffold,
 	SectionLabel,
+	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
 /**
@@ -307,8 +308,24 @@ export function KnowledgeDetail({
 	// items (k1, k2, k11, k12) are used when the API returns null (test env or
 	// when item doesn't exist in the DB). Full fixture removal deferred to a
 	// future workpackage once tests are migrated to seeded DB data.
-	const { data: apiItem } = useKnowledgeItem(knowledgeId);
+	const { data: apiItem, isLoading: apiLoading } = useKnowledgeItem(knowledgeId);
 	const fixtureItem = findDetail(knowledgeId);
+
+	// @lore UI-knowledge-loading: while the API call is in flight both apiItem and
+	// fixtureItem are null/undefined for real (non-fixture) ids. Without the loading
+	// guard the component falls through to FALLBACK_DETAIL which boldly claims
+	// "Unknown Knowledge Item / This knowledge item was not found." — a confident
+	// not-found claim during a transient loading state. Show a skeleton instead.
+	if (apiLoading && !fixtureItem) {
+		return (
+			<PageScaffold frame="page" header={<PageHeader title="Knowledge" />}>
+				<div className="flex flex-col gap-[12px] p-[24px]">
+					<SkeletonCard ariaLabel="Loading knowledge item" />
+					<SkeletonCard ariaLabel="Loading knowledge body" />
+				</div>
+			</PageScaffold>
+		);
+	}
 
 	let item: DetailItem;
 	if (apiItem) {

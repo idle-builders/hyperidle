@@ -438,7 +438,12 @@ function KnowledgeListContent({
 			</div>
 
 			{tab === "triage" ? (
-				<div className="flex flex-col" data-testid="knowledge-triage-view">
+				// @lore UI-125: block (not flex) so sticky bottom-0 on the hint bar resolves
+				// to the scroll container (overflow-y-auto), not to this flex container.
+				// position:sticky's containing block for flex items is the flex parent,
+				// which has no overflow — so sticky never fired. Block flow lets it find
+				// the real scroll ancestor.
+				<div data-testid="knowledge-triage-view">
 					{apiLoading ? (
 						<div className="py-[12px]">
 							<SkeletonList rows={4} ariaLabel="Loading triage items" />

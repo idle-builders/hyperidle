@@ -198,15 +198,20 @@ export function SplitView({
 			data-fold-mode={mode}
 		>
 			{showOrigin ? (
+				// @lore UI-122: origin pane uses overflow-hidden on the rounded card wrapper
+				// and overflow-auto on the inner scroll container — same as destination.
+				// overflow-auto alone does not clip child backgrounds at border-radius in
+				// Chromium scroll containers, so row hover/selected backgrounds leaked
+				// past the card's rounded corners (white corner notches).
 				<div
 					hidden={compactDestination}
-					className={`flex min-w-0 flex-col overflow-auto ${paneSurfaceClass}`}
+					className={`flex min-w-0 flex-col overflow-hidden ${paneSurfaceClass}`}
 					style={{
 						flexGrow: isSplit ? 0 : 1,
 						flexBasis: isSplit ? `${ratio * 100}%` : "100%",
 					}}
 				>
-					{origin}
+					<div className="min-h-0 flex-1 overflow-auto">{origin}</div>
 				</div>
 			) : null}
 

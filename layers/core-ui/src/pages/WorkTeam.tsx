@@ -30,6 +30,7 @@ import {
 	EmptyState,
 	ErrorState,
 	ItemList,
+	KpiStat,
 	PageHeader,
 	PageScaffold,
 	Row,
@@ -331,55 +332,75 @@ function WorkTeamLoaded({
 				 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
 				 * plans/AG1/design/approved.md §2 + §4a.
 				 */}
+				{/* @lore UI-065: StatTile replaced with KpiStat (design-system primitive) +
+				    a border card wrapper. KpiStat is the canonical metric-display primitive
+				    (AM5); the bordered card is layout context, not a new component. The `sub`
+				    field was added to KpiStatMetric (optional, backward-compatible) so the
+				    contextual annotation line ("active bets", "1 idle agent") is preserved. */}
 				<div className="flex gap-[12px] flex-wrap">
 					{/* Capacity tile */}
-					<StatTile
-						label="Capacity"
-						value={`${burn.activeBets} / ${burn.capacity}`}
-						sub="active bets"
-					/>
+					<div
+						data-testid="stat-tile"
+						className="border-[var(--bw-thin)] flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
+					>
+						<KpiStat
+							metrics={[
+								{
+									label: "Capacity",
+									value: `${burn.activeBets} / ${burn.capacity}`,
+									sub: "active bets",
+								},
+							]}
+						/>
+					</div>
 					{/* Agent Health tile — derives from roster; empty → "—"/"No agents" */}
 					{(() => {
-						if (roster.length === 0) {
-							return <StatTile label="Agent Health" value="—" sub="No agents" />;
-						}
-						if (rosterRunStateUnknown) {
-							return (
-								<StatTile
-									label="Agent Health"
-									value="—"
-									sub={rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state"}
-								/>
+						const agentHealthMetric = (() => {
+							if (roster.length === 0) {
+								return { label: "Agent Health", value: "—", sub: "No agents" };
+							}
+							if (rosterRunStateUnknown) {
+								return {
+									label: "Agent Health",
+									value: "—",
+									sub: rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state",
+								};
+							}
+							const runStates = roster.map(
+								(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
 							);
-						}
-						const runStates = roster.map(
-							(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
-						);
-						const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
-						const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
-						// @lore AZ7 B4 (review round 1): this tile rolls up
-						// RosterRunState.healthLevel ("healthy" | "warning" | "critical",
-						// @hyperidle/domain-model team.ts) — a per-agent run-health signal,
-						// computed client-side by useRosterRunState. It is NOT
-						// deriveTeamStatus's "healthy" | "behind" | "blocked" (bets over
-						// capacity / a blocked task; core-api/routes/teams-routes.ts),
-						// which is what the header StatusChip at :728 renders. Two
-						// genuinely different measurements over the same team. The first
-						// attempt reused the header's own word ("Behind") for this tile,
-						// which read as a second, contradicting status for the same
-						// object whenever the two happened to disagree (e.g. header
-						// BLOCKED, tile "Behind" — looks like a typo, is actually two
-						// unrelated facts). Fixed by giving this tile its own label
-						// ("Agent Health", not "Status") and its own vocabulary
-						// ("Needs attention" / "On track", neither of which is a
-						// StatusChip word) so it can never be misread as a second
-						// opinion on team.status.
+							const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
+							const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
+							// @lore AZ7 B4 (review round 1): this tile rolls up
+							// RosterRunState.healthLevel ("healthy" | "warning" | "critical",
+							// @hyperidle/domain-model team.ts) — a per-agent run-health signal,
+							// computed client-side by useRosterRunState. It is NOT
+							// deriveTeamStatus's "healthy" | "behind" | "blocked" (bets over
+							// capacity / a blocked task; core-api/routes/teams-routes.ts),
+							// which is what the header StatusChip at :728 renders. Two
+							// genuinely different measurements over the same team. The first
+							// attempt reused the header's own word ("Behind") for this tile,
+							// which read as a second, contradicting status for the same
+							// object whenever the two happened to disagree (e.g. header
+							// BLOCKED, tile "Behind" — looks like a typo, is actually two
+							// unrelated facts). Fixed by giving this tile its own label
+							// ("Agent Health", not "Status") and its own vocabulary
+							// ("Needs attention" / "On track", neither of which is a
+							// StatusChip word) so it can never be misread as a second
+							// opinion on team.status.
+							return {
+								label: "Agent Health",
+								value: hasAttention ? "Needs attention" : "On track",
+								sub: `${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`,
+							};
+						})();
 						return (
-							<StatTile
-								label="Agent Health"
-								value={hasAttention ? "Needs attention" : "On track"}
-								sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
-							/>
+							<div
+								data-testid="stat-tile"
+								className="border-[var(--bw-thin)] flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
+							>
+								<KpiStat metrics={[agentHealthMetric]} />
+							</div>
 						);
 					})()}
 				</div>
@@ -792,51 +813,8 @@ function WorkTeamLoaded({
 }
 
 // ---------------------------------------------------------------------------
-// StatTile — AG1: private display tile for the summary stat strip.
-// Label-over-value layout. Not exported — file-local helper only.
-// Each tile gets data-testid="stat-tile" so tests can count and inspect them.
-// ---------------------------------------------------------------------------
-
-/**
- * AG1: Private stat tile. One tile per summary metric (Burn/Cap/Capacity/Status).
- * Display-only; no interactivity. value and sub are pre-formatted strings.
- *
- * @lore AG1: flex-1 min-w-[180px] allows tiles to wrap (flex-wrap on container)
- * at narrow viewports without breaking to 4 stacked rows at normal desktop widths.
- */
-function StatTile({
-	label,
-	value,
-	sub,
-}: {
-	label: string;
-	value: string;
-	sub?: string;
-}): JSX.Element {
-	return (
-		<div
-			data-az16-profile="thin"
-			data-testid="stat-tile"
-			className="border-[var(--bw-thin)] flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px] flex flex-col gap-[6px]"
-		>
-			<span
-				data-az16-profile="label"
-				className="type-label   uppercase   text-[var(--text-tertiary)]"
-			>
-				{label}
-			</span>
-			<span
-				data-az16-profile="metric"
-				className="type-metric   text-[var(--text-primary)] tabular-nums"
-			>
-				{value}
-			</span>
-			{sub !== undefined && (
-				<span className="type-label  text-[var(--text-tertiary)] tabular-nums">{sub}</span>
-			)}
-		</div>
-	);
-}
+// StatTile removed — replaced by KpiStat (design-system primitive) + border card
+// wrapper in the stat strip. See @lore UI-065 comment in the R4 section above.
 
 /**
  * Single active-bet row rendered inside R2. Uses design-system Row for flush layout.

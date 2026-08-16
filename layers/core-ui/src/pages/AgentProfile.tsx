@@ -111,6 +111,7 @@ export function AgentProfile({
 	overrideRunState,
 }: AgentProfileProps = {}): JSX.Element {
 	const { agentId } = useParams<{ agentId: string }>();
+	const navigate = useNavigate();
 
 	const fetched = useAgentProfile(overrideData !== undefined ? undefined : agentId);
 
@@ -156,6 +157,16 @@ export function AgentProfile({
 				</PageScaffold>
 			);
 		}
+		// @lore UI-014: show a user-facing sentence, no raw status code. The hook's
+		// error.message contains "Agent profile fetch failed: 429" (or similar HTTP codes)
+		// which are meaningless to founders. Map to plain English + a retry.
+		const is429 = error.message.includes("429");
+		const is5xx = /5\d\d/.test(error.message);
+		const friendlyMessage = is429
+			? "Too many requests. Please wait a moment and try again."
+			: is5xx
+				? "Something went wrong on the server. Please try again."
+				: "This profile couldn't be loaded. Please try again.";
 		return (
 			<PageScaffold
 				body="managed"
@@ -163,7 +174,11 @@ export function AgentProfile({
 				data-testid="agent-profile-page"
 			>
 				<div className="flex-1 flex items-center justify-center p-[48px_24px]">
-					<ErrorState title="Failed to load agent profile" description={error.message} />
+					<ErrorState
+						title="Failed to load agent profile"
+						description={friendlyMessage}
+						onRetry={() => navigate(0)}
+					/>
 				</div>
 			</PageScaffold>
 		);
@@ -217,8 +232,22 @@ function AgentProfileLoaded({
 		overrideRunState ? null : data.id,
 		data.harnessAvailable,
 	);
-	const { activeSession, recentSessions, performance, healthSignals, status } =
-		overrideRunState ?? fetchedRunState;
+	const {
+		activeSession,
+		recentSessions: rawRecentSessions,
+		performance,
+		healthSignals,
+		status,
+	} = overrideRunState ?? fetchedRunState;
+
+	// @lore UI-072: orchestration can return duplicate sessionId rows when a run
+	// appears in both the "active" slot and the "recent" list mid-flight, or when
+	// the hook re-maps the same run twice via flatMap. Dedup by sessionId (first
+	// occurrence wins) before rendering. This is a display-only guard — the source
+	// of truth is not altered.
+	const recentSessions = rawRecentSessions.filter(
+		(session, index, arr) => arr.findIndex((s) => s.sessionId === session.sessionId) === index,
+	);
 	// @lore AU26 review W6: a failed run read must not paint a healthy agent.
 	// `computeHealthSignals([])` says "not degraded" — true of an agent with no
 	// runs, a lie about an agent whose runs we could not read. The banner below
@@ -303,6 +332,10 @@ function AgentProfileLoaded({
 				)}
 
 				{/* F2: Health banner — only shown when degraded, has role="alert" */}
+				{/* @lore UI-105: icon + "Edit in Settings" route added — the banner carried
+				    copy but no icon or action. A warning icon makes the alert immediately
+				    scannable; the Settings route (same as the Edit button) lets the founder
+				    act on "harness not available" without scrolling the page. */}
 				{!runStateUnavailable && healthSignals.degraded && (
 					<div
 						role="alert"
@@ -313,18 +346,38 @@ function AgentProfileLoaded({
 								"var(--bw-thin) solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
 						}}
 					>
-						<span className="type-small  text-[var(--text-primary)]">Health warning</span>
-						{healthSignals.failureRate7d > 0.5 && (
-							<span className="ml-[6px]">
-								High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in last 7 days.
-							</span>
-						)}
-						{healthSignals.lastSessionCrashed && (
-							<span className="ml-[6px]">Last session crashed.</span>
-						)}
-						{!healthSignals.harnessAvailable && (
-							<span className="ml-[6px]">Required harness not available.</span>
-						)}
+						<div className="flex items-start gap-[9px]">
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 16 16"
+								fill="currentColor"
+								className="shrink-0"
+								style={{ width: 14, height: 14, color: "var(--status-warning)" }}
+							>
+								<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.25 5h1.5l-.25 4.5h-1L7.25 5z" />
+							</svg>
+							<div className="flex-1 min-w-0">
+								<span className="type-small  text-[var(--text-primary)]">Health warning</span>
+								{healthSignals.failureRate7d > 0.5 && (
+									<span className="ml-[6px]">
+										High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in last 7
+										days.
+									</span>
+								)}
+								{healthSignals.lastSessionCrashed && (
+									<span className="ml-[6px]">Last session crashed.</span>
+								)}
+								{!healthSignals.harnessAvailable && (
+									<span className="ml-[6px]">Required harness not available.</span>
+								)}
+								<RRLink
+									to="/conversations?settings=open"
+									className="type-control ml-[12px]  text-[var(--accent-deep)] hover:underline"
+								>
+									Edit in Settings
+								</RRLink>
+							</div>
+						</div>
 					</div>
 				)}
 
@@ -462,6 +515,12 @@ function AgentProfileLoaded({
 					) : recentSessions.length === 0 ? (
 						<p className="type-metadata  text-[var(--text-tertiary)]">No sessions recorded.</p>
 					) : (
+						// @lore UI-073: an HTML <table> is the right element here — this is
+						// genuinely tabular data: sessions × (task, outcome, when). A flex/grid
+						// layout would need role=grid and aria-rowcount/colcount to stay
+						// accessible; a table gets those semantics for free and lets screen
+						// readers announce "row 3 of 8, column 2: completed". ThreadRow is for
+						// conversation-like entries with avatar + unread count — not applicable.
 						<table className="type-metadata w-full " aria-label="Recent agent session activity">
 							<thead>
 								<tr className="border-b-[var(--bw-thin)] text-[var(--text-tertiary)] text-left  border-[var(--border-subtle)]">
