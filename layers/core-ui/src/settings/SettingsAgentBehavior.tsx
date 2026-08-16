@@ -235,7 +235,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 				{Object.entries(CATEGORY_LABELS).map(([kind, label]) => (
 					<div
 						key={kind}
-						className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[6px]"
+						className="border-width-thin rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[9px] py-[6px]"
 					>
 						<div className="type-metadata   text-[var(--text-primary)]">{label}</div>
 						<div className="type-label  text-[var(--text-tertiary)]">
@@ -359,7 +359,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 								<a
 									key={link.href}
 									href={link.href}
-									className="type-control border-[var(--bw-thin)] inline-flex min-h-[32px] items-center rounded-[var(--r-pill)]  border-[var(--border-default)] px-[12px]   text-[var(--text-primary)]"
+									className="type-control border-width-thin inline-flex min-h-[32px] items-center rounded-[var(--r-pill)]  border-[var(--border-default)] px-[12px]   text-[var(--text-primary)]"
 								>
 									{link.label}
 								</a>

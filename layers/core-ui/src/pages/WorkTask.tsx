@@ -239,7 +239,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 				{/* W3 AC-28: Bordered metadata cell grid */}
 				<div
 					data-testid="task-meta-strip"
-					className="border-[var(--bw-thin)] bg-[var(--surface-page)] rounded-[var(--r-default)]  border-[var(--border-subtle)] flex overflow-hidden"
+					className="border-width-thin bg-[var(--surface-page)] rounded-[var(--r-default)]  border-[var(--border-subtle)] flex overflow-hidden"
 				>
 					{/* Owner */}
 					<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">

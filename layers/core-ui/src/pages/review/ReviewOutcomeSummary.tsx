@@ -119,7 +119,7 @@ function NeedsYouChip({
 		<button
 			type="button"
 			onClick={() => onJump?.(item.jumpLabel)}
-			className="motion-feedback border-[var(--bw-thin)] group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[12px] py-[9px] text-left hover:opacity-90 active:translate-y-[1px]"
+			className="motion-feedback border-width-thin group flex w-full items-start gap-[9px] rounded-[var(--r-subtle)] px-[12px] py-[9px] text-left hover:opacity-90 active:translate-y-[1px]"
 			style={{
 				borderColor: isError ? "var(--status-error)" : "var(--border-default)",
 				background: isError ? "var(--status-error-dim)" : "var(--surface-page)",
@@ -228,7 +228,7 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 
 	return (
 		<section
-			className="border-[var(--bw-thin)] w-full max-w-[760px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-left shadow-[var(--shadow-default)]"
+			className="border-width-thin w-full max-w-[760px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-left shadow-[var(--shadow-default)]"
 			data-ds-component="ReviewOutcomeSummary"
 		>
 			{/* ── L1 ─ one glance ─────────────────────────────────────────── */}
@@ -237,7 +237,7 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 					<div className="flex min-w-0 items-center gap-[9px]">
 						{/* agent author — green-distinct (AQ-012) */}
 						<span
-							className="type-metadata border-[var(--bw-default)] inline-flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-pill)]   "
+							className="type-metadata border-width-default inline-flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-pill)]   "
 							style={{
 								background: "var(--accent-primary-dim)",
 								borderColor: "var(--accent-primary)",
@@ -292,7 +292,7 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 								<button
 									type="button"
 									onClick={() => setExpanded((v) => !v)}
-									className="motion-feedback type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-page)] px-[12px] py-[3px]   text-[var(--text-secondary)]   hover:opacity-80"
+									className="motion-feedback type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-page)] px-[12px] py-[3px]   text-[var(--text-secondary)]   hover:opacity-80"
 								>
 									{expanded ? "Collapse" : "Expand all"}
 								</button>

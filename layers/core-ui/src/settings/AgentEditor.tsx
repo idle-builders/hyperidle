@@ -185,7 +185,7 @@ export function AgentEditor({
 	const isAssistant = agentId.startsWith("ast-");
 
 	return (
-		<div className="border-[var(--bw-thin)] flex flex-col gap-[12px] p-[12px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+		<div className="border-width-thin flex flex-col gap-[12px] p-[12px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex gap-[9px] flex-wrap">
 				{/* Name */}
 				<div className="flex-1 min-w-[140px]">
@@ -309,7 +309,7 @@ export function AgentEditor({
 			{filesystems && filesystems.length > 0 && (
 				<div className="flex flex-col gap-[6px]">
 					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Filesystems</span>
-					<div className="border-[var(--bw-thin)] flex flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)]">
+					<div className="border-width-thin flex flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)]">
 						{filesystems
 							.filter((fs) => draft.filesystemIds.includes(fs.id))
 							.map((fs, index) => (

@@ -59,7 +59,7 @@ function PresenceDot({
 	const bg = status === "active" ? "bg-[var(--accent-primary)]" : "bg-[var(--status-error)]";
 	return (
 		<span
-			className={`absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] rounded-[var(--r-pill)] border-[var(--bw-strong)] border-[var(--surface-container)] ${bg}`}
+			className={`absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] rounded-[var(--r-pill)] border-width-strong border-[var(--surface-container)] ${bg}`}
 			aria-label={`${name} - ${status}`}
 		/>
 	);
@@ -132,7 +132,7 @@ export function ThreadHostBanner({
 					<span
 						key={p.id}
 						title={p.name}
-						className="type-avatar-initial type-avatar-initial--sm border-[var(--bw-thin)] relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] overflow-hidden bg-[var(--surface-elevated)] text-[var(--text-tertiary)] border-[var(--border-subtle)]"
+						className="type-avatar-initial type-avatar-initial--sm border-width-thin relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] overflow-hidden bg-[var(--surface-elevated)] text-[var(--text-tertiary)] border-[var(--border-subtle)]"
 					>
 						{p.name.charAt(0).toUpperCase()}
 						{p.isAgent && p.operationalStatus ? (
@@ -141,7 +141,7 @@ export function ThreadHostBanner({
 					</span>
 				))}
 				{overflow > 0 ? (
-					<span className="type-avatar-initial type-avatar-initial--sm border-[var(--bw-thin)] inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] border-[var(--border-subtle)]">
+					<span className="type-avatar-initial type-avatar-initial--sm border-width-thin inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] border-[var(--border-subtle)]">
 						+{overflow}
 					</span>
 				) : null}

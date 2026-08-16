@@ -33,7 +33,7 @@ export interface ArtifactFrameProps {
 }
 
 const FRAME_CLASS =
-	"block w-full border-[var(--bw-thin)] border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-page)] max-h-[70vh]";
+	"block w-full border-width-thin border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-page)] max-h-[70vh]";
 
 /**
  * What the user is told about the box.

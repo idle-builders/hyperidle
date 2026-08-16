@@ -63,7 +63,7 @@ export function BlockRefEmbed({
 		return (
 			<div
 				data-testid="block-ref-embed-degraded"
-				className="border-[var(--bw-thin)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)]"
+				className="border-width-thin  border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)]"
 			>
 				<div className="type-label  uppercase  text-[var(--text-tertiary)] mb-[6px]">
 					Block from {hostLabel ?? hostKind}
@@ -112,7 +112,7 @@ export function BlockRefEmbed({
 				type="button"
 				data-testid="block-ref-embed-resolved"
 				onClick={onOpen}
-				className="border-[var(--bw-thin)] w-full text-left  border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)] hover:bg-[var(--surface-container)] hover:border-[var(--border-default)]   focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+				className="border-width-thin w-full text-left  border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)] hover:bg-[var(--surface-container)] hover:border-[var(--border-default)]   focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
 			>
 				{cardContent}
 			</button>
@@ -122,7 +122,7 @@ export function BlockRefEmbed({
 	return (
 		<div
 			data-testid="block-ref-embed-resolved"
-			className="border-[var(--bw-thin)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)]"
+			className="border-width-thin  border-[var(--border-subtle)] rounded-[var(--r-subtle)] px-3 py-2 bg-[var(--surface-container)]"
 		>
 			{cardContent}
 		</div>

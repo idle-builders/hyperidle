@@ -630,7 +630,7 @@ export function SetupFlow(): JSX.Element {
 							</span>
 						</p>
 						{/* ONE bordered container with hairline-divided rows — same as SettingsHarnesses */}
-						<div className="border-[var(--bw-thin)]  border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
+						<div className="border-width-thin  border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
 							{/* Built-in row — always first, always choosable. Owns its own
 							    credential entry: this is the one harness whose key we hold. */}
 							<div data-testid="harness-row-builtin">

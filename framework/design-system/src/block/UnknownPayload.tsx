@@ -29,7 +29,7 @@ export function UnknownPayload({ raw, reason }: UnknownPayloadProps): JSX.Elemen
 		<div className=" border-[var(--status-warning)] pl-[12px] flex flex-col gap-[9px]">
 			<div className="flex items-center gap-[9px]">
 				<span
-					className="type-label border-[var(--bw-thin)] inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] uppercase    bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)]  border-[var(--status-warning)]"
+					className="type-label border-width-thin inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)] uppercase    bg-[color-mix(in_oklab,var(--status-warning)_15%,var(--surface-container))] text-[var(--status-warning)]  border-[var(--status-warning)]"
 					data-block-unknown-pill
 				>
 					Not shown

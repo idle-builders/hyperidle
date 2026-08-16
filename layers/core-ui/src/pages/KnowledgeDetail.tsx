@@ -489,7 +489,7 @@ function KnowledgeOverflowMenu({
 				aria-expanded={overflowOpen}
 				aria-haspopup="menu"
 				/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-				className="border-[var(--bw-default)] inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
+				className="border-width-default inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
 				onClick={onToggle}
 			>
 				<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
@@ -947,7 +947,7 @@ function KnowledgeDetailView({
 					{archiveError !== null && (
 						<div
 							role="alert"
-							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="type-small border-width-thin flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="archive-error"
 						>
 							<span className="text-[var(--status-error)]">{archiveError}</span>
@@ -965,7 +965,7 @@ function KnowledgeDetailView({
 					{promoteError !== null && (
 						<div
 							role="alert"
-							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="type-small border-width-thin flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="promote-error"
 						>
 							<span className="text-[var(--status-error)]">{promoteError}</span>
@@ -983,7 +983,7 @@ function KnowledgeDetailView({
 					{conflictVersion !== null && (
 						<div
 							role="alert"
-							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px] bg-[var(--surface-container)] border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="type-small border-width-thin flex items-center justify-between gap-[9px] px-[12px] py-[9px] bg-[var(--surface-container)] border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="conflict-banner"
 						>
 							<span className="text-[var(--text-secondary)]">

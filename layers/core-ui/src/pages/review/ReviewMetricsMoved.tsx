@@ -247,7 +247,7 @@ function Headline({
 	const delta = figure.current - figure.prior;
 	return (
 		<div
-			className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[12px]"
+			className="border-width-thin rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[12px]"
 			style={{ boxShadow: figure.headline ? "var(--shadow-default)" : undefined }}
 		>
 			<div className="flex items-baseline justify-between gap-[12px]">
@@ -277,7 +277,7 @@ function Headline({
 			</button>
 			{expanded ? (
 				// L3 — per-figure provenance
-				<div className="border-[var(--bw-thin)] mt-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
+				<div className="border-width-thin mt-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
 					<div className="flex items-center gap-[6px]">
 						<ToolLogo tool={figure.provenance.tool} size="sm" label="" />
 						<span className="type-metadata   text-[var(--text-primary)]">
@@ -307,7 +307,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 	const [showTrivia, setShowTrivia] = useState(false);
 	return (
 		<div
-			className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)]"
+			className="border-width-thin overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)]"
 			style={{ boxShadow: "var(--shadow-default)" }}
 		>
 			<table className="w-full border-collapse text-left">
@@ -397,7 +397,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 	return (
 		<div
-			className="border-[var(--bw-thin)] flex items-start gap-[12px] rounded-[var(--r-subtle)]  p-[12px]"
+			className="border-width-thin flex items-start gap-[12px] rounded-[var(--r-subtle)]  p-[12px]"
 			style={{
 				borderColor: ex.needsYou ? "var(--status-error)" : "var(--border-subtle)",
 				background: ex.needsYou ? "var(--status-error-dim)" : "var(--surface-container)",

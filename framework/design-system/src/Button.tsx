@@ -85,7 +85,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 				"inline-flex items-center justify-center gap-[6px] rounded-[var(--r-pill)]   cursor-pointer",
 				"active:scale-[0.97]",
 				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
-				"disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+				"disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none",
 				"",
 				sizeClass,
 				variantClass,

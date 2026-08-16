@@ -136,7 +136,12 @@ export function collectDesignProfileCensus(sources: readonly DesignSource[]): De
 			motion[profile] += countMatches(owned, new RegExp(`\\bmotion-${profile}\\b`, "g"));
 		}
 		for (const profile of BORDER_WIDTH_PROFILES) {
+			// Count both old Tailwind v4 CSS-variable syntax (border-[var(--bw-*)]) and
+			// new @utility class syntax (border-width-thin/default/strong). Both are valid
+			// border-width profiles. @lore: border-[var(--bw-*)] sets border-color in v4,
+			// not border-width; new utility classes are preferred going forward.
 			border[profile] += countMatches(owned, new RegExp(`var\\(--bw-${profile}\\)`, "g"));
+			border[profile] += countMatches(owned, new RegExp(`\\bborder-width-${profile}\\b`, "g"));
 		}
 		foreignByFamily.typography += countMatches(
 			foreign,

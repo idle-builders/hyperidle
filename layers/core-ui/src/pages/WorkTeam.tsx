@@ -341,7 +341,7 @@ function WorkTeamLoaded({
 					{/* Capacity tile */}
 					<div
 						data-testid="stat-tile"
-						className="border-[var(--bw-thin)] flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
+						className="border-width-thin flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
 					>
 						<KpiStat
 							metrics={[
@@ -397,7 +397,7 @@ function WorkTeamLoaded({
 						return (
 							<div
 								data-testid="stat-tile"
-								className="border-[var(--bw-thin)] flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
+								className="border-width-thin flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
 							>
 								<KpiStat metrics={[agentHealthMetric]} />
 							</div>

@@ -337,7 +337,7 @@ function AddEdgeForm({
 	const canAdd = Boolean(fromUserId && target && !adding);
 
 	return (
-		<div className="border-[var(--bw-default)] flex flex-col gap-[12px] p-[18px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+		<div className="border-width-default flex flex-col gap-[12px] p-[18px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex gap-[12px] flex-wrap">
 				{/* From */}
 				<div className="flex-1 min-w-[120px]">

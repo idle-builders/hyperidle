@@ -22,12 +22,13 @@ type QuestionnairePartValue = Extract<Part, { kind: "questionnaire" }>;
 const ICON_QUESTION =
 	"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a2.4 2.4 0 012.4 2.4c0 1-.6 1.5-1.3 2-.5.35-.6.55-.6 1.1H6.9c0-1 .3-1.5 1-2 .5-.36.8-.6.8-1.1a.9.9 0 00-1.8 0H5.6A2.4 2.4 0 018 4zm-.05 7.4a.95.95 0 110-1.9.95.95 0 010 1.9z";
 
-// @lore UI-decision-card: border-[var(--bw-thin)] in Tailwind v4 resolves to border-color
+// @lore UI-decision-card: `border-[var(--bw-thin)]` in Tailwind v4 resolves to border-color
 // (not border-width) for CSS variable arguments — computed borderWidth: 0px despite --bw-thin: 1px.
-// The design system uses shadow-[var(--shadow-subtle)] for visual depth rather than CSS borders,
-// consistent with how elevated surfaces (cards, panels) signal interactivity via shadow lift.
+// Both chips and the outer card now use `border-width-thin` (@utility in tokens.css) which
+// correctly emits `border-width: var(--bw-thin)` so the chips read as interactive controls
+// rather than plain text.
 const CHIP_CLASS =
-	"type-small border-[var(--bw-thin)] inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] px-[12px] py-[6px] text-[var(--text-secondary)]";
+	"type-small border-width-thin inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] px-[12px] py-[6px] text-[var(--text-secondary)]";
 
 export function QuestionnairePart({
 	part,
@@ -40,7 +41,7 @@ export function QuestionnairePart({
 	return (
 		<div
 			data-ds-component="QuestionnairePart"
-			className="border-[var(--bw-thin)] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-default)]"
+			className="border-width-thin rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-start gap-[9px]">
 				<span

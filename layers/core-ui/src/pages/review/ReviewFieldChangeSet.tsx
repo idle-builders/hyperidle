@@ -269,7 +269,7 @@ export function ReviewFieldChangeSetView({
 
 	return (
 		<div
-			className="border-[var(--bw-thin)] w-[640px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)]"
+			className="border-width-thin w-[640px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)]"
 			style={{
 				background: "var(--surface-container)",
 				boxShadow: "var(--shadow-default)",

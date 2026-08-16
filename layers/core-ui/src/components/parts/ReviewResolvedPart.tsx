@@ -28,7 +28,7 @@ export function ReviewResolvedPart({
 	return (
 		<div
 			data-ds-component="ReviewResolvedPart"
-			className="border-[var(--bw-thin)] flex items-center gap-[9px] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-subtle)]"
+			className="border-width-thin flex items-center gap-[9px] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[18px] py-[12px] shadow-[var(--shadow-subtle)]"
 		>
 			<span className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-pill)] text-[var(--status-success)]">
 				<svg

@@ -125,7 +125,7 @@ function ControlButton({
 			aria-label={label}
 			title={label}
 			onClick={onClick}
-			className="border-[var(--bw-thin)] inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:1px]"
+			className="border-width-thin inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border-[var(--border-default)] bg-[color-mix(in_oklab,var(--surface-page)_80%,transparent)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:1px]"
 		>
 			{children}
 		</button>

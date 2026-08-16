@@ -98,7 +98,7 @@ function toneClass(tone: VerdictButtonSpec["tone"]): string {
 }
 
 const BUTTON_CLASS_BASE =
-	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] border-[var(--bw-thin)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] border-width-thin focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const REASONING_INLINE_THRESHOLD = 80;
 
@@ -200,7 +200,7 @@ function ResolvedView({
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
-			className="border-[var(--bw-thin)] ml-[36px] bg-[var(--surface-elevated)]  border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden"
+			className="border-width-thin ml-[36px] bg-[var(--surface-elevated)]  border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden"
 		>
 			<div className="type-small flex items-center gap-[9px] px-[12px] py-[9px]  text-[var(--text-secondary)] flex-wrap">
 				<span className="type-data inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]">

@@ -193,7 +193,7 @@ export function KnowledgeCreate(): JSX.Element {
 						</p>
 					)}
 					<div
-						className="border-[var(--bw-default)]  border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
+						className="border-width-default  border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
 						style={{ minHeight: "300px" }}
 					>
 						<BodyEditor

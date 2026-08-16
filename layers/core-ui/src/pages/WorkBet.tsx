@@ -780,7 +780,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									aria-haspopup="menu"
 									aria-expanded={betOverflowOpen}
 									/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-									className="border-[var(--bw-default)] inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
+									className="border-width-default inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
 									onClick={() => setBetOverflowOpen((v) => !v)}
 								>
 									<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">

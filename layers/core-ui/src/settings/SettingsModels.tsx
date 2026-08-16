@@ -118,7 +118,7 @@ function TierRow({ tier, config, hasApiKey, onChange }: TierRowProps): JSX.Eleme
 	const hasCredentialStatus = config.provider === "openrouter" || config.provider === "anthropic";
 
 	return (
-		<div className="border-[var(--bw-thin)] flex flex-col gap-[12px] p-[12px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+		<div className="border-width-thin flex flex-col gap-[12px] p-[12px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex items-center gap-[12px] flex-wrap">
 				<span className="type-small   text-[var(--text-primary)] w-[80px] shrink-0">
 					{tierLabel(tier)}

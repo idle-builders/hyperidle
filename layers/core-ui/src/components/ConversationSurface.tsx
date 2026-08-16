@@ -243,7 +243,7 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 				background: "var(--surface-overlay)",
 				zIndex: 50,
 			}}
-			className="border-[var(--bw-thin)] absolute w-[238px] rounded-[var(--r-default)]  border-[var(--border-default)] p-[3px] shadow-[var(--shadow-elevated)]"
+			className="border-width-thin absolute w-[238px] rounded-[var(--r-default)]  border-[var(--border-default)] p-[3px] shadow-[var(--shadow-elevated)]"
 		>
 			{items.map((it) => (
 				<button
@@ -369,7 +369,7 @@ function Composer({
 	return (
 		<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
 			<div className="mx-auto w-full max-w-[760px]">
-				<div className="border-[var(--bw-thin)] relative rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]">
+				<div className="border-width-thin relative rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]">
 					<ComposerInputRow
 						insertMenuOpen={insertMenuOpen}
 						onToggleMenu={onToggleMenu}

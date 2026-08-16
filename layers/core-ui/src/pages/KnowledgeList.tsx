@@ -631,28 +631,28 @@ function KnowledgeListContent({
 								className="type-metadata border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)] bg-[var(--surface-page)]"
 							>
 								<span>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
+									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
 										j
 									</kbd>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)] ml-[3px]">
+									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)] ml-[3px]">
 										k
 									</kbd>
 									&nbsp;navigate
 								</span>
 								<span>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
+									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
 										Enter
 									</kbd>
 									&nbsp;open
 								</span>
 								<span>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
+									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
 										v
 									</kbd>
 									&nbsp;validate
 								</span>
 								<span>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
+									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
 										x
 									</kbd>
 									&nbsp;reject

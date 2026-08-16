@@ -88,7 +88,7 @@ export function ToolLogo({
 		<span className="inline-flex items-center gap-[6px] align-middle" title={label}>
 			<span
 				aria-hidden="true"
-				className="type-small border-[var(--bw-thin)] inline-flex items-center justify-center shrink-0    border-[var(--border-subtle)]"
+				className="type-small border-width-thin inline-flex items-center justify-center shrink-0    border-[var(--border-subtle)]"
 				style={{
 					width: s.box,
 					height: s.box,

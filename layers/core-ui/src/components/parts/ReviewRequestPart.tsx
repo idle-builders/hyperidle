@@ -33,7 +33,7 @@ export function ReviewRequestPart({
 	return (
 		<div
 			data-ds-component="ReviewRequestPart"
-			className="border-[var(--bw-thin)] flex flex-col gap-[12px] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[18px] shadow-[var(--shadow-default)]"
+			className="border-width-thin flex flex-col gap-[12px] rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[18px] shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-start gap-[9px]">
 				<span

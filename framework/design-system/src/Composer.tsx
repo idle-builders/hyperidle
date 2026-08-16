@@ -90,7 +90,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					// page-canvas token used as a fill, the same Set 3 second-job
 					// defect B3 already fixed on SearchField. `--surface-elevated` is
 					// the closed Input set's fill (DESIGN.md: "text inputs").
-					className="type-input border-[var(--bw-default)] flex-1 min-h-[44px] resize-none bg-[var(--surface-elevated)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)]  border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px]  focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+					className="type-input border-width-default flex-1 min-h-[44px] resize-none bg-[var(--surface-elevated)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)]  border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px]  focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
 					placeholder="Reply to thread…"
 					value={text}
 					onChange={(e): void => setText(e.target.value)}

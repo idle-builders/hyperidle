@@ -46,7 +46,7 @@ export interface ScopePickerProps {
 }
 
 const PILL_BASE =
-	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-[var(--bw-default)] focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
+	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-width-default focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
 
 // @lore UI-007: cursor is computed per-pill inline — never included in a shared
 // constant that applies to both enabled and disabled pills. Tailwind resolves

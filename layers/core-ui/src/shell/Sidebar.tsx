@@ -138,6 +138,15 @@ export interface SidebarProps {
 	notificationPopoverOpen?: boolean;
 
 	/**
+	 * UI-011/012/013: When true, the fast-nav sub-list for the corresponding
+	 * section is still loading. Suppresses the "No X yet" empty-state message so
+	 * it doesn't flash during the initial fetch or after a 429/retry.
+	 */
+	threadsLoading?: boolean;
+	teamsLoading?: boolean;
+	knowledgeLoading?: boolean;
+
+	/**
 	 * When true, the sidebar is rendered inside the mobile drawer (300px overlay).
 	 * Forces nav labels visible and stacks the nav items vertically regardless of
 	 * viewport width — the drawer itself is the breakpoint gate, not CSS media queries.
@@ -396,7 +405,7 @@ function SearchAssistantTools({
 }): JSX.Element {
 	return (
 		<fieldset
-			className="border-[var(--bw-thin)] flex shrink-0 overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="border-width-thin flex shrink-0 overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 			aria-label="Search and assistant tools"
 		>
 			<button
@@ -584,6 +593,9 @@ export function Sidebar({
 	unseenNotificationCount,
 	onNotificationClick,
 	notificationPopoverOpen,
+	threadsLoading,
+	teamsLoading,
+	knowledgeLoading,
 	drawerMode,
 }: SidebarProps): JSX.Element {
 	// Cap threads at 5 for the fast-nav head
@@ -606,6 +618,8 @@ export function Sidebar({
 	function renderFastNavItems(): JSX.Element | null {
 		if (activeView === "conversations") {
 			if (visibleThreads.length === 0) {
+				// UI-011: suppress empty message while initial fetch is in flight
+				if (threadsLoading) return null;
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
@@ -638,6 +652,8 @@ export function Sidebar({
 			}
 			const visibleTeams = teams;
 			if (visibleTeams.length === 0) {
+				// UI-012: suppress empty message while initial fetch is in flight
+				if (teamsLoading) return null;
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
@@ -664,6 +680,8 @@ export function Sidebar({
 		if (activeView === "knowledge") {
 			const visibleKnowledge = knowledgeItems.slice(0, 5);
 			if (visibleKnowledge.length === 0) {
+				// UI-013: suppress empty message while initial fetch is in flight
+				if (knowledgeLoading) return null;
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}

@@ -99,7 +99,7 @@ function ContextChip({
 	return (
 		<span
 			data-spacing-role="compact-pill"
-			className="type-metadata border-[var(--bw-thin)] inline-flex items-center gap-1 rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5  text-[var(--text-secondary)]"
+			className="type-metadata border-width-thin inline-flex items-center gap-1 rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5  text-[var(--text-secondary)]"
 		>
 			<span className="type-label  text-[var(--text-tertiary)] uppercase ">{contextRef.kind}</span>
 			<span className="max-w-[120px] truncate">{contextRef.label}</span>
@@ -178,7 +178,7 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 				affordance: (
 					<button
 						type="button"
-						className="type-control border-[var(--bw-thin)]   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+						className="type-control border-width-thin   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 						onClick={onRetry}
 					>
 						Retry
@@ -309,7 +309,7 @@ function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
 			<div style={{ marginTop: "3px" }}>
 				<button
 					type="button"
-					className="type-control border-[var(--bw-thin)]   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+					className="type-control border-width-thin   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 					onClick={onRetry}
 				>
 					Retry

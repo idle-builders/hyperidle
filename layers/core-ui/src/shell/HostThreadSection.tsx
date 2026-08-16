@@ -29,7 +29,7 @@
  */
 
 import type { CommentRowSender, ComposerSubmitInput } from "@hyperidle/design-system";
-import { Composer, CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
+import { CommentRow, Composer, ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message, PlainPayload } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";

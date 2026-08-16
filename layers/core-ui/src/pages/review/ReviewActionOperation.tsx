@@ -110,7 +110,7 @@ function ReviewActionOperationView({
 
 	return (
 		<article
-			className="border-[var(--bw-thin)] w-full max-w-[560px] overflow-hidden  border-[var(--border-default)] bg-[var(--surface-container)]"
+			className="border-width-thin w-full max-w-[560px] overflow-hidden  border-[var(--border-default)] bg-[var(--surface-container)]"
 			style={{
 				borderRadius: "var(--r-default)",
 				boxShadow: "var(--shadow-default)",
@@ -129,7 +129,7 @@ function ReviewActionOperationView({
 
 			{/* the amount — the single loudest element on the canvas */}
 			<div
-				className="border-[var(--bw-thin)] mx-[18px] flex items-baseline justify-between  px-[18px] py-[12px]"
+				className="border-width-thin mx-[18px] flex items-baseline justify-between  px-[18px] py-[12px]"
 				style={{
 					borderRadius: "var(--r-subtle)",
 					borderColor: "var(--accent-secondary-dim)",
@@ -220,7 +220,7 @@ function ReviewActionOperationView({
 					</section>
 
 					<section
-						className="border-[var(--bw-thin)] flex gap-[9px]  px-[12px] py-[9px]"
+						className="border-width-thin flex gap-[9px]  px-[12px] py-[9px]"
 						style={{
 							borderRadius: "var(--r-subtle)",
 							borderColor: "var(--status-error-dim)",
@@ -284,7 +284,7 @@ function ReviewActionOperationView({
 function ExecutingBand(): JSX.Element {
 	return (
 		<section
-			className="border-[var(--bw-thin)] mx-[18px] mt-[12px] flex items-center gap-[9px]  px-[12px] py-[9px]"
+			className="border-width-thin mx-[18px] mt-[12px] flex items-center gap-[9px]  px-[12px] py-[9px]"
 			style={{
 				borderRadius: "var(--r-subtle)",
 				borderColor: "var(--border-default)",
@@ -320,7 +320,7 @@ function OutcomeBand({
 }): JSX.Element {
 	return (
 		<section
-			className="border-[var(--bw-thin)] mx-[18px] mt-[12px] flex gap-[9px]  px-[12px] py-[9px]"
+			className="border-width-thin mx-[18px] mt-[12px] flex gap-[9px]  px-[12px] py-[9px]"
 			style={{
 				borderRadius: "var(--r-subtle)",
 				borderColor: ok ? "var(--status-success)" : "var(--status-error)",
@@ -483,7 +483,7 @@ function ProposedCallArgsPanel({
 	const argEntries = Object.entries(proposedCall.args);
 	return (
 		<section
-			className="border-[var(--bw-thin)] overflow-hidden  border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
+			className="border-width-thin overflow-hidden  border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
 			style={{ borderRadius: "var(--r-subtle)" }}
 			aria-label="Proposed call details"
 		>

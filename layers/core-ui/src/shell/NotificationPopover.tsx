@@ -140,7 +140,7 @@ export function NotificationPopover({
 			// (bell bottom ≈ 105px). top-[60px] overlapped the bell; top-[108px] clears it.
 			// Width expanded to w-[440px] so notification titles don't truncate (scrollWidth 221px
 			// needs more than the prior w-[360px] left-rail 75px trailing affordances).
-			className="border-[var(--bw-thin)] fixed top-[108px] left-[9px] flex w-[440px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
+			className="border-width-thin fixed top-[108px] left-[9px] flex w-[440px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
 			style={{ zIndex: overlayProps.style.zIndex, maxHeight: "70vh" }}
 		>
 			{/* Header */}

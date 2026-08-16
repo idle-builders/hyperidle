@@ -14,7 +14,7 @@ const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 213, default: 17, strong: 11 }
 const EXPECTED = {
 	typography: {
 		label: 116,
-		metadata: 233,
+		metadata: 232,
 		small: 229,
 		copy: 45,
 		control: 93, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)

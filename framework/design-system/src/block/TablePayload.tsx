@@ -12,7 +12,7 @@ export interface TablePayloadProps {
 
 export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.Element {
 	return (
-		<div className="border-[var(--bw-thin)] overflow-x-auto rounded-[var(--r-default)]  border-[var(--border-subtle)]">
+		<div className="border-width-thin overflow-x-auto rounded-[var(--r-default)]  border-[var(--border-subtle)]">
 			<table className="type-small w-full border-collapse ">
 				<thead className="sticky top-0 bg-[var(--surface-container)]">
 					<tr>

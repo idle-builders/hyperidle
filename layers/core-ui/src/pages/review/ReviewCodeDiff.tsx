@@ -567,7 +567,7 @@ function FileCard({
 	const dir = file.path.slice(0, file.path.lastIndexOf("/") + 1);
 	const name = file.path.slice(file.path.lastIndexOf("/") + 1);
 	return (
-		<div className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
+		<div className="border-width-thin overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
 			{showBand ? (
 				<div className="type-label px-[12px] pt-[9px]   uppercase  text-[var(--text-tertiary)]">
 					{BAND_LABEL[file.band]}
@@ -683,7 +683,7 @@ function ReviewCodeDiffView({
 	return (
 		<section
 			aria-label="Code diff review"
-			className="border-[var(--bw-thin)] w-full max-w-[860px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-[var(--shadow-default)]"
+			className="border-width-thin w-full max-w-[860px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-[var(--shadow-default)]"
 		>
 			{/* ── L1: PR header ───────────────────────────────────────────────── */}
 			<header className="flex flex-col gap-[12px] p-[18px]">
@@ -718,7 +718,7 @@ function ReviewCodeDiffView({
 					<button
 						type="button"
 						onClick={collapseOrExpandAll}
-						className="type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)]"
+						className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)]"
 					>
 						{allCollapsed ? "Expand" : "Collapse"} {files.length + trivia.count} files changed
 					</button>
@@ -754,7 +754,7 @@ function ReviewCodeDiffView({
 					</span>
 				</div>
 				{/* generated / trivia — collapsed to one row, never line-by-line */}
-				<div className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
+				<div className="border-width-thin rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
 					<button
 						type="button"
 						onClick={() => setTriviaOpen((v) => !v)}
