@@ -28,8 +28,8 @@
  * convergence is a follow-up per architecture.md line 160).
  */
 
-import type { CommentRowSender } from "@hyperidle/design-system";
-import { Button, CommentRow, ErrorState, Input, SkeletonList } from "@hyperidle/design-system";
+import type { CommentRowSender, ComposerSubmitInput } from "@hyperidle/design-system";
+import { Composer, CommentRow, ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message, PlainPayload } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
@@ -143,10 +143,9 @@ export function HostThreadSection({
 }: HostThreadSectionProps): JSX.Element {
 	const { user } = useCurrentUser();
 	const { data, error, isLoading, refresh } = useHostThread(hostKind, hostId);
-	const [composerText, setComposerText] = useState("");
-	const [sending, setSending] = useState(false);
-	const [postError, setPostError] = useState<string | null>(null);
-	const composerRef = useRef<HTMLInputElement>(null);
+	// UI-062: DS Composer manages its own text/sending/error state.
+	// We only need a wrapper ref for the prefill focus affordance.
+	const composerWrapperRef = useRef<HTMLDivElement>(null);
 	// T5: when filterBlockId is set, user can toggle "show all" to exit the filter.
 	const [showAll, setShowAll] = useState(false);
 
@@ -160,22 +159,24 @@ export function HostThreadSection({
 	}, [filterBlockId]);
 
 	// F5: when prefill is set, scroll composer into view and focus it.
-	// @lore L18 (M1): scrollIntoView may be undefined in JSDOM test environments
-	// so we guard with optional chaining on the method itself.
+	// UI-062: DS Composer doesn't expose a ref, so we find its textarea by
+	// data-testid inside the wrapper div. scrollIntoView may be undefined in
+	// JSDOM so we guard with optional chaining.
 	useEffect(() => {
-		if (prefill && composerRef.current) {
-			composerRef.current.scrollIntoView?.({ block: "nearest" });
-			composerRef.current.focus();
+		if (prefill && composerWrapperRef.current) {
+			const ta = composerWrapperRef.current.querySelector<HTMLTextAreaElement>(
+				'[data-testid="composer-textarea"]',
+			);
+			ta?.scrollIntoView?.({ block: "nearest" });
+			ta?.focus();
 		}
 	}, [prefill]);
 
-	const handleSend = useCallback(async (): Promise<void> => {
-		const text = composerText.trim();
-		if (!text || sending) return;
-
-		setSending(true);
-		setPostError(null);
-		try {
+	// UI-062: DS Composer calls onSubmit with {text, clientKey}. It manages
+	// its own text/submitting/error state and re-throws on failure so the
+	// DS Composer's built-in error display fires.
+	const handleComposerSubmit = useCallback(
+		async (input: ComposerSubmitInput): Promise<void> => {
 			const founderId = user?.id ?? "";
 			const threadId = await resolveOrCreateHostThread(
 				hostKind,
@@ -183,28 +184,12 @@ export function HostThreadSection({
 				founderId,
 				agentId ?? null,
 			);
-			await postPlainHostMessage(threadId, text, crypto.randomUUID(), prefill?.blockId);
-			setComposerText("");
+			await postPlainHostMessage(threadId, input.text, input.clientKey, prefill?.blockId);
 			refresh();
 			onMessagePosted?.();
-		} catch (err) {
-			setPostError(
-				err instanceof Error ? err.message : "Failed to send message. Please try again.",
-			);
-		} finally {
-			setSending(false);
-		}
-	}, [
-		composerText,
-		sending,
-		hostKind,
-		hostId,
-		prefill?.blockId,
-		refresh,
-		onMessagePosted,
-		user,
-		agentId,
-	]);
+		},
+		[hostKind, hostId, prefill?.blockId, refresh, onMessagePosted, user, agentId],
+	);
 
 	if (isLoading) {
 		return (
@@ -295,17 +280,6 @@ export function HostThreadSection({
 				</button>
 			)}
 
-			{/* Post error alert */}
-			{postError && (
-				<div
-					role="alert"
-					data-testid="host-thread-section-post-error"
-					className="type-metadata  text-error px-2 py-1"
-				>
-					{postError}
-				</div>
-			)}
-
 			{/* Prefill chip — shown when a block is being discussed */}
 			{prefill && (
 				<div
@@ -328,45 +302,12 @@ export function HostThreadSection({
 				</div>
 			)}
 
-			{/* Composer — inline single-line pattern matching knowledge-edit.html .discussion-composer */}
-			{/*
-			 * @lore AZ7 B2 (review round 1): was a hand-rolled <input> — the design
-			 * system's own Composer component doesn't fit (it's multiline, submits
-			 * on Cmd/Ctrl+Enter, and owns a heavier ComposerSubmitInput contract
-			 * with clientKey/refs this call site doesn't have); migrated to the
-			 * plain Input primitive instead, which matches this field's actual
-			 * shape (single-line, Enter-to-send, no shift+Enter distinction) with
-			 * no behavior change. This also fixes bg-[var(--surface-page)] as an
-			 * input fill — Set 3 gives that token exactly one job (the page
-			 * canvas); a text input is --surface-elevated's job, which Input
-			 * already carries.
-			 */}
-			<div className="flex gap-[9px] items-stretch">
-				<Input
-					ref={composerRef}
-					type="text"
-					data-testid="composer-textarea"
-					className="flex-1"
-					placeholder="Write a message…"
-					value={composerText}
-					onChange={(e) => setComposerText(e.target.value)}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" && !e.shiftKey) {
-							e.preventDefault();
-							void handleSend();
-						}
-					}}
-					disabled={sending}
-				/>
-				<Button
-					variant="primary"
-					size="sm"
-					className="shrink-0"
-					disabled={!composerText.trim() || sending}
-					onClick={() => void handleSend()}
-				>
-					Send
-				</Button>
+			{/* UI-062: DS Composer — single source of truth for message sending.
+			    Manages its own text/submitting/error state; onSubmit re-throws on
+			    failure so the built-in error line fires. composerWrapperRef lets
+			    the prefill focus effect find the textarea (L18 M1). */}
+			<div ref={composerWrapperRef}>
+				<Composer threadId={`${hostKind}:${hostId}`} onSubmit={handleComposerSubmit} />
 			</div>
 		</div>
 	);

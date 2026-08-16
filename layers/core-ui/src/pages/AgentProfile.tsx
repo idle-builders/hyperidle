@@ -47,7 +47,7 @@ import {
 	findRoleCatalogEntry,
 	roleLabel,
 } from "@hyperidle/domain-model";
-import { absoluteDate, relativeLong } from "@hyperidle/presentation-format";
+import { absoluteDate } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
@@ -550,7 +550,7 @@ function AgentProfileLoaded({
 											)}
 										</td>
 										<td className="py-[6px] text-[var(--text-tertiary)]">
-											{relativeLong(session.startedAt)}
+											{absoluteDate(session.startedAt)}
 										</td>
 									</tr>
 								))}
