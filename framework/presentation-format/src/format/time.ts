@@ -71,15 +71,16 @@ const fmtClockSeconds = new Intl.DateTimeFormat(undefined, {
 
 // ── Relative ladder helper ────────────────────────────────────────────────────
 
-const FOUR_WEEKS_MS = 28 * DAY_MS; // 2_419_200_000 — week/month boundary
-
 function relativeLabel(diff: number): string {
 	// diff is always >= 0 (clamped by callers)
+	// @lore UI-043: boundary was FOUR_WEEKS_MS (28d) but divided by MONTH_MS (30d),
+	// giving Math.floor(28/30)=0 → "0mo" for 28-29 day old items. Fixed: weeks
+	// branch runs up to MONTH_MS (30d), so 28d→"4w", 29d→"4w", 30d→"1mo".
 	if (diff < MIN_MS) return "just now";
 	if (diff < HOUR_MS) return `${Math.floor(diff / MIN_MS)}m`;
 	if (diff < DAY_MS) return `${Math.floor(diff / HOUR_MS)}h`;
 	if (diff < WEEK_MS) return `${Math.floor(diff / DAY_MS)}d`;
-	if (diff < FOUR_WEEKS_MS) return `${Math.floor(diff / WEEK_MS)}w`;
+	if (diff < MONTH_MS) return `${Math.floor(diff / WEEK_MS)}w`;
 	if (diff < YEAR_MS) return `${Math.floor(diff / MONTH_MS)}mo`;
 	return `${Math.floor(diff / YEAR_MS)}y`;
 }
