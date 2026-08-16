@@ -52,9 +52,14 @@ export function stripMarkdown(input: string): string {
 	s = s.replace(/\*{2}([^*]+)\*{2}/g, "$1");
 	s = s.replace(/_{2}([^_]+)_{2}/g, "$1");
 
-	// Remove italic *text* or _text_
+	// Remove italic *text* or _text_ (paired markers)
 	s = s.replace(/\*([^*]+)\*/g, "$1");
 	s = s.replace(/_([^_]+)_/g, "$1");
+
+	// Remove dangling/unclosed emphasis markers (single * or _ with no closing match)
+	// These appear in truncated excerpts like "answer *what are user…"
+	s = s.replace(/(?<!\*)\*(?!\*)/g, "");
+	s = s.replace(/(?<!_)_(?!_)/g, "");
 
 	// Remove list bullets (unordered: -, *, +)
 	s = s.replace(/^[\s]*[-*+]\s+/gm, "");
