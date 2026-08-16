@@ -23,6 +23,10 @@
 	@apply type-copy;
 	outline: none;
 	color: var(--text-primary);
+	/* @lore UI-127: BodyEditor wrapper sets style={{ minHeight }} but ProseMirror
+	 * (a contenteditable div) defaults to content height (≈23px). min-height: inherit
+	 * propagates the wrapper's minHeight down so the editor fills the specified area. */
+	min-height: inherit;
 }
 
 /* Headings */

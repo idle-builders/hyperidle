@@ -477,7 +477,7 @@ function RoutineDetailPaneLoaded({
 							</div>
 						</>
 					) : (
-						<div className="flex flex-col gap-[9px]">
+						<div className="flex flex-col gap-[9px] max-w-[320px]">
 							<KeyValue label="Prompt" value={routine.description || "—"} layout="stacked" />
 							<KeyValue label="Autonomy" value={autonomyLabel} />
 							<KeyValue label="Silent" value={routine.silent ? "On" : "Off"} />

@@ -1,5 +1,5 @@
 import { Button, ErrorState, PageHeader, PageScaffold } from "@hyperidle/design-system";
-import type { JSX } from "react";
+import { type JSX, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 /**
@@ -36,6 +36,25 @@ const SAD_FACE_ICON = (
 
 export function NotFound(): JSX.Element {
 	const navigate = useNavigate();
+
+	/**
+	 * @lore UI-128: NotFound is the standalone `*` catch-all route OUTSIDE AppShell.
+	 * AppShell forces h-screen on the #root chain; without it, #root has content-only
+	 * height. PageScaffold's h-full then equals content height, not the viewport, so
+	 * the error card anchors at the top instead of centering. Fix: force #root to 100vh
+	 * on mount so PageScaffold's h-full fills the viewport, and restore on unmount.
+	 * This is the minimal fix that keeps the PageScaffold structure intact (and the
+	 * page-outline test passing) without touching the shared PageScaffold primitive.
+	 */
+	useEffect(() => {
+		const root = document.getElementById("root");
+		if (!root) return;
+		const prev = root.style.height;
+		root.style.height = "100vh";
+		return () => {
+			root.style.height = prev;
+		};
+	}, []);
 
 	return (
 		<PageScaffold

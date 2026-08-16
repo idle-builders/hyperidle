@@ -22,8 +22,12 @@ type QuestionnairePartValue = Extract<Part, { kind: "questionnaire" }>;
 const ICON_QUESTION =
 	"M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a2.4 2.4 0 012.4 2.4c0 1-.6 1.5-1.3 2-.5.35-.6.55-.6 1.1H6.9c0-1 .3-1.5 1-2 .5-.36.8-.6.8-1.1a.9.9 0 00-1.8 0H5.6A2.4 2.4 0 018 4zm-.05 7.4a.95.95 0 110-1.9.95.95 0 010 1.9z";
 
+// @lore UI-decision-card: border-[var(--bw-thin)] in Tailwind v4 resolves to border-color
+// (not border-width) for CSS variable arguments — computed borderWidth: 0px despite --bw-thin: 1px.
+// The design system uses shadow-[var(--shadow-subtle)] for visual depth rather than CSS borders,
+// consistent with how elevated surfaces (cards, panels) signal interactivity via shadow lift.
 const CHIP_CLASS =
-	"type-small border-[var(--bw-thin)] inline-flex items-center gap-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]";
+	"type-small border-[var(--bw-thin)] inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] px-[12px] py-[6px] text-[var(--text-secondary)]";
 
 export function QuestionnairePart({
 	part,
@@ -61,7 +65,7 @@ export function QuestionnairePart({
 						<li key={option}>
 							<button
 								type="button"
-								className={`${CHIP_CLASS} cursor-pointer hover:border-[var(--border-active)] hover:text-[var(--text-primary)]`}
+								className={`${CHIP_CLASS} cursor-pointer hover:border-[var(--border-active)] hover:shadow-[var(--shadow-default)] hover:text-[var(--text-primary)]`}
 								onClick={() => {
 									onAnswer(option);
 								}}

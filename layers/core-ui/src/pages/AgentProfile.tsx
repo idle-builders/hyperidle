@@ -138,12 +138,15 @@ export function AgentProfile({
 		const is404 = error.message.includes("404");
 		if (is404) {
 			return (
+				// @lore UI-129: body="managed" gives children a flex-1 flex-col container
+				// with definite height (fills the AppShell h-screen chain). frame="page" wraps
+				// in PageFrame (block, auto height), so min-h-full = content height not viewport.
 				<PageScaffold
-					frame="page"
+					body="managed"
 					header={<PageHeader title="Agent" />}
 					data-testid="agent-profile-page"
 				>
-					<div className="flex min-h-full items-center justify-center p-[48px_24px]">
+					<div className="flex-1 flex items-center justify-center p-[48px_24px]">
 						<EmptyState
 							title="Agent not found"
 							description="The agent you are looking for does not exist."
@@ -155,11 +158,11 @@ export function AgentProfile({
 		}
 		return (
 			<PageScaffold
-				frame="page"
+				body="managed"
 				header={<PageHeader title="Agent" />}
 				data-testid="agent-profile-page"
 			>
-				<div className="flex min-h-full items-center justify-center p-[48px_24px]">
+				<div className="flex-1 flex items-center justify-center p-[48px_24px]">
 					<ErrorState title="Failed to load agent profile" description={error.message} />
 				</div>
 			</PageScaffold>
@@ -169,11 +172,11 @@ export function AgentProfile({
 	if (data === null) {
 		return (
 			<PageScaffold
-				frame="page"
+				body="managed"
 				header={<PageHeader title="Agent" />}
 				data-testid="agent-profile-page"
 			>
-				<div className="flex min-h-full items-center justify-center p-[48px_24px]">
+				<div className="flex-1 flex items-center justify-center p-[48px_24px]">
 					<EmptyState
 						title="Agent not found"
 						description="The agent you are looking for does not exist."
