@@ -25,7 +25,7 @@ const EXPECTED = {
 		title: 11,
 		display: 3,
 		metric: 7,
-		data: 99,
+		data: 97,
 		"inline-code": 2,
 	},
 	motion: { feedback: 9, move: 15, spring: 2, enter: 1, activity: 7, loading: 6, busy: 2 },
