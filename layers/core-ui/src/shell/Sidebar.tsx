@@ -248,7 +248,7 @@ function NotificationButton({
 			<span className={drawerMode ? "inline" : "hidden min-[769px]:inline"}>Notifications</span>
 			{hasUnread && (
 				<span
-					className="ml-auto h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-error)]"
+					className="ml-auto h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]"
 					data-testid="notification-unread-dot"
 					aria-hidden="true"
 				/>
