@@ -14,8 +14,13 @@ export interface ArtifactStackItemProps {
 const ROW =
 	"flex items-center gap-[12px] h-[44px] px-[12px] cursor-pointer hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px] w-full text-left";
 const LEFT = "flex items-center gap-[9px] flex-1 min-w-0";
-const TASK = "text-[var(--text-secondary)] truncate";
-const TITLE = "text-[var(--text-primary)] truncate";
+/**
+ * @lore UI-149: title is the primary flex-1 column so it claims remaining space and
+ * truncates cleanly. task is the secondary context column — fixed max-width so it
+ * never crowds the title. This gives aligned "columns" across rows without a CSS grid.
+ */
+const TASK = "text-[var(--text-secondary)] shrink-0 max-w-[200px] truncate";
+const TITLE = "text-[var(--text-primary)] flex-1 min-w-0 truncate";
 const RIGHT = "flex items-center gap-[9px] text-[var(--text-secondary)]";
 const PILL =
 	"bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] rounded-[var(--r-pill)] px-[6px] py-[1px]";
@@ -36,11 +41,11 @@ export function ArtifactStackItem({
 		>
 			<span className={LEFT}>
 				<ArtifactKindBadge kind={data.kind} />
+				<span className={`type-copy ${TITLE}`}>{artifactDisplayTitle(data)}</span>
 				{data.label && (
-					<span className="type-label   text-[var(--text-tertiary)] uppercase ">{data.label}</span>
+					<span className="type-label shrink-0 max-w-[100px] truncate text-[var(--text-tertiary)] uppercase">{data.label}</span>
 				)}
 				<span className={`type-data ${TASK}`}>{data.producingTaskTitle}</span>
-				<span className={`type-copy ${TITLE}`}>{artifactDisplayTitle(data)}</span>
 			</span>
 			<span className={`type-data ${RIGHT}`}>
 				{count > 0 ? (
