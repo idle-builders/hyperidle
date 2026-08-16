@@ -56,7 +56,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
-import { useHint } from "../hooks/useHints";
 import { apiFetch } from "../services/api-fetch.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
@@ -272,7 +271,6 @@ interface KnowledgeListContentProps {
 	apiError: string | null;
 	isCuratedEmpty: boolean;
 	isTriageEmpty: boolean;
-	hintKnowledgeEmpty: ReturnType<typeof useHint>;
 	onNavigate: (id: string) => void;
 	searchQuery: string;
 	/** Y4: called when the user validates (active) or rejects (archived) a triage item. */
@@ -292,7 +290,6 @@ function KnowledgeListContent({
 	apiError,
 	isCuratedEmpty,
 	isTriageEmpty,
-	hintKnowledgeEmpty,
 	onNavigate,
 	searchQuery,
 	onTriageAction,
@@ -668,27 +665,6 @@ function KnowledgeListContent({
 								description="Agents will populate this scope as they learn. Check back after the next review cycle."
 								dataTestId="knowledge-curated-empty"
 							/>
-							{hintKnowledgeEmpty.visible && (
-								<div
-									role="status"
-									data-testid={hintKnowledgeEmpty.testId}
-									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[12px]"
-								>
-									<p className="type-copy  text-[var(--text-secondary)] ">
-										{hintKnowledgeEmpty.copy}
-									</p>
-									<div className="flex gap-[9px]">
-										<Button
-											variant="ghost"
-											size="sm"
-											className="text-[var(--text-tertiary)]"
-											onClick={hintKnowledgeEmpty.dismiss}
-										>
-											Got it
-										</Button>
-									</div>
-								</div>
-							)}
 						</div>
 					) : (
 						filteredGrouped.map((g) => (
@@ -708,7 +684,6 @@ function KnowledgeListContent({
 												? item.scopeKind
 												: undefined;
 										const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
-										const itemStatus = toKnowledgeStatus(item.status);
 										return (
 											<Row
 												key={item.id}
@@ -755,20 +730,6 @@ function KnowledgeListContent({
 																},
 															]
 														: []),
-													...(itemStatus === "active" || itemStatus === "archived"
-														? [
-																{
-																	content: (
-																		<span data-testid="status-badge">
-																			<StatusChip
-																				status={knowledgeStatusToStatus(itemStatus)}
-																				label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
-																			/>
-																		</span>
-																	),
-																},
-															]
-														: []),
 													{
 														content: relativeShort(item.updatedAt),
 														"data-testid": "knowledge-time" as const,
@@ -798,7 +759,6 @@ export function KnowledgeList({
 	error = null,
 }: KnowledgeListProps = {}): JSX.Element {
 	const navigate = useNavigate();
-	const hintKnowledgeEmpty = useHint("knowledge-empty");
 	const [searchParams, setSearchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
@@ -1113,7 +1073,6 @@ export function KnowledgeList({
 					apiError={apiError}
 					isCuratedEmpty={isCuratedEmpty}
 					isTriageEmpty={isTriageEmpty}
-					hintKnowledgeEmpty={hintKnowledgeEmpty}
 					onNavigate={(id) => navigate(`/knowledge/${id}`)}
 					searchQuery={searchQuery}
 					onTriageAction={handleTriageAction}

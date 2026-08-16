@@ -54,12 +54,12 @@ import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { DEFAULT_ROSTER_RUN_STATE, useRosterRunState } from "../hooks/useAgentRunState.js";
-import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
+import { deriveInitials } from "../utils/initials.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentDetailPane } from "./work/AgentDetailPane.js";
 import { RoutineCreateDialog } from "./work/RoutineCreateDialog.js";
@@ -225,9 +225,6 @@ function WorkTeamLoaded({
 	// @lore AA1: routines defaults to [] so pre-AA1 mock data (missing the field) doesn't crash.
 	const { team, roster, burn, activeBets, routines = [] } = data;
 	const onOpenArtifact = useArtifactOpen();
-	const hintCreateBet = useHint("create-bet");
-	const hintReviewAgents = useHint("review-agents");
-
 	// @lore AV4: All three new hooks go UNCONDITIONALLY here at the top of WorkTeamLoaded,
 	// NOT in WorkTeam — WorkTeam has 5 early-return guard branches (loading/error/null/no-team)
 	// that would make any hook after the first guard a conditional-hook violation.
@@ -389,32 +386,11 @@ function WorkTeamLoaded({
 					}
 				/>
 				{activeBets.length === 0 ? (
-					<>
-						<EmptyState
-							title="No active bets"
-							description="This team has no bets in flight."
-							dataTestId="team-active-bets-empty"
-						/>
-						{hintCreateBet.visible && (
-							<div
-								role="status"
-								data-testid={hintCreateBet.testId}
-								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[9px]"
-							>
-								<p className="type-copy  text-[var(--text-secondary)] ">{hintCreateBet.copy}</p>
-								<div className="flex gap-[9px]">
-									<Button
-										variant="ghost"
-										size="sm"
-										className="text-[var(--text-tertiary)]"
-										onClick={hintCreateBet.dismiss}
-									>
-										Got it
-									</Button>
-								</div>
-							</div>
-						)}
-					</>
+					<EmptyState
+						title="No active bets"
+						description="This team has no bets in flight."
+						dataTestId="team-active-bets-empty"
+					/>
 				) : (
 					<ItemList variant="flush" isEmpty={false}>
 						{activeBets.map((bet) => (
@@ -516,23 +492,6 @@ function WorkTeamLoaded({
 					}
 				/>
 
-				{/* AB3 first-time hint — moved position, same logic */}
-				{hintReviewAgents.visible && roster.length > 0 && (
-					<div
-						role="status"
-						data-testid={hintReviewAgents.testId}
-						className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
-						style={{ background: "color-mix(in oklab, var(--accent-deep) 4%, transparent)" }}
-					>
-						<p className="type-small  text-[var(--text-secondary)] ">{hintReviewAgents.copy}</p>
-						<div className="flex gap-[9px]">
-							<Button variant="ghost" size="sm" type="button" onClick={hintReviewAgents.dismiss}>
-								Got it
-							</Button>
-						</div>
-					</div>
-				)}
-
 				<ItemList
 					variant="flush"
 					isEmpty={roster.length === 0}
@@ -546,7 +505,7 @@ function WorkTeamLoaded({
 						const memberStatus = runState.operationalStatus;
 						const healthLevel = runState.healthLevel;
 						const healthDetail = runState.healthDetail;
-						const initials = member.name.slice(0, 2).toUpperCase();
+						const initials = deriveInitials(member.name);
 
 						const healthTone = rosterRunStateUnknown
 							? ("neutral" as const)

@@ -15,8 +15,8 @@ const EXPECTED = {
 	typography: {
 		label: 116,
 		metadata: 231,
-		small: 232,
-		copy: 48,
+		small: 231,
+		copy: 45,
 		control: 90,
 		input: 11,
 		"avatar-initial": 14,
