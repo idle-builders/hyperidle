@@ -48,26 +48,26 @@ Highest severity. A user hits these and the product does nothing or the wrong th
 
 An identifier, enum, ISO string or raw markup must never be the thing a user reads.
 
-- [ ] **UI-030** Thread title is the host id — *`Conversations.tsx:442` falls back to `hostId`; the lookup always misses for teams* · Done: resolves to the team/task name · **M**
-- [ ] **UI-031** Team feed shows the raw id twice — eyebrow *and* `<h1>` both read `demo-team-acme` · **S**
-- [ ] **UI-032** In-thread artifact chip shows a raw artifact id · **S**
-- [ ] **UI-033** Artifact permalink prints the artifact id top-right · **S**
-- [ ] **UI-034** Settings → Org chart rows subtitle with the raw team id · **S**
-- [ ] **UI-035** Task sessions subtitle with the raw agent id · **S**
-- [ ] **UI-036** Sessions are named "Session 1 / 2 / 3" · Done: named by date or first prompt · **S**
-- [ ] **UI-037** Knowledge subtitle prints a raw ISO string (`2026-08-11T13:07:38.072Z`) · **S**
-- [ ] **UI-038** Knowledge subtitle reads "by unknown" · Done: resolve the editor, or drop the clause · **S**
-- [ ] **UI-039** Knowledge Editor field shows a truncated raw id (`seed-age…`) · **S**
-- [ ] **UI-040** Agent profile shows raw role enum (`product_manager`) — the setup flow already has display labels · **S**
-- [ ] **UI-041** Agent profile shows raw harness enum (`builtin`) · **S**
-- [ ] **UI-042** Settings agent rows subtitle with raw role slugs (`qa_engineer`) · **S**
-- [ ] **UI-043** `0mo` renders at 28–30 days — *`time.ts:82`: switches to months at `FOUR_WEEKS_MS` (28d) but divides by `MONTH_MS` (30d)* · Done: no zero-quantity relative age at any age · **S**
-- [ ] **UI-044** `1 items` — hardcoded plural at `KnowledgeTopicGroup.tsx:73`, 5× on one screen · **S**
-- [ ] **UI-045** Knowledge group headers are slugs (`PRODUCT-IDENTITY`, `ARCHITECTURE`) · Done: "Product identity" · **S**
-- [ ] **UI-046** Raw markdown in list previews (`# Pulse…`, `- **Starter** — 5 dashboards`) · **S**
-- [ ] **UI-047** `Access count` exposes internal telemetry as user metadata · Done: remove · **S**
-- [ ] **UI-048** "Add Edge" is graph-theory jargon · Done: user-facing verb · **S**
-- [ ] **UI-049** The same instant formatted two ways 300px apart — knowledge header vs metadata panel · **S**
+- [x] **UI-030** Thread title is the host id — *`Conversations.tsx:442` falls back to `hostId`; the lookup always misses for teams* · Done: resolves to the team/task name · **M**
+- [x] **UI-031** Team feed shows the raw id twice — eyebrow *and* `<h1>` both read `demo-team-acme` · **S** — already fixed on main
+- [x] **UI-032** In-thread artifact chip shows a raw artifact id · **S**
+- [x] **UI-033** Artifact permalink prints the artifact id top-right · **S**
+- [x] **UI-034** Settings → Org chart rows subtitle with the raw team id · **S**
+- [x] **UI-035** Task sessions subtitle with the raw agent id · **S**
+- [x] **UI-036** Sessions are named "Session 1 / 2 / 3" · Done: named by date or first prompt · **S**
+- [x] **UI-037** Knowledge subtitle prints a raw ISO string (`2026-08-11T13:07:38.072Z`) · **S**
+- [x] **UI-038** Knowledge subtitle reads "by unknown" · Done: resolve the editor, or drop the clause · **S**
+- [x] **UI-039** Knowledge Editor field shows a truncated raw id (`seed-age…`) · **S**
+- [x] **UI-040** Agent profile shows raw role enum (`product_manager`) — the setup flow already has display labels · **S**
+- [x] **UI-041** Agent profile shows raw harness enum (`builtin`) · **S**
+- [x] **UI-042** Settings agent rows subtitle with raw role slugs (`qa_engineer`) · **S**
+- [x] **UI-043** `0mo` renders at 28–30 days — *`time.ts:82`: switches to months at `FOUR_WEEKS_MS` (28d) but divides by `MONTH_MS` (30d)* · Done: no zero-quantity relative age at any age · **S**
+- [x] **UI-044** `1 items` — hardcoded plural at `KnowledgeTopicGroup.tsx:73`, 5× on one screen · **S**
+- [x] **UI-045** Knowledge group headers are slugs (`PRODUCT-IDENTITY`, `ARCHITECTURE`) · Done: "Product identity" · **S**
+- [x] **UI-046** Raw markdown in list previews (`# Pulse…`, `- **Starter** — 5 dashboards`) · **S**
+- [x] **UI-047** `Access count` exposes internal telemetry as user metadata · Done: remove · **S**
+- [x] **UI-048** "Add Edge" is graph-theory jargon · Done: user-facing verb · **S**
+- [x] **UI-049** The same instant formatted two ways 300px apart — knowledge header vs metadata panel · **S**
 
 ## Batch D — adopt the primitives that already exist
 
