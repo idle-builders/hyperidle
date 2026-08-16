@@ -16,8 +16,8 @@
 
 import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
 import { groupParts } from "@hyperidle/conversation-parts";
-import { clockTime } from "@hyperidle/presentation-format";
-import type { JSX } from "react";
+import { absoluteDate, clockTime } from "@hyperidle/presentation-format";
+import { Fragment, type JSX } from "react";
 import { ProsePart } from "./parts/ProsePart.js";
 import { QuestionnairePart } from "./parts/QuestionnairePart.js";
 import { ReasoningPart } from "./parts/ReasoningPart.js";
@@ -113,11 +113,40 @@ export interface PartListProps {
 	reviewBetId?: string | null;
 }
 
+/**
+ * UI-104: Extract the calendar-date string (e.g. "Jun 12, 2026") from a Part's
+ * createdAt timestamp. Used to detect day boundaries between consecutive groups.
+ */
+function groupDayLabel(group: ReturnType<typeof groupParts>[number]): string {
+	const head = group.parts[0];
+	if (!head?.createdAt) return "";
+	return absoluteDate(head.createdAt);
+}
+
+/**
+ * UI-104: Day separator rendered between message groups from different calendar days.
+ * Matches the slim "date divider" pattern used by chat apps — centred label on a
+ * full-width rule so the eye reads the date at a glance.
+ */
+function DaySeparator({ label }: { label: string }): JSX.Element {
+	return (
+		<div
+			data-ds-component="DaySeparator"
+			aria-label={`Messages from ${label}`}
+			className="flex items-center gap-[12px] py-[6px]"
+		>
+			<span className="flex-1 border-t-[var(--bw-thin)] border-[var(--border-subtle)]" />
+			<span className="type-metadata   text-[var(--text-tertiary)] tabular-nums">{label}</span>
+			<span className="flex-1 border-t-[var(--bw-thin)] border-[var(--border-subtle)]" />
+		</div>
+	);
+}
+
 export function PartList({ parts, onOpen, onAnswer, reviewBetId }: PartListProps): JSX.Element {
 	const groups = groupParts(parts);
 	return (
 		<div data-ds-component="PartList" className="flex flex-col gap-[18px]">
-			{groups.map((group) => {
+			{groups.map((group, index) => {
 				const head = group.parts[0];
 				const isAgent = group.author.isAgent;
 				// ONLY my own messages are highlighted: right-bound grey box. Everyone
@@ -125,39 +154,55 @@ export function PartList({ parts, onOpen, onAnswer, reviewBetId }: PartListProps
 				// avatar tint (green agent / grey human) carries the who; the box/side
 				// carries the it's-me. One pattern, shared by conversation + session.
 				const isSelf = group.author.isMe;
+
+				// UI-104: show a day separator when this group's calendar day differs from the
+				// previous group's day. Never fires for the first group (index 0) — there is
+				// nothing to separate it from. The separator appears ABOVE the first group of a
+				// new day so the eye reads "date" → "first message of that day".
+				const thisDay = groupDayLabel(group);
+				const prevDay = index > 0 ? groupDayLabel(groups[index - 1] ?? group) : thisDay;
+				const showDaySeparator = index > 0 && thisDay !== "" && thisDay !== prevDay;
+
+				const groupKey = head?.id ?? group.author.id;
 				return (
-					<div
-						key={head?.id ?? group.author.id}
-						data-ds-component="PartGroup"
-						data-ds-sender={isAgent ? "agent" : "human"}
-						{...(isAgent ? { "data-ds-agent": "true" } : {})}
-						{...(isSelf ? { "data-ds-self": "true" } : {})}
-						className={`flex flex-col ${isSelf ? "items-end" : ""}`}
-					>
-						<div className={`flex flex-col gap-[9px] ${isSelf ? "max-w-[80%]" : ""}`}>
-							<div className="flex items-center gap-[9px]">
-								<GroupAvatar name={group.author.name} isAgent={isAgent} />
-								<span className="type-small   text-[var(--text-primary)]">{group.author.name}</span>
-								{isSelf && <span className="type-metadata   text-[var(--text-tertiary)]">You</span>}
-								{head && (
-									<span className="type-metadata  tabular-nums text-[var(--text-tertiary)]">
-										{clockTime(head.createdAt)}
+					<Fragment key={groupKey}>
+						{showDaySeparator && <DaySeparator label={thisDay} />}
+						<div
+							data-ds-component="PartGroup"
+							data-ds-sender={isAgent ? "agent" : "human"}
+							{...(isAgent ? { "data-ds-agent": "true" } : {})}
+							{...(isSelf ? { "data-ds-self": "true" } : {})}
+							className={`flex flex-col ${isSelf ? "items-end" : ""}`}
+						>
+							<div className={`flex flex-col gap-[9px] ${isSelf ? "max-w-[80%]" : ""}`}>
+								<div className="flex items-center gap-[9px]">
+									<GroupAvatar name={group.author.name} isAgent={isAgent} />
+									<span className="type-small   text-[var(--text-primary)]">
+										{group.author.name}
 									</span>
-								)}
-							</div>
-							<div
-								className={
-									isSelf
-										? "flex flex-col gap-[12px] rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px] text-left"
-										: "flex flex-col gap-[12px]"
-								}
-							>
-								{group.parts.map((part) => (
-									<div key={part.id}>{renderPart(part, onOpen, onAnswer, reviewBetId)}</div>
-								))}
+									{isSelf && (
+										<span className="type-metadata   text-[var(--text-tertiary)]">You</span>
+									)}
+									{head && (
+										<span className="type-metadata  tabular-nums text-[var(--text-tertiary)]">
+											{clockTime(head.createdAt)}
+										</span>
+									)}
+								</div>
+								<div
+									className={
+										isSelf
+											? "flex flex-col gap-[12px] rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px] text-left"
+											: "flex flex-col gap-[12px]"
+									}
+								>
+									{group.parts.map((part) => (
+										<div key={part.id}>{renderPart(part, onOpen, onAnswer, reviewBetId)}</div>
+									))}
+								</div>
 							</div>
 						</div>
-					</div>
+					</Fragment>
 				);
 			})}
 		</div>

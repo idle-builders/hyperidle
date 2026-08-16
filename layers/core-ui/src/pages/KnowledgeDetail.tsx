@@ -4,6 +4,7 @@ import {
 	BodyEditor,
 	Breadcrumb,
 	Button,
+	EmptyState,
 	knowledgeStatusToStatus,
 	Menu,
 	PageHeader,
@@ -384,7 +385,12 @@ function BacklinksCard({
 					))}
 				</ul>
 			) : (
-				<p className="type-small  text-[var(--text-tertiary)]">No related items.</p>
+				/* UI-021: use EmptyState compact for consistency */
+				<EmptyState
+					compact
+					title="No backlinks"
+					description="Related and same-topic items will appear here."
+				/>
 			)}
 		</div>
 	);

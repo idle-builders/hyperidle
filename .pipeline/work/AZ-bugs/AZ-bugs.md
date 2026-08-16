@@ -31,18 +31,18 @@ Highest severity. A user hits these and the product does nothing or the wrong th
 
 `empty ≠ loading ≠ failed`. The design system already ships `EmptyState` and `ErrorState`; this is adoption, not invention.
 
-- [ ] **UI-010** A 500 renders as "your knowledge base is empty" — *`/knowledge` with the API failing* · Now: confident empty state + "Create first item", and the header toolbar vanishes · Done: states the load failed and offers retry · **S**
+- [x] **UI-010** A 500 renders as "your knowledge base is empty" — *`/knowledge` with the API failing* · Now: confident empty state + "Create first item", and the header toolbar vanishes · Done: states the load failed and offers retry · **S**
 - [ ] **UI-011** Sidebar says "No teams yet" while still loading · Done: loading state, not an empty claim · **S**
 - [ ] **UI-012** Sidebar says "No knowledge yet" while still loading · **S**
 - [ ] **UI-013** Sidebar says "No threads yet" after a 429 · **S**
 - [ ] **UI-014** Agent profile error shows a raw status code — *"Agent profile fetch failed: 429"* · Done: user-facing sentence, no status code, with retry · **S**
-- [ ] **UI-015** No retry affordance on any failed surface · Done: retry re-issues the request and renders in place, no page reload · **S**
-- [ ] **UI-016** Skeleton doesn't resemble the content it replaces — *`/work/team/:id`* · Now: 16 identical bars stand in for 2 cards + 3 structured sections, inset 20px differently, so content jumps on arrival · Done: placeholder occupies the same regions as the real content · **S**
-- [ ] **UI-017** Page title shows placeholder "Team" then swaps to the real name · Done: title skeleton, or the real name on first paint · **S**
-- [ ] **UI-018** Empty section renders as a bare label and rule — *task detail, ARTIFACTS* · Done: `EmptyState compact` · **S**
-- [ ] **UI-019** Task detail DISCUSSION stacks two horizontal rules with a phantom gap · **S**
-- [ ] **UI-020** OWNER stat cell renders blank when unassigned · Done: "Unassigned" · **S**
-- [ ] **UI-021** Four different empty-state treatments across sections — *WorkTask ARTIFACTS / DISCUSSION, KnowledgeDetail BACKLINKS, knowledge list* · Done: all four use `EmptyState compact` · **S**
+- [x] **UI-015** No retry affordance on any failed surface · Done: retry re-issues the request and renders in place, no page reload · **S**
+- [x] **UI-016** Skeleton doesn't resemble the content it replaces — *`/work/team/:id`* · Now: 16 identical bars stand in for 2 cards + 3 structured sections, inset 20px differently, so content jumps on arrival · Done: placeholder occupies the same regions as the real content · **S**
+- [x] **UI-017** Page title shows placeholder "Team" then swaps to the real name · Done: title skeleton, or the real name on first paint · **S**
+- [x] **UI-018** Empty section renders as a bare label and rule — *task detail, ARTIFACTS* · Done: `EmptyState compact` · **S**
+- [x] **UI-019** Task detail DISCUSSION stacks two horizontal rules with a phantom gap · **S**
+- [x] **UI-020** OWNER stat cell renders blank when unassigned · Done: "Unassigned" · **S**
+- [x] **UI-021** Four different empty-state treatments across sections — *WorkTask ARTIFACTS / DISCUSSION, KnowledgeDetail BACKLINKS, knowledge list* · Done: all four use `EmptyState compact` · **S**
 
 ## Batch C — machine data out of the interface
 
@@ -106,15 +106,15 @@ Cheapest batch, largest effect on whether the product feels real.
 
 ## Batch F — copy and formatting
 
-- [ ] **UI-100** Excerpts clip mid-word with no ellipsis — *knowledge list: "users respond to vi", "6 or 8 days depen"* · **S**
-- [ ] **UI-101** Truncation is inconsistent within one list — one row gets an ellipsis, its neighbours are hard-cut · **S**
-- [ ] **UI-102** Button label casing unsystematic — `+ New bet`, `+ Add agent`, `+ Add Edge`, `New thread`, `Create first item`, `Customize`, `Edit in Settings` · **S**
-- [ ] **UI-103** Field labels split between caps micro-labels (NAME / PROMPT / AUTONOMY) and sentence case ("Your name") · **S**
-- [ ] **UI-104** Message timestamps repeat on every message with no grouping and no day separators — six consecutive "3:07 PM" · **S**
+- [x] **UI-100** Excerpts clip mid-word with no ellipsis — *knowledge list: "users respond to vi", "6 or 8 days depen"* · **S**
+- [x] **UI-101** Truncation is inconsistent within one list — one row gets an ellipsis, its neighbours are hard-cut · **S**
+- [x] **UI-102** Button label casing unsystematic — `+ New bet`, `+ Add agent`, `+ Add Edge`, `New thread`, `Create first item`, `Customize`, `Edit in Settings` · **S**
+- [x] **UI-103** Field labels split between caps micro-labels (NAME / PROMPT / AUTONOMY) and sentence case ("Your name") · **S**
+- [x] **UI-104** Message timestamps repeat on every message with no grouping and no day separators — six consecutive "3:07 PM" · **S**
 - [ ] **UI-105** Agent profile health-warning banner has no icon and no action · Done: icon + a route to fix it · **S**
-- [ ] **UI-106** Session score column (`0.75`) is unexplained mono · Done: label it · **S**
-- [ ] **UI-107** Editable titles render in muted grey and read as disabled — "Untitled bet", "Untitled" · Done: reads editable, caret on focus · **S**
-- [ ] **UI-108** Unknown-artifact state is a shouty uppercase machine string with no explanation and no route to the source · **S**
+- [x] **UI-106** Session score column (`0.75`) is unexplained mono · Done: label it · **S**
+- [x] **UI-107** Editable titles render in muted grey and read as disabled — "Untitled bet", "Untitled" · Done: reads editable, caret on focus · **S**
+- [x] **UI-108** Unknown-artifact state is a shouty uppercase machine string with no explanation and no route to the source · **S**
 - [ ] **UI-109** Setup illustration is three grey skeleton-cards — reads as content that failed to load · Done: remove or replace · **S**
 - [ ] **UI-110** Setup shows four disabled harness rows ("Install to use") occupying more space than the one usable option · **S**
 

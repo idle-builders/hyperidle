@@ -522,7 +522,7 @@ export function SettingsAgents(): JSX.Element {
 			</ItemList>
 
 			<Button variant="ghost" size="sm" className="self-start" onClick={() => setAddMode(!addMode)}>
-				{addMode ? "Cancel add" : "+ Add Agent"}
+				{addMode ? "Cancel add" : "+ Add agent"}
 			</Button>
 
 			{addMode && (

@@ -57,6 +57,7 @@ import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
 import { apiFetch } from "../services/api-fetch.js";
+import { clipExcerpt } from "../utils/clip-excerpt.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
 type KnowledgeTab = "triage" | "curated";
@@ -482,7 +483,7 @@ function KnowledgeListContent({
 											data-focused={focusedIndex === index ? "true" : undefined}
 											title={item.title}
 											subtitle={
-												item.body ? stripMarkdown(item.body).slice(0, 120) || undefined : undefined
+												item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
 											}
 											cells={[
 												...(isPrivate
@@ -694,9 +695,7 @@ function KnowledgeListContent({
 												data-testid="knowledge-row"
 												title={item.title}
 												subtitle={
-													item.body
-														? stripMarkdown(item.body).slice(0, 120) || undefined
-														: undefined
+													item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
 												}
 												cells={[
 													...(isPrivate
@@ -940,7 +939,9 @@ export function KnowledgeList({
 		);
 	}
 
-	const systemEmpty = allItems.length === 0 && !apiLoading;
+	// UI-010: only show "system empty" when there is no API error — a 500/429 must
+	// surface as an error state (ErrorState + retry), NOT as "your knowledge base is empty".
+	const systemEmpty = allItems.length === 0 && !apiLoading && !apiError;
 	const isCuratedEmpty = grouped.length === 0 && !apiLoading;
 	const isTriageEmpty = triageItems.length === 0 && !apiLoading;
 

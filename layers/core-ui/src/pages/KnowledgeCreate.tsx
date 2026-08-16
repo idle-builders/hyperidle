@@ -154,7 +154,7 @@ export function KnowledgeCreate(): JSX.Element {
 							onChange={(e) => setTitle(e.target.value)}
 							disabled={submitting}
 							maxLength={500}
-							className={`${pageTitleClassName} bg-transparent border-none outline-none flex-1 p-0`}
+							className={`${pageTitleClassName} bg-transparent border-none outline-none focus-visible:outline-none focus-visible:underline decoration-[var(--border-default)] underline-offset-2 cursor-text flex-1 p-0`}
 						/>
 					}
 					actions={

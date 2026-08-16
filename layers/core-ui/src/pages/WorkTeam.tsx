@@ -112,15 +112,24 @@ export function WorkTeam({
 
 	const error = overrideError !== undefined ? (overrideError ?? null) : fetched.error;
 	const data = overrideData !== undefined ? overrideData : (fetched.data as TeamDetail | null);
+	// UI-015: retry re-issues the team fetch in place (no page reload).
+	const onRetryTeam = overrideData === undefined ? fetched.refetch : undefined;
 
 	// Loading state
+	// UI-017: title uses a skeleton bar so the header never flashes the static placeholder "Team"
+	// before the real team name arrives. SkeletonCard shape mirrors the content sections.
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
-			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
+			<PageScaffold
+				frame="page"
+				header={<PageHeader title={<span aria-label="Team" className="skeleton block h-[22px] w-[160px]" />} />}
+				data-testid="work-team-page"
+			>
 				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
-					<SkeletonCard ariaLabel="Loading team header" />
-					<SkeletonCard ariaLabel="Loading burn vs cap" />
+					{/* UI-016: match real content regions — summary strip, bets, routines, roster */}
+					<SkeletonCard ariaLabel="Loading team summary" />
 					<SkeletonCard ariaLabel="Loading active bets" />
+					<SkeletonCard ariaLabel="Loading routines" />
 					<SkeletonCard ariaLabel="Loading roster" />
 				</div>
 			</PageScaffold>
@@ -150,7 +159,11 @@ export function WorkTeam({
 		return (
 			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
 				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
-					<ErrorState title="Failed to load team" description={error.message} />
+					<ErrorState
+						title="Failed to load team"
+						description={error.message}
+						onRetry={onRetryTeam}
+					/>
 				</div>
 			</PageScaffold>
 		);
