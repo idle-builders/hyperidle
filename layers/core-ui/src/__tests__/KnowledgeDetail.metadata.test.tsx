@@ -56,9 +56,14 @@ describe("KnowledgeDetail — J7 metadata bar", () => {
 		expect(screen.getByTestId("knowledge-origin-agent")).toHaveTextContent(/Architect Agent/);
 	});
 
-	it("renders the updated timestamp", () => {
+	it("renders the updated timestamp (formatted, not raw string)", () => {
 		renderPage("k1");
-		expect(screen.getByTestId("knowledge-updated-at")).toHaveTextContent("1d ago");
+		// UI-037: timestamp is now passed through absoluteDateTime().
+		// Fixture k1 has timestamp "1d ago" (not ISO) so absoluteDateTime returns "—".
+		// Key assertion: the raw fixture string "1d ago" must NOT appear verbatim.
+		const span = screen.getByTestId("knowledge-updated-at");
+		expect(span).toBeInTheDocument();
+		expect(span.textContent).not.toBe("1d ago");
 	});
 
 	it("renders the markdown body inside an element that preserves whitespace", () => {
