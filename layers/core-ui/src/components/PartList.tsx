@@ -31,16 +31,26 @@ function assertNeverPart(_value: never): JSX.Element {
 	return <UnknownPart />;
 }
 
-function renderPart(part: Part, onOpen: OpenHandler): JSX.Element {
+function renderPart(
+	part: Part,
+	onOpen: OpenHandler,
+	onAnswer: ((text: string) => void) | undefined,
+	betId: string | null | undefined,
+): JSX.Element {
 	switch (part.kind) {
 		case "prose":
 			return <ProsePart part={part} onOpen={onOpen} />;
-		case "review":
-			return <ReviewRequestPart part={part} onOpen={onOpen} />;
+		case "review": {
+			// UI-005: The "Open review" button is only available when the bet is resolvable.
+			// pageBetId (from thread context) or part.reviewTarget.betId (non-empty) both suffice.
+			const canOpen = (betId != null && betId !== "") || part.reviewTarget.betId !== "";
+			return <ReviewRequestPart part={part} onOpen={onOpen} canOpen={canOpen} />;
+		}
 		case "resolved":
 			return <ReviewResolvedPart part={part} onOpen={onOpen} />;
 		case "questionnaire":
-			return <QuestionnairePart part={part} />;
+			// UI-004: onAnswer posts the chosen option as a plain message via onSend.
+			return <QuestionnairePart part={part} onAnswer={onAnswer} />;
 		case "tool":
 			// AM3: tool Part — bare one-liner row; per-kind icon; expand-to-output.
 			return <ToolPart part={part} onOpen={onOpen} />;
@@ -90,9 +100,20 @@ function GroupAvatar({ name, isAgent }: { name: string; isAgent: boolean }): JSX
 export interface PartListProps {
 	parts: ReadonlyArray<Part>;
 	onOpen: OpenHandler;
+	/**
+	 * UI-004: when provided, clicking a questionnaire option posts it as a plain
+	 * reply via this callback (wired to ConversationSurface's onSend at the page).
+	 */
+	onAnswer?: (text: string) => void;
+	/**
+	 * UI-005: bet that hosts the conversation. When null/absent, "Open review" is
+	 * hidden on ReviewRequestParts whose own target also lacks a betId (avoids a
+	 * dead-URL navigation).
+	 */
+	reviewBetId?: string | null;
 }
 
-export function PartList({ parts, onOpen }: PartListProps): JSX.Element {
+export function PartList({ parts, onOpen, onAnswer, reviewBetId }: PartListProps): JSX.Element {
 	const groups = groupParts(parts);
 	return (
 		<div data-ds-component="PartList" className="flex flex-col gap-[18px]">
@@ -132,7 +153,7 @@ export function PartList({ parts, onOpen }: PartListProps): JSX.Element {
 								}
 							>
 								{group.parts.map((part) => (
-									<div key={part.id}>{renderPart(part, onOpen)}</div>
+									<div key={part.id}>{renderPart(part, onOpen, onAnswer, reviewBetId)}</div>
 								))}
 							</div>
 						</div>

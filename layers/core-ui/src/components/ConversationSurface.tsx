@@ -41,13 +41,11 @@
  * affordances are visible but inert).
  */
 
-import type { OpenHandler, OpenTarget, Part } from "@hyperidle/conversation-parts";
-import { Button, PageHeader, ReferenceChip } from "@hyperidle/design-system";
+import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
+import { Button, PageHeader } from "@hyperidle/design-system";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PartList } from "./PartList.js";
-
-const INSERTED_CODE_TITLE = "auth/passkey.ts";
 
 export interface ConversationSurfaceParticipant {
 	readonly id: string;
@@ -73,9 +71,15 @@ export interface ConversationSurfaceProps {
 	participants: ReadonlyArray<ConversationSurfaceParticipant>;
 	/** The send path. page: posts a plain message via the existing endpoint; story: noop. */
 	onSend: (text: string) => Promise<void> | void;
-	/** Story-only visual toggles (default false; the page never sets these). */
+	/** Story-only visual toggle (default false; the page never sets this). */
 	scroll?: boolean;
-	composerActive?: boolean;
+	/**
+	 * UI-005: bet that hosts this conversation's thread, when resolvable. Used to
+	 * determine whether the "Open review" button in ReviewRequestPart can navigate to a
+	 * valid review URL. Null/absent = task-hosted or bet not cheaply available →
+	 * the review button is hidden rather than rendered as a dead link.
+	 */
+	reviewBetId?: string | null;
 	/** Read mode keeps context in the readable lane; pane mode owns split identity. */
 	headerPresentation?: "read" | "pane";
 }
@@ -101,11 +105,6 @@ const ICON_SEND = "M2 8l12-6-5.2 12-1.8-4.8L2 8z";
 const ICON_PAPERCLIP =
 	"M11.5 3.5a2.5 2.5 0 013.5 3.5l-7 7a4 4 0 11-5.6-5.6l6.3-6.3 1 1L3.4 9.4a2.6 2.6 0 003.6 3.6l7-7a1 1 0 00-1.4-1.4L6 11.2a.5.5 0 00.7.7l5-5 1 1-5 5A2 2 0 014 10.2l6.5-6.5z";
 const ICON_DOC = "M4 1h5l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1.5V4h1.5L9 2.5z";
-const ICON_REPLY = "M6.5 3L2 7l4.5 4V8.4c3.2 0 5.2 1 6.5 3.6.4-4.3-1.8-7.4-6.5-8V3z";
-const ICON_MORE =
-	"M3 6.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm5 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm5 0a1.5 1.5 0 110 3 1.5 1.5 0 010-3z";
-const ICON_REMOVE =
-	"M4.3 3.2L8 6.9l3.7-3.7 1.1 1.1L9.1 8l3.7 3.7-1.1 1.1L8 9.1l-3.7 3.7-1.1-1.1L6.9 8 3.2 4.3l1.1-1.1z";
 const ICON_FORMAT_AA =
 	"M5.6 3h1.6l3.1 8H8.6l-.62-1.7H4.84L4.22 11H2.5l3.1-8zm.18 2.1L4.36 7.9h2.84L5.78 5.1zM12 6.4h1.5V11H12v-.5a1.7 1.7 0 01-1.2.6c-1 0-1.7-.7-1.7-1.6 0-.95.8-1.5 2-1.5h.9v-.15c0-.5-.3-.75-.85-.75-.42 0-.78.16-1.1.42l-.58-.95A3 3 0 0111.2 6.3c.3 0 .55.04.8.1zm-.2 2.85h-.7c-.5 0-.78.2-.78.55 0 .3.24.5.62.5.45 0 .82-.3.86-.75v-.3z";
 const ICON_AT =
@@ -168,12 +167,10 @@ function ParticipantGroup({
 function ConversationHeader({
 	header,
 	participants,
-	onActions,
 	presentation,
 }: {
 	header: ConversationSurfaceHeader;
 	participants: ReadonlyArray<ConversationSurfaceParticipant>;
-	onActions: () => void;
 	presentation: "read" | "pane";
 }): JSX.Element {
 	const context = (
@@ -195,22 +192,12 @@ function ConversationHeader({
 		</div>
 	);
 	const controls = (
-		<>
-			<div className="flex items-center gap-[9px]">
-				<ParticipantGroup people={participants} />
-				<span className="type-metadata tabular-nums text-[var(--text-tertiary)]">
-					{participants.length}
-				</span>
-			</div>
-			<button
-				type="button"
-				onClick={onActions}
-				aria-label="Conversation actions"
-				className="flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
-			>
-				<Glyph d={ICON_MORE} size={16} />
-			</button>
-		</>
+		<div className="flex items-center gap-[9px]">
+			<ParticipantGroup people={participants} />
+			<span className="type-metadata tabular-nums text-[var(--text-tertiary)]">
+				{participants.length}
+			</span>
+		</div>
 	);
 	if (presentation === "read") {
 		return (
@@ -301,53 +288,6 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 	);
 }
 
-function ComposerReplyBanner({ onCancel }: { onCancel: () => void }): JSX.Element {
-	return (
-		<div className="border-b-[var(--bw-thin)] flex items-center gap-[9px]  border-[var(--border-subtle)] px-[12px] py-[6px]">
-			<span className="flex shrink-0 items-center text-[var(--accent-deep)]">
-				<Glyph d={ICON_REPLY} size={12} />
-			</span>
-			<div className="border-l-[var(--bw-strong)] type-metadata flex min-w-0 flex-1 items-baseline gap-[6px]  border-[var(--accent-deep)] pl-[9px]  ">
-				<span className="shrink-0 text-[var(--text-secondary)]">
-					Replying to <span className="type-small  text-[var(--text-primary)]">Atlas</span>
-				</span>
-				<span className="truncate text-[var(--text-tertiary)]">
-					“Added WebAuthn registration and the dual-auth window…”
-				</span>
-			</div>
-			<button
-				type="button"
-				onClick={onCancel}
-				aria-label="Cancel reply"
-				title="Cancel reply"
-				className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-secondary)]"
-			>
-				<Glyph d={ICON_REMOVE} size={11} />
-			</button>
-		</div>
-	);
-}
-
-// Active-state draft body: ALL attachments render through the SAME shared
-// design-system ReferenceChip (draft mode) in a single horizontal wrapping row.
-function ComposerDraftBody({ onOpen }: { onOpen: (t: OpenTarget) => void }): JSX.Element {
-	return (
-		<div
-			data-ds-component="ComposerDraftBody"
-			className="flex flex-wrap items-center gap-[6px] px-[12px] pt-[9px]"
-		>
-			<ReferenceChip
-				kind="artifact"
-				label={INSERTED_CODE_TITLE}
-				meta="TS · 3 lines"
-				mode="draft"
-				onOpen={() => onOpen({ route: "artifact", artifactId: "art-1" })}
-			/>
-			<ReferenceChip kind="image" label="auth-flow.png" meta="82 KB" mode="draft" />
-		</div>
-	);
-}
-
 function ComposerInputRow({
 	insertMenuOpen,
 	onToggleMenu,
@@ -408,25 +348,19 @@ function ComposerInputRow({
 }
 
 function Composer({
-	active,
 	insertMenuOpen,
 	onToggleMenu,
 	onPickMenu,
-	onCancelReply,
 	onSend,
-	onOpen,
 	placeholder,
 	value,
 	onChange,
 	menuButtonRef,
 }: {
-	active: boolean;
 	insertMenuOpen: boolean;
 	onToggleMenu: () => void;
 	onPickMenu: () => void;
-	onCancelReply: () => void;
 	onSend: () => void;
-	onOpen: (t: OpenTarget) => void;
 	placeholder: string;
 	value: string;
 	onChange: (next: string) => void;
@@ -436,8 +370,6 @@ function Composer({
 		<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
 			<div className="mx-auto w-full max-w-[760px]">
 				<div className="border-[var(--bw-thin)] relative rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]">
-					{active && <ComposerReplyBanner onCancel={onCancelReply} />}
-					{active && <ComposerDraftBody onOpen={onOpen} />}
 					<ComposerInputRow
 						insertMenuOpen={insertMenuOpen}
 						onToggleMenu={onToggleMenu}
@@ -467,15 +399,16 @@ export default function ConversationSurface({
 	participants,
 	onSend,
 	scroll = false,
-	composerActive = false,
+	reviewBetId,
 	headerPresentation = "pane",
 }: ConversationSurfaceProps): JSX.Element {
 	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
-	const [replyActive, setReplyActive] = useState(composerActive);
-	const [draft, setDraft] = useState(
-		composerActive ? "Here's the corrected registration flow — one nit on the error copy: " : "",
-	);
+	const [draft, setDraft] = useState("");
 	const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+	// @lore UI-003: scroll the message column to the newest message on load and
+	// when new messages arrive via WS push. Only applies when scroll=true (the page
+	// layout — not the story which renders at natural height without overflow).
+	const scrollRef = useRef<HTMLDivElement | null>(null);
 
 	const placeholder = `Message ${participants
 		.map((p) => p.name)
@@ -484,13 +417,9 @@ export default function ConversationSurface({
 
 	const handleSend = (): void => {
 		const text = draft.trim();
-		if (text.length === 0) {
-			setReplyActive(false);
-			return;
-		}
+		if (text.length === 0) return;
 		void onSend(text);
 		setDraft("");
-		setReplyActive(false);
 	};
 
 	// Outside-click / Escape closes the Insert menu (real popover behavior).
@@ -514,6 +443,14 @@ export default function ConversationSurface({
 		};
 	}, [insertMenuOpen]);
 
+	// @lore UI-003: scroll to the bottom (newest message) whenever parts update.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: parts reference identity changes on each push; scroll on every update is intentional.
+	useEffect(() => {
+		if (scroll && scrollRef.current) {
+			scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+		}
+	}, [parts, scroll]);
+
 	return (
 		<div
 			data-ds-component="ConversationSurface"
@@ -531,27 +468,29 @@ export default function ConversationSurface({
 				<ConversationHeader
 					header={header}
 					participants={participants}
-					onActions={() => setReplyActive((v) => !v)}
 					presentation={headerPresentation}
 				/>
 				<div
+					ref={scrollRef}
 					className="px-[18px] py-[12px]"
 					style={scroll ? { flex: 1, minHeight: 0, overflowY: "auto" } : undefined}
 				>
 					<div className="mx-auto w-full max-w-[760px]">
 						{/* The message column is rendered by the PRODUCTION renderer — the
 						    approved design and PartList cannot drift. */}
-						<PartList parts={parts} onOpen={onOpen} />
+						<PartList
+							parts={parts}
+							onOpen={onOpen}
+							onAnswer={(text) => void onSend(text)}
+							reviewBetId={reviewBetId}
+						/>
 					</div>
 				</div>
 				<Composer
-					active={replyActive}
 					insertMenuOpen={insertMenuOpen}
 					onToggleMenu={() => setInsertMenuOpen((v) => !v)}
 					onPickMenu={() => setInsertMenuOpen(false)}
-					onCancelReply={() => setReplyActive(false)}
 					onSend={handleSend}
-					onOpen={onOpen}
 					placeholder={placeholder}
 					value={draft}
 					onChange={setDraft}

@@ -225,7 +225,9 @@ export function HostThreadSection({
 		);
 	}
 
-	const allMessages: ReadonlyArray<Message> = data?.messages ?? [];
+	// @lore UI-003: API returns messages DESC (newest-first). Reverse to ASC so
+	// CommentRow renders oldest → newest top-to-bottom.
+	const allMessages: ReadonlyArray<Message> = data?.messages ? [...data.messages].reverse() : [];
 	const identities: Record<string, HostThreadIdentity> = data?.identities ?? {};
 
 	// T5: Apply block-scoped filter unless user has toggled "show all".

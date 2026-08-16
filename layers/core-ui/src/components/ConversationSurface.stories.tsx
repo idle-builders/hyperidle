@@ -216,7 +216,6 @@ export const ComposerInsertBlock = (): JSX.Element => (
 					participants={PARTICIPANTS}
 					onSend={onSend}
 					scroll
-					composerActive
 				/>
 			</div>
 		</div>

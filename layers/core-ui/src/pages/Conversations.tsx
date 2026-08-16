@@ -465,8 +465,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// AM1: derive the render units + header/participants ONCE for both layouts.
 	// The conversation column comes from the Part adapter (the only Message-aware
 	// seam); the header/participants come from the values the page already has.
+	// @lore UI-003: API returns messages DESC (newest-first, dir:"desc"). Reverse
+	// to ASC (oldest-first) before the adapter so PartList renders oldest → newest
+	// top-to-bottom as expected.
 	const parts = derivePartsFromMessages(
-		data.messages,
+		[...data.messages].reverse(),
 		viewerId,
 		identitiesToAuthors(data.identities, viewerId),
 	);
@@ -590,6 +593,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						participants={participants}
 						onSend={onSend}
 						scroll
+						reviewBetId={reviewBetId}
 						headerPresentation={inspection ? "pane" : "read"}
 					/>
 				}
