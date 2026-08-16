@@ -212,7 +212,7 @@ function NotificationButton({
 			onClick={onClick}
 			aria-label="Notifications"
 			aria-expanded={open}
-			className={`type-control relative flex h-[44px] w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px]   text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[1025px]:h-[36px] ${drawerMode ? "justify-start" : "justify-center min-[769px]:justify-start"}`}
+			className={`type-control cursor-pointer relative flex h-[44px] w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1 text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[1025px]:h-[36px] ${drawerMode ? "justify-start" : "justify-center min-[769px]:justify-start"}`}
 		>
 			<span className="inline-flex text-[var(--text-tertiary)]" aria-hidden="true">
 				<svg
@@ -261,11 +261,11 @@ function SectionHeader({
 			onClick={() => onViewChange(view)}
 			aria-label={label}
 			aria-current={isActive ? "page" : undefined}
-			className={`type-control ${[
+			className={`type-control cursor-pointer ${[
 				`flex h-[44px] w-full items-center gap-[9px] px-[9px] min-[1025px]:h-[36px] ${drawerMode ? "justify-start" : "justify-center min-[769px]:justify-start"}`,
 				" ",
 				"rounded-[var(--r-subtle)] mb-[3px]",
-				"  ",
+				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 				// AD9: active item → elevated surface; inactive → accent-tinted hover
 				// to match the fast-nav Row hover (uniform surface grammar).
 				isActive
@@ -332,7 +332,7 @@ function AssistantIconButton({
 			// A pressed/open TOGGLE state, not an action Button (Button has no
 			// built-in pressed treatment distinct from its 4 action variants).
 			className={[
-				"inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
+				"inline-flex cursor-pointer h-[44px] w-[44px] shrink-0 items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
 				"  ",
 				// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
 				// selected tint — not a no-handrolled-control violation.
@@ -380,7 +380,7 @@ function SearchAssistantTools({
 				onClick={onSearchClick}
 				aria-label="Search"
 				title="Search (⌘K)"
-				className="inline-flex h-[44px] w-[44px] items-center justify-center text-[var(--text-secondary)]  hover:text-[var(--text-primary)] min-[1025px]:h-[32px] min-[1025px]:w-[32px]"
+				className="inline-flex cursor-pointer h-[44px] w-[44px] items-center justify-center text-[var(--text-secondary)]  hover:text-[var(--text-primary)] min-[1025px]:h-[32px] min-[1025px]:w-[32px]"
 			>
 				<svg
 					width="16"
@@ -426,7 +426,7 @@ function SettingsFooter({
 				onClick={onClick}
 				aria-label="Settings"
 				aria-current={active ? "page" : undefined}
-				className={`type-control ${[
+				className={`type-control cursor-pointer ${[
 					"flex h-[44px] w-[44px] items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
 					" ",
 					"rounded-[var(--r-subtle)]",
@@ -510,7 +510,7 @@ function FastNavItem({
 				data-testid={dataTestId}
 				onClick={onClick}
 				title={label}
-				className={`type-control ${[
+				className={`type-control cursor-pointer ${[
 					"flex h-[44px] w-full items-center rounded-[var(--r-subtle)] px-[9px] min-[1025px]:h-[34px]",
 					"  text-[var(--text-primary)] truncate",
 					"  ",

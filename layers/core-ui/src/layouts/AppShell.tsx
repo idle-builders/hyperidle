@@ -673,7 +673,7 @@ export function AppShell(): JSX.Element {
 										? "Back"
 										: `Up to ${activeView === "knowledge" ? "Knowledge" : activeView === "work" ? "Work" : "Conversations"}`
 								}
-								className="flex items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
+								className="flex cursor-pointer items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
 							>
 								{/* Chevron-left icon */}
 								<svg
@@ -697,7 +697,7 @@ export function AppShell(): JSX.Element {
 							onClick={() => setDrawerOpen(true)}
 							aria-label="Open navigation"
 							aria-expanded={drawerOpen}
-							className="relative flex items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
+							className="relative flex cursor-pointer items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
 						>
 							{/* Hamburger icon */}
 							<svg
@@ -731,7 +731,7 @@ export function AppShell(): JSX.Element {
 							type="button"
 							onClick={commandK.open}
 							aria-label="Search"
-							className="flex items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
+							className="flex cursor-pointer items-center justify-center w-[48px] h-[48px] shrink-0 text-[var(--text-secondary)]"
 						>
 							{/* Search icon */}
 							<svg

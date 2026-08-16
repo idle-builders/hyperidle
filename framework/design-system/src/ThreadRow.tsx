@@ -115,7 +115,7 @@ export function ThreadRow({
 	const baseClassName = [
 		"flex items-center gap-[12px] px-[24px] py-[12px]",
 		"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none",
-		"hover:bg-[color-mix(in_oklab,var(--text-secondary)_2%,transparent)]",
+		"hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
 		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",
 		// selected state: elevated bg + subtle shadow per design spec
