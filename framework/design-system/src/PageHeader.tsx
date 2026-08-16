@@ -102,7 +102,7 @@ export function PageHeader({
 							: resolvedTitleProfile === "lead"
 								? "type-lead"
 								: "type-title"
-					} ${presentation === "pane" ? paneTitleClassName : pageTitleClassName}`}
+					} ${presentation === "pane" ? paneTitleClassName : `${pageTitleClassName} hidden md:block`}`}
 				>
 					{title}
 				</TitleTag>

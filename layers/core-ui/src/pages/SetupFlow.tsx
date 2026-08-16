@@ -755,7 +755,7 @@ export function SetupFlow(): JSX.Element {
 												{choosable ? (
 													<label
 														data-testid={`harness-row-${d.type}`}
-														className="flex items-center gap-[9px] px-[12px] py-[12px] cursor-pointer"
+														className={`flex items-center gap-[9px] px-[12px] py-[12px] cursor-pointer${isSelected ? " bg-[var(--accent-primary-dim)]" : ""}`}
 													>
 														<input
 															type="radio"
