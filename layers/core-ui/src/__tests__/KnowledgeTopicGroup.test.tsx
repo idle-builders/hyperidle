@@ -22,6 +22,31 @@ describe("KnowledgeTopicGroup (J6)", () => {
 		expect(screen.getByText("child-row")).toBeInTheDocument();
 	});
 
+	// UI-044: singular/plural item count
+	it("renders '1 item' (not '1 items') when itemCount is 1", () => {
+		render(
+			<KnowledgeTopicGroup {...defaults} itemCount={1}>
+				<div />
+			</KnowledgeTopicGroup>,
+		);
+		// aria-label is singular
+		expect(screen.getByLabelText("1 item")).toBeInTheDocument();
+		// visible text is also singular
+		expect(screen.getByText("1 item")).toBeInTheDocument();
+		// the incorrect "1 items" must not appear
+		expect(screen.queryByText("1 items")).not.toBeInTheDocument();
+	});
+
+	it("renders '5 items' (plural) when itemCount is 5", () => {
+		render(
+			<KnowledgeTopicGroup {...defaults} itemCount={5}>
+				<div />
+			</KnowledgeTopicGroup>,
+		);
+		expect(screen.getByLabelText("5 items")).toBeInTheDocument();
+		expect(screen.getByText("5 items")).toBeInTheDocument();
+	});
+
 	it("renders stale count badge only when staleCount > 0", () => {
 		const { rerender } = render(
 			<KnowledgeTopicGroup {...defaults} staleCount={0}>
