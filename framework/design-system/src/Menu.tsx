@@ -186,16 +186,21 @@ export function Menu({
 					// hearth-internal-padding: py-[9px] is optically tuned item padding
 					className={`type-control ${`text-left  px-[12px] py-[9px] rounded-[var(--r-subtle)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:[outline-offset:-1px] disabled:opacity-50 flex items-center justify-between gap-[12px] w-full${item.destructive ? " text-[var(--status-error)]" : " text-[var(--text-primary)]"}`}`}
 				>
-					<span className="flex items-center gap-[8px] min-w-0">
+					<span className="flex items-center gap-[6px] min-w-0">
 						{item.icon ? (
-							<span className="shrink-0 w-[16px] h-[16px] flex items-center justify-center" aria-hidden="true">
+							<span
+								className="shrink-0 w-[16px] h-[16px] flex items-center justify-center"
+								aria-hidden="true"
+							>
 								{item.icon}
 							</span>
 						) : null}
 						<span className="truncate">{item.label}</span>
 					</span>
 					{item.shortcut ? (
-						<span className="type-data   text-[var(--text-tertiary)] shrink-0">{item.shortcut}</span>
+						<span className="type-data   text-[var(--text-tertiary)] shrink-0">
+							{item.shortcut}
+						</span>
 					) : null}
 				</button>
 			))}

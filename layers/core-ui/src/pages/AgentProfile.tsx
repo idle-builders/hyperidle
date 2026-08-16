@@ -232,8 +232,13 @@ function AgentProfileLoaded({
 		overrideRunState ? null : data.id,
 		data.harnessAvailable,
 	);
-	const { activeSession, recentSessions: rawRecentSessions, performance, healthSignals, status } =
-		overrideRunState ?? fetchedRunState;
+	const {
+		activeSession,
+		recentSessions: rawRecentSessions,
+		performance,
+		healthSignals,
+		status,
+	} = overrideRunState ?? fetchedRunState;
 
 	// @lore UI-072: orchestration can return duplicate sessionId rows when a run
 	// appears in both the "active" slot and the "recent" list mid-flight, or when
@@ -346,7 +351,7 @@ function AgentProfileLoaded({
 								aria-hidden="true"
 								viewBox="0 0 16 16"
 								fill="currentColor"
-								className="shrink-0 mt-[1px]"
+								className="shrink-0"
 								style={{ width: 14, height: 14, color: "var(--status-warning)" }}
 							>
 								<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.25 5h1.5l-.25 4.5h-1L7.25 5z" />
