@@ -74,6 +74,17 @@ const AUTONOMY_LABELS: Record<number, string> = {
 	4: "L4 — Fully autonomous",
 };
 
+function formatTriggerType(type: string): string {
+	const map: Record<string, string> = {
+		calendar: "Scheduled",
+		manual: "Manual",
+		heartbeat: "Heartbeat",
+		event: "Event",
+		continuous: "Continuous",
+	};
+	return map[type] ?? type;
+}
+
 /** Map run outcome to RowDot tone. */
 function outcomeTone(
 	outcome: RoutineRunSummary["outcome"],
@@ -478,7 +489,7 @@ function RoutineDetailPaneLoaded({
 					<div className="flex flex-col gap-[9px] mt-[12px] max-w-[320px]">
 						<KeyValue label="Agent" value={routine.agentName} />
 						<KeyValue label="Schedule" value={routine.scheduleLabel} />
-						<KeyValue label="Trigger type" value={routine.triggerType} />
+						<KeyValue label="Trigger type" value={formatTriggerType(routine.triggerType)} />
 						<KeyValue label="Current autonomy" value={autonomyLabel} />
 						<KeyValue
 							label="Next run"
@@ -561,6 +572,8 @@ function RoutineDetailPaneLoaded({
 					<SectionLabel label="Last Run Summary" as="h2" />
 					{routine.lastRunSummary ? (
 						<p className="type-metadata  text-[var(--text-secondary)]">{routine.lastRunSummary}</p>
+					) : runs.length > 0 ? (
+						<p className="type-metadata  text-[var(--text-tertiary)]">No summary available</p>
 					) : (
 						<p className="type-metadata  text-[var(--text-tertiary)]">No previous runs</p>
 					)}

@@ -638,7 +638,7 @@ export function SetupFlow(): JSX.Element {
 										value="builtin"
 										checked={usingBuiltin}
 										onChange={() => setSelectedHarnessType("builtin")}
-										className="shrink-0"
+										className="radio radio-sm shrink-0"
 									/>
 									<div className="flex-1 min-w-0">
 										<span className="type-copy   text-[var(--text-primary)] ">
@@ -764,7 +764,7 @@ export function SetupFlow(): JSX.Element {
 															value={d.type}
 															checked={isSelected}
 															onChange={() => setSelectedHarnessType(d.type)}
-															className="shrink-0"
+															className="radio radio-sm shrink-0"
 														/>
 														<div className="flex-1 min-w-0">
 															<span className="type-copy    text-[var(--text-primary)]">

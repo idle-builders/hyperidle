@@ -59,7 +59,7 @@ function PresenceDot({
 	const bg = status === "active" ? "bg-[var(--accent-primary)]" : "bg-[var(--status-error)]";
 	return (
 		<span
-			className={`absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] rounded-[var(--r-pill)] border-[2px] border-[var(--surface-container)] ${bg}`}
+			className={`absolute bottom-[-2px] right-[-2px] w-[8px] h-[8px] rounded-[var(--r-pill)] border-[var(--bw-strong)] border-[var(--surface-container)] ${bg}`}
 			aria-label={`${name} - ${status}`}
 		/>
 	);

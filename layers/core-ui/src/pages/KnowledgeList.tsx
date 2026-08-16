@@ -543,6 +543,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Validate"
+														title="Validate"
 														onClick={(e) => {
 															e.stopPropagation();
 															onTriageAction(item.id, "active");
@@ -566,6 +567,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Reject"
+														title="Reject"
 														onClick={(e) => {
 															e.stopPropagation();
 															onTriageAction(item.id, "archived");
@@ -589,6 +591,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Open"
+														title="Open"
 														onClick={(e) => {
 															e.stopPropagation();
 															onNavigate(item.id);
