@@ -216,6 +216,7 @@ function AssistantNoticeCard({
 				display: "flex",
 				flexDirection: "column",
 				gap: "6px",
+				background: "var(--surface-overlay)",
 			}}
 		>
 			<div
@@ -296,6 +297,7 @@ function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
 				display: "flex",
 				flexDirection: "column",
 				gap: "6px",
+				background: "var(--surface-overlay)",
 			}}
 		>
 			<div style={{ color: "var(--status-error)" }} className="type-small">
@@ -452,8 +454,10 @@ function AssistantOverlayInner({
 				</div>
 			)}
 			{/* flex-1 min-h-0 gives ThreadShell a parent with a definite height
-			    so its internal h-full resolves correctly (UI-138/139). */}
-			<div className="flex-1 min-h-0">
+			    so its internal h-full resolves correctly (UI-138/139).
+			    overflow-hidden clips ThreadShell's 100%-height content so it
+			    never paints over the notice/stale cards below (AZ-overlay-error). */}
+			<div className="flex-1 min-h-0 overflow-hidden">
 				<ThreadShell
 					thread={thread}
 					messages={threadMessages}

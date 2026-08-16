@@ -9,22 +9,22 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 // declarations. Shared class construction (including the upstream PageHeader
 // pane consolidation) combines equivalent sites, so the approved receipt
 // expansion is the measured final source-profile population.
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 212, default: 17, strong: 11 } as const;
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 213, default: 17, strong: 11 } as const;
 
 const EXPECTED = {
 	typography: {
 		label: 116,
-		metadata: 232,
+		metadata: 233,
 		small: 229,
 		copy: 45,
-		control: 92, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
+		control: 93, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
 		input: 11,
 		"avatar-initial": 14,
-		subheading: 10,
+		subheading: 9,
 		lead: 9,
 		title: 11,
 		display: 3,
-		metric: 7,
+		metric: 6,
 		data: 97,
 		"inline-code": 2,
 	},

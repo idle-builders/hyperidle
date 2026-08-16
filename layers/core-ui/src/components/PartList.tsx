@@ -114,13 +114,33 @@ export interface PartListProps {
 }
 
 /**
- * UI-104: Extract the calendar-date string (e.g. "Jun 12, 2026") from a Part's
- * createdAt timestamp. Used to detect day boundaries between consecutive groups.
+ * UI-104: Extract the locale-formatted date label (e.g. "Jun 17, 2026") for
+ * display in the day separator. Display uses the viewer's local timezone.
  */
 function groupDayLabel(group: ReturnType<typeof groupParts>[number]): string {
 	const head = group.parts[0];
 	if (!head?.createdAt) return "";
 	return absoluteDate(head.createdAt);
+}
+
+/**
+ * UI-104: UTC-based day key (YYYY-MM-DD) used for comparing whether two groups
+ * fall on different calendar days. Using UTC avoids timezone edge cases where
+ * `absoluteDate` (local time) maps timestamps near midnight onto the same
+ * local day even though they crossed a UTC midnight boundary.
+ *
+ * @lore Day boundaries use UTC so the comparison is stable across timezones.
+ * The display label (groupDayLabel) still uses local time so the user sees
+ * their own date. The two are always consistent: a UTC boundary always
+ * separates dates that differ by at least one UTC day, and the display label
+ * always reflects the local date of the first message in the later group.
+ */
+function groupDayUTCKey(group: ReturnType<typeof groupParts>[number]): string {
+	const head = group.parts[0];
+	if (!head?.createdAt) return "";
+	const epoch = Date.parse(head.createdAt);
+	if (!Number.isFinite(epoch)) return "";
+	return new Date(epoch).toISOString().slice(0, 10);
 }
 
 /**
@@ -155,13 +175,15 @@ export function PartList({ parts, onOpen, onAnswer, reviewBetId }: PartListProps
 				// carries the it's-me. One pattern, shared by conversation + session.
 				const isSelf = group.author.isMe;
 
-				// UI-104: show a day separator when this group's calendar day differs from the
-				// previous group's day. Never fires for the first group (index 0) — there is
+				// UI-104: show a day separator when this group's UTC calendar day differs from the
+				// previous group's UTC day. Never fires for the first group (index 0) — there is
 				// nothing to separate it from. The separator appears ABOVE the first group of a
 				// new day so the eye reads "date" → "first message of that day".
+				// UTC key is used for comparison so timezone-edge cases don't suppress separators.
 				const thisDay = groupDayLabel(group);
-				const prevDay = index > 0 ? groupDayLabel(groups[index - 1] ?? group) : thisDay;
-				const showDaySeparator = index > 0 && thisDay !== "" && thisDay !== prevDay;
+				const thisDayKey = groupDayUTCKey(group);
+				const prevDayKey = index > 0 ? groupDayUTCKey(groups[index - 1] ?? group) : thisDayKey;
+				const showDaySeparator = index > 0 && thisDay !== "" && thisDayKey !== prevDayKey;
 
 				const groupKey = head?.id ?? group.author.id;
 				return (
