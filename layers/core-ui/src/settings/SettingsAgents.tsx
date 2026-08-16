@@ -36,6 +36,7 @@ import {
 	SplitView,
 	StatusChip,
 } from "@hyperidle/design-system";
+import { roleLabel } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useUiPreference } from "../hooks/useUiPreference.js";
@@ -472,7 +473,7 @@ export function SettingsAgents(): JSX.Element {
 									{harnessUnavailable && <StatusChip status="behind" label="Harness unavailable" />}
 								</span>
 							}
-							subtitle={`${agent.role} · ${agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
+							subtitle={`${roleLabel(agent.role)} · ${harnesses.find((h) => h.type === agent.harnessType)?.name ?? agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
 							selected={isSelected}
 							actions={
 								<div className="flex gap-[6px]">

@@ -47,7 +47,7 @@ export function Avatar({
 		<div
 			data-az16-profile="avatar-initial"
 			{...dsProps("Avatar", "0")}
-			className={`type-avatar-initial ${`inline-flex items-center justify-center rounded-[var(--r-pill)]   shrink-0 ${sizeClass} ${colorClass} ${className}`}`}
+			className={`type-avatar-initial ${`inline-flex items-center justify-center rounded-[var(--r-pill)] overflow-hidden  shrink-0 ${sizeClass} ${colorClass} ${className}`}`}
 		>
 			{initials}
 		</div>

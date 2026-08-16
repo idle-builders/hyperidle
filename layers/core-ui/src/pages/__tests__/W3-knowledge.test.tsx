@@ -376,10 +376,10 @@ describe("W3 AC-40 — Knowledge detail two-column layout", () => {
 		expect(aside).toHaveTextContent(/last edited/i);
 	});
 
-	it("metadata aside shows Access count field", () => {
+	it("metadata aside does NOT show Access count (UI-047: machine data removed)", () => {
 		renderKnowledgeDetail();
 		const aside = document.querySelector("[data-testid='knowledge-metadata-aside']");
-		expect(aside).toHaveTextContent(/access/i);
+		expect(aside).not.toHaveTextContent(/access count/i);
 	});
 });
 

@@ -183,7 +183,8 @@ describe("KnowledgeList — J6 scope + tabs + triage", () => {
 		// ITEMS_WITH_DRAFT: only k1 is "active" in "Architecture" topic
 		const architectureHeader = within(curated).getByTestId("topic-group-Architecture");
 		expect(within(architectureHeader).getByText("Architecture")).toBeInTheDocument();
-		expect(within(architectureHeader).getByLabelText("1 items")).toBeInTheDocument();
+		// UI-044: singular "1 item" not "1 items"
+		expect(within(architectureHeader).getByLabelText("1 item")).toBeInTheDocument();
 	});
 
 	it("defaults to Curated tab when no items have status 'draft'", async () => {

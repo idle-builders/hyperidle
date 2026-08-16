@@ -18,6 +18,7 @@
  */
 
 import type { AgentRunSummary } from "@hyperidle/domain-model";
+import { absoluteDate } from "@hyperidle/presentation-format";
 import { useEffect, useState } from "react";
 import { fetchRunsByTaskId } from "../services/agent-runs.js";
 import type { FetchState } from "./useFetch.js";
@@ -41,10 +42,13 @@ export interface TaskSessionsData {
 function toTaskSessions(runs: ReadonlyArray<AgentRunSummary>): TaskSession[] {
 	// The run read is newest-first; the list is rendered and numbered oldest-first.
 	const oldestFirst = [...runs].reverse();
-	return oldestFirst.map((run, index) => ({
+	return oldestFirst.map((run) => ({
 		id: run.id,
-		title: `Session ${index + 1}`,
-		agent: run.agentId,
+		// UI-036: date-based title instead of "Session N" ordinal
+		title: absoluteDate(run.startedAt),
+		// UI-035: agentId is an internal id — show generic label until agent
+		// names are available from a parallel fetch (no /api/agents call here yet)
+		agent: "Agent",
 		tokens: null,
 		// @lore AF12: state-based contract — the frontend keys the live dot off
 		// status === 'active'. Use `state` (not `outcome`) so a cascade-stopped

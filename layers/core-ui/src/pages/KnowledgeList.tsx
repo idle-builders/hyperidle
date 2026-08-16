@@ -50,17 +50,30 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/domain-model";
 import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
-import { relativeShort } from "@hyperidle/presentation-format";
+import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
-import { useHint } from "../hooks/useHints";
 import { apiFetch } from "../services/api-fetch.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
 type KnowledgeTab = "triage" | "curated";
+
+/**
+ * UI-045: Convert topic slugs from the API ("GENERAL", "PRODUCT-IDENTITY") to
+ * human-readable title case ("General", "Product Identity").
+ * Splits on hyphens, underscores, and spaces; title-cases each word.
+ */
+function slugToTitle(slug: string): string {
+	return slug
+		.toLowerCase()
+		.split(/[-_\s]+/)
+		.filter(Boolean)
+		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+		.join(" ");
+}
 
 /**
  * S1 fix: hoisted to module scope — was rebuilt per-row as new Set([...]) inside .map(),
@@ -258,7 +271,6 @@ interface KnowledgeListContentProps {
 	apiError: string | null;
 	isCuratedEmpty: boolean;
 	isTriageEmpty: boolean;
-	hintKnowledgeEmpty: ReturnType<typeof useHint>;
 	onNavigate: (id: string) => void;
 	searchQuery: string;
 	/** Y4: called when the user validates (active) or rejects (archived) a triage item. */
@@ -278,7 +290,6 @@ function KnowledgeListContent({
 	apiError,
 	isCuratedEmpty,
 	isTriageEmpty,
-	hintKnowledgeEmpty,
 	onNavigate,
 	searchQuery,
 	onTriageAction,
@@ -470,7 +481,9 @@ function KnowledgeListContent({
 											data-testid="knowledge-row"
 											data-focused={focusedIndex === index ? "true" : undefined}
 											title={item.title}
-											subtitle={item.body?.slice(0, 120) || undefined}
+											subtitle={
+												item.body ? stripMarkdown(item.body).slice(0, 120) || undefined : undefined
+											}
 											cells={[
 												...(isPrivate
 													? [
@@ -530,6 +543,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Validate"
+														title="Validate"
 														onClick={(e) => {
 															e.stopPropagation();
 															onTriageAction(item.id, "active");
@@ -553,6 +567,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Reject"
+														title="Reject"
 														onClick={(e) => {
 															e.stopPropagation();
 															onTriageAction(item.id, "archived");
@@ -576,6 +591,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Open"
+														title="Open"
 														onClick={(e) => {
 															e.stopPropagation();
 															onNavigate(item.id);
@@ -603,10 +619,10 @@ function KnowledgeListContent({
 									);
 								})}
 							</ItemList>
-							{/* Y4: keyboard hint bar — only shown when triage has items */}
+							{/* Y4: keyboard hint bar — sticky so it remains visible while scrolling triage */}
 							<div
 								data-testid="triage-keyboard-hint"
-								className="type-metadata border-t-[var(--bw-thin)] flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)]"
+								className="type-metadata border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)] bg-[var(--surface-page)]"
 							>
 								<span>
 									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
@@ -652,33 +668,12 @@ function KnowledgeListContent({
 								description="Agents will populate this scope as they learn. Check back after the next review cycle."
 								dataTestId="knowledge-curated-empty"
 							/>
-							{hintKnowledgeEmpty.visible && (
-								<div
-									role="status"
-									data-testid={hintKnowledgeEmpty.testId}
-									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[12px]"
-								>
-									<p className="type-copy  text-[var(--text-secondary)] ">
-										{hintKnowledgeEmpty.copy}
-									</p>
-									<div className="flex gap-[9px]">
-										<Button
-											variant="ghost"
-											size="sm"
-											className="text-[var(--text-tertiary)]"
-											onClick={hintKnowledgeEmpty.dismiss}
-										>
-											Got it
-										</Button>
-									</div>
-								</div>
-							)}
 						</div>
 					) : (
 						filteredGrouped.map((g) => (
 							<KnowledgeTopicGroup
 								key={g.topic}
-								topic={g.topic}
+								topic={slugToTitle(g.topic)}
 								itemCount={g.items.length}
 								staleCount={g.staleCount}
 								health={g.health}
@@ -692,14 +687,17 @@ function KnowledgeListContent({
 												? item.scopeKind
 												: undefined;
 										const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
-										const itemStatus = toKnowledgeStatus(item.status);
 										return (
 											<Row
 												key={item.id}
 												as="li"
 												data-testid="knowledge-row"
 												title={item.title}
-												subtitle={item.body?.slice(0, 120) || undefined}
+												subtitle={
+													item.body
+														? stripMarkdown(item.body).slice(0, 120) || undefined
+														: undefined
+												}
 												cells={[
 													...(isPrivate
 														? [
@@ -735,20 +733,6 @@ function KnowledgeListContent({
 																},
 															]
 														: []),
-													...(itemStatus === "active" || itemStatus === "archived"
-														? [
-																{
-																	content: (
-																		<span data-testid="status-badge">
-																			<StatusChip
-																				status={knowledgeStatusToStatus(itemStatus)}
-																				label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
-																			/>
-																		</span>
-																	),
-																},
-															]
-														: []),
 													{
 														content: relativeShort(item.updatedAt),
 														"data-testid": "knowledge-time" as const,
@@ -778,7 +762,6 @@ export function KnowledgeList({
 	error = null,
 }: KnowledgeListProps = {}): JSX.Element {
 	const navigate = useNavigate();
-	const hintKnowledgeEmpty = useHint("knowledge-empty");
 	const [searchParams, setSearchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
@@ -1022,9 +1005,9 @@ export function KnowledgeList({
 								{/* hearth-internal-padding */}
 								<input
 									type="search"
-									aria-label="Search knowledge"
+									aria-label="Filter knowledge"
 									data-testid="knowledge-search"
-									placeholder="Search…"
+									placeholder="Filter…"
 									value={searchQuery}
 									onChange={(e) => setSearchQuery(e.target.value)}
 									style={{
@@ -1093,7 +1076,6 @@ export function KnowledgeList({
 					apiError={apiError}
 					isCuratedEmpty={isCuratedEmpty}
 					isTriageEmpty={isTriageEmpty}
-					hintKnowledgeEmpty={hintKnowledgeEmpty}
 					onNavigate={(id) => navigate(`/knowledge/${id}`)}
 					searchQuery={searchQuery}
 					onTriageAction={handleTriageAction}

@@ -80,6 +80,9 @@ const MOCK_DETAIL_NO_SUMMARY: RoutineDetail = {
 		...MOCK_DETAIL_AA2.routine,
 		lastRunSummary: null,
 	},
+	// No runs: "No previous runs" is the expected text when there are no runs AND no summary.
+	// A routine with runs but no summary would show "No summary available" instead.
+	runs: [],
 };
 
 function renderPage(

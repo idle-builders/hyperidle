@@ -310,18 +310,18 @@ describe("W2 — Button variants (AC-3)", () => {
 	// If this line errors, ButtonProps["variant"] no longer matches Set 1
 	// (framework/design-system/DESIGN.md § Closed Sets) — update whichever
 	// side is now wrong, not just this list.
-	const _buttonVariantSetIsExact: Equal<ActualButtonVariant, ExpectedButtonVariant> = true;
+	const ButtonVariantSetIsExact: Equal<ActualButtonVariant, ExpectedButtonVariant> = true;
 
 	const EXPECTED_BUTTON_SIZES = ["default", "sm", "icon"] as const;
 	type ActualButtonSize = NonNullable<ButtonProps["size"]>;
 	type ExpectedButtonSize = (typeof EXPECTED_BUTTON_SIZES)[number];
-	const _buttonSizeSetIsExact: Equal<ActualButtonSize, ExpectedButtonSize> = true;
+	const ButtonSizeSetIsExact: Equal<ActualButtonSize, ExpectedButtonSize> = true;
 
 	it("the variant/size unions are closed (compile-time set-equality guard)", () => {
 		expect(EXPECTED_BUTTON_VARIANTS).toContain("primary");
 		expect(EXPECTED_BUTTON_SIZES).toContain("icon");
-		expect(_buttonVariantSetIsExact).toBe(true);
-		expect(_buttonSizeSetIsExact).toBe(true);
+		expect(ButtonVariantSetIsExact).toBe(true);
+		expect(ButtonSizeSetIsExact).toBe(true);
 	});
 });
 

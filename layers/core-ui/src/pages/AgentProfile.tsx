@@ -42,7 +42,11 @@ import {
 	Tag,
 } from "@hyperidle/design-system";
 import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
-import { AGENT_OPERATIONAL_STATUS_LABEL, findRoleCatalogEntry } from "@hyperidle/domain-model";
+import {
+	AGENT_OPERATIONAL_STATUS_LABEL,
+	findRoleCatalogEntry,
+	roleLabel,
+} from "@hyperidle/domain-model";
 import { absoluteDate, relativeLong } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
@@ -51,6 +55,27 @@ import { type AgentRunState, useAgentRunState } from "../hooks/useAgentRunState.
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
+
+// UI-041: static display names for known harness families. Matches
+// KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts.
+const HARNESS_DISPLAY: Record<string, string> = {
+	builtin: "Built-in",
+	"claude-code": "Claude Code",
+	codex: "Codex",
+	"cursor-agent": "Cursor Agent",
+	opencode: "OpenCode",
+};
+
+function harnessLabel(type: string | null | undefined): string {
+	if (!type) return "Any";
+	return (
+		HARNESS_DISPLAY[type] ??
+		type
+			.split(/[-_]/)
+			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+			.join(" ")
+	);
+}
 
 /** F2: Narrow string|null to SessionOutcome without an unsafe cast. */
 const SESSION_OUTCOMES: ReadonlySet<SessionOutcome> = new Set<SessionOutcome>([
@@ -118,7 +143,7 @@ export function AgentProfile({
 					header={<PageHeader title="Agent" />}
 					data-testid="agent-profile-page"
 				>
-					<div className="p-[24px]">
+					<div className="flex min-h-full items-center justify-center p-[48px_24px]">
 						<EmptyState
 							title="Agent not found"
 							description="The agent you are looking for does not exist."
@@ -134,7 +159,7 @@ export function AgentProfile({
 				header={<PageHeader title="Agent" />}
 				data-testid="agent-profile-page"
 			>
-				<div className="p-[24px]">
+				<div className="flex min-h-full items-center justify-center p-[48px_24px]">
 					<ErrorState title="Failed to load agent profile" description={error.message} />
 				</div>
 			</PageScaffold>
@@ -148,7 +173,7 @@ export function AgentProfile({
 				header={<PageHeader title="Agent" />}
 				data-testid="agent-profile-page"
 			>
-				<div className="p-[24px]">
+				<div className="flex min-h-full items-center justify-center p-[48px_24px]">
 					<EmptyState
 						title="Agent not found"
 						description="The agent you are looking for does not exist."
@@ -353,9 +378,9 @@ function AgentProfileLoaded({
 					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
 				>
 					<SectionLabel label="Configuration" as="h2" />
-					<div className="grid grid-cols-2 gap-x-[24px] gap-y-[6px]">
-						<KeyValue label="Role" value={data.role} />
-						<KeyValue label="Harness" value={data.harnessType ?? "Any"} />
+					<div className="flex flex-col gap-[6px] max-w-[320px]">
+						<KeyValue label="Role" value={roleLabel(data.role)} />
+						<KeyValue label="Harness" value={harnessLabel(data.harnessType)} />
 						<KeyValue label="Category" value={data.agentCategory ?? "team"} />
 						<KeyValue label="Model tier" value={data.modelTierPreference ?? "Default"} />
 						{data.teamName && <KeyValue label="Team" value={data.teamName} />}

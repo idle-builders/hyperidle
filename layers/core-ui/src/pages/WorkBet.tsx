@@ -67,7 +67,6 @@ import { AssistantContext } from "../contexts/AssistantContext.js";
 import { useLatestRunOutcomes } from "../hooks/useAgentRunState.js";
 import { useBet } from "../hooks/useBet";
 import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
-import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
@@ -417,7 +416,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 	const onOpenArtifact = useArtifactOpen();
-	const hintAddCredential = useHint("add-credential");
 	// T4: AssistantContext for block share action
 	const { overlayOpen, attachContext } = useContext(AssistantContext);
 
@@ -797,6 +795,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									label="Bet actions"
 									align="end"
 									items={[
+										{
+											id: "add-knowledge",
+											label: "Add knowledge",
+											onSelect: () => setAddKnowledgeOpen(true),
+											dataAttrs: { "data-bet-action": "add-knowledge" },
+										} satisfies MenuItem,
 										...(bet.status === "draft"
 											? [
 													{
@@ -849,27 +853,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 				data-testid="bet-detail-body"
 				className="flex flex-col gap-[24px] max-w-[800px] w-full py-[24px]"
 			>
-				{/* P5: Hint #2 — add-credential. Shows when the first bet is loaded. */}
-				{hintAddCredential.visible && (
-					<div
-						role="status"
-						data-testid={hintAddCredential.testId}
-						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
-					>
-						<p className="type-copy  text-[var(--text-secondary)] ">{hintAddCredential.copy}</p>
-						<div className="flex gap-[9px]">
-							<Button
-								variant="ghost"
-								size="sm"
-								className="text-[var(--text-tertiary)]"
-								onClick={hintAddCredential.dismiss}
-							>
-								Got it
-							</Button>
-						</div>
-					</div>
-				)}
-
 				{/* AK5: provenance backlink — shown when bet was promoted from a knowledge item. */}
 				{bet.sourceKnowledge != null && (
 					<RRLink
@@ -880,13 +863,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						From knowledge: {bet.sourceKnowledge.title}
 					</RRLink>
 				)}
-
-				{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
-				<div className="flex items-center gap-[9px]">
-					<Button variant="ghost" size="sm" onClick={() => setAddKnowledgeOpen(true)}>
-						Add knowledge
-					</Button>
-				</div>
 
 				{/* L14: Consequence preview dialog — kill */}
 				<ConsequencePreviewDialog

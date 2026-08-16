@@ -101,8 +101,25 @@ describe("relativeShort (R1)", () => {
 		expect(relativeShort(iso(21 * DAY, NOW), NOW)).toBe("3w");
 	});
 
-	it("returns '1mo' for 30 days ago (28d threshold, floor by 30d)", () => {
+	// UI-043: week→month boundary fix (was FOUR_WEEKS_MS=28d, now MONTH_MS=30d)
+	it("returns '3w' for 27 days ago (< 30d month boundary)", () => {
+		expect(relativeShort(iso(27 * DAY, NOW), NOW)).toBe("3w");
+	});
+
+	it("returns '4w' for 28 days ago — not '0mo' (boundary bug fixed)", () => {
+		expect(relativeShort(iso(28 * DAY, NOW), NOW)).toBe("4w");
+	});
+
+	it("returns '4w' for 29 days ago — not '0mo' (boundary bug fixed)", () => {
+		expect(relativeShort(iso(29 * DAY, NOW), NOW)).toBe("4w");
+	});
+
+	it("returns '1mo' for 30 days ago (first day of months branch)", () => {
 		expect(relativeShort(iso(30 * DAY, NOW), NOW)).toBe("1mo");
+	});
+
+	it("returns '1mo' for 31 days ago", () => {
+		expect(relativeShort(iso(31 * DAY, NOW), NOW)).toBe("1mo");
 	});
 
 	it("returns '2mo' for 60 days ago", () => {

@@ -122,12 +122,18 @@ describe("X3 AC-9: SettingsAgents renders agent list", () => {
 		});
 	});
 
-	it("renders role text for each agent", async () => {
+	it("renders role display label for each agent (not raw slug)", async () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			expect(screen.getByText(/product_manager/)).toBeInTheDocument();
-			expect(screen.getByText(/builder/)).toBeInTheDocument();
+			// UI-042: role displayed as human label via roleLabel(), not raw slug.
+			// The subtitle pattern is "Role · Harness · N active".
+			// getAllByText to handle multiple subtitle spans (one per row).
+			expect(screen.getAllByText(/Product Manager/).length).toBeGreaterThan(0);
+			// "Builder ·" uniquely identifies the subtitle (not the agent name "Builder Bot")
+			expect(screen.getAllByText(/Builder ·/).length).toBeGreaterThan(0);
+			// Raw slugs must NOT appear anywhere
+			expect(screen.queryByText(/product_manager/)).not.toBeInTheDocument();
 		});
 	});
 

@@ -576,7 +576,7 @@ export function SetupFlow(): JSX.Element {
 			{/* W3 AC-53: Card with shadow */}
 			<div
 				data-testid="onboarding-card"
-				className="w-[calc(100%-48px)] max-w-[520px] m-auto bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
+				className="w-[calc(100%-48px)] max-w-[520px] mx-auto my-[24px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
 			>
 				{/* Brand + tagline */}
 				<div
@@ -638,7 +638,7 @@ export function SetupFlow(): JSX.Element {
 										value="builtin"
 										checked={usingBuiltin}
 										onChange={() => setSelectedHarnessType("builtin")}
-										className="shrink-0"
+										className="radio radio-sm shrink-0"
 									/>
 									<div className="flex-1 min-w-0">
 										<span className="type-copy   text-[var(--text-primary)] ">
@@ -764,7 +764,7 @@ export function SetupFlow(): JSX.Element {
 															value={d.type}
 															checked={isSelected}
 															onChange={() => setSelectedHarnessType(d.type)}
-															className="shrink-0"
+															className="radio radio-sm shrink-0"
 														/>
 														<div className="flex-1 min-w-0">
 															<span className="type-copy    text-[var(--text-primary)]">

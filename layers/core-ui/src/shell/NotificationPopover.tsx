@@ -135,7 +135,10 @@ export function NotificationPopover({
 			data-testid="notification-popover"
 			data-dialog-layer={overlayProps["data-dialog-layer"]}
 			// @lore AI2: z-30 removed; z-layer now via --z-overlay token in style prop (AC-3).
-			className="border-[var(--bw-thin)] fixed bottom-16 left-4 flex w-[360px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
+			// @lore AZ-bugs: Repositioned from bottom-16 left-4 (bottom-left corner, ~600px
+			// from bell trigger) to top-[60px] left-[9px] to anchor near the notification
+			// button in the sidebar nav section (header is ~54px, sidebar starts at x=9px).
+			className="border-[var(--bw-thin)] fixed top-[60px] left-[9px] flex w-[360px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
 			style={{ zIndex: overlayProps.style.zIndex, maxHeight: "70vh" }}
 		>
 			{/* Header */}

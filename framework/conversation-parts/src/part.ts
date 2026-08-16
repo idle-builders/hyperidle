@@ -278,13 +278,24 @@ function resolveAuthor(
 	return { id: senderId, name: senderId, isAgent: false, isMe: senderId === viewerId };
 }
 
+// UI-043: kind-based display labels — ArtifactRef has no title field; raw id
+// must never surface as the chip label the user reads.
+const ARTIFACT_KIND_LABEL: Partial<Record<string, string>> = {
+	text_diff: "Changes",
+	content_preview: "Artifact",
+	visual_comparison: "Comparison",
+	action_summary: "Summary",
+	data_metrics: "Data",
+};
+
 /** Map an ArtifactRef to an artifact/diff Embed (text_diff → diff). */
 function artifactRefToEmbed(ref: ArtifactRef): Embed {
 	const target: OpenTarget = { route: "artifact", artifactId: ref.id };
 	if (ref.kind === "text_diff") {
-		return { kind: "diff", label: ref.id, meta: "", target };
+		return { kind: "diff", label: "Changes", meta: "", target };
 	}
-	return { kind: "artifact", label: ref.id, target };
+	const label = ARTIFACT_KIND_LABEL[ref.kind] ?? "Artifact";
+	return { kind: "artifact", label, target };
 }
 
 /** Map one InlineRef to one Embed. Exhaustive over all InlineRef kinds. */
@@ -303,7 +314,11 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 	// EntityRef — exhaustive over all 5 EntityRef.kind members (W5).
 	switch (ref.kind) {
 		case "artifact":
-			return { kind: "artifact", label: ref.id, target: { route: "artifact", artifactId: ref.id } };
+			return {
+				kind: "artifact",
+				label: "Artifact",
+				target: { route: "artifact", artifactId: ref.id },
+			};
 		case "knowledge_item":
 		case "task":
 		case "bet":

@@ -491,7 +491,8 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		onInspectPath: (path) => setInspection({ kind: "path", path }),
 		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
 	});
-	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
+	const threadTitle: string =
+		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
 	const hostTitle =
 		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;

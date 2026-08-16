@@ -841,17 +841,19 @@ function KnowledgeDetailView({
 							>
 								confidence {formatConfidence(item.confidence)}
 							</span>
-							<span
-								className="type-metadata  text-[var(--text-tertiary)]"
-								data-testid="knowledge-origin-agent"
-							>
-								by {item.originAgent ?? "unknown"}
-							</span>
+							{item.originAgent && (
+								<span
+									className="type-metadata  text-[var(--text-tertiary)]"
+									data-testid="knowledge-origin-agent"
+								>
+									by {item.originAgent}
+								</span>
+							)}
 							<span
 								className="type-metadata  text-[var(--text-tertiary)]"
 								data-testid="knowledge-updated-at"
 							>
-								{item.timestamp}
+								{absoluteDateTime(item.timestamp)}
 							</span>
 						</div>
 					}
@@ -1119,20 +1121,12 @@ function KnowledgeDetailView({
 							{item.updatedBy && item.updatedBy === user?.id ? (
 								<span className="type-small text-[var(--text-primary)] ">{user.name}</span>
 							) : item.updatedBy && item.updatedBy !== "Unknown" ? (
-								<span className="type-data text-[var(--text-primary)]   " title={item.updatedBy}>
-									{item.updatedBy.length > 12 ? `${item.updatedBy.slice(0, 8)}…` : item.updatedBy}
-								</span>
+								<span className="type-small text-[var(--text-primary)] ">Another editor</span>
 							) : (
 								<span className="type-small text-[var(--text-primary)] ">
 									{item.updatedBy ?? "Unknown"}
 								</span>
 							)}
-						</div>
-						<div className="type-small flex justify-between items-center py-[6px] ">
-							<span className="text-[var(--text-tertiary)]">Access count</span>
-							<span className="type-data text-[var(--text-primary)]   tabular-nums">
-								{item.accessCount ?? 0}
-							</span>
 						</div>
 					</div>
 
