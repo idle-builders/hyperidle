@@ -11,9 +11,16 @@
  * All tests in this file should FAIL until implementation is complete.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render as renderRaw, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
+
+// UI-080: Sidebar uses <Link> — requires router context.
+function render(element: ReactElement): ReturnType<typeof renderRaw> {
+	return renderRaw(<MemoryRouter>{element}</MemoryRouter>);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -112,8 +119,8 @@ describe("Y4 — Sidebar knowledge triage badge", () => {
 		render(<Sidebar {...defaultProps} knowledgeTriageCount={5} />);
 
 		const badge = screen.getByTestId("knowledge-triage-badge");
-		// Confirm the knowledge button exists in the same component
-		screen.getByRole("button", { name: /knowledge/i });
+		// Confirm the knowledge section header link exists (UI-080: links, not buttons)
+		screen.getByRole("link", { name: /knowledge/i });
 
 		// The badge should be in the same area as the knowledge button
 		expect(badge).toBeInTheDocument();

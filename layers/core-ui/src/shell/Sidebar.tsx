@@ -37,8 +37,21 @@
 
 // hearth-internal-padding
 import type { JSX } from "react";
+import { Link } from "react-router-dom";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
+
+/**
+ * @lore UI-080: Canonical href for each primary nav view.
+ * The work href is /work (not /work/team/:id even in the 1-team case)
+ * because WorkOverview already redirects when there is exactly one team,
+ * and the Link-based navigation must produce a stable, bookmarkable URL.
+ */
+const VIEW_HREFS: Record<ViewId, string> = {
+	conversations: "/conversations",
+	work: "/work",
+	knowledge: "/knowledge",
+};
 
 export interface SidebarThread {
 	id: string;
@@ -152,6 +165,8 @@ interface SectionHeaderProps {
 	view: ViewId;
 	activeView: ViewId | "";
 	onViewChange: (view: ViewId) => void;
+	/** Destination href for the section Link (UI-080: nav items must be real links). */
+	href: string;
 	/** Optional badge count rendered to the right of the label */
 	badgeCount?: number;
 	drawerMode?: boolean;
@@ -246,15 +261,25 @@ function SectionHeader({
 	view,
 	activeView,
 	onViewChange,
+	href,
 	badgeCount,
 	drawerMode,
 }: SectionHeaderProps): JSX.Element {
 	const isActive = view === activeView;
 	const { label, icon } = VIEW_ICONS[view];
 
+	/*
+	 * @lore UI-080: SectionHeader is a real navigable link, not a button.
+	 * Right-click → open in new tab, screen readers see a link destination.
+	 * onViewChange is called for side effects only (e.g. closing the settings
+	 * panel); Link's `to` prop handles client-side navigation.
+	 *
+	 * Test note (was @lore visual-parity-audit): tests must now query
+	 * getByRole("link", { name: /conversations/i }) — role changed from "button".
+	 */
 	return (
-		<button
-			type="button"
+		<Link
+			to={href}
 			data-section-header={view}
 			data-section={view}
 			data-active={isActive ? "true" : "false"}
@@ -305,7 +330,7 @@ function SectionHeader({
 					{badgeCount > 99 ? "99+" : badgeCount}
 				</span>
 			)}
-		</button>
+		</Link>
 	);
 }
 
@@ -473,7 +498,9 @@ function SettingsFooter({
 interface FastNavItemProps {
 	label: string;
 	selected: boolean;
-	onClick: () => void;
+	/** Destination href — makes the item a real link (UI-080). */
+	href: string;
+	onClick?: () => void;
 	/** Optional data attrs for section-specific E2E / unit selectors */
 	"data-thread-id"?: string;
 	"data-team-id"?: string;
@@ -484,17 +511,21 @@ interface FastNavItemProps {
 function FastNavItem({
 	label,
 	selected,
+	href,
 	onClick,
 	"data-thread-id": dataThreadId,
 	"data-team-id": dataTeamId,
 	"data-knowledge-id": dataKnowledgeId,
 	"data-testid": dataTestId,
 }: FastNavItemProps): JSX.Element {
-	// @lore AD9: <li data-thread-id aria-current> wraps <button> so:
+	// @lore AD9: <li data-thread-id aria-current> wraps <Link> so:
 	// - [data-thread-id] queries find the <li> (for E2E selectors and unit tests)
 	// - [aria-current="page"] is on the <li> for semantic selected state
-	// - firstItem.querySelector("button") finds the inner <button> for click events
-	// Both the <li> selector and the <button> click target work independently.
+	// - firstItem.querySelector("a") finds the inner link for click events
+	// Both the <li> selector and the <a> click target work independently.
+	//
+	// @lore UI-080: Changed from <button> to <Link> so items are real navigable
+	// links — right-click → open in new tab, proper link semantics.
 	return (
 		<li
 			data-thread-id={dataThreadId}
@@ -505,8 +536,8 @@ function FastNavItem({
 				.filter(Boolean)
 				.join(" ")}
 		>
-			<button
-				type="button"
+			<Link
+				to={href}
 				data-testid={dataTestId}
 				onClick={onClick}
 				title={label}
@@ -523,7 +554,7 @@ function FastNavItem({
 					.join(" ")}`}
 			>
 				<span className="truncate">{label}</span>
-			</button>
+			</Link>
 		</li>
 	);
 }
@@ -588,6 +619,7 @@ export function Sidebar({
 							key={t.id}
 							label={t.title}
 							selected={t.id === selectedThreadId}
+							href={`/conversations/${encodeURIComponent(t.id)}`}
 							onClick={() => onSelectThread(t.id)}
 							data-thread-id={t.id}
 							data-testid={`fastnav-${t.id}`}
@@ -619,6 +651,7 @@ export function Sidebar({
 							key={t.id}
 							label={t.name}
 							selected={t.id === activeTeamId}
+							href={`/work/team/${encodeURIComponent(t.id)}`}
 							onClick={() => onSelectTeam(t.id)}
 							data-team-id={t.id}
 							data-testid={`fastnav-${t.id}`}
@@ -644,6 +677,7 @@ export function Sidebar({
 							key={k.id}
 							label={k.title}
 							selected={false}
+							href={`/knowledge/${encodeURIComponent(k.id)}`}
 							onClick={() => onSelectKnowledgeItem?.(k.id)}
 							data-knowledge-id={k.id}
 							data-testid={`fastnav-${k.id}`}
@@ -696,6 +730,7 @@ export function Sidebar({
 						onViewChange={(v) => {
 							onViewChange(v);
 						}}
+						href={VIEW_HREFS[view]}
 						drawerMode={drawerMode}
 						badgeCount={
 							view === "conversations"

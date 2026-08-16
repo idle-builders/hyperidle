@@ -327,6 +327,15 @@ export function AppShell(): JSX.Element {
 		[teamsData],
 	);
 
+	/**
+	 * Full view-change handler used for keyboard shortcuts (⌘1/2/3) — includes
+	 * both the setSettingsOpen side-effect and the programmatic navigate().
+	 * @lore UI-080: Section header *clicks* go through handleSectionNavClick
+	 * (side effects only) because the <Link to={href}> in SectionHeader already
+	 * handles navigation. Using the full handleViewChange on clicks would push a
+	 * second history entry and break back-button behaviour for the 1-team work
+	 * path (Work short-circuits to /work/team/:id while the Link always goes to /work).
+	 */
 	const handleViewChange = useCallback(
 		(view: ViewId): void => {
 			setSettingsOpen(false);
@@ -352,6 +361,18 @@ export function AppShell(): JSX.Element {
 			}
 		},
 		[navigate, sidebarTeams],
+	);
+
+	/**
+	 * Side-effect-only handler passed to Sidebar's onViewChange prop.
+	 * Navigation is driven by the <Link to={href}> in SectionHeader — this
+	 * callback only closes the settings panel.
+	 */
+	const handleSectionNavClick = useCallback(
+		(_view: ViewId): void => {
+			setSettingsOpen(false);
+		},
+		[],
 	);
 
 	const handleAvatarClick = useCallback((): void => {
@@ -551,7 +572,10 @@ export function AppShell(): JSX.Element {
 	// Shared sidebar props used in both desktop and mobile drawer branches.
 	const sidebarProps = {
 		activeView,
-		onViewChange: handleViewChange,
+		// @lore UI-080: handleSectionNavClick (side effects only) — Link navigation
+		// in SectionHeader handles routing. handleViewChange (navigate included)
+		// is wired to useNavShortcuts below for ⌘1/⌘2/⌘3.
+		onViewChange: handleSectionNavClick,
 		threads: sidebarThreads,
 		selectedThreadId,
 		onSelectThread: handleSelectThread,

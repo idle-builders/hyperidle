@@ -2,10 +2,17 @@
  * Settings keeps the primary shell and domain navigator intact.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render as renderRaw, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
+
+// UI-080: Sidebar uses <Link> — requires router context.
+function render(element: ReactElement): ReturnType<typeof renderRaw> {
+	return renderRaw(<MemoryRouter>{element}</MemoryRouter>);
+}
 
 type SidebarThread = { id: string; title: string; hasUnresolvedReview: boolean };
 type SidebarTeam = { id: string; name: string };
@@ -46,7 +53,8 @@ describe("Sidebar — persistent navigation while Settings is open", () => {
 		const threads = [{ id: "t1", title: "Thread One", hasUnresolvedReview: false }];
 		render(<Sidebar {...baseProps} settingsOpen={true} threads={threads} />);
 		expect(screen.getByText("Thread One")).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^conversations$/i })).toBeInTheDocument();
+		// UI-080: section headers are links now
+		expect(screen.getByRole("link", { name: /^conversations$/i })).toBeInTheDocument();
 	});
 
 	it("marks the Settings utility as current without replacing the navigator", () => {

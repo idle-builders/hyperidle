@@ -15,10 +15,26 @@
  * Reviewer note (WARNING): aria-current="page" on active nav items.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render as renderRaw, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement, ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
+
+/**
+ * UI-080: Sidebar now renders <Link> elements (real nav hrefs), which
+ * require a router context. Shadow the testing-library render to wrap all
+ * renders in MemoryRouter so existing test calls need no changes.
+ * Also patches `rerender` so rerenders keep the MemoryRouter context.
+ */
+function render(element: ReactElement): ReturnType<typeof renderRaw> {
+	const result = renderRaw(<MemoryRouter>{element}</MemoryRouter>);
+	const { rerender: rawRerender } = result;
+	result.rerender = (next: ReactNode) =>
+		rawRerender(<MemoryRouter>{next}</MemoryRouter>);
+	return result;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -69,9 +85,10 @@ describe("Sidebar — AC-1: structure and brand", () => {
 	it("renders three section headers: Conversations, Work, Knowledge", () => {
 		render(<Sidebar {...defaultProps} />);
 		// All three section headers now render visible text labels (visual-parity-audit fix)
-		expect(screen.getByRole("button", { name: /^conversations$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^work$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^knowledge$/i })).toBeInTheDocument();
+		// UI-080: section headers are <Link> elements (role="link"), not buttons.
+		expect(screen.getByRole("link", { name: /^conversations$/i })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /^work$/i })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
 	});
 
 	it("renders a divider in the bottom strip area", () => {
@@ -105,9 +122,10 @@ describe("Sidebar — AC-1: section header labels", () => {
 	it("renders visible text labels on all three section headers", () => {
 		render(<Sidebar {...defaultProps} />);
 		// visual-parity-audit: section headers now use visible mixed-case text, no SVG icons
-		expect(screen.getByRole("button", { name: /^conversations$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^work$/i })).toBeInTheDocument();
-		expect(screen.getByRole("button", { name: /^knowledge$/i })).toBeInTheDocument();
+		// UI-080: section headers are <Link> elements (role="link"), not buttons.
+		expect(screen.getByRole("link", { name: /^conversations$/i })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /^work$/i })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
 	});
 });
 
@@ -226,7 +244,8 @@ describe("Sidebar — AC-5: Knowledge section scope sub-items", () => {
 
 	it("renders the Knowledge section header", () => {
 		render(<Sidebar {...defaultProps} />);
-		expect(screen.getByRole("button", { name: /^knowledge$/i })).toBeInTheDocument();
+		// UI-080: section headers are links now
+		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
 	});
 });
 
@@ -273,7 +292,8 @@ describe("Sidebar — AC-6: Active view highlighting", () => {
 		const user = userEvent.setup();
 		const onViewChange = vi.fn();
 		render(<Sidebar {...defaultProps} onViewChange={onViewChange} />);
-		await user.click(screen.getByRole("button", { name: /^work$/i }));
+		// UI-080: section headers are <Link> elements (role="link"), not buttons.
+		await user.click(screen.getByRole("link", { name: /^work$/i }));
 		expect(onViewChange).toHaveBeenCalledWith("work");
 	});
 });
@@ -347,7 +367,8 @@ describe("Sidebar — AQ-015: Touch target minimum sizes", () => {
 		// Section headers rendered as buttons must have sufficient height
 		// Check the header elements have at least h-8 (32px) — actual enforcement is
 		// in the visual layer; this test ensures the elements exist as buttons
-		const sectionButtons = container.querySelectorAll("button[data-section-header]");
+		// UI-080: section headers are now <a> links (rendered by <Link>), not buttons.
+		const sectionButtons = container.querySelectorAll("a[data-section-header]");
 		expect(sectionButtons.length).toBeGreaterThanOrEqual(3);
 	});
 });
@@ -441,7 +462,8 @@ describe("Sidebar — Knowledge fast-nav (AD9 §1 item 4)", () => {
 		const noItemsEl = screen.queryByText(/no .*(knowledge|items|threads)/i);
 		// At minimum the fast-nav area renders (no crash) — empty state text varies by impl
 		// Check the knowledge section renders at all (section header present)
-		expect(screen.getByRole("button", { name: /^knowledge$/i })).toBeInTheDocument();
+		// UI-080: section headers are links now
+		expect(screen.getByRole("link", { name: /^knowledge$/i })).toBeInTheDocument();
 		// And no knowledge items render (empty list)
 		expect(screen.queryByText("Engineering handbook")).not.toBeInTheDocument();
 		// Void return — suppress unused var warning
