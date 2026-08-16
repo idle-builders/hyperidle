@@ -616,10 +616,10 @@ function KnowledgeListContent({
 									);
 								})}
 							</ItemList>
-							{/* Y4: keyboard hint bar — only shown when triage has items */}
+							{/* Y4: keyboard hint bar — sticky so it remains visible while scrolling triage */}
 							<div
 								data-testid="triage-keyboard-hint"
-								className="type-metadata border-t-[var(--bw-thin)] flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)]"
+								className="type-metadata border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)] bg-[var(--surface-page)]"
 							>
 								<span>
 									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
@@ -1002,9 +1002,9 @@ export function KnowledgeList({
 								{/* hearth-internal-padding */}
 								<input
 									type="search"
-									aria-label="Search knowledge"
+									aria-label="Filter knowledge"
 									data-testid="knowledge-search"
-									placeholder="Search…"
+									placeholder="Filter…"
 									value={searchQuery}
 									onChange={(e) => setSearchQuery(e.target.value)}
 									style={{

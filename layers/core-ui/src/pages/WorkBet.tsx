@@ -795,6 +795,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									label="Bet actions"
 									align="end"
 									items={[
+										{
+											id: "add-knowledge",
+											label: "Add knowledge",
+											onSelect: () => setAddKnowledgeOpen(true),
+											dataAttrs: { "data-bet-action": "add-knowledge" },
+										} satisfies MenuItem,
 										...(bet.status === "draft"
 											? [
 													{
@@ -857,13 +863,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						From knowledge: {bet.sourceKnowledge.title}
 					</RRLink>
 				)}
-
-				{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
-				<div className="flex items-center gap-[9px]">
-					<Button variant="ghost" size="sm" onClick={() => setAddKnowledgeOpen(true)}>
-						Add knowledge
-					</Button>
-				</div>
 
 				{/* L14: Consequence preview dialog — kill */}
 				<ConsequencePreviewDialog

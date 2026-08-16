@@ -481,8 +481,9 @@ function RoutineDetailPaneLoaded({
 						</div>
 					)}
 
-					{/* Read-only metadata stack — on page surface, no grey card */}
-					<div className="flex flex-col gap-[9px] mt-[12px]">
+					{/* Read-only metadata stack — max-w-[320px] prevents justify-between from
+					    stretching label/value across the full pane width */}
+					<div className="flex flex-col gap-[9px] mt-[12px] max-w-[320px]">
 						<KeyValue label="Agent" value={routine.agentName} />
 						<KeyValue label="Schedule" value={routine.scheduleLabel} />
 						<KeyValue label="Trigger type" value={routine.triggerType} />
