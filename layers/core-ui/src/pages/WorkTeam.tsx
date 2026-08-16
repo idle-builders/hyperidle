@@ -123,7 +123,11 @@ export function WorkTeam({
 		return (
 			<PageScaffold
 				frame="page"
-				header={<PageHeader title={<span aria-label="Team" className="skeleton block h-[22px] w-[160px]" />} />}
+				header={
+					<PageHeader
+						title={<span aria-label="Team" className="skeleton block h-[22px] w-[160px]" />}
+					/>
+				}
 				data-testid="work-team-page"
 			>
 				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
@@ -359,10 +363,7 @@ function WorkTeamLoaded({
 								return {
 									label: "Agent Health",
 									value: "—",
-									sub:
-										rosterRunStatus === "error"
-											? "Run state unavailable"
-											: "Loading run state",
+									sub: rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state",
 								};
 							}
 							const runStates = roster.map(

@@ -53,10 +53,7 @@ const DEGRADED_RUN_STATE: AgentRunState = {
 	},
 };
 
-function renderProfile(
-	overrideRunState: AgentRunState,
-	overrideData?: AgentProfileResponse,
-): void {
+function renderProfile(overrideRunState: AgentRunState, overrideData?: AgentProfileResponse): void {
 	render(
 		<MemoryRouter initialEntries={["/agents/agent-test"]}>
 			<Routes>
@@ -84,9 +81,30 @@ describe("AgentProfile UI-072 — deduplicate recent sessions", () => {
 			status: "ready",
 			activeSession: null,
 			recentSessions: [
-				{ sessionId: "s1", taskId: "t1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z", endedAt: null },
-				{ sessionId: "s1", taskId: "t1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z", endedAt: null },
-				{ sessionId: "s2", taskId: "t2", taskTitle: "Task B", outcome: "crashed", startedAt: "2026-08-02T10:00:00.000Z", endedAt: null },
+				{
+					sessionId: "s1",
+					taskId: "t1",
+					taskTitle: "Task A",
+					outcome: "completed",
+					startedAt: "2026-08-01T10:00:00.000Z",
+					endedAt: null,
+				},
+				{
+					sessionId: "s1",
+					taskId: "t1",
+					taskTitle: "Task A",
+					outcome: "completed",
+					startedAt: "2026-08-01T10:00:00.000Z",
+					endedAt: null,
+				},
+				{
+					sessionId: "s2",
+					taskId: "t2",
+					taskTitle: "Task B",
+					outcome: "crashed",
+					startedAt: "2026-08-02T10:00:00.000Z",
+					endedAt: null,
+				},
 			],
 			performance: { totalSessions: 2, successCount: 1, successRate: 0.5 },
 			healthSignals: {
@@ -113,8 +131,22 @@ describe("AgentProfile UI-072 — deduplicate recent sessions", () => {
 			status: "ready",
 			activeSession: null,
 			recentSessions: [
-				{ sessionId: "s1", taskId: "t1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z", endedAt: null },
-				{ sessionId: "s2", taskId: "t2", taskTitle: "Task B", outcome: "crashed", startedAt: "2026-08-02T10:00:00.000Z", endedAt: null },
+				{
+					sessionId: "s1",
+					taskId: "t1",
+					taskTitle: "Task A",
+					outcome: "completed",
+					startedAt: "2026-08-01T10:00:00.000Z",
+					endedAt: null,
+				},
+				{
+					sessionId: "s2",
+					taskId: "t2",
+					taskTitle: "Task B",
+					outcome: "crashed",
+					startedAt: "2026-08-02T10:00:00.000Z",
+					endedAt: null,
+				},
 			],
 			performance: { totalSessions: 2, successCount: 1, successRate: 0.5 },
 			healthSignals: {
@@ -191,10 +223,7 @@ describe("AgentProfile UI-014 — user-friendly error messages", () => {
 					<Route
 						path="/agents/:agentId"
 						element={
-							<AgentProfile
-								overrideData={null}
-								overrideError={new Error("Network error")}
-							/>
+							<AgentProfile overrideData={null} overrideError={new Error("Network error")} />
 						}
 					/>
 				</Routes>

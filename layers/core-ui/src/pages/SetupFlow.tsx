@@ -231,10 +231,7 @@ function WelcomeVisual(): JSX.Element {
 							className="block w-[8px] h-[8px] rounded-[var(--r-pill)] shrink-0"
 							style={{ background: card.color }}
 						/>
-						<span
-							className="type-label  truncate"
-							style={{ color: card.color }}
-						>
+						<span className="type-label  truncate" style={{ color: card.color }}>
 							{card.label}
 						</span>
 					</div>
