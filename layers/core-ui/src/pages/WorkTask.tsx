@@ -85,14 +85,16 @@ function SessionRow({
 				<div className="type-copy   text-[var(--text-primary)] truncate">{title}</div>
 				<div className="type-metadata  text-[var(--text-tertiary)] truncate mt-[3px]">{agent}</div>
 			</div>
-			{/* AC1: Session effectiveness score — float displayed to 2dp */}
+			{/* AC1: Session effectiveness score — float displayed to 2dp with label */}
 			{effectivenessScore !== null && effectivenessScore !== undefined && (
 				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: span receives aria-label for assistive text
 				<span
 					data-testid="session-effectiveness-score"
-					className="type-data   tabular-nums text-[var(--text-secondary)] shrink-0"
+					className="type-data   tabular-nums text-[var(--text-secondary)] shrink-0 flex items-center gap-[3px]"
 					aria-label={`Effectiveness: ${effectivenessScore.toFixed(2)}`}
 				>
+					{/* UI-106: label the score so it reads as "Effectiveness 0.75" not a bare number */}
+					<span className="type-metadata text-[var(--text-tertiary)]">Effectiveness</span>
 					{effectivenessScore.toFixed(2)}
 				</span>
 			)}
@@ -117,7 +119,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	const betId = overrideBetId ?? routeBetId;
 	const taskId = overrideTaskId ?? routeTaskId;
 
-	const { data: bet, loading: betLoading, error: betError } = useBet(betId);
+	const { data: bet, loading: betLoading, error: betError, refresh: refreshBet } = useBet(betId);
 	const { data: sessionsData } = useTaskSessions(taskId);
 	const onOpenArtifact = useArtifactOpen();
 
@@ -153,6 +155,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					<ErrorState
 						title="Failed to load task"
 						description={betError.message}
+						onRetry={refreshBet}
 						dataTestId="task-error-state"
 					/>
 				</div>
@@ -183,6 +186,9 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 	const completedSessions = sessions.filter((s) => s.status === "done" || s.status === "completed");
 
 	// AI4: statusBadgeClass/statusLabel IIFEs removed — use StatusChip + TASK_STATE_LABEL.
+
+	// UI-020: if owner is null/undefined, show "Unassigned" so the cell is never blank.
+	const ownerLabel = task.owner ?? "Unassigned";
 
 	return (
 		<PageScaffold
@@ -238,7 +244,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					{/* Owner */}
 					<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
 						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Owner</span>
-						<span className="type-small   text-[var(--text-primary)]">{task.owner}</span>
+						<span className="type-small   text-[var(--text-primary)]">{ownerLabel}</span>
 					</div>
 					{/* Status — StatusChip + LiveDot for in_progress.
 						    AI4: Replaced plain text + local LiveDot with design-system StatusChip. */}
@@ -315,20 +321,25 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 				</section>
 
 				{/* W3 AC-31: Artifacts section */}
-				<section aria-label="Artifacts">
-					<SectionLabel label="Artifacts" divider />
-					<ArtifactSection
-						filter={{ axis: "task", taskId: taskId ?? "" }}
-						layout="stack"
-						heading=""
-						onOpen={onOpenArtifact}
-					/>
-				</section>
+				{/* UI-018: heading="Artifacts" makes ArtifactSection own the section header
+				    and renders an EmptyState when no artifacts exist, instead of returning null
+				    and leaving the SectionLabel as a bare label with nothing below it. */}
+				<ArtifactSection
+					filter={{ axis: "task", taskId: taskId ?? "" }}
+					layout="stack"
+					heading="Artifacts"
+					emptyDescription="Artifacts will appear here once agents produce output for this task."
+					onOpen={onOpenArtifact}
+				/>
 
 				{/* W3 AC-30: Discussion section */}
+				{/* UI-019: SectionLabel already provides the heading + divider. Pass inline={true}
+				    so HostThreadSection does NOT render its own border-top section wrapper or
+				    its own border-bottom h3 (with empty title=""), which created two stacked
+				    horizontal rules and a phantom h3 gap. */}
 				<section aria-label="Discussion">
 					<SectionLabel label="Discussion" divider />
-					<HostThreadSection hostKind="task" hostId={taskId ?? ""} title="" />
+					<HostThreadSection hostKind="task" hostId={taskId ?? ""} inline />
 				</section>
 			</div>
 		</PageScaffold>

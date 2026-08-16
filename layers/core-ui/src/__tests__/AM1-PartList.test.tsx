@@ -327,3 +327,61 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 		expect(document.querySelector('[data-ds-component="ReviewComposition"]')).toBeNull();
 	});
 });
+
+// ── UI-104 — day separators ──────────────────────────────────────
+
+describe("AM1 PartList — day separators (UI-104)", () => {
+	it("renders NO day separator when all messages are on the same day", () => {
+		render(
+			<PartList
+				parts={[
+					prose({
+						id: "m1",
+						author: ATLAS,
+						text: "morning",
+						createdAt: "2026-06-17T09:00:00.000Z",
+					}),
+					prose({ id: "m2", author: ME, text: "afternoon", createdAt: "2026-06-17T14:00:00.000Z" }),
+				]}
+				onOpen={vi.fn()}
+			/>,
+		);
+		expect(document.querySelector('[data-ds-component="DaySeparator"]')).toBeNull();
+	});
+
+	it("renders a day separator between messages from different calendar days", () => {
+		render(
+			<PartList
+				parts={[
+					prose({
+						id: "m1",
+						author: ATLAS,
+						text: "yesterday msg",
+						createdAt: "2026-06-16T22:00:00.000Z",
+					}),
+					prose({ id: "m2", author: ME, text: "today msg", createdAt: "2026-06-17T08:00:00.000Z" }),
+				]}
+				onOpen={vi.fn()}
+			/>,
+		);
+		const separator = document.querySelector('[data-ds-component="DaySeparator"]');
+		expect(separator).not.toBeNull();
+		// The separator's aria-label includes the date of the second day's messages
+		expect(separator?.getAttribute("aria-label")).toMatch(/jun 17/i);
+	});
+
+	it("renders one separator per day boundary across three consecutive days", () => {
+		render(
+			<PartList
+				parts={[
+					prose({ id: "m1", author: ATLAS, text: "day 1", createdAt: "2026-06-15T10:00:00.000Z" }),
+					prose({ id: "m2", author: ME, text: "day 2", createdAt: "2026-06-16T10:00:00.000Z" }),
+					prose({ id: "m3", author: ATLAS, text: "day 3", createdAt: "2026-06-17T10:00:00.000Z" }),
+				]}
+				onOpen={vi.fn()}
+			/>,
+		);
+		const separators = document.querySelectorAll('[data-ds-component="DaySeparator"]');
+		expect(separators).toHaveLength(2);
+	});
+});
