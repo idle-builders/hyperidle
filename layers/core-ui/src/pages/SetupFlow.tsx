@@ -576,7 +576,7 @@ export function SetupFlow(): JSX.Element {
 			{/* W3 AC-53: Card with shadow */}
 			<div
 				data-testid="onboarding-card"
-				className="w-[calc(100%-48px)] max-w-[520px] m-auto bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
+				className="w-[calc(100%-48px)] max-w-[520px] mx-auto my-[24px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
 			>
 				{/* Brand + tagline */}
 				<div
