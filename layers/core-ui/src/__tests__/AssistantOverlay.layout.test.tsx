@@ -59,13 +59,18 @@ function renderOverlay(): ReturnType<typeof render> {
 }
 
 describe("AssistantOverlay layout fixes", () => {
-	it("UI-140: renders exactly one 'Assistant' heading", () => {
+	it("UI-140: overlay bar contains no heading — ThreadShell banner is the only title", () => {
 		renderOverlay();
 
-		// The overlay's own header bar has h2 "Assistant". ThreadShell's
-		// hideHostBanner=true suppresses the second one.
-		const headings = screen.getAllByRole("heading", { name: /assistant/i });
-		expect(headings).toHaveLength(1);
+		// The overlay's own bar used to have an <h2>Assistant</h2> which duplicated
+		// ThreadShell's host banner. That h2 is now removed. The close button
+		// is the only interactive element in the bar.
+		const closeBtn = screen.getByRole("button", { name: /close assistant/i });
+		expect(closeBtn).toBeInTheDocument();
+
+		// No semantic headings — ThreadHostBanner renders non-heading text.
+		const headings = screen.queryAllByRole("heading");
+		expect(headings).toHaveLength(0);
 	});
 
 	it("UI-138/139: ThreadShell's inner content wrapper is flex-1 min-h-0", () => {

@@ -460,7 +460,6 @@ function AssistantOverlayInner({
 					identities={identities}
 					onAppendMessage={handleAppendMessage}
 					hostTitle="Assistant"
-					hideHostBanner={true}
 					renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
 				/>
 			</div>
@@ -554,11 +553,10 @@ export function AssistantOverlay({
 			].join(" ")}`}
 			style={{ zIndex: overlayProps.style.zIndex }}
 		>
-			{/* Overlay header bar: "Assistant" title + close button */}
-			<div className="border-b-[var(--bw-thin)] flex items-center justify-between px-[12px] py-[9px]  border-[var(--border-subtle)] shrink-0">
-				<h2 className="type-subheading   text-[var(--text-primary)]" id="assistant-overlay-title">
-					Assistant
-				</h2>
+			{/* Overlay close button bar — no title because ThreadShell's hostBanner
+			    already shows the agent identity. A duplicate "Assistant" h2 here
+			    caused two stacked headers (UI-140). Only the close control stays. */}
+			<div className="border-b-[var(--bw-thin)] flex items-center justify-end px-[12px] py-[6px]  border-[var(--border-subtle)] shrink-0">
 				<button
 					type="button"
 					aria-label="Close assistant"

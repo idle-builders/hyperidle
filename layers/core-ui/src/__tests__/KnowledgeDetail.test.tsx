@@ -1,7 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
+
+// Stub the knowledge API hook to return settled state immediately.
+// In real usage the hook fetches from /api/knowledge/:id — in JSDOM tests
+// apiFetch never resolves, leaving isLoading=true on the first render and
+// causing the loading skeleton to display instead of the fallback.
+// Returning isLoading=false simulates a completed fetch with no server data,
+// which is the correct state for the fallback rendering tests to exercise.
+vi.mock("../hooks/useKnowledgeItem.js", () => ({
+	useKnowledgeItem: () => ({ data: null, error: null, isLoading: false }),
+}));
 
 function renderPage(knowledgeId = "k1"): ReturnType<typeof render> {
 	return render(
