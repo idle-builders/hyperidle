@@ -38,8 +38,12 @@ export function NotFound(): JSX.Element {
 	const navigate = useNavigate();
 
 	return (
-		<PageScaffold header={<PageHeader title="Page not found" />} data-testid="not-found-page">
-			<div className="flex min-h-full items-center justify-center p-[48px_24px]">
+		<PageScaffold
+			header={<PageHeader title="Page not found" />}
+			data-testid="not-found-page"
+			body="managed"
+		>
+			<div className="flex-1 flex items-center justify-center p-[48px_24px]">
 				<ErrorState
 					title=""
 					description="The page you're looking for doesn't exist or has been moved. If you followed a link, it may be outdated."
