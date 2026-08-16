@@ -368,12 +368,9 @@ export function AppShell(): JSX.Element {
 	 * Navigation is driven by the <Link to={href}> in SectionHeader — this
 	 * callback only closes the settings panel.
 	 */
-	const handleSectionNavClick = useCallback(
-		(_view: ViewId): void => {
-			setSettingsOpen(false);
-		},
-		[],
-	);
+	const handleSectionNavClick = useCallback((_view: ViewId): void => {
+		setSettingsOpen(false);
+	}, []);
 
 	const handleAvatarClick = useCallback((): void => {
 		setSettingsOpen(true);
@@ -756,7 +753,10 @@ export function AppShell(): JSX.Element {
 							)}
 						</button>
 						{/* @lore UI-144/145: h1 in PageHeader provides the semantic title; this span is visual-only */}
-						<span aria-hidden="true" className="type-copy flex-1 text-[var(--text-primary)] truncate px-[6px]">
+						<span
+							aria-hidden="true"
+							className="type-copy flex-1 text-[var(--text-primary)] truncate px-[6px]"
+						>
 							{pageTitle}
 						</span>
 						<button

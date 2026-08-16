@@ -31,8 +31,7 @@ import { Sidebar } from "../shell/Sidebar";
 function render(element: ReactElement): ReturnType<typeof renderRaw> {
 	const result = renderRaw(<MemoryRouter>{element}</MemoryRouter>);
 	const { rerender: rawRerender } = result;
-	result.rerender = (next: ReactNode) =>
-		rawRerender(<MemoryRouter>{next}</MemoryRouter>);
+	result.rerender = (next: ReactNode) => rawRerender(<MemoryRouter>{next}</MemoryRouter>);
 	return result;
 }
 

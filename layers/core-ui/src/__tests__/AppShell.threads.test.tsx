@@ -172,7 +172,8 @@ describe("U6 — AppShell wires thread list into Sidebar Conversations section",
 		const items = document.querySelectorAll("[data-thread-id]");
 		const firstItem = items[0] as HTMLElement;
 		const threadId = firstItem.getAttribute("data-thread-id") ?? "";
-		await user.click(firstItem.querySelector("button") ?? firstItem);
+		// UI-080: FastNavItem inner element is now <a> (Link), not <button>
+		await user.click(firstItem.querySelector("a") ?? firstItem);
 
 		// L9: clicking navigates to /conversations/:threadId.
 		await waitFor(() => {
@@ -196,7 +197,8 @@ describe("U6 — AppShell wires thread list into Sidebar Conversations section",
 			expect(document.querySelectorAll("[data-thread-id]").length).toBe(5);
 		});
 		const firstItem = document.querySelector("[data-thread-id]") as HTMLElement;
-		const btn = firstItem.querySelector("button") ?? firstItem;
+		// UI-080: FastNavItem inner element is now <a> (Link), not <button>
+		const btn = firstItem.querySelector("a") ?? firstItem;
 		await user.click(btn);
 		await waitFor(() => {
 			const selected = document.querySelector("[data-thread-id][aria-current='page']");

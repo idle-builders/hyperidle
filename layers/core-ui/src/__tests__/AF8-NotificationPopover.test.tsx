@@ -21,9 +21,17 @@ vi.mock("../hooks/useNotifications", () => ({
 	useNotifications: vi.fn(),
 }));
 
-// Mock react-router-dom navigate (popover calls navigate(sourceLink) on row click)
+// Mock react-router-dom navigate (popover calls navigate(sourceLink) on row click).
+// UI-080: Sidebar now imports Link — mock it as a simple <a> so these tests don't
+// need a real router context when they render <Sidebar> directly.
 vi.mock("react-router-dom", () => ({
 	useNavigate: vi.fn(() => vi.fn()),
+	// biome-ignore lint/suspicious/noExplicitAny: mock simplicity
+	Link: ({ to, children, ...rest }: any) => (
+		<a href={String(to)} {...rest}>
+			{children}
+		</a>
+	),
 }));
 
 type NotificationRow = {
