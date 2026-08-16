@@ -587,6 +587,7 @@ export function AppShell(): JSX.Element {
 			 * @lore W2: density tokens removed. Using Hearth default page gutter (24px).
 			 * @lore U6: Main pane is now the only content area (no Submenu or Rail).
 			 */
+			id="main-content"
 			className="type-copy flex-1 flex flex-col overflow-hidden bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-default)] min-w-0"
 			data-shell-surface="main"
 			data-testid="main-content"
@@ -655,6 +656,13 @@ export function AppShell(): JSX.Element {
 	if (sidebarMobile) {
 		return (
 			<ToastRegion>
+				{/* UI-084: skip link — first focusable element; lands on <main id="main-content"> */}
+				<a
+					href="#main-content"
+					className="absolute left-0 top-0 z-[100] -translate-y-full focus:translate-y-0 type-control rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+				>
+					Skip to main content
+				</a>
 				<div className="flex flex-col h-screen bg-[var(--surface-container)] overflow-hidden">
 					{/* AV5: Desktop titlebar — null in browser → layout-neutral; shrink-0 in Electron */}
 					<DesktopTitleBar />
@@ -834,6 +842,13 @@ export function AppShell(): JSX.Element {
 	// Desktop layout branch (viewport > 768px)
 	return (
 		<ToastRegion>
+			{/* UI-084: skip link — first focusable element; lands on <main id="main-content"> */}
+			<a
+				href="#main-content"
+				className="absolute left-0 top-0 z-[100] -translate-y-full focus:translate-y-0 type-control rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[6px] text-[var(--text-primary)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+			>
+				Skip to main content
+			</a>
 			<div className="flex h-screen bg-[var(--surface-container)] overflow-hidden gap-[9px] p-[9px]">
 				{/* @lore U6: Sidebar replaces IconRail | Submenu | Rail trio. */}
 				{/* @lore sidebar-system: Sidebar uses w-full internally; its parent owns the 276px
