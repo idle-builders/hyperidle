@@ -84,9 +84,9 @@ describe("AgentProfile UI-072 — deduplicate recent sessions", () => {
 			status: "ready",
 			activeSession: null,
 			recentSessions: [
-				{ sessionId: "s1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z" },
-				{ sessionId: "s1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z" },
-				{ sessionId: "s2", taskTitle: "Task B", outcome: "crashed", startedAt: "2026-08-02T10:00:00.000Z" },
+				{ sessionId: "s1", taskId: "t1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z", endedAt: null },
+				{ sessionId: "s1", taskId: "t1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z", endedAt: null },
+				{ sessionId: "s2", taskId: "t2", taskTitle: "Task B", outcome: "crashed", startedAt: "2026-08-02T10:00:00.000Z", endedAt: null },
 			],
 			performance: { totalSessions: 2, successCount: 1, successRate: 0.5 },
 			healthSignals: {
@@ -113,8 +113,8 @@ describe("AgentProfile UI-072 — deduplicate recent sessions", () => {
 			status: "ready",
 			activeSession: null,
 			recentSessions: [
-				{ sessionId: "s1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z" },
-				{ sessionId: "s2", taskTitle: "Task B", outcome: "crashed", startedAt: "2026-08-02T10:00:00.000Z" },
+				{ sessionId: "s1", taskId: "t1", taskTitle: "Task A", outcome: "completed", startedAt: "2026-08-01T10:00:00.000Z", endedAt: null },
+				{ sessionId: "s2", taskId: "t2", taskTitle: "Task B", outcome: "crashed", startedAt: "2026-08-02T10:00:00.000Z", endedAt: null },
 			],
 			performance: { totalSessions: 2, successCount: 1, successRate: 0.5 },
 			healthSignals: {

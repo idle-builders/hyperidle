@@ -106,7 +106,7 @@ export { KeyValue } from "./KeyValue.js";
 export type { KnowledgeRowProps } from "./KnowledgeRow.js";
 export { KnowledgeRow } from "./KnowledgeRow.js";
 // ── AM5: KpiStat + Sparkline — extracted base primitives from data-renderer ──
-export type { KpiStatProps } from "./KpiStat.js";
+export type { KpiStatMetric, KpiStatProps } from "./KpiStat.js";
 export { KpiStat } from "./KpiStat.js";
 // ── AM5: composeArtifactBody — the single-home Artifact composition (REPLACES getRenderer) ──
 // K5: CodeRenderer/DataRenderer/FallbackRenderer/HtmlRenderer/ImageRenderer/TextRenderer/UrlRenderer
