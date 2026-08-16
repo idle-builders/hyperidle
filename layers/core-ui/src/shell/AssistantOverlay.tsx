@@ -422,13 +422,20 @@ function AssistantOverlayInner({
 		(m) => m.type !== "plain" || !(m.payload as PlainPayload).notice,
 	);
 
+	// @lore UI-138/139/140: The fragment return caused ThreadShell to receive no
+	// definite height from the overlay's flex container, so the message list
+	// clipped and the composer was invisible. A flex-1 min-h-0 wrapper gives
+	// ThreadShell the h-full parent it requires. hideHostBanner suppresses the
+	// duplicate "Assistant" header (UI-140) — the overlay already has its own.
+	// Notice/thinking cards are rendered as shrink-0 rows below ThreadShell and
+	// stay outside ThreadShell to avoid the text-collision mentioned in AH3 lore.
 	return (
-		<>
+		<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 			{/* Context chips area — only renders when refs are attached */}
 			{contextRefs.length > 0 && (
 				<div
 					data-testid="assistant-context-chips"
-					className="border-b-[var(--bw-thin)] flex flex-wrap gap-[6px]  border-[var(--border-subtle)] px-3 py-2"
+					className="border-b-[var(--bw-thin)] flex flex-wrap gap-[6px] shrink-0  border-[var(--border-subtle)] px-3 py-2"
 				>
 					{contextRefs.map((contextRef, i) => (
 						<ContextChip
@@ -444,37 +451,42 @@ function AssistantOverlayInner({
 					))}
 				</div>
 			)}
-			<ThreadShell
-				thread={thread}
-				messages={threadMessages}
-				identities={identities}
-				onAppendMessage={handleAppendMessage}
-				hostTitle="Assistant"
-				renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
-			/>
+			{/* flex-1 min-h-0 gives ThreadShell a parent with a definite height
+			    so its internal h-full resolves correctly (UI-138/139). */}
+			<div className="flex-1 min-h-0">
+				<ThreadShell
+					thread={thread}
+					messages={threadMessages}
+					identities={identities}
+					onAppendMessage={handleAppendMessage}
+					hostTitle="Assistant"
+					hideHostBanner={true}
+					renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
+				/>
+			</div>
 			{/* AH3: Notice cards rendered OUTSIDE ThreadShell to avoid text collision */}
 			{noticeMessages.map((m) => {
 				const noticePayload = m.payload as PlainPayload;
 				if (!noticePayload.notice) return null;
 				return (
-					<div key={m.id} className="px-[12px] pb-[9px]">
+					<div key={m.id} className="shrink-0 px-[12px] pb-[9px]">
 						<AssistantNoticeCard notice={noticePayload.notice} onRetry={refresh} />
 					</div>
 				);
 			})}
 			{/* AH3 §1.7b: Thinking indicator — client-derived from thread state */}
 			{isThinking && (
-				<div className="px-[12px] pb-[9px]">
+				<div className="shrink-0 px-[12px] pb-[9px]">
 					<ThinkingRow />
 				</div>
 			)}
 			{/* AH3 §1.7b: Stale crash-recovery Retry card */}
 			{isStale && (
-				<div className="px-[12px] pb-[9px]">
+				<div className="shrink-0 px-[12px] pb-[9px]">
 					<StaleRetryCard onRetry={refresh} />
 				</div>
 			)}
-		</>
+		</div>
 	);
 }
 
