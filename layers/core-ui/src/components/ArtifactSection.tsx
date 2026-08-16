@@ -190,7 +190,7 @@ export function ArtifactSection({
 			)}
 
 			{layout === "stack" && (
-				<div className="flex flex-col">
+				<div className="flex flex-col divide-y divide-[var(--border-subtle)]">
 					{items.map((artifact) => (
 						<ArtifactStackItem
 							key={artifact.id}

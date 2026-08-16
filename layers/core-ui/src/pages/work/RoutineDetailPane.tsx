@@ -52,7 +52,7 @@ import {
 } from "@hyperidle/design-system";
 import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/domain-model";
 import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
-import { absoluteDate, absoluteDateTime } from "@hyperidle/presentation-format";
+import { absoluteDateTime } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoutine } from "../../hooks/useRoutine.js";
@@ -499,7 +499,7 @@ function RoutineDetailPaneLoaded({
 						{routine.createdAt && (
 							<KeyValue
 								label="Created"
-								value={absoluteDate(routine.createdAt)}
+								value={absoluteDateTime(routine.createdAt)}
 								data-testid="routine-created"
 							/>
 						)}

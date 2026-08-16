@@ -132,7 +132,7 @@ export function ThreadHostBanner({
 					<span
 						key={p.id}
 						title={p.name}
-						className="type-avatar-initial type-avatar-initial--sm border-[var(--bw-thin)] relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] bg-[var(--surface-elevated)] text-[var(--text-tertiary)] border-[var(--border-subtle)]"
+						className="type-avatar-initial type-avatar-initial--sm border-[var(--bw-thin)] relative inline-flex items-center justify-center w-[24px] h-[24px] rounded-[var(--r-pill)] overflow-hidden bg-[var(--surface-elevated)] text-[var(--text-tertiary)] border-[var(--border-subtle)]"
 					>
 						{p.name.charAt(0).toUpperCase()}
 						{p.isAgent && p.operationalStatus ? (
