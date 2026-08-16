@@ -66,6 +66,8 @@ interface OrgUser {
 interface OrgTeam {
 	id: string;
 	name: string;
+	/** UI-034: the actual teams.id — edge.target stores this, not teamMembers.id. */
+	teamActualId?: string;
 }
 
 interface OrgData {
@@ -197,9 +199,13 @@ export function SettingsOrgChart(): JSX.Element {
 	// D4 (POLISH-060): resolve edge target to a human-readable label.
 	// For "team" mechanism, target is a team-<uuid> — look it up in data.teams.
 	// For other mechanisms (direct/function), target is a user id or free text — use as-is.
+	// UI-034: edge.target stores teams.id (e.g. "demo-team-acme") but GET /api/org
+	// returns teams with t.id = teamMembers.id and t.teamActualId = teams.id — check
+	// both to avoid falling back to the raw slug when teamActualId matches.
 	const targetLabel = (edge: OrgEdge): string => {
 		if (edge.mechanism === "team") {
-			return teams.find((t) => t.id === edge.target)?.name ?? edge.target;
+			const team = teams.find((t) => t.id === edge.target || t.teamActualId === edge.target);
+			return team?.name ?? edge.target;
 		}
 		return edge.target;
 	};
@@ -264,7 +270,7 @@ export function SettingsOrgChart(): JSX.Element {
 					}}
 					data-testid="add-edge-btn"
 				>
-					+ Add Edge
+					Add relationship
 				</Button>
 			) : (
 				<AddEdgeForm
