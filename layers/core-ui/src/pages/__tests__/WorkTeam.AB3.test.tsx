@@ -24,7 +24,6 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HintProvider } from "../../hooks/useHints";
 import { WorkTeam } from "../WorkTeam";
 
 // ---------------------------------------------------------------------------
@@ -145,14 +144,12 @@ const MOCK_AGENT_CONFIGS = [
 
 function renderWithHints(ui: ReactNode, path = "/work/team/ab3-team-1"): ReturnType<typeof render> {
 	return render(
-		<HintProvider>
-			<MemoryRouter initialEntries={[path]}>
-				<Routes>
-					<Route path="/work/team/:teamId" element={ui} />
-					<Route path="*" element={ui} />
-				</Routes>
-			</MemoryRouter>
-		</HintProvider>,
+		<MemoryRouter initialEntries={[path]}>
+			<Routes>
+				<Route path="/work/team/:teamId" element={ui} />
+				<Route path="*" element={ui} />
+			</Routes>
+		</MemoryRouter>,
 	);
 }
 

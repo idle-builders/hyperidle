@@ -84,16 +84,15 @@ export interface WorkTeamProps {
 	 */
 	overrideError?: Error | null;
 	/**
-	 * When true, the ArtifactSection is not rendered. Used by hint integration
-	 * tests to prevent ArtifactSection from consuming mocked fetch responses
-	 * before HintProvider can read them.
+	 * When true, the ArtifactSection is not rendered. Used by test overrides
+	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
+	 * meant for other hooks in the component tree.
 	 *
-	 * @lore P5: React runs child effects before parent effects. ArtifactSection
-	 * (child deep) fires useFetch before HintProvider (parent outer). When both
-	 * components are active and fetch is mocked with mockResolvedValueOnce, the
-	 * child consumes the mock first. Pass skipArtifacts={true} to prevent this
-	 * in hint tests. The L12 artifact-section test does NOT pass this prop
-	 * (defaults false) and mocks ArtifactSection via vi.mock() instead.
+	 * @lore P5: ArtifactSection's useFetch fires before parent hooks' useEffect
+	 * because React flushes child effects before parent effects. When using
+	 * overrideData in tests, skipArtifacts prevents fetch-order races.
+	 * The L12 artifact-section test does NOT pass this prop (defaults false)
+	 * and mocks ArtifactSection via vi.mock() instead.
 	 */
 	skipArtifacts?: boolean;
 }
@@ -226,10 +225,10 @@ function WorkTeamLoaded({
 	data: TeamDetail;
 	/**
 	 * When true, the ArtifactSection is not rendered. Used by test overrides
-	 * (overrideData prop) to prevent ArtifactSection from calling fetch and
-	 * consuming mocked responses meant for other hooks (e.g. HintProvider).
+	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
+	 * meant for other hooks in the component tree.
 	 *
-	 * @lore P5: ArtifactSection's useFetch fires before HintProvider's useEffect
+	 * @lore P5: ArtifactSection's useFetch fires before parent hooks' useEffect
 	 * because React flushes child effects before parent effects. When using
 	 * overrideData in tests, skipping ArtifactSection prevents fetch-order races.
 	 */
