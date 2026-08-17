@@ -98,6 +98,13 @@ function MainStub(): JSX.Element {
 	return <div data-testid="main-stub">selected:{ctx?.selectedThreadId ?? "none"}</div>;
 }
 
+// Stub that exposes threadsStatus from the Outlet context so tests can verify
+// AppShell propagates the correct status to child routes (NEW-23).
+function ThreadsStatusStub(): JSX.Element {
+	const ctx = useOutletContext<{ threadsStatus?: string } | undefined>();
+	return <div data-testid="threads-status-stub">{ctx?.threadsStatus ?? "none"}</div>;
+}
+
 function renderShell(initialPath = "/conversations"): {
 	router: ReturnType<typeof createMemoryRouter>;
 } {
@@ -213,6 +220,42 @@ describe("U6 — AppShell wires thread list into Sidebar Conversations section",
 			// Empty state appears in the sidebar Conversations section
 			// @lore visual-parity: changed from "No recent conversations" to "No threads yet"
 			expect(screen.getByText(/no threads yet/i)).toBeInTheDocument();
+		});
+	});
+
+	it("sidebar shows 'Couldn't load threads' (not 'No threads yet') when user fetch fails", async () => {
+		// @lore UI-011/012/013 + NEW-23: when the API server is unreachable, useCurrentUser
+		// fails → user is null → useConversationsThreads short-circuits to status:"ready"
+		// (N5 guard). The sidebar must NOT claim "No threads yet" — that is a false empty state.
+		// AppShell propagates userStatus==="error" as isThreadsError=true so the sidebar shows
+		// "Couldn't load threads" instead.
+		global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+		renderShell();
+		await waitFor(() => {
+			expect(screen.queryByText(/no threads yet/i)).not.toBeInTheDocument();
+			expect(screen.getByText(/couldn't load threads/i)).toBeInTheDocument();
+		});
+	});
+
+	it("Outlet context has threadsStatus='error' (not 'ready') when user fetch fails (NEW-23)", async () => {
+		// NEW-23: when the API is down, the Conversations page must receive threadsStatus:"error"
+		// from AppShell so it shows an error state rather than the false "No conversations yet"
+		// empty claim. Verified by reading the Outlet context in a test child route.
+		global.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
+		const router = createMemoryRouter(
+			[
+				{
+					path: "/",
+					element: <AppShell />,
+					children: [{ path: "conversations", element: <ThreadsStatusStub /> }],
+				},
+			],
+			{ initialEntries: ["/conversations"] },
+		);
+		render(<RouterProvider router={router} />);
+		await waitFor(() => {
+			const stub = screen.getByTestId("threads-status-stub");
+			expect(stub.textContent).toBe("error");
 		});
 	});
 });

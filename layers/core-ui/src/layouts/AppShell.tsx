@@ -101,7 +101,7 @@ export function sanitizeRouteId(id: string): string | null {
 export function AppShell(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
-	const { user } = useCurrentUser();
+	const { user, status: userStatus } = useCurrentUser();
 	// @lore U6: useRail removed (Rail component deleted).
 
 	const activeView = useMemo(() => deriveViewFromPath(location.pathname), [location.pathname]);
@@ -458,6 +458,17 @@ export function AppShell(): JSX.Element {
 	// @lore N5: pass user?.id directly (string | undefined). Hook short-circuits when falsy.
 	const conversationsThreads = useConversationsThreads(user?.id);
 
+	// @lore UI-011/012/013 + NEW-23: when the user fetch fails, user?.id is undefined so
+	// useConversationsThreads short-circuits to status:"ready" (N5 guard — avoids a 400
+	// "Missing scope" error on a fresh install with no users). The threads hook never fires
+	// and never errors. Propagate the user-fetch failure so the sidebar and Conversations
+	// page show "Couldn't load" instead of a false "No threads yet" empty claim.
+	const isThreadsError =
+		conversationsThreads.status === "error" || (!user && userStatus === "error");
+	const threadsErrorMessage =
+		conversationsThreads.error ??
+		(isThreadsError ? "Something went wrong. Please try again." : null);
+
 	// @lore U6: filter state moved from Submenu to OutletContext so the Conversations page
 	// renders the pill bar in the main pane (AC-16). Filter resets to "all" on view change (AC 64).
 	const [conversationsFilter, setConversationsFilter] = useState<ConversationsFilter>("all");
@@ -628,7 +639,7 @@ export function AppShell(): JSX.Element {
 		teamsLoading,
 		knowledgeLoading,
 		// UI-011/012/013: honest error states — sidebar shows "Couldn't load X" not "No X yet"
-		threadsError: conversationsThreads.status === "error",
+		threadsError: isThreadsError,
 		teamsError: teamsError !== null,
 		knowledgeError: knowledgeError !== null,
 	} as const;
@@ -692,8 +703,8 @@ export function AppShell(): JSX.Element {
 										/** U9 AC-1: opens RecipientPicker for new thread creation. */
 										onNewThread: () => setShowRecipientPicker(true),
 										threads: conversationsThreads.threads,
-										threadsStatus: conversationsThreads.status,
-										threadsError: conversationsThreads.error,
+										threadsStatus: isThreadsError ? "error" : conversationsThreads.status,
+										threadsError: threadsErrorMessage,
 										onRetryThreads: conversationsThreads.retry,
 									} satisfies AppShellOutletContext
 								}
