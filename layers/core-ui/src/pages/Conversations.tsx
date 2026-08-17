@@ -50,7 +50,6 @@ import { SessionView } from "../components/SessionView";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { useHint } from "../hooks/useHints";
 import { useSessionActivity } from "../hooks/useSessionActivity";
 import type { ThreadDetail } from "../hooks/useThreadDetail";
 import { useThreadDetail } from "../hooks/useThreadDetail";
@@ -304,7 +303,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// AM1: viewer identity for own-message ("You") styling in the Part column.
 	const { user } = useCurrentUser();
 	const viewerId = user?.id ?? "";
-	const hintReviewVerdict = useHint("review-verdict");
 	// @lore L9: read ToastContext directly (not useToast) so the page renders
 	// in unit tests / Storybook without a <ToastRegion> ancestor. Production
 	// always has the provider via AppShell. When absent, async-ack falls back
@@ -535,9 +533,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 			<div />
 		);
 
-	// P5: Hint #4 — review-verdict. Trigger: thread is loaded with review messages.
-	const hasReviewMessages = data.messages.some((m) => m.type === "review");
-
 	return (
 		<PageScaffold
 			data-testid="conversations-page"
@@ -554,23 +549,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 								LinkComponent={Link}
 							/>
 						}
-						actions={
-							<>
-								{dialInButton}
-								{hintReviewVerdict.visible && hasReviewMessages && (
-									<Button variant="ghost" size="sm" onClick={hintReviewVerdict.dismiss}>
-										Got it
-									</Button>
-								)}
-							</>
-						}
-						subtitle={
-							hintReviewVerdict.visible && hasReviewMessages ? (
-								<span role="status" data-testid={hintReviewVerdict.testId}>
-									{hintReviewVerdict.copy}
-								</span>
-							) : undefined
-						}
+						actions={dialInButton}
 					/>
 				)
 			}
