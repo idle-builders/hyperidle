@@ -416,7 +416,10 @@ export default function ConversationSurface({
 							threadId={`${header.hostKind}:${header.hostTitle}`}
 							onSubmit={handleDSSubmit}
 							leading={insertLeading}
-							placeholder={`Message ${participants.slice(0, 2).map((p) => p.name).join(", ")}…`}
+							placeholder={`Message ${participants
+								.slice(0, 2)
+								.map((p) => p.name)
+								.join(", ")}…`}
 							iconSend
 						/>
 					</div>
