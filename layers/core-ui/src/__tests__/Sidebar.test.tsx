@@ -471,3 +471,36 @@ describe("Sidebar — Knowledge fast-nav (AD9 §1 item 4)", () => {
 		void noItemsEl;
 	});
 });
+
+// ---------------------------------------------------------------------------
+// UI-083 — FastNavItem links are keyboard-focusable
+// ---------------------------------------------------------------------------
+// The visual defect (focus ring overlapping the item below) requires browser
+// verification — jsdom does not compute layout. The test below proves the
+// structural prerequisite: FastNavItem links are reachable via Tab and become
+// the active element when focused by keyboard navigation.
+//
+// The root cause was missing `focus-visible:-outline-offset-1` on the FastNavItem
+// Link. SectionHeader and NotificationButton already had it; FastNavItem was the
+// only omission. The fix is in Sidebar.tsx; visual overlap verification is
+// handled by the coordinator in the running app.
+
+describe("Sidebar — UI-083: FastNavItem links are keyboard-focusable", () => {
+	it("Tab navigation reaches a thread FastNavItem link", async () => {
+		const user = userEvent.setup();
+		render(
+			<Sidebar {...defaultProps} activeView="conversations" threads={[mkThread("t-focus-test")]} />,
+		);
+
+		const threadLink = screen.getByTestId("fastnav-t-focus-test");
+		// Tab through until the thread link is focused (or the max expected number
+		// of focusable elements in the sidebar is exhausted).
+		// Sidebar focusable order: notifications → conversations → work → knowledge → thread links.
+		for (let i = 0; i < 10; i++) {
+			await user.tab();
+			if (document.activeElement === threadLink) break;
+		}
+
+		expect(document.activeElement).toBe(threadLink);
+	});
+});

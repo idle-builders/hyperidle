@@ -554,7 +554,11 @@ function FastNavItem({
 					"flex h-[44px] w-full items-center rounded-[var(--r-subtle)] px-[9px] min-[1025px]:h-[34px]",
 					"  text-[var(--text-primary)] truncate",
 					"  ",
-					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
+					// @lore UI-083: -outline-offset-1 matches SectionHeader + NotificationButton.
+					// Without it the 1px outline renders at the element's exact border edge and
+					// bleeds into the row below. All other sidebar interactive elements already
+					// use this inset; FastNavItem was the only one missing it.
+					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 					!selected
 						? "hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 						: "",
