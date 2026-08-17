@@ -307,14 +307,11 @@ describe("Sidebar — AC-7: Active sub-item styling", () => {
 		const { container } = render(
 			<Sidebar {...defaultProps} threads={threads} selectedThreadId="t-selected" />,
 		);
-		// @lore UI-061: ThreadRow replaces FastNavItem for thread rows. Selected state is
-		// on ThreadRow's root div (bg-[var(--surface-elevated)]) not the wrapping <li>.
-		// We check aria-current="true" which ThreadRow sets on its selected root div.
+		// NavItem with selected=true should have selected styling classes
+		// Check for the elevated bg class on the selected thread item
 		const selectedItem = container.querySelector("[data-thread-id='t-selected']");
 		expect(selectedItem).toBeInTheDocument();
-		const threadRowEl = selectedItem?.querySelector("[aria-current='true']");
-		expect(threadRowEl).toBeInTheDocument();
-		expect(threadRowEl?.className ?? "").toContain("bg-[var(--surface-elevated)]");
+		expect(selectedItem?.className ?? "").toContain("bg-[var(--accent-primary-dim)]");
 	});
 
 	it("selected team sub-item has selected=true on its NavItem", () => {
@@ -385,9 +382,8 @@ describe("Sidebar — accessibility: aria-current on active nav items", () => {
 		const { container } = render(
 			<Sidebar {...defaultProps} threads={threads} selectedThreadId="t-cur" />,
 		);
-		// @lore UI-061: ThreadRow uses aria-current="true" (not "page") on its root div.
-		// FastNavItem used aria-current="page" on the <li>. The semantic intent is the same.
-		const current = container.querySelector("[aria-current='true']");
+		// FastNavItem sets aria-current="page" on the selected <li>
+		const current = container.querySelector("[aria-current='page']");
 		expect(current).toBeInTheDocument();
 	});
 });
