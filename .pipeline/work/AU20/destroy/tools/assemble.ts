@@ -45,10 +45,14 @@ function tally(service: string, body: string): Tally {
   const t: Tally = { service, DELETE: 0, MERGE: 0, SIMPLIFY: 0, KEEP: 0, rows: 0 };
   for (const line of body.split("\n")) {
     if (!line.trimStart().startsWith("|")) continue;
-    const cells = line.split("|").map((c) => c.trim());
+    const cells = line.split("|").slice(1, -1).map((c) => c.trim());
     // A verdict cell is a bare keyword, not prose mentioning one.
-    const hit = cells.find((c) => /^(DELETE|MERGE|SIMPLIFY|KEEP)$/.test(c)) as keyof Tally | undefined;
-    if (!hit) continue;
+    const idx = cells.findIndex((c) => /^(DELETE|MERGE|SIMPLIFY|KEEP)$/.test(c));
+    if (idx === -1) continue;
+    // Skip each file's own `| Verdict | Count |` summary — it tallies the audit
+    // rather than being part of it, and counting it inflates every package.
+    if (idx === 0 && cells.length <= 2) continue;
+    const hit = cells[idx] as keyof Tally;
     t[hit] = (t[hit] as number) + 1;
     t.rows++;
   }

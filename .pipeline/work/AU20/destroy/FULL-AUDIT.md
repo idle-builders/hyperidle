@@ -8,59 +8,59 @@ Baseline at reopen (`ba0fb454d`): 19 services, 268 exported functions, 16 classe
 
 | Verdict | Count | Share |
 |---|---|---|
-| DELETE | 492 | 27% |
-| MERGE | 107 | 6% |
-| SIMPLIFY | 360 | 20% |
-| KEEP | 875 | 48% |
-| **Total rows** | **1834** | |
+| DELETE | 451 | 27% |
+| MERGE | 67 | 4% |
+| SIMPLIFY | 320 | 19% |
+| KEEP | 834 | 50% |
+| **Total rows** | **1672** | |
 
-Killed outright or folded away: **599** of 1834 (33%).
+Killed outright or folded away: **518** of 1672 (31%).
 
 ## Per service
 
 | Service | Rows | DELETE | MERGE | SIMPLIFY | KEEP | Kill rate |
 |---|---|---|---|---|---|---|
-| _doors | 202 | 54 | 6 | 3 | 139 | 30% |
-| fw-db | 155 | 54 | 2 | 4 | 95 | 36% |
-| fw-domain-model | 250 | 53 | 0 | 75 | 122 | 21% |
-| knowledge | 62 | 25 | 3 | 15 | 19 | 45% |
-| fw-design-system | 255 | 23 | 3 | 58 | 171 | 10% |
-| fw-diagnostics | 30 | 21 | 2 | 3 | 4 | 77% |
-| fw-filesystem-contract | 24 | 12 | 9 | 2 | 1 | 88% |
-| harness-registry | 73 | 14 | 4 | 8 | 47 | 25% |
-| notifications | 31 | 17 | 1 | 10 | 3 | 58% |
-| org | 29 | 9 | 9 | 5 | 6 | 62% |
-| settings | 24 | 16 | 2 | 3 | 3 | 75% |
-| review | 25 | 16 | 1 | 3 | 5 | 68% |
-| users | 27 | 14 | 3 | 4 | 6 | 63% |
-| work | 50 | 11 | 6 | 15 | 18 | 34% |
-| fw-api-contract | 102 | 14 | 1 | 14 | 73 | 15% |
-| fw-harness-protocol | 25 | 8 | 5 | 4 | 8 | 52% |
-| fw-conversation-parts | 25 | 10 | 2 | 5 | 8 | 48% |
-| routine | 35 | 9 | 3 | 12 | 11 | 34% |
-| session-requests | 39 | 11 | 1 | 10 | 17 | 31% |
-| fw-factory-defaults | 15 | 8 | 3 | 2 | 2 | 73% |
-| fw-harness-capability | 19 | 8 | 3 | 5 | 3 | 58% |
-| fw-http-middleware | 26 | 9 | 2 | 5 | 10 | 42% |
-| filesystems | 23 | 7 | 3 | 5 | 8 | 43% |
-| run-orchestration | 48 | 8 | 2 | 21 | 17 | 21% |
-| fw-host-process | 27 | 7 | 2 | 15 | 3 | 33% |
-| agent-run-config | 15 | 6 | 2 | 2 | 5 | 53% |
-| fw-tool-protocol | 10 | 7 | 1 | 1 | 1 | 80% |
-| tool-handlers | 31 | 6 | 2 | 11 | 12 | 26% |
-| fw-event-bus | 12 | 5 | 2 | 1 | 4 | 58% |
-| conversation | 32 | 4 | 2 | 11 | 15 | 19% |
-| fw-toon-codec | 9 | 4 | 2 | 1 | 2 | 67% |
-| policy | 16 | 4 | 2 | 5 | 5 | 38% |
-| connections | 15 | 2 | 3 | 6 | 4 | 33% |
-| fw-block-derivation | 12 | 3 | 2 | 1 | 6 | 42% |
-| fw-work-intent-port | 14 | 3 | 2 | 2 | 7 | 36% |
-| filesystem-mounting | 9 | 2 | 2 | 4 | 1 | 44% |
-| fw-presentation-format | 7 | 3 | 1 | 2 | 1 | 57% |
-| credentials | 9 | 1 | 2 | 2 | 4 | 33% |
-| fw-credential-access | 9 | 2 | 1 | 1 | 5 | 33% |
-| fw-cron | 8 | 1 | 2 | 2 | 3 | 38% |
-| fw-query-escaping | 5 | 1 | 1 | 2 | 1 | 40% |
+| _doors | 198 | 53 | 5 | 2 | 138 | 29% |
+| fw-db | 151 | 53 | 1 | 3 | 94 | 36% |
+| fw-domain-model | 248 | 52 | 0 | 75 | 121 | 21% |
+| knowledge | 58 | 24 | 2 | 14 | 18 | 45% |
+| fw-design-system | 251 | 22 | 2 | 57 | 170 | 10% |
+| fw-diagnostics | 26 | 20 | 1 | 2 | 3 | 81% |
+| fw-filesystem-contract | 20 | 11 | 8 | 1 | 0 | 95% |
+| harness-registry | 69 | 13 | 3 | 7 | 46 | 23% |
+| notifications | 27 | 16 | 0 | 9 | 2 | 59% |
+| org | 25 | 8 | 8 | 4 | 5 | 64% |
+| settings | 20 | 15 | 1 | 2 | 2 | 80% |
+| review | 21 | 15 | 0 | 2 | 4 | 71% |
+| users | 23 | 13 | 2 | 3 | 5 | 65% |
+| work | 46 | 10 | 5 | 14 | 17 | 33% |
+| fw-api-contract | 98 | 13 | 0 | 13 | 72 | 13% |
+| fw-harness-protocol | 21 | 7 | 4 | 3 | 7 | 52% |
+| fw-conversation-parts | 21 | 9 | 1 | 4 | 7 | 48% |
+| routine | 31 | 8 | 2 | 11 | 10 | 32% |
+| session-requests | 35 | 10 | 0 | 9 | 16 | 29% |
+| fw-factory-defaults | 11 | 7 | 2 | 1 | 1 | 82% |
+| fw-harness-capability | 15 | 7 | 2 | 4 | 2 | 60% |
+| fw-http-middleware | 22 | 8 | 1 | 4 | 9 | 41% |
+| filesystems | 19 | 6 | 2 | 4 | 7 | 42% |
+| run-orchestration | 44 | 7 | 1 | 20 | 16 | 18% |
+| fw-host-process | 23 | 6 | 1 | 14 | 2 | 30% |
+| agent-run-config | 11 | 5 | 1 | 1 | 4 | 55% |
+| fw-tool-protocol | 6 | 6 | 0 | 0 | 0 | 100% |
+| tool-handlers | 27 | 5 | 1 | 10 | 11 | 22% |
+| fw-event-bus | 8 | 4 | 1 | 0 | 3 | 63% |
+| conversation | 28 | 3 | 1 | 10 | 14 | 14% |
+| fw-toon-codec | 5 | 3 | 1 | 0 | 1 | 80% |
+| policy | 12 | 3 | 1 | 4 | 4 | 33% |
+| connections | 11 | 1 | 2 | 5 | 3 | 27% |
+| fw-block-derivation | 8 | 2 | 1 | 0 | 5 | 38% |
+| fw-work-intent-port | 10 | 2 | 1 | 1 | 6 | 30% |
+| filesystem-mounting | 5 | 1 | 1 | 3 | 0 | 40% |
+| fw-presentation-format | 3 | 2 | 0 | 1 | 0 | 67% |
+| credentials | 5 | 0 | 1 | 1 | 3 | 20% |
+| fw-credential-access | 5 | 1 | 0 | 0 | 4 | 20% |
+| fw-cron | 4 | 0 | 1 | 1 | 2 | 25% |
+| fw-query-escaping | 1 | 0 | 0 | 1 | 0 | 0% |
 
 
 ---
