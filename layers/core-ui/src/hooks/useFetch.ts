@@ -39,7 +39,8 @@ export function useFetch<T>(url: string | null): FetchResult<T> {
 		setState({ data: null, error: null, isLoading: true });
 		apiFetch(url)
 			.then((res) => {
-				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				// @lore NEW-22: user-facing message — no raw HTTP status code shown to users.
+				if (!res.ok) throw new Error("Something went wrong. Please try again.");
 				return res.json() as Promise<T>;
 			})
 			.then((data) => {
