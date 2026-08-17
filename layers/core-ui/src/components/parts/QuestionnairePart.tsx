@@ -104,6 +104,9 @@ export function QuestionnairePart({
 										: undefined
 								}
 								onClick={() => {
+									// NEW-16: Re-clicking the already-selected option is a no-op —
+									// don't post a duplicate message to the thread.
+									if (option === selectedAnswer) return;
 									setSelectedAnswer(option);
 									try {
 										sessionStorage.setItem(storageKey, option);
