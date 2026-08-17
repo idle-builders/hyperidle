@@ -287,34 +287,31 @@ function ThinkingRow(): JSX.Element {
  * AND older than ASSISTANT_TURN_TIMEOUT_MS. Never shows an infinite spinner.
  */
 function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
+	// FR-21: styled as an inline thread element (like ThinkingRow), not a floating alert.
+	// Removed red border + overlay background — the error context is communicated
+	// through the status-error text colour and the "try again" call to action.
 	return (
 		<div
 			role="alert"
 			style={{
-				borderRadius: "var(--r-subtle)",
-				border: "var(--bw-default) solid var(--status-error)",
-				padding: "12px",
 				display: "flex",
-				flexDirection: "column",
-				gap: "6px",
-				background: "var(--surface-overlay)",
+				alignItems: "center",
+				gap: "9px",
+				padding: "9px 12px",
+				borderRadius: "var(--r-subtle)",
+				background: "color-mix(in oklab, var(--status-error) 8%, transparent)",
 			}}
 		>
-			<div style={{ color: "var(--status-error)" }} className="type-small">
-				Couldn't reach the model
-			</div>
-			<div style={{ color: "var(--text-secondary)" }} className="type-small">
-				That didn't finish — try again.
-			</div>
-			<div style={{ marginTop: "3px" }}>
-				<button
-					type="button"
-					className="type-control border-width-thin   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-					onClick={onRetry}
-				>
-					Retry
-				</button>
-			</div>
+			<span className="type-small" style={{ color: "var(--status-error)", flex: 1 }}>
+				Couldn't reach the model — that didn't finish.
+			</span>
+			<button
+				type="button"
+				className="type-control border-width-thin shrink-0 px-[9px] py-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+				onClick={onRetry}
+			>
+				Retry
+			</button>
 		</div>
 	);
 }
