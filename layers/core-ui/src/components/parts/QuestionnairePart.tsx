@@ -15,7 +15,7 @@
  */
 
 import type { Part } from "@hyperidle/conversation-parts";
-import type { JSX } from "react";
+import { type JSX, useState } from "react";
 
 type QuestionnairePartValue = Extract<Part, { kind: "questionnaire" }>;
 
@@ -30,6 +30,14 @@ const ICON_QUESTION =
 const CHIP_CLASS =
 	"type-small border-width-thin inline-flex items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] px-[12px] py-[6px] text-[var(--text-secondary)]";
 
+/**
+ * @lore NEW-11: `selectedAnswer` tracks the last choice the user made this
+ * session. The questionnaire Part schema has no `answer` field, so the card
+ * cannot derive this from data alone. sessionStorage keyed by part.id restores
+ * the selection even when the component remounts (e.g. after a thread refresh
+ * following message send). Clears naturally at end of browser session.
+ * Re-selection is explicit: click a different option to change the answer.
+ */
 export function QuestionnairePart({
 	part,
 	onAnswer,
@@ -38,6 +46,15 @@ export function QuestionnairePart({
 	/** When provided, options render as interactive buttons that post the answer. */
 	onAnswer?: (text: string) => void;
 }): JSX.Element {
+	const storageKey = `questionnaire-answer-${part.id}`;
+	const [selectedAnswer, setSelectedAnswer] = useState<string | null>(() => {
+		try {
+			return sessionStorage.getItem(storageKey);
+		} catch {
+			return null;
+		}
+	});
+
 	return (
 		<div
 			data-ds-component="QuestionnairePart"
@@ -60,14 +77,39 @@ export function QuestionnairePart({
 				</span>
 				<p className="type-copy m-0    text-[var(--text-primary)]">{part.question}</p>
 			</div>
-			<ul className="m-0 mt-[12px] flex list-none flex-wrap items-center gap-[6px] p-0 pl-[29px]">
+			{selectedAnswer !== null && (
+				<p className="type-metadata m-0 mt-[8px] pl-[29px] text-[var(--text-tertiary)]">
+					Answered — tap another option to change.
+				</p>
+			)}
+			<ul className="m-0 mt-[8px] flex list-none flex-wrap items-center gap-[6px] p-0 pl-[29px]">
 				{part.options.map((option) =>
 					onAnswer ? (
 						<li key={option}>
 							<button
 								type="button"
-								className={`${CHIP_CLASS} cursor-pointer hover:border-[var(--border-active)] hover:shadow-[var(--shadow-default)] hover:text-[var(--text-primary)]`}
+								aria-pressed={selectedAnswer === option}
+								className={
+									selectedAnswer === option
+										? `${CHIP_CLASS} cursor-pointer shadow-[var(--shadow-default)]`
+										: `${CHIP_CLASS} cursor-pointer hover:border-[var(--border-active)] hover:shadow-[var(--shadow-default)] hover:text-[var(--text-primary)]`
+								}
+								style={
+									selectedAnswer === option
+										? {
+												backgroundColor: "var(--accent-primary-dim)",
+												borderColor: "var(--accent-deep)",
+												color: "var(--accent-deep)",
+										  }
+										: undefined
+								}
 								onClick={() => {
+									setSelectedAnswer(option);
+									try {
+										sessionStorage.setItem(storageKey, option);
+									} catch {
+										// best-effort; if storage unavailable, in-memory state still works
+									}
 									onAnswer(option);
 								}}
 							>
