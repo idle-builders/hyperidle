@@ -158,7 +158,8 @@ describe("AppShell — P4 Settings overlay", () => {
 			// SettingsPage renders all sections simultaneously in Main.
 			expect(screen.getAllByText("Profile").length).toBeGreaterThanOrEqual(1);
 			expect(screen.getAllByText("Org chart").length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText("Credentials").length).toBeGreaterThanOrEqual(1);
+			// @lore FR-15: "Credentials" renamed to "Provider keys" to match SetupFlow presentation.
+			expect(screen.getAllByText("Provider keys").length).toBeGreaterThanOrEqual(1);
 			expect(screen.getAllByText("Notifications").length).toBeGreaterThanOrEqual(1);
 			expect(screen.getAllByText("Appearance").length).toBeGreaterThanOrEqual(1);
 			// AF15 AC-1: "Agents" section added (SettingsAgents now mounted)

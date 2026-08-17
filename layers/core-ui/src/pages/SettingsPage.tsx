@@ -129,13 +129,15 @@ export function SettingsPage(): JSX.Element {
 					<SettingsAppearance />
 				</section>
 
-				{/* Credentials section — desktop only (CredentialsTab handles non-desktop gracefully) */}
+				{/* Provider keys — API keys for the built-in AI gateway (matching SetupFlow presentation).
+					     @lore FR-15: Title changed from "Credentials" to "Provider keys" so users
+					     understand these configure the built-in harness, not arbitrary secrets. */}
 				<section
 					id="settings-section-credentials"
 					data-testid="settings-section-credentials"
 					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
-					<SectionTitle>Credentials</SectionTitle>
+					<SectionTitle>Provider keys</SectionTitle>
 					<CredentialsTab />
 				</section>
 
