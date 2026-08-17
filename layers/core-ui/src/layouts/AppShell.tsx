@@ -259,7 +259,10 @@ export function AppShell(): JSX.Element {
 	const [searchParams, setSearchParams] = useSearchParams();
 	// @lore FR-18: settingsOpen is now DERIVED from the route, not local state.
 	// /settings is a real page rendered by the Outlet — no overlay needed.
-	const settingsOpen = useMemo(() => location.pathname.startsWith("/settings"), [location.pathname]);
+	const settingsOpen = useMemo(
+		() => location.pathname.startsWith("/settings"),
+		[location.pathname],
+	);
 
 	// AF14 AC5: Assistant overlay state (renamed from CoC overlay).
 	// @lore AF14: AF14 completes the Coc→Assistant rename started in AD8b.
@@ -688,38 +691,38 @@ export function AppShell(): JSX.Element {
 					<div
 						className={
 							showRecipientPicker && activeView === "conversations" ? "hidden" : "contents"
+						}
+					>
+						<Outlet
+							context={
+								{
+									selectedThreadId,
+									conversationsFilter,
+									onFilterChange: setConversationsFilter,
+									onClearFilter: handleClearFilter,
+									/** U9 AC-1: opens RecipientPicker for new thread creation. */
+									onNewThread: () => setShowRecipientPicker(true),
+									threads: conversationsThreads.threads,
+									threadsStatus: isThreadsError ? "error" : conversationsThreads.status,
+									threadsError: threadsErrorMessage,
+									// @lore NEW-24: also retries user+sidebar-knowledge fetches so the N5
+									// short-circuit unblocks and the sidebar fully clears after an outage.
+									onRetryThreads: () => {
+										conversationsThreads.retry();
+										retryUser();
+										refetchSidebarKnowledge();
+									},
+									onRetryShell: () => {
+										retryUser();
+										refetchSidebarKnowledge();
+									},
+								} satisfies AppShellOutletContext
 							}
-						>
-							<Outlet
-								context={
-									{
-										selectedThreadId,
-										conversationsFilter,
-										onFilterChange: setConversationsFilter,
-										onClearFilter: handleClearFilter,
-										/** U9 AC-1: opens RecipientPicker for new thread creation. */
-										onNewThread: () => setShowRecipientPicker(true),
-										threads: conversationsThreads.threads,
-										threadsStatus: isThreadsError ? "error" : conversationsThreads.status,
-										threadsError: threadsErrorMessage,
-										// @lore NEW-24: also retries user+sidebar-knowledge fetches so the N5
-										// short-circuit unblocks and the sidebar fully clears after an outage.
-										onRetryThreads: () => {
-											conversationsThreads.retry();
-											retryUser();
-											refetchSidebarKnowledge();
-										},
-										onRetryShell: () => {
-											retryUser();
-											refetchSidebarKnowledge();
-										},
-									} satisfies AppShellOutletContext
-								}
-							/>
-						</div>
-					</ErrorBoundary>
-				</AssistantContext.Provider>
-			</main>
+						/>
+					</div>
+				</ErrorBoundary>
+			</AssistantContext.Provider>
+		</main>
 	);
 
 	// AE4: Mobile layout branch (viewport <= 768px)
