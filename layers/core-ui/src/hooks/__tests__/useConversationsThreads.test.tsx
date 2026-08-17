@@ -73,6 +73,11 @@ describe("useConversationsThreads", () => {
 		expect(url).toContain("/api/threads");
 		expect(url).toContain("participant_id=u-founder");
 		expect(url).toContain("limit=50");
+
+		// NEW-21: snippet must be empty (not the thread type which duplicates the chip)
+		expect(result.current.threads[0]!.snippet).toBe("");
+		// NEW-21: avatars must be undefined (title-derived initials are meaningless)
+		expect(result.current.threads[0]!.avatars).toBeUndefined();
 	});
 
 	it("surfaces error when fetch fails", async () => {
@@ -87,6 +92,8 @@ describe("useConversationsThreads", () => {
 			expect(result.current.status).toBe("error");
 		});
 		expect(result.current.error).not.toBeNull();
+		// NEW-22: error message must be user-facing, not a raw HTTP status code
+		expect(result.current.error).not.toMatch(/HTTP \d+/i);
 	});
 
 	it("retry re-runs the fetch and restores ready", async () => {

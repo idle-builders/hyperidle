@@ -35,13 +35,15 @@ It also takes an explicit horizontal mode:
 
 | Job | Body rule |
 |---|---|
-| Scan | Left-aligned, up to 800px |
+| Scan | Left-aligned, fills the PageFrame (up to 1120px with 24px gutters) |
 | Read | Centered, up to 760px |
 | Workbench | Left-aligned, usually 800–960px; may include a metadata rail |
 | Focus | Centered, up to 680px |
 | Inspect | No PageFrame; local 18px pane inset |
 
 Maximum width and centering belong to the content lane, not `PageFrame`. Lists and workbenches must not add `mx-auto`; prose and focused forms may. On compact layouts the lane fills the available frame width.
+
+**Scan lane: no sub-cap.** The Scan lane (conversation list, thread rows, knowledge list) fills the full PageFrame — there is no 800px sub-cap. An earlier iteration capped threads at 800px (leaving a ~270px void on the right at 1440px); that cap was removed. The visual rhythm of a list is its separator lines and row heights, not its maximum width. Capping it shorter than the frame creates a visible gap that reads as a layout bug. If a specific scan-lane page needs a narrower measure for readability, that is a per-page decision with a documented reason — it is not the default.
 
 **The real invariant** (proven in headless Chromium, not asserted): *a scrolling body must be a flex item of a flex column whose own height is bounded.* Three ways to break it, all fixed by routing through `PageScaffold` instead of hand-writing the classes: a block wrapper between root and body; a root that never fixes its own height (missing `h-full`); an intermediate flex column with visible overflow and no `min-h-0` reset.
 

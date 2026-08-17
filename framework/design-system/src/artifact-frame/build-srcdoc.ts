@@ -241,8 +241,35 @@ try{parent.postMessage(d,"*");}catch(err){}
 const HEAD = (csp: string, style = ""): string =>
 	`<head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="viewport" content="width=device-width, initial-scale=1">${style}</head>`;
 
-/** The shell is pure scaffolding: it must fill the frame and show nothing of itself. */
-const SHELL_STYLE = "<style>html,body{margin:0;padding:0;height:100%;overflow:hidden}</style>";
+/**
+ * The shell is pure scaffolding: it must fill the frame and show nothing of itself.
+ *
+ * @lore NEW-20: the shell document sits inside the outer <iframe> element, which
+ * inherits color-scheme:dark from the app in dark mode. Without an explicit white
+ * background here, the browser paints the shell's canvas dark — and it IS visible:
+ * the inner artifact iframe renders on top, but any gap (e.g. during load or due to
+ * height differences) shows the shell's canvas. `background-color:#fff;color-scheme:light`
+ * gives the shell the same paper-white surface the artifact document gets.
+ */
+const SHELL_STYLE =
+	"<style>html,body{margin:0;padding:0;height:100%;overflow:hidden;background-color:#fff;color-scheme:light}</style>";
+
+/**
+ * The baseline surface for the artifact's own document.
+ *
+ * @lore NEW-20: the artifact document (inner layer) has no background of its own by
+ * default. In dark mode the embedding app sets color-scheme:dark on its root, and
+ * Chromium inherits that scheme into srcdoc documents — so the browser paints the
+ * artifact canvas dark, leaving dark text invisible against a dark surface.
+ *
+ * The fix is declared here, not in the artifact's markup. The artifact's HTML is
+ * passed verbatim (that is the point of the sealed frame). We give the WRAPPER
+ * document a paper-white canvas: `color-scheme:light` overrides the inherited scheme
+ * so all browser-rendered controls (scrollbars, form fields) use light defaults, and
+ * `background-color:#fff` gives every artifact a defined white starting surface. The
+ * artifact's own styles can still override both — this is a default, not a lock.
+ */
+const ARTIFACT_DOC_STYLE = "<style>html,body{background-color:#fff;color-scheme:light}</style>";
 
 /**
  * The document the artifact itself runs in — the inner layer.
@@ -253,7 +280,7 @@ const SHELL_STYLE = "<style>html,body{margin:0;padding:0;height:100%;overflow:hi
 export function buildArtifactDocument(html: string): string {
 	return [
 		"<!doctype html><html>",
-		HEAD(ARTIFACT_FRAME_CSP),
+		HEAD(ARTIFACT_FRAME_CSP, ARTIFACT_DOC_STYLE),
 		"<body>",
 		RTC_NEUTRALISER,
 		SIZE_REPORTER,

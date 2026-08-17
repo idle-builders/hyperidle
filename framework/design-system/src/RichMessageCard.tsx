@@ -98,7 +98,7 @@ function toneClass(tone: VerdictButtonSpec["tone"]): string {
 }
 
 const BUTTON_CLASS_BASE =
-	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] border-[var(--bw-thin)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed";
+	"px-[18px] py-[9px] min-h-[44px] rounded-[var(--r-subtle)] border-width-thin focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] disabled:opacity-50 disabled:cursor-not-allowed";
 
 const REASONING_INLINE_THRESHOLD = 80;
 
@@ -200,7 +200,7 @@ function ResolvedView({
 			data-blocking={blocking ? "true" : "false"}
 			data-sticky-footer="true"
 			aria-labelledby={titleId}
-			className="border-[var(--bw-thin)] ml-[36px] bg-[var(--surface-elevated)]  border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden"
+			className="border-width-thin ml-[36px] bg-[var(--surface-elevated)]  border-[var(--border-strong)] rounded-[var(--r-default)] overflow-hidden"
 		>
 			<div className="type-small flex items-center gap-[9px] px-[12px] py-[9px]  text-[var(--text-secondary)] flex-wrap">
 				<span className="type-data inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]    bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)]">
@@ -349,7 +349,7 @@ export function RichMessageCard({
 			return (
 				<div
 					data-sticky="bottom"
-					className="type-small border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--text-secondary)]"
+					className="type-small border-width-thin-t sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--text-secondary)]"
 					aria-live="polite"
 				>
 					Saving…
@@ -361,7 +361,7 @@ export function RichMessageCard({
 				<div
 					role="alert"
 					data-sticky="bottom"
-					className="type-small border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--status-error)]"
+					className="type-small border-width-thin-t sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--status-error)]"
 				>
 					<span>{state.reason}</span>
 					<button
@@ -380,7 +380,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Verdict actions"
 					data-sticky="bottom"
-					className="border-t-[var(--bw-thin)] sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
+					className="border-width-thin-t sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
 				>
 					{VERDICT_BUTTONS.map((b) => (
 						<button
@@ -401,7 +401,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Answer options"
 					data-sticky="bottom"
-					className="border-t-[var(--bw-thin)] sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
+					className="border-width-thin-t sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
 				>
 					{/* @lore L11 step9 (S11): all-ghost on questionnaire answers —
 					    no spec-required preferred option, so a primary on

@@ -66,9 +66,9 @@ export function KnowledgeTopicGroup({
 					/>
 					<span
 						className="type-metadata  text-[var(--text-tertiary)]"
-						aria-label={`${itemCount} items`}
+						aria-label={`${itemCount} ${itemCount === 1 ? "item" : "items"}`}
 					>
-						{itemCount} items
+						{itemCount} {itemCount === 1 ? "item" : "items"}
 					</span>
 					{staleCount > 0 && (
 						<span className="sr-only" aria-label={`${staleCount} stale`}>

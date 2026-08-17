@@ -156,17 +156,17 @@ describe("WorkTeam", () => {
 		});
 	});
 
-	it("7. click on a bet row navigates to /work/bet/:id", async () => {
-		const user = userEvent.setup();
+	// UI-080: bet rows are now <a href> links so ⌘-click / middle-click work natively.
+	// In jsdom + MemoryRouter, <a href> clicks don't trigger SPA navigation; the correct
+	// assertion is that the row has the right href attribute.
+	it("7. bet row has href to /work/bet/:id (UI-080 link conversion)", () => {
 		renderPage("p1", MOCK_PRODUCT_DETAIL);
 
-		// Find and click the bet row/card
-		const betCard = screen.getByText("Auth migration");
-		await user.click(betCard);
-
-		await waitFor(() => {
-			expect(screen.getByTestId("work-bet-page")).toBeInTheDocument();
-		});
+		// The bet title is inside the anchor row; find the closest <a> ancestor.
+		const betTitle = screen.getByText("Auth migration");
+		const link = betTitle.closest("a");
+		expect(link).not.toBeNull();
+		expect(link?.getAttribute("href")).toBe("/work/bet/b1");
 	});
 
 	it("8. renders the 404 empty state when the fetch returns 404", () => {

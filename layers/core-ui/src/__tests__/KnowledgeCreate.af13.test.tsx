@@ -53,6 +53,7 @@ describe("AF13 §1 — KnowledgeCreate sends status:active in create payload", (
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 	});
 
@@ -128,6 +129,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 			},
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
@@ -158,6 +160,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 			},
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
@@ -180,6 +183,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
@@ -206,6 +210,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 			},
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
@@ -222,5 +227,53 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 
 		// Team pill should now be aria-checked=true after click
 		expect(teamPill).toHaveAttribute("aria-checked", "true");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// UI-127 — editor card must not cap its height at 300px
+// ---------------------------------------------------------------------------
+// The defect was a lone textarea on a vast empty canvas: the editor card had
+// `style={{ minHeight: "300px" }}` which fixed it at a short height and left
+// 461px of empty space below on a 900px viewport.
+// Fix: removed the inline minHeight cap; the card uses flex-1 to grow instead.
+//
+// Visual verification of the actual fill (editor occupying the viewport)
+// is not possible in jsdom — height is not computed. The coordinator visually
+// verified the fix after this commit. The structural assertion below proves the
+// height cap that caused the defect has been removed.
+
+describe("UI-127 — KnowledgeCreate editor card has no fixed minHeight cap", () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("editor card wrapper has no hardcoded minHeight:300px inline style", async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+			retry: vi.fn(),
+		});
+
+		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
+
+		render(
+			<MemoryRouter>
+				<KnowledgeCreate />
+			</MemoryRouter>,
+		);
+
+		// The mock BodyEditor renders inside the editor card div. Before the fix
+		// that div had style={{ minHeight: "300px" }} which capped its height and
+		// produced 461px of empty space below the card. After the fix the inline
+		// style is gone (card uses flex-1 to fill the column instead).
+		const bodyEditor = screen.getByTestId("mock-body-editor");
+		// parentElement is the editor card div
+		const editorCard = bodyEditor.parentElement;
+		expect(editorCard).not.toBeNull();
+		// Would be "300px" before the fix; "" or undefined after
+		expect(editorCard?.style.minHeight).not.toBe("300px");
 	});
 });

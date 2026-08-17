@@ -188,7 +188,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 					ref={containerRef}
 					role="listbox"
 					aria-label="Slash commands"
-					className="border-[var(--bw-thin)] bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
+					className="border-width-thin bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 				>
 					<div className="type-copy px-[12px] py-[9px] text-[var(--text-tertiary)] ">
 						No results
@@ -202,7 +202,7 @@ const SlashMenuDropdown = forwardRef<SlashMenuDropdownRef, SlashMenuDropdownProp
 				ref={containerRef}
 				role="listbox"
 				aria-label="Slash commands"
-				className="border-[var(--bw-thin)] bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
+				className="border-width-thin bg-[var(--surface-elevated)]  border-[var(--border-subtle)] rounded-[var(--r-default)] py-[3px] min-w-[200px] max-h-[320px] overflow-y-auto shadow-[var(--shadow-elevated)]"
 			>
 				{props.items.map((item, index) => (
 					<button

@@ -184,18 +184,20 @@ export function ArtifactSection({
 							key={artifact.id}
 							data={artifact}
 							onOpen={() => handleOpen(artifact.id)}
+							href={`/artifacts/${encodeURIComponent(artifact.id)}`}
 						/>
 					))}
 				</div>
 			)}
 
 			{layout === "stack" && (
-				<div className="flex flex-col">
+				<div className="flex flex-col divide-y divide-[var(--border-subtle)]">
 					{items.map((artifact) => (
 						<ArtifactStackItem
 							key={artifact.id}
 							data={artifact}
 							onOpen={() => handleOpen(artifact.id)}
+							href={`/artifacts/${encodeURIComponent(artifact.id)}`}
 						/>
 					))}
 				</div>

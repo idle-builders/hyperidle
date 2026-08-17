@@ -120,12 +120,12 @@ function MockScreen({ variant, active }: ScreenProps): JSX.Element {
 
 	return (
 		<div
-			className="border-[var(--bw-thin)] overflow-hidden  border-[var(--border-default)] bg-[var(--surface-page)]"
+			className="border-width-thin overflow-hidden  border-[var(--border-default)] bg-[var(--surface-page)]"
 			style={{ borderRadius: "var(--r-default)" }}
 		>
 			{/* hero band */}
 			<div
-				className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
+				className="border-width-thin-b  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 				style={{ padding: heroPad, ...(active === "hero" ? HL : {}) }}
 			>
 				<div className="type-lead   text-[var(--text-primary)]">Create your account</div>
@@ -160,7 +160,7 @@ function Field({ label, placeholder }: { label: string; placeholder: string }): 
 		<div>
 			<div className="type-label mb-[3px]   text-[var(--text-secondary)]">{label}</div>
 			<div
-				className="type-metadata border-[var(--bw-thin)] flex h-[30px] items-center  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px]  text-[var(--text-placeholder)]"
+				className="type-metadata border-width-thin flex h-[30px] items-center  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px]  text-[var(--text-placeholder)]"
 				style={{ borderRadius: "var(--r-subtle)" }}
 			>
 				{placeholder}
@@ -200,7 +200,7 @@ function Thumb({ variant }: { readonly variant: "design" | "build" }): JSX.Eleme
 	const ctaBg = isDesign ? "var(--accent-primary)" : "var(--accent-secondary)";
 	return (
 		<div
-			className="border-[var(--bw-thin)] w-[72px] shrink-0 overflow-hidden  border-[var(--border-default)] bg-[var(--surface-page)]"
+			className="border-width-thin w-[72px] shrink-0 overflow-hidden  border-[var(--border-default)] bg-[var(--surface-page)]"
 			style={{ borderRadius: "var(--r-subtle)" }}
 			aria-hidden="true"
 		>
@@ -236,7 +236,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 
 	return (
 		<section
-			className="border-[var(--bw-thin)] flex flex-col  border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="border-width-thin flex flex-col  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 			style={{
 				borderRadius: "var(--r-default)",
 				boxShadow: "var(--shadow-default)",
@@ -269,7 +269,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 				{/* ── L2: at-size compare + mode toggle ── */}
 				<div className="flex items-center gap-[6px]">
 					<div
-						className="border-[var(--bw-thin)] inline-flex gap-[3px]  border-[var(--border-subtle)] bg-[var(--surface-page)] p-[3px]"
+						className="border-width-thin inline-flex gap-[3px]  border-[var(--border-subtle)] bg-[var(--surface-page)] p-[3px]"
 						style={{ borderRadius: "var(--r-pill)" }}
 						role="tablist"
 						aria-label="Compare mode"
@@ -364,7 +364,7 @@ function ReviewVisualDiffView({ diff = FIXTURE, onFlag }: ReviewVisualDiffProps)
 									type="button"
 									aria-pressed={on}
 									onClick={() => pick(r.id)}
-									className="border-[var(--bw-thin)] flex flex-col gap-[3px]  px-[12px] py-[6px] text-left   "
+									className="border-width-thin flex flex-col gap-[3px]  px-[12px] py-[6px] text-left   "
 									style={{
 										borderRadius: "var(--r-subtle)",
 										borderColor: on ? "var(--accent-primary)" : "var(--border-default)",

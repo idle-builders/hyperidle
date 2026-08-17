@@ -18,8 +18,16 @@ function hasRawBorderWidth(text: string): boolean {
 	return text.split(/\s+/).some((raw) => {
 		const token = raw.replace(/^(?:[a-z-]+:)+/, "");
 		if (token === "border-none") return false;
+		// Old Tailwind v4 syntax — kept for backward compat; note that
+		// border-[var(--bw-*)] resolves to border-color in v4 (not border-width).
+		// Prefer the @utility class approach (border-width-thin/default/strong) instead.
 		if (/^border(?:-(?:x|y|t|r|b|l|s|e))?-\[var\(--bw-(?:thin|default|strong)\)\]$/.test(token))
 			return false;
+		// @lore Tailwind v4: `border-[var(--bw-*)]` sets border-color, not border-width.
+		// Use `border-width-thin/default/strong` (@utility in tokens.css) for correct
+		// border-width via CSS variable. Directional variants (-b/-t/-l/-r) added in
+		// NEW-18 for per-side separators (e.g. border-width-thin-b for row dividers).
+		if (/^border-width-(?:thin|default|strong)(?:-[tblr])?$/.test(token)) return false;
 		if (/^border(?:-(?:x|y|t|r|b|l|s|e))?$/.test(token)) return true;
 		if (/^border(?:-(?:x|y|t|r|b|l|s|e))?-(?:0|2|4|8)$/.test(token)) return true;
 		if (/^border-width-/.test(token)) return true;

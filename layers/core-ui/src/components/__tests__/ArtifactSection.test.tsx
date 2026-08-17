@@ -15,7 +15,6 @@
  */
 
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactSection as ArtifactSectionType } from "../ArtifactSection";
@@ -314,27 +313,25 @@ describe("ArtifactSection (L12)", () => {
 
 	// ── onOpen / navigation ───────────────────────────────────────────────────
 
-	it("navigates to /artifacts/:id via internal useNavigate when onOpen is not provided", async () => {
+	// UI-080: ArtifactGalleryCard now renders as <a href> when href is provided.
+	// ArtifactSection always passes href, so the card is a real link regardless of onOpen.
+	it("renders artifact gallery card as an anchor link with correct href (UI-080)", () => {
 		vi.mocked(useArtifacts).mockReturnValue({
 			data: { items: [MOCK_ARTIFACT], nextCursor: null },
 			error: null,
 			isLoading: false,
 		});
 
-		// Do not pass onOpen — ArtifactSection uses its internal navigate fallback.
 		const { container } = render(
 			<MemoryRouter>
 				<ArtifactSection filter={{ axis: "portfolio" }} layout="gallery" />
 			</MemoryRouter>,
 		);
 
-		// ArtifactGalleryCard aria-label = artifactDisplayTitle = file path for code_diff
 		const card = container.querySelector("[data-ds-component='ArtifactGalleryCard']");
 		expect(card).not.toBeNull();
-		await userEvent.click(card as Element);
-
-		// useNavigate mock is captured at module level as mockNavigate
-		expect(mockNavigate).toHaveBeenCalledWith("/artifacts/art-l12-1");
+		expect(card?.tagName.toLowerCase()).toBe("a");
+		expect(card?.getAttribute("href")).toBe("/artifacts/art-l12-1");
 	});
 
 	// ── limit prop forwarded to useArtifacts ─────────────────────────────────

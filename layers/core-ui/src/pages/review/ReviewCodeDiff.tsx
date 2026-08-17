@@ -438,7 +438,7 @@ function FileDiff({
 			<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
 				{ref.oldNo ?? ""}
 			</span>
-			<span className="border-r-[var(--bw-thin)] select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums  border-[var(--border-subtle)]">
+			<span className="border-width-thin-r select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums  border-[var(--border-subtle)]">
 				{ref.newNo ?? ""}
 			</span>
 		</>
@@ -530,7 +530,7 @@ function FileDiff({
 	const delta = toDelta(filePath, hunks);
 
 	return (
-		<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] bg-[var(--surface-container)]">
+		<div className="border-width-thin-t  border-[var(--border-subtle)] bg-[var(--surface-container)]">
 			<CodeDeltaRenderer
 				delta={delta}
 				renderLineGutter={renderLineGutter}
@@ -567,7 +567,7 @@ function FileCard({
 	const dir = file.path.slice(0, file.path.lastIndexOf("/") + 1);
 	const name = file.path.slice(file.path.lastIndexOf("/") + 1);
 	return (
-		<div className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
+		<div className="border-width-thin overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
 			{showBand ? (
 				<div className="type-label px-[12px] pt-[9px]   uppercase  text-[var(--text-tertiary)]">
 					{BAND_LABEL[file.band]}
@@ -597,7 +597,7 @@ function FileCard({
 			</div>
 			{/* "why this matters" lead — tertiary prose above the hunks, distinct from code. */}
 			{open && file.rationale ? (
-				<p className="border-t-[var(--bw-thin)] type-metadata  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
+				<p className="border-width-thin-t type-metadata  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
 					{file.rationale}
 				</p>
 			) : null}
@@ -683,7 +683,7 @@ function ReviewCodeDiffView({
 	return (
 		<section
 			aria-label="Code diff review"
-			className="border-[var(--bw-thin)] w-full max-w-[860px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-[var(--shadow-default)]"
+			className="border-width-thin w-full max-w-[860px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-page)] shadow-[var(--shadow-default)]"
 		>
 			{/* ── L1: PR header ───────────────────────────────────────────────── */}
 			<header className="flex flex-col gap-[12px] p-[18px]">
@@ -708,7 +708,7 @@ function ReviewCodeDiffView({
 
 				<CiRow checks={checks} />
 
-				<div className="border-t-[var(--bw-thin)] flex items-center justify-between  border-[var(--border-subtle)] pt-[12px]">
+				<div className="border-width-thin-t flex items-center justify-between  border-[var(--border-subtle)] pt-[12px]">
 					<span className="type-metadata  text-[var(--text-secondary)]">
 						<span className="type-data  tabular-nums  text-[var(--text-primary)]">
 							{files.length + trivia.count}
@@ -718,7 +718,7 @@ function ReviewCodeDiffView({
 					<button
 						type="button"
 						onClick={collapseOrExpandAll}
-						className="type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)]"
+						className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)]"
 					>
 						{allCollapsed ? "Expand" : "Collapse"} {files.length + trivia.count} files changed
 					</button>
@@ -754,7 +754,7 @@ function ReviewCodeDiffView({
 					</span>
 				</div>
 				{/* generated / trivia — collapsed to one row, never line-by-line */}
-				<div className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
+				<div className="border-width-thin rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
 					<button
 						type="button"
 						onClick={() => setTriviaOpen((v) => !v)}
@@ -771,7 +771,7 @@ function ReviewCodeDiffView({
 						<ChangeBadge added={trivia.added} removed={trivia.removed} />
 					</button>
 					{triviaOpen ? (
-						<div className="border-t-[var(--bw-thin)] type-data  border-[var(--border-subtle)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
+						<div className="border-width-thin-t type-data  border-[var(--border-subtle)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
 							<div>openapi/schema.gen.ts</div>
 							<div>package-lock.json</div>
 							<div>src/checkout/styles.css</div>

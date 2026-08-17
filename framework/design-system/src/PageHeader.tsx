@@ -102,7 +102,7 @@ export function PageHeader({
 							: resolvedTitleProfile === "lead"
 								? "type-lead"
 								: "type-title"
-					} ${presentation === "pane" ? paneTitleClassName : pageTitleClassName}`}
+					} ${presentation === "pane" ? paneTitleClassName : `${pageTitleClassName} hidden md:block`}`}
 				>
 					{title}
 				</TitleTag>
@@ -121,8 +121,8 @@ export function PageHeader({
 			data-az16-profile="thin"
 			className={
 				presentation === "pane"
-					? `shrink-0 pl-[18px] ${reservePaneControls ? "pr-[84px]" : "pr-[18px]"} py-[12px] border-b-[var(--bw-thin)] border-[var(--border-subtle)]`
-					: "shrink-0 py-[18px] border-b-[var(--bw-thin)] border-[var(--border-subtle)]"
+					? `shrink-0 pl-[18px] ${reservePaneControls ? "pr-[84px]" : "pr-[18px]"} py-[12px] border-width-thin-b border-[var(--border-subtle)]`
+					: "shrink-0 py-[18px] border-width-thin-b border-[var(--border-subtle)]"
 			}
 			{...dsProps("PageHeader", "1")}
 			{...(testId ? { "data-testid": testId } : {})}

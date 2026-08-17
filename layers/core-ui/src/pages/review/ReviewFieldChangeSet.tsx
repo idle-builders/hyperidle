@@ -131,7 +131,7 @@ function FieldRow({
 
 	return (
 		<div
-			className="border-b-[var(--bw-thin)] border-none  border-[var(--border-subtle)] "
+			className="border-width-thin-b border-none  border-[var(--border-subtle)] "
 			style={
 				needs
 					? { background: "var(--accent-secondary-dim)" }
@@ -269,14 +269,14 @@ export function ReviewFieldChangeSetView({
 
 	return (
 		<div
-			className="border-[var(--bw-thin)] w-[640px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)]"
+			className="border-width-thin w-[640px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)]"
 			style={{
 				background: "var(--surface-container)",
 				boxShadow: "var(--shadow-default)",
 			}}
 		>
 			{/* ── L1 — one-glance summary (tool/record now in source header) ── */}
-			<div className="border-b-[var(--bw-thin)]  border-[var(--border-default)] px-[18px] py-[12px]">
+			<div className="border-width-thin-b  border-[var(--border-default)] px-[18px] py-[12px]">
 				<div className="min-w-0 flex-1">
 					<div className="type-small flex flex-wrap items-center gap-[6px]  text-[var(--text-secondary)]">
 						<span>1 record</span>
@@ -339,7 +339,7 @@ export function ReviewFieldChangeSetView({
 
 			{/* ── footer — per-field approve rollup (frame owns the final verdict) ── */}
 			<div
-				className="border-t-[var(--bw-thin)] flex items-center justify-between  border-[var(--border-default)] px-[18px] py-[12px]"
+				className="border-width-thin-t flex items-center justify-between  border-[var(--border-default)] px-[18px] py-[12px]"
 				style={{ background: "var(--surface-page)" }}
 			>
 				<span className="type-metadata  text-[var(--text-secondary)]">

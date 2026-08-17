@@ -31,43 +31,43 @@ Highest severity. A user hits these and the product does nothing or the wrong th
 
 `empty ≠ loading ≠ failed`. The design system already ships `EmptyState` and `ErrorState`; this is adoption, not invention.
 
-- [ ] **UI-010** A 500 renders as "your knowledge base is empty" — *`/knowledge` with the API failing* · Now: confident empty state + "Create first item", and the header toolbar vanishes · Done: states the load failed and offers retry · **S**
-- [ ] **UI-011** Sidebar says "No teams yet" while still loading · Done: loading state, not an empty claim · **S**
-- [ ] **UI-012** Sidebar says "No knowledge yet" while still loading · **S**
-- [ ] **UI-013** Sidebar says "No threads yet" after a 429 · **S**
-- [ ] **UI-014** Agent profile error shows a raw status code — *"Agent profile fetch failed: 429"* · Done: user-facing sentence, no status code, with retry · **S**
-- [ ] **UI-015** No retry affordance on any failed surface · Done: retry re-issues the request and renders in place, no page reload · **S**
-- [ ] **UI-016** Skeleton doesn't resemble the content it replaces — *`/work/team/:id`* · Now: 16 identical bars stand in for 2 cards + 3 structured sections, inset 20px differently, so content jumps on arrival · Done: placeholder occupies the same regions as the real content · **S**
-- [ ] **UI-017** Page title shows placeholder "Team" then swaps to the real name · Done: title skeleton, or the real name on first paint · **S**
-- [ ] **UI-018** Empty section renders as a bare label and rule — *task detail, ARTIFACTS* · Done: `EmptyState compact` · **S**
-- [ ] **UI-019** Task detail DISCUSSION stacks two horizontal rules with a phantom gap · **S**
-- [ ] **UI-020** OWNER stat cell renders blank when unassigned · Done: "Unassigned" · **S**
-- [ ] **UI-021** Four different empty-state treatments across sections — *WorkTask ARTIFACTS / DISCUSSION, KnowledgeDetail BACKLINKS, knowledge list* · Done: all four use `EmptyState compact` · **S**
+- [x] **UI-010** A 500 renders as "your knowledge base is empty" — *`/knowledge` with the API failing* · Now: confident empty state + "Create first item", and the header toolbar vanishes · Done: states the load failed and offers retry · **S**
+- [x] **UI-011** Sidebar says "No teams yet" while still loading · Done: loading state, not an empty claim · **S**
+- [x] **UI-012** Sidebar says "No knowledge yet" while still loading · **S**
+- [x] **UI-013** Sidebar says "No threads yet" after a 429 · **S**
+- [x] **UI-014** Agent profile error shows a raw status code — *"Agent profile fetch failed: 429"* · Done: user-facing sentence, no status code, with retry · **S**
+- [x] **UI-015** No retry affordance on any failed surface · Done: retry re-issues the request and renders in place, no page reload · **S**
+- [x] **UI-016** Skeleton doesn't resemble the content it replaces — *`/work/team/:id`* · Now: 16 identical bars stand in for 2 cards + 3 structured sections, inset 20px differently, so content jumps on arrival · Done: placeholder occupies the same regions as the real content · **S**
+- [x] **UI-017** Page title shows placeholder "Team" then swaps to the real name · Done: title skeleton, or the real name on first paint · **S**
+- [x] **UI-018** Empty section renders as a bare label and rule — *task detail, ARTIFACTS* · Done: `EmptyState compact` · **S**
+- [x] **UI-019** Task detail DISCUSSION stacks two horizontal rules with a phantom gap · **S**
+- [x] **UI-020** OWNER stat cell renders blank when unassigned · Done: "Unassigned" · **S**
+- [x] **UI-021** Four different empty-state treatments across sections — *WorkTask ARTIFACTS / DISCUSSION, KnowledgeDetail BACKLINKS, knowledge list* · Done: all four use `EmptyState compact` · **S**
 
 ## Batch C — machine data out of the interface
 
 An identifier, enum, ISO string or raw markup must never be the thing a user reads.
 
-- [ ] **UI-030** Thread title is the host id — *`Conversations.tsx:442` falls back to `hostId`; the lookup always misses for teams* · Done: resolves to the team/task name · **M**
-- [ ] **UI-031** Team feed shows the raw id twice — eyebrow *and* `<h1>` both read `demo-team-acme` · **S**
-- [ ] **UI-032** In-thread artifact chip shows a raw artifact id · **S**
-- [ ] **UI-033** Artifact permalink prints the artifact id top-right · **S**
-- [ ] **UI-034** Settings → Org chart rows subtitle with the raw team id · **S**
-- [ ] **UI-035** Task sessions subtitle with the raw agent id · **S**
-- [ ] **UI-036** Sessions are named "Session 1 / 2 / 3" · Done: named by date or first prompt · **S**
-- [ ] **UI-037** Knowledge subtitle prints a raw ISO string (`2026-08-11T13:07:38.072Z`) · **S**
-- [ ] **UI-038** Knowledge subtitle reads "by unknown" · Done: resolve the editor, or drop the clause · **S**
-- [ ] **UI-039** Knowledge Editor field shows a truncated raw id (`seed-age…`) · **S**
-- [ ] **UI-040** Agent profile shows raw role enum (`product_manager`) — the setup flow already has display labels · **S**
-- [ ] **UI-041** Agent profile shows raw harness enum (`builtin`) · **S**
-- [ ] **UI-042** Settings agent rows subtitle with raw role slugs (`qa_engineer`) · **S**
-- [ ] **UI-043** `0mo` renders at 28–30 days — *`time.ts:82`: switches to months at `FOUR_WEEKS_MS` (28d) but divides by `MONTH_MS` (30d)* · Done: no zero-quantity relative age at any age · **S**
-- [ ] **UI-044** `1 items` — hardcoded plural at `KnowledgeTopicGroup.tsx:73`, 5× on one screen · **S**
-- [ ] **UI-045** Knowledge group headers are slugs (`PRODUCT-IDENTITY`, `ARCHITECTURE`) · Done: "Product identity" · **S**
-- [ ] **UI-046** Raw markdown in list previews (`# Pulse…`, `- **Starter** — 5 dashboards`) · **S**
-- [ ] **UI-047** `Access count` exposes internal telemetry as user metadata · Done: remove · **S**
-- [ ] **UI-048** "Add Edge" is graph-theory jargon · Done: user-facing verb · **S**
-- [ ] **UI-049** The same instant formatted two ways 300px apart — knowledge header vs metadata panel · **S**
+- [x] **UI-030** Thread title is the host id — *`Conversations.tsx:442` falls back to `hostId`; the lookup always misses for teams* · Done: resolves to the team/task name · **M**
+- [x] **UI-031** Team feed shows the raw id twice — eyebrow *and* `<h1>` both read `demo-team-acme` · **S** — already fixed on main
+- [x] **UI-032** In-thread artifact chip shows a raw artifact id · **S**
+- [x] **UI-033** Artifact permalink prints the artifact id top-right · **S**
+- [x] **UI-034** Settings → Org chart rows subtitle with the raw team id · **S**
+- [x] **UI-035** Task sessions subtitle with the raw agent id · **S**
+- [x] **UI-036** Sessions are named "Session 1 / 2 / 3" · Done: named by date or first prompt · **S**
+- [x] **UI-037** Knowledge subtitle prints a raw ISO string (`2026-08-11T13:07:38.072Z`) · **S**
+- [x] **UI-038** Knowledge subtitle reads "by unknown" · Done: resolve the editor, or drop the clause · **S**
+- [x] **UI-039** Knowledge Editor field shows a truncated raw id (`seed-age…`) · **S**
+- [x] **UI-040** Agent profile shows raw role enum (`product_manager`) — the setup flow already has display labels · **S**
+- [x] **UI-041** Agent profile shows raw harness enum (`builtin`) · **S**
+- [x] **UI-042** Settings agent rows subtitle with raw role slugs (`qa_engineer`) · **S**
+- [x] **UI-043** `0mo` renders at 28–30 days — *`time.ts:82`: switches to months at `FOUR_WEEKS_MS` (28d) but divides by `MONTH_MS` (30d)* · Done: no zero-quantity relative age at any age · **S**
+- [x] **UI-044** `1 items` — hardcoded plural at `KnowledgeTopicGroup.tsx:73`, 5× on one screen · **S**
+- [x] **UI-045** Knowledge group headers are slugs (`PRODUCT-IDENTITY`, `ARCHITECTURE`) · Done: "Product identity" · **S**
+- [x] **UI-046** Raw markdown in list previews (`# Pulse…`, `- **Starter** — 5 dashboards`) · **S**
+- [x] **UI-047** `Access count` exposes internal telemetry as user metadata · Done: remove · **S**
+- [x] **UI-048** "Add Edge" is graph-theory jargon · Done: user-facing verb · **S**
+- [x] **UI-049** The same instant formatted two ways 300px apart — knowledge header vs metadata panel · **S**
 
 ## Batch D — adopt the primitives that already exist
 
@@ -106,15 +106,15 @@ Cheapest batch, largest effect on whether the product feels real.
 
 ## Batch F — copy and formatting
 
-- [ ] **UI-100** Excerpts clip mid-word with no ellipsis — *knowledge list: "users respond to vi", "6 or 8 days depen"* · **S**
-- [ ] **UI-101** Truncation is inconsistent within one list — one row gets an ellipsis, its neighbours are hard-cut · **S**
-- [ ] **UI-102** Button label casing unsystematic — `+ New bet`, `+ Add agent`, `+ Add Edge`, `New thread`, `Create first item`, `Customize`, `Edit in Settings` · **S**
-- [ ] **UI-103** Field labels split between caps micro-labels (NAME / PROMPT / AUTONOMY) and sentence case ("Your name") · **S**
-- [ ] **UI-104** Message timestamps repeat on every message with no grouping and no day separators — six consecutive "3:07 PM" · **S**
+- [x] **UI-100** Excerpts clip mid-word with no ellipsis — *knowledge list: "users respond to vi", "6 or 8 days depen"* · **S**
+- [x] **UI-101** Truncation is inconsistent within one list — one row gets an ellipsis, its neighbours are hard-cut · **S**
+- [x] **UI-102** Button label casing unsystematic — `+ New bet`, `+ Add agent`, `+ Add Edge`, `New thread`, `Create first item`, `Customize`, `Edit in Settings` · **S**
+- [x] **UI-103** Field labels split between caps micro-labels (NAME / PROMPT / AUTONOMY) and sentence case ("Your name") · **S**
+- [x] **UI-104** Message timestamps repeat on every message with no grouping and no day separators — six consecutive "3:07 PM" · **S**
 - [ ] **UI-105** Agent profile health-warning banner has no icon and no action · Done: icon + a route to fix it · **S**
-- [ ] **UI-106** Session score column (`0.75`) is unexplained mono · Done: label it · **S**
-- [ ] **UI-107** Editable titles render in muted grey and read as disabled — "Untitled bet", "Untitled" · Done: reads editable, caret on focus · **S**
-- [ ] **UI-108** Unknown-artifact state is a shouty uppercase machine string with no explanation and no route to the source · **S**
+- [x] **UI-106** Session score column (`0.75`) is unexplained mono · Done: label it · **S**
+- [x] **UI-107** Editable titles render in muted grey and read as disabled — "Untitled bet", "Untitled" · Done: reads editable, caret on focus · **S**
+- [x] **UI-108** Unknown-artifact state is a shouty uppercase machine string with no explanation and no route to the source · **S**
 - [ ] **UI-109** Setup illustration is three grey skeleton-cards — reads as content that failed to load · Done: remove or replace · **S**
 - [ ] **UI-110** Setup shows four disabled harness rows ("Install to use") occupying more space than the one usable option · **S**
 

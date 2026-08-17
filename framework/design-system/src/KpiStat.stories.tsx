@@ -42,3 +42,14 @@ export const MetricRow = (): JSX.Element => (
 		]}
 	/>
 );
+
+// WithSub — metric with an optional sub-line for contextual annotation.
+// Matches the WorkTeam stat-strip pattern (e.g. "2 / 4" capacity + "active bets" sub).
+export const WithSub = (): JSX.Element => (
+	<KpiStat
+		metrics={[
+			{ label: "Capacity", value: "2 / 4", sub: "active bets" },
+			{ label: "Agent Health", value: "On track", sub: "1 idle agent" },
+		]}
+	/>
+);

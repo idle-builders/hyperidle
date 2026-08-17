@@ -87,14 +87,14 @@ describe("AppShell — filter reset on view change (J2 AC 64)", () => {
 			expect(screen.getByTestId("flat-thread-list")).toBeInTheDocument();
 		});
 
-		// Navigate to Work via sidebar
-		await user.click(screen.getByRole("button", { name: /work/i }));
+		// Navigate to Work via sidebar (UI-080: section headers are links now)
+		await user.click(screen.getByRole("link", { name: /work/i }));
 		await waitFor(() => {
 			expect(screen.getByText("Work Page")).toBeInTheDocument();
 		});
 
-		// Navigate back to Conversations
-		await user.click(screen.getByRole("button", { name: /conversations/i }));
+		// Navigate back to Conversations (UI-080: section headers are links now)
+		await user.click(screen.getByRole("link", { name: /conversations/i }));
 		await waitFor(() => {
 			expect(screen.getByTestId("flat-thread-list")).toBeInTheDocument();
 		});

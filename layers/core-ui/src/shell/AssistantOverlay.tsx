@@ -99,7 +99,7 @@ function ContextChip({
 	return (
 		<span
 			data-spacing-role="compact-pill"
-			className="type-metadata border-[var(--bw-thin)] inline-flex items-center gap-1 rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5  text-[var(--text-secondary)]"
+			className="type-metadata border-width-thin inline-flex items-center gap-1 rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-2 py-0.5  text-[var(--text-secondary)]"
 		>
 			<span className="type-label  text-[var(--text-tertiary)] uppercase ">{contextRef.kind}</span>
 			<span className="max-w-[120px] truncate">{contextRef.label}</span>
@@ -178,7 +178,7 @@ function getNoticeConfig(notice: AssistantNotice, onRetry?: () => void): NoticeC
 				affordance: (
 					<button
 						type="button"
-						className="type-control border-[var(--bw-thin)]   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+						className="type-control border-width-thin   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 						onClick={onRetry}
 					>
 						Retry
@@ -216,6 +216,7 @@ function AssistantNoticeCard({
 				display: "flex",
 				flexDirection: "column",
 				gap: "6px",
+				background: "var(--surface-overlay)",
 			}}
 		>
 			<div
@@ -286,33 +287,31 @@ function ThinkingRow(): JSX.Element {
  * AND older than ASSISTANT_TURN_TIMEOUT_MS. Never shows an infinite spinner.
  */
 function StaleRetryCard({ onRetry }: { onRetry?: () => void }): JSX.Element {
+	// FR-21: styled as an inline thread element (like ThinkingRow), not a floating alert.
+	// Removed red border + overlay background — the error context is communicated
+	// through the status-error text colour and the "try again" call to action.
 	return (
 		<div
 			role="alert"
 			style={{
-				borderRadius: "var(--r-subtle)",
-				border: "var(--bw-default) solid var(--status-error)",
-				padding: "12px",
 				display: "flex",
-				flexDirection: "column",
-				gap: "6px",
+				alignItems: "center",
+				gap: "9px",
+				padding: "9px 12px",
+				borderRadius: "var(--r-subtle)",
+				background: "color-mix(in oklab, var(--status-error) 8%, transparent)",
 			}}
 		>
-			<div style={{ color: "var(--status-error)" }} className="type-small">
-				Couldn't reach the model
-			</div>
-			<div style={{ color: "var(--text-secondary)" }} className="type-small">
-				That didn't finish — try again.
-			</div>
-			<div style={{ marginTop: "3px" }}>
-				<button
-					type="button"
-					className="type-control border-[var(--bw-thin)]   px-[9px] py-[6px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-					onClick={onRetry}
-				>
-					Retry
-				</button>
-			</div>
+			<span className="type-small" style={{ color: "var(--status-error)", flex: 1 }}>
+				Couldn't reach the model — that didn't finish.
+			</span>
+			<button
+				type="button"
+				className="type-control border-width-thin shrink-0 px-[9px] py-[6px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+				onClick={onRetry}
+			>
+				Retry
+			</button>
 		</div>
 	);
 }
@@ -422,13 +421,20 @@ function AssistantOverlayInner({
 		(m) => m.type !== "plain" || !(m.payload as PlainPayload).notice,
 	);
 
+	// @lore UI-138/139/140: The fragment return caused ThreadShell to receive no
+	// definite height from the overlay's flex container, so the message list
+	// clipped and the composer was invisible. A flex-1 min-h-0 wrapper gives
+	// ThreadShell the h-full parent it requires. hideHostBanner suppresses the
+	// duplicate "Assistant" header (UI-140) — the overlay already has its own.
+	// Notice/thinking cards are rendered as shrink-0 rows below ThreadShell and
+	// stay outside ThreadShell to avoid the text-collision mentioned in AH3 lore.
 	return (
-		<>
+		<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 			{/* Context chips area — only renders when refs are attached */}
 			{contextRefs.length > 0 && (
 				<div
 					data-testid="assistant-context-chips"
-					className="border-b-[var(--bw-thin)] flex flex-wrap gap-[6px]  border-[var(--border-subtle)] px-3 py-2"
+					className="border-width-thin-b flex flex-wrap gap-[6px] shrink-0  border-[var(--border-subtle)] px-3 py-2"
 				>
 					{contextRefs.map((contextRef, i) => (
 						<ContextChip
@@ -444,37 +450,43 @@ function AssistantOverlayInner({
 					))}
 				</div>
 			)}
-			<ThreadShell
-				thread={thread}
-				messages={threadMessages}
-				identities={identities}
-				onAppendMessage={handleAppendMessage}
-				hostTitle="Assistant"
-				renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
-			/>
-			{/* AH3: Notice cards rendered OUTSIDE ThreadShell to avoid text collision */}
+			{/* AH3: Notice/thinking/stale cards rendered OUTSIDE ThreadShell (avoids
+			    text collision with the scroll area) and ABOVE the ThreadShell wrapper
+			    so the composer stays pinned to the overlay bottom (NEW-13). */}
 			{noticeMessages.map((m) => {
 				const noticePayload = m.payload as PlainPayload;
 				if (!noticePayload.notice) return null;
 				return (
-					<div key={m.id} className="px-[12px] pb-[9px]">
+					<div key={m.id} className="shrink-0 px-[12px] pt-[9px]">
 						<AssistantNoticeCard notice={noticePayload.notice} onRetry={refresh} />
 					</div>
 				);
 			})}
 			{/* AH3 §1.7b: Thinking indicator — client-derived from thread state */}
 			{isThinking && (
-				<div className="px-[12px] pb-[9px]">
+				<div className="shrink-0 px-[12px] pt-[9px]">
 					<ThinkingRow />
 				</div>
 			)}
 			{/* AH3 §1.7b: Stale crash-recovery Retry card */}
 			{isStale && (
-				<div className="px-[12px] pb-[9px]">
+				<div className="shrink-0 px-[12px] pt-[9px]">
 					<StaleRetryCard onRetry={refresh} />
 				</div>
 			)}
-		</>
+			{/* flex-1 min-h-0 gives ThreadShell a parent with a definite height
+			    so its internal h-full resolves correctly (UI-138/139). */}
+			<div className="flex-1 min-h-0 overflow-hidden">
+				<ThreadShell
+					thread={thread}
+					messages={threadMessages}
+					identities={identities}
+					onAppendMessage={handleAppendMessage}
+					hostTitle="Assistant"
+					renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
+				/>
+			</div>
+		</div>
 	);
 }
 
@@ -534,7 +546,7 @@ export function AssistantOverlay({
 			onKeyDown={overlayProps.onKeyDown}
 			className={`motion-enter ${[
 				"fixed bottom-16 right-4",
-				"w-[360px] min-h-[200px] max-h-[70vh]",
+				"w-[360px] h-[70vh]",
 				"flex flex-col overflow-hidden",
 				"rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-overlay)]",
 				"shadow-[var(--shadow-elevated)]",
@@ -542,11 +554,10 @@ export function AssistantOverlay({
 			].join(" ")}`}
 			style={{ zIndex: overlayProps.style.zIndex }}
 		>
-			{/* Overlay header bar: "Assistant" title + close button */}
-			<div className="border-b-[var(--bw-thin)] flex items-center justify-between px-[12px] py-[9px]  border-[var(--border-subtle)] shrink-0">
-				<h2 className="type-subheading   text-[var(--text-primary)]" id="assistant-overlay-title">
-					Assistant
-				</h2>
+			{/* Overlay close button bar — no title because ThreadShell's hostBanner
+			    already shows the agent identity. A duplicate "Assistant" h2 here
+			    caused two stacked headers (UI-140). Only the close control stays. */}
+			<div className="border-width-thin-b flex items-center justify-end px-[12px] py-[6px]  border-[var(--border-subtle)] shrink-0">
 				<button
 					type="button"
 					aria-label="Close assistant"

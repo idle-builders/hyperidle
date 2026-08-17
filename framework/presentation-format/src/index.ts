@@ -1,4 +1,5 @@
 export { deriveTitle, deriveTitleFromPitch } from "./format/bet.js";
+export { stripMarkdown } from "./format/strip-markdown.js";
 export type { TimestampInput } from "./format/time.js";
 export {
 	absoluteDate,

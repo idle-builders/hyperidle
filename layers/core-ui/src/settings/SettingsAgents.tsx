@@ -31,11 +31,12 @@ import {
 	EmptyState,
 	ErrorState,
 	ItemList,
+	Menu,
 	Row,
 	SkeletonList,
 	SplitView,
-	StatusChip,
 } from "@hyperidle/design-system";
+import { roleLabel } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import { useUiPreference } from "../hooks/useUiPreference.js";
@@ -136,7 +137,9 @@ export function SettingsAgents(): JSX.Element {
 		filesystemIds: [],
 	});
 
-	// Delete confirmation state
+	// @lore FR-10: per-row action menu open state — replaces inline Edit/Delete buttons.
+	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+	// Delete confirmation state (still used for the confirm step inside the menu)
 	const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 	const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -438,11 +441,6 @@ export function SettingsAgents(): JSX.Element {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Build the registered harness type set for availability checking
-	// ---------------------------------------------------------------------------
-	const registeredHarnessTypes = new Set(harnesses.map((h) => h.type));
-
-	// ---------------------------------------------------------------------------
 	// SplitView origin pane: agent list
 	// ---------------------------------------------------------------------------
 
@@ -458,62 +456,107 @@ export function SettingsAgents(): JSX.Element {
 			>
 				{/* AV2: No role filter — assistant (ast-*) appears as a row here. */}
 				{agents.map((agent) => {
-					const harnessUnavailable =
-						agent.harnessType != null && !registeredHarnessTypes.has(agent.harnessType);
 					const isSelected = selectedId === agent.id;
 
 					return (
 						<Row
 							key={agent.id}
 							as="div"
-							title={
-								<span className="flex items-center gap-[6px]">
-									{agent.name}
-									{harnessUnavailable && <StatusChip status="behind" label="Harness unavailable" />}
-								</span>
-							}
-							subtitle={`${agent.role} · ${agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
+							title={agent.name}
+							subtitle={`${roleLabel(agent.role)} · ${harnesses.find((h) => h.type === agent.harnessType)?.name ?? agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
 							selected={isSelected}
+							/* @lore FR-10: destructive delete moved behind Menu; no inline Delete on rows.
+							 * @lore FR-10b: Menu.tsx always calls onClose() after onSelect() (Menu.tsx:183),
+							 * so a two-step confirm inside the same menu open is impossible. After the first
+							 * "Delete" click the menu closes; the row switches to inline confirm/cancel buttons
+							 * for the second click. This is cleaner UX than re-opening the menu. */
 							actions={
-								<div className="flex gap-[6px]">
-									<Button
-										variant="ghost"
-										size="sm"
-										aria-label={`Edit ${agent.name}`}
-										onClick={(event) => {
-											event.stopPropagation();
-											void handleAgentClick(agent);
-										}}
-									>
-										Edit
-									</Button>
-									{confirmingDeleteId === agent.id ? (
-										<Button
-											variant="ghost"
-											size="sm"
-											className="text-[var(--status-error)]"
+								confirmingDeleteId === agent.id ? (
+									<div className="flex items-center gap-[6px]">
+										<button
+											type="button"
+											onClick={(e) => {
+												e.stopPropagation();
+												if (deleteTimeoutRef.current) {
+													clearTimeout(deleteTimeoutRef.current);
+													deleteTimeoutRef.current = null;
+												}
+												setConfirmingDeleteId(null);
+											}}
+											className="type-control cursor-pointer px-[8px] h-[28px] rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-primary)]"
+										>
+											Cancel
+										</button>
+										<button
+											type="button"
+											aria-label="Confirm delete?"
 											onClick={(e) => {
 												e.stopPropagation();
 												void handleDeleteConfirm(agent.id);
 											}}
+											className="type-control cursor-pointer px-[8px] h-[28px] rounded-[var(--r-subtle)] text-[var(--status-error)] hover:bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]"
 										>
-											Confirm?
-										</Button>
-									) : (
-										<Button
-											variant="ghost"
-											size="sm"
-											className="text-[var(--status-error)]"
-											aria-label={`Delete ${agent.name}`}
+											Confirm delete?
+										</button>
+									</div>
+								) : (
+									<div className="relative">
+										<button
+											type="button"
+											aria-label={`Actions for ${agent.name}`}
+											aria-haspopup="menu"
+											aria-expanded={openMenuId === agent.id}
 											onClick={(e) => {
 												e.stopPropagation();
-												handleDeleteFirstClick(agent.id);
+												setOpenMenuId(openMenuId === agent.id ? null : agent.id);
 											}}
+											className="type-control cursor-pointer inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-primary)]"
 										>
-											Delete
-										</Button>
-									)}
-								</div>
+											<svg
+												width="14"
+												height="14"
+												viewBox="0 0 24 24"
+												fill="currentColor"
+												aria-hidden="true"
+											>
+												<circle cx="12" cy="5" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<circle cx="12" cy="19" r="2" />
+											</svg>
+										</button>
+										<Menu
+											open={openMenuId === agent.id}
+											onClose={() => setOpenMenuId(null)}
+											label="Agent actions"
+											align="end"
+											items={[
+												{
+													id: "edit",
+													label: "Edit",
+													onSelect: () => {
+														setOpenMenuId(null);
+														void handleAgentClick(agent);
+													},
+												},
+												...(agent.id.startsWith("ast-")
+													? []
+													: [
+															{
+																id: "delete",
+																label: "Delete",
+																destructive: true as const,
+																onSelect: () => {
+																	// Menu always closes after onSelect (Menu.tsx:183).
+																	// Set confirmingDeleteId so the row switches to
+																	// inline confirm/cancel buttons on next render.
+																	handleDeleteFirstClick(agent.id);
+																},
+															},
+														]),
+											]}
+										/>
+									</div>
+								)
 							}
 						/>
 					);
@@ -521,7 +564,7 @@ export function SettingsAgents(): JSX.Element {
 			</ItemList>
 
 			<Button variant="ghost" size="sm" className="self-start" onClick={() => setAddMode(!addMode)}>
-				{addMode ? "Cancel add" : "+ Add Agent"}
+				{addMode ? "Cancel add" : "+ Add agent"}
 			</Button>
 
 			{addMode && (

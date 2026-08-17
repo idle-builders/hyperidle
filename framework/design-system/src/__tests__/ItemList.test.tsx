@@ -233,7 +233,8 @@ describe("ItemList (AG6 T3)", () => {
 			expect(list.className).not.toMatch(/\bgap-/);
 			expect(rows.length).toBe(2);
 			for (const row of rows) {
-				expect(row.className).toContain("border-b");
+				// NEW-18: border-b-[var(--bw-thin)] → border-width-thin-b @utility
+				expect(row.className).toContain("border-width-thin-b");
 				expect(row.className).toContain("last:border-none");
 			}
 		});

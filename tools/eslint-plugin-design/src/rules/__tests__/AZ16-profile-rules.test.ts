@@ -76,6 +76,16 @@ ruleTester.run("border-width-profile-only", borderWidthProfileOnly, {
 		{
 			code: 'const view = <section data-token-subject="foreign"><div className="border-2" /></section>;',
 		},
+		// NEW-18: directional @utility classes must be allowed
+		{
+			code: 'const view = <div className="border-width-thin-b border-[var(--border-subtle)]" />;',
+		},
+		{
+			code: 'const view = <div className="border-width-thin-t border-width-strong-l" />;',
+		},
+		{
+			code: 'const view = <div className="border-width-strong-b border-[var(--border-default)]" />;',
+		},
 	],
 	invalid: [
 		{

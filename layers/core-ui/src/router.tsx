@@ -21,6 +21,7 @@ import { KnowledgeList } from "./pages/KnowledgeList";
 import { NotFound } from "./pages/NotFound";
 import { RedirectLegacyConversation } from "./pages/RedirectLegacyConversation";
 import { ReviewPage } from "./pages/review/ReviewPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { SetupFlow } from "./pages/SetupFlow";
 import { WorkBet } from "./pages/WorkBet";
 import { WorkBetCreate } from "./pages/WorkBetCreate";
@@ -92,11 +93,9 @@ function buildRoutes(): RouteObject[] {
 				{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
 				// L3 review fix Arch-M1 / D-M4: wire the ArtifactPermalink page.
 				{ path: "artifacts/:id", element: <ArtifactPermalink /> },
-				{
-					path: "settings",
-					// L9: settings deep-link now points to /conversations?settings=open.
-					element: <Navigate to="/conversations?settings=open" replace />,
-				},
+				// @lore FR-18: /settings is now a real route (was ?settings=open overlay).
+				// Sidebar marks the settings button active when pathname starts with /settings.
+				{ path: "settings", element: <SettingsPage /> },
 			],
 		},
 		// I4 E2: catch-all so unknown URLs render NotFound (not a blank page).

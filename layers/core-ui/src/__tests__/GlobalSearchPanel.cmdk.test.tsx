@@ -39,21 +39,23 @@ describe("GlobalSearchPanel Command-K visual (J3)", () => {
 	//   - /z-50/             → data-dialog-layer="dialog"     (assertion — layer attribute proves the band)
 	// The .modal.modal-box chrome is gone; the panel keeps its own palette chrome + 640px max-width.
 	// See architecture.md §Sanctioned assertion changes #2 for full rationale.
+	// UI-001: panel is portalled into #overlay-root (sibling of #root).
+	// Use document.querySelector — portal content is outside the RTL container.
 	it("overlay container carries --z-dialog layer so it stacks above Settings (--z-overlay)", () => {
-		const { container } = render(<GlobalSearchPanel {...defaultProps} />);
+		render(<GlobalSearchPanel {...defaultProps} />);
 		// After migration: the overlay is queried by data-dialog-layer, NOT .modal.modal-open
-		const overlay = container.querySelector('[data-dialog-layer="dialog"]');
+		const overlay = document.querySelector('[data-dialog-layer="dialog"]');
 		expect(overlay).not.toBeNull();
 		// The layer attribute itself proves the z-band (--z-dialog = 60, above --z-overlay = 40)
 		expect(overlay?.getAttribute("data-dialog-layer")).toBe("dialog");
 	});
 
 	it("inner box enforces the 640px max-width from the spec", () => {
-		const { container } = render(<GlobalSearchPanel {...defaultProps} />);
+		render(<GlobalSearchPanel {...defaultProps} />);
 		// After migration: .modal-box is gone; find the palette box by the overlay container
 		// (GlobalSearchPanel uses useDialogBehavior — the overlay and box may collapse to one node)
 		// or by data-testid if the panel emits one. Try the overlay container first, then testid.
-		const overlay = container.querySelector('[data-dialog-layer="dialog"]');
+		const overlay = document.querySelector('[data-dialog-layer="dialog"]');
 		expect(overlay).not.toBeNull();
 		// max-w-[640px] SURVIVES — GlobalSearchPanel keeps its palette chrome and 640px max-width.
 		// Re-targeted through [data-dialog-layer="dialog"] instead of the removed .modal-box.
@@ -63,8 +65,8 @@ describe("GlobalSearchPanel Command-K visual (J3)", () => {
 	});
 
 	it("renders a recent-queries row region at the bottom with monospace font", () => {
-		const { container } = render(<GlobalSearchPanel {...defaultProps} />);
-		const recent = container.querySelector('[data-testid="search-recent-queries"]');
+		render(<GlobalSearchPanel {...defaultProps} />);
+		const recent = document.querySelector('[data-testid="search-recent-queries"]');
 		expect(recent).not.toBeNull();
 		expect(recent?.className ?? "").toMatch(/type-data/);
 		// The region should be labeled for assistive tech.

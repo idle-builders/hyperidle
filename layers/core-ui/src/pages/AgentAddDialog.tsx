@@ -196,7 +196,7 @@ export function AgentAddDialog({
 			{/* System prompt section */}
 			<div className="mt-[18px]">
 				<h3 className="type-label   uppercase  text-[var(--text-tertiary)] mb-[6px]">
-					SYSTEM PROMPT
+					System prompt
 				</h3>
 				<p className="type-metadata  text-[var(--text-tertiary)] mb-[6px]">
 					Personality, style, and values. You define the system prompt; the harness provides tools,

@@ -58,7 +58,7 @@ export const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(functi
 				// state that swapped to --surface-page, giving the page-canvas token a
 				// second job on focus (the same defect fixed on Button's hover tint).
 				// Matches Input.tsx's pattern: one fill,  + ring for focus.
-				className="type-input border-[var(--bw-thin)] w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
+				className="type-input border-width-thin w-full h-[32px] pl-[36px] pr-[48px] bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-[var(--r-default)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)] focus:outline-hidden"
 				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange?.(e.target.value)}

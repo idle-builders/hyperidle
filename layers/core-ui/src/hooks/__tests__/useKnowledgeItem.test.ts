@@ -92,7 +92,9 @@ describe("useKnowledgeItem", () => {
 		});
 
 		expect(result.current.data).toBeNull();
-		expect(result.current.error).toMatch(/404/);
+		// @lore NEW-22: error is user-facing — no raw HTTP status code (see useFetch.ts)
+		expect(result.current.error).not.toBeNull();
+		expect(result.current.error).not.toMatch(/HTTP \d+/i);
 	});
 
 	it("returns null data and isLoading=false when id is undefined", async () => {

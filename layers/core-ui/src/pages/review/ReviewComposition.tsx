@@ -120,7 +120,7 @@ function HumanAvatar({ name }: { name: string }): JSX.Element {
 		<span
 			data-az16-profile="avatar-initial strong"
 			aria-hidden="true"
-			className="type-avatar-initial type-avatar-initial--sm border-[var(--bw-strong)] inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-container)] text-[var(--text-secondary)]"
+			className="type-avatar-initial type-avatar-initial--sm border-width-strong inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-container)] text-[var(--text-secondary)]"
 			title={name}
 		>
 			{name.slice(0, 2)}
@@ -164,7 +164,7 @@ function Verdict({
 				disabled={resolved}
 				onClick={() => onSubmit("request-changes")}
 				aria-pressed={activeDecision === "request-changes"}
-				className="type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[7px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+				className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[7px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				Request changes
 			</button>
@@ -174,12 +174,12 @@ function Verdict({
 				aria-label="More verdict options"
 				aria-expanded={menuOpen}
 				onClick={onToggleMenu}
-				className="type-control border-[var(--bw-thin)] inline-flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+				className="type-control border-width-thin inline-flex h-[32px] w-[32px] items-center justify-center rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				⋯
 			</button>
 			{menuOpen ? (
-				<div className="border-[var(--bw-thin)] absolute right-0 top-[40px] z-10 w-[200px] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] py-[6px] shadow-[var(--shadow-elevated)]">
+				<div className="border-width-thin absolute right-0 top-[40px] z-10 w-[200px] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] py-[6px] shadow-[var(--shadow-elevated)]">
 					{OVERFLOW_DECISIONS.map((decision) => (
 						<button
 							key={decision}
@@ -288,7 +288,7 @@ function TaskSection({ subject }: { readonly subject: ComposedReviewSubject }): 
 			<SectionHead label="The task" />
 			<div
 				data-az16-profile="strong"
-				className="border-l-[var(--bw-strong)] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-container)] px-[14px] py-[12px]"
+				className="border-width-strong-l rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-container)] px-[14px] py-[12px]"
 			>
 				<p
 					data-az16-profile="copy"
@@ -327,7 +327,7 @@ function KpiChip({ kpi }: { kpi: ReviewKpi }): JSX.Element {
 	return (
 		<div
 			data-az16-profile="thin"
-			className="border-[var(--bw-thin)] flex flex-col gap-[3px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]"
+			className="border-width-thin flex flex-col gap-[3px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]"
 		>
 			<span
 				data-az16-profile="label"
@@ -362,8 +362,8 @@ function CheckoutProof(): JSX.Element {
 function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element {
 	const isAfter = variant === "after";
 	return (
-		<figure className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
-			<figcaption className="border-b-[var(--bw-thin)] flex items-center justify-between  border-[var(--border-subtle)] px-[12px] py-[6px]">
+		<figure className="border-width-thin overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
+			<figcaption className="border-width-thin-b flex items-center justify-between  border-[var(--border-subtle)] px-[12px] py-[6px]">
 				<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 					{isAfter ? "After" : "Before"}
 				</span>
@@ -404,10 +404,10 @@ function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element
 					)}
 				</div>
 
-				<div className="border-t-[var(--bw-thin)] type-data flex flex-col gap-[3px]  border-[var(--border-subtle)] pt-[9px]   tabular-nums">
+				<div className="border-width-thin-t type-data flex flex-col gap-[3px]  border-[var(--border-subtle)] pt-[9px]   tabular-nums">
 					<ResultRow label="Subtotal" value="$120.00" />
 					<ResultRow label="Promo (SPRING24)" value={isAfter ? "—" : "−$24.00"} muted={isAfter} />
-					<div className="border-t-[var(--bw-thin)] mt-[3px] flex items-center justify-between  border-[var(--border-subtle)] pt-[6px]">
+					<div className="border-width-thin-t mt-[3px] flex items-center justify-between  border-[var(--border-subtle)] pt-[6px]">
 						<span className="type-small  text-[var(--text-primary)]">Total</span>
 						<span className="type-small  text-[var(--text-primary)]">
 							{isAfter ? "$120.00" : "$96.00"}
@@ -541,7 +541,7 @@ function ArtifactRow({ artifact, active, onOpen }: ArtifactRowProps): JSX.Elemen
 			// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
 			// selected tint — not a no-handrolled-control violation.
 			className={[
-				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border-[var(--bw-thin)] bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left",
+				"group flex w-full items-center gap-[12px] rounded-[var(--r-subtle)] border-width-thin bg-[var(--surface-elevated)] px-[12px] py-[9px] text-left",
 				active
 					? "border-[var(--accent-deep)] bg-[var(--accent-primary-dim)]"
 					: "border-[var(--border-subtle)] hover:border-[var(--border-default)]",
@@ -623,7 +623,7 @@ function CommentItem({ comment }: { comment: ReviewComment }): JSX.Element {
 						onClick={() => {
 							if (comment.anchor) onJumpToAnchor(comment.anchor);
 						}}
-						className="type-control border-[var(--bw-thin)] mt-[3px] inline-flex items-center gap-[4px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px]  text-[var(--text-tertiary)]    hover:text-[var(--text-secondary)]"
+						className="type-control border-width-thin mt-[3px] inline-flex items-center gap-[4px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[6px] py-[1px]  text-[var(--text-tertiary)]    hover:text-[var(--text-secondary)]"
 						aria-label={comment.anchor ? `Go to anchor ${label}` : undefined}
 					>
 						<span className="text-[var(--text-tertiary)]">on</span>
@@ -664,11 +664,11 @@ function ConversationSection({
 						}}
 					/>
 				) : onPostComment ? (
-					<div className="border-[var(--bw-thin)] type-small flex items-center gap-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px]  text-[var(--text-tertiary)]">
+					<div className="border-width-thin type-small flex items-center gap-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] px-[12px] py-[9px]  text-[var(--text-tertiary)]">
 						Review resolved — no new comments
 					</div>
 				) : (
-					<div className="border-[var(--bw-thin)] type-small flex items-center gap-[9px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[9px]  text-[var(--text-tertiary)]">
+					<div className="border-width-thin type-small flex items-center gap-[9px] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[9px]  text-[var(--text-tertiary)]">
 						Reply (composer not connected)
 					</div>
 				)}
@@ -713,7 +713,7 @@ function ExaminePane({
 									onClick={() => {
 										/* no-op */
 									}}
-									className="type-control rounded-[var(--r-pill)] border-[var(--bw-thin)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+									className="type-control rounded-[var(--r-pill)] border-width-thin border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 								>
 									Comment on this
 								</button>
@@ -725,7 +725,7 @@ function ExaminePane({
 								type="button"
 								aria-label="Close artifact"
 								onClick={onClose}
-								className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border-[var(--bw-thin)] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+								className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-pill)] border-width-thin border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
 							>
 								<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[14px] w-[14px]">
 									<path d="m4 4 8 8m0-8-8 8" fill="none" stroke="currentColor" strokeWidth="1.5" />

@@ -1,43 +1,40 @@
 /**
- * AI5 E5 — `deriveInitials` shared utility (RED phase).
+ * deriveInitials — canonical avatar-initials derivation.
  *
- * Canonical algorithm: trim → first 2 chars of the trimmed string → uppercase.
- * NOT word-initials. Consolidates 3 distinct inline algorithms across 6 sites
- * (slice+upper, bare slice, word-initials) into one rendering.
- *
- * Covers the AC1 "identical rendering everywhere" contract, including the
- * intentional WorkBet delta where word-initials ("GT") become slice ("GR").
+ * Founder ruling 2026-08-16: word-initials replaces slice(0,2).
+ * Reason: slice produced "AC" for all five Acme-prefixed agent names,
+ * making the roster unreadable. Word-initials produces distinct initials.
  */
 
 import { describe, expect, it } from "vitest";
 import { deriveInitials } from "../initials.js";
 
 describe("deriveInitials", () => {
-	it("takes the first two characters and uppercases them", () => {
-		expect(deriveInitials("Ada Lovelace")).toBe("AD");
+	it("takes first letter of each of the first two words", () => {
+		expect(deriveInitials("Ada Lovelace")).toBe("AL");
 	});
 
-	it("uppercases lowercase input (RecipientPicker case-only delta)", () => {
-		// RecipientPicker today renders bare .slice(0,2) ("gr"); now uppercased.
-		expect(deriveInitials("growth team")).toBe("GR");
+	it("produces distinct initials for Acme-prefixed agents (the motivation)", () => {
+		expect(deriveInitials("Acme Builder")).toBe("AB");
+		expect(deriveInitials("Acme Designer")).toBe("AD");
+		expect(deriveInitials("Acme Researcher")).toBe("AR");
 	});
 
-	it("matches the existing slice+upper sites unchanged (WorkTeam/AgentEditDialog/AgentProfile)", () => {
-		expect(deriveInitials("Growth Team")).toBe("GR");
+	it("common name example", () => {
+		expect(deriveInitials("Maya Chen")).toBe("MC");
 	});
 
-	it("changes WorkBet from word-initials to slice (intentional consolidation)", () => {
-		// WorkBet used split→w[0] word-initials → "GT". deriveInitials → "GR".
-		expect(deriveInitials("Growth Team")).not.toBe("GT");
-		expect(deriveInitials("Growth Team")).toBe("GR");
+	it("returns single uppercase char for a one-word name", () => {
+		expect(deriveInitials("Founder")).toBe("F");
+		expect(deriveInitials("z")).toBe("Z");
 	});
 
-	it("trims surrounding whitespace before slicing", () => {
+	it("trims surrounding whitespace before deriving", () => {
 		expect(deriveInitials("  x ")).toBe("X");
 	});
 
-	it("trims and slices a multi-word padded name from the trimmed start", () => {
-		expect(deriveInitials("   Nova ")).toBe("NO");
+	it("trims and uses word-initials for a multi-word padded name", () => {
+		expect(deriveInitials("   Nova Rise ")).toBe("NR");
 	});
 
 	it("returns '?' for an empty string", () => {
@@ -48,7 +45,11 @@ describe("deriveInitials", () => {
 		expect(deriveInitials("   ")).toBe("?");
 	});
 
-	it("returns a single uppercase char for a one-character name", () => {
-		expect(deriveInitials("z")).toBe("Z");
+	it("lowercased input still uppercases the result", () => {
+		expect(deriveInitials("growth team")).toBe("GT");
+	});
+
+	it("ignores extra internal whitespace — uses first two tokens", () => {
+		expect(deriveInitials("Growth  Team  Extra")).toBe("GT");
 	});
 });

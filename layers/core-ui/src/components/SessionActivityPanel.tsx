@@ -160,10 +160,10 @@ export function SessionActivityPanel({
 		<aside
 			aria-label={`Session activity for ${agentName}`}
 			data-testid="session-activity-panel"
-			className="border-l-[var(--bw-thin)] flex flex-col h-full bg-[var(--surface-container)]  border-[var(--border-subtle)]"
+			className="border-width-thin-l flex flex-col h-full bg-[var(--surface-container)]  border-[var(--border-subtle)]"
 		>
 			{/* Header */}
-			<div className="border-b-[var(--bw-thin)] flex items-center gap-[9px] px-[12px] py-[10px]  border-[var(--border-subtle)] flex-shrink-0">
+			<div className="border-width-thin-b flex items-center gap-[9px] px-[12px] py-[10px]  border-[var(--border-subtle)] flex-shrink-0">
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-[6px]">
 						<span className="type-small   text-[var(--text-primary)] truncate">{agentName}</span>
@@ -207,7 +207,7 @@ export function SessionActivityPanel({
 			</div>
 
 			{/* Q1 review issue #11: filter tabs — AI5: shared TabBar (underline). */}
-			<div className="border-b-[var(--bw-thin)] flex-shrink-0 px-[8px] pt-[6px] pb-[2px]  border-[var(--border-subtle)]">
+			<div className="border-width-thin-b flex-shrink-0 px-[8px] pt-[6px] pb-[2px]  border-[var(--border-subtle)]">
 				<TabBar
 					variant="underline"
 					tabs={FILTER_TABS}
@@ -269,7 +269,7 @@ export function SessionActivityPanel({
 
 			{/* Summary / footer */}
 			{status === "ended" && (
-				<div className="border-t-[var(--bw-thin)] type-metadata flex-shrink-0 px-[12px] py-[8px]  border-[var(--border-subtle)]  text-[var(--text-tertiary)]">
+				<div className="border-width-thin-t type-metadata flex-shrink-0 px-[12px] py-[8px]  border-[var(--border-subtle)]  text-[var(--text-tertiary)]">
 					Session complete — {entries.length} events recorded
 				</div>
 			)}

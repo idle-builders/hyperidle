@@ -247,7 +247,7 @@ function Headline({
 	const delta = figure.current - figure.prior;
 	return (
 		<div
-			className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[12px]"
+			className="border-width-thin rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] p-[12px]"
 			style={{ boxShadow: figure.headline ? "var(--shadow-default)" : undefined }}
 		>
 			<div className="flex items-baseline justify-between gap-[12px]">
@@ -277,7 +277,7 @@ function Headline({
 			</button>
 			{expanded ? (
 				// L3 — per-figure provenance
-				<div className="border-[var(--bw-thin)] mt-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
+				<div className="border-width-thin mt-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
 					<div className="flex items-center gap-[6px]">
 						<ToolLogo tool={figure.provenance.tool} size="sm" label="" />
 						<span className="type-metadata   text-[var(--text-primary)]">
@@ -307,12 +307,12 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 	const [showTrivia, setShowTrivia] = useState(false);
 	return (
 		<div
-			className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)]"
+			className="border-width-thin overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)]"
 			style={{ boxShadow: "var(--shadow-default)" }}
 		>
 			<table className="w-full border-collapse text-left">
 				<thead>
-					<tr className="border-b-[var(--bw-thin)]  border-[var(--border-default)]">
+					<tr className="border-width-thin-b  border-[var(--border-default)]">
 						<th className="type-label px-[12px] py-[9px]   uppercase  text-[var(--text-tertiary)]">
 							Account
 						</th>
@@ -329,7 +329,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 				</thead>
 				<tbody>
 					{fixture.rows.map((r) => (
-						<tr key={r.id} className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)]">
+						<tr key={r.id} className="border-width-thin-b  border-[var(--border-subtle)]">
 							<td className="type-small px-[12px] py-[9px]  text-[var(--text-primary)]">
 								{r.label}
 							</td>
@@ -370,7 +370,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 
 			{/* tie-out strip — the control total that proves the roll-forward */}
 			<div
-				className="border-t-[var(--bw-thin)] flex flex-wrap items-center gap-x-[6px] gap-y-[3px]  border-[var(--border-default)] px-[12px] py-[9px]"
+				className="border-width-thin-t flex flex-wrap items-center gap-x-[6px] gap-y-[3px]  border-[var(--border-default)] px-[12px] py-[9px]"
 				style={{ background: "var(--accent-primary-dim)" }}
 			>
 				<span
@@ -397,7 +397,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 	return (
 		<div
-			className="border-[var(--bw-thin)] flex items-start gap-[12px] rounded-[var(--r-subtle)]  p-[12px]"
+			className="border-width-thin flex items-start gap-[12px] rounded-[var(--r-subtle)]  p-[12px]"
 			style={{
 				borderColor: ex.needsYou ? "var(--status-error)" : "var(--border-subtle)",
 				background: ex.needsYou ? "var(--status-error-dim)" : "var(--surface-container)",

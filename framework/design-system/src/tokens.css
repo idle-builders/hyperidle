@@ -32,12 +32,11 @@
  * now detects `dark` to override the light default, the opposite of Lucid
  * which was dark-default and detected `light` to override.
  *
- * @lore U3 / CP1 — light mode --text-tertiary (#938b70 after CL1) achieves
- * ~2.9:1 on surface-page. This token is intentionally decorative/
- * hint-only in light mode — used only for large labels, timestamps, and
- * icon-only contexts that are WCAG exempt from AA normal-text contrast. It is
- * NOT used for body text on warm surfaces. Dark mode text-tertiary (#a8a58c
- * after CL1) achieves ~7:1 on page, passing AA everywhere.
+ * @lore U3 / CP1 — light mode --text-tertiary was #938b70 (~2.9:1 on page).
+ * Originally documented as decorative/hint-only. Revised AZ UI-161 2026-08-16:
+ * tertiary is used for real data (timestamps, schedule text) — WCAG AA for
+ * normal text applies. Updated to #716a54 (5.07:1 on page, 5.40:1 elevated).
+ * Dark mode text-tertiary (#a8a58c after CL1) achieves ~7:1 on page, AA everywhere.
  *
  * @lore U3 — status-warning (#d97706), status-error (#dc4a3a), and
  * status-info (#2e7dba) in LIGHT MODE fail WCAG AA for normal text on warm
@@ -180,8 +179,8 @@
 		/* Text — warm dark tones with a faint olive cast (CL1) */
 		--text-primary: #2a2415; /* ~14.5:1 page, ~13.7:1 container, 15.4:1 elevated */
 		--text-secondary: #645c46; /* ~6.2:1 page, ~5.8:1 container, ~6.6:1 elevated */
-		/* Tertiary stays decorative/hint-only in light mode (WCAG-exempt role). */
-		--text-tertiary: #938b70; /* ~3.0:1 on page — decorative/hint only */
+		/* Tertiary used for timestamps, schedule text — real data, needs AA contrast. */
+		--text-tertiary: #716a54; /* 5.07:1 on page, 5.40:1 on elevated — AA ✓ */
 		--text-placeholder: #b8b09a; /* placeholder-only, exempt from AA */
 		/* @lore CL1 — flipped DARK: lemon-drop fills need dark content (~9:1). */
 		--text-on-accent: #2a2415;
@@ -266,7 +265,7 @@
 		--status-info: #4498d4; /* 5.77:1 on page, 4.77:1 elevated */
 
 		/* Borders — warm-neutral with the same lemon whisper (CL1) */
-		--border-subtle: #33332a;
+		--border-subtle: #434337; /* AZ UI-160: was #33332a (2.0 L* from card); now 9.1 L* — parity with light (8.9 L*) */
 		--border-default: #46453a;
 		--border-strong: #626050;
 
@@ -327,7 +326,7 @@
 			--status-info: #4498d4;
 
 			/* Borders — mirrors hearth-dark exactly */
-			--border-subtle: #33332a;
+			--border-subtle: #434337; /* AZ UI-160: mirrors [data-theme="hearth-dark"] */
 			--border-default: #46453a;
 			--border-strong: #626050;
 
@@ -552,6 +551,33 @@
 }
 @utility border-width-strong {
 	border-width: var(--bw-strong);
+}
+/*
+ * @lore NEW-18: Tailwind v4 changes `border-width-thin-b` to set
+ * border-bottom-COLOR, not border-bottom-WIDTH. In v3 the arbitrary-value
+ * slot for `border-{side}` was width; in v4 it's color. Result: computed
+ * borderBottomWidth is 0px — the separator is invisible. Fix: use these
+ * direction-specific @utility classes that explicitly set border-*-width.
+ * Sweep pattern: `border-width-thin-b` → `border-width-thin-b`,
+ * `border-width-thin-t` → `border-width-thin-t`, etc.
+ */
+@utility border-width-thin-b {
+	border-bottom-width: var(--bw-thin);
+}
+@utility border-width-thin-t {
+	border-top-width: var(--bw-thin);
+}
+@utility border-width-thin-l {
+	border-left-width: var(--bw-thin);
+}
+@utility border-width-thin-r {
+	border-right-width: var(--bw-thin);
+}
+@utility border-width-strong-l {
+	border-left-width: var(--bw-strong);
+}
+@utility border-width-strong-b {
+	border-bottom-width: var(--bw-strong);
 }
 /*
  * ── Reduced-motion ──

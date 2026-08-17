@@ -186,7 +186,9 @@ describe("ThreadRow", () => {
 	it("has border-bottom divider between rows", () => {
 		const { container } = render(<ThreadRow {...defaultProps} />);
 		const root = container.firstElementChild;
-		expect(root?.className).toContain("border-b");
+		// NEW-18: border-b-[var(--bw-thin)] (sets color in v4, not width) replaced by
+		// border-width-thin-b @utility which correctly sets border-bottom-width.
+		expect(root?.className).toContain("border-width-thin-b");
 		expect(root?.className).toContain("border-subtle");
 	});
 

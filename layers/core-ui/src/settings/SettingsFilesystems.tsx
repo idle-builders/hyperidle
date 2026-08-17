@@ -145,7 +145,7 @@ export function SettingsFilesystems(): JSX.Element {
 						No filesystems registered yet.
 					</p>
 				) : (
-					<div className="border-[var(--bw-thin)] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]">
+					<div className="border-width-thin overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)]">
 						{filesystems.map((fs, index) => (
 							<div key={fs.id}>
 								{index > 0 ? <div className="h-px bg-[var(--border-subtle)]" /> : null}

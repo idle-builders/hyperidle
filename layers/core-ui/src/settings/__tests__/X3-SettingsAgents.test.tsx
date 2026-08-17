@@ -122,12 +122,18 @@ describe("X3 AC-9: SettingsAgents renders agent list", () => {
 		});
 	});
 
-	it("renders role text for each agent", async () => {
+	it("renders role display label for each agent (not raw slug)", async () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			expect(screen.getByText(/product_manager/)).toBeInTheDocument();
-			expect(screen.getByText(/builder/)).toBeInTheDocument();
+			// UI-042: role displayed as human label via roleLabel(), not raw slug.
+			// The subtitle pattern is "Role · Harness · N active".
+			// getAllByText to handle multiple subtitle spans (one per row).
+			expect(screen.getAllByText(/Product Manager/).length).toBeGreaterThan(0);
+			// "Builder ·" uniquely identifies the subtitle (not the agent name "Builder Bot")
+			expect(screen.getAllByText(/Builder ·/).length).toBeGreaterThan(0);
+			// Raw slugs must NOT appear anywhere
+			expect(screen.queryByText(/product_manager/)).not.toBeInTheDocument();
 		});
 	});
 
@@ -156,9 +162,10 @@ describe("X3 AC-9: SettingsAgents renders agent list", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => {
-			// AV2: Delete button has aria-label="Delete <agentName>"
-			expect(screen.getByRole("button", { name: /delete acme pm/i })).toBeInTheDocument();
-			expect(screen.getByRole("button", { name: /delete builder bot/i })).toBeInTheDocument();
+			// @lore FR-10: Delete is now behind the "..." actions menu — verify trigger buttons exist.
+			// (Delete item is inside the menu, only visible when the menu is open.)
+			expect(screen.getByRole("button", { name: /actions for acme pm/i })).toBeInTheDocument();
+			expect(screen.getByRole("button", { name: /actions for builder bot/i })).toBeInTheDocument();
 		});
 	});
 
@@ -389,32 +396,29 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 	});
 
 	/**
-	 * Find the Confirm? action button (not the Row div which also has role="button"
-	 * and includes "Confirm?" in its accessible name due to text content).
-	 * The action button is a <button> element (not a div with role="button").
-	 *
-	 * @lore X3 AV2: Row uses div[role=button] for clickable rows with nested actions.
-	 * The Row div's accessible name includes all its text content (including "Confirm?"),
-	 * so getAllByRole("button", { name: /confirm\?/i }) returns both the Row div AND
-	 * the actual Confirm button. We filter by tagName to get only the <button> element.
+	 * @lore FR-10: Delete is now behind the "..." actions Menu (role=menuitem).
+	 * @lore FR-10b: DS Menu always closes after onSelect (Menu.tsx:183), so two-step
+	 * confirm cannot stay in the same open menu. After the first "Delete" click the menu
+	 * closes and the row switches to inline confirm/cancel buttons (role="button").
+	 * Flow: click "Actions for <name>" → menu opens → click "Delete" menuitem →
+	 * menu closes → inline "Confirm delete?" button appears on the row → click to confirm.
 	 */
 	function getConfirmButton(): HTMLElement {
-		const candidates = screen.getAllByRole("button", { name: /confirm\?/i });
-		const btn = candidates.find((el) => el.tagName.toLowerCase() === "button");
-		if (!btn) throw new Error("Confirm? <button> element not found");
-		return btn;
+		return screen.getByRole("button", { name: /confirm delete\?/i });
 	}
 
-	it("first click changes Delete button to 'Confirm?'", async () => {
+	it("first click shows inline 'Confirm delete?' button on the row", async () => {
 		const user = userEvent.setup();
 		render(<SettingsAgents />);
 
 		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
-		// AV2: Delete button has aria-label="Delete <agentName>" — use that for precise targeting
-		const deleteButton = screen.getByRole("button", { name: /delete acme pm/i });
-		await user.click(deleteButton);
+		// FR-10: open the "..." actions menu, then click Delete
+		await user.click(screen.getByRole("button", { name: /actions for acme pm/i }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^delete$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^delete$/i }));
 
+		// Menu closes, inline confirm button appears on the row
 		await waitFor(() => {
 			expect(getConfirmButton()).toBeInTheDocument();
 		});
@@ -426,13 +430,13 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 
 		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
-		const deleteButton = screen.getByRole("button", { name: /delete acme pm/i });
-		await user.click(deleteButton);
+		// FR-10: open menu → click Delete → click inline Confirm delete? button
+		await user.click(screen.getByRole("button", { name: /actions for acme pm/i }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^delete$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^delete$/i }));
 
-		// Click "Confirm?" immediately
 		await waitFor(() => getConfirmButton());
-		const confirmButton = getConfirmButton();
-		await user.click(confirmButton);
+		await user.click(getConfirmButton());
 
 		await waitFor(() => {
 			const fetchMock = vi.mocked(fetch);
@@ -452,8 +456,10 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 
 		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
-		const deleteButton = screen.getByRole("button", { name: /delete acme pm/i });
-		await user.click(deleteButton);
+		// FR-10: open menu → click Delete → click inline Confirm delete? button
+		await user.click(screen.getByRole("button", { name: /actions for acme pm/i }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^delete$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^delete$/i }));
 
 		await waitFor(() => getConfirmButton());
 		await user.click(getConfirmButton());
@@ -463,28 +469,133 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 		});
 	});
 
-	it("button reverts to 'Delete' if no second click within 3 seconds", async () => {
+	it("confirm button reverts after 3 seconds with no second click", async () => {
 		vi.useFakeTimers();
 		const user = userEvent.setup({ delay: null });
 		render(<SettingsAgents />);
 
 		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
 
-		const deleteButton = screen.getByRole("button", { name: /delete acme pm/i });
-		await user.click(deleteButton);
+		// FR-10: open menu → click Delete (first click sets confirmingDeleteId)
+		await user.click(screen.getByRole("button", { name: /actions for acme pm/i }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^delete$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^delete$/i }));
 
+		// Inline confirm button appears
 		await waitFor(() => getConfirmButton());
 
 		// Advance time past the 3-second timeout
 		vi.advanceTimersByTime(3100);
 
 		await waitFor(() => {
-			// Should revert to "Delete" — "Confirm?" <button> should be gone
-			const candidates = screen.queryAllByRole("button", { name: /confirm\?/i });
-			const confirmBtn = candidates.find((el) => el.tagName.toLowerCase() === "button");
-			expect(confirmBtn).toBeUndefined();
+			// Inline confirm button gone, "..." actions button restored
+			expect(screen.queryByRole("button", { name: /confirm delete\?/i })).toBeNull();
+			expect(screen.getByRole("button", { name: /actions for acme pm/i })).toBeInTheDocument();
 		});
 
 		vi.useRealTimers();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Keyboard navigation: menu + two-step delete are fully keyboard-accessible
+// ---------------------------------------------------------------------------
+
+describe("X3 keyboard: actions menu is fully keyboard-navigable", () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+				if (url.includes("/api/harnesses")) {
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => [
+							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+						],
+					});
+				}
+				if (url.includes("/api/agents") && !url.includes("/templates")) {
+					if (!opts?.method || opts.method === "GET") {
+						return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_AGENTS });
+					}
+					if (opts?.method === "DELETE") {
+						return Promise.resolve({
+							ok: true,
+							status: 200,
+							json: async () => ({ id: "agent-pm-1", status: "retired" }),
+						});
+					}
+				}
+				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+			}),
+		);
+		mockShowToast.mockClear();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	/**
+	 * Proves keyboard-only delete flow:
+	 * focus trigger → Enter opens menu → focus auto-moves to Edit menuitem
+	 * → ArrowDown moves to Delete → Enter triggers delete + menu closes
+	 * → Confirm button appears → focus Confirm → Enter → DELETE request sent.
+	 *
+	 * Evidence that the coordinator's "open the menu with the keyboard, move to
+	 * Delete, trigger it, and confirm the flow completes" path is reachable
+	 * without a mouse.
+	 */
+	it("Enter on trigger opens menu, ArrowDown reaches Delete, Enter triggers, Confirm responds to Enter", async () => {
+		const user = userEvent.setup();
+		render(<SettingsAgents />);
+
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
+
+		// Step 1: Focus the trigger button (keyboard-equivalent of Tab navigation)
+		const triggerBtn = screen.getByRole("button", { name: /actions for acme pm/i });
+		triggerBtn.focus();
+		expect(document.activeElement).toBe(triggerBtn);
+
+		// Step 2: Enter opens the menu; Menu auto-focuses the first enabled menuitem (Menu.tsx:70-73)
+		await user.keyboard("{Enter}");
+		await waitFor(() => {
+			expect(screen.getByRole("menuitem", { name: /^edit$/i })).toBeInTheDocument();
+			expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: /^edit$/i }));
+		});
+
+		// Step 3: ArrowDown moves focus from Edit to Delete (Menu.tsx:123-127)
+		await user.keyboard("{ArrowDown}");
+		await waitFor(() => {
+			expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: /^delete$/i }));
+		});
+
+		// Step 4: Enter selects Delete → onSelect fires (sets confirmingDeleteId) → menu closes
+		// Inline Confirm + Cancel buttons replace the "..." trigger on the row.
+		await user.keyboard("{Enter}");
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /confirm delete\?/i })).toBeInTheDocument();
+		});
+
+		// Step 5: Focus and activate the Confirm button via Enter (button is keyboard-accessible)
+		const confirmBtn = screen.getByRole("button", { name: /confirm delete\?/i });
+		confirmBtn.focus();
+		await user.keyboard("{Enter}");
+
+		// Step 6: DELETE request sent
+		await waitFor(() => {
+			const fetchMock = vi.mocked(fetch);
+			const deleteCall = fetchMock.mock.calls.find(
+				([url, opts]) =>
+					typeof url === "string" &&
+					url.includes("/api/agents/agent-pm-1") &&
+					(opts as RequestInit)?.method === "DELETE",
+			);
+			expect(deleteCall).toBeDefined();
+		});
+		await waitFor(() => {
+			expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/agent deleted/i));
+		});
 	});
 });

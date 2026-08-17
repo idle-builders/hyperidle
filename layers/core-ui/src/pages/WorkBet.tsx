@@ -31,6 +31,7 @@ import {
 	EmptyState,
 	ErrorState,
 	Input,
+	KpiStat,
 	LiveDot,
 	Menu,
 	PageHeader,
@@ -67,7 +68,6 @@ import { AssistantContext } from "../contexts/AssistantContext.js";
 import { useLatestRunOutcomes } from "../hooks/useAgentRunState.js";
 import { useBet } from "../hooks/useBet";
 import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
-import { useHint } from "../hooks/useHints";
 import { useHostThread } from "../hooks/useHostThread.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
@@ -417,7 +417,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 	const navigate = useNavigate();
 	const { sidebarMobile } = useViewportBreakpoint();
 	const onOpenArtifact = useArtifactOpen();
-	const hintAddCredential = useHint("add-credential");
 	// T4: AssistantContext for block share action
 	const { overlayOpen, attachContext } = useContext(AssistantContext);
 
@@ -755,7 +754,11 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					leading={
 						/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
 						<Breadcrumb
-							segments={[{ label: "Work", to: "/work" }, { label: bet.team }, { label: bet.title }]}
+							segments={[
+								{ label: "Work", to: "/work" },
+								{ label: bet.team, to: bet.teamId ? `/work/team/${bet.teamId}` : undefined },
+								{ label: bet.title },
+							]}
 							leading={
 								!sidebarMobile ? (
 									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
@@ -782,7 +785,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									aria-haspopup="menu"
 									aria-expanded={betOverflowOpen}
 									/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-									className="border-[var(--bw-default)] inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
+									className="border-width-default inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
 									onClick={() => setBetOverflowOpen((v) => !v)}
 								>
 									<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
@@ -797,11 +800,39 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 									label="Bet actions"
 									align="end"
 									items={[
+										{
+											id: "add-knowledge",
+											label: "Add knowledge",
+											icon: (
+												<svg
+													viewBox="0 0 16 16"
+													className="w-[16px] h-[16px]"
+													fill="none"
+													stroke="currentColor"
+													strokeWidth="1.5"
+													aria-hidden="true"
+												>
+													<path d="M8 3v10M3 8h10" strokeLinecap="round" />
+												</svg>
+											),
+											onSelect: () => setAddKnowledgeOpen(true),
+											dataAttrs: { "data-bet-action": "add-knowledge" },
+										} satisfies MenuItem,
 										...(bet.status === "draft"
 											? [
 													{
 														id: "activate",
 														label: "Activate bet",
+														icon: (
+															<svg
+																viewBox="0 0 16 16"
+																className="w-[16px] h-[16px]"
+																fill="currentColor"
+																aria-hidden="true"
+															>
+																<path d="M5 3.5l8 4.5-8 4.5V3.5z" />
+															</svg>
+														),
 														onSelect: () => handleAction("activate"),
 														dataAttrs: { "data-bet-action": "activate" },
 													} satisfies MenuItem,
@@ -812,6 +843,19 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 													{
 														id: "unblock",
 														label: "Unblock",
+														icon: (
+															<svg
+																viewBox="0 0 16 16"
+																className="w-[16px] h-[16px]"
+																fill="none"
+																stroke="currentColor"
+																strokeWidth="1.5"
+																aria-hidden="true"
+															>
+																<rect x="4" y="7" width="8" height="6" rx="1" />
+																<path d="M6 7V5a2 2 0 0 1 4 0" strokeLinecap="round" />
+															</svg>
+														),
 														onSelect: () => handleAction("unblock"),
 														dataAttrs: { "data-bet-action": "unblock" },
 													} satisfies MenuItem,
@@ -823,6 +867,18 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 														id: "kill",
 														label: "Kill",
 														destructive: true,
+														icon: (
+															<svg
+																viewBox="0 0 16 16"
+																className="w-[16px] h-[16px]"
+																fill="none"
+																stroke="currentColor"
+																strokeWidth="1.5"
+																aria-hidden="true"
+															>
+																<path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />
+															</svg>
+														),
 														onSelect: () => handleAction("kill"),
 														dataAttrs: { "data-bet-action": "kill" },
 													} satisfies MenuItem,
@@ -847,29 +903,8 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			{/* W3 AC-25: max-width 800px centered detail body */}
 			<div
 				data-testid="bet-detail-body"
-				className="flex flex-col gap-[24px] max-w-[800px] w-full py-[24px]"
+				className="flex flex-col gap-[24px] max-w-[960px] w-full py-[24px]"
 			>
-				{/* P5: Hint #2 — add-credential. Shows when the first bet is loaded. */}
-				{hintAddCredential.visible && (
-					<div
-						role="status"
-						data-testid={hintAddCredential.testId}
-						className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px]"
-					>
-						<p className="type-copy  text-[var(--text-secondary)] ">{hintAddCredential.copy}</p>
-						<div className="flex gap-[9px]">
-							<Button
-								variant="ghost"
-								size="sm"
-								className="text-[var(--text-tertiary)]"
-								onClick={hintAddCredential.dismiss}
-							>
-								Got it
-							</Button>
-						</div>
-					</div>
-				)}
-
 				{/* AK5: provenance backlink — shown when bet was promoted from a knowledge item. */}
 				{bet.sourceKnowledge != null && (
 					<RRLink
@@ -880,13 +915,6 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						From knowledge: {bet.sourceKnowledge.title}
 					</RRLink>
 				)}
-
-				{/* Q2: Add knowledge button — opens KnowledgeCreateDialog with bet scope locked */}
-				<div className="flex items-center gap-[9px]">
-					<Button variant="ghost" size="sm" onClick={() => setAddKnowledgeOpen(true)}>
-						Add knowledge
-					</Button>
-				</div>
 
 				{/* L14: Consequence preview dialog — kill */}
 				<ConsequencePreviewDialog
@@ -904,11 +932,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					lockedScopeId={bet.id}
 				/>
 
-				{/* W3 AC-20: Stat cards row */}
+				{/* W3 AC-20: Stat cards row — @lore UI-065: migrated from hand-rolled
+					    label/value spans to KpiStat (design-system primitive). Progress bar
+					    and team avatar kept below KpiStat for visual context. */}
 				<div data-testid="bet-stats-row" className="flex gap-[18px]">
 					{/* Progress stat card — AF16 T1 (Z8-019/020): branch on total>0, not object truthiness */}
-					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
-						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Progress</span>
+					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[12px] flex-1">
 						{/* @lore AF16 T1: old guard `bet.progress ?` was truthy even when total=0,
 							    producing 0/0=NaN. Now branch on hasTasks (total>0). */}
 						{(() => {
@@ -918,23 +947,27 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							const pct = hasTasks
 								? Math.min(100, Math.max(0, Math.round((done / total) * 100)))
 								: 0;
-							return hasTasks ? (
+							return (
 								<>
-									<span className="type-metric    tabular-nums text-[var(--text-primary)]">
-										{pct}%
-									</span>
-									<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden mt-[9px]">
-										<div
-											data-testid="bet-progress-bar"
-											className="h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]"
-											style={{ width: `${pct}%` }}
-										/>
-									</div>
+									<KpiStat
+										metrics={[
+											{
+												label: "Progress",
+												value: hasTasks ? `${pct}%` : "—",
+												sub: hasTasks ? `${done} of ${total} tasks` : "No tasks yet",
+											},
+										]}
+									/>
+									{hasTasks && (
+										<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden">
+											<div
+												data-testid="bet-progress-bar"
+												className="h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]"
+												style={{ width: `${pct}%` }}
+											/>
+										</div>
+									)}
 								</>
-							) : (
-								<span className="type-small  text-[var(--text-secondary)] mt-[3px]">
-									No tasks yet
-								</span>
 							);
 						})()}
 					</div>
@@ -944,14 +977,13 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						    avatar + team name until the API exposes member data. */}
 					<div
 						data-stat-card="team"
-						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1"
+						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[9px] flex-1"
 					>
-						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Team</span>
-						<div className="flex items-center gap-[9px] mt-[9px]">
-							{/* AI5: shared Avatar primitive. Initials now derive via slice
-								    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
+						<KpiStat metrics={[{ label: "Team", value: bet.team }]} />
+						{/* AI5: shared Avatar primitive. Initials now derive via slice
+							    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
+						<div className="flex items-center gap-[9px]">
 							<Avatar initials={deriveInitials(bet.team)} size="sm" className="shrink-0" />
-							<span className="type-small   text-[var(--text-primary)] truncate">{bet.team}</span>
 						</div>
 					</div>
 				</div>
@@ -1321,25 +1353,22 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						/* State 1: Populated — tasks>0 beats all other states (approved.md precedence). */
 						<div className="flex flex-col">
 							{sortedTasks.map((task) => {
-								const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
+								/* NEW-19: stateLabel removed from metaParts — the StatusChip on
+								 * the right is the single status representation. Keeping it in the
+								 * subtitle text as well duplicated the fact and a "done + verdict"
+								 * row showed three status indicators for one fact. */
 								const relTime = task.startedAt ? relativeLong(task.startedAt) : "";
-								const metaParts = [task.owner, stateLabel, relTime].filter(Boolean);
+								const metaParts = [task.owner, relTime].filter(Boolean);
 								return (
-									<button
+									// @lore UI-080: <a href> so ⌘-click / middle-click work natively.
+									// StatusChip / LiveDot inside are display-only — valid inside <a>.
+									<a
 										key={task.id}
-										type="button"
 										data-testid="task-row"
-										// This is functionally a Row (title + subtitle-ish meta,
-										// clickable, hover tint) and belongs on <Row>, but Row's
-										// button-branch is missing w-full today (bug-list UI-060,
-										// unfixed — "do this first, several rows below depend on
-										// it"). Migrating onto the broken branch would shrink-wrap
-										// this row narrower than its current w-full. Left as a
-										// hand-rolled row pending UI-060.
+										href={`/work/bet/${encodeURIComponent(bet.id)}/task/${encodeURIComponent(task.id)}`}
 										// @lore AZ7 N1: hover:bg-[var(--accent-primary-dim)] is Set 3's
 										// row-hover tint — not a no-handrolled-control violation.
-										className="flex items-center gap-[12px] py-[12px] border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none cursor-pointer hover:bg-[var(--accent-primary-dim)] text-left w-full"
-										onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
+										className="flex items-center gap-[12px] py-[12px] border-width-thin-b border-[var(--border-subtle)] last:border-none cursor-pointer hover:bg-[var(--accent-primary-dim)] text-left w-full"
 										aria-label={task.title}
 									>
 										<div className="flex-1 min-w-0">
@@ -1361,15 +1390,19 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												/>
 											</span>
 										)}
-										{/* AI4 AC1: StatusChip for task state + LiveDot for in_progress */}
-										<span className="flex items-center gap-[6px]">
-											{task.state === "in_progress" && <LiveDot />}
-											<StatusChip
-												status={taskStateToStatus(task.state)}
-												label={TASK_STATE_LABEL[task.state]}
-											/>
-										</span>
-									</button>
+										{/* AI4 AC1: State chip — hidden when outcome verdict chip is shown
+										 * (NEW-19: outcome verdict already implies the task is done;
+										 * showing both chips is redundant). */}
+										{!task.outcomeVerdict && (
+											<span className="flex items-center gap-[6px]">
+												{task.state === "in_progress" && <LiveDot />}
+												<StatusChip
+													status={taskStateToStatus(task.state)}
+													label={TASK_STATE_LABEL[task.state]}
+												/>
+											</span>
+										)}
+									</a>
 								);
 							})}
 						</div>

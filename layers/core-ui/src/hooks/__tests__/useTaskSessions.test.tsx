@@ -65,7 +65,7 @@ describe("useTaskSessions", () => {
 		expect(url).toContain("task_id=task-1");
 	});
 
-	it("numbers sessions oldest-first even though the read serves newest-first", async () => {
+	it("orders sessions oldest-first even though the read serves newest-first", async () => {
 		stubRuns([
 			run({ id: "run-new", startedAt: "2026-08-03T00:00:00.000Z" }),
 			run({ id: "run-old", startedAt: "2026-08-01T00:00:00.000Z", state: "done" }),
@@ -73,10 +73,15 @@ describe("useTaskSessions", () => {
 		const { result } = renderHook(() => useTaskSessions("task-1"));
 		await waitFor(() => expect(result.current.data).not.toBeNull());
 
-		expect(result.current.data?.sessions.map((s) => [s.id, s.title])).toEqual([
-			["run-old", "Session 1"],
-			["run-new", "Session 2"],
-		]);
+		const sessions = result.current.data?.sessions ?? [];
+		// UI-036: titles are now formatted dates, not ordinals ("Session N").
+		// Oldest-first order preserved; run-old (2026-08-01) precedes run-new (2026-08-03).
+		expect(sessions.map((s) => s.id)).toEqual(["run-old", "run-new"]);
+		expect(sessions[0]?.title).toMatch(/Aug.*1.*2026|1.*Aug.*2026/);
+		expect(sessions[1]?.title).toMatch(/Aug.*3.*2026|3.*Aug.*2026/);
+		// Titles must NOT be the old ordinal format
+		expect(sessions[0]?.title).not.toBe("Session 1");
+		expect(sessions[1]?.title).not.toBe("Session 2");
 	});
 
 	it("keys status off the run's state so a stopped run is never blank", async () => {

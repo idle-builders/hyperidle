@@ -311,9 +311,11 @@ describe("GlobalSearchPanel", () => {
 	});
 
 	// AC8: Dialog layer carries data-dialog-layer="dialog" (AI2: DaisyUI .modal replaced by useDialogBehavior)
+	// UI-001: panel is portalled into #overlay-root (sibling of #root), so use
+	// document.querySelector instead of container.querySelector.
 	it("renders with dialog layer attribute", () => {
-		const { container } = render(<GlobalSearchPanel {...defaultProps} />);
-		const panel = container.querySelector('[data-dialog-layer="dialog"]');
+		render(<GlobalSearchPanel {...defaultProps} />);
+		const panel = document.querySelector('[data-dialog-layer="dialog"]');
 		expect(panel).toBeInTheDocument();
 	});
 

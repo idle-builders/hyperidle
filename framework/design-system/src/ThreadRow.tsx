@@ -57,6 +57,13 @@ export interface ThreadRowProps {
 	actions?: ReactNode;
 	unread?: boolean;
 	onClick?: () => void;
+	/**
+	 * When set, renders the row as an <a href> link so ⌘-click, middle-click,
+	 * "copy link" and hover-preview work natively.
+	 *
+	 * @lore UI-080: conversation queue rows must be real links.
+	 */
+	href?: string;
 	blocking?: boolean;
 	kind?: "review" | "chat";
 	/**
@@ -97,6 +104,7 @@ export function ThreadRow({
 	actions,
 	unread = false,
 	onClick,
+	href,
 	blocking = false,
 	kind,
 	selected = false,
@@ -107,15 +115,15 @@ export function ThreadRow({
 }: ThreadRowProps): JSX.Element {
 	// Selected border wins over blocking border when both flags are true.
 	const borderLeftClass = selected
-		? "border-l-[var(--bw-strong)] border-[var(--accent-deep)]"
+		? "border-width-strong-l border-[var(--accent-deep)]"
 		: blocking
-			? "border-l-[var(--bw-strong)] border-[var(--status-error)]"
+			? "border-width-strong-l border-[var(--status-error)]"
 			: "";
 
 	const baseClassName = [
 		"flex items-center gap-[12px] px-[24px] py-[12px]",
-		"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none",
-		"hover:bg-[color-mix(in_oklab,var(--text-secondary)_2%,transparent)]",
+		"border-width-thin-b border-[var(--border-subtle)] last:border-none",
+		"hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
 		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",
 		// selected state: elevated bg + subtle shadow per design spec
@@ -125,13 +133,8 @@ export function ThreadRow({
 		.filter(Boolean)
 		.join(" ");
 
-	return (
-		<div
-			{...dsProps("ThreadRow", "2")}
-			{...clickableProps(onClick)}
-			aria-current={selected ? "true" : undefined}
-			className={baseClassName}
-		>
+	const rowContent = (
+		<>
 			{/* Unread indicator — always rendered; transparent spacer for read rows (audit L-12, L-14) */}
 			<span
 				data-testid={unread ? "unread-dot" : "read-dot-spacer"}
@@ -255,6 +258,31 @@ export function ThreadRow({
 				</span>
 			</div>
 			{actions}
+		</>
+	);
+
+	// UI-080: href → real anchor link so ⌘-click / middle-click work natively.
+	if (href) {
+		return (
+			<a
+				{...dsProps("ThreadRow", "2")}
+				href={href}
+				aria-current={selected ? "true" : undefined}
+				className={baseClassName}
+			>
+				{rowContent}
+			</a>
+		);
+	}
+
+	return (
+		<div
+			{...dsProps("ThreadRow", "2")}
+			{...clickableProps(onClick)}
+			aria-current={selected ? "true" : undefined}
+			className={baseClassName}
+		>
+			{rowContent}
 		</div>
 	);
 }

@@ -30,6 +30,7 @@ import {
 	EmptyState,
 	ErrorState,
 	ItemList,
+	KpiStat,
 	PageHeader,
 	PageScaffold,
 	Row,
@@ -54,12 +55,12 @@ import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { DEFAULT_ROSTER_RUN_STATE, useRosterRunState } from "../hooks/useAgentRunState.js";
-import { useHint } from "../hooks/useHints";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
+import { deriveInitials } from "../utils/initials.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentDetailPane } from "./work/AgentDetailPane.js";
 import { RoutineCreateDialog } from "./work/RoutineCreateDialog.js";
@@ -83,16 +84,15 @@ export interface WorkTeamProps {
 	 */
 	overrideError?: Error | null;
 	/**
-	 * When true, the ArtifactSection is not rendered. Used by hint integration
-	 * tests to prevent ArtifactSection from consuming mocked fetch responses
-	 * before HintProvider can read them.
+	 * When true, the ArtifactSection is not rendered. Used by test overrides
+	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
+	 * meant for other hooks in the component tree.
 	 *
-	 * @lore P5: React runs child effects before parent effects. ArtifactSection
-	 * (child deep) fires useFetch before HintProvider (parent outer). When both
-	 * components are active and fetch is mocked with mockResolvedValueOnce, the
-	 * child consumes the mock first. Pass skipArtifacts={true} to prevent this
-	 * in hint tests. The L12 artifact-section test does NOT pass this prop
-	 * (defaults false) and mocks ArtifactSection via vi.mock() instead.
+	 * @lore P5: ArtifactSection's useFetch fires before parent hooks' useEffect
+	 * because React flushes child effects before parent effects. When using
+	 * overrideData in tests, skipArtifacts prevents fetch-order races.
+	 * The L12 artifact-section test does NOT pass this prop (defaults false)
+	 * and mocks ArtifactSection via vi.mock() instead.
 	 */
 	skipArtifacts?: boolean;
 }
@@ -112,15 +112,28 @@ export function WorkTeam({
 
 	const error = overrideError !== undefined ? (overrideError ?? null) : fetched.error;
 	const data = overrideData !== undefined ? overrideData : (fetched.data as TeamDetail | null);
+	// UI-015: retry re-issues the team fetch in place (no page reload).
+	const onRetryTeam = overrideData === undefined ? fetched.refetch : undefined;
 
 	// Loading state
+	// UI-017: title uses a skeleton bar so the header never flashes the static placeholder "Team"
+	// before the real team name arrives. SkeletonCard shape mirrors the content sections.
 	if (overrideLoading === true || (overrideData === undefined && fetched.loading)) {
 		return (
-			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
+			<PageScaffold
+				frame="page"
+				header={
+					<PageHeader
+						title={<span aria-label="Team" className="skeleton block h-[22px] w-[160px]" />}
+					/>
+				}
+				data-testid="work-team-page"
+			>
 				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
-					<SkeletonCard ariaLabel="Loading team header" />
-					<SkeletonCard ariaLabel="Loading burn vs cap" />
+					{/* UI-016: match real content regions — summary strip, bets, routines, roster */}
+					<SkeletonCard ariaLabel="Loading team summary" />
 					<SkeletonCard ariaLabel="Loading active bets" />
+					<SkeletonCard ariaLabel="Loading routines" />
 					<SkeletonCard ariaLabel="Loading roster" />
 				</div>
 			</PageScaffold>
@@ -150,7 +163,11 @@ export function WorkTeam({
 		return (
 			<PageScaffold frame="page" header={<PageHeader title="Team" />} data-testid="work-team-page">
 				<div className="max-w-[960px] w-full py-[24px] flex flex-col gap-[24px]">
-					<ErrorState title="Failed to load team" description={error.message} />
+					<ErrorState
+						title="Failed to load team"
+						description={error.message}
+						onRetry={onRetryTeam}
+					/>
 				</div>
 			</PageScaffold>
 		);
@@ -208,10 +225,10 @@ function WorkTeamLoaded({
 	data: TeamDetail;
 	/**
 	 * When true, the ArtifactSection is not rendered. Used by test overrides
-	 * (overrideData prop) to prevent ArtifactSection from calling fetch and
-	 * consuming mocked responses meant for other hooks (e.g. HintProvider).
+	 * to prevent ArtifactSection from calling fetch and consuming mocked responses
+	 * meant for other hooks in the component tree.
 	 *
-	 * @lore P5: ArtifactSection's useFetch fires before HintProvider's useEffect
+	 * @lore P5: ArtifactSection's useFetch fires before parent hooks' useEffect
 	 * because React flushes child effects before parent effects. When using
 	 * overrideData in tests, skipping ArtifactSection prevents fetch-order races.
 	 */
@@ -225,9 +242,6 @@ function WorkTeamLoaded({
 	// @lore AA1: routines defaults to [] so pre-AA1 mock data (missing the field) doesn't crash.
 	const { team, roster, burn, activeBets, routines = [] } = data;
 	const onOpenArtifact = useArtifactOpen();
-	const hintCreateBet = useHint("create-bet");
-	const hintReviewAgents = useHint("review-agents");
-
 	// @lore AV4: All three new hooks go UNCONDITIONALLY here at the top of WorkTeamLoaded,
 	// NOT in WorkTeam — WorkTeam has 5 early-return guard branches (loading/error/null/no-team)
 	// that would make any hook after the first guard a conditional-hook violation.
@@ -317,55 +331,75 @@ function WorkTeamLoaded({
 				 * mandatory — empty roster → "—"/"No agents", never "Healthy". See
 				 * plans/AG1/design/approved.md §2 + §4a.
 				 */}
+				{/* @lore UI-065: StatTile replaced with KpiStat (design-system primitive) +
+				    a border card wrapper. KpiStat is the canonical metric-display primitive
+				    (AM5); the bordered card is layout context, not a new component. The `sub`
+				    field was added to KpiStatMetric (optional, backward-compatible) so the
+				    contextual annotation line ("active bets", "1 idle agent") is preserved. */}
 				<div className="flex gap-[12px] flex-wrap">
 					{/* Capacity tile */}
-					<StatTile
-						label="Capacity"
-						value={`${burn.activeBets} / ${burn.capacity}`}
-						sub="active bets"
-					/>
+					<div
+						data-testid="stat-tile"
+						className="border-width-thin flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
+					>
+						<KpiStat
+							metrics={[
+								{
+									label: "Capacity",
+									value: `${burn.activeBets} / ${burn.capacity}`,
+									sub: "active bets",
+								},
+							]}
+						/>
+					</div>
 					{/* Agent Health tile — derives from roster; empty → "—"/"No agents" */}
 					{(() => {
-						if (roster.length === 0) {
-							return <StatTile label="Agent Health" value="—" sub="No agents" />;
-						}
-						if (rosterRunStateUnknown) {
-							return (
-								<StatTile
-									label="Agent Health"
-									value="—"
-									sub={rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state"}
-								/>
+						const agentHealthMetric = (() => {
+							if (roster.length === 0) {
+								return { label: "Agent Health", value: "—", sub: "No agents" };
+							}
+							if (rosterRunStateUnknown) {
+								return {
+									label: "Agent Health",
+									value: "—",
+									sub: rosterRunStatus === "error" ? "Run state unavailable" : "Loading run state",
+								};
+							}
+							const runStates = roster.map(
+								(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
 							);
-						}
-						const runStates = roster.map(
-							(m) => rosterRunState.get(m.agentId) ?? DEFAULT_ROSTER_RUN_STATE,
-						);
-						const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
-						const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
-						// @lore AZ7 B4 (review round 1): this tile rolls up
-						// RosterRunState.healthLevel ("healthy" | "warning" | "critical",
-						// @hyperidle/domain-model team.ts) — a per-agent run-health signal,
-						// computed client-side by useRosterRunState. It is NOT
-						// deriveTeamStatus's "healthy" | "behind" | "blocked" (bets over
-						// capacity / a blocked task; core-api/routes/teams-routes.ts),
-						// which is what the header StatusChip at :728 renders. Two
-						// genuinely different measurements over the same team. The first
-						// attempt reused the header's own word ("Behind") for this tile,
-						// which read as a second, contradicting status for the same
-						// object whenever the two happened to disagree (e.g. header
-						// BLOCKED, tile "Behind" — looks like a typo, is actually two
-						// unrelated facts). Fixed by giving this tile its own label
-						// ("Agent Health", not "Status") and its own vocabulary
-						// ("Needs attention" / "On track", neither of which is a
-						// StatusChip word) so it can never be misread as a second
-						// opinion on team.status.
+							const hasAttention = runStates.some((r) => r.healthLevel !== "healthy");
+							const idleCount = runStates.filter((r) => r.operationalStatus === "idle").length;
+							// @lore AZ7 B4 (review round 1): this tile rolls up
+							// RosterRunState.healthLevel ("healthy" | "warning" | "critical",
+							// @hyperidle/domain-model team.ts) — a per-agent run-health signal,
+							// computed client-side by useRosterRunState. It is NOT
+							// deriveTeamStatus's "healthy" | "behind" | "blocked" (bets over
+							// capacity / a blocked task; core-api/routes/teams-routes.ts),
+							// which is what the header StatusChip at :728 renders. Two
+							// genuinely different measurements over the same team. The first
+							// attempt reused the header's own word ("Behind") for this tile,
+							// which read as a second, contradicting status for the same
+							// object whenever the two happened to disagree (e.g. header
+							// BLOCKED, tile "Behind" — looks like a typo, is actually two
+							// unrelated facts). Fixed by giving this tile its own label
+							// ("Agent Health", not "Status") and its own vocabulary
+							// ("Needs attention" / "On track", neither of which is a
+							// StatusChip word) so it can never be misread as a second
+							// opinion on team.status.
+							return {
+								label: "Agent Health",
+								value: hasAttention ? "Needs attention" : "On track",
+								sub: `${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`,
+							};
+						})();
 						return (
-							<StatTile
-								label="Agent Health"
-								value={hasAttention ? "Needs attention" : "On track"}
-								sub={`${idleCount} idle agent${idleCount !== 1 ? "s" : ""}`}
-							/>
+							<div
+								data-testid="stat-tile"
+								className="border-width-thin flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px]"
+							>
+								<KpiStat metrics={[agentHealthMetric]} />
+							</div>
 						);
 					})()}
 				</div>
@@ -389,42 +423,15 @@ function WorkTeamLoaded({
 					}
 				/>
 				{activeBets.length === 0 ? (
-					<>
-						<EmptyState
-							title="No active bets"
-							description="This team has no bets in flight."
-							dataTestId="team-active-bets-empty"
-						/>
-						{hintCreateBet.visible && (
-							<div
-								role="status"
-								data-testid={hintCreateBet.testId}
-								className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[9px]"
-							>
-								<p className="type-copy  text-[var(--text-secondary)] ">{hintCreateBet.copy}</p>
-								<div className="flex gap-[9px]">
-									<Button
-										variant="ghost"
-										size="sm"
-										className="text-[var(--text-tertiary)]"
-										onClick={hintCreateBet.dismiss}
-									>
-										Got it
-									</Button>
-								</div>
-							</div>
-						)}
-					</>
+					<EmptyState
+						title="No active bets"
+						description="This team has no bets in flight."
+						dataTestId="team-active-bets-empty"
+					/>
 				) : (
 					<ItemList variant="flush" isEmpty={false}>
 						{activeBets.map((bet) => (
-							<BetRow
-								key={bet.id}
-								bet={bet}
-								onNavigate={() => {
-									navigate(`/work/bet/${encodeURIComponent(bet.id)}`);
-								}}
-							/>
+							<BetRow key={bet.id} bet={bet} href={`/work/bet/${encodeURIComponent(bet.id)}`} />
 						))}
 					</ItemList>
 				)}
@@ -486,12 +493,12 @@ function WorkTeamLoaded({
 											</span>
 										),
 									},
-									{ content: routine.scheduleLabel, width: 80, align: "start" },
+									// @lore NEW-10: removed fixed width:80 — "Every Monday at 10:00 AM" needs
+									// ~173px; the name (flex-1) has plenty of empty space to give back.
+									{ content: routine.scheduleLabel, align: "start" },
 									{ content: lastRunLabel, width: 60, numeric: true },
 								]}
-								onClick={() => {
-									navigate(`/work/routine/${encodeURIComponent(routine.id)}`);
-								}}
+								href={`/work/routine/${encodeURIComponent(routine.id)}`}
 							/>
 						);
 					})}
@@ -516,23 +523,6 @@ function WorkTeamLoaded({
 					}
 				/>
 
-				{/* AB3 first-time hint — moved position, same logic */}
-				{hintReviewAgents.visible && roster.length > 0 && (
-					<div
-						role="status"
-						data-testid={hintReviewAgents.testId}
-						className="rounded-[var(--r-subtle)] p-[18px] flex flex-col gap-[6px] mb-[6px]"
-						style={{ background: "color-mix(in oklab, var(--accent-deep) 4%, transparent)" }}
-					>
-						<p className="type-small  text-[var(--text-secondary)] ">{hintReviewAgents.copy}</p>
-						<div className="flex gap-[9px]">
-							<Button variant="ghost" size="sm" type="button" onClick={hintReviewAgents.dismiss}>
-								Got it
-							</Button>
-						</div>
-					</div>
-				)}
-
 				<ItemList
 					variant="flush"
 					isEmpty={roster.length === 0}
@@ -546,7 +536,7 @@ function WorkTeamLoaded({
 						const memberStatus = runState.operationalStatus;
 						const healthLevel = runState.healthLevel;
 						const healthDetail = runState.healthDetail;
-						const initials = member.name.slice(0, 2).toUpperCase();
+						const initials = deriveInitials(member.name);
 
 						const healthTone = rosterRunStateUnknown
 							? ("neutral" as const)
@@ -632,31 +622,51 @@ function WorkTeamLoaded({
 									{
 										// @lore AZ7 Set 5: RowCell.tone is deleted — the error tint moves onto
 										// the content itself.
+										// @lore NEW-27: width:160 caps the context cell so the agent name
+										// (flex-1 min-w-0 in Row) is never starved to zero-width in
+										// narrow SplitView panes. The cell is shrink-0 so without a cap
+										// the role description eats all available space at ~576px pane
+										// widths; the name collapses to width:0 and is invisible on
+										// screen even though it is present in DOM. 160px truncates with
+										// ellipsis ("Engineer. Im…") which is readable and matches the
+										// prior width:140 that @lore NEW-10 removed.
 										content: contextIsError ? (
 											<span className="text-[var(--status-error)]">{contextText}</span>
 										) : (
 											contextText
 										),
-										width: 140,
+										width: 160,
 										align: "start",
 										"data-testid": "agent-context",
 									},
 								]}
 								actions={
-									<Button
-										variant="ghost"
-										size="sm"
-										className="shrink-0"
-										onClick={(e) => {
-											e.stopPropagation();
-											// @lore AV4: Customize now opens AgentDetailPane in the split pane
-											// via ?agent search param, not AgentEditDialog modal (AC#3).
-											setSearchParams({ agent: member.agentId });
-										}}
-										data-testid="agent-customize-btn"
-									>
-										Customize
-									</Button>
+									<div className="flex shrink-0 items-center gap-[6px]">
+										{/* NEW-29: real <a href> to agent profile so the page is reachable
+										    via ⌘-click, middle-click, and browser hover-preview. */}
+										<RRLink
+											to={`/agents/${encodeURIComponent(member.agentId)}`}
+											onClick={(e) => e.stopPropagation()}
+											className="type-control shrink-0 inline-flex items-center rounded-[var(--r-pill)] px-[12px] py-[7px] min-h-[44px] lg:min-h-[32px] text-[var(--accent-deep)] hover:bg-[var(--accent-primary-dim)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+											data-testid="agent-profile-link"
+										>
+											Profile
+										</RRLink>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="shrink-0"
+											onClick={(e) => {
+												e.stopPropagation();
+												// @lore AV4: Customize now opens AgentDetailPane in the split pane
+												// via ?agent search param, not AgentEditDialog modal (AC#3).
+												setSearchParams({ agent: member.agentId });
+											}}
+											data-testid="agent-customize-btn"
+										>
+											Customize
+										</Button>
+									</div>
 								}
 								onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
 							/>
@@ -816,64 +826,23 @@ function WorkTeamLoaded({
 }
 
 // ---------------------------------------------------------------------------
-// StatTile — AG1: private display tile for the summary stat strip.
-// Label-over-value layout. Not exported — file-local helper only.
-// Each tile gets data-testid="stat-tile" so tests can count and inspect them.
-// ---------------------------------------------------------------------------
-
-/**
- * AG1: Private stat tile. One tile per summary metric (Burn/Cap/Capacity/Status).
- * Display-only; no interactivity. value and sub are pre-formatted strings.
- *
- * @lore AG1: flex-1 min-w-[180px] allows tiles to wrap (flex-wrap on container)
- * at narrow viewports without breaking to 4 stacked rows at normal desktop widths.
- */
-function StatTile({
-	label,
-	value,
-	sub,
-}: {
-	label: string;
-	value: string;
-	sub?: string;
-}): JSX.Element {
-	return (
-		<div
-			data-az16-profile="thin"
-			data-testid="stat-tile"
-			className="border-[var(--bw-thin)] flex-1 min-w-[180px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] p-[18px] flex flex-col gap-[6px]"
-		>
-			<span
-				data-az16-profile="label"
-				className="type-label   uppercase   text-[var(--text-tertiary)]"
-			>
-				{label}
-			</span>
-			<span
-				data-az16-profile="metric"
-				className="type-metric   text-[var(--text-primary)] tabular-nums"
-			>
-				{value}
-			</span>
-			{sub !== undefined && (
-				<span className="type-label  text-[var(--text-tertiary)] tabular-nums">{sub}</span>
-			)}
-		</div>
-	);
-}
+// StatTile removed — replaced by KpiStat (design-system primitive) + border card
+// wrapper in the stat strip. See @lore UI-065 comment in the R4 section above.
 
 /**
  * Single active-bet row rendered inside R2. Uses design-system Row for flush layout.
  * @lore F1 (POLISH-060): replaced hand-rolled grey button with Row primitive — drops
  * bg-[var(--surface-container)] so bets sit flush on the page, not in a grey card.
  */
-function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => void }): JSX.Element {
+// @lore UI-080: href instead of onClick so ⌘-click / middle-click work natively.
+// StatusChip (actions) is display-only so nesting inside <a> is valid.
+function BetRow({ bet, href }: { bet: BetCardSummary; href: string }): JSX.Element {
 	const progressText = bet.progressTotal > 0 ? `${bet.progressDone}/${bet.progressTotal}` : "—";
 
 	return (
 		<Row
 			title={bet.descriptionTitle}
-			onClick={onNavigate}
+			href={href}
 			cells={[{ content: progressText, numeric: true }]}
 			actions={
 				/* C1: label so team surface reads "ACTIVE" not "HEALTHY" */

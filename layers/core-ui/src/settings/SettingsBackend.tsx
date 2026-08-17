@@ -48,11 +48,16 @@ export function SettingsBackend(): JSX.Element {
 	const state = resolveBackendState();
 	const { mode: modeLabel, hint: modeHint } = LABELS[state];
 
+	/* @lore FR-17: Backend uses flat section layout per settings-consistency.md.
+	 * Mode is displayed as a labeled key–value pair so it reads as structured data
+	 * rather than a loose list of spans. */
 	return (
-		<div className="flex flex-col gap-[6px] max-w-[400px]">
-			<span className="type-small   text-[var(--text-primary)]">Mode</span>
-			<span className="type-small  text-[var(--text-secondary)]">{modeLabel}</span>
-			<span className="type-metadata  text-[var(--text-tertiary)]">{modeHint}</span>
+		<div className="flex flex-col gap-[18px]">
+			<div className="flex flex-col gap-[6px]">
+				<span className="type-label uppercase text-[var(--text-tertiary)]">Mode</span>
+				<span className="type-small text-[var(--text-primary)]">{modeLabel}</span>
+				<span className="type-metadata text-[var(--text-tertiary)]">{modeHint}</span>
+			</div>
 		</div>
 	);
 }

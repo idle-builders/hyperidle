@@ -9,26 +9,26 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 // declarations. Shared class construction (including the upstream PageHeader
 // pane consolidation) combines equivalent sites, so the approved receipt
 // expansion is the measured final source-profile population.
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 211, default: 17, strong: 11 } as const;
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 207, default: 17, strong: 11 } as const;
 
 const EXPECTED = {
 	typography: {
-		label: 116,
-		metadata: 231,
-		small: 232,
-		copy: 48,
-		control: 90,
-		input: 11,
+		label: 115, // -1: read-mode ConversationHeader strip removed (was FR-3 +1)
+		metadata: 233, // -1: FR-3 removed type-metadata context wrapper in read-mode header
+		small: 228, // -1: FR-21 StaleRetryCard restyle
+		copy: 45,
+		control: 98, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
+		input: 10,
 		"avatar-initial": 14,
-		subheading: 10,
-		lead: 10,
+		subheading: 9,
+		lead: 9,
 		title: 11,
 		display: 3,
-		metric: 7,
-		data: 99,
+		metric: 5, // -1: AZ-bugs-ui-c removed metric span from WorkBet
+		data: 92, // -5: FR-20 keyboard hint bar removal + FR-21 StaleRetryCard restyle
 		"inline-code": 2,
 	},
-	motion: { feedback: 9, move: 15, spring: 2, enter: 1, activity: 7, loading: 6, busy: 2 },
+	motion: { feedback: 9, move: 16, spring: 2, enter: 1, activity: 7, loading: 6, busy: 2 },
 	border: APPROVED_BORDER_RECEIPT_EXPANSION,
 } as const;
 

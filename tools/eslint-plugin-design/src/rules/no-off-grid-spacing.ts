@@ -121,7 +121,7 @@ export const noOffGridSpacing: Rule.RuleModule = createRule({
 						const match = COMPOSITION_CLASS.exec(token);
 						if (!match) continue;
 						const [, property, value] = match;
-						if (!property || !value) continue;
+						if (!(property && value)) continue;
 						if (TOKEN_VALUE.test(value)) continue;
 						if (/^\[-/.test(value)) continue;
 						if (property.startsWith("m") && NON_NUMERIC_MARGIN.test(value)) continue;

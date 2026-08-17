@@ -8,10 +8,17 @@
  * AC-4: Conversations sub-nav shows recent threads.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render as renderRaw, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { SidebarProps } from "../../shell/Sidebar";
 import { Sidebar } from "../../shell/Sidebar";
+
+// UI-080: Sidebar uses <Link> — requires router context.
+function render(element: ReactElement): ReturnType<typeof renderRaw> {
+	return renderRaw(<MemoryRouter>{element}</MemoryRouter>);
+}
 
 function makeProps(overrides: Partial<SidebarProps> = {}): SidebarProps {
 	return {

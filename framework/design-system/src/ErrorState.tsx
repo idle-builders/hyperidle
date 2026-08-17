@@ -23,7 +23,7 @@ import { dsProps } from "./ds-attrs";
 
 /** Pill-shaped primary button — matches Button.html "default" size spec exactly. */
 const RETRY_BTN_CLASS =
-	"inline-flex items-center justify-center px-[18px] py-[10px] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[var(--bw-default)] border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
+	"inline-flex items-center justify-center px-[18px] py-[10px] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-width-default border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
 
 /**
  * Compact retry pill — smaller than the full variant, inline-sized.
@@ -35,7 +35,7 @@ const RETRY_BTN_CLASS =
  * 18px-padded panel, not a floating slab. Mirrors `Select.tsx` `@lore AG5 fix-1`.
  */
 const RETRY_BTN_COMPACT_CLASS =
-	"inline-flex items-center justify-center px-[12px] py-[7px] min-h-[44px] xl:min-h-[30px] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-[var(--bw-default)] border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
+	"inline-flex items-center justify-center px-[12px] py-[7px] min-h-[44px] xl:min-h-[30px] text-[var(--text-on-accent)] bg-[var(--accent-primary)] rounded-[var(--r-pill)] border-width-default border-transparent cursor-pointer hover:bg-[var(--accent-primary-hover)] active:scale-[0.97]";
 
 const DEFAULT_ERROR_ICON = (
 	<svg
