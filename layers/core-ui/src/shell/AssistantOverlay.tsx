@@ -549,7 +549,7 @@ export function AssistantOverlay({
 			onKeyDown={overlayProps.onKeyDown}
 			className={`motion-enter ${[
 				"fixed bottom-16 right-4",
-				"w-[360px] min-h-[200px] max-h-[70vh]",
+				"w-[360px] h-[70vh]",
 				"flex flex-col overflow-hidden",
 				"rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-overlay)]",
 				"shadow-[var(--shadow-elevated)]",
