@@ -542,27 +542,23 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 				// empty container if rendered with no visible content. Skip it entirely
 				// on mobile unless dialInButton is present (the only mobile-visible
 				// content). Desktop always renders the full header.
-				inspection
-					? undefined
-					: !sidebarMobile || dialInButton
-						? (
-								<PageHeader
-									title={threadTitle}
-									leading={
-										sidebarMobile ? undefined : (
-											<Breadcrumb
-												segments={[
-													{ label: "Conversations", to: "/conversations" },
-													{ label: threadTitle },
-												]}
-												LinkComponent={Link}
-											/>
-										)
-									}
-									actions={dialInButton}
+				inspection ? undefined : !sidebarMobile || dialInButton ? (
+					<PageHeader
+						title={threadTitle}
+						leading={
+							sidebarMobile ? undefined : (
+								<Breadcrumb
+									segments={[
+										{ label: "Conversations", to: "/conversations" },
+										{ label: threadTitle },
+									]}
+									LinkComponent={Link}
 								/>
 							)
-						: undefined
+						}
+						actions={dialInButton}
+					/>
+				) : undefined
 			}
 			body="managed"
 		>
