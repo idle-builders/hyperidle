@@ -282,8 +282,9 @@ export function SettingsHarnesses(): JSX.Element {
 						</div>
 					</div>
 
+					{/* @lore FR-14: contract = hairline-border container, no shadow. */}
 					{/* Backend rows */}
-					<div className="border-width-thin  border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
+					<div className="border-width-thin border-[var(--border-subtle)] rounded-[var(--r-subtle)] bg-[var(--surface-elevated)] overflow-hidden">
 						<ItemList as="ul" isEmpty={sorted.length === 0} variant="flush">
 							{sorted.map((descriptor) => {
 								const sl = statusLine(descriptor);
