@@ -31,6 +31,7 @@ import {
 	EmptyState,
 	ErrorState,
 	Input,
+	KpiStat,
 	LiveDot,
 	Menu,
 	PageHeader,
@@ -927,11 +928,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					lockedScopeId={bet.id}
 				/>
 
-				{/* W3 AC-20: Stat cards row */}
+				{/* W3 AC-20: Stat cards row — @lore UI-065: migrated from hand-rolled
+					    label/value spans to KpiStat (design-system primitive). Progress bar
+					    and team avatar kept below KpiStat for visual context. */}
 				<div data-testid="bet-stats-row" className="flex gap-[18px]">
 					{/* Progress stat card — AF16 T1 (Z8-019/020): branch on total>0, not object truthiness */}
-					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1">
-						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Progress</span>
+					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[12px] flex-1">
 						{/* @lore AF16 T1: old guard `bet.progress ?` was truthy even when total=0,
 							    producing 0/0=NaN. Now branch on hasTasks (total>0). */}
 						{(() => {
@@ -941,23 +943,27 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 							const pct = hasTasks
 								? Math.min(100, Math.max(0, Math.round((done / total) * 100)))
 								: 0;
-							return hasTasks ? (
+							return (
 								<>
-									<span className="type-metric    tabular-nums text-[var(--text-primary)]">
-										{pct}%
-									</span>
-									<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden mt-[9px]">
-										<div
-											data-testid="bet-progress-bar"
-											className="h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]"
-											style={{ width: `${pct}%` }}
-										/>
-									</div>
+									<KpiStat
+										metrics={[
+											{
+												label: "Progress",
+												value: hasTasks ? `${pct}%` : "—",
+												sub: hasTasks ? `${done} of ${total} tasks` : "No tasks yet",
+											},
+										]}
+									/>
+									{hasTasks && (
+										<div className="w-full h-[8px] bg-[var(--surface-container)] rounded-[var(--r-pill)] overflow-hidden">
+											<div
+												data-testid="bet-progress-bar"
+												className="h-full bg-[var(--accent-primary)] rounded-[var(--r-pill)]"
+												style={{ width: `${pct}%` }}
+											/>
+										</div>
+									)}
 								</>
-							) : (
-								<span className="type-small  text-[var(--text-secondary)] mt-[3px]">
-									No tasks yet
-								</span>
 							);
 						})()}
 					</div>
@@ -967,14 +973,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						    avatar + team name until the API exposes member data. */}
 					<div
 						data-stat-card="team"
-						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] flex-1"
+						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[9px] flex-1"
 					>
-						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Team</span>
-						<div className="flex items-center gap-[9px] mt-[9px]">
-							{/* AI5: shared Avatar primitive. Initials now derive via slice
-								    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
+						<KpiStat
+							metrics={[{ label: "Team", value: bet.team }]}
+						/>
+						{/* AI5: shared Avatar primitive. Initials now derive via slice
+							    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
+						<div className="flex items-center gap-[9px]">
 							<Avatar initials={deriveInitials(bet.team)} size="sm" className="shrink-0" />
-							<span className="type-small   text-[var(--text-primary)] truncate">{bet.team}</span>
 						</div>
 					</div>
 				</div>

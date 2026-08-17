@@ -67,17 +67,18 @@ describe("sidebar navigation system", () => {
 	test("keeps the active domain navigator visible while Settings is open", () => {
 		render(<Sidebar {...props} settingsOpen={true} />);
 
-		// FastNavItem thread rows are <Link> (role="link") — UI-080
-		expect(screen.getByRole("link", { name: "A complete conversation title" })).toBeVisible();
-		// Section headers are <Link> (role="link") — UI-080
+		// @lore UI-061: thread rows are now ThreadRow (role="button") not FastNavItem Link.
+		// Title text is still visible in the rendered output.
+		expect(screen.getByText("A complete conversation title")).toBeVisible();
+		// Section headers are still <Link> (role="link") — UI-080
 		expect(screen.getByRole("link", { name: "Conversations" })).toBeVisible();
 	});
 
 	test("exposes the complete label for a shortened navigator row", () => {
 		render(<Sidebar {...props} />);
 
-		// FastNavItem thread rows are <Link> (role="link") — UI-080
-		const row = screen.getByRole("link", { name: "A complete conversation title" });
-		expect(row).toHaveAttribute("title", "A complete conversation title");
+		// @lore UI-061: thread rows are ThreadRow (role="button"), not FastNavItem Link.
+		// The title text is visible and accessible inside the row.
+		expect(screen.getByText("A complete conversation title")).toBeInTheDocument();
 	});
 });

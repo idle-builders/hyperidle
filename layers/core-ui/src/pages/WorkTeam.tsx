@@ -500,7 +500,9 @@ function WorkTeamLoaded({
 											</span>
 										),
 									},
-									{ content: routine.scheduleLabel, width: 80, align: "start" },
+									// @lore NEW-10: removed fixed width:80 — "Every Monday at 10:00 AM" needs
+									// ~173px; the name (flex-1) has plenty of empty space to give back.
+									{ content: routine.scheduleLabel, align: "start" },
 									{ content: lastRunLabel, width: 60, numeric: true },
 								]}
 								onClick={() => {
@@ -629,12 +631,13 @@ function WorkTeamLoaded({
 									{
 										// @lore AZ7 Set 5: RowCell.tone is deleted — the error tint moves onto
 										// the content itself.
+										// @lore NEW-10: removed fixed width:140 — role description needs
+										// 400+px; the name (flex-1) has ample empty space to give back.
 										content: contextIsError ? (
 											<span className="text-[var(--status-error)]">{contextText}</span>
 										) : (
 											contextText
 										),
-										width: 140,
 										align: "start",
 										"data-testid": "agent-context",
 									},
