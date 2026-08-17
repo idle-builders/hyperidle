@@ -9,6 +9,13 @@ export interface ArtifactStackItemProps {
 	data: Artifact;
 	onOpen: () => void;
 	state?: "populated" | "loading" | "error";
+	/**
+	 * When set, renders as an <a href> link so ⌘-click, middle-click,
+	 * "copy link" and hover-preview work natively.
+	 *
+	 * @lore UI-080: artifact rows must be real links.
+	 */
+	href?: string;
 }
 
 const ROW =
@@ -33,17 +40,12 @@ const PILL =
 export function ArtifactStackItem({
 	data,
 	onOpen,
+	href,
 	state = "populated",
 }: ArtifactStackItemProps): JSX.Element {
 	const count = data.threadCount;
-	return (
-		<button
-			{...dsProps("ArtifactStackItem", "2")}
-			className={ROW}
-			onClick={onOpen}
-			type="button"
-			data-state={state}
-		>
+	const inner = (
+		<>
 			<span className={LEFT}>
 				<ArtifactKindBadge kind={data.kind} />
 				<span className={`type-copy ${TITLE}`}>{artifactDisplayTitle(data)}</span>
@@ -60,6 +62,27 @@ export function ArtifactStackItem({
 				) : null}
 				<ArtifactTimestamp value={data.createdAt} />
 			</span>
+		</>
+	);
+
+	// UI-080: href → real anchor link for native ⌘-click / middle-click support.
+	if (href) {
+		return (
+			<a {...dsProps("ArtifactStackItem", "2")} href={href} className={ROW} data-state={state}>
+				{inner}
+			</a>
+		);
+	}
+
+	return (
+		<button
+			{...dsProps("ArtifactStackItem", "2")}
+			className={ROW}
+			onClick={onOpen}
+			type="button"
+			data-state={state}
+		>
+			{inner}
 		</button>
 	);
 }

@@ -182,14 +182,19 @@ describe("ThreadSections component", () => {
 		expect(container.querySelector("[data-thread-section='blocking']")).toBeNull();
 	});
 
-	it("forwards onSelect with the row's thread id", () => {
-		const calls: string[] = [];
+	// UI-080: ThreadRow now renders as <a href> — navigation is via the link,
+	// not via the onSelect callback. Verify that each row has an href pointing
+	// to its conversation route.
+	it("each thread row is an anchor with href to /conversations/:id", () => {
 		const { container } = render(
-			<ThreadSections threads={threads} now={NOW} onSelect={(id) => calls.push(id)} />,
+			<ThreadSections threads={threads} now={NOW} />,
 		);
-		const firstRow = container.querySelector("[data-ds-component='ThreadRow']") as HTMLElement;
-		firstRow.click();
-		expect(calls.length).toBe(1);
+		const rows = Array.from(container.querySelectorAll("[data-ds-component='ThreadRow']"));
+		expect(rows.length).toBeGreaterThan(0);
+		for (const row of rows) {
+			expect(row.tagName.toLowerCase()).toBe("a");
+			expect(row.getAttribute("href")).toMatch(/\/conversations\/.+/);
+		}
 	});
 
 	it("renders skeleton rows while loading instead of EmptyState", () => {

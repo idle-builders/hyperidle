@@ -10,6 +10,13 @@ export interface ArtifactGalleryCardProps {
 	data: Artifact;
 	onOpen: () => void;
 	state?: "populated" | "loading" | "error";
+	/**
+	 * When set, renders as an <a href> link so ⌘-click, middle-click,
+	 * "copy link" and hover-preview work natively.
+	 *
+	 * @lore UI-080: artifact gallery cards must be real links.
+	 */
+	href?: string;
 }
 
 const CARD_BASE =
@@ -24,18 +31,12 @@ const PILL =
 export function ArtifactGalleryCard({
 	data,
 	onOpen,
+	href,
 	state = "populated",
 }: ArtifactGalleryCardProps): JSX.Element {
 	const count = data.threadCount;
-	return (
-		<button
-			{...dsProps("ArtifactGalleryCard", "2")}
-			className={`motion-move ${CARD_BASE}`}
-			onClick={onOpen}
-			type="button"
-			data-state={state}
-			aria-label={artifactDisplayTitle(data)}
-		>
+	const inner = (
+		<>
 			<div className={`type-data ${HEADER}`}>
 				<ArtifactKindBadge kind={data.kind} />
 				{data.label && (
@@ -57,6 +58,34 @@ export function ArtifactGalleryCard({
 					<span className={PILL}>{count === 1 ? "1 thread" : `${count} threads`}</span>
 				) : null}
 			</div>
+		</>
+	);
+
+	// UI-080: href → real anchor link for native ⌘-click / middle-click support.
+	if (href) {
+		return (
+			<a
+				{...dsProps("ArtifactGalleryCard", "2")}
+				href={href}
+				className={`motion-move ${CARD_BASE}`}
+				data-state={state}
+				aria-label={artifactDisplayTitle(data)}
+			>
+				{inner}
+			</a>
+		);
+	}
+
+	return (
+		<button
+			{...dsProps("ArtifactGalleryCard", "2")}
+			className={`motion-move ${CARD_BASE}`}
+			onClick={onOpen}
+			type="button"
+			data-state={state}
+			aria-label={artifactDisplayTitle(data)}
+		>
+			{inner}
 		</button>
 	);
 }

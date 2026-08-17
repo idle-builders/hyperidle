@@ -184,6 +184,7 @@ export function ArtifactSection({
 							key={artifact.id}
 							data={artifact}
 							onOpen={() => handleOpen(artifact.id)}
+							href={`/artifacts/${encodeURIComponent(artifact.id)}`}
 						/>
 					))}
 				</div>
@@ -196,6 +197,7 @@ export function ArtifactSection({
 							key={artifact.id}
 							data={artifact}
 							onOpen={() => handleOpen(artifact.id)}
+							href={`/artifacts/${encodeURIComponent(artifact.id)}`}
 						/>
 					))}
 				</div>

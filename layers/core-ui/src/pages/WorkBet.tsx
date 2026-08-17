@@ -1356,21 +1356,15 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 								const relTime = task.startedAt ? relativeLong(task.startedAt) : "";
 								const metaParts = [task.owner, relTime].filter(Boolean);
 								return (
-									<button
+									// @lore UI-080: <a href> so ⌘-click / middle-click work natively.
+									// StatusChip / LiveDot inside are display-only — valid inside <a>.
+									<a
 										key={task.id}
-										type="button"
 										data-testid="task-row"
-										// This is functionally a Row (title + subtitle-ish meta,
-										// clickable, hover tint) and belongs on <Row>, but Row's
-										// button-branch is missing w-full today (bug-list UI-060,
-										// unfixed — "do this first, several rows below depend on
-										// it"). Migrating onto the broken branch would shrink-wrap
-										// this row narrower than its current w-full. Left as a
-										// hand-rolled row pending UI-060.
+										href={`/work/bet/${encodeURIComponent(bet.id)}/task/${encodeURIComponent(task.id)}`}
 										// @lore AZ7 N1: hover:bg-[var(--accent-primary-dim)] is Set 3's
 										// row-hover tint — not a no-handrolled-control violation.
 										className="flex items-center gap-[12px] py-[12px] border-width-thin-b border-[var(--border-subtle)] last:border-none cursor-pointer hover:bg-[var(--accent-primary-dim)] text-left w-full"
-										onClick={() => navigate(`/work/bet/${bet.id}/task/${task.id}`)}
 										aria-label={task.title}
 									>
 										<div className="flex-1 min-w-0">
@@ -1404,7 +1398,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												/>
 											</span>
 										)}
-									</button>
+									</a>
 								);
 							})}
 						</div>

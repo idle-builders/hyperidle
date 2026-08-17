@@ -178,6 +178,13 @@ export interface ThreadSectionsProps {
 	threads: ReadonlyArray<ThreadItem>;
 	/** Milliseconds since epoch. Defaults to Date.now() at render time. */
 	now?: number;
+	/**
+	 * @deprecated Navigation is now handled by ThreadRow's href prop.
+	 * Retained so existing callers compile without changes.
+	 *
+	 * @lore UI-080: ThreadRow renders as <a href> — the selected state updates
+	 * via selectedId (URL-derived), so onSelect is no longer needed for navigation.
+	 */
 	onSelect?: (id: string) => void;
 	/** L8: lifted-selection target — at most one row carries aria-current. */
 	selectedId?: string | null;
@@ -205,7 +212,7 @@ export interface ThreadSectionsProps {
 export function ThreadSections({
 	threads,
 	now = Date.now(),
-	onSelect,
+	onSelect: _onSelect,
 	selectedId = null,
 	errorMessage,
 	onRetry,
@@ -268,7 +275,7 @@ export function ThreadSections({
 								pinned={t.pinned}
 								hostTag={t.hostKind}
 								selected={selectedId === t.id}
-								onClick={onSelect ? () => onSelect(t.id) : undefined}
+								href={`/conversations/${encodeURIComponent(t.id)}`}
 							/>
 						))}
 					</div>
@@ -407,7 +414,7 @@ export function ThreadSections({
 											pinned={t.pinned}
 											hostTag={t.hostKind}
 											selected={selectedId === t.id}
-											onClick={onSelect ? () => onSelect(t.id) : undefined}
+											href={`/conversations/${encodeURIComponent(t.id)}`}
 										/>
 									</li>
 								))}

@@ -250,8 +250,10 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 		expect(taskRows.length).toBeGreaterThan(0);
 	});
 
-	it("clicking a task row navigates to task detail route", async () => {
-		const user = userEvent.setup();
+	// UI-080: task rows are now <a href> links so ⌘-click / middle-click work natively.
+	// In jsdom + MemoryRouter, <a href> clicks don't trigger SPA navigation; the correct
+	// assertion is that each row has an href pointing to the task detail route.
+	it("task row is an anchor link with href to task detail route", () => {
 		const betWithTask: BetDetail = {
 			...MOCK_BETS.b1!,
 			tasks: [
@@ -268,20 +270,15 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 			<MemoryRouter initialEntries={[`/work/bet/${betWithTask.id}`]}>
 				<Routes>
 					<Route path="/work/bet/:betId" element={<WorkBet overrideBet={betWithTask} />} />
-					<Route
-						path="/work/bet/:betId/task/:taskId"
-						element={<div data-testid="task-detail-page" />}
-					/>
 				</Routes>
 			</MemoryRouter>,
 		);
 
 		const taskRow = document.querySelector("[data-testid='task-row']");
-		if (taskRow) {
-			await user.click(taskRow as HTMLElement);
-		}
-		// After clicking, MemoryRouter navigates to the task detail route
-		expect(document.querySelector("[data-testid='task-detail-page']")).toBeInTheDocument();
+		expect(taskRow).not.toBeNull();
+		expect(taskRow?.tagName.toLowerCase()).toBe("a");
+		// href must point to the task detail route
+		expect(taskRow?.getAttribute("href")).toMatch(/\/work\/bet\/.+\/task\/.+/);
 	});
 });
 

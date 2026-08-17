@@ -69,6 +69,15 @@ export interface RowProps {
 	/** trailing buttons; presence triggers div[role=button] wrapper */
 	actions?: ReactNode;
 	onClick?: () => void;
+	/**
+	 * When set, the whole row renders as an <a href> link so ⌘-click,
+	 * middle-click, "copy link" and hover-preview all work natively.
+	 * Actions in this mode MUST be display-only (no nested <button>/<a>).
+	 *
+	 * @lore UI-080: navigation rows that change the address must be real links,
+	 * not buttons with programmatic navigate() calls.
+	 */
+	href?: string;
 	selected?: boolean;
 	/** escape hatch; default heuristic (§nested-button) is correct without it */
 	as?: "button" | "div" | "li";
@@ -127,6 +136,7 @@ export function Row({
 	cells,
 	actions,
 	onClick,
+	href,
 	selected = false,
 	as: asProp,
 	"data-testid": dataTestId,
@@ -205,6 +215,21 @@ export function Row({
 	// button and li>div branches had zero hover/focus. Now every interactive
 	// wrapper goes through clickableProps(onClick, baseClasses) — one path to rule them all.
 	const clickable = onClick ? clickableProps(onClick, baseClasses) : null;
+
+	// UI-080: href takes priority — renders a real anchor link so ⌘-click,
+	// middle-click, "copy link" and hover-preview work natively. Actions must be
+	// display-only (no nested <button>/<a>) when href is used.
+	if (href) {
+		return (
+			<a
+				href={href}
+				{...commonProps}
+				className={`w-full text-left ${clickable?.className ?? baseClasses}`}
+			>
+				{inner}
+			</a>
+		);
+	}
 
 	if (resolvedAs === "button") {
 		// Simple: onClick + no actions → native <button type="button">

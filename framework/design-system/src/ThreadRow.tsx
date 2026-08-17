@@ -57,6 +57,13 @@ export interface ThreadRowProps {
 	actions?: ReactNode;
 	unread?: boolean;
 	onClick?: () => void;
+	/**
+	 * When set, renders the row as an <a href> link so ⌘-click, middle-click,
+	 * "copy link" and hover-preview work natively.
+	 *
+	 * @lore UI-080: conversation queue rows must be real links.
+	 */
+	href?: string;
 	blocking?: boolean;
 	kind?: "review" | "chat";
 	/**
@@ -97,6 +104,7 @@ export function ThreadRow({
 	actions,
 	unread = false,
 	onClick,
+	href,
 	blocking = false,
 	kind,
 	selected = false,
@@ -125,13 +133,8 @@ export function ThreadRow({
 		.filter(Boolean)
 		.join(" ");
 
-	return (
-		<div
-			{...dsProps("ThreadRow", "2")}
-			{...clickableProps(onClick)}
-			aria-current={selected ? "true" : undefined}
-			className={baseClassName}
-		>
+	const rowContent = (
+		<>
 			{/* Unread indicator — always rendered; transparent spacer for read rows (audit L-12, L-14) */}
 			<span
 				data-testid={unread ? "unread-dot" : "read-dot-spacer"}
@@ -255,6 +258,31 @@ export function ThreadRow({
 				</span>
 			</div>
 			{actions}
+		</>
+	);
+
+	// UI-080: href → real anchor link so ⌘-click / middle-click work natively.
+	if (href) {
+		return (
+			<a
+				{...dsProps("ThreadRow", "2")}
+				href={href}
+				aria-current={selected ? "true" : undefined}
+				className={baseClassName}
+			>
+				{rowContent}
+			</a>
+		);
+	}
+
+	return (
+		<div
+			{...dsProps("ThreadRow", "2")}
+			{...clickableProps(onClick)}
+			aria-current={selected ? "true" : undefined}
+			className={baseClassName}
+		>
+			{rowContent}
 		</div>
 	);
 }

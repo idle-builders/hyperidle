@@ -136,12 +136,15 @@ describe("WorkBet — task rows (W3 flat list, L13 updated)", () => {
 		expect(screen.queryByRole("table")).toBeNull();
 	});
 
-	it("each task row is a button with aria-label", async () => {
+	// UI-080: task rows are now <a href> links so ⌘-click / middle-click work.
+	it("each task row is an anchor link with aria-label and href to task detail", async () => {
 		renderPage();
 		const taskRows = await screen.findAllByTestId("task-row");
 		for (const row of taskRows) {
-			expect(row.tagName.toLowerCase()).toBe("button");
+			expect(row.tagName.toLowerCase()).toBe("a");
 			expect(row.getAttribute("aria-label")).toBeTruthy();
+			// href must point to the task detail route
+			expect(row.getAttribute("href")).toMatch(/\/work\/bet\/.+\/task\/.+/);
 		}
 	});
 });

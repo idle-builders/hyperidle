@@ -431,13 +431,7 @@ function WorkTeamLoaded({
 				) : (
 					<ItemList variant="flush" isEmpty={false}>
 						{activeBets.map((bet) => (
-							<BetRow
-								key={bet.id}
-								bet={bet}
-								onNavigate={() => {
-									navigate(`/work/bet/${encodeURIComponent(bet.id)}`);
-								}}
-							/>
+							<BetRow key={bet.id} bet={bet} href={`/work/bet/${encodeURIComponent(bet.id)}`} />
 						))}
 					</ItemList>
 				)}
@@ -504,9 +498,7 @@ function WorkTeamLoaded({
 									{ content: routine.scheduleLabel, align: "start" },
 									{ content: lastRunLabel, width: 60, numeric: true },
 								]}
-								onClick={() => {
-									navigate(`/work/routine/${encodeURIComponent(routine.id)}`);
-								}}
+								href={`/work/routine/${encodeURIComponent(routine.id)}`}
 							/>
 						);
 					})}
@@ -830,13 +822,15 @@ function WorkTeamLoaded({
  * @lore F1 (POLISH-060): replaced hand-rolled grey button with Row primitive — drops
  * bg-[var(--surface-container)] so bets sit flush on the page, not in a grey card.
  */
-function BetRow({ bet, onNavigate }: { bet: BetCardSummary; onNavigate: () => void }): JSX.Element {
+// @lore UI-080: href instead of onClick so ⌘-click / middle-click work natively.
+// StatusChip (actions) is display-only so nesting inside <a> is valid.
+function BetRow({ bet, href }: { bet: BetCardSummary; href: string }): JSX.Element {
 	const progressText = bet.progressTotal > 0 ? `${bet.progressDone}/${bet.progressTotal}` : "—";
 
 	return (
 		<Row
 			title={bet.descriptionTitle}
-			onClick={onNavigate}
+			href={href}
 			cells={[{ content: progressText, numeric: true }]}
 			actions={
 				/* C1: label so team surface reads "ACTIVE" not "HEALTHY" */
