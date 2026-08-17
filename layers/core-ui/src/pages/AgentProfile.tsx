@@ -386,7 +386,7 @@ function AgentProfileLoaded({
 				{/* Identity block — Avatar + meta. Name/status live in PageHeader (AI7). */}
 				<section
 					aria-label="Agent identity"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<div className="flex items-start gap-[12px]">
 						<Avatar initials={initials} size="md" agent />
@@ -422,8 +422,8 @@ function AgentProfileLoaded({
 								</div>
 							)}
 						</div>
-						{/* F1: Link to Settings — /conversations?settings=open (deep-link broken fix) */}
-						<RRLink to="/conversations?settings=open" className="btn btn-ghost btn-sm shrink-0">
+						{/* @lore FR-18: Link to /settings (real route) — was /conversations?settings=open */}
+						<RRLink to="/settings" className="btn btn-ghost btn-sm shrink-0">
 							Edit in Settings
 						</RRLink>
 					</div>
@@ -433,7 +433,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Configuration"
 					data-testid="agent-config-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Configuration" as="h2" />
 					<div className="flex flex-col gap-[6px] max-w-[320px]">
@@ -461,7 +461,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Harness capabilities"
 					data-testid="agent-capabilities-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Harness Capabilities" as="h2" />
 					<div className="flex flex-wrap gap-[6px]">
@@ -479,7 +479,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Review track record"
 					data-testid="agent-track-record-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Review Track Record" as="h2" />
 					{data.reviewTrackRecord.totalVerdicts === 0 ? (
@@ -507,7 +507,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Recent activity"
 					data-testid="agent-activity-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Recent Activity" as="h2" />
 					{runStateUnavailable ? (
@@ -565,7 +565,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Performance"
 					data-testid="agent-performance-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Performance" as="h2" />
 					<div className="flex gap-[24px] flex-wrap">
