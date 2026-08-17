@@ -118,6 +118,9 @@ export function AgentProfile({
 	const loading = overrideLoading === true || (overrideData === undefined && fetched.loading);
 	const error = overrideError !== undefined ? (overrideError ?? null) : (fetched.error ?? null);
 	const data = overrideData !== undefined ? overrideData : (fetched.data ?? null);
+	// @lore UI-014: httpStatus comes from the hook so AgentProfile can branch on the numeric
+	// code without parsing error.message strings. Null when using overrideError (tests/stories).
+	const httpStatus = overrideError !== undefined ? null : (fetched.httpStatus ?? null);
 
 	if (loading) {
 		return (
@@ -136,7 +139,9 @@ export function AgentProfile({
 	}
 
 	if (error !== null) {
-		const is404 = error.message.includes("404");
+		// @lore UI-014: check httpStatus (numeric, no string parsing) when available;
+		// fall back to error.message parsing for overrideError callers (tests/stories).
+		const is404 = httpStatus === 404 || error.message.includes("404");
 		if (is404) {
 			return (
 				// @lore UI-129: body="managed" gives children a flex-1 flex-col container
@@ -157,11 +162,8 @@ export function AgentProfile({
 				</PageScaffold>
 			);
 		}
-		// @lore UI-014: show a user-facing sentence, no raw status code. The hook's
-		// error.message contains "Agent profile fetch failed: 429" (or similar HTTP codes)
-		// which are meaningless to founders. Map to plain English + a retry.
-		const is429 = error.message.includes("429");
-		const is5xx = /5\d\d/.test(error.message);
+		const is429 = httpStatus === 429 || error.message.includes("429");
+		const is5xx = (httpStatus !== null && httpStatus >= 500) || /5\d\d/.test(error.message);
 		const friendlyMessage = is429
 			? "Too many requests. Please wait a moment and try again."
 			: is5xx
