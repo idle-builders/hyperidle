@@ -257,5 +257,4 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 	});
-
 });

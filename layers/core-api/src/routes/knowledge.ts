@@ -1069,4 +1069,3 @@ export function createKnowledgeRoutes(
 
 	return router;
 }
-
