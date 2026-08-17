@@ -68,6 +68,8 @@ function renderShell(
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					// @lore FR-18: /settings is now a real route — stub avoids 404 error.
+					{ path: "settings", element: <div>Settings Page</div> },
 				],
 			},
 		],

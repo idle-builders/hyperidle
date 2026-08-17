@@ -16,6 +16,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
+import { SettingsPage } from "../pages/SettingsPage";
 
 function renderShell(initialPath = "/conversations"): ReturnType<typeof render> {
 	const router = createMemoryRouter(
@@ -28,6 +29,8 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					// @lore FR-18: /settings is now a real route rendered by Outlet.
+					{ path: "settings", element: <SettingsPage /> },
 				],
 			},
 		],

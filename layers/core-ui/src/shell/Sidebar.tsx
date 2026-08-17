@@ -780,11 +780,12 @@ export function Sidebar({
 					open={notificationPopoverOpen}
 					drawerMode={drawerMode}
 				/>
+				{/* @lore FR-18: suppress domain-section highlight at /settings — no domain is "active". */}
 				{VIEW_IDS.map((view) => (
 					<SectionHeader
 						key={view}
 						view={view}
-						activeView={activeView}
+						activeView={settingsOpen ? "" : activeView}
 						onViewChange={(v) => {
 							onViewChange(v);
 						}}
