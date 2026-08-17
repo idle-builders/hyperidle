@@ -10,13 +10,26 @@ export interface FetchState<T> {
 	isLoading: boolean;
 }
 
-export function useFetch<T>(url: string | null): FetchState<T> {
+/**
+ * UI-010/UI-015: FetchResult extends FetchState with a refetch callback so
+ * callers can offer a retry that re-issues the request without a navigation.
+ * FetchState is kept unchanged so hooks that use it as an internal state type
+ * (useTaskSessions, useKnowledgeItem) are unaffected.
+ */
+export interface FetchResult<T> extends FetchState<T> {
+	refetch: () => void;
+}
+
+export function useFetch<T>(url: string | null): FetchResult<T> {
+	// Incrementing this triggers a re-fetch without changing the URL.
+	const [refetchKey, setRefetchKey] = useState(0);
 	const [state, setState] = useState<FetchState<T>>({
 		data: null,
 		error: null,
 		isLoading: url !== null,
 	});
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: refetchKey is intentionally listed to trigger a re-fetch — it is not read inside the effect body but its change IS the mechanism that re-runs the request (UI-010/UI-015 retry).
 	useEffect(() => {
 		if (url === null) {
 			setState({ data: null, error: null, isLoading: false });
@@ -44,7 +57,10 @@ export function useFetch<T>(url: string | null): FetchState<T> {
 		return (): void => {
 			cancelled = true;
 		};
-	}, [url]);
+	}, [url, refetchKey]);
 
-	return state;
+	return {
+		...state,
+		refetch: () => setRefetchKey((k) => k + 1),
+	};
 }

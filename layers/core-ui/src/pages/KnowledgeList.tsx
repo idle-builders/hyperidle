@@ -276,6 +276,8 @@ interface KnowledgeListContentProps {
 	searchQuery: string;
 	/** Y4: called when the user validates (active) or rejects (archived) a triage item. */
 	onTriageAction: (itemId: string, newStatus: "active" | "archived") => void;
+	/** UI-010/UI-015: re-issues the /api/knowledge request from the error state. */
+	onRetry?: () => void;
 }
 
 function KnowledgeListContent({
@@ -294,6 +296,7 @@ function KnowledgeListContent({
 	onNavigate,
 	searchQuery,
 	onTriageAction,
+	onRetry,
 }: KnowledgeListContentProps): JSX.Element {
 	// Y4: keyboard navigation state for triage items (-1 = no focus)
 	const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -450,7 +453,11 @@ function KnowledgeListContent({
 						</div>
 					) : apiError ? (
 						<div className="py-[12px]">
-							<ErrorState title="Couldn't load knowledge" description={apiError} />
+							<ErrorState
+								title="Couldn't load knowledge"
+								description={apiError}
+								onRetry={onRetry}
+							/>
 						</div>
 					) : isTriageEmpty || filteredTriageItems.length === 0 ? (
 						<div className="flex items-center justify-center p-[48px_24px]">
@@ -667,6 +674,16 @@ function KnowledgeListContent({
 						<div className="py-[12px]">
 							<SkeletonList rows={4} ariaLabel="Loading curated items" />
 						</div>
+					) : apiError ? (
+						/* UI-010: a 500/network failure must show an error state with retry,
+						 * not the "No knowledge items yet" empty state (which implies success). */
+						<div className="py-[12px]">
+							<ErrorState
+								title="Couldn't load knowledge"
+								description={apiError}
+								onRetry={onRetry}
+							/>
+						</div>
 					) : isCuratedEmpty ? (
 						<div className="flex items-center justify-center p-[48px_24px]">
 							<EmptyState
@@ -794,6 +811,7 @@ export function KnowledgeList({
 		data: apiData,
 		isLoading: apiLoading,
 		error: apiError,
+		refetch: apiRefetch,
 	} = useFetch<ApiKnowledgeListResponse>("/api/knowledge");
 
 	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
@@ -1085,6 +1103,7 @@ export function KnowledgeList({
 					onNavigate={(id) => navigate(`/knowledge/${id}`)}
 					searchQuery={searchQuery}
 					onTriageAction={handleTriageAction}
+					onRetry={apiRefetch}
 				/>
 			)}
 		</PageScaffold>
