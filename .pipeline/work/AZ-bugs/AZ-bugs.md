@@ -32,10 +32,10 @@ Highest severity. A user hits these and the product does nothing or the wrong th
 `empty ≠ loading ≠ failed`. The design system already ships `EmptyState` and `ErrorState`; this is adoption, not invention.
 
 - [x] **UI-010** A 500 renders as "your knowledge base is empty" — *`/knowledge` with the API failing* · Now: confident empty state + "Create first item", and the header toolbar vanishes · Done: states the load failed and offers retry · **S**
-- [ ] **UI-011** Sidebar says "No teams yet" while still loading · Done: loading state, not an empty claim · **S**
-- [ ] **UI-012** Sidebar says "No knowledge yet" while still loading · **S**
-- [ ] **UI-013** Sidebar says "No threads yet" after a 429 · **S**
-- [ ] **UI-014** Agent profile error shows a raw status code — *"Agent profile fetch failed: 429"* · Done: user-facing sentence, no status code, with retry · **S**
+- [x] **UI-011** Sidebar says "No teams yet" while still loading · Done: loading state, not an empty claim · **S**
+- [x] **UI-012** Sidebar says "No knowledge yet" while still loading · **S**
+- [x] **UI-013** Sidebar says "No threads yet" after a 429 · **S**
+- [x] **UI-014** Agent profile error shows a raw status code — *"Agent profile fetch failed: 429"* · Done: user-facing sentence, no status code, with retry · **S**
 - [x] **UI-015** No retry affordance on any failed surface · Done: retry re-issues the request and renders in place, no page reload · **S**
 - [x] **UI-016** Skeleton doesn't resemble the content it replaces — *`/work/team/:id`* · Now: 16 identical bars stand in for 2 cards + 3 structured sections, inset 20px differently, so content jumps on arrival · Done: placeholder occupies the same regions as the real content · **S**
 - [x] **UI-017** Page title shows placeholder "Team" then swaps to the real name · Done: title skeleton, or the real name on first paint · **S**

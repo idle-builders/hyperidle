@@ -42,7 +42,8 @@
  */
 
 import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
-import { Button, PageHeader } from "@hyperidle/design-system";
+import { Composer as DSComposer, PageHeader } from "@hyperidle/design-system";
+import type { ComposerSubmitInput } from "@hyperidle/design-system";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PartList } from "./PartList.js";
@@ -101,7 +102,6 @@ function Glyph({ d, size = 14 }: { d: string; size?: number }): JSX.Element {
 	);
 }
 const ICON_PLUS = "M7.25 2h1.5v5.25H14v1.5H8.75V14h-1.5V8.75H2v-1.5h5.25V2z";
-const ICON_SEND = "M2 8l12-6-5.2 12-1.8-4.8L2 8z";
 const ICON_PAPERCLIP =
 	"M11.5 3.5a2.5 2.5 0 013.5 3.5l-7 7a4 4 0 11-5.6-5.6l6.3-6.3 1 1L3.4 9.4a2.6 2.6 0 003.6 3.6l7-7a1 1 0 00-1.4-1.4L6 11.2a.5.5 0 00.7.7l5-5 1 1-5 5A2 2 0 014 10.2l6.5-6.5z";
 const ICON_DOC = "M4 1h5l3 3v10a1 1 0 01-1 1H4a1 1 0 01-1-1V2a1 1 0 011-1zm5 1.5V4h1.5L9 2.5z";
@@ -288,103 +288,9 @@ function InsertMenu({ onPick }: { onPick: () => void }): JSX.Element {
 	);
 }
 
-function ComposerInputRow({
-	insertMenuOpen,
-	onToggleMenu,
-	onPickMenu,
-	onSend,
-	placeholder,
-	value,
-	onChange,
-	menuButtonRef,
-}: {
-	insertMenuOpen: boolean;
-	onToggleMenu: () => void;
-	onPickMenu: () => void;
-	onSend: () => void;
-	placeholder: string;
-	value: string;
-	onChange: (next: string) => void;
-	menuButtonRef: React.RefObject<HTMLButtonElement | null>;
-}): JSX.Element {
-	return (
-		<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
-			<div className="relative shrink-0">
-				{insertMenuOpen && <InsertMenu onPick={onPickMenu} />}
-				<button
-					ref={menuButtonRef}
-					type="button"
-					aria-label="Insert"
-					aria-expanded={insertMenuOpen}
-					aria-haspopup="menu"
-					title="Insert block, attach, mention, reference, format"
-					onClick={onToggleMenu}
-					// A pressed/open TOGGLE state, not a Button variant (Button has no
-					// built-in pressed treatment distinct from its 4 action variants).
-					// A dedicated backlog item owns this composer's full consolidation.
-					// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
-					// selected tint — not a no-handrolled-control violation.
-					className={
-						insertMenuOpen
-							? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
-							: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--border-default)] text-[var(--text-secondary)]   hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
-					}
-				>
-					<Glyph d={ICON_PLUS} size={14} />
-				</button>
-			</div>
-			<textarea
-				rows={3}
-				placeholder={placeholder}
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				className="type-input min-h-[72px] flex-1 resize-none border-none bg-transparent py-[3px]   text-[var(--text-primary)] outline-none placeholder:text-[var(--text-placeholder)]"
-			/>
-			<Button variant="primary" size="icon" onClick={onSend} aria-label="Send message">
-				<Glyph d={ICON_SEND} size={15} />
-			</Button>
-		</div>
-	);
-}
-
-function Composer({
-	insertMenuOpen,
-	onToggleMenu,
-	onPickMenu,
-	onSend,
-	placeholder,
-	value,
-	onChange,
-	menuButtonRef,
-}: {
-	insertMenuOpen: boolean;
-	onToggleMenu: () => void;
-	onPickMenu: () => void;
-	onSend: () => void;
-	placeholder: string;
-	value: string;
-	onChange: (next: string) => void;
-	menuButtonRef: React.RefObject<HTMLButtonElement | null>;
-}): JSX.Element {
-	return (
-		<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
-			<div className="mx-auto w-full max-w-[760px]">
-				<div className="border-width-thin relative rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]">
-					<ComposerInputRow
-						insertMenuOpen={insertMenuOpen}
-						onToggleMenu={onToggleMenu}
-						onPickMenu={onPickMenu}
-						onSend={onSend}
-						placeholder={placeholder}
-						value={value}
-						onChange={onChange}
-						menuButtonRef={menuButtonRef}
-					/>
-				</div>
-			</div>
-		</div>
-	);
-}
+// ComposerInputRow and Composer (hand-rolled local composer) removed.
+// @lore UI-062: consolidated onto DS Composer via leading slot + iconSend.
+// InsertMenu stays as a local helper — passed as `leading` into DS Composer.
 
 // ───────────────────────────────────────────────────────────────────
 // The conversation surface — INTERACTIVE, prop-driven. The conversation column
@@ -403,24 +309,41 @@ export default function ConversationSurface({
 	headerPresentation = "pane",
 }: ConversationSurfaceProps): JSX.Element {
 	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
-	const [draft, setDraft] = useState("");
 	const menuButtonRef = useRef<HTMLButtonElement | null>(null);
 	// @lore UI-003: scroll the message column to the newest message on load and
 	// when new messages arrive via WS push. Only applies when scroll=true (the page
 	// layout — not the story which renders at natural height without overflow).
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 
-	const placeholder = `Message ${participants
-		.map((p) => p.name)
-		.slice(0, 2)
-		.join(", ")}…`;
-
-	const handleSend = (): void => {
-		const text = draft.trim();
-		if (text.length === 0) return;
-		void onSend(text);
-		setDraft("");
+	// @lore UI-062: adapter from DS Composer's ComposerSubmitInput to ConversationSurface's
+	// (text: string) => Promise<void> | void contract. DS Composer manages text state.
+	const handleDSSubmit = async (input: ComposerSubmitInput): Promise<void> => {
+		await onSend(input.text);
 	};
+
+	// @lore UI-062: insert button passed as `leading` into DS Composer so the affordance
+	// is preserved without a separate hand-rolled composer implementation.
+	const insertLeading = (
+		<div className="relative shrink-0">
+			{insertMenuOpen && <InsertMenu onPick={() => setInsertMenuOpen(false)} />}
+			<button
+				ref={menuButtonRef}
+				type="button"
+				aria-label="Insert"
+				aria-expanded={insertMenuOpen}
+				aria-haspopup="menu"
+				title="Insert block, attach, mention, reference, format"
+				onClick={() => setInsertMenuOpen((v) => !v)}
+				className={
+					insertMenuOpen
+						? "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--accent-deep)] bg-[var(--accent-primary-dim)] text-[var(--accent-deep)]"
+						: "flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--border-default)] text-[var(--text-secondary)]   hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+				}
+			>
+				<Glyph d={ICON_PLUS} size={14} />
+			</button>
+		</div>
+	);
 
 	// Outside-click / Escape closes the Insert menu (real popover behavior).
 	useEffect(() => {
@@ -486,16 +409,17 @@ export default function ConversationSurface({
 						/>
 					</div>
 				</div>
-				<Composer
-					insertMenuOpen={insertMenuOpen}
-					onToggleMenu={() => setInsertMenuOpen((v) => !v)}
-					onPickMenu={() => setInsertMenuOpen(false)}
-					onSend={handleSend}
-					placeholder={placeholder}
-					value={draft}
-					onChange={setDraft}
-					menuButtonRef={menuButtonRef}
-				/>
+				{/* UI-062: single DS Composer; insert affordance via leading slot; iconSend matches Hearth design. */}
+				<div className="shrink-0 bg-[var(--surface-page)] px-[18px] pb-[18px] pt-[9px]">
+					<div className="mx-auto w-full max-w-[760px]">
+						<DSComposer
+							threadId={`${header.hostKind}:${header.hostTitle}`}
+							onSubmit={handleDSSubmit}
+							leading={insertLeading}
+							iconSend
+						/>
+					</div>
+				</div>
 			</main>
 		</div>
 	);

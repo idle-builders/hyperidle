@@ -3,10 +3,22 @@
  *
  * Plan §7.6; approved.md §2.5. Always-rendered plain-message input.
  * Cmd/Ctrl+Enter submits. No optimistic UI — disable on submit.
+ *
+ * UI-062 extensions:
+ *   - `leading?: ReactNode` — slot rendered to the left of the textarea
+ *     (used by ConversationSurface for its insert "+" button + menu).
+ *   - `iconSend?: boolean` — when true the send button renders an SVG
+ *     arrow icon instead of the "Send" text label.
+ *
+ * @lore UI-062: ConversationSurface previously had its own hand-rolled
+ * Composer. Extending with `leading` and `iconSend` consolidates to one
+ * implementation in the design system without losing any affordance.
+ * SessionComposer stays separate — it depends on @hyperidle/harness-capability
+ * which cannot be a DS dependency.
  */
 
 import type { InlineRef } from "@hyperidle/domain-model";
-import type { JSX, KeyboardEvent } from "react";
+import type { JSX, KeyboardEvent, ReactNode } from "react";
 import { useCallback, useState } from "react";
 import { dsProps } from "./ds-attrs.js";
 
@@ -20,7 +32,27 @@ export interface ComposerProps {
 	threadId: string;
 	onSubmit: (input: ComposerSubmitInput) => Promise<void>;
 	unresolvedReviewLink?: { onClick: () => void };
+	/**
+	 * Optional slot rendered to the LEFT of the textarea inside the composer row.
+	 * Use for contextual controls like an insert-menu toggle button.
+	 *
+	 * @lore UI-062: ConversationSurface passes its "+" insert button here so
+	 * the DS Composer is the single composer implementation across the app.
+	 */
+	leading?: ReactNode;
+	/**
+	 * When true the send button renders an SVG arrow icon instead of "Send" text.
+	 * Use in full-surface conversations where a compact icon button fits better.
+	 *
+	 * @lore UI-062: ConversationSurface needs an icon send button (primary pill
+	 * with arrow) to match the Hearth conversation design.
+	 */
+	iconSend?: boolean;
 }
+
+// Send arrow SVG path — used when iconSend=true.
+const SEND_ICON_PATH =
+	"M2 12L22 12M22 12L15 5M22 12L15 19";
 
 function generateClientKey(): string {
 	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -29,7 +61,13 @@ function generateClientKey(): string {
 	return `ck-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerProps): JSX.Element {
+export function Composer({
+	threadId,
+	onSubmit,
+	unresolvedReviewLink,
+	leading,
+	iconSend = false,
+}: ComposerProps): JSX.Element {
 	const [text, setText] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -83,6 +121,9 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 			) : null}
 			{/* W3 AC-12: data-composer-row with items-stretch so textarea and button are equal height */}
 			<div data-composer-row className="flex items-stretch gap-[9px]">
+				{leading !== undefined && leading !== null && (
+					<span className="shrink-0 flex items-end">{leading}</span>
+				)}
 				<textarea
 					data-testid="composer-textarea"
 					rows={1}
@@ -99,6 +140,7 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 				/>
 				<button
 					type="button"
+					aria-label={iconSend ? "Send message" : undefined}
 					onClick={(): void => {
 						void handleSubmit();
 					}}
@@ -107,7 +149,25 @@ export function Composer({ threadId, onSubmit, unresolvedReviewLink }: ComposerP
 					// U8: pill shape (r-pill) per Hearth send button spec; accent-primary background.
 					className="type-control px-[12px] min-h-[44px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] self-stretch"
 				>
-					{submitting ? "Sending…" : "Send"}
+					{iconSend ? (
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 24 24"
+							width={15}
+							height={15}
+							fill="none"
+							stroke="currentColor"
+							strokeWidth={2}
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						>
+							<path d={SEND_ICON_PATH} />
+						</svg>
+					) : submitting ? (
+						"Sending…"
+					) : (
+						"Send"
+					)}
 				</button>
 			</div>
 		</div>
