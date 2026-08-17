@@ -334,21 +334,6 @@ export function createRoutineRoutes(
 		},
 	);
 
-	// POST /:id/retire — Retire routine
-	router.post("/:id/retire", requireBoundary({ kind: "public-data" }), async (c) => {
-		const routineId = c.req.param("id");
-
-		const existing = await routineService.getRoutine(db, routineId);
-		if (!existing) {
-			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
-
-		await routineService.updateRoutine(db, routineId, { active: false });
-
-		const updated = await routineService.getRoutine(db, routineId);
-		return c.json(updated);
-	});
-
 	// POST /:id/trigger — Manually trigger routine
 	router.post("/:id/trigger", requireBoundary({ kind: "public-data" }), async (c) => {
 		const routineId = c.req.param("id");

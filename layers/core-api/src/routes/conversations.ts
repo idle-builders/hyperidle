@@ -1,13 +1,12 @@
-import { countThreads, findThread, listThreads } from "@hyperidle/conversation";
-import type { HyperIdleDb, Item } from "@hyperidle/db";
-import type { ApiErrorResponse, HostKind, ItemCreatedEvent } from "@hyperidle/domain-model";
+import { findThread } from "@hyperidle/conversation";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { ApiErrorResponse, ItemCreatedEvent } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { authorizeRead } from "../auth/authorize.js";
 
 // @lore L1 step5 (S-C2): the legacy `POST /api/conversations/responses` path
 // dual-wrote `verdict`-typed messages without founder authz, idempotency, or
@@ -65,38 +64,6 @@ const updateItemSchema = z.object({
  */
 export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
-
-	// Row 8: GET /api/conversations — S/P (list, scoped by principal via thread participants)
-	// GET / — list threads, paginated, sorted by recency
-	// O2: attention_score sort removed (column stripped from items table)
-	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
-		const sort = c.req.query("sort") ?? "recency";
-		const page = Math.max(1, Number(c.req.query("page") ?? "1"));
-		const limit = Math.max(1, Math.min(100, Number(c.req.query("limit") ?? "20")));
-		const offset = (page - 1) * limit;
-
-		if (sort === "attention_score") {
-			// O2: attention_score column stripped from items — fall through to recency sort
-			// @lore O2: attention_score was a strategy concern. Sorting by it from the kernel
-			// route is no longer supported. Callers should use recency or switch to strategy layer.
-			const total = await countThreads(db);
-			const allThreads = await listThreads(db, { order: "created", limit, offset });
-
-			return c.json({
-				threads: allThreads,
-				pagination: { page, limit, total },
-			});
-		}
-
-		// Default: sort by recency (createdAt DESC)
-		const total = await countThreads(db);
-		const allThreads = await listThreads(db, { order: "created", limit, offset });
-
-		return c.json({
-			threads: allThreads,
-			pagination: { page, limit, total },
-		});
-	});
 
 	// AU21 §9 Increment 2 — `CoreApiPort.work.findItemByReasoningMarker`'s backing
 	// route. Registered BEFORE `GET /:threadId` (a single-segment param route)
@@ -163,53 +130,6 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 			return c.json(updated);
 		},
 	);
-
-	// Row 9: GET /api/conversations/:threadId — D (enforced: authorizeRead below)
-	// GET /:threadId — thread with items and responses
-	router.get("/:threadId", requireBoundary({ kind: "enforced" }), async (c) => {
-		const threadId = c.req.param("threadId");
-		const thread = await findThread(db, { id: threadId });
-
-		if (!thread) {
-			const response: ApiErrorResponse = {
-				error: "Thread not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		// AF11 Hole 1: read-parity authorization on conversation thread detail.
-		{
-			const participants = (() => {
-				try {
-					return JSON.parse(thread.participants) as string[];
-				} catch {
-					return [];
-				}
-			})();
-			const deny = authorizeRead(c, {
-				hostKind: thread.hostKind as HostKind,
-				hostId: thread.hostId,
-				participants,
-			});
-			if (deny) return deny;
-		}
-
-		// Get items sorted by createdAt ASC
-		const threadItems = await work.list(db, "item", { threadId: threadId });
-
-		// L1 step5 (S-C2): the verdict-projection that re-shaped `verdict`
-		// messages into the legacy `responses` row format was removed alongside
-		// the dual-write `POST /responses` path. Verdicts now live on
-		// `GET /api/threads/:id` (messages, type='verdict'). The empty
-		// `responses: []` keeps the wire shape for one release.
-		const itemsWithResponses = threadItems.map((item: Item) => ({
-			...item,
-			responses: [] as ReadonlyArray<never>,
-		}));
-
-		return c.json({ ...thread, items: itemsWithResponses });
-	});
 
 	// Row 10: POST /api/conversations/items — S (principal-self: item created by principal)
 	// POST /items — create item

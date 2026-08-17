@@ -44,7 +44,7 @@ import {
 	refreshHarnessDiscoveries,
 } from "@hyperidle/harness-protocol";
 import { createRateLimiter, requireBoundary } from "@hyperidle/http-middleware";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
+import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 
 /**
@@ -169,64 +169,6 @@ export function createHarnessRoutes(
 			return c.json(entries);
 		},
 	);
-
-	// POST /:type/disabled — persist enable/disable for a specific harness type (Seam 4)
-	// Global 300/min rate-limit (from app.ts middleware) — acceptable: single DB write, no CLI spawns.
-	router.post("/:type/disabled", requireBoundary({ kind: "public-data" }), async (c) => {
-		const harnessType = c.req.param("type");
-
-		// Validate :type against the known descriptor list (400 on unknown)
-		const allDescriptors = harnessCapabilityDescriptors(pool);
-		const isKnown = allDescriptors.some((d) => d.type === harnessType);
-		if (!isKnown) {
-			return c.json({ error: "Unknown harness type", code: "UNKNOWN_HARNESS_TYPE" }, 400);
-		}
-
-		// Parse body
-		let disabled: boolean;
-		try {
-			const body = (await c.req.json()) as { disabled?: unknown };
-			if (typeof body.disabled !== "boolean") {
-				return c.json({ error: "Body must be { disabled: boolean }", code: "INVALID_BODY" }, 400);
-			}
-			disabled = body.disabled;
-		} catch {
-			return c.json({ error: "Invalid JSON body", code: "INVALID_BODY" }, 400);
-		}
-
-		// Builtin-reject: {disabled:true} for "builtin" is forbidden (CHANGE 4 / Seam 2 write boundary)
-		// {disabled:false} for builtin is allowed — enabling the always-on fallback is a harmless no-op.
-		if (harnessType === "builtin" && disabled === true) {
-			return c.json(
-				{
-					error: "Built-in harness cannot be disabled — it is the always-present fallback",
-					code: "BUILTIN_NOT_DISABLEABLE",
-				},
-				409,
-			);
-		}
-
-		// Read-modify-write: update the harnessDisabled list
-		const current = await readServerConfig(db);
-		const currentDisabled = current.harnessDisabled;
-		let nextDisabled: string[];
-		if (disabled) {
-			// Add type if not already present
-			nextDisabled = currentDisabled.includes(harnessType)
-				? currentDisabled
-				: [...currentDisabled, harnessType];
-		} else {
-			// Remove type (enable)
-			nextDisabled = currentDisabled.filter((t) => t !== harnessType);
-		}
-
-		await updateServerConfig(db, { harnessDisabled: nextDisabled });
-
-		// Return fresh descriptor list with discovery.disabled re-stamped
-		const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
-		const entries = stampDisabled(raw, nextDisabled);
-		return c.json(entries);
-	});
 
 	return router;
 }

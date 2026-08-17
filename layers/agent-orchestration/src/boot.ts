@@ -384,7 +384,6 @@ export async function bootAgentOrchestration(
 
 	const app = createAgentOrchestrationApp({
 		db,
-		eventBus,
 		getRecentActivity: (sessionId) => activityBuffer.getActivity(sessionId),
 		inheritedReach,
 	});

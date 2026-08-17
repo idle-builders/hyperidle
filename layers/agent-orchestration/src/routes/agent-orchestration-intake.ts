@@ -27,31 +27,20 @@ import {
 	writeTeamRunConfigDefaults,
 } from "@hyperidle/agent-run-config";
 import type {
-	AgentOrchestrationCreateBareRunRequest,
-	AgentOrchestrationExplicitStartRequest,
-	AgentOrchestrationExplicitStartView,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationTeamRunConfigDefaultsView,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
-import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { endRunForHandoff, requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import {
-	createBareRun,
-	endRunForHandoff,
-	requestRunStopForTasks,
-} from "@hyperidle/run-orchestration";
-import {
-	createSessionRequest,
 	enqueueWorkIntent,
-	findSessionRequest,
 	listPendingIntentsByKind,
 	sessionRunRegistry,
-	transitionSessionRequest,
 	type WorkIntentInput,
 } from "@hyperidle/session-requests";
 import { Hono } from "hono";
@@ -92,20 +81,6 @@ function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentI
 	};
 }
 
-function rowToExplicitStartView(row: ExplicitSessionStart): AgentOrchestrationExplicitStartView {
-	return {
-		id: row.id,
-		status: row.status,
-		taskId: row.taskId,
-		requestedAgentId: row.requestedAgentId,
-		requestedModelTier: row.requestedModelTier,
-		requestedBy: row.requestedBy,
-		idempotencyKey: row.idempotencyKey,
-		sessionId: row.sessionId,
-		failureCode: row.failureCode,
-	};
-}
-
 const workIntentInputSchema = z.object({
 	kind: z.enum(WORK_INTENT_KINDS),
 	sourceKind: z.string().min(1),
@@ -115,21 +90,7 @@ const workIntentInputSchema = z.object({
 	bakedRequest: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationWorkIntentInput>;
 
-const explicitStartRequestSchema = z.object({
-	startId: z.string().min(1),
-	taskId: z.string().min(1),
-	requestedAgentId: z.string().min(1),
-	requestedModelTier: z.string().optional(),
-	requestedBy: z.string().min(1),
-	idempotencyKey: z.string().min(1),
-	intentIdempotencyKey: z.string().min(1),
-	bakedRequest: z.unknown().optional(),
-}) satisfies z.ZodType<AgentOrchestrationExplicitStartRequest>;
-
-export function createAgentOrchestrationIntakeRoutes(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-): Hono<HyperIdleEnv> {
+export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── intents.submit — POST /agent-orchestration/intents ──────────────────
@@ -141,81 +102,6 @@ export function createAgentOrchestrationIntakeRoutes(
 			const body = c.req.valid("json");
 			const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
 			return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
-		},
-	);
-
-	// ── intents.createExplicitStart — POST /agent-orchestration/intents/explicit-start ──
-	// The atomic pair: one orchestration-side transaction creates the
-	// explicit start AND records the baked session_start intent, preserving
-	// the atomicity `sessions-routes.ts` had before the seam existed (P3).
-	router.post(
-		"/intents/explicit-start",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(explicitStartRequestSchema),
-		async (c) => {
-			const body = c.req.valid("json");
-			const result = await db.transaction(async (tx) => {
-				const start = await createSessionRequest(tx as HyperIdleDb, {
-					kind: "explicitStart",
-					start: {
-						id: body.startId,
-						taskId: body.taskId,
-						requestedAgentId: body.requestedAgentId,
-						requestedModelTier: body.requestedModelTier,
-						requestedBy: body.requestedBy,
-						idempotencyKey: body.idempotencyKey,
-					},
-				});
-				const intent = await enqueueWorkIntent(tx as HyperIdleDb, {
-					kind: "session_start",
-					sourceKind: "explicit_session_start",
-					sourceId: body.startId,
-					requestedBy: body.requestedBy,
-					idempotencyKey: body.intentIdempotencyKey,
-					bakedRequest: body.bakedRequest as never,
-				});
-				return { start, intent };
-			});
-			return c.json({
-				start: rowToExplicitStartView(result.start),
-				intent: { id: result.intent.id, idempotencyKey: result.intent.idempotencyKey },
-			});
-		},
-	);
-
-	// ── requests.findExplicitStartByIdempotencyKey — GET /agent-orchestration/requests/explicit-start ──
-	router.get("/requests/explicit-start", requireBoundary({ kind: "public-data" }), async (c) => {
-		const requestedBy = c.req.query("requestedBy");
-		const idempotencyKey = c.req.query("idempotencyKey");
-		if (!(requestedBy && idempotencyKey)) {
-			return c.json(
-				{
-					error: "requestedBy and idempotencyKey are required",
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				},
-				400,
-			);
-		}
-		const start = await findSessionRequest(db, {
-			by: "explicitStart",
-			requestedBy,
-			idempotencyKey,
-		});
-		if (!start) return c.json({ start: null }, 404);
-		return c.json({ start: rowToExplicitStartView(start) });
-	});
-
-	// ── requests.findExplicitStartById — GET /agent-orchestration/requests/explicit-start/:startId ──
-	router.get(
-		"/requests/explicit-start/:startId",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const start = await findSessionRequest(db, {
-				by: "explicitStart",
-				startId: c.req.param("startId"),
-			});
-			if (!start) return c.json({ start: null }, 404);
-			return c.json({ start: rowToExplicitStartView(start) });
 		},
 	);
 
@@ -285,41 +171,6 @@ export function createAgentOrchestrationIntakeRoutes(
 		async (c) => {
 			const body = c.req.valid("json");
 			await endRunForHandoff(db, body.sessionId, body.endedAt);
-			return c.json({ ok: true });
-		},
-	);
-
-	// ── runs.createBareRun — POST /agent-orchestration/runs/bare ─────────────
-	router.post(
-		"/runs/bare",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(
-			z.object({
-				agentId: z.string().min(1),
-				taskId: z.string().min(1),
-				modelTier: z.string().min(1),
-			}) satisfies z.ZodType<AgentOrchestrationCreateBareRunRequest>,
-		),
-		async (c) => {
-			const body = c.req.valid("json");
-			const created = await createBareRun(db, eventBus, body);
-			return c.json({ session: created }, 201);
-		},
-	);
-
-	// ── runs.failExplicitStart — POST /agent-orchestration/runs/explicit-start/fail ──
-	router.post(
-		"/runs/explicit-start/fail",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(z.object({ startId: z.string().min(1), failureCode: z.string().min(1) })),
-		async (c) => {
-			const body = c.req.valid("json");
-			await transitionSessionRequest(db, {
-				target: "explicitStart",
-				to: "failed",
-				startId: body.startId,
-				failureCode: body.failureCode,
-			});
 			return c.json({ ok: true });
 		},
 	);
