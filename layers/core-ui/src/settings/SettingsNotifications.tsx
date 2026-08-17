@@ -45,6 +45,10 @@ export function SettingsNotifications(): JSX.Element {
 
 	return (
 		<div className="flex flex-col gap-[18px]">
+			<p className="type-small text-[var(--text-secondary)]">
+				Each type below is a real notification source. Muting a type silences alerts across all
+				channels.
+			</p>
 			{NOTIFICATION_TYPES.map((type) => {
 				const isMuted = mutedKeys.includes(type.key);
 				return (
