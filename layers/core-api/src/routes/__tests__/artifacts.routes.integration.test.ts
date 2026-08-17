@@ -4,7 +4,6 @@
  * GET  /api/artifacts         — list artifacts (axis-based)
  * GET  /api/artifacts/:id     — get artifact by id
  * POST /api/artifacts         — create artifact
- * PATCH /api/artifacts/:id/preview — set preview (IMMUTABLE)
  */
 
 import { artifacts, bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
@@ -259,82 +258,4 @@ describe("artifacts routes", () => {
 		});
 	});
 
-	describe("PATCH /api/artifacts/:id/preview", () => {
-		// @lore AE6: PATCH /preview validates against 6-fundamental-kind schema.
-		// Using 'text' kind preview as the canonical example.
-		const validTextPreview = {
-			kind: "text",
-			body: "Summary of test results",
-			format: "plain",
-		};
-
-		test("returns 200 on successful preview set (when previewJson IS NULL)", async ({
-			db,
-			app,
-		}) => {
-			const { taskId } = await seedBase(db);
-			const now = new Date().toISOString();
-			await db.insert(artifacts).values({
-				id: "art-noprev",
-				producingTaskId: taskId,
-				kind: "text",
-				previewJson: null,
-				createdAt: now,
-			});
-
-			const res = await app.request("/api/artifacts/art-noprev/preview", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ preview: validTextPreview }),
-			});
-			expect(res.status).toBe(200);
-		});
-
-		test("returns 409 when preview is already set (IMMUTABLE)", async ({ db, app }) => {
-			const { taskId } = await seedBase(db);
-			const now = new Date().toISOString();
-			await db.insert(artifacts).values({
-				id: "art-withprev",
-				producingTaskId: taskId,
-				kind: "text",
-				previewJson: JSON.stringify(validTextPreview),
-				createdAt: now,
-			});
-
-			const res = await app.request("/api/artifacts/art-withprev/preview", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ preview: validTextPreview }),
-			});
-			expect(res.status).toBe(409);
-		});
-
-		test("returns 404 for non-existent artifact", async ({ app }) => {
-			const res = await app.request("/api/artifacts/does-not-exist/preview", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ preview: validTextPreview }),
-			});
-			expect(res.status).toBe(404);
-		});
-
-		test("returns 400 on invalid preview body", async ({ db, app }) => {
-			const { taskId } = await seedBase(db);
-			const now = new Date().toISOString();
-			await db.insert(artifacts).values({
-				id: "art-badprev",
-				producingTaskId: taskId,
-				kind: "verification",
-				previewJson: null,
-				createdAt: now,
-			});
-
-			const res = await app.request("/api/artifacts/art-badprev/preview", {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({ notPreview: true }),
-			});
-			expect(res.status).toBe(400);
-		});
-	});
 });

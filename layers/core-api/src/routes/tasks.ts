@@ -1,14 +1,12 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/domain-model";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import type { PolicySessionContext } from "@hyperidle/policy";
 import * as work from "@hyperidle/work";
-import { transitionTask } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { enumValues } from "../schemas/common.schema.js";
 import { buildSeamBackedWorkIntentRecorder } from "../services/agent-orchestration-port-composition.js";
 import { buildProductionHandoff } from "../services/policy-bindings.js";
 import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
@@ -33,15 +31,6 @@ const createTaskSchema = z.object({
 	ownerAgentId: z.string().nullish(),
 });
 
-const updateTaskSchema = z.object({
-	title: z.string().optional(),
-	description: z.string().optional(),
-	doneCondition: z.string().optional(),
-	ownerAgentId: z.string().optional(),
-	/** AC1: Optional task outcome verdict. Set during review — not by the state machine. */
-	outcomeVerdict: z.enum(enumValues(TASK_OUTCOME_VERDICTS)).optional(),
-});
-
 /**
  * AU21 §9 Increment 2 — the `CoreApiPort.work.appendTaskNote` seam method's
  * backing route. Mirrors `work-service.ts`'s atomic SQL-CASE note append
@@ -51,12 +40,6 @@ const updateTaskSchema = z.object({
  */
 const appendTaskNoteSchema = z.object({
 	entry: z.string().min(1),
-});
-
-// I2 V1: enum-validate at the boundary so an unknown state surfaces as
-// 400 from Zod, not 409 from the state machine.
-const transitionTaskSchema = z.object({
-	state: z.enum(TASK_STATES),
 });
 
 /**
@@ -192,75 +175,6 @@ export function createTaskRoutes(
 	// `useTaskSessions` now calls
 	// `GET /api/agent-orchestration/runs?task_id=…` and does the same mapping
 	// client-side, so the task view and the task sheet render identically.
-
-	// PATCH /tasks/:id — update mutable fields
-	router.patch(
-		"/:id",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(updateTaskSchema),
-		async (c) => {
-			const taskId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof updateTaskSchema>;
-
-			const task = await work.get(db, "task", taskId);
-			if (!task) {
-				return c.json({ error: "Task not found", code: "NOT_FOUND" }, 404);
-			}
-
-			const now = new Date().toISOString();
-			const updates: work.TaskPatch = {
-				updatedAt: now,
-			};
-			if (body.title !== undefined) updates.title = body.title;
-			if (body.description !== undefined) updates.description = body.description;
-			if (body.doneCondition !== undefined) updates.doneCondition = body.doneCondition;
-			if (body.ownerAgentId !== undefined) updates.ownerAgentId = body.ownerAgentId;
-
-			// AC1: Record task outcome verdict with audit trail
-			if (body.outcomeVerdict !== undefined) {
-				updates.outcomeVerdict = body.outcomeVerdict;
-				updates.outcomeRecordedAt = now;
-				updates.outcomeRecordedBy = c.get("userId") ?? null;
-
-				// Append to audit trail
-				const auditTrail: Array<Record<string, unknown>> = task.auditTrail
-					? (JSON.parse(task.auditTrail) as Array<Record<string, unknown>>)
-					: [];
-				auditTrail.push({
-					timestamp: now,
-					field: "outcomeVerdict",
-					old_value: task.outcomeVerdict ?? null,
-					new_value: body.outcomeVerdict,
-					actor: c.get("userId") ?? null,
-				});
-				updates.auditTrail = JSON.stringify(auditTrail);
-			}
-
-			await work.update(db, "task", taskId, updates);
-
-			const updated = await work.get(db, "task", taskId);
-			return c.json(updated);
-		},
-	);
-
-	// POST /tasks/:id/transition — state transition
-	router.post(
-		"/:id/transition",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(transitionTaskSchema),
-		async (c) => {
-			const taskId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
-
-			await transitionTask(db, eventBus, taskId, body.state, {
-				workIntents: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-				taskRunResolver: taskRunResolverDeps,
-			});
-
-			const updated = await work.get(db, "task", taskId);
-			return c.json(updated);
-		},
-	);
 
 	// POST /tasks/:id/handoff — hand off task to another agent/role/human
 	router.post(

@@ -69,7 +69,7 @@ export function createApiMiddlewareStack(deps: {
 		rateLimit: createRateLimiter({
 			limit: baseRateLimit,
 			windowMs: 60_000,
-			skipPaths: ["/api/health", "/api/status/health", "/api/auth"],
+			skipPaths: ["/api/health", "/api/auth"],
 		}),
 		bodyLimit: createBodyLimit({
 			maxSize: Number.isFinite(maxBodyBytes) && maxBodyBytes > 0 ? maxBodyBytes : 1_000_000,
