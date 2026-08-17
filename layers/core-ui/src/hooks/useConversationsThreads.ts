@@ -16,6 +16,24 @@ import type { ThreadItem } from "../components/ThreadSections";
 import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";
 
+/**
+ * @lore UI-061: Human-readable context snippets derived from hostKind.
+ * The thread list API does not return message previews. hostKind is the next
+ * best descriptor — it tells the viewer what kind of work this thread belongs
+ * to. The snippet slot renders below the title in ThreadRow; an empty string
+ * leaves the slot blank (no visible text at all).
+ */
+const HOST_KIND_SNIPPET: Record<HostKind, string> = {
+	bet: "Bet",
+	task: "Task",
+	knowledge_item: "Knowledge",
+	artifact: "Artifact",
+	agent: "Agent",
+	user: "Direct message",
+	team: "Team",
+	factory: "Factory",
+};
+
 interface ThreadListRow {
 	id: string;
 	hostKind: HostKind;
@@ -100,6 +118,19 @@ function capitalize(s: string): string {
 	return first !== undefined ? first.toUpperCase() + s.slice(1) : s;
 }
 
+/**
+ * @lore UI-061: derive initials from the thread title for the right-side avatar chip.
+ * Takes the first character of each space-delimited word, up to two chars.
+ * "Implement annual billing toggle" → "IA"; "Bet" → "B".
+ * Uppercased so the chip reads as an abbreviation.
+ */
+function titleInitials(title: string): string {
+	const words = title.trim().split(/\s+/);
+	const first = words[0]?.[0] ?? "";
+	const second = words[1]?.[0] ?? "";
+	return (first + second).toUpperCase() || "?";
+}
+
 function rowToItem(row: ThreadListRow): ThreadItem {
 	// AF14 AC1: use server-resolved title. Falls back to a typed stub if the
 	// server predates AF14 (pre-AF14 responses omit `title`).
@@ -107,17 +138,27 @@ function rowToItem(row: ThreadListRow): ThreadItem {
 	// is replaced by the server-resolved title from AF14 onwards.
 	const title = row.title ?? `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`;
 	const relative = relativeShort(row.lastActiveAt);
+	const blocking = row.blocking ?? false;
 	return {
 		id: row.id,
 		title,
-		snippet: "",
+		// @lore UI-061: the thread list API has no message preview field.
+		// hostKind is the most meaningful context available without a second fetch.
+		snippet: HOST_KIND_SNIPPET[row.hostKind],
 		timestamp: relative,
 		// AF14 AC1: carry lastActiveAt as the ISO sort key for flat-list comparator.
 		lastActiveAt: row.lastActiveAt,
 		avatarUrl: null,
+		// @lore UI-061: derive a single initial-chip from the title.
+		// Participant names are not in the thread list response; the title is.
+		avatars: [{ initials: titleInitials(title), agent: false }],
 		hostKind: row.hostKind,
 		hasUnresolvedReview: row.hasUnresolvedReview,
-		blocking: row.blocking ?? false,
+		blocking,
+		// @lore UI-061: map hasUnresolvedReview to "behind" status so ThreadRow
+		// renders a StatusChip when there is a pending review. Skip when already
+		// blocking — the "Blocking" badge already conveys urgency.
+		status: !blocking && row.hasUnresolvedReview ? "behind" : undefined,
 		pinned: row.pinned,
 		resolvedAt: row.resolvedAt ?? undefined,
 	};

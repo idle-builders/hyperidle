@@ -20,6 +20,12 @@ export interface ThreadItem {
 	timestamp: string;
 	/** M3 E1: null means no avatar — renders initials chip instead of <img>. */
 	avatarUrl: string | null;
+	/**
+	 * UI-061: right-side overlapping participant avatar circles.
+	 * Shape is structurally compatible with ThreadRow's ThreadAvatarItem.
+	 * Omit to show no avatars; supply initials to render participant chips.
+	 */
+	avatars?: ReadonlyArray<{ initials: string; agent?: boolean }>;
 	hostKind: HostKind;
 	hasUnresolvedReview: boolean;
 	blocking: boolean;
@@ -252,6 +258,7 @@ export function ThreadSections({
 							<ThreadRow
 								key={t.id}
 								avatarUrl={t.avatarUrl}
+								avatars={t.avatars as import("@hyperidle/design-system").ThreadRowProps["avatars"]}
 								title={t.title}
 								snippet={t.snippet}
 								timestamp={t.timestamp}
@@ -388,6 +395,7 @@ export function ThreadSections({
 									<li key={t.id} className={section.id === "resolved" ? "opacity-70" : undefined}>
 										<ThreadRow
 											avatarUrl={t.avatarUrl}
+											avatars={t.avatars as import("@hyperidle/design-system").ThreadRowProps["avatars"]}
 											title={t.title}
 											snippet={t.snippet}
 											timestamp={t.timestamp}
