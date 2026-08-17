@@ -245,6 +245,23 @@ const HEAD = (csp: string, style = ""): string =>
 const SHELL_STYLE = "<style>html,body{margin:0;padding:0;height:100%;overflow:hidden}</style>";
 
 /**
+ * The baseline surface for the artifact's own document.
+ *
+ * @lore NEW-20: the artifact document (inner layer) has no background of its own by
+ * default. In dark mode the embedding app sets color-scheme:dark on its root, and
+ * Chromium inherits that scheme into srcdoc documents — so the browser paints the
+ * artifact canvas dark, leaving dark text invisible against a dark surface.
+ *
+ * The fix is declared here, not in the artifact's markup. The artifact's HTML is
+ * passed verbatim (that is the point of the sealed frame). We give the WRAPPER
+ * document a paper-white canvas: `color-scheme:light` overrides the inherited scheme
+ * so all browser-rendered controls (scrollbars, form fields) use light defaults, and
+ * `background-color:#fff` gives every artifact a defined white starting surface. The
+ * artifact's own styles can still override both — this is a default, not a lock.
+ */
+const ARTIFACT_DOC_STYLE = "<style>html,body{background-color:#fff;color-scheme:light}</style>";
+
+/**
  * The document the artifact itself runs in — the inner layer.
  *
  * The artifact's markup is passed through verbatim: nothing is sanitised, stripped
@@ -253,7 +270,7 @@ const SHELL_STYLE = "<style>html,body{margin:0;padding:0;height:100%;overflow:hi
 export function buildArtifactDocument(html: string): string {
 	return [
 		"<!doctype html><html>",
-		HEAD(ARTIFACT_FRAME_CSP),
+		HEAD(ARTIFACT_FRAME_CSP, ARTIFACT_DOC_STYLE),
 		"<body>",
 		RTC_NEUTRALISER,
 		SIZE_REPORTER,

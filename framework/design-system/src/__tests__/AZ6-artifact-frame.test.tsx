@@ -71,6 +71,30 @@ describe("buildArtifactDocument (the layer the artifact runs in)", () => {
 		const doc = buildArtifactDocument(ARTIFACT);
 		expect(doc.indexOf(ARTIFACT_SIZE_CHANGED_METHOD)).toBeLessThan(doc.indexOf("Signups"));
 	});
+
+	it("gives the document a white background so content is legible regardless of the app theme", () => {
+		// The artifact runs inside the app's dark surface in dark mode. Without an
+		// explicit white background on the wrapper document, the browser's dark-mode
+		// default makes dark text invisible against a dark canvas. This is the surface
+		// given to the artifact — not a style injected into the artifact's own markup.
+		const doc = buildArtifactDocument(ARTIFACT);
+		expect(doc).toContain("background-color:#fff");
+	});
+
+	it("declares color-scheme:light so browser-rendered controls use light defaults", () => {
+		// color-scheme is inherited from the embedding app in dark mode; without an
+		// explicit override, scrollbars and form controls render in dark colours.
+		const doc = buildArtifactDocument(ARTIFACT);
+		expect(doc).toContain("color-scheme:light");
+	});
+
+	it("sets the white surface in the head — before any artifact markup can override it", () => {
+		const doc = buildArtifactDocument(ARTIFACT);
+		const headClose = doc.indexOf("</head>");
+		const bgIndex = doc.indexOf("background-color:#fff");
+		expect(bgIndex).toBeGreaterThanOrEqual(0);
+		expect(bgIndex).toBeLessThan(headClose);
+	});
 });
 
 describe("escapeSrcdocAttribute", () => {
