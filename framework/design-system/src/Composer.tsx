@@ -130,13 +130,18 @@ export function Composer({
 				</div>
 			) : null}
 			{/* W3 AC-12: data-composer-row with items-stretch so textarea and button are equal height.
-			    FR-4: gap-[3px] when iconSend — compact icon button reads as attached to the input. */}
+			    Unified pill when iconSend: row container carries the border+bg+radius; textarea is
+			    transparent inside it. Standard form layout (iconSend=false): textarea owns its border. */}
 			<div
 				data-composer-row
-				className={`flex items-stretch ${iconSend ? "gap-[3px]" : "gap-[9px]"}`}
+				className={
+					iconSend
+						? "flex items-end border-width-default border-[var(--border-default)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] gap-[6px] px-[6px] pb-[6px] focus-within:border-[var(--accent-deep)]"
+						: "flex items-stretch gap-[9px]"
+				}
 			>
 				{leading !== undefined && leading !== null && (
-					<span className="shrink-0 flex items-end">{leading}</span>
+					<span className="shrink-0 flex items-end pb-[3px]">{leading}</span>
 				)}
 				<textarea
 					data-testid="composer-textarea"
@@ -145,7 +150,12 @@ export function Composer({
 					// page-canvas token used as a fill, the same Set 3 second-job
 					// defect B3 already fixed on SearchField. `--surface-elevated` is
 					// the closed Input set's fill (DESIGN.md: "text inputs").
-					className="type-input border-width-default flex-1 min-h-[44px] resize-none bg-[var(--surface-elevated)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)]  border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px]  focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+					// Unified pill (iconSend=true): bg transparent — row container supplies the fill.
+					className={`type-input flex-1 min-h-[44px] resize-none text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)] focus:outline-hidden ${
+						iconSend
+							? "bg-transparent border-none outline-none px-[6px] py-[9px]"
+							: "border-width-default bg-[var(--surface-elevated)] border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
+					}`}
 					placeholder={placeholder}
 					value={text}
 					onChange={(e): void => setText(e.target.value)}
@@ -159,9 +169,13 @@ export function Composer({
 						void handleSubmit();
 					}}
 					disabled={submitting || !text.trim()}
-					// L1 step9 (Design-C4): 44px minimum touch target.
-					// U8: pill shape (r-pill) per Hearth send button spec; accent-primary background.
-					className="type-control px-[12px] min-h-[44px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] self-stretch"
+					// L1 step9 (Design-C4): 44px minimum touch target (iconSend=false).
+					// Pill mode: compact icon button sits at bottom of the unified pill.
+					className={`type-control rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)] hover:bg-[var(--accent-primary-hover)] active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] ${
+						iconSend
+							? "shrink-0 self-end px-[12px] py-[9px]"
+							: "px-[12px] min-h-[44px] self-stretch"
+					}`}
 				>
 					{iconSend ? (
 						<svg
