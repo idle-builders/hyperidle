@@ -48,6 +48,16 @@ export interface ComposerProps {
 	 * with arrow) to match the Hearth conversation design.
 	 */
 	iconSend?: boolean;
+	/**
+	 * Textarea placeholder text. Defaults to "Reply to thread…".
+	 * Pass a contextual string (e.g. "Message Founder, Aria…") to give users a
+	 * recipient hint — the affordance ConversationSurface relied on before UI-062.
+	 *
+	 * @lore UI-062: ConversationSurface passes participant names here so the
+	 * contextual placeholder affordance ("Message X, Y…") is preserved after
+	 * migrating from the hand-rolled Composer to DS Composer.
+	 */
+	placeholder?: string;
 }
 
 // Send arrow SVG path — used when iconSend=true.
@@ -66,6 +76,7 @@ export function Composer({
 	unresolvedReviewLink,
 	leading,
 	iconSend = false,
+	placeholder = "Reply to thread…",
 }: ComposerProps): JSX.Element {
 	const [text, setText] = useState("");
 	const [submitting, setSubmitting] = useState(false);
@@ -131,7 +142,7 @@ export function Composer({
 					// defect B3 already fixed on SearchField. `--surface-elevated` is
 					// the closed Input set's fill (DESIGN.md: "text inputs").
 					className="type-input border-width-default flex-1 min-h-[44px] resize-none bg-[var(--surface-elevated)] text-[var(--text-primary)] placeholder:text-[var(--text-placeholder)]  border-[var(--border-default)] rounded-[var(--r-default)] px-[12px] py-[9px]  focus:outline-hidden focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus:border-[var(--accent-deep)] focus:shadow-[0_0_0_3px_var(--accent-primary-dim)]"
-					placeholder="Reply to thread…"
+					placeholder={placeholder}
 					value={text}
 					onChange={(e): void => setText(e.target.value)}
 					onKeyDown={handleKeyDown}
