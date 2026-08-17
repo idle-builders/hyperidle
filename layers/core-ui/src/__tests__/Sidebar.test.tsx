@@ -471,3 +471,41 @@ describe("Sidebar — Knowledge fast-nav (AD9 §1 item 4)", () => {
 		void noItemsEl;
 	});
 });
+
+// ---------------------------------------------------------------------------
+// UI-011/012/013: honest error states in sidebar fast-nav
+// When an API call fails, the sidebar must NOT show "No X yet" (which implies
+// success). It must show a short error message instead.
+// ---------------------------------------------------------------------------
+
+describe("Sidebar — UI-011/012/013: honest error states", () => {
+	it("shows 'Couldn't load threads' (not 'No threads yet') when threadsError=true", () => {
+		render(<Sidebar {...defaultProps} threads={[]} threadsError={true} />);
+		expect(screen.queryByText(/no threads yet/i)).not.toBeInTheDocument();
+		expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
+	});
+
+	it("shows 'Couldn't load teams' (not 'No teams yet') when teamsError=true and activeView=work", () => {
+		render(<Sidebar {...defaultProps} activeView="work" teams={[]} teamsError={true} />);
+		expect(screen.queryByText(/no teams yet/i)).not.toBeInTheDocument();
+		expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
+	});
+
+	it("shows 'Couldn't load knowledge' (not 'No knowledge yet') when knowledgeError=true and activeView=knowledge", () => {
+		render(
+			<Sidebar
+				{...defaultProps}
+				activeView="knowledge"
+				knowledgeItems={[]}
+				knowledgeError={true}
+			/>,
+		);
+		expect(screen.queryByText(/no knowledge yet/i)).not.toBeInTheDocument();
+		expect(screen.getByText(/couldn't load/i)).toBeInTheDocument();
+	});
+
+	it("still shows 'No threads yet' when threadsError=false and threads=[]", () => {
+		render(<Sidebar {...defaultProps} threads={[]} threadsError={false} />);
+		expect(screen.getByText(/no threads yet/i)).toBeInTheDocument();
+	});
+});

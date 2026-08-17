@@ -147,6 +147,15 @@ export interface SidebarProps {
 	knowledgeLoading?: boolean;
 
 	/**
+	 * UI-011/012/013: When true, the API call for the corresponding section
+	 * failed. Renders an honest "Couldn't load" message instead of the misleading
+	 * "No X yet" empty state (which implies success with zero items).
+	 */
+	threadsError?: boolean;
+	teamsError?: boolean;
+	knowledgeError?: boolean;
+
+	/**
 	 * When true, the sidebar is rendered inside the mobile drawer (300px overlay).
 	 * Forces nav labels visible and stacks the nav items vertically regardless of
 	 * viewport width — the drawer itself is the breakpoint gate, not CSS media queries.
@@ -596,6 +605,9 @@ export function Sidebar({
 	threadsLoading,
 	teamsLoading,
 	knowledgeLoading,
+	threadsError,
+	teamsError,
+	knowledgeError,
 	drawerMode,
 }: SidebarProps): JSX.Element {
 	// Cap threads at 5 for the fast-nav head
@@ -620,6 +632,14 @@ export function Sidebar({
 			if (visibleThreads.length === 0) {
 				// UI-011: suppress empty message while initial fetch is in flight
 				if (threadsLoading) return null;
+				// UI-011: honest error state — don't claim "No threads yet" when the API failed
+				if (threadsError) {
+					return (
+						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
+							Couldn't load threads
+						</p>
+					);
+				}
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
@@ -654,6 +674,14 @@ export function Sidebar({
 			if (visibleTeams.length === 0) {
 				// UI-012: suppress empty message while initial fetch is in flight
 				if (teamsLoading) return null;
+				// UI-012: honest error state — don't claim "No teams yet" when the API failed
+				if (teamsError) {
+					return (
+						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
+							Couldn't load teams
+						</p>
+					);
+				}
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
@@ -682,6 +710,14 @@ export function Sidebar({
 			if (visibleKnowledge.length === 0) {
 				// UI-013: suppress empty message while initial fetch is in flight
 				if (knowledgeLoading) return null;
+				// UI-013: honest error state — don't claim "No knowledge yet" when the API failed
+				if (knowledgeError) {
+					return (
+						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
+							Couldn't load knowledge
+						</p>
+					);
+				}
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}

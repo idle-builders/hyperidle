@@ -335,7 +335,7 @@ export function AppShell(): JSX.Element {
 	// @lore U6: Teams data for sidebar Work section (Q2 resolution: useTeams already exists).
 	// @lore AD3: Hoisted above handleViewChange so the callback can read sidebarTeams without
 	// triggering lint/correctness/noInvalidUseBeforeDeclaration.
-	const { data: teamsData, loading: teamsLoading } = useTeams();
+	const { data: teamsData, loading: teamsLoading, error: teamsError } = useTeams();
 	const sidebarTeams = useMemo(
 		() => ((teamsData?.teams ?? []) as TeamListItem[]).map((t) => ({ id: t.id, name: t.name })),
 		[teamsData],
@@ -534,7 +534,11 @@ export function AppShell(): JSX.Element {
 
 	// AD9: fetch knowledge items for the Knowledge fast-nav list in the sidebar.
 	// Only the head of the list (first 5) is shown; the full list is on /knowledge.
-	const { data: knowledgeListData, isLoading: knowledgeLoading } = useFetch<{
+	const {
+		data: knowledgeListData,
+		isLoading: knowledgeLoading,
+		error: knowledgeError,
+	} = useFetch<{
 		items: ReadonlyArray<{ id: string; title: string }>;
 	}>("/api/knowledge");
 	const sidebarKnowledgeItems = useMemo(
@@ -623,6 +627,10 @@ export function AppShell(): JSX.Element {
 		threadsLoading: conversationsThreads.status === "loading",
 		teamsLoading,
 		knowledgeLoading,
+		// UI-011/012/013: honest error states — sidebar shows "Couldn't load X" not "No X yet"
+		threadsError: conversationsThreads.status === "error",
+		teamsError: teamsError !== null,
+		knowledgeError: knowledgeError !== null,
 	} as const;
 
 	// Shared main content used in both mobile and desktop branches.
