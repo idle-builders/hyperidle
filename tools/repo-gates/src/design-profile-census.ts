@@ -17,7 +17,7 @@ const EXPECTED = {
 		metadata: 233,
 		small: 230, // +3: UI-011/012/013 honest error states in Sidebar fast-nav (3 × "Couldn't load X")
 		copy: 45,
-		control: 93, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
+		control: 94, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
 		input: 10,
 		"avatar-initial": 14,
 		subheading: 9,
