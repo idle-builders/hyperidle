@@ -155,7 +155,7 @@ function ParticipantGroup({
 				<div
 					key={p.id}
 					className="rounded-[var(--r-pill)] ring-2 ring-[var(--surface-page)]"
-					style={{ marginLeft: i === 0 ? 0 : -9, zIndex: people.length - i }}
+					style={{ marginLeft: i === 0 ? 0 : -4, zIndex: people.length - i }}
 				>
 					<Avatar who={p} size={26} />
 				</div>
