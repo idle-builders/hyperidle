@@ -201,20 +201,19 @@ export function AgentEditor({
 					/>
 				</div>
 
-				{/* Role — RoleCombobox (open string + catalog) */}
+				{/* Role — RoleCombobox (open string + catalog).
+				 * @lore FR-12: RoleCombobox renders its own "Role" label internally.
+				 * Do NOT add another label wrapper here — it produces "ROLE ROLE" stacked. */}
 				<div className="flex-1 min-w-[140px]">
-					<div className="flex flex-col gap-[3px]">
-						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Role</span>
-						<RoleCombobox
-							id={`edit-role-${agentId}`}
-							options={ROLE_OPTIONS}
-							value={draft.role}
-							disabled={isAssistant} // assistant role is immutable
-							onChange={(newRole) => {
-								onDraftChange((prev) => ({ ...prev, role: newRole }));
-							}}
-						/>
-					</div>
+					<RoleCombobox
+						id={`edit-role-${agentId}`}
+						options={ROLE_OPTIONS}
+						value={draft.role}
+						disabled={isAssistant} // assistant role is immutable
+						onChange={(newRole) => {
+							onDraftChange((prev) => ({ ...prev, role: newRole }));
+						}}
+					/>
 				</div>
 
 				{/* Harness Select */}
