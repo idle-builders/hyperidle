@@ -2,237 +2,319 @@
 
 One row per method, per door, per type. Every one carries a verdict. Nothing sampled.
 
-Baseline at reopen (`ba0fb454d`): 19 services, 268 exported functions, 16 classes (38 member methods), 176 interface/type declarations (620 member signatures), 216 doors.
+Baseline at reopen (`ba0fb454d`): 19 services, 21 framework packages, 268 exported functions, 16 classes (38 member methods), 176 interface/type declarations (620 member signatures), 216 doors.
+
+**15 of 41 packages were re-audited** after the founder rulings in `FOUNDER-RULINGS.md`; those sections carry a REVISED banner and supersede the first wave.
+
+`PLUGIN` = leaves core and ships as a plugin. `FINISH` = work to schedule, not a survivor that needs nothing.
 
 ## Roll-up
 
 | Verdict | Count | Share |
 |---|---|---|
-| DELETE | 451 | 27% |
-| MERGE | 67 | 4% |
-| SIMPLIFY | 320 | 19% |
-| KEEP | 834 | 50% |
-| **Total rows** | **1672** | |
+| DELETE | 423 | 25% |
+| PLUGIN | 21 | 1% |
+| FINISH | 22 | 1% |
+| MERGE | 72 | 4% |
+| SIMPLIFY | 327 | 19% |
+| KEEP | 848 | 50% |
+| **Total rows** | **1713** | |
 
-Killed outright or folded away: **518** of 1672 (31%).
+Leaves core outright or folds away: **516** of 1713 (30%).
 
-## Per service
+## Per package
 
-| Service | Rows | DELETE | MERGE | SIMPLIFY | KEEP | Kill rate |
-|---|---|---|---|---|---|---|
-| _doors | 198 | 53 | 5 | 2 | 138 | 29% |
-| fw-db | 151 | 53 | 1 | 3 | 94 | 36% |
-| fw-domain-model | 248 | 52 | 0 | 75 | 121 | 21% |
-| knowledge | 58 | 24 | 2 | 14 | 18 | 45% |
-| fw-design-system | 251 | 22 | 2 | 57 | 170 | 10% |
-| fw-diagnostics | 26 | 20 | 1 | 2 | 3 | 81% |
-| fw-filesystem-contract | 20 | 11 | 8 | 1 | 0 | 95% |
-| harness-registry | 69 | 13 | 3 | 7 | 46 | 23% |
-| notifications | 27 | 16 | 0 | 9 | 2 | 59% |
-| org | 25 | 8 | 8 | 4 | 5 | 64% |
-| settings | 20 | 15 | 1 | 2 | 2 | 80% |
-| review | 21 | 15 | 0 | 2 | 4 | 71% |
-| users | 23 | 13 | 2 | 3 | 5 | 65% |
-| work | 46 | 10 | 5 | 14 | 17 | 33% |
-| fw-api-contract | 98 | 13 | 0 | 13 | 72 | 13% |
-| fw-harness-protocol | 21 | 7 | 4 | 3 | 7 | 52% |
-| fw-conversation-parts | 21 | 9 | 1 | 4 | 7 | 48% |
-| routine | 31 | 8 | 2 | 11 | 10 | 32% |
-| session-requests | 35 | 10 | 0 | 9 | 16 | 29% |
-| fw-factory-defaults | 11 | 7 | 2 | 1 | 1 | 82% |
-| fw-harness-capability | 15 | 7 | 2 | 4 | 2 | 60% |
-| fw-http-middleware | 22 | 8 | 1 | 4 | 9 | 41% |
-| filesystems | 19 | 6 | 2 | 4 | 7 | 42% |
-| run-orchestration | 44 | 7 | 1 | 20 | 16 | 18% |
-| fw-host-process | 23 | 6 | 1 | 14 | 2 | 30% |
-| agent-run-config | 11 | 5 | 1 | 1 | 4 | 55% |
-| fw-tool-protocol | 6 | 6 | 0 | 0 | 0 | 100% |
-| tool-handlers | 27 | 5 | 1 | 10 | 11 | 22% |
-| fw-event-bus | 8 | 4 | 1 | 0 | 3 | 63% |
-| conversation | 28 | 3 | 1 | 10 | 14 | 14% |
-| fw-toon-codec | 5 | 3 | 1 | 0 | 1 | 80% |
-| policy | 12 | 3 | 1 | 4 | 4 | 33% |
-| connections | 11 | 1 | 2 | 5 | 3 | 27% |
-| fw-block-derivation | 8 | 2 | 1 | 0 | 5 | 38% |
-| fw-work-intent-port | 10 | 2 | 1 | 1 | 6 | 30% |
-| filesystem-mounting | 5 | 1 | 1 | 3 | 0 | 40% |
-| fw-presentation-format | 3 | 2 | 0 | 1 | 0 | 67% |
-| credentials | 5 | 0 | 1 | 1 | 3 | 20% |
-| fw-credential-access | 5 | 1 | 0 | 0 | 4 | 20% |
-| fw-cron | 4 | 0 | 1 | 1 | 2 | 25% |
-| fw-query-escaping | 1 | 0 | 0 | 1 | 0 | 0% |
+| Package | Rows | DELETE | PLUGIN | FINISH | MERGE | SIMPLIFY | KEEP | Out of core |
+|---|---|---|---|---|---|---|---|---|
+| _doors ✎ | 199 | 41 | 9 | 5 | 5 | 2 | 137 | 28% |
+| fw-db | 151 | 53 | 0 | 0 | 1 | 3 | 94 | 36% |
+| fw-domain-model ✎ | 254 | 50 | 0 | 1 | 0 | 75 | 128 | 20% |
+| knowledge ✎ | 65 | 24 | 7 | 0 | 2 | 14 | 18 | 51% |
+| fw-design-system | 251 | 22 | 0 | 0 | 2 | 57 | 170 | 10% |
+| fw-diagnostics | 26 | 20 | 0 | 0 | 1 | 2 | 3 | 81% |
+| users ✎ | 30 | 18 | 0 | 1 | 2 | 4 | 5 | 67% |
+| fw-filesystem-contract | 20 | 11 | 0 | 0 | 8 | 1 | 0 | 95% |
+| review ✎ | 40 | 15 | 0 | 4 | 4 | 4 | 13 | 48% |
+| harness-registry | 69 | 13 | 0 | 0 | 3 | 7 | 46 | 23% |
+| org ✎ | 25 | 7 | 0 | 0 | 9 | 4 | 5 | 64% |
+| settings | 20 | 15 | 0 | 0 | 1 | 2 | 2 | 80% |
+| work ✎ | 46 | 9 | 0 | 1 | 5 | 14 | 17 | 30% |
+| fw-api-contract | 98 | 13 | 0 | 0 | 0 | 13 | 72 | 13% |
+| fw-harness-protocol | 21 | 7 | 0 | 0 | 4 | 3 | 7 | 52% |
+| routine ✎ | 31 | 5 | 3 | 0 | 2 | 11 | 10 | 32% |
+| session-requests | 35 | 10 | 0 | 0 | 0 | 9 | 16 | 29% |
+| fw-factory-defaults ✎ | 11 | 5 | 2 | 0 | 2 | 1 | 1 | 82% |
+| notifications ✎ | 27 | 9 | 0 | 2 | 0 | 14 | 2 | 33% |
+| filesystems | 19 | 6 | 0 | 0 | 2 | 4 | 7 | 42% |
+| fw-conversation-parts ✎ | 21 | 8 | 0 | 3 | 0 | 3 | 7 | 38% |
+| fw-http-middleware ✎ | 22 | 7 | 0 | 0 | 1 | 4 | 10 | 36% |
+| run-orchestration | 44 | 7 | 0 | 0 | 1 | 20 | 16 | 18% |
+| fw-host-process | 23 | 6 | 0 | 0 | 1 | 14 | 2 | 30% |
+| agent-run-config | 11 | 5 | 0 | 0 | 1 | 1 | 4 | 55% |
+| fw-harness-capability ✎ | 15 | 4 | 0 | 3 | 2 | 4 | 2 | 40% |
+| fw-tool-protocol | 6 | 6 | 0 | 0 | 0 | 0 | 0 | 100% |
+| tool-handlers | 27 | 5 | 0 | 0 | 1 | 10 | 11 | 22% |
+| conversation ✎ | 29 | 3 | 0 | 0 | 2 | 10 | 14 | 17% |
+| fw-event-bus | 8 | 4 | 0 | 0 | 1 | 0 | 3 | 63% |
+| fw-toon-codec | 5 | 3 | 0 | 0 | 1 | 0 | 1 | 80% |
+| policy ✎ | 12 | 3 | 0 | 2 | 1 | 4 | 2 | 33% |
+| connections | 11 | 1 | 0 | 0 | 2 | 5 | 3 | 27% |
+| fw-block-derivation | 8 | 2 | 0 | 0 | 1 | 0 | 5 | 38% |
+| fw-work-intent-port | 10 | 2 | 0 | 0 | 1 | 1 | 6 | 30% |
+| filesystem-mounting | 5 | 1 | 0 | 0 | 1 | 3 | 0 | 40% |
+| fw-presentation-format | 3 | 2 | 0 | 0 | 0 | 1 | 0 | 67% |
+| credentials | 5 | 0 | 0 | 0 | 1 | 1 | 3 | 20% |
+| fw-credential-access | 5 | 1 | 0 | 0 | 0 | 0 | 4 | 20% |
+| fw-cron | 4 | 0 | 0 | 0 | 1 | 1 | 2 | 25% |
+| fw-query-escaping | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0% |
+
+✎ = revised after the founder rulings.
 
 
 ---
 
-# _doors — destroyer verdict (all doors except the 22 agent tools)
 
-Scope: 180 HTTP routes + 8 scheduler ticks + 6 worker-protocol messages = **194 doors**.
-Enumerated from `npx tsx tools/trace/trace-doors.ts` (216 total − 22 agent TOOLs).
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/_doors.md` for comparison.
 
-Method note: every "no caller" below was confirmed with `rg -a` across `layers/ framework/ applications/`
-(production files only — tests/stories/`__` dirs excluded), including the two string-built HTTP seams the
-graph cannot see: `buildCoreApiPort` (agent-orchestration → core-api, backs the agent tools) and
-`AgentOrchestrationPort` (core-api → agent-orchestration). Both seams were read line-by-line and every
-seam method traced to a production consumer. `tools/` is development world and never counts as a caller.
+# _doors — destroyer verdict, REVISED after founder rulings
+
+Scope unchanged: 180 HTTP routes + 8 scheduler ticks + 6 worker-protocol messages = **194 doors**
+(216 from `npx tsx tools/trace/trace-doors.ts` − 22 agent TOOLs). Enumeration re-run 2026-08-17 and
+diffed against the first wave: identical.
+
+Verdict vocabulary: DELETE, PLUGIN (delete from core, re-provide as a plugin), FINISH (feature is
+completed, not removed — the row names the missing work), MERGE, SIMPLIFY, KEEP.
+
+## What changed after the rulings
+
+**18 doors changed verdict.** Every mover, with the ruling that moved it:
+
+| # | Door | Old | New | Moved by |
+|---|---|---|---|---|
+| 43 | POST /api/reviews/proposed-calls | DELETE | KEEP | A1 = FINISH. Capture half of the approval loop; live at the agent seam, functional once #88 is wired. |
+| 44 | POST /api/reviews/proposed-calls/consume | DELETE | KEEP | A1. Grant consumption at tool dispatch — finds grants once #88 mints them. |
+| 45 | POST /api/reviews/proposed-calls/:id/outcome | DELETE | KEEP | A1. Execution outcome record for the granted call. |
+| 88 | POST /api/threads/:threadId/messages/:messageId/verdict | DELETE | FINISH | A1. The unwired grant-composer. The missing work is ONE caller — see "A1 wiring" below. |
+| 130 | GET /api/notifications/config | DELETE | FINISH | Ruling 1. Shared backend must reach a human not looking at the app; SMTP/ntfy config is that door. Needs a settings surface. |
+| 131 | PATCH /api/notifications/config | DELETE | FINISH | Ruling 1. Same — the write half. First-wave kill leaned on the voided popover-only premise. |
+| 132 | POST /api/notifications/test | DELETE | FINISH | Ruling 1. Test-send is part of configuring a channel; ships with the config surface. |
+| 171 | POST /api/connections/:id/validate | DELETE | FINISH | A5 = FINISH. Connections are the credential path for authenticated mounts (AN1 resolver → AN2 sandbox injection); validate is the proof door. Wire SettingsConnections to it. |
+| 32 | POST /api/bets/:id/retro/draft | KEEP | PLUGIN | Ruling 3. Retros are named ceremony. Moves out with the `bet_retro` skill + `builtin:post-bet-retro` routine. |
+| 33 | POST /api/bets/:id/retro | KEEP | PLUGIN | Ruling 3. Same — retro save. |
+| 58 | POST /api/knowledge/:id/merge | DELETE | PLUGIN | Ruling 3. Librarian ceremony → plugin, not plain delete. |
+| 59 | POST /api/knowledge/:id/split | DELETE | PLUGIN | Ruling 3. Same. |
+| 61 | POST /api/knowledge/:id/flag | DELETE | PLUGIN | Ruling 3. Flag-for-review ritual. |
+| 64 | POST /api/knowledge/:id/promote | KEEP | PLUGIN | Ruling 3. Facilitator practice-promotion — driven by the `builtin:knowledge-promotion` ceremony routine. |
+| 65 | PATCH /api/knowledge/:id/attention-score | KEEP | PLUGIN | Ruling 3. Attention scoring exists for the facilitator practice loop. |
+| 66 | POST /api/knowledge/:id/recompute-attention | KEEP | PLUGIN | Ruling 3. Same. |
+| 105 | POST /api/org/team-routines | KEEP | PLUGIN | Ruling 3. Its ONLY job is seeding the four builtin ceremony routines (post-bet-retro, portfolio-retro, knowledge-decay, knowledge-promotion — `routine-scheduler.ts:72-76`). A ceremony plugin provisions its own routines through POST /api/routines/. |
+| 186 | TICK propagation retry 30s | DELETE | KEEP | Ruling 2. Not bookkeeping: `retryFailedPropagations` retries the real task→bet transition (which re-emits `bet_state_changed`) and emits `propagation_failed` + a user notification on exhaustion (`lifecycle-propagation.ts:615-655`). Killing it silently drops emissions plugins may hang off. First wave's "derived on read" claim was also wrong on its own terms — only bet→team is derived; task→bet is a real DB transition healed only here. |
+
+**Reason-only rewrites (verdict unchanged):**
+- #3, #7, #8 (`/api/auth/claim`, `/invite`, `/logout`) — still DELETE, but because **OIDC replaces
+  them** (Ruling 1), not because the product is single-user. The single-user argument is retracted.
+- #188 retention reaper — still SIMPLIFY, but it now **keeps** the propagation_log sweep (the log is
+  live again per #186) and loses only the login_sessions/invite_codes sweeps.
+- Kill-8 (user inboxes), kill-4 (status/ops), kill-13 singles — re-reached under the shared-backend
+  premise and **re-confirmed DELETE on duplicate-door / zero-caller grounds alone**; no verdict below
+  rests on a single-user argument anymore.
+
+**Rulings with no door movement:**
+- **Ruling 2 beyond #186:** no other door in this file was killed on subscriber-count. The five
+  never-emitted event types are not doors; their KEEP lands in the event/service verdict files.
+- **A6 (task dependency tree):** no existing door serves it. #39/#40 stay DELETE — the rebuilt
+  dependency writer is in-process and event-driven (`dependency_met` is KEEP per Ruling 2); if the
+  rebuild needs a door it is a new door, not these dead ones. See holes.
+- **A7 (shared backend via OIDC):** no existing door moves. The OIDC identity doors do not exist yet
+  and are scheduled work; `/api/auth/me`, `ws-token`, `worker-token`, `/api/health/auth` stay KEEP
+  and become OIDC-backed.
+- **A2 (auto review after risky work):** DELETE confirmed — no door in this file belongs to it.
+- **A4 (live session surface):** the watching doors already exist and were already KEEP (#141 session
+  list, #143 activity feed). The explicit-start family is about *starting* sessions over HTTP, not
+  watching them — it stays dead.
+
+### A1 wiring — precisely what must be built
+
+The approve→act loop is four live routes and one missing fetch:
+
+1. `ReviewPage.tsx` `handleSubmitVerdict` (`layers/core-ui/src/pages/review/ReviewPage.tsx:173-191`)
+   currently calls only `postVerdictHostMessage` (`layers/core-ui/src/services/host-threads.ts:132`),
+   which POSTs a verdict *message* to `/api/threads/:threadId/messages` — that path deliberately does
+   NOT compose a grant (`layers/core-api/src/routes/threads.ts:1547-1561`, "handled by proposed-call
+   workflow (Task 8) … `void decision`").
+2. **The fix:** after the verdict message posts OK, add one call —
+   `POST /api/threads/${threadId}/messages/${reviewMessageId}/verdict` with body
+   `{ decision }` (`decision ∈ approve | request-changes | reject`, optional `rationale`).
+   The route (`threads.ts:1607`) looks up the Proposed Call by `reviewMessageId`, and on approve
+   transitions it captured→granted with tailored scope (taskScope/agentScope/approvedToolId/
+   approvedArgs/identityHash), bakes and enqueues the reengagement intent, and emits
+   `proposed_call_granted`; on non-approve it holds the PC. It appends no message, so calling both is
+   correct and non-duplicating.
+3. Nothing else changes: capture (#43) already fires from tool dispatch, consume (#44) finds the
+   grant at the agent's next attempt, outcome (#45) records execution. The
+   `CoreApiPort.review.*` + `CaptureProposedCall*`/`ConsumeTailoredGrant*` types revert to KEEP.
 
 ## Should this surface exist?
 
-Yes — the door surface is where HyperIdle IS a product: conversations, bets, knowledge, agents, routines,
-settings. But **48 of 180 HTTP routes (27%) have zero production callers or duplicate another door.** The
-biggest finding is not a dead route — it is a *half-wired core feature*: the AL7 proposed-call approval
-loop cannot close, because the one route that composes the grant on approval has no caller anywhere.
+Yes — the door surface is where HyperIdle IS a product, and under the corrected premise it is a
+**shared backend for a team and an organisation of teams**: conversations between multiple humans and
+agents, bets, shared knowledge, an event stream plugins extend. After revision: **37 of 180 HTTP
+routes are dead weight (21%)**, 9 more leave core for the ceremony plugin, 5 are half-built features
+the founder has ruled to finish, and 5 are duplicate doors to merge.
 
-## If written today, from scratch
+## If written today, from scratch (shared backend, OIDC, plugin event stream)
 
-The honest door surface is: the ~110 UI-called routes behind the real pages (conversations/threads,
-bets, knowledge, agents, teams, routines, settings, filesystems, connections, credentials, notifications
-inbox, search, review page), the ~28 seam routes that back the agent tools and the core↔orchestration
-split, the 2 MCP doors + worker WS + 6 worker messages, and 6 of the 8 timers. Everything else — explicit
-HTTP session starts, shared-mode auth, status/ops endpoints, notification channel administration,
-knowledge merge/split/flag, legacy conversations reads, user inboxes, manual task mutation — is dead
-weight and goes.
+The honest door surface: the ~112 UI-called routes behind the real pages; the ~30 seam routes backing
+agent tools and the core↔orchestration split; the 2 MCP doors + worker WS + 6 worker messages; 7 of
+the 8 timers. Identity arrives from an **OIDC provider** — no invite minting, no home-grown login
+sessions, but `me`/token doors stay and team scoping stays. Outbound notification channels (SMTP/
+ntfy) are core, because a shared deployment must reach humans who are not in the app. The AL7
+approval loop is wired shut. Knowledge-management ceremony (retros, promotion, attention, merge/
+split/flag, builtin ritual routines) is **not in core at all** — it is the flagship plugin, hanging
+off the event stream. Still absent from the honest shape: explicit HTTP session starts, status/ops
+dashboards, legacy conversations reads, user inboxes, manual task mutation, and every second door.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 49 (48 routes + 1 tick) |
+| DELETE | 37 (all routes) |
+| PLUGIN | 9 (all routes) |
+| FINISH | 5 (all routes) |
 | MERGE | 5 (4 routes + 1 tick) |
 | SIMPLIFY | 2 (1 route + 1 tick) |
-| KEEP | 138 |
+| KEEP | 136 |
 
-Surface: **194 doors → 140 doors (28% cut)**; HTTP alone: 180 → 132 (27% cut).
+Surface: **194 doors → 148 in core** (37 DELETE + 9 PLUGIN out; 24% leaves core), plus 4 route-merges
+folding to their targets. HTTP alone: 180 → 134 core routes.
+First wave for diff: DELETE 49 / MERGE 5 / SIMPLIFY 2 / KEEP 138 — **18 rows moved**.
 
-## Feature kill list
+## Feature kill list (revised)
 
-### 1. Explicit session start over HTTP — 7 doors, DELETE
+### 1. Explicit session start over HTTP — 7 doors, DELETE (unchanged)
 `POST /api/sessions/`, `GET /api/sessions/starts/:startId`, `POST /api/agent-orchestration/intents/explicit-start`,
-`GET /api/agent-orchestration/requests/explicit-start`, `GET .../requests/explicit-start/:startId`,
-`POST .../runs/explicit-start/fail`, `POST .../runs/bare`.
-The whole family is only reachable from itself: `POST /api/sessions` (`layers/core-api/src/routes/sessions-routes.ts`)
-is the sole caller of `createExplicitStart`/`findExplicitStartBy*`/`createBareRun`/`failExplicitStart`
-(via `agent-orchestration-port-composition.ts`), and **nothing in production dials `POST /api/sessions`** —
-the UI only `GET`s `/api/sessions?task_id=` (`Conversations.tsx:125`), and the 202 body's `pollUrl` has zero
-consumers (`rg pollUrl layers/core-ui` = empty). Real sessions start through the intent queue: thread
-messages, routine triggers, handoffs. Dies with it: `explicit_session_starts` machinery,
-`framework/http-middleware/src/http/explicit-start-projection.ts`, `agent-run-admission-reactions.ts`.
-Breaks: nothing observable. No client can reach this today.
+`GET .../requests/explicit-start`, `GET .../requests/explicit-start/:startId`, `POST .../runs/explicit-start/fail`,
+`POST .../runs/bare`. Only reachable from itself; nothing in production dials `POST /api/sessions`; the
+202 `pollUrl` has zero consumers. Real sessions start through the intent queue. A no-caller argument —
+valid in a shared world. A4's live session surface *watches* via #141/#143 (KEEP); it does not start
+sessions here.
 
-### 2. AL7 proposed-call approval loop — human half is ALREADY unwired. 4 doors, DELETE (or wire ONE caller)
-`POST /api/threads/:threadId/messages/:messageId/verdict` + `POST /api/reviews/proposed-calls`,
-`POST .../consume`, `POST .../:id/outcome`.
-Evidence: grant composition lives ONLY in the dedicated verdict route (`routes/threads.ts:1607` — "verdict →
-tailored grant + proposed_call_granted"). The verdict-message path inside `POST /:id/messages` explicitly does
-NOT compose it (`threads.ts:1559-1562`: "handled by proposed-call workflow (Task 8) … `void decision`").
-ReviewPage submits verdicts via `postVerdictHostMessage` → the *messages* route (`ReviewPage.tsx:191`,
-`host-threads.ts:132`) — **no production code ever calls the `/verdict` route**. Consequence: approving a
-review resolves the thread but never mints a grant, so `consumeTailoredGrant` (agent tool dispatch) can never
-find one — the approve→act loop is broken end to end and nobody has noticed, which proves it is not
-load-bearing today. Default verdict per brief: DELETE all four routes plus the capture/consume machinery in
-tool dispatch. Alternative if the founder still wants AL7 (trust-model says it gates unconditionally): keep
-all four and add ONE fetch in `handleSubmitVerdict`. Founder decision required; the current state is the
-worst of both — full machinery, zero function.
+### 2. AL7 proposed-call approval loop — REVERSED: 3 KEEP + 1 FINISH (A1)
+`POST /api/reviews/proposed-calls` + `/consume` + `/:id/outcome` KEEP; the verdict route FINISH.
+The founder wants the loop wired: one fetch in `handleSubmitVerdict` closes it (see "A1 wiring").
+The first wave's evidence stands — the grant door has no caller — but the conclusion inverts: missing
+emission-side wiring is work to schedule, not proof of no value.
 
-### 3. Shared-mode auth: invites + login sessions — 3 doors, DELETE
-`POST /api/auth/claim`, `POST /api/auth/invite`, `POST /api/auth/logout`.
-Zero callers in UI, desktop, remote-server, website (`rg` across all apps). No client implements the
-invite/claim/login-session flow; the product authenticates via API key (`X-API-Key`) + `/api/auth/me` /
-`ws-token` / `worker-token`, all of which stay. Dies with it: invite_codes writes and the
-login_sessions/invite_codes retention sweep. Breaks: multi-user shared-backend login — which is already
-unreachable. Preemptive enterprise auth by construction.
+### 3. Shared-mode auth: invites + login sessions — 3 doors, DELETE (reason corrected)
+`POST /api/auth/claim`, `POST /api/auth/invite`, `POST /api/auth/logout`. They die because **OIDC
+replaces them** (Ruling 1): multi-user access does not arrive by invitation, and login-session
+machinery belongs to the provider. Zero callers today remains true. What a shared backend still
+needs — identity of the acting human (`/api/auth/me`), WS/worker tokens, team scoping — all KEEP.
+New OIDC doors are scheduled work (A7 FINISH), not rows in this file.
 
-### 4. Ops/status observability — 4 doors, DELETE
+### 4. Ops/status observability — 4 doors, DELETE (re-confirmed under shared premise)
 `GET /api/status/`, `GET /api/status/health`, `GET /api/status/digest`, `GET /api/workers/`.
-`routes/status.ts` itself admits the root route has "zero consumers repo-wide". `/status/health` appears only
-in the rate-limit skip list. `getDailyDigest` has no production reader. `/api/workers` ("worker admin
-visibility") is referenced only by comments in `framework/harness-protocol`. Liveness stays on `/api/health`
-(desktop boot polls it). Admin dashboards for an audience of zero.
+Re-reached for a shared deployment with an operator: still zero callers anywhere, and liveness
+already has a live door (`/api/health`, desktop-polled). If a shared deployment someday needs an ops
+page, it is a new consumer decision — these four have none.
 
-### 5. Outbound notification-channel administration — 7 doors, DELETE
-`GET /api/notifications/` (root list), `GET+PATCH /api/notifications/config`, `POST /test`, `GET /queue`,
-`POST /flush`, `POST /digest`.
-Zero callers anywhere — `SettingsNotifications.tsx` makes no API calls at all (a stub). The config PATCH even
-writes an "admin-action audit record" (`notifications-routes.ts:210`) — an audit trail on a route nobody can
-reach. The in-app inbox (`/inbox`, `/seen`, `/:id/read`, `/mute*`) is UI-used and stays, as does the drain
-tick. Hole worth naming: with `PATCH /config` gone, SMTP/ntfy channels are permanently unconfigurable —
-the external-channel delivery code becomes a follow-up kill for the notifications service destroyer.
+### 5. Outbound notification channels — SPLIT: 3 FINISH + 4 DELETE (Ruling 1)
+**FINISH:** `GET+PATCH /api/notifications/config`, `POST /test`. A shared backend must reach a human
+who is not currently looking at the app — SMTP/ntfy channels are that mechanism, and config is their
+only door. The first-wave kill leaned on the voided popover-premise. Missing work: a settings surface
+that dials them — `SettingsNotifications.tsx` handles only per-type mutes today, and its own AF8 lore
+comment refers to a "Notifications config panel" that does not exist.
+**DELETE:** `GET /api/notifications/` (root list — UI reads `/inbox`), `GET /queue` (introspection),
+`POST /flush` (drain tick does this), `POST /digest` (manual digest-send; delivery mode belongs to
+config + scheduler, the manual trigger has no consumer). In-app inbox/seen/read/mute all KEEP.
 
-### 6. Knowledge curation ceremony — 4 doors, DELETE
-`POST /api/knowledge/:id/merge`, `POST /:id/split`, `POST /:id/flag`, `GET /api/team-members/`.
-Zero callers: not in the UI (which uses list/detail/create/edit/scope/archive/triage-count), not in the
-CoreApiPort seam (which carries search/create/patch/get/conflicts/promote/attention only). Librarian
-features nobody asked for.
+### 6. Knowledge-management ceremony — 9 doors, PLUGIN (Ruling 3)
+The boundary applied: knowledge CRUD, search, scope, archive, triage, and write-time conflict
+surfacing are the **machinery of shared knowledge** — KEEP. Ritual *about* the knowledge leaves core:
+- `POST /api/knowledge/:id/merge`, `/split`, `/flag` — librarian ceremony (also zero callers).
+- `POST /api/knowledge/:id/promote`, `PATCH .../attention-score`, `POST .../recompute-attention` —
+  the facilitator practice loop, exercised by the `builtin:knowledge-promotion` / `knowledge-decay`
+  ceremony routines and the `promote_knowledge`/`score_attention` tools (which move with them —
+  agent-tool rows are out of this file's scope).
+- `POST /api/bets/:id/retro/draft`, `POST /api/bets/:id/retro` — retros, named in the ruling. The
+  WorkBet retro pane, `bet_retro`/`portfolio_retro` skills, and `builtin:post-bet-retro` /
+  `builtin:portfolio-retro` routines ship in the plugin.
+- `POST /api/org/team-routines` — exists solely to seed the four builtin ceremony routines at team
+  creation (`routine-scheduler.ts:125-172`); the plugin provisions its routines via `POST
+  /api/routines/` like everything else.
+Kept in core from the first-wave kill-6 list: `GET /api/team-members/` — that one is not ceremony,
+just a dead raw dump: plain DELETE. **No work package exists for this plugin yet — one needs writing
+(per the ruling).**
 
-### 7. Legacy conversations read API — 2 doors, DELETE
-`GET /api/conversations/`, `GET /api/conversations/:threadId`.
-The conversations UI reads `/api/threads*` exclusively. The only remaining reference to `GET
-/api/conversations/:threadId` is a rollback doc in `framework/db`. The `/items*` sub-routes are
-seam-reached by agent tools and stay.
+### 7. Legacy conversations read API — 2 doors, DELETE (unchanged)
+`GET /api/conversations/`, `GET /api/conversations/:threadId`. UI reads `/api/threads*`; only
+remaining reference is a rollback doc. `/items*` seam sub-routes stay.
 
-### 8. User inbox messaging — 2 doors, DELETE
-`GET+POST /api/users/:id/inbox`. Superseded by `GET /api/threads/inbox` (agent `read_inbox`) and
-`POST /api/threads/direct` (DMs). Second inbox, zero callers.
+### 8. User inbox messaging — 2 doors, DELETE (re-confirmed under shared premise)
+`GET+POST /api/users/:id/inbox`. In a multi-human deployment, human↔human messaging is threads:
+`POST /api/threads/direct` + the thread surface. This is a second inbox with zero callers —
+duplicate-door grounds, not single-user grounds.
 
-### 9. Manual task mutation API — 2 doors, DELETE
-`PATCH /api/tasks/:id`, `POST /api/tasks/:id/transition`. The UI only batch-reads tasks
-(`useAgentRunState.ts:79`); task state moves via events/policy in-process and via the agent seam
-(create/notes/handoff), never through these routes.
+### 9. Manual task mutation API — 2 doors, DELETE (A6 noted)
+`PATCH /api/tasks/:id`, `POST /api/tasks/:id/transition`. Zero callers; task state moves via events/
+policy in-process and via the agent seam. A6's dependency-tree rebuild (FINISH) is a real in-process
+writer reacting to task completion — it does not resurrect these HTTP doors; if it needs a door it is
+a new, designed one.
 
-### 10. Bet lifecycle leftovers — 3 doors, DELETE
-`GET /api/bets/canvas` (canvas view retired; zero callers), `POST /api/bets/:id/ship` (completion is
-event-propagated via `lifecycle-propagation` → `transitionBetStatus`; no caller), `POST /api/bets/:id/outcome`
-(WorkBet.tsx:584 — "Replaces the AC1 POST /outcome call"; retro superseded it).
+### 10. Bet lifecycle leftovers — 3 doors, DELETE (unchanged)
+`GET /api/bets/canvas` (retired view), `POST /api/bets/:id/ship` (event-propagated), `POST
+/api/bets/:id/outcome` (superseded — WorkBet.tsx:584; the retro that superseded it moves to the
+plugin, but that does not revive this dead door).
 
-### 11. Second doors — 4 route MERGEs
-- `POST /api/org/teams` (agent create_team) vs `POST /api/teams/` (UI) — one create door.
-- `GET /api/org/teams/:teamId` vs `GET /api/teams/:teamId` — both UI-called (`useAgentRunState` vs
-  `useTeam`); one read door.
-- `POST /api/threads/scaffold` (agent insertThread) vs `POST /api/threads/` (UI) — one create door.
-- `GET /api/knowledge/search` (agent query_practice) vs `GET /api/search/` (UI global) — one search door
-  with a scope param.
+### 11. Second doors — 4 route MERGEs (unchanged)
+- `POST /api/org/teams` → `POST /api/teams/` — one create door.
+- `GET /api/org/teams/:teamId` → `GET /api/teams/:teamId` — one read door.
+- `POST /api/threads/scaffold` → `POST /api/threads/` — one create door.
+- `GET /api/knowledge/search` → `GET /api/search/` with a scope param — one search door. (Knowledge
+  *search* is machinery, not ceremony — agents and the future plugin both need it.)
 
-### 12. Timer kills
-- **DELETE** the 30s propagation retry heartbeat (`lifecycle-propagation.ts:806`): propagation is
-  event-driven at write time and bet→team is "derived on read" (its own comment); the heartbeat exists to
-  heal `propagation_log`, an audit ledger with no reader. The retention reaper even reaps it — bookkeeping
-  to clean bookkeeping.
-- **MERGE** the agent-layer reap timer (`start-runtime.ts:331`) into the 1s wake drain it sits next to —
-  same loop, one fewer timer.
-- **SIMPLIFY** the retention reaper (`service-bootstrap.ts:525`): loses login_sessions/invite_codes (kill 3)
-  and propagation_log (kill 12) sweeps; shrinks to notification_queue + knowledge_access_log +
-  task_dispatch_attempts — real unbounded growth on a laptop PGlite, so the timer itself stays.
+### 12. Timers — REVISED
+- **KEEP** the 30s propagation retry (`lifecycle-propagation.ts:806`) — reversed by Ruling 2 and by
+  its own mechanics: it heals real task→bet transitions and re-emits `bet_state_changed` /
+  emits `propagation_failed` — the event stream's reliability path.
+- **MERGE** the agent-layer reap timer (`start-runtime.ts:331`) into the adjacent 1s wake drain —
+  same loop, one fewer timer. Unchanged.
+- **SIMPLIFY** the retention reaper (`service-bootstrap.ts:525`) — loses only the login_sessions/
+  invite_codes sweeps (dead with OIDC); keeps notification_queue + knowledge_access_log +
+  task_dispatch_attempts + propagation_log (live again).
 
-### 13. Singles
-`POST /api/teams/:teamId/agents` (UI adds agents via `POST /api/agents/`; agents via org/scaffolded-agents),
-`PATCH /api/artifacts/:id/preview` (create carries preview; no patcher), `POST /api/routines/:id/retire`
-(UI uses `DELETE /api/routines/:id`), `GET+PATCH /api/settings/` (UI reads only
-`/api/settings/agent-behavior/*`; M2 aggregate has no fetcher), `POST /api/harnesses/:type/disabled` (no UI
-toggle exists), `POST /api/connections/:id/validate` (SettingsConnections never validates; credentials
-validate is the used one), `PATCH /api/sessions/:id` (state/effectiveness writes happen in-process via the
-worker protocol; no dialer), `GET /api/agent-orchestration/sessions` + `GET .../sessions/:sessionId/activity`
-(seam methods `listSessionHistoryBySource`/`getRecentActivity` have zero core-api consumers; the UI-facing
-`/api/sessions` list + `/api/sessions/:id/activity` serve the same data in-layer).
+### 13. Singles — DELETE (all re-confirmed, none moved except #171)
+`POST /api/teams/:teamId/agents` (third add-agent way), `PATCH /api/artifacts/:id/preview` (create
+carries preview), `POST /api/routines/:id/retire` (twin of DELETE), `GET+PATCH /api/settings/`
+(unfetched M2 aggregate), `POST /api/harnesses/:type/disabled` (no UI toggle), `PATCH
+/api/sessions/:id` (writes happen via worker protocol), `GET /api/agent-orchestration/sessions` +
+`GET .../sessions/:sessionId/activity` (seam methods with zero consumers; #141/#143 serve the same
+data in-layer — and are the substrate for A4's session page).
+**Moved out of this list:** `POST /api/connections/:id/validate` → FINISH (A5): connections are the
+credential mechanism for authenticated filesystem mounts (`ServiceConnectionResolver` → AN2 sandbox
+injection is the only plaintext path); when the resolvers become real, validate is how a human proves
+a mount will authenticate. Work: wire a validate action in `SettingsConnections`.
 
 ## Full door audit
 
-Reach tags: `UI:` browser client (`layers/core-ui/src`, desktop). `AGENT-SEAM:` reached by agent tools via
-`buildCoreApiPort`. `CORE-SEAM:` reached by core-api via `AgentOrchestrationPort`. `WORKER:` remote-worker
-client / harness. `DEAD:` zero production callers (rg-confirmed).
+Reach tags: `UI:` browser client. `AGENT-SEAM:` reached by agent tools via `buildCoreApiPort`.
+`CORE-SEAM:` reached by core-api via `AgentOrchestrationPort`. `WORKER:` remote-worker client /
+harness. `DEAD:` zero production callers (rg-confirmed, first wave; re-checked where a ruling touched
+the row).
 
 ### HTTP routes (order of trace-doors)
 
-| # | Door | Called by UI? | Verdict | Reason |
+| # | Door | Reach | Verdict | Reason |
 |---|---|---|---|---|
 | 1 | GET /api/health | desktop boot + rate-limit floor | KEEP | Liveness probe the desktop app actually polls. |
-| 2 | POST /api/users/ | UI:SetupFlow | KEEP | First-run human creation. |
-| 3 | POST /api/auth/claim | DEAD | DELETE | Invite-claim flow no client implements (kill 3). |
-| 4 | GET /api/auth/me | UI:useCurrentUser | KEEP | Identity read behind every page. |
+| 2 | POST /api/users/ | UI:SetupFlow | KEEP | Human creation — first-run and shared-backend joins alike. |
+| 3 | POST /api/auth/claim | DEAD | DELETE | Replaced by OIDC (Ruling 1) — invites are not how multi-user access arrives. |
+| 4 | GET /api/auth/me | UI:useCurrentUser | KEEP | Identity of the acting human — becomes OIDC-backed (A7). |
 | 5 | POST /api/auth/ws-token | UI:ws-client | KEEP | WS auth for live updates. |
 | 6 | POST /api/auth/worker-token | WORKER:remote-worker-client | KEEP | Worker WS auth. |
-| 7 | POST /api/auth/invite | DEAD | DELETE | Shared-mode invite minting, zero callers (kill 3). |
-| 8 | POST /api/auth/logout | DEAD | DELETE | Login-session revoke for sessions nobody can create (kill 3). |
-| 9 | GET /api/health/auth | desktop credential-validator | KEEP | Desktop validates shared-backend key with it. |
+| 7 | POST /api/auth/invite | DEAD | DELETE | Replaced by OIDC (Ruling 1); zero callers besides. |
+| 8 | POST /api/auth/logout | DEAD | DELETE | Home-grown login sessions die with OIDC (Ruling 1). |
+| 9 | GET /api/health/auth | desktop credential-validator | KEEP | Desktop validates its shared-backend credential with it. |
 | 10 | GET /api/agents/:id/profile | UI:useAgentProfile | KEEP | Agent profile pane. |
 | 11 | GET /api/agents/templates/:role | UI:AgentEditor, AgentAddDialog | KEEP | Prompt-template read for agent creation. |
 | 12 | GET /api/agents/ | UI:SettingsAgents, useTeamAgents | KEEP | Agent roster. |
@@ -241,11 +323,11 @@ client / harness. `DEAD:` zero production callers (rg-confirmed).
 | 15 | DELETE /api/agents/:id | UI:SettingsAgents | KEEP | Remove agent. |
 | 16 | GET /api/model-gateway/ | UI:SettingsModels, SetupFlow | KEEP | Model config read. |
 | 17 | PATCH /api/model-gateway/ | UI:SettingsModels, SetupFlow | KEEP | Model config write. |
-| 18 | GET /api/teams/ | UI:useTeams, SetupFlow | KEEP | Team list. |
-| 19 | POST /api/teams/ | UI:SetupFlow, WorkOverview | KEEP | Team create — merge target for #97. |
+| 18 | GET /api/teams/ | UI:useTeams, SetupFlow | KEEP | Team list — team scoping is load-bearing on a shared backend. |
+| 19 | POST /api/teams/ | UI:SetupFlow, WorkOverview | KEEP | Team create — merge target for #102. |
 | 20 | POST /api/teams/:teamId/agents | DEAD | DELETE | Third way to add an agent; zero callers (kill 13). |
 | 21 | PATCH /api/teams/:teamId | UI:useTeam + AGENT-SEAM:updateTeam | KEEP | Team edit, both actors. |
-| 22 | GET /api/teams/:teamId | UI:useTeam | KEEP | Team read — merge target for #100. |
+| 22 | GET /api/teams/:teamId | UI:useTeam | KEEP | Team read — merge target for #99. |
 | 23 | GET /api/bets/ | UI:WorkBetCreate, KnowledgeDetail | KEEP | Bet list. |
 | 24 | GET /api/bets/canvas | DEAD | DELETE | Canvas view retired; zero callers (kill 10). |
 | 25 | GET /api/bets/:id | UI:useBet + AGENT-SEAM:getBetById | KEEP | Bet detail. |
@@ -254,43 +336,43 @@ client / harness. `DEAD:` zero production callers (rg-confirmed).
 | 28 | POST /api/bets/:id/commit | UI:WorkBet:545 | KEEP | Commit a bet — the time-box act. |
 | 29 | POST /api/bets/:id/ship | DEAD | DELETE | Completion is event-propagated; no caller (kill 10). |
 | 30 | POST /api/bets/:id/kill | UI:WorkBet | KEEP | Kill a bet + cascade — core act. |
-| 31 | POST /api/bets/:id/outcome | DEAD | DELETE | Superseded by retro (WorkBet.tsx:584) (kill 10). |
-| 32 | POST /api/bets/:id/retro/draft | UI:WorkBet:616 | KEEP | AI retro draft. |
-| 33 | POST /api/bets/:id/retro | UI:WorkBet:593 | KEEP | Save retro. |
+| 31 | POST /api/bets/:id/outcome | DEAD | DELETE | Superseded (WorkBet.tsx:584); dead regardless of where retro lives (kill 10). |
+| 32 | POST /api/bets/:id/retro/draft | UI:WorkBet:616 | PLUGIN | Retro ceremony — Ruling 3. Moves out with bet_retro skill + builtin routine (kill 6). |
+| 33 | POST /api/bets/:id/retro | UI:WorkBet:593 | PLUGIN | Retro save — same (kill 6). |
 | 34 | GET /api/bets/:id/artifact-thread-summary | UI:useArtifactThreadSummary | KEEP | Bet artifact panel. |
 | 35 | POST /api/tasks/ | AGENT-SEAM:create_task | KEEP | Agents create tasks. |
 | 36 | GET /api/tasks/ | UI:useAgentRunState (?ids= batch) | KEEP | Task batch read for run state. |
 | 37 | GET /api/tasks/:id | AGENT-SEAM:getTaskById | KEEP | Seam read (log_task/handoff validation). |
 | 38 | PATCH /api/tasks/:id/notes | AGENT-SEAM:log_task | KEEP | Agent task log. |
-| 39 | PATCH /api/tasks/:id | DEAD | DELETE | No caller; task state moves in-process (kill 9). |
+| 39 | PATCH /api/tasks/:id | DEAD | DELETE | No caller; A6's dependency writer is in-process, not this door (kill 9). |
 | 40 | POST /api/tasks/:id/transition | DEAD | DELETE | No caller; transitions are event/policy-driven (kill 9). |
 | 41 | POST /api/tasks/:id/handoff | AGENT-SEAM:handoff_to | KEEP | Handoff — core agent collaboration act. |
-| 42 | GET /api/reviews/:reviewMessageId | UI:ReviewPage:44 | KEEP | Review page data. |
-| 43 | POST /api/reviews/proposed-calls | AGENT-SEAM:tool dispatch (AL7) | DELETE | AL7 loop cannot close — grant door unwired (kill 2). |
-| 44 | POST /api/reviews/proposed-calls/consume | AGENT-SEAM:tool dispatch (AL7) | DELETE | Consumes grants that are never minted (kill 2). |
-| 45 | POST /api/reviews/proposed-calls/:id/outcome | AGENT-SEAM:tool dispatch (AL7) | DELETE | Outcome for a flow that never grants (kill 2). |
+| 42 | GET /api/reviews/:reviewMessageId | UI:ReviewPage:44 | KEEP | Review page data — now load-bearing for the A1 loop. |
+| 43 | POST /api/reviews/proposed-calls | AGENT-SEAM:tool dispatch (AL7) | KEEP | A1 = FINISH: capture half of the approval loop; live and functional once #88 wired. |
+| 44 | POST /api/reviews/proposed-calls/consume | AGENT-SEAM:tool dispatch (AL7) | KEEP | A1: consumes the tailored grant at dispatch. |
+| 45 | POST /api/reviews/proposed-calls/:id/outcome | AGENT-SEAM:tool dispatch (AL7) | KEEP | A1: records execution outcome of the granted call. |
 | 46 | GET /api/artifacts/ | UI:useArtifacts | KEEP | Artifact gallery. |
 | 47 | GET /api/artifacts/:id | UI:useArtifacts | KEEP | Artifact detail. |
 | 48 | POST /api/artifacts/ | UI:useArtifacts + AGENT-SEAM:create_artifact | KEEP | Artifact create, both actors. |
-| 49 | PATCH /api/artifacts/:id/preview | DEAD | DELETE | Create carries preview; race-safe patcher has no caller (kill 13). |
-| 50 | POST /api/filesystems/:id/injections | UI:SettingsAgents | KEEP | Grant agent filesystem access. |
-| 51 | GET /api/knowledge/search | AGENT-SEAM:query_practice | MERGE | Fold into GET /api/search with a scope param (kill 11). |
-| 52 | GET /api/knowledge/ | UI:KnowledgeList | KEEP | Knowledge list. |
-| 53 | GET /api/knowledge/triage-count | UI:AppShell | KEEP | Triage badge. |
+| 49 | PATCH /api/artifacts/:id/preview | DEAD | DELETE | Create carries preview; patcher has no caller (kill 13). |
+| 50 | POST /api/filesystems/:id/injections | UI:SettingsAgents | KEEP | Grant agent filesystem access — A5 substrate. |
+| 51 | GET /api/knowledge/search | AGENT-SEAM:query_practice | MERGE | Fold into GET /api/search with a scope param (kill 11). Search is machinery, not ceremony. |
+| 52 | GET /api/knowledge/ | UI:KnowledgeList | KEEP | Knowledge list — machinery of shared knowledge. |
+| 53 | GET /api/knowledge/triage-count | UI:AppShell | KEEP | Draft/needs_human badge — the human touchpoint of the knowledge machinery, inline with work, not a scheduled ritual. |
 | 54 | GET /api/knowledge/:id | UI:KnowledgeDetail + AGENT-SEAM | KEEP | Knowledge detail, both actors. |
 | 55 | POST /api/knowledge/ | UI:KnowledgeCreate + AGENT-SEAM:write_memory | KEEP | Knowledge create, both actors. |
 | 56 | PATCH /api/knowledge/:id/scope | UI:ScopeChangeDialog | KEEP | Scope move. |
 | 57 | PATCH /api/knowledge/:id | UI:useAutoSave + AGENT-SEAM:writeback | KEEP | Content edit w/ optimistic lock, both actors. |
-| 58 | POST /api/knowledge/:id/merge | DEAD | DELETE | Librarian ceremony, zero callers (kill 6). |
-| 59 | POST /api/knowledge/:id/split | DEAD | DELETE | Same (kill 6). |
+| 58 | POST /api/knowledge/:id/merge | DEAD | PLUGIN | Librarian ceremony → plugin, per Ruling 3 (kill 6). |
+| 59 | POST /api/knowledge/:id/split | DEAD | PLUGIN | Same (kill 6). |
 | 60 | POST /api/knowledge/:id/archive | UI:KnowledgeDetail | KEEP | Archive is the UI's remove action. |
-| 61 | POST /api/knowledge/:id/flag | DEAD | DELETE | Flag-for-review nobody flags (kill 6). |
-| 62 | GET /api/knowledge/:id/conflicts | AGENT-SEAM:conflict workflow | KEEP | Backs create_conflict_review dedup. |
-| 63 | POST /api/knowledge/:id/conflicts | AGENT-SEAM:create_conflict_review | KEEP | Conflict capture. |
-| 64 | POST /api/knowledge/:id/promote | AGENT-SEAM:promote_knowledge | KEEP | Facilitator promotion. |
-| 65 | PATCH /api/knowledge/:id/attention-score | AGENT-SEAM:score_attention | KEEP | Attention override mode. |
-| 66 | POST /api/knowledge/:id/recompute-attention | AGENT-SEAM:score_attention | KEEP | Attention recompute mode. |
-| 67 | GET /api/team-members/ | DEAD | DELETE | Raw team_members dump, zero callers (kill 6). |
+| 61 | POST /api/knowledge/:id/flag | DEAD | PLUGIN | Flag-for-review ritual → plugin (kill 6). |
+| 62 | GET /api/knowledge/:id/conflicts | AGENT-SEAM:conflict workflow | KEEP | Write-time conflict surfacing is knowledge-fabric machinery, not ceremony. |
+| 63 | POST /api/knowledge/:id/conflicts | AGENT-SEAM:create_conflict_review | KEEP | Same — inline conflict capture at write time. |
+| 64 | POST /api/knowledge/:id/promote | AGENT-SEAM:promote_knowledge | PLUGIN | Practice-promotion ceremony, driven by builtin:knowledge-promotion routine (kill 6). |
+| 65 | PATCH /api/knowledge/:id/attention-score | AGENT-SEAM:score_attention | PLUGIN | Attention scoring serves the facilitator practice loop (kill 6). |
+| 66 | POST /api/knowledge/:id/recompute-attention | AGENT-SEAM:score_attention | PLUGIN | Same (kill 6). |
+| 67 | GET /api/team-members/ | DEAD | DELETE | Raw team_members dump, zero callers. Not ceremony — just dead. |
 | 68 | GET /api/settings/ | DEAD | DELETE | M2 aggregate; UI never fetches it (kill 13). |
 | 69 | PATCH /api/settings/ | DEAD | DELETE | Writer for the unread aggregate (kill 13). |
 | 70 | GET /api/settings/agent-behavior/config | UI:SettingsAgentBehavior:98 | KEEP | Behavior config read. |
@@ -304,22 +386,22 @@ client / harness. `DEAD:` zero production callers (rg-confirmed).
 | 78 | GET /api/threads/assistant/ | UI:AssistantOverlay | KEEP | Assistant thread. |
 | 79 | GET /api/threads/coach/ | UI:useAssistantThread | KEEP | Coach thread. |
 | 80 | POST /api/threads/scaffold | AGENT-SEAM:insertThread | MERGE | Second thread-create door; fold into POST /api/threads/ (kill 11). |
-| 81 | POST /api/threads/direct | AGENT-SEAM:send_message DM | KEEP | Find-or-create DM. |
+| 81 | POST /api/threads/direct | AGENT-SEAM:send_message DM | KEEP | Find-or-create DM — human↔human and agent↔human alike on a shared backend. |
 | 82 | GET /api/threads/inbox | AGENT-SEAM:read_inbox | KEEP | Agent inbox — core loop. |
 | 83 | PATCH /api/threads/:id | UI + AGENT-SEAM:updateThread | KEEP | Thread update, both actors. |
 | 84 | GET /api/threads/ | UI:useConversationsThreads + seam | KEEP | Thread list, both actors. |
 | 85 | GET /api/threads/:id | UI:useThreadDetail + seam | KEEP | Thread detail, both actors. |
 | 86 | POST /api/threads/ | UI:RecipientPicker, host-threads | KEEP | Thread create — merge target for #80. |
 | 87 | POST /api/threads/:id/messages | UI:Conversations + AGENT-SEAM:reply/send | KEEP | THE message door — the product's center. |
-| 88 | POST /api/threads/:threadId/messages/:messageId/verdict | DEAD | DELETE | AL7 grant composer nobody calls — see kill 2 (or wire ReviewPage to it). |
+| 88 | POST /api/threads/:threadId/messages/:messageId/verdict | none yet (grant composer) | FINISH | A1: wire ONE fetch from ReviewPage.handleSubmitVerdict after postVerdictHostMessage — see "A1 wiring". |
 | 89 | GET /api/users/ | UI:SetupFlow + AGENT-SEAM:listUsers | KEEP | User list, both actors. |
 | 90 | GET /api/users/:id | UI:SettingsProfile + AGENT-SEAM | KEEP | User read. |
 | 91 | PATCH /api/users/:id | UI:SettingsProfile | KEEP | Profile edit. |
-| 92 | GET /api/users/:id/inbox | DEAD | DELETE | Second inbox; threads/inbox is the real one (kill 8). |
+| 92 | GET /api/users/:id/inbox | DEAD | DELETE | Second inbox; threads are the messaging surface, multi-human included (kill 8). |
 | 93 | POST /api/users/:id/inbox | DEAD | DELETE | Second send door; threads/direct is the real one (kill 8). |
 | 94 | GET /api/users/:userId/assistant/ | UI:SettingsAgents | KEEP | Assistant config read. |
 | 95 | PATCH /api/users/:userId/assistant/ | UI:SettingsAgents | KEEP | Assistant config write. |
-| 96 | GET /api/org/ | UI:SettingsOrgChart | KEEP | Org chart read. |
+| 96 | GET /api/org/ | UI:SettingsOrgChart | KEEP | Org chart read — organisation of teams is the ruled deployment shape. |
 | 97 | PUT /api/org/edges | UI:SettingsOrgChart | KEEP | Org edge upsert. |
 | 98 | DELETE /api/org/edges/:id | UI:SettingsOrgChart | KEEP | Org edge remove. |
 | 99 | GET /api/org/teams/:teamId | UI:useAgentRunState + AGENT-SEAM:getTeamById | MERGE | Duplicate of GET /api/teams/:teamId — one team-read door (kill 11). |
@@ -328,8 +410,8 @@ client / harness. `DEAD:` zero production callers (rg-confirmed).
 | 102 | POST /api/org/teams | AGENT-SEAM:create_team | MERGE | Duplicate of POST /api/teams/ — one team-create door (kill 11). |
 | 103 | GET /api/org/review-recipients | AGENT-SEAM:create_item routing | KEEP | Review routing resolution. |
 | 104 | POST /api/org/scaffolded-agents | AGENT-SEAM:create_team/add_agent | KEEP | Agent scaffolding persistence. |
-| 105 | POST /api/org/team-routines | AGENT-SEAM:create_team | KEEP | Team routine provisioning. |
-| 106 | POST /api/routines/ | UI:RoutineCreateDialog + AGENT-SEAM:create_routine | KEEP | Routine create, both actors. |
+| 105 | POST /api/org/team-routines | AGENT-SEAM:create_team | PLUGIN | Sole job is seeding the four builtin ceremony routines — Ruling 3 (kill 6). |
+| 106 | POST /api/routines/ | UI:RoutineCreateDialog + AGENT-SEAM:create_routine | KEEP | Routine create — also how the ceremony plugin provisions its routines. |
 | 107 | GET /api/routines/ | UI:RoutineCreateDialog | KEEP | Routine list. |
 | 108 | DELETE /api/routines/:id | UI:RoutineDetailPane | KEEP | Routine delete — the UI's remove action. |
 | 109 | GET /api/routines/:id | UI:useRoutine + AGENT-SEAM | KEEP | Routine detail. |
@@ -338,7 +420,7 @@ client / harness. `DEAD:` zero production callers (rg-confirmed).
 | 112 | POST /api/routines/:id/trigger | UI:RoutineDetailPane | KEEP | Manual run-now. |
 | 113 | GET /api/recipients/ | UI:useRecipients | KEEP | Recipient picker data. |
 | 114 | POST /api/sessions/ | DEAD | DELETE | Explicit-start door nobody dials (kill 1). |
-| 115 | GET /api/status/health | DEAD | DELETE | Authenticated probe nobody probes (kill 4). |
+| 115 | GET /api/status/health | DEAD | DELETE | Authenticated probe nobody probes; /api/health is the live liveness door (kill 4). |
 | 116 | GET /api/status/ | DEAD | DELETE | Route's own comment: zero consumers repo-wide (kill 4). |
 | 117 | GET /api/status/digest | DEAD | DELETE | Daily digest with no reader (kill 4). |
 | 118 | GET /api/workers/ | DEAD | DELETE | Worker admin visibility, comments-only references (kill 4). |
@@ -353,23 +435,23 @@ client / harness. `DEAD:` zero production callers (rg-confirmed).
 | 127 | POST /api/hint-progress/:hintId/dismiss | UI:useHints | KEEP | Hint dismiss. |
 | 128 | GET /api/search/ | UI:GlobalSearchPanel | KEEP | Global search — merge target for #51. |
 | 129 | GET /api/notifications/ | DEAD | DELETE | Root list; UI reads /inbox (kill 5). |
-| 130 | GET /api/notifications/config | DEAD | DELETE | Channel admin, zero callers (kill 5). |
-| 131 | PATCH /api/notifications/config | DEAD | DELETE | Writes an audit log on a route nobody reaches (kill 5). |
-| 132 | POST /api/notifications/test | DEAD | DELETE | Test-send with rate limiter, zero callers (kill 5). |
+| 130 | GET /api/notifications/config | none yet | FINISH | Ruling 1: SMTP/ntfy config read — needs the missing settings surface (kill 5). |
+| 131 | PATCH /api/notifications/config | none yet | FINISH | Ruling 1: channel config write — how a shared deployment reaches absent humans (kill 5). |
+| 132 | POST /api/notifications/test | none yet | FINISH | Ruling 1: test-send belongs to the config surface (kill 5). |
 | 133 | GET /api/notifications/queue | DEAD | DELETE | Queue introspection, zero callers (kill 5). |
 | 134 | POST /api/notifications/flush | DEAD | DELETE | Manual flush; drain tick does this (kill 5). |
-| 135 | POST /api/notifications/digest | DEAD | DELETE | Digest send, zero callers (kill 5). |
+| 135 | POST /api/notifications/digest | DEAD | DELETE | Manual digest-send trigger with no consumer; delivery mode lives in config (kill 5). |
 | 136 | GET /api/notifications/inbox | UI:useNotifications:45 | KEEP | In-app inbox. |
 | 137 | POST /api/notifications/seen | UI:useNotifications:64 | KEEP | Mark seen. |
 | 138 | POST /api/notifications/:id/read | UI:useNotifications:73 | KEEP | Mark read. |
 | 139 | GET /api/notifications/mute | UI:useNotificationMute | KEEP | Mute list. |
 | 140 | PUT /api/notifications/mute/:key | UI:useNotificationMute | KEEP | Mute toggle. |
-| 141 | GET /api/sessions/ (orch app) | UI:Conversations:125 | KEEP | Active-session lookup per task. |
+| 141 | GET /api/sessions/ (orch app) | UI:Conversations:125 | KEEP | Active-session lookup — substrate for A4's session page. |
 | 142 | GET /api/sessions/starts/:startId | DEAD | DELETE | pollUrl no client follows (kill 1). |
-| 143 | GET /api/sessions/:id/activity | UI:useSessionActivity:150 | KEEP | Live session activity feed. |
-| 144 | PATCH /api/sessions/:id | DEAD | DELETE | State/effectiveness writes happen in-process; no dialer (kill 13). |
+| 143 | GET /api/sessions/:id/activity | UI:useSessionActivity:150 | KEEP | Live session activity feed — the watching half A4 builds on. |
+| 144 | PATCH /api/sessions/:id | DEAD | DELETE | State/effectiveness writes happen via worker protocol; no dialer (kill 13). |
 | 145 | GET /api/agent-orchestration/sessions | DEAD | DELETE | Seam method listSessionHistoryBySource has zero consumers (kill 13). |
-| 146 | GET /api/agent-orchestration/sessions/:sessionId | CORE-SEAM:tasks.ts handoff, sessions-routes | SIMPLIFY | Sole surviving consumer (handoff) reads 2 fields — shrink response to {id, agentId}. |
+| 146 | GET /api/agent-orchestration/sessions/:sessionId | CORE-SEAM:tasks.ts handoff | SIMPLIFY | Sole surviving consumer (handoff) reads 2 fields — shrink response to {id, agentId}. |
 | 147 | GET /api/agent-orchestration/sessions/:sessionId/activity | DEAD | DELETE | Duplicate of #143 served in-layer; seam method unconsumed (kill 13). |
 | 148 | GET /api/agent-orchestration/runs/active-counts | UI:agent-runs.ts | KEEP | Run badges. |
 | 149 | GET /api/agent-orchestration/runs/latest-outcomes | UI:agent-runs.ts:87 | KEEP | Task outcome chips. |
@@ -383,18 +465,18 @@ client / harness. `DEAD:` zero production callers (rg-confirmed).
 | 157 | POST /api/agent-orchestration/runs/stop-for-tasks | CORE-SEAM:bets.ts kill cascade | KEEP | Bet kill stops the runs. |
 | 158 | POST /api/agent-orchestration/runs/end-for-handoff | CORE-SEAM:policy-bindings | KEEP | Handoff run end. |
 | 159 | POST /api/agent-orchestration/runs/bare | DEAD (only from #114 fallback) | DELETE | Legacy bare-insert fallback of the dead door (kill 1). |
-| 160 | POST /api/agent-orchestration/runs/explicit-start/fail | DEAD (admission of dead starts) | DELETE | Explicit-start family (kill 1). |
+| 160 | POST /api/agent-orchestration/runs/explicit-start/fail | DEAD | DELETE | Explicit-start family (kill 1). |
 | 161 | GET /api/agent-orchestration/run-config/:agentId | CORE-SEAM:agent-profile, assistant | KEEP | Run-config read. |
 | 162 | POST /api/agent-orchestration/run-config/batch | CORE-SEAM:teams-routes, boot | KEEP | Roster config batch read. |
 | 163 | PATCH /api/agent-orchestration/run-config/:agentId | CORE-SEAM:assistant, scaffolding writer | KEEP | Run-config write. |
 | 164 | GET /api/agent-orchestration/team-run-config-defaults/:teamId | CORE-SEAM:teams-routes:543 | KEEP | Team defaults read. |
 | 165 | PATCH /api/agent-orchestration/team-run-config-defaults/:teamId | CORE-SEAM:teams-routes:282 | KEEP | Team defaults write on create. |
-| 166 | GET /api/agent-orchestration/filesystems/:id/team | CORE-SEAM:filesystems.ts | KEEP | Injection authz read. |
-| 167 | POST /api/agent-orchestration/filesystems/:id/injections/persist | CORE-SEAM:filesystems.ts | KEEP | Injection persistence. |
+| 166 | GET /api/agent-orchestration/filesystems/:id/team | CORE-SEAM:filesystems.ts | KEEP | Injection authz read — A5 substrate. |
+| 167 | POST /api/agent-orchestration/filesystems/:id/injections/persist | CORE-SEAM:filesystems.ts | KEEP | Injection persistence — A5 substrate. |
 | 168 | GET /api/connections/ | UI:SettingsConnections | KEEP | Connection list. |
-| 169 | POST /api/connections/ | UI:SettingsConnections | KEEP | Connection create. |
+| 169 | POST /api/connections/ | UI:SettingsConnections | KEEP | Connection create — the credential source for authenticated mounts (A5). |
 | 170 | DELETE /api/connections/:id | UI:SettingsConnections | KEEP | Connection remove. |
-| 171 | POST /api/connections/:id/validate | DEAD | DELETE | Validate door the UI never calls (kill 13). |
+| 171 | POST /api/connections/:id/validate | none yet | FINISH | A5: the proof door for an authenticated mount — wire a validate action in SettingsConnections when the resolvers become real. |
 | 172 | POST /api/filesystems/ | UI:SettingsFilesystems, SetupFlow | KEEP | Filesystem registration. |
 | 173 | POST /api/filesystems/inspect-path | UI:SetupFlow | KEEP | Path inspection during setup. |
 | 174 | GET /api/filesystems/ | UI:SettingsFilesystems | KEEP | Filesystem list. |
@@ -407,58 +489,71 @@ client / harness. `DEAD:` zero production callers (rg-confirmed).
 
 ### Scheduler ticks
 
-| # | Door | Called by UI? | Verdict | Reason |
+| # | Door | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 181 | TICK sandbox reaper (60min, runtime-reapers.ts:122) | n/a | KEEP | Reclaims dead sandbox dirs — real disk, real laptop. |
+| 181 | TICK sandbox reaper (60min, runtime-reapers.ts:122) | n/a | KEEP | Reclaims dead sandbox dirs — real disk. |
 | 182 | TICK 1s wake drain (start-runtime.ts:330) | n/a | KEEP | Dispatches all agent work; process-death recovery — the heartbeat of the product. |
 | 183 | TICK agent-layer reap (start-runtime.ts:331) | n/a | MERGE | Second timer on the same loop; fold reapExpired into the wake drain cadence (kill 12). |
-| 184 | TICK session-requests poll (service.ts:254) | n/a | KEEP | Lifecycle projection drain; event bus is a latency hint only — this is the recovery path. |
-| 185 | TICK notification drain (install.ts:1651) | n/a | KEEP | Delivers the queue the UI inbox displays. |
-| 186 | TICK propagation retry 30s (lifecycle-propagation.ts:806) | n/a | DELETE | Heals propagation_log, an audit ledger with no reader; propagation is derived on read (kill 12). |
-| 187 | TICK routine scheduler (routine-scheduler.ts:802) | n/a | KEEP | Routines primitive — cron IS the feature. |
-| 188 | TICK retention reaper (service-bootstrap.ts:525) | n/a | SIMPLIFY | Loses invite/login + propagation_log sweeps with their features; keeps queue/access-log/dispatch-attempt reaps (kill 12). |
+| 184 | TICK session-requests poll (service.ts:254) | n/a | KEEP | Lifecycle projection drain; recovery path. |
+| 185 | TICK notification drain (install.ts:1651) | n/a | KEEP | Delivers the queue the UI inbox displays — and, post-FINISH, the SMTP/ntfy channels. |
+| 186 | TICK propagation retry 30s (lifecycle-propagation.ts:806) | n/a | KEEP | REVERSED (Ruling 2): heals real task→bet transitions and re-emits their events; also emits propagation_failed + user notification on exhaustion. The event stream's reliability path. |
+| 187 | TICK routine scheduler (routine-scheduler.ts:802) | n/a | KEEP | Routines primitive — cron IS the feature. Engine stays in core; the builtin ceremony *definitions* leave with the plugin (#105). |
+| 188 | TICK retention reaper (service-bootstrap.ts:525) | n/a | SIMPLIFY | Loses only login_sessions/invite_codes sweeps (dead with OIDC); keeps notification_queue + knowledge_access_log + task_dispatch_attempts + propagation_log (live again per #186). |
 
 ### Worker-protocol messages
 
-| # | Door | Called by UI? | Verdict | Reason |
+| # | Door | Reach | Verdict | Reason |
 |---|---|---|---|---|
 | 189 | WORKER register | remote-worker-client | KEEP | Worker joins the pool. |
-| 190 | WORKER event | remote-worker-client | KEEP | Session activity streaming. |
+| 190 | WORKER event | remote-worker-client | KEEP | Session activity streaming — also feeds A4's live session surface. |
 | 191 | WORKER session_result | remote-worker-client | KEEP | Session completion — the run lifecycle depends on it. |
 | 192 | WORKER error | remote-worker-client | KEEP | Session failure path. |
 | 193 | WORKER pause | desktop main.ts:766 | KEEP | User pauses agent work from the desktop app. |
 | 194 | WORKER resume | desktop main.ts:770 | KEEP | User resumes. |
 
-## Types / DI ports that die with the routes
+## Types / DI ports (revised)
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `AgentOrchestrationPort.intents.createExplicitStart` + `requests.findExplicitStartBy*` + `runs.createBareRun` + `runs.failExplicitStart` (api-contract + port-composition) | DELETE | Only callers are the dead explicit-start routes. |
+| `AgentOrchestrationPort.intents.createExplicitStart` + `requests.findExplicitStartBy*` + `runs.createBareRun` + `runs.failExplicitStart` | DELETE | Only callers are the dead explicit-start routes. |
 | `AgentOrchestrationPort.sessions.listSessionHistoryBySource` / `getRecentActivity` | DELETE | Zero consumers. |
 | `framework/http-middleware/src/http/explicit-start-projection.ts` (whole module) | DELETE | Projects a wire shape only the dead family renders. |
-| `CoreApiPort.review.*` + `CaptureProposedCall*`/`ConsumeTailoredGrant*` types | DELETE (contingent on kill 2) | AL7 machinery. |
-| `CoreApiHcClient.reviews` / `knowledge` merge-split-flag absent already — no seam debt | — | Seam never mirrored the dead knowledge routes; confirms they were UI-conceived and never adopted. |
-| `SettingsResponse`/`SettingsNotifications` etc. in `framework/api-contract/src/settings.ts` | DELETE | Mirrors the unfetched GET/PATCH /api/settings aggregate. |
+| `CoreApiPort.review.*` + `CaptureProposedCall*`/`ConsumeTailoredGrant*` types | KEEP | REVERSED — A1 = FINISH; the AL7 machinery is load-bearing once #88 is wired. |
+| `SettingsResponse`/`SettingsNotifications` etc. in `framework/api-contract/src/settings.ts` | DELETE | Mirrors the unfetched GET/PATCH /api/settings aggregate. Distinct from the notification-channel config contract, which stays (FINISH #130-132). |
+
+## Work the FINISH verdicts schedule
+
+1. **A1 (approval loop):** one fetch in `ReviewPage.handleSubmitVerdict` to
+   `POST /api/threads/:threadId/messages/:reviewMessageId/verdict` after the verdict message posts —
+   full mechanics in "A1 wiring" above. Everything else is already live.
+2. **Ruling 1 (channels):** a notification-channel config surface (the panel `SettingsNotifications`'
+   own lore comment references but that was never built) dialing #130/#131, with #132 as its
+   test-send action.
+3. **A5 (authenticated mounts):** real `ServiceConnectionResolver` resolution into AN2 sandbox
+   injection, plus a validate action in `SettingsConnections` dialing #171.
+4. **A7 (OIDC):** new identity doors — none exist; not rows in this file.
+5. **Ruling 3 plugin:** a work package for the knowledge-ceremony plugin — none exists yet; the 9
+   PLUGIN rows above are its door inventory.
 
 ## Holes this leaves
 
-1. **No manual "start a session on this task" API.** Explicit-start deletion removes the only door for a
-   human/API client to force a session onto a task outside the intent queue. Nothing uses it today; if the
-   UI ever grows a "run agent now" button, the intent door (#151) is the right substrate anyway.
-2. **AL7 review gate: agents' gated calls have no approval path** — but that is the state TODAY (the grant
-   door is unwired). Deleting makes the truth honest: gated tool calls should stop being captured instead of
-   being captured into a void. If the founder wants the gate, the fix is one fetch in ReviewPage, not 4 routes
-   of scaffolding — decide, don't keep both halves broken.
-3. **Shared multi-user backend cannot issue invites or revoke logins.** Single-user API-key auth (the only
-   mode any client implements) is untouched.
-4. **SMTP/ntfy notification channels become unconfigurable** once config PATCH dies — the outbound adapters
-   are then dead code for the notifications service destroyer to sweep. In-app notifications unaffected.
-5. **A failed lifecycle propagation is never retried** — bet→team status is derived on read, so the visible
-   product state stays correct; only the propagation_log ledger stops healing (and can die with it).
-6. **`tools/eval` scenario prose mentions `POST /api/sessions/start`** in a fictional error log — cosmetic,
-   not a caller.
-7. **Session effectiveness scores lose their write door** (#144) — nothing writes them today; the column is
-   already inert.
+1. **No manual "start a session on this task" API.** Unchanged; the intent door (#151) is the right
+   substrate if a "run agent now" button ever ships.
+2. **Until the A1 fetch lands, gated tool calls are still captured into a void.** FINISH removes the
+   first wave's "delete the machinery" escape hatch — the hole now closes only by shipping the wiring.
+3. **Invite/logout deletion leaves the shared backend without ANY multi-user access path until OIDC
+   lands.** That is a deliberate sequencing hole: A7 is scheduled work, and the doors being deleted
+   could not fill it anyway (no client implements them).
+4. **The 9 PLUGIN doors leave core before the plugin exists.** Between the deletion and the plugin
+   shipping, teams lose retros, knowledge promotion/decay/attention, and merge/split/flag. The ruling
+   accepts this; the plugin work package prices it.
+5. **Ceremony state left behind in core schema** — `attention_score`, promotion status, retro fields
+   on bets, the builtin routine rows already seeded in existing deployments — is for the service/table
+   destroyers to rule on; doors only stop serving it.
+6. **Session effectiveness scores lose their write door** (#144) — nothing writes them today; the
+   column is already inert.
+7. **`tools/eval` scenario prose mentions `POST /api/sessions/start`** in a fictional error log —
+   cosmetic, not a caller.
 
 
 ---
@@ -632,96 +727,127 @@ unit-test files die with it.
 
 ---
 
-# conversation — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/conversation.md` for comparison.
+
+# conversation — destroyer verdict (REVISED after founder rulings)
+
+## What changed after the rulings
+
+Rows whose **verdict moved**:
+
+| Row | Method | Old | New | Ruling | Why |
+|---|---|---|---|---|---|
+| 8 | `findOrCreateDirectThread` | SIMPLIFY (keep, drop `recipientKind`) | **MERGE** (into the AF14 `directKey` dedupe; `recipientKind` survives and gets wired) | Ruling 1 | The first wave judged `recipientKind` dead flexibility because "no production caller passes it" in a one-user world. Re-tracing on the shared-backend premise found the real defect: there are **two DM find-or-create mechanisms that cannot see each other's threads**. The UI door (`POST /api/threads`, threads.ts:1016–1027) dedupes by `directKey` and supports human↔human DMs today; the store's `findOrCreateDirectThread` scans `(hostKind, hostId)`, never sets `directKey`, and hard-defaults `hostKind:"agent"` — so an agent sending to a human (tool-definitions.ts:122, :197) creates a thread labeled `hostKind:"agent"`, `hostId:<userId>` that the UI's dedupe can never find. Same pair, opposite initiator → **two forked conversations**. In a multi-human deployment where agents DM humans and humans DM each other, this is a core-product correctness bug, not a param to delete. Fold the two mechanisms into one store function that computes `directKey` and takes the recipient's real kind. |
+
+Rows/kills whose **verdict stands but whose first-wave reasoning was voided by Ruling 1 and had to be re-reached**:
+
+| Row / kill | Verdict (unchanged) | Old reasoning (void) | New reasoning (shared backend) |
+|---|---|---|---|
+| Kill 1 — `GET /api/conversations/` + `/:threadId` | DELETE | "no client calls it" (single-user usage argument) | The kill gets **stronger** multi-human: the list route does zero participant filtering (`countThreads` + `listThreads({order:"created"})`, conversations.ts:82–93) — on a shared backend it returns **every human's DM threads to any authenticated principal**. Only the `/:threadId` detail route calls `authorizeRead`. The product's real thread list, `GET /api/threads?participant_id`, is participant-scoped and multi-human correct. The conversations list is a second, scope-bypassing way to do what the first way does safely. Dead AND a leak. |
+| Kill 2 — `GET`/`POST /api/users/:id/inbox` | DELETE | "no client sends these requests" | Re-judged as product: a human's "what is waiting for me" is core in a team deployment — and these routes are a **half-built third inbox that would damage the product if used**. GET (users.ts:291) is a firehose of every message in your threads, including ones you sent — no unread state, no read markers, no sender exclusion. The real human inbox is `GET /api/notifications/inbox` (AU18 ownership, has read state). POST (users.ts:326) is a second send path that skips the entire message-append contract: no `thread_message_appended` emission (so no coherence trigger, no pin reaction, no WS push — Ruling 2: the fact happens, nothing announces it), no `lastActiveAt` bump (the thread never rises in the recipient's list), no idempotency triple, and it mislabels human recipients via the `recipientKind` default. The canonical pair `POST /api/threads/direct` + `POST /api/threads/:id/messages` does all of this correctly. Rebuild-don't-keep: DELETE both routes; the genuine gap they gesture at is named in Holes (DM notification emission). |
+| Row 11 — `countThreads` | DELETE | dies with kill 1 | Unchanged mechanically, but now also: a global thread count is meaningless to any principal on a shared backend — there is no surface where one human should see the org-wide total. |
+| Row 14 — `listInbox` participant-probe variant | SIMPLIFY | probe variant's only door is dead route | Same fact, corrected frame: the probe variant IS the half-built third inbox (kill 2). The surviving `excludeSenderId` variant is the agent `read_inbox` tool — live and multi-human correct (each agent excludes itself). Per-human inbox stays with notifications where read state lives. |
+| First-wave hole "No human→human DM kind" | **RETRACTED** | "if human-to-human DMs ship, the parameter comes back" | Human↔human DMs are not a future feature — they exist now through `POST /api/threads` (`hostKind:"user"`, 2 participants, `directKey` dedupe) and are core product per Ruling 1. `recipientKind` is the right vocabulary with missing wiring (same shape as Ruling 2's missing emissions); it survives inside the row-8 MERGE. |
+
+Ruling 2 check: this package's surface contains no event types; nothing here was killed on subscriber count. The soft-delete/redaction guard kill (kill 4) rests on "no production writer ever sets the column" — that is a payload-nothing-sets fact, which Ruling 2 explicitly does not protect. Stands.
+
+Ruling 3 check: nothing in this package is knowledge-management ritual. No PLUGIN verdicts.
+
+A4 check (live session surface): the conversation package's contribution to "dial into a session and watch" is `resolveAssistantTurnRequest` (the turn producer) and `registerSessionNotReturnedNotice` (the session-died-tell-the-human net). Both were already KEEP/SIMPLIFY in wave 1 and are now additionally **protected** — the resolver's baked-transcript machinery (`BakedTranscriptRow`, `BakedAssistantTurnRequest`) is the substrate the live-session producer will extend. Nothing in this verdict deletes anything A4 needs.
 
 ## Should this service exist?
 
-**KEEP — this IS the product.** "Humans and agents collaborating through conversations" is the first clause of what HyperIdle is. `threads` + `messages` are the central tables; every agent tool that talks (`send_message`, `reply`, `read_inbox`, `submit_review`) and every chat surface in the UI lands here. The AU12 ownership seam (single owner of thread/message row writes) is also the thing AU-track governance is built on — killing it re-scatters raw table writes across 20 callers.
+**KEEP — this IS the product, and Ruling 1 makes it more so.** Conversation between several humans and their agents on one shared backend is the first clause of what HyperIdle is. `threads` + `messages` are the central tables; every agent tool that talks (`send_message`, `reply`, `read_inbox`, `submit_review`) and every chat surface lands here. The AU12 ownership seam (single owner of thread/message row writes) is what the AU-track governance stands on.
 
-The function surface was already destroyed once (AU20 Am5: 29 → 14 store functions). What's left is close to the minimal honest shape. The remaining fat is not in the functions — it is in **dead doors calling them** (4 production-dead HTTP routes), **dead flexibility** (params and filter fields whose only callers are those dead routes), and **defenses for a feature that never shipped** (message soft-delete/redaction has no production writer, yet four read paths guard against it). This verdict kills those.
+The function surface was already destroyed once (AU20 Am5: 29 → 14 store functions). The remaining rot, re-judged for a team deployment: one scope-bypassing dead door (the unscoped conversations list — now a leak, not just dead), one half-built third inbox (users inbox routes), one superseded route (coach), guards for a writer-less feature, a typed error nobody catches — and one genuine multi-human correctness bug the single-user lens hid: **the forked DM dedupe**.
 
 ## If written today, from scratch
 
-Eleven callable units:
+For several humans and their agents talking on one shared backend, OIDC-identified, with an event stream plugins hang off:
 
 - `insertThread` / `updateThread` / `insertMessage` — the irreducible writes
 - `resolveMessageIfUnresolved` — the one conditional write (verdict CAS, absorbs `updateMessage`)
-- `findThread` / `listThreads` / `findMessage` / `listMessages` — the filtered reads
-- `findOrCreateDirectThread(db, senderId, recipientId, now)` — DMs, no kind param
-- `listInbox` — sender-exclusion only (the agent `read_inbox` tool)
-- `searchConversations` — the live global-search join
-- `resolveAssistantTurnRequest` — human message → assistant turn, the product's beating heart
-- plus two bootstrap reactions: pin-after-first-AI-reply (moved to Layer code, DI interface dead) and session-not-returned notice
+- `findThread` / `listThreads` / `findMessage` / `listMessages` — the filtered reads; every thread read participant-scoped at the door, because on a shared backend every list is somebody's privacy boundary
+- **one** `findOrCreateDirectThread(db, senderId, recipientId, recipientKind, now)` — `directKey`-deduped, so the SAME thread resolves regardless of who initiates: human→human, human→agent, agent→human. Not two mechanisms.
+- `listInbox({excludeSenderId, limit})` — the agent `read_inbox` tool; the *human* inbox lives with notifications, which owns read state
+- `searchConversations` — global search across what the principal can see
+- `resolveAssistantTurnRequest` — human message → assistant turn; also the producer seam for the A4 live-session surface
+- plus two bootstrap reactions: pin-after-first-AI-reply (moved to Layer code) and session-not-returned notice
 
-Not in the from-scratch shape: `countThreads`, `updateMessage`, the typed error class, `recipientKind`, the participant-probe inbox variant, the deleted/redacted guards.
+Not in the from-scratch shape: `countThreads`, `updateMessage`, the typed error class, the participant-probe inbox variant, the deleted/redacted read guards, a second DM-dedupe mechanism, an unscoped thread list.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
 | DELETE | 2 |
-| MERGE | 1 |
-| SIMPLIFY | 5 |
+| PLUGIN | 0 |
+| FINISH | 0 |
+| MERGE | 2 |
+| SIMPLIFY | 4 |
 | KEEP | 10 |
 
-Surface: 18 callable units (17 functions + 1 class) → 15 functions, 0 classes (~17% unit cut; the deeper cut is 4 dead routes, 1 DI interface, 1 policy-port member, and 7 filter/param fields — measured in reachable surface, not function count).
+Surface: 18 callable units (17 functions + 1 class) → 15 functions, 0 classes. Same route-level kills as wave 1 (4 dead HTTP routes, 1 DI interface, 1 policy-port member, 7 filter/param fields) — with kill 1 upgraded from "dead" to "dead and a participant-scope bypass", and one new MERGE consolidating the two DM dedupe mechanisms into one.
 
 ## Feature-level kills
 
-These are caller kills — the service methods they reach survive via live doors, but the dead doors and the flexibility that exists only for them die.
-
-1. **`GET /api/conversations/` + `GET /api/conversations/:threadId` (routes/conversations.ts) — dead thread-list door.** Zero production callers: the web UI's thread list is `GET /api/threads?participant_id=…` (`useConversationsThreads.ts:165`), and the agent seam uses only `client.conversations.items.*` (core-api-port-composition.ts:473–494). The list route is a second way to list threads, carries an `attention_score` branch that is byte-identical to its default branch, and is the **sole caller of `countThreads`**. The `:threadId` route still ships `responses: []` "for one release" — that release shipped. What breaks: nothing observable. The `/items` routes on the same router are live (agent seam) and stay.
-2. **`GET /api/users/:id/inbox` + `POST /api/users/:id/inbox` (routes/users.ts:291, 326) — dead inbox doors.** Zero production callers: the UI's inbox is `/api/notifications/inbox` (`useNotifications.ts:45`), agents read via `GET /api/threads/inbox` (sender-exclusion seam). GET is the **sole caller of `listInbox`'s participant-probe variant**; POST is the sole caller passing nothing but defaults into `findOrCreateDirectThread`. What breaks: nothing — no client sends these requests.
-3. **`GET /api/threads/coach/` (routes/coach.ts) — superseded door.** `useAssistantThread.ts:9` records the fetch path moving coach → assistant (AD8b); no production caller remains, only the comment. It is the **sole caller of `findThread({pinned})`**. A whole route file duplicating assistant.ts. What breaks: nothing.
-4. **Message soft-delete/redaction read-guards — defense for a feature with no writer.** No production code ever sets `messages.deletedAt` or `messages.redactedAt` (the only `deletedAt` writer is routine soft-delete, a different table; `updateMessage`'s only caller patches `resolvedAt`). Yet four paths defend against it: `MessageFilter.includeDeleted` (sole caller search.ts:180), the resolver's `message.deletedAt || message.redactedAt` throw, `searchConversations`' `deletedAt IS NULL` clause, and `getArtifactThreadSummaries`' non-deleted filtering. Strip all four. What breaks: nothing today — no such row can exist. When message deletion actually ships, its writer re-adds the guards it needs. (The schema columns are `framework/db`'s surface, not this service's — flagged, not verdicted here.)
-5. **`AssistantTurnSourceUnavailableError` — a typed error nobody catches.** No file outside the package + its barrel imports it; no `instanceof` anywhere. Ceremony around a `throw new Error(...)`.
+1. **`GET /api/conversations/` + `GET /api/conversations/:threadId` (routes/conversations.ts) — dead door, and on a shared backend a scope bypass.** Zero production callers (UI uses `GET /api/threads?participant_id=…`, agent seam uses only `client.conversations.items.*`). The list route filters by nothing — every thread on the backend, other humans' DMs included, to any authenticated principal; only the detail route does `authorizeRead`. Sole caller of `countThreads`. The `:threadId` route still ships `responses: []` "for one release" — that release shipped. The `/items` routes on the same router are live (agent seam) and stay. What breaks: nothing observable; what closes: an information leak the single-user lens graded as merely dead.
+2. **`GET /api/users/:id/inbox` + `POST /api/users/:id/inbox` (routes/users.ts:291, 326) — half-built third inbox and event-blind second send path.** Zero production callers, re-confirmed (`rg -a`: only their own definitions). Judged as product for a team: GET has no read state, no sender exclusion, returns your own messages back to you — the notifications inbox (AU18) is the real per-human "waiting for you" surface and owns read state. POST inserts a message with no `thread_message_appended`, no WS push, no `lastActiveAt` bump, no idempotency, and a mislabeled thread — a DM sent through it would be invisible to the recipient's live UI and would never trigger an assistant turn. Keeping it multi-human would mean rebuilding it into `POST /threads/direct` + `POST /threads/:id/messages` — which already exist. DELETE both; sole callers of the participant-probe `listInbox` variant die with them.
+3. **`GET /api/threads/coach/` (routes/coach.ts) — superseded door.** Killed for supersession, not usage: AD8b replaced it with `/api/threads/assistant` (per-user, `hostKind:"user"` + `hostId` lookup — already multi-human correct; every human gets their own assistant thread). Coach queried `pinned=true`, which the assistant design made wrong (threads start unpinned). Sole caller of `findThread({pinned})`. What breaks: nothing; `useAssistantThread.ts` moved in AD8b.
+4. **Message soft-delete/redaction read-guards — defense for a feature with no writer.** No production code sets `messages.deletedAt` or `messages.redactedAt`. Four read paths guard a state the DB cannot reach: `MessageFilter.includeDeleted`, the resolver's deleted/redacted throw, `searchConversations`' `deletedAt IS NULL`, `getArtifactThreadSummaries`' non-deleted filtering. Strip all four. Multi-human framing: retract-my-message is a real team feature *someday* — when its writer ships, it re-adds the guards it needs, on its own read paths. Ruling 2 does not protect writer-less columns. (Schema columns are `framework/db`'s surface — flagged, not verdicted here.)
+5. **`AssistantTurnSourceUnavailableError` — a typed error nobody catches.** No importer outside the package + barrel, no `instanceof` anywhere. Ceremony around `throw new Error(...)`.
+6. **NEW — the forked DM dedupe (MERGE, not delete).** Two mechanisms decide "does a direct thread between A and B already exist": AF14 `directKey` (threads.ts:385, :1016–1027, with a unique partial index and race-winner resolution) and the store's `findOrCreateDirectThread` (hostKind-scan, `directKey` never set, `recipientKind` defaulted to `"agent"` by every caller). They cannot find each other's threads; agent-initiated and human-initiated DMs between the same pair fork. One mechanism survives: move `directKey` computation into the store function, wire `recipientKind` from the recipient's real identity, point `POST /threads/direct` and the AF14 path at it. Everything about DMs the product promises — one thread per pair, either side can start it — depends on this being one mechanism.
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `registerAssistantThreadPinReaction` | BOOTSTRAP (service-bootstrap.ts) → EVENT:thread_message_appended | SIMPLIFY | Live product effect (assistant thread sorts pinned-first in ThreadSections.tsx:134), but 80 lines + a DI interface + WeakSet for one conditional UPDATE. Move to `core-api/src/services/` (Layer code — same shape as assistant-turn-coherence-trigger.ts), import users' `findUser` statically, delete `AssistantThreadPinReactionDeps` and the WeakSet guard. Write still routes through `updateThread`. |
-| 2 | `resolveAssistantTurnRequest` | UI:POST /api/threads/:id/messages (threads.ts:1516) + EVENT:thread_message_appended (coherence trigger:75) | SIMPLIFY | Core value itself — human message → assistant turn. Shrink: `readServerConfig` is "optional" but both real call sites wire it — make it required and delete the absent-branch + conditional `harnessDisabled` spread; delete the deleted/redacted guard (feature kill #4). |
-| 3 | `insertThread` | UI:POST /api/threads/ (+12 more doors, 2 agent tools, 2 schedulers) | KEEP | Irreducible row write; the AU12 ownership seam for thread creation. Core: threads exist. |
-| 4 | `updateThread` | UI:PATCH /api/threads/:id, POST /api/threads/:id/messages (lastActiveAt bump), agent tools via seam | KEEP | Irreducible row write; lastActiveAt bumps drive the recency-sorted thread list the UI actually renders. |
-| 5 | `insertMessage` | UI:POST /api/threads/:id/messages + AGENT:send_message/reply/submit_review + SCHED:lifecycle | KEEP | The single most core write in the product — a message getting sent. |
-| 6 | `updateMessage` | EVENT:item_created → policy-engine.ts:199 (only production caller) | MERGE | One caller, one field: policy-engine sets `resolvedAt` on a review message. `resolveMessageIfUnresolved` does exactly that with better (first-wins) semantics. Switch policy-engine to it, delete this and the `updateMessage` member of `policy/src/ports.ts:76`. |
-| 7 | `resolveMessageIfUnresolved` | UI:POST /api/threads/:id/messages (verdict path) + AGENT:submit_review via seam | KEEP | The verdict CAS — first-verdict-wins is the review→act loop (AL7), which is earned, chosen review, not ceremony. Absorbs #6. |
-| 8 | `findOrCreateDirectThread` | UI:POST /api/threads/direct + AGENT:send_message/reply (seam port) | KEEP* | DMs between humans and agents — core. *Shrink signature: drop `recipientKind` — no production caller passes it (threads.ts:762 omits it; the only other caller is dead route kill #2). |
-| 9 | `findThread` | 14 UI doors + agent tools + 2 event subscribers | KEEP | The single-thread read behind every thread route, authz check, and reaction. Drop the `pinned` filter field with feature kill #3. |
-| 10 | `listThreads` | UI:GET /api/threads/ (the real UI list), GET /api/search/, routine scheduler | SIMPLIFY | Live everywhere — but drop `order:"created"` and `offset` from `ThreadFilter`: their only caller is the dead conversations route (kill #1). Every surviving caller orders by `lastActive` with no offset. |
-| 11 | `countThreads` | UI:GET /api/conversations/ — a door with zero production callers | DELETE | Sole consumer is dead route kill #1; a pagination `total` no client ever reads. Delete the function and the route together. |
+| 1 | `registerAssistantThreadPinReaction` | BOOTSTRAP (service-bootstrap.ts) → EVENT:thread_message_appended | SIMPLIFY | Unchanged from wave 1. Live product effect (assistant thread sorts pinned-first), but 80 lines + DI interface + WeakSet for one conditional UPDATE. Move to Layer code, import `findUser` statically, delete `AssistantThreadPinReactionDeps` + WeakSet. Write still routes through `updateThread`. |
+| 2 | `resolveAssistantTurnRequest` | UI:POST /api/threads/:id/messages + EVENT:thread_message_appended (coherence trigger) | SIMPLIFY | Unchanged, now A4-protected: this is the turn producer the live-session surface extends. Shrink: make `readServerConfig` required (both real call sites wire it), delete the absent-branch; delete the deleted/redacted guard (kill 4). Do not touch the baked-transcript machinery. |
+| 3 | `insertThread` | UI:POST /api/threads/ (+12 more doors, 2 agent tools, 2 schedulers) | KEEP | Irreducible row write; AU12 ownership seam for thread creation. |
+| 4 | `updateThread` | UI:PATCH /api/threads/:id, message-append lastActiveAt bump, agent seam | KEEP | Irreducible row write; recency bumps drive the thread list every human sees. |
+| 5 | `insertMessage` | UI:POST /api/threads/:id/messages + AGENT:send_message/reply/submit_review + SCHED:lifecycle | KEEP | The most core write in the product — a message getting sent. |
+| 6 | `updateMessage` | EVENT:item_created → policy-engine.ts (only production caller) | MERGE | Unchanged. One caller, one field (`resolvedAt`); `resolveMessageIfUnresolved` does it with first-wins semantics. Switch policy-engine, delete this + the `updateMessage` port member in `policy/src/ports.ts`. |
+| 7 | `resolveMessageIfUnresolved` | UI:POST /api/threads/:id/messages (verdict path) + AGENT:submit_review | KEEP | The verdict CAS — first-verdict-wins matters MORE with several humans reviewing concurrently. Absorbs #6. |
+| 8 | `findOrCreateDirectThread` | UI:POST /api/threads/direct + AGENT:send_message/reply (seam port) + users.ts POST inbox (dying, kill 2) | **MERGE** | **CHANGED (Ruling 1), was SIMPLIFY-drop-recipientKind.** Second of two DM dedupe mechanisms; cannot see AF14 `directKey` threads, mislabels human recipients `hostKind:"agent"`, and races without the unique-index backstop AF14 has. Merge with the `directKey` mechanism into ONE store function; `recipientKind` survives and callers pass the recipient's real kind. See feature kill 6. |
+| 9 | `findThread` | 14 UI doors + agent tools + 2 event subscribers | KEEP | The single-thread read behind every thread route, authz check, and reaction. Drop the `pinned` filter field (kill 3 — supersession, not usage). |
+| 10 | `listThreads` | UI:GET /api/threads/ (participant-scoped, the real list), GET /api/search/, routine scheduler | SIMPLIFY | Unchanged. Drop `order:"created"` and `offset` — their only caller is the conversations route, which dies as a scope bypass (kill 1). Every surviving caller orders by `lastActive`, no offset. |
+| 11 | `countThreads` | UI:GET /api/conversations/ — a door with zero production callers | DELETE | Unchanged, strengthened: dies with kill 1, and an org-global thread count has no principal it should ever be shown to on a shared backend. |
 | 12 | `findMessage` | UI:POST /api/threads/:id/messages (idempotency + verdict target), GET /api/reviews/:id, EVENT:coherence trigger | KEEP | Idempotency replay and verdict-target lookup — correctness of the core send path. |
-| 13 | `listMessages` | 7 direct UI doors (transcripts, search, agent profile) + resolver + trust-model verdict windows (policy-bindings.ts:155) | KEEP | Every conversation render and the approval-rate trust model read through it. The `legacyItemIds`/`noLegacyItem`/`threadInitiatorId` fields are live trust-model inputs, not dead legacy. Drop only `includeDeleted` (kill #4). |
-| 14 | `listInbox` | UI:GET /api/threads/inbox → AGENT:read_inbox (seam) | SIMPLIFY | The sender-exclusion variant is the agent `read_inbox` tool — core. The participant-probe variant's only door is dead route kill #2. Un-merge the XOR: keep `{excludeSenderId, limit}` only, delete the probe branch, the `"%%"` fallback, and `offset`. |
-| 15 | `searchConversations` | UI:GET /api/search/ → GlobalSearchPanel (live) | KEEP | Global search over conversations is a real product surface the shell renders. Drop the `deletedAt IS NULL` clause (kill #4). |
-| 16 | `getArtifactThreadSummaries` | UI:GET /api/bets/:id/artifact-thread-summary → useArtifactThreadSummary (live bet page) | KEEP | Distinct aggregate product surface: conversation state on a bet's artifacts. Live hook in production UI. Drop the deleted-message filtering (kill #4). |
-| 17 | `registerSessionNotReturnedNotice` | BOOTSTRAP (service-bootstrap.ts) → EVENT:session_not_returned | KEEP | The never-silent net: a person waiting on an agent turn is told it died instead of hanging forever. That is conversation-trust, the product's core promise, in 20 effective lines. |
-| 18 | `AssistantTurnSourceUnavailableError` (class) | INTERNAL — thrown at resolver:126, caught by nobody | DELETE | No importer outside the package, no `instanceof` anywhere. Replace the throw with plain `Error`. Typed-error ceremony. |
+| 13 | `listMessages` | 7 direct UI doors + resolver + trust-model verdict windows (policy-bindings.ts) | KEEP | Every conversation render and the approval-rate trust model. `legacyItemIds`/`noLegacyItem`/`threadInitiatorId` are live trust-model inputs. Drop only `includeDeleted` (kill 4). |
+| 14 | `listInbox` | UI:GET /api/threads/inbox → AGENT:read_inbox (seam) | SIMPLIFY | Verdict unchanged, reasoning re-reached (Ruling 1): the `excludeSenderId` variant is the agent inbox — live, multi-human correct. The participant-probe variant is the half-built third inbox (kill 2); the human "waiting for you" surface is notifications, which owns read state. Keep `{excludeSenderId, limit}` only; delete the probe branch, `"%%"` fallback, `offset`. |
+| 15 | `searchConversations` | UI:GET /api/search/ → GlobalSearchPanel (live) | KEEP | Global search over conversations, a real product surface. Drop the `deletedAt IS NULL` clause (kill 4). Multi-human note for its caller (search.ts, not this row): the participant pattern is the scoping mechanism — it must stay principal-derived. |
+| 16 | `getArtifactThreadSummaries` | UI:GET /api/bets/:id/artifact-thread-summary → live bet page hook | KEEP | Distinct aggregate surface: conversation state on a bet's artifacts. Drop the deleted-message filtering (kill 4). |
+| 17 | `registerSessionNotReturnedNotice` | BOOTSTRAP (service-bootstrap.ts) → EVENT:session_not_returned | KEEP | Unchanged, A4-protected: the never-silent net. On a shared backend, N humans wait on agent turns — each must be told when a session died instead of hanging. Part of the session-surface trust story the founder wants finished. |
+| 18 | `AssistantTurnSourceUnavailableError` (class) | INTERNAL — thrown at resolver:126, caught by nobody | DELETE | Unchanged. No importer outside package+barrel, no `instanceof`. Replace with plain `Error`. |
 
 ## Types / DI ports
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `AssistantThreadPinReactionDeps` | DELETE | Dies with row 1's move to Layer code, which may import `@hyperidle/users` directly. Mechanism C ceremony with no remaining reason to exist. |
-| `AssistantTurnResolverDeps` | SIMPLIFY | Keep `requireRunnableAgent` (the Mechanism C boundary is real). Make `readServerConfig` required — both production call sites (threads.ts:1516, coherence trigger:82) already wire it; the optional is dead flexibility. |
-| `BakedTranscriptRow` | KEEP | The resolver's transcript element; run-orchestration deliberately mirrors it structurally (runtime.ts:178) so the drain stays decoupled. |
-| `BakedAssistantTurnRequest` | SIMPLIFY | The emit-time contract — load-bearing. Make `harnessDisabled` required once its dep is (above), and drop the barrel export from index.ts: no external file imports the name. |
-| `ThreadFilter` | SIMPLIFY | Drop `offset`, `order:"created"`, `pinned` — each field's only production caller is a dead route (kills #1, #3). Survivors: id, directKey, host, hostKind, participantProbe, ids, order:"lastActive", limit. |
-| `MessageFilter` | SIMPLIFY | Drop `includeDeleted` (kill #4). Everything else is exercised by live doors, including the trust-model trio. Note: `findMessage` silently ignores 12 of these fields — acceptable for a shared key type, but do not grow it. |
-| `InboxFilter` | SIMPLIFY | Drop `participantProbe` and `offset` (die with row 14). Survives as `{excludeSenderId, limit}`. |
-| `InboxRow` | KEEP | The `read_inbox` tool's wire element; `participants` is returned to the agent by the live inbox route. |
-| `ThreadSearchRow` | KEEP | Exact projection the live search route JS-filters and responds with. |
-| `ArtifactThreadSummaryRow` | KEEP | Wire shape of a live UI hook. |
-| `SESSION_NOT_RETURNED_NOTICE_TEXT` (const) | SIMPLIFY | Production use is only intra-module; every external importer is a test. Un-export; tests assert the literal. |
+| `AssistantThreadPinReactionDeps` | DELETE | Dies with row 1's move to Layer code. Unchanged. |
+| `AssistantTurnResolverDeps` | SIMPLIFY | Keep `requireRunnableAgent`; make `readServerConfig` required. Unchanged. |
+| `BakedTranscriptRow` | KEEP | The resolver's transcript element; also A4 substrate. Unchanged. |
+| `BakedAssistantTurnRequest` | SIMPLIFY | Make `harnessDisabled` required once its dep is; drop the barrel export. Unchanged. |
+| `ThreadFilter` | SIMPLIFY | Drop `offset`, `order:"created"`, `pinned` (kills 1, 3). `directKey` gains a second caller when row 8's merge lands. Survivors: id, directKey, host, hostKind, participantProbe, ids, order:"lastActive", limit. |
+| `MessageFilter` | SIMPLIFY | Drop `includeDeleted` (kill 4). Trust-model trio stays. Do not grow it. Unchanged. |
+| `InboxFilter` | SIMPLIFY | Drop `participantProbe` and `offset` (row 14). Survives as `{excludeSenderId, limit}`. Reasoning re-reached under Ruling 1; verdict unchanged. |
+| `InboxRow` | KEEP | `read_inbox` wire element; `participants` returned to the agent. Unchanged. |
+| `ThreadSearchRow` | KEEP | Exact projection of the live search route. Unchanged. |
+| `ArtifactThreadSummaryRow` | KEEP | Wire shape of a live UI hook. Unchanged. |
+| `SESSION_NOT_RETURNED_NOTICE_TEXT` (const) | SIMPLIFY | Un-export; only tests import it externally. Unchanged. |
 
 ## Holes this leaves
 
-- **No global thread list endpoint.** Killing `GET /api/conversations/` removes the only unscoped "all threads, paginated" door. Nothing calls it, and the participant-scoped `GET /api/threads` is what the product actually uses. If an admin-ish overview is ever wanted — that's an enterprise reflex; don't rebuild it.
-- **No human→human DM kind.** Dropping `recipientKind` hard-codes direct threads to `hostKind:"agent"`. Today no production path creates a user-kind direct thread. If human-to-human DMs ship, the parameter comes back with its first real caller.
-- **Message deletion/redaction loses its read-side guards.** If someone hand-writes `deletedAt` into the DB, deleted messages will render. Acceptable: the feature has no writer, so the guards defend a state the product cannot reach. The feature's future implementation owns re-adding them.
-- **Coach route deletion** removes a URL that has been dead since AD8b; any stale external client pinned to `/api/threads/coach` gets a 404. None is known to exist.
-- **Policy-engine resolve becomes first-wins** (via the CAS merge). If a review message were somehow already resolved, policy-engine's stamp becomes a no-op instead of an overwrite — strictly safer, and no production path races it today.
+- **RETRACTED from wave 1: "No human→human DM kind."** Human↔human DMs exist today via `POST /api/threads` (directKey path) and are core product (Ruling 1). `recipientKind` survives inside the row-8 merge instead of coming back "with its first real caller" — its callers exist now.
+- **No global thread list endpoint.** Still fine — better than fine: the only unscoped list was a participant-scope bypass. Anyone wanting an org-wide overview must build it participant-aware; do not resurrect this route.
+- **DM-to-human emits no notification (pre-existing gap, now named as work).** `notification` events are emitted only by policy-engine and dependency-watcher; a human DMing a human (or an agent DMing a human) reaches the recipient only through the WS thread-list bump. In a team deployment "someone messaged you" belongs in the notifications inbox. This is Ruling-2-shaped missing emission — schedule an emission on the canonical message-append path / a notifications subscriber. It is not a reason to keep the users-inbox routes, which also lacked it.
+- **No per-human read state on threads.** Unread markers per participant do not exist anywhere; notifications carries read state for its own rows only. Genuine multi-human product gap, owned by whoever ships unread — not by resurrecting any killed surface here.
+- **Message deletion/redaction loses its read-side guards.** Unchanged: the feature has no writer; its future implementation (a real team want — retract my message) re-adds the guards it needs.
+- **Coach route deletion** — stale external clients pinned to `/api/threads/coach` get 404. None known.
+- **Policy-engine resolve becomes first-wins** (CAS merge) — strictly safer with several humans issuing verdicts concurrently.
+- **Until the row-8 merge lands, DMs stay forked.** This is not a hole the deletions open — it is the live defect the single-user premise hid, and the reason row 8 is MERGE rather than a signature trim.
 
 
 ---
@@ -1341,30 +1467,133 @@ rendering, review anchors) and every remaining export is on a painted UI path.
 
 ---
 
-# conversation-parts — destroyer verdict (framework)
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/fw-conversation-parts.md` for comparison.
+
+# conversation-parts — destroyer verdict (framework) — REVISED after founder rulings
+
+## What changed after the rulings
+
+Ruling A4 inverts the first wave's headline. The first wave found that production only ever
+produces generic neutral tool rows and concluded the rich renderers were Storybook fiction to
+cut. The ruling says the renderers are the *right* half of a live session surface you dial
+into; the missing half is a producer and a place to watch. So the rich-vocabulary rows move
+from SIMPLIFY/DELETE to FINISH, and the evidence below is re-cast as a producer gap analysis
+instead of a deletion warrant. Ruling A3 separately kills the composer-pill path outright.
+
+| # | Export | Old verdict | New verdict | Ruling |
+|---|---|---|---|---|
+| 3 | `derivePartsFromSession` | SIMPLIFY (cut reasoning/answer/rich-tool branches) | **FINISH** | A4 — branches are the right half; build the producer |
+| 4 | `aggregateToolRun` | SIMPLIFY (status rules never fire → degenerate fold) | **FINISH** | A4 — status rules go live when tool results are emitted |
+| 5 | `deriveComposerPills` | MERGE (inline into SessionView) | **DELETE** | A3 — per-message composer pills die; option concept moves to agent config |
+| 7 | `ToolKind` | DELETE (fiction) | **SIMPLIFY** | A4 revives the family; alias-pair defect stands independently |
+| 18 | `ToolRunBlock` | SIMPLIFY (drop failedCount) | **FINISH** | A4 — failedCount becomes real with statuses |
+| 20 | `TOOL_KINDS` | DELETE (fiction) | **SIMPLIFY** | A4 revives the family; collapse the alias duplicates |
+
+**6 rows changed.** All 15 other rows stand: the seven KEEPs were never in question, and the
+remaining DELETEs (`PartKind`, `PartId`, `ReviewTarget`, `FoldDescriptor`, `EmbedKind`,
+`PART_KINDS`, `EMBED_KINDS`) plus the `Embed` SIMPLIFY rest on zero-reference / test-only
+evidence that is independent of the single-user premise and of A4 — the founder explicitly
+kept them.
+
+### What must be built for the live session surface
+
+**What the producer emits today — file and shape.** The canonical harness vocabulary is
+`framework/harness-protocol/src/harness/harness-events.ts`: exactly five event types —
+`token_usage`, `tool_call { toolName, args }`, `completion { text }`, `error`,
+`pre_compaction`. The drain loop is
+`layers/agent-orchestration/run-orchestration/src/provisioner.ts` (Phase 10, ~1549–1580): it
+handles `token_usage` (accumulate), `tool_call` (emit
+`tool_call_recorded { sessionId, toolName, argsSummary, timestamp }` on the EventBus, args
+summarized via `ports.observability.summarizeToolArgs`), and `error` (crash). **`completion`
+and `pre_compaction` fall through the if/else and are silently dropped.**
+`layers/agent-orchestration/src/session-activity-buffer.ts` subscribes to
+`tool_call_recorded` only and stores
+`{ type: "tool_call", timestamp, data: { toolName, argsSummary } }` — the only
+`ActivityEntry` kind production ever creates. Client side,
+`layers/core-ui/src/hooks/useSessionActivity.ts` does a REST snapshot
+(`GET /api/sessions/:id/activity`) plus WS topic `session:<id>`, and its WS handler branches
+only on `tool_call_recorded` and `session_ended`.
+
+**Per missing Part kind — does the wire already carry it?**
+
+1. **Agent prose (`answer_settled`) — already arrives, dropped.** Every adapter emits
+   `completion { text }`: claude assistant text blocks
+   (`harness-event-normalization.ts` `preMapClaudeEvent`, lines 80–84), opencode `text`
+   events carrying `part.text` (lines 181–195), codex `item.completed` `item.text`
+   (lines 225–230), builtin at many sites (`builtin-harness-adapter.ts:574–912`). The
+   provisioner has no `completion` branch. Job: add one — emit an
+   `agent_answer_recorded`-style event, add a buffer branch and a WS-handler branch. No
+   harness-protocol change. **Smallest item on this list.**
+2. **Streaming deltas (`answer_delta`) — partially on the wire.** opencode `text` events are
+   already per-chunk (verified in the AR5 lore at that pre-map); claude needs
+   `--include-partial-messages`; codex is per-item; builtin is per-call. The canonical
+   vocabulary cannot distinguish delta from settled — either treat each `completion` as a
+   settled prose turn (the adapter's existing merge machinery already appends and settles) or
+   add a delta member to `HarnessEvent`. Medium.
+3. **Reasoning — counts arrive everywhere, text arrives for claude and is dropped at the
+   pre-map.** `token_usage.reasoningOutputTokens` already flows (enough for the "Thought for
+   Ns" resting label, no body). Claude stream-json assistant messages carry `thinking`
+   blocks; `preMapClaudeEvent` (lines 61–85) inspects only `tool_use` and `text` blocks, so
+   thinking falls through to an empty completion. Job: pre-map branch + a canonical
+   `reasoning` event + the same emit/buffer/WS plumbing. codex/opencode reasoning-text
+   availability is unverified — do not promise it there. Medium.
+4. **Tool status / output — dropped at the pre-maps.** Claude tool results arrive as `user`
+   events with `tool_result` blocks; the pre-map maps `user` → benign empty completion
+   (lines 92–94). opencode `tool_use` events carry `part.state`, of which only `state.input`
+   is read (lines 162–169). Correlating a result back to its call needs a call id — canonical
+   `ToolCallEvent` has no id field, so this one requires a harness-protocol extension.
+   Medium-large.
+5. **Diff stats — not on any wire.** Must be computed from edit-tool args/results; the
+   package's own `diffEmbed` lore already admits the label-as-artifactId placeholder. Do
+   last among the tool enrichments.
+6. **Sub-agent nesting (`opensSession`) — nothing emits child session ids.** Harness
+   sub-agents (e.g. claude's Task tool) never become HyperIdle sessions; this needs
+   orchestration-level invention (provision or virtualize child sessions and link them).
+   Largest; defer until the rest of the surface is live.
+7. **`human_message` — requires interactive sessions.** Sessions are one-shot provisioned
+   runs; there is no route that feeds input into a running harness, and `SessionView`'s
+   `onSend` is a stubbed no-op at its only production mount (`Conversations.tsx`
+   `SessionViewPanel`: "sending is not supported here"). Whole input path missing
+   (UI → route → harness stdin). Part of the surface build, not this package.
+
+**Where would the surface live — what is missing.** Two components exist in
+`layers/core-ui/src/components/`: `SessionActivityPanel.tsx` and `SessionView.tsx`. Only the
+first is reachable: `Conversations.tsx` shows a "Dial in" button when a session is active and
+opens `SessionActivityPanel` in the right split. `SessionView` — the rich renderer this
+package feeds — is mounted via `SessionViewPanel` but opened only by `onOpenSession`, which
+fires from a `session-reference` Embed click or a sub-agent tool-row click, **both of which
+are production-dead**. So the rich surface is mounted-but-unreachable. There is no
+`Session*.tsx` in `layers/core-ui/src/pages/` and no `/sessions/:id` route. Missing, in build
+order:
+
+1. **A reachable opener** — a session page/route, or make dial-in open `SessionView`. Note
+   `SessionActivityPanel` and `SessionView` are two renderers of the same activity feed; the
+   finished surface should be ONE of them (core-ui destroyer's turf, flagged here).
+2. **`answer_settled` emission** (item 1 above) — the cheapest visible win: real agent prose
+   in the live view.
+3. **Reasoning** (item 3), then **tool status/output** (item 4), then **deltas** (item 2).
+4. **Diffs, sub-agent sessions, interactive input** (items 5–7) — each is real invention,
+   schedule separately.
 
 ## Where does this package go?
-**Verdict: DISSOLVE → `layers/core-ui`**
+**Verdict: DISSOLVE → `layers/core-ui` — unchanged by the rulings.**
 
-Every production consumer is `layers/core-ui`. Nothing else imports it — not the conversation
-service, not core-api, not agent-orchestration, not desktop. Measured:
+Every production consumer is `layers/core-ui`. Measured:
 `rg -a -l "@hyperidle/conversation-parts" layers framework applications tools` → 23 files,
-all under `layers/core-ui/` (the one `framework/domain-model` hit is a doc comment).
+all under `layers/core-ui/` (the one `framework/domain-model` hit is a doc comment). The
+live-session ruling does not change this: the producer work lands in
+`agent-orchestration` + `harness-protocol` + `domain-model` (`ActivityEntry` already lives
+in `domain-model/src/session-activity.ts` — the normalized boundary is already outside this
+package). What this package holds is the client-side derivation and view vocabulary, and its
+only consumer is the renderer layer. A Part is "derived, never stored"; the server owns
+`Message` and `ActivityEntry`, never a Part. The package boundary still exists for one
+reason — a scoped ESLint `no-restricted-imports` rule proving the renderer never imports
+`Message`/`HarnessEvent` — and a directory-scoped lint rule inside core-ui holds that
+boundary equally well. Dissolve stands; do the lint re-scope in the same PR as the move.
 
-**Explicit answer to the founder's question — is "parts of a conversation" a different thing
-from "conversation"?** No, but the dissolve target is NOT the conversation service either.
-A Part is a client-side render unit, "derived, never stored" by the package's own design.
-The server owns `Message` (in `domain-model`); it never sees a Part. Moving this into the
-conversation service would put UI view-model code on the server. The concept belongs to the
-renderer that consumes it: this is `layers/core-ui/src/parts/` code wearing a package costume.
-
-The package boundary exists for one reason: a scoped ESLint `no-restricted-imports` rule
-proving the renderer never imports `Message`/`HarnessEvent`. A lint rule can scope to a
-directory inside core-ui exactly as well. A package is not needed to hold a lint boundary.
-
-Bonus: the `deriveComposerPills` function is the package's ONLY reason to depend on
-`@hyperidle/harness-capability` — a composer concern jammed into a "conversation parts"
-package because it had no better home. Dissolving kills that dependency edge too.
+The A3 deletion of `deriveComposerPills` also removes the package's ONLY dependency on
+`@hyperidle/harness-capability` — the dissolve gets cheaper, not harder.
 
 ## Consumers (measured, not assumed)
 | Consumer | What it imports | Could it own this? |
@@ -1372,116 +1601,94 @@ package because it had no better home. Dissolving kills that dependency edge too
 | `layers/core-ui` (23 files: PartList, SessionView, Conversations, ConversationSurface, open-handler, parts/*, tests, stories) | Everything the package exports that is used at all | Yes — it is the only consumer. Move `part.ts` to `layers/core-ui/src/parts/part.ts`, delete the package. |
 | `framework/domain-model/src/session-activity.ts` | Nothing — mentions `derivePartsFromSession` in a comment | n/a |
 
-## The headline finding: half this package renders data that does not exist
-
-The only production producer of `ActivityEntry` is
-`layers/agent-orchestration/src/session-activity-buffer.ts`, fed by
-`run-orchestration/src/provisioner.ts:1565`, which emits exactly
-`{ type: "tool_call", data: { toolName, argsSummary } }`. Confirmed with `rg -a` across
-layers/framework/applications: **no production code ever produces** `reasoning`,
-`answer_delta`, `answer_settled`, or `human_message` entries, and no production tool_call
-ever carries `toolKind`, `status`, `verb`, `target`, `output`, `diff`, or `opensSession`.
-Only stories, unit tests, and one e2e spec fabricate them.
-
-In the running product, `derivePartsFromSession` therefore always outputs generic neutral
-tool rows (toolKind "generic", status "neutral", no diff, no output), and:
-- the streaming-prose merge machinery (delta append, settle, flush) never runs
-- reasoning Parts never exist → `ReasoningPart.tsx` never renders in production
-- `aggregateToolRun`'s running-standalone rule and `failedCount` never fire — every status
-  is "neutral", everything folds
-- SessionView's toolKind tallies (`SessionView.tsx:216-221` counting edits/cmds/reads) count
-  over a field that is always undefined
-- the `sub-agent` → `opensSession` → nested-session affordance (`ToolPart.tsx:200-207`)
-  never fires
-- `TOOL_KINDS`' alias pairs are a lie twice over: `normalizeToolKind`'s comment claims it
-  canonicalizes "read"/"file-read" and "edit"/"file-change" but the code returns the raw
-  value, so every consumer dispatches on both spellings — of values that never arrive.
-
-This is stories-and-tests-driven fiction sustaining ~150 lines of adapter plus renderer
-surface. Either wire real producers or cut the vocabulary to what the wire carries. The
-destroyer verdict is: cut it; re-grow branches when a producer actually emits them.
-
-## Second dead variant: `session-reference` Embed
-
-No adapter and no production code ever constructs a `session-reference` Embed — only
-stories and tests (`rg -a 'kind: "session-reference"'`). The renderer branch in
-`embeds.tsx:66,101-102` filters and renders a variant that cannot occur. Delete the union
-member, the renderer branch dies with it. (The `route: "session"` OpenTarget stays — it is
-also the sub-agent row's route — but note that path is production-dead today too.)
-
 ## If written today, from scratch
 
-A single `layers/core-ui/src/parts/part.ts` (+ the existing `parts/*` renderers) holding:
-- `Part` union (prose, review, resolved, questionnaire, tool, reasoning*, unknown — reasoning
-  only if a producer lands), `PartAuthor`, `PartGroup`, `Embed` (minus session-reference),
-  `OpenTarget`, `OpenHandler`
-- `derivePartsFromMessages` — the real, load-bearing adapter (Conversations surface)
-- `derivePartsFromSession` — reduced to the tool_call mapping the wire actually carries
-- `groupParts`
-- tool-run folding inlined where SessionView uses it
+Against the corrected premise — a shared backend, a team of humans and agents, an event
+stream plugins hang off, and a live session surface you dial into to watch an agent work:
 
-No package, no `@hyperidle/harness-capability` dependency, no exported const sets.
+A single `layers/core-ui/src/parts/part.ts` (+ the existing `parts/*` renderers) holding:
+- `Part` union — **including** reasoning and the rich tool shape, because the surface that
+  renders them is product, with the producer scheduled (see above)
+- `PartAuthor`, `PartGroup`, `Embed` (minus the never-constructed `session-reference`
+  variant), `OpenTarget`, `OpenHandler`
+- `derivePartsFromMessages` — the load-bearing conversation adapter
+- `derivePartsFromSession` — kept at full vocabulary, fed by the finished producer
+- `groupParts`, `aggregateToolRun` (with a status field that finally varies)
+- a tool-kind family of **canonical members only** — `command, read, edit, search,
+  web-search, mcp, sub-agent, create, generic` — with a normalizer that actually maps the
+  legacy alias spellings instead of pattern-matching on both
+
+No package, no `@hyperidle/harness-capability` dependency, no composer pills, no exported
+const sets.
 
 ## Kill summary
 | Verdict | Count |
 |---|---|
-| DELETE | 9 |
-| MERGE | 1 |
-| SIMPLIFY | 4 |
+| DELETE | 8 |
+| MERGE | 0 |
+| SIMPLIFY | 3 |
+| FINISH | 3 |
 | KEEP | 7 |
-Surface: 21 exports → 12 survivors (43% export cut), package itself deleted (100% package cut)
+Surface: 21 exports → 13 survivors (38% export cut), package itself still deleted
+(100% package cut). First wave was DELETE 9 / MERGE 1 / SIMPLIFY 4 / KEEP 7.
 
-## Feature-level kills
-1. **The rich session-stream vocabulary** (reasoning/answer-delta/answer-settled/human-message
-   entries, toolKind families, statuses, diffs, sub-agent recursion). Breaks: nothing a user
-   can see — production never produces the data. Stories/tests that fabricate it die too.
-   Hole: when real harness streaming lands, the branches must be rebuilt against the real
-   emitter instead of against fixtures — which is the correct order anyway.
-2. **`session-reference` Embed kind.** Breaks: two stories, one test. No production path.
-3. **The package boundary itself.** Breaks: the W1 ESLint rule must be re-scoped from a
-   package name to a directory glob. One-line lint config change.
+## Feature-level kills (and un-kills)
+1. **UN-KILLED: the rich session-stream vocabulary** (reasoning / answer streaming / tool
+   status / diffs / sub-agent nesting). First wave: cut ~150 lines of fiction. Ruling A4:
+   FINISH — the renderers stay, the producer gets built per the gap analysis above. Stories
+   and tests that fabricate rich entries stop being fiction the moment the emitter lands;
+   they stay until then as the only spec of the target shape.
+2. **KILLED (A3): the composer-pill path.** `deriveComposerPills` and SessionView's pill
+   rendering (`SessionView.tsx:565`) die; per-model options move into agent configuration.
+   Breaks: nothing — pills rendered options for a composer whose `onSend` is a no-op.
+3. **KILLED (stands): `session-reference` Embed kind.** No adapter and no production code
+   ever constructs one — only stories and tests (`rg -a 'kind: "session-reference"'`). The
+   renderer branch in `embeds.tsx` dies with the union member. If the live surface later
+   wants conversation-embedded session links, re-add it with a real producer in the same PR.
+4. **KILLED (stands): the package boundary itself.** The W1 ESLint rule re-scopes from a
+   package name to a core-ui directory glob. One-line lint config change.
 
 ## Full export audit
 | # | Export | Kind | Reach | Verdict | Reason |
 |---|---|---|---|---|---|
 | 1 | `groupParts` | function | UI: Conversations + SessionView via PartList | KEEP | Real grouping both live surfaces run on every render; moves to core-ui. |
-| 2 | `derivePartsFromMessages` | function | UI: `/conversations` (Conversations.tsx, ConversationSurface.tsx) | KEEP | The load-bearing adapter; review/resolved/questionnaire/verdict paths all have real API producers (threads.ts, coach.ts, assistant.ts); moves to core-ui. |
-| 3 | `derivePartsFromSession` | function | UI: SessionView | SIMPLIFY | Production input is tool_call-only (`session-activity-buffer.ts` emits nothing else); reasoning/answer_delta/answer_settled/human_message branches + streaming merge (~100 of 140 lines) are TEST-ONLY fiction — cut to the tool_call mapping; moves to core-ui. |
-| 4 | `aggregateToolRun` | function | UI: SessionView only | SIMPLIFY | Status is always "neutral" in production — running-standalone rule and failedCount never fire; degenerates to "fold runs of ≥2 tools"; inline into SessionView. |
-| 5 | `deriveComposerPills` | function | UI: SessionView composer only | MERGE | Six-line find+filter; sole reason the package depends on harness-capability; composer concern, not a conversation part — inline into SessionView. |
-| 6 | `PartKind` | type | none (PartList mention is a comment) | DELETE | Exported to nobody; internal use inlines into the union. |
-| 7 | `ToolKind` | type | none outside package | DELETE | Dies with the TOOL_KINDS fiction; production value is always "generic". |
-| 8 | `PartId` | type | none | DELETE | Alias of `string`, referenced by zero consumers. |
+| 2 | `derivePartsFromMessages` | function | UI: `/conversations` (Conversations.tsx, ConversationSurface.tsx) | KEEP | The load-bearing adapter; review/resolved/questionnaire/verdict paths all have real API producers; moves to core-ui. |
+| 3 | `derivePartsFromSession` | function | UI: SessionView | FINISH | A4: keep the full branch set (reasoning/answer/rich tool); today only the tool_call branch runs because the provisioner drops `completion` and the pre-maps drop thinking/tool_result — build the producer per the gap analysis; moves to core-ui. |
+| 4 | `aggregateToolRun` | function | UI: SessionView only | FINISH | A4: the running-standalone rule and `failedCount` activate when tool statuses are emitted (harness-protocol tool-result extension); moves to core-ui. |
+| 5 | `deriveComposerPills` | function | UI: SessionView composer only | DELETE | A3: the per-message composer-pill path dies; option concept moves to agent config. Kills the package's only `harness-capability` dependency and SessionView's pill block. |
+| 6 | `PartKind` | type | none (PartList mention is a comment) | DELETE | Stands: exported to nobody; internal use inlines into the union. |
+| 7 | `ToolKind` | type | none outside package | SIMPLIFY | A4 revives the family, but the defect stands: collapse the duplicate alias pairs to canonical members and make the normalizer actually normalize (today `normalizeToolKind` claims to canonicalize read/file-read and edit/file-change but returns the raw value — part.ts:446-450 vs the lore at 443). |
+| 8 | `PartId` | type | none | DELETE | Stands: alias of `string`, zero consumers. |
 | 9 | `PartAuthor` | interface | UI: Conversations.tsx, SessionView.tsx | KEEP | Real author shape both adapters and pages construct; moves to core-ui. |
-| 10 | `ReviewTarget` | interface | none outside package | DELETE | Internal-only; inline the `{betId, reviewId}` shape into the Part union. Note `betId` is always `""` at the only construction site (part.ts:377) — half the shape is already hollow. |
-| 11 | `FoldDescriptor` | interface | DEAD | DELETE | Zero references anywhere — not even inside its own package. Pure corpse. |
-| 12 | `Part` | type | UI: PartList, SessionView, all parts/* renderers | KEEP | The core vocabulary of the conversation surface; moves to core-ui. |
-| 13 | `EmbedKind` | type | DEAD | DELETE | Zero references anywhere outside its own derivation line. |
-| 14 | `Embed` | type | UI: embeds.tsx, ProsePart, adapters | SIMPLIFY | Survives minus the `session-reference` variant no production code ever constructs (stories/tests only); renderer branch embeds.tsx:66 dies with it; moves to core-ui. |
-| 15 | `OpenTarget` | type | UI: open-handler.ts, Conversations, SessionView, ToolPart | KEEP | The real routing seam the navigate hook resolves; moves to core-ui beside open-handler.ts. |
+| 10 | `ReviewTarget` | interface | none outside package | DELETE | Stands: internal-only; inline the shape; `betId` is always `""` at the only construction site. |
+| 11 | `FoldDescriptor` | interface | DEAD | DELETE | Stands: zero references anywhere, not even inside its own package. Pure corpse. |
+| 12 | `Part` | type | UI: PartList, SessionView, all parts/* renderers | KEEP | The core vocabulary of the conversation surface; under A4 also the vocabulary of the live session surface; moves to core-ui. |
+| 13 | `EmbedKind` | type | DEAD | DELETE | Stands: zero references outside its own derivation line. |
+| 14 | `Embed` | type | UI: embeds.tsx, ProsePart, adapters | SIMPLIFY | Stands: survives minus the `session-reference` variant no production code ever constructs; re-add only with a real producer. Moves to core-ui. |
+| 15 | `OpenTarget` | type | UI: open-handler.ts, Conversations, SessionView, ToolPart | KEEP | The real routing seam; the `route: "session"` arm becomes the opener of the live surface under A4. Moves to core-ui. |
 | 16 | `OpenHandler` | type | UI: 8 production files | KEEP | The single open-hook signature every part renderer takes; moves to core-ui. |
 | 17 | `PartGroup` | interface | UI: PartList, SessionView | KEEP | Return shape of groupParts; moves with it. |
-| 18 | `ToolRunBlock` | type | UI: SessionView only | SIMPLIFY | Single consumer; `failedCount` is production-dead (statuses always neutral) — drop it and inline the type with aggregateToolRun into SessionView. |
-| 19 | `PART_KINDS` | const | TEST-ONLY externally; internal type derivation | DELETE | No runtime production reader; inline the union literals. |
-| 20 | `TOOL_KINDS` | const | TEST-ONLY externally; internal `normalizeToolKind` membership check | DELETE | An 11-member closed family for a field production never sends; contains duplicate alias pairs its own "normalizer" doesn't normalize; `sub-agent` entry gates a feature with no producer. |
-| 21 | `EMBED_KINDS` | const | TEST-ONLY | DELETE | Only readers are the package's own tests asserting the const equals itself. |
+| 18 | `ToolRunBlock` | type | UI: SessionView only | FINISH | A4: keep `failedCount` — it goes live with tool statuses; still single-consumer, still inlines beside aggregateToolRun in core-ui. |
+| 19 | `PART_KINDS` | const | TEST-ONLY externally; internal type derivation | DELETE | Stands: no runtime production reader; inline the union literals. |
+| 20 | `TOOL_KINDS` | const | TEST-ONLY externally; internal `normalizeToolKind` membership check | SIMPLIFY | A4: the family is the target vocabulary the producer must emit — keep it, but drop the alias duplicates (`file-read`/`read`, `file-change`/`edit`) and keep `sub-agent` only as the declared target of the deferred nesting item. |
+| 21 | `EMBED_KINDS` | const | TEST-ONLY | DELETE | Stands: only readers are the package's own tests asserting the const equals itself. |
 
 ## Holes this leaves
-- **Session view gets honest, not worse.** After the SIMPLIFY cuts, SessionView renders
-  exactly what it renders in production today: generic neutral tool rows. The rich stream
-  (reasoning spans, streaming prose, statuses, diffs, sub-agent nesting) was only ever
-  visible in Storybook. When a real emitter lands in `provisioner.ts`/the buffer, the
-  branches must be rebuilt against real events — with `ReasoningPart.tsx` and the
-  ToolPart status/diff/opensSession affordances (core-ui destroyer's turf) revived with them.
-- **W1 lint boundary** (renderer must not import `Message`/harness types) must be re-scoped
-  from `@hyperidle/conversation-parts` to a core-ui directory glob, or the source-agnostic
-  guarantee silently evaporates. One lint-config edit; do it in the same PR as the move.
-- **Two stories and a handful of unit tests** (`AM1-part.test.ts` session-reference cases,
-  SessionView/ToolPart/ReasoningPart rich-stream stories, parts of `AM3-session-view.test.tsx`)
-  die with the fiction they fabricate. Correct per brief: dead code plus tests that should
-  die with it.
-- `derivePartsFromMessages`, `groupParts`, `Part`/`Embed`/`OpenTarget`/`OpenHandler` survive
-  unchanged in behavior — the conversation surface itself loses nothing.
+- **The live surface stays honest-but-thin until the producer ships.** Nothing here makes
+  the session view richer by itself — SessionView still renders generic neutral tool rows
+  until the schedulable items above land, and SessionView itself stays unreachable until an
+  opener exists. The FINISH verdicts are work orders, not survivors that need nothing.
+- **A producer work package must exist.** The emission gaps live outside this package
+  (provisioner drain loop, harness pre-maps, harness-protocol vocabulary, buffer, WS
+  handler) — none of it is conversation-parts code, so dissolving the package neither helps
+  nor hinders it. Sequence the dissolve and the producer independently.
+- **Composer-pill deletion leaves agent config owing a home for per-model options** (A3's
+  other half) — `harness-capability` descriptors survive; the agent-config surface that
+  renders them is separate scheduled work.
+- **W1 lint boundary** re-scopes from `@hyperidle/conversation-parts` to a core-ui directory
+  glob in the same PR as the move, or the source-agnostic guarantee silently evaporates.
+- **SessionActivityPanel vs SessionView duplication** — two renderers of one activity feed;
+  the finished surface should keep one. Flagged for the core-ui destroyer.
 
 
 ---
@@ -2337,7 +2544,120 @@ Rows 14–25 are one declaration family (the secret-shape regex set) but are lis
 
 ---
 
-# domain-model — destroyer verdict (framework)
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/fw-domain-model.md` for comparison.
+
+# domain-model — destroyer verdict (framework) — REVISED after founder rulings
+
+## What changed after the rulings
+
+12 rows moved. Verdict vocabulary now DELETE / PLUGIN / FINISH / MERGE / SIMPLIFY / KEEP.
+
+| Row | Export | Old verdict | New verdict | Ruling |
+|---|---|---|---|---|
+| C.78 | `DependencyMetEvent` | DELETE | KEEP | Ruling 2 (events are an extension surface) + A6 FINISH (task dependencies) |
+| C.81 | `BetRevisedEvent` | DELETE | KEEP | Ruling 2 |
+| C.87 | `ThreadArchivedEvent` | DELETE | KEEP | Ruling 2 |
+| C.91 | `WorkSelectionRequestedEvent` | DELETE | KEEP | Ruling 2 |
+| C.95 | `ProposedCallExecutedEvent` | DELETE | KEEP | Ruling 2 + A1 FINISH (approval loop is being wired) |
+| C.140 | `ProposedCallStatus` | MERGE → core-ui | KEEP | A1 FINISH — the status vocabulary is two-sided once the loop is wired: server writes executed/failed, review pages narrow it |
+| C.142 | `ProposedCall` | DELETE | FINISH | A1 FINISH — the wire model of the approval surface being completed, not a dead mirror |
+| D.59 | `PROPOSED_CALL_STATUSES` | MERGE → core-ui | KEEP | A1 FINISH — derivation source + server-side validation of the kept two-sided status type |
+| C.34 | `InviteRole` | MERGE → core-api/users | DELETE | Ruling 1 — OIDC replaces invites; the machinery this would move next to is itself dead |
+| D.7 | `INVITE_ROLES` | MERGE → core-api/users | DELETE | Ruling 1 — same |
+| D.8 | `LOGIN_SESSION_TTL_MS` | MERGE → core-api/users | DELETE | Ruling 1 — home-grown login sessions die; OIDC owns session lifetime |
+| D.9 | `INVITE_CODE_TTL_MS` | MERGE → core-api/users | DELETE | Ruling 1 — invite codes are not the access mechanism |
+
+Note Ruling 1 cut **against** four rows here: the first wave routed the invite/login-session
+constants to core-api/users as single-owner code. Their sole consumer is machinery the founder
+ruled dead (OIDC replaces it), so the constants die with it instead of moving.
+
+**Sweep result — rows checked for the same mistake and confirmed unchanged**, with the boundary
+Ruling 2 itself draws (it protects event types, not plumbing dead for other reasons, nor payloads
+nothing sets):
+
+- `KernelEvent` / `StrategyEvent` (C.97/98, DELETE) — union *groupings*, not event types. Deleting
+  them removes zero events from the extension surface; every member stays in `DomainEvent`. The
+  kernel/strategy split is a docs concept with no runtime seam.
+- `PropagationStatus` / `PropagationResult` (C.126/127, DELETE) — not events; a result record
+  nothing constructs. The live `propagation_applied`/`propagation_failed` events carry their own
+  fields and are untouched. This is the "payload nothing ever sets" boundary.
+- `isTriggerEventType` (A.38, DELETE) — a guard with zero callers, dead not for lack of a
+  subscriber but because its own family validates with `TriggerRuleValueSchema` instead. The
+  trigger vocabulary itself (`TriggerEventType`, `TRIGGER_EVENT_TYPES`) survives via MERGE.
+- `urgencyForType` (A.26, DELETE) — a helper over the live `NotificationEvent` registry, not an
+  event. Zero callers.
+- `buildSessionLifecycleCorrelation` (A.28, DELETE) — event-adjacent plumbing that is a literal
+  identity function. Founder confirmed this finding stands.
+- `KnowledgeRelevanceSignals`, `TriggerResolutionResult`, `RoutineCreatePayload`,
+  `ThreadConfiguration`, `SessionState` — none are events; all dead for non-subscriber reasons.
+- Money library, `VersionConflictError` (never instantiated, `instanceof` can never match),
+  `UserRole = string`, `USER_KINDS`/`UserKind`/`UserStatus` — stand, founder-confirmed. Ruling 1's
+  shared-backend premise does not resurrect them: a shared backend gets identity/role facts from
+  OIDC, not from a `type UserRole = string` alias with zero type safety or a users vocabulary
+  nothing imports. Dead is dead.
+
+**Ruling 3 (knowledge-ritual → PLUGIN): zero rows in this package.** The KNOWLEDGE_* vocabulary
+here is the machinery of the knowledge store itself (layers, statuses, scopes), not
+practice-meeting/retro ceremony. No PLUGIN verdicts.
+
+### Events whose emission is missing
+
+The defect is inverted from the first wave's report: the vocabulary is right, the announcement is
+missing. Per event — where the fact occurs, and where the emission belongs. All five keep their
+dispatcher cases in `layers/core-api/src/observability/dispatcher.ts` (`bet_revised` :410,
+`thread_archived` :424, `work_selection_requested` :436, plus `dependency_met` and
+`proposed_call_executed` cases in the same switch).
+
+1. **`dependency_met`** — the fact occurs in
+   `layers/core-api/work/src/dependency-watcher.ts` (`checkAndUnblockDependents`): when every
+   dependency of a hold-state task is done, it auto-transitions the task hold→accepted via
+   `transitionTask(...)` (~line 93) and today emits only an ambient `notification` with
+   `kind: "auto_unblock"` (~lines 102–111). **Emit here**: directly after the `transitionTask`
+   call, beside the existing notification emit —
+   `{ type: "dependency_met", streamId: task.id, taskId: task.id, dependencyId: completedTaskId, timestamp }`,
+   once per unblocked dependent. A6 (FINISH) rebuilds the dependency tree with a real writer; this
+   watcher is that writer's emission point.
+
+2. **`bet_revised`** — the fact occurs in
+   `layers/core-api/work/src/bet-state-machine.ts:260` (`updateBetField`): the mutated column +
+   revision-log entry are written via `work.update(...)` (~line 302), reached from the door
+   PATCH /api/bets (`layers/core-api/src/routes/bets.ts:559`). Today it emits only `item_created`,
+   and only when the field is `done_condition`. **Emit here**: immediately after the
+   `work.update` write, for *every* mutated field —
+   `{ type: "bet_revised", streamId: bet.teamId, betId, field, timestamp }`. The function already
+   receives the `eventBus`; this is a three-line addition.
+
+3. **`proposed_call_executed`** — the fact occurs in
+   `layers/core-api/review/src/proposed-call-workflow.ts`, the `"outcome-recorded"` transition
+   (~lines 615–637): it inserts the `operationOutcomes` row and sets `proposedCalls.status` to
+   `"executed"`/`"failed"` at :634–635. **Emit here**: immediately after that status update —
+   `{ type: "proposed_call_executed", streamId: pc.subjectThreadId, proposedCallId: id, reviewMessageId: pc.reviewMessageId, status: result.success ? "ok" : "failed", timestamp }`
+   (the transition holds the PC id; fetch the row for `subjectThreadId`/`reviewMessageId`). The
+   event's own `@lore` (AL7 W4) already specifies `streamId = subjectThreadId` so the review
+   canvas Outcome band can subscribe per thread — this emission IS part of the A1 FINISH wiring.
+
+4. **`thread_archived`** — the fact does **not occur yet**: `threads`
+   (`framework/db/src/schema.ts:732`) has `pinned` and `resolvedAt` but no archival column, and no
+   route archives a thread. The schedulable work is the archival operation itself (an
+   `archivedAt` column + a threads route action) with the emission beside the DB write. The
+   pattern to copy is the resolve path: `layers/core-api/src/routes/threads.ts:1550` emits
+   `thread_resolved` after the write and pushes it over WS at :1588. The archive emission belongs
+   in the same shape, same file.
+
+5. **`work_selection_requested`** — the emitters named in the event's own doc comment (AK7:
+   `bet-decomposition.ts` for `bet_task`/`bet_decomposer`, routine `agent-delegation.ts` for
+   `routine_delegate`) were deleted by AU21 §6 Decision F1 (see the `@lore` in
+   `layers/core-api/work/src/ports.ts` ~lines 51–60). The fact — work needs an agent — still
+   occurs at two surviving sites: **(a)** routine firing,
+   `layers/core-api/routine/src/routine-scheduler.ts:684`, where the baked request takes
+   `bakedRequest.defaultAgentId` — emit with `surface: "routine_delegate"` before that selection
+   settles; **(b)** task intake, POST/PATCH /api/tasks
+   (`layers/core-api/src/routes/tasks.ts:33`, nullish `ownerAgentId`) — emit when a task arrives
+   or moves without an owner. When A6's rebuilt decomposition/dependency writer lands, it becomes
+   the third emitter (the original `bet_task`/`bet_decomposer` surfaces).
+
+---
 
 ## Where does this package go?
 
@@ -2345,11 +2665,11 @@ Rows 14–25 are one declaration family (the secret-shape regex set) but are lis
 
 456 files across every layer import `@hyperidle/domain-model`, so "delete the package" is not on the table. But the 395-export surface is three different things wearing one name:
 
-1. **A real client↔server wire contract** (core-api / agent-orchestration serve it, core-ui / design-system render it). Neither side may import the other, so this part legitimately needs a shared home. It survives, slimmed. ~121 exports.
-2. **The event vocabulary + bus typing** (`events.ts`, ~48 exports). `EventType`/`EventByType`/`EventHandler`/`WildcardHandler` exist *only* to type `framework/event-bus`'s API; every subscriber already imports event-bus. **DISSOLVE → `framework/event-bus`.** Five of the events are defined, dispatcher-cased, and never emitted anywhere — those die outright.
-3. **Single-owner code parked here for tidiness** (~120 exports): trigger schemas only core-api reads, block types only the block pipeline produces, health derivations only the browser runs, auth TTLs only core-api reads, session-request internals only orchestration reads, a whole Money arithmetic library nobody calls. Each moves to its sole consumer or dies.
+1. **A real client↔server wire contract** (core-api / agent-orchestration serve it, core-ui / design-system render it). Neither side may import the other, so this part legitimately needs a shared home. It survives, slimmed. ~124 exports.
+2. **The event vocabulary + bus typing** (`events.ts`, ~48 exports). `EventType`/`EventByType`/`EventHandler`/`WildcardHandler` exist *only* to type `framework/event-bus`'s API; every subscriber already imports event-bus. **DISSOLVE → `framework/event-bus`.** Under Ruling 2 this vocabulary is a published extension surface — plugins hang triggers and actions off it — so it moves *whole*: all events survive, including the five whose emission is missing (see above). Nothing in events.ts dies except the `KernelEvent`/`StrategyEvent` groupings, which remove no event.
+3. **Single-owner code parked here for tidiness** (~120 exports): trigger schemas only core-api reads, block types only the block pipeline produces, health derivations only the browser runs, session-request internals only orchestration reads, a whole Money arithmetic library nobody calls. Each moves to its sole consumer or dies. The auth TTL/invite constants no longer move — Ruling 1 kills their sole consumer, so they die here.
 
-Plus ~45 exports that are **dead**: never imported by any production file, duplicated locally by their supposed consumer, or guards/events for features that were hard-deleted (AU21 cost-cap) and left their vocabulary behind.
+Plus ~44 exports that are **dead**: never imported by any production file, duplicated locally by their supposed consumer, or guards/vocab for features that were hard-deleted (AU21 cost-cap) or founder-ruled dead (invite/login-session access, Ruling 1).
 
 ## Consumers (measured, not assumed)
 
@@ -2357,12 +2677,12 @@ Plus ~45 exports that are **dead**: never imported by any production file, dupli
 
 | Consumer | What it actually imports | Could it own this? |
 |---|---|---|
-| core-api | wire response types, state vocabularies (TASK_STATES, BET_STATUSES…), API_ERROR_CODES, event types, mention parsing, trigger/config schemas, errors | Owns: trigger.ts, task-transition.ts, auth.ts, OLD_KIND_MAP, mention parsing, model defaults, org/propagation vocab, its errors |
+| core-api | wire response types, state vocabularies (TASK_STATES, BET_STATUSES…), API_ERROR_CODES, event types, mention parsing, trigger/config schemas, errors | Owns: trigger.ts, task-transition.ts, OLD_KIND_MAP, mention parsing, model defaults, org/propagation vocab, its errors. auth.ts no longer moves to it — Ruling 1 deletes it. |
 | core-ui | same wire types from the other side, label registries, health derivations, KnowledgeScope/SortOption, SCHEDULE_PRESETS, ASSISTANT_TURN_TIMEOUT_MS | Owns: health derivations, agent-profile sub-shapes, knowledge UI vocab, schedule presets, timeout const |
 | design-system | thread/message model, block payloads, kind registry display fns, status vocab | Owns: segmentMentions, promotedRichMessageId, verdictDecisionToStatus, summarizePreview, artifactDisplayTitle, KnowledgeKind |
 | agent-orchestration | session-request schema/kinds, events, connection provisioning types, its errors | Owns: intent guards, request statuses, held-auth/inherited-connection types, its 3 error classes |
 | agent-execution | ResolvedModel, ModelTier, TokenUsage, HttpError, MODEL_CATALOG | Owns: HttpError (thrower AND catcher are both in llm-client.ts — the "cross-seam instanceof" lore is obsolete) |
-| event-bus | DomainEvent, EventType, EventByType, EventHandler, WildcardHandler | Owns: all of events.ts — the union exists to type the bus |
+| event-bus | DomainEvent, EventType, EventByType, EventHandler, WildcardHandler | Owns: all of events.ts — the union exists to type the bus, and the bus is where an external plugin would reach for the event vocabulary |
 | block-derivation | every symbol in blocks/types.ts | Owns: all of blocks/types.ts — it is the producer; design-system/core-ui import block-derivation |
 | db | ConfigurationKind, PluginState (column typing) | Owns those two |
 | credential-access | ModelRequest, ModelGatewayConfig, CredentialName, MissingCredentialError | Owns: ModelRequest, MissingCredentialError (it is the resolver/thrower) |
@@ -2371,27 +2691,48 @@ Plus ~45 exports that are **dead**: never imported by any production file, dupli
 
 ## If written today, from scratch
 
-One slim `domain-model` (121 exports, down from 395): the state/verdict/label vocabularies both sides render, the thread/message model, the artifact kind registry, the credential + model-gateway catalog, the team/routine/agent-profile wire contracts, `ApiErrorResponse` + `API_ERROR_CODES`, `AgentSessionSourceKind`/`Correlation`, `TokenUsage`. Events live in `event-bus`. Blocks live in `block-derivation`. Everything with one consumer lives in that consumer. No Money library, no dead events, no `UserRole = string` fake type, no identity-function "builders".
+Written against the corrected premise: a **shared backend** serving a team and an organisation of
+teams, identity from an **OIDC provider**, and an **event stream that plugins hang off**.
+
+One slim `domain-model` (~124 exports, down from 395): the state/verdict/label vocabularies both
+sides render, the thread/message model, the artifact kind registry, the credential + model-gateway
+catalog, the team/routine/agent-profile wire contracts, `ApiErrorResponse` + `API_ERROR_CODES`,
+`AgentSessionSourceKind`/`Correlation`, `TokenUsage`, and the proposed-call approval vocabulary
+(A1 is being finished, not deleted). Events live in `event-bus` — the complete vocabulary,
+including the five not-yet-emitted ones, because who listens is not knowable from this repo.
+Blocks live in `block-derivation`. Everything with one consumer lives in that consumer. No invite
+codes, no login-session TTLs, no home-grown auth vocabulary of any kind — OIDC owns identity. No
+Money library, no `UserRole = string` fake type, no identity-function "builders", no
+never-instantiated error classes.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 52 |
-| MERGE (move to named owner) | 146 |
+| DELETE | 50 |
+| FINISH | 1 |
+| PLUGIN | 0 |
+| MERGE (move to named owner) | 140 |
 | SIMPLIFY (survives in package; unexported family member or shrinks) | 75 |
-| KEEP | 121 |
+| KEEP | 128 |
 
-Surface: 395 exports → 121 exported from the shared package (69% of the public surface gone: 52 dead outright, 146 moved to their real owner, 75 demoted to unexported internals). The package shrinks from 395 exports to ~196 declarations of which 121 are public.
+Surface: 395 input entries → 394 verdict rows (one input entry, `OldKindMapping`, is listed twice
+in the input; counted once at C.106). 265 of 394 leave the public shared surface (67%): 50 dead
+outright, 140 moved to their real owner, 75 demoted to unexported internals. 129 survive as public
+contract (128 KEEP + 1 FINISH), of which the five KEEP events and their family relocate with
+events.ts → event-bus per the package-level SPLIT — KEEP here means *survives*, not *stays put*.
 
 ## Feature-level kills
 
 1. **The Money library** (`types/money.ts` minus TokenUsage/TierTokenCount — 13 exports). Bigint currency arithmetic with USD/EUR/GBP/JPY scales, wire conversion, add/compare. Zero production callers. It is the orphan of the AU21-deleted cost-cap feature; only `@lore` comments still reference it. Hole: none — the token-accounting types it shares a file with survive.
-2. **Five never-emitted events**: `dependency_met`, `bet_revised`, `thread_archived`, `work_selection_requested`, `proposed_call_executed`. Defined in `events.ts`, cased in `core-api/src/observability/dispatcher.ts`, emitted by nothing, subscribed by nothing. Delete the interfaces, union entries, and dispatcher cases. Hole: none — they never fire.
+2. **Invite/login-session access vocabulary** (`auth.ts` — InviteRole, INVITE_ROLES, LOGIN_SESSION_TTL_MS, INVITE_CODE_TTL_MS). Ruling 1: OIDC replaces invites and home-grown login sessions. These constants' only consumer is that dead machinery; they die with it rather than moving to core-api/users. Hole: none in this package — the cross-package hole (deleting the invite-code/login-session code in core-api/users) belongs to that package's revised verdict.
 3. **Dead type-guard family**: `isConfigurationKind`, `isPluginState`, `isConnectionAuthSource`, `isHeldAuthSource`, `isTriggerEventType`, `urgencyForType`, `buildSessionLifecycleCorrelation` (a literal identity function), `classifyThreadConfiguration` (self-described "documentation-only classifier — never persisted"). Zero production callers; `core-api/settings/plugin-configuration.ts` even wrote its own private `isConfigurationKind` rather than import this one.
-4. **Dead mirrors of DB rows**: `ProposedCall` (core-api uses `proposedCalls.$inferSelect` from `framework/db`), `CreateArtifactInput` (core-api/work has its own in `artifact-store.ts`), `MUTABLE_BET_FIELDS` (live copy is `bet-state-machine.MUTABLE_FIELDS`; the "both must stay in sync" doc comment is false — nothing imports this one), `VersionConflictError` (core-api/knowledge throws its own 2-arg class; this 3-arg one is never instantiated, so the `instanceof` check in error-handler.ts:25 never matches and only the `err.name` string fallback works).
+4. **Dead mirrors of DB rows**: `CreateArtifactInput` (core-api/work has its own in `artifact-store.ts`), `MUTABLE_BET_FIELDS` (live copy is `bet-state-machine.MUTABLE_FIELDS`; the "both must stay in sync" doc comment is false — nothing imports this one), `VersionConflictError` (core-api/knowledge throws its own 2-arg class; this 3-arg one is never instantiated, so the `instanceof` check in error-handler.ts:25 never matches and only the `err.name` string fallback works). `ProposedCall` is NOT in this family anymore — A1 rules the proposed-call model live machinery for a feature being completed (FINISH).
 5. **Never-thrown errors**: `ActiveRoutinesError`, `ProviderTimeoutError` — no `new` site anywhere. `CassetteMissError` — thrown only from `agent-execution/harness-registry/src/__testing__/llm-cassette.ts` (development world); a production package exporting an error class for a test-only module is dead weight here.
-6. **Fake types**: `UserRole = string` (imported at 9 production sites for zero type safety), `UserStatus`, `UserKind`/`USER_KINDS`, `SessionState`, `KnowledgeFormat`, `RiskTier`, `AutonomyLevel` — none imported by any production file.
+6. **Fake types**: `UserRole = string` (imported at 9 production sites for zero type safety), `UserStatus`, `UserKind`/`USER_KINDS`, `SessionState`, `KnowledgeFormat`, `RiskTier`, `AutonomyLevel` — none imported by any production file. Ruling 1's shared-backend premise does not save them: role/identity facts come from OIDC, and none of these carry any.
+
+**Feature-level un-kill (was #2 in the first wave):** the five never-emitted events are KEEP under
+Ruling 2 — see "Events whose emission is missing" for the schedulable work each one names.
 
 ## Full method audit
 
@@ -2424,9 +2765,9 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 23 | `segmentMentions` | UI: design-system CommentRow | MERGE → design-system | Only the renderer segments. |
 | 24 | `isCatalogModel` | UI:validate-agent-config (core-api ×1) | MERGE → core-api | One caller; one-line `.some()` over the shared MODEL_CATALOG. |
 | 25 | `catalogEntry` | UI:agents route (core-api ×1) | MERGE → core-api | One caller; one-line `.find()`. |
-| 26 | `urgencyForType` | DEAD | DELETE | Zero callers. |
+| 26 | `urgencyForType` | DEAD | DELETE | Zero callers. Not an event — a helper over the live registry; Ruling 2 boundary does not protect it. |
 | 27 | `shortLabelForType` | UI:NotificationPopover (core-ui ×1) | MERGE → core-ui | One caller; NOTIFICATION_TYPES stays shared, the helper moves. |
-| 28 | `buildSessionLifecycleCorrelation` | TEST-ONLY | DELETE | Literal identity function (`return input;`). One test imports it. |
+| 28 | `buildSessionLifecycleCorrelation` | TEST-ONLY | DELETE | Literal identity function (`return input;`). One test imports it. Founder-confirmed. |
 | 29 | `canTransitionTaskState` | INTERNAL:core-api ×3 | MERGE → core-api/work | Task state machine is core-api's domain logic; no other consumer. |
 | 30 | `exhaustiveAssert` | INTERNAL: conversation-parts, design-system | DELETE | 3-line language util; each consumer inlines its own never-guard. |
 | 31 | `isRedactedPayload` | UI:many (core-ui ×5, conversation-parts, design-system ×3) | KEEP | Real shared narrowing across 3 packages. |
@@ -2436,7 +2777,7 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 35 | `promotedRichMessageId` | UI: design-system ThreadShell ×1 | MERGE → design-system | Single consumer, pure render rule. |
 | 36 | `verdictDecisionLabel` | UI: core-ui + conversation-parts + design-system | KEEP | Three consumers; the label registry lint rule depends on it. |
 | 37 | `verdictDecisionToStatus` | UI: design-system CommentRow ×1 | MERGE → design-system | Belongs in status-mapping.ts, its only consumer's file's sibling. |
-| 38 | `isTriggerEventType` | DEAD | DELETE | Zero callers. |
+| 38 | `isTriggerEventType` | DEAD | DELETE | Zero callers; the trigger intake validates via TriggerRuleValueSchema instead. Dead plumbing for a non-subscriber reason — Ruling 2 boundary does not protect it. The vocabulary it guards survives (C.204/D.78). |
 | 39 | `summarizePreview` | UI: design-system ArtifactEmbed ×1 | MERGE → design-system | Display helper; single consumer. |
 | 40 | `artifactDisplayTitle` | UI: core-ui + design-system ×3 | MERGE → design-system | All consumers are UI-world; core-ui already imports design-system. |
 | 41 | `scaleForCurrency` | DEAD | DELETE | Dead Money library (feature-kill 1). |
@@ -2453,7 +2794,7 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | # | Class | Reach | Verdict | Reason |
 |---|---|---|---|---|
 | 1 | `InvalidTransitionError` | UI: core-api ×4 | MERGE → core-api | Thrown and caught only inside core-api. |
-| 2 | `VersionConflictError` | DEAD (as a class) | DELETE | Never instantiated. core-api/knowledge throws its OWN 2-arg VersionConflictError; error-handler's `instanceof` on this one never matches — the `err.name` string fallback does the real work. |
+| 2 | `VersionConflictError` | DEAD (as a class) | DELETE | Never instantiated. core-api/knowledge throws its OWN 2-arg VersionConflictError; error-handler's `instanceof` on this one never matches — the `err.name` string fallback does the real work. Founder-confirmed. |
 | 3 | `CapacityExceededError` | UI: core-api ×2 | MERGE → core-api | Thrown (bet-state-machine) and mapped (error-handler) only in core-api. |
 | 4 | `ConcurrencyLimitError` | INTERNAL: agent-orchestration ×2 | MERGE → agent-orchestration | Single owner. |
 | 5 | `MissingCredentialError` | agent-orchestration + credential-access | MERGE → credential-access | The resolver throws it; orchestration already imports credential-access. |
@@ -2502,7 +2843,7 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 31 | `HealthSignalInput` | none external | MERGE → core-ui | Parameter type of the moved health functions. |
 | 32 | `ApiErrorResponse` | 14 prod files, 3 packages | KEEP | The error envelope of the whole API. |
 | 33 | `ApiErrorCode` | none external | SIMPLIFY | Unexport; derived from API_ERROR_CODES. |
-| 34 | `InviteRole` | core-api ×1 | MERGE → core-api/users | Only invite-code.ts types it. |
+| 34 | `InviteRole` | core-api ×1 | DELETE | **REVISED (Ruling 1).** Was MERGE → core-api/users. OIDC replaces invites; its only consumer (invite-code.ts) is machinery the founder ruled dead. Dies with it. |
 | 35 | `BlockKind` | block-derivation ×1 | MERGE → block-derivation | Whole blocks/types.ts belongs to its producer. |
 | 36 | `BlockHostKind` | block-derivation + conversation-parts + core-ui | MERGE → block-derivation | Producer owns; consumers import block-derivation. |
 | 37 | `BlockId` | block-derivation + core-ui + design-system | MERGE → block-derivation | Same. |
@@ -2546,26 +2887,26 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 75 | `KnowledgeArchivedEvent` | EVENT:knowledge_archived | MERGE → event-bus | Live event. |
 | 76 | `KnowledgeAccessedEvent` | EVENT:knowledge_accessed | MERGE → event-bus | Live event. |
 | 77 | `RoutineFiredEvent` | EVENT:routine_fired | MERGE → event-bus | Live event. |
-| 78 | `DependencyMetEvent` | DEAD — never emitted | DELETE | Only definition + dispatcher case exist. No emitter, no subscriber. |
+| 78 | `DependencyMetEvent` | declared; emission missing | KEEP | **REVISED (Ruling 2 + A6 FINISH).** Extension-surface vocabulary; who listens is not knowable from this repo. The fact occurs in `dependency-watcher.ts` (hold→accepted auto-transition) and today announces itself only as an ambient notification — the emission is the missing half. See "Events whose emission is missing" #1. Travels with the event family → event-bus. |
 | 79 | `SandboxWritebackChange` | agent-orchestration file-watcher | MERGE → event-bus | Member of live writeback event. |
 | 80 | `SandboxWritebackChangesDetectedEvent` | EVENT:sandbox_writeback_changes_detected | MERGE → event-bus | Live event. |
-| 81 | `BetRevisedEvent` | DEAD — never emitted | DELETE | Same as #78. |
+| 81 | `BetRevisedEvent` | declared; emission missing | KEEP | **REVISED (Ruling 2).** The fact occurs in `bet-state-machine.ts` `updateBetField` (PATCH /api/bets door); nothing announces it — `item_created` fires for done_condition only. Emission missing, not the type dead. See "Events whose emission is missing" #2. Travels → event-bus. |
 | 82 | `ToolCallRecordedEvent` | EVENT:tool_call_recorded | MERGE → event-bus | Live event. |
 | 83 | `ThreadCreatedEvent` | EVENT:thread_created | MERGE → event-bus | Live event. |
 | 84 | `ThreadMessageAppendedEvent` | EVENT:thread_message_appended | MERGE → event-bus | Live event. |
 | 85 | `ThreadResolvedEvent` | EVENT:thread_resolved | MERGE → event-bus | Live event. |
 | 86 | `ThreadReopenedEvent` | EVENT:thread_reopened | MERGE → event-bus | Live event. |
-| 87 | `ThreadArchivedEvent` | DEAD — never emitted | DELETE | Thread archival does not exist as a runtime event. |
+| 87 | `ThreadArchivedEvent` | declared; fact + emission missing | KEEP | **REVISED (Ruling 2).** Vocabulary is ahead of the operation: no archival column or route exists yet. The schedulable work is the archive operation + emission beside it, patterned on the resolve path (`routes/threads.ts:1550`). See "Events whose emission is missing" #4. Travels → event-bus. |
 | 88 | `ArtifactCreatedEvent` | EVENT:artifact_created | MERGE → event-bus | Live event. |
 | 89 | `PropagationAppliedEvent` | EVENT:propagation_applied | MERGE → event-bus | Live event. |
 | 90 | `PropagationFailedEvent` | EVENT:propagation_failed | MERGE → event-bus | Live event. |
-| 91 | `WorkSelectionRequestedEvent` | DEAD — never emitted | DELETE | Same as #78. |
+| 91 | `WorkSelectionRequestedEvent` | declared; emitters deleted by AU21 F1 | KEEP | **REVISED (Ruling 2).** Its AK7 emitters were removed by AU21 §6 F1; the fact (work needs an agent) still occurs at routine firing and task intake, and returns with A6's rebuilt writer. Emission missing. See "Events whose emission is missing" #5. Travels → event-bus. |
 | 92 | `TeamCreatedEvent` | EVENT:team_created | MERGE → event-bus | Live event. |
 | 93 | `AgentAddedEvent` | EVENT:agent_added | MERGE → event-bus | Live event. |
 | 94 | `UserCreatedEvent` | EVENT:user_created | MERGE → event-bus | Live event. |
-| 95 | `ProposedCallExecutedEvent` | DEAD — never emitted | DELETE | The executed-status transition happens without an event. |
+| 95 | `ProposedCallExecutedEvent` | declared; emission missing | KEEP | **REVISED (Ruling 2 + A1 FINISH).** The executed/failed transition happens in `proposed-call-workflow.ts` "outcome-recorded" (:634) with no announcement; the event's own @lore (AL7 W4) specifies the per-thread subscription the review canvas needs. Emitting it is part of finishing A1. See "Events whose emission is missing" #3. Travels → event-bus. |
 | 96 | `ProposedCallGrantedEvent` | EVENT:proposed_call_granted | MERGE → event-bus | Live event. |
-| 97 | `KernelEvent` | TEST-ONLY | DELETE | Inline into DomainEvent; the kernel/strategy split is a docs concept, not a runtime seam. |
+| 97 | `KernelEvent` | TEST-ONLY | DELETE | Union *grouping*, not an event type — inlining into DomainEvent removes zero events from the extension surface. The kernel/strategy split is a docs concept, not a runtime seam. Ruling 2 boundary: plumbing, not vocabulary. |
 | 98 | `StrategyEvent` | internal only | DELETE | Same. |
 | 99 | `DomainEvent` | core-api ×2 + event-bus | MERGE → event-bus | The bus's own union. |
 | 100 | `EventType` | core-api ×2 + event-bus | MERGE → event-bus | Bus API typing. |
@@ -2589,13 +2930,13 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 118 | `KnowledgeScope` | core-ui ×3 | MERGE → core-ui | Single consumer. |
 | 119 | `KnowledgeTopicHealth` | core-ui ×3 | MERGE → core-ui | Single consumer. |
 | 120 | `KnowledgeAccessorKind` | none external | MERGE → event-bus | Member of KnowledgeAccessedEvent. |
-| 121 | `KnowledgeRelevanceSignals` | DEAD | DELETE | Zero references outside declaration + barrel. |
+| 121 | `KnowledgeRelevanceSignals` | DEAD | DELETE | Zero references outside declaration + barrel. Not an event; not protected. |
 | 122 | `KnowledgeSortOption` | core-ui ×1 | MERGE → core-ui | Single consumer. |
 | 123 | `RiskTier` | DEAD | DELETE | Trust-model vocabulary nobody imports; the live riskTier lives in DB/service code. |
 | 124 | `AutonomyLevel` | TEST-ONLY | DELETE | Same. |
 | 125 | `PropagationLevel` | core-api ×1 + event member | MERGE → event-bus | Member of live propagation events. |
-| 126 | `PropagationStatus` | DEAD | DELETE | Member of dead PropagationResult only. |
-| 127 | `PropagationResult` | DEAD | DELETE | Zero external references; the events carry their own fields. |
+| 126 | `PropagationStatus` | DEAD | DELETE | Member of dead PropagationResult only. Ruling 2 boundary: a payload nothing ever sets is not protected; the live propagation *events* carry their own fields and survive (C.89/90). |
+| 127 | `PropagationResult` | DEAD | DELETE | Zero external references; same boundary as #126. |
 | 128 | `MentionCandidate` | via extractMentionCandidates | MERGE → core-api | Travels with the parser. |
 | 129 | `ResolvedMention` | via resolveMentions | MERGE → core-api | Same. |
 | 130 | `MentionSegment` | design-system ×1 | MERGE → design-system | Travels with segmentMentions. |
@@ -2608,9 +2949,9 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 137 | `NotificationUrgency` | core-api ×1 | SIMPLIFY | Unexport; member of registry entry. |
 | 138 | `NotificationTypeKey` | core-api ×2 + core-ui ×2 | KEEP | Two-sided registry key. |
 | 139 | `NotificationType` | none external directly | SIMPLIFY | Unexport; element of NOTIFICATION_TYPES. |
-| 140 | `ProposedCallStatus` | core-ui ×2 | MERGE → core-ui | Only review pages narrow it; server uses DB-inferred types. |
+| 140 | `ProposedCallStatus` | core-ui ×2 + server transitions | KEEP | **REVISED (A1 FINISH).** Was MERGE → core-ui on the half-wired premise. With the approval loop being completed, the status vocabulary is two-sided: the workflow writes executed/failed, review pages narrow it. |
 | 141 | `Reversibility` | harness-protocol + tool-protocol ×2 | KEEP | Two independent framework consumers across the tool seam. |
-| 142 | `ProposedCall` | DEAD (dev-only import) | DELETE | Dead mirror; core-api uses `proposedCalls.$inferSelect` from framework/db. |
+| 142 | `ProposedCall` | A1 wire model | FINISH | **REVISED (A1 FINISH).** Was DELETE as a "dead mirror" of `proposedCalls.$inferSelect`. The founder ruled the proposed-call model live machinery for a feature being completed: finishing A1 means the approval surface serves this shape over the wire (or consciously adopts the DB-inferred type and retires this — that call belongs to the A1 work, not to a destroyer pass). |
 | 143 | `RoutineState` | design-system ×1 + family | KEEP | Status-mapping consumes; ROUTINE_STATES validates server-side — two-sided family. |
 | 144 | `RoutineRunOutcome` | core-api ×2 | SIMPLIFY | Unexport; member of kept routine wire types. |
 | 145 | `RoutineCardSummary` | core-api ×1 | SIMPLIFY | Unexport; member of TeamDetail. |
@@ -2672,10 +3013,10 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 201 | `ArtifactThreadSummary` | core-api ×1 | KEEP | Wire pair with #202. |
 | 202 | `ArtifactThreadSummaryResponse` | core-ui ×1 | KEEP | Wire pair. |
 | 203 | `PlainPayloadWithBlockId` | core-ui ×1 | MERGE → core-ui | Only the client builds this request shape. |
-| 204 | `TriggerEventType` | internal | MERGE → core-api/settings | Whole trigger module has one owner: the settings/behavior-config service. |
+| 204 | `TriggerEventType` | internal | MERGE → core-api/settings | Whole trigger module has one owner: the settings/behavior-config service. The trigger *vocabulary* stays alive — it is part of the extension surface Ruling 2 describes; only its location changes. |
 | 205 | `TriggerResultState` | internal | MERGE → core-api/settings | Same. |
 | 206 | `TriggerRuleValue` | internal | MERGE → core-api/settings | Same. |
-| 207 | `TriggerResolutionResult` | DEAD | DELETE | Zero references anywhere outside declaration. |
+| 207 | `TriggerResolutionResult` | DEAD | DELETE | Zero references anywhere outside declaration. A record type nothing constructs — not an event; not protected. |
 | 208 | `ArtifactPreview` | none external (name-collision hits are design-system's component) | SIMPLIFY | Unexport; member of Artifact + schema target. |
 | 209 | `Artifact` | core-api + core-ui ×2 + design-system ×4 | KEEP | Core wire model. |
 | 210 | `ArtifactPage` | core-api + core-ui | KEEP | Wire pair. |
@@ -2697,8 +3038,8 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 226 | `ModelTier` | 6 packages | KEEP | The most-shared type in the package. |
 | 227 | `TriggerType` | none external | SIMPLIFY | Unexport; member of RoutineInfo. |
 | 228 | `AgentCategory` | eval + internal catalog | KEEP | Element type of shared AGENT_CATEGORIES/catalog. |
-| 229 | `UserRole` | 9 prod files | DELETE | `type UserRole = string` — a fake type providing zero safety. Replace every import with `string`. |
-| 230 | `UserStatus` | DEAD | DELETE | Zero imports. |
+| 229 | `UserRole` | 9 prod files | DELETE | `type UserRole = string` — a fake type providing zero safety. Replace every import with `string`. Ruling 1 does not resurrect it: OIDC carries the real role facts; this alias carries none. Founder-confirmed. |
+| 230 | `UserStatus` | DEAD | DELETE | Zero imports. Dead is dead under any deployment premise. |
 | 231 | `UserKind` | DEAD | DELETE | Zero imports; db doesn't type the column with it. |
 | 232 | `OrgEdgeMechanism` | core-api ×1 | MERGE → core-api/org | Single owner. |
 | 233 | `ScopeKind` | agent-orchestration + core-ui ×5 + eval | KEEP | Shared knowledge-scope vocabulary. |
@@ -2716,9 +3057,9 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 4 | `API_ERROR_CODES` | core-api ×16 + agent-orchestration ×4 + http-middleware ×4 | KEEP | Most-used const in the package. |
 | 5 | `artifactPreviewSchema` | core-api + agent-orchestration | KEEP | Two-sided validation (route + tool schema). |
 | 6 | `fallbackPreviewSchema` | core-api ×1 | KEEP | Family with #5; open-vocabulary fallback. |
-| 7 | `INVITE_ROLES` | core-api ×1 | MERGE → core-api/users | Single owner. |
-| 8 | `LOGIN_SESSION_TTL_MS` | core-api ×1 | MERGE → core-api/users | Single owner. |
-| 9 | `INVITE_CODE_TTL_MS` | core-api ×1 | MERGE → core-api/users | Single owner. |
+| 7 | `INVITE_ROLES` | core-api ×1 | DELETE | **REVISED (Ruling 1).** Was MERGE → core-api/users. OIDC replaces invites; the consumer dies, the constant dies with it. |
+| 8 | `LOGIN_SESSION_TTL_MS` | core-api ×1 | DELETE | **REVISED (Ruling 1).** Home-grown login-session machinery is dead; OIDC owns session lifetime. |
+| 9 | `INVITE_CODE_TTL_MS` | core-api ×1 | DELETE | **REVISED (Ruling 1).** Invite codes are not the access mechanism. |
 | 10 | `BLOCK_KINDS` | none external | MERGE → block-derivation | Blocks module moves whole. |
 | 11 | `BLOCK_HOST_KINDS` | core-api ×1 | MERGE → block-derivation | Same; core-api imports block-derivation for validation. |
 | 12 | `BLOCK_ID_VERSION` | block-derivation ×1 | MERGE → block-derivation | Same. |
@@ -2768,7 +3109,7 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 56 | `DEFAULT_AGENT_HARNESS` | core-api ×1 | MERGE → core-api | Same. |
 | 57 | `BUILT_IN_GATEWAY_CONFIG` | core-api ×1 | MERGE → core-api/settings | Single owner (server-config fallback). |
 | 58 | `NOTIFICATION_TYPES` | core-api + core-ui | KEEP | Two-sided registry. |
-| 59 | `PROPOSED_CALL_STATUSES` | TEST-ONLY external | MERGE → core-ui | Travels (unexported) with ProposedCallStatus. |
+| 59 | `PROPOSED_CALL_STATUSES` | derives kept two-sided type | KEEP | **REVISED (A1 FINISH).** Was MERGE → core-ui. Derivation source + server-side validation of the kept ProposedCallStatus once the approval loop is wired. |
 | 60 | `REVERSIBILITY` | TEST-ONLY external | SIMPLIFY | Unexport; derives kept Reversibility. |
 | 61 | `ROUTINE_STATES` | core-api ×1 | KEEP | Server zod for the kept RoutineState family. |
 | 62 | `ROUTINE_RUN_OUTCOMES` | none external | SIMPLIFY | Unexport; type-derivation only. |
@@ -2780,14 +3121,14 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 | 68 | `assistantSessionRequestInputSchema` | none external | SIMPLIFY | Same. |
 | 69 | `routineSessionRequestInputSchema` | none external | SIMPLIFY | Same. |
 | 70 | `knowledgeSessionRequestInputSchema` | none external | SIMPLIFY | Same. |
-| 71 | `proposedCallSessionRequestInputSchema` | none external | SIMPLIFY | Same. |
+| 71 | `proposedCallSessionRequestInputSchema` | none external | SIMPLIFY | Same. Union branch of the kept intake schema; A1's wiring flows through the kept parent (D.72). |
 | 72 | `agentSessionRequestInputSchema` | agent-orchestration ×2 | KEEP | The intake contract. |
 | 73 | `TASK_STATE_TRANSITIONS` | core-api ×1 | MERGE → core-api/work | Task state machine data. |
 | 74 | `HOST_KINDS` | core-api ×1 | KEEP | Derives shared HostKind; server zod. |
 | 75 | `MESSAGE_TYPES` | core-api ×1 | KEEP | Same for MessageType. |
 | 76 | `VERDICT_DECISIONS` | core-api ×1 | KEEP | Same for VerdictDecision. |
 | 77 | `ARTIFACT_VIEW_SHAPES` | agent-orchestration + core-api | KEEP | Two-sided. |
-| 78 | `TRIGGER_EVENT_TYPES` | internal | MERGE → core-api/settings | Trigger module moves whole. |
+| 78 | `TRIGGER_EVENT_TYPES` | internal | MERGE → core-api/settings | Trigger module moves whole; vocabulary stays alive (see C.204). |
 | 79 | `TRIGGER_RESULT_STATES` | internal | MERGE → core-api/settings | Same. |
 | 80 | `TriggerRuleValueSchema` | core-api ×2 | MERGE → core-api/settings | Same. |
 | 81 | `CURRENCY_CODES` | DEAD | DELETE | Dead Money library. |
@@ -2812,11 +3153,12 @@ Surface: 395 exports → 121 exported from the shared package (69% of the public
 
 ## Holes this leaves
 
-- **Five dead events + dispatcher cases**: `core-api/src/observability/dispatcher.ts` loses five cases; the `DomainEvent` union shrinks. No runtime behavior changes — nothing emitted them.
+- **No event holes.** All five formerly-condemned events survive with their dispatcher cases in `core-api/src/observability/dispatcher.ts` intact. The gap they expose is schedulable work (the five emissions above), not a deletion.
+- **auth.ts delete (Ruling 1)**: `core-api/users`' invite-code and login-session machinery loses its TTL/role constants — correct, because Ruling 1 kills that machinery itself; the cross-package deletion belongs to core-api/users' revised verdict. Until OIDC lands, deleting the login path removes the only access mechanism — the OIDC work (A7 FINISH) and this deletion must land together.
 - **`VersionConflictError` delete**: `error-handler.ts` must drop the dead `instanceof` and rely on (or import) core-api/knowledge's real class. Behavior today already flows through the `err.name` fallback, so nothing user-visible changes — but the middleware should stop pretending the instanceof works.
-- **`UserRole` delete**: 9 production files change an import to `string`. Any future closed role enum would be a new decision, which is correct — the current type falsely implies one exists.
+- **`UserRole` delete**: 9 production files change an import to `string`. Any future closed role enum would be a new decision informed by OIDC claims, which is correct — the current type falsely implies one exists.
 - **blocks/types.ts → block-derivation**: design-system and core-ui gain an import edge on `@hyperidle/block-derivation`; the framework-surfaces/reach declarations need updating. If governance forbids design-system→block-derivation, the fallback is keeping blocks/types in the slim shared core — the DELETE/SIMPLIFY rows are unaffected.
-- **events.ts → event-bus**: every subscriber file changes an import path (large mechanical diff, zero behavior). `framework/db`'s intent-kind parity test follows the vocabulary to its new home.
+- **events.ts → event-bus**: every subscriber file changes an import path (large mechanical diff, zero behavior). `framework/db`'s intent-kind parity test follows the vocabulary to its new home. Under Ruling 2 this move is also the honest statement of what the vocabulary is: the published surface plugins subscribe against.
 - **`AgentBehaviorConfigErrorResponse` → ApiErrorResponse**: the settings route's error body loses nothing — the shapes are identical.
 - **Money library delete**: if a future cost feature returns, it starts from its own design, not from an unexercised bigint library whose only proof of correctness is its own unit tests.
 - **Misfiled test**: `framework/domain-model/src/http/__tests__/rate-limit.test.ts` tests `@hyperidle/http-middleware`'s rate limiter — it should move to http-middleware regardless of the rest of this verdict (the whole `src/http/` dir in domain-model contains nothing but that test).
@@ -2916,101 +3258,142 @@ Surface: 8 public method rows → 3 (on typed, on wildcard, emit) — 62% cut
 
 ---
 
-# factory-defaults — destroyer verdict (framework)
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/fw-factory-defaults.md` for comparison.
+
+# factory-defaults — destroyer verdict (framework) — REVISED after founder rulings
+
+## What changed after the rulings
+
+| Row | Export | Old verdict | New verdict | Ruling | Why it moved |
+|---|---|---|---|---|---|
+| 5 | `FactoryFacilitatorSpec` | DELETE | **PLUGIN** | Ruling 3 | A facilitator-per-community-of-practice is a legitimate knowledge-management ritual — exactly "preconfigure agents, skills, routines and triggers". It leaves core and ships as a plugin's agent declaration, in plugin-manifest terms. |
+| 9 | `COMMUNITY_DISPLAY_NAMES` | DELETE | **PLUGIN** | Ruling 3 | The community vocabulary (build/product/growth/ops/facilitation) is the ritual's naming, not garbage. Travels with the plugin. |
+| 10 | `defaultFactoryRoster` | SIMPLIFY | SIMPLIFY (re-reasoned) | Ruling 3 | Verdict value unchanged — core still shrinks to the assistant singleton, inlined. But the five facilitator entries are no longer discarded: they become the plugin's preconfigured roster. The removed half's fate flipped DELETE → PLUGIN. |
+| Feature kill 1 | 5-facilitator factory pre-seed | DELETE (whole feature) | **PLUGIN** (whole feature) | Ruling 3 | See "What leaves core and becomes a plugin". |
+
+**Rows changed: 3** (2 verdict flips DELETE → PLUGIN, 1 SIMPLIFY re-reasoned). Everything else re-checked against Rulings 1–3 and confirmed unchanged — the reasons below say where Ruling 1 was re-applied.
+
+**What did NOT move, and why the structural findings stand:**
+
+- `FactoryRosterSpec` stays **DELETE**. Ruling 3 rescues the ritual, not the fiction around it. A "registry-free injection seam" whose one consumer hardcodes `const roster = defaultFactoryRoster` has never injected anything; the plugin surface declares agents through the plugin mechanism, not through a roster-spec interface in core. Nobody would want this seam in any form.
+- `AgentScaffoldSpec` stays **MERGE**. A duplicated scaffold type is still a duplicate — `layers/core-api/org/src/scaffold-agents.ts:75` already redeclares it locally and admits it in its own header.
+- `FactorySystemAssistantSpec`, `FactoryAgentRef`, `AgentScaffoldRequest`, `SYSTEM_PROMPT_TEMPLATE_FILES` stay **DELETE**. The assistant is machinery, not ritual — Ruling 3 does not touch it — and these are two-field types and an export-shape nobody imports. No ruling protects indirection.
+- **Ruling 1 re-check** (shared backend, team, OIDC): the first-wave case against the facilitators never rested on a single-user premise — it rested on zero UI surface and their only job being the convicted knowledge sweeps. Re-judged as "what does a *team* get on first run": a team-shaped install has a *stronger* claim to a preconfigured practice roster than a solo founder — which is precisely why the ritual is worth re-providing as a plugin (possibly installed by default on team setups) instead of dying outright. Ruling 1 moved the fate from DELETE toward PLUGIN; it does not move it back into core. Meanwhile Ruling 1 *strengthens* the survivors: `resolveAgentScaffoldSpecs`' three triggers are the multi-user paths — `user_assistant` mints a per-human assistant (`ast-<userId>`, "<name>'s Assistant") which is what OIDC user provisioning will call per teammate, and `team_scaffold` builds a roster per created team in an org of several teams. The package's surviving symbols are exactly the team-shaped code.
+- **Ruling 2**: not applicable — this package defines no event types and no row was killed on subscriber count.
+
+### What leaves core and becomes a plugin
+
+**The practice-communities ritual, whole.** One "knowledge-management practice communities" plugin providing:
+
+- **Five facilitator agents**, one per community of practice (build, product, growth, ops, facilitation), with their ids (`seed-agent-pf-<community>`), display names (the `COMMUNITY_DISPLAY_NAMES` vocabulary), and the facilitator persona template.
+- **The two knowledge sweeps they own** — `builtin:knowledge-decay` and `builtin:knowledge-promotion` (`routine-scheduler.ts:149-169`, both `ownerRole: "facilitator"`). These are knowledge-management ceremony by name and belong in the same plugin as their owners. This intersects the routine destroyer's builtin-routine conviction: under Ruling 3 those two sweeps are not merely deleted, they are re-provided as plugin routines+triggers — the two revised verdicts must land the same way.
+- **Boundary note for other verdicts:** the `facilitator` entry in `AGENT_ROLE_CATALOG` and `facilitator.md` in `docs/system-prompts/` (served via the map row in `SYSTEM_PROMPT_TEMPLATE_FILES`) are the role's core-side residue. If the plugin carries its own persona, both are candidates to leave with it — that call belongs to the domain-model verdict, not this package's. Until then they stay: the map is a closed allowlist and the row is harmless.
+
+What stays in core is the machinery of working: the assistant singleton seed, per-user assistant scaffolding, per-team roster scaffolding, template serving. None of it is ritual *about* the work.
+
+**No work package exists for the plugin yet** (per the rulings file) — the extraction above is scope for the one that needs writing.
+
+---
 
 ## Where does this package go?
 
-**Verdict: DISSOLVE → `layers/core-api`** (scaffold resolution into the org/teams service beside `persistScaffoldedAgents`; the roster seed inlined into `bootstrap/factory-state.ts`; the template reader beside its route). Package deleted.
+**Verdict: DISSOLVE → `layers/core-api`** (unchanged). Scaffold resolution into the org/teams service beside `persistScaffoldedAgents`; the assistant seed inlined into `bootstrap/factory-state.ts`; the template reader beside its route. The facilitator/community content leaves for the plugin. Package deleted.
 
 The package is three unrelated things stapled together by the word "defaults":
 
-1. **Scaffold-spec resolution** (`resolveAgentScaffoldSpecs`) — this is agent-identity logic. The org destroyer already ruled `persistScaffoldedAgents` the single writer of agent identity and keeps it in the teams service. The resolver is that writer's other half and belongs next to it. The only reason it sits in framework is that `tool-handlers` (agent-orchestration) calls it locally before pushing specs through the `persistScaffoldedAgents` seam — whose `specs` param is already opaque `Record<string, unknown>[]` (`tool-definitions.ts:1031-1049`). Widen the seam to accept the scaffold *request* and resolve inside core-api, and orchestration stops doing core-api's job (orchestration is a blind executor — it should hand over the request, not compose identity specs). After that, agent-orchestration imports **nothing** from this package.
-2. **The factory roster seed** (`defaultFactoryRoster` + 4 types + `COMMUNITY_DISPLAY_NAMES`) — consumed by exactly one production file, `layers/core-api/src/bootstrap/factory-state.ts`, which **hardcodes** `const roster = defaultFactoryRoster`. The celebrated AK6 "registry-free roster injection seam" has never injected anything: one value, zero alternative rosters, the consumer reads the const directly. An abstraction with one value that is never passed is a literal wearing a seam costume. Inline what survives of the literal into `factory-state.ts`.
-3. **System-prompt template reading** (`readSystemPromptTemplateForRole` + map) — consumed by core-api (`GET /api/agents/templates/:role` + scaffold), by agent-orchestration's bootstrap backfill (dies below), and by `tools/setup/demo-fixture.ts` (tooling importing a layer face is already the sanctioned pattern — `factory-state.ts`'s own header says so). Lands in core-api.
+1. **Scaffold-spec resolution** (`resolveAgentScaffoldSpecs`) — agent-identity logic; belongs beside `persistScaffoldedAgents` in the org/teams service. Widen the seam to accept the scaffold *request* and resolve inside core-api; orchestration (a blind executor) hands over requests, not composed identity specs. After that, agent-orchestration imports **nothing** from this package. Under Ruling 1 this is the most load-bearing code here: it is the per-user (OIDC provisioning → assistant) and per-team (team creation → roster) path of a shared backend.
+2. **The factory roster seed** — the AK6 "injection seam" is fiction (one hardcoded value, zero alternative rosters, consumer reads the const directly). The assistant half inlines into `factory-state.ts`; the facilitator half is the plugin's roster (Ruling 3).
+3. **System-prompt template reading** (`readSystemPromptTemplateForRole` + map) — lands in core-api beside `GET /api/agents/templates/:role`.
 
 `tools/setup` and the desktop app reach everything through the core-api faces they already call (`applyFactoryCoreState`, `runFactoryBootstrap`). No consumer needs a framework package to exist.
 
 ## Consumers (measured, not assumed)
 
-`rg -a -l "@hyperidle/factory-defaults" layers framework applications tools` — production files only:
+`rg -a -l "@hyperidle/factory-defaults" layers framework applications tools` — re-run against the current tree, list unchanged since the first wave; production files only:
 
 | Consumer | What it imports | Could it own this? |
 |---|---|---|
-| `layers/core-api/src/bootstrap/factory-state.ts` | `COMMUNITY_DISPLAY_NAMES`, `defaultFactoryRoster`, `FactoryAgentRef` | Yes — sole consumer of all three; inline. |
+| `layers/core-api/src/bootstrap/factory-state.ts` | `COMMUNITY_DISPLAY_NAMES`, `defaultFactoryRoster`, `FactoryAgentRef` | Yes — sole consumer of all three; assistant seed inlines, facilitator/community content leaves for the plugin. |
 | `layers/core-api/src/routes/users.ts` | `resolveAgentScaffoldSpecs`, `AgentScaffoldSpec` | Yes — core-api. |
 | `layers/core-api/src/routes/teams-routes.ts` | `resolveAgentScaffoldSpecs` | Yes — core-api. |
 | `layers/core-api/src/routes/assistant.ts` | `resolveAgentScaffoldSpecs` | Yes — core-api. |
 | `layers/core-api/src/routes/agents.ts` | `readSystemPromptTemplateForRole` | Yes — core-api. |
 | `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts` | `resolveAgentScaffoldSpecs` | Doesn't need it — widen the `persistScaffoldedAgents` seam to take the request; resolution is core-api's job. |
-| `layers/agent-orchestration/src/factory-run-config.ts` | `FactoryAgentRef`, `readSystemPromptTemplateForRole`, `SYSTEM_PROMPT_TEMPLATE_FILES` | Doesn't need it — the template backfill loop only ever matched facilitators (the assistant deliberately has no template); dies with the facilitator kill. `FactoryAgentRef` inlines as `{id, role}`. |
+| `layers/agent-orchestration/src/factory-run-config.ts` | `FactoryAgentRef`, `readSystemPromptTemplateForRole`, `SYSTEM_PROMPT_TEMPLATE_FILES` | Doesn't need it — the template backfill loop only ever matched facilitators; with facilitators out of core the loop is dead. `FactoryAgentRef` inlines as `{id, role}`. |
 | `tools/setup/src/demo-fixture.ts` | `readSystemPromptTemplateForRole` | Imports the core-api face — same sanctioned tooling→layer-face reach `runFactoryBootstrap` already uses. |
 
-Note `layers/core-api/org/src/scaffold-agents.ts` already **redeclares `AgentScaffoldSpec` locally** (its own header admits it: "structurally identical") — the package's export is a duplicate of a type the owning service already carries.
+`layers/core-api/org/src/scaffold-agents.ts` still redeclares `AgentScaffoldSpec` locally ("structurally identical" per its own header) — the package's export duplicates a type the owning service already carries.
 
-## If written today, from scratch
+## If written today, from scratch — against the corrected premise
 
-Three symbols, zero packages:
+A shared backend for a team and an organisation of several teams, identity from OIDC, an event stream plugins hang off. First boot of that system seeds:
 
-- `resolveAgentScaffoldSpecs` + `AgentScaffoldSpec` — inside the agent-identity (org/teams) service, behind the `persistScaffoldedAgents` seam.
-- `readSystemPromptTemplateForRole` — in core-api beside its route; map module-internal.
-- A six-line assistant seed literal inside `factory-state.ts`.
+- **One org-wide system assistant** (`seed-agent-cos`) — inlined literal in `factory-state.ts`. Load-bearing: `coach.ts:43` hardcodes it, `knowledge/src/factory-seed.ts:31` stamps it as `updatedBy`, `builtin:portfolio-retro` runs as `ownerRole: "assistant"`.
+- **A per-human assistant minted at OIDC provisioning** — the `user_assistant` trigger of `resolveAgentScaffoldSpecs`, living in the org/teams service behind the `persistScaffoldedAgents` seam. Every teammate who arrives via the identity provider gets one.
+- **A per-team roster minted at team creation** — the `team_scaffold` trigger, same home.
+- **Template serving** — `readSystemPromptTemplateForRole` in core-api beside its route; map module-internal.
+- **Ritual comes from plugins** — the practice-communities plugin preconfigures facilitators + knowledge sweeps for installs that want the ceremony. Core seeds none of it.
 
-No roster spec types, no injection seam, no facilitators, no display-name table, no shared `{id, role}` interface.
+Three symbols, zero packages, no roster spec types, no injection seam, no shared `{id, role}` interface.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 7 |
+| DELETE | 5 |
+| PLUGIN | 2 |
 | MERGE | 2 |
 | SIMPLIFY | 1 |
+| FINISH | 0 |
 | KEEP | 1 |
 
-Surface: 11 exports → 0 exports (package deleted; 3 symbols survive, relocated into core-api).
+Surface: 11 exports → 0 exports (package deleted; 3 symbols survive relocated into core-api; the facilitator roster + community vocabulary re-provide as a plugin).
 
 ## Feature-level kills
 
-**1. The 5-facilitator factory pre-seed — whole feature, DELETE.**
-Every fresh install seeds five "facilitator" agents, one per "community of practice" (build/product/growth/ops/facilitation). Nobody asked for them and the concept has no product surface: `rg -i "community|communities"` across `applications/` and `layers/core-ui/` finds **zero** UI references (one unrelated comment). Their only production job is owning the two builtin knowledge sweeps (`routine-scheduler.ts:151,162`, `ownerRole: "facilitator"`) — the builtin-routine subsystem the **routine destroyer already convicted** (second execution path bypassing the agent-run architecture; per-team seeding of global sweeps firing N duplicate runs). The kills compound: their DELETE removes the facilitators' only job; this DELETE removes the orphaned owners. What breaks: `tools/eval` scenarios and the demo world hardcode `seed-agent-pf-facilitation` (`tools/eval/src/seeding.ts:520`, `tools/eval/src/scenarios/builtin-routines.ts:72`, `tools/setup/src/demo-world/ids.ts:22`) — tooling follows the product, repoint or seed locally. The `facilitator` *role* stays in `AGENT_ROLE_CATALOG` and its `facilitator.md` template stays servable — a user who wants a facilitator creates one; the factory stops force-installing five.
+**1. The 5-facilitator factory pre-seed — whole feature, PLUGIN (was DELETE; Ruling 3).**
+Every fresh install seeds five "facilitator" agents, one per community of practice. Zero UI surface (`rg -a -i "communit"` across `applications/` and `layers/core-ui/` production files: one unrelated comment in `SettingsConnections.tsx:13` — re-confirmed on the current tree). Their only production job is owning the two builtin knowledge sweeps (`routine-scheduler.ts:151,162`, `ownerRole: "facilitator"` — the sweeps are `knowledge-decay` and `knowledge-promotion`, knowledge-management ceremony by name). Under Ruling 3 the whole cluster — five facilitators, the community vocabulary, the two sweeps, their triggers — leaves core and ships as one plugin. Judged under Ruling 1 as "what does a team get on first run": the ritual is *more* plausible for a team than a solo founder, which argues for the plugin existing and perhaps installing by default on team setups — not for the ritual staying in core tables and bootstrap code. What breaks in core: `tools/eval/src/seeding.ts:520`, `tools/eval/src/scenarios/builtin-routines.ts:72`, `tools/setup/src/demo-world/ids.ts:22` hardcode `seed-agent-pf-facilitation` — eval/demo install the plugin or seed locally.
 
-**2. The AK6 roster-injection seam — DELETE.**
-`FactoryRosterSpec` / `FactoryFacilitatorSpec` / `FactorySystemAssistantSpec` have zero external importers (the one `FactoryRosterSpec` hit outside the package is a doc comment in `scaffold-agents.ts:24`). The "seam" was never injected — `factory-state.ts` hardcodes the default. Types that exist only to type one literal die with the literal's inlining.
+**2. The AK6 roster-injection seam — DELETE (unchanged).**
+`FactoryRosterSpec` / `FactorySystemAssistantSpec` have zero external importers (the one `FactoryRosterSpec` hit outside the package is a doc comment in `scaffold-agents.ts:24`). The seam was never injected — `factory-state.ts` hardcodes the value it pretends to receive. A seam that hardcodes the value it claims to inject is fiction; the plugin surface, not a core interface, is how alternative rosters arrive. Nobody wants this in any form.
 
-**3. The run-config template backfill — DELETE (collateral).**
-`factory-run-config.ts:49-56` iterates `SYSTEM_PROMPT_TEMPLATE_FILES` to backfill prompts onto roster agents. With facilitators gone the roster is one assistant, which is deliberately **not** in the map (the lore in `system-prompt-templates.ts:19-23` preserves that 404), so the loop writes nothing, ever. `applyFactoryRunConfigDefaults` shrinks to one AH2-defaults write for the assistant.
+**3. The run-config template backfill — DELETE (unchanged, collateral).**
+`factory-run-config.ts:49-56` iterates `SYSTEM_PROMPT_TEMPLATE_FILES` to backfill prompts onto roster agents. With facilitators out of core the roster is one assistant, which is deliberately **not** in the map (lore in `system-prompt-templates.ts:19-23` preserves that 404), so the loop writes nothing, ever. `applyFactoryRunConfigDefaults` shrinks to one AH2-defaults write for the assistant.
 
-**4. Orchestration-side scaffold resolution — MERGE behind the seam.**
-`create_team` / `add_agent` tool handlers resolve specs locally, spread-widen them to dodge the opaque seam type, then push them through `persistScaffoldedAgents` (`tool-definitions.ts:1036,1131`). Seam takes the request; core-api resolves. Deletes the widening dance and the AU21 F1 apology comments with it.
+**4. Orchestration-side scaffold resolution — MERGE behind the seam (unchanged, strengthened by Ruling 1).**
+`create_team` / `add_agent` tool handlers resolve specs locally, spread-widen them past the opaque seam type, then push through `persistScaffoldedAgents` (`tool-definitions.ts:1036,1131`). Seam takes the request; core-api resolves. On a shared backend the resolver is identity-minting for real teams and real humans — one owner, one home, in the org/teams service.
 
-**Survives on evidence — the assistant seed.** `seed-agent-cos` is load-bearing: `coach.ts:43` hardcodes `COC_AGENT_ID = "seed-agent-cos"`, `knowledge/src/factory-seed.ts:31` stamps it as `updatedBy`, `builtin:portfolio-retro` runs as `ownerRole: "assistant"`. One seeded system agent is the honest factory state.
+**Survives on evidence — the assistant seed.** `seed-agent-cos` is load-bearing (coach.ts:43, knowledge factory-seed:31, `builtin:portfolio-retro`). One seeded org-wide system agent is the honest factory state of a shared backend.
 
-**Sibling cross-checks (as tasked):**
-- **settings destroyer** (drop `plugins` + `plugin_configuration_defaults` tables): factory-defaults feeds neither — `rg -a -i "plugin" framework/factory-defaults/src/` = zero hits. No coupling; their kill and this one are independent.
-- **routine destroyer** (per-team seeding of duplicate global sweeps): this package seeds no routines, but it seeds the two facilitator **owners** of the convicted sweeps. See feature kill 1 — the verdicts compound, in the same direction.
+**Sibling cross-checks:**
+- **routine destroyer**: the convicted builtin-routine subsystem contains the two facilitator-owned knowledge sweeps. Under Ruling 3 both revised verdicts must converge on PLUGIN for that pair (and the retro builtins are the same shape — theirs to rule). The kills still compound, now into the same plugin.
+- **settings destroyer** (drop `plugins` + `plugin_configuration_defaults` tables): factory-defaults feeds neither (`rg -a -i "plugin" framework/factory-defaults/src/` = zero hits). But Ruling 3 makes the plugin surface the designated landing zone for the ritual — the settings verdict on those tables should be re-read against that before the tables die.
 
 ## Full export audit
 
 | # | Export | Kind | Reach | Verdict | Reason |
 |---|---|---|---|---|---|
-| 1 | `resolveAgentScaffoldSpecs` | function | UI:POST /api/teams, UI:POST /api/users, UI:GET+PATCH /api/users/:userId/assistant, AGENT:create_team, AGENT:add_agent | MERGE | Agent-identity logic; folds into the org/teams service beside `persistScaffoldedAgents`, resolution moves behind the seam so orchestration hands over requests, not specs. |
+| 1 | `resolveAgentScaffoldSpecs` | function | UI:POST /api/teams, UI:POST /api/users, UI:GET+PATCH /api/users/:userId/assistant, AGENT:create_team, AGENT:add_agent | MERGE | Agent-identity logic; folds into the org/teams service behind `persistScaffoldedAgents`. Ruling 1 strengthens: `user_assistant` is the per-teammate path OIDC provisioning calls, `team_scaffold` the per-team path of a multi-team org. |
 | 2 | `readSystemPromptTemplateForRole` | function | UI:GET /api/agents/templates/:role (AgentEditor, AgentAddDialog, AgentDetailPane) + scaffold paths + demo fixture | KEEP | Core value: agent personas from `docs/system-prompts/` behind a live UI door; relocates to core-api, traversal-closed allowlist unchanged. |
 | 3 | `AgentScaffoldRequest` | interface | INTERNAL — zero external importers; callers pass literals | DELETE | An exported request shape nobody imports; a 7-field union where every call null-pads 4 fields — fold into per-trigger parameters when the resolver moves. |
-| 4 | `AgentScaffoldSpec` | interface | users.ts, tool-definitions.ts, org (redeclared locally) | MERGE | The owning service already carries a structurally identical local copy (`org/src/scaffold-agents.ts:75`); make that the single declaration, delete this duplicate. |
-| 5 | `FactoryFacilitatorSpec` | interface | INTERNAL — types the literal only | DELETE | Dies with the facilitator pre-seed; zero external importers even today. |
-| 6 | `FactorySystemAssistantSpec` | interface | INTERNAL — types the literal only | DELETE | Two fields typing one inlined literal; zero external importers. |
-| 7 | `FactoryRosterSpec` | interface | INTERNAL — only non-package mention is a doc comment | DELETE | The AK6 injection seam that never injects; `factory-state.ts` hardcodes the value it pretends to receive. |
+| 4 | `AgentScaffoldSpec` | interface | users.ts, tool-definitions.ts, org (redeclared locally) | MERGE | The owning service already carries a structurally identical local copy (`org/src/scaffold-agents.ts:75`); make that the single declaration, delete this duplicate. Ruling 3 does not launder duplicates. |
+| 5 | `FactoryFacilitatorSpec` | interface | INTERNAL — types the literal only | PLUGIN | Ruling 3: a facilitator per community of practice is legitimate knowledge-management ritual — re-provide as the plugin's agent declaration (plugin-manifest terms, not this core interface). Leaves core either way; zero external importers even today. |
+| 6 | `FactorySystemAssistantSpec` | interface | INTERNAL — types the literal only | DELETE | The assistant is machinery, not ritual — Ruling 3 does not apply. Two fields typing one inlined literal; zero external importers. |
+| 7 | `FactoryRosterSpec` | interface | INTERNAL — only non-package mention is a doc comment | DELETE | The AK6 injection seam that never injects; `factory-state.ts` hardcodes the value it pretends to receive. A hardcoded seam is fiction — the plugin surface replaces it; nobody wants this shape in any form. |
 | 8 | `FactoryAgentRef` | interface | BOOTSTRAP (factory-state.ts → factory-run-config.ts handoff) | DELETE | A `{id, role}` pair does not justify a package hop — inline the structural type in each face; duplicating two fields beats importing them. |
-| 9 | `COMMUNITY_DISPLAY_NAMES` | const | BOOTSTRAP (factory-state.ts only) | DELETE | Display names for a communities-of-practice concept with zero UI surface; dies with the facilitators. |
-| 10 | `defaultFactoryRoster` | const | BOOTSTRAP (factory-state.ts only, hardcoded) | SIMPLIFY | Shrinks from 5 facilitators + assistant to the assistant singleton (`seed-agent-cos` is load-bearing: coach.ts:43, knowledge factory-seed:31) and inlines into `factory-state.ts`. |
-| 11 | `SYSTEM_PROMPT_TEMPLATE_FILES` | const | factory-run-config.ts backfill loop (dead with facilitators) + tests | DELETE | Export dies: sole surviving caller is `readSystemPromptTemplateForRole` in-module; the backfill loop it feeds can never match the assistant-only roster by design. |
+| 9 | `COMMUNITY_DISPLAY_NAMES` | const | BOOTSTRAP (factory-state.ts only) | PLUGIN | Ruling 3: the community vocabulary (Build/Product/Growth/Ops/Facilitation) is the ritual's naming and travels with the plugin. Leaves core; no UI surface in core remains. |
+| 10 | `defaultFactoryRoster` | const | BOOTSTRAP (factory-state.ts only, hardcoded) | SIMPLIFY | Core shrinks to the assistant singleton inlined into `factory-state.ts` (`seed-agent-cos` load-bearing: coach.ts:43, knowledge factory-seed:31). The five facilitator entries are the plugin's preconfigured roster (Ruling 3), not discarded. |
+| 11 | `SYSTEM_PROMPT_TEMPLATE_FILES` | const | factory-run-config.ts backfill loop (dead with facilitators out of core) + tests | DELETE | Export dies: sole surviving caller is `readSystemPromptTemplateForRole` in-module; the backfill loop it feeds can never match the assistant-only core roster by design. Map becomes module-internal; the `facilitator` row's fate rides the domain-model verdict on the role catalog. |
 
 ## Holes this leaves
 
-- **Fresh installs seed 1 agent, not 6.** No facilitators in the agent list on first boot. Anyone who wanted one creates one from the role catalog — template intact.
-- **If the founder rejects the routine destroyer's builtin-routine kill**, the two knowledge sweeps lose their owners. Repair is one line each: `ownerRole: "assistant"` in `routine-scheduler.ts:151,162`. Still no reason to seed five agents.
-- **Seam signature change.** `persistScaffoldedAgents` (Mechanism C seam + its api-contract mirror) widens to accept the scaffold request; `tool-definitions.ts` create_team/add_agent shrink. Mechanical, and a net deletion.
-- **Tooling repoints.** `tools/eval/src/seeding.ts` + `scenarios/builtin-routines.ts` and `tools/setup/src/demo-world/ids.ts` reference `seed-agent-pf-facilitation` — eval/demo must seed their own facilitator or repoint to the assistant.
-- **Tests die with the package.** `framework/factory-defaults/src/__tests__/` (3 files) delete; roster/map assertions in `factory-and-demo`, `AF17-factory-bootstrap`, `X3-agent-config-bootstrap`, `X3-agents` integration tests shrink to the assistant-only seed.
+- **Fresh core installs seed 1 agent, not 6.** Facilitators arrive by installing the practice-communities plugin. Ruling 1 framing: an org onboarding a team can install the plugin at setup; core stays clean.
+- **The plugin does not exist yet, and no work package exists for it.** Until it is written, landing these deletes removes the ritual with no replacement. Sequencing call for the founder: extract-to-plugin in one move, or accept a gap. The rulings file already flags that a WP needs writing.
+- **If the routine destroyer's revised verdict lands the sweeps as PLUGIN too** (it must, same ruling), the plugin carries agents + routines + triggers together and the `ownerRole: "facilitator"` orphaning problem disappears — owners and sweeps travel as one unit.
+- **Seam signature change.** `persistScaffoldedAgents` (Mechanism C seam + its api-contract mirror) widens to accept the scaffold request; `tool-definitions.ts` create_team/add_agent shrink. Mechanical, net deletion.
+- **Tooling repoints.** `tools/eval/src/seeding.ts:520` + `scenarios/builtin-routines.ts:72` and `tools/setup/src/demo-world/ids.ts:22` reference `seed-agent-pf-facilitation` — eval/demo install the plugin or seed their own facilitator.
+- **Tests die with the package.** `framework/factory-defaults/src/__tests__/` (3 files) delete; roster/map assertions in `factory-and-demo`, `AF17-factory-bootstrap`, `X3-agent-config-bootstrap`, `X3-agents` integration tests shrink to the assistant-only seed; plugin-side seeding gets its own tests in the plugin's WP.
 - **One import-shape change for tooling.** `demo-fixture.ts` imports the template reader from a core-api face instead of a framework package — the pattern `runFactoryBootstrap` already uses.
 
 
@@ -3168,32 +3551,113 @@ Covered above — the package IS its type/port surface (rows 1-12).
 
 ---
 
-# harness-capability — destroyer verdict (framework)
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/fw-harness-capability.md` for comparison.
+
+# harness-capability — destroyer verdict (framework) — REVISED after founder rulings
+
+## What changed after the rulings
+
+**Ruling A3 (per-model options → agent configuration)** is the only ruling that moves rows in this
+package. The first wave killed the entire five-export option subsystem as producer-less. The ruling
+splits it: the *pill path* (per-message composer toggling) stays dead, but the *option concept*
+survives as part of the agent's configuration — an agent is configured once with how its model
+should run.
+
+| Export / site | Old verdict | New verdict | Ruling |
+|---|---|---|---|
+| `HarnessModelOptionDescriptor` (#10) | DELETE | **FINISH** → harness-protocol descriptor + AgentEditor | A3 — the harness's declaration of which options a model supports survives; its consumer moves from composer to agent config. `scope: "launch" \| "durable"` member still dies — per-message ("launch") scope is the pill concept. |
+| `HarnessModelOptionControl` (#9) | DELETE | **FINISH** → harness-protocol | A3 — the control union is what tells AgentEditor which input to render (select/boolean/number/text). Survives with #10. |
+| `HarnessOptionChoice` (#8) | DELETE | **FINISH** → harness-protocol | A3 — member of the `select` control arm; survives with #9. |
+| `HarnessModelDescriptor.options` member (inside #11) | delete member | **keep member (FINISH)** | A3 — `models[].options` is the declaration channel: the harness declares per-model options on the same wire DTO AgentEditor already reads for the model dropdown. #11's verdict value stays SIMPLIFY; the member list changes. |
+| `deriveComposerPills` + SessionView pill branch (feature kill #1 downstream) | DELETE | **DELETE — unchanged** | A3 explicitly: "As per-message composer pills they are not valuable. Delete the pill path." |
+| `HarnessOptionControlKind` (#3), `HARNESS_OPTION_CONTROL_KINDS` (#15) | DELETE | **DELETE — unchanged** | A3 does not resurrect them. The control union's own `kind` discriminant is the vocabulary; the standalone union was never referenced even inside its own package, and the const's only consumer is a test asserting the literal back at itself. Validation of a submitted option value is per-descriptor (against the specific declared control), never against a kind list — no runtime iteration need exists. |
+
+**Rows changed: 4** (#8, #9, #10 verdict-value changes; #11 member-level change). Everything else
+stands at full strength.
+
+**Ruling 1 (shared backend, OIDC) — re-judged, no row moves.** None of this package's kills rested
+on a single-user premise. `HarnessAccessMode` is written-at-every-construction, read-by-zero-files —
+dead on any user count. The runtime-capability badges display crossed wires (`toolUse ←
+preCompactionTrigger`, `fileEditing ← subAgents`, agent-profile.ts:214,218) — wrong for one user and
+wrong for a team of twenty. `"sdk-inprocess"`/`"soft-continue"` are declared by zero adapters —
+adapter count doesn't scale with humans. `derivePrimaryHarness` serves SetupFlow team creation,
+which a multi-team org runs *more*, not less — MERGE into core-ui stands. The shared-backend premise
+actually *strengthens* A3's reshape: per-agent options configured once server-side are shared team
+state; per-message pills would have been per-human ephemera.
+
+**Ruling 2 (events) — N/A.** This package declares no event types.
+
+**Ruling 3 (knowledge ritual → plugin) — N/A.** Nothing here is ritual-about-the-work; no PLUGIN
+verdicts.
+
+### Per-model options as agent configuration
+
+**Where the concept lives — nothing invented, every piece exists today:**
+
+- **Storage:** `agent_run_config` table, sole reader/writer
+  `layers/agent-orchestration/agent-run-config/src/agent-run-config-store.ts`. It already holds
+  exactly the sibling facts (`harnessType`, `modelTierPreference`, `modelId`, `modelProvider`) —
+  "how this agent's model should run" is this table's one sentence. Add one nullable jsonb column
+  `model_options` (`Record<string, string | number | boolean> | null`). `null` ≡ no overrides,
+  preserving the store's absent-row ≡ all-null invariant (`DEFAULT_AGENT_RUN_CONFIG` gains
+  `modelOptions: null`; `AgentRunConfigPatch`, `CONFIG_COLUMNS`, and the upsert's `"field" in patch`
+  walk each gain the field).
+- **Declaration:** the harness declares which options each model supports via
+  `HarnessModelDescriptor.options` on the GET `/api/harnesses` wire DTO — the field that exists
+  today and that every production construction site writes as `[]`
+  (harness-discovery.ts:101,141,762,801; harness-capability-descriptors.ts:87). FINISH means a first
+  real producer: at least one adapter declares a real option (the obvious candidate: a
+  thinking/reasoning-budget select on the builtin or claude adapter).
+- **Edit surface:** `layers/core-ui/src/settings/AgentEditor.tsx`. It already selects the
+  descriptor and derives the model dropdown from `descriptor.models` via
+  `model-options-for-harness.ts` (AgentEditor.tsx:142-143). When the selected model's `options` is
+  non-empty, render one control per `HarnessModelOptionDescriptor` (`control.kind` picks the
+  input), prefilled from `runConfig.modelOptions ?? defaultValue`.
+- **Write path:** PATCH `/api/agents/:id` (`layers/core-api/src/routes/agents.ts`), which already
+  builds an `AgentRunConfigPatch` with `"field" in body` semantics (line 125 pattern). Validate the
+  submitted map against the selected model's declared descriptors — unknown key or value violating
+  its control (bad choice, out-of-range number) → 400 — mirroring the existing AH2
+  (harness, provider, modelId) triple validation at line 248.
+- **Resolution:** the provisioner already reads the run config at provisioner.ts:923 and resolves
+  model facts into session start. Pass `runConfig.modelOptions` through to the adapter's
+  session-start params. The `HarnessAdapter` contract (harness-protocol/harness-adapter.ts) has
+  **no options input today** (`rg modelOptions` → zero hits) — adding that parameter is part of the
+  FINISH, and each adapter maps recognized keys onto its real invocation (CLI flag, settings file,
+  API param).
+- **What is NOT rebuilt:** no per-message override, no composer surface, no session-scoped option
+  state. `scope` disappears from the descriptor — every option is durable agent config.
+
+**Build list (the FINISH, concretely):** 1 jsonb column + store plumbing; descriptor validation in
+the PATCH route; AgentEditor option controls; adapter start-param + per-adapter mapping; one real
+declared option to prove the wire end-to-end. Until the first adapter declares an option, the UI
+renders nothing new — the feature lights up per-harness as declarations appear, which is the correct
+producer-first ordering the first wave found violated (UI machinery existed, producer never did).
+
+---
 
 ## Where does this package go?
 
-**Verdict: DISSOLVE → `framework/harness-protocol`** (the one runtime function dissolves the other way, into `core-ui`).
+**Verdict: MERGE → `framework/harness-protocol`** (the one runtime function merges the other way,
+into `core-ui`). Unchanged by the rulings — the surviving option types are *declaration-side* (part
+of the descriptor the harness serves), so they move with the descriptor into harness-protocol; the
+chosen *values* live in `agent_run_config`, which is a table, not a type home.
 
 This package is not a package. It is 13 type declarations, 1 const, and one 9-line function.
 `harness-protocol` — the adapter contract — imports six of the thirteen types to define its own
-surface (`HarnessAdapter`, `HarnessCapabilities`, the read-model). The two packages describe one
-noun: *what a harness is and can do*. They were split in AU34 solely to break an import cycle;
-inside one package that cycle is just file imports, and the file-level graph is already acyclic
-(the AU34 lore in `harness-capability-descriptor.ts` says so itself). A package boundary whose
-only job is cycle bookkeeping is tidiness, not core value.
+surface. The two packages describe one noun: *what a harness is and can do*. They were split in AU34
+solely to break an import cycle; inside one package that cycle is just file imports, and the
+file-level graph is already acyclic. A package boundary whose only job is cycle bookkeeping is
+tidiness, not core value.
 
 The one reason this package exists apart from harness-protocol: `core-ui` and `conversation-parts`
 want descriptor types without the adapter machinery. But every one of their imports is
-`import type` — zero runtime cost, tree-shaken to nothing. Keeping a whole package so a UI
-`package.json` stays prettier is exactly the invented boundary the brief names.
+`import type` — zero runtime cost. Keeping a whole package so a UI `package.json` stays prettier is
+exactly the invented boundary the brief names.
 
-**On the three-package question (harness-capability / harness-protocol / tool-protocol):**
-harness-capability and harness-protocol are **one thing** — merge them, no hesitation; the
-capability descriptor is a projection of the adapter's `getCapabilities()` and the two types
-(`HarnessRuntimeCapabilities` vs `HarnessCapabilities`) are the same flags declared twice.
-tool-protocol is a different noun (tools, not harnesses) — I make no claim it must join; if the
-tool-protocol destroyer also lands on harness-protocol as home, fine, but the hard, evidenced
-edge is capability↔protocol.
+**On the three-package question:** harness-capability and harness-protocol are **one thing** —
+merge them, no hesitation. tool-protocol is a different noun (tools, not harnesses) — no claim it
+must join.
 
 ## Consumers (measured, not assumed)
 
@@ -3201,129 +3665,133 @@ edge is capability↔protocol.
 
 | Consumer | What it imports | Could it own this? |
 |---|---|---|
-| `framework/harness-protocol` (harness-adapter.ts, read-model) | `HarnessAccessMode`, `HarnessAuthActionDescriptor`, `HarnessDiscoveryStatus`, `HarnessModelDescriptor`, `ReturnEnforcementChannel`, `HarnessCapabilityDescriptor` | **Yes — this is the dissolve target.** It already embeds these types in its own contract. |
-| `layers/agent-execution/harness-registry` (5 files) | `HarnessCapabilityDescriptor`, `ReturnEnforcementChannel`, `HarnessReadinessState`, `HarnessAuthActionDescriptor`, `HarnessModelDescriptor`, `HarnessRuntimeCapabilities`, `HarnessDiscoveryStatus` | No — execution layer; core-api/core-ui may not import it (Mechanism B). Imports harness-protocol already. |
+| `framework/harness-protocol` (harness-adapter.ts, read-model) | `HarnessAccessMode`, `HarnessAuthActionDescriptor`, `HarnessDiscoveryStatus`, `HarnessModelDescriptor`, `ReturnEnforcementChannel`, `HarnessCapabilityDescriptor` | **Yes — this is the merge target.** |
+| `layers/agent-execution/harness-registry` (5 files) | descriptor + readiness + enforcement types | No — execution layer; imports harness-protocol already. |
 | `layers/agent-execution/src/boot.ts` | `ReturnEnforcementChannel` (type) | No — same. |
 | `layers/agent-orchestration/run-orchestration/provisioner.ts` | `ReturnEnforcementChannel` (type) | No — same. |
-| `layers/core-api/routes/harnesses.ts` | `HarnessCapabilityDescriptor` (type) | No — it is the wire producer, not the owner. Already reaches harness-protocol for the read-model. |
-| `layers/core-ui` (7 files) | `HarnessCapabilityDescriptor` (type), `derivePrimaryHarness` (runtime) | Owns `derivePrimaryHarness` (sole caller: SetupFlow). Types come from harness-protocol as `import type`. |
-| `framework/conversation-parts/part.ts` | `HarnessCapabilityDescriptor`, `HarnessModelOptionDescriptor` (types, for `deriveComposerPills`) | Moot — `deriveComposerPills` is producer-less dead machinery (see feature kill #1). |
-| `framework/domain-model` | none (reverse: harness-capability imports `ModelProvider`, `PrimaryHarnessConfig` from it) | — |
-
-Three of eight consumers import exactly one type each. This is not a shared package; it is six
-symbols in the wrong file.
+| `layers/core-api/routes/harnesses.ts` | `HarnessCapabilityDescriptor` (type) | No — wire producer, not owner. |
+| `layers/core-ui` (7 files) | `HarnessCapabilityDescriptor` (type), `derivePrimaryHarness` (runtime) | Owns `derivePrimaryHarness` (sole caller: SetupFlow). |
+| `framework/conversation-parts/part.ts` | option types for `deriveComposerPills` | Dies with the pill path — the surviving option types' consumer is AgentEditor (core-ui), not conversation-parts. |
+| `framework/domain-model` | none (reverse dependency) | — |
 
 ## If written today, from scratch
 
-One file in `framework/harness-protocol` next to `harness-adapter.ts`:
+Against the corrected premise — a shared backend serving a team and an org of teams, identity via
+OIDC, an event stream plugins hang off — one file in `framework/harness-protocol` next to
+`harness-adapter.ts`:
 
-- `HarnessCapabilityDescriptor` — the GET /api/harnesses wire DTO (shrunk: no `accessMode`, no
-  `runtime`, one `modelProviders`)
-- `HarnessDiscoveryStatus` + `HarnessReadinessState` — drives row greying and the disable toggle
-- `HarnessAuthActionDescriptor` — drives the auth CTA (kind, label, command only)
-- `HarnessModelDescriptor` — drives the model pickers (id, label, provider, selectable only)
+- `HarnessCapabilityDescriptor` — the GET /api/harnesses wire DTO the shared backend serves to
+  every team member's client (shrunk: no `accessMode`, no `runtime`, one `modelProviders`)
+- `HarnessDiscoveryStatus` + `HarnessReadinessState` — row greying and the disable toggle; these
+  are server facts about the backend's harness pool, identical for every viewer
+- `HarnessAuthActionDescriptor` — the auth CTA (kind, label, command only)
+- `HarnessModelDescriptor` — model pickers (id, label, provider, selectable, **options**)
+- `HarnessModelOptionDescriptor` / `HarnessModelOptionControl` / `HarnessOptionChoice` — the
+  harness's declaration of per-model knobs; rendered once, in agent configuration, by whoever on
+  the team administers the agent; values stored per-agent in `agent_run_config`
 - `ReturnEnforcementChannel` — 5 members, the one capability the system genuinely branches on
 - `derivePrimaryHarness` → a private helper inside `core-ui/src/pages/SetupFlow.tsx`
 
-The package `framework/harness-capability` does not exist.
+The package `framework/harness-capability` does not exist. No standalone control-kind union, no
+exported kind const, no per-message option scope, no composer pill derivation.
 
-## Kill summary
+## Kill summary (revised)
 
 | Verdict | Count |
 |---|---|
-| DELETE | 7 |
+| DELETE | 4 |
+| FINISH | 3 |
 | MERGE | 2 |
 | SIMPLIFY | 4 |
 | KEEP | 2 |
 
-Surface: 15 exports → 6 exports (60% cut). Package count: −1. Survivors all relocate into
-`harness-protocol`; nothing keeps its own package.
+15 rows total. Surface: 15 exports → 9 surviving declarations, all relocated into
+`harness-protocol` (plus one function inlined into core-ui). Package count: −1. First wave cut 60%;
+the ruling converts three of those cuts into FINISH work with a named home.
 
-## Feature-level kills
+## Feature-level findings
 
-**1. Per-model composer option pills — machinery on both ends of the wire, nothing in the middle.**
-`HarnessModelOptionDescriptor` / `HarnessModelOptionControl` / `HarnessOptionChoice` /
-`HarnessOptionControlKind` / `HARNESS_OPTION_CONTROL_KINDS` — five of the fifteen exports — exist
-so a harness can declare per-model options that render as composer pills. **No production code has
-ever created one.** Every construction site of `HarnessModelDescriptor` writes `options: []`
+**1. Per-model options — pill path DELETE, option concept FINISH (reshaped by A3).**
+The measured facts stand exactly as found: no production code has ever constructed a
+`HarnessModelOptionDescriptor` — every `HarnessModelDescriptor` construction writes `options: []`
 (harness-discovery.ts:101,141,762,801; harness-capability-descriptors.ts:87); the only non-empty
-`options:` in the repo are a demo-world questionnaire and tests. Downstream, `deriveComposerPills`
-(conversation-parts/part.ts) filters an always-empty array — and even redeclares its own local
-`RECOGNIZED_CONTROL_KINDS` instead of importing the exported const, proving the const was never
-needed — and SessionView.tsx:640-686 renders pills that have never appeared. Kill the types, the
-const, `HarnessModelDescriptor.options`, `deriveComposerPills`, and the SessionView pill-mapping
-branch, plus their tests. What breaks: nothing observable — the UI paints identically.
+`options:` in the repo are a demo-world questionnaire and tests; `deriveComposerPills`
+(conversation-parts/part.ts:721, consumed at SessionView.tsx:565) filters a permanently empty array
+and redeclares its own local `RECOGNIZED_CONTROL_KINDS` rather than importing the exported const;
+SessionView's pill row (~628-686) has never painted a pill. What changes is the disposition:
+delete `deriveComposerPills`, the SessionView pill branch, `scope`, `HarnessOptionControlKind`,
+`HARNESS_OPTION_CONTROL_KINDS`, and their tests — but keep the three descriptor shapes and the
+`options` member, and FINISH them into agent configuration per the section above. What breaks
+today: nothing observable — the UI paints identically until an adapter declares the first option.
 
-**2. Runtime capability badges — flags nobody branches on, displayed through crossed wires.**
-`HarnessRuntimeCapabilities` (preCompactionTrigger, subAgents, mcpSupport, fileEditing, toolUse)
-is declared three times (here, `HarnessCapabilities` in harness-protocol, `agent-profile.ts` in
-domain-model). On the descriptor it is display-only: harness-presentation.ts:147-150 turns flags
-into badge strings, AgentProfile.tsx:385 renders `CapabilityBadge`s. The exhaustive branch search
-found exactly ONE runtime branch in the whole repo — provisioner.ts:1510 on `mcpSupport` — and it
-reads the adapter's own `HarnessCapabilities`, not this type. The smoking gun that the badges
-carry no value: `core-api/routes/agent-profile.ts` maps `toolUse: caps.preCompactionTrigger`
-(line 214) and `fileEditing: caps.subAgents` (line 218) — the UI has been displaying the WRONG
-flags under hand-waving "rough proxy" comments and no one ever noticed, because no decision hangs
-on them. harness-presentation's own comment admits the production shape is all-false
-("Capabilities confirmed after first run"). Per the brief: a capability never tested at runtime is
-DELETE. Kill `HarnessRuntimeCapabilities`, the descriptor's `runtime` field, `provenCapabilities`/
-`capabilitySummary` badge plumbing, `mapCapabilities` + `AgentHarnessCapabilities`
-(domain-model copy), and the badge rows. Keep `mcpSupport` and `returnEnforcement` on
-harness-protocol's `HarnessCapabilities` — the two members with real branches. What breaks: the
-Settings harness fold loses its capability chips and AgentProfile loses four badges — chips that
-were partly false anyway.
+**2. Runtime capability badges — DELETE, unchanged, and Ruling 1 does not soften it.**
+`HarnessRuntimeCapabilities` is declared three times across three packages. On the descriptor it is
+display-only; the exhaustive branch search found exactly ONE runtime branch in the repo
+(provisioner.ts:1510 on `mcpSupport`) and it reads harness-protocol's own `HarnessCapabilities`,
+not this type. The smoking gun: `core-api/routes/agent-profile.ts` maps
+`toolUse: caps.preCompactionTrigger` (line 214) and `fileEditing: caps.subAgents` (line 218) — the
+UI has displayed the WRONG flags indefinitely under "rough proxy" comments and nobody noticed,
+because no decision hangs on them. A whole team seeing wrong flags is worse than one founder seeing
+them. Kill `HarnessRuntimeCapabilities`, the descriptor's `runtime` field,
+`provenCapabilities`/`capabilitySummary` badge plumbing, `mapCapabilities` +
+`AgentHarnessCapabilities` (domain-model copy), and the badge rows. Keep `mcpSupport` and
+`returnEnforcement` on harness-protocol's `HarnessCapabilities` — the two members with real
+branches.
 
-**3. Dead enforcement channels.** `"sdk-inprocess"` — declared by zero adapters; its own doc
-comment says "dead"; provision-return-hook.ts:78 keeps a no-op case "for backward compat" with
+**3. Dead enforcement channels — DELETE, unchanged.** `"sdk-inprocess"` — declared by zero
+adapters; its own doc comment says "dead"; provision-return-hook.ts:78 keeps a no-op case for
 nothing. `"soft-continue"` — declared by zero production adapters (cursor-agent derives to
-`"none"` via `deriveCliChannel`, cli-harness-adapter.ts:338-340); referenced only by tests. Union
-shrinks 7 → 5; two no-op case arms and their tests die.
+`"none"` via cli-harness-adapter.ts:338-340); referenced only by tests. Union shrinks 7 → 5.
 
-## Full export audit
+## Full export audit (revised)
 
 | # | Export | Kind | Reach | Verdict | Reason |
 |---|---|---|---|---|---|
-| 1 | `derivePrimaryHarness` | function | UI:SetupFlow (team creation) | MERGE | Sole caller is SetupFlow.tsx — 9 lines with a hardcoded stale-model fallback (`"claude-sonnet-4-6"`); inline into core-ui, the package's only runtime code goes with it. |
-| 2 | `ReturnEnforcementChannel` | type | AGENT: provisioner.ts:1456 → provision-return-hook dispatch; declared by every adapter | SIMPLIFY | The one genuinely load-bearing capability — real branch per channel. Drop dead members `"sdk-inprocess"` + `"soft-continue"` (declared by nobody, see feature kill #3); relocate beside `HarnessCapabilities.returnEnforcement` in harness-protocol. |
-| 3 | `HarnessOptionControlKind` | type | DEAD | DELETE | Zero references anywhere, including inside its own package — `HarnessModelOptionControl` respells the same literals instead of using it. |
-| 4 | `HarnessAccessMode` | type | DEAD (written, never read) | DELETE | Every descriptor construction stamps it; `.accessMode` is read by zero production files (only an e2e fixture literal). Produced-never-consumed decoration — delete type + descriptor field + `HarnessCapabilities.accessMode` + the construction sites. |
-| 5 | `HarnessReadinessState` | type | UI:/settings harnesses + SetupFlow (row greying, CTA gating via harness-presentation.ts) | KEEP | Discovery produces it, the UI branches on it (`state !== "unauthenticated"` etc.) — a real runtime-tested capability. Moves to harness-protocol. |
-| 6 | `HarnessAuthActionKind` | type | INTERNAL (member of #7 only) | MERGE | Zero external references; inline the union into `HarnessAuthActionDescriptor.kind`, stop exporting. |
-| 7 | `HarnessAuthActionDescriptor` | interface | UI: SetupFlow.tsx:107-108, SettingsHarnesses.tsx:148, harness-presentation.ts:98,191 | SIMPLIFY | `kind`/`label`/`command` are read and branch the auth CTA — real. `description` and `credentialNames` are written (harness-discovery.ts:707-726) and read by nobody — delete both members. Moves to harness-protocol. |
-| 8 | `HarnessOptionChoice` | interface | DEAD (member of dead #9) | DELETE | Part of the producer-less option-pill subsystem — feature kill #1. |
-| 9 | `HarnessModelOptionControl` | type | DEAD (member of dead #10) | DELETE | Part of the producer-less option-pill subsystem — feature kill #1. |
-| 10 | `HarnessModelOptionDescriptor` | interface | producer-less: every production `options:` write is `[]` | DELETE | No production code has ever constructed one; its only consumers (`deriveComposerPills`, SessionView pill branch) process a permanently empty array. Feature kill #1 — delete consumers too. |
-| 11 | `HarnessModelDescriptor` | interface | UI: AgentEditor model dropdown (model-options-for-harness.ts), SetupFlow, SettingsHarnesses model rows | SIMPLIFY | `id`/`label`/`provider`/`selectable` are read. `options` (always `[]`, kill #1), `contextWindow` (copied at descriptors.ts:84, read nowhere), `inheritedFromGateway` (written, read nowhere — `selectable` does the actual filtering) — delete three members. Moves to harness-protocol. |
-| 12 | `HarnessRuntimeCapabilities` | interface | display-only badges; zero runtime branches on the descriptor copy | DELETE | Feature kill #2. Flags declared three times across three packages; the only real branch (`mcpSupport`, provisioner.ts:1510) reads harness-protocol's `HarnessCapabilities`, not this. The agent-profile crossed-wire mapping (`toolUse ← preCompactionTrigger`, `fileEditing ← subAgents`) shipped unnoticed — proof the display carries no value. |
-| 13 | `HarnessDiscoveryStatus` | interface | UI: settings/setup greying, toggle, disabled stamp (AM4) | KEEP | `state`/`disabled` are branched on in harness-presentation and the route stamps `disabled` from server_config — real. `version`/`reason` render in the fold. Moves to harness-protocol. |
-| 14 | `HarnessCapabilityDescriptor` | interface | UI: GET /api/harnesses wire DTO → SetupFlow, SettingsHarnesses, SettingsAgents, AgentEditor, SessionView | SIMPLIFY | The package's actual product surface — the harness picker and settings screens live off it. Shrink: drop `accessMode` (#4), drop `runtime` (#12), collapse the duplicate provider lists (`runtime.modelProviders` written-never-read vs top-level `modelProviders` self-labeled "Legacy" yet the one actually read — keep one field). Moves to harness-protocol. |
-| 15 | `HARNESS_OPTION_CONTROL_KINDS` | const | TEST-ONLY (own package's descriptor test) | DELETE | Only reference outside its declaration is its own test asserting the literal back at itself; part.ts redeclared a private copy rather than import it. Dead code plus a test that dies with it. |
+| 1 | `derivePrimaryHarness` | function | UI:SetupFlow (team creation) | MERGE | Sole caller is SetupFlow.tsx — 9 lines with a hardcoded stale-model fallback (`"claude-sonnet-4-6"`); inline into core-ui. Ruling 1 re-check: team creation exists per team in a multi-team org — used more, not less; MERGE stands. |
+| 2 | `ReturnEnforcementChannel` | type | AGENT: provisioner.ts:1456 → provision-return-hook dispatch; declared by every adapter | SIMPLIFY | The one genuinely load-bearing capability. Drop dead members `"sdk-inprocess"` + `"soft-continue"` (feature #3); relocate beside `HarnessCapabilities.returnEnforcement` in harness-protocol. |
+| 3 | `HarnessOptionControlKind` | type | DEAD | DELETE | Zero references anywhere, including inside its own package — `HarnessModelOptionControl`'s `kind` discriminant respells the literals. A3 does not resurrect it: the surviving control union carries its own vocabulary. |
+| 4 | `HarnessAccessMode` | type | DEAD (written, never read) | DELETE | Every descriptor construction stamps it; `.accessMode` read by zero production files. Premise-free — dead at any user count. Delete type + descriptor field + `HarnessCapabilities.accessMode` + construction sites. |
+| 5 | `HarnessReadinessState` | type | UI:/settings harnesses + SetupFlow (row greying, CTA gating) | KEEP | Discovery produces it, the UI branches on it — real runtime-tested capability. Moves to harness-protocol. |
+| 6 | `HarnessAuthActionKind` | type | INTERNAL (member of #7 only) | MERGE | Inline the union into `HarnessAuthActionDescriptor.kind`, stop exporting. |
+| 7 | `HarnessAuthActionDescriptor` | interface | UI: SetupFlow.tsx:107-108, SettingsHarnesses.tsx:148, harness-presentation.ts:98,191 | SIMPLIFY | `kind`/`label`/`command` branch the auth CTA — real. `description` and `credentialNames` written (harness-discovery.ts:707-726), read by nobody — delete both members. Moves to harness-protocol. |
+| 8 | `HarnessOptionChoice` | interface | member of #9's `select` arm | **FINISH** | **Was DELETE — Ruling A3.** Survives as part of the select control's declaration shape; consumer becomes AgentEditor. Moves to harness-protocol with #9/#10. |
+| 9 | `HarnessModelOptionControl` | type | member of #10 | **FINISH** | **Was DELETE — Ruling A3.** The discriminated union that tells AgentEditor which input to render. Moves to harness-protocol. |
+| 10 | `HarnessModelOptionDescriptor` | interface | producer-less today: every production `options:` write is `[]` | **FINISH** | **Was DELETE — Ruling A3.** The harness's per-model option declaration. FINISH = first real adapter declaration + AgentEditor controls + `agent_run_config.model_options` column + PATCH validation + provisioner→adapter pass-through (see "Per-model options as agent configuration"). Member `scope: "launch" \| "durable"` DIES — per-message scope is the pill concept; all options are durable agent config. `required` dies with it — agent options are overrides atop `defaultValue`. |
+| 11 | `HarnessModelDescriptor` | interface | UI: AgentEditor model dropdown (model-options-for-harness.ts:39, AgentEditor.tsx:142), SetupFlow, SettingsHarnesses | SIMPLIFY | `id`/`label`/`provider`/`selectable` read today; **`options` now survives as the declaration channel (A3)** — was slated for member deletion. `contextWindow` (copied at descriptors.ts:84, read nowhere) and `inheritedFromGateway` (written, read nowhere) still die. Moves to harness-protocol. |
+| 12 | `HarnessRuntimeCapabilities` | interface | display-only badges; zero runtime branches on the descriptor copy | DELETE | Feature #2. Crossed-wire badge mapping shipped unnoticed — proof the display carries no value. Ruling 1 re-check: wrong flags shown to a whole team are still wrong flags; DELETE stands. |
+| 13 | `HarnessDiscoveryStatus` | interface | UI: settings/setup greying, toggle, disabled stamp (AM4) | KEEP | `state`/`disabled` branched on in harness-presentation; route stamps `disabled` from server_config. Moves to harness-protocol. |
+| 14 | `HarnessCapabilityDescriptor` | interface | UI: GET /api/harnesses wire DTO → SetupFlow, SettingsHarnesses, SettingsAgents, AgentEditor, SessionView | SIMPLIFY | The package's actual product surface. Shrink: drop `accessMode` (#4), drop `runtime` (#12), collapse the duplicate provider lists to one. `models[].options` stays (A3). Moves to harness-protocol. |
+| 15 | `HARNESS_OPTION_CONTROL_KINDS` | const | TEST-ONLY (own package's descriptor test) | DELETE | Only reference outside its declaration is its own test asserting the literal back at itself; part.ts redeclared a private copy rather than import it. A3 does not need it: option-value validation is per-descriptor against the specific control, never against a kind list. |
 
 ## Types / DI ports
 
-No DI ports. All 13 declarations verdicted above. The parallel copies that die with #12:
+No DI ports. All 13 declarations verdicted above. Parallel copies that die with #12:
 `AgentHarnessCapabilities` (framework/domain-model/src/agent-profile.ts:93-100) and
 `mapCapabilities` (core-api/routes/agent-profile.ts:202-221). `HarnessCapabilities`
 (harness-protocol) survives as the single flags home, shrunk to the branched-on members.
 
 ## Holes this leaves
 
-1. **Settings/AgentProfile capability chips disappear** (feature kill #2). Users no longer see
-   "File editing / Tool use / MCP / Sub-agents" chips. Two of the four were mapped from the wrong
-   source flags, so the display was partly false; the honest replacement is nothing.
-2. **Composer pill machinery gone** (feature kill #1). If a future harness wants per-model options
-   (e.g. a thinking-budget selector), the subsystem must be rebuilt. Today it renders nothing for
-   any of the five harnesses — rebuild when a real producer exists, not before.
-3. **core-ui and conversation-parts gain a `@hyperidle/harness-protocol` dependency** for type-only
-   imports (they lose the lighter-weight package). Zero runtime weight — every import is
-   `import type` — but the UI's package.json now names the protocol package that also declares
-   event-bus/work-intent-port deps. If governance forbids that edge, the fallback is SPLIT: a
-   single `harness-descriptor.ts` file stays framework-side — but as a file inside
-   harness-protocol, not as a package.
-4. **`"soft-continue"` removal** means a future spawnable cursor-agent must re-add its channel
-   member and hook case — one union member and one case arm, earned when cursor actually spawns.
-5. The two in-package test files die with the package; descriptor-shape coverage continues to live
-   where it already really lives — the adapter and route tests that construct descriptors.
+1. **Settings/AgentProfile capability chips disappear** (feature #2). Two of the four were mapped
+   from the wrong source flags; the honest replacement is nothing.
+2. **Composer pill machinery gone; option surface moves to AgentEditor** (feature #1, reshaped).
+   Until the FINISH lands and a first adapter declares an option, no option UI exists anywhere —
+   which is exactly today's observable state. A user wanting a per-message override has no path;
+   that is the ruling's explicit trade (configure the agent, don't toggle the message).
+3. **The FINISH is real work with a schema migration** — `agent_run_config` gains a column, the
+   PATCH route gains descriptor validation, the adapter contract gains a start param, and at least
+   one adapter must map recognized keys onto its real invocation. Until an adapter maps a key,
+   a stored option is written-never-consumed — the same disease this audit kills elsewhere. The
+   pass-through must land in the same work package as the first declaration, or the FINISH just
+   rebuilds dead machinery one layer lower.
+4. **core-ui and conversation-parts gain a `@hyperidle/harness-protocol` dependency** for type-only
+   imports. Zero runtime weight. If governance forbids the edge, fallback: a single
+   `harness-descriptor.ts` file inside harness-protocol, never a package.
+5. **`"soft-continue"` removal** — a future spawnable cursor-agent re-adds one union member and one
+   case arm, earned when cursor actually spawns.
+6. The two in-package test files die with the package; descriptor-shape coverage lives where it
+   really lives — adapter and route tests that construct descriptors. The FINISH brings new tests
+   at the real seams: PATCH validation, store round-trip, adapter param mapping.
 
 
 ---
@@ -3636,102 +4104,217 @@ loses 4 of 16 verbs, `ProfileDefaults` loses 3 of 6 fields.
 
 ---
 
-# http-middleware — destroyer verdict (framework)
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/fw-http-middleware.md` for comparison.
+
+# http-middleware — destroyer verdict (framework) — REVISED after founder rulings
+
+## What changed after the rulings
+
+The first wave killed all four security features. One of its arguments — "a solo founder's agents
+hammering their own API is the product working, not an attack" and "a product whose main deployment
+is localhost" — is voided by Ruling 1. Each of the four was re-reached separately against the
+corrected premise: a shared backend for a team and an organisation of teams, reachable over a
+network, identity from OIDC.
+
+| Row | Old verdict | New verdict | Ruling | Why it moved (or did not) |
+|---|---|---|---|---|
+| `constantTimeStringEqual` | DELETE | **KEEP** | Ruling 1 | The ONLY row whose kill rested on the voided premise. First-wave reason was explicitly "main deployment is localhost" — no longer true. Four call sites compare long-lived static secrets (admin API key x3, worker WS token x1) against attacker-supplied input at a network boundary that now, by ruling, serves an org over a network — including LAN distances, where timing recovery of a prefix-compare is the demonstrated case, not the hypothetical one. Full argument in the audit table. |
+| `createRateLimiter` | DELETE | DELETE (**reason replaced**) | Ruling 1 | Verdict survives, but not for the first wave's reason. "Throttling the user's own agents" is void. The surviving reasons: (a) still preemptive — no flood has ever occurred, no learning earned it (ethos); (b) the implementation is wrong-shaped for the corrected premise it would need to invoke: it runs pre-auth, keys on `X-API-Key` → proxy header (env-gated) → direct address, and never sees an OIDC/Bearer principal — behind a reverse proxy without `HYPERIDLE_TRUST_PROXY` the entire team collapses into ONE shared bucket, so one teammate's runaway agent 429s everyone. A shared-backend limiter, if a flood ever teaches us to build one, is per-authenticated-principal and mounted post-auth. This code is not that and cannot become it. |
+| `requireBoundary` | DELETE | DELETE (unchanged) | — | Kill never rested on user count. Prod behavior of the pair is a log line (source: "Production: log only. Lint is the real gate."); dev behavior duplicates the `require-boundary-declaration` lint rule; gate-by-default classifier shape the ethos forbids. True at any user count. |
+| `failClosedAssertion` | DELETE | DELETE (unchanged) | — | Same feature, same reason. Multi-user makes the REAL authz (`authorizeRead`/`authorizeWrite` in handlers, identity from OIDC per Ruling 1/A7) more load-bearing — and that lives in handlers, untouched by this deletion. A stamp that only logs protects nobody, whether one human or fifty. |
+| `createBodyLimit` | DELETE | DELETE (unchanged) | — | Kill reason was user-count independent: preemptive I2 cap, streaming-drain branch written to satisfy a test, nothing real ever hit it. The hole is repriced (an OOM now downs the team's backend, not one person's) — see Holes — but the ethos order stands: the earned fix is a 10-line Content-Length check when it actually hurts. |
+| `RateLimiterOptions` | DELETE | DELETE (unchanged) | — | Dies with the limiter. |
+| Kill summary / top-line | 8 DELETE / 9 KEEP, 45% cut | 7 DELETE / 10 KEEP, 41% cut | Ruling 1 | One row moved DELETE → KEEP. Package still dissolves to 0. |
+
+Rulings 2 and 3 do not touch this package: it declares no event types and contains no
+knowledge-ritual machinery. No PLUGIN or FINISH rows. (A7's FINISH — OIDC on the shared backend —
+will reshape the auth *middleware* in core-api and the auth-identity members of `HyperIdleEnv`;
+noted on that row, work belongs to the A7 finisher, not this verdict.)
+
+Verdict changes: **1 row** (`constantTimeStringEqual`). Reason replaced, verdict unchanged: **1 row**
+(`createRateLimiter`). All other 20 rows stand as first-waved.
 
 ## Where does this package go?
 
-**Verdict: SPLIT then dissolve — DELETE the package.**
+**Verdict: SPLIT then dissolve — DELETE the package.** Unchanged.
 
-- **Security ceremony → DELETE outright** (8 of 22 exports): the AF11 boundary-declaration middleware pair, the rate limiter, the body cap, the timing-safe comparator, and their 3 types. All of it is preemptive security from hardening work packages (I2, AF11), not from any real learning. ETHOS.md: "Security is never preemptive... never a wall built first." Nobody was ever burned; these walls were built first and justified later.
-- **Wire contract → `framework/domain-model`**: the explicit-start projection family (2 fns + 4 types after merge), `validateBody`/`ValidatedJson`, `HyperIdleEnv`. Proof this is the natural home: `domain-model/src/http/` **still exists and contains only a `__tests__` dir with a test for this package's rate limiter** — the corpse of the pre-AU34 home. `ApiErrorResponse` and `API_ERROR_CODES` — the exact shapes `validationHook` and the projection render — already live in domain-model. Contract and its enforcement reunite in one package. domain-model already has `zod` as a dep and `hono` as a devDep.
-- **Mount recipe → `layers/core-api`**: `composeApiApplication` + its 2 option types move next to `api-middleware-stack.ts`, the file that builds the very stack it mounts. Its only two consumers (`applications/desktop/src/create-server.ts`, `applications/remote-server/src/create-server.ts`) both already import core-api (`bootCoreApi`). The "layer-blind framework home" argument dies with the middleware it existed to stay blind about.
+- **Security ceremony → DELETE** (6 of 22 exports now, was 8): the AF11 boundary pair + its 2 types,
+  the rate limiter + its options type, the body cap. All preemptive walls from I2/AF11 hardening,
+  earned by no incident — and the one of them a shared backend could have justified (the limiter) is
+  built in a shape the shared backend cannot use (pre-auth, principal-blind).
+- **Wire/boundary contract → `framework/domain-model`**: the explicit-start projection family
+  (2 fns + 4 types after merge), `validateBody`/`ValidatedJson`, `HyperIdleEnv`, and now
+  `constantTimeStringEqual`. The timing-safe compare has genuinely dual-layer consumers —
+  `core-api` (auth middleware, users, workers) and `agent-orchestration/run-orchestration`
+  (worker-ingress), which may not import each other; its own `@lore AU26` records that a hand-rolled
+  duplicate in worker-ingress was exactly the drift already learned from and deleted once. That is a
+  real learning, which is the ethos currency — do not re-create the duplicate by inlining.
+  domain-model already holds `ApiErrorResponse`/`API_ERROR_CODES`, the shapes these render.
+- **Mount recipe → `layers/core-api`**: `composeApiApplication` + its 2 option types move next to
+  `api-middleware-stack.ts`. Its only two consumers (desktop + remote-server `create-server.ts`)
+  already import core-api.
 
-Why not STAYS SHARED: after the security kills, 12 exports remain and every one of them is a wire/context **contract**, not middleware. A package named http-middleware whose middleware is all dead is a boundary invented for tidiness. Two real homes already exist.
+Why not STAYS SHARED: after the kills, every survivor is a wire/context/boundary **contract**, not
+middleware. A package named http-middleware whose middleware is all dead is a boundary invented for
+tidiness. Two real homes already exist.
 
 ## Consumers (measured, not assumed)
 
-`rg -a -l "@hyperidle/http-middleware"` → 67 files. Per-symbol:
+Unchanged from first wave — `rg -a -l "@hyperidle/http-middleware"` → 67 files. One row updated:
 
 | Consumer | What it imports | Could it own this? |
 |---|---|---|
 | `layers/core-api` (29 route files + stack + auth + app) | `requireBoundary`, `validateBody`, `createRateLimiter`, `createBodyLimit`, `constantTimeStringEqual`, `failClosedAssertion`, `HyperIdleEnv`, projection fns | Gets `composeApiApplication`; rest from domain-model |
-| `layers/agent-orchestration` (6 route files + app + boot) | `requireBoundary`, `validateBody`, `createRateLimiter`, `createBodyLimit`, `HyperIdleEnv`, projection fns | May NOT import core-api — the shared survivors ride domain-model, which it already imports |
-| `layers/agent-orchestration/run-orchestration` | `constantTimeStringEqual` only | Inlines `===` after the DELETE |
+| `layers/agent-orchestration` (6 route files + app + boot) | `requireBoundary`, `validateBody`, `createRateLimiter`, `createBodyLimit`, `HyperIdleEnv`, projection fns | Shared survivors ride domain-model, which it already imports |
+| `layers/agent-orchestration/run-orchestration` | `constantTimeStringEqual` only | **REVISED:** follows the symbol to domain-model (was: "inlines `===`"). The AU26 lore on this exact file is why it does not get a private copy. |
 | `layers/agent-execution/harness-registry` (`mcp-route.ts`) | `requireBoundary` only | Dependency vanishes entirely |
 | `applications/desktop`, `applications/remote-server` | `composeApiApplication` only | Import it from core-api, which they already boot |
 | `tools/eval` | `HyperIdleEnv` (type-only) | Follows the type to domain-model |
 | `framework/api-contract` | comment-only mention (hand-mirrored types, no import) | n/a |
-| `framework/domain-model` | TEST-ONLY: `src/http/__tests__/rate-limit.test.ts` tests this package's limiter from another package | Misplaced leftover; dies with the limiter |
-| `tools/eslint-plugin-authz` | references the NAME `requireBoundary` in 2 lint rules | Rules die with the ceremony (see holes) |
-
-Three of nine consumers import exactly one symbol each. That is three symbols in the wrong place, not a shared package.
+| `framework/domain-model` | TEST-ONLY: `src/http/__tests__/rate-limit.test.ts` tests this package's limiter | Misplaced leftover; dies with the limiter |
+| `tools/eslint-plugin-authz` | references the NAME `requireBoundary` in 2 lint rules | Rules die or get re-keyed (see holes — repriced) |
 
 ## If written today, from scratch
 
-Nothing called "http-middleware" would exist. You would write:
-- `domain-model/src/http/`: `validateBody` (typed 400s in the canonical error shape), `HyperIdleEnv` (the authenticated context both apps run on), `projectExplicitStartOutcome` + `sendStartProjection` (the one wire contract for `POST /api/sessions` / `GET /api/sessions/starts/:id`).
-- `core-api/src/compose-api-application.ts`: the ~35-line mount recipe (probe-proven `notFound` trap + pre-auth/auth ordering — the one copy earned its keep by breaking twice as hand-copies).
+Written against the corrected premise: a shared backend serving a team and an org of teams over a
+network; humans identified by OIDC; agents and workers identified by long-lived keys/tokens; every
+event on a stream plugins hang off.
 
-No rate limiter. No body cap. No boundary stamps. No timing-safe hash dance. A solo founder's agents hammering their own API is the product working, not an attack.
+Nothing called "http-middleware" would exist. You would write:
+
+- `domain-model/src/http/`: `validateBody` (typed 400s in the canonical error shape),
+  `HyperIdleEnv` (the authenticated context both apps run on — its identity members become
+  OIDC-shaped under A7), `projectExplicitStartOutcome` + `sendStartProjection` (the one wire
+  contract for `POST /api/sessions` / `GET /api/sessions/starts/:id`), and
+  `constantTimeStringEqual` (the correct spelling of "compare a static secret to attacker input on a
+  network boundary" — you would write it on day one of a networked deployment because it is a
+  property of the compare, not a wall in front of it: zero gates, zero friction, zero classifier,
+  28 lines).
+- `core-api/src/compose-api-application.ts`: the ~35-line mount recipe (probe-proven `notFound`
+  trap + pre-auth/auth ordering — the one copy earned its keep by breaking twice as hand-copies).
+
+Still no rate limiter — when a real flood on the shared backend teaches us, the buy-back is a
+per-principal limiter mounted post-auth, which today's pre-auth principal-blind one is not. Still no
+body cap — the earned fix is a Content-Length check, not a 127-line streaming drain. Still no
+boundary stamps — if a static authz net is wanted for a multi-team backend, it is a lint rule that
+detects `authorize*` calls directly, with no runtime ceremony on 43 routes.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 8 |
+| DELETE | 7 |
+| PLUGIN | 0 |
+| FINISH | 0 |
 | MERGE | 1 |
 | SIMPLIFY | 4 |
-| KEEP | 9 |
+| KEEP | 10 |
 
-Surface: 22 exports → 12 (45% cut), **package count → 0** (survivors absorbed into domain-model + core-api).
+Surface: 22 exports → 13 (41% cut), **package count → 0** (survivors absorbed into domain-model +
+core-api). First wave was 22 → 12 (45%); the difference is one row, `constantTimeStringEqual`,
+moved by Ruling 1.
 
 ## Feature-level kills
 
-1. **AF11 boundary-declaration ceremony — kill it all.** `requireBoundary` is stamped on 43 production route files; `failClosedAssertion` then checks the stamp was set. In production it **only logs**; the code's own comments admit "lint is the real gate." So the runtime pair is a dev-mode duplicate of a static lint check — a gate-by-default classifier the ethos explicitly forbids. Kills: both functions, 2 types, the `__boundary` member of `HyperIdleEnv`, one middleware slot in every composition root, 43 call-site stamps, `http-access-boundary.test.ts`, and both `tools/eslint-plugin-authz` rules that key off the `requireBoundary` name (`require-boundary-declaration`, `no-raw-db-in-route-bypassing-policy`). Real authorization stays exactly where it already is: `authorizeRead`/`authorizeWrite` calls inside handlers.
-2. **Rate limiting — kill the whole feature.** One global limiter, a dedicated `/auth/*` limiter (`authMintLimiter` + `app.ts:368`), and FIVE per-route limiters (harnesses redetect 1/5s, credentials 20/min + 3/min, connections 20/min + 3/min, settings-agent-behavior 20/min) — guards layered on guards, throttling the user's own agents. Built by I2 "hardening," earned by no incident. Kills: `createRateLimiter`, `RateLimiterOptions`, `skipPaths` health-probe ceremony, `HYPERIDLE_RATE_LIMIT_PER_MIN`, the `rateLimit`/`authMintLimiter` stack fields, 7 mount sites, and the misplaced `domain-model/src/http/__tests__/rate-limit.test.ts`.
-3. **Body cap — kill it.** 127 lines, half of which is a hand-rolled chunked-stream early-abort drain that the file itself admits is "rarely hit" in production — code written to satisfy a test contract. Kills: `createBodyLimit`, the `bodyLimit` stack field, `HYPERIDLE_MAX_BODY_BYTES`, per-route mounts in filesystems (x3) and artifacts (x2), `body-limit.integration.test.ts`.
-4. **Timing-safe compare — kill it.** Defends against an attacker statistically timing a string compare over the network to recover an API key — a hypothetical no one has hit, on a product whose main deployment is localhost. Four call sites go back to `===`. Kills `constantTimeStringEqual`, `http-timing-safe.test.ts`, and the package's `@hyperidle/diagnostics` dep dies with the assertion logger.
+1. **AF11 boundary-declaration ceremony — kill it all. Unchanged, ruling-proof.** `requireBoundary`
+   is stamped on 43 production route files; `failClosedAssertion` then checks the stamp. In
+   production it **only logs** — the source says "Lint is the real gate." The runtime pair is a
+   dev-mode duplicate of a static lint check — a gate-by-default classifier the ethos forbids, at
+   any user count. Kills: both functions, 2 types, the `__boundary` member of `HyperIdleEnv`, one
+   middleware slot per composition root, 43 call-site stamps, `http-access-boundary.test.ts`. The
+   two `tools/eslint-plugin-authz` rules keyed off the name: see hole 4 — the static net is worth
+   re-keying on a shared backend, but re-keyed on `authorize*` presence, never on a runtime stamp.
+2. **Rate limiting — kill the whole feature. Verdict unchanged, reason replaced (Ruling 1).** One
+   global limiter, an `/auth/*` mint limiter, and five per-route limiters. The first wave's "own
+   agents" argument is void. What kills it now: no flood has ever occurred (preemptive per ethos),
+   and the implementation cannot serve the shared premise — it runs pre-auth, keys on API-key
+   header or client address, never on the OIDC principal, and behind a proxy without
+   `HYPERIDLE_TRUST_PROXY` it funnels the whole team into one bucket, converting one runaway agent
+   into a team-wide 429 outage. The mint limiter guards `/auth/*` — home-grown login/session
+   machinery that Ruling 1 deletes in favor of OIDC; its mount dies with its ward. Kills:
+   `createRateLimiter`, `RateLimiterOptions`, `skipPaths` ceremony, `HYPERIDLE_RATE_LIMIT_PER_MIN`,
+   the `rateLimit`/`authMintLimiter` stack fields, 7 mount sites, and the misplaced
+   `domain-model/src/http/__tests__/rate-limit.test.ts`.
+3. **Body cap — kill it. Unchanged, reason user-count independent.** 127 lines, half a hand-rolled
+   chunked-stream early-abort drain the file admits is "rarely hit" — written to satisfy a test.
+   Kills: `createBodyLimit`, the `bodyLimit` stack field, `HYPERIDLE_MAX_BODY_BYTES`, per-route
+   mounts in filesystems (x3) and artifacts (x2), `body-limit.integration.test.ts`. Hole repriced
+   below.
+4. **Timing-safe compare — SPARED. This is the one Ruling 1 reverses.** The first-wave kill said
+   "main deployment is localhost" — void. On the corrected premise the four compares guard the
+   identity boundary of a network-reachable shared backend: shared-mode admin key
+   (`auth.ts:200,219,246`), post-setup user-creation guard (`users.ts:125`), worker listing
+   (`workers.ts:26`), worker WS token (`worker-ingress.ts:250`). With OIDC handling humans, these
+   key/token compares are exactly the surviving identity mechanism for agents and workers — the
+   thing Ruling 1 says a shared backend still needs. And it is not preemptive-security theatre: it
+   erects no wall, gates nothing, adds zero friction and zero ceremony; it is the correct spelling
+   of a compare that must exist anyway. Deleting it would not simplify the product by one visible
+   feature — it would save 28 lines by deliberately weakening the one boundary everything else in
+   this verdict leans on ("only the per-request auth check stands between a flood and the DB").
+   KEEP; rides to domain-model with the other dual-layer survivors.
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `requireBoundary` | UI:all 43 declared data routes | DELETE | Sets a context string nobody enforces in prod; runtime duplicate of a lint rule; pure ceremony on every route registration. |
-| 2 | `failClosedAssertion` | BOOTSTRAP (mounted once per app) | DELETE | Prod behavior is a log line; dev behavior duplicates the lint gate; designed for a paranoia the ethos forbids. |
-| 3 | `createBodyLimit` | UI:/api/* (global) + filesystems/artifacts mounts | DELETE | Preemptive cap from I2; the streaming branch exists for a test; nothing real ever hit it. |
-| 4 | `composeApiApplication` | BOOTSTRAP (desktop + remote-server create-server) | SIMPLIFY | Survives — probe-proven `notFound`/ordering fragility broke as hand-copies. Move to core-api; middleware param shrinks 6→3 fields (cors, errorHandler, auth). |
-| 5 | `pendingStart` | INTERNAL + TEST-ONLY external (`agent-layer-boot-recovery.integration.test.ts`) | MERGE | Only production caller is `projectExplicitStartOutcome` in the same file — fold in as a private helper, un-export. |
-| 6 | `projectExplicitStartOutcome` | UI:POST /api/sessions + GET /api/sessions/starts/:id (both apps) | KEEP | One wire contract, two apps that may not import each other; a silent divergence here is invisible to tsc. Moves to domain-model. |
-| 7 | `sendStartProjection` | UI:same two routes | KEEP | The render half of the same contract; both apps call it. Moves with #6. |
-| 8 | `createRateLimiter` | UI:/api/* + 5 per-route mounts | DELETE | Preemptive throttling of the user's own agents; guards on guards; no learning earned it. |
-| 9 | `constantTimeStringEqual` | BOOTSTRAP (auth middleware, users, workers, worker-ingress) | DELETE | Anti-timing-attack crypto for a hypothetical attacker; 4 call sites revert to `===`. |
-| 10 | `validationHook` | INTERNAL only — zero external references (rg-confirmed) | SIMPLIFY | "Exported for use in tests" that don't exist. Un-export; private detail of `validateBody`. |
-| 11 | `validateBody` | UI:17 files across both layers | KEEP | Typed request bodies + canonical 400 shape at every write route; real developer value, genuinely dual-layer. Moves to domain-model. |
+| 1 | `requireBoundary` | UI:all 43 declared data routes | DELETE | Sets a context string nobody enforces in prod; runtime duplicate of a lint rule; ceremony on every route. Reason never rested on user count — stands under Ruling 1. |
+| 2 | `failClosedAssertion` | BOOTSTRAP (mounted once per app) | DELETE | Prod behavior is a log line; dev behavior duplicates the lint gate. Real authz is `authorize*` in handlers and survives untouched. Stands under Ruling 1. |
+| 3 | `createBodyLimit` | UI:/api/* (global) + filesystems/artifacts mounts | DELETE | Preemptive I2 cap; streaming branch exists for a test; nothing real ever hit it. User-count independent — stands; hole repriced. |
+| 4 | `composeApiApplication` | BOOTSTRAP (desktop + remote-server create-server) | SIMPLIFY | Unchanged. Survives — probe-proven `notFound`/ordering fragility broke twice as hand-copies. Move to core-api; middleware param shrinks 6→3 fields (cors, errorHandler, auth). |
+| 5 | `pendingStart` | INTERNAL + TEST-ONLY external | MERGE | Unchanged. Only production caller is `projectExplicitStartOutcome` in the same file — fold in, un-export. |
+| 6 | `projectExplicitStartOutcome` | UI:POST /api/sessions + GET /api/sessions/starts/:id (both apps) | KEEP | Unchanged. One wire contract, two apps that may not import each other. Moves to domain-model. |
+| 7 | `sendStartProjection` | UI:same two routes | KEEP | Unchanged. Render half of the same contract. Moves with #6. |
+| 8 | `createRateLimiter` | UI:/api/* + /auth/* + 5 per-route mounts | DELETE | **Reason replaced (Ruling 1).** Preemptive — no flood ever occurred; and wrong-shaped for the shared premise: pre-auth, principal-blind, collapses the team into one bucket behind a proxy. The earned buy-back, if ever, is per-principal post-auth — not this. |
+| 9 | `constantTimeStringEqual` | BOOTSTRAP (auth middleware) + UI:users/workers routes + worker WS upgrade | **KEEP** | **CHANGED DELETE → KEEP (Ruling 1).** Old reason "deployment is localhost" is void. Guards static-secret compares on a network-reachable org backend, on both sides of the core↔agent boundary; the surviving non-OIDC identity check per Ruling 1. No wall, no gate, no friction — 28 lines. AU26 lore already proved inlined copies drift. Moves to domain-model. |
+| 10 | `validationHook` | INTERNAL only — zero external references (rg-confirmed) | SIMPLIFY | Unchanged. "Exported for use in tests" that don't exist. Un-export; private detail of `validateBody`. |
+| 11 | `validateBody` | UI:17 files across both layers | KEEP | Unchanged. Typed bodies + canonical 400 shape at every write route; genuinely dual-layer. Moves to domain-model. |
 
 ## Types / DI ports
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `BoundaryKind` | DELETE | Dies with `requireBoundary`. Zero importers by name outside the package. |
-| `BoundaryDeclaration` | DELETE | Same. A one-member interface wrapping a string union was already indirection. |
-| `ComposedApiMiddleware` | SIMPLIFY | Survives as `composeApiApplication`'s param; shrinks 6→3 fields (`rateLimit`, `bodyLimit`, `failClosed` die). Zero importers by name — callers pass literals. |
-| `ComposeApiApplicationOptions` | KEEP | Signature of the surviving compose fn; moves with it to core-api. |
-| `HyperIdleEnv` | SIMPLIFY | 33 importers across both layers + tools/eval — the most-shared symbol here. Drop the `__boundary` member; move to domain-model. |
-| `ExplicitStartRow` | KEEP | Structural row contract of the surviving projection; api-contract hand-mirrors against it. Moves with the family. |
-| `PendingStartBody` | KEEP | Member of the `ExplicitStartProjection` union — required for the surviving exported signatures. No independent importers. |
-| `StartFailureBody` | KEEP | Same family, same reason. |
-| `ExplicitStartProjection` | KEEP | Return type of both surviving projection fns. |
-| `RateLimiterOptions` | DELETE | Dies with the limiter. |
-| `ValidatedJson` | KEEP | Carries `z.output<T>` typing through `validateBody`'s signature — the whole point of keeping it. |
+| `BoundaryKind` | DELETE | Unchanged. Dies with `requireBoundary`. |
+| `BoundaryDeclaration` | DELETE | Unchanged. One-member interface wrapping a string union — indirection even while alive. |
+| `ComposedApiMiddleware` | SIMPLIFY | Unchanged. Survives as `composeApiApplication`'s param; shrinks 6→3 fields (`rateLimit`, `bodyLimit`, `failClosed` die). |
+| `ComposeApiApplicationOptions` | KEEP | Unchanged. Signature of the surviving compose fn; moves to core-api. |
+| `HyperIdleEnv` | SIMPLIFY | Unchanged verdict. Drop the `__boundary` member; move to domain-model. Note: its auth-identity Variables (`loginSessionId` etc.) get reshaped by A7's FINISH (OIDC) — that is the finisher's work, not a reason to hold the move. |
+| `ExplicitStartRow` | KEEP | Unchanged. Structural row contract of the surviving projection. |
+| `PendingStartBody` | KEEP | Unchanged. Member of the surviving union. |
+| `StartFailureBody` | KEEP | Unchanged. Same family. |
+| `ExplicitStartProjection` | KEEP | Unchanged. Return type of both surviving projection fns. |
+| `RateLimiterOptions` | DELETE | Unchanged. Dies with the limiter. |
+| `ValidatedJson` | KEEP | Unchanged. Carries `z.output<T>` typing through `validateBody`. |
 
-## Holes this leaves
+## Holes this leaves — repriced for a shared backend
 
-1. **No flood protection anywhere.** A runaway agent loop or an internet scanner against remote-server gets served at line rate; only the per-request auth check stands between a flood and the DB. Price: if it ever actually hurts, the ~60-line limiter comes back as a real learning — the honest order per ethos.
-2. **Unbounded request bodies.** A multi-GB POST buffers into memory; possible OOM of the server process. If hit, the fix is a 10-line Content-Length check, not the 127-line streaming drain.
-3. **API-key compare becomes prefix-timing-dependent.** The one DELETE a founder might veto: remote-server is internet-exposed. Practical remote timing recovery of a long random key on a modern async server is not a demonstrated attack, but it is 5 lines — if vetoed, inline it into core-api's auth middleware, don't keep a package for it.
-4. **No mechanical check that a new data route wires authorization.** Both eslint-plugin-authz rules key off `requireBoundary` and die with it. Authz coverage then rests on handlers calling `authorizeRead`/`authorizeWrite` — which is where it really rested all along (the prod assertion only logged). If a static net is wanted later, a lint rule can detect `authorize*` calls directly, without a runtime stamp on 43 routes.
-5. **domain-model's purity erodes.** It gains runtime `hono` + `@hono/zod-validator` usage (today hono is only a devDep there). `hono` is small and the web bundle tree-shakes server-only imports, but the "domain-model is shapes-only" instinct takes a dent. Fallback if the founder rejects the merge: keep a gutted 12-export http-middleware — still a 45% surface cut and all four security features dead.
-6. **Mechanical churn:** 43 route files each drop one middleware argument; 7 limiter mounts, 5 body-cap mounts, 4 compare call sites, 3 package-local test files, 1 misplaced domain-model test, and 2 lint rules get deleted. All deletions — no new code beyond import respelling.
+1. **No flood protection anywhere — repriced UP.** A runaway agent or an internet scanner against
+   the shared backend gets served at line rate, and now the outage cost lands on a whole team, not
+   one founder. Still killed: the ethos order is learn-then-build, and the deleted limiter would not
+   have protected the team anyway (one shared bucket behind a proxy — the flood and the victims
+   share a budget). When a real flood happens, build the per-principal post-auth limiter that
+   incident specifies.
+2. **Unbounded request bodies — repriced UP.** A multi-GB POST buffers into memory; possible OOM now
+   takes down every team's backend at once. If hit, the fix is a 10-line Content-Length check, not
+   the 127-line streaming drain.
+3. **API-key compare timing — CLOSED.** First wave priced this as "the one DELETE a founder might
+   veto." Ruling 1 is that veto. Kept, relocated to domain-model; no hole remains.
+4. **No mechanical check that a new data route wires authorization — repriced UP, and re-scoped.**
+   Both eslint-plugin-authz rules key off the `requireBoundary` name and lose their anchor when the
+   ceremony dies. On a multi-team backend a missed `authorize*` call now exposes another team's
+   data, so a static net is worth having — but as a lint rule that detects `authorize*` presence in
+   route handlers directly. The runtime stamp on 43 routes buys nothing toward that and stays dead.
+   Re-keying the rule is small, static, and gate-free; recommend scheduling it with A7's FINISH,
+   where the authz surface gets touched anyway.
+5. **domain-model's purity erodes — slightly more than first wave.** It gains runtime `hono` +
+   `@hono/zod-validator` usage and now a `node:crypto` import (timing-safe). All server-only; the
+   web bundle must tree-shake or the http exports go on a subpath. Fallback if the founder rejects
+   the merge: keep a gutted 13-export http-middleware — still a 41% surface cut and three of four
+   security features dead.
+6. **Mechanical churn:** 43 route files drop one middleware argument; 7 limiter mounts, 5 body-cap
+   mounts, 3 package-local test files, 1 misplaced domain-model test deleted; 2 lint rules deleted
+   or re-keyed; 4 `constantTimeStringEqual` call sites keep their import, respelled to domain-model.
+   All deletions plus import respelling — no new code.
 
 
 ---
@@ -4441,93 +5024,243 @@ The KEEP count is high because this service *is* the execution spine: 30 of the 
 
 ---
 
-# knowledge — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/knowledge.md` for comparison.
+
+# knowledge — destroyer verdict (REVISED after founder rulings)
+
+Revision of `verdicts/knowledge.md`. Vocabulary now includes `PLUGIN` (delete from core, re-provide
+as a plugin) and `FINISH`. Same no-sampling standard: all 42 function rows + 1 class + 15 type rows.
+
+## What changed after the rulings
+
+The line Ruling 3 demands, drawn through this service:
+
+- **The store** (core): create/update/get/list/search/archive, deliberate `promote` and
+  `changeScope` acts, the draft→human-accept triage flow, conflict capture, and
+  `assembleSessionKnowledge`. This is the machinery of a team and its agents building and using
+  shared knowledge as they work.
+- **The ritual** (leaves core): everything scheduled or automated *about* that knowledge —
+  attention scoring, the auto-promotion pipeline, stale decay, bet retros, the portfolio retro.
+  These preconfigure routines + agent judgment, which is exactly the plugin surface.
+- **Plain dead** (neither): relevance engine, access-log telemetry, flag resolver, factory seed,
+  FTS, dead read variants. Re-examined per instruction; nobody would want these in any form —
+  they stay DELETE.
+
+The prompt's explicit re-examinations, answered:
+
+| Convicted feature | Re-examined verdict | Why |
+|---|---|---|
+| Attention scoring | **PLUGIN** | "Scoring systems that decide what is important" — named ritual. Legitimate as a curation plugin's routine + agent judgment. The heuristic-weights implementation does not travel; the ritual does. |
+| Relevance scoring | **DELETE** | Not ritual — denormalized machinery feeding one sort pill. A plugin wanting frequency/relevance hangs off the kept `knowledge_accessed` event, not this code. |
+| Session ranking (`rank`) | **stays (MERGE)** | Not ritual — machinery of assembling session context. Never was convicted. |
+| Promotion pipeline (sweep) | **PLUGIN** | "Promotion pipelines" — named ritual verbatim. Contradiction detection inside it does NOT travel: provably dead (zero `meta.claims`/`meta.forbids` writers repo-wide), plain delete even in the plugin conception. |
+| Stale decay (sweep) | **PLUGIN** | Scheduled lifecycle ceremony — same shape as promotion. |
+| Access telemetry | **DELETE** | Telemetry, not ritual. But see Ruling 2 correction below: the event survives, the log dies. |
+| Flag resolution | **DELETE** | Dead door end to end, and the honest re-provision is no machinery at all — a human asks an agent in conversation to fix an item. Nothing to preconfigure, so nothing to ship as a plugin. |
+
+### Rows that moved
+
+| # | Method | Old | New | Ruling |
+|---|---|---|---|---|
+| 1 | `recomputeAttention` | DELETE | **PLUGIN** | R3 — attention/importance scoring is curation ritual |
+| 25 | `transition({recomputeAttention})` | DELETE | **PLUGIN** | R3 — agent score-override is the same ritual's door |
+| 34 | `sweep("autoPromotion")` | DELETE | **PLUGIN** | R3 — promotion pipeline, named ritual |
+| 35 | `sweep("stale")` | DELETE | **PLUGIN** | R3 — scheduled decay ceremony |
+| 36 | `sweep` (impl) | DELETE | **PLUGIN** | R3 — dies from core with both kinds |
+| 14 | `list({retroForBet})` | KEEP | **PLUGIN** | R3 — retros are named ritual; this variant exists only for the bet-retro reflection upsert (bets.ts:940) |
+| 16 | `list({recentByLayers})` | KEEP | **PLUGIN** | R3 — portfolio retro is scheduled reflection; sole caller is `builtin:portfolio-retro` (routine-scheduler-bindings.ts:109) |
+
+**7 verdict moves.** Plus two non-verdict corrections:
+
+- **Ruling 2 correction — `knowledge_accessed` event is KEEP.** First wave killed it with the
+  telemetry feature. Wrong: the event is emitted by the route itself
+  (`layers/core-api/src/routes/knowledge.ts:497`), separately from the `recordAccess` log insert
+  (`knowledge-repository.ts:1557`, which only writes `knowledgeAccessLog`). The fact — an item was
+  viewed — keeps happening and keeps being announced; plugins (including a future relevance/frequency
+  plugin) hang off it. The log table, `recordAccess`, `countAccesses`, `reapAccessLog` still die.
+  The `knowledge_updated` payload *actions* `attention_recomputed`/`auto_promoted`/
+  `contradiction_flagged`/`marked_stale`/`flagged` still retire — Ruling 2 does not protect payload
+  values nothing sets once their features leave core; the event type `knowledge_updated` stays.
+- **Row 8 `get(view:"full")` reach correction.** Its only caller is the bet-retro flow
+  (bets.ts:954), which leaves core under Ruling 3. It survives anyway as the merge target of row 9:
+  after the merge, the single joined view's door is `UI:GET /api/knowledge/:id`.
+
+**Ruling 1 re-check:** none of the first-wave knowledge kills rested on a single-user premise —
+nothing to un-kill. In the other direction it hardens four KEEPs: `recordConflict`/`findOpenConflict`
+(multiple humans + agents editing the same item is the normal case on a shared backend),
+`transition({changeScope})` (team/org scopes are the product, not decoration), `count({triageVisible})`
+(a team's shared triage queue), and `assembleSessionKnowledge` (every agent of every team launches
+with the *shared* fabric).
+
+### What leaves core and becomes a plugin
+
+One knowledge-curation-and-ritual plugin (or a small family). No work package exists yet — the
+founder rulings note one needs writing. Per feature, what travels:
+
+1. **Attention triage** — "surface knowledge that needs attention."
+   - Core code deleted: `attention-service.ts` (463 lines), `attention-scoring.ts` (340),
+     `attention-classifier.ts` (52), attention half of `scoring-config.ts`;
+     `recomputeAttention`; `transition({target:"recomputeAttention"})`.
+   - Routes deleted: `POST /api/knowledge/:id/recompute-attention`, `PATCH /api/knowledge/:id/attention-score`.
+   - Agent tool travels: `score_attention` (`tool-definitions.ts:760-794`, `builtin-tool-catalog.ts:118`) —
+     retired from the core catalog; the plugin preconfigures its curation agent instead.
+   - Schema deleted: `knowledgeAppProjection.attentionScore` column.
+   - Cross-service wiring deleted (flag to those audits): seam methods
+     `recomputeAttentionScoreForItem` + `upsertKnowledgeAppProjectionAttentionScore`; routine port
+     `recomputeAttentionForCandidates`; `review`'s `createReviewItemForKnowledge` +
+     `attentionReviewReasoningMarker`; `work`'s `findItemByReasoningMarker`.
+   - Plugin shape: a scheduled routine whose agent reads the fabric and opens reviews through
+     existing review doors. No score column anywhere — the judgment lives in the agent.
+2. **Auto-promotion** — nightly cross-scope promotion.
+   - Core code deleted: `sweep("autoPromotion")` in `promotion-pipeline.ts`; the contradiction
+     detector inside it is plain DELETE (dead logic, does not travel).
+   - Routine travels: `builtin:knowledge-promotion` (`routine-scheduler.ts:160,476`,
+     `routines-routes.ts:28`) — deleted from core seeds, re-provided as a plugin routine.
+   - Plugin shape: routine + agent that reviews cross-scope duplicates and calls the kept
+     `promote_knowledge` door. Promotion the *act* stays core (row 26).
+3. **Stale decay** — 90-day lifecycle sweep.
+   - Core code deleted: `sweep("stale")` in `promotion-pipeline.ts`.
+   - Routine travels: `builtin:knowledge-decay` (`routine-scheduler.ts:149,473`, `routines-routes.ts:27`).
+   - Status vocabulary shrinks with it: `stale` (and the other sweep-only statuses) leave
+     `KnowledgeStatus`; the plugin marks items via archive or meta, not a core enum.
+   - Plugin shape: routine + agent that re-verifies or archives old items through existing
+     update/archive doors.
+4. **Bet retro (knowledge side)** — reflection item upserted when a bet outcome is recorded.
+   - Core code deleted: `list({retroForBet})` (`knowledge-repository.ts:705`); the reflection-upsert
+     block inside the bet-outcome route (`bets.ts:~920-980` — create/update + meta snapshot logic;
+     the bet-outcome write itself is bets machinery and stays — flag to the bets audit).
+   - Plugin shape: trigger on the bet-outcome event (`bet_revised` is KEEP per Ruling 2 and is the
+     natural hook once its emission is finished) + retro agent writing the reflection via
+     `write_memory`.
+5. **Portfolio retro** — monthly recent-knowledge digest.
+   - Core code deleted: `list({recentByLayers})` (`knowledge-repository.ts:719`) and its binding
+     (`routine-scheduler-bindings.ts:109`).
+   - Routine travels: `builtin:portfolio-retro` (`routine-scheduler.ts:138,470`,
+     `routines-routes.ts:26`) — the routine row belongs to the routine service's audit; flagged.
+   - Plugin shape: monthly routine whose agent gathers recent knowledge through the kept
+     `query_practice`/search doors.
 
 ## Should this service exist?
 
-**KEEP AS the shared-knowledge store + session-context assembler — nothing else.** Shared knowledge is one of HyperIdle's three pillars (conversations, bets, knowledge), and two things in this package are genuinely load-bearing: the CRUD surface behind the Knowledge UI + agent tools (`write_memory`, `query_practice`, `promote_knowledge`, `create_conflict_review`, writeback), and `assembleSessionKnowledge`, which puts shared knowledge into every agent session at launch.
-
-Everything else is an autonomous curation bureaucracy bolted onto that store: **three separate scoring systems** (attention score, relevance score, session ranking score — three answers to "how important is this item", only the third is ever consumed by anything that matters), an access-telemetry log with its own retention reaper, two nightly sweeps (auto-promotion, stale-decay), a contradiction detector fed by `meta.claims`/`meta.forbids` JSON that **no production write path ever produces** (verified: zero writers repo-wide — it structurally cannot fire), and a flag→agent-review pipeline whose HTTP door has **zero callers** since AD6 removed Flag from the UI ("it is an agent operation, not user-facing" — no agent path exists either). Roughly half the package (~2,300 of 4,620 lines: attention-service, attention-scoring, attention-classifier, promotion-pipeline, relevance-service, relevance-engine, relevance-listener, fts, knowledge-action-resolver, factory-seed) serves machinery no human asked for and no door reaches, or reaches only through doors that themselves should die.
+**KEEP AS the shared-knowledge store + session-context assembler — nothing else.** Unchanged from
+the first wave, sharpened by the rulings: on a shared backend the fabric is the team's collective
+memory and one of the product's three pillars. What is gone from core is now split honestly in two:
+the ritual (attention, promotion pipeline, decay, retros) leaves as a plugin; the machinery that was
+never ritual and never wanted (relevance, telemetry log, flag resolver, FTS, seed, dead variants)
+just dies.
 
 ## If written today, from scratch
 
-Eleven functions:
+Against the corrected premise — a shared backend for a team and an organisation of teams, OIDC
+identity, an event stream plugins hang off:
 
-- `create`, `get` (item / joined-detail), `update`, `remove`, `list` (visible, retroForBet, titlesByIds, recentByLayers, relatedByTopic, base), `search` (text mode only), `count` (triage badge)
-- `transition` (two targets: `promote`, `changeScope`)
-- `recordConflict`, `findOpenConflict` (protect agent-proposed edits from silent loss on version conflict)
+- `create`, `get` (summary / one joined view), `update`, `remove`, `list` (visible, titlesByIds,
+  relatedByTopic, base), `search` (text only), `count` (triage badge)
+- `transition` (two targets: `promote`, `changeScope`) — deliberate acts by a human or agent
+- `recordConflict`, `findOpenConflict` — concurrent human+agent edits are the normal case
 - `assembleSessionKnowledge` (with `rank` folded in as a private function)
+- Every mutation and every view announces itself on the bus (`knowledge_created`,
+  `knowledge_updated`, `knowledge_accessed`) — that event surface, not core tables, is where
+  curation and retro rituals attach.
 
-No scoring engines, no sweeps, no access log, no FTS, no flag resolver, no factory seed.
+No scoring engines, no sweeps, no access log, no FTS, no flag resolver, no factory seed, no
+retro-shaped read variants.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 19 |
+| DELETE | 14 |
+| PLUGIN | 7 |
 | MERGE | 2 |
 | SIMPLIFY | 8 |
-| KEEP | 13 |
+| KEEP | 11 |
+| FINISH | 0 |
 
-Surface: 42 function rows → 21 surviving declarations (50% cut); ~4,620 lines → ~2,300 (10 of 21 source files deleted outright).
+Surface: 42 function rows → 19 surviving core declarations (55% out of core; was 50%).
+~4,620 lines → ~2,250 in core. Same 10 of 21 source files deleted outright; `promotion-pipeline.ts`
+and the three attention files are now PLUGIN-fated rather than plain-DELETE-fated — either way they
+leave `layers/core-api/knowledge`.
 
 ## Feature-level kills
 
-1. **Attention engine — whole feature** (`attention-service.ts` 463 lines, `attention-scoring.ts` 340, `attention-classifier.ts` 52, attention half of `scoring-config.ts`). DB-weighted heuristic scores, a 0.7 threshold that auto-creates review items with idempotency markers, Mechanism-C ports into `work` and `review`. Kill the callers too: `score_attention` tool (already a literal no-op for its `item` target), `POST /api/knowledge/:id/recompute-attention`, `PATCH /:id/attention-score`, seam methods `recomputeAttentionScoreForItem` + `upsertKnowledgeAppProjectionAttentionScore`, `recomputeAttentionForCandidates` routine port, `review`'s `createReviewItemForKnowledge`/`attentionReviewReasoningMarker` and `work`'s `findItemByReasoningMarker` port wiring, `knowledgeAppProjection.attentionScore` column. What breaks: nothing auto-surfaces "knowledge needs attention"; triage sorts by updatedAt. Acceptable — a small team curates by reading. If wanted later, earn it from a real learning (ETHOS), don't pre-build it.
-2. **Relevance engine — whole feature** (`relevance-service.ts` 254, `relevance-engine.ts` 119, `relevance-listener.ts` 47, relevance half of `scoring-config.ts`). Recomputes a denormalized `relevanceScore` on every item view; its only consumer is a sort pill in KnowledgeList. `rank()` — the scoring that actually matters — never reads it. What breaks: the "relevance" sort pill. Acceptable.
-3. **Access telemetry — whole feature** (`recordAccess`, `countAccesses`, `reapAccessLog`, `knowledgeAccessLog` table, `knowledge_accessed` event). Per-item view logging with 30-day counts and its own retention reaper — an audit trail with a retention policy, the purest enterprise reflex in the package. Every seam version-lookup pollutes it. What breaks: accessCount on detail page, frequency sort pill, lastActivityAt in list. Acceptable.
-4. **Auto-promotion + stale sweeps** (`promotion-pipeline.ts`, 634 lines, all of it). 5-cross-scope auto-promotion, 90-day auto-stale, contradiction detection over meta JSON nobody writes (provably dead logic). Kill callers: `builtin:knowledge-promotion` + `builtin:knowledge-decay` routine specs/crons/handlers/ports. Promotion stays what it honestly is: a deliberate `promote_knowledge` act by an agent or human. What breaks: no automatic lifecycle transitions. Acceptable — and the 9-status lifecycle these sweeps justify should shrink with them.
-5. **Flag → knowledge_action pipeline** (`knowledge-action-resolver.ts` 177 lines, `POST /:id/flag` route, `transition({target:"flag"})`, `resolveOrCreateKnowledgeCallingThread` binding, the `knowledge_action` intent kind downstream). The door has zero UI and zero seam callers — TEST-ONLY end to end. Delete the route, the resolver, the tests.
-6. **FTS** (`fts.ts`, 127 lines). The *default* mode of `search()` — and both production callers pass `mode:"text"`. The default is dead code. ILIKE is the search.
-7. **Factory knowledge seed** (`factory-seed.ts`). Seeds one "Boil the Lake" row on first boot, with a dedicated writer whose only reason to exist is edit-log-free parity with a pre-move snapshot. The principle lives in ETHOS.md and system prompts; a fresh install with an empty fabric is honest.
-8. **Dead read variants**: `get({view:"projection"})`, `list({exportable})` (lore cites a consumer in `server-factory.ts` — file renamed, usage gone), `list({scope})` + the `KnowledgeScope` type (core-api's own barrel records its re-export was deleted for zero consumers).
+1. **Attention engine — PLUGIN** (was DELETE). Everything listed in first wave leaves core: engine
+   files, both routes, `score_attention` tool, seam methods, routine port, `attentionScore` column,
+   `review`/`work` wiring. What breaks in core: nothing auto-surfaces "needs attention"; triage
+   sorts by updatedAt. Re-provided as a curation plugin's routine + agent.
+2. **Relevance engine — DELETE** (confirmed on re-examination). Not ritual; machinery for a sort
+   pill that `rank` never reads. A future relevance plugin builds on the kept `knowledge_accessed`
+   event, not on this code. What breaks: the "relevance" sort pill.
+3. **Access telemetry — DELETE, minus the event** (Ruling 2 correction). `recordAccess`,
+   `countAccesses`, `reapAccessLog`, the `knowledgeAccessLog` table and its reaper die — enterprise
+   telemetry. The `knowledge_accessed` event type and its route emission
+   (`routes/knowledge.ts:497`) are **KEEP**: the fact happens, plugins may listen. What breaks:
+   accessCount display, frequency sort, lastActivityAt.
+4. **Auto-promotion + stale sweeps — PLUGIN** (was DELETE). Both routines and both sweep kinds
+   leave core, re-provided as plugin routines driving agents through the kept `promote_knowledge` /
+   update doors. The contradiction detector inside the promotion sweep is plain DELETE — provably
+   dead logic (zero `meta.claims`/`meta.forbids` writers), and the plugin uses agent judgment, not
+   this code. Promotion as a deliberate act stays core.
+5. **Bet-retro + portfolio-retro read variants — PLUGIN** (was KEEP). Retros are named ritual in
+   Ruling 3. `list({retroForBet})` and `list({recentByLayers})` exist solely for them; both leave
+   with the retro plugin. Cross-service: the bets route's reflection-upsert block and the
+   `builtin:portfolio-retro` routine row are flagged to their owning audits.
+6. **Flag → knowledge_action pipeline — DELETE** (confirmed). Dead door end to end since AD6; the
+   honest re-provision is a conversation with an agent, which needs no plugin.
+7. **FTS — DELETE** (unchanged). Both production callers pass `mode:"text"`; the default is dead.
+8. **Factory knowledge seed — DELETE** (confirmed). Onboarding decoration, not ritual; the
+   principle ships in ETHOS.md and system prompts. If starter practice-content is ever wanted, it
+   is a plugin's job — but nobody wants this row.
+9. **Dead read variants — DELETE** (unchanged): `get({view:"projection"})`, `list({exportable})`,
+   `list({scope})` + `KnowledgeScope`.
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `recomputeAttention` | UI:POST /api/knowledge/:id/recompute-attention (seam←AGENT:score_attention) + SCHED:builtin:knowledge-promotion | DELETE | Attention bureaucracy; kill the tool, both routes, and the routine with it. |
-| 2 | `ensureFactoryKnowledgeSeed` | BOOTSTRAP (factory-state.ts first boot) | DELETE | Seeds one decorative row; the principle lives in ETHOS.md. Empty fabric on install is honest. |
-| 3 | `resolveKnowledgeActionRequest` | TEST-ONLY (sole caller is POST /:id/flag — zero UI/seam callers since AD6) | DELETE | Dead door end to end; 177-line resolver for a session kind that never fires. |
-| 4 | `recordConflict` | UI:POST /api/knowledge/:id/conflicts (seam←AGENT:create_conflict_review + writeback) | KEEP | Stops agent-proposed edits being silently lost on version conflict — real collaboration value. |
-| 5 | `findOpenConflict` | UI:GET /api/knowledge/:id/conflicts (seam←AGENT:create_conflict_review dupe check) | KEEP | Same door as recordConflict; the dupe check that keeps one open conflict per agent per item. |
-| 6 | `create` | UI:POST /api/knowledge + AGENT:write_memory + writeback + bets retro | SIMPLIFY | Core writer. Drop `attentionScore`/`confidence`/`meta` inputs — no live producer, engines dead. |
-| 7 | `update` | UI:PATCH /api/knowledge/:id (autosave) + writeback optimistic-lock + bets retro | SIMPLIFY | Core writer with version gate. Same input shrink as create. |
-| 8 | `get` (view:"full") | UI:POST /api/bets retro (bets.ts:954) | KEEP | The one joined single-item read; detail folds into it (row 9). |
-| 9 | `get` (view:"detail") | UI:GET /api/knowledge/:id | MERGE | Into `full` — after score columns die, detail ≡ full minus nothing. Two joined views is one view. |
-| 10 | `get` (view:"projection") | DEAD (zero production callers; rg-confirmed) | DELETE | Nobody asks for layer+kind alone. |
-| 11 | `get` (view:"summary") | UI:GET /api/knowledge/:id + seam version/status lookups + bets/threads/flag routes | KEEP | The raw-row read; most callers. |
-| 12 | `get` (impl) | — | SIMPLIFY | Two views survive (item, full); switch shrinks 4→2. |
-| 13 | `list` ({visibleWithSignals}) | UI:GET /api/knowledge/ (KnowledgeList + AppShell) | SIMPLIFY | Core list, but signals (accessCount30d/lastActivityAt/relevance/attention) die with telemetry — becomes a plain visible-items list. |
-| 14 | `list` ({retroForBet}) | UI:POST bets retro (bets.ts:940) | KEEP | Bet-retro reflection upsert lookup — bets pillar feeding the knowledge pillar. |
+| 1 | `recomputeAttention` | UI:POST /api/knowledge/:id/recompute-attention (seam←AGENT:score_attention) + SCHED:builtin:knowledge-promotion | PLUGIN | R3: importance-scoring ritual; leaves core with tool, routes, column, routine port. Plugin = routine + agent judgment. |
+| 2 | `ensureFactoryKnowledgeSeed` | BOOTSTRAP (factory-state.ts first boot) | DELETE | Not ritual — decorative onboarding row; principle lives in ETHOS.md. Empty fabric on install is honest. |
+| 3 | `resolveKnowledgeActionRequest` | TEST-ONLY (sole caller POST /:id/flag — zero UI/seam callers since AD6) | DELETE | Dead door end to end; re-provision is a conversation with an agent, no plugin machinery needed. |
+| 4 | `recordConflict` | UI:POST /api/knowledge/:id/conflicts (seam←AGENT:create_conflict_review + writeback) | KEEP | R1 hardens it: concurrent human+agent edits are the normal case on a shared backend; stops silent loss. |
+| 5 | `findOpenConflict` | UI:GET /api/knowledge/:id/conflicts (seam←AGENT:create_conflict_review dupe check) | KEEP | Same door; one open conflict per agent per item. |
+| 6 | `create` | UI:POST /api/knowledge + AGENT:write_memory + writeback + bets retro | SIMPLIFY | Core writer. Drop `attentionScore`/`confidence`/`meta` — the last core `meta` producer (bet-retro upsert) leaves under R3, making the shrink safe. |
+| 7 | `update` | UI:PATCH /api/knowledge/:id (autosave) + writeback optimistic-lock + bets retro | SIMPLIFY | Core writer with version gate; same input shrink, same R3-enabled `meta` drop. |
+| 8 | `get` (view:"full") | was UI:POST bets retro (bets.ts:954) — that caller leaves core (R3); post-merge door is UI:GET /api/knowledge/:id | KEEP | Survives as the single joined view (merge target of row 9); its retro caller departs with the retro plugin. |
+| 9 | `get` (view:"detail") | UI:GET /api/knowledge/:id | MERGE | Into `full` — after score columns die, two joined views are one view. |
+| 10 | `get` (view:"projection") | DEAD (zero production callers; rg-confirmed first wave) | DELETE | Nobody asks for layer+kind alone. |
+| 11 | `get` (view:"summary") | UI:GET /api/knowledge/:id + seam version/status lookups + bets/threads routes | KEEP | The raw-row read; most callers. |
+| 12 | `get` (impl) | — | SIMPLIFY | Two views survive (summary, full); switch shrinks 4→2. |
+| 13 | `list` ({visibleWithSignals}) | UI:GET /api/knowledge/ (KnowledgeList + AppShell) | SIMPLIFY | Core list; signals die with telemetry/scores — becomes a plain visible-items list. |
+| 14 | `list` ({retroForBet}) | UI:POST bets retro (bets.ts:940) — a ritual caller | PLUGIN | R3: bet-retro reflection is retro ritual; variant exists only for it. Plugin's retro agent writes via write_memory instead. |
 | 15 | `list` ({titlesByIds}) | UI:threads route (threads.ts:472) | KEEP | Batched title resolve for knowledge references in threads. |
-| 16 | `list` ({recentByLayers}) | SCHED:builtin:portfolio-retro | KEEP | Monthly portfolio retro's recent-knowledge digest; routine survives this audit. |
-| 17 | `list` ({exportable}) | DEAD (lore cites `server-factory.ts` — renamed, zero usage) | DELETE | Export-format machinery with no consumer; enterprise reflex. |
+| 16 | `list` ({recentByLayers}) | SCHED:builtin:portfolio-retro (routine-scheduler-bindings.ts:109) | PLUGIN | R3: portfolio retro is scheduled reflection; sole caller is its routine. Plugin agent uses query_practice/search. |
+| 17 | `list` ({exportable}) | DEAD (lore cites `server-factory.ts` — renamed, zero usage) | DELETE | Export machinery with no consumer; enterprise reflex. |
 | 18 | `list` ({relatedByTopic}) | UI:GET /api/knowledge/:id (related items panel) | KEEP | Real detail-page feature. |
-| 19 | `list` ({scope}) | DEAD (zero production callers) | DELETE | Leftover from deleted knowledge-reader; kill `KnowledgeScope` with it. |
-| 20 | `list` (base ListFilters) | INTERNAL (assembleSessionKnowledge's fetchAllForLayer only) | SIMPLIFY | Drop `topic`/`kind` filters nobody passes; layer/scopeId/limit/offset is the whole need. |
-| 21 | `list` (impl) | — | SIMPLIFY | 8 variants → 6; dispatch shrinks accordingly. |
-| 22 | `count` ({triageVisible}) | UI:GET /api/knowledge/triage-count (AppShell badge) | KEEP | The draft-awaiting-curation badge — the human side of agent write_memory drafts. |
-| 23 | `search` | UI:GET /api/knowledge/search (seam←AGENT:query_practice) + UI:GET /api/search | SIMPLIFY | Both production callers pass `mode:"text"`. Delete FTS mode + `fts.ts` — the dead default. Text-only, no mode param. |
-| 24 | `countAccesses` | UI:GET /api/knowledge/:id (accessCount display) | DELETE | Access telemetry; dies with the log. Kill the route field + detail-page display. |
-| 25 | `transition` ({target:"recomputeAttention"}) | UI:PATCH /:id/attention-score (seam←AGENT:score_attention override) | DELETE | Agents hand-setting attention scores is ceremony; engine dead, column dead, tool dead. |
-| 26 | `transition` ({target:"promote"}) | UI:POST /:id/promote (seam←AGENT:promote_knowledge) | KEEP | The one deliberate lifecycle door; conflict gate rides it. |
-| 27 | `transition` ({target:"flag"}) | TEST-ONLY (POST /:id/flag has zero callers) | DELETE | Dead door — AD6 removed Flag from the UI; no agent path exists. |
-| 28 | `transition` ({target:"changeScope"}) | UI:PATCH /:id/scope (ScopeChangeDialog) | KEEP | Real UI feature; scope drives layer + session visibility. |
-| 29 | `transition` ({target:"merge"}) | TEST-ONLY (POST /:id/merge has zero UI/seam callers) | DELETE | Bulk-curation op nobody reaches. |
-| 30 | `transition` ({target:"split"}) | TEST-ONLY (POST /:id/split has zero UI/seam callers) | DELETE | Same as merge. |
+| 19 | `list` ({scope}) | DEAD (zero production callers) | DELETE | Leftover from deleted knowledge-reader; `KnowledgeScope` dies with it. |
+| 20 | `list` (base ListFilters) | INTERNAL (assembleSessionKnowledge's fetchAllForLayer only) | SIMPLIFY | Drop `topic`/`kind` filters nobody passes. |
+| 21 | `list` (impl) | — | SIMPLIFY | 8 variants → 4 (visible, titlesByIds, relatedByTopic, base) — two more leave than first wave, via R3. |
+| 22 | `count` ({triageVisible}) | UI:GET /api/knowledge/triage-count (AppShell badge) | KEEP | Re-judged against R3: draft→human-accept is the machinery of building shared knowledge — a deliberate act, not scheduled ceremony. R1: it is the team's shared triage queue. |
+| 23 | `search` | UI:GET /api/knowledge/search (seam←AGENT:query_practice) + UI:GET /api/search | SIMPLIFY | Both production callers pass `mode:"text"`; delete FTS mode + `fts.ts`. Text-only, no mode param. |
+| 24 | `countAccesses` | UI:GET /api/knowledge/:id (accessCount display) | DELETE | Re-examined: telemetry, not ritual. Dies with the log; kill route field + display. |
+| 25 | `transition` ({target:"recomputeAttention"}) | UI:PATCH /:id/attention-score (seam←AGENT:score_attention override) | PLUGIN | R3: score-override door of the attention ritual; travels with it. |
+| 26 | `transition` ({target:"promote"}) | UI:POST /:id/promote (seam←AGENT:promote_knowledge) | KEEP | The deliberate act stays core; the automated pipeline (row 34) leaves. Conflict gate rides it. |
+| 27 | `transition` ({target:"flag"}) | TEST-ONLY (POST /:id/flag has zero callers) | DELETE | Re-examined: dead door, and no plugin-worthy ritual behind it. |
+| 28 | `transition` ({target:"changeScope"}) | UI:PATCH /:id/scope (ScopeChangeDialog) | KEEP | R1 hardens it: team/org scopes are the product on a shared backend. |
+| 29 | `transition` ({target:"merge"}) | TEST-ONLY (zero UI/seam callers) | DELETE | Bulk-curation op nobody reaches. |
+| 30 | `transition` ({target:"split"}) | TEST-ONLY (zero UI/seam callers) | DELETE | Same as merge. |
 | 31 | `transition` (impl) | — | SIMPLIFY | 6 targets → 2 (promote, changeScope). |
 | 32 | `remove` | UI:POST /api/knowledge/:id/archive (KnowledgeDetail) | KEEP | The archive path; only delete flavor the product needs. |
-| 33 | `recordAccess` | UI:GET /api/knowledge/:id (fires on every view incl. seam lookups) | DELETE | Telemetry write on the read path; dies with the log and the `knowledge_accessed` event. |
-| 34 | `sweep` ("autoPromotion") | SCHED:builtin:knowledge-promotion (daily 03:00) | DELETE | 5-cross-scope auto-promotion + contradiction detection over meta nobody writes — provably-dead logic in a nightly cron. Kill the routine. |
-| 35 | `sweep` ("stale") | SCHED:builtin:knowledge-decay (daily 02:00) | DELETE | 90-day auto-stale is retention ceremony; nothing meaningful consumes "stale". Kill the routine. |
-| 36 | `sweep` (impl) | — | DELETE | Both kinds dead; whole `promotion-pipeline.ts` goes. |
-| 37 | `rank` | INTERNAL (assembleSessionKnowledge only; barrel export has zero external callers) | MERGE | Fold into assembleSessionKnowledge as a private function; drop the dead `attentionScore` + near-constant `confidence` + writer-less `meta.tags` factors while folding. |
-| 38 | `recomputeRelevance` (itemIds) | EVENT:knowledge_accessed (relevance-listener only) | DELETE | Feeds a score whose sole consumer is a sort pill; rank never reads it. |
-| 39 | `recomputeRelevance` (signals) | TEST-ONLY (computeSignals overload — no production caller) | DELETE | Test-facing exposure of internals. |
+| 33 | `recordAccess` | UI:GET /api/knowledge/:id (log insert only — the event is emitted by the route, not here) | DELETE | R2-checked: the log write is telemetry and dies with the table; the `knowledge_accessed` EVENT stays (routes/knowledge.ts:497) as extension surface. |
+| 34 | `sweep` ("autoPromotion") | SCHED:builtin:knowledge-promotion (daily 03:00) | PLUGIN | R3: promotion pipeline is named ritual. Routine leaves core with it. Contradiction detector inside is plain-dead and does not travel. |
+| 35 | `sweep` ("stale") | SCHED:builtin:knowledge-decay (daily 02:00) | PLUGIN | R3: scheduled decay ceremony; routine leaves core with it. |
+| 36 | `sweep` (impl) | — | PLUGIN | Both kinds leave core; whole `promotion-pipeline.ts` exits the package. |
+| 37 | `rank` | INTERNAL (assembleSessionKnowledge only) | MERGE | Re-judged: session ranking is context-assembly machinery, not ritual. Fold in as private fn; drop dead `attentionScore`/near-constant `confidence`/writer-less `meta.tags` factors. |
+| 38 | `recomputeRelevance` (itemIds) | EVENT:knowledge_accessed (relevance-listener only) | DELETE | Re-examined: not ritual — machinery for a sort pill `rank` never reads. Its input event stays for real plugins. |
+| 39 | `recomputeRelevance` (signals) | TEST-ONLY (no production caller) | DELETE | Test-facing exposure of internals. |
 | 40 | `recomputeRelevance` (impl) | — | DELETE | Whole relevance engine goes (service/engine/listener). |
-| 41 | `reapAccessLog` | SCHED:retention reaper (service-bootstrap.ts:518) | DELETE | A retention policy for telemetry nobody needs — enterprise reflex squared. Dies with the log. |
-| 42 | `assembleSessionKnowledge` | AGENT:every session bake (task_run/routine_run/reengagement/assistant resolvers via DI) + UI:threads route | KEEP | The core value of the fabric: agents launch with ranked shared knowledge. Named doors everywhere. |
+| 41 | `reapAccessLog` | SCHED:retention reaper (service-bootstrap.ts:518) | DELETE | Re-examined: retention policy for telemetry — enterprise reflex, not ritual. |
+| 42 | `assembleSessionKnowledge` | AGENT:every session bake (task_run/routine_run/reengagement/assistant resolvers via DI) + UI:threads route | KEEP | R1 hardens it: every agent of every team launches with the shared fabric. The core value. |
 
 ### Class
 
@@ -4542,8 +5275,8 @@ Surface: 42 function rows → 21 surviving declarations (50% cut); ~4,620 lines 
 | `KnowledgeActionResolverDeps` | DELETE | Port for a dead resolver. |
 | `BakedKnowledgeActionRequest` | DELETE | Return shape of a dead resolver. |
 | `RecordConflictInput` | KEEP | Input of a kept writer. |
-| `CreateKnowledgeItemInput` | SIMPLIFY | Drop `attentionScore`/`confidence`/`meta` — no live producer. |
-| `UpdateKnowledgeItemInput` | SIMPLIFY | Same shrink. |
+| `CreateKnowledgeItemInput` | SIMPLIFY | Drop `attentionScore`/`confidence`/`meta` — R3 removes the last core `meta` producer (bet-retro upsert), making the first wave's shrink actually true. |
+| `UpdateKnowledgeItemInput` | SIMPLIFY | Same shrink, same R3 enablement. |
 | `ListFilters` | SIMPLIFY | Drop `topic`/`kind` — nobody passes them. |
 | `KnowledgeItemView` | SIMPLIFY | 4 views → 2 ("summary" \| "full"). |
 | `KnowledgeItemWithProjection` | SIMPLIFY | Drop `attentionScore`/`confidence`/`meta` fields with their columns. |
@@ -4551,200 +5284,356 @@ Surface: 42 function rows → 21 surviving declarations (50% cut); ~4,620 lines 
 | `RecordAccessInput` | DELETE | Dies with recordAccess. |
 | `SessionKnowledgeInput` | KEEP | Input of the kept assembler. |
 | `KnowledgeLayer` | KEEP | The L0–L4 taxonomy — load-bearing across tools, UI, ranking. |
-| `KnowledgeStatus` | SIMPLIFY | 7 statuses + kernel draft/needs_human = a 9-state lifecycle built for the dead sweeps. Honest shape: draft / active / archived (+needs_human if triage keeps it). Collapse once sweeps land. |
-| `KnowledgeKind` | KEEP | 8 kinds used by write_memory, UI chips, retro reflections. |
-| `KnowledgeScope` | DELETE | Only consumer was dead `list({scope})`; core-api's own barrel already deleted its re-export for zero consumers. |
+| `KnowledgeStatus` | SIMPLIFY | Collapse to draft / active / archived (+needs_human for triage). `stale` and the sweep-only states leave core with the ritual (R3); the plugin marks items via archive/meta, not a core enum. |
+| `KnowledgeKind` | KEEP | 8 kinds used by write_memory, UI chips, retro reflections (plugin will keep writing kinds through write_memory). |
+| `KnowledgeScope` | DELETE | Only consumer was dead `list({scope})`; core-api's barrel already dropped its re-export. |
 
-Not in the input but dies with the above: `rankAndBudget` module export (test-only), `SearchOptions`/`ExportableKnowledgeItemFilters` type exports, `attention-scoring.ts`'s five exports, `attachRelevanceListener`, all of `fts.ts`, `token-budget.ts` survives only as a private helper of the folded rank.
+Not in the input but resolved by the above: `rankAndBudget` module export (test-only, dies),
+`SearchOptions`/`ExportableKnowledgeItemFilters` (die), `attention-scoring.ts`'s five exports
+(leave with the attention ritual), `attachRelevanceListener` (dies), all of `fts.ts` (dies),
+`token-budget.ts` (survives as a private helper of the folded rank).
 
 ## Holes this leaves
 
-1. **Fresh installs start with an empty knowledge fabric** — no seeded principle row. The principle already ships in ETHOS.md and agent system prompts.
-2. **Knowledge list loses its signals column and sort pills** (frequency/relevance/attention); list and triage sort by updatedAt. KnowledgeDetail loses the accessCount stat.
-3. **No automatic curation**: no auto-promotion, no auto-stale, no attention-triggered review items. Lifecycle moves only when a human or agent moves it via `promote_knowledge` / the UI. If auto-curation is ever wanted, it gets earned from a real learning — not rebuilt first.
-4. **The knowledge_action session kind loses its only producer** (already unreachable) — session-requests can retire that intent kind in its own audit.
-5. **Schema debt to collect**: drop `knowledgeAccessLog`; drop `knowledgeAppProjection.attentionScore`/`relevanceScore` (and `confidence`/`meta` once inputs shrink); retire `knowledge_accessed` and the `attention_recomputed`/`auto_promoted`/`contradiction_flagged`/`marked_stale`/`flagged` actions of `knowledge_updated`; delete `builtin:knowledge-decay`/`builtin:knowledge-promotion` routine seeds; delete the `score_attention` tool and the two attention seam methods.
+1. **Until the curation/retro plugin exists, the rituals are simply gone**: no bet-retro reflection
+   item on outcome recording, no monthly portfolio digest, no attention triage, no auto-promotion,
+   no stale decay. Lifecycle moves only when a human or agent moves it deliberately. The founder
+   rulings note no work package exists for the plugin — one needs writing; its scope is the five
+   features in "What leaves core and becomes a plugin".
+2. **Fresh installs start with an empty fabric** — no seeded principle row (ETHOS.md and system
+   prompts carry it).
+3. **Knowledge list loses signals and sort pills** (frequency/relevance/attention); list and triage
+   sort by updatedAt; detail loses accessCount.
+4. **The knowledge_action session kind loses its only producer** (already unreachable) —
+   session-requests can retire that intent kind in its own audit.
+5. **Schema/wiring debt to collect**: drop `knowledgeAccessLog`; drop
+   `knowledgeAppProjection.attentionScore`/`relevanceScore` (and `confidence`/`meta` once inputs
+   shrink); **keep the `knowledge_accessed` event type and its route emission** (Ruling 2 — reverses
+   first wave); retire the sweep-only `knowledge_updated` actions; delete
+   `builtin:knowledge-decay`/`builtin:knowledge-promotion` seeds and retire `score_attention` from
+   the core tool catalog (both re-provided by the plugin); delete the two attention seam methods.
+6. **Cross-service flags** (other audits must pick these up): bets route's reflection-upsert block
+   (`bets.ts:~920-980` — bet-outcome write stays, knowledge upsert leaves); `builtin:portfolio-retro`
+   routine row (routine service); `score_attention` tool rows (tool-handlers / tool-protocol);
+   `review`'s `createReviewItemForKnowledge` + `work`'s `findItemByReasoningMarker`.
 
 
 ---
 
-# notifications — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/notifications.md` for comparison.
+
+# notifications — destroyer verdict (REVISED after founder rulings)
+
+## What changed after the rulings
+
+The first wave's central argument — "enterprise notification platform for a product whose only
+notification surface is a popover in the same window" — is void under **Ruling 1**. The product is a
+shared backend for a team and an organisation of teams. Reaching a human who is *not* looking at the
+app is exactly what outbound notification is for: an agent blocked on an approval (A1 FINISH) with
+the approver away from the app is a broken core loop without it. So a minimal outbound path is now
+core, not enterprise reflex.
+
+That rescues the **config write path and one channel** — nothing else. Everything with no writer, no
+trigger, or no reader still dies on its own terms.
+
+Rows whose verdict moved (7):
+
+| Row | Old | New | Ruling |
+|---|---|---|---|
+| `deliver` | DELETE | SIMPLIFY | Ruling 1 — test-send becomes the settings UI's "does my SMTP work" button; flush/digest variants still die |
+| `readConfig` | DELETE | FINISH | Ruling 1 — the read side of the delivery-settings UI that was never built |
+| `updateConfig` | DELETE | FINISH | Ruling 1 — the only config writer; the missing half is the UI that calls it |
+| `DeliverySpec` | DELETE | SIMPLIFY | Ruling 1 — shrinks with `deliver` to the test variant |
+| `DeliveryResult` | DELETE | SIMPLIFY | Ruling 1 — same |
+| `NotificationConfigPatch` | DELETE | SIMPLIFY | Ruling 1 — 18 members → ~7 (enabled + SMTP fields); recipient/ntfy/flood/digest/test-cap fields still die |
+| `SafeNotificationConfig` | DELETE | SIMPLIFY | Ruling 1 — redaction is legit once a UI reads config back |
+
+Verdict unchanged, substance changed (2):
+
+- `installNotifications` — still SIMPLIFY, but the surviving shape is listener + one inline urgent
+  send, not listener-only.
+- `NotificationsDeps` — still SIMPLIFY, but the membership flips: `users`, `credentialStore`,
+  `credentialCipher` now **survive** (per-user email addressing from OIDC identity; SMTP password at
+  rest reuses the credential infra A5 keeps). `teams` still dies with silence.
+
+**What did NOT change — dead is still dead, on its own terms, at any user count:**
+
+- Silence (`isSilenced`, `isInSilenceWindow`, the `silence` schema): **no writer anywhere** — no
+  route, no UI. Re-confirmed with `rg -a` across `layers framework applications tools`: only the
+  schema defaults (`settings/src/server-config.ts:43–44`) and the reader. Constant-false since day
+  one. DELETE.
+- Quiet-hours prefs: PATCHable via `/api/settings` but **zero UI writers** (re-confirmed; only route
+  plumbing and an e2e fixture). DELETE.
+- Daily digest, both flavors: trigger exists only in `tools/setup/src/demo-fixture.ts:225`
+  (`demo-routine-daily_digest`); `GET /api/status/digest` has zero clients. A team premise adds no
+  reader. DELETE.
+- Delivery-status state machine, lease recovery, drain worker, flood cap, adapter cache, SSRF guard,
+  ntfy + console channels, SMTP retry triage, error scrubbing: judged on readers — with a fire-once
+  inline send, nothing reads `pending/sending/sent/claimedAt/attempts`, nothing recovers leases,
+  and ntfy/console die as second and third ways to do one thing. DELETE, all of it.
 
 ## Should this service exist?
 
-KEEP AS **in-app inbox only** — roughly 450 lines, not 2,739.
+KEEP AS **in-app inbox + one outbound channel a team can actually turn on**.
 
-What users actually touch is small and real: the policy engine emits `notification` events, the listener writes typed rows (`typeKey`, `urgency`, `sourceLink`), the UI popover reads them (`GET /inbox`), marks them seen/read, and the Settings page mutes types. That is the whole product. Doors: `useNotifications.ts` and `useNotificationMute.ts` in `layers/core-ui/src/hooks/` — the only production clients of any notification endpoint.
+The inbox half is unchanged from the first wave: policy engine emits `notification` events, the
+listener writes typed rows, the popover reads them (`useNotifications.ts`), Settings mutes types
+(`useNotificationMute.ts`). Real doors, real users.
 
-Everything else — the entire push-delivery engine — is dead by construction, verified three independent ways:
+The outbound half is re-judged under Ruling 1. In a shared deployment humans are away from the app
+while agents run; approvals, mentions, and urgent failures must reach them or the human-in-the-loop
+stalls. The engine's delivery core demonstrably works (dispatcher + adapters carry unit and
+integration coverage: `AF8-notification-delivery`, `install.test.ts`); what never existed is a
+**writer for its config** — `enabled: false` by default, and the only writer (`PATCH
+/api/notifications/config`) has zero production callers. The verdict is FINISH the writer (a
+delivery-settings UI), not delete the engine — but finish it at one-channel size, and delete the
+platform around it.
 
-1. **Off by default, no way on.** `enabled: false` in `layers/core-api/settings/src/server-config.ts:23`. The only writer is `PATCH /api/notifications/config`, and `rg` across `layers framework applications tools` finds **zero production callers** of that endpoint. No UI ever shipped for channels, recipients, or SMTP/ntfy settings. Every real install has run with delivery disabled since day one.
-2. **Dead doors.** `GET/PATCH /config`, `POST /test`, `POST /flush`, `POST /digest`, `GET /queue`, `GET /api/status/digest` — the routes exist; nothing in web, desktop, agent tools, or tools/ calls any of them. Curl-only endpoints for a config no one can see.
-3. **Dead trigger.** The digest fires on a routine whose id contains `daily_digest` — the only producer of such a routine is `tools/setup/src/demo-fixture.ts`. And even in the demo it no-ops because `enabled` is false.
-
-Silence is the same story with a different mechanism: `server_config.notifications.silence` (`mode`, `silencedTeamIds`, `windowStart/End`) has **no writer anywhere** — no route, no UI. `isSilenced` returns false in every install that has ever existed. Quiet-hours prefs (`quietHoursEnabled` etc.) are PATCHable via `/api/settings` but no UI writes them either.
-
-This is a textbook enterprise notification platform — per-channel adapters, delivery-status state machine, lease recovery, flood caps, digest batching, SSRF guards, credential encryption, secret scrubbing, retriable-error triage — built for a product whose only real notification surface is a popover in the same window.
+One channel: **email (SMTP)**. Every teammate already has an address — OIDC supplies it per user —
+while ntfy needs every human to install an app and subscribe to a topic. Additional channels are
+exactly what the event extension surface is for (Ruling 2): a plugin subscribing to `notification`
+events can deliver anywhere. The three-channel platform never returns to core.
 
 ## If written today, from scratch
 
-Seven methods:
+For a team on a shared backend, OIDC identity, plugins on the event stream. Ten methods:
 
-- `enqueue` — insert an inbox row (cap-bounded)
-- `listNotifications` — `unread` (popover), `by-event-since` + `pending-by-event` (agent-health self-count/throttle)
+- `enqueue` — insert an inbox row, cap-bounded (drop oldest)
+- `listNotifications` — `unread` (popover), `by-event-since` + `pending-by-event` (agent-health)
 - `markNotifications` — `read` / `seen`
-- `reap` — TTL GC so the table stays bounded
-- `installNotifications` — register the one event listener
+- `reap` — TTL GC on read/old rows
+- `installNotifications` — the one event listener; for urgent, unmuted rows with an addressable
+  recipient, fire one inline email send — no queue lifecycle, no retry, no lease
 - `readPreferences` / `updatePreferences` — mute toggles
+- `readConfig` / `updateConfig` — SMTP settings behind a real settings screen (FINISH)
+- `deliver` — test-send only, the settings screen's "verify it works" button
 
-No adapters, no channels, no config CRUD, no silence, no digest, no delivery statuses.
+Per-user is the honest team shape and the current code is not it — named in Holes, not silently
+absorbed: inbox rows carry no `userId` (every teammate shares one inbox and one read/seen state),
+mutes are global (one human muting a type silences the whole org), and outbound addressing is a
+single global `recipientEmail` instead of the recipient user's OIDC email. The from-scratch shape
+scopes rows and mutes per user and addresses outbound mail from the user row.
+
+No adapters abstraction, no channel union, no silence, no quiet hours, no digest, no flood cap, no
+delivery statuses, no lease recovery, no ntfy, no console channel.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 9 |
+| DELETE | 6 |
+| FINISH | 2 |
 | MERGE | 0 |
-| SIMPLIFY | 5 |
+| SIMPLIFY | 6 |
 | KEEP | 2 |
+| PLUGIN | 0 |
 
-Surface: 16 methods → 7 methods (56% cut). By volume the cut is deeper: ~1,600 of `install.ts`'s 1,897 lines are delivery machinery.
+Surface: 16 methods → 10 methods (38% cut). By volume the cut stays deep: of `install.ts`'s ~1,600
+delivery lines, only the SMTP send path, config CRUD, and test-send survive (~350 lines); ntfy +
+console adapters, dispatcher state machine, drain worker, lease recovery, flood cap, adapter cache,
+SSRF guard, digest, and silence all still go. PLUGIN is 0 because nothing here is Ruling-3 ritual —
+extra channels are future plugins, but no existing code re-provides as one.
 
 ## Feature-level kills
 
-1. **Push-delivery engine** (`install.ts` ~lines 90–1,660: console/ntfy/SMTP adapters, dispatcher, drain interval, flushQueue, lease recovery, adapter cache, flood cap, SSRF guard + private-IP tables, secret encryption via credentialStore, error scrubbing, SMTP retriable triage). Breaks: nothing observable — it has never been enabled in any install and cannot be enabled from the product. Also deletes the `nodemailer` + `@types/nodemailer` dependencies and the `item_created` dispatcher subscription (a second, parallel classification path next to the listener — two ways to do one thing).
-2. **Daily digest, both flavors.** (a) queue-digest via `routine_fired` — trigger exists only in the demo fixture; (b) `getDailyDigest` behind `GET /api/status/digest` — zero clients (the comment at `routes/status.ts:62` claiming consumers is stale; verified by search). Breaks: nothing. Kills the `digestCron` config field and `work.listQueuedItemsSince`'s only consumer (flag to the `work` destroyer).
-3. **Silence + quiet hours** (`silence-policy.ts` entirely, the dispatcher quiet-hours branch, the silence schema in `server-config.ts`, and the consumer branch in `layers/core-api/policy/src/policy-engine.ts` ~line 126 + `PolicyDeps.silence`). Config has no writer; the predicate is constant-false in production. Zero behavior change.
-4. **Delivery config CRUD + secrets** (`readConfig`/`updateConfig`, sanitizers, `writeSecret`/`readSecret`, the audit-diff logger in the route — an audit trail for an endpoint nobody calls is the ETHOS anti-pattern verbatim).
-5. **Six dead endpoints** in `routes/notifications-routes.ts` + `routes/status.ts` (`/config` x2, `/test`, `/flush`, `/digest`, `/queue`, `/api/status/digest`) plus their test-bucket rate limiter.
-6. **Delivery-status lifecycle on the queue** (`pending/sending/sent/failed/dropped`, `attempts`, `claimedAt`, `lastError`, `channel`, `reason`) — with no deliverer, rows have no lifecycle beyond unread → seen/read → reaped. Schema-level follow-up, priced under Holes.
+1. **Two of three channels + the adapter abstraction** (ntfy adapter, console adapter,
+   `NotificationAdapter`/`Notification`/`NotificationChannel`, priority mapping, SSRF guard +
+   private-IP tables, ntfy auth token). One channel, hardcoded, composed from the row. Breaks:
+   nothing — neither channel was ever enabled in any install.
+2. **Queue-based delivery lifecycle** (delivery statuses `pending/sending/sent/failed/dropped`,
+   `attempts`, `claimedAt`, `lastError`, drain interval, flushQueue, lease recovery, `onlyIfStatus`
+   claim guard, SMTP retry triage, error scrubbing). Replaced by fire-once inline send at listener
+   time; a failed send logs via observability and the row is still in the inbox — the inbox IS the
+   fallback. Breaks: a transient SMTP failure loses that one email. Acceptable; the row survives.
+3. **Flood cap + coalescing** (`floodMaxPerMinute`, `floodCoalesceWindowMs`, window state). The real
+   flood control is "only urgent, unmuted rows go outbound." Breaks: a storm of urgent events sends
+   a storm of emails — fix the storm at the policy engine, not with rate-limit machinery.
+4. **Daily digest, both flavors** (`getDailyDigest`, `GET /api/status/digest`, the `routine_fired`
+   digest worker, `digestCron`, `pending-digest`/`stuck` filters, `work.listQueuedItemsSince` — flag
+   to the `work` destroyer stands). Demo-only trigger, zero-client route. If a team ever wants a
+   digest it is a plugin on routines + events (Ruling 2), not core.
+5. **Silence + quiet hours** (`silence-policy.ts` entirely, the silence schema, the quiet-hours
+   branch, policy-engine's silence consumer + `PolicyDeps.silence`, `teams` dep). No writer has ever
+   existed for either. Zero behavior change.
+6. **Dead endpoints**: `POST /flush`, `POST /digest`, `GET /queue`, `GET /api/status/digest` die.
+   `GET/PATCH /config` and `POST /test` **live** — they become the settings screen's backend
+   (FINISH). The route-level audit-diff logger on config PATCH still dies (ETHOS: audit trail
+   nobody reads).
+7. **Single-recipient config** (`recipientEmail`, `recipientNtfyTopic`). Single-user relics.
+   Outbound mail addresses the recipient user's email from their user row (OIDC-fed).
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `getDailyDigest` | UI:GET /api/status/digest (route has zero clients) | DELETE | Endpoint nothing calls; route comment claiming consumers is stale. Kill the route too. |
-| 2 | `scrubErrorMessage` | INTERNAL (export is TEST-ONLY: `delivery-helpers.test.ts`) | DELETE | Serves only delivery-engine error paths; dies with the engine, test dies with it. |
-| 3 | `priorityForSeverity` | INTERNAL (export is TEST-ONLY) | DELETE | ntfy priority mapping for a channel no install has ever enabled. |
-| 4 | `classifySmtpRetriable` | INTERNAL (export is TEST-ONLY) | DELETE | SMTP retry triage for a channel with no UI; prior WP already stripped SMTP dev deps. |
-| 5 | `installNotifications` | BOOTSTRAP (`service-bootstrap.ts:488`) | SIMPLIFY | Boots 3 workers; 2 are dead (dispatcher routes to disabled delivery, drain flushes to nothing). Shrink to listener-only registration. |
-| 6 | `deliver` | UI:POST /api/notifications/test·flush·digest (zero clients) | DELETE | All three variants serve curl-only endpoints; flush/digest additionally no-op on `enabled:false`. Kill the three routes. |
-| 7 | `readConfig` | UI:GET /api/notifications/config (zero clients) | DELETE | Redacted view of config no UI renders. Kill route. |
-| 8 | `updateConfig` | UI:PATCH /api/notifications/config (zero clients) | DELETE | The only writer of delivery config, and nothing calls it — proof the whole config is dead. Kill route + sanitizers + secret writes. |
-| 9 | `readPreferences` | UI:GET /api/notifications/mute | KEEP | Core value: mute toggles in Settings (`SettingsNotifications.tsx` → `useNotificationMute.ts`). Named door, real user. |
-| 10 | `updatePreferences` | UI:PUT /api/notifications/mute/:key | KEEP | Same door, write side. Muting a noisy type is the one notification control users have. |
-| 11 | `enqueue` | EVENT:notification (listener), EVENT:session_ended (agent-health), SCHED:lifecycle-propagation tick (via `PolicyDeps.notifications.insert`) | SIMPLIFY | Core inbox write. Delete the `dedupeBy` option (zero production callers — verified) and the digest-first cap-eviction loop (delivery-era severity logic); cap becomes "drop oldest". |
-| 12 | `listNotifications` | UI:GET /inbox, EVENT:session_ended (agent-health) | SIMPLIFY | 10 filter variants → 3. Keep `unread`, `by-event-since`, `pending-by-event`. Delete `all` + `by-id` (test-support, self-documented as such — test-only reachable = dead), `by-status` (dead /queue), `pending`/`pending-digest`/`by-ids`/`stuck` (delivery-engine-only). |
-| 13 | `markNotifications` | UI:POST /seen, POST /:id/read | SIMPLIFY | Keep `read`/`seen` + ids/all selector. Delete `status`/`attempts`/`sentAt`/`lastError`/`claimedAt` patch fields and `onlyIfStatus` guard — all claim/lease machinery for the dead deliverer. |
-| 14 | `reap` | SCHED:6h retention tick (`service-bootstrap.ts:516`) | SIMPLIFY | GC is real (bounded local DB) but the predicate is wrong post-kill: nothing reaches `sent/failed/dropped` anymore. Repoint at read/old rows past TTL; drop the `statuses` param. |
-| 15 | `isInSilenceWindow` | INTERNAL (silence + quiet-hours only) | DELETE | Both consumers die: silence config has no writer, quiet-hours has no UI. |
-| 16 | `isSilenced` | BOOTSTRAP → policy-engine (`service-bootstrap.ts:244`), plus dead flush path | DELETE | Constant-false in every real install — `silence` config has no writer anywhere. Kill the caller too: policy-engine's silence branch + `PolicyDeps.silence` + the schema. Zero behavior change. |
+| 1 | `getDailyDigest` | UI:GET /api/status/digest (zero clients) | DELETE | Demo-only trigger, zero-client route — dead on its own terms at any team size. Digest-as-plugin if ever wanted. |
+| 2 | `scrubErrorMessage` | INTERNAL (export TEST-ONLY) | DELETE | Serves the retry/error paths of the platform being cut; fire-once send logs via observability. Preemptive-security reflex. |
+| 3 | `priorityForSeverity` | INTERNAL (export TEST-ONLY) | DELETE | ntfy priority mapping; ntfy dies — email is the one channel. |
+| 4 | `classifySmtpRetriable` | INTERNAL (export TEST-ONLY) | DELETE | Retry triage for a retry machine that dies; fire-once + inbox fallback needs no triage. |
+| 5 | `installNotifications` | BOOTSTRAP (`service-bootstrap.ts:488`) | SIMPLIFY | 3 workers → 1: listener that writes the row and inline-sends urgent unmuted ones. Dispatcher state machine, drain worker, lease recovery die. |
+| 6 | `deliver` | UI:POST /test·flush·digest (zero clients today) | SIMPLIFY | Was DELETE; Ruling 1. Keep test-send as the settings screen's verify button. flush/digest variants and their routes die. |
+| 7 | `readConfig` | UI:GET /api/notifications/config (zero clients today) | FINISH | Was DELETE; Ruling 1. Read side of the delivery-settings UI that was never built. Redaction stays. |
+| 8 | `updateConfig` | UI:PATCH /api/notifications/config (zero clients today) | FINISH | Was DELETE; Ruling 1. The only config writer; build the UI that calls it, shrink the patch to enabled + SMTP. Kill recipient/ntfy/flood/digest sanitizers and the smtpIgnoreTls carve-out. |
+| 9 | `readPreferences` | UI:GET /api/notifications/mute | KEEP | Core value: mute toggles in Settings, named door, real users. Per-user mutes are the honest team shape — priced in Holes. |
+| 10 | `updatePreferences` | UI:PUT /api/notifications/mute/:key | KEEP | Same door, write side. |
+| 11 | `enqueue` | EVENT:notification, EVENT:session_ended, SCHED:lifecycle-propagation tick | SIMPLIFY | Core inbox write. Delete `dedupeBy` (zero production callers) and digest-first cap eviction; cap = drop oldest. |
+| 12 | `listNotifications` | UI:GET /inbox, EVENT:session_ended | SIMPLIFY | 10 filters → 3: `unread`, `by-event-since`, `pending-by-event`. `all`/`by-id` test-only; `by-status`/`pending`/`pending-digest`/`by-ids`/`stuck` die with queue lifecycle. |
+| 13 | `markNotifications` | UI:POST /seen, POST /:id/read | SIMPLIFY | Keep `read`/`seen` + ids/all. Delete `status`/`attempts`/`sentAt`/`lastError`/`claimedAt` fields and `onlyIfStatus` — lease machinery for a deleted deliverer. |
+| 14 | `reap` | SCHED:6h retention tick (`service-bootstrap.ts:516`) | SIMPLIFY | Repoint at read/old rows past TTL; drop the `statuses` param — no row reaches `sent/failed/dropped` anymore. |
+| 15 | `isInSilenceWindow` | INTERNAL (silence + quiet-hours only) | DELETE | Both consumers have no writer anywhere — re-confirmed. Dead regardless of user count. |
+| 16 | `isSilenced` | BOOTSTRAP → policy-engine (`service-bootstrap.ts:244`) | DELETE | `silence` config has no writer; constant-false in every install that has ever existed. Kill the policy-engine branch + `PolicyDeps.silence` + schema. Team-wide hush, if ever wanted, gets built from a real learning. |
 
 ## Types / DI ports
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `DeliverySpec` | DELETE | Dies with `deliver`. |
-| `DeliveryResult` | DELETE | Dies with `deliver`. |
-| `NotificationConfigPatch` | DELETE | Dies with `updateConfig`; 18 members describing channels nobody configured. |
-| `SafeNotificationConfig` | DELETE | Redaction wrapper for a config endpoint nothing calls. |
+| `DeliverySpec` | SIMPLIFY | Was DELETE; Ruling 1. Shrinks to the test variant. |
+| `DeliveryResult` | SIMPLIFY | Was DELETE; Ruling 1. Survives with test-send. |
+| `NotificationConfigPatch` | SIMPLIFY | Was DELETE; Ruling 1. 18 members → ~7: `enabled`, `smtpHost/Port/Secure/Username/Password/From`. Recipient, ntfy, flood, digestCron, testMaxPerHour, smtpIgnoreTls die. |
+| `SafeNotificationConfig` | SIMPLIFY | Was DELETE; Ruling 1. Redaction is legit once the settings UI reads config back. |
 | `NotificationFilter` | SIMPLIFY | 10 variants → 3 (`unread`, `by-event-since`, `pending-by-event`). |
-| `NotificationSelector` | SIMPLIFY | Keep `ids`/`all`; delete `onlyIfStatus` (claim guard for the dead deliverer). |
+| `NotificationSelector` | SIMPLIFY | Keep `ids`/`all`; delete `onlyIfStatus`. |
 | `NotificationPatch` | SIMPLIFY | Keep `read`/`seen`; delete the 5 delivery-lifecycle fields. |
-| `NotificationsDeps` | SIMPLIFY | 6 fields → 2. `credentialCipher` + `credentialStore` die with SMTP/ntfy secrets; `users` + `teams` die with `isSilenced`; `serverConfig` shrinks to `mutedTypes`; `work` shrinks to `getItemById` (`listQueuedItemsSince` dies with the digest). |
-| `NotificationChannel` | DELETE | No channels survive. |
-| `Notification` | DELETE | Adapter payload type; the inbox reads DB rows, never this shape. |
-| `NotificationAdapter` | DELETE | No adapters survive; the tests' FakeAdapter dies with it. |
+| `NotificationsDeps` | SIMPLIFY | 6 → 5, different five than the first wave: keep `serverConfig` (shrunk), `credentialCipher` + `credentialStore` (SMTP password at rest, reusing the credential infra A5 keeps), `users` (per-user email addressing — Ruling 1); delete `teams` (silence-only); `work` shrinks to `getItemById`. |
+| `NotificationChannel` | DELETE | One hardcoded channel needs no union. |
+| `Notification` | DELETE | Adapter payload; compose the email from the DB row directly. |
+| `NotificationAdapter` | DELETE | Adapter abstraction over one channel is a wrapper; FakeAdapter tests die with it. |
 
 ## Holes this leaves
 
-1. **No out-of-app ping, ever.** When the founder is away from the app, nothing emails or pushes. This hole is not new — delivery has been off-by-default and unconfigurable since it shipped; deleting the code makes reality honest. If push is ever actually wanted, build ONE channel with a UI the same day, from a real learning, not this speculative three-channel platform.
-2. **Queue retention must repoint.** With delivery statuses gone, `reap(["sent","failed","dropped"])` collects nothing; unaddressed, the inbox grows to the 10k cap. The SIMPLIFY on `reap` (TTL on read/old rows) closes this — it must land in the same change, not later.
-3. **Rows with delivery-era fields.** `lifecycle-propagation.ts:645` inserts `severity: "warning"` (not even in the severity union) and agent-health writes `reason`/`channel`/`status` — the queue schema keeps dead columns until a follow-up migration trims it to inbox shape (`id`, `eventType`, `subjectId`, `typeKey`, `urgency`, `title`, `body`, `sourceLink`, `createdAt`, `seenAt`, `readAt`).
-4. **Tests die in bulk**: `notifications/src/__tests__/delivery-helpers.test.ts` and most of `install.test.ts`, plus the delivery/dispatcher/silence/digest integration suites under `layers/core-api/src/__tests__/` (`dispatcher`, `AF8-notification-delivery`, `R8-signal-to-noise`, `silence-policy`, `daily-digest`, parts of `notifications-routes`). They test the deleted feature; they die with it.
-5. **Cross-service flags**: `@hyperidle/work.listQueuedItemsSince` loses its only consumer (route to the `work` destroyer); `framework/host-process` SSRF helpers may lose a consumer; the two SMTP/ntfy rows in the credentials store become orphans.
+1. **The FINISH is real work, not a survivor.** Until the delivery-settings UI ships, outbound email
+   remains exactly as unreachable as today (`enabled: false`, no writer). The FINISH must include:
+   the settings screen calling `GET/PATCH /config` + `POST /test`, per-user addressing from the user
+   row's OIDC email, and the listener's inline urgent send. Countable work — do not book it as KEEP.
+2. **Per-user scoping gap (Ruling 1).** Inbox rows have no `userId` — one shared inbox, shared
+   read/seen state for the whole team; mutes are global. Works crudely for one team, wrong for an
+   organisation. Needs a follow-up: recipient column on the queue, mutes keyed by user. Without it,
+   outbound "email the approver" has to derive its recipient from the event payload each time.
+3. **Transient email loss.** Fire-once send means a flaky SMTP moment drops that one email; the
+   inbox row remains. Accepted trade for deleting the retry/lease/status machine.
+4. **Reap must repoint in the same change** as the status-machine deletion, or the inbox grows to
+   the 10k cap.
+5. **Schema debt.** Queue keeps dead columns (`status`, `attempts`, `claimedAt`, `lastError`,
+   `channel`, `reason`) until a follow-up migration trims to inbox shape + recipient;
+   `lifecycle-propagation.ts:645` still inserts `severity: "warning"` (not in the union).
+6. **Tests.** Silence/digest/dispatcher-lifecycle suites die with their features
+   (`silence-policy`, `daily-digest`, `R8-signal-to-noise`, dispatcher lease/flood cases, FakeAdapter
+   suites). `AF8-notification-delivery` shrinks to cover the one surviving send path instead of
+   dying — the finished feature needs it.
+7. **Cross-service flags stand**: `@hyperidle/work.listQueuedItemsSince` loses its only consumer
+   (route to `work` destroyer); `framework/host-process` SSRF helpers may lose a consumer; the ntfy
+   credential row orphans. The SMTP credential row now has a live owner.
 
 
 ---
 
-# org — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/org.md` for comparison.
+
+# org — destroyer verdict (REVISED after founder rulings)
+
+## What changed after the rulings
+
+**Verdict moved (1 row):**
+
+| Row | Method | Old | New | Ruling |
+|---|---|---|---|---|
+| 4 | `resolveReviewRecipients` | DELETE | MERGE | Ruling 1 — on a shared backend serving an organisation of several teams, "replace with all humans" is wrong: it puts every human in every team on every agent review thread. Team scoping is exactly what Ruling 1 says survives. The capability lives; the edges matrix still dies; the honest home is `@hyperidle/users` as one team-scoped human query. |
+
+**Verdict letter unchanged, argument re-based (these rows' first-wave reasons leaned on the voided solo/single-user premise and are rewritten; the kill stands on the corrected premise):**
+
+| Row | Method | Verdict | What changed in the argument |
+|---|---|---|---|
+| 1–3 | `listOrgEdges` / `deleteOrgEdge` / `upsertOrgEdge` | DELETE | First wave: "solo founder never configures this, fallback is identical." Void. New argument: the edges matrix is an org chart — named reviewers per agent, per role, per team, drawn as an organogram. That is hierarchy and roles-as-permissions ceremony the ethos forbids at any team count. The thing a multi-team backend actually needs — scope by team — needs no edges: team membership already exists (`users.teamId`). |
+| — | `ReviewRoutingContext` | DELETE | Old reason: dies with `resolveReviewRecipients`. New reason: the resolver survives but its context collapses to a plain `teamId` argument — the `userId`/`agentRole` members are the direct/function edge mechanisms wearing a type, and they die with the edges. |
+| — | `OrgUserDirectory` | SIMPLIFY | Same shrink to `getUserById` + `insertUser`, different reason: `listUsersByKind` leaves not because recipient resolution died but because it moved to `@hyperidle/users`, where reading users is native (service ownership covers reads). |
+| — | Hole 1 (review routing) | — | Completely rewritten. "All humans as participants is acceptable" was the solo-founder argument and is void. New shape: recipients = the agent's team's humans; fallback to all humans only when the team has none. No hole of cross-team review noise is opened. |
+| — | Hole 5 (seam port member) | — | `CoreApiOrgPort.resolveReviewRecipientsForItem` no longer dies — the `create_item` tool still needs "which humans should see this review". It survives re-shaped as a team-scoped users query behind the seam. |
+
+**Checked against the other rulings, no movement:** org emits no event types (Ruling 2 has nothing to protect here — confirmed: no `emit`/event vocabulary in the package). Nothing in org is knowledge-management ritual (Ruling 3): the org chart is routing config, not a practice-meeting; teams and agent scaffolding are the machinery of working itself. No PLUGIN rows. No FINISH rows — A7's shared-backend/OIDC work lands in users/auth, not here; this service already never mints human identity (scaffold inserts `kind: "ai"` only, `scaffold-agents.ts:183`), so it is OIDC-compatible as-is.
+
+**Unchanged and premise-free:** the `teamMembers`→`teams` fold (rows 9–14) is a schema-shape argument — a 1:1 companion table is one table wearing two names at any number of teams; `deleteTeam` (row 17) is a rollback-helper argument; both stand exactly as written.
 
 ## Should this service exist?
 
-**KILL THE NAME, KILL HALF THE BODY.** "org" is two unrelated things stapled together:
+**KILL THE NAME, KILL THE ORG CHART, KEEP THE TEAMS.** Same split as the first wave, now on firmer ground:
 
-1. **An org chart** (`org-edges.ts`, `org-routing.ts`, the `orgEdges` table, `SettingsOrgChart.tsx`). This is the enterprise reflex incarnate — a routing matrix with THREE mechanisms (direct/function/team) deciding which human receives an agent's review, plus a settings page that literally draws an organogram. HyperIdle is for flat teams of 1–5 humans. The feature's own fallback — "no edges configured → all humans" — IS the flat-team answer, and it is what every fresh install runs on anyway. The entire edges feature is configuration ceremony layered on top of a fallback that already does the right thing. **DELETE the whole capability.**
+1. **The org chart** (`org-edges.ts`, the `orgEdges` table, `SettingsOrgChart.tsx`, the edge routes): still DELETE, and the corrected premise makes the argument *stronger*, not weaker. A shared backend with several teams does need review scoping — and the scoping unit the product already has is the **team**. The edges feature is a second, hand-drawn answer to a question team membership already answers: three mechanisms (direct = a named human reviews a named agent; function = a named human reviews a role; team = a named human reviews a team) are an approval-chart. Direct and function edges are hierarchy and roles-as-permissions; even the "team" mechanism is redundant with membership. The `POST /api/teams` auto-edge that wires the founder as reviewer of every new team (`teams-routes.ts:330`) is the approval-chain reflex in one line. All of it dies.
 
-2. **Teams + agent scaffolding** (`team-lookup.ts`, `scaffold-agents.ts`). Teams are one of the five process-layer primitives and `persistScaffoldedAgents` is the single writer of agent identity — agents as first-class teammates is the product. **This survives — as a service named `teams`, not `org`.**
+2. **Teams + agent scaffolding** (`team-lookup.ts`, `scaffold-agents.ts`): under Ruling 1 this is *more* load-bearing than the first wave credited. Several teams genuinely coexist on one backend; team scoping of work and conversation runs through `getTeam`/`listTeams`; `persistScaffoldedAgents` is the single writer of agent identity. Survives as a service named `teams`.
 
-Survivor routing: `team-lookup.ts` + `scaffold-agents.ts` + `ports.ts` become `@hyperidle/teams` (or fold into the existing team routes' service home). `org-edges.ts`, `org-routing.ts`, and the `orgEdges` table are deleted outright.
+3. **Recipient resolution**: the one capability that moves. Survives, but shrinks to "the humans of this team, else all humans" — one query whose honest owner is `@hyperidle/users`.
+
+Survivor routing: `team-lookup.ts` + `scaffold-agents.ts` + `ports.ts` become `@hyperidle/teams`. `org-edges.ts` and the `orgEdges` table delete outright. `org-routing.ts`'s surviving intent merges into `@hyperidle/users`.
 
 ## If written today, from scratch
 
-Five methods, one table:
+For an organisation of several small teams of humans and agents on one shared backend, humans arriving via OIDC, events as the plugin surface:
 
 - `getTeam(db, {id|name})`
 - `listTeams(db, filter?)`
 - `createTeam(db, input)` — single insert, single table
 - `updateTeam(db, teamId, patch)`
-- `persistScaffoldedAgents(db, deps, teamId, specs, harness?)`
+- `persistScaffoldedAgents(db, deps, teamId, specs, harness?)` — agents are minted here; humans are never minted here, they arrive from the OIDC provider and get attached to teams
+- *(in `users`, not here)* `listHumans(db, {teamId?})` — the whole of review routing: a review of a team's agent goes to that team's humans; a team with no humans falls back to all humans so every review reaches someone
 
-No `teamMembers` table (1:1 with `teams` — a 1:1 companion table is one table wearing two names), no org edges, no review-routing matrix, no rollback-only delete helper.
+Still no `teamMembers` table (1:1 companion = one table wearing two names), no org edges, no routing matrix, no rollback-only delete helper. One thing the from-scratch shape exposes that today's schema gets wrong for the corrected premise: `users.teamId` is a single FK, but a human belongs to *one or more* teams. When multi-team membership is built (users-service work, not this package), it becomes a membership relation owned by `users`; nothing in this service's surviving five methods changes shape when that lands.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 5 |
-| MERGE | 7 |
+| DELETE | 4 |
+| PLUGIN | 0 |
+| FINISH | 0 |
+| MERGE | 8 |
 | SIMPLIFY | 2 |
 | KEEP | 3 |
 
-Surface: 17 method rows (13 distinct functions) → 5 methods (71% cut by row, 62% by function)
+Surface: 17 method rows (13 distinct functions) → 5 methods here + 1 query relocated to `users` (65% cut by row).
 
 ## Feature-level kills
 
-**1. The org chart / review-routing edges — whole capability dies.**
-`orgEdges` table, `listOrgEdges`, `deleteOrgEdge`, `upsertOrgEdge`, `resolveReviewRecipients`, `SettingsOrgChart.tsx` (entire component + its settings-nav entry), `GET /api/org/` (org-chart payload), `PUT /api/org/edges`, `DELETE /api/org/edges/:id`, `GET /api/org/review-recipients`, and the `upsertOrgEdge` call inside `POST /api/teams` (`layers/core-api/src/routes/teams-routes.ts:330`) that auto-wires the founder as reviewer of every new team.
-What breaks: reviews stop being routable to a chosen human; every review adds ALL humans as thread participants (`layers/core-api/review/src/session-review-creator.ts:88` and TOOL `create_item` via `resolveReviewRecipientsForItem`, `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts:493` — both replace the call with one `listUsersByKind(db, "human")`).
-Why acceptable: that is byte-for-byte the existing fallback behavior for any install that never opened the org-chart settings page. For a solo founder it is identical; for a 5-person team it is the flatter behavior — everyone sees agent reviews. If a real learning later shows review noise hurts, earn a routing feature back then (ETHOS §2: friction is added after evidence, never before).
-Collateral to re-point: `SettingsFilesystems.tsx:77` and `SettingsAgents.tsx:167` fetch `/api/org` only to get the teams list — both switch to `GET /api/teams`.
+**1. The org chart / review-routing edges — the matrix dies, the scoping survives elsewhere.**
+Dies: `orgEdges` table, `listOrgEdges`, `deleteOrgEdge`, `upsertOrgEdge`, `SettingsOrgChart.tsx` (component + settings-nav entry), `GET /api/org/` (org-chart payload), `PUT /api/org/edges`, `DELETE /api/org/edges/:id`, `GET /api/org/review-recipients` (zero callers — the route's own comment says "No UI action reaches this directly today", `routes/org.ts:282`), and the founder-auto-edge write in `POST /api/teams` (`teams-routes.ts:330`).
+Survives, relocated: recipient resolution as a team-scoped human query in `@hyperidle/users`. Both production callers (`session-review-creator.ts:88`, `tool-definitions.ts:493`) already pass `teamId`; they drop the `userId`/`agentRole` fields and keep working.
+Why the matrix dies on the corrected premise: named-reviewer edges are an approval chart. On a flat multi-team org the unit of visibility is the team you are on — which membership already encodes. Configuring *which specific human* reviews *which specific agent or role* is exactly the org-chart ceremony the ethos forbids, at 2 humans or 20.
+Collateral to re-point: `SettingsFilesystems.tsx:77` and `SettingsAgents.tsx:167` fetch `/api/org` only for the teams list — both switch to `GET /api/teams`.
 
-**2. `teamMembers` folds into `teams` — the noun dies.**
-The 1:1 invariant (enforced by app-level 500s in `getTeamMembers`) is the schema confessing that two tables are one entity. Fold `capacity`, `activeBets`, `leadAgentId`, `formedAt` into `teams`; re-point `users.teamId` at `teams.id` (one migration). Kills: the `ApiError` 500 machinery, the AK4 two-hop id resolution, `GET /api/org/teams/:teamId/membership`, `GET /api/org/team-members/:teamMembersId`, and the `teamMembersId` ceremony in `CreateTeamInput`. Bonus kill: `teamMembers.dissolvedAt` duplicates `teams.phase = "archive"` — two ways to deactivate a team; keep `phase`, drop `dissolvedAt`.
+**2. `teamMembers` folds into `teams` — the noun dies.** Unchanged from the first wave; the argument is schema-shape, not user-count. The 1:1 invariant enforced by app-level 500s (`team-lookup.ts:113–154`) is the schema confessing two tables are one entity. Fold `capacity`, `activeBets`, `leadAgentId`, `formedAt` into `teams`; re-point `users.teamId` at `teams.id` (one migration — and this re-point is a prerequisite for the team-scoped recipient query anyway, killing the AK4 two-hop). Kills the `ApiError` 500 machinery, `GET /api/org/teams/:teamId/membership`, `GET /api/org/team-members/:teamMembersId`, the `teamMembersId` ceremony in `CreateTeamInput`, and `teamMembers.dissolvedAt` (duplicates `teams.phase = "archive"`).
 
-**3. `deleteTeam` — a rollback pretending to be a feature.**
-Sole caller is the `POST /api/teams` specs-empty rollback (`teams-routes.ts:304`). Resolve the scaffold specs BEFORE inserting the team row (pure function, no reason it runs after) and the rollback path evaporates. There is no user-facing delete-team feature anywhere — a delete method with no product behind it does not get to live as "useful someday".
+**3. `deleteTeam` — a rollback pretending to be a feature.** Unchanged. Sole caller is the `POST /api/teams` specs-empty rollback (`teams-routes.ts:304`); resolve scaffold specs before inserting the team row and the rollback path evaporates. No user-facing delete-team surface exists; a multi-team org retires a team via `phase = "archive"`, not row deletion.
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `listOrgEdges` | UI:GET /api/org/, UI:DELETE /api/org/edges/:id | DELETE | Only feeds the org-chart page and the edge-delete existence check — dies with the edges feature. |
+| 1 | `listOrgEdges` | UI:GET /api/org/, UI:DELETE /api/org/edges/:id | DELETE | Feeds only the org-chart page and the edge-delete existence check; the edges matrix is approval-chart ceremony at any team count — dies with the feature. |
 | 2 | `deleteOrgEdge` | UI:DELETE /api/org/edges/:id | DELETE | Edge deletion for a feature that dies; kill the route with it. |
-| 3 | `upsertOrgEdge` | UI:PUT /api/org/edges, UI:POST /api/teams/ | DELETE | TOCTOU-safe upsert engineering for an enterprise routing matrix; the teams-routes founder-edge write dies too. |
-| 4 | `resolveReviewRecipients` | EVENT:session_ended, AGENT:create_item, UI:GET /api/org/review-recipients | DELETE | Its no-edge fallback (all humans) is the flat-team answer; replace both production callers with one `listUsersByKind(db, "human")` line. |
-| 5 | `persistScaffoldedAgents` | AGENT:create_team, AGENT:add_agent, UI:POST /api/teams/, UI:POST /api/users/, UI:GET+PATCH /api/users/:userId/assistant/, UI:POST /api/org/scaffolded-agents | KEEP | Core value: agents are first-class teammates; this is the single writer of agent identity, behind every agent-creation door (human and agent alike). |
-| 6 | `resolveTeamAgentHarness` | INTERNAL | MERGE | Not in the barrel, exactly one caller (`persistScaffoldedAgents`); a 15-line if-block does not earn its own file + export — inline it, delete `team-default-harness.ts`. |
-| 7 | `getTeam` | UI:GET /api/teams/:teamId +25 more routes, AGENT:add_agent/create_bet/create_routine, SCHED:routine-scheduler, EVENT:session_ended/task_state_changed | KEEP | Teams are a process-layer primitive; this read is load-bearing across bets, tasks, routines, reviews, knowledge. |
-| 8 | `listTeams` | UI:GET /api/teams/, GET /api/bets/canvas, GET/PATCH /api/settings/, GET /api/search/ | KEEP | The team directory behind five real UI surfaces. |
-| 9 | `getTeamMembers` (overload `require:true`) | UI:POST /api/bets/:id/commit +many, SCHED:notification drain, EVENT:item_created/session_ended | MERGE | The `require:true` 500-throwing invariant police exists only because the schema splits one entity into two tables; fold `teamMembers` into `teams` and this overload is `getTeam`. |
-| 10 | `getTeamMembers` (overload optional) | UI:PUT /api/org/edges, GET /api/org/teams/:teamId/membership +many | MERGE | Same body — after the table fold every call site is `getTeam`. |
+| 3 | `upsertOrgEdge` | UI:PUT /api/org/edges, UI:POST /api/teams/ | DELETE | TOCTOU-safe upsert engineering for an approval chart; the `teams-routes.ts:330` founder-auto-edge — founder reviews every new team — is the approval-chain reflex and dies with it. |
+| 4 | `resolveReviewRecipients` | EVENT:session_ended, AGENT:create_item, UI:GET /api/org/review-recipients | MERGE | **Moved by Ruling 1.** On a multi-team shared backend recipients must be the agent's *team's* humans, not all humans — team scoping survives, edges don't. Fold into `@hyperidle/users` as `listHumans(db, {teamId?})` carrying the fallback (team has no humans → all humans, so every review reaches someone); both callers already pass `teamId`. The zero-caller GET route still deletes. |
+| 5 | `persistScaffoldedAgents` | AGENT:create_team, AGENT:add_agent, UI:POST /api/teams/, UI:POST /api/users/, UI:GET+PATCH /api/users/:userId/assistant/, UI:POST /api/org/scaffolded-agents | KEEP | Core value: agents are first-class teammates; single writer of agent identity behind every agent-creation door. Inserts `kind: "ai"` only — already clean against OIDC-sourced human identity. |
+| 6 | `resolveTeamAgentHarness` | INTERNAL | MERGE | One caller (`persistScaffoldedAgents`), not in the barrel; a 15-line if-block does not earn a file + export — inline it, delete `team-default-harness.ts`. |
+| 7 | `getTeam` | UI:GET /api/teams/:teamId +25 more routes, AGENT:add_agent/create_bet/create_routine, SCHED:routine-scheduler, EVENT:session_ended/task_state_changed | KEEP | Teams are the scoping unit of a multi-team shared backend; this read is load-bearing across bets, tasks, routines, reviews, knowledge. |
+| 8 | `listTeams` | UI:GET /api/teams/, GET /api/bets/canvas, GET/PATCH /api/settings/, GET /api/search/ | KEEP | The team directory behind five real UI surfaces — on an org of several teams this IS the org view; no organogram needed. |
+| 9 | `getTeamMembers` (overload `require:true`) | UI:POST /api/bets/:id/commit +many, SCHED:notification drain, EVENT:item_created/session_ended | MERGE | The 500-throwing invariant police exists only because one entity is split across two tables; fold `teamMembers` into `teams` and this overload is `getTeam`. Premise-free — stands. |
+| 10 | `getTeamMembers` (overload optional) | UI:PUT /api/org/edges, GET /api/org/teams/:teamId/membership +many | MERGE | Same body — after the fold every call site is `getTeam`. |
 | 11 | `getTeamMembers` (implementation) | UI/AGENT/SCHED (35 doors via both overloads) | MERGE | Implementation row of #9/#10; dies into `getTeam` with the fold. |
-| 12 | `listTeamMembers` (overload `withTeamName:true`) | UI:GET /api/org/ | MERGE | The join-projection exists solely to shape the org-chart payload; org chart dies, the projection dies, survivors use `listTeams`. |
-| 13 | `listTeamMembers` (overload plain) | UI:GET /api/bets/canvas, GET /api/team-members/ | MERGE | After the fold this is `listTeams` with an `active` filter (which becomes `phase != "archive"`). |
+| 12 | `listTeamMembers` (overload `withTeamName:true`) | UI:GET /api/org/ | MERGE | The join-projection exists solely to shape the org-chart payload; org chart dies, projection dies, survivors use `listTeams`. |
+| 13 | `listTeamMembers` (overload plain) | UI:GET /api/bets/canvas, GET /api/team-members/ | MERGE | After the fold this is `listTeams` with `phase != "archive"`. |
 | 14 | `listTeamMembers` (implementation) | UI (3 doors via overloads) | MERGE | Implementation row of #12/#13; dies into `listTeams`. |
 | 15 | `createTeam` | UI:POST /api/teams/, UI:POST /api/org/teams, AGENT:create_team | SIMPLIFY | Survives as one insert into one table; `teamMembersId`/`capacity`/`activeBets`/`formedAt` bookkeeping leaves the signature (defaults live in the schema). |
 | 16 | `updateTeam` | UI:PATCH /api/teams/:teamId, UI:POST /api/teams/, AGENT:create_team | SIMPLIFY | Survives; after the fold the two-table branch logic collapses to one UPDATE on `teams`. |
-| 17 | `deleteTeam` | UI:POST /api/teams/ (rollback branch only) | DELETE | A rollback helper, not a feature — resolve scaffold specs before inserting and no rollback exists; no delete-team product surface exists anywhere. |
+| 17 | `deleteTeam` | UI:POST /api/teams/ (rollback branch only) | DELETE | A rollback helper, not a feature — resolve scaffold specs before inserting and no rollback exists; team retirement on a shared backend is `phase = "archive"`, never row deletion. |
 
 ## Types / DI ports
 
 | Declaration | Verdict | Reason |
 |---|---|---|
 | `UpsertOrgEdgeInput` | DELETE | Dies with `upsertOrgEdge`. |
-| `ReviewRoutingContext` | DELETE | Dies with `resolveReviewRecipients`. |
-| `OrgUserDirectory` | SIMPLIFY | `listUsersByKind` member dies with org-routing; shrinks to `getUserById` + `insertUser` (scaffold's only needs). |
+| `ReviewRoutingContext` | DELETE | The resolver survives (merged into `users`) but its context collapses to a plain `teamId` argument; `userId`/`agentRole` are the direct/function edge mechanisms wearing a type and die with the edges. |
+| `OrgUserDirectory` | SIMPLIFY | Shrinks to `getUserById` + `insertUser` (scaffold's only needs); `listUsersByKind` leaves because recipient resolution moves into `@hyperidle/users`, where reading users is native. |
 | `OrgAgentRunConfigWriter` | MERGE | One-function port always wired alongside `OrgUserDirectory` into the same `deps` object — fold its member into the one surviving port. |
 | `ScaffoldResult` | KEEP | Return type of the keeper `persistScaffoldedAgents`. |
 | `AgentScaffoldSpec` | KEEP | Input type of the keeper; the Strategy/Kernel split it encodes is real. |
@@ -4753,348 +5642,576 @@ Sole caller is the `POST /api/teams` specs-empty rollback (`teams-routes.ts:304`
 
 ## Holes this leaves
 
-1. **No review routing.** Every agent review adds all human users as thread participants. Identical to today's fresh-install behavior; a configured install loses its routing choices. Price: on a 5-human team, every human is a participant on every agent review thread. If that ever measurably hurts, a routing feature gets earned back from that evidence.
-2. **One migration.** `teamMembers` columns move into `teams`, `users.teamId` re-points from `teamMembers.id` to `teams.id`, `orgEdges` table drops. Blast radius of the fold: ~15 production files call `getTeamMembers`/`listTeamMembers` (routes, policy-engine, notifications drain, bet-state-machine tx, durable-agent-queue, seam ports) — each becomes a `getTeam`/`listTeams` call; the AK4 two-hop resolution and its two seam routes (`/api/org/teams/:teamId/membership`, `/api/org/team-members/:teamMembersId`) delete outright.
-3. **`/api/org` router mostly evaporates.** Org-chart GET, edge PUT/DELETE, review-recipients GET die. `SettingsOrgChart.tsx` deletes; `SettingsFilesystems.tsx` and `SettingsAgents.tsx` re-point to `GET /api/teams`. The surviving seam routes (`POST /org/teams`, `POST /scaffolded-agents`, `POST /team-routines`, `GET /org/teams/:teamId`) belong under `/api/teams` in the renamed service.
-4. **`POST /api/teams` loses its rollback.** Spec resolution reorders to before the insert — if that reorder is refused, the create wraps in a transaction instead. Either way `deleteTeam` stays dead.
-5. **Seam port members shrink.** `CoreApiOrgPort.resolveReviewRecipientsForItem` (framework/api-contract/src/core-api-port.ts:442) and tool-handlers' mirror member die; `create_item`'s handler calls the users seam for humans instead. `getTeamMembersByTeamId`-shaped port members collapse into the `getTeam` members.
+1. **Review routing loses the hand-drawn choices, keeps team scoping.** A review of a team's agent reaches that team's humans (fallback: all humans only when the team has none — every review still reaches someone). What's lost is only the configured direct/function edges — "this named human reviews this named agent/role". On a flat org that choice is the approval chart itself; if a real learning ever shows a team needs a designated reviewer, earn it back then (ETHOS: friction after evidence, never before). No cross-team review noise is introduced — the first wave's "all humans everywhere" replacement is retracted.
+2. **One migration.** `teamMembers` columns move into `teams`, `users.teamId` re-points from `teamMembers.id` to `teams.id`, `orgEdges` drops. Blast radius unchanged from the first wave: ~15 production files calling `getTeamMembers`/`listTeamMembers` become `getTeam`/`listTeams` calls; the AK4 two-hop resolution and its two seam routes (`/api/org/teams/:teamId/membership`, `/api/org/team-members/:teamMembersId`) delete outright. The re-point is also the prerequisite for the team-scoped recipient query.
+3. **`/api/org` router mostly evaporates.** Org-chart GET, edge PUT/DELETE, review-recipients GET die. `SettingsOrgChart.tsx` deletes; `SettingsFilesystems.tsx:77` and `SettingsAgents.tsx:167` re-point to `GET /api/teams`. Surviving seam routes (`POST /org/teams`, `POST /scaffolded-agents`, `POST /team-routines`, `GET /org/teams/:teamId`) move under `/api/teams` in the renamed service.
+4. **`POST /api/teams` loses its rollback.** Spec resolution reorders to before the insert; if refused, wrap the create in a transaction. Either way `deleteTeam` stays dead.
+5. **Seam port members re-shape, not die.** `CoreApiOrgPort.resolveReviewRecipientsForItem` (framework/api-contract/src/core-api-port.ts:442) and tool-handlers' mirror (`tool-handlers/src/ports.ts:336`) SURVIVE — `create_item` still must find the humans who should see a review — but their query shape shrinks to `{teamId}` and their implementation becomes the relocated users query. `getTeamMembersByTeamId`-shaped port members still collapse into `getTeam`. This retracts the first wave's hole 5, which deleted the member.
+6. **Multi-team human membership is not built here.** `users.teamId` is a single FK; "a human belongs to one or more teams" needs a membership relation owned by `users` someday. Nothing in this service's survivors blocks or prejudges that — flagging so the founder prices it where it belongs, in the users track.
 
 
 ---
 
-# policy — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/policy.md` for comparison.
+
+# policy — destroyer verdict (REVISED after founder rulings)
+
+## What changed after the rulings
+
+| Row | Old verdict | New verdict | Ruling | Why it moved |
+|---|---|---|---|---|
+| `computeApprovalRate` | KEEP | **FINISH** | A1 + Ruling 1 | The trust signal is now machinery for a feature being COMPLETED: its `auto_resolve` path is the dial that will auto-grant A1's one-time permission at earned trust. And it is unfinished for a shared backend — it aggregates ALL humans' verdicts into one per-agent rate (`approval-rate.ts:52-70` never looks at the verdict's sender), while Ruling 1 says approval rate is **per-human-per-agent**. Verdict messages carry `senderId`; the finish is attributing by approver. |
+| `ApprovalRateResult` | KEEP | **FINISH** | A1 + Ruling 1 | Return shape of the finished function — grows approver attribution (per-human breakdown); `recentVerdicts` entries gain who decided. |
+| `propagation_applied` event (blast radius of feature kill 1) | DELETE | **KEEP** | Ruling 2 | First wave killed it on "zero consumers (verified at ws-connection-hub.ts:47 + dispatcher.ts:425)". That reasoning is **void** — events are an extension surface, plugins may listen. And it is not a duplicate: `task_state_changed`/`bet_state_changed` announce the transition but carry no cause; `propagation_applied` announces *this transition was a cascade consequence* (source→target linkage). Emitted today at `lifecycle-propagation.ts:360-371,593-602`, independent of the log write — the emission survives the log kill untouched. |
+| `propagation_failed` event (blast radius of feature kill 1) | DELETE | **KEEP** (emitter simplifies) | Ruling 2 | Same void reasoning. The fact "a cascade hop failed" still happens after the retry apparatus dies — the emitter moves from the 3-attempt exhaustion path to the first-failure catch, and the event on the bus **replaces** the internal `notifications.insert` as the extension point. `attempts` in the payload becomes meaningless → payload loses it (Ruling 2 does not protect a field nothing sets). |
+| `registerPolicy` ship-confirmation addressee | KEEP (unflagged inside SIMPLIFY) | **SIMPLIFY, with named FINISH work** | Ruling 1 | `lifecycle-propagation.ts:516-519` resolves "the founder" as `getFirstUserByKind(db, "human")` — **the first human by insertion order**, fallback `"u-founder"`. On a shared backend serving a team that is the wrong human: the ship-confirmation thread for a completed bet must go to the bet's owner/team (`bet.teamId` is already on the row at line 168). First wave passed this without flagging it; it is a solo-backend premise baked into a kept path. |
+
+**What did NOT change — re-reached, not carried over:**
+
+- **The propagation_log kill stands in full** (founder affirmed it explicitly): table, `recordPropagationHop`, `reapTerminalPropagationLog`, the 30-second heartbeat, the retry drain, the 3-attempt CAS exhaustion path, the exhaustion `notifications.insert` (`lifecycle-propagation.ts:645` — sole use of the port), the failure-row insert at `policy-engine.ts:39`, and every external hop-writer. A ledger with zero production readers of its `applied`/`skipped`/`failed` rows is dead at any user count.
+- **The `tasks.auditTrail` append kill stands, re-verified under Ruling 1.** "Who approved what is real information" — and that information lives in **verdict messages** (read by `computeApprovalRate`, rendered in threads) and in the **handoff message** `buildHandoff` posts to the thread. The `tasks.auditTrail` column duplicates both into a blob with zero production reads — re-confirmed by `rg -a`: every production hit (`tasks.ts:226`, `handoff-protocol.ts:151,306`, `lifecycle-propagation.ts:60`, `task-state-machine.ts:105`) is read-to-append; `applications/` has zero references. A shared backend does not rescue an unread duplicate of a record that already exists where humans look.
+- **Escalation-branch collapse, `buildHandoff` uncurry, `PolicySessionContext` merge, `PolicyDeps` shrink, fold-into-`work` recommendation** — none rested on a voided premise; all stand.
+- **New evidence found while re-checking (strengthens a KEEP):** the policy engine's `queue` action append of `policy_queued` to `items.auditTrail` (`policy-engine.ts:204-214`) **is read in production** — `work-service.ts:495` (`like(items.auditTrail, "%policy_queued%")`) feeds the daily digest (`notifications/src/daily-digest.ts:22`). The hold-for-digest leg of trust routing is load-bearing, not bookkeeping. (Contrast with `tasks.auditTrail`: same column name, one has a reader, one does not. The one with a reader lives.)
 
 ## Should this service exist?
 
-**KILL THE SERVICE (as a named thing). Route survivors into `work`.**
+**Still KILL THE SERVICE (as a named thing). Route survivors into `work`. The rulings strengthen this, not weaken it.**
 
-"Policy" the noun is dead on arrival under ETHOS.md — but the code behind it is not a policy
-engine. What actually lives here is three unrelated things wearing one name:
+Re-reached against the corrected premise — a shared backend, a team of humans, OIDC identity, an event stream plugins hang off:
 
-1. **Task handoff** (`buildHandoff`) — an agent handing a task to a human, an agent, or a role.
-   This is the flat-team collaboration act itself. Core value. It is work-domain code: every
-   write is a task/item/thread mutation.
-2. **Lifecycle cascade** (session ended → task review → bet completed → founder ship-confirmation
-   thread). This is the time-boxed-bets loop. Core value. Also pure work-domain code.
-3. **Trust routing + approval rate** (`item_created` → push/queue/auto_resolve by verdict
-   history). Despite the smell of the words "policy engine", this is NOT a preemptive gate:
-   nothing is blocked, the item exists either way — it routes *attention* (notify now / hold for
-   digest / auto-approve), and the trust signal is earned from real verdict history, which is
-   exactly ethos §2's "review fades as trust is earned". The approval rate is also user-visible
-   on the Agent Profile page. Core value, wrong service name.
+1. A1 being FINISHED does not give `policy` an asset. The one-time-permission machinery — `proposedCalls` table, grant CAS-consumption, outcome recording — lives in `@hyperidle/review` (`framework/tool-protocol/src/tool.ts:202-207`, `layers/core-api/src/routes/reviews.ts`). Policy's contribution to the loop is the **attention router** (`item_created` → push/queue/auto_resolve) and the **trust signal** — both of which read work-owned items and write conversation-owned messages. Work-domain reactions, wrong roof.
+2. After the propagation_log dies (affirmed), `policy` owns **no table**. A service owning nothing, reaching everything through ~30 mirrored `PolicyDeps` port methods, is Mechanism-C ceremony purchased by the boundary, not the features.
+3. Shared backend makes the trust path MORE work-domain, not less: per-human-per-agent rates are joins over work items and conversation verdicts, exactly the data `work` and `conversation` own.
 
-What is NOT core value — and it is the only thing `policy` actually *owns* — is the
-**propagation_log durability apparatus**: a table, a write-only audit trail, a 30-second retry
-heartbeat, a 3-attempt CAS-guarded exhaustion path with notifications, a retention reaper
-predicate, and two domain events. I verified end to end: **zero production reads of the log's
-`applied`/`skipped`/`failed` rows exist anywhere** (only the retry drain reads `pending_retry`),
-and the `propagation_applied`/`propagation_failed` events have **zero consumers** — the WS hub
-dropped them with the comment "zero real frontend consumers (verified)"
-(`layers/core-api/src/ws-connection-hub.ts:47`) and the observability dispatcher explicitly
-ignores them (`layers/core-api/src/observability/dispatcher.ts:425`). This is reliability
-machinery built preemptively for a failure (a local DB write failing transiently, three times)
-that nothing in the repo shows has ever happened. Delete it.
-
-After that deletion `policy` owns **no table**. A service that owns nothing and reaches every
-byte of data through ~30 mirrored port methods (`PolicyDeps`) exists only because it is a sibling
-to `work` — the entire Mechanism-C ceremony is the cost of the service boundary, not of the
-features. Fold the three survivors into `work` (which already owns tasks/bets/items, the things
-they all mutate), keep one boot registration, and retire the `policy` noun. If the founder keeps
-the package for ownership-model reasons, everything below still applies unchanged — the kill is
-the propagation apparatus either way.
+Fold `computeApprovalRate`, `buildHandoff`, and the `registerPolicy` reactions into `work`; retire the "policy" noun. If the founder keeps the package for ownership-model reasons, every row below applies unchanged.
 
 ## If written today, from scratch
 
-Three functions, living in `work`:
+Against a shared backend, used by a team, OIDC identity, plugins on the event stream — four functions, living in `work`:
 
-- `computeApprovalRate` — the earned-trust signal (profile display + attention routing).
-- `handoffTask` (today's `buildHandoff`, uncurried) — CAS claim, ownership transfer or
-  review-item creation, handoff message. No audit-trail appends, one item-creation path.
-- `registerWorkReactions` (today's `registerPolicy`) — the three event subscribers,
-  fire-and-forget, no timer, no log.
+- `computeApprovalRate(agentId)` → per-human-per-agent earned-trust rates (profile display, attention routing, A1 auto-grant dial). Attribution by verdict `senderId`.
+- `handoffTask` (uncurried `buildHandoff`) — CAS claim, ownership transfer or review-item creation, handoff message in the thread as the human-visible record. No auditTrail appends, one item-creation path.
+- `registerWorkReactions` — the three lifecycle subscribers (session→task→bet→ship-confirmation) + the `item_created` trust router. Fire-and-forget; a failed hop emits `propagation_failed` on the bus and stops. No timer, no log, no retry.
+- Ship-confirmation addressed to the completed bet's team/owner, never "first human in the table".
 
-No propagation_log. No retry heartbeat. No `reap*`. If a cascade hop ever fails, the task sits
-one state behind and a human moves it — `review ↔ in_progress` are legal moves both ways, the
-same argument the founder already ruled for the AU26 J2 sibling-guard deletion.
+No propagation_log. No reaper. If a hop fails, the task sits one state behind and a teammate moves it — `review ↔ in_progress` are legal both ways.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
 | DELETE | 2 |
+| FINISH | 1 |
 | MERGE | 0 |
 | SIMPLIFY | 2 |
-| KEEP | 1 |
+| KEEP | 0 |
 
-Surface: 5 methods → 3 methods (40% cut). By mass the cut is larger: `lifecycle-propagation.ts`
-loses the entire retry/log half (~350 of 823 lines), the 30-second timer door dies, and the
-service's one owned table is dropped.
+Surface: 5 methods → 3 methods (40% cut) — unchanged from first wave; what moved is one KEEP → FINISH. By mass the cut is unchanged: `lifecycle-propagation.ts` still loses the retry/log half (~350 of 823 lines), the 30-second timer door still dies, the owned table is still dropped. The two domain events previously in the blast radius now survive it.
 
-Types: 7 declarations → DELETE 1, MERGE 1, SIMPLIFY 2, KEEP 3.
+Types: 7 declarations → DELETE 1, MERGE 1, SIMPLIFY 2, KEEP 2, FINISH 1.
 
-## Feature-level kills
+## Feature-level kills (revised)
 
-**1. Propagation durability + observability — kill the whole capability.**
-Dies: `propagation_log` table (schema + zod + migration), `recordPropagationHop`,
-`reapTerminalPropagationLog`, internal `retryFailedPropagations`, the 30-second heartbeat in
-`registerLifecyclePropagation` (`lifecycle-propagation.ts:806`), the `MAX_RETRY_ATTEMPTS`
-exhaustion path with its `propagation_exhausted` notification, every `log()`/`LogSink` sink in
-the propagation functions, the `propagation_applied`/`propagation_failed` events in
-`framework/domain-model/src/events.ts` plus their dead case arms in
-`observability/dispatcher.ts`, the failure-row insert in `policy-engine.ts:39`, and the callers
-outside the service: the cascade hop writes in `layers/core-api/work/src/bet-kill-cascade.ts`,
-the per-stopped-run hop in
-`layers/agent-orchestration/run-orchestration/src/request-run-stop-for-tasks.ts`, the
-`deps.policy.recordPropagationHop` port threaded into `POST /api/bets/:id/kill`
-(`layers/core-api/src/routes/bets.ts:700`), the `reapTerminalPropagationLog` line in the
-retention sweep (`service-bootstrap.ts:520`), and the tests that exist only to exercise this
-machinery (`lifecycle-propagation.integration.test.ts` retry suite,
-`retention-reaper.integration.test.ts` propagation case, `AF12` hop assertions).
-What breaks: a transiently failed cascade hop is silently lost instead of retried; no
-notification after three failures. Acceptable: the failure mode is a local Postgres write
-erroring, no evidence it has ever fired, and the manual repair is one click on a state the UI
-already allows. Several skipped-row writes exist "for observability and test synchronization"
-(`lifecycle-propagation.ts:459`) — tests driving production writes; both die together.
+**1. Propagation durability apparatus — kill stands, blast radius corrected.**
+Still dies: `propagation_log` table (schema + zod + migration), `recordPropagationHop`, `reapTerminalPropagationLog`, internal `retryFailedPropagations`, the 30-second heartbeat (`lifecycle-propagation.ts:806`), the `MAX_RETRY_ATTEMPTS` exhaustion path with its `propagation_exhausted` notification (sole `notifications.insert` caller, line 645), every `log()`/`LogSink` sink, the failure-row insert at `policy-engine.ts:39`, the cascade hop writes in `layers/core-api/work/src/bet-kill-cascade.ts`, the per-stopped-run hop in `layers/agent-orchestration/run-orchestration/src/request-run-stop-for-tasks.ts`, the `deps.policy.recordPropagationHop` port threaded into `POST /api/bets/:id/kill` (`layers/core-api/src/routes/bets.ts:700`), the `reapTerminalPropagationLog` line in the retention sweep (`service-bootstrap.ts:520`), and the machinery-only tests.
+**No longer dies (Ruling 2):** `propagation_applied` / `propagation_failed` in `framework/domain-model/src/events.ts:454-475` and their dispatcher case arms. `propagation_applied` keeps its current emit sites (they never depended on the log). `propagation_failed`'s emitter moves to the first-failure catch and its payload drops `attempts`.
+What breaks: a transiently failed hop is announced on the bus but not retried; no internal notification. Acceptable: failure mode is a local Postgres write erroring (never observed), manual repair is one legal click, and any team that wants a notification hangs a trigger on `propagation_failed` — that is what the event surface is for.
 
-**2. tasks.auditTrail appends from this service — kill the writes.**
-`buildHandoff` does a read-append-write of `tasks.auditTrail` twice per handoff (state
-transition + handoff entry, `handoff-protocol.ts:151,306`) and `transitionTask` appends on every
-cascade hop (`lifecycle-propagation.ts:60`). I found **zero production reads** of
-`tasks.auditTrail` content anywhere in `layers`/`framework`/`applications` — every hit is a
-write. This is the brief's named enterprise reflex: an audit trail nobody reads. Killing the
-appends deletes the fragile in-tx re-read at `handoff-protocol.ts:310` (with its §A6 tx-only
-@lore) for free. (The column itself is `work`'s to drop — flagged, out of this service's scope.)
+**2. `tasks.auditTrail` appends — kill stands, re-argued under Ruling 1.**
+`buildHandoff`'s two appends (`handoff-protocol.ts:151,306`) and `transitionTask`'s per-hop append (`lifecycle-propagation.ts:60`) die. Zero production reads re-confirmed; the who-did-what record a team actually needs already exists where the team looks — the handoff message in the thread and the verdict messages `computeApprovalRate` reads. Killing the appends deletes the fragile in-tx re-read at `handoff-protocol.ts:310` for free. (Column drop remains `work`'s call.) The **`items`**.auditTrail `policy_queued` append is explicitly NOT part of this kill — it has a production reader (`work-service.ts:495` → daily digest).
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `computeApprovalRate` | UI:GET /api/agents/:id/profile (+ EVENT:item_created via policy-engine) | KEEP | Core value: ethos §2's "review fades as trust is earned" — trust computed from real verdict history, rendered on AgentProfile.tsx and steering attention routing. Door named, user-visible. |
-| 2 | `buildHandoff` | UI:POST /api/tasks/:id/handoff + AGENT:handoff_to | SIMPLIFY | The handoff itself is the flat-team core act — but shrink it: (a) drop both `tasks.auditTrail` appends (write-only audit, zero readers — kills the in-tx re-read too); (b) collapse the toRole-miss escalation branch into the toHuman review-item branch — two near-identical thread+item blocks are one idea, and `HandoffResult` loses `escalated`/`escalationItemId`; (c) uncurry the `buildHandoff(deps)` factory (it exists to feed one call site and pushed the function over the lint complexity threshold per its own biome-ignore). |
-| 3 | `recordPropagationHop` | SCHED:30s heartbeat (lifecycle-propagation.ts:806) + EVENT:session_ended/task_state_changed/bet_state_changed + UI:POST /api/bets/:id/kill (cascade port) | DELETE | Writes a log with zero production readers; its events have zero consumers (verified at ws-connection-hub.ts:47 + dispatcher.ts:425). Reached from many doors, valuable to none — kill it and every caller (cascade hops, run-stop hops, all LogSink sinks). |
-| 4 | `reapTerminalPropagationLog` | SCHED:retention-reaper (service-bootstrap.ts:520 — graph missed it, rg found it) | DELETE | Exists solely to garbage-collect the write-only rows of #3. A reaper for a log nobody reads is bloat squared; note it never reaps `failed` rows, so those accumulate forever anyway. Dies with the table. |
-| 5 | `registerPolicy` | BOOTSTRAP (service-bootstrap.ts:476) | SIMPLIFY | The one boot call survives (three event subscribers ARE the bets loop: session→task→bet→ship-confirmation), but it loses the 30-second heartbeat, the retry drain (`retryFailedPropagations` is TEST-ONLY-importable internal → dies), all log sinks, and the exhaustion-notification path. Timer door: gone. |
+| 1 | `computeApprovalRate` | UI:GET /api/agents/:id/profile (+ EVENT:item_created via policy-engine) | **FINISH** | A1 machinery being completed: its rate drives `auto_resolve` — the earned-trust auto-grant of the approval loop (`policy-engine.ts:142-154`, cold-start push under 10 verdicts, auto-resolve ≥0.9 on low risk). Unfinished per Ruling 1: aggregates all humans' verdicts into one rate, ignoring verdict `senderId`; a shared backend needs per-human-per-agent. Finish = attribute by approver; wire the same signal into `review`'s proposed-call grant path when A1's emit lands. |
+| 2 | `buildHandoff` | UI:POST /api/tasks/:id/handoff + AGENT:handoff_to | SIMPLIFY | Unchanged — the handoff is the flat-team core act, and every shrink survives the rulings: (a) drop both `tasks.auditTrail` appends (zero readers re-verified; thread message is the record a team sees — Ruling 1 re-argued, kill stands); (b) collapse the toRole-miss escalation branch into the review-item branch (two near-identical blocks, one idea; `toHuman` already means an unaddressed shared-queue item any teammate claims — correct for a flat team, no single-user premise here); (c) uncurry the `buildHandoff(deps)` factory (exists for one call site, pushed the function over the lint complexity threshold per its own biome-ignore at line 125). |
+| 3 | `recordPropagationHop` | SCHED:30s heartbeat + EVENT:session_ended/task_state_changed/bet_state_changed + UI:POST /api/bets/:id/kill (cascade port) | DELETE | Stands — founder affirmed: a write-only ledger is dead at any user count. Kill it and every caller (cascade hops, run-stop hops, LogSink sinks). Correction: the `propagation_applied`/`propagation_failed` EVENTS exit the blast radius (Ruling 2) — only the log rows, timer, and retry die. |
+| 4 | `reapTerminalPropagationLog` | SCHED:retention-reaper (service-bootstrap.ts:520) | DELETE | Stands. A reaper for a log nobody reads is bloat squared; it never reaps `failed` rows anyway. Dies with the table. |
+| 5 | `registerPolicy` | BOOTSTRAP (service-bootstrap.ts:476) | SIMPLIFY | The boot call survives and is now doing A1's delivery: the `item_created` router's three legs are each proven — push (bus notification, kind "attention"), queue (`policy_queued` → daily digest, READ at `work-service.ts:495`), auto_resolve (verdict message → the earned-trust auto-grant). Still loses the 30-second heartbeat, retry drain (`retryFailedPropagations` dies), log sinks, and the exhaustion-notification path; `propagation_failed` emission moves to the failure catch. **Named FINISH work (Ruling 1):** ship-confirmation addressee at `lifecycle-propagation.ts:516-519` — replace first-human-by-insertion (`getFirstUserByKind(db, "human")`, fallback `"u-founder"`) with the bet's team/owner; `bet.teamId` is already in hand at the call site. |
 
 ## Types / DI ports
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `ApprovalRateResult` | KEEP | Return shape of a kept function; flows to the agent-profile route response. |
-| `HandoffMetadata` | KEEP | The agent handoff wire format (`handoff_to` tool contract) — real protocol, real consumer. |
-| `HandoffParams` | KEEP | Input of the kept handoff; unchanged by the simplification. |
-| `HandoffResult` | SIMPLIFY | Escalation branch merges into the review-item branch → drop `"escalated"` from `status` and drop `escalationItemId`. Becomes `{ status: "success"; targetAgentId? }`. |
-| `LogPropagationEntry` | DELETE | Input type of `recordPropagationHop`; dies with it. |
-| `PolicySessionContext` | MERGE | Three fields with exactly one consumer (`HandoffParams.sessionContext`) — inline into `HandoffParams`, delete the export. |
-| `PolicyDeps` | SIMPLIFY | Drop `notifications` (only caller was retry exhaustion — dead), drop the four `?`-optional members plus the `Required<Pick<…>>`/`NonNullable<…>` re-narrowing dance in `HandoffDeps` (make handoff deps plainly required), drop `updateMessage`-adjacent members none of the survivors call after the kills. If the service folds into `work` as recommended, most of the remaining ~25 mirrored methods evaporate because `work` calls itself directly. |
+| `ApprovalRateResult` | **FINISH** | Moves with row 1 (A1 + Ruling 1): grows per-approver attribution; `recentVerdicts` entries gain the deciding human. |
+| `HandoffMetadata` | KEEP | The agent handoff wire format (`handoff_to` tool contract) — real protocol, real consumer. Unchanged. |
+| `HandoffParams` | KEEP | Input of the kept handoff. Unchanged. |
+| `HandoffResult` | SIMPLIFY | Stands: escalation merges into review-item → drop `"escalated"` from `status`, drop `escalationItemId`. Becomes `{ status: "success"; targetAgentId? }`. |
+| `LogPropagationEntry` | DELETE | Stands: input type of `recordPropagationHop`, dies with it. |
+| `PolicySessionContext` | MERGE | Stands: three fields, one consumer (`HandoffParams.sessionContext`) — inline, delete the export. |
+| `PolicyDeps` | SIMPLIFY | Stands: drop `notifications` (sole caller was retry exhaustion — confirmed line 645, dead), drop the `?`-optional/`Required<Pick<…>>` re-narrowing dance, drop members no survivor calls after the kills. `users.getFirstUserByKind` gets REPLACED (not kept) by a team/owner resolution when the Ruling-1 addressee fix lands. If the fold-into-`work` lands, most of the ~30 mirrored methods evaporate because `work` calls itself directly. |
 
 ## Holes this leaves
 
-- **A failed cascade hop is lost, not retried.** If the DB errors mid-propagation, the task
-  stays `in_progress` after its session ended (or the bet stays `active` after its last task
-  closed) with no notification. Repair is manual and legal in the existing UI. No evidence this
-  failure has ever occurred; the retry machinery was preemptive.
-- **No propagation forensics.** "Why did this bet auto-complete?" can no longer be answered from
-  a log row. Nothing and nobody reads that log today, so nothing observable changes.
-- **Role-miss handoffs produce a review item instead of an `escalation` item.** The distinct
-  `escalation` kind and result status disappear; the human sees a review item saying no agent
-  with that role was available. Same human, same thread, one fewer code path.
-- **No handoff/transition entries in `tasks.auditTrail`.** Nothing read them; the column keeps
-  existing (work-owned) until `work`'s own audit decides its fate.
-- **If the fold-into-`work` recommendation lands**, the `@hyperidle/policy` package, its barrel,
-  and the Mechanism-C port ceremony go with it; `registerPolicy` becomes a `work` registration.
-  Until then the package survives at 3 functions with the "policy" name actively misdescribing
-  what it does.
+- **A failed cascade hop is announced, not retried.** `propagation_failed` fires on the bus; nothing internal retries or notifies. Repair is one legal click by any teammate. The event is the hook for anyone who wants more.
+- **No propagation forensics table.** "Why did this bet auto-complete?" is answerable from the live `propagation_applied` event (plugins/observability can persist it) but not from a core table. Nothing reads that table today, so nothing observable changes.
+- **Role-miss handoffs produce a review item instead of an `escalation` item.** Same human surface, one fewer code path.
+- **No handoff/transition entries in `tasks.auditTrail`.** The thread message remains the human-visible record; the column's fate is `work`'s.
+- **Until the Ruling-1 addressee fix lands, ship-confirmation threads go to the first human by insertion order** — on a team backend that is a real mis-delivery, not cosmetics. It is named FINISH work, not optional polish.
+- **Until the fold-into-`work` lands**, the package survives at 3 functions with "policy" actively misdescribing an attention router + a trust signal + a handoff.
 
 
 ---
 
-# review — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/review.md` for comparison.
+
+# review — destroyer verdict (REVISED after founder rulings)
+
+Supersedes `.pipeline/work/AU20/destroy/verdicts/review.md`. Same 21 rows, same no-sampling standard.
+
+---
+
+## What changed after the rulings
+
+My headline call was wrong in the founder's direction and wrong in my own direction on the same
+file: I killed the loop the founder wants finished (A1), and I kept the auto-review the founder
+killed (A2). Row 11 flipped end-for-end — I said "keep subscriber 1, delete subscriber 2"; the
+correct call is "delete subscriber 1 (A2), keep subscriber 2 (A1)".
+
+**21 of 21 rows changed.** Nothing in this package is DELETE any more. The cuts this pass still
+buys land outside the package (A2's gate, its risk-tier reader, seven port members, the demo
+fixture) and in a relocation (the knowledge review-item factory leaves).
+
+### Methods
+
+| # | Method | Old | New | Ruling |
+|---|---|---|---|---|
+| 1 | `findProposedCall` | DELETE | KEEP | A1 FINISH — it is the reader the verdict endpoint and the review page both call. |
+| 2 | `resolveReengagementRequest` | DELETE | FINISH | A1 — must additionally bake the approved call, else session 2 can never be grant-bearing. |
+| 3 | `recordProposedCall` | DELETE | FINISH | A1 — must stop hardcoding `reversibility:"irreversible"` and must mint the review anchor. |
+| 4 | `transitionProposedCall` (consumed overload) | DELETE | KEEP | A1 — the CAS-consume is correct as written. |
+| 5 | `transitionProposedCall` (non-consumed overload) | DELETE | KEEP | A1 — the granted/held/outcome signature is correct as written. |
+| 6 | `transitionProposedCall` (implementation) | DELETE | FINISH | A1 — its granted branch swallows the bake failure; that swallow is the loop's silent-death path. |
+| 7 | `handleUnconsumedGrantOnSessionEnd` | DELETE | KEEP | A1 — the liveness net becomes live the moment grants exist. |
+| 8 | `reengageOnAdmissionFailure` | DELETE | KEEP | A1 — same behavior, second trigger point; its producer returns. |
+| 9 | `attentionReviewReasoningMarker` | KEEP | MERGE | Not a ruling — re-check of "should this service exist". Belongs in `@hyperidle/knowledge`. |
+| 10 | `createReviewItem` | KEEP | MERGE | Same re-check. `review` becomes one feature, not two. |
+| 11 | `registerReviewSubscriptions` | SIMPLIFY (keep sub 1, kill sub 2) | SIMPLIFY (kill sub 1, keep sub 2) | A2 kills the risk-tier session-review creator; A1 keeps the liveness net. Exact inversion. |
+
+### Types / DI ports
+
+| Declaration | Old | New | Ruling |
+|---|---|---|---|
+| `ReviewAgentWorkIntentInput` | DELETE | KEEP | A1 — its producer returns. |
+| `ReviewPorts` | SIMPLIFY (keep work/conversation/users/org, drop the 7 reengagement deps) | SIMPLIFY (keep the reengagement deps, drop the A2 routing deps) | A1 + A2 — exact inversion of which half survives. |
+| `ProposedCallQuery` | DELETE | KEEP | A1. |
+| `ProposedCallView` | DELETE | KEEP | A1. |
+| `ReengagementResolverDeps` | DELETE | SIMPLIFY | A1 — survives, but its five optional members must become required. |
+| `BakedReengagementRequest` | DELETE | FINISH | A1 — must carry the approved call. |
+| `ProposedCallTransition` | DELETE | KEEP | A1. |
+| `CreateReviewItemInput` | KEEP | MERGE | Moves with the factory. |
+| `CreateReviewItemResult` | KEEP | MERGE | Moves with the factory. |
+| `ReengagementSourceUnavailableError` (class) | DELETE | SIMPLIFY | A1 — survives in substance, but as a returned result, not a thrown error every caller swallows. |
+
+### Ruling 3 — knowledge ritual
+
+Nothing of that shape is left inside `review`: the practice-meeting sub-module already relocated to
+`@hyperidle/knowledge`, and only `@lore` comments referencing the move remain
+(`layers/core-api/review/src/index.ts:10-12`, `ports.ts:11-12,83-85`). **The relocated machinery is
+still core and is `PLUGIN` under Ruling 3** — it is a ritual about the work, not the machinery of
+working. It lives across `layers/core-api/knowledge/src/index.ts`,
+`layers/core-api/src/routes/knowledge.ts`, `layers/core-api/routine/src/routine-scheduler.ts` +
+`ports.ts`, `layers/core-api/src/services/routine-scheduler-bindings.ts`, and role/event vocabulary
+in `framework/domain-model/src/agent-roles.ts` + `events.ts`. Out of my rows — flagging it so it
+lands in whoever owns `knowledge`/`routine`.
+
+The **attention-engine knowledge review** (rows 9/10's real caller,
+`layers/core-api/knowledge/src/attention-service.ts:295-322`) is NOT ritual and NOT A2: it is the
+knowledge fabric noticing an item has drifted and putting a non-blocking item in a human's inbox.
+That is the machinery of keeping shared knowledge true. It stays core — it just stops living in
+`review`.
+
+### Ruling 1 — shared backend
+
+My first wave did not rest this service's verdicts on a single-user premise (I killed the loop for
+never having run, not for having one user), so no row moves on Ruling 1 alone. It does harden two
+things: the AD1 human-routing code I am now deleting under A2 was the only multi-human routing in
+this package, and **that routing logic must not be lost** — it moves to wherever the approval review
+item is created (see W3 below). Approve→act between several humans and their agents is exactly the
+shared-backend case, and the acting human's identity for the verdict must come from OIDC, not from
+the participant list `authorizeWrite` reads today (`layers/core-api/src/routes/threads.ts:1651-1656`).
+
+---
+
+### What must be wired for approve→act to work
+
+Nine pieces. Today **none** of them is connected, so the honest description of the current product
+is not "approval is broken" — it is "there is no approval, and agents execute irreversible tools
+directly", because with no `sessionWorkflow` the router at
+`layers/agent-orchestration/tool-handlers/src/tool-registry.ts:133` is skipped entirely and
+`def.handler` runs (line 197).
+
+**W1 — the ignition switch. Nothing ever constructs a `RegistrySessionWorkflow`.**
+`options.sessionWorkflow` is read at `tool-registry.ts:84` and threaded through
+`layers/agent-orchestration/run-orchestration/src/provisioner.ts:1239` and `:1503`,
+`run-orchestration/src/runtime.ts:456`, `run-orchestration/src/contracts.ts:214`, and
+`layers/agent-orchestration/src/services/run-orchestration-composition.ts:333`. The only durable
+construction path never sets it — `start-runtime.ts:166-173` calls
+`runSession(deps, { mode:"durable", request, sandboxBasePath, modelTier, resolvedModel, completion:"admit" })`.
+Every other reference in `layers/`, `framework/`, `applications/`, `tools/` is a type declaration, a
+passthrough, or a test. The `ProposedCallWorkflowPort` behind it **is** correctly wired
+(`run-orchestration-composition.ts:226-234, 323-337` over `CoreApiPort.review`) — the port is live,
+the switch is absent.
+
+**W2 — the capture anchors cannot exist at provision time.** `RegistrySessionWorkflow` demands
+`reviewMessageId` + `subjectThreadId` + `artifactId` up front
+(`framework/tool-protocol/src/tool.ts:160-168`), but those only come into being *during* the session
+(`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts:1575` creates the artifact,
+`:740` posts the `type:"review"` message). `rg -a reviewMessageId` across all four roots finds zero
+production producers; only the AL7 integration tests hand-seed them
+(`layers/core-api/src/__tests__/AL7-proposed-call-capture.integration.test.ts:150-158`). This is a
+design defect, not a missing line: the anchor must be minted **at capture time** inside
+`recordProposedCall`, and the session-time workflow must shrink to the dial (which tools this human
+asked to be asked about) plus the session role.
+
+**W3 — the human is never told.** On capture the router returns `AWAITING_REVIEW` to the agent and
+aborts session 1 (`tool-registry.ts:105-119` and `:177-191`), and that is all that happens. No
+review message, no `items` row, no recipients. Needs: create the review message + item at capture,
+and reuse the human-routing that A2's dying subscriber holds today
+(`layers/core-api/review/src/session-review-creator.ts:86-107` — `org.resolveReviewRecipients`,
+falling back to all humans, merged into thread participants). The `items` row is what makes the
+existing policy engine work — it already decides push vs queue vs auto-resolve from riskTier and the
+agent's approval rate (`layers/core-api/policy/src/policy-engine.ts:119-150`).
+
+**W4 — approve goes to the endpoint that throws the decision away.** The UI's approve button calls
+`handleSubmitVerdict` (`layers/core-ui/src/pages/review/ReviewPage.tsx:173-195`) →
+`postVerdictHostMessage` (`layers/core-ui/src/services/host-threads.ts:132-151`) →
+`POST /api/threads/:threadId/messages` with `type:"verdict"`. That handler emits `thread_resolved`
+and then literally discards the decision:
+
+```ts
+// layers/core-api/src/routes/threads.ts:1558-1561
+const decision = input.payload.decision;
+// AL7 trust-first: approve verdict handled by proposed-call workflow (Task 8).
+// Tailored grant composed + proposed_call_granted emitted there.
+void decision; // will be used by Task 8 implementation
+```
+
+The endpoint that *does* mint the grant — `POST /api/threads/:threadId/messages/:messageId/verdict`
+(`threads.ts:1619-1736`, calling `transitionProposedCall({to:"granted"})` at `:1680-1718` and
+emitting `proposed_call_granted` at `:1720-1728`) — has **zero clients**; `rg -a` over the repo finds
+no caller outside its own definition. Fix: one of the two paths, not both. Either the message
+handler's verdict branch calls the same granted-transition block, or the UI calls the verdict
+endpoint. Today it is neither, which is the single line that makes approve→act impossible.
+
+**W5 — session 2 is never grant-bearing, so a minted grant could never be consumed anyway.**
+Nothing in production ever constructs `approvedCall` — `rg -a approvedCall` returns only its two
+readers (`tool-registry.ts:139-144`, `framework/tool-protocol/src/tool.ts:395`) and the type
+(`framework/harness-protocol/src/harness/harness-adapter.ts:35-40`). The reengagement intent the
+granted transition records (`proposed-call-workflow.ts:583-595`) drains into an ordinary session:
+`runtime.ts:432-470` builds `provisionParams` from the baked request and copies
+`options.sessionWorkflow`, which is `undefined`. Needs: `BakedReengagementRequest` carries the
+approved call (`toolId`/`args`/`argPinned`/`identityHash`, all already on the `tailoredGrants` row),
+and the drain turns it into
+`sessionWorkflow: { sessionRole:"grant-bearing", routeToReview:["irreversible"], approvedCall, ...anchors }`.
+
+**W6 — the two bake failures are swallowed, and that is how the finished loop will fail silently.**
+`proposed-call-workflow.ts:579-581` and `:705-707` both `catch { bakedRequest = undefined; }`. With
+W5 done, an undefined bake means the reengagement session runs with no approved call → the grant is
+never consumed → the liveness net burns `retryCount` and then writes a `failed` outcome
+(`applyLivenessRetry`, `:718-730`). The human sees "approved" and then, two sessions later, "did not
+execute". Surface the failure at approve time instead.
+
+**W7 — the classifier must become the human's dial, not a fail-closed default.**
+`recordProposedCall` hardcodes `reversibility: "irreversible"` (`proposed-call-workflow.ts:419`) and
+`classifyReversibility` returns `"irreversible"` for any unsignalled tool
+(`framework/tool-protocol/src/tool.ts:324-327`), and the unknown-tool branch routes to review before
+it even knows the tool exists (`tool-registry.ts:102-120`). That is the gate-by-default classifier
+ETHOS forbids, and it is the difference between finishing A1 and shipping a general approval gate.
+The dial already has a home: every tool is seeded into `settings` with its `reversibility`
+(`layers/core-api/settings/src/plugin-configuration.ts:760-771`), and exactly one builtin tool
+declares itself irreversible (`framework/tool-protocol/src/builtin-tool-catalog.ts:171-176`,
+`commit_file`). Default must be "no review"; review happens only for a tool a human marked.
+
+**W8 — the harness-side allowlist carrier is test-only.** `composeWorkflowAllowDeny`
+(`framework/tool-protocol/src/tool.ts:383-410`) has no production caller — confirmed with `rg -a`;
+only `layers/core-api/src/__tests__/AL7-classifier.test.ts` uses it. Without it the per-harness
+native allow/deny lists never learn about the grant, so a subscription-CLI harness can run its own
+copy of the tool without passing the registry router. Not required for a builtin-harness loop; is
+required before claiming the loop holds across harnesses.
+
+**W9 — the demo fixture sits in the live route.** `FIXTURE_REVIEW` / `"rev-1"`
+(`layers/core-api/src/routes/reviews.ts:36-91`) short-circuits the real loader with a hand-written
+story. It must go before this feature is real. (Unchanged from the first wave — still DELETE.)
+
+**Where the line is.** Finishing A1 licenses exactly this: *a human marked a tool "ask me first", so
+when an agent calls it the call is staged, the human approves, and the agent gets a one-shot,
+scope-tuple-keyed permission to do that one thing.* It does not license: routing unknown tools to
+review, defaulting unsignalled tools to irreversible, deriving "needs review" from a risk tier, or
+any gate justified by "irreversible". W7 is where that line is enforced in code — if W7 is skipped,
+finishing A1 ships the thing ETHOS forbids.
+
+---
 
 ## Should this service exist?
 
-**KILL THE SERVICE.** `review` is two unrelated features glued together:
+**KEEP AS the proposed-call approval Service — one feature, three owned tables.** With A1 finished,
+`review` owns the only durable state in the approve→act loop (`proposedCalls`, `tailoredGrants`,
+`operationOutcomes`), plus the state machine over it and the two liveness triggers. That is a
+coherent Service with a real product purpose: a human approves a specific agent action, and the
+agent gets to do it. It is not a wrapper, not a port bag, not observability.
 
-1. **The AL7 proposed-call approval loop** (proposed-call-workflow.ts, ~800 lines, 8 of the 11 exported functions, all 3 owned tables). **It has never run in production.** The ignition switch — `sessionWorkflow` on a provisioned session — is never constructed anywhere in production code. Every reference in `layers/`, `framework/`, `applications/`, `tools/` is a type declaration or an optional passthrough (`provisioner.ts:1239/1503`, `runtime.ts:456`, `contracts.ts:214`, `run-orchestration-composition.ts:333`); the only real durable-run construction site (`start-runtime.ts:167`) never passes it. So `tool-registry.ts`'s workflow router (`wf = options.sessionWorkflow`, line 84) never fires, `captureProposedCall` is never called, and `proposedCalls`/`tailoredGrants`/`operationOutcomes` are written by exactly one function (`recordProposedCall`) whose only production caller is that dead branch. Every downstream consumer — the reengagement resolver, the grant/consume state machine, the liveness net, the admission-failure reengagement — operates on rows that cannot exist. Confirmed with `rg -a` across all four roots; the graph's doors for these functions are real routes wired to a dead client.
-   It is also DELETE **by policy**, independent of reachability: its own comments say "classify reversibility → route irreversible to review" and "fail-closed treats unknowns as irreversible" (`tool-registry.ts:13,100-101`, `tool.ts:327` falls back to `"irreversible"`). That is precisely the reversible/irreversible gate-by-default classifier ETHOS §2 forbids. Approval machinery that exists "because irreversible" — this is its purest specimen, and it was never even switched on.
+But it should be **one** feature, not two. After A2's subscriber dies, the leftover
+`createReviewItem` + `attentionReviewReasoningMarker` have nothing to do with proposed calls: their
+only real caller is the knowledge attention engine's threshold crossing
+(`layers/core-api/knowledge/src/attention-service.ts:295-322`), plus a knowledge-action failure flag
+(`layers/core-api/src/services/agent-run-admission-reactions.ts:59-81`) and the two composition sites
+that curry them (`layers/core-api/src/routes/knowledge.ts:296-311`,
+`layers/core-api/src/services/routine-scheduler-bindings.ts:61-76`). Move them into
+`@hyperidle/knowledge`, which already owns both callers and both tables' domain. That deletes the
+`KnowledgeReviewWriter` port, the currying factory that exists only to satisfy its 3-arg shape, and
+the `review → knowledge` fan-in entirely.
 
-2. **Review-item creation** (review-item-factory.ts + session-review-creator.ts subscriber 1, ~200 lines). Live, real doors (`score_attention` agent tool, `POST /api/knowledge/:id/recompute-attention`, routine scheduler, session-end review routing to humans). This is genuine core value — humans reviewing agent work and knowledge is the collaboration surface, non-blocking, post-hoc, not a gate.
-
-After the delete, `review` owns **zero tables** and stops being a SQL-owning Service. The two survivors are pure composition over `work`/`conversation`/`users`/`org` ports — they belong beside the other reaction files in `layers/core-api/src/services/` (pattern: `work-session-end-reactions.ts`). Route survivors there; delete the package.
-
-Practice-meeting check: relocated to `@hyperidle/knowledge`; nothing live remains in `review` (only `@lore` comments referencing the move + one test fixture string). Clean.
+Net: `review` survives, smaller and single-purpose. The package boundary earns itself for the first
+time.
 
 ## If written today, from scratch
 
-Three functions, no package, no owned tables:
+The loop, at MVP tier, is six functions and one dial:
 
-- `createReviewItem(deps)` — the knowledge/attention review-item factory (live, multi-door)
-- `attentionReviewReasoningMarker(id)` — its idempotency contract with the attention engine
-- one `session_ended` subscriber creating a review item for medium/high-risk task sessions and routing it to humans (AD1)
+- `recordProposedCall(db, input)` — capture the staged call **and mint its review anchor** (artifact
+  + review message + item), taking the classified reversibility as input rather than hardcoding it
+- `findProposedCall(db, query)` — the parameterized reader
+- `transitionProposedCall(db, transition, ports)` — `held | granted | consumed | outcome-recorded`
+- `resolveReengagementRequest(db, id, deps)` — bake the grant-bearing session's request, **including
+  the approved call**
+- `handleUnconsumedGrantOnSessionEnd` — the crash/no-show net
+- `reengageOnAdmissionFailure` — the same net, pre-handoff trigger
+- the dial: a per-tool "ask me first" flag a human sets, replacing `classifyReversibility`'s
+  fail-closed default
 
-Nothing else. The approval state machine, if a real learning ever earns it, gets rebuilt small at that time — not preserved dormant.
+Everything else in the current package either moves out (the knowledge factory) or dies with A2.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 8 |
-| MERGE | 0 |
-| SIMPLIFY | 1 |
-| KEEP | 2 |
+| DELETE | 0 |
+| PLUGIN | 0 (in-package; see Ruling 3 note for the out-of-package pointer) |
+| FINISH | 4 |
+| MERGE | 4 |
+| SIMPLIFY | 4 |
+| KEEP | 9 |
 
-Surface: 11 methods → 3 methods (73% cut). Plus: 1 class DELETE; 9 type declarations → 6 DELETE, 1 SIMPLIFY, 2 KEEP. Net effect: the package itself dies; survivors relocate.
+Surface: 11 methods → 9 in this package (2 relocate). **0% cut inside the package.** Say it plainly:
+this pass cuts nothing here. The cuts it does buy are elsewhere — A2's gate and subscriber, the
+`work` risk-tier reader and its table, seven `ReviewPorts` members, the `KnowledgeReviewWriter` port,
+the `"rev-1"` fixture, and ~9 test files that assert on A2's behavior.
 
 ## Feature-level kills
 
-**The AL7 proposed-call approval loop — whole-feature DELETE.** Kills, beyond this package:
+**A2 — automatic review after risky work: whole-feature DELETE.** Confirmed with evidence: the gate
+is `riskTier !== "medium" && riskTier !== "high" → return`
+(`layers/core-api/review/src/session-review-creator.ts:64-65`), reading
+`work.getRiskTierByTaskId` → `task_planning_signals`
+(`layers/core-api/work/src/task-planning-signals.ts:21-25`). `rg -a` over all four roots finds
+**zero production writers** of that table — every `insert(taskPlanningSignals)` is a test
+(`layers/core-api/work/src/__tests__/task-planning-signals.integration.test.ts`,
+`layers/core-api/src/__tests__/session-review-creator.integration.test.ts`,
+`AD1-session-review-routing.integration.test.ts`, `handoff-to.integration.test.ts`). The gate always
+returns early. Dies with it: subscriber 1 of `registerReviewSubscriptions`, `getRiskTierByTaskId` and
+its `ReviewPorts.work` member, the `task_planning_signals` table and `work`'s reader, the
+`ReviewPorts` `users`/`org`/`conversation.updateThread`/`conversation.getThreadById`/
+`work.updateTaskById` members, and the tests above.
 
-- **Tables**: `proposedCalls`, `tailoredGrants`, `operationOutcomes` (`framework/db/src/schema.ts`) — only this package touches them.
-- **Routes**: `POST /api/reviews/proposed-calls`, `POST /api/reviews/proposed-calls/consume`, `POST /api/reviews/proposed-calls/:id/outcome` (`layers/core-api/src/routes/reviews.ts:187-209`); the proposed-call nesting inside `GET /api/reviews/:reviewMessageId` (lines 101-166 — `pcView` is always undefined in production today, so deleting it changes zero observed behavior); the proposed-call branch of the verdict handler (`layers/core-api/src/routes/threads.ts:1619+` from `findProposedCall` onward — verdict survives as a plain thread-resolution act). Also the `"rev-1"` demo fixture (`FIXTURE_REVIEW`, reviews.ts:36-81) — a design stub living inside a production route; dies too.
-- **Dispatch**: both workflow-router branches in `tool-registry.ts` (lines 100-119, 131-193); `ProposedCallWorkflowPort`, `classifyReversibility`, the `reversibility` field and the allow/routeToReview partition fn (`framework/tool-protocol/src/tool.ts:304-405`); `SessionWorkflow` (`framework/harness-protocol/src/harness/harness-adapter.ts`) and every `sessionWorkflow` passthrough (provisioner, runtime, contracts, harness-port).
-- **Seam**: the three `review.*` ops on `CoreApiPort` (`framework/api-contract/src/core-api-port.ts:726-730`) + their wiring (`core-api-port-composition.ts:798-822`, `run-orchestration-composition.ts:231-233`).
-- **Events/model**: `ProposedCallGrantedEvent`, `proposed_call_executed`, `framework/domain-model/src/proposed-call.ts` (`REVERSIBILITY` etc.), `AL7-proposed-call-types.test.ts`.
-- **Intents**: the `"reengagement"` case in `agent-run-admission-reactions.ts:113` and the `reengagement` member of the shared intent union — no producer remains.
-- **UI**: `ReviewOutcomeSummary.tsx`'s `"irreversible"` kind and any proposedCall rendering on `ReviewPage`.
-- **Tests that die with it**: `reengagement-resolver.integration.test.ts`, `agent-work-intent-recorder-shared-type.test.ts`, `AL7-two-session-loop.integration.test.ts`, `session-review-creator.reengagement-liveness-baked-emit.integration.test.ts`, the AL7 slices of the admission-failure and boundary tests. Test-only reachable code confirms, not excuses, the verdict.
+**Salvage from A2 before it goes:** the human-routing block
+(`session-review-creator.ts:86-107`) is the only code in the repo that resolves *which humans* should
+see a review. Under Ruling 1 that is core. Move it to the approval review item's creation (W3), then
+delete the subscriber.
 
-Why acceptable: nothing observable changes — the loop never fires today. The delete makes the shipped truth honest.
+**The `"rev-1"` demo fixture — DELETE.** `FIXTURE_REVIEW` at `layers/core-api/src/routes/reviews.ts:36-81`
+is a hand-written story served by a production route. Unchanged from the first wave.
 
-**The `review` package itself — DELETE after relocation.** Survivors move to `layers/core-api/src/services/` as a plain reaction module; the package, barrel, Mechanism-C ceremony, and Table-ACL claim over three empty tables all evaporate.
+**Not killed, contrary to the first wave:** the three proposed-call write routes
+(`reviews.ts:187-209`), the seam ops (`framework/api-contract/src/core-api-port.ts:726-730` and their
+composition), the workflow router branches, `ProposedCallWorkflowPort`, the three tables, and the
+`ProposedCallGrantedEvent` / `proposed_call_executed` event types (also protected by Ruling 2 — the
+defect there is missing emission, not a missing subscriber: `proposed_call_executed` is declared at
+`framework/domain-model/src/events.ts:554-563`, cased in the dispatcher at
+`layers/core-api/src/observability/dispatcher.ts:438`, and emitted nowhere).
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `findProposedCall` | UI:GET /api/reviews/:reviewMessageId (+3 more routes, 2 events) | DELETE | Reads tables with no reachable production writer; every door serves rows that cannot exist. |
-| 2 | `resolveReengagementRequest` | INTERNAL (transitionProposedCall, applyLivenessRetry) | DELETE | Bakes reengagement runs for grants that are never minted; dies with the loop. |
-| 3 | `recordProposedCall` | UI:POST /api/reviews/proposed-calls | DELETE | Sole writer of `proposedCalls`; its only client is the never-activated workflow router; hardcodes `reversibility:"irreversible"` — the gate-by-default classifier ETHOS forbids. |
-| 4 | `transitionProposedCall` (consumed overload) | UI:POST /api/reviews/proposed-calls/consume | DELETE | CAS-consumes grants that never exist; dead route, dead seam client. |
-| 5 | `transitionProposedCall` (non-consumed overload) | UI:POST /api/threads/:threadId/messages/:messageId/verdict, POST …/:id/outcome | DELETE | held/granted/outcome transitions on unreachable rows; verdict handler's PC branch dies with it. |
-| 6 | `transitionProposedCall` (implementation) | same as 4-5 | DELETE | The state machine has no state to run on. |
-| 7 | `handleUnconsumedGrantOnSessionEnd` | EVENT:session_ended (livenessHandler) | DELETE | Scans an always-empty `tailoredGrants` on every session end; liveness net for a feature that never lived. |
-| 8 | `reengageOnAdmissionFailure` | EVENT:agent_run_admission_failed | DELETE | Reengagement intents are only recorded by rows 5-7 — deleted; case handler in admission-reactions dies too. |
-| 9 | `attentionReviewReasoningMarker` | UI:POST /api/knowledge/:id/recompute-attention, AGENT:score_attention | KEEP | Live idempotency contract for attention-engine knowledge reviews — shared-knowledge core value; relocates with the factory. |
-| 10 | `createReviewItem` | AGENT:score_attention, UI:recompute-attention, SCHED:routine-scheduler, +11 doors | KEEP | The one load-bearing thing here: creates the review items humans actually see, across knowledge/routine/bet surfaces; relocates out of the dying package. |
-| 11 | `registerReviewSubscriptions` | BOOTSTRAP (service-bootstrap.ts:433) | SIMPLIFY | Delete subscriber 2 (liveness net) and all seven reengagement port wirings; survives as the AD1 session-review creator only, moved to core-api services. |
+| 1 | `findProposedCall` | UI:GET /api/reviews/:reviewMessageId, UI:POST /api/threads/:threadId/messages/:messageId/verdict, INTERNAL | KEEP | The reader both the review page and the verdict endpoint need; correct as written. |
+| 2 | `resolveReengagementRequest` | INTERNAL (granted transition, applyLivenessRetry) | FINISH | Must also bake the approved call from the grant row — without it session 2 is never grant-bearing (W5). |
+| 3 | `recordProposedCall` | UI:POST /api/reviews/proposed-calls (seam: `CoreApiPort.review.captureProposedCall`) | FINISH | Must mint the review anchor it currently assumes exists (W2) and take the classified reversibility instead of hardcoding `"irreversible"` at line 419 (W7). |
+| 4 | `transitionProposedCall` (consumed overload) | UI:POST /api/reviews/proposed-calls/consume (seam) | KEEP | The CAS claim on `(taskScope, agentScope, approvedToolId, consumed=false)` is exactly right; one-shot, no double-execute. |
+| 5 | `transitionProposedCall` (non-consumed overload) | UI:POST /api/threads/…/verdict, UI:POST /api/reviews/proposed-calls/:id/outcome | KEEP | Signature is honest about the four transitions; no change needed. |
+| 6 | `transitionProposedCall` (implementation) | same as 4-5 | FINISH | The granted branch's `catch { bakedRequest = undefined }` (lines 579-581) turns a failed approve into a silent two-session-later failure (W6). |
+| 7 | `handleUnconsumedGrantOnSessionEnd` | EVENT:session_ended (livenessHandler, `session-review-creator.ts:137-157`) | KEEP | Crash/no-show net; becomes live the moment grants exist. Already wired at `service-bootstrap.ts:432-471`. |
+| 8 | `reengageOnAdmissionFailure` | EVENT:agent_run_admission_failed (`agent-run-admission-reactions.ts:113-126`) | KEEP | Same behavior, pre-handoff trigger; its producer returns with A1. |
+| 9 | `attentionReviewReasoningMarker` | UI:POST /api/knowledge/:id/recompute-attention, AGENT:score_attention, SCHED:routine-scheduler | MERGE | Fold into `@hyperidle/knowledge` beside `attention-service.ts`, its only real consumer — the LIKE-probe idempotency contract is knowledge's, not review's. |
+| 10 | `createReviewItem` | AGENT:score_attention, UI:recompute-attention, SCHED:routine-scheduler, EVENT:agent_run_admission_failed | MERGE | Fold into `@hyperidle/knowledge`; kills the `KnowledgeReviewWriter` port and the currying factory that exists only to satisfy its 3-arg shape. |
+| 11 | `registerReviewSubscriptions` | BOOTSTRAP (`service-bootstrap.ts:432`) | SIMPLIFY | Delete subscriber 1 (A2's risk-tier session-review creator) and its five routing ports; keep subscriber 2 (the liveness net) and its seven bake ports. Exact inverse of the first wave. |
 
 ## Types / DI ports
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `ReviewAgentWorkIntentInput` | DELETE | Exists only to type reengagement intents; no producer remains. |
-| `ReviewPorts` | SIMPLIFY | Keep `work`/`conversation`/`users`/`org` (the AD1 creator's real deps); DELETE `intentRecorder`, `requireRunnableAgent`, `getBetById`, `getTeamById`, `assembleSessionKnowledge`, `readServerConfig`, `resolveOrCreateCallingThread` — all seven exist solely for the reengagement bake. After the move it's a local deps type, not an exported port bag. |
-| `ProposedCallQuery` | DELETE | Input type of deleted `findProposedCall`. |
-| `ProposedCallView` | DELETE | Return type of deleted `findProposedCall`. |
-| `ReengagementResolverDeps` | DELETE | Deps bag mirroring the deleted resolver — the exact `*Deps`-mirroring-one-function shape the brief names. |
-| `BakedReengagementRequest` | DELETE | Return type of deleted resolver. |
-| `ProposedCallTransition` | DELETE | The discriminated union IS the dead state machine. |
-| `CreateReviewItemInput` | KEEP | Contract of the live factory (fixed by `KnowledgeReviewWriter`'s 3-arg port shape). |
-| `CreateReviewItemResult` | KEEP | Two-field return of the live factory. |
-| `ReengagementSourceUnavailableError` (class) | DELETE | Thrown only by the deleted resolver, caught-and-swallowed by deleted callers. |
+| `ReviewAgentWorkIntentInput` | KEEP | The recorder contract for the `reengagement` intent the granted transition and the liveness net both produce. |
+| `ReviewPorts` | SIMPLIFY | KEEP `intentRecorder`, `requireRunnableAgent`, `work.getTaskById`, `getBetById`, `getTeamById`, `assembleSessionKnowledge`, `readServerConfig`, `resolveOrCreateCallingThread`. DELETE `work.getRiskTierByTaskId`, `work.updateTaskById`, `conversation.updateThread`, `conversation.getThreadById`, `users.*`, `org.*` — all A2's, except `org.resolveReviewRecipients` which is salvaged to the new capture path (W3), not deleted outright. `work.createItem` + `conversation.insertThread` leave with rows 9/10. |
+| `ProposedCallQuery` | KEEP | Input of the live reader; the `by`-variant shape is the right extension point. |
+| `ProposedCallView` | KEEP | Return of the live reader; the review page consumes exactly this shape. |
+| `ReengagementResolverDeps` | SIMPLIFY | Survives as the resolver's deps, but make the five optional members (`getBetById`, `getTeamById`, `assembleSessionKnowledge`, `readServerConfig`, `resolveOrCreateCallingThread`) required — every production wiring site already supplies all five (`threads.ts:1705-1716`, `service-bootstrap.ts:449-467`), and optionality only buys a half-baked request that fails later. `optionalReengagementBakeDeps` (lines 232-246) dies with the optionality. |
+| `BakedReengagementRequest` | FINISH | Must carry the approved call (`toolId`/`args`/`argPinned`/`identityHash`) so the drain can build a grant-bearing `sessionWorkflow` (W5). |
+| `ProposedCallTransition` | KEEP | The discriminated union IS the state machine, and the state machine is the feature. |
+| `CreateReviewItemInput` | MERGE | Moves to `@hyperidle/knowledge` with row 10. |
+| `CreateReviewItemResult` | MERGE | Moves to `@hyperidle/knowledge` with row 10. |
+| `ReengagementSourceUnavailableError` (class) | SIMPLIFY | Both call sites catch and discard it (lines 579-581, 705-707). Return a result type instead of throwing an error nobody handles — the discard is W6, the loop's silent-failure path. |
 
 ## Holes this leaves
 
-1. **No human-approval gate on agent tool calls, anywhere.** This hole already exists at runtime — the loop was never switched on — so the delete changes shipped behavior by exactly nothing; it changes the codebase's honesty by a lot. If a real learning ever earns a review gate on a specific tool, rebuild it small at that moment. Founder should know this kills the whole AL7 two-session grant/consume design, including three migration-managed tables. One tension to price consciously: a prior trust-model ruling ("AL7 gates unconditionally") suggests this loop was once chosen — but what shipped never turns it on, and the standing policy ruling for this pass is that irreversible-classifier approval machinery is DELETE.
-2. **Verdict "approve" on a review message becomes purely a thread-resolution act** — no grant is minted. Identical to today's observable behavior.
-3. **`review` stops existing as a Service** — the Table ACL entry for its three tables, the Mechanism-C port ceremony, and the package boundary all go; two small functions live on as ordinary core-api composition code.
+1. **Automatic post-hoc review of risky agent work disappears entirely** (A2). Nothing observable
+   changes — the gate never fired, because nothing ever wrote a risk tier. What genuinely goes is the
+   *idea* that finishing a medium/high-risk task should produce a review item. If that idea is wanted
+   later, it comes back as a human-set dial, not a tier classifier.
+2. **The multi-human review routing must be moved, not deleted.** `org.resolveReviewRecipients` +
+   the participant merge is the only "who should see this" logic in the repo. Under Ruling 1 it is
+   core. If A2 is deleted carelessly, the finished A1 loop will mint approvals nobody is told about.
+3. **Finishing A1 is nine wiring pieces, not one.** W1-W9 above. Any subset short of {W1, W2, W3, W4,
+   W5} leaves approve→act still impossible; W6 and W7 decide whether the finished loop is honest;
+   W8 decides whether it holds outside the builtin harness.
+4. **Until W7 lands, the code in the repo is a gate-by-default classifier.** `recordProposedCall`'s
+   hardcoded `"irreversible"`, `classifyReversibility`'s unsignalled default, and the unknown-tool
+   branch all say "route it to a human unless proven safe". Switching on the loop before inverting
+   that default ships the exact thing ETHOS forbids — the founder should treat W7 as a precondition
+   of W1, not a follow-up.
+5. **`review` keeps its three tables and its Service boundary.** The first wave's "package dies"
+   conclusion is withdrawn. What does leave is the knowledge review-item factory and the
+   `KnowledgeReviewWriter` port that exists only to shape it.
 
 
 ---
 
-# routine — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/routine.md` for comparison.
+
+# routine — destroyer verdict (REVISED after founder rulings)
+
+## What changed after the rulings
+
+| Row | Old verdict | New verdict | Ruling | Why it moved |
+|---|---|---|---|---|
+| 3 `provisionTeamRoutines` | DELETE | **PLUGIN** | Ruling 3 | Seeding a team with ritual routines (retros, knowledge sweeps) is exactly what a plugin's install step does. The capability moves to the plugin; this function and its `builtin:kind:teamId` id scheme still leave core. The structural bug stands: it seeds a **global** sweep once per team (Ruling 1 — that duplication is still a bug even on a shared backend). |
+| 4 `fireBuiltinRoutine` | DELETE | **PLUGIN** | Ruling 3 | The four rituals it dispatches (post-bet retro, portfolio retro, knowledge decay, knowledge promotion) are legitimate knowledge-management ceremony — re-provided by a plugin as generic routines. The structural conviction stands unchanged: this function is a second execution path that bypasses the agent-run architecture (no session, no intent queue, never runs the `skillId` its own specs declare). The plugin re-provision uses the generic path, **not** this function. |
+| 5 `registerBuiltinRoutineHandlers` | DELETE | **PLUGIN** | Ruling 3 | The post-bet retro ritual (bet completes → retro happens) is a plugin-provided event trigger on `bet_state_changed`. The form-letter implementation (`Hypothesis: X / Reality: <date>`, no agent) is not re-provided. Ruling 2 confirms the trigger shape is right: `bet_state_changed` is an extension-surface event a plugin hangs off. |
+| Feature: portfolio retro | DELETE ("dead forever, no replacement") | **PLUGIN** | Ruling 3 | A monthly portfolio retro is a ritual of the retro/practice-meeting kind — plugin territory. What is *not* re-provided: the current title-dump implementation and the per-team firing of a global read (Ruling 1). |
+| Feature: knowledge decay/promotion sweeps | DELETE + re-wire as core `setInterval`s (Hole 2) | **PLUGIN** | Ruling 3 | First wave routed the sweeps to the composition root as core clocks. Wrong destination — the founder named "builtin knowledge sweeps" as knowledge-management ritual. They leave core entirely and come back as plugin-provided scheduled routines, fired **once globally**, not once per team (Ruling 1). |
+
+**Ruling 2 re-examination — no rows flip.** Every DELETE in the first wave was re-checked against "did this rest on subscriber count?": none did. `registerBuiltinRoutineHandlers` was convicted for being a form letter bypassing the agent path, not for lacking listeners. `FireResult.sessionId/emitted/extra` die as payload fields nothing ever sets — the case Ruling 2 explicitly does not protect. The reaper kill is a config branch no production caller wires (re-confirmed: `service-bootstrap.ts:589` threads `reaperCadenceMs` but nothing passes `reap:`), not an event argument. And the standing blind spot is now doctrine, not a caveat: `registerEventTriggers` (`routine-scheduler.ts:702`) subscribes to whatever `eventType` stored routine rows name — **runtime data**. No event type reachable through routine triggers may ever be judged dead from this repository; plugins and users attach triggers to any event the product emits.
+
+**Ruling 1 re-examination — no rows flip, one hole reworded.** No routine verdict rested on a single-user premise. Per-team routine rows are legitimate on a shared backend (a team's own retro cadence is per-team by nature); what remains convicted is seeding a **teamId-ignoring global sweep** once per team — re-confirmed in code: `runKnowledgeDecay` calls `ports.knowledge.runStaleSweep(db, eventBus, nowMs, undefined, …)` and `runPortfolioRetro` reads global `listRecentByLayers`, both discarding the seeded routine's team. Hole 4 ("empty routine list is the correct default") is restated for a shared backend: teams start with what their installed plugins provision — core still pre-installs nothing.
+
+### What leaves core and becomes a plugin
+
+**A knowledge-ritual plugin** (no work package exists yet — FOUNDER-RULINGS says one needs writing) re-provides, via the **generic** routine machinery this package keeps:
+
+1. **Post-bet retro** — an event routine (`triggerType:"event"`, `eventType:"bet_state_changed"`, skill `bet_retro`) firing a real agent run that analyzes hypothesis vs reality, replacing the form letter. Two generic-path capability gaps block it today and become plugin-enabling core work: `registerEventTriggers` drops the event payload (the agent would not know which bet), and there is no payload filter (it would fire on every state change, not just `toState:"completed"`).
+2. **Portfolio retro** — a monthly scheduled routine + `portfolio_retro` skill, agent-run, provisioned once (org-scoped), not per team.
+3. **Knowledge decay sweep** and **knowledge promotion sweep** — scheduled routines invoking the knowledge service's sweeps, provisioned once globally.
+4. **Per-team ritual provisioning** — the plugin's install/team-join step creates its routine rows through plain `insertRoutine`, replacing `provisionTeamRoutines`.
+
+**What is deleted plain and never re-provided:** the `builtin:*` id scheme (`isBuiltinRoutineId`, `extractBuiltinKind`, `BuiltinRoutineId`), the bypass execution path (`fireBuiltinRoutine`'s switch, `RunBuiltinResult`, `PostBetRetroArgs`, the builtin branches in the tick / trigger route / bindings), the hardcoded TypeScript ritual bodies, the form-letter retro text, and per-team firing of global sweeps. Nobody would want these in any form; the plugin uses the generic path.
+
+---
 
 ## Should this service exist?
 
-**KEEP AS: routine definition store + the generic scheduler.** Routines are one of the five process primitives, with real doors on all three fronts: UI (`/api/routines/*` CRUD + trigger, WorkRoutine page, RoutineDetailPane, team routine cards), agent tools (`create_routine`, `update_routine`), and the scheduler timer (`TICK every config.pollIntervalMs`, wired at `layers/core-api/src/service-bootstrap.ts:586`). "Recurring work fires an agent session on a clock or an event" is core HyperIdle.
+**KEEP AS: routine definition store + the generic scheduler — unchanged, and strengthened by Ruling 2.** Routines are one of the five process primitives, with real doors on all three fronts: UI (`/api/routines/*` CRUD + trigger, WorkRoutine page, RoutineDetailPane, team routine cards), agent tools (`create_routine`, `update_routine`), and the scheduler timer (TICK every `config.pollIntervalMs`, wired at `layers/core-api/src/service-bootstrap.ts`). Under Ruling 2 this package is not just a feature — it is **the attachment mechanism** for the event extension surface: "plugins or users attach triggers and actions to events" is implemented here (`registerEventTriggers` + event-trigger routine rows). That raises the generic path's status and deepens the conviction of the builtin path, which sidesteps the product's own extension mechanism from inside core.
 
-**But half the package is a parallel second product that must die: the builtin-routine subsystem.** `fireBuiltinRoutine` is a second execution path that bypasses the entire agent-run architecture — no session, no intent queue, no skill. The four builtins run hardcoded TypeScript templates. The founder has already flagged this ("post-bet-retro bypasses the intent queue"). Three structural facts convict it:
+The builtin-routine subsystem still leaves core in its entirety. What changes is the destination: the rituals it carries are re-provided as a plugin (Ruling 3); the mechanism dies plain. The three structural findings stand:
 
-1. **The per-team seeding is broken by construction.** `runKnowledgePromotion`, `runKnowledgeDecay`, and `runPortfolioRetro` take no teamId — the sweeps are global (`ports.ts:52-86`, wired to global `sweep(db, eventBus, ...)` in `routine-scheduler-bindings.ts`). Yet `provisionTeamRoutines` seeds each per team (`builtin:knowledge-decay:<teamId>`), so N teams fire the same global sweep N times daily and portfolio-retro writes N duplicate monthly items, all hosted at `factory/portfolio`.
-2. **The "retros" are form letters, not retros.** `runPostBetRetro` writes `Hypothesis: X / Reality: completed at <date>` — field interpolation, no agent, no analysis. Each builtin spec carries a `skillId` (`bet_retro`, `portfolio_retro`, …) that nothing ever executes. The generic path (`triggerType:"event"` + skill + agent run) is the first way to do exactly this; the builtin path is the second way.
-3. **The maintenance sweeps don't need routine rows.** Knowledge decay/promotion are clocks calling knowledge-service functions. They need a `setInterval` at the composition root, not per-team DB rows, id-string parsing (`builtin:kind:teamId`), a switch dispatch, and run records.
-
-Survivors of the kill route nowhere — the generic machinery in this same package already covers the product need.
+1. **Per-team seeding of global sweeps is broken by construction** — N teams fire the same teamId-ignoring sweep N times daily (re-confirmed in `runKnowledgeDecay`/`runPortfolioRetro` signatures). Ruling 1 does not soften this: per-team *rituals* are fine, per-team *global sweeps* are duplication.
+2. **The "retros" are form letters** — field interpolation, no agent, and each builtin spec declares a `skillId` nothing ever executes. The generic path is the first way to do exactly this.
+3. **A second execution path bypassing the agent-run architecture is wrong** regardless of what it runs — no session, no intent queue, invisible to the extension surface.
 
 ## If written today, from scratch
 
-Ten exports:
+Against the corrected premise — a shared backend serving several teams, OIDC identity, an event stream that plugins hang off:
 
-- `insertRoutine`, `updateRoutine`, `getRoutine`, `listRoutines` — definition CRUD (UI + agent tools)
-- `insertRoutineRun`, `updateRoutineRun`, `getRoutineRun`, `listRoutineRuns` — run records (coalescing guard, session-end closure, run history in the UI)
-- `fireGenericRoutine` — the one firing path: resolve + bake + enqueue intent (resolver folded in)
-- `startRoutineScheduler` — the tick loop + event-trigger registration
-- plus `humanizeSchedule` as presentation sugar with a real UI door
+- `insertRoutine`, `updateRoutine`, `getRoutine`, `listRoutines` — definition CRUD (UI + agent tools + **plugin provisioning**)
+- `insertRoutineRun`, `updateRoutineRun`, `getRoutineRun`, `listRoutineRuns` — run records (coalescing guard, session-end closure, run history)
+- `fireGenericRoutine` — the one firing path: resolve + bake + enqueue intent (resolver folded in), **carrying the triggering event's payload through to the run**
+- `startRoutineScheduler` — the tick loop + event-trigger registration; this *is* the "attach a trigger to any event" extension surface
+- `humanizeSchedule` — presentation sugar with a real UI door
 
-Nothing named `builtin:*` exists.
+Nothing named `builtin:*` exists. Rituals arrive as plugin-provisioned rows through the same CRUD everyone else uses. The one genuinely missing piece of the from-scratch shape is event-payload delivery to the fired run — today's `registerEventTriggers` discards it, which is what forced the builtin bypass into existence in the first place.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 5 |
+| DELETE | 2 |
+| PLUGIN | 3 |
 | MERGE | 1 |
 | SIMPLIFY | 5 |
 | KEEP | 6 |
 
-Surface: 17 methods → 11 exported methods (35% of methods gone outright, 5 of the rest shrunk). Of ~860 lines in `routine-scheduler.ts`, roughly 470 (the builtin subsystem: lines 72–536 minus the generic pieces) are deleted.
+Surface: 17 methods → 11 exported methods in core (2 deleted plain, 3 leave core for the plugin, 1 merged in). Of ~860 lines in `routine-scheduler.ts`, roughly 470 (the builtin subsystem) leave core; only the ritual *intent* — four routines and two skills — is re-provided in the plugin, through the generic path.
 
 ## Feature-level kills
 
-1. **Builtin routines — the whole subsystem.** Dies: `BUILTIN_ROUTINE_IDS`, `BUILTIN_SPECS`, `isBuiltinRoutineId`, `extractBuiltinKind`, `provisionTeamRoutines`, `fireBuiltinRoutine`, `registerBuiltinRoutineHandlers`, `runPostBetRetro`/`runPortfolioRetro`/`runKnowledgeDecay`/`runKnowledgePromotion`, the builtin branch of the scheduler tick, and the ports blocks that exist only for them (`work`, `conversation`, `knowledge`). Callers to kill with it: the builtin branch of `POST /api/routines/:id/trigger` (`routines-routes.ts:353`), `POST /api/org/team-routines` (`org.ts:331`), the `provisionTeamRoutines` call in `POST /api/teams` (`teams-routes.ts:216`), the seeding step in the `create_team` tool, `registerBuiltinRoutineReactions` + the builtin dispatch in `fireRoutine` (`routine-scheduler-bindings.ts`), and `tools/eval/src/scenarios/builtin-routines.ts`. What breaks and why it's acceptable — see Holes.
-2. **Portfolio retro — dead forever.** A monthly review item that dumps a list of recent L3/L4 knowledge-item titles. A report nobody asked for, duplicated per team. No replacement.
-3. **The reaper piggyback in the scheduler tick.** `config.reap`/`reaperCadenceMs`/`ROUTINE_REAPER_CADENCE_MS` — **never wired in production** (`service-bootstrap.ts:586` passes `reaperCadenceMs` but no `reap`; no production caller anywhere passes `reap:`). Dead branch shipped as config surface. Delete both fields; bootstrap stops threading `reaperCadenceMs`.
-4. **Routine soft-delete.** `deletedAt` + `includeDeleted` + `DELETE /api/routines/:id` is a second off-switch next to retire (`active:false`), which the scheduler, manual trigger, and resolver all already honor. One off-switch. Hard-delete or drop the route; `includeDeleted`'s only production caller (`settings/src/plugin-configuration.ts:711` backfilling config defaults *for deleted routines*) then just reads all rows.
-5. **Skipped-run audit rows on manual trigger.** `recordSkippedRun` writes a `skipped` run row whose only purpose is recording that nothing happened; the HTTP response already tells the caller `"coalesced"`. Audit trail nobody reads.
+1. **Builtin-routine mechanism — DELETE, whole subsystem, nothing re-provided.** Dies plain: `BUILTIN_ROUTINE_IDS`, `BUILTIN_SPECS`, `isBuiltinRoutineId`, `extractBuiltinKind`, the `fireBuiltinRoutine` switch and ritual bodies (`runPostBetRetro`/`runPortfolioRetro`/`runKnowledgeDecay`/`runKnowledgePromotion`), the builtin branch of the scheduler tick, the ports blocks that exist only for them (`work`, `conversation`, `knowledge`), the builtin branch of `POST /api/routines/:id/trigger`, `POST /api/org/team-routines`, the seeding call in `POST /api/teams` and the `create_team` tool, `registerBuiltinRoutineReactions` + the builtin dispatch in `fireRoutine` (bindings), and `tools/eval/src/scenarios/builtin-routines.ts`.
+2. **Knowledge rituals — PLUGIN (Ruling 3).** Post-bet retro, portfolio retro, knowledge decay, knowledge promotion: removed from core, re-provided by a knowledge-ritual plugin as generic routines + skills (see "What leaves core"). Requires the event-payload gap in `registerEventTriggers` closed as core work.
+3. **The reaper piggyback — DELETE, unchanged.** `config.reap`/`reaperCadenceMs`/`ROUTINE_REAPER_CADENCE_MS`: never production-wired (re-confirmed — bootstrap threads `reaperCadenceMs`, nothing passes `reap:`). Dead branch shipped as config surface.
+4. **Routine soft-delete — DELETE, unchanged.** `deletedAt` + `includeDeleted` + `DELETE /api/routines/:id` is a second off-switch next to retire (`active:false`). Not voided by any ruling — it is an enterprise reflex, not a single-user argument.
+5. **Skipped-run audit rows on manual trigger — DELETE, unchanged.** `recordSkippedRun` duplicates the HTTP response into a run row. Audit trail nobody reads; no ruling touches it.
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `isBuiltinRoutineId` | UI:POST /api/routines/:id/trigger, SCHED:TICK pollIntervalMs | DELETE | Exists only to recognize builtin id strings; dies with the builtin subsystem, kill both callers' builtin branches. |
-| 2 | `extractBuiltinKind` | UI:POST /api/routines/:id/trigger, SCHED:TICK, EVENT:bet_state_changed | DELETE | Id-string parsing (`builtin:kind:teamId`) for the subsystem being deleted. |
-| 3 | `provisionTeamRoutines` | UI:POST /api/teams/, UI:POST /api/org/team-routines, AGENT:create_team | DELETE | Seeds per-team rows for global sweeps — N teams fire the same global sweep N times. Nothing to seed once builtins die; kill all three doors' seeding steps. |
-| 4 | `fireBuiltinRoutine` | UI:POST /api/routines/:id/trigger, SCHED:TICK, EVENT:bet_state_changed | DELETE | Second execution path bypassing the agent-run architecture; runs hardcoded templates, never the `skillId` its own specs declare. The generic path is the first way. |
-| 5 | `registerBuiltinRoutineHandlers` | BOOTSTRAP (`routine-scheduler-bindings.ts:156` → `service-bootstrap.ts`) | DELETE | Subscribes bet_state_changed to write a form letter (`Hypothesis: X / Reality: <date>`) with no agent involved. Dies with the subsystem; hole named below. |
-| 6 | `fireGenericRoutine` | UI:POST /api/routines/:id/trigger, SCHED:TICK, EVENT:<db-configured eventType> via registerEventTriggers | SIMPLIFY | The core firing path — keep. Drop `recordSkippedRun` (audit row duplicating the HTTP response) and absorb the resolver (row 16); return type shrinks to `{fired, reason?, runId?}`. |
-| 7 | `startRoutineScheduler` | BOOTSTRAP (`service-bootstrap.ts:586`) — IS the SCHED:TICK door | SIMPLIFY | The timer door — keep. Delete the builtin branch of the tick and the never-production-wired `reap`/`reaperCadenceMs` machinery. |
-| 8 | `insertRoutine` | UI:POST /api/routines/, AGENT:create_routine, UI:POST /api/teams/ | SIMPLIFY | Keep the write. Drop `opts.onConflictDoNothing` — its only caller is `provisionTeamRoutines` (row 3, deleted). |
+| 1 | `isBuiltinRoutineId` | UI:POST /api/routines/:id/trigger, SCHED:TICK pollIntervalMs | DELETE | Recognizes `builtin:*` id strings — pure mechanism of the bypass path; the plugin uses ordinary routine ids. Kill both callers' builtin branches. |
+| 2 | `extractBuiltinKind` | UI:POST /api/routines/:id/trigger, SCHED:TICK, EVENT:bet_state_changed | DELETE | Id-string parsing (`builtin:kind:teamId`) for a scheme nobody re-provides. |
+| 3 | `provisionTeamRoutines` | UI:POST /api/teams/, UI:POST /api/org/team-routines, AGENT:create_team | PLUGIN | Ruling 3: seeding ritual routines is the plugin's install step, done via `insertRoutine` with generic rows. This function leaves core; its bug (seeds a teamId-ignoring global sweep once per team) is not carried over — plugin provisions global sweeps once (Ruling 1). |
+| 4 | `fireBuiltinRoutine` | UI:POST /api/routines/:id/trigger, SCHED:TICK, EVENT:bet_state_changed | PLUGIN | Ruling 3: the four rituals it dispatches are re-provided by the plugin — through the generic path. The function itself is the second execution path bypassing the agent-run architecture (never runs its specs' own `skillId`) and is not re-provided. |
+| 5 | `registerBuiltinRoutineHandlers` | BOOTSTRAP (bindings → `service-bootstrap.ts`) | PLUGIN | Ruling 3: bet-completes→retro is a plugin event trigger on `bet_state_changed` firing a real agent run. The form-letter body (`Hypothesis: X / Reality: <date>`) is not re-provided. Ruling 2: the event is the right attachment point. |
+| 6 | `fireGenericRoutine` | UI:POST /api/routines/:id/trigger, SCHED:TICK, EVENT:<db-configured eventType> via registerEventTriggers | SIMPLIFY | The core firing path — and post-rulings the plugin's execution vehicle. Drop `recordSkippedRun`, absorb the resolver (row 16), shrink return to `{fired, reason?, runId?}`. New core work it must gain for the plugin: carry the triggering event payload. |
+| 7 | `startRoutineScheduler` | BOOTSTRAP (`service-bootstrap.ts`) — IS the SCHED:TICK door | SIMPLIFY | The timer door plus the event-trigger extension surface (Ruling 2 elevates it). Delete the builtin tick branch and the never-wired `reap`/`reaperCadenceMs` machinery. |
+| 8 | `insertRoutine` | UI:POST /api/routines/, AGENT:create_routine, UI:POST /api/teams/ | SIMPLIFY | Keep the write — it becomes the plugin's provisioning door too. Drop `opts.onConflictDoNothing`… unless the plugin install step proves idempotent-seed need; today its only caller is row 3, which leaves core, so it goes. |
 | 9 | `updateRoutine` | UI:PATCH /api/routines/:id, UI:POST /api/routines/:id/retire, AGENT:update_routine, SCHED:TICK, EVENT:session_ended | KEEP | Core value: retire toggle + the scheduler's `nextRunAt`/`lastRunAt` advance. Doors: PATCH route, update_routine tool, tick. |
-| 10 | `getRoutine` | UI:GET /api/routines/:id (+5 more routes), AGENT:update_routine, SCHED:TICK | KEEP | Core value: every route and the scheduler load the definition through it. Door: GET /api/routines/:id. |
-| 11 | `listRoutines` | UI:GET /api/routines/, UI:GET /api/teams/:teamId, SCHED:TICK, BOOTSTRAP (settings backfill via boot.ts) | SIMPLIFY | Keep the list. Drop `includeDeleted` with the soft-delete kill (sole production caller backfills config defaults for deleted routines — pointless work); other filters are all live. |
-| 12 | `insertRoutineRun` | UI:POST /api/routines/:id/trigger, SCHED:TICK | KEEP | Core value: the run row is load-bearing — the coalescing guard and the resolver validate against it. Door: SCHED:TICK. |
-| 13 | `updateRoutineRun` | SCHED:TICK, EVENT:session_ended, EVENT:agent_run_lifecycle_changed, EVENT:agent_run_admission_failed | KEEP | Core value: closes runs on session end / admission failure; `onlyIfRunning` race guard has three live production callers. Door: SCHED:TICK via the reactions. |
-| 14 | `getRoutineRun` | SCHED:TICK (via resolver), EVENT:session_ended | KEEP | Core value: resolver validation + session-end closure both read the run row. Door: SCHED:TICK. |
-| 15 | `listRoutineRuns` | UI:GET /api/routines/:id, UI:GET /api/teams/:teamId, SCHED:TICK | SIMPLIFY | Keep — run history in the UI and the coalescing guard. Drop `order`: no production caller ever passes `"asc"`; hardcode desc. |
-| 16 | `resolveRoutineRunRequest` | INTERNAL (sole caller: `fireGenericRoutine`) | MERGE | One caller, one transaction, plus a `RoutineRunResolverDeps` interface mirroring fields `RoutineSchedulerPorts` already carries. Fold into `fireGenericRoutine`, unexport. |
-| 17 | `humanizeSchedule` | UI:GET /api/routines/:id, UI:GET /api/teams/:teamId | KEEP | Core value: readable schedules ("Every Monday at 10:00 AM") on the routine cards and detail pane — the primitive's main surface, real UI door, pure, zero deps. |
+| 10 | `getRoutine` | UI:GET /api/routines/:id (+5 more routes), AGENT:update_routine, SCHED:TICK | KEEP | Every route and the scheduler load the definition through it. Door: GET /api/routines/:id. |
+| 11 | `listRoutines` | UI:GET /api/routines/, UI:GET /api/teams/:teamId, SCHED:TICK, BOOTSTRAP (settings backfill) | SIMPLIFY | Keep the list. Drop `includeDeleted` with the soft-delete kill; other filters live. |
+| 12 | `insertRoutineRun` | UI:POST /api/routines/:id/trigger, SCHED:TICK | KEEP | Run row is load-bearing — coalescing guard and resolver validate against it. Door: SCHED:TICK. |
+| 13 | `updateRoutineRun` | SCHED:TICK, EVENT:session_ended, EVENT:agent_run_lifecycle_changed, EVENT:agent_run_admission_failed | KEEP | Closes runs on session end / admission failure; `onlyIfRunning` race guard has three live production callers. |
+| 14 | `getRoutineRun` | SCHED:TICK (via resolver), EVENT:session_ended | KEEP | Resolver validation + session-end closure both read the run row. |
+| 15 | `listRoutineRuns` | UI:GET /api/routines/:id, UI:GET /api/teams/:teamId, SCHED:TICK | SIMPLIFY | Keep — run history + coalescing guard. Drop `order`: no production caller passes `"asc"`; hardcode desc. |
+| 16 | `resolveRoutineRunRequest` | INTERNAL (sole caller: `fireGenericRoutine`) | MERGE | One caller, one transaction, plus a deps interface mirroring `RoutineSchedulerPorts`. Fold into `fireGenericRoutine`, unexport. |
+| 17 | `humanizeSchedule` | UI:GET /api/routines/:id, UI:GET /api/teams/:teamId | KEEP | Readable schedules on the routine cards and detail pane — the primitive's main surface. Pure, zero deps. |
 
 ## Types / DI ports
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `RoutineRunSourceUnavailableError` (class) | SIMPLIFY | Unexport. After row 16's merge its only job — distinguishing expected rejection from infra failure — lives inside one file. |
-| `RoutineSchedulerPorts` | SIMPLIFY | Drop `work`/`conversation`/`knowledge` blocks — every member serves only deleted builtin bodies. Survives as `{settings, workIntents, requireRunnableAgent, getTeamById, assembleSessionKnowledge}`, absorbing `RoutineRunResolverDeps`. |
-| `BuiltinRoutineId` | DELETE | Dies with the builtin subsystem. |
-| `RunBuiltinResult` | DELETE | Return type of a deleted function. |
-| `PostBetRetroArgs` | DELETE | One-field args type for a deleted function. |
-| `FireResult` | SIMPLIFY | `sessionId`/`emitted`/`extra` are never set by `fireGenericRoutine` — they exist for the builtin merge in the bindings. Shrink to `{fired, reason?, runId?}`; the bindings' duplicate `FireRoutineResult` copy dies too. |
-| `RoutineSchedulerConfig` | SIMPLIFY | Drop `reap` + `reaperCadenceMs` (never production-wired). Survives as `{pollIntervalMs, canProvision?}`. |
-| `RoutineScheduler` | KEEP | The stop handle the bootstrap disposer holds. Named door: BOOTSTRAP (`service-bootstrap.ts` disposer). |
-| `Routine` | KEEP | The row type; used by routes, reactions, bindings, tools. |
+| `RoutineRunSourceUnavailableError` (class) | SIMPLIFY | Unexport. After row 16's merge its only job lives inside one file. |
+| `RoutineSchedulerPorts` | SIMPLIFY | Drop `work`/`conversation`/`knowledge` blocks — every member serves only the ritual bodies leaving core; the plugin brings its own access, core ports do not serve it. Survives as `{settings, workIntents, requireRunnableAgent, getTeamById, assembleSessionKnowledge}`, absorbing `RoutineRunResolverDeps`. |
+| `BuiltinRoutineId` | DELETE | Id scheme of the bypass mechanism — not re-provided. |
+| `RunBuiltinResult` | DELETE | Return type of the bypass dispatcher — not re-provided. |
+| `PostBetRetroArgs` | DELETE | One-field args type of a ritual body; the plugin's retro is a generic event routine, not this signature. |
+| `FireResult` | SIMPLIFY | `sessionId`/`emitted`/`extra` are payload fields nothing sets on the generic path — exist only for the builtin merge. Ruling 2 does not protect never-set fields. Shrink to `{fired, reason?, runId?}`; the bindings' duplicate `FireRoutineResult` dies too. |
+| `RoutineSchedulerConfig` | SIMPLIFY | Drop `reap` + `reaperCadenceMs` (never production-wired, re-confirmed). Survives as `{pollIntervalMs, canProvision?}` — and `canProvision` dies too once row 3 leaves core. |
+| `RoutineScheduler` | KEEP | The stop handle the bootstrap disposer holds. Door: BOOTSTRAP. |
+| `Routine` | KEEP | The row type; used by routes, reactions, bindings, tools — and the plugin surface. |
 | `RoutineRun` | KEEP | The row type for run records. |
-| `RoutinePatch` | SIMPLIFY | Drop the `\| SQL` widening — its own @lore admits it is "not tied to any specific caller need anymore". `Partial<NewRoutine>`. |
+| `RoutinePatch` | SIMPLIFY | Drop the `\| SQL` widening — its own @lore admits it serves no caller. `Partial<NewRoutine>`. |
 | `RoutineRunPatch` | SIMPLIFY | Same: drop `\| SQL`, no production caller passes a fragment. |
-| `BakedRoutineRunRequest` | KEEP | The emit-time contract the work-intent seam and agent-orchestration drain consume. Named door: SCHED:TICK → `enqueueWorkIntent`. |
+| `BakedRoutineRunRequest` | KEEP | The emit-time contract the work-intent seam and agent-orchestration drain consume. Door: SCHED:TICK → `enqueueWorkIntent`. Grows an event-payload field when the plugin work lands. |
 | `RoutineRunResolverDeps` | MERGE | Dies as a declaration when row 16 merges — its four fields are already on `RoutineSchedulerPorts`. |
 
 ## Holes this leaves
 
-1. **No automatic post-bet retro.** Completing a bet no longer produces the hypothesis-vs-reality item. What's lost is a form letter, not analysis. The honest replacement is a generic event routine (`triggerType:"event"`, `eventType:"bet_state_changed"`, `skillId:"bet_retro"`) firing a real agent run — but two capability gaps stand in the way today: `registerEventTriggers` ignores the event payload (the agent would not know which bet), and there is no `toState==="completed"` filter (it would fire on every state change). Ship broken-and-simple now; the founder already has "post-bet-retro bypasses the intent queue" parked as its own story — that story becomes "rebuild it as a generic event routine with event payload".
-2. **No knowledge decay/promotion until re-wired.** Two `setInterval`s at the composition root calling `sweep(db, eventBus, "stale")` / `sweep(db, eventBus, "autoPromotion")` + `recomputeAttentionForCandidates` — about ten lines in `service-bootstrap.ts`, and the sweeps run once per day instead of once per team per day. Until written, stale knowledge doesn't decay and provisional items don't auto-promote.
-3. **Portfolio retro is gone with no replacement.** Deliberate.
-4. **New teams get an empty routine list.** No seeded rows. That is the correct default — routines are something the user or their agents create, not ceremony pre-installed four-deep per team.
-5. **Manually triggering a coalesced routine leaves no `skipped` row.** The HTTP response still says `"coalesced"`; the history just doesn't record non-events.
-6. **Deleted-routine history semantics change.** With hard delete, a routine's run rows go with it (FK) — acceptable; retire (`active:false`) remains the way to stop a routine while keeping its history.
+1. **No automatic post-bet retro until the plugin exists.** What is lost meanwhile is a form letter, not analysis. The plugin's version needs two pieces of core work first: `registerEventTriggers` must pass the event payload through to the fired run, and event-trigger routines need a payload filter (`toState:"completed"`). The founder's parked "post-bet-retro bypasses the intent queue" story becomes: close those two gaps, then ship the ritual in the plugin.
+2. **No knowledge decay/promotion until the plugin exists.** Changed from the first wave: these do **not** get re-wired as core `setInterval`s — Ruling 3 sends them to the plugin as globally-provisioned scheduled routines. Until then, stale knowledge does not decay and provisional items do not auto-promote. If that gap is unacceptable for long, the plugin is the work to schedule, not a core shim.
+3. **No portfolio retro until the plugin exists.** Changed from "gone forever": the ritual returns in the plugin as an agent-run monthly review, provisioned once — not the current per-team title dump.
+4. **New teams get no pre-installed routines from core.** Restated for the shared backend: teams start with whatever their installed plugins provision. Core seeding ceremony is gone; that is the correct division of labor.
+5. **Manually triggering a coalesced routine leaves no `skipped` row.** The HTTP response still says `"coalesced"`. Unchanged.
+6. **Deleted-routine history semantics change.** Hard delete takes run rows with it (FK); retire (`active:false`) remains the way to stop a routine while keeping history. Unchanged.
+7. **No knowledge-ritual plugin work package exists.** FOUNDER-RULINGS confirms none is registered. Until one is written, every PLUGIN row in this file is a deletion with an IOU attached.
 
 
 ---
@@ -5552,81 +6669,112 @@ Surface: 24 callable surfaces (2 exports + 22 tools) → 19 (4 deleted, 1 merged
 
 ---
 
-# users — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/users.md` for comparison.
+
+# users — destroyer verdict (REVISED after founder rulings)
+
+## What changed after the rulings
+
+### Rows whose verdict moved
+
+| # | Method | Old verdict | New verdict | Ruling |
+|---|---|---|---|---|
+| 18 | `getOrCreateUser` | DELETE | FINISH | Ruling 1 + A7 — resolve-or-provision a user record for an authenticated identity is exactly what OIDC just-in-time provisioning needs. The current form (caller-supplied random id, redundant re-select, only caller `claimInvite`) dies; the idea is the one survivor of the credential stack and the countable carrier of the A7 work inside this package. |
+
+One verdict moved. Every other verdict stands — but five stand on **corrected reasoning**:
+
+### Rows whose verdict stands on a new premise (Ruling 1)
+
+| # | Method | Verdict (unchanged) | Old reason (voided) | New reason |
+|---|---|---|---|---|
+| 7 | `createInvite` | DELETE | "no client / product is single-user" | Invites are not the access mechanism — OIDC is. Ruling 1 names invite minting as correctly dead. |
+| 8 | `claimInvite` | DELETE | same | Invite claiming dies because OIDC replaces it, not because there is one user. |
+| 9 | `createLoginSession` | DELETE | dies with its only caller | Home-grown session minting dies because the OIDC provider owns sessions. (Also still: only caller is `claimInvite` — re-confirmed with `rg -a`.) |
+| 10 | `validateBearerToken` | DELETE | "the Bearer branch is unreachable; deployed auth is one team key" | Home-grown token-table lookup is replaced by OIDC token verification (JWKS), which shares zero code with this function. The replacement middleware is A7 work in `core-api/src/middleware/auth.ts`, not a finish of this function. |
+| 11 | `revokeLoginSession` | DELETE | "logout for a system nobody can log into" | Logout belongs to the OIDC provider. |
+
+Rows 5–6 (hint progress) were re-judged under Ruling 1 and **stand as DELETE**: the first-wave argument ("tooltip memory belongs in localStorage") never rested on single-user. Under a shared backend, localStorage is per-human-per-browser, which is exactly right for first-run tooltips; a DB table + two routes + a service so a dismissed tooltip roams across a human's devices is still not core value.
+
+Ruling 2 (events) moves nothing here — this verdict killed no event types. Ruling 3 (ritual → plugin) has no rows in this package; no PLUGIN verdicts.
+
+**Re-verification on the current tree** (all with `rg -a`): nothing sets `HYPERIDLE_SHARED_MODE` anywhere (code, docs, helm, desktop — the one new reference since the first wave is a doc comment in `layers/agent-orchestration/connections/src/held-connections-for-provisioning.ts`, not code); `getOrCreateUser` and `createLoginSession` have exactly one production caller each (`invite-code.ts`); `orderById` has exactly one caller and it is a test; **zero OIDC code exists in the repo** — A7 is entirely unbuilt.
 
 ## Should this service exist?
 
-KEEP AS the identity spine — sole owner of the `users` table. `findUser`/`listUsers`/`insertUser`/`updateUser` sit under 54/22/10/3 real doors and `requireRunnableAgent` is the one cross-domain invariant ("never trust the human sender as the agent") under 19 doors. That is the service.
+KEEP AS the identity spine — sole owner of the `users` table, now judged against the real deployment: a **shared backend for a team, and an organisation of several teams, with identity from an OIDC provider**. `findUser`/`listUsers`/`insertUser`/`updateUser` sit under 54/22/10/3 real doors, `requireRunnableAgent` is the one cross-domain invariant ("never run the human sender as the agent") under 19 doors, and — new under Ruling 1 — this service is where an OIDC-authenticated human becomes a `users` row. "Who is the acting human" is not an enterprise reflex on a shared backend; it is load-bearing (conversation attribution, per-human held connections in the connections service key on `userId`, team membership).
 
-Everything else in the package is a second product hiding inside it: a full per-human credential system (invites, bearer login sessions, revocation, credential retention) that **no client anywhere can reach**. It dies wholesale — see feature-level kills.
+The per-human credential stack inside it still dies wholesale — but for the corrected reason: **OIDC replaces it**, it was never the wrong goal, only the wrong mechanism (home-grown invites + bearer sessions), and it shipped gated behind an env var nothing sets, with no client.
 
 ## If written today, from scratch
 
-Seven public symbols:
+Against the corrected premise — shared backend, team of humans + agents, OIDC identity, event stream plugins hang off — eight public symbols:
 
 - `findUser(exec, filter)` — single-row read
 - `listUsers(exec, filter)` — multi-row read
 - `insertUser(exec, values, opts?: { ifAbsent?: true })` — one insert, conflict mode as option
 - `updateUser(exec, id, patch: Partial<NewUser>)` — plain patch, no SQL-expression admittance
+- `getOrCreateUserForIdentity(exec, subject, profile)` — the finished row 18: map a verified OIDC subject to a `users` row, create on first login (JIT provisioning). The only human-creation door besides founder setup.
 - `requireRunnableAgent(db, agentId)` + `AgentNotRunnableError` — the runnability invariant
-- `createUpgradeTokenStore()` — one-shot WS handshake tokens (in-memory, feeds the real UI's WebSocket)
+- `createUpgradeTokenStore()` — one-shot WS handshake tokens (in-memory, hardcoded TTL/cap)
 
-Plus `UserFilter` as the one filter type. Nothing else.
+Plus `UserFilter` (minus `orderById`) as the one filter type. What is deliberately **not** in the from-scratch shape: invite codes, home-grown sessions/logout, credential reaping (the OIDC provider owns session lifecycle), a role matrix (`admin`/`member` — if a human role distinction is ever earned, it arrives as an OIDC claim, not a table), server-side tooltip memory, and a perpetual backfill.
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 10 |
+| DELETE | 9 |
 | MERGE | 2 |
 | SIMPLIFY | 3 |
+| FINISH | 1 |
 | KEEP | 4 |
 
-Surface: 19 methods (18 functions + 1 class) → 7 (63% cut)
+Surface: 19 methods (18 functions + 1 class) → 8 (58% cut). Delta vs first wave: one DELETE became FINISH; the cut shrinks by one symbol because OIDC provisioning keeps a door.
 
 ## Feature-level kills
 
-### 1. The entire per-human credential stack (rows 1, 7–11, 18) — DELETE
+### 1. The home-grown credential mechanism (rows 1, 7–11) — DELETE, replaced by OIDC (Ruling 1 / A7)
 
-`invite-code.ts`, `login-session.ts`, `credentials-reaper.ts`, and the `inviteCodes` + `loginSessions` tables. Three facts convict it:
+`invite-code.ts`, `login-session.ts`, `credentials-reaper.ts`, and the `inviteCodes` + `loginSessions` tables. The conviction is re-based:
 
-1. **Gated behind an env var nothing sets.** `/api/auth/invite`, `/api/auth/claim`, `/api/auth/logout`, and the Bearer branch of the auth middleware mount only when `HYPERIDLE_SHARED_MODE=true`. Grep across repo, helm, desktop, docs: nothing sets it. Desktop "shared mode" (`--backend-mode=shared`) is a *client* connecting with the team API key — a different thing.
-2. **Zero client.** No UI creates invites, no claim page exists, no logout button exists, no code anywhere stores or sends a login-session Bearer token (the one `Bearer` in `applications/desktop/src/credential-validator.ts` carries the API key). Every endpoint in this stack is curl-only.
-3. **The documented deployment contradicts it.** `docs/deployment/shared-backend.md` §Auth: "one shared team `HYPERIDLE_API_KEY`". That is the ETHOS trust model — trust the team, share the key. Per-human credentials with admin/member invite roles (enforced nowhere — the only admin gate is holding the master key), 30-day sessions, revocation, and an invite "audit-window" reaper is preemptive enterprise identity built for a learning nobody has had.
+1. **Wrong mechanism by ruling.** Access to the shared backend arrives via an OIDC provider. Invite minting, invite claiming, and home-grown bearer sessions are the mechanism OIDC replaces — Ruling 1 names them dead explicitly.
+2. **Still unreachable as shipped.** All of it mounts only under `HYPERIDLE_SHARED_MODE=true`, which nothing sets (re-confirmed on current tree), and no client mints invites, claims them, stores a session token, or logs out. Nothing real breaks when it goes.
+3. **What it tried to do survives elsewhere.** Per-human identity on a shared backend is real and needed — it is re-provided by A7 (OIDC middleware + row 18's FINISH), not preserved by keeping this code.
 
-Deleting it removes **zero user-reachable behavior** and aligns code with the deployed reality. Cascade kills: `auth-public.ts`, the shared-mode Bearer branch + `handleBearerAuth` in `middleware/auth.ts`, `INVITE_ROLES` + `LOGIN_SESSION_TTL_MS` + `INVITE_CODE_TTL_MS` in domain-model, `SESSION_EXPIRED`/`SESSION_REVOKED`/`INVITE_CLAIMED`/`INVITE_EXPIRED` error codes, `loginSessionId`/`authMethod="login_session"` context vars, the `reapExpiredCredentials` call in `service-bootstrap.ts:510`, both tables from schema, and the S1-* integration tests.
+Cascade kills, adjusted: `auth-public.ts`, the shared-mode Bearer branch + `handleBearerAuth` in `middleware/auth.ts` (its successor is the A7 OIDC verification, written fresh), `INVITE_ROLES` + `LOGIN_SESSION_TTL_MS` + `INVITE_CODE_TTL_MS`, `SESSION_EXPIRED`/`SESSION_REVOKED`/`INVITE_CLAIMED`/`INVITE_EXPIRED` error codes, `loginSessionId`/`authMethod="login_session"` context vars, the `reapExpiredCredentials` call in `service-bootstrap.ts:510`, both tables, the S1-* integration tests. **Not** killed: the `sharedMode` flag itself — under Ruling 1 shared mode is the real deployment, so the flag's fate (probably "which auth middleware mounts") is decided by A7, not by this deletion.
 
-### 2. Server-side hint dismissal (rows 5–6) — DELETE
+### 2. Server-side hint dismissal (rows 5–6) — DELETE (re-judged under Ruling 1, stands)
 
-`hint-progress.ts`, the `hintProgress` table, both `/api/hint-progress` routes, and the server round-trip in `useHints.tsx`. A DB table + two endpoints + a service to remember "user closed a tooltip" is bloat; localStorage does this with zero backend. The hook already treats API failure as all-dismissed, so it degrades to exactly the localStorage shape.
+`hint-progress.ts`, the `hintProgress` table, both `/api/hint-progress` routes, the round-trip in `useHints.tsx`. Multi-human changes nothing: localStorage is already per-human-per-browser. The only capability lost is dismissals roaming across one human's devices — first-run tooltips do not earn a table and two endpoints for that. The hook already degrades to the localStorage shape on API failure.
 
-### 3. Perpetual factory backfill (row 3) — DELETE
+### 3. Perpetual factory backfill (row 3) — DELETE (premise-neutral, unchanged)
 
-`setAgentCategoryForRole` re-runs the one-time AB0 `agentCategory` column backfill on **every launch**, and overwrites the category of *any* ai user sharing a factory role name — a founder who recategorizes a "builder" agent gets silently reverted at next boot. Every factory insert already sets its category. A migration wearing a bootstrap costume, with a side of data clobbering.
+`setAgentCategoryForRole` re-runs the one-time AB0 backfill every launch and clobbers any recategorized factory-role agent at next boot. On a shared backend this is *worse* than first judged: one boot reverts a category some other team member set. A migration wearing a bootstrap costume.
 
 ## Full method audit
 
 | # | Method | Reach | Verdict | Reason |
 |---|---|---|---|---|
-| 1 | `reapExpiredCredentials` | SCHED:6h retention sweep (`service-bootstrap.ts:510` — graph missed the setInterval wiring) | DELETE | Reaps tables that are themselves deleted; and expired/revoked rows were already unusable — this was hygiene, the invite cutoff literally an "audit-window". |
-| 2 | `insertUserIfAbsent` | BOOTSTRAP (`bootstrap/factory-state.ts` via desktop + tools/setup) | MERGE | Same idea as `insertUser` with `onConflictDoNothing` — fold in as `insertUser(exec, values, { ifAbsent: true })`; two insert functions are one insert function. |
-| 3 | `setAgentCategoryForRole` | BOOTSTRAP (`bootstrap/factory-state.ts`) | DELETE | Permanent re-run of the one-time AB0 backfill; clobbers custom categories by role every launch; factory inserts already carry the category. |
-| 4 | `listFactoryAgents` | BOOTSTRAP (`bootstrap/factory-state.ts`) | MERGE | Bespoke projected getter — exactly the species AU20 Am11 exterminated; `listUsers(db, {ids, kind:"ai"})` + caller projects `{id, role}`. |
-| 5 | `listDismissedHints` | UI:GET /api/hint-progress/ | DELETE | Feature kill #2 — tooltip memory belongs in localStorage, not a DB table behind two endpoints. |
-| 6 | `dismissHint` | UI:POST /api/hint-progress/:hintId/dismiss | DELETE | Dies with #5; the TOCTOU-safe upsert is careful engineering on a feature that shouldn't exist server-side. |
-| 7 | `createInvite` | UI:POST /api/auth/invite (mounts only if `HYPERIDLE_SHARED_MODE=true` — nothing sets it; no client) | DELETE | Feature kill #1; admin/member invite roles are a permission matrix enforced by zero lines of code. |
-| 8 | `claimInvite` | UI:POST /api/auth/claim (same dead gate; no client) | DELETE | Feature kill #1 — the only production human-creation path besides founder setup, and no user can reach it. |
-| 9 | `createLoginSession` | INTERNAL (only caller is `claimInvite`; exported but no external production import) | DELETE | Dies with its only caller. |
-| 10 | `validateBearerToken` | BOOTSTRAP (`middleware/auth.ts` shared-mode branch — dead-gated) | DELETE | The Bearer branch it serves is unreachable; deployed auth is the one team API key, per docs and ETHOS. |
-| 11 | `revokeLoginSession` | UI:POST /api/auth/logout (shared mode only; no client) | DELETE | Logout for a login system nobody can log into. |
-| 12 | `requireRunnableAgent` | UI:POST /api/threads/:id/messages + 18 more doors, 6 event subscribers | KEEP | The one cross-domain invariant (never run the human sender as the agent) — core to agents-as-participants. Cross-service note: `session-requests`' duplicate `requireRunnableActor` copy should die into this one (AU21 Increment 4 debt). |
-| 13 | `createUpgradeTokenStore` | BOOTSTRAP (`app.ts`/`boot.ts`) → UI:POST /api/auth/ws-token → `core-ui/src/services/ws-client.ts` | SIMPLIFY | Real (the UI's WS handshake rides it) but drop the `HYPERIDLE_WS_TOKEN_TTL_MS`/`HYPERIDLE_WS_TOKEN_MAX` env knobs — operator toggles referenced nowhere but this file and its test; hardcode 60s/1000. |
-| 14 | `findUser` | 54 doors (routes, agent tools, schedulers, subscribers) | KEEP | The identity spine's single-row read; the AU20 Am11 collapse already made it minimal. |
-| 15 | `listUsers` | 22 doors | KEEP-shape, SIMPLIFY | Drop `orderById` — its only remaining caller is a test (`conversation-user-store-reads.integration.test.ts`); test-only surface is dead surface. |
-| 16 | `insertUser` | 10 doors (user setup, agents, teams, scaffold, assistant) | KEEP | The one write door to `users`; absorbs row 2's conflict mode. |
-| 17 | `updateUser` | UI:PATCH /api/users/:id, PATCH /api/agents/:id, DELETE /api/agents/:id | SIMPLIFY | `UserPatch`'s SQL-expression admittance lost its only use when cost metering died (AU21 14a) — the @lore admits it's kept "as reusable infrastructure", i.e. speculative generality. Patch becomes `Partial<NewUser>`. |
-| 18 | `getOrCreateUser` | INTERNAL (only caller `claimInvite`, which passes a freshly random id — the "get" branch is structurally dead in production) | DELETE | A plain insert wearing a get-or-create costume plus a redundant re-select; dies with feature kill #1 regardless. |
-| 19 | `AgentNotRunnableError` (class) | Caught by `routine/src/routine-service.ts` + route handlers | KEEP | The error contract of row 12 — callers map it to 4xx; one class, no members, earns its line. |
+| 1 | `reapExpiredCredentials` | SCHED:6h retention sweep (`service-bootstrap.ts:510`) | DELETE | Reaps tables that die with feature kill #1; under OIDC the provider owns session lifecycle — there is nothing home-grown left to reap. |
+| 2 | `insertUserIfAbsent` | BOOTSTRAP (`bootstrap/factory-state.ts` via desktop + tools/setup) | MERGE | Fold into `insertUser(exec, values, { ifAbsent: true })`; two insert functions are one insert function. Unchanged. |
+| 3 | `setAgentCategoryForRole` | BOOTSTRAP (`bootstrap/factory-state.ts`) | DELETE | Permanent re-run of the one-time AB0 backfill; on a shared backend it reverts another human's recategorization every boot. Unchanged. |
+| 4 | `listFactoryAgents` | BOOTSTRAP (`bootstrap/factory-state.ts`) | MERGE | Bespoke projected getter; `listUsers(db, {ids, kind:"ai"})` + caller projects `{id, role}`. Unchanged. |
+| 5 | `listDismissedHints` | UI:GET /api/hint-progress/ | DELETE | Re-judged under Ruling 1, stands — localStorage is per-human already; tooltip memory earns no table. |
+| 6 | `dismissHint` | UI:POST /api/hint-progress/:hintId/dismiss | DELETE | Dies with #5. Unchanged. |
+| 7 | `createInvite` | UI:POST /api/auth/invite (mounts only under `HYPERIDLE_SHARED_MODE=true` — nothing sets it) | DELETE | Ruling 1: invites are not the access mechanism, OIDC is. Reason re-based; verdict stands. |
+| 8 | `claimInvite` | UI:POST /api/auth/claim (same dead gate) | DELETE | Invite claiming is replaced by OIDC login. Reason re-based; verdict stands. |
+| 9 | `createLoginSession` | INTERNAL (only production caller `claimInvite` — re-confirmed) | DELETE | The OIDC provider owns sessions; also dies with its only caller. |
+| 10 | `validateBearerToken` | BOOTSTRAP (`middleware/auth.ts` shared-mode branch) | DELETE | Home-grown token-table lookup; its successor is OIDC JWT verification, which shares zero code — that successor is A7 middleware work, not a finish of this function. |
+| 11 | `revokeLoginSession` | UI:POST /api/auth/logout (shared mode only; no client) | DELETE | Logout belongs to the OIDC provider. Reason re-based; verdict stands. |
+| 12 | `requireRunnableAgent` | UI:POST /api/threads/:id/messages + 18 more doors, 6 event subscribers | KEEP | The one cross-domain invariant (never run the human sender as the agent) — on a shared backend with several humans it matters *more*. Cross-service debt unchanged: `session-requests`' duplicate `requireRunnableActor` should die into this one. |
+| 13 | `createUpgradeTokenStore` | BOOTSTRAP (`app.ts`/`boot.ts`) → UI:POST /api/auth/ws-token → `core-ui` ws-client | SIMPLIFY | Live (the UI's WS handshake rides it); drop the `HYPERIDLE_WS_TOKEN_TTL_MS`/`HYPERIDLE_WS_TOKEN_MAX` env knobs — referenced nowhere but this file and its test; hardcode 60s/1000. Unchanged. |
+| 14 | `findUser` | 54 doors (routes, agent tools, schedulers, subscribers) | KEEP | The identity spine's single-row read. Unchanged. |
+| 15 | `listUsers` | 22 doors | SIMPLIFY | Drop `orderById` — sole caller is `conversation-user-store-reads.integration.test.ts` (re-confirmed); test-only surface is dead surface. Unchanged. |
+| 16 | `insertUser` | 10 doors (user setup, agents, teams, scaffold, assistant) | KEEP | The one write door to `users`; absorbs row 2's conflict mode; becomes the insert under row 18's provisioning. Unchanged. |
+| 17 | `updateUser` | UI:PATCH /api/users/:id, PATCH /api/agents/:id, DELETE /api/agents/:id | SIMPLIFY | `UserPatch`'s SQL-expression admittance lost its only use when cost metering died; patch becomes `Partial<NewUser>`. Unchanged. |
+| 18 | `getOrCreateUser` | INTERNAL (only production caller `claimInvite`) | **FINISH** | Ruling 1 + A7. Reshape into OIDC just-in-time provisioning: key by verified OIDC subject (not a caller-supplied random id), get the mapped `users` row or create it on first login, drop the redundant post-insert re-select. This is the countable A7 work inside this package — the one idea from the credential stack that a shared backend genuinely needs. |
+| 19 | `AgentNotRunnableError` (class) | Caught by `routine/src/routine-service.ts` + route handlers | KEEP | The error contract of row 12. Unchanged. |
 
 ## Types / DI ports
 
@@ -5635,127 +6783,155 @@ Deleting it removes **zero user-reachable behavior** and aligns code with the de
 | `ReapExpiredCredentialsArgs` | DELETE | Dies with row 1. |
 | `ReapExpiredCredentialsResult` | DELETE | Dies with row 1. |
 | `DismissedHint` | DELETE | Dies with rows 5–6. |
-| `UpgradeTokenStore` | KEEP | Live DI port between boot composition and the auth route/WS handler; both members (`issue`, `consume`) have real callers. |
-| `UserFilter` | SIMPLIFY | Drop `orderById` (test-only, row 15). The other eight fields all have production callers (`excludeId` via policy-bindings, `nameContains` via recipients, etc.). |
+| `UpgradeTokenStore` | KEEP | Live DI port between boot composition and the auth route/WS handler; both members have real callers. |
+| `UserFilter` | SIMPLIFY | Drop `orderById` (test-only). The other eight fields have production callers; on a shared backend `teamIds`/`excludeId`/`nameContains` are load-bearing, not speculative. |
 
 ## Holes this leaves
 
-1. **A second human cannot join a backend with their own identity.** This is the big one — and it is a hole in the *roadmap*, not the *product*: today no user-reachable path creates a second human anyway (`POST /api/users` returns the existing human once one exists; claim had no client). The product as shipped is single-human-per-backend, and deleting the stack makes the code stop pretending otherwise. When multi-human becomes real, build the smallest door that fits the documented trust model (share the team key, pick your name on connect) — not a credential system in advance. If a login UI is genuinely landing next, the founder overrules feature kill #1 and rows 7–11 flip to KEEP; the facts above say it is not wired to anything today.
-2. **Hint dismissals stop roaming.** Dismissed onboarding tooltips reappear on a new device/browser profile. They are first-run UX; acceptable.
-3. **`loginSessions`/`inviteCodes` tables drop** — a migration, plus deletion of the S1-* integration tests, `INVITE_ROLES`, both TTL constants, and four API error codes. The auth middleware collapses to API-key-only in both modes; the `sharedMode` flag likely shrinks to "is /api/users setup pre-auth or not" and may die entirely in a follow-up.
-4. **Pre-AB0 databases never get `agentCategory` backfilled.** If such a DB still exists, one SQL migration fixes it once, correctly, instead of every launch, destructively.
-5. **Nothing reaps credentials** — nothing is left to reap. The 6h sweep in `service-bootstrap.ts` keeps reaping its other tables untouched.
+1. **Until A7 lands, a second human has no individual identity.** This is now a **scheduled gap, not an accepted one** (the first wave's "hole in the roadmap, not the product" framing is void). Deleting the invite/session stack removes nothing reachable, but the shared backend the product *is* needs OIDC: verification middleware in `core-api/src/middleware/auth.ts` and row 18's FINISH in this package. Zero OIDC code exists today — **a work package for A7 needs writing**; nothing in any track registry covers it.
+2. **Per-human held connections keep working.** `held-connections-for-provisioning.ts` scopes plaintext tokens per `userId`; its doc comment cites "shipped shared mode + invite codes" as the identity source, but the code keys on `userId` only — OIDC supplies that instead. Comment goes stale, behavior does not break.
+3. **Hint dismissals stop roaming across a human's devices.** First-run UX; acceptable even multi-human.
+4. **`loginSessions`/`inviteCodes` tables drop** — a migration, plus S1-* integration tests, `INVITE_ROLES`, both TTL constants, four API error codes. Auth middleware collapses to API-key-only *for now*; A7 replaces the shared-mode branch with OIDC verification. The `sharedMode` flag survives this deletion — its fate is A7's to decide, since shared mode is the real deployment (Ruling 1), not an edge case.
+5. **Pre-AB0 databases never get `agentCategory` backfilled** — one SQL migration fixes it once instead of every launch, destructively.
+6. **Nothing reaps credentials** — nothing home-grown is left to reap; the OIDC provider owns session lifecycle. The 6h sweep keeps reaping its other tables untouched.
 
 
 ---
 
-# work — destroyer verdict
+
+> **REVISED after the founder rulings.** The first-wave verdict is kept at `.pipeline/work/AU20/destroy/verdicts/work.md` for comparison.
+
+# work — destroyer verdict (REVISED after founder rulings)
+
+## What changed after the rulings
+
+| Row / artifact | Old verdict | New verdict | Ruling |
+|---|---|---|---|
+| `checkAndUnblockDependents` (row 4) | DELETE | **FINISH** | A6 — tasks carry a dependency tree; finishing unblocks dependents and moves them into progress. The watcher is the right machinery; the writer is what's missing. |
+| `tasks.dependencies` column | DELETE (kill #1) | **KEEP** | A6 — it is the tree. Writer to be built. |
+| `task_state_changed` subscriber wiring (`app.ts:527`) | DELETE (kill #1) | **KEEP** | A6 — it is the trigger of the finished feature. |
+| `list` `dependencyId` branch (`work-service.ts:464`) + `WorkFilter.dependencyId` | DELETE (inside kills #1/#7) | **KEEP** | A6 — it is the watcher's pre-filter. Rows 15/16 and `WorkFilter` stay SIMPLIFY but their kill-scope shrinks by this branch. |
+| `getTaskRiskTierByTaskId` (row 6) + `task_planning_signals` + review port member + gate | DELETE | **DELETE — founder-confirmed** | A2. Unchanged. |
+| Phantom `item_created` emit in `updateBetField` (kill #5) | DELETE | **DELETE — survives Ruling-2 recheck** | Ruling 2 protects event types whose emission is missing. This is the inverse: an emission whose fact is missing. No items row exists for the fabricated `review-${betId}-${Date.now()}` id — on an extension surface a false announcement is worse than none, because a plugin trigger would act on an item that isn't there. The `item_created` event TYPE stays (live elsewhere); only this lying emission dies. If done-condition-change review is wanted, it is the A2-shaped ceremony the founder just confirmed dead. |
+| `dependency_met` event type | (not in my surface — noted) | **KEEP, emission to be added** | Ruling 2. Where to emit: see build section below. |
+
+**Ruling 1 recheck (shared backend):** swept every row for single-user reasoning. None of my kills rest on it. The write-only ledgers (`revisionLog`/`auditTrail`) die for zero readers — a table with no read surface is dead at any user count, and the founder said these findings stand. `teamId` scoping in `list`, `ownerAgentId` filters, and the `Bet`/`Task` row types already survive as KEEP — the work service takes identity (`teamId`, `ownerAgentId`) as data and never authenticates; OIDC lands upstream of it. No row moves.
+
+**Ruling 3 recheck (knowledge ritual → plugin):** the only ritual-shaped traffic touching this package is retro routines reaching the generic `create` door (row 17). The ritual lives in routine/knowledge surfaces, not here; `create` is the machinery of working and stays regardless of where the retro plugin lands. **Zero PLUGIN rows in `work`.**
+
+**Row deltas:** 1 verdict flipped (DELETE→FINISH), 3 rows keep their verdict letter with shrunken kill-scope (rows 15, 16, `WorkFilter`), 2 non-row artifacts flipped DELETE→KEEP (column, subscriber wiring), 1 DELETE founder-confirmed, 1 DELETE re-justified under Ruling 2.
+
+### What must be built for the task dependency tree (A6 = FINISH)
+
+The watcher body is essentially right already. What's missing is the writer, a gate, and one event emission:
+
+1. **Tree shape.** `tasks.dependencies` (`framework/db/src/schema.ts:219`) stays a JSON text array of task ids on the *dependent* row — each child lists its parents. That edge-list is a DAG; sufficient. Keep the JSON-quoted LIKE pre-filter with `ESCAPE` (`work-service.ts:464`) — it is the reason the watcher doesn't scan the table.
+
+2. **Writers — three doors, all currently missing the field:**
+   - `POST /api/tasks` (`layers/core-api/src/routes/tasks.ts:97`): `createTaskSchema` gains optional `dependencies: string[]`; route validates every id is an existing task **in the same bet**, no self-reference, no duplicates; `work.create` writes the column.
+   - `create_task` agent tool (`layers/agent-orchestration/tool-handlers/src/tool-definitions.ts:605`): schema gains optional `dependencies`; flows through the same route via `ports.coreApi.createTask` — `CreateTaskRequest` on the seam gains the field. This is the primary writer: agents decomposing work is where trees come from now that bet-decomposition is gone.
+   - `PATCH /api/tasks/:id` (`routes/tasks.ts:197`): `updateTaskSchema` gains `dependencies` so the tree can be rewired after creation.
+   - **Cycle guard at write time:** walk the bet's tasks (bounded set) and reject a write that closes a cycle. Not paranoia — a cycle parks every member in `hold` forever with no event that can ever free them.
+
+3. **Hold gate at accept time — the real missing half.** Today `transitionTask` dispatches on `toState === "accepted" && ownerAgentId` (`task-state-machine.ts:131`) with zero dependency check: an accepted dependent would start its agent before its dependencies finish. Build: inside the accept transition, read the dependency rows; if any is not `done`, skip the dispatch block and CAS the task on to `hold` (legal edge: `accepted → hold`). The dep-read and the hold-write must serialize against the dependency's own done-CAS (same-tx or ordered CAS) so a dependency finishing concurrently can't strand the task in `hold` with the watcher's trigger already fired.
+
+4. **"Move into progress" against the existing state machine** (checked: `framework/domain-model/src/task-transition.ts`). The grammar has **no `hold → in_progress` edge**, and `in_progress` has exactly one production writer: the `session_started` reaction (`layers/core-api/src/services/work-session-started-reactions.ts:72`) doing `accepted → in_progress`. So "unblock and move into progress" is not a new transition — it is the existing chain: watcher does `hold → accepted` (as today, `task-state-machine.ts` dispatch fires because `ownerAgentId` is set), the accepted branch bakes a `task_run` intent, the drain dispatches, the session starts, the reaction flips `accepted → in_progress`. **For agent-owned tasks the ruling's behavior is emergent once the writer + gate exist.** For a task with no `ownerAgentId` there is no session to start: it lands in `accepted` for a human to pick up — do not fake `in_progress` with no worker attached.
+
+5. **`dependency_met` emission (Ruling 2).** `DependencyMetEvent` (`framework/domain-model/src/events.ts:317`) is `{taskId, dependencyId}` — a per-edge fact. Emit it from `checkAndUnblockDependents`, once per candidate the pre-filter matches, **before** the all-done check: "one of your dependencies is met" happens per edge even when other edges remain open. Dispatcher case already exists (`layers/core-api/src/observability/dispatcher.ts:409`). Keep the existing `auto_unblock` ambient notification emit on the actual unblock — different fact, different event.
+
+---
 
 ## Should this service exist?
 
-**KEEP AS the bet/task state machines plus the sole table path for `bets`/`tasks`/`items`/`artifacts`.**
-Bets and tasks are the process primitive — this is one of the few services whose core is real. But
-that core is wrapped in ceremony: two write-only audit ledgers, a dependency-unblock feature nothing
-can trigger, a risk-tier reader over a table nothing writes, two error classes nothing catches, a DI
-bundle nothing constructs, and ~10 dead branches inside the generic primitives. The genuine shape is
-about ten callables. Everything else dies.
+**KEEP AS the bet/task state machines plus the sole table path for `bets`/`tasks`/`items`/`artifacts` — now including the dependency tree.**
+Bets and tasks are the process primitive — this is one of the few services whose core is real, and after A6 the dependency watcher joins that core instead of dying. The core is still wrapped in ceremony: two write-only audit ledgers, a risk-tier reader over a table nothing writes (A2-confirmed dead), two error classes nothing catches, a DI bundle nothing constructs, and ~9 dead branches inside the generic primitives. The genuine shape is about eleven callables. Everything else dies.
 
 ## If written today, from scratch
 
-- `get(exec, entity, id)` / `list(exec, entity, filter)` — the read path (filter cut to keys with real doors)
-- `create(exec, entity, values)` / `update(exec, entity, id, patch)` — the write path (incl. atomic note append)
-- `transition(exec, entity, {id, guard, patch})` — single-row CAS, three guard shapes, no sweep, no `affected`
-- `transitionBet` / `transitionTask` — the two state machines: validate, CAS, emit. No revision log, no audit blob.
+Against the corrected premise — a shared backend serving a team and an organisation of teams, identity from OIDC upstream (this service takes `teamId`/`ownerAgentId` as data and never authenticates — correct as-is), and an event stream plugins hang off (every state change already emits; the one missing emission is `dependency_met`):
+
+- `get(exec, entity, id)` / `list(exec, entity, filter)` — the read path (filter cut to keys with real doors, `dependencyId` now among them)
+- `create(exec, entity, values)` / `update(exec, entity, id, patch)` — the write path (incl. atomic note append; `dependencies` becomes writable)
+- `transition(exec, entity, {id, guard, patch})` — single-row CAS, four guard shapes, no sweep, no `affected`
+- `transitionBet` / `transitionTask` — the two state machines: validate, CAS, emit; `transitionTask` gains the dependency hold-gate. No revision log, no audit blob.
+- `checkAndUnblockDependents` — the dependency watcher: pre-filter, all-done check, `hold → accepted`, emit `dependency_met` + `auto_unblock`
 - `cascadeBetKill` — kill bet → kill tasks → stop runs. No propagation-log hops.
-- `resolveTaskRunRequest` — one emit-time resolver baking both `task_run` and `session_start` (they differ only by the attempt lookup and contextBundle)
+- `resolveTaskRunRequest` — one emit-time resolver baking both `task_run` and `session_start`
 - `taskDispatchAttemptStore` — the dispatch-attempt ledger (insert/get/settle/reap; no ordinal, no occasion)
 
 ## Kill summary
 
 | Verdict | Count |
 |---|---|
-| DELETE | 10 |
+| DELETE | 9 |
+| PLUGIN | 0 |
+| FINISH | 1 |
 | MERGE | 5 |
 | SIMPLIFY | 14 |
 | KEEP | 17 |
 
-Surface: 16 callables (21 fn rows + 2 classes + 1 const) → 10 callables (37% callable cut); of 22 type
-declarations, 6 die and 2 merge. On top of that, ~10 dead branches inside surviving functions and 6
-write-only DB columns plus one whole table (`task_planning_signals`) go.
+Surface: 16 callables (21 fn rows + 2 classes + 1 const) → 11 callables (31% callable cut); of 22 type
+declarations, 6 die and 2 merge. On top of that, ~9 dead branches inside surviving functions and 6
+write-only DB columns plus one whole table (`task_planning_signals`, A2-confirmed) go. `tasks.dependencies`
+leaves the kill list.
 
 KEEP looks high only because the input counts every overload row of `get`/`update`/`list` and every
 one-line row-type alias (`Bet`/`Task`/`Item`) as its own row. Deduped, only four callables survive
 untouched: `get`, `create`, `update`, and the artifacts-page `list` overload.
 
-## Feature-level kills
+## Feature-level verdicts
 
-1. **Dependency auto-unblock is a permanent production no-op — DELETE the feature.**
-   `tasks.dependencies` is written by NOTHING: not the create-task route, not the PATCH route, not any
-   agent tool, not any service (`rg '\bdependencies\b'` across all four roots: only `framework/db/src/schema.ts:219`
-   and the watcher's own LIKE read at `work-service.ts:464`). The writer was bet-decomposition, which
-   was hard-deleted. So `checkAndUnblockDependents`' pre-filter matches zero rows forever. Kill: the
-   function, the `dependencyId` branch of `list()`, the `task_state_changed` subscriber wiring in
-   `layers/core-api/src/app.ts:527` that calls it, and the `tasks.dependencies` column. **Breaks:**
-   nothing observable — it has never fired since decomposition died. If task dependencies ever come
-   back, rebuild the watcher with a writer, or don't rebuild it.
+1. **Task dependency tree — FINISH (was: DELETE). Founder ruling A6.**
+   The first-wave diagnosis stands as fact: `tasks.dependencies` has zero production writers since
+   bet-decomposition died, so `checkAndUnblockDependents` has never fired. The verdict reverses: the
+   watcher, the column, the `dependencyId` pre-filter branch, and the `app.ts:527` subscriber are the
+   right half of a feature whose writer half must be built. Full build spec in "What must be built for
+   the task dependency tree" above. Add the missing `dependency_met` emission while in there (Ruling 2).
 
-2. **Task risk tier is a reader over a table nothing writes — DELETE the feature.**
-   `task_planning_signals` has zero production writers (its own file admits it: "no production writer
-   anywhere in the repo yet"; confirmed — every insert is in `__tests__`). `getTaskRiskTierByTaskId`
-   therefore always returns `null`, and `review`'s `session-review-creator.ts:65`
-   (`if (riskTier !== "medium" && riskTier !== "high") return;`) always returns early. Kill: the
-   function, the table, `review`'s `getRiskTierByTaskId` port member, and the riskTier gate in
-   session-review-creator. **Breaks — and the founder must hear this loudly:** automatic post-session
-   review creation for risky tasks HAS NEVER WORKED in production. Deleting the code changes zero
-   behavior; the question to answer separately is whether that review path should exist at all, and if
-   yes, something must actually write risk tiers. (Distinct from `items.riskTier`, which is live.)
+2. **Task risk tier is a reader over a table nothing writes — DELETE. Founder-confirmed (A2).**
+   `task_planning_signals` has zero production writers; `getTaskRiskTierByTaskId` always returns `null`;
+   `review`'s `session-review-creator.ts:65` gate has never passed. Kill: the function, the table,
+   `review`'s `getRiskTierByTaskId` port member, and the riskTier gate in session-review-creator.
+   Automatic post-session review for risky tasks HAS NEVER WORKED in production; the founder has now
+   ruled the concept itself dead, so no rebuild question remains. (Distinct from `items.riskTier`, which is live.)
 
-3. **Two write-only audit ledgers — DELETE both columns and all append machinery.**
-   `bets.revisionLog` and `tasks.auditTrail` are parsed, appended to, and re-serialized by six writers
-   (`transitionBet`, `updateBetField`, `bets.ts` `patchAtRisk`/description helpers,
-   `lifecycle-propagation`, `transitionTask`, `handoff-protocol`) and displayed by NOTHING — zero reads
-   in `applications/` or `layers/core-ui/` outside e2e assertions. This is ETHOS's named smell: an
-   audit trail nobody reads. Kill both columns, `task-audit.ts` entirely, `RevisionLogEntry`, the
-   parse/append helpers in `bet-state-machine.ts`, the audit block in `routes/tasks.ts` PATCH
-   (outcomeVerdict), and policy's two local mirror unions. Note the CAS transactions survive — the
-   compare-and-set guard is racing-writer correctness, not audit. **Breaks:** no change history for
-   bets/tasks; the L14 e2e asserting `actor` in revisionLog dies with it. Nobody has looked at this
-   data through ~20 waves of work.
+3. **Two write-only audit ledgers — DELETE both columns and all append machinery. Stands; not softened.**
+   `bets.revisionLog` and `tasks.auditTrail` are appended to by six writers and displayed by NOTHING —
+   zero reads in `applications/` or `layers/core-ui/` outside e2e assertions. Rechecked under Ruling 1:
+   a multi-human team makes "who changed this" *conceivable*, but conceivable is not a reader — no UI,
+   no API consumer, ~20 waves without a look. Dead is still dead. Kill both columns, `task-audit.ts`
+   entirely, `RevisionLogEntry`, the parse/append helpers in `bet-state-machine.ts`, the audit block in
+   `routes/tasks.ts` PATCH, and policy's two local mirror unions. The CAS transactions survive —
+   racing-writer correctness, not audit. If a team ever wants change history, build a read surface
+   first, then a writer.
 
-4. **cascadeBetKill's propagation-log hops are audit rows nobody reads — SIMPLIFY.**
-   The cascade writes `propagation_log` rows with `status:"applied"`. The only functional reader of
-   that table selects `status = "pending_retry"` (`lifecycle-propagation.ts:622`); "applied" rows are
-   only ever reaped (`:243`). Kill the `policy` port member of `BetKillCascadeDeps` and
-   `writeCascadeRow`. The kill cascade itself (tasks killed, runs stopped) is core and stays.
+4. **cascadeBetKill's propagation-log hops — SIMPLIFY. Stands.**
+   Only reader of `status:"applied"` rows is the reaper. Kill the `policy` port member of
+   `BetKillCascadeDeps` and `writeCascadeRow`. The kill cascade itself is core and stays.
 
-5. **Phantom done_condition review — SIMPLIFY `updateBetField`.**
-   It emits `item_created` with a fabricated `itemId: review-${betId}-${Date.now()}` for which no items
-   row exists. Both subscribers (`policy-engine.ts:69`, `notifications/install.ts:1391`) do
-   `getItemById(...); if (!item) return;` — guaranteed no-op. Delete the emit.
+5. **Phantom done_condition review emit — DELETE. Survives Ruling-2 recheck.**
+   `updateBetField` emits `item_created` with a fabricated `itemId` for which no items row exists;
+   both subscribers no-op on `getItemById`. Ruling 2 protects a true fact with a missing announcement;
+   this is a false announcement of a fact that never happens — poison for an extension surface. The
+   `item_created` TYPE stays; this emission dies. The underlying "auto-review on done-condition change"
+   concept is A2-shaped ceremony the founder confirmed dead.
 
-6. **Resolver ceremony — MERGE the two resolvers, DELETE the optional-deps theater and both error classes.**
-   `resolveSessionStartRequest` is `resolveTaskRunRequest` minus the attempt lookup and contextBundle;
-   `BakedSessionStartRequest` is a strict subset of `BakedTaskRunRequest`. One resolver serves both.
-   All five "optional — absent at a call site not yet wired" deps members are wired at every real call
-   site (there is exactly ONE deps object, `task-run-resolver-bindings.ts`, and `sessions-routes.ts`
-   wires all three) — make them required, delete every degrade branch. Neither
-   `SessionStartSourceUnavailableError` nor `TaskRunSourceUnavailableError` is caught anywhere
-   (`rg` across all roots: zero imports outside this package) — throw plain `Error`.
+6. **Resolver ceremony — MERGE the two resolvers, DELETE the optional-deps theater and both error classes. Stands.**
+   `resolveSessionStartRequest` is `resolveTaskRunRequest` minus the attempt lookup and contextBundle.
+   One resolver, discriminated input. All five "optional" deps members are wired at every real call
+   site — make them required, delete every degrade branch. Neither error class is caught anywhere —
+   throw plain `Error`.
 
-7. **Dead interior of the generic primitives — SIMPLIFY `list`/`transition`.**
-   Confirmed-dead branches (every production call site of both functions enumerated above): task count,
-   item count, item `ids`, artifact `ids`, artifact bare-`taskIds` plain list, bare item list, bare
-   artifact list, `dependencyId` (kill #1), the id-less bulk-sweep path of `transition()`, the
-   `affected` return field (zero readers), and the `isNull` guard for bet.status / task.state. Delete
-   them all. The generic entity-switch shape itself was AU20's own flagged risk: `WorkFilter` is 21
-   optional keys with silent cross-entity ignore and if/else precedence the type system can't see. The
-   branch cut plus per-entity key pruning is the honest fix short of re-splitting into named functions.
+7. **Dead interior of the generic primitives — SIMPLIFY `list`/`transition`. Stands, minus one branch.**
+   Confirmed-dead branches: task count, item count, item `ids`, artifact `ids`, artifact bare-`taskIds`
+   plain list, bare item list, bare artifact list, the id-less bulk-sweep path of `transition()`, the
+   `affected` return field, and the `isNull` guard for bet.status / task.state. **`dependencyId` leaves
+   this kill list** (A6 — it is the watcher's pre-filter). `marker`/`bodyMarker`/`queued` stay — live
+   doors — but each is a find-one disguised as a list; still flagged for the routine track.
 
-8. **`WorkDeps` / `UserStoreReader` / `WorkUserRow` — DELETE.**
-   Zero references outside `work/src` (nothing constructs `WorkDeps`; the barrel export has no
-   importer). Their consumers (bet-decomposition, agent-assignment) were deleted; the bundle outlived
-   every member's purpose. `TeamCapacityReader` and `AgentWorkIntentRecorder` survive as the two ports
-   real code still injects.
+8. **`WorkDeps` / `UserStoreReader` / `WorkUserRow` — DELETE. Stands.**
+   Zero references outside `work/src`; consumers (bet-decomposition, agent-assignment) were deleted.
+   `TeamCapacityReader` and `AgentWorkIntentRecorder` survive as the two ports real code still injects.
 
 ## Full method audit
 
@@ -5763,73 +6939,74 @@ untouched: `get`, `create`, `update`, and the artifacts-page `list` overload.
 |---|---|---|---|---|
 | 1 | `cascadeBetKill` | UI:POST /api/bets/:id/kill | SIMPLIFY | Kill cascade is core; the per-hop `propagation_log` writes are audit rows only the reaper ever touches — drop `deps.policy` + `writeCascadeRow`. |
 | 2 | `transitionBet` | UI:POST /api/bets/:id/commit,/ship,/kill; SCHED:lifecycle-propagation 30s | SIMPLIFY | CAS + capacity + emit is core; the revisionLog parse/append machinery feeds a column nothing displays — delete it (kill #3). |
-| 3 | `updateBetField` | UI:PATCH /api/bets/:id; AGENT:edit_bet | MERGE | Same guarded-field-set mechanic exists a second time inline in `bets.ts` (`patchAtRisk` + description helper) — fold into ONE route-side patch path; delete the revision log and the phantom `item_created` emit (kills #3, #5). |
-| 4 | `checkAndUnblockDependents` | EVENT:task_state_changed (app.ts:527) — permanent no-op | DELETE | `tasks.dependencies` has zero production writers since bet-decomposition died; the LIKE pre-filter matches nothing, forever. Kill function, subscriber wiring, column (kill #1). |
-| 5 | `resolveSessionStartRequest` | UI:POST /api/sessions/ | MERGE | Strict subset of `resolveTaskRunRequest` (no attempt, no contextBundle); its task-existence check even duplicates the route's own 404 pre-read at `sessions-routes.ts:131`. One resolver, discriminated input (kill #6). |
-| 6 | `getTaskRiskTierByTaskId` | BOOTSTRAP:service-bootstrap.ts:439 → review port — always returns null | DELETE | Reads `task_planning_signals`, which nothing writes in production; the sole consumer gate (`session-review-creator.ts:65`) has never passed. Kill function + table + port member (kill #2). |
-| 7 | `resolveTaskRunRequest` | UI:POST /api/tasks/:id/transition,/handoff; AGENT:handoff_to; SCHED:30s tick; EVENT:task_state_changed/session_started | SIMPLIFY | Core emit-time bake; make all five deps required (exactly one fully-wired deps object exists), delete every optional-degrade branch, throw plain `Error`, absorb session-start (kill #6). |
-| 8 | `transitionTask` | UI:POST /api/tasks/:id/transition,/kill(cascade); AGENT:handoff_to; SCHED:30s; EVENT:session_ended et al. | SIMPLIFY | CAS + dispatch + emit is core; drop the auditTrail append (kill #3) and replace the inline dispatch-attempt insert (lines 131-146) with `taskDispatchAttemptStore.insertAttempt` — it is a line-for-line duplicate in the same file. |
-| 9 | `get` (artifact+taskTitle overload, :256) | UI:GET /api/artifacts/:id | KEEP | Core door: artifact detail with its producing task's title; single join, single caller shape. |
-| 10 | `get` (generic overload, :263) | UI:GET /api/tasks/:id, /api/bets/:id, + ~30 sites across routes/bindings | KEEP | The get-by-id read primitive for all four owned entities — minimal honest shape. |
+| 3 | `updateBetField` | UI:PATCH /api/bets/:id; AGENT:edit_bet | MERGE | Same guarded-field-set mechanic exists a second time inline in `bets.ts` — fold into ONE route-side patch path; delete the revision log and the false `item_created` emit (kills #3, #5 — the emit dies as a lying announcement, not as an event-type kill; Ruling 2 rechecked). |
+| 4 | `checkAndUnblockDependents` | EVENT:task_state_changed (app.ts:527) — no-op today, writer to be built | **FINISH** | **A6 reversal.** The watcher is the right half of the dependency-tree feature; build the writers (`POST /tasks`, `create_task` tool, `PATCH /tasks/:id`), the accept-time hold-gate in `transitionTask`, and add the per-edge `dependency_met` emission (Ruling 2). Full spec in the build section. Column, pre-filter branch, and subscriber wiring all KEEP. |
+| 5 | `resolveSessionStartRequest` | UI:POST /api/sessions/ | MERGE | Strict subset of `resolveTaskRunRequest`; its task-existence check duplicates the route's own 404 pre-read. One resolver, discriminated input (kill #6). |
+| 6 | `getTaskRiskTierByTaskId` | BOOTSTRAP:service-bootstrap.ts:439 → review port — always returns null | DELETE | **A2 founder-confirmed.** Reads `task_planning_signals`, which nothing writes in production; the sole consumer gate has never passed. Kill function + table + port member + gate (kill #2). |
+| 7 | `resolveTaskRunRequest` | UI:POST /api/tasks/:id/transition,/handoff; AGENT:handoff_to; SCHED:30s tick; EVENT:task_state_changed/session_started | SIMPLIFY | Core emit-time bake; make all five deps required, delete every optional-degrade branch, throw plain `Error`, absorb session-start (kill #6). |
+| 8 | `transitionTask` | UI:POST /api/tasks/:id/transition,/kill(cascade); AGENT:handoff_to; SCHED:30s; EVENT:session_ended et al. | SIMPLIFY | CAS + dispatch + emit is core; drop the auditTrail append (kill #3), replace the inline dispatch-attempt insert with `taskDispatchAttemptStore.insertAttempt`. Gains the A6 dependency hold-gate at the accept branch (build section §3) — new behavior, same function. |
+| 9 | `get` (artifact+taskTitle overload, :256) | UI:GET /api/artifacts/:id | KEEP | Core door: artifact detail with its producing task's title. |
+| 10 | `get` (generic overload, :263) | UI:GET /api/tasks/:id, /api/bets/:id, + ~30 sites | KEEP | The get-by-id read primitive for all four owned entities. |
 | 11 | `get` (impl, :268) | same as rows 9-10 | KEEP | Four `select ... where id` arms and one join; nothing to cut. |
-| 12 | `list` (count overload, :304) | UI:GET /api/teams (teams-routes.ts:137,142) | SIMPLIFY | Only bet-count is ever called; the task-count and item-count arms are dead — restrict count to bets, delete the other two arms. |
+| 12 | `list` (count overload, :304) | UI:GET /api/teams (teams-routes.ts:137,142) | SIMPLIFY | Only bet-count is ever called; task-count and item-count arms are dead — restrict count to bets. |
 | 13 | `list` (artifact taskTitle overload, :310) | UI:GET /api/artifacts | KEEP | The artifacts page: cursor-paginated join, live door, single mechanic. |
-| 14 | `list` (artifact taskSummary overload, :316) | UI:GET /api/bets/:id/artifact-thread-summary | MERGE | A second projection of the same `artifacts ⋈ tasks` join — fold into the taskTitle include and let the one caller (bets.ts:1039) project its four fields. `ArtifactTaskSummaryRow` dies with it. |
-| 15 | `list` (generic overload, :322) | UI: /api/tasks, /api/bets, /api/search, /api/threads, conversations, teams; SCHED:digest sweep | SIMPLIFY | Live for real key combos; prune `WorkFilter` to keys with doors (drop `dependencyId`, dead count semantics). |
-| 16 | `list` (impl, :327) | same as rows 12-15 | SIMPLIFY | Delete confirmed-dead branches: item `ids`, artifact `ids`, artifact plain-`taskIds`, bare item, bare artifact, `dependencyId`, task/item count (kill #7). `marker`/`bodyMarker`/`queued` stay — live LIKE-dedup doors (conversations.ts:114, knowledge.ts:306, routine bindings:71,95, digest sweep) — but each is a find-one disguised as a list; flag for the routine track. |
-| 17 | `create` | UI:POST /api/bets, /api/tasks, /api/artifacts, /api/conversations/items; AGENT:create_item; SCHED:retro routines | KEEP | The insert primitive; all four entities reached through real doors. |
-| 18 | `update` (AppendNoteOp overload, :698) | AGENT:append-note tool (tool-definitions.ts:1482) via PATCH /api/tasks/:id/notes | KEEP | Atomic SQL-CASE note append with no pre-read — a genuinely distinct mechanic with an agent door. |
-| 19 | `update` (generic overload, :711) | UI:PATCH /api/bets/:id, /api/tasks/:id, conversations items; EVENT:session_ended reactions | KEEP | The set-by-id write primitive for three entities. |
-| 20 | `update` (impl, :717) | same as rows 18-19 | KEEP | Plain per-entity set; the audit-blob patches vanish caller-side with kill #3, impl unchanged. |
-| 21 | `transition` | UI:PATCH /api/artifacts/:id/preview; via rows 2/8; SCHED via DI (`transitionBetStatus`/`transitionTaskState` bindings) | SIMPLIFY | Single-row CAS is core; every caller passes `id` and reads only `applied` — delete the id-less bulk-sweep path, the `affected` field, and the never-used `isNull` guards for bet.status/task.state (keep artifact.previewJson isNull and task.updatedAt equals — both have doors). |
-| — | `SessionStartSourceUnavailableError` | thrown UI:POST /api/sessions/ — caught nowhere | DELETE | Zero catch sites in the repo; the route already 404s on the same condition before calling the resolver. Throw `Error`. |
+| 14 | `list` (artifact taskSummary overload, :316) | UI:GET /api/bets/:id/artifact-thread-summary | MERGE | Second projection of the same join — fold into the taskTitle include; caller projects its four fields. `ArtifactTaskSummaryRow` dies with it. |
+| 15 | `list` (generic overload, :322) | UI: /api/tasks, /api/bets, /api/search, /api/threads, conversations, teams; SCHED:digest sweep; EVENT:task_state_changed (watcher pre-filter) | SIMPLIFY | Live for real key combos; prune `WorkFilter` to keys with doors. **`dependencyId` stays** — it is the watcher's pre-filter (A6). Dead count semantics still go. |
+| 16 | `list` (impl, :327) | same as rows 12-15 | SIMPLIFY | Delete confirmed-dead branches: item `ids`, artifact `ids`, artifact plain-`taskIds`, bare item, bare artifact, task/item count (kill #7). **The `dependencyId` branch at :464 is KEEP** (A6). `marker`/`bodyMarker`/`queued` stay — live doors; each still a find-one disguised as a list, flagged for the routine track. |
+| 17 | `create` | UI:POST /api/bets, /api/tasks, /api/artifacts, /api/conversations/items; AGENT:create_item; SCHED:retro routines | KEEP | The insert primitive; all four entities reached through real doors. Gains `dependencies` writability (A6). Retro-routine traffic through this door is fine even when the retro ritual moves to a plugin (Ruling 3) — plugins call the same doors. |
+| 18 | `update` (AppendNoteOp overload, :698) | AGENT:append-note tool via PATCH /api/tasks/:id/notes | KEEP | Atomic SQL-CASE note append with no pre-read — distinct mechanic, agent door. |
+| 19 | `update` (generic overload, :711) | UI:PATCH /api/bets/:id, /api/tasks/:id, conversations items; EVENT:session_ended reactions | KEEP | The set-by-id write primitive. Gains `dependencies` patchability (A6). |
+| 20 | `update` (impl, :717) | same as rows 18-19 | KEEP | Plain per-entity set; audit-blob patches vanish caller-side with kill #3. |
+| 21 | `transition` | UI:PATCH /api/artifacts/:id/preview; via rows 2/8; SCHED via DI | SIMPLIFY | Single-row CAS is core; delete the id-less bulk-sweep path, the `affected` field, and the never-used `isNull` guards for bet.status/task.state (keep artifact.previewJson isNull and task.updatedAt equals). |
+| — | `SessionStartSourceUnavailableError` | thrown UI:POST /api/sessions/ — caught nowhere | DELETE | Zero catch sites; the route already 404s the same condition. Throw `Error`. |
 | — | `TaskRunSourceUnavailableError` | thrown via rows 7/8 — caught nowhere | DELETE | Zero catch sites; the class discriminates nothing. Throw `Error`. |
 
 ## Types / DI ports
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `ArtifactRow` | KEEP | Row type of the artifact primitive; tables are private so the alias is load-bearing. Fold types-only `artifact-store.ts` into `work-service.ts` — the file has zero functions left. |
+| `ArtifactRow` | KEEP | Row type of the artifact primitive; tables private so the alias is load-bearing. Fold types-only `artifact-store.ts` into `work-service.ts`. |
 | `ArtifactWithTaskTitle` | KEEP | The artifacts-page row shape (rows 9/13). |
-| `ArtifactTaskSummaryRow` | DELETE | Dies with row 14's merge — its one consumer projects from `ArtifactWithTaskTitle`. |
-| `BetKillCascadeDeps` | SIMPLIFY | Drop the `policy` member (kill #4); shrinks to `TaskStateMachineDeps` + `runOrchestration`. |
-| `RevisionLogEntry` | DELETE | The revision-log feature dies (kill #3); its only external "consumer" (lifecycle-propagation) already declares a local mirror instead of importing — the export was dead even before the kill. |
-| `WorkDeps` | DELETE | Zero constructors, zero importers anywhere (kill #8). `UserStoreReader`/`WorkUserRow` inside `ports.ts` die with it. |
-| `SessionStartResolverDeps` | MERGE | Into `TaskRunResolverDeps` with the resolver merge (kill #6). |
+| `ArtifactTaskSummaryRow` | DELETE | Dies with row 14's merge. |
+| `BetKillCascadeDeps` | SIMPLIFY | Drop the `policy` member (kill #4). |
+| `RevisionLogEntry` | DELETE | Revision-log feature dies (kill #3); its only external "consumer" declares a local mirror instead of importing. |
+| `WorkDeps` | DELETE | Zero constructors, zero importers (kill #8). `UserStoreReader`/`WorkUserRow` die with it. |
+| `SessionStartResolverDeps` | MERGE | Into `TaskRunResolverDeps` (kill #6). |
 | `BakedSessionStartRequest` | MERGE | Strict subset of `BakedTaskRunRequest`; one baked-request type. |
 | `StateTransitionAuditEntry` | DELETE | auditTrail dies (kill #3). |
-| `HandoffAuditEntry` | DELETE | auditTrail dies; policy's writer appends to a blob nobody reads — kill its append too. |
-| `TaskAuditEntry` | DELETE | Union of the two above. `task-audit.ts` deleted whole. |
-| `TaskRunResolverDeps` | SIMPLIFY | All five members required — the "not yet wired" call site does not exist; one fully-wired binding serves every emit site. |
-| `BakedTaskRunRequest` | KEEP | The real seam contract: the intent payload the drain dispatches with zero domain reads. Door: the whole task_run/session_start admission path. |
-| `TaskStateMachineDeps` | KEEP | The two genuinely injected edges (`workIntents` — ruled-permanent same-tx port; `taskRunResolver`) that `transitionTask`/`cascadeBetKill` need. |
+| `HandoffAuditEntry` | DELETE | auditTrail dies; policy's writer appends to a blob nobody reads. |
+| `TaskAuditEntry` | DELETE | Union of the two above; `task-audit.ts` deleted whole. |
+| `TaskRunResolverDeps` | SIMPLIFY | All five members required — one fully-wired binding serves every emit site. |
+| `BakedTaskRunRequest` | KEEP | The real seam contract: the intent payload the drain dispatches with zero domain reads. |
+| `TaskStateMachineDeps` | KEEP | The two genuinely injected edges `transitionTask`/`cascadeBetKill`/`checkAndUnblockDependents` need — the FINISHED watcher keeps injecting both. |
 | `Bet` | KEEP | Row alias; tables private. |
 | `Task` | KEEP | Row alias; tables private. |
 | `Item` | KEEP | Row alias; tables private. |
 | `WorkEntity` | KEEP | The discriminant of the five primitives. |
-| `WorkFilter` | SIMPLIFY | Prune to keys with doors: drop `dependencyId` (kill #1), restrict `count` to bets, and delete the key→old-function legend comment — a filter bag that needs a translation table is documenting its own wrong altitude. |
+| `WorkFilter` | SIMPLIFY | Prune to keys with doors — **`dependencyId` now has one** (the watcher, A6) and stays; restrict `count` to bets; delete the key→old-function legend comment. |
 | `AppendNoteOp` | KEEP | The one real patch operator (row 18). |
-| `TransitionGuard` | SIMPLIFY | Narrow to the four guard shapes with callers: bet.status equals, task.state equals, task.updatedAt equals, artifact.previewJson isNull. |
+| `TransitionGuard` | SIMPLIFY | Narrow to the four guard shapes with callers. |
 | `TransitionSpec` | SIMPLIFY | Make `id` required — the id-less sweep form is dead (row 21). |
 
 ## Const / enum
 
 | Declaration | Verdict | Reason |
 |---|---|---|
-| `taskDispatchAttemptStore` | SIMPLIFY | Core ledger — all five members have doors (`insertAttempt` AGENT:handoff_to via policy-bindings:83; `get` internal to row 7; `updateIfActive` EVENT:session_ended; `markFailed` EVENT:agent_run_admission_failed; `reapTerminal` SCHED:retention reaper). Cut the write-only ceremony: `ordinal` (the count-then-insert exists solely to compute a number nothing reads), `occasion`, and `predecessorSessionId` are columns with zero readers; `reapTerminal`'s `batchSize` param is a lie — the DELETE has no LIMIT, it deletes everything and then reports `min(count, batchSize)`. Drop the param or actually batch. Also becomes the single insert path once row 8's inline duplicate merges in. |
+| `taskDispatchAttemptStore` | SIMPLIFY | Core ledger — all five members have doors. Cut the write-only ceremony: `ordinal`, `occasion`, `predecessorSessionId` are columns with zero readers; `reapTerminal`'s `batchSize` param lies (no LIMIT in the DELETE) — drop it or actually batch. Becomes the single insert path once row 8's inline duplicate merges in. |
 
 ## Holes this leaves
 
-- **No bet/task change history.** revisionLog/auditTrail are gone. Today nobody can see them anyway —
-  no UI, no API consumer renders them. If history is ever wanted, build a read surface first, then a writer.
-- **Session reviews for risky tasks stay uncreated** — but they already are: the riskTier gate has
-  never passed in production. Deleting makes the truth visible instead of latent. The founder should
-  decide whether the auto-review-on-risky-task concept is worth a real writer, as its own story.
-- **Task dependencies stop existing as a concept.** Nothing can express "task B waits on task A"
-  anymore. Nothing could trigger it before either — the writer died with bet-decomposition.
+- **No bet/task change history.** revisionLog/auditTrail gone. Rechecked under Ruling 1: still zero
+  readers at any user count. If a team ever wants history, build a read surface first, then a writer.
+- **Session reviews for risky tasks stay uncreated** — as they always were; A2 now confirms the concept
+  itself is dead, so this is no longer an open question, just a removed lie.
+- ~~Task dependencies stop existing as a concept~~ — **reversed by A6.** The hole is now the opposite:
+  until the writers + hold-gate land, the tree exists but nothing populates or respects it. The build
+  section above is the price.
 - **No propagation-log trace of bet-kill cascades.** The kill still works and returns
-  `tasksKilled`/`sessionsStopped` to the route; only the forensic rows nobody queried disappear.
-- **Coarser errors from the resolvers.** Plain `Error` instead of named classes — acceptable because
-  nothing ever discriminated on the names.
+  `tasksKilled`/`sessionsStopped`; only forensic rows nobody queried disappear.
+- **Coarser errors from the resolvers.** Plain `Error` — nothing ever discriminated on the names.
 - **One projection query replaced by caller-side mapping** (artifact-thread-summary) — trivially more
-  bytes over the wire per bet, bounded by the existing task fan-out guard.
+  bytes per bet, bounded by the existing task fan-out guard.
+- **No `done_condition`-change review item.** The false `item_created` emit dies and nothing replaces
+  it — by A2's own logic, correctly so.
