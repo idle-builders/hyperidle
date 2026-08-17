@@ -32,8 +32,16 @@ export interface ArtifactFrameProps {
 	title?: string;
 }
 
+/**
+ * @lore NEW-20: `bg-white` is intentionally theme-independent. The iframe element's
+ * background shows as a letterbox behind the shell canvas; `bg-[var(--surface-page)]`
+ * resolved to the app's dark canvas colour in dark mode, making the rectangle black.
+ * The artifact viewport is a document surface — paper-white regardless of the host
+ * theme. The `colorScheme:'light'` on the style prop (see below) stops the browser
+ * passing `color-scheme:dark` from the app root into the srcdoc rendering context.
+ */
 const FRAME_CLASS =
-	"block w-full border-width-thin border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-page)] max-h-[70vh]";
+	"block w-full border-width-thin border-[var(--border-subtle)] rounded-[var(--r-default)] bg-white max-h-[70vh]";
 
 /**
  * What the user is told about the box.
@@ -101,7 +109,7 @@ export function ArtifactFrame({ html, title = "Artifact" }: ArtifactFrameProps):
 				title={title}
 				sandbox={ARTIFACT_FRAME_SANDBOX}
 				srcDoc={srcDoc}
-				style={{ height: `${height}px` }}
+				style={{ height: `${height}px`, colorScheme: "light" }}
 				className={FRAME_CLASS}
 			/>
 			<div className="flex items-center gap-[9px]">
@@ -125,7 +133,8 @@ export function ArtifactFrame({ html, title = "Artifact" }: ArtifactFrameProps):
 						title={`${title} (larger)`}
 						sandbox={ARTIFACT_FRAME_SANDBOX}
 						srcDoc={srcDoc}
-						className="border-none block w-full h-[70vh]  rounded-[var(--r-default)] bg-[var(--surface-page)]"
+						style={{ colorScheme: "light" }}
+						className="border-none block w-full h-[70vh]  rounded-[var(--r-default)] bg-white"
 					/>
 				</Dialog>
 			)}

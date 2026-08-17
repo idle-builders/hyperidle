@@ -241,8 +241,18 @@ try{parent.postMessage(d,"*");}catch(err){}
 const HEAD = (csp: string, style = ""): string =>
 	`<head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="viewport" content="width=device-width, initial-scale=1">${style}</head>`;
 
-/** The shell is pure scaffolding: it must fill the frame and show nothing of itself. */
-const SHELL_STYLE = "<style>html,body{margin:0;padding:0;height:100%;overflow:hidden}</style>";
+/**
+ * The shell is pure scaffolding: it must fill the frame and show nothing of itself.
+ *
+ * @lore NEW-20: the shell document sits inside the outer <iframe> element, which
+ * inherits color-scheme:dark from the app in dark mode. Without an explicit white
+ * background here, the browser paints the shell's canvas dark — and it IS visible:
+ * the inner artifact iframe renders on top, but any gap (e.g. during load or due to
+ * height differences) shows the shell's canvas. `background-color:#fff;color-scheme:light`
+ * gives the shell the same paper-white surface the artifact document gets.
+ */
+const SHELL_STYLE =
+	"<style>html,body{margin:0;padding:0;height:100%;overflow:hidden;background-color:#fff;color-scheme:light}</style>";
 
 /**
  * The baseline surface for the artifact's own document.
