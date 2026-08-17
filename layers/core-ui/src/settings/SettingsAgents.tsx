@@ -470,19 +470,15 @@ export function SettingsAgents(): JSX.Element {
 						<Row
 							key={agent.id}
 							as="div"
-							title={
-								/* @lore UI-122: min-w-0 + overflow-hidden constrains the flex
-								 * container to its parent block width on narrow viewports.
-								 * Without it the flex row overflows and the chip is clipped
-								 * mid-character by the Row title span's overflow:hidden. The
-								 * agent name span gets flex-1 + truncate so it yields space to
-								 * the chip instead of competing for it. */
-								<span className="flex items-center gap-[6px] min-w-0 overflow-hidden">
-									{/* flex-1 + min-w-[4rem]: name grows to fill remaining space,
-									 * never collapses below 4rem even when the chip is wide. */}
-									<span className="truncate flex-1 min-w-[4rem]">{agent.name}</span>
-									{harnessUnavailable && <StatusChip status="behind" label="Harness unavailable" />}
-								</span>
+							title={agent.name}
+							/* @lore UI-122 (updated): StatusChip moved from title slot to cells so it
+							 * renders as a secondary column indicator (type-data, text-tertiary) rather
+							 * than competing with the agent name for title width. The old flex wrapper
+							 * with min-w-0 overflow-hidden is no longer needed. */
+							cells={
+								harnessUnavailable
+									? [{ content: <StatusChip status="behind" label="Harness unavailable" /> }]
+									: undefined
 							}
 							subtitle={`${roleLabel(agent.role)} · ${harnesses.find((h) => h.type === agent.harnessType)?.name ?? agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
 							selected={isSelected}
@@ -493,10 +489,7 @@ export function SettingsAgents(): JSX.Element {
 							 * for the second click. This is cleaner UX than re-opening the menu. */
 							actions={
 								confirmingDeleteId === agent.id ? (
-									<div
-										className="flex items-center gap-[4px]"
-										onClick={(e) => e.stopPropagation()}
-									>
+									<div className="flex items-center gap-[6px]">
 										<button
 											type="button"
 											onClick={(e) => {
@@ -536,7 +529,13 @@ export function SettingsAgents(): JSX.Element {
 											}}
 											className="type-control cursor-pointer inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-primary)]"
 										>
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+											<svg
+												width="14"
+												height="14"
+												viewBox="0 0 24 24"
+												fill="currentColor"
+												aria-hidden="true"
+											>
 												<circle cx="12" cy="5" r="2" />
 												<circle cx="12" cy="12" r="2" />
 												<circle cx="12" cy="19" r="2" />

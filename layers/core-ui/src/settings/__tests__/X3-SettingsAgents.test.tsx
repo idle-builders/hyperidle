@@ -496,3 +496,106 @@ describe("X3 AC-12: Settings UI delete with two-click confirmation", () => {
 		vi.useRealTimers();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Keyboard navigation: menu + two-step delete are fully keyboard-accessible
+// ---------------------------------------------------------------------------
+
+describe("X3 keyboard: actions menu is fully keyboard-navigable", () => {
+	beforeEach(() => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+				if (url.includes("/api/harnesses")) {
+					return Promise.resolve({
+						ok: true,
+						status: 200,
+						json: async () => [
+							{ type: "builtin", name: "Built-in Harness", modelProviders: ["anthropic"] },
+						],
+					});
+				}
+				if (url.includes("/api/agents") && !url.includes("/templates")) {
+					if (!opts?.method || opts.method === "GET") {
+						return Promise.resolve({ ok: true, status: 200, json: async () => MOCK_AGENTS });
+					}
+					if (opts?.method === "DELETE") {
+						return Promise.resolve({
+							ok: true,
+							status: 200,
+							json: async () => ({ id: "agent-pm-1", status: "retired" }),
+						});
+					}
+				}
+				return Promise.resolve({ ok: false, status: 404, json: async () => ({}) });
+			}),
+		);
+		mockShowToast.mockClear();
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	/**
+	 * Proves keyboard-only delete flow:
+	 * focus trigger → Enter opens menu → focus auto-moves to Edit menuitem
+	 * → ArrowDown moves to Delete → Enter triggers delete + menu closes
+	 * → Confirm button appears → focus Confirm → Enter → DELETE request sent.
+	 *
+	 * Evidence that the coordinator's "open the menu with the keyboard, move to
+	 * Delete, trigger it, and confirm the flow completes" path is reachable
+	 * without a mouse.
+	 */
+	it("Enter on trigger opens menu, ArrowDown reaches Delete, Enter triggers, Confirm responds to Enter", async () => {
+		const user = userEvent.setup();
+		render(<SettingsAgents />);
+
+		await waitFor(() => expect(screen.getByText("Acme PM")).toBeInTheDocument());
+
+		// Step 1: Focus the trigger button (keyboard-equivalent of Tab navigation)
+		const triggerBtn = screen.getByRole("button", { name: /actions for acme pm/i });
+		triggerBtn.focus();
+		expect(document.activeElement).toBe(triggerBtn);
+
+		// Step 2: Enter opens the menu; Menu auto-focuses the first enabled menuitem (Menu.tsx:70-73)
+		await user.keyboard("{Enter}");
+		await waitFor(() => {
+			expect(screen.getByRole("menuitem", { name: /^edit$/i })).toBeInTheDocument();
+			expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: /^edit$/i }));
+		});
+
+		// Step 3: ArrowDown moves focus from Edit to Delete (Menu.tsx:123-127)
+		await user.keyboard("{ArrowDown}");
+		await waitFor(() => {
+			expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: /^delete$/i }));
+		});
+
+		// Step 4: Enter selects Delete → onSelect fires (sets confirmingDeleteId) → menu closes
+		// Inline Confirm + Cancel buttons replace the "..." trigger on the row.
+		await user.keyboard("{Enter}");
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /confirm delete\?/i })).toBeInTheDocument();
+		});
+
+		// Step 5: Focus and activate the Confirm button via Enter (button is keyboard-accessible)
+		const confirmBtn = screen.getByRole("button", { name: /confirm delete\?/i });
+		confirmBtn.focus();
+		await user.keyboard("{Enter}");
+
+		// Step 6: DELETE request sent
+		await waitFor(() => {
+			const fetchMock = vi.mocked(fetch);
+			const deleteCall = fetchMock.mock.calls.find(
+				([url, opts]) =>
+					typeof url === "string" &&
+					url.includes("/api/agents/agent-pm-1") &&
+					(opts as RequestInit)?.method === "DELETE",
+			);
+			expect(deleteCall).toBeDefined();
+		});
+		await waitFor(() => {
+			expect(mockShowToast).toHaveBeenCalledWith(expect.stringMatching(/agent deleted/i));
+		});
+	});
+});
