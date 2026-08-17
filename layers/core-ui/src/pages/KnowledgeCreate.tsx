@@ -176,9 +176,14 @@ export function KnowledgeCreate(): JSX.Element {
 				/>
 			}
 		>
-			{/* Two-column layout */}
+			{/* Two-column layout.
+			 * @lore UI-127: items-stretch makes both columns grow to the same height.
+			 * min-h-[calc(100svh-7rem)] fills the viewport below the PageHeader
+			 * (~108px) so the editor claims the available vertical space rather than
+			 * sitting in a 300px card on a vast empty canvas. flex-1 on the card
+			 * (not a fixed minHeight) lets it grow with the column. */}
 			<div
-				className="max-w-[960px] w-full py-[24px] flex gap-[24px] items-start"
+				className="max-w-[960px] w-full py-[24px] flex gap-[24px] items-stretch min-h-[calc(100svh-7rem)]"
 				data-testid="knowledge-create-body"
 			>
 				{/* Left: editor */}
@@ -192,16 +197,13 @@ export function KnowledgeCreate(): JSX.Element {
 							{error}
 						</p>
 					)}
-					<div
-						className="border-width-default  border-[var(--border-default)] rounded-[var(--r-default)] p-[18px]"
-						style={{ minHeight: "300px" }}
-					>
+					<div className="border-width-default  border-[var(--border-default)] rounded-[var(--r-default)] p-[18px] flex-1">
 						<BodyEditor
 							initialContent=""
 							onChange={(md: string) => setBody(md)}
 							placeholder="Describe it in markdown…"
 							variant="full"
-							minHeight="260px"
+							minHeight="100%"
 							editable={!submitting}
 						/>
 					</div>
