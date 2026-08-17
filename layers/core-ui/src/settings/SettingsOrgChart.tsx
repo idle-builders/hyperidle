@@ -262,7 +262,13 @@ export function SettingsOrgChart(): JSX.Element {
 										{deletingId === edge.id ? (
 											<span className="type-metadata">…</span>
 										) : (
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+											<svg
+												width="14"
+												height="14"
+												viewBox="0 0 24 24"
+												fill="currentColor"
+												aria-hidden="true"
+											>
 												<circle cx="12" cy="5" r="2" />
 												<circle cx="12" cy="12" r="2" />
 												<circle cx="12" cy="19" r="2" />
