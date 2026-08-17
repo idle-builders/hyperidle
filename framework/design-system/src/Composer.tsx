@@ -129,8 +129,12 @@ export function Composer({
 					{error}
 				</div>
 			) : null}
-			{/* W3 AC-12: data-composer-row with items-stretch so textarea and button are equal height */}
-			<div data-composer-row className="flex items-stretch gap-[9px]">
+			{/* W3 AC-12: data-composer-row with items-stretch so textarea and button are equal height.
+			    FR-4: gap-[3px] when iconSend — compact icon button reads as attached to the input. */}
+			<div
+				data-composer-row
+				className={`flex items-stretch ${iconSend ? "gap-[3px]" : "gap-[9px]"}`}
+			>
 				{leading !== undefined && leading !== null && (
 					<span className="shrink-0 flex items-end">{leading}</span>
 				)}
