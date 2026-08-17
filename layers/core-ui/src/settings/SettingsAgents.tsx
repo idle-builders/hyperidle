@@ -468,8 +468,14 @@ export function SettingsAgents(): JSX.Element {
 							key={agent.id}
 							as="div"
 							title={
-								<span className="flex items-center gap-[6px]">
-									{agent.name}
+								/* @lore UI-122: min-w-0 + overflow-hidden constrains the flex
+								 * container to its parent block width on narrow viewports.
+								 * Without it the flex row overflows and the chip is clipped
+								 * mid-character by the Row title span's overflow:hidden. The
+								 * agent name span gets flex-1 + truncate so it yields space to
+								 * the chip instead of competing for it. */
+								<span className="flex items-center gap-[6px] min-w-0 overflow-hidden">
+									<span className="truncate min-w-0">{agent.name}</span>
 									{harnessUnavailable && <StatusChip status="behind" label="Harness unavailable" />}
 								</span>
 							}
