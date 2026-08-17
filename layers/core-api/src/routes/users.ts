@@ -5,38 +5,20 @@ import type { EventBus } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { persistScaffoldedAgents } from "@hyperidle/org";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
-
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
 import {
-	findMessage,
-	findOrCreateDirectThread,
-	insertMessage,
-	listInbox,
-} from "@hyperidle/conversation";
-import {
 	constantTimeStringEqual,
 	type HyperIdleEnv,
 	requireBoundary,
-	validateBody,
 } from "@hyperidle/http-middleware";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import { createAssistantSoulRoutes } from "./assistant.js";
-
-// L1 step9 (Adv-C2): senderId is NOT accepted from the request body; it is
-// derived from the authenticated identity via `X-Identity` header.
-const sendMessageSchema = z
-	.object({
-		subject: z.string().optional(),
-		body: z.string().min(1),
-	})
-	.strict();
 
 /**
  * @lore P4: PATCH /api/users/:id — only name and email are writable by the
@@ -284,88 +266,6 @@ export function createUserRoutes(
 		const updated = await findUser(db, { id: targetId });
 		return c.json(updated, 200);
 	});
-
-	// GET /:id/inbox — User's inbox with pagination
-	// AC5 AF11: inbox is participant-scope (principal-self). Only the authenticated
-	// user can read their own inbox — 403 for any other principal.
-	router.get("/:id/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
-		const userId = c.req.param("id");
-		const principalId = c.get("userId");
-
-		if (principalId !== userId) {
-			return c.json(
-				{ error: "Forbidden: can only access your own inbox", code: API_ERROR_CODES.FORBIDDEN },
-				403,
-			);
-		}
-
-		const user = await findUser(db, { id: userId });
-		if (!user) {
-			return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
-
-		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
-		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
-
-		const probe = `%${escapeLikePattern(JSON.stringify(userId))}%`;
-		const inboxRows = await listInbox(db, { participantProbe: probe, limit, offset });
-
-		const matched = inboxRows.filter((row) => {
-			try {
-				const parts = JSON.parse(row.participants);
-				return Array.isArray(parts) && parts.includes(userId);
-			} catch {
-				return false;
-			}
-		});
-
-		return c.json({ messages: matched.map((row) => row.message), total: matched.length });
-	});
-
-	// POST /:id/inbox — Send message to user
-	router.post(
-		"/:id/inbox",
-		requireBoundary({ kind: "principal-self" }),
-		validateBody(sendMessageSchema),
-		async (c) => {
-			const recipientId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof sendMessageSchema>;
-
-			// @lore AF11-IDOR: senderId MUST come from c.get("userId") (auth middleware),
-			// never from the X-Identity request header which is client-supplied.
-			// Previous code accepted the header, enabling impersonation (WARNING-1).
-			const senderId = c.get("userId");
-
-			const user = await findUser(db, { id: recipientId });
-			if (!user) {
-				return c.json({ error: "User not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
-
-			const senderUser = await findUser(db, { id: senderId });
-			if (!senderUser) {
-				return c.json({ error: "Sender identity not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
-
-			const now = new Date().toISOString();
-
-			const threadId = await findOrCreateDirectThread(db, senderId, recipientId, now);
-
-			const messageId = crypto.randomUUID();
-			const text = body.subject ? `${body.subject}\n\n${body.body}` : body.body;
-			await insertMessage(db, {
-				id: messageId,
-				senderId,
-				threadId,
-				type: "plain",
-				payload: JSON.stringify({ text }),
-				clientKey: messageId,
-				createdAt: now,
-			});
-
-			const created = await findMessage(db, { id: messageId });
-			return c.json(created, 201);
-		},
-	);
 
 	// AD8b Task 8 — system prompt CRUD: GET + PATCH /api/users/:userId/assistant
 	// @lore AD8b: Mounted BEFORE the generic /:id handler if there is one.

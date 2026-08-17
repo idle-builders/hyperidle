@@ -24,177 +24,11 @@
  * `useSessionActivity.test.tsx` stays green.
  */
 
-import type { HyperIdleDb, Session } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { type ActivityEntry, API_ERROR_CODES } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
-import {
-	type HyperIdleEnv,
-	projectExplicitStartOutcome,
-	requireBoundary,
-	sendStartProjection,
-	validateBody,
-} from "@hyperidle/http-middleware";
-import {
-	endSessionByCas,
-	findSessionById,
-	listSessions,
-	recordSessionMetadata,
-} from "@hyperidle/run-orchestration";
-import { findSessionRequest, sessionRunRegistry } from "@hyperidle/session-requests";
+import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { findSessionById, listSessions } from "@hyperidle/run-orchestration";
 import { Hono } from "hono";
-import z from "zod";
-import { transitionRun } from "../services/run-transition.js";
-
-const updateSessionSchema = z.object({
-	// @lore AC1 W-1: `state` is optional. An effectiveness-only PATCH (no `state`
-	// field) must not fail Zod validation before reaching the handler. When
-	// `state` is present the session_ended event is emitted as before; when it is
-	// absent only the effectiveness fields are written.
-	state: z.enum(["done", "crashed"]).optional(),
-	outcome: z.string().optional(),
-	notes: z.string().optional(),
-	/**
-	 * AC1: Session effectiveness score (float 0-1).
-	 *
-	 * @lore AC1 S-1: Validated as number at the API boundary (Zod min/max).
-	 * Stored as text in the DB (existing schema convention for non-integers).
-	 * Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
-	 */
-	effectivenessScore: z.number().min(0).max(1).optional(),
-});
-
-/** Input for a state-changing PATCH (§4 abort-or-guarded-write). */
-interface StateChangePatchInput {
-	readonly sessionId: string;
-	readonly existing: Session;
-	readonly state: "done" | "crashed";
-	readonly outcome?: string;
-	readonly notes?: string;
-	readonly effectivenessScore?: number;
-	readonly actor?: string;
-	readonly now: string;
-}
-
-/**
- * AF7 §4: apply a state-changing PATCH. `run-orchestration` is the sole
- * terminal-state writer, full stop — this route performs no `sessions` write of
- * any kind. So this:
- *   - rejects (409) a PATCH on an already-terminal session (no desync, no double
- *     session_ended);
- *   - if a live runtime entry exists, ABORTS it and lets the runtime teardown do
- *     the terminal write + single session_ended emit;
- *   - otherwise hands the transition to the owner's `endSessionByCas`, which
- *     carries the CAS and the rowcount-gated emit together (§4.3 rowcount
- *     invariant).
- * Returns a `{ status, body }` so the caller emits the response.
- */
-async function applyStateChangePatch(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	input: StateChangePatchInput,
-): Promise<{ status: 200 | 202 | 409; body: unknown }> {
-	const { sessionId, existing, state, now, actor } = input;
-
-	// Guard: reject a PATCH that would move an already-terminal session.
-	if (existing.state !== "active") {
-		return {
-			status: 409,
-			body: {
-				error: `Session is already ${existing.state}; cannot transition via PATCH`,
-				code: API_ERROR_CODES.CONFLICT,
-			},
-		};
-	}
-
-	// If a live runtime entry exists, abort it — the runtime teardown performs the
-	// DB transition + session_ended emit exactly once. We do NOT write state here.
-	//
-	// @lore AF7 §4 M3: `abort()` only awaits the harness `stopSession`; the terminal
-	// DB write happens LATER, in the detached `runSession` teardown (the runtime is
-	// the SOLE terminal writer — §4.3). The row is therefore still `state:"active"`
-	// at this point, so we MUST NOT read it back and return it as the body — that
-	// would assert a stale terminal state the caller cannot trust. Instead we return
-	// 202 Accepted (in-flight abort acknowledged) and direct the caller to poll
-	// `GET /api/sessions/:id` for terminal convergence. We do NOT block on teardown
-	// here because that would couple the route to the harness's full stream drain.
-	if (sessionRunRegistry.has(sessionId)) {
-		if (!existing.requestId) {
-			return {
-				status: 409,
-				body: { error: "Active session has no agent request", code: API_ERROR_CODES.CONFLICT },
-			};
-		}
-		const termination = await transitionRun(db, eventBus, {
-			target: "request",
-			intent: "request-termination",
-			requestId: existing.requestId,
-			reason: state === "done" ? "user_done" : "user_crashed",
-			...(actor ? { requestedBy: actor } : {}),
-		});
-		if (termination === "conflict" || termination === "terminal") {
-			return {
-				status: 409,
-				body: { error: "Session termination already settled", code: API_ERROR_CODES.CONFLICT },
-			};
-		}
-		await sessionRunRegistry.abort(sessionId);
-		return {
-			status: 202,
-			body: {
-				sessionId,
-				state: "aborting",
-				message:
-					"Abort requested; the runtime is tearing the session down. Poll GET /api/sessions/:id for the terminal state.",
-			},
-		};
-	}
-
-	// Fallback: no running loop. Before the session CAS, persist/confirm the
-	// termination cause and terminalize the correlated request (if any) through
-	// the durable single terminal writer — the request/inbox side of the AC5
-	// contract does not depend on a live runtime existing to drive it.
-	if (existing.requestId) {
-		const reason: "user_done" | "user_crashed" = state === "done" ? "user_done" : "user_crashed";
-		const termination = await transitionRun(db, eventBus, {
-			target: "request",
-			intent: "request-termination",
-			requestId: existing.requestId,
-			reason,
-			...(actor ? { requestedBy: actor } : {}),
-		});
-		if (termination === "conflict" || termination === "terminal") {
-			return {
-				status: 409,
-				body: { error: "Session termination already settled", code: API_ERROR_CODES.CONFLICT },
-			};
-		}
-		await transitionRun(db, eventBus, {
-			target: "request",
-			intent: "terminalize",
-			requestId: existing.requestId,
-			state: reason === "user_done" ? "cancelled" : "failed",
-			sessionId,
-		});
-	}
-
-	// Fallback: no running loop. The CAS-guarded write, the rowcount-gated
-	// `session_ended` emit and the read-back are one indivisible transition, and
-	// they belong to the Service that owns `sessions`.
-	return {
-		status: 200,
-		body: await endSessionByCas(db, eventBus, {
-			sessionId,
-			agentId: existing.agentId,
-			taskId: existing.taskId,
-			state,
-			outcome: input.outcome,
-			notes: input.notes,
-			effectivenessScore: input.effectivenessScore,
-			actor,
-			now,
-		}),
-	};
-}
 
 /**
  * The four moved `/api/sessions` registrations, on agent-orchestration's app.
@@ -204,7 +38,6 @@ async function applyStateChangePatch(
  */
 export function createOrchestrationSessionRoutes(
 	db: HyperIdleDb,
-	eventBus: EventBus,
 	getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -231,27 +64,6 @@ export function createOrchestrationSessionRoutes(
 		);
 	});
 
-	// GET /starts/:startId — the explicit-start projection for the caller's own
-	// start. The projection itself is `@hyperidle/http-middleware`'s pure
-	// `projectExplicitStartOutcome` (A1), shared with core-hosted `POST /` so one
-	// wire shape has exactly one implementation; only the `sessions` row READ is
-	// per-caller — this side reads it in-layer, core's side goes through the port.
-	router.get("/starts/:startId", requireBoundary({ kind: "public-data" }), async (c) => {
-		const start = await findSessionRequest(db, {
-			by: "explicitStart",
-			startId: c.req.param("startId"),
-		});
-		if (!start || start.requestedBy !== c.get("userId"))
-			return c.json({ error: "Session start not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		c.header("Idempotency-Key", start.idempotencyKey);
-		c.header("Location", `/api/sessions/starts/${start.id}`);
-		let session: Session | null = null;
-		if (start.status === "admitted" && start.sessionId) {
-			session = (await findSessionById(db, start.sessionId)) ?? null;
-		}
-		return sendStartProjection(c, projectExplicitStartOutcome(start, session));
-	});
-
 	// GET /:id/activity — Session activity stream (Q1 §3.2). Session metadata +
 	// recent activity entries, capped at the 50 most recent to bound the response.
 	router.get("/:id/activity", requireBoundary({ kind: "public-data" }), async (c) => {
@@ -275,64 +87,6 @@ export function createOrchestrationSessionRoutes(
 			activity,
 		});
 	});
-
-	// PATCH /:id — Update session state and/or effectiveness score
-	router.patch(
-		"/:id",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(updateSessionSchema),
-		async (c) => {
-			const sessionId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof updateSessionSchema>;
-
-			const existing = await findSessionById(db, sessionId);
-			if (!existing) {
-				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
-
-			const now = new Date().toISOString();
-			const actor = c.get("userId");
-
-			// AF7 §4 (Z8-094/095): a state-changing PATCH must REQUEST termination, not
-			// assert it. `run-orchestration` is the sole terminal-state writer, whether
-			// or not a runtime is live. Delegated to a helper to keep this handler simple.
-			if (body.state !== undefined) {
-				const result = await applyStateChangePatch(db, eventBus, {
-					sessionId,
-					existing,
-					state: body.state,
-					outcome: body.outcome,
-					notes: body.notes,
-					effectivenessScore: body.effectivenessScore,
-					actor,
-					now,
-				});
-				return c.json(result.body, result.status);
-			}
-
-			// Effectiveness-only PATCH (no state) — never ends a session, and the
-			// accessor's patch type carries no `state`/`endedAt` so it cannot.
-			//
-			// AC1: Record effectiveness score when present.
-			// @lore AC1 S-1: stored as text, validated as number[0,1] at API boundary.
-			// Use .toString() on write, parseFloat() + Number.isNaN() guard on read.
-			await recordSessionMetadata(db, sessionId, {
-				...(body.outcome !== undefined ? { outcome: body.outcome } : {}),
-				...(body.notes !== undefined ? { notes: body.notes } : {}),
-				...(body.effectivenessScore !== undefined
-					? {
-							effectivenessScore: body.effectivenessScore.toString(),
-							effectivenessRecordedAt: now,
-							// Actor from auth context; fall back to the session's agentId
-							// (for agent-authored writes).
-							effectivenessRecordedBy: actor ?? existing.agentId,
-						}
-					: {}),
-			});
-
-			return c.json(await findSessionById(db, sessionId));
-		},
-	);
 
 	return router;
 }

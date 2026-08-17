@@ -26,29 +26,6 @@
  * "the door stays read-only"; one door, both directions.
  */
 
-/** One session/run-history entry — mirrors the backing route's per-row shape. */
-export interface AgentOrchestrationSessionHistoryEntry {
-	readonly id: string;
-	readonly sessionId: string | null;
-	readonly status: string;
-}
-
-/**
- * One session-activity entry — a hand-typed, structural mirror of
- * `@hyperidle/domain-model`'s `ActivityEntry` discriminated union (AM3). `api-
- * contract` stays zero-runtime-deps (header note above), so this is a
- * deliberate type-only duplication, not an import — same idiom as
- * `AgentOrchestrationSessionHistoryEntry`. `data`'s shape varies by `type`
- * (`tool_call`/`reasoning`/…); callers that need the narrowed
- * shape reconstruct it the same way `useSessionActivity.ts` already does
- * for the WS/REST wire format (this door serves the identical JSON shape).
- */
-export interface AgentOrchestrationSessionActivityEntry {
-	readonly type: string;
-	readonly timestamp: number;
-	readonly data: unknown;
-}
-
 /**
  * One session row, in full — every column `sessions` has (18), hand-typed the
  * same way as the entries above because `api-contract` stays zero-runtime-deps.
@@ -82,32 +59,11 @@ export interface AgentOrchestrationSessionWireRow {
 }
 
 /**
- * The `sessions` capability family (Decision D/E) — session/run history
- * for a given work source + the relocated session-activity stream (§9
- * Increment 7: `agent-execution` owns the buffer, this door gateways it).
+ * The `sessions` capability family (Decision D/E) — session/run history read.
  */
 export interface AgentOrchestrationSessionsPort {
-	/** All `agentSessionRequests` rows for one `(sourceKind, sourceId)`, oldest first. */
-	listSessionHistoryBySource(
-		sourceKind: string,
-		sourceId: string,
-	): Promise<ReadonlyArray<AgentOrchestrationSessionHistoryEntry>>;
 	/**
-	 * Recent activity entries for one session, oldest first, capped at the
-	 * buffer's own ring size (100). Mirrors the relocated `SessionActivityBuffer`
-	 * (now in `@hyperidle/agent-execution`)'s own `unknown session → []`
-	 * semantics — no DB-existence check here; the REST route this door
-	 * ultimately backs (`sessions-routes.ts`'s `GET /:id/activity`) keeps its
-	 * own `sessions`-table 404 check and calls this only for the entries.
-	 */
-	getRecentActivity(
-		sessionId: string,
-	): Promise<ReadonlyArray<AgentOrchestrationSessionActivityEntry>>;
-	/**
-	 * One session row by id, in FULL wire shape, or `null` when it does not
-	 * exist. The door core-hosted `POST /api/sessions` reads its admitted
-	 * session through (§D-A's `sessions-routes.ts` split) — a read, so it goes through the Port; the
-	 * Port stays strictly read-only.
+	 * One session row by id, in FULL wire shape, or `null` when it does not exist.
 	 */
 	getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null>;
 }
@@ -155,70 +111,14 @@ export interface AgentOrchestrationWorkIntentReceipt {
 	readonly idempotencyKey: string;
 }
 
-/**
- * §3.2 — the atomic explicit-start pair: creates `explicitSessionStarts` and
- * records the baked `session_start` intent in ONE orchestration-side
- * transaction, preserving the atomicity `sessions-routes.ts` has today
- * (feasibility.md P3). Core resolves `bakedRequest` from its own domain
- * BEFORE calling — the seam never reaches back into core state.
- */
-export interface AgentOrchestrationExplicitStartRequest {
-	readonly startId: string;
-	readonly taskId: string;
-	readonly requestedAgentId: string;
-	readonly requestedModelTier?: string;
-	readonly requestedBy: string;
-	readonly idempotencyKey: string;
-	readonly intentIdempotencyKey: string;
-	readonly bakedRequest?: unknown;
-}
-
-/**
- * Mirrors `explicitSessionStarts`' wire-relevant columns.
- *
- * @lore AU31 §3: `failureCode` was missing from A1's landed shape —
- * `projectExplicitStartOutcome`'s 422/429/500 failure-code mapping needs it
- * (`ExplicitStartRow`, `framework/shared/src/http/explicit-start-projection.ts`),
- * and `sessions-routes.ts`'s restructuring onto this view surfaced the gap.
- * `requestedModelTier` corrected to non-null (`.notNull()` in the schema).
- */
-export interface AgentOrchestrationExplicitStartView {
-	readonly id: string;
-	readonly status: string;
-	readonly taskId: string;
-	readonly requestedAgentId: string;
-	readonly requestedModelTier: string;
-	readonly requestedBy: string;
-	readonly idempotencyKey: string;
-	readonly sessionId: string | null;
-	readonly failureCode: string | null;
-}
-
-export interface AgentOrchestrationExplicitStartResult {
-	readonly start: AgentOrchestrationExplicitStartView;
-	/** `null` only on the reused-idempotency-key replay path, where no new intent is recorded. */
-	readonly intent: AgentOrchestrationWorkIntentReceipt | null;
-}
-
-/** The intent-write family (§3.2 `intents.*`). */
+/** The intent-write family (`intents.*`). */
 export interface AgentOrchestrationIntentsPort {
 	/** The durable enqueue — mirrors `enqueueWorkIntent`'s row-level identity/idempotency semantics. */
 	submit(input: AgentOrchestrationWorkIntentInput): Promise<AgentOrchestrationWorkIntentReceipt>;
-	/** The atomic explicit-start pair (see the request type's doc comment above). */
-	createExplicitStart(
-		input: AgentOrchestrationExplicitStartRequest,
-	): Promise<AgentOrchestrationExplicitStartResult>;
 }
 
-/** **[D1]** — the three read shapes production actually uses (feasibility.md P3), never a general `FindQuery` mirror. */
+/** The requests family — outstanding-work readers. */
 export interface AgentOrchestrationRequestsPort {
-	/** The idempotency-gate probe (`sessions-routes.ts`'s pre-insert check — a real "use", gates a 409). */
-	findExplicitStartByIdempotencyKey(
-		requestedBy: string,
-		idempotencyKey: string,
-	): Promise<AgentOrchestrationExplicitStartView | null>;
-	/** The status poll (`sessions-routes.ts`'s freshness re-check while the projection promise waits). */
-	findExplicitStartById(startId: string): Promise<AgentOrchestrationExplicitStartView | null>;
 	/** `listPendingIntentsByKind` — the B‴ coherence trigger's outstanding-work reader. */
 	listPendingIntentsByKind(kind: AgentOrchestrationWorkIntentKind): Promise<
 		ReadonlyArray<{
@@ -235,39 +135,15 @@ export interface AgentOrchestrationStoppedRun {
 	readonly sessionId: string;
 }
 
-export interface AgentOrchestrationCreateBareRunRequest {
-	readonly agentId: string;
-	readonly taskId: string;
-	readonly modelTier: string;
-}
-
-/**
- * The "request-about-request" family (§3.2 `runs.*`) — the lifecycle verbs
- * §2.3 converts to API. Each op returns the same domain result codes the
- * direct function returns today, so no call site's branching semantics
- * change (architecture.md §3 clause 5). **No generic `requestTermination`
- * op**: no wave-A call site drives a termination-by-reason request through
- * core-api — `sessions.ts`'s PATCH route (the one real caller of
- * `transitionRun`'s `request-termination` intent) is already in-layer for
- * agent-orchestration, and the composition-relocated drain
- * (`run-orchestration-composition.ts:190`) is wave-B territory. Building an
- * unconsumed op here would be exactly the "no production export that only
- * tests consume" violation the plan forbids — add it when a real caller
- * needs it, not speculatively.
- */
+/** The "request-about-request" family (`runs.*`) — run lifecycle verbs. */
 export interface AgentOrchestrationRunsPort {
 	stopForTasks(
 		taskIds: readonly string[],
 		reason: "bet_killed",
 	): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>>;
 	endForHandoff(sessionId: string, endedAt: string): Promise<void>;
-	createBareRun(
-		input: AgentOrchestrationCreateBareRunRequest,
-	): Promise<AgentOrchestrationSessionWireRow>;
-	/** In-process registry abort — never crosses the seam itself (§2.1a); exposed here so a caller need not reach `sessionRunRegistry` directly. */
+	/** In-process registry abort — never crosses the seam itself; exposed here so a caller need not reach `sessionRunRegistry` directly. */
 	abort(sessionId: string): Promise<void>;
-	/** `session_start`'s admission-failure reaction — the one non-`request`-target transition core drives (`agent-run-admission-reactions.ts`). */
-	failExplicitStart(startId: string, failureCode: string): Promise<void>;
 }
 
 /** Mirrors `AgentRunConfig` (`@hyperidle/agent-run-config`). */

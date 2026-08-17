@@ -32,7 +32,7 @@ import type {
 	TeamDetail,
 	TeamListItem,
 } from "@hyperidle/domain-model";
-import { AGENT_ROLE_CATALOG, findRoleCatalogEntry } from "@hyperidle/domain-model";
+import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
@@ -486,83 +486,6 @@ export function createTeamRoutes(
 		};
 
 		return c.json(result, 201);
-	});
-
-	// POST /:teamId/agents — add an agent to an existing team via app scaffolding.
-	// AU3: This route uses app-owned scaffold specs, persistScaffoldedAgents, and emits agent_added.
-	router.post("/:teamId/agents", requireBoundary({ kind: "public-data" }), async (c) => {
-		const teamId = c.req.param("teamId");
-
-		let body: unknown;
-		try {
-			body = await c.req.json();
-		} catch {
-			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
-		}
-
-		const { role, name } = body as { role?: string; name?: string };
-		if (!role || typeof role !== "string" || role.trim().length === 0) {
-			return c.json({ error: "role is required", code: "validation_error" }, 400);
-		}
-
-		// Validate role against catalog
-		const catalogEntry = findRoleCatalogEntry(role);
-		if (!catalogEntry) {
-			return c.json({ error: `Unknown role: ${role}`, code: "validation_error" }, 400);
-		}
-
-		// Look up team + membership group
-		const team = await getTeam(db, { id: teamId });
-		if (!team) {
-			return c.json({ error: "Team not found", code: "not_found" }, 404);
-		}
-		const memberGroup = await getTeamMembers(db, { teamId });
-		if (!memberGroup) {
-			return c.json({ error: "Team membership group not found", code: "not_found" }, 404);
-		}
-
-		// AU3: route through app-owned scaffolding for agent_added.
-		const specs = resolveAgentScaffoldSpecs({
-			trigger: "agent_added",
-			teamName: team.name,
-			functions: null,
-			role,
-			// Pass caller-supplied name through (persisted unchanged per add-agent.ts:79 contract).
-			name: typeof name === "string" && name.trim().length > 0 ? name.trim() : null,
-			ownerUserId: null,
-			ownerUserName: null,
-		});
-
-		// AV1: read team default so add-agent-later inherits the persisted primary harness.
-		// @lore AU20 Am7: pass the team defaults to persistScaffoldedAgents — it accepts
-		// TeamHarnessDefault (defaultHarnessType/modelId/modelProvider) and resolves
-		// team-default → builtin internally (resolveTeamAgentHarness folded in).
-		// @lore AU26 G1 (§D-L): those three columns left `teams`, so the defaults come
-		// from `team_run_config_defaults` instead of off the team row. An absent row is
-		// an all-null row, so a team created before the move still resolves builtin.
-		const teamDefaults = await agentOrchestration.runConfig.readTeamDefaults(teamId);
-		const { agentIds } = await persistScaffoldedAgents(
-			db,
-			orgUsers,
-			memberGroup.id,
-			specs,
-			teamDefaults,
-		);
-		const agentId = agentIds[0] ?? crypto.randomUUID();
-		const now = new Date().toISOString();
-
-		// AK6 T7: emit agent_added event AFTER agent is persisted.
-		eventBus.emit({
-			type: "agent_added",
-			streamId: teamId,
-			teamId,
-			teamMembersId: memberGroup.id,
-			agentId,
-			role,
-			at: now,
-		});
-
-		return c.json({ agentId, role, teamId }, 201);
 	});
 
 	// PATCH /:teamId — update team phase (active ↔ archived)

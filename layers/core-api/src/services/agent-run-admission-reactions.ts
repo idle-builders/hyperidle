@@ -103,10 +103,6 @@ async function reactToAdmissionFailure(
 		case "task_run":
 			await work.taskDispatchAttemptStore.markFailed(db, event.sourceId);
 			return;
-		case "session_start":
-			// AU31 §3: seam-backed — `runs.failExplicitStart`.
-			await agentOrchestration.runs.failExplicitStart(event.sourceId, event.failureCode);
-			return;
 		case "knowledge_action":
 			await flagStalledKnowledgeAction(db, eventBus, event);
 			return;

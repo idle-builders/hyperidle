@@ -22,7 +22,6 @@ import { Hono } from "hono";
 import z from "zod";
 
 const channelEnum = z.enum(["console", "ntfy", "smtp"]);
-const queueStatusEnum = z.enum(["pending", "sent", "failed", "dropped", "sending"]);
 
 const patchConfigSchema = z
 	.object({
@@ -52,9 +51,6 @@ const testBodySchema = z
 		channel: channelEnum.optional(),
 	})
 	.strict();
-
-const flushBodySchema = z.object({}).strict();
-const digestBodySchema = z.object({}).strict();
 
 /**
  * Sanitize a config patch for the audit log — booleans / enums kept,
@@ -160,22 +156,6 @@ export function createNotificationRoutes(
 	const auditLogger: Logger = opts.logger ?? createLogger({ pkg: "notifications.audit" });
 	const testBucket = createTestBucket(5, nowFn().getTime());
 
-	// GET / — Bounded resource descriptor.
-	router.get("/", requireBoundary({ kind: "principal-self" }), (c) =>
-		c.json({
-			ok: true,
-			resource: "notifications",
-			endpoints: [
-				"GET /config",
-				"PATCH /config",
-				"GET /queue",
-				"POST /test",
-				"POST /flush",
-				"GET /digest",
-			],
-		}),
-	);
-
 	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) => {
 		const cfg = await readConfig(db, opts.deps);
 		return c.json(cfg);
@@ -258,76 +238,6 @@ export function createNotificationRoutes(
 				sentAt: raw.sentAt,
 				error: raw.error,
 				retriable: raw.retriable,
-			});
-		},
-	);
-
-	router.get("/queue", requireBoundary({ kind: "public-data" }), async (c) => {
-		const statusParam = c.req.query("status") ?? "pending";
-		const limitParam = c.req.query("limit");
-		const limitNum = limitParam ? Number.parseInt(limitParam, 10) : 50;
-		const limit = Number.isFinite(limitNum) && limitNum > 0 ? Math.min(limitNum, 500) : 50;
-		// @lore zod-enum validation on `status` query parameter — rejects
-		// typos instead of silently returning an empty list.
-		const parsed = queueStatusEnum.safeParse(statusParam);
-		if (!parsed.success) {
-			const response: ApiErrorResponse = {
-				error: `invalid status '${statusParam}'; expected pending|sent|failed|dropped|sending`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const rows = await listNotifications(db, { kind: "by-status", status: parsed.data, limit });
-		return c.json({
-			status: parsed.data,
-			count: rows.length,
-			rows: rows.map((r) => ({
-				id: r.id,
-				eventType: r.eventType,
-				subjectId: r.subjectId,
-				severity: r.severity,
-				title: r.title,
-				reason: r.reason,
-				channel: r.channel,
-				status: r.status,
-				attempts: r.attempts,
-				createdAt: r.createdAt,
-				sentAt: r.sentAt,
-			})),
-		});
-	});
-
-	router.post(
-		"/flush",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(flushBodySchema),
-		async (c) => {
-			const raw = await deliver(db, { kind: "flush" }, opts.deps, {
-				adapterOverride: opts.adapterOverride,
-				now: nowFn(),
-			});
-			if (raw.kind !== "flush") return c.json({ error: "unexpected deliver kind" }, 500);
-			if (raw.disabled) {
-				return c.json({ flushed: 0, failed: 0, reason: "disabled" });
-			}
-			return c.json({ flushed: raw.flushed, failed: raw.failed, deferred: raw.deferred });
-		},
-	);
-
-	router.post(
-		"/digest",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(digestBodySchema),
-		async (c) => {
-			const raw = await deliver(db, { kind: "digest" }, opts.deps, {
-				adapterOverride: opts.adapterOverride,
-				now: nowFn(),
-			});
-			if (raw.kind !== "digest") return c.json({ error: "unexpected deliver kind" }, 500);
-			return c.json({
-				status: raw.status,
-				notificationsIncluded: raw.notificationsIncluded,
-				...(raw.error !== undefined ? { error: raw.error } : {}),
 			});
 		},
 	);

@@ -11,7 +11,7 @@ import {
 	list as listKnowledgeItems,
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
-import { getTeam, getTeamMembers, listTeamMembers, listTeams, updateTeam } from "@hyperidle/org";
+import { getTeam, getTeamMembers, updateTeam } from "@hyperidle/org";
 import { recordPropagationHop } from "@hyperidle/policy";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";
@@ -126,15 +126,6 @@ const killBetSchema = z.object({
  */
 const startBetSchema = z.object({
 	reason: z.string().optional(),
-});
-
-/**
- * AC1: Schema for recording/updating a bet outcome.
- * Only valid for bets in completed or killed status.
- */
-const betOutcomeSchema = z.object({
-	verdict: z.enum(enumValues(BET_OUTCOME_VERDICTS)),
-	summary: z.string().max(2000).optional(),
 });
 
 /**
@@ -309,51 +300,6 @@ export function createBetRoutes(
 		};
 
 		return c.json(grouped);
-	});
-
-	// GET /bets/canvas — canvas data: draft, active, capacity info
-	//
-	// @lore Q3 T3: enriched with team name (batch lookup) + derived title +
-	// formatted appetite string. Uses a Map for batch team lookup to avoid
-	// N+1 queries (Q3 arch critique W-4).
-	// @lore U1: uses `teams` (domain entity, formerly `products`) and `teamMembers`.
-	router.get("/canvas", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allBets = await work.list(db, "bet");
-		const allTeamMembers = await listTeamMembers(db);
-
-		const totalCapacity = allTeamMembers.reduce((sum, t) => sum + t.capacity, 0);
-		const totalUsed = allTeamMembers.reduce((sum, t) => sum + t.activeBets, 0);
-
-		// Batch team lookup — one query, then a Map for O(1) access.
-		const allTeams = await listTeams(db);
-		const teamMap = new Map(allTeams.map((t) => [t.id, t.name]));
-
-		/** Shape a bet row into the CanvasBetWire format. */
-		function enrichBet(bet: (typeof allBets)[number]): Record<string, unknown> {
-			// @lore U1: `description` (formerly `pitch`), `teamId` (formerly `productId`).
-			const title = deriveTitle(bet.description, bet.id);
-			const team = teamMap.get(bet.teamId) ?? bet.teamId;
-
-			return {
-				id: bet.id,
-				title,
-				team,
-				teamId: bet.teamId,
-				status: bet.status,
-				progress: null,
-			};
-		}
-
-		const canvas = {
-			draft: allBets.filter((b) => b.status === "draft").map(enrichBet),
-			active: allBets.filter((b) => b.status === "active").map(enrichBet),
-			capacity: {
-				used: totalUsed,
-				max: totalCapacity,
-			},
-		};
-
-		return c.json(canvas);
 	});
 
 	// GET /bets/:id — bet detail with tasks, enriched with title/team/progress.
@@ -640,27 +586,6 @@ export function createBetRoutes(
 		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
 
-	// POST /bets/:id/ship — transition active→completed
-	// @lore U1: formerly "in_progress→shipped". Now "active→completed".
-	router.post("/:id/ship", requireBoundary({ kind: "public-data" }), async (c) => {
-		const betId = c.req.param("id");
-		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
-		try {
-			await transitionBet(db, eventBus, teamCapacity, betId, "completed");
-		} catch (err) {
-			if (err instanceof InvalidTransitionError) {
-				return c.json({ error: err.message, code: "VALIDATION_ERROR" }, 400);
-			}
-			throw err;
-		}
-		const updated = await work.get(db, "bet", betId);
-		if (!updated) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-		}
-		// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
-		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
-	});
-
 	// POST /bets/:id/kill — kill with reason (required)
 	router.post(
 		"/:id/kill",
@@ -706,75 +631,6 @@ export function createBetRoutes(
 				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 			}
 			// @lore U2: normalize atRisk 0/1 to boolean on the wire (architecture-critique W-1).
-			return c.json({ ...updated, atRisk: updated.atRisk === 1 });
-		},
-	);
-
-	// POST /bets/:id/outcome — record or update bet outcome (AC1).
-	// Only valid for completed or killed bets (hypothesis can only be evaluated after the bet ends).
-	router.post(
-		"/:id/outcome",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(betOutcomeSchema),
-		async (c) => {
-			const betId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof betOutcomeSchema>;
-
-			const bet = await work.get(db, "bet", betId);
-			if (!bet) {
-				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-			}
-
-			// AC1 AC-9: outcome can only be recorded for completed or killed bets
-			if (bet.status !== "completed" && bet.status !== "killed") {
-				return c.json(
-					{
-						error: `Outcome cannot be recorded for a bet in '${bet.status}' status. Only completed or killed bets can have outcomes.`,
-						code: "VALIDATION_ERROR",
-					},
-					400,
-				);
-			}
-
-			const now = new Date().toISOString();
-			const actor = c.get("userId");
-
-			// AC1 AC-12: append to revision log when overriding an existing outcome
-			const revisionLog: Array<Record<string, unknown>> = bet.revisionLog
-				? (JSON.parse(bet.revisionLog) as Array<Record<string, unknown>>)
-				: [];
-
-			if (bet.outcomeVerdict !== null) {
-				revisionLog.push({
-					timestamp: now,
-					field: "outcome",
-					old_value: {
-						verdict: bet.outcomeVerdict,
-						summary: bet.outcomeSummary ?? null,
-						recordedAt: bet.outcomeRecordedAt,
-						recordedBy: bet.outcomeRecordedBy,
-					},
-					new_value: {
-						verdict: body.verdict,
-						summary: body.summary ?? null,
-					},
-					actor,
-				});
-			}
-
-			await work.update(db, "bet", betId, {
-				outcomeVerdict: body.verdict,
-				outcomeSummary: body.summary ?? null,
-				outcomeRecordedAt: now,
-				outcomeRecordedBy: actor ?? null,
-				revisionLog: JSON.stringify(revisionLog),
-			});
-
-			const updated = await work.get(db, "bet", betId);
-			if (!updated) {
-				return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
-			}
-			// @lore U2: normalize atRisk 0/1 to boolean on the wire.
 			return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 		},
 	);

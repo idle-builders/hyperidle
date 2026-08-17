@@ -39,15 +39,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse } from "@hyperidle/domain-model";
-import { API_ERROR_CODES, INVITE_ROLES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
-import {
-	createInvite,
-	findUser,
-	revokeLoginSession,
-	type UpgradeTokenStore,
-} from "@hyperidle/users";
+import { findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import { Hono } from "hono";
 
 export function createAuthRoutes(
@@ -124,80 +117,6 @@ export function createAuthRoutes(
 		}
 		return c.json({ token: workerToken });
 	});
-
-	// Shared-mode-only routes
-	if (sharedMode && db) {
-		/**
-		 * POST /api/auth/invite
-		 *
-		 * Admin-only: requires authMethod === "api_key" (admin key holders only).
-		 * Body: { role?: "admin" | "member" }
-		 * Response: { code: string, expiresAt: string } (201)
-		 */
-		router.post("/invite", requireBoundary({ kind: "public-data" }), async (c) => {
-			// Admin key only — Bearer token users cannot create invites
-			if (c.get("authMethod") !== "api_key") {
-				const response: ApiErrorResponse = {
-					error: "Invite creation requires admin key authentication",
-					code: API_ERROR_CODES.FORBIDDEN,
-				};
-				return c.json(response, 403);
-			}
-
-			let data: unknown;
-			try {
-				data = await c.req.json();
-			} catch {
-				data = {};
-			}
-
-			const parsed = data as { role?: unknown } | null;
-			const role =
-				parsed && typeof parsed === "object" && "role" in parsed ? parsed.role : "member";
-
-			if (role !== undefined && !INVITE_ROLES.includes(role as (typeof INVITE_ROLES)[number])) {
-				const response: ApiErrorResponse = {
-					error: `Invalid role. Must be one of: ${INVITE_ROLES.join(", ")}`,
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 400);
-			}
-
-			const resolvedRole = (role as (typeof INVITE_ROLES)[number]) ?? "member";
-			const createdBy = c.get("userId");
-
-			const invite = await createInvite(db, createdBy, resolvedRole ?? "member");
-
-			return c.json({ code: invite.code, expiresAt: invite.expiresAt }, 201);
-		});
-
-		/**
-		 * POST /api/auth/logout
-		 *
-		 * Revokes the current LoginSession.
-		 * Only valid for Bearer token auth (authMethod === "login_session").
-		 * Returns 400 if called with API key (no session to revoke).
-		 */
-		router.post("/logout", requireBoundary({ kind: "public-data" }), async (c) => {
-			const authMethod = c.get("authMethod");
-
-			if (authMethod !== "login_session") {
-				const response: ApiErrorResponse = {
-					error:
-						"Logout requires Bearer token authentication (no session to revoke for API key auth)",
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 400);
-			}
-
-			const sessionId = c.get("loginSessionId");
-			if (sessionId) {
-				await revokeLoginSession(db, sessionId);
-			}
-
-			return c.json({ ok: true });
-		});
-	}
 
 	return router;
 }

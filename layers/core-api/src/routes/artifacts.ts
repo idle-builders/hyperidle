@@ -39,8 +39,6 @@ const createArtifactSchema = z.object({
 	preview: artifactPreviewSchema.nullable(),
 });
 
-const patchPreviewSchema = z.object({ preview: artifactPreviewSchema });
-
 /**
  * @lore AE6: Read-time normalization for old artifact kinds.
  * Applies OLD_KIND_MAP as defense-in-depth — handles un-migrated DB rows.
@@ -239,27 +237,6 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hon
 				createdAt: now,
 			};
 			return c.json(result, 201);
-		},
-	);
-
-	router.patch(
-		"/:id/preview",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
-		validateBody(patchPreviewSchema),
-		async (c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof patchPreviewSchema>;
-			// Race-safe update: only updates rows where preview_json IS NULL.
-			const result = await work.transition(db, "artifact", {
-				id,
-				guard: { field: "previewJson", isNull: true },
-				patch: { previewJson: JSON.stringify(body.preview) },
-			});
-			if (result.applied) return c.json({ ok: true });
-			const existing = await work.get(db, "artifact", id);
-			if (!existing) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-			return c.json({ error: "Preview already set", code: "IMMUTABLE" }, 409);
 		},
 	);
 

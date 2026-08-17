@@ -7,17 +7,6 @@ export type {
 } from "./http/compose-api-application.js";
 export { composeApiApplication } from "./http/compose-api-application.js";
 export type { HyperIdleEnv } from "./http/env.js";
-export type {
-	ExplicitStartProjection,
-	ExplicitStartRow,
-	PendingStartBody,
-	StartFailureBody,
-} from "./http/explicit-start-projection.js";
-export {
-	pendingStart,
-	projectExplicitStartOutcome,
-	sendStartProjection,
-} from "./http/explicit-start-projection.js";
 export type { RateLimiterOptions } from "./http/rate-limit.js";
 export { createRateLimiter } from "./http/rate-limit.js";
 export { constantTimeStringEqual } from "./http/timing-safe.js";

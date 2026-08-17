@@ -7,10 +7,6 @@
  */
 
 export type {
-	AgentOrchestrationCreateBareRunRequest,
-	AgentOrchestrationExplicitStartRequest,
-	AgentOrchestrationExplicitStartResult,
-	AgentOrchestrationExplicitStartView,
 	AgentOrchestrationFilesystemInjectionView,
 	AgentOrchestrationFilesystemsPort,
 	AgentOrchestrationIntentsPort,
@@ -21,8 +17,6 @@ export type {
 	AgentOrchestrationRunConfigPort,
 	AgentOrchestrationRunConfigView,
 	AgentOrchestrationRunsPort,
-	AgentOrchestrationSessionActivityEntry,
-	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationSessionsPort,
 	AgentOrchestrationSessionWireRow,
 	AgentOrchestrationStoppedRun,
@@ -100,12 +94,3 @@ export type {
 export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./core-api-port.js";
 export type { CreateSessionAcceptedResponse, PendingSessionStart } from "./session.js";
 export { isPendingSessionStart } from "./session.js";
-export type {
-	AutonomyLevel,
-	SettingsAgent,
-	SettingsNotifications,
-	SettingsProfile,
-	SettingsResponse,
-	SettingsTeam,
-	SettingsUser,
-} from "./settings.js";

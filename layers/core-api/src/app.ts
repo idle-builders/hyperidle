@@ -18,7 +18,6 @@ import { type ObservabilityDeps, startObservability } from "./observability-runt
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
@@ -26,7 +25,7 @@ import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
-import { createKnowledgeRoutes, createTeamMembersRoutes } from "./routes/knowledge.js";
+import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
@@ -34,15 +33,11 @@ import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
-import { createSessionRoutes } from "./routes/sessions-routes.js";
-import { createSettingsRoutes } from "./routes/settings.js";
 import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
-import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
-import { createWorkersRoutes } from "./routes/workers.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
@@ -290,8 +285,6 @@ export function registerCoreApiPreAuthRoutes(
 	options: AppOptions | undefined,
 	tokenStore: UpgradeTokenStore | null,
 ): void {
-	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
-
 	// Public: /api/health (no auth required)
 	api.get("/health", (c) => {
 		const response = {
@@ -311,13 +304,6 @@ export function registerCoreApiPreAuthRoutes(
 			"/users",
 			createUserSetupRoute(options.db, earlyEventBus, options.agentOrchestration),
 		);
-	}
-
-	// S1: Public: POST /api/auth/claim (invite claim — no auth required).
-	// Only mounted in shared mode — claim is meaningless in local desktop mode
-	// where there are no invite flows.
-	if (options?.db && sharedMode) {
-		api.route("/auth", createPublicAuthRoutes(options.db));
 	}
 
 	// WS upgrades authenticate via a one-shot upgrade token (`?token=...`) in a
@@ -425,8 +411,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus, agentOrchestration));
-		api.route("/team-members", createTeamMembersRoutes(options.db));
-		api.route("/settings", createSettingsRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route(
@@ -443,36 +427,11 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
-		// AU26 B1a (§D-A's `sessions-routes.ts` split): `POST /api/sessions` is all that is left of this
-		// route module. `GET /`, `GET /starts/:startId`, `GET /:id/activity` and
-		// `PATCH /:id` moved onto agent-orchestration's own app — same URLs (§D-A
-		// rule 7), different host. POST stays because its handler gates on `tasks`
-		// and bakes `users`/`server_config`: a two-sided table set, and §D-A rule 3
-		// gives a two-sided route exactly one legal host.
-		//
-		// @lore AU26 B1a: the `SessionActivityBuffer` this block used to construct
-		// and start is GONE from core-api. Both of its readers (the REST activity
-		// route and the `AgentOrchestrationPort` backing route) are on the owning
-		// side now, so `bootAgentOrchestration` owns the buffer's lifecycle.
-		api.route(
-			"/sessions",
-			// AU11 AC-2: the route only ever read the adapter-pool PRESENCE as a
-			// boolean gate (see routes/sessions-routes.ts's removal note) — the
-			// composition root now computes that boolean directly instead of
-			// threading the whole harness-typed deps object into the route.
-			createSessionRoutes(options.db, eventBus, Boolean(options.adapterPool), agentOrchestration),
-		);
-		api.route("/status", createStatusRoutes(options.db));
-
-		// S2: worker admin visibility — GET /api/workers lists registered adapters.
-		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
-		// Only mounted when adapterPool is provided so kernel-only mode is unaffected.
+		// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
+		// AM4 CHANGE 3 (Seam 3): thread options.db so the handler can stamp discovery.disabled
+		// and the redetect/disable routes can read/write server_config.
+		// AU36 D5: thread onHarnessRedetect so redetect also refreshes inherited reach.
 		if (options.adapterPool) {
-			api.route("/workers", createWorkersRoutes(options.adapterPool));
-			// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
-			// AM4 CHANGE 3 (Seam 3): thread options.db so the handler can stamp discovery.disabled
-			// and the redetect/disable routes can read/write server_config.
-			// AU36 D5: thread onHarnessRedetect so redetect also refreshes inherited reach.
 			api.route(
 				"/harnesses",
 				createHarnessRoutes(options.adapterPool, options.db, options.onHarnessRedetect),

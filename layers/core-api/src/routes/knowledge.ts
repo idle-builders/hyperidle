@@ -59,7 +59,7 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import { getTeam, getTeamMembers, listTeamMembers } from "@hyperidle/org";
+import { getTeam, getTeamMembers } from "@hyperidle/org";
 import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { readServerConfig } from "@hyperidle/settings";
@@ -1065,41 +1065,6 @@ export function createKnowledgeRoutes(
 		const id = c.req.param("id");
 		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
 		return c.json(result);
-	});
-
-	return router;
-}
-
-/**
- * Q2 T13: Lightweight GET /api/teams endpoint.
- * Returns team_members rows (agent membership groups) with capacity/activeBets.
- * Used by the KnowledgeCreateDialog to populate the scope selector.
- *
- * @lore U1: Previously selected from old `teams` table (now renamed to `team_members`).
- * Updated to select from `teamMembers` (agent membership group). `productId` column
- * dropped — `teamId` is now the FK to the domain entity.
- */
-/**
- * @lore U2: renamed from createTeamsRoutes to createTeamMembersRoutes.
- * Route relocated from /api/teams to /api/team-members to free up /api/teams
- * for the domain entity (Team, formerly Product). See U2 architecture §3.1.
- */
-export function createTeamMembersRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
-	const router = new Hono<HyperIdleEnv>();
-
-	// Row 11: GET /api/team-members — P (host-scope team listing)
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const allTeamMembers = await listTeamMembers(db);
-		const rows = allTeamMembers.map((t) => ({
-			id: t.id,
-			teamId: t.teamId,
-			capacity: t.capacity,
-			activeBets: t.activeBets,
-			formedAt: t.formedAt,
-			dissolvedAt: t.dissolvedAt,
-		}));
-
-		return c.json({ teams: rows });
 	});
 
 	return router;
