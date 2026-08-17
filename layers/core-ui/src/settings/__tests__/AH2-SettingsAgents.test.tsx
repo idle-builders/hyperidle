@@ -8,8 +8,15 @@
  * AC5 ("Model" column header) removed: AV2 uses ItemList/Row — no table column headers.
  * The model value still renders in the row cells but there's no "Model" column header text.
  *
- * Kept here: row-level concerns that are uniquely tested through SettingsAgents:
- *   - AC2: harness unavailability warning shown in the agent row
+ * AC2 (harness warning): the per-row StatusChip was removed. Fifteen identical amber
+ * "Harness unavailable" chips on every row was noise, not information — especially when
+ * the cause is simply missing credentials. The list is now a clean index; harness issues
+ * surface in the detail pane when the user opens an agent. This test now guards against
+ * re-adding the per-row chip.
+ *
+ * @lore UI-122 (final): Harness availability is a configuration detail, not a list-level
+ * concern. The agent list is an index — it should identify agents, not repeat the same
+ * warning for every entry. Detail belongs in the detail pane.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -57,11 +64,14 @@ afterEach(() => {
 // AC5: Model column check removed — AV2 uses ItemList/Row (no table column headers).
 // AV2 coverage: model value still shown in row cells; no "Model Tier" text anywhere.
 // ---------------------------------------------------------------------------
-// AC2: Warns when agent harness is unavailable
+// AC2: Agent list rows are clean — no per-row harness warning chip
+//
+// Harness availability is a detail-pane concern. The list is an index;
+// repeated amber chips on every row shouting the same fact is noise.
 // ---------------------------------------------------------------------------
 
-describe("AH2 AC2: Warns when agent harness is unavailable", () => {
-	it("shows StatusChip warning when agent harness is not in registry", async () => {
+describe("AH2 AC2: Agent list rows show no per-row harness warning", () => {
+	it("does NOT show 'Harness unavailable' in the list even when agent harness is not in registry", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation((url: string) => {
@@ -72,6 +82,7 @@ describe("AH2 AC2: Warns when agent harness is unavailable", () => {
 					return Promise.resolve({
 						ok: true,
 						status: 200,
+						// Agent uses "aider" which is not in MOCK_HARNESSES — no chip should appear
 						json: async () => [{ ...MOCK_AGENTS[0], harnessType: "aider" }],
 					});
 				}
@@ -81,8 +92,12 @@ describe("AH2 AC2: Warns when agent harness is unavailable", () => {
 
 		render(<SettingsAgents />);
 
+		// Agent name appears in the list
 		await waitFor(() => {
-			expect(screen.getByText(/harness unavailable/i)).toBeInTheDocument();
+			expect(screen.getByText("Opus Agent")).toBeInTheDocument();
 		});
+
+		// No harness warning chip — harness issues surface in the detail pane, not the list
+		expect(screen.queryByText(/harness unavailable/i)).toBeNull();
 	});
 });

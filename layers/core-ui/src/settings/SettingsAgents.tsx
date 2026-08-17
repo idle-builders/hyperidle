@@ -35,7 +35,6 @@ import {
 	Row,
 	SkeletonList,
 	SplitView,
-	StatusChip,
 } from "@hyperidle/design-system";
 import { roleLabel } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
@@ -442,11 +441,6 @@ export function SettingsAgents(): JSX.Element {
 	}
 
 	// ---------------------------------------------------------------------------
-	// Build the registered harness type set for availability checking
-	// ---------------------------------------------------------------------------
-	const registeredHarnessTypes = new Set(harnesses.map((h) => h.type));
-
-	// ---------------------------------------------------------------------------
 	// SplitView origin pane: agent list
 	// ---------------------------------------------------------------------------
 
@@ -462,8 +456,6 @@ export function SettingsAgents(): JSX.Element {
 			>
 				{/* AV2: No role filter — assistant (ast-*) appears as a row here. */}
 				{agents.map((agent) => {
-					const harnessUnavailable =
-						agent.harnessType != null && !registeredHarnessTypes.has(agent.harnessType);
 					const isSelected = selectedId === agent.id;
 
 					return (
@@ -471,15 +463,6 @@ export function SettingsAgents(): JSX.Element {
 							key={agent.id}
 							as="div"
 							title={agent.name}
-							/* @lore UI-122 (updated): StatusChip moved from title slot to cells so it
-							 * renders as a secondary column indicator (type-data, text-tertiary) rather
-							 * than competing with the agent name for title width. The old flex wrapper
-							 * with min-w-0 overflow-hidden is no longer needed. */
-							cells={
-								harnessUnavailable
-									? [{ content: <StatusChip status="behind" label="Harness unavailable" /> }]
-									: undefined
-							}
 							subtitle={`${roleLabel(agent.role)} · ${harnesses.find((h) => h.type === agent.harnessType)?.name ?? agent.harnessType ?? "Default"} · ${activeRunCounts[agent.id] ?? 0} active`}
 							selected={isSelected}
 							/* @lore FR-10: destructive delete moved behind Menu; no inline Delete on rows.
