@@ -18,8 +18,13 @@ const LEFT = "flex items-center gap-[9px] flex-1 min-w-0";
  * @lore UI-149: title is the primary flex-1 column so it claims remaining space and
  * truncates cleanly. task is the secondary context column — fixed max-width so it
  * never crowds the title. This gives aligned "columns" across rows without a CSS grid.
+ *
+ * @lore NEW-17: max-widths raised after coordinator measured real content widths:
+ * label needed 192–244px (was capped at 100px), task needed 260–311px (was capped at
+ * 200px). Raised to 250px and 320px respectively so content shows without truncation.
+ * Title (flex-1) absorbs whatever space remains.
  */
-const TASK = "text-[var(--text-secondary)] shrink-0 max-w-[200px] truncate";
+const TASK = "text-[var(--text-secondary)] shrink-0 max-w-[320px] truncate";
 const TITLE = "text-[var(--text-primary)] flex-1 min-w-0 truncate";
 const RIGHT = "flex items-center gap-[9px] text-[var(--text-secondary)]";
 const PILL =
@@ -43,7 +48,7 @@ export function ArtifactStackItem({
 				<ArtifactKindBadge kind={data.kind} />
 				<span className={`type-copy ${TITLE}`}>{artifactDisplayTitle(data)}</span>
 				{data.label && (
-					<span className="type-label shrink-0 max-w-[100px] truncate text-[var(--text-tertiary)] uppercase">
+					<span className="type-label shrink-0 max-w-[250px] truncate text-[var(--text-tertiary)] uppercase">
 						{data.label}
 					</span>
 				)}
