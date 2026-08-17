@@ -149,16 +149,21 @@ export function SettingsPage(): JSX.Element {
 					<SettingsNotifications />
 				</section>
 
-				{/* W3 AC-47 / AC-51: Backend section — Worker folded in (shared-mode only; SettingsWorker self-gates). */}
+				{/* W3 AC-47 / AC-51: Backend section — Worker folded in (shared-mode only; SettingsWorker self-gates).
+				     @lore FR-17: SettingsBackend + SettingsWorker are separated by a thin rule so they
+				     read as two distinct sub-areas rather than a single undifferentiated list. */}
 				<section
 					id="settings-section-backend"
 					data-testid="settings-section-backend"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
+					className="flex flex-col gap-[18px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Backend</SectionTitle>
 					<SettingsBackend />
-					{/* AV2 sub-area (d): Worker folded under Backend. SettingsWorker self-gates to shared-mode Electron. */}
-					<SettingsWorker />
+					{/* AV2 sub-area (d): Worker folded under Backend. */}
+					<div className="border-width-thin-t flex flex-col gap-[12px] border-[var(--border-subtle)] pt-[18px]">
+						<span className="type-label uppercase text-[var(--text-tertiary)]">Worker</span>
+						<SettingsWorker />
+					</div>
 				</section>
 			</div>
 		</PageScaffold>
