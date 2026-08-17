@@ -71,7 +71,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agents"
 					data-testid="settings-section-agents"
-					className="flex flex-col gap-[9px] max-w-[960px] w-full"
+					className="flex flex-col gap-[9px] max-w-[960px] mx-auto w-full"
 				>
 					<SectionTitle>Agents</SectionTitle>
 					<SettingsAgents />
@@ -101,7 +101,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agent-backends"
 					data-testid="settings-section-agent-backends"
-					className="flex flex-col gap-[9px] max-w-[960px] w-full"
+					className="flex flex-col gap-[9px] max-w-[960px] mx-auto w-full"
 				>
 					<SectionTitle>Agent backends</SectionTitle>
 					<SettingsHarnesses />
