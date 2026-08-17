@@ -27,7 +27,6 @@ import { useNavShortcuts } from "../hooks/useNavShortcuts.js";
 import { useTeams } from "../hooks/useTeams";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint";
 import { parentPathFor } from "../navigation/parentPathFor.js";
-import { SettingsPage } from "../pages/SettingsPage.js";
 import { AssistantOverlay } from "../shell/AssistantOverlay";
 import { DesktopTitleBar } from "../shell/DesktopTitleBar";
 import { NotificationPopover } from "../shell/NotificationPopover";
@@ -258,7 +257,9 @@ export function AppShell(): JSX.Element {
 	}, [canGoBack, navigate, navigateToParent]);
 
 	const [searchParams, setSearchParams] = useSearchParams();
-	const [settingsOpen, setSettingsOpen] = useState(false);
+	// @lore FR-18: settingsOpen is now DERIVED from the route, not local state.
+	// /settings is a real page rendered by the Outlet — no overlay needed.
+	const settingsOpen = useMemo(() => location.pathname.startsWith("/settings"), [location.pathname]);
 
 	// AF14 AC5: Assistant overlay state (renamed from CoC overlay).
 	// @lore AF14: AF14 completes the Coc→Assistant rename started in AD8b.
@@ -303,20 +304,13 @@ export function AppShell(): JSX.Element {
 
 	const commandK = useCommandK();
 
-	// Open settings panel when navigated to with ?settings=open query param.
+	// @lore FR-18: ?settings=open is a legacy deep-link (was used by AgentProfile).
+	// Now navigates to /settings (the real route) and drops the query param.
 	useEffect(() => {
 		if (searchParams.get("settings") === "open") {
-			setSettingsOpen(true);
-			setSearchParams(
-				(prev) => {
-					const next = new URLSearchParams(prev);
-					next.delete("settings");
-					return next;
-				},
-				{ replace: true },
-			);
+			navigate("/settings", { replace: true });
 		}
-	}, [searchParams, setSearchParams]);
+	}, [searchParams, navigate]);
 
 	// AE2: Auto-open the assistant overlay when ?onboarding=true is in the URL.
 	// Pattern mirrors the ?settings=open handler above.
@@ -346,17 +340,17 @@ export function AppShell(): JSX.Element {
 	);
 
 	/**
-	 * Full view-change handler used for keyboard shortcuts (⌘1/2/3) — includes
-	 * both the setSettingsOpen side-effect and the programmatic navigate().
+	 * Full view-change handler used for keyboard shortcuts (⌘1/2/3).
 	 * @lore UI-080: Section header *clicks* go through handleSectionNavClick
 	 * (side effects only) because the <Link to={href}> in SectionHeader already
 	 * handles navigation. Using the full handleViewChange on clicks would push a
 	 * second history entry and break back-button behaviour for the 1-team work
 	 * path (Work short-circuits to /work/team/:id while the Link always goes to /work).
+	 * @lore FR-18: settingsOpen is path-derived — navigating away from /settings
+	 * is sufficient; no explicit setSettingsOpen(false) needed.
 	 */
 	const handleViewChange = useCallback(
 		(view: ViewId): void => {
-			setSettingsOpen(false);
 			if (view === "conversations") {
 				navigate("/conversations");
 				return;
@@ -383,17 +377,19 @@ export function AppShell(): JSX.Element {
 
 	/**
 	 * Side-effect-only handler passed to Sidebar's onViewChange prop.
-	 * Navigation is driven by the <Link to={href}> in SectionHeader — this
-	 * callback only closes the settings panel.
+	 * Navigation is driven by the <Link to={href}> in SectionHeader.
+	 * @lore FR-18: settingsOpen is path-derived — navigating away is sufficient.
+	 * No explicit setter needed; keeping the callback for Sidebar's onViewChange signature.
 	 */
 	const handleSectionNavClick = useCallback((_view: ViewId): void => {
-		setSettingsOpen(false);
+		// Navigation handled by SectionHeader's <Link>; path change auto-updates settingsOpen.
 	}, []);
 
+	// @lore FR-18: settings button navigates to /settings (real route).
 	const handleAvatarClick = useCallback((): void => {
-		setSettingsOpen(true);
+		navigate("/settings");
 		setDrawerOpen(false);
-	}, []);
+	}, [navigate]);
 
 	// AG4: Global keyboard shortcuts — Back (⌘[), Forward (⌘]), view switch (⌘1/2/3).
 	// Wired here in AppShell (desktop + mobile both — shortcuts are global).
@@ -404,20 +400,21 @@ export function AppShell(): JSX.Element {
 		onSwitchView: handleViewChange,
 	});
 
-	// P4 AC-21: Escape closes the settings overlay.
+	// P4 AC-21: Escape navigates back from /settings.
+	// @lore FR-18: settingsOpen is now path-derived. Closing settings = navigate(-1).
 	useEffect(() => {
 		if (!settingsOpen) return;
 		const handler = (e: KeyboardEvent): void => {
 			if (e.key === "Escape") {
 				e.preventDefault();
 				e.stopImmediatePropagation();
-				setSettingsOpen(false);
+				navigate(-1);
 				return;
 			}
 			if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
 				e.preventDefault();
 				e.stopImmediatePropagation();
-				setSettingsOpen(false);
+				navigate(-1);
 				commandK.open();
 			}
 		};
@@ -425,7 +422,7 @@ export function AppShell(): JSX.Element {
 		return () => {
 			document.removeEventListener("keydown", handler, true);
 		};
-	}, [settingsOpen, commandK]);
+	}, [settingsOpen, commandK, navigate]);
 
 	const handleSearchNavigate = useCallback(
 		// Z8-151: unsafe ids previously caused silent no-ops for work/knowledge types
@@ -651,6 +648,9 @@ export function AppShell(): JSX.Element {
 	} as const;
 
 	// Shared main content used in both mobile and desktop branches.
+	// @lore FR-18: SettingsPage is now a real route — rendered via Outlet at /settings.
+	// No conditional overlay needed; AssistantContext wraps Outlet for all routes
+	// (SettingsPage simply doesn't use it — that's fine).
 	const mainContent = (
 		<main
 			/*
@@ -662,41 +662,32 @@ export function AppShell(): JSX.Element {
 			data-shell-surface="main"
 			data-testid="main-content"
 		>
-			{settingsOpen ? (
-				// W3 AC-47: Main pane shows all settings sections in one scrollable page.
-				// @lore W3: SettingsPage replaces individual conditional section rendering.
-				// Sidebar system: settings sections remain a single stacked Main page; the sidebar
-				// preserves the selected domain navigator as a stable way back out.
+			<AssistantContext.Provider value={assistantContextValue}>
 				<ErrorBoundary>
-					<SettingsPage />
-				</ErrorBoundary>
-			) : (
-				<AssistantContext.Provider value={assistantContextValue}>
-					<ErrorBoundary>
-						{/*
-						 * @lore U6: Outlet context extended with filter props so Conversations
-						 * page renders the pill bar in the main pane (AC-16).
-						 * @lore L9: selectedThreadId derived from URL params for backwards-compat.
-						 * @lore visual-parity Issue 6: RecipientPicker replaces the Outlet entirely
-						 * so it fills the main pane rather than stacking above it. The Outlet is
-						 * still rendered (hidden) to avoid unmounting side-effects.
-						 */}
-						{showRecipientPicker && activeView === "conversations" && (
-							<div className="flex flex-1 items-start justify-center p-[24px]">
-								<div className="w-full max-w-[480px]">
-									<div className="type-title text-[var(--text-primary)] mb-[18px]">
-										New conversation
-									</div>
-									<RecipientPicker
-										onSelect={handleRecipientPickerSelect}
-										onCancel={handleRecipientPickerCancel}
-									/>
+					{/*
+					 * @lore U6: Outlet context extended with filter props so Conversations
+					 * page renders the pill bar in the main pane (AC-16).
+					 * @lore L9: selectedThreadId derived from URL params for backwards-compat.
+					 * @lore visual-parity Issue 6: RecipientPicker replaces the Outlet entirely
+					 * so it fills the main pane rather than stacking above it. The Outlet is
+					 * still rendered (hidden) to avoid unmounting side-effects.
+					 */}
+					{showRecipientPicker && activeView === "conversations" && (
+						<div className="flex flex-1 items-start justify-center p-[24px]">
+							<div className="w-full max-w-[480px]">
+								<div className="type-title text-[var(--text-primary)] mb-[18px]">
+									New conversation
 								</div>
+								<RecipientPicker
+									onSelect={handleRecipientPickerSelect}
+									onCancel={handleRecipientPickerCancel}
+								/>
 							</div>
-						)}
-						<div
-							className={
-								showRecipientPicker && activeView === "conversations" ? "hidden" : "contents"
+						</div>
+					)}
+					<div
+						className={
+							showRecipientPicker && activeView === "conversations" ? "hidden" : "contents"
 							}
 						>
 							<Outlet
@@ -728,8 +719,7 @@ export function AppShell(): JSX.Element {
 						</div>
 					</ErrorBoundary>
 				</AssistantContext.Provider>
-			)}
-		</main>
+			</main>
 	);
 
 	// AE4: Mobile layout branch (viewport <= 768px)

@@ -21,20 +21,30 @@
  * changing this component.
  */
 
-import { Toggle } from "@hyperidle/design-system";
+import { ErrorState, SkeletonList, Toggle } from "@hyperidle/design-system";
 import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useNotificationMute } from "../hooks/useNotificationMute.js";
 
 export function SettingsNotifications(): JSX.Element {
-	const { mutedKeys, setMuted } = useNotificationMute();
+	const { mutedKeys, setMuted, status } = useNotificationMute();
+
+	if (status === "loading") {
+		return <SkeletonList rows={2} ariaLabel="Loading notification settings" />;
+	}
+
+	if (status === "error") {
+		return (
+			<ErrorState
+				compact
+				title="Couldn't load notifications"
+				description="Failed to load notification settings. Please try again."
+			/>
+		);
+	}
 
 	return (
 		<div className="flex flex-col gap-[18px]">
-			<p className="type-small  text-[var(--text-secondary)]">
-				Each type below is a real notification source. Muting a type suppresses all future
-				notifications of that kind from entering your inbox.
-			</p>
 			{NOTIFICATION_TYPES.map((type) => {
 				const isMuted = mutedKeys.includes(type.key);
 				return (

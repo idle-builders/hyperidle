@@ -377,8 +377,11 @@ export function SettingsAgentBehavior(): JSX.Element {
 		</div>
 	);
 
+	/* @lore FR-11: removed h-[720px] wrapper — SettingsPage is overflow-hidden per AppShell
+	 * contract; a fixed-height child created a nested scroll region. SplitView grows
+	 * naturally inside the section's flex-col. */
 	return (
-		<div className="h-[720px]" data-testid="settings-agent-behavior">
+		<div data-testid="settings-agent-behavior">
 			<SplitView
 				surfaceKey="settings.agentBehavior"
 				mode={splitMode}

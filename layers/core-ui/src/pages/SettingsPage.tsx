@@ -71,7 +71,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agents"
 					data-testid="settings-section-agents"
-					className="flex flex-col gap-[9px] max-w-[960px] w-full"
+					className="flex flex-col gap-[9px] max-w-[960px] mx-auto w-full"
 				>
 					<SectionTitle>Agents</SectionTitle>
 					<SettingsAgents />
@@ -101,7 +101,7 @@ export function SettingsPage(): JSX.Element {
 				<section
 					id="settings-section-agent-backends"
 					data-testid="settings-section-agent-backends"
-					className="flex flex-col gap-[9px] max-w-[960px] w-full"
+					className="flex flex-col gap-[9px] max-w-[960px] mx-auto w-full"
 				>
 					<SectionTitle>Agent backends</SectionTitle>
 					<SettingsHarnesses />
@@ -129,13 +129,15 @@ export function SettingsPage(): JSX.Element {
 					<SettingsAppearance />
 				</section>
 
-				{/* Credentials section — desktop only (CredentialsTab handles non-desktop gracefully) */}
+				{/* Provider keys — API keys for the built-in AI gateway (matching SetupFlow presentation).
+					     @lore FR-15: Title changed from "Credentials" to "Provider keys" so users
+					     understand these configure the built-in harness, not arbitrary secrets. */}
 				<section
 					id="settings-section-credentials"
 					data-testid="settings-section-credentials"
 					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
 				>
-					<SectionTitle>Credentials</SectionTitle>
+					<SectionTitle>Provider keys</SectionTitle>
 					<CredentialsTab />
 				</section>
 
@@ -149,16 +151,21 @@ export function SettingsPage(): JSX.Element {
 					<SettingsNotifications />
 				</section>
 
-				{/* W3 AC-47 / AC-51: Backend section — Worker folded in (shared-mode only; SettingsWorker self-gates). */}
+				{/* W3 AC-47 / AC-51: Backend section — Worker folded in (shared-mode only; SettingsWorker self-gates).
+				     @lore FR-17: SettingsBackend + SettingsWorker are separated by a thin rule so they
+				     read as two distinct sub-areas rather than a single undifferentiated list. */}
 				<section
 					id="settings-section-backend"
 					data-testid="settings-section-backend"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
+					className="flex flex-col gap-[18px] max-w-[680px] mx-auto w-full"
 				>
 					<SectionTitle>Backend</SectionTitle>
 					<SettingsBackend />
-					{/* AV2 sub-area (d): Worker folded under Backend. SettingsWorker self-gates to shared-mode Electron. */}
-					<SettingsWorker />
+					{/* AV2 sub-area (d): Worker folded under Backend. */}
+					<div className="border-width-thin-t flex flex-col gap-[12px] border-[var(--border-subtle)] pt-[18px]">
+						<span className="type-label uppercase text-[var(--text-tertiary)]">Worker</span>
+						<SettingsWorker />
+					</div>
 				</section>
 			</div>
 		</PageScaffold>

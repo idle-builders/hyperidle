@@ -38,6 +38,7 @@ import {
 	ErrorState,
 	Input,
 	ItemList,
+	Menu,
 	Row,
 	Select,
 	SkeletonList,
@@ -90,6 +91,8 @@ export function SettingsOrgChart(): JSX.Element {
 	const [adding, setAdding] = useState(false);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const [formError, setFormError] = useState<string | null>(null);
+	// @lore FR-10: per-row action menu open state — only one open at a time.
+	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
 	const loadOrg = useCallback(async (): Promise<void> => {
 		setStatus("loading");
@@ -234,6 +237,7 @@ export function SettingsOrgChart(): JSX.Element {
 					description="Teams don't auto-create org edges. Add a reporting line, function, or team relationship to define your chart."
 				/>
 			) : (
+				// @lore FR-10: destructive actions moved behind a Menu — no inline Delete on rows.
 				<ItemList variant="flush" isEmpty={false}>
 					{edges.map((edge) => (
 						<Row
@@ -242,15 +246,47 @@ export function SettingsOrgChart(): JSX.Element {
 							subtitle={targetLabel(edge)}
 							cells={[{ content: edge.mechanism }]}
 							actions={
-								<Button
-									variant="destructive"
-									size="sm"
-									onClick={() => void handleDelete(edge.id)}
-									disabled={deletingId === edge.id}
-									aria-label={`Delete edge ${edge.id}`}
-								>
-									{deletingId === edge.id ? "…" : "Delete"}
-								</Button>
+								<div className="relative">
+									<button
+										type="button"
+										aria-label={`Actions for edge from ${userName(edge.fromUserId)}`}
+										aria-haspopup="menu"
+										aria-expanded={openMenuId === edge.id}
+										disabled={deletingId === edge.id}
+										onClick={(e) => {
+											e.stopPropagation();
+											setOpenMenuId(openMenuId === edge.id ? null : edge.id);
+										}}
+										className="type-control cursor-pointer inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-primary)] disabled:opacity-40"
+									>
+										{deletingId === edge.id ? (
+											<span className="type-metadata">…</span>
+										) : (
+											<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+												<circle cx="12" cy="5" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<circle cx="12" cy="19" r="2" />
+											</svg>
+										)}
+									</button>
+									<Menu
+										open={openMenuId === edge.id}
+										onClose={() => setOpenMenuId(null)}
+										label={`Edge actions`}
+										align="end"
+										items={[
+											{
+												id: "delete",
+												label: "Delete",
+												destructive: true,
+												onSelect: () => {
+													setOpenMenuId(null);
+													void handleDelete(edge.id);
+												},
+											},
+										]}
+									/>
+								</div>
 							}
 						/>
 					))}
