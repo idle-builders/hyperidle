@@ -384,10 +384,7 @@ function AgentProfileLoaded({
 				)}
 
 				{/* Identity block — Avatar + meta. Name/status live in PageHeader (AI7). */}
-				<section
-					aria-label="Agent identity"
-					className="flex flex-col gap-[12px]"
-				>
+				<section aria-label="Agent identity" className="flex flex-col gap-[12px]">
 					<div className="flex items-start gap-[12px]">
 						<Avatar initials={initials} size="md" agent />
 						<div className="flex-1 min-w-0">
