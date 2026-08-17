@@ -79,7 +79,7 @@ export function SettingsAppearance(): JSX.Element {
 							aria-label={`${option.label} theme`}
 							className={[
 								"flex flex-col items-start p-0 rounded-[var(--r-default)] overflow-hidden",
-								"  ",
+								"border-width-thin",
 								"w-[120px] text-left cursor-pointer",
 								isActive
 									? "border-[var(--accent-deep)]"
