@@ -224,3 +224,36 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 		expect(teamPill).toHaveAttribute("aria-checked", "true");
 	});
 });
+
+// ---------------------------------------------------------------------------
+// UI-127 — title input AND body editor both rendered (not lone textarea)
+// ---------------------------------------------------------------------------
+
+describe("UI-127 — KnowledgeCreate renders title input and body editor together", () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("title input and mock body editor are both present in the rendered form", async () => {
+		const { useCurrentUser } = await import("../hooks/useCurrentUser.js");
+		vi.mocked(useCurrentUser).mockReturnValue({
+			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
+			status: "ready",
+			error: null,
+		});
+
+		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
+
+		render(
+			<MemoryRouter>
+				<KnowledgeCreate />
+			</MemoryRouter>,
+		);
+
+		// Both the title input and the body editor must be present simultaneously —
+		// UI-127 was: KnowledgeCreate rendered only a lone textarea instead of the
+		// full two-field layout (title + BodyEditor).
+		expect(screen.getByTestId("knowledge-create-title")).toBeInTheDocument();
+		expect(screen.getByTestId("mock-body-editor")).toBeInTheDocument();
+	});
+});
