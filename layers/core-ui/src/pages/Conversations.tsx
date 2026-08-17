@@ -537,23 +537,32 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		<PageScaffold
 			data-testid="conversations-page"
 			header={
-				inspection ? undefined : (
-					<PageHeader
-						title={threadTitle}
-						leading={
-							sidebarMobile ? undefined : (
-								<Breadcrumb
-									segments={[
-										{ label: "Conversations", to: "/conversations" },
-										{ label: threadTitle },
-									]}
-									LinkComponent={Link}
+				// @lore NEW-28: on mobile (sidebarMobile) the breadcrumb is suppressed
+				// and the title is hidden md:block, so the <header> would be a 37px
+				// empty container if rendered with no visible content. Skip it entirely
+				// on mobile unless dialInButton is present (the only mobile-visible
+				// content). Desktop always renders the full header.
+				inspection
+					? undefined
+					: !sidebarMobile || dialInButton
+						? (
+								<PageHeader
+									title={threadTitle}
+									leading={
+										sidebarMobile ? undefined : (
+											<Breadcrumb
+												segments={[
+													{ label: "Conversations", to: "/conversations" },
+													{ label: threadTitle },
+												]}
+												LinkComponent={Link}
+											/>
+										)
+									}
+									actions={dialInButton}
 								/>
 							)
-						}
-						actions={dialInButton}
-					/>
-				)
+						: undefined
 			}
 			body="managed"
 		>

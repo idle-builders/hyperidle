@@ -505,3 +505,25 @@ describe("AG1 AC-4 — existing testids preserved (Tier 2 — silent, no CI net)
 		expect(screen.getByTestId("add-agent-btn")).toBeInTheDocument();
 	});
 });
+
+// ---------------------------------------------------------------------------
+// NEW-29 — agent profile page is reachable via a real <a href> link
+// ---------------------------------------------------------------------------
+
+describe("NEW-29 — agent roster row has a real <a href> link to the agent profile", () => {
+	it("each agent row in the roster has an anchor link to /agents/:agentId", () => {
+		renderPage(POPULATED_TEAM);
+
+		const profileLinks = screen.getAllByTestId("agent-profile-link");
+		expect(profileLinks).toHaveLength(POPULATED_TEAM.roster.length);
+
+		for (const member of POPULATED_TEAM.roster) {
+			const link = profileLinks.find((el) =>
+				el.getAttribute("href")?.includes(encodeURIComponent(member.agentId)),
+			);
+			expect(link).not.toBeUndefined();
+			expect(link?.tagName).toBe("A");
+			expect(link?.getAttribute("href")).toBe(`/agents/${encodeURIComponent(member.agentId)}`);
+		}
+	});
+});

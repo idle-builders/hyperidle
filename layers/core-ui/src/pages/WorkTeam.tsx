@@ -641,20 +641,32 @@ function WorkTeamLoaded({
 									},
 								]}
 								actions={
-									<Button
-										variant="ghost"
-										size="sm"
-										className="shrink-0"
-										onClick={(e) => {
-											e.stopPropagation();
-											// @lore AV4: Customize now opens AgentDetailPane in the split pane
-											// via ?agent search param, not AgentEditDialog modal (AC#3).
-											setSearchParams({ agent: member.agentId });
-										}}
-										data-testid="agent-customize-btn"
-									>
-										Customize
-									</Button>
+									<div className="flex shrink-0 items-center gap-[6px]">
+										{/* NEW-29: real <a href> to agent profile so the page is reachable
+										    via ⌘-click, middle-click, and browser hover-preview. */}
+										<RRLink
+											to={`/agents/${encodeURIComponent(member.agentId)}`}
+											onClick={(e) => e.stopPropagation()}
+											className="type-control shrink-0 inline-flex items-center rounded-[var(--r-pill)] px-[12px] py-[7px] min-h-[44px] lg:min-h-[32px] text-[var(--accent-deep)] hover:bg-[var(--accent-primary-dim)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
+											data-testid="agent-profile-link"
+										>
+											Profile
+										</RRLink>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="shrink-0"
+											onClick={(e) => {
+												e.stopPropagation();
+												// @lore AV4: Customize now opens AgentDetailPane in the split pane
+												// via ?agent search param, not AgentEditDialog modal (AC#3).
+												setSearchParams({ agent: member.agentId });
+											}}
+											data-testid="agent-customize-btn"
+										>
+											Customize
+										</Button>
+									</div>
 								}
 								onClick={() => navigate(`/agents/${encodeURIComponent(member.agentId)}`)}
 							/>
