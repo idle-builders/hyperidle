@@ -264,7 +264,9 @@ export function Row({
 					aria-current={commonProps["aria-current"]}
 					data-testid={commonProps["data-testid"]}
 					data-focused={commonProps["data-focused"]}
-					className={["flex items-center", liSeparatorClass, selectedClasses].filter(Boolean).join(" ")}
+					className={["flex items-center", liSeparatorClass, selectedClasses]
+						.filter(Boolean)
+						.join(" ")}
 				>
 					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>; li keeps listitem role */}
 					<div {...clickableProps(onClick, "")} className={innerClickableClass}>

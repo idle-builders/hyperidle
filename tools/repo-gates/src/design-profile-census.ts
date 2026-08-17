@@ -13,9 +13,9 @@ const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 213, default: 17, strong: 11 }
 
 const EXPECTED = {
 	typography: {
-		label: 116,
+		label: 114, // -2: AZ-bugs-ui-c removed Progress/Team labels from WorkBet
 		metadata: 233,
-		small: 229,
+		small: 227, // -2: AZ-bugs-ui-c removed bet/team small spans from WorkBet
 		copy: 45,
 		control: 93, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
 		input: 11,
@@ -24,7 +24,7 @@ const EXPECTED = {
 		lead: 9,
 		title: 11,
 		display: 3,
-		metric: 6,
+		metric: 5, // -1: AZ-bugs-ui-c removed metric span from WorkBet
 		data: 97,
 		"inline-code": 2,
 	},

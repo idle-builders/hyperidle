@@ -560,9 +560,7 @@ export function AppShell(): JSX.Element {
 		const p = location.pathname;
 		if (p.startsWith("/conversations")) {
 			if (selectedThreadId) {
-				const thread = conversationsThreads.threads.find(
-					(t) => t.id === selectedThreadId,
-				);
+				const thread = conversationsThreads.threads.find((t) => t.id === selectedThreadId);
 				return thread?.title ?? "Conversations";
 			}
 			return "Conversations";
