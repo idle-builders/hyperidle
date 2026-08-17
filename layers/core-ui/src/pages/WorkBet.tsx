@@ -754,7 +754,11 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 					leading={
 						/* AG4: Breadcrumb — DS Breadcrumb replaces hand-rolled nav */
 						<Breadcrumb
-							segments={[{ label: "Work", to: "/work" }, { label: bet.team }, { label: bet.title }]}
+							segments={[
+								{ label: "Work", to: "/work" },
+								{ label: bet.team, to: bet.teamId ? `/work/team/${bet.teamId}` : undefined },
+								{ label: bet.title },
+							]}
 							leading={
 								!sidebarMobile ? (
 									<NavHistoryCluster onBack={() => navigate(-1)} onForward={() => navigate(1)} />
@@ -899,7 +903,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 			{/* W3 AC-25: max-width 800px centered detail body */}
 			<div
 				data-testid="bet-detail-body"
-				className="flex flex-col gap-[24px] max-w-[800px] w-full py-[24px]"
+				className="flex flex-col gap-[24px] max-w-[960px] w-full py-[24px]"
 			>
 				{/* AK5: provenance backlink — shown when bet was promoted from a knowledge item. */}
 				{bet.sourceKnowledge != null && (

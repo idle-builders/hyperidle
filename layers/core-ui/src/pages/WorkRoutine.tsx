@@ -124,7 +124,14 @@ export function WorkRoutine({
 						<Breadcrumb
 							segments={[
 								{ label: "Work", to: "/work", testId: "routine-breadcrumb-back" },
-								...(routineTeamName ? [{ label: routineTeamName }] : []),
+								...(routineTeamName
+									? [
+											{
+												label: routineTeamName,
+												to: data.routine.teamId ? `/work/team/${data.routine.teamId}` : undefined,
+											},
+										]
+									: []),
 								{ label: routineName },
 							]}
 							leading={

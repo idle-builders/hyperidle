@@ -283,14 +283,15 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-25: Bet detail content max-width 800px, centered
+// AC-25: Bet detail content max-width 960px (workbench lane), left-aligned in page frame.
+// FR-5: upgraded from 800px to 960px to use the workbench lane for richer bet detail.
 // ---------------------------------------------------------------------------
-describe("W3 AC-25 — Bet detail max-width 800px", () => {
-	it("bet detail body keeps 800px measure and starts in the page frame", () => {
+describe("W3 AC-25 — Bet detail max-width 960px", () => {
+	it("bet detail body keeps 960px measure and starts in the page frame", () => {
 		renderBet();
 		const detailBody = document.querySelector("[data-testid='bet-detail-body']");
 		expect(detailBody).not.toBeNull();
-		expect(detailBody?.className).toMatch(/max-w-\[800px\]/);
+		expect(detailBody?.className).toMatch(/max-w-\[960px\]/);
 		expect(detailBody?.className).not.toMatch(/mx-auto/);
 		expect(detailBody?.closest("[data-page-frame]")).not.toBeNull();
 	});
