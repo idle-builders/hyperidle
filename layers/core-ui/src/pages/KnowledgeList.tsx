@@ -279,6 +279,12 @@ interface KnowledgeListContentProps {
 	onTriageAction: (itemId: string, newStatus: "active" | "archived") => void;
 	/** UI-010/UI-015: re-issues the /api/knowledge request from the error state. */
 	onRetry?: () => void;
+	/** FR-19: tab change callback — moves tab control from PageHeader into the body lane. */
+	onTabChange: (tab: KnowledgeTab) => void;
+	/** FR-19: search query change callback. */
+	onSearchChange: (query: string) => void;
+	/** FR-19: navigate to new knowledge item creation. */
+	onNewItem: () => void;
 }
 
 function KnowledgeListContent({
@@ -298,6 +304,9 @@ function KnowledgeListContent({
 	searchQuery,
 	onTriageAction,
 	onRetry,
+	onTabChange,
+	onSearchChange,
+	onNewItem,
 }: KnowledgeListContentProps): JSX.Element {
 	// Y4: keyboard navigation state for triage items (-1 = no focus)
 	const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -379,6 +388,65 @@ function KnowledgeListContent({
 
 	return (
 		<div className="max-w-[800px] w-full">
+			{/* FR-19: Tab controls + search + New — moved from PageHeader.actions to body at 800px lane */}
+			<div className="flex items-center justify-between py-[12px]">
+				<div
+					role="tablist"
+					aria-label="Knowledge view"
+					className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
+					data-testid="knowledge-tabs"
+				>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === "curated"}
+						className={`type-control ${
+							tab === "curated"
+								? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+								: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+						}`}
+						onClick={() => onTabChange("curated")}
+					>
+						Curated
+					</button>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === "triage"}
+						className={`type-control ${
+							tab === "triage"
+								? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+								: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+						}`}
+						onClick={() => onTabChange("triage")}
+					>
+						Triage
+					</button>
+				</div>
+				<div className="flex items-center gap-[9px]">
+					<input
+						type="search"
+						aria-label="Filter knowledge"
+						data-testid="knowledge-search"
+						placeholder="Filter…"
+						value={searchQuery}
+						onChange={(e) => onSearchChange(e.target.value)}
+						style={{
+							width: "160px",
+							borderRadius: "var(--r-pill)",
+							border: "var(--bw-default) solid var(--border-default)",
+							padding: "7px 12px",
+							background: "var(--surface-page)",
+							color: "var(--text-primary)",
+							outline: "none",
+						}}
+						className="type-input hidden sm:inline"
+					/>
+					<Button variant="primary" size="sm" onClick={onNewItem}>
+						+ New
+					</Button>
+				</div>
+			</div>
 			{/*
 			 * AD6: Static 4-pill scope filter row.
 			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
@@ -633,41 +701,6 @@ function KnowledgeListContent({
 									);
 								})}
 							</ItemList>
-							{/* Y4: keyboard hint bar — sticky so it remains visible while scrolling triage
-							    @lore NEW-26: hidden below sm (640px) — touch viewports have no keyboard;
-							    j/k/Enter/v/x shortcuts are useless on mobile and the bar wastes a full row. */}
-							<div
-								data-testid="triage-keyboard-hint"
-								className="type-metadata border-width-thin-t sticky bottom-0 hidden sm:flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)] bg-[var(--surface-page)]"
-							>
-								<span>
-									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
-										j
-									</kbd>
-									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)] ml-[3px]">
-										k
-									</kbd>
-									&nbsp;navigate
-								</span>
-								<span>
-									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
-										Enter
-									</kbd>
-									&nbsp;open
-								</span>
-								<span>
-									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
-										v
-									</kbd>
-									&nbsp;validate
-								</span>
-								<span>
-									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
-										x
-									</kbd>
-									&nbsp;reject
-								</span>
-							</div>
 						</>
 					)}
 				</div>
@@ -949,6 +982,11 @@ export function KnowledgeList({
 		setSearchParams(next, { replace: true });
 	}
 
+	function handleTabChange(newTab: KnowledgeTab): void {
+		tabManuallySelectedRef.current = true;
+		setTab(newTab);
+	}
+
 	if (loading) {
 		return (
 			<PageScaffold
@@ -996,80 +1034,6 @@ export function KnowledgeList({
 							<span className="sr-only">Knowledge Base</span>
 							Knowledge
 						</>
-					}
-					actions={
-						!systemEmpty ? (
-							<div className="flex items-center gap-[9px]">
-								{/* Curated/Triage tabs */}
-								<div
-									role="tablist"
-									aria-label="Knowledge view"
-									className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
-									data-testid="knowledge-tabs"
-								>
-									<button
-										type="button"
-										role="tab"
-										aria-selected={tab === "curated"}
-										className={`type-control ${
-											tab === "curated"
-												? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-												: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-										}`}
-										onClick={() => {
-											tabManuallySelectedRef.current = true;
-											setTab("curated");
-										}}
-									>
-										Curated
-									</button>
-									<button
-										type="button"
-										role="tab"
-										aria-selected={tab === "triage"}
-										className={`type-control ${
-											tab === "triage"
-												? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-												: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-										}`}
-										onClick={() => {
-											tabManuallySelectedRef.current = true;
-											setTab("triage");
-										}}
-									>
-										Triage
-									</button>
-								</div>
-								{/* Search + New */}
-								{/* hearth-internal-padding */}
-								{/* @lore NEW-25: 200px fixed width overflows the 375px viewport
-								 * alongside the tab pills and "+ New" button. Hidden below sm
-								 * (640px) where there is no room — filtering on mobile is a
-								 * secondary interaction and the tab pivot still works. */}
-								<input
-									type="search"
-									aria-label="Filter knowledge"
-									data-testid="knowledge-search"
-									placeholder="Filter…"
-									value={searchQuery}
-									onChange={(e) => setSearchQuery(e.target.value)}
-									style={{
-										width: "200px",
-										borderRadius: "var(--r-pill)",
-										border: "var(--bw-default) solid var(--border-default)",
-										padding: "7px 12px",
-										background: "var(--surface-page)",
-										color: "var(--text-primary)",
-										outline: "none",
-									}}
-									className="type-input hidden sm:inline"
-								/>
-								{/* AI5: shared Button primitive. */}
-								<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
-									+ New
-								</Button>
-							</div>
-						) : undefined
 					}
 				/>
 			}
@@ -1123,6 +1087,9 @@ export function KnowledgeList({
 					searchQuery={searchQuery}
 					onTriageAction={handleTriageAction}
 					onRetry={handleRetry}
+					onTabChange={handleTabChange}
+					onSearchChange={setSearchQuery}
+					onNewItem={() => navigate("/knowledge/new")}
 				/>
 			)}
 		</PageScaffold>
