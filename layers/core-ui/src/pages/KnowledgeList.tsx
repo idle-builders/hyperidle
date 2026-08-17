@@ -51,11 +51,12 @@ import type {
 } from "@hyperidle/domain-model";
 import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
 import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
-import { type JSX, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
+import type { AppShellOutletContext } from "../layouts/AppShell.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { clipExcerpt } from "../utils/clip-excerpt.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
@@ -786,7 +787,9 @@ export function KnowledgeList({
 	const [searchParams, setSearchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
-	const { user } = useCurrentUser();
+	const { user, retry: retryUser } = useCurrentUser();
+	// @lore NEW-24: optional — gracefully absent in story/test contexts without an AppShell outlet.
+	const outletCtx = useOutletContext<AppShellOutletContext | null>();
 
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 	const tabManuallySelectedRef = useRef(false);
@@ -813,6 +816,16 @@ export function KnowledgeList({
 		error: apiError,
 		refetch: apiRefetch,
 	} = useFetch<ApiKnowledgeListResponse>("/api/knowledge");
+
+	// @lore NEW-24: combined retry re-issues the knowledge fetch + all AppShell-owned fetches
+	// (user and sidebar knowledge list). Without retrying the user fetch, the N5 short-circuit
+	// (no participantId → no thread fetch) stays active after an outage+restart, so the sidebar
+	// stays in error even when the main-pane content loads.
+	const handleRetry = useCallback((): void => {
+		apiRefetch();
+		retryUser();
+		outletCtx?.onRetryShell?.();
+	}, [apiRefetch, retryUser, outletCtx]);
 
 	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
 
@@ -1103,7 +1116,7 @@ export function KnowledgeList({
 					onNavigate={(id) => navigate(`/knowledge/${id}`)}
 					searchQuery={searchQuery}
 					onTriageAction={handleTriageAction}
-					onRetry={apiRefetch}
+					onRetry={handleRetry}
 				/>
 			)}
 		</PageScaffold>

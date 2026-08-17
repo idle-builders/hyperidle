@@ -53,6 +53,7 @@ describe("AF13 §1 — KnowledgeCreate sends status:active in create payload", (
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 	});
 
@@ -128,6 +129,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 			},
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
@@ -158,6 +160,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 			},
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
@@ -180,6 +183,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");
@@ -206,6 +210,7 @@ describe("AF13 §6 — Team scope pill is data-driven (WARNING 3 positive-path p
 			},
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");

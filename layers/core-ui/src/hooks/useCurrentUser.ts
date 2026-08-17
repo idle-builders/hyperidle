@@ -7,7 +7,7 @@
  * error states without blocking render.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../services/api-fetch.js";
 
 export interface CurrentUser {
@@ -25,13 +25,19 @@ export interface UseCurrentUserResult {
 	user: CurrentUser | null;
 	status: UseCurrentUserStatus;
 	error: string | null;
+	/** @lore NEW-24: re-issues the /api/auth/me request. Call alongside any
+	 * surface-level Retry so a full-outage recovery unblocks the N5 short-circuit
+	 * in useConversationsThreads (which skips fetching when participantId is undefined). */
+	retry: () => void;
 }
 
 export function useCurrentUser(): UseCurrentUserResult {
 	const [user, setUser] = useState<CurrentUser | null>(null);
 	const [status, setStatus] = useState<UseCurrentUserStatus>("loading");
 	const [error, setError] = useState<string | null>(null);
+	const [tick, setTick] = useState(0);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: tick is intentional — incrementing it via retry() re-runs the fetch
 	useEffect(() => {
 		let cancelled = false;
 		setStatus("loading");
@@ -42,7 +48,7 @@ export function useCurrentUser(): UseCurrentUserResult {
 				const res = await apiFetch("/api/auth/me");
 				if (cancelled) return;
 				if (!res.ok) {
-					setError(`HTTP ${res.status}`);
+					setError("Something went wrong. Please try again.");
 					setStatus("error");
 					return;
 				}
@@ -72,7 +78,11 @@ export function useCurrentUser(): UseCurrentUserResult {
 		return () => {
 			cancelled = true;
 		};
+	}, [tick]);
+
+	const retry = useCallback((): void => {
+		setTick((n) => n + 1);
 	}, []);
 
-	return { user, status, error };
+	return { user, status, error, retry };
 }

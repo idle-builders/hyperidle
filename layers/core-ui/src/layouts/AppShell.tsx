@@ -61,6 +61,10 @@ export interface AppShellOutletContext {
 	onRetryThreads: () => void;
 	/** U9 AC-1: Opens the RecipientPicker for creating a new thread. */
 	onNewThread: () => void;
+	/** @lore NEW-24: retries AppShell-owned fetches (user + sidebar knowledge list) so a
+	 * full-outage recovery clears ALL sidebar error states, not just the main-pane error.
+	 * Child pages call this alongside their own domain retry. */
+	onRetryShell: () => void;
 }
 
 function deriveViewFromPath(pathname: string): ViewId {
@@ -101,7 +105,7 @@ export function sanitizeRouteId(id: string): string | null {
 export function AppShell(): JSX.Element {
 	const location = useLocation();
 	const navigate = useNavigate();
-	const { user, status: userStatus } = useCurrentUser();
+	const { user, status: userStatus, retry: retryUser } = useCurrentUser();
 	// @lore U6: useRail removed (Rail component deleted).
 
 	const activeView = useMemo(() => deriveViewFromPath(location.pathname), [location.pathname]);
@@ -545,10 +549,12 @@ export function AppShell(): JSX.Element {
 
 	// AD9: fetch knowledge items for the Knowledge fast-nav list in the sidebar.
 	// Only the head of the list (first 5) is shown; the full list is on /knowledge.
+	// @lore NEW-24: refetch exposed so KnowledgeList's Retry can also clear the sidebar error.
 	const {
 		data: knowledgeListData,
 		isLoading: knowledgeLoading,
 		error: knowledgeError,
+		refetch: refetchSidebarKnowledge,
 	} = useFetch<{
 		items: ReadonlyArray<{ id: string; title: string }>;
 	}>("/api/knowledge");
@@ -705,7 +711,17 @@ export function AppShell(): JSX.Element {
 										threads: conversationsThreads.threads,
 										threadsStatus: isThreadsError ? "error" : conversationsThreads.status,
 										threadsError: threadsErrorMessage,
-										onRetryThreads: conversationsThreads.retry,
+										// @lore NEW-24: also retries user+sidebar-knowledge fetches so the N5
+										// short-circuit unblocks and the sidebar fully clears after an outage.
+										onRetryThreads: () => {
+											conversationsThreads.retry();
+											retryUser();
+											refetchSidebarKnowledge();
+										},
+										onRetryShell: () => {
+											retryUser();
+											refetchSidebarKnowledge();
+										},
 									} satisfies AppShellOutletContext
 								}
 							/>

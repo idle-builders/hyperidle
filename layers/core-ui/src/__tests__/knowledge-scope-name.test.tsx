@@ -90,6 +90,7 @@ describe("scope row + breadcrumb show resolved scope name, not bucket label", ()
 			user: { id: "user-42", name: "Founder", email: "f@x.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
 		vi.mocked(useKnowledgeItem).mockReturnValue({
@@ -149,6 +150,7 @@ describe("breadcrumb scope segment driven by scopeName, not deprecated Knowledge
 			user: { id: "u1", name: "Alice", email: "a@x.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
 		vi.mocked(useKnowledgeItem).mockReturnValue({
@@ -167,6 +169,7 @@ describe("breadcrumb scope segment driven by scopeName, not deprecated Knowledge
 			user: null,
 			status: "loading",
 			error: null,
+			retry: vi.fn(),
 		});
 		// No API item — falls back to fixture (k1 has scope="practice", no scopeName)
 		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
@@ -193,6 +196,7 @@ describe("editable knowledge item: scope Change trigger visible and opens dialog
 			user: { id: "user-42", name: "Founder", email: "f@x.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
 		// Non-factory editable item
@@ -244,6 +248,7 @@ describe("factory read-only item: read-only marker visible, no Change trigger, n
 			user: { id: "different-user", name: "Other", email: "o@x.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 		const { useKnowledgeItem } = await import("../hooks/useKnowledgeItem.js");
 		// Factory item authored by a different user → agent-authored → read-only
