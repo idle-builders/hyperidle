@@ -285,8 +285,6 @@ export function registerCoreApiPreAuthRoutes(
 	options: AppOptions | undefined,
 	tokenStore: UpgradeTokenStore | null,
 ): void {
-	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
-
 	// Public: /api/health (no auth required)
 	api.get("/health", (c) => {
 		const response = {

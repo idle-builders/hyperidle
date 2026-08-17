@@ -39,7 +39,6 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import { findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import { Hono } from "hono";

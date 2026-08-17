@@ -7,9 +7,7 @@ import type { PolicySessionContext } from "@hyperidle/policy";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { buildSeamBackedWorkIntentRecorder } from "../services/agent-orchestration-port-composition.js";
 import { buildProductionHandoff } from "../services/policy-bindings.js";
-import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
 /**
  * Zod schemas for request validation.
