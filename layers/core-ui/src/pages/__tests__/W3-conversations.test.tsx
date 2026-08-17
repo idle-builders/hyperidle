@@ -194,14 +194,17 @@ describe("W3 AC-8 — New thread button in header", () => {
 		);
 	}
 
-	it("renders a 'New thread' button in the page header (not in filter bar)", () => {
+	it("renders a 'New thread' button in the body lane (not in the page header)", () => {
 		renderConversations();
 		const btn = screen.getByRole("button", { name: /new thread/i });
 		expect(btn).toBeInTheDocument();
-		// Button should be in the header area, not inside a filter/chip bar
+		// FR-1: button moved from header to body lane so it aligns with the 800px thread rows.
+		// It must NOT be inside the page header wrapper.
 		const header = document.querySelector("[data-conversations-header]");
 		expect(header).not.toBeNull();
-		expect(header).toContainElement(btn);
+		expect(header).not.toContainElement(btn);
+		// It must carry the canonical testid for selector continuity.
+		expect(btn).toHaveAttribute("data-testid", "new-thread-btn");
 	});
 });
 
