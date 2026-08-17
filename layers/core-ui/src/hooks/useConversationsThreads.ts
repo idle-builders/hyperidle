@@ -16,23 +16,11 @@ import type { ThreadItem } from "../components/ThreadSections";
 import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";
 
-/**
- * @lore UI-061: Human-readable context snippets derived from hostKind.
- * The thread list API does not return message previews. hostKind is the next
- * best descriptor — it tells the viewer what kind of work this thread belongs
- * to. The snippet slot renders below the title in ThreadRow; an empty string
- * leaves the slot blank (no visible text at all).
- */
-const HOST_KIND_SNIPPET: Record<HostKind, string> = {
-	bet: "Bet",
-	task: "Task",
-	knowledge_item: "Knowledge",
-	artifact: "Artifact",
-	agent: "Agent",
-	user: "Direct message",
-	team: "Team",
-	factory: "Factory",
-};
+// @lore NEW-21: HOST_KIND_SNIPPET was removed. The snippet slot is intentionally
+// empty — the thread list API does not return message previews, and showing the
+// hostKind (e.g. "Task") duplicated the chip rendered immediately beside it.
+// An empty string leaves the snippet blank; future work can populate it from a
+// last-message preview field once the server exposes one.
 
 interface ThreadListRow {
 	id: string;
@@ -118,19 +106,6 @@ function capitalize(s: string): string {
 	return first !== undefined ? first.toUpperCase() + s.slice(1) : s;
 }
 
-/**
- * @lore UI-061: derive initials from the thread title for the right-side avatar chip.
- * Takes the first character of each space-delimited word, up to two chars.
- * "Implement annual billing toggle" → "IA"; "Bet" → "B".
- * Uppercased so the chip reads as an abbreviation.
- */
-function titleInitials(title: string): string {
-	const words = title.trim().split(/\s+/);
-	const first = words[0]?.[0] ?? "";
-	const second = words[1]?.[0] ?? "";
-	return (first + second).toUpperCase() || "?";
-}
-
 function rowToItem(row: ThreadListRow): ThreadItem {
 	// AF14 AC1: use server-resolved title. Falls back to a typed stub if the
 	// server predates AF14 (pre-AF14 responses omit `title`).
@@ -142,16 +117,20 @@ function rowToItem(row: ThreadListRow): ThreadItem {
 	return {
 		id: row.id,
 		title,
-		// @lore UI-061: the thread list API has no message preview field.
-		// hostKind is the most meaningful context available without a second fetch.
-		snippet: HOST_KIND_SNIPPET[row.hostKind],
+		// @lore NEW-21: snippet is intentionally empty — the thread list API has no
+		// message preview field, and the previous hostKind-derived snippet (e.g. "Task")
+		// duplicated the chip rendered beside it. Left blank until the server exposes
+		// a last-message preview field.
+		snippet: "",
 		timestamp: relative,
 		// AF14 AC1: carry lastActiveAt as the ISO sort key for flat-list comparator.
 		lastActiveAt: row.lastActiveAt,
 		avatarUrl: null,
-		// @lore UI-061: derive a single initial-chip from the title.
-		// Participant names are not in the thread list response; the title is.
-		avatars: [{ initials: titleInitials(title), agent: false }],
+		// @lore NEW-21: avatars are intentionally omitted. The thread list response
+		// carries only participant IDs — not names. Title-derived initials (e.g. "IA"
+		// from "Implement annual billing toggle") are meaningless as participant chips.
+		// Left undefined until participant names are returned by the list endpoint.
+		avatars: undefined,
 		hostKind: row.hostKind,
 		hasUnresolvedReview: row.hasUnresolvedReview,
 		blocking,
@@ -212,7 +191,8 @@ export function useConversationsThreads(
 				// would otherwise stomp the latest cycle's `loading` state.
 				if (ac.signal.aborted) return;
 				if (!res.ok) {
-					setError(`HTTP ${res.status}`);
+					// @lore NEW-22: user-facing message — no raw HTTP status code.
+					setError("Something went wrong. Please try again.");
 					setStatus("error");
 					return;
 				}
