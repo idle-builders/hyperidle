@@ -541,13 +541,15 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 					<PageHeader
 						title={threadTitle}
 						leading={
-							<Breadcrumb
-								segments={[
-									{ label: "Conversations", to: "/conversations" },
-									{ label: threadTitle },
-								]}
-								LinkComponent={Link}
-							/>
+							sidebarMobile ? undefined : (
+								<Breadcrumb
+									segments={[
+										{ label: "Conversations", to: "/conversations" },
+										{ label: threadTitle },
+									]}
+									LinkComponent={Link}
+								/>
+							)
 						}
 						actions={dialInButton}
 					/>
