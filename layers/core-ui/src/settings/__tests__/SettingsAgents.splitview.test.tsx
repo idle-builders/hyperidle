@@ -164,7 +164,10 @@ describe("Assistant is a row in the agents list", () => {
 
 		await waitFor(() => screen.getByText("Nova"));
 		expect(screen.queryByLabelText(/name/i)).toBeNull();
-		await user.click(screen.getByRole("button", { name: "Edit Nova" }));
+		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		await user.click(screen.getByRole("button", { name: "Actions for Nova" }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
 
 		// Editor pane should be visible
 		await waitFor(() => {
@@ -216,7 +219,10 @@ describe("Assistant is a row in the agents list", () => {
 		render(<SettingsAgents />);
 
 		await waitFor(() => screen.getByText("Atlas"));
-		await user.click(screen.getByRole("button", { name: "Edit Atlas" }));
+		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		await user.click(screen.getByRole("button", { name: "Actions for Atlas" }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
 
 		await waitFor(() => expect(fetchedTemplates).toContain("builder"));
 	});
@@ -240,7 +246,10 @@ describe("Agent editor model dropdown uses discovered descriptor.models", () => 
 		render(<SettingsAgents />);
 
 		await waitFor(() => screen.getByText("Atlas"));
-		await user.click(screen.getByRole("button", { name: "Edit Atlas" }));
+		// @lore FR-10: Edit is now behind the "..." actions menu — open menu then click Edit.
+		await user.click(screen.getByRole("button", { name: "Actions for Atlas" }));
+		await waitFor(() => screen.getByRole("menuitem", { name: /^edit$/i }));
+		await user.click(screen.getByRole("menuitem", { name: /^edit$/i }));
 
 		await waitFor(() => {
 			const modelSelect = screen.getByRole("combobox", { name: /model/i });
