@@ -648,12 +648,26 @@ export function Conversations(): JSX.Element {
 				frame="page"
 				data-testid="conversations-page"
 				header={
-					/* AI7: PageHeader — Conversations list title only.
-					 * FR-1: "New thread" button moved into the body lane (800px) so it
-					 * aligns with the thread rows instead of appearing at the 1120px right edge.
+					/* AI7: PageHeader — Conversations title + New thread button in actions.
+					 * Button sits in the PageFrame right edge aligned with the content header.
 					 * data-conversations-header wrapper preserved for e2e + unit test selectors. */
 					<div data-conversations-header>
-						<PageHeader data-testid="conversations-filter-bar" title="Conversations" />
+						<PageHeader
+							data-testid="conversations-filter-bar"
+							title="Conversations"
+							actions={
+								isEmpty ? undefined : (
+									<Button
+										variant="primary"
+										size="sm"
+										onClick={onNewThread ?? (() => undefined)}
+										data-testid="new-thread-btn"
+									>
+										New thread
+									</Button>
+								)
+							}
+						/>
 					</div>
 				}
 			>
@@ -697,35 +711,21 @@ export function Conversations(): JSX.Element {
 						/>
 					</div>
 				) : (
-					/* FR-1: "New thread" button at 800px lane right edge (above thread rows).
-					 * max-w-[800px] matches the thread-row lane so the button and rows share the same right edge. */
-					<div className="max-w-[800px] w-full">
-						<div className="flex items-center justify-end py-[12px]">
-							<Button
-								variant="primary"
-								size="sm"
-								onClick={onNewThread ?? (() => undefined)}
-								data-testid="new-thread-btn"
-							>
-								New thread
-							</Button>
-						</div>
-						<ThreadSections
-							threads={conversationsThreads.threads}
-							selectedId={ctx?.selectedThreadId ?? null}
-							onSelect={handleSelectThread}
-							loading={conversationsThreads.status === "loading"}
-							errorMessage={
-								conversationsThreads.status === "error"
-									? (conversationsThreads.error ?? "Network error")
-									: null
-							}
-							onRetry={conversationsThreads.retry}
-							activeFilter={conversationsFilter}
-							onClearFilter={onClearFilter}
-							groupBySection={false}
-						/>
-					</div>
+					<ThreadSections
+						threads={conversationsThreads.threads}
+						selectedId={ctx?.selectedThreadId ?? null}
+						onSelect={handleSelectThread}
+						loading={conversationsThreads.status === "loading"}
+						errorMessage={
+							conversationsThreads.status === "error"
+								? (conversationsThreads.error ?? "Network error")
+								: null
+						}
+						onRetry={conversationsThreads.retry}
+						activeFilter={conversationsFilter}
+						onClearFilter={onClearFilter}
+						groupBySection={false}
+					/>
 				)}
 			</PageScaffold>
 		);
