@@ -36,8 +36,9 @@
  */
 
 // hearth-internal-padding
+import { ThreadRow } from "@hyperidle/design-system";
 import type { JSX } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 
@@ -57,6 +58,13 @@ export interface SidebarThread {
 	id: string;
 	title: string;
 	hasUnresolvedReview: boolean;
+	/**
+	 * @lore UI-061: optional fields for ThreadRow rendering.
+	 * AppShell passes these when available; empty string fallback keeps
+	 * ThreadRow props valid when the caller omits them.
+	 */
+	snippet?: string;
+	timestamp?: string;
 }
 
 export interface SidebarTeam {
@@ -598,6 +606,7 @@ export function Sidebar({
 	knowledgeLoading,
 	drawerMode,
 }: SidebarProps): JSX.Element {
+	const navigate = useNavigate();
 	// Cap threads at 5 for the fast-nav head
 	const visibleThreads = threads.slice(0, 5);
 
@@ -627,17 +636,25 @@ export function Sidebar({
 				);
 			}
 			return (
-				<ul className="list-none m-0 p-0">
+				// @lore UI-061: ThreadRow replaces hand-rolled FastNavItem for thread rows.
+				// <li data-thread-id> carries E2E selectors (AD9 — Row/ThreadRow don't
+				// accept arbitrary data-* props). Navigation via useNavigate so the
+				// SPA history API is used (not a full-page reload).
+				<ul className="list-none m-0 p-0 overflow-hidden rounded-[var(--r-subtle)]">
 					{visibleThreads.map((t) => (
-						<FastNavItem
-							key={t.id}
-							label={t.title}
-							selected={t.id === selectedThreadId}
-							href={`/conversations/${encodeURIComponent(t.id)}`}
-							onClick={() => onSelectThread(t.id)}
-							data-thread-id={t.id}
-							data-testid={`fastnav-${t.id}`}
-						/>
+						<li key={t.id} data-thread-id={t.id} data-testid={`fastnav-${t.id}`}>
+							<ThreadRow
+								title={t.title}
+								snippet={t.snippet ?? ""}
+								timestamp={t.timestamp ?? ""}
+								blocking={t.hasUnresolvedReview}
+								selected={t.id === selectedThreadId}
+								onClick={() => {
+									onSelectThread(t.id);
+									navigate(`/conversations/${encodeURIComponent(t.id)}`);
+								}}
+							/>
+						</li>
 					))}
 				</ul>
 			);
