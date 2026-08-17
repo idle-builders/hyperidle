@@ -232,7 +232,7 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 			data-ds-component="ReviewOutcomeSummary"
 		>
 			{/* ── L1 ─ one glance ─────────────────────────────────────────── */}
-			<header className="border-b-[var(--bw-thin)] flex flex-col gap-[12px]  border-[var(--border-subtle)] px-[18px] py-[18px]">
+			<header className="border-width-thin-b flex flex-col gap-[12px]  border-[var(--border-subtle)] px-[18px] py-[18px]">
 				<div className="flex items-center justify-between gap-[12px]">
 					<div className="flex min-w-0 items-center gap-[9px]">
 						{/* agent author — green-distinct (AQ-012) */}

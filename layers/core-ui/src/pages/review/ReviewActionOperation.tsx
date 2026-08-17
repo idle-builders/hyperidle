@@ -252,7 +252,7 @@ function ReviewActionOperationView({
 			) : null}
 
 			{/* ── L3 · the pre-commit verdict gate ── */}
-			<footer className="border-t-[var(--bw-thin)] mt-[6px] flex items-center justify-end gap-[9px]  border-[var(--border-subtle)] px-[18px] py-[12px]">
+			<footer className="border-width-thin-t mt-[6px] flex items-center justify-end gap-[9px]  border-[var(--border-subtle)] px-[18px] py-[12px]">
 				<button
 					type="button"
 					onClick={onReject}
@@ -487,7 +487,7 @@ function ProposedCallArgsPanel({
 			style={{ borderRadius: "var(--r-subtle)" }}
 			aria-label="Proposed call details"
 		>
-			<div className="border-b-[var(--bw-thin)] flex items-center gap-[9px]  border-[var(--border-subtle)] px-[12px] py-[9px]">
+			<div className="border-width-thin-b flex items-center gap-[9px]  border-[var(--border-subtle)] px-[12px] py-[9px]">
 				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Tool</span>
 				<span
 					className="type-data   text-[var(--text-primary)]"

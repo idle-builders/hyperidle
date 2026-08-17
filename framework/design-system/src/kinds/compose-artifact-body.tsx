@@ -56,7 +56,7 @@ function DataRowsTable({ rows }: { rows: Record<string, string>[] }): JSX.Elemen
 				<tbody>
 					{rows.map((row, ri) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: row keys are not unique; index is correct
-						<tr key={ri} className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)]">
+						<tr key={ri} className="border-width-thin-t  border-[var(--border-subtle)]">
 							{Object.entries(row).map(([k, v]) => (
 								<td key={k} className="py-1 pr-3 px-2 text-[var(--text-primary)]">
 									{v}

@@ -1083,14 +1083,14 @@ function KnowledgeDetailView({
 					{/* Metadata card */}
 					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
 						<SectionLabel label="Metadata" as="h2" />
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Kind</span>
 							{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
 							<span className="type-small text-[var(--text-primary)] ">{item.kind ?? "—"}</span>
 						</div>
 						{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
 						<div
-							className="type-small border-b-[var(--bw-thin)] flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
+							className="type-small border-width-thin-b flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
 							data-testid="knowledge-scope-row"
 						>
 							<span className="text-[var(--text-tertiary)]">Scope</span>
@@ -1119,23 +1119,23 @@ function KnowledgeDetailView({
 								)}
 							</span>
 						</div>
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Status</span>
 							<StatusChip status={knowledgeStatusToStatus(item.status)} />
 						</div>
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Confidence</span>
 							<span className="type-data text-[var(--text-primary)]   tabular-nums">
 								{formatConfidence(item.confidence)}
 							</span>
 						</div>
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Last edited</span>
 							<span className="type-small text-[var(--text-primary)] ">
 								{absoluteDateTime(item.timestamp)}
 							</span>
 						</div>
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Editor</span>
 							{/* Resolve updatedBy to display name:
 							    - If it matches the current user's id, show their name.

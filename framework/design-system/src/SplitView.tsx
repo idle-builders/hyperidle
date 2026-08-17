@@ -238,7 +238,7 @@ export function SplitView({
 					{compactDestination ? (
 						<div
 							data-compact-return
-							className="border-b-[var(--bw-thin)] shrink-0  border-[var(--border-subtle)] px-[12px] py-[6px]"
+							className="border-width-thin-b shrink-0  border-[var(--border-subtle)] px-[12px] py-[6px]"
 						>
 							<button
 								type="button"

@@ -226,7 +226,8 @@ describe("AI7 — PageHeader component", () => {
 			const frame = header.querySelector("[data-page-frame]") as HTMLElement;
 			expect(frame.className).toContain("px-[24px]");
 			expect(header.className).toContain("py-[18px]");
-			expect(header.className).toContain("border-b");
+			// NEW-18: border-b-[var(--bw-thin)] → border-width-thin-b @utility
+			expect(header.className).toContain("border-width-thin-b");
 		});
 	});
 });

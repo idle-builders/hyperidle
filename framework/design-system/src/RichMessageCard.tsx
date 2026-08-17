@@ -349,7 +349,7 @@ export function RichMessageCard({
 			return (
 				<div
 					data-sticky="bottom"
-					className="type-small border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--text-secondary)]"
+					className="type-small border-width-thin-t sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--text-secondary)]"
 					aria-live="polite"
 				>
 					Saving…
@@ -361,7 +361,7 @@ export function RichMessageCard({
 				<div
 					role="alert"
 					data-sticky="bottom"
-					className="type-small border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--status-error)]"
+					className="type-small border-width-thin-t sticky bottom-0 flex items-center gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]  text-[var(--status-error)]"
 				>
 					<span>{state.reason}</span>
 					<button
@@ -380,7 +380,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Verdict actions"
 					data-sticky="bottom"
-					className="border-t-[var(--bw-thin)] sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
+					className="border-width-thin-t sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
 				>
 					{VERDICT_BUTTONS.map((b) => (
 						<button
@@ -401,7 +401,7 @@ export function RichMessageCard({
 					role="toolbar"
 					aria-label="Answer options"
 					data-sticky="bottom"
-					className="border-t-[var(--bw-thin)] sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
+					className="border-width-thin-t sticky bottom-0 flex flex-wrap gap-[9px] px-[12px] py-[9px] bg-[var(--surface-elevated)]  border-[var(--border-subtle)]"
 				>
 					{/* @lore L11 step9 (S11): all-ghost on questionnaire answers —
 					    no spec-required preferred option, so a primary on

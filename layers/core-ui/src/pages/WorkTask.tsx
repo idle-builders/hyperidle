@@ -79,7 +79,7 @@ function SessionRow({
 		<div
 			key={id}
 			data-testid="session-row"
-			className="border-b-[var(--bw-thin)] border-none flex items-center gap-[12px] py-[12px]  border-[var(--border-subtle)] "
+			className="border-width-thin-b border-none flex items-center gap-[12px] py-[12px]  border-[var(--border-subtle)] "
 		>
 			<div className="flex-1 min-w-0">
 				<div className="type-copy   text-[var(--text-primary)] truncate">{title}</div>
@@ -242,13 +242,13 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					className="border-width-thin bg-[var(--surface-page)] rounded-[var(--r-default)]  border-[var(--border-subtle)] flex overflow-hidden"
 				>
 					{/* Owner */}
-					<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
+					<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
 						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Owner</span>
 						<span className="type-small   text-[var(--text-primary)]">{ownerLabel}</span>
 					</div>
 					{/* Status — StatusChip + LiveDot for in_progress.
 						    AI4: Replaced plain text + local LiveDot with design-system StatusChip. */}
-					<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
+					<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
 						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Status</span>
 						<div className="flex items-center gap-[6px] mt-[3px]">
 							{task.state === "in_progress" && <LiveDot />}
@@ -260,7 +260,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 					</div>
 					{/* Started */}
 					{task.startedAt && (
-						<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
+						<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
 							<span className="type-label   uppercase  text-[var(--text-tertiary)]">Started</span>
 							<span
 								data-testid="task-started-at"
@@ -271,7 +271,7 @@ export function WorkTask({ overrideBetId, overrideTaskId }: WorkTaskProps = {}):
 						</div>
 					)}
 					{/* Sessions */}
-					<div className="border-r-[var(--bw-thin)] flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
+					<div className="border-width-thin-r flex flex-col gap-[3px] px-[18px] py-[12px] flex-1 min-w-[100px]  border-[var(--border-subtle)]">
 						<span className="type-label   uppercase  text-[var(--text-tertiary)]">Sessions</span>
 						<span
 							data-testid="task-session-count"

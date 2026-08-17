@@ -218,7 +218,7 @@ export function RoleCombobox({
 			{/* Popover */}
 			{open && !disabled && (
 				<div className="border-width-thin absolute left-0 right-0 top-[62px] z-20 flex flex-col overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]">
-					<div className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)] p-[6px]">
+					<div className="border-width-thin-b  border-[var(--border-subtle)] p-[6px]">
 						<input
 							ref={inputRef}
 							type="text"

@@ -201,7 +201,7 @@ function ConversationHeader({
 	);
 	if (presentation === "read") {
 		return (
-			<header className="shrink-0 border-b-[var(--bw-thin)] border-[var(--border-subtle)] px-[18px] py-[12px]">
+			<header className="shrink-0 border-width-thin-b border-[var(--border-subtle)] px-[18px] py-[12px]">
 				<div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-[12px]">
 					{context}
 					<div className="flex shrink-0 items-center gap-[9px]">{controls}</div>

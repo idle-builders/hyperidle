@@ -145,7 +145,7 @@ export function NotificationPopover({
 		>
 			{/* Header */}
 			<div
-				className="border-b-[var(--bw-thin)] flex shrink-0 items-center justify-between  border-[var(--border-subtle)]"
+				className="border-width-thin-b flex shrink-0 items-center justify-between  border-[var(--border-subtle)]"
 				style={{ padding: "12px 18px" }}
 			>
 				<span
@@ -232,7 +232,7 @@ export function NotificationPopover({
 								<li
 									key={row.id}
 									data-testid={`notification-row-${row.id}`}
-									className="border-b-[var(--bw-thin)] group relative  border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
+									className="border-width-thin-b group relative  border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 								>
 									{/*
 									 * Single-line dense row: div with row-level keyboard/click for jump,

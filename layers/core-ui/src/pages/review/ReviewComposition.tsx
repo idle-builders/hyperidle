@@ -288,7 +288,7 @@ function TaskSection({ subject }: { readonly subject: ComposedReviewSubject }): 
 			<SectionHead label="The task" />
 			<div
 				data-az16-profile="strong"
-				className="border-l-[var(--bw-strong)] rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-container)] px-[14px] py-[12px]"
+				className="border-width-strong-l rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-container)] px-[14px] py-[12px]"
 			>
 				<p
 					data-az16-profile="copy"
@@ -363,7 +363,7 @@ function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element
 	const isAfter = variant === "after";
 	return (
 		<figure className="border-width-thin overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
-			<figcaption className="border-b-[var(--bw-thin)] flex items-center justify-between  border-[var(--border-subtle)] px-[12px] py-[6px]">
+			<figcaption className="border-width-thin-b flex items-center justify-between  border-[var(--border-subtle)] px-[12px] py-[6px]">
 				<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 					{isAfter ? "After" : "Before"}
 				</span>
@@ -404,10 +404,10 @@ function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element
 					)}
 				</div>
 
-				<div className="border-t-[var(--bw-thin)] type-data flex flex-col gap-[3px]  border-[var(--border-subtle)] pt-[9px]   tabular-nums">
+				<div className="border-width-thin-t type-data flex flex-col gap-[3px]  border-[var(--border-subtle)] pt-[9px]   tabular-nums">
 					<ResultRow label="Subtotal" value="$120.00" />
 					<ResultRow label="Promo (SPRING24)" value={isAfter ? "—" : "−$24.00"} muted={isAfter} />
-					<div className="border-t-[var(--bw-thin)] mt-[3px] flex items-center justify-between  border-[var(--border-subtle)] pt-[6px]">
+					<div className="border-width-thin-t mt-[3px] flex items-center justify-between  border-[var(--border-subtle)] pt-[6px]">
 						<span className="type-small  text-[var(--text-primary)]">Total</span>
 						<span className="type-small  text-[var(--text-primary)]">
 							{isAfter ? "$120.00" : "$96.00"}

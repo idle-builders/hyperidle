@@ -155,9 +155,9 @@ function DaySeparator({ label }: { label: string }): JSX.Element {
 			aria-label={`Messages from ${label}`}
 			className="flex items-center gap-[12px] py-[6px]"
 		>
-			<span className="flex-1 border-t-[var(--bw-thin)] border-[var(--border-subtle)]" />
+			<span className="flex-1 border-width-thin-t border-[var(--border-subtle)]" />
 			<span className="type-metadata   text-[var(--text-tertiary)] tabular-nums">{label}</span>
-			<span className="flex-1 border-t-[var(--bw-thin)] border-[var(--border-subtle)]" />
+			<span className="flex-1 border-width-thin-t border-[var(--border-subtle)]" />
 		</div>
 	);
 }

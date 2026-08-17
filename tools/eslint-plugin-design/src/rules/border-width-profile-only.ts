@@ -25,8 +25,9 @@ function hasRawBorderWidth(text: string): boolean {
 			return false;
 		// @lore Tailwind v4: `border-[var(--bw-*)]` sets border-color, not border-width.
 		// Use `border-width-thin/default/strong` (@utility in tokens.css) for correct
-		// border-width via CSS variable. These are the only allowed border-width classes.
-		if (/^border-width-(?:thin|default|strong)$/.test(token)) return false;
+		// border-width via CSS variable. Directional variants (-b/-t/-l/-r) added in
+		// NEW-18 for per-side separators (e.g. border-width-thin-b for row dividers).
+		if (/^border-width-(?:thin|default|strong)(?:-[tblr])?$/.test(token)) return false;
 		if (/^border(?:-(?:x|y|t|r|b|l|s|e))?$/.test(token)) return true;
 		if (/^border(?:-(?:x|y|t|r|b|l|s|e))?-(?:0|2|4|8)$/.test(token)) return true;
 		if (/^border-width-/.test(token)) return true;

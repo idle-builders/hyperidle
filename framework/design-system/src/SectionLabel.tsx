@@ -52,7 +52,7 @@ export function SectionLabel({
 		"flex items-center justify-between gap-[12px]",
 		"uppercase text-[var(--text-tertiary)]",
 		"mb-[9px]",
-		divider ? "pb-[6px] border-b-[var(--bw-thin)] border-[var(--border-subtle)]" : "",
+		divider ? "pb-[6px] border-width-thin-b border-[var(--border-subtle)]" : "",
 	]
 		.filter(Boolean)
 		.join(" ");

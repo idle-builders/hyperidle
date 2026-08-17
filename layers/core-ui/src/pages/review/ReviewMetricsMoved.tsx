@@ -312,7 +312,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 		>
 			<table className="w-full border-collapse text-left">
 				<thead>
-					<tr className="border-b-[var(--bw-thin)]  border-[var(--border-default)]">
+					<tr className="border-width-thin-b  border-[var(--border-default)]">
 						<th className="type-label px-[12px] py-[9px]   uppercase  text-[var(--text-tertiary)]">
 							Account
 						</th>
@@ -329,7 +329,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 				</thead>
 				<tbody>
 					{fixture.rows.map((r) => (
-						<tr key={r.id} className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)]">
+						<tr key={r.id} className="border-width-thin-b  border-[var(--border-subtle)]">
 							<td className="type-small px-[12px] py-[9px]  text-[var(--text-primary)]">
 								{r.label}
 							</td>
@@ -370,7 +370,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 
 			{/* tie-out strip — the control total that proves the roll-forward */}
 			<div
-				className="border-t-[var(--bw-thin)] flex flex-wrap items-center gap-x-[6px] gap-y-[3px]  border-[var(--border-default)] px-[12px] py-[9px]"
+				className="border-width-thin-t flex flex-wrap items-center gap-x-[6px] gap-y-[3px]  border-[var(--border-default)] px-[12px] py-[9px]"
 				style={{ background: "var(--accent-primary-dim)" }}
 			>
 				<span

@@ -93,7 +93,8 @@ describe("Sidebar — AC-1: structure and brand", () => {
 	it("renders a divider in the bottom strip area", () => {
 		const { container } = render(<Sidebar {...defaultProps} />);
 		const utilities = container.querySelector("[data-sidebar-bottom]");
-		expect(utilities?.className ?? "").toContain("border-t");
+		// NEW-18: border-t-[var(--bw-thin)] → border-width-thin-t (sets width, not color)
+		expect(utilities?.className ?? "").toContain("border-width-thin-t");
 	});
 
 	it("renders bottom strip with Assistant trigger and Settings (avatar) button", () => {

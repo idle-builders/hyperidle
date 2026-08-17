@@ -318,7 +318,7 @@ export function GlobalSearchPanel({
 						<div
 							data-testid="search-recent-queries"
 							aria-label="Recent queries"
-							className="type-data border-t-[var(--bw-thin)]   text-[var(--text-tertiary)]  border-[var(--border-subtle)] pt-2 px-1"
+							className="type-data border-width-thin-t   text-[var(--text-tertiary)]  border-[var(--border-subtle)] pt-2 px-1"
 						>
 							<span>No recent queries</span>
 						</div>

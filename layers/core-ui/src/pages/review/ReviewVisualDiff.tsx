@@ -125,7 +125,7 @@ function MockScreen({ variant, active }: ScreenProps): JSX.Element {
 		>
 			{/* hero band */}
 			<div
-				className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
+				className="border-width-thin-b  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 				style={{ padding: heroPad, ...(active === "hero" ? HL : {}) }}
 			>
 				<div className="type-lead   text-[var(--text-primary)]">Create your account</div>

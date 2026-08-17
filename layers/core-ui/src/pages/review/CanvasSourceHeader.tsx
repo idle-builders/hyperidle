@@ -37,7 +37,7 @@ export function CanvasSourceHeader({
 		</>
 	);
 	return (
-		<div className="border-b-[var(--bw-thin)] flex items-center gap-[9px]  border-[var(--border-subtle)] px-[18px] py-[12px]">
+		<div className="border-width-thin-b flex items-center gap-[9px]  border-[var(--border-subtle)] px-[18px] py-[12px]">
 			<ToolLogo tool={tool} size="md" label={app} />
 			<div className="flex min-w-0 flex-1 items-baseline gap-[6px]">
 				<span className="type-small   text-[var(--text-primary)]">{app}</span>
