@@ -975,9 +975,7 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						data-stat-card="team"
 						className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[9px] flex-1"
 					>
-						<KpiStat
-							metrics={[{ label: "Team", value: bet.team }]}
-						/>
+						<KpiStat metrics={[{ label: "Team", value: bet.team }]} />
 						{/* AI5: shared Avatar primitive. Initials now derive via slice
 							    (deriveInitials) — was word-initials ("GT"), now slice ("GR"). */}
 						<div className="flex items-center gap-[9px]">
