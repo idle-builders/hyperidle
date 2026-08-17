@@ -353,7 +353,7 @@ function RoutineDetailPaneLoaded({
 			<div
 				className={
 					presentation === "page"
-						? "max-w-[960px] flex flex-col gap-[24px] py-[24px]"
+						? "max-w-[960px] mx-auto flex flex-col gap-[24px] py-[24px]"
 						: "flex flex-col gap-[24px] p-[18px]"
 				}
 			>
