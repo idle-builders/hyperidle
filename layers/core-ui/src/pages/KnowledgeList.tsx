@@ -632,10 +632,12 @@ function KnowledgeListContent({
 									);
 								})}
 							</ItemList>
-							{/* Y4: keyboard hint bar — sticky so it remains visible while scrolling triage */}
+							{/* Y4: keyboard hint bar — sticky so it remains visible while scrolling triage
+							    @lore NEW-26: hidden below sm (640px) — touch viewports have no keyboard;
+							    j/k/Enter/v/x shortcuts are useless on mobile and the bar wastes a full row. */}
 							<div
 								data-testid="triage-keyboard-hint"
-								className="type-metadata border-width-thin-t sticky bottom-0 flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)] bg-[var(--surface-page)]"
+								className="type-metadata border-width-thin-t sticky bottom-0 hidden sm:flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)] bg-[var(--surface-page)]"
 							>
 								<span>
 									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
@@ -1027,6 +1029,10 @@ export function KnowledgeList({
 								</div>
 								{/* Search + New */}
 								{/* hearth-internal-padding */}
+								{/* @lore NEW-25: 200px fixed width overflows the 375px viewport
+								 * alongside the tab pills and "+ New" button. Hidden below sm
+								 * (640px) where there is no room — filtering on mobile is a
+								 * secondary interaction and the tab pivot still works. */}
 								<input
 									type="search"
 									aria-label="Filter knowledge"
@@ -1043,7 +1049,7 @@ export function KnowledgeList({
 										color: "var(--text-primary)",
 										outline: "none",
 									}}
-									className="type-input"
+									className="type-input hidden sm:inline"
 								/>
 								{/* AI5: shared Button primitive. */}
 								<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
