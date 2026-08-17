@@ -51,8 +51,7 @@ export interface ComposerProps {
 }
 
 // Send arrow SVG path — used when iconSend=true.
-const SEND_ICON_PATH =
-	"M2 12L22 12M22 12L15 5M22 12L15 19";
+const SEND_ICON_PATH = "M2 12L22 12M22 12L15 5M22 12L15 19";
 
 function generateClientKey(): string {
 	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {

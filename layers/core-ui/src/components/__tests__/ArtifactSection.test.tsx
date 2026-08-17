@@ -15,7 +15,6 @@
  */
 
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactSection as ArtifactSectionType } from "../ArtifactSection";

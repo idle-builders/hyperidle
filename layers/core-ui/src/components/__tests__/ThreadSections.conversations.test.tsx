@@ -186,9 +186,7 @@ describe("ThreadSections component", () => {
 	// not via the onSelect callback. Verify that each row has an href pointing
 	// to its conversation route.
 	it("each thread row is an anchor with href to /conversations/:id", () => {
-		const { container } = render(
-			<ThreadSections threads={threads} now={NOW} />,
-		);
+		const { container } = render(<ThreadSections threads={threads} now={NOW} />);
 		const rows = Array.from(container.querySelectorAll("[data-ds-component='ThreadRow']"));
 		expect(rows.length).toBeGreaterThan(0);
 		for (const row of rows) {

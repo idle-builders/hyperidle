@@ -254,6 +254,7 @@ describe("UI-127 — KnowledgeCreate editor card has no fixed minHeight cap", ()
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { KnowledgeCreate } = await import("../pages/KnowledgeCreate.js");

@@ -42,8 +42,8 @@
  */
 
 import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
-import { Composer as DSComposer, PageHeader } from "@hyperidle/design-system";
 import type { ComposerSubmitInput } from "@hyperidle/design-system";
+import { Composer as DSComposer, PageHeader } from "@hyperidle/design-system";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { PartList } from "./PartList.js";
