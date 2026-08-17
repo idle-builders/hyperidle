@@ -172,7 +172,7 @@ function ConversationHeader({
 	header: ConversationSurfaceHeader;
 	participants: ReadonlyArray<ConversationSurfaceParticipant>;
 	presentation: "read" | "pane";
-}): JSX.Element {
+}): JSX.Element | null {
 	const context = (
 		<div className="type-metadata flex min-w-0 flex-1 items-center gap-[6px] text-[var(--text-secondary)]">
 			<span className="type-label inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] uppercase text-[var(--accent-deep)]">
@@ -200,18 +200,10 @@ function ConversationHeader({
 		</div>
 	);
 	if (presentation === "read") {
-		/* FR-3: PageHeader above already shows the thread title — this strip
-		 * shows only the host-kind badge (context) + participants so no title repeats. */
-		return (
-			<header className="shrink-0 border-width-thin-b border-[var(--border-subtle)] px-[24px] py-[9px]">
-				<div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-[12px]">
-					<span className="type-label inline-flex items-center rounded-[var(--r-pill)] bg-[var(--accent-primary-dim)] px-[9px] py-[1px] uppercase text-[var(--accent-deep)]">
-						{header.hostKind}
-					</span>
-					<div className="flex shrink-0 items-center gap-[9px]">{controls}</div>
-				</div>
-			</header>
-		);
+		/* Read mode: PageHeader above already shows the thread title, kind badge,
+		 * and participants would add a full-width band (~30px + horizontal rule)
+		 * that costs a great deal to say very little. Nothing here. */
+		return null;
 	}
 	return (
 		<PageHeader presentation="pane" title={header.title} leading={context} actions={controls} />

@@ -194,9 +194,9 @@ export function PartList({ parts, onOpen, onAnswer, reviewBetId }: PartListProps
 							data-ds-sender={isAgent ? "agent" : "human"}
 							{...(isAgent ? { "data-ds-agent": "true" } : {})}
 							{...(isSelf ? { "data-ds-self": "true" } : {})}
-							className={`flex flex-col ${isSelf ? "items-end" : ""}`}
+							className="flex flex-col"
 						>
-							<div className={`flex flex-col gap-[9px] ${isSelf ? "max-w-[80%]" : ""}`}>
+							<div className="flex flex-col gap-[9px]">
 								<div className="flex items-center gap-[9px]">
 									<GroupAvatar name={group.author.name} isAgent={isAgent} />
 									<span className="type-small   text-[var(--text-primary)]">
@@ -211,13 +211,7 @@ export function PartList({ parts, onOpen, onAnswer, reviewBetId }: PartListProps
 										</span>
 									)}
 								</div>
-								<div
-									className={
-										isSelf
-											? "flex flex-col gap-[12px] rounded-[var(--r-default)] bg-[var(--surface-container)] px-[12px] py-[9px] text-left"
-											: "flex flex-col gap-[12px]"
-									}
-								>
+								<div className="flex flex-col gap-[12px]">
 									{group.parts.map((part) => (
 										<div key={part.id}>{renderPart(part, onOpen, onAnswer, reviewBetId)}</div>
 									))}
