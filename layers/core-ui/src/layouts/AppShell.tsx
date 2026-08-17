@@ -558,7 +558,15 @@ export function AppShell(): JSX.Element {
 	const pageTitle = useMemo((): string => {
 		if (settingsOpen) return "Settings";
 		const p = location.pathname;
-		if (p.startsWith("/conversations")) return "Conversations";
+		if (p.startsWith("/conversations")) {
+			if (selectedThreadId) {
+				const thread = conversationsThreads.threads.find(
+					(t) => t.id === selectedThreadId,
+				);
+				return thread?.title ?? "Conversations";
+			}
+			return "Conversations";
+		}
 		if (p.startsWith("/work/portfolio")) return "Work";
 		if (p.startsWith("/work/team/")) return "Work";
 		if (p.startsWith("/work/bet/")) return "Work";
@@ -567,7 +575,7 @@ export function AppShell(): JSX.Element {
 		if (p.startsWith("/knowledge")) return "Knowledge";
 		if (p.startsWith("/agents")) return "Agents";
 		return "HyperIdle";
-	}, [location.pathname, settingsOpen]);
+	}, [location.pathname, settingsOpen, selectedThreadId, conversationsThreads.threads]);
 
 	// Thread list for sidebar (top 5, no filter applied to sidebar sub-items)
 	const sidebarThreads = useMemo(
