@@ -93,6 +93,10 @@ describe("AssistantOverlay layout fixes", () => {
 		// The overlay dialog element
 		const dialog = screen.getByRole("dialog", { name: /assistant conversation/i });
 		expect(dialog.className).toContain("flex-col");
-		expect(dialog.className).toContain("max-h-");
+		// @lore UI-138/139: must be h-[70vh] (definite height), NOT max-h-[70vh].
+		// max-h is a visual cap, not a CSS "definite" height, so ThreadShell h-full
+		// resolves to content height and the composer renders off-screen.
+		expect(dialog.className).toContain("h-[70vh]");
+		expect(dialog.className).not.toContain("max-h-");
 	});
 });

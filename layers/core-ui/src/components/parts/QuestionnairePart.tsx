@@ -78,11 +78,11 @@ export function QuestionnairePart({
 				<p className="type-copy m-0    text-[var(--text-primary)]">{part.question}</p>
 			</div>
 			{selectedAnswer !== null && (
-				<p className="type-metadata m-0 mt-[8px] pl-[29px] text-[var(--text-tertiary)]">
+				<p className="type-metadata m-0 mt-[9px] pl-[29px] text-[var(--text-tertiary)]">
 					Answered — tap another option to change.
 				</p>
 			)}
-			<ul className="m-0 mt-[8px] flex list-none flex-wrap items-center gap-[6px] p-0 pl-[29px]">
+			<ul className="m-0 mt-[12px] flex list-none flex-wrap items-center gap-[6px] p-0 pl-[29px]">
 				{part.options.map((option) =>
 					onAnswer ? (
 						<li key={option}>
@@ -100,7 +100,7 @@ export function QuestionnairePart({
 												backgroundColor: "var(--accent-primary-dim)",
 												borderColor: "var(--accent-deep)",
 												color: "var(--accent-deep)",
-										  }
+											}
 										: undefined
 								}
 								onClick={() => {
