@@ -630,13 +630,20 @@ function WorkTeamLoaded({
 									{
 										// @lore AZ7 Set 5: RowCell.tone is deleted — the error tint moves onto
 										// the content itself.
-										// @lore NEW-10: removed fixed width:140 — role description needs
-										// 400+px; the name (flex-1) has ample empty space to give back.
+										// @lore NEW-27: width:160 caps the context cell so the agent name
+										// (flex-1 min-w-0 in Row) is never starved to zero-width in
+										// narrow SplitView panes. The cell is shrink-0 so without a cap
+										// the role description eats all available space at ~576px pane
+										// widths; the name collapses to width:0 and is invisible on
+										// screen even though it is present in DOM. 160px truncates with
+										// ellipsis ("Engineer. Im…") which is readable and matches the
+										// prior width:140 that @lore NEW-10 removed.
 										content: contextIsError ? (
 											<span className="text-[var(--status-error)]">{contextText}</span>
 										) : (
 											contextText
 										),
+										width: 160,
 										align: "start",
 										"data-testid": "agent-context",
 									},

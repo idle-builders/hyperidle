@@ -234,6 +234,39 @@ describe("AgentProfile UI-014 — user-friendly error messages", () => {
 		expect(screen.getByText(/failed to load agent profile/i)).toBeInTheDocument();
 		expect(screen.getByText(/couldn't be loaded/i)).toBeInTheDocument();
 	});
+
+	it("UI-129: error state is wrapped in a vertically-centring container", () => {
+		// The error state must be centred vertically in the page body, not
+		// anchored to the top-left corner. The centering is achieved by a
+		// flex-1 flex items-center justify-center wrapper in the rendered DOM.
+		render(
+			<MemoryRouter initialEntries={["/agents/agent-test"]}>
+				<Routes>
+					<Route
+						path="/agents/:agentId"
+						element={
+							<AgentProfile overrideData={null} overrideError={new Error("Network error")} />
+						}
+					/>
+				</Routes>
+			</MemoryRouter>,
+		);
+
+		const errorTitle = screen.getByText(/failed to load agent profile/i);
+		// Walk up the DOM looking for the centering wrapper. Any ancestor with
+		// both `items-center` and `justify-center` in its className satisfies UI-129.
+		let node: HTMLElement | null = errorTitle;
+		let found = false;
+		while (node) {
+			const cls = node.className ?? "";
+			if (cls.includes("items-center") && cls.includes("justify-center")) {
+				found = true;
+				break;
+			}
+			node = node.parentElement;
+		}
+		expect(found).toBe(true);
+	});
 });
 
 // ---------------------------------------------------------------------------

@@ -475,7 +475,9 @@ export function SettingsAgents(): JSX.Element {
 								 * agent name span gets flex-1 + truncate so it yields space to
 								 * the chip instead of competing for it. */
 								<span className="flex items-center gap-[6px] min-w-0 overflow-hidden">
-									<span className="truncate min-w-0">{agent.name}</span>
+									{/* flex-1 + min-w-[4rem]: name grows to fill remaining space,
+									 * never collapses below 4rem even when the chip is wide. */}
+									<span className="truncate flex-1 min-w-[4rem]">{agent.name}</span>
 									{harnessUnavailable && <StatusChip status="behind" label="Harness unavailable" />}
 								</span>
 							}
