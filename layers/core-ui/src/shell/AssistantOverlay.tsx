@@ -453,10 +453,32 @@ function AssistantOverlayInner({
 					))}
 				</div>
 			)}
+			{/* AH3: Notice/thinking/stale cards rendered OUTSIDE ThreadShell (avoids
+			    text collision with the scroll area) and ABOVE the ThreadShell wrapper
+			    so the composer stays pinned to the overlay bottom (NEW-13). */}
+			{noticeMessages.map((m) => {
+				const noticePayload = m.payload as PlainPayload;
+				if (!noticePayload.notice) return null;
+				return (
+					<div key={m.id} className="shrink-0 px-[12px] pt-[9px]">
+						<AssistantNoticeCard notice={noticePayload.notice} onRetry={refresh} />
+					</div>
+				);
+			})}
+			{/* AH3 §1.7b: Thinking indicator — client-derived from thread state */}
+			{isThinking && (
+				<div className="shrink-0 px-[12px] pt-[9px]">
+					<ThinkingRow />
+				</div>
+			)}
+			{/* AH3 §1.7b: Stale crash-recovery Retry card */}
+			{isStale && (
+				<div className="shrink-0 px-[12px] pt-[9px]">
+					<StaleRetryCard onRetry={refresh} />
+				</div>
+			)}
 			{/* flex-1 min-h-0 gives ThreadShell a parent with a definite height
-			    so its internal h-full resolves correctly (UI-138/139).
-			    overflow-hidden clips ThreadShell's 100%-height content so it
-			    never paints over the notice/stale cards below (AZ-overlay-error). */}
+			    so its internal h-full resolves correctly (UI-138/139). */}
 			<div className="flex-1 min-h-0 overflow-hidden">
 				<ThreadShell
 					thread={thread}
@@ -467,28 +489,6 @@ function AssistantOverlayInner({
 					renderRefEmbeds={(refs) => renderRefEmbedsForAssistant(refs, navigate)}
 				/>
 			</div>
-			{/* AH3: Notice cards rendered OUTSIDE ThreadShell to avoid text collision */}
-			{noticeMessages.map((m) => {
-				const noticePayload = m.payload as PlainPayload;
-				if (!noticePayload.notice) return null;
-				return (
-					<div key={m.id} className="shrink-0 px-[12px] pb-[9px]">
-						<AssistantNoticeCard notice={noticePayload.notice} onRetry={refresh} />
-					</div>
-				);
-			})}
-			{/* AH3 §1.7b: Thinking indicator — client-derived from thread state */}
-			{isThinking && (
-				<div className="shrink-0 px-[12px] pb-[9px]">
-					<ThinkingRow />
-				</div>
-			)}
-			{/* AH3 §1.7b: Stale crash-recovery Retry card */}
-			{isStale && (
-				<div className="shrink-0 px-[12px] pb-[9px]">
-					<StaleRetryCard onRetry={refresh} />
-				</div>
-			)}
 		</div>
 	);
 }
