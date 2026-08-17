@@ -510,7 +510,6 @@ describe("Sidebar — UI-011/012/013: honest error states", () => {
 	});
 });
 
-
 // UI-083 — FastNavItem links are keyboard-focusable
 // ---------------------------------------------------------------------------
 // The visual defect (focus ring overlapping the item below) requires browser
