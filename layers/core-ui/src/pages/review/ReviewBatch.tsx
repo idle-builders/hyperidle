@@ -278,7 +278,7 @@ function ReviewBatchView({
 				</div>
 
 				{/* the win — one calm line of impact */}
-				<div className="border-t-[var(--bw-thin)] flex items-center gap-[9px] px-[18px] py-[9px]  border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--status-success)_6%,transparent)]">
+				<div className="border-width-thin-t flex items-center gap-[9px] px-[18px] py-[9px]  border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--status-success)_6%,transparent)]">
 					<span className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-success)] shrink-0" />
 					<span className="type-small  text-[var(--text-secondary)]">
 						{batch.metric.label} would drop{" "}
@@ -365,13 +365,13 @@ function ReviewBatchView({
 
 								{/* L3 — expanded context: customer's message + the drafted reply + per-item verdict */}
 								{open ? (
-									<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] bg-[var(--surface-page)] px-[15px] py-[15px] flex flex-col gap-[12px]">
+									<div className="border-width-thin-t  border-[var(--border-subtle)] bg-[var(--surface-page)] px-[15px] py-[15px] flex flex-col gap-[12px]">
 										{/* the customer's last message */}
 										<div className="flex flex-col gap-[6px]">
 											<span className="type-label   uppercase  text-[var(--text-tertiary)]">
 												{item.customer} · {item.subject}
 											</span>
-											<blockquote className="border-l-[var(--bw-strong)] type-small   text-[var(--text-secondary)]  border-[var(--border-default)] pl-[12px]">
+											<blockquote className="border-width-strong-l type-small   text-[var(--text-secondary)]  border-[var(--border-default)] pl-[12px]">
 												{item.lastMessage}
 											</blockquote>
 										</div>
@@ -379,7 +379,7 @@ function ReviewBatchView({
 										{/* the agent's drafted reply, rendered as it would send */}
 										{item.draftedReply ? (
 											<div className="border-width-thin rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] overflow-hidden">
-												<div className="border-b-[var(--bw-thin)] flex items-center gap-[6px] px-[12px] py-[6px]  border-[var(--border-subtle)]">
+												<div className="border-width-thin-b flex items-center gap-[6px] px-[12px] py-[6px]  border-[var(--border-subtle)]">
 													<span className="type-metadata h-[16px] w-[16px] rounded-[var(--r-pill)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]   inline-flex items-center justify-center shrink-0">
 														AI
 													</span>
@@ -472,7 +472,7 @@ function ReviewBatchView({
 									</span>
 								</button>
 								{open ? (
-									<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] px-[15px] py-[12px] flex flex-wrap items-center gap-[6px]">
+									<div className="border-width-thin-t  border-[var(--border-subtle)] px-[15px] py-[12px] flex flex-wrap items-center gap-[6px]">
 										{g.sample.map((ref) => (
 											<span
 												key={ref}

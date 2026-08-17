@@ -523,7 +523,7 @@ function AgentProfileLoaded({
 						// conversation-like entries with avatar + unread count — not applicable.
 						<table className="type-metadata w-full " aria-label="Recent agent session activity">
 							<thead>
-								<tr className="border-b-[var(--bw-thin)] text-[var(--text-tertiary)] text-left  border-[var(--border-subtle)]">
+								<tr className="border-width-thin-b text-[var(--text-tertiary)] text-left  border-[var(--border-subtle)]">
 									<th className="type-small pb-[6px] ">Task</th>
 									<th className="type-small pb-[6px] ">Outcome</th>
 									<th className="type-small pb-[6px] ">When</th>
@@ -533,7 +533,7 @@ function AgentProfileLoaded({
 								{recentSessions.map((session) => (
 									<tr
 										key={session.sessionId}
-										className="border-b-[var(--bw-thin)] border-none  border-[var(--border-subtle)] "
+										className="border-width-thin-b border-none  border-[var(--border-subtle)] "
 									>
 										<td className="py-[6px] text-[var(--text-primary)] truncate max-w-[200px]">
 											{session.taskTitle}

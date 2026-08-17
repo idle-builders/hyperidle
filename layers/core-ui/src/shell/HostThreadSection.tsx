@@ -319,9 +319,9 @@ export function HostThreadSection({
 	return (
 		<section
 			aria-label={title}
-			className="border-t-[var(--bw-thin)] flex flex-col gap-[12px]  border-[var(--border-subtle)] pt-[18px]"
+			className="border-width-thin-t flex flex-col gap-[12px]  border-[var(--border-subtle)] pt-[18px]"
 		>
-			<h3 className="border-b-[var(--bw-thin)] type-label   uppercase  text-[var(--text-tertiary)]  border-[var(--border-subtle)] pb-[6px]">
+			<h3 className="border-width-thin-b type-label   uppercase  text-[var(--text-tertiary)]  border-[var(--border-subtle)] pb-[6px]">
 				{title}
 			</h3>
 			{content}

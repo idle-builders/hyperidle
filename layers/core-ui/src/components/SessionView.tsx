@@ -359,7 +359,7 @@ function ChangedFilesPanel({
 					</button>
 				) : null}
 			</div>
-			<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] px-[12px] py-[9px]">
+			<div className="border-width-thin-t  border-[var(--border-subtle)] px-[12px] py-[9px]">
 				{diffs.map(({ embed, toolId }) => {
 					if (embed.kind !== "diff") return null;
 					const label = embed.label;
@@ -626,7 +626,7 @@ function SessionComposer({
 			</div>
 
 			{/* descriptor pill row — model · per-model options + working state */}
-			<div className="border-t-[var(--bw-thin)] flex items-center gap-[3px]  border-[var(--border-subtle)] px-[9px] py-[6px]">
+			<div className="border-width-thin-t flex items-center gap-[3px]  border-[var(--border-subtle)] px-[9px] py-[6px]">
 				{descriptor && (
 					<>
 						<button
@@ -755,7 +755,7 @@ export function SessionView({
 			style={{}}
 		>
 			{/* header — minimal session identity */}
-			<header className="border-b-[var(--bw-thin)] flex shrink-0 items-center gap-[12px]  border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
+			<header className="border-width-thin-b flex shrink-0 items-center gap-[12px]  border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
 				<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 					<div className="min-w-0 flex-1">
 						<div className="type-metadata flex items-center gap-[6px]  text-[var(--text-secondary)]">

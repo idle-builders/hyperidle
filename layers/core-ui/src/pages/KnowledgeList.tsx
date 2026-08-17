@@ -628,7 +628,7 @@ function KnowledgeListContent({
 							{/* Y4: keyboard hint bar — sticky so it remains visible while scrolling triage */}
 							<div
 								data-testid="triage-keyboard-hint"
-								className="type-metadata border-t-[var(--bw-thin)] sticky bottom-0 flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)] bg-[var(--surface-page)]"
+								className="type-metadata border-width-thin-t sticky bottom-0 flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)] bg-[var(--surface-page)]"
 							>
 								<span>
 									<kbd className="border-width-thin type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">

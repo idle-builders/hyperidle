@@ -107,14 +107,14 @@ export function ThreadRow({
 }: ThreadRowProps): JSX.Element {
 	// Selected border wins over blocking border when both flags are true.
 	const borderLeftClass = selected
-		? "border-l-[var(--bw-strong)] border-[var(--accent-deep)]"
+		? "border-width-strong-l border-[var(--accent-deep)]"
 		: blocking
-			? "border-l-[var(--bw-strong)] border-[var(--status-error)]"
+			? "border-width-strong-l border-[var(--status-error)]"
 			: "";
 
 	const baseClassName = [
 		"flex items-center gap-[12px] px-[24px] py-[12px]",
-		"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none",
+		"border-width-thin-b border-[var(--border-subtle)] last:border-none",
 		"hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]",
 		"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 		onClick ? "cursor-pointer" : "",

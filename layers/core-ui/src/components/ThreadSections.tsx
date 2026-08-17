@@ -395,7 +395,9 @@ export function ThreadSections({
 									<li key={t.id} className={section.id === "resolved" ? "opacity-70" : undefined}>
 										<ThreadRow
 											avatarUrl={t.avatarUrl}
-											avatars={t.avatars as import("@hyperidle/design-system").ThreadRowProps["avatars"]}
+											avatars={
+												t.avatars as import("@hyperidle/design-system").ThreadRowProps["avatars"]
+											}
 											title={t.title}
 											snippet={t.snippet}
 											timestamp={t.timestamp}

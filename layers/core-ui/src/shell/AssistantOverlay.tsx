@@ -437,7 +437,7 @@ function AssistantOverlayInner({
 			{contextRefs.length > 0 && (
 				<div
 					data-testid="assistant-context-chips"
-					className="border-b-[var(--bw-thin)] flex flex-wrap gap-[6px] shrink-0  border-[var(--border-subtle)] px-3 py-2"
+					className="border-width-thin-b flex flex-wrap gap-[6px] shrink-0  border-[var(--border-subtle)] px-3 py-2"
 				>
 					{contextRefs.map((contextRef, i) => (
 						<ContextChip
@@ -560,7 +560,7 @@ export function AssistantOverlay({
 			{/* Overlay close button bar — no title because ThreadShell's hostBanner
 			    already shows the agent identity. A duplicate "Assistant" h2 here
 			    caused two stacked headers (UI-140). Only the close control stays. */}
-			<div className="border-b-[var(--bw-thin)] flex items-center justify-end px-[12px] py-[6px]  border-[var(--border-subtle)] shrink-0">
+			<div className="border-width-thin-b flex items-center justify-end px-[12px] py-[6px]  border-[var(--border-subtle)] shrink-0">
 				<button
 					type="button"
 					aria-label="Close assistant"

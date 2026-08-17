@@ -553,6 +553,33 @@
 	border-width: var(--bw-strong);
 }
 /*
+ * @lore NEW-18: Tailwind v4 changes `border-width-thin-b` to set
+ * border-bottom-COLOR, not border-bottom-WIDTH. In v3 the arbitrary-value
+ * slot for `border-{side}` was width; in v4 it's color. Result: computed
+ * borderBottomWidth is 0px — the separator is invisible. Fix: use these
+ * direction-specific @utility classes that explicitly set border-*-width.
+ * Sweep pattern: `border-width-thin-b` → `border-width-thin-b`,
+ * `border-width-thin-t` → `border-width-thin-t`, etc.
+ */
+@utility border-width-thin-b {
+	border-bottom-width: var(--bw-thin);
+}
+@utility border-width-thin-t {
+	border-top-width: var(--bw-thin);
+}
+@utility border-width-thin-l {
+	border-left-width: var(--bw-thin);
+}
+@utility border-width-thin-r {
+	border-right-width: var(--bw-thin);
+}
+@utility border-width-strong-l {
+	border-left-width: var(--bw-strong);
+}
+@utility border-width-strong-b {
+	border-bottom-width: var(--bw-strong);
+}
+/*
  * ── Reduced-motion ──
  * @lore U3 — Token rename: --motion-medium → --motion-default. The reduced-
  * motion block collapses all motion durations to 1ms (effectively instant).

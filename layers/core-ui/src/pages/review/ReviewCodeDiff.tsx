@@ -438,7 +438,7 @@ function FileDiff({
 			<span className="select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums">
 				{ref.oldNo ?? ""}
 			</span>
-			<span className="border-r-[var(--bw-thin)] select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums  border-[var(--border-subtle)]">
+			<span className="border-width-thin-r select-none w-[36px] shrink-0 px-[6px] text-right text-[var(--text-tertiary)] tabular-nums  border-[var(--border-subtle)]">
 				{ref.newNo ?? ""}
 			</span>
 		</>
@@ -530,7 +530,7 @@ function FileDiff({
 	const delta = toDelta(filePath, hunks);
 
 	return (
-		<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] bg-[var(--surface-container)]">
+		<div className="border-width-thin-t  border-[var(--border-subtle)] bg-[var(--surface-container)]">
 			<CodeDeltaRenderer
 				delta={delta}
 				renderLineGutter={renderLineGutter}
@@ -597,7 +597,7 @@ function FileCard({
 			</div>
 			{/* "why this matters" lead — tertiary prose above the hunks, distinct from code. */}
 			{open && file.rationale ? (
-				<p className="border-t-[var(--bw-thin)] type-metadata  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
+				<p className="border-width-thin-t type-metadata  border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
 					{file.rationale}
 				</p>
 			) : null}
@@ -708,7 +708,7 @@ function ReviewCodeDiffView({
 
 				<CiRow checks={checks} />
 
-				<div className="border-t-[var(--bw-thin)] flex items-center justify-between  border-[var(--border-subtle)] pt-[12px]">
+				<div className="border-width-thin-t flex items-center justify-between  border-[var(--border-subtle)] pt-[12px]">
 					<span className="type-metadata  text-[var(--text-secondary)]">
 						<span className="type-data  tabular-nums  text-[var(--text-primary)]">
 							{files.length + trivia.count}
@@ -771,7 +771,7 @@ function ReviewCodeDiffView({
 						<ChangeBadge added={trivia.added} removed={trivia.removed} />
 					</button>
 					{triviaOpen ? (
-						<div className="border-t-[var(--bw-thin)] type-data  border-[var(--border-subtle)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
+						<div className="border-width-thin-t type-data  border-[var(--border-subtle)] px-[12px] py-[9px]   text-[var(--text-tertiary)]">
 							<div>openapi/schema.gen.ts</div>
 							<div>package-lock.json</div>
 							<div>src/checkout/styles.css</div>

@@ -707,7 +707,7 @@ export function AppShell(): JSX.Element {
 					<DesktopTitleBar />
 					{/* Mobile header — 48px + safe-area-inset-top */}
 					<header
-						className="border-b-[var(--bw-thin)] shrink-0 flex items-center h-[48px] px-[12px] bg-[var(--surface-elevated)] border-[var(--border-subtle)]"
+						className="border-width-thin-b shrink-0 flex items-center h-[48px] px-[12px] bg-[var(--surface-elevated)] border-[var(--border-subtle)]"
 						style={{ paddingTop: "env(safe-area-inset-top)" }}
 					>
 						{isDetailRoute && (

@@ -449,7 +449,7 @@ function SettingsFooter({
 }): JSX.Element {
 	return (
 		<nav
-			className="border-t-[var(--bw-thin)] flex shrink-0 justify-end  border-[var(--border-subtle)] p-[6px]"
+			className="border-width-thin-t flex shrink-0 justify-end  border-[var(--border-subtle)] p-[6px]"
 			data-sidebar-bottom
 			aria-label="App utilities"
 		>
@@ -727,7 +727,7 @@ export function Sidebar({
 			</header>
 
 			<nav
-				className={`border-b-[var(--bw-thin)] grid shrink-0  border-[var(--border-subtle)] px-[9px] ${
+				className={`border-width-thin-b grid shrink-0  border-[var(--border-subtle)] px-[9px] ${
 					drawerMode
 						? "h-auto grid-cols-1 gap-0 pb-[9px] pt-[6px]"
 						: "h-[52px] grid-cols-4 gap-[3px] pb-[3px] min-[769px]:h-auto min-[769px]:grid-cols-1 min-[769px]:gap-0 min-[769px]:pb-[9px] min-[769px]:pt-[6px]"
