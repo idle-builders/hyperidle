@@ -1349,9 +1349,12 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 						/* State 1: Populated — tasks>0 beats all other states (approved.md precedence). */
 						<div className="flex flex-col">
 							{sortedTasks.map((task) => {
-								const stateLabel = TASK_STATE_LABEL[task.state] ?? task.state;
+								/* NEW-19: stateLabel removed from metaParts — the StatusChip on
+								 * the right is the single status representation. Keeping it in the
+								 * subtitle text as well duplicated the fact and a "done + verdict"
+								 * row showed three status indicators for one fact. */
 								const relTime = task.startedAt ? relativeLong(task.startedAt) : "";
-								const metaParts = [task.owner, stateLabel, relTime].filter(Boolean);
+								const metaParts = [task.owner, relTime].filter(Boolean);
 								return (
 									<button
 										key={task.id}
@@ -1389,14 +1392,18 @@ export function WorkBet({ loading = false, overrideBet }: WorkBetProps = {}): JS
 												/>
 											</span>
 										)}
-										{/* AI4 AC1: StatusChip for task state + LiveDot for in_progress */}
-										<span className="flex items-center gap-[6px]">
-											{task.state === "in_progress" && <LiveDot />}
-											<StatusChip
-												status={taskStateToStatus(task.state)}
-												label={TASK_STATE_LABEL[task.state]}
-											/>
-										</span>
+										{/* AI4 AC1: State chip — hidden when outcome verdict chip is shown
+										 * (NEW-19: outcome verdict already implies the task is done;
+										 * showing both chips is redundant). */}
+										{!task.outcomeVerdict && (
+											<span className="flex items-center gap-[6px]">
+												{task.state === "in_progress" && <LiveDot />}
+												<StatusChip
+													status={taskStateToStatus(task.state)}
+													label={TASK_STATE_LABEL[task.state]}
+												/>
+											</span>
+										)}
 									</button>
 								);
 							})}
