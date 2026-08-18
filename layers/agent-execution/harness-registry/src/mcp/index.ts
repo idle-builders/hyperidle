@@ -83,4 +83,3 @@ export async function openMcpBridgeSession(
 	const { token } = await bridge.open(session);
 	return { token, url: `${baseUrl}/api/mcp/${token}` };
 }
-

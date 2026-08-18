@@ -26,11 +26,11 @@ import {
 	createSandboxAdapter,
 	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
-import { DirectHarnessAdapter } from "./direct-harness-adapter.js";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { bakeAgentRunnableConfig } from "@hyperidle/work-intent-port";
+import { DirectHarnessAdapter } from "./direct-harness-adapter.js";
 import type { TriggerResult } from "./types.js";
 
 /**

@@ -247,7 +247,7 @@ describe("registerWorkerWsRoute — worker lifecycle", () => {
 
 		manager1.onClose();
 		expect(pool.size).toBe(1);
-		expect(pool.list()[0]?.name).toBe("worker-4");
+		expect(pool.select()?.meta.name).toBe("worker-4");
 	});
 });
 

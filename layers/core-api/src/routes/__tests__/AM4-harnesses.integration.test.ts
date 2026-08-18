@@ -68,7 +68,13 @@ function makePool(): AdapterPool {
 	});
 	pool.register(
 		"local-claude-code",
-		new CliHarnessAdapter({ binary: "claude", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] }),
+		new CliHarnessAdapter({
+			binary: "claude",
+			args: [],
+			envMap: {},
+			eventFormat: "text",
+			envAllowlist: [],
+		}),
 		{
 			name: "Claude Code",
 			kind: "local",

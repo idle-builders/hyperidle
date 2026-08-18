@@ -72,7 +72,6 @@ function makeReaderWith(
 function makeReader(descriptors: readonly HarnessCapabilityDescriptor[]): HarnessCapabilityReader {
 	return {
 		size: descriptors.length,
-		list: () => [],
 		describe: (options?: HarnessCapabilityFilter) =>
 			descriptors.filter((d) => options?.type === undefined || d.type === options.type).slice(),
 		refresh: () => Promise.resolve(),

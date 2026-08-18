@@ -23,7 +23,6 @@ export {
 	harnessRegistrationMeta,
 	refreshHarnessDiscoveries,
 	registeredHarnessCount,
-	workerConnections,
 } from "./harness/harness-capability-read-model.js";
 export {
 	isHarnessEvent,

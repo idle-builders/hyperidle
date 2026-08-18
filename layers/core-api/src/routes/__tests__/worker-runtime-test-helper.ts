@@ -28,16 +28,18 @@ export async function startWorkerTestRuntime(pool: AdapterPool): Promise<Runtime
 				adapterFactory: {
 					create: (ws: unknown, registration: { readonly id: string }) => {
 						const source = ws as {
-							readonly readyState?: number;
 							send(data: string): void;
 							close?(): void;
+							onmessage?: ((evt: { data: string }) => void) | null;
+							onclose?: (() => void) | null;
+							onerror?: ((err: Error) => void) | null;
 						};
 						const wsLike: WsLike = {
-							get readyState() {
-								return source.readyState;
-							},
 							send: (data: string) => source.send(data),
 							close: () => source.close?.(),
+							onmessage: source.onmessage ?? null,
+							onclose: source.onclose ?? null,
+							onerror: source.onerror ?? null,
 						};
 						return new RemoteHarnessAdapter(wsLike, {
 							type: "register",

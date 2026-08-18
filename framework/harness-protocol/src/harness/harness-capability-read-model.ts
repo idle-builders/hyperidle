@@ -37,7 +37,7 @@
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import type { AdapterInfo, AdapterMeta, HarnessCapabilities } from "./harness-adapter.js";
+import type { AdapterMeta, HarnessCapabilities } from "./harness-adapter.js";
 
 /**
  * @lore AU26 A2: moved from `layers/core-api/src/services/`. Its readers land on
@@ -81,7 +81,6 @@ export interface HarnessCapabilityFilter {
 
 export interface HarnessCapabilityReader {
 	readonly size: number;
-	list(): AdapterInfo[];
 	describe(options?: HarnessCapabilityFilter): HarnessCapabilityDescriptor[];
 	refresh(): Promise<void>;
 }
@@ -89,11 +88,6 @@ export interface HarnessCapabilityReader {
 /** Number of registered adapters. Used by resolveHarnessAvailable (agent-profile.ts). */
 export function registeredHarnessCount(reader: HarnessCapabilityReader): number {
 	return reader.size;
-}
-
-/** All registered adapters as AdapterInfo. Used by GET /api/workers. */
-export function workerConnections(reader: HarnessCapabilityReader): AdapterInfo[] {
-	return reader.list();
 }
 
 /**

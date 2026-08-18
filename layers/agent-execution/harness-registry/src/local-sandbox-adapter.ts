@@ -13,7 +13,6 @@ import type { SandboxAdapter, SandboxHandle } from "./sandbox-adapter.js";
 
 let nextId = 1;
 
-
 export class LocalSandboxAdapter implements SandboxAdapter {
 	private readonly sandboxes = new Map<string, SandboxHandle>();
 

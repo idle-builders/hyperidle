@@ -21,14 +21,14 @@ export {
 	type SelectRequirements,
 } from "./adapter-pool.js";
 export { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
-export { CliHarnessAdapter, type CliAdapterConfig } from "./cli-harness-adapter.js";
-export { RemoteHarnessAdapter, type WsLike } from "./remote-harness-adapter.js";
-export { callLlm, type CallLlmOptions } from "./llm-client.js";
+export { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
+export { type CallLlmOptions, callLlm } from "./llm-client.js";
 export type { McpToolBridge } from "./mcp-tool-bridge.js";
 export {
 	type ProvisionOptions,
 	provisionHarnessEnvironment,
 } from "./provision-harness-environment.js";
+export { RemoteHarnessAdapter, type WsLike } from "./remote-harness-adapter.js";
 export { createReturnEnforcement } from "./return-enforcement.js";
 export {
 	createSandboxAdapter,

@@ -30,7 +30,6 @@ import {
 	harnessRegistrationMeta,
 	refreshHarnessDiscoveries,
 	registeredHarnessCount,
-	workerConnections,
 } from "@hyperidle/harness-protocol";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
@@ -85,13 +84,6 @@ describe("harness-capability-read-model", () => {
 	it("registeredHarnessCount is 0 for an empty pool", () => {
 		const pool = new AdapterPool();
 		expect(registeredHarnessCount(pool)).toBe(0);
-	});
-
-	it("workerConnections forwards AdapterPool.list()", () => {
-		const pool = makePopulatedPool();
-		expect(workerConnections(pool)).toEqual(pool.list());
-		expect(workerConnections(pool)).toHaveLength(1);
-		expect(workerConnections(pool)[0]?.type).toBe("builtin");
 	});
 
 	it("harnessCapabilitiesForType derives capabilities from AdapterPool.describe()", () => {
