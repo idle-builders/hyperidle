@@ -15,13 +15,8 @@ import { registerLifecyclePropagation } from "./lifecycle-propagation.js";
 import { registerPolicyEngine } from "./policy-engine.js";
 import type { PolicyDeps } from "./ports.js";
 
-export function registerPolicy(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	deps: PolicyDeps,
-	options?: { nowFn?: () => Date },
-): () => void {
-	const unsubEngine = registerPolicyEngine(db, eventBus, deps, options);
+export function registerPolicy(db: HyperIdleDb, eventBus: EventBus, deps: PolicyDeps): () => void {
+	const unsubEngine = registerPolicyEngine(db, eventBus, deps);
 	const unsubLifecycle = registerLifecyclePropagation(db, eventBus, deps);
 	return () => {
 		unsubEngine();

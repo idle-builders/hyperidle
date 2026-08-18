@@ -30,11 +30,10 @@ import { assembleSessionKnowledge, reapAccessLog } from "@hyperidle/knowledge";
 import {
 	enqueue,
 	installNotifications,
-	isSilenced,
 	type NotificationsDeps,
 	reap,
 } from "@hyperidle/notifications";
-import { getTeam, getTeamMembers, resolveReviewRecipients } from "@hyperidle/org";
+import { getTeam, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { reapTerminalPropagationLog, registerPolicy } from "@hyperidle/policy";
 import { registerReviewSubscriptions } from "@hyperidle/review";
@@ -169,11 +168,7 @@ const notificationsDeps: NotificationsDeps = {
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 	work: {
-		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
-			work.list(exec, "item", { queued: true, createdSince: cutoff }),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 	},
 };
@@ -240,9 +235,6 @@ const policyDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	silence: {
-		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsDeps),
-	},
 	notifications: {
 		insert: async (db, row) => {
 			await enqueue(db, row);
@@ -287,9 +279,6 @@ export function registerCoreDomainServices(ctx: {
 	readonly readAlertPreferences?: () => Promise<{
 		blockerAlerts: boolean;
 		reviewAlerts: boolean;
-		quietHoursEnabled: boolean;
-		quietHoursStart: string;
-		quietHoursEnd: string;
 	}>;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;

@@ -100,7 +100,6 @@ const policyDeps: PolicyDeps = {
 			await enqueue(db, row);
 		},
 	},
-	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────

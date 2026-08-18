@@ -17,26 +17,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/domain-model";
-import { isSilenced } from "@hyperidle/notifications";
-import { getTeamMembers } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
-
-/**
- * @lore AU19 Increment 2a: `registerPolicyEngine` now takes injected
- * `work`/`conversation`/`notifications` ports (Mechanism C — `policy` never
- * imports another Service). This test builds the exact same production
- * wiring `server-factory.ts` uses — no behavior change.
- */
-const silenceDeps = {
-	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db: HyperIdleDb, id: string) => getTeamMembers(db, { id }) },
-};
 
 const policyEngineDeps: PolicyDeps = {
 	work: {
@@ -74,9 +58,6 @@ const policyEngineDeps: PolicyDeps = {
 	users: {
 		// lifecycle stub (never called in engine tests):
 		getFirstUserByKind: () => Promise.resolve(undefined),
-	},
-	silence: {
-		isSilenced: (db, item, now) => isSilenced(db, item, now, silenceDeps),
 	},
 	notifications: { insert: () => Promise.resolve() },
 };
@@ -396,38 +377,6 @@ describe("Policy Engine (E7)", () => {
 		expect(resp).toHaveLength(0);
 	});
 
-	test("AC5: silence mode active + non-blocking -> queue all items", async ({ db, eventBus }) => {
-		await seedBase(db);
-		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
-
-		emitItemCreated(eventBus, itemId);
-
-		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
-		});
-		await new Promise((r) => setTimeout(r, 100));
-		expect(notifications).toHaveLength(0);
-	});
-
-	test("AC5: silence mode active + blocking -> push (not queued)", async ({ db, eventBus }) => {
-		await seedBase(db);
-		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low", blocking: true });
-
-		emitItemCreated(eventBus, itemId);
-
-		await vi.waitFor(() => expect(notifications).toHaveLength(1));
-	});
-
 	test("AC6: auto-resolve creates Response with approver=policy_engine", async ({
 		db,
 		eventBus,
@@ -452,118 +401,5 @@ describe("Policy Engine (E7)", () => {
 		expect(verdicts[0]!.decision).toBe("approve");
 		const [message] = await db.select().from(messages).where(eq(messages.id, verdicts[0]!.id));
 		expect(message?.createdAt).toBeTruthy();
-	});
-
-	test("AC10: per-product silence -> items from that product queued", async ({ db, eventBus }) => {
-		await seedBase(db);
-		await updateServerConfig(db, { notifications: { silence: { silencedTeamIds: ["prod-1"] } } });
-
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
-
-		emitItemCreated(eventBus, itemId);
-
-		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
-		});
-		await new Promise((r) => setTimeout(r, 100));
-		expect(notifications).toHaveLength(0);
-	});
-
-	test("AC11: silence window - current time in window -> queue", async ({ db, eventBus }) => {
-		await seedBase(db);
-		// Set silence window to cover 00:00–23:59 (always active)
-		await updateServerConfig(db, {
-			notifications: { silence: { windowStart: "00:00", windowEnd: "23:59" } },
-		});
-
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		// Use a `now` parameter in the middle of the window
-		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps, {
-			nowFn: () => new Date("2026-04-16T14:00:00Z"),
-		});
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
-
-		emitItemCreated(eventBus, itemId);
-
-		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
-		});
-		await new Promise((r) => setTimeout(r, 100));
-		expect(notifications).toHaveLength(0);
-	});
-
-	test("AC11: silence window - current time outside window -> normal rules", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		// Set window 22:00–07:00 (overnight)
-		await updateServerConfig(db, {
-			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
-		});
-
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		// 14:00 is outside 22:00–07:00
-		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps, {
-			nowFn: () => new Date("2026-04-16T14:00:00Z"),
-		});
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
-
-		emitItemCreated(eventBus, itemId);
-
-		// Normal L2 behavior: push
-		await vi.waitFor(() => expect(notifications).toHaveLength(1));
-	});
-
-	test("AC11: silence window - overnight wrap (e.g. 22:00-07:00), time is 23:00 -> queue", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		await updateServerConfig(db, {
-			notifications: { silence: { windowStart: "22:00", windowEnd: "07:00" } },
-		});
-
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps, {
-			nowFn: () => new Date("2026-04-16T23:00:00Z"),
-		});
-		const itemId = await createItem(db, { riskTier: "low", blocking: false });
-
-		emitItemCreated(eventBus, itemId);
-
-		await vi.waitFor(async () => {
-			const allItems = await db.select().from(items);
-			const item = allItems.find((i) => i.id === itemId);
-			expect(item?.auditTrail).toContain("policy_queued");
-		});
-		await new Promise((r) => setTimeout(r, 100));
-		expect(notifications).toHaveLength(0);
-	});
-
-	test("high risk items always push even in silence mode", async ({ db, eventBus }) => {
-		await seedBase(db);
-		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, { riskTier: "high", blocking: false });
-
-		emitItemCreated(eventBus, itemId);
-
-		// High risk always pushes
-		await vi.waitFor(() => expect(notifications).toHaveLength(1));
-		const resp = await selectVerdictsForItem(db, itemId);
-		expect(resp).toHaveLength(0);
 	});
 });
