@@ -48,3 +48,19 @@ Not survivors — these are gaps the pass created and did not fill.
   one guarded a real amplification path in the product's own design. If redetect ever becomes a
   problem, that is the learning that earns a narrow guard back, and it should be scoped to the route
   rather than reinstated globally.
+
+- **Harness capability flags: deleted, and the UI regression they caused is fixed differently.**
+  The audit found the runtime flags were "never branched on at runtime" — true of the backend, and
+  wrong overall. Their one reader was `provenCapabilities`, behind `hasCaps`, which decided whether a
+  harness row opens. Deleting them stubbed that function to return nothing, so a CLI harness declaring
+  no models stopped being clickable and its login command — the one thing a user needs to authenticate
+  it — became unreachable. Two component tests caught it.
+
+  The flags stay deleted: nothing else read them, and resurrecting a type for one gate is worse than
+  fixing the gate. The detail pane now opens when there is a login command to show, which restores the
+  behaviour the pass broke rather than the mechanism it removed.
+
+  The lesson generalises past this row. A stub written to keep a build green is a silent behaviour
+  change, and this pass produced two of them — the other was caught before merge because it broke a
+  type contract instead of a render path. Type checks catch the first kind; only tests and a running
+  app catch the second.

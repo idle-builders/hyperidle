@@ -63,9 +63,18 @@ function sortDescriptors(
 	});
 }
 
-/** Returns true if a descriptor has meaningful detail to show in the split pane. */
+/**
+ * Returns true if a descriptor has meaningful detail to show in the split pane.
+ *
+ * A login command counts as detail. The AU20 delete pass removed the runtime
+ * capability flags, whose only reader was `provenCapabilities` behind `hasCaps` —
+ * so a CLI harness that declares no models stopped being clickable, and the one
+ * thing a user needs from it, how to authenticate it, became unreachable. The
+ * flags are not coming back; the fold opens on having something to say instead.
+ */
 function hasDetail(d: HarnessCapabilityDescriptor): boolean {
-	return hasCaps(d) || d.models.length > 0 || d.type === "builtin";
+	const hasLoginCommand = d.authAction.kind === "native_cli_login" && !!d.authAction.command;
+	return hasCaps(d) || d.models.length > 0 || d.type === "builtin" || hasLoginCommand;
 }
 
 /** Map discovery state to StatusChip status. */

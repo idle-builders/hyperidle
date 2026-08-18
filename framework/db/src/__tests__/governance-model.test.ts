@@ -629,7 +629,9 @@ const packageNames = new Set(
 
 describe("AU28 — the registries are honest", () => {
 	it("claims every table the schema declares, and no phantom ones", () => {
-		expect(liveTables.size).toBeGreaterThan(40);
+		// A collapse guard, not a census: the next two assertions are what prove the
+		// registry honest. The pass that dropped five unused tables took this from 44 to 39.
+		expect(liveTables.size).toBeGreaterThan(30);
 		expect(() => validateTableOwners(tableOwners, liveTables, packageNames)).not.toThrow();
 		expect(tableOwners.totals.tables).toBe(liveTables.size);
 	});

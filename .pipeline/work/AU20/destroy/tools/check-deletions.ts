@@ -67,18 +67,29 @@ if (convicted.length === 0) {
   process.exit(1);
 }
 
+/**
+ * A symbol is "still present" only if it appears in real code. A name left behind in
+ * a comment or an error-message string is residue, not a surviving reference — counting
+ * those inflated the remaining set badly enough to be misleading.
+ */
 function stillPresent(name: string): boolean {
+  let out = "";
   try {
-    execFileSync(
+    out = execFileSync(
       "rg",
-      ["-a", "-l", "--type-add", "ts:*.{ts,tsx}", "-t", "ts", "-g", "!*.test.*", "-g", "!*.spec.*",
+      ["-a", "-n", "--type-add", "ts:*.{ts,tsx}", "-t", "ts", "-g", "!*.test.*", "-g", "!*.spec.*",
        "-g", "!__*", `\\b${name}\\b`, ...ROOTS],
       { stdio: ["ignore", "pipe", "ignore"] },
-    );
-    return true;
+    ).toString();
   } catch {
     return false; // rg exits non-zero when nothing matches
   }
+  return out.split("\n").some((line) => {
+    const code = line.slice(line.indexOf(":") + 1).replace(/^\d+:/, "").trim();
+    if (!code) return false;
+    if (code.startsWith("*") || code.startsWith("//") || code.startsWith("/*")) return false;
+    return true;
+  });
 }
 
 const seen = new Set<string>();
