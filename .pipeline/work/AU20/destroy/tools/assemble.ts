@@ -54,7 +54,7 @@ function tally(pkg: string, body: string, isRevised: boolean): Tally {
   // credits the old verdict, so skip that section until the next heading.
   let skipping = false;
   for (const line of body.split("\n")) {
-    if (/^#{2,}\s/.test(line.trim())) skipping = /what changed/i.test(line);
+    if (/^##\s/.test(line.trim())) skipping = /what changed/i.test(line);
     if (skipping) continue;
     if (!line.trimStart().startsWith("|")) continue;
     // Strip emphasis/backticks: a cell written `**FINISH**` is still a verdict cell.

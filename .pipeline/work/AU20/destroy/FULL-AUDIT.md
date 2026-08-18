@@ -12,15 +12,15 @@ Baseline at reopen (`ba0fb454d`): 19 services, 21 framework packages, 268 export
 
 | Verdict | Count | Share |
 |---|---|---|
-| DELETE | 423 | 25% |
+| DELETE | 397 | 24% |
 | PLUGIN | 21 | 1% |
 | FINISH | 22 | 1% |
 | MERGE | 72 | 4% |
 | SIMPLIFY | 327 | 19% |
-| KEEP | 848 | 50% |
-| **Total rows** | **1713** | |
+| KEEP | 842 | 50% |
+| **Total rows** | **1681** | |
 
-Leaves core outright or folds away: **516** of 1713 (30%).
+Leaves core outright or folds away: **490** of 1681 (29%).
 
 ## Per package
 
@@ -29,15 +29,14 @@ Leaves core outright or folds away: **516** of 1713 (30%).
 | _doors ✎ | 199 | 41 | 9 | 5 | 5 | 2 | 137 | 28% |
 | fw-db | 151 | 53 | 0 | 0 | 1 | 3 | 94 | 36% |
 | fw-domain-model ✎ | 254 | 50 | 0 | 1 | 0 | 75 | 128 | 20% |
-| knowledge ✎ | 65 | 24 | 7 | 0 | 2 | 14 | 18 | 51% |
+| knowledge ✎ | 58 | 19 | 7 | 0 | 2 | 14 | 16 | 48% |
 | fw-design-system | 251 | 22 | 0 | 0 | 2 | 57 | 170 | 10% |
 | fw-diagnostics | 26 | 20 | 0 | 0 | 1 | 2 | 3 | 81% |
-| users ✎ | 30 | 18 | 0 | 1 | 2 | 4 | 5 | 67% |
 | fw-filesystem-contract | 20 | 11 | 0 | 0 | 8 | 1 | 0 | 95% |
-| review ✎ | 40 | 15 | 0 | 4 | 4 | 4 | 13 | 48% |
 | harness-registry | 69 | 13 | 0 | 0 | 3 | 7 | 46 | 23% |
 | org ✎ | 25 | 7 | 0 | 0 | 9 | 4 | 5 | 64% |
 | settings | 20 | 15 | 0 | 0 | 1 | 2 | 2 | 80% |
+| users ✎ | 24 | 12 | 0 | 1 | 2 | 4 | 5 | 58% |
 | work ✎ | 46 | 9 | 0 | 1 | 5 | 14 | 17 | 30% |
 | fw-api-contract | 98 | 13 | 0 | 0 | 0 | 13 | 72 | 13% |
 | fw-harness-protocol | 21 | 7 | 0 | 0 | 4 | 3 | 7 | 52% |
@@ -58,6 +57,7 @@ Leaves core outright or folds away: **516** of 1713 (30%).
 | fw-event-bus | 8 | 4 | 0 | 0 | 1 | 0 | 3 | 63% |
 | fw-toon-codec | 5 | 3 | 0 | 0 | 1 | 0 | 1 | 80% |
 | policy ✎ | 12 | 3 | 0 | 2 | 1 | 4 | 2 | 33% |
+| review ✎ | 21 | 0 | 0 | 4 | 4 | 4 | 9 | 19% |
 | connections | 11 | 1 | 0 | 0 | 2 | 5 | 3 | 27% |
 | fw-block-derivation | 8 | 2 | 0 | 0 | 1 | 0 | 5 | 38% |
 | fw-work-intent-port | 10 | 2 | 0 | 0 | 1 | 1 | 6 | 30% |

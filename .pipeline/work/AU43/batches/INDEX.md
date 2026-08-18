@@ -7,14 +7,13 @@ One file per package. Each is one agent's assignment.
 | fw-db | 53 |
 | fw-domain-model | 50 |
 | _doors | 41 |
-| knowledge | 24 |
 | fw-design-system | 22 |
 | fw-diagnostics | 20 |
-| users | 18 |
-| review | 15 |
+| knowledge | 19 |
 | settings | 15 |
 | fw-api-contract | 13 |
 | harness-registry | 13 |
+| users | 12 |
 | fw-filesystem-contract | 11 |
 | session-requests | 10 |
 | notifications | 9 |

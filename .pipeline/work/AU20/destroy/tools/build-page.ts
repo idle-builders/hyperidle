@@ -35,7 +35,7 @@ function rowsOf(body: string): Row[] {
   let skipping = false;
   for (const line of body.split("\n")) {
     const t = line.trim();
-    if (/^#{2,}\s/.test(t)) skipping = /what changed/i.test(t);
+    if (/^##\s/.test(t)) skipping = /what changed/i.test(t);
     if (skipping) continue;
     if (!t.startsWith("|") || /^\|[\s:|-]+\|$/.test(t)) continue;
     const cells = t.split("|").slice(1, -1).map((c) => c.trim());

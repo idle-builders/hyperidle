@@ -44,7 +44,7 @@ for (const f of files) {
   let skipping = false;
   for (const line of body.split("\n")) {
     const t = line.trim();
-    if (/^#{2,}\s/.test(t)) skipping = /what changed/i.test(t);
+    if (/^##\s/.test(t)) skipping = /what changed/i.test(t);
     if (skipping || !t.startsWith("|")) continue;
     const cells = t.split("|").slice(1, -1).map((c) => strip(c));
     const vi = cells.findIndex((c) => /^(DELETE|PLUGIN|FINISH|MERGE|SIMPLIFY|KEEP)$/.test(c));
