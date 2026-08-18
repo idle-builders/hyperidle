@@ -7,7 +7,7 @@
  * - Unset default → builtin fallback on scaffold AND add-agent
  */
 
-import { agentRunConfig, teamRunConfigDefaults, users } from "@hyperidle/db";
+import { agentRunConfig, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -41,21 +41,9 @@ describe("primary harness persisted as team default", () => {
 
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
-		const teamId = body.team.id;
 		const teamMembersId = body.teamMembers.id;
 
-		// (a) the team's run-config defaults row carries the default
-		// @lore AU26 G1: `teams.default_*` relocated to `team_run_config_defaults`.
-		const [teamRow] = await db
-			.select()
-			.from(teamRunConfigDefaults)
-			.where(eq(teamRunConfigDefaults.teamId, teamId))
-			.limit(1);
-		expect(teamRow?.defaultHarnessType).toBe("claude-code");
-		expect(teamRow?.defaultModelId).toBe("claude-haiku-4-5");
-		expect(teamRow?.defaultModelProvider).toBe("anthropic");
-
-		// (b) scaffolded agents report the chosen harnessType
+		// scaffolded agents report the chosen harnessType
 		const agents = await db.select().from(users).where(eq(users.teamId, teamMembersId));
 		expect(agents.length).toBeGreaterThan(0);
 		for (const agent of agents) {
@@ -131,14 +119,6 @@ describe("primary harness persisted as team default", () => {
 		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
 		const teamId = body.team.id;
 		const teamMembersId = body.teamMembers.id;
-
-		// the team's default harness is null
-		const [teamRow] = await db
-			.select()
-			.from(teamRunConfigDefaults)
-			.where(eq(teamRunConfigDefaults.teamId, teamId))
-			.limit(1);
-		expect(teamRow?.defaultHarnessType ?? null).toBeNull();
 
 		// Scaffolded agents fall back to builtin/claude-sonnet-4-6
 		const agents = await db.select().from(users).where(eq(users.teamId, teamMembersId));

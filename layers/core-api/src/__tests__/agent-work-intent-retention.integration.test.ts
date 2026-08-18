@@ -97,7 +97,7 @@ describe("terminal intent retention", () => {
 		const result = await db.execute(sql`
 			select c.conname from pg_constraint c
 			join pg_class t on t.oid = c.conrelid
-			where t.relname in ('agent_work_intents','agent_session_requests','sessions','explicit_session_starts','agent_lifecycle_inbox')
+			where t.relname in ('agent_work_intents','agent_session_requests','sessions','explicit_session_starts')
 		`);
 		const names = new Set(
 			(result as { rows: Array<{ conname: string }> }).rows.map((row) => row.conname),
@@ -106,7 +106,6 @@ describe("terminal intent retention", () => {
 			"agent_work_intents_correlation_ck",
 			"agent_session_requests_correlation_ck",
 			"explicit_session_starts_correlation_ck",
-			"agent_lifecycle_inbox_request_id_agent_session_requests_id_fk",
 		]) {
 			expect(names).toContain(required);
 		}

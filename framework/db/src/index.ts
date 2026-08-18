@@ -13,7 +13,6 @@ export {
 	type AgentSessionRequest,
 	type AgentWorkIntent,
 	type ArtifactRow,
-	agentLifecycleInbox,
 	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
@@ -25,7 +24,6 @@ export {
 	type ExplicitSessionStart,
 	explicitSessionStarts,
 	type FilesystemRow,
-	filesystemCaptures,
 	filesystemInjections,
 	filesystems,
 	hintProgress,
@@ -93,15 +91,12 @@ export {
 	type Thread,
 	tailoredGrants,
 	taskDispatchAttempts,
-	taskPlanningSignals,
 	tasks,
 	// @lore U1: teamMembers table (formerly teams agent-membership table).
 	teamMembers,
 	// @lore U1: teams table (formerly products table).
-	teamRunConfigDefaults,
 	teams,
 	threads,
-	triggerResolutionHistory,
 	type User,
 	users,
 } from "./schema.js";
