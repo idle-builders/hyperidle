@@ -1,13 +1,29 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { redactDbUrl } from "@hyperidle/diagnostics";
 import { type DeploymentProfile, resolveProfile } from "@hyperidle/host-process";
 import { seedDemoWorld } from "./demo-fixture.js";
 import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 
 const Filename = typeof __filename === "string" ? __filename : fileURLToPath(import.meta.url);
 const Dirname = path.dirname(Filename);
+
+/** Redact the password from a DB connection URL for safe logging. */
+function redactDbUrl(url: string): string {
+	let out = url;
+	try {
+		const parsed = new URL(url);
+		if (parsed.password) parsed.password = "***";
+		for (const key of ["password", "pwd", "pass"]) {
+			if (parsed.searchParams.has(key)) parsed.searchParams.set(key, "***");
+		}
+		out = parsed.toString();
+	} catch {
+		// Not a URL-parseable string — fall through to the regex.
+	}
+	out = out.replace(/(:\/\/[^:@/]+:)([^:@/]+)(@)/, "$1***$3");
+	return out;
+}
 
 // @lore Phase 2: setup-cli now uses PGlite for the laptop profile.
 // The `--db-path` argument is now a data directory (not a SQLite file path).
