@@ -355,8 +355,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 					"buildAgentOrchestrationPort(transport) and pass it explicitly (AU31 §3.2: no ambient transport).",
 			);
 		}
-		const defaultAgentWorkIntentRecorder =
-			buildSeamBackedWorkIntentRecorder<HyperIdleDb>(agentOrchestration);
+		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.

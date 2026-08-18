@@ -29,12 +29,6 @@ import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
-/** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
-const depWatcherDeps = {
-	workIntents: { record: enqueueWorkIntent },
-	taskRunResolver: { requireRunnableAgent },
-};
-
 const authHeaders = {
 	"Content-Type": "application/json",
 	"X-API-Key": "test-api-key",
@@ -417,7 +411,13 @@ describe("atomic production handoffs", () => {
 		});
 		await db.update(tasks).set({ state: "done" }).where(eq(tasks.id, "au9-production-task"));
 
-		await checkAndUnblockDependents(db, eventBus, "au9-production-task", depWatcherDeps);
+		// AgentWorkIntentRecorderFn is a plain function — capture db in a closure so the
+		// intent is written to the real DB (tx was ignored by the sole production impl).
+		const localDeps = {
+			workIntents: (input: Parameters<typeof enqueueWorkIntent>[1]) => enqueueWorkIntent(db, input),
+			taskRunResolver: { requireRunnableAgent },
+		};
+		await checkAndUnblockDependents(db, eventBus, "au9-production-task", localDeps);
 
 		const [dependent] = await db
 			.select()
@@ -698,7 +698,10 @@ describe("atomic production handoffs", () => {
 				approvedToolId: "commit_file",
 				approvedArgs: { path: "result.txt" },
 			},
-			{ intentRecorder: { record: enqueueWorkIntent } },
+			{
+				intentRecorder: (input: Parameters<typeof enqueueWorkIntent>[1]) =>
+					enqueueWorkIntent(db, input),
+			},
 		);
 		const intents = await db
 			.select()

@@ -162,17 +162,6 @@ export type Part =
 			readonly reason: "wire-unrecognised-type" | "redacted";
 	  });
 
-// ── Embed discriminant (closed target-kind set) ─────────────────────
-
-type EmbedKind =
-	| "artifact"
-	| "block"
-	| "diff"
-	| "session-reference"
-	| "entity-ref"
-	| "mention"
-	| "unknown";
-
 export type Embed =
 	| {
 			readonly kind: "artifact";

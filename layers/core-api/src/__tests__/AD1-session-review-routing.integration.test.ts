@@ -31,7 +31,6 @@ import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { resolveReviewRecipients } from "@hyperidle/org";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
@@ -61,7 +60,7 @@ const reviewDeps: ReviewPorts = {
 		listUsersByKind: (db, kind) => listUsers(db, { kind }),
 	},
 	org: { resolveReviewRecipients },
-	intentRecorder: { record: enqueueWorkIntent },
+	intentRecorder: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	requireRunnableAgent,
 };
 

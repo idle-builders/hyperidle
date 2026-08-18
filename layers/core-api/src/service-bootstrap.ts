@@ -424,7 +424,7 @@ export function registerCoreDomainServices(ctx: {
 				// AU31 §3.1 site 9 / §3.2: seam-backed — `proposed-call-workflow.ts`'s
 				// own transaction is restructured to relinquish atomicity with this
 				// write (grant commits, the reengagement intent follows post-commit).
-				intentRecorder: buildSeamBackedWorkIntentRecorder<WriteExecutor>(agentOrchestration),
+				intentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
 				requireRunnableAgent,
 				// AU21 §9 Increment 12 (Decision H3): the liveness-net reengagement
 				// re-provision (`applyLivenessRetry`) also bakes a contextBundle now.

@@ -460,17 +460,13 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 
 		// Fire the session-ended event with unconsumed grant (first occurrence)
 		// @lore AU20 Am9 reviewer: explicit function-type param needed so
-		// mock.calls[0] is typed as [WriteExecutor, ReviewAgentWorkIntentInput]
-		// (Vitest v4 uses vi.fn<FunctionType> not vi.fn<Args, Return>).
-		const mockRecord = vi.fn<ReviewPorts["intentRecorder"]["record"]>(async () => ({
+		// mock.calls[0] is typed correctly (Vitest v4 uses vi.fn<FunctionType>).
+		// intentRecorder is now AgentWorkIntentRecorderFn — a plain function, not an object.
+		const mockRecord = vi.fn<ReviewPorts["intentRecorder"]>(async () => ({
 			id: crypto.randomUUID(),
 			idempotencyKey: crypto.randomUUID(),
 		}));
-		const unsub = registerReviewSubscriptions(
-			db,
-			eventBus,
-			makeLivenessPorts({ record: mockRecord }),
-		);
+		const unsub = registerReviewSubscriptions(db, eventBus, makeLivenessPorts(mockRecord));
 		const event: SessionEndedEvent = {
 			type: "session_ended",
 			streamId: "stream-liveness",
@@ -494,7 +490,8 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 		expect(grants[0]?.retryCount).toBe(1);
 
 		// Re-provision was requested: record called with reengagement intent for this PC
-		expect(mockRecord.mock.calls[0]?.[1]).toMatchObject({
+		// intentRecorder is now a plain function — input is args[0] (no tx arg).
+		expect(mockRecord.mock.calls[0]?.[0]).toMatchObject({
 			kind: "reengagement",
 			sourceId: pcId,
 			requestedBy: agentId,
@@ -535,15 +532,11 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 			mintedAt: NOW,
 		});
 
-		const mockRecord = vi.fn<ReviewPorts["intentRecorder"]["record"]>(async () => ({
+		const mockRecord = vi.fn<ReviewPorts["intentRecorder"]>(async () => ({
 			id: crypto.randomUUID(),
 			idempotencyKey: crypto.randomUUID(),
 		}));
-		const unsub = registerReviewSubscriptions(
-			db,
-			eventBus,
-			makeLivenessPorts({ record: mockRecord }),
-		);
+		const unsub = registerReviewSubscriptions(db, eventBus, makeLivenessPorts(mockRecord));
 		const event: SessionEndedEvent = {
 			type: "session_ended",
 			streamId: "stream-liveness2",

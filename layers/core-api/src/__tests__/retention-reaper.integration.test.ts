@@ -100,17 +100,6 @@ async function seedTaskDispatchAttempt(
 	});
 }
 
-async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
-	await db.insert(users).values({
-		id,
-		kind: "human",
-		name: id,
-		role: "member",
-		status: "active",
-		createdAt: now.toISOString(),
-	});
-}
-
 describe("retention reaper — individual owning-service sweeps", () => {
 	test("prunes terminal notification_queue rows older than the TTL, keeps pending/recent", async ({
 		db,

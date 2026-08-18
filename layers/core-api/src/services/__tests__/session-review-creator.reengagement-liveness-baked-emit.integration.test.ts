@@ -170,7 +170,8 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 				listUsersByKind: async (): Promise<never[]> => [],
 			},
 			org: { resolveReviewRecipients: async (): Promise<never[]> => [] },
-			intentRecorder: { record: enqueueWorkIntent },
+			intentRecorder: (input: Parameters<typeof enqueueWorkIntent>[1]) =>
+				enqueueWorkIntent(db, input),
 			// See top-of-file `@lore forward-compat`.
 			requireRunnableAgent,
 		};

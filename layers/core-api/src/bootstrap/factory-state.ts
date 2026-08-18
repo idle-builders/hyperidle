@@ -23,7 +23,6 @@ import {
 } from "@hyperidle/factory-defaults";
 import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/users";
 
-
 /**
  * Apply core-api's half of the factory bootstrap: the propagation user, the
  * roster users, the agentCategory backfill, and the factory knowledge seed.

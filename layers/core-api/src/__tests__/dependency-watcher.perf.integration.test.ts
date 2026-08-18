@@ -1,14 +1,14 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 // @lore AU20 Ag2: `work:` sub-object removed (see dependency-watcher.integration.test.ts).
+// workIntents is now AgentWorkIntentRecorderFn — plain function, no tx parameter.
 const depWatcherDeps = {
-	workIntents: { record: enqueueWorkIntent },
+	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
 };
 

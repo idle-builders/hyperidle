@@ -418,8 +418,24 @@ describe("AM1 session is referenced, never a Part (AC4, concept hard-rule 3)", (
 
 	it("the session-reference Embed kind exists in the closed Embed set", () => {
 		// AC4: a session is an Embed target, not a Part kind. (Inline constants — PART_KINDS/EMBED_KINDS deleted.)
-		const embedKinds = ["artifact", "block", "diff", "session-reference", "entity-ref", "mention", "unknown"];
-		const partKinds = ["prose", "review", "resolved", "questionnaire", "tool", "reasoning", "unknown"];
+		const embedKinds = [
+			"artifact",
+			"block",
+			"diff",
+			"session-reference",
+			"entity-ref",
+			"mention",
+			"unknown",
+		];
+		const partKinds = [
+			"prose",
+			"review",
+			"resolved",
+			"questionnaire",
+			"tool",
+			"reasoning",
+			"unknown",
+		];
 		expect(embedKinds).toContain("session-reference");
 		expect(partKinds).not.toContain("session-reference");
 	});

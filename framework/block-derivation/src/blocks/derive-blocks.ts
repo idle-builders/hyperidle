@@ -17,7 +17,6 @@ import {
 	type Block,
 	type BlockDerivationResult,
 	type BlockHostKind,
-	type BlockId,
 	type BlockPayload,
 	IMAGE_URL_SAFE_SCHEMES,
 	type InlineNode,
