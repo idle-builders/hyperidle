@@ -515,97 +515,6 @@ describe("AC-10: Reflection checkpoint every N tool calls (default 5)", () => {
 	});
 });
 
-// ── AC-11: Pre-compaction awareness using LATEST call's inputTokens ───────────
-
-describe("AC-11: Pre-compaction at 80% using LATEST call's inputTokens (critique CRITICAL-1)", () => {
-	afterEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it("emits pre_compaction event when latest inputTokens exceeds 80% of context window", async () => {
-		// AH2: claude-sonnet-4-6 has 1_000_000 context window.
-		// 80% of 1_000_000 = 800_000.
-		// We mock a response returning 850_000 inputTokens (85% fill) on the execute turn.
-		const highTokenResponse = makeTextResponse("Done.", 850_000, 100);
-
-		callLlmMock
-			.mockResolvedValueOnce(makeTextResponse("Planning...")) // planning (low tokens)
-			.mockResolvedValueOnce(highTokenResponse); // execute turn — triggers pre-compaction
-
-		const adapter = new BuiltinHarnessAdapter();
-		const registry = makeMockRegistry();
-		const sessionId = "sess-precompact";
-		adapter.setSessionToolRegistry(sessionId, registry);
-
-		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
-		const events = await collectEvents(adapter, handle);
-
-		const preCompactEvents = events.filter((e) => e.type === "pre_compaction");
-		expect(preCompactEvents.length).toBeGreaterThanOrEqual(1);
-
-		const preCompactEvent = preCompactEvents[0] as Extract<
-			HarnessEvent,
-			{ type: "pre_compaction" }
-		>;
-		expect(preCompactEvent.contextTokens).toBe(850_000);
-		expect(preCompactEvent.maxTokens).toBe(1_000_000);
-	});
-
-	it("does NOT emit pre_compaction when latest inputTokens is below 80%", async () => {
-		// AH2: 79% of 1_000_000 = 790_000 — should NOT trigger pre-compaction
-		const lowTokenResponse = makeTextResponse("Done.", 790_000, 100);
-
-		callLlmMock
-			.mockResolvedValueOnce(makeTextResponse("Planning..."))
-			.mockResolvedValueOnce(lowTokenResponse);
-
-		const adapter = new BuiltinHarnessAdapter();
-		const registry = makeMockRegistry();
-		const sessionId = "sess-no-precompact";
-		adapter.setSessionToolRegistry(sessionId, registry);
-
-		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
-		const events = await collectEvents(adapter, handle);
-
-		const preCompactEvents = events.filter((e) => e.type === "pre_compaction");
-		expect(preCompactEvents).toHaveLength(0);
-	});
-
-	it("uses the LATEST inputTokens, not a cumulative sum (critique CRITICAL-1 regression test)", async () => {
-		// AH2: Scenario: 5 calls each returning 40_000 input tokens.
-		// Cumulative sum = 200_000 (4% of 1_000_000 — still fine even cumulatively).
-		// Latest call's inputTokens = 40_000 (only 4% fill — must NOT trigger).
-		const lowTokenResponse = makeToolCallResponse(
-			"write_session_notes",
-			{ notes: "x" },
-			"t1",
-			40_000,
-		);
-		const doneResponse = makeTextResponse("Done.", 40_000, 50);
-
-		// Planning + 4 tool calls + done — all returning 40_000 input tokens
-		callLlmMock
-			.mockResolvedValueOnce(makeTextResponse("Planning...", 40_000, 50))
-			.mockResolvedValueOnce(lowTokenResponse)
-			.mockResolvedValueOnce(lowTokenResponse)
-			.mockResolvedValueOnce(lowTokenResponse)
-			.mockResolvedValueOnce(lowTokenResponse)
-			.mockResolvedValueOnce(doneResponse);
-
-		const registry = makeMockRegistry();
-		const adapter = new BuiltinHarnessAdapter({ preCompactionThreshold: 0.8 });
-		const sessionId = "sess-no-cumulative";
-		adapter.setSessionToolRegistry(sessionId, registry);
-
-		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
-		const events = await collectEvents(adapter, handle);
-
-		// Must NOT have pre_compaction — latest tokens (40_000) is only 4% of 1_000_000
-		const preCompactEvents = events.filter((e) => e.type === "pre_compaction");
-		expect(preCompactEvents).toHaveLength(0);
-	});
-});
-
 // ── AC-13: Max-iterations guard ────────────────────────────────────────────────
 
 describe("AC-13: Max-iterations guard", () => {
@@ -673,7 +582,7 @@ describe("AC-14: Session history management — sliding window + summarization",
 		vi.clearAllMocks();
 	});
 
-	it("compresses conversation history when summarization is triggered (pre_compaction event emitted)", async () => {
+	it("compresses conversation history when summarization is triggered (high token threshold crossed)", async () => {
 		// Build a session that accumulates many messages then triggers pre-compaction.
 		// The harness must summarize older turns, resulting in a pre_compaction event.
 		//
@@ -707,11 +616,7 @@ describe("AC-14: Session history management — sliding window + summarization",
 		adapter.setSessionToolRegistry(sessionId, registry);
 
 		const handle = await adapter.startSession(makeSessionConfig({ sessionId }));
-		const events = await collectEvents(adapter, handle);
-
-		// Verify pre_compaction event was emitted
-		const preCompactionEvents = events.filter((e) => e.type === "pre_compaction");
-		expect(preCompactionEvents.length).toBeGreaterThanOrEqual(1);
+		await collectEvents(adapter, handle);
 
 		// Verify the summarization callLlm call had a summarization-specific system prompt
 		// (SUMMARIZE_SYSTEM = "You are a conversation summarizer. Produce a concise summary.")

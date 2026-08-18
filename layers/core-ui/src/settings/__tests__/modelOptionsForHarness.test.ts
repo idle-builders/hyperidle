@@ -49,17 +49,8 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 		},
 	],
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-	accessMode: "api-gateway",
 	discovery: { state: "ready" },
 	authAction: { kind: "enter_api_key", label: "Enter API key" },
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: true,
-		toolUse: true,
-	},
 };
 
 const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
@@ -68,17 +59,8 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	kind: "local",
 	models: [],
 	modelProviders: [],
-	accessMode: "provider-subscription-cli",
 	discovery: { state: "ready" },
 	authAction: { kind: "native_cli_login", label: "Log in to Codex", command: ["codex", "login"] },
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: false,
-		toolUse: false,
-	},
 };
 
 const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
@@ -106,20 +88,11 @@ const OPENCODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 		},
 	],
 	modelProviders: [],
-	accessMode: "provider-subscription-cli",
 	discovery: { state: "ready" },
 	authAction: {
 		kind: "native_cli_login",
 		label: "Log in to OpenCode",
 		command: ["opencode", "providers", "login"],
-	},
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: false,
-		toolUse: false,
 	},
 };
 

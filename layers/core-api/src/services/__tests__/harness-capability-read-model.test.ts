@@ -26,10 +26,7 @@ import type {
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
-	harnessCapabilityDescriptors,
 	harnessRegistrationMeta,
-	refreshHarnessDiscoveries,
-	registeredHarnessCount,
 } from "@hyperidle/harness-protocol";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
@@ -75,26 +72,11 @@ function makePopulatedPool(): AdapterPool {
 }
 
 describe("harness-capability-read-model", () => {
-	it("registeredHarnessCount forwards AdapterPool.size", () => {
+	it("harnessCapabilitiesForType returns non-null for a registered type", () => {
 		const pool = makePopulatedPool();
-		expect(registeredHarnessCount(pool)).toBe(pool.size);
-		expect(registeredHarnessCount(pool)).toBe(1);
-	});
-
-	it("registeredHarnessCount is 0 for an empty pool", () => {
-		const pool = new AdapterPool();
-		expect(registeredHarnessCount(pool)).toBe(0);
-	});
-
-	it("harnessCapabilitiesForType derives capabilities from AdapterPool.describe()", () => {
-		const pool = makePopulatedPool();
-		expect(harnessCapabilitiesForType(pool, "builtin")).toEqual({
-			...pool.describe({ type: "builtin", includeKnownMissing: false })[0]?.runtime,
-			returnEnforcement:
-				pool.describe({ type: "builtin", includeKnownMissing: false })[0]?.returnEnforcement ??
-				"none",
-		});
-		expect(harnessCapabilitiesForType(pool, "builtin")).not.toBeNull();
+		const result = harnessCapabilitiesForType(pool, "builtin");
+		expect(result).not.toBeNull();
+		expect(result?.returnEnforcement).toBeDefined();
 	});
 
 	it("harnessCapabilitiesForType forwards null for an unregistered type", () => {
@@ -112,29 +94,9 @@ describe("harness-capability-read-model", () => {
 		expect(harnessRegistrationMeta(pool, "unknown-type")).toBeNull();
 	});
 
-	it("harnessCapabilityDescriptors forwards AdapterPool.describe()", () => {
-		const pool = makePopulatedPool();
-		expect(harnessCapabilityDescriptors(pool)).toEqual(pool.describe());
-		expect(harnessCapabilityDescriptors(pool, { includeKnownMissing: false })).toEqual(
-			pool.describe({ includeKnownMissing: false }),
-		);
-	});
-
-	it("harnessCapabilityDescriptors returns [] when reader is undefined (nullable-pool fallback)", () => {
-		expect(harnessCapabilityDescriptors(undefined)).toEqual([]);
-	});
-
-	it("refreshHarnessDiscoveries forwards AdapterPool.refresh() and resolves", async () => {
-		const pool = makePopulatedPool();
-		await expect(refreshHarnessDiscoveries(pool)).resolves.toBeUndefined();
-		// Registered adapter survives a discovery refresh (refresh only replaces
-		// the discovery snapshot, not the entries map).
-		expect(pool.size).toBe(1);
-	});
-
 	it("a real AdapterPool is structurally assignable to HarnessCapabilityReader (AC-2 compile-time guarantee)", () => {
 		const pool = makePopulatedPool();
 		const reader: HarnessCapabilityReader = pool;
-		expect(registeredHarnessCount(reader)).toBe(1);
+		expect(harnessCapabilitiesForType(reader, "builtin")).not.toBeNull();
 	});
 });

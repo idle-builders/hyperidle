@@ -162,7 +162,6 @@ describe("ReturnGate — AC5: mid-turn non-terminal tools do not block the gate"
 			{ type: "completion", text: "done" },
 			{ type: "token_usage", inputTokens: 1, outputTokens: 1 },
 			{ type: "error", message: "oops", code: "E001" },
-			{ type: "pre_compaction", contextTokens: 1000, maxTokens: 10000 },
 		];
 		for (const ev of events) {
 			expect(() => gate.observe(ev)).not.toThrow();

@@ -109,3 +109,6 @@ framework/design-system/viewer/**/*.d.ts.map
 
 # derived trace graph artifact (rebuilt by tools/trace/trace-build.ts)
 tools/trace/graph.json
+
+# Gate receipts written by delete-pass batch agents; never part of the repo.
+GATES.txt

@@ -22,7 +22,6 @@ const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
 			description: "Store a model gateway API key in HyperIdle.",
 			credentialNames: ["anthropic_api_key"],
 		},
-		runtime: { fileEditing: true, toolUse: true },
 	},
 	codex: {
 		state: "ready",
@@ -32,7 +31,6 @@ const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
 			label: "Log in to Codex",
 			command: ["codex", "login"],
 		},
-		runtime: { fileEditing: true, toolUse: true },
 	},
 	"claude-code": {
 		state: "ready",
@@ -42,7 +40,6 @@ const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
 			label: "Log in to Claude Code",
 			command: ["claude", "auth", "login"],
 		},
-		runtime: { fileEditing: true, toolUse: true },
 	},
 	opencode: {
 		state: "ready",
@@ -52,9 +49,6 @@ const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
 			label: "Log in to OpenCode",
 			command: ["opencode", "providers", "login"],
 		},
-		// Event normalization for opencode is not yet proven with a captured fixture,
-		// so capabilities remain conservative.
-		runtime: { fileEditing: false, toolUse: false },
 	},
 	"cursor-agent": {
 		state: "unavailable",
@@ -102,15 +96,10 @@ describe("AM2 GET /api/harnesses capability descriptors", () => {
 		expect(builtin).toBeDefined();
 		expect(typeof builtin?.name).toBe("string");
 		expect(Array.isArray(builtin?.modelProviders)).toBe(true);
-		expect(builtin?.accessMode).toBe("api-gateway");
 		expect(builtin?.authAction).toMatchObject({ kind: "enter_api_key" });
 		expect(builtin?.discovery).toMatchObject({ state: "ready" });
 		expect(Array.isArray(builtin?.models)).toBe(true);
 		expect((builtin!.models as unknown[]).length).toBeGreaterThan(0);
-		expect(builtin?.runtime).toMatchObject({
-			preCompactionTrigger: true,
-			mcpSupport: false,
-		});
 	});
 
 	test("includes evidence-backed readiness entries for first-class CLI harnesses", async ({
@@ -124,7 +113,6 @@ describe("AM2 GET /api/harnesses capability descriptors", () => {
 		for (const type of ["codex", "claude-code", "opencode"]) {
 			const descriptor = body.find((entry) => entry.type === type);
 			expect(descriptor).toBeDefined();
-			expect(descriptor?.accessMode).toBe("provider-subscription-cli");
 			expect(descriptor?.authAction).toMatchObject({ kind: "native_cli_login" });
 			expect(descriptor?.discovery).toMatchObject({ state: "ready", version: expect.any(String) });
 		}
@@ -141,7 +129,6 @@ describe("AM2 GET /api/harnesses capability descriptors", () => {
 
 		expect(cursor).toBeDefined();
 		expect(cursor?.discovery).toMatchObject({ state: "unavailable" });
-		expect(cursor?.runtime).toMatchObject({ fileEditing: false, toolUse: false });
 		const serialized = JSON.stringify(cursor);
 		expect(serialized).not.toContain("sk-");
 	});

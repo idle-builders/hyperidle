@@ -260,18 +260,9 @@ const DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "claude-code",
 	name: "Claude Code",
 	kind: "local",
-	accessMode: "provider-subscription-cli",
 	authAction: { kind: "native_cli_login", label: "Logged in" },
 	discovery: { state: "ready", version: "1.4.2" },
 	modelProviders: ["anthropic"],
-	runtime: {
-		preCompactionTrigger: true,
-		subAgents: true,
-		mcpSupport: true,
-		modelProviders: ["anthropic"],
-		fileEditing: true,
-		toolUse: true,
-	},
 	models: [
 		{
 			id: "claude-opus-4-8",

@@ -674,13 +674,6 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		const latestInputTokens = response.usage.inputTokens;
 
 		if (isAboveThreshold(latestInputTokens, contextWindow, this.options.preCompactionThreshold)) {
-			// Emit pre_compaction
-			this.emitEvent(session, {
-				type: "pre_compaction",
-				contextTokens: latestInputTokens,
-				maxTokens: contextWindow,
-			});
-
 			// Write session notes as crash safety
 			if (session.registry) {
 				try {

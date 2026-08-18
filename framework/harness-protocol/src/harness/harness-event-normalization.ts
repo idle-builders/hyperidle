@@ -6,7 +6,6 @@ const EVENT_TYPES = [
 	"tool_call",
 	"completion",
 	"error",
-	"pre_compaction",
 ] as const satisfies readonly HarnessEventType[];
 
 const MODEL_TIER_VALUES: ReadonlySet<string> = new Set(MODEL_TIERS);
@@ -336,22 +335,6 @@ export function normalizeHarnessEvent(input: unknown): HarnessEvent {
 			};
 			return enriched;
 		}
-		case "pre_compaction": {
-			if (!(isFiniteNumber(n.contextTokens) && isFiniteNumber(n.maxTokens))) {
-				return unknownEvent(input);
-			}
-			return {
-				type: "pre_compaction",
-				contextTokens: n.contextTokens as number,
-				maxTokens: n.maxTokens as number,
-			};
-		}
 	}
 	return unknownEvent(input);
-}
-
-export function isHarnessEvent(input: unknown): input is HarnessEvent {
-	return (
-		normalizeHarnessEvent(input).type !== "error" || (isRecord(input) && input.type === "error")
-	);
 }

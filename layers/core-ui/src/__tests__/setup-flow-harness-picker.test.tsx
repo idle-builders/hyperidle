@@ -25,18 +25,9 @@ function makeDescriptor(
 		type,
 		name,
 		kind: "local",
-		accessMode: "provider-subscription-cli",
 		authAction: { kind: "native_cli_login", label: "Sign in", command: [`${type}`, "login"] },
 		discovery: { state, version: undefined },
 		models,
-		runtime: {
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: false,
-			modelProviders: [],
-			fileEditing: false,
-			toolUse: false,
-		},
 		modelProviders: [],
 	};
 }
@@ -45,7 +36,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	type: "builtin",
 	name: "Built-in gateway",
 	kind: "remote",
-	accessMode: "api-gateway",
 	authAction: { kind: "enter_api_key", label: "Add API key" },
 	discovery: { state: "unauthenticated" },
 	models: [
@@ -58,14 +48,6 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 			options: [],
 		},
 	],
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: ["anthropic"],
-		fileEditing: false,
-		toolUse: false,
-	},
 	modelProviders: ["anthropic"],
 };
 

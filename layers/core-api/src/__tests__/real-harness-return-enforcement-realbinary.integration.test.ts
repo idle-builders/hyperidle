@@ -1320,7 +1320,6 @@ describe("LIVE real-binary harness return-enforcement (local-only lane)", () => 
 			const caps = pool.describe({ type: "builtin", includeKnownMissing: false })[0];
 
 			expect(caps?.returnEnforcement).toBe("builtin-loop");
-			expect(caps?.runtime.mcpSupport).toBe(false);
 		});
 
 		test("real enforcement route rejects missing bearer token before accepting bearer token", async () => {

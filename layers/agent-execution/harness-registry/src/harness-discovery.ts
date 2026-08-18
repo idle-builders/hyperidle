@@ -5,7 +5,6 @@ import type {
 	HarnessAuthActionDescriptor,
 	HarnessModelDescriptor,
 	HarnessReadinessState,
-	HarnessRuntimeCapabilities,
 } from "@hyperidle/harness-capability";
 
 const execFileAsync = promisify(execFile);
@@ -241,7 +240,6 @@ interface HarnessDiscoveryInput {
 	readonly reason?: string;
 	readonly authAction?: HarnessAuthActionDescriptor;
 	readonly models?: readonly HarnessModelDescriptor[];
-	readonly runtime?: Partial<HarnessRuntimeCapabilities>;
 	/**
 	 * AC5: result of the harmless real one-shot session probe. `runtimeFromDiscovery`
 	 * only sets fileEditing/toolUse `true` when `sessionProbe?.ok === true` — auth status
@@ -382,7 +380,6 @@ async function probeCodexCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInpu
 				label: "Log in to Codex",
 				command: ["codex", "login"],
 			},
-			runtime: { fileEditing: true, toolUse: true },
 		};
 	}
 
@@ -465,7 +462,6 @@ async function probeClaudeCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscover
 					label: "Log in to Claude Code",
 					command: ["claude", "auth", "login"],
 				},
-				runtime: { fileEditing: true, toolUse: true },
 			};
 		}
 		if (parsed.loggedIn === false) {
@@ -558,10 +554,6 @@ async function inspectOpenCode(d?: HarnessProbeDeps): Promise<HarnessDiscoveryIn
 				label: "Log in to OpenCode",
 				command: ["opencode", "providers", "login"],
 			},
-			// AM2: OpenCode supports these capabilities per CLI help, but no real
-			// session event fixture has been captured yet, so tool/file capabilities
-			// are left conservative until proven.
-			runtime: { fileEditing: false, toolUse: false },
 		};
 	}
 
@@ -600,7 +592,6 @@ async function probeCursorAgentCli(d?: HarnessProbeDeps): Promise<HarnessDiscove
 				label: "Log in to Cursor",
 				command: ["cursor-agent", "login"],
 			},
-			runtime: { fileEditing: true, toolUse: true },
 		};
 	}
 
@@ -711,7 +702,6 @@ async function probeBuiltinGateway(d?: HarnessProbeDeps): Promise<HarnessDiscove
 					"openai_compatible_api_key",
 				],
 			},
-			runtime: { fileEditing: true, toolUse: true },
 		};
 	}
 

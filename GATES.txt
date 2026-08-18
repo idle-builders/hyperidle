@@ -1,4 +1,0 @@
-check exit: 0
-lint exit: 0
-unit tests: 14 passed (2 files)
-integration tests: 2870 passed (334 files, 1 skipped)

@@ -37,25 +37,6 @@ import {
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
 
-/** Production shape: all runtime caps false (session probe not run) */
-const ALL_CAPS_FALSE = {
-	preCompactionTrigger: false,
-	subAgents: false,
-	mcpSupport: false,
-	modelProviders: ["anthropic"],
-	fileEditing: false,
-	toolUse: false,
-};
-
-const ALL_CAPS_TRUE = {
-	preCompactionTrigger: true,
-	subAgents: true,
-	mcpSupport: true,
-	modelProviders: ["anthropic"],
-	fileEditing: true,
-	toolUse: true,
-};
-
 function makeDescriptor(
 	overrides: Partial<HarnessCapabilityDescriptor> & {
 		discoveryExtra?: { disabled?: boolean; authSummary?: string };
@@ -67,7 +48,6 @@ function makeDescriptor(
 		type: "claude-code",
 		name: "Claude Code",
 		kind: "local",
-		accessMode: "provider-subscription-cli",
 		authAction: {
 			kind: "native_cli_login",
 			label: "Log in to Claude Code",
@@ -88,7 +68,6 @@ function makeDescriptor(
 				options: [],
 			},
 		],
-		runtime: ALL_CAPS_FALSE,
 		modelProviders: ["anthropic"],
 		...rest,
 	};
@@ -132,14 +111,12 @@ const UNAVAILABLE_DESCRIPTOR = makeDescriptor({
 const BUILTIN_DESCRIPTOR = makeDescriptor({
 	type: "builtin",
 	name: "Built-in",
-	accessMode: "api-gateway",
 	authAction: {
 		kind: "enter_api_key",
 		label: "Enter API key",
 		credentialNames: ["anthropic_api_key"],
 	},
 	discovery: { state: "ready" },
-	runtime: { ...ALL_CAPS_FALSE, modelProviders: ["anthropic", "openrouter"] },
 	modelProviders: ["anthropic", "openrouter"],
 });
 
@@ -273,27 +250,9 @@ describe("AM4 harness-presentation — isEnabled()", () => {
 // ── provenCapabilities ────────────────────────────────────────────────────────
 
 describe("AM4 harness-presentation — provenCapabilities()", () => {
-	it("returns empty array when all runtime caps are false (production shape)", () => {
+	it("returns empty array (runtime caps removed from descriptor)", () => {
 		expect(provenCapabilities(READY_DESCRIPTOR)).toHaveLength(0);
-	});
-
-	it("returns cap labels for true runtime caps", () => {
-		const withCaps = makeDescriptor({ runtime: ALL_CAPS_TRUE });
-		const caps = provenCapabilities(withCaps);
-		expect(caps).toContain("File editing");
-		expect(caps).toContain("Tool use");
-		expect(caps).toContain("MCP");
-		expect(caps).toContain("Sub-agents");
-	});
-
-	it("only returns true caps (mixed)", () => {
-		const partial = makeDescriptor({
-			runtime: { ...ALL_CAPS_FALSE, fileEditing: true, toolUse: false },
-		});
-		const caps = provenCapabilities(partial);
-		expect(caps).toContain("File editing");
-		expect(caps).not.toContain("Tool use");
-		expect(caps).not.toContain("MCP");
+		expect(provenCapabilities(BUILTIN_DESCRIPTOR)).toHaveLength(0);
 	});
 });
 
@@ -306,11 +265,10 @@ describe("AM4 harness-presentation — capabilitySummary() (AC2-production-shape
 		expect(summary).toMatch(/confirmed after first run/i);
 	});
 
-	it("returns joined cap labels when caps are proven", () => {
-		const withCaps = makeDescriptor({ runtime: { ...ALL_CAPS_FALSE, fileEditing: true } });
-		const summary = capabilitySummary(withCaps);
-		expect(summary).toContain("File editing");
-		expect(summary).not.toMatch(/confirmed after first run/i);
+	it("always returns 'confirmed after first run' (runtime caps removed from descriptor)", () => {
+		// provenCapabilities() always returns [] now — capabilitySummary always uses fallback
+		const summary = capabilitySummary(BUILTIN_DESCRIPTOR);
+		expect(summary).toMatch(/confirmed after first run/i);
 	});
 });
 
@@ -326,20 +284,11 @@ describe("AM4 harness-presentation — hasCaps()", () => {
 		expect(hasCaps(READY_DISABLED_DESCRIPTOR)).toBe(false);
 	});
 
-	it("false when no models and no proven caps", () => {
-		const noModelNoCapDescriptor = makeDescriptor({
+	it("false when no models (proven caps are always empty now)", () => {
+		const noModelDescriptor = makeDescriptor({
 			models: [],
-			runtime: ALL_CAPS_FALSE,
 		});
-		expect(hasCaps(noModelNoCapDescriptor)).toBe(false);
-	});
-
-	it("true when proven runtime cap exists even with no declared models", () => {
-		const noModelWithCap = makeDescriptor({
-			models: [],
-			runtime: { ...ALL_CAPS_FALSE, fileEditing: true },
-		});
-		expect(hasCaps(noModelWithCap)).toBe(true);
+		expect(hasCaps(noModelDescriptor)).toBe(false);
 	});
 });
 

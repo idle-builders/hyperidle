@@ -2,7 +2,6 @@ import { MODEL_CATALOG } from "@hyperidle/domain-model";
 import type {
 	HarnessCapabilityDescriptor,
 	HarnessModelDescriptor,
-	HarnessRuntimeCapabilities,
 } from "@hyperidle/harness-capability";
 import type { AdapterMeta, HarnessCapabilities } from "@hyperidle/harness-protocol";
 import type { HarnessDiscoveryInput } from "./harness-discovery.js";
@@ -27,47 +26,6 @@ const KNOWN_HARNESS_LOGIN_COMMANDS: Record<KnownHarnessFamily, readonly string[]
 
 function isKnownHarnessFamily(type: string): type is KnownHarnessFamily {
 	return (KNOWN_HARNESS_FAMILIES as readonly string[]).includes(type);
-}
-
-function runtimeFromCapabilities(caps: HarnessCapabilities): HarnessRuntimeCapabilities {
-	return {
-		preCompactionTrigger: caps.preCompactionTrigger,
-		subAgents: caps.subAgents,
-		mcpSupport: caps.mcpSupport,
-		modelProviders: caps.modelProviders,
-		fileEditing: caps.fileEditing ?? true,
-		toolUse: caps.toolUse ?? true,
-	};
-}
-
-function runtimeFromDiscovery(input?: HarnessDiscoveryInput): HarnessRuntimeCapabilities {
-	// Missing/unavailable families start with zero proven capability.
-	// fileEditing/toolUse are only set true when a real session probe confirms launchability
-	// (sessionProbe?.ok === true AND the runtime field supplies the value).
-	// auth status alone (state=ready, no sessionProbe) proves login, NOT launchability.
-	if (!input?.runtime) {
-		return {
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: false,
-			modelProviders: [],
-			fileEditing: false,
-			toolUse: false,
-		};
-	}
-
-	// Gate fileEditing/toolUse on sessionProbe.ok — auth-status-only probes stay false.
-	const sessionProbeOk = input.sessionProbe?.ok === true;
-
-	return {
-		preCompactionTrigger: input.runtime.preCompactionTrigger ?? false,
-		subAgents: input.runtime.subAgents ?? false,
-		mcpSupport: input.runtime.mcpSupport ?? false,
-		modelProviders: input.runtime.modelProviders ?? [],
-		// Only true when the runtime declares true AND the session probe confirmed launchability
-		fileEditing: sessionProbeOk ? (input.runtime.fileEditing ?? false) : false,
-		toolUse: sessionProbeOk ? (input.runtime.toolUse ?? false) : false,
-	};
 }
 
 function builtinModels(caps: HarnessCapabilities): readonly HarnessModelDescriptor[] {
@@ -128,7 +86,6 @@ function describe(
 	discoveries?: Readonly<Record<string, HarnessDiscoveryInput | undefined>>,
 ): HarnessCapabilityDescriptor {
 	const type = meta.type ?? meta.name;
-	const runtime = runtimeFromCapabilities(caps);
 
 	if (type === "builtin") {
 		// @lore AV2 Build Obligation 5: builtin branch reads discoveries[builtin].models
@@ -143,7 +100,6 @@ function describe(
 			type,
 			name: meta.name,
 			kind: meta.kind,
-			accessMode: caps.accessMode ?? "api-gateway",
 			authAction: caps.authAction ?? {
 				kind: "enter_api_key",
 				label: "Enter API key",
@@ -152,7 +108,6 @@ function describe(
 			},
 			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 			models,
-			runtime,
 			returnEnforcement: caps.returnEnforcement,
 			modelProviders: meta.modelProviders,
 		};
@@ -170,7 +125,6 @@ function describe(
 			type,
 			name: meta.name,
 			kind: meta.kind,
-			accessMode: caps.accessMode ?? "provider-subscription-cli",
 			authAction: caps.authAction ?? {
 				kind: "native_cli_login",
 				label: `Log in to ${KNOWN_HARNESS_NAMES[type]}`,
@@ -178,7 +132,6 @@ function describe(
 			},
 			discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 			models,
-			runtime,
 			returnEnforcement: caps.returnEnforcement,
 			modelProviders: meta.modelProviders,
 		};
@@ -193,11 +146,9 @@ function describe(
 		type,
 		name: meta.name,
 		kind: meta.kind,
-		accessMode: caps.accessMode ?? "external-byo",
 		authAction: caps.authAction ?? { kind: "none", label: "Configured externally" },
 		discovery: mergeDiscovery(caps.discovery ?? { state: "ready" }, discoveries?.[type]),
 		models,
-		runtime,
 		returnEnforcement: caps.returnEnforcement,
 		modelProviders: meta.modelProviders,
 	};
@@ -221,11 +172,9 @@ function missing(
 			type,
 			name: KNOWN_HARNESS_NAMES[type],
 			kind: "local",
-			accessMode: "provider-subscription-cli",
 			authAction: authActionOrDefault(type, discoveryInput?.authAction),
 			discovery,
 			models: cliModelsFromInput(discoveryInput?.models),
-			runtime: runtimeFromDiscovery(discoveryInput),
 			returnEnforcement: "none",
 			modelProviders: [],
 		};

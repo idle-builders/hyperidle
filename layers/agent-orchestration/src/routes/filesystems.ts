@@ -26,14 +26,12 @@
 // The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
 // Application-applied to that shared router and reaches this module unchanged.
 
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { FilesystemRow, HyperIdleDb } from "@hyperidle/db";
 import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
 import {
 	deleteFilesystem,
 	deleteInjection,
-	type FilesystemRow,
-	type FilesystemsServiceConnectionResolver,
 	type FilesystemTokenResolver,
 	getFilesystem,
 	inspectLocalPath,
@@ -42,6 +40,20 @@ import {
 	saveFilesystem,
 	updateFilesystemState,
 } from "@hyperidle/filesystems";
+
+/**
+ * Structural port: the shape of the service-connection resolver this route
+ * needs to build per-request token resolvers. Declared here so this module
+ * does not import across the Layer boundary.
+ *
+ * @lore AU43: formerly exported from `@hyperidle/filesystems` as
+ * `FilesystemsServiceConnectionResolver`; deleted there as a dead re-export,
+ * declared inline here where it is the only consumer.
+ */
+interface FilesystemsServiceConnectionResolver {
+	resolve(userId: string, connectionId: string): Promise<string | null>;
+}
+
 import { createGitRunner } from "@hyperidle/host-process";
 import {
 	createBodyLimit,
