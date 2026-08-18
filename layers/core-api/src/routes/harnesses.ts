@@ -145,26 +145,23 @@ export function createHarnessRoutes(
 	//  must come before the rate-limiter so AF11 assertion sees it declared
 	// even when the rate-limiter returns 429. The dedicated rate-limiter is route-scoped
 	// (fork-bomb guard — WARNING 3): 1 call / 5s per identity.
-	router.post(
-		"/redetect",
-		async (c) => {
-			// AU36 D5: the reach re-probe rides the SAME bounded moment — awaited
-			// alongside the discovery refresh BEFORE responding, identical
-			// observable effect to the pre-AU36 wiring. `onHarnessRedetect`
-			// cannot reject in practice (refresh never rejects); a future wiring
-			// error that DID reject 500s — the same failure mode a
-			// `refreshHarnessDiscoveries` rejection has today.
-			await Promise.all([refreshHarnessDiscoveries(pool), onHarnessRedetect?.()]);
-			const { harnessDisabled, modelGateway } = await readServerConfig(db);
-			const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
-			const entries = await stampBuiltinCredential(
-				stampDisabled(raw, harnessDisabled),
-				db,
-				modelGateway,
-			);
-			return c.json(entries);
-		},
-	);
+	router.post("/redetect", async (c) => {
+		// AU36 D5: the reach re-probe rides the SAME bounded moment — awaited
+		// alongside the discovery refresh BEFORE responding, identical
+		// observable effect to the pre-AU36 wiring. `onHarnessRedetect`
+		// cannot reject in practice (refresh never rejects); a future wiring
+		// error that DID reject 500s — the same failure mode a
+		// `refreshHarnessDiscoveries` rejection has today.
+		await Promise.all([refreshHarnessDiscoveries(pool), onHarnessRedetect?.()]);
+		const { harnessDisabled, modelGateway } = await readServerConfig(db);
+		const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
+		const entries = await stampBuiltinCredential(
+			stampDisabled(raw, harnessDisabled),
+			db,
+			modelGateway,
+		);
+		return c.json(entries);
+	});
 
 	return router;
 }

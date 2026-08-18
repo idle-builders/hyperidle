@@ -14,7 +14,7 @@ import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/c
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/domain-model";
-import { type HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -249,118 +249,115 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** POST /api/credentials/:name/validate — validate against external service */
-	router.post(
-		"/:name/validate",
-		async (c) => {
-			const name = c.req.param("name");
-			if (!isCredentialName(name)) {
-				return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
+	router.post("/:name/validate", async (c) => {
+		const name = c.req.param("name");
+		if (!isCredentialName(name)) {
+			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
+		}
+
+		// Check if credential exists
+		const [row] = await readCredentials(db, { name });
+
+		if (!row) {
+			return c.json({ valid: false, error: "Credential not set" }, 200);
+		}
+
+		// decryptCredentialValue returns null when no root secret is set.
+		// @lore AH1 §6: Fail-loud at validate boundary — return 200 {valid:false}
+		// on missing secret so the client sees a clean error rather than a 500.
+		const plaintext = decryptCredentialValue(row.encryptedValue);
+
+		if (!plaintext) {
+			return c.json({ valid: false, error: "Credential decryption failed" }, 200);
+		}
+
+		// Call the appropriate external service to validate the key.
+		// @lore P3 F-ARCH-4: Each credential type dispatches to its own validator.
+		// Tests mock these external calls via vi.spyOn / global fetch mocking.
+		let validationResult: { valid: boolean; error?: string };
+		switch (name) {
+			case "anthropic_api_key":
+				validationResult = await validateAnthropicApiKey(plaintext);
+				break;
+			case "openrouter_api_key":
+				validationResult = await validateOpenRouterApiKey(plaintext);
+				break;
+			case "shared_backend_key": {
+				// Self-validate: use local server address
+				const port = process.env.PORT ?? "3001";
+				const selfUrl = `http://127.0.0.1:${port}`;
+				validationResult = await validateSharedBackendKey(plaintext, selfUrl);
+				break;
 			}
-
-			// Check if credential exists
-			const [row] = await readCredentials(db, { name });
-
-			if (!row) {
-				return c.json({ valid: false, error: "Credential not set" }, 200);
-			}
-
-			// decryptCredentialValue returns null when no root secret is set.
-			// @lore AH1 §6: Fail-loud at validate boundary — return 200 {valid:false}
-			// on missing secret so the client sees a clean error rather than a 500.
-			const plaintext = decryptCredentialValue(row.encryptedValue);
-
-			if (!plaintext) {
-				return c.json({ valid: false, error: "Credential decryption failed" }, 200);
-			}
-
-			// Call the appropriate external service to validate the key.
-			// @lore P3 F-ARCH-4: Each credential type dispatches to its own validator.
-			// Tests mock these external calls via vi.spyOn / global fetch mocking.
-			let validationResult: { valid: boolean; error?: string };
-			switch (name) {
-				case "anthropic_api_key":
-					validationResult = await validateAnthropicApiKey(plaintext);
-					break;
-				case "openrouter_api_key":
-					validationResult = await validateOpenRouterApiKey(plaintext);
-					break;
-				case "shared_backend_key": {
-					// Self-validate: use local server address
-					const port = process.env.PORT ?? "3001";
-					const selfUrl = `http://127.0.0.1:${port}`;
-					validationResult = await validateSharedBackendKey(plaintext, selfUrl);
-					break;
-				}
-				case "openai_compatible_api_key": {
-					// AH1 §5 CRITICAL-3: Validate against the configured baseUrl.
-					// Read baseUrl from server_config (non-secret, lives in tier config).
-					// @lore AH1 SSRF deferral: this fetches a user-supplied baseUrl.
-					// For v1 (single-founder local-trust) this is acceptable.
-					// Hardening follow-up: block link-local/metadata IPs for multi-user deployments.
-					const cfg = await readServerConfig(db);
-					const openaiCompatibleTiers = (["reasoning", "workhorse", "fast"] as const).filter(
-						(t) =>
-							cfg.modelGateway[t].provider === "openai-compatible" && cfg.modelGateway[t].baseUrl,
-					);
-					const firstOaiTier = openaiCompatibleTiers[0];
-					if (openaiCompatibleTiers.length === 0 || !firstOaiTier) {
+			case "openai_compatible_api_key": {
+				// AH1 §5 CRITICAL-3: Validate against the configured baseUrl.
+				// Read baseUrl from server_config (non-secret, lives in tier config).
+				// @lore AH1 SSRF deferral: this fetches a user-supplied baseUrl.
+				// For v1 (single-founder local-trust) this is acceptable.
+				// Hardening follow-up: block link-local/metadata IPs for multi-user deployments.
+				const cfg = await readServerConfig(db);
+				const openaiCompatibleTiers = (["reasoning", "workhorse", "fast"] as const).filter(
+					(t) =>
+						cfg.modelGateway[t].provider === "openai-compatible" && cfg.modelGateway[t].baseUrl,
+				);
+				const firstOaiTier = openaiCompatibleTiers[0];
+				if (openaiCompatibleTiers.length === 0 || !firstOaiTier) {
+					validationResult = {
+						valid: false,
+						error:
+							"Set a base URL first (configure an openai-compatible tier in Settings > Models)",
+					};
+				} else {
+					const baseUrl = cfg.modelGateway[firstOaiTier].baseUrl ?? "";
+					try {
+						const controller = new AbortController();
+						const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
+						try {
+							const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, {
+								headers: { Authorization: `Bearer ${plaintext}` },
+								signal: controller.signal,
+							});
+							if (response.status === 401 || response.status === 403) {
+								validationResult = { valid: false, error: "Invalid API key" };
+							} else {
+								validationResult = { valid: true };
+							}
+						} finally {
+							clearTimeout(timer);
+						}
+					} catch (err) {
 						validationResult = {
 							valid: false,
-							error:
-								"Set a base URL first (configure an openai-compatible tier in Settings > Models)",
+							error: err instanceof Error ? err.message : "Network error",
 						};
-					} else {
-						const baseUrl = cfg.modelGateway[firstOaiTier].baseUrl ?? "";
-						try {
-							const controller = new AbortController();
-							const timer = setTimeout(() => controller.abort(), VALIDATE_TIMEOUT_MS);
-							try {
-								const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, {
-									headers: { Authorization: `Bearer ${plaintext}` },
-									signal: controller.signal,
-								});
-								if (response.status === 401 || response.status === 403) {
-									validationResult = { valid: false, error: "Invalid API key" };
-								} else {
-									validationResult = { valid: true };
-								}
-							} finally {
-								clearTimeout(timer);
-							}
-						} catch (err) {
-							validationResult = {
-								valid: false,
-								error: err instanceof Error ? err.message : "Network error",
-							};
-						}
 					}
-					break;
 				}
-				default: {
-					// AH1 §5 CRITICAL-3: isCredentialName() at the top already rejects
-					// unknown names — this branch is a fail-closed runtime guard.
-					validationResult = { valid: false, error: "Unknown credential name" };
-				}
+				break;
 			}
-
-			// Update validation state in DB
-			const now = new Date().toISOString();
-			const newState: CredentialState = validationResult.valid ? "valid" : "invalid";
-
-			await writeCredential(db, name, {
-				validationState: newState,
-				lastValidatedAt: now,
-				updatedAt: now,
-			});
-
-			// Response MUST NOT include the raw value
-			const result: { valid: boolean; error?: string } = { valid: validationResult.valid };
-			if (validationResult.error) {
-				result.error = validationResult.error;
+			default: {
+				// AH1 §5 CRITICAL-3: isCredentialName() at the top already rejects
+				// unknown names — this branch is a fail-closed runtime guard.
+				validationResult = { valid: false, error: "Unknown credential name" };
 			}
-			return c.json(result);
-		},
-	);
+		}
+
+		// Update validation state in DB
+		const now = new Date().toISOString();
+		const newState: CredentialState = validationResult.valid ? "valid" : "invalid";
+
+		await writeCredential(db, name, {
+			validationState: newState,
+			lastValidatedAt: now,
+			updatedAt: now,
+		});
+
+		// Response MUST NOT include the raw value
+		const result: { valid: boolean; error?: string } = { valid: validationResult.valid };
+		if (validationResult.error) {
+			result.error = validationResult.error;
+		}
+		return c.json(result);
+	});
 
 	return router;
 }

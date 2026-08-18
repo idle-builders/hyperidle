@@ -155,16 +155,12 @@ export function createModelGatewayRoutes(db: HyperIdleDb): Hono {
 	 * @lore AF15: Body is a deep-partial (PartialModelGatewaySchema). The merge happens
 	 * in updateServerConfig's mergeTier — stored apiKey is preserved when patch omits it.
 	 */
-	router.patch(
-		"/",
-		validateBody(PatchModelGatewaySchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof PartialModelGatewaySchema>;
+	router.patch("/", validateBody(PatchModelGatewaySchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof PartialModelGatewaySchema>;
 
-			const updated = await updateServerConfig(db, { modelGateway: body });
-			return c.json(sanitizeConfig(updated.modelGateway));
-		},
-	);
+		const updated = await updateServerConfig(db, { modelGateway: body });
+		return c.json(sanitizeConfig(updated.modelGateway));
+	});
 
 	return router;
 }

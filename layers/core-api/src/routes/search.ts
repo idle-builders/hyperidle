@@ -26,7 +26,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";

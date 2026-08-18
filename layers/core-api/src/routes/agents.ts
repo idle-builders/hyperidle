@@ -37,7 +37,7 @@ import {
 } from "@hyperidle/domain-model";
 import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import { type HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { getTeamMembers } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";

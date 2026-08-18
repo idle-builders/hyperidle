@@ -9,10 +9,7 @@ import { persistScaffoldedAgents } from "@hyperidle/org";
 // The Kernel no longer hard-codes any assistant persona constant.
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
-import {
-	constantTimeStringEqual,
-	type HyperIdleEnv,
-} from "@hyperidle/http-middleware";
+import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/http-middleware";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

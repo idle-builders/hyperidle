@@ -29,28 +29,25 @@ export function createAgentBehaviorSettingsRoutes(db: HyperIdleDb): Hono {
 		return c.json({ items } satisfies AgentBehaviorConfigListResponse);
 	});
 
-	router.patch(
-		"/config/:id",
-		async (c) => {
-			const body = (await c.req.json().catch(() => null)) as AgentBehaviorConfigPatchRequest | null;
-			if (!body || typeof body !== "object" || !body.fields || typeof body.fields !== "object") {
-				return c.json(errorResponse("INVALID_VALUE", "Expected fields object."), 422);
+	router.patch("/config/:id", async (c) => {
+		const body = (await c.req.json().catch(() => null)) as AgentBehaviorConfigPatchRequest | null;
+		if (!body || typeof body !== "object" || !body.fields || typeof body.fields !== "object") {
+			return c.json(errorResponse("INVALID_VALUE", "Expected fields object."), 422);
+		}
+		try {
+			const item = await patchAgentBehaviorConfiguration(db, {
+				id: c.req.param("id"),
+				fields: body.fields,
+			});
+			return c.json({ item } satisfies AgentBehaviorConfigPatchResponse);
+		} catch (err) {
+			if (err instanceof AgentBehaviorConfigError) {
+				const status = statusForError(err.code);
+				return c.json(errorResponse(err.code, err.message), status);
 			}
-			try {
-				const item = await patchAgentBehaviorConfiguration(db, {
-					id: c.req.param("id"),
-					fields: body.fields,
-				});
-				return c.json({ item } satisfies AgentBehaviorConfigPatchResponse);
-			} catch (err) {
-				if (err instanceof AgentBehaviorConfigError) {
-					const status = statusForError(err.code);
-					return c.json(errorResponse(err.code, err.message), status);
-				}
-				throw err;
-			}
-		},
-	);
+			throw err;
+		}
+	});
 
 	return router;
 }

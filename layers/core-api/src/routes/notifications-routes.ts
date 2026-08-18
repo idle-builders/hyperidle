@@ -150,83 +150,75 @@ export function createNotificationRoutes(
 		return c.json(cfg);
 	});
 
-	router.patch(
-		"/config",
-		validateBody(patchConfigSchema),
-		async (c) => {
-			const body = c.req.valid("json");
-			const diff = auditDiff(body);
-			let updated: SafeNotificationConfig;
-			try {
-				updated = await updateConfig(db, body, opts.deps);
-			} catch (err) {
-				if (
-					err instanceof Error &&
-					(err as { code?: string }).code === "NOTIFICATIONS_VALIDATION_ERROR"
-				) {
-					const response: ApiErrorResponse = {
-						error: err.message,
-						code: API_ERROR_CODES.VALIDATION_ERROR,
-					};
-					return c.json(response, 400);
-				}
-				throw err;
-			}
-			// @lore Emit an admin-action audit record on every PATCH so any
-			// rewrite of `recipientEmail`, `ntfyBaseUrl`, or SMTP creds is
-			// attributable. Secret fields are replaced with "***" before
-			// logging; we never log plaintext passwords or tokens.
-			auditLogger.info("config_changed", {
-				resource: "notifications.config",
-				actor: "api-key",
-				diff,
-				timestamp: nowFn().toISOString(),
-			});
-			return c.json(updated);
-		},
-	);
-
-	router.post(
-		"/test",
-		validateBody(testBodySchema),
-		async (c) => {
-			const body = c.req.valid("json");
-			// Rate-limit check uses the public readConfig (redacted is enough for testMaxPerHour).
-			const cfg = await readConfig(db, opts.deps);
-			const capacity = Math.max(0, cfg.testMaxPerHour);
-			const took = takeTestToken(testBucket, capacity, nowFn().getTime());
-			if (!took) {
-				const wait = retryAfterSeconds(testBucket, capacity);
-				c.header("Retry-After", String(wait));
+	router.patch("/config", validateBody(patchConfigSchema), async (c) => {
+		const body = c.req.valid("json");
+		const diff = auditDiff(body);
+		let updated: SafeNotificationConfig;
+		try {
+			updated = await updateConfig(db, body, opts.deps);
+		} catch (err) {
+			if (
+				err instanceof Error &&
+				(err as { code?: string }).code === "NOTIFICATIONS_VALIDATION_ERROR"
+			) {
 				const response: ApiErrorResponse = {
-					error: `rate limit exceeded: max ${capacity} test sends per hour`,
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 429);
-			}
-			const channel = body.channel as "console" | "ntfy" | "smtp" | undefined;
-			const raw = await deliver(
-				db,
-				{ kind: "test", ...(channel !== undefined ? { channel } : {}) },
-				opts.deps,
-			);
-			if (raw.kind !== "test") return c.json({ error: "unexpected deliver kind" }, 500);
-			if (!raw.ok && raw.error?.startsWith("recipient not configured")) {
-				const response: ApiErrorResponse = {
-					error: raw.error,
+					error: err.message,
 					code: API_ERROR_CODES.VALIDATION_ERROR,
 				};
 				return c.json(response, 400);
 			}
-			return c.json({
-				ok: raw.ok,
-				channel: raw.channel,
-				sentAt: raw.sentAt,
+			throw err;
+		}
+		// @lore Emit an admin-action audit record on every PATCH so any
+		// rewrite of `recipientEmail`, `ntfyBaseUrl`, or SMTP creds is
+		// attributable. Secret fields are replaced with "***" before
+		// logging; we never log plaintext passwords or tokens.
+		auditLogger.info("config_changed", {
+			resource: "notifications.config",
+			actor: "api-key",
+			diff,
+			timestamp: nowFn().toISOString(),
+		});
+		return c.json(updated);
+	});
+
+	router.post("/test", validateBody(testBodySchema), async (c) => {
+		const body = c.req.valid("json");
+		// Rate-limit check uses the public readConfig (redacted is enough for testMaxPerHour).
+		const cfg = await readConfig(db, opts.deps);
+		const capacity = Math.max(0, cfg.testMaxPerHour);
+		const took = takeTestToken(testBucket, capacity, nowFn().getTime());
+		if (!took) {
+			const wait = retryAfterSeconds(testBucket, capacity);
+			c.header("Retry-After", String(wait));
+			const response: ApiErrorResponse = {
+				error: `rate limit exceeded: max ${capacity} test sends per hour`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 429);
+		}
+		const channel = body.channel as "console" | "ntfy" | "smtp" | undefined;
+		const raw = await deliver(
+			db,
+			{ kind: "test", ...(channel !== undefined ? { channel } : {}) },
+			opts.deps,
+		);
+		if (raw.kind !== "test") return c.json({ error: "unexpected deliver kind" }, 500);
+		if (!raw.ok && raw.error?.startsWith("recipient not configured")) {
+			const response: ApiErrorResponse = {
 				error: raw.error,
-				retriable: raw.retriable,
-			});
-		},
-	);
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+		return c.json({
+			ok: raw.ok,
+			channel: raw.channel,
+			sentAt: raw.sentAt,
+			error: raw.error,
+			retriable: raw.retriable,
+		});
+	});
 
 	// ──────────────────────────────────────────────────────────────────────────
 	// AF8: In-app notification popover API
@@ -303,24 +295,20 @@ export function createNotificationRoutes(
 	 *
 	 * @lore AF8: No rate limiter — idempotent set-to-value, founder-tier auth.
 	 */
-	router.put(
-		"/mute/:key",
-		validateBody(z.object({ muted: z.boolean() }).strict()),
-		async (c) => {
-			const key = c.req.param("key");
-			const validKeys = NOTIFICATION_TYPES.map((t) => t.key);
-			if (!validKeys.includes(key as NotificationTypeKey)) {
-				const response: ApiErrorResponse = {
-					error: `unknown notification type key '${key}'; must be one of: ${validKeys.join(", ")}`,
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 400);
-			}
-			const body = c.req.valid("json");
-			await updatePreferences(db, key as NotificationTypeKey, body.muted, opts.deps);
-			return c.json({ ok: true });
-		},
-	);
+	router.put("/mute/:key", validateBody(z.object({ muted: z.boolean() }).strict()), async (c) => {
+		const key = c.req.param("key");
+		const validKeys = NOTIFICATION_TYPES.map((t) => t.key);
+		if (!validKeys.includes(key as NotificationTypeKey)) {
+			const response: ApiErrorResponse = {
+				error: `unknown notification type key '${key}'; must be one of: ${validKeys.join(", ")}`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+		const body = c.req.valid("json");
+		await updatePreferences(db, key as NotificationTypeKey, body.muted, opts.deps);
+		return c.json({ ok: true });
+	});
 
 	return router;
 }

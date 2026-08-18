@@ -91,87 +91,83 @@ export function createRoutineRoutes(
 	const router = new Hono();
 
 	// POST / — Create routine (AA2 AC-1)
-	router.post(
-		"/",
-		validateBody(createRoutineSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
+	router.post("/", validateBody(createRoutineSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
 
-			// Verify teamId exists
-			const team = await getTeam(db, { id: body.teamId });
-			if (!team) {
-				return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
+		// Verify teamId exists
+		const team = await getTeam(db, { id: body.teamId });
+		if (!team) {
+			return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
 
-			// Verify ownerAgentId exists
-			const agent = await findUser(db, { id: body.ownerAgentId });
-			if (!agent) {
-				return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
+		// Verify ownerAgentId exists
+		const agent = await findUser(db, { id: body.ownerAgentId });
+		if (!agent) {
+			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
 
-			// Validate cron expression
-			let triggerConfigParsed: { cron?: string };
-			try {
-				triggerConfigParsed = JSON.parse(body.triggerConfig) as { cron?: string };
-			} catch {
-				return c.json(
-					{
-						error: "Invalid triggerConfig: must be valid JSON",
-						code: API_ERROR_CODES.VALIDATION_ERROR,
-					},
-					400,
-				);
-			}
+		// Validate cron expression
+		let triggerConfigParsed: { cron?: string };
+		try {
+			triggerConfigParsed = JSON.parse(body.triggerConfig) as { cron?: string };
+		} catch {
+			return c.json(
+				{
+					error: "Invalid triggerConfig: must be valid JSON",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				},
+				400,
+			);
+		}
 
-			if (!triggerConfigParsed.cron) {
-				return c.json(
-					{
-						error: "Invalid triggerConfig: cron field required",
-						code: API_ERROR_CODES.VALIDATION_ERROR,
-					},
-					400,
-				);
-			}
+		if (!triggerConfigParsed.cron) {
+			return c.json(
+				{
+					error: "Invalid triggerConfig: cron field required",
+					code: API_ERROR_CODES.VALIDATION_ERROR,
+				},
+				400,
+			);
+		}
 
-			try {
-				parseCron(triggerConfigParsed.cron);
-			} catch {
-				return c.json(
-					{ error: "Invalid cron expression", code: API_ERROR_CODES.VALIDATION_ERROR },
-					400,
-				);
-			}
+		try {
+			parseCron(triggerConfigParsed.cron);
+		} catch {
+			return c.json(
+				{ error: "Invalid cron expression", code: API_ERROR_CODES.VALIDATION_ERROR },
+				400,
+			);
+		}
 
-			const routineId = body.id ?? crypto.randomUUID();
-			const now = new Date().toISOString();
+		const routineId = body.id ?? crypto.randomUUID();
+		const now = new Date().toISOString();
 
-			// Compute nextRunAt from the cron expression
-			let nextRunAt: string | null = null;
-			try {
-				const cron = parseCron(triggerConfigParsed.cron);
-				nextRunAt = nextCronMatch(cron, new Date()).toISOString();
-			} catch {
-				// Should not reach here — already validated above
-			}
+		// Compute nextRunAt from the cron expression
+		let nextRunAt: string | null = null;
+		try {
+			const cron = parseCron(triggerConfigParsed.cron);
+			nextRunAt = nextCronMatch(cron, new Date()).toISOString();
+		} catch {
+			// Should not reach here — already validated above
+		}
 
-			await routineService.insertRoutine(db, {
-				id: routineId,
-				name: body.name,
-				description: body.description ?? null,
-				teamId: body.teamId,
-				ownerAgentId: body.ownerAgentId,
-				triggerType: body.triggerType,
-				triggerConfig: body.triggerConfig,
-				state: "active",
-				active: true,
-				createdAt: now,
-				nextRunAt,
-			});
+		await routineService.insertRoutine(db, {
+			id: routineId,
+			name: body.name,
+			description: body.description ?? null,
+			teamId: body.teamId,
+			ownerAgentId: body.ownerAgentId,
+			triggerType: body.triggerType,
+			triggerConfig: body.triggerConfig,
+			state: "active",
+			active: true,
+			createdAt: now,
+			nextRunAt,
+		});
 
-			const created = await routineService.getRoutine(db, routineId);
-			return c.json(created, 201);
-		},
-	);
+		const created = await routineService.getRoutine(db, routineId);
+		return c.json(created, 201);
+	});
 
 	// GET / — List all non-deleted routines (AA2: filter soft-deleted)
 	router.get("/", async (c) => {
@@ -278,53 +274,49 @@ export function createRoutineRoutes(
 	});
 
 	// PATCH /:id — Update routine
-	router.patch(
-		"/:id",
-		validateBody(updateRoutineSchema),
-		async (c) => {
-			const routineId = c.req.param("id");
-			// @lore G4 Hono zValidator typing: `c.req.valid("json")` returns
-			// `never` when the route builder cannot infer the validator target
-			// chain — specifically when the `validateBody` helper wraps
-			// `zValidator` and the resulting middleware is passed through
-			// Hono's handler positional overloads. The `"json" as never` +
-			// `as z.infer<…>` double cast is load-bearing: dropping either
-			// half resurrects the TS error. This matches the pattern used
-			// across `bets.ts`, `tasks.ts`, `knowledge.ts`, `sessions-routes.ts`,
-			// and `agents.ts`; some route files get away without the
-			// cast because it does not re-export the route factory. Fixing
-			// this properly requires either rewriting `validateBody` to
-			// preserve the generic parameter chain or inlining `zValidator`
-			// at every call site — out of scope for the G4 fix-pack.
-			const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
+	router.patch("/:id", validateBody(updateRoutineSchema), async (c) => {
+		const routineId = c.req.param("id");
+		// @lore G4 Hono zValidator typing: `c.req.valid("json")` returns
+		// `never` when the route builder cannot infer the validator target
+		// chain — specifically when the `validateBody` helper wraps
+		// `zValidator` and the resulting middleware is passed through
+		// Hono's handler positional overloads. The `"json" as never` +
+		// `as z.infer<…>` double cast is load-bearing: dropping either
+		// half resurrects the TS error. This matches the pattern used
+		// across `bets.ts`, `tasks.ts`, `knowledge.ts`, `sessions-routes.ts`,
+		// and `agents.ts`; some route files get away without the
+		// cast because it does not re-export the route factory. Fixing
+		// this properly requires either rewriting `validateBody` to
+		// preserve the generic parameter chain or inlining `zValidator`
+		// at every call site — out of scope for the G4 fix-pack.
+		const body = c.req.valid("json" as never) as z.infer<typeof updateRoutineSchema>;
 
-			const existing = await routineService.getRoutine(db, routineId);
-			// AA2: treat soft-deleted routines as not found for PATCH
-			if (!existing || existing.deletedAt) {
-				return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
+		const existing = await routineService.getRoutine(db, routineId);
+		// AA2: treat soft-deleted routines as not found for PATCH
+		if (!existing || existing.deletedAt) {
+			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
 
-			const updates: routineService.RoutinePatch = {};
-			if (body.active !== undefined) updates.active = body.active;
-			if (body.triggerConfig !== undefined) updates.triggerConfig = body.triggerConfig;
-			if (body.autonomyLevel !== undefined) updates.autonomyLevel = body.autonomyLevel;
-			if (body.silent !== undefined) updates.silent = body.silent;
-			// AA1: extended fields
-			if (body.name !== undefined) updates.name = body.name;
-			if (body.description !== undefined) updates.description = body.description;
-			if (body.state !== undefined) {
-				updates.state = body.state;
-				// Sync active boolean with state for backward compat
-				updates.active = stateToActive(body.state);
-			}
-			if (Object.keys(updates).length > 0) {
-				await routineService.updateRoutine(db, routineId, updates);
-			}
+		const updates: routineService.RoutinePatch = {};
+		if (body.active !== undefined) updates.active = body.active;
+		if (body.triggerConfig !== undefined) updates.triggerConfig = body.triggerConfig;
+		if (body.autonomyLevel !== undefined) updates.autonomyLevel = body.autonomyLevel;
+		if (body.silent !== undefined) updates.silent = body.silent;
+		// AA1: extended fields
+		if (body.name !== undefined) updates.name = body.name;
+		if (body.description !== undefined) updates.description = body.description;
+		if (body.state !== undefined) {
+			updates.state = body.state;
+			// Sync active boolean with state for backward compat
+			updates.active = stateToActive(body.state);
+		}
+		if (Object.keys(updates).length > 0) {
+			await routineService.updateRoutine(db, routineId, updates);
+		}
 
-			const updated = await routineService.getRoutine(db, routineId);
-			return c.json(updated);
-		},
-	);
+		const updated = await routineService.getRoutine(db, routineId);
+		return c.json(updated);
+	});
 
 	// POST /:id/trigger — Manually trigger routine
 	router.post("/:id/trigger", async (c) => {

@@ -37,7 +37,7 @@ import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
 // now call app scaffolding + persistScaffoldedAgents, identical
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
-import { type HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";

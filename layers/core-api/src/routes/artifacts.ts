@@ -196,46 +196,42 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hon
 		return c.json(rowToArtifact(row.artifact, row.taskTitle));
 	});
 
-	router.post(
-		"/",
-		validateBody(createArtifactSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createArtifactSchema>;
+	router.post("/", validateBody(createArtifactSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createArtifactSchema>;
 
-			if (body.preview && body.preview.kind !== body.kind) {
-				return c.json({ error: "kind/preview discriminant mismatch", code: "KIND_MISMATCH" }, 400);
-			}
+		if (body.preview && body.preview.kind !== body.kind) {
+			return c.json({ error: "kind/preview discriminant mismatch", code: "KIND_MISMATCH" }, 400);
+		}
 
-			const taskRow = await work.get(db, "task", body.producingTaskId);
-			if (!taskRow) {
-				return c.json({ error: "producing_task_id not found", code: "INVALID_TASK" }, 400);
-			}
+		const taskRow = await work.get(db, "task", body.producingTaskId);
+		if (!taskRow) {
+			return c.json({ error: "producing_task_id not found", code: "INVALID_TASK" }, 400);
+		}
 
-			const id = crypto.randomUUID();
-			const now = new Date().toISOString();
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
 
-			await work.create(db, "artifact", {
-				id,
-				producingTaskId: body.producingTaskId,
-				kind: body.kind,
-				label: body.label ?? null,
-				previewJson: body.preview ? JSON.stringify(body.preview) : null,
-				createdAt: now,
-			});
+		await work.create(db, "artifact", {
+			id,
+			producingTaskId: body.producingTaskId,
+			kind: body.kind,
+			label: body.label ?? null,
+			previewJson: body.preview ? JSON.stringify(body.preview) : null,
+			createdAt: now,
+		});
 
-			const result: Artifact = {
-				id,
-				producingTaskId: body.producingTaskId,
-				producingTaskTitle: taskRow.title,
-				kind: body.kind,
-				label: body.label ?? null,
-				preview: body.preview as Artifact["preview"],
-				threadCount: 0,
-				createdAt: now,
-			};
-			return c.json(result, 201);
-		},
-	);
+		const result: Artifact = {
+			id,
+			producingTaskId: body.producingTaskId,
+			producingTaskTitle: taskRow.title,
+			kind: body.kind,
+			label: body.label ?? null,
+			preview: body.preview as Artifact["preview"],
+			threadCount: 0,
+			createdAt: now,
+		};
+		return c.json(result, 201);
+	});
 
 	// @lore O2: PATCH /:id/cost route removed — cost columns stripped from
 	// artifacts table. Cost settlement is now handled at the strategy layer.

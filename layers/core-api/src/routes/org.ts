@@ -246,35 +246,28 @@ export function createOrgRoutes(
 
 	// GET /team-members/:teamMembersId — the AK4 two-hop resolution's second hop
 	// (`teamMembers.id` -> `teamId`, i.e. `teams.id`).
-	router.get(
-		"/team-members/:teamMembersId",
-		async (c) => {
-			const teamMembersId = c.req.param("teamMembersId");
-			const memberGroup = await getTeamMembers(db, { id: teamMembersId });
-			if (!memberGroup) {
-				return c.json(
-					{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
-					404,
-				);
-			}
-			return c.json({ teamId: memberGroup.teamId });
-		},
-	);
+	router.get("/team-members/:teamMembersId", async (c) => {
+		const teamMembersId = c.req.param("teamMembersId");
+		const memberGroup = await getTeamMembers(db, { id: teamMembersId });
+		if (!memberGroup) {
+			return c.json(
+				{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
+				404,
+			);
+		}
+		return c.json({ teamId: memberGroup.teamId });
+	});
 
 	// POST /teams — the atomic `teams`+`teamMembers` insert ONLY (never the
 	// heavier `POST /teams` UI flow, which also scaffolds the default agent
 	// roster + provisions routines + writes an org edge + drafts a welcome
 	// message — reusing that here would DOUBLE the scaffold/provision work
 	// `create_team`'s tool handler already performs itself immediately after).
-	router.post(
-		"/teams",
-		validateBody(createOrgTeamSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createOrgTeamSchema>;
-			await createTeam(db, body);
-			return c.json({ id: body.id, teamMembersId: body.teamMembersId }, 201);
-		},
-	);
+	router.post("/teams", validateBody(createOrgTeamSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createOrgTeamSchema>;
+		await createTeam(db, body);
+		return c.json({ id: body.id, teamMembersId: body.teamMembersId }, 201);
+	});
 
 	// GET /review-recipients — the pure org-edge routing query
 	// (`resolveReviewRecipients`). No UI action reaches this directly today.
@@ -297,27 +290,23 @@ export function createOrgRoutes(
 	// (`persistScaffoldedAgents`). Even `POST /teams` calls the underlying
 	// function directly in-process, never via HTTP — no UI route exists to
 	// reuse.
-	router.post(
-		"/scaffolded-agents",
-		validateBody(persistScaffoldedAgentsSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
-			const result = await persistScaffoldedAgents(
-				db,
-				{
-					getUserById: (db2, id) => findUser(db2, { id }),
-					insertUser,
-					// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
-					// @hyperidle/agent-run-config import (crossing-di) — now the
-					// seam-backed adapter.
-					...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
-				},
-				body.teamMembersId,
-				body.specs,
-			);
-			return c.json(result, 201);
-		},
-	);
+	router.post("/scaffolded-agents", validateBody(persistScaffoldedAgentsSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
+		const result = await persistScaffoldedAgents(
+			db,
+			{
+				getUserById: (db2, id) => findUser(db2, { id }),
+				insertUser,
+				// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
+				// @hyperidle/agent-run-config import (crossing-di) — now the
+				// seam-backed adapter.
+				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+			},
+			body.teamMembersId,
+			body.specs,
+		);
+		return c.json(result, 201);
+	});
 
 	// POST /team-routines — seeds the four builtin-routine definitions for a
 	// team (`@hyperidle/routine`'s `provisionTeamRoutines`). `teams-routes.ts`'s
@@ -325,19 +314,15 @@ export function createOrgRoutes(
 	// convention as `scaffolded-agents` above) — this route exists so
 	// `create_team`'s tool handler (already routing every other step through
 	// this seam) can reach it too, per Decision C.
-	router.post(
-		"/team-routines",
-		validateBody(provisionTeamRoutinesSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof provisionTeamRoutinesSchema>;
-			await provisionTeamRoutines(db, {
-				teamId: body.teamId,
-				ownerByRole: body.ownerByRole,
-				leadAgentId: body.leadAgentId,
-			});
-			return c.json({}, 201);
-		},
-	);
+	router.post("/team-routines", validateBody(provisionTeamRoutinesSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof provisionTeamRoutinesSchema>;
+		await provisionTeamRoutines(db, {
+			teamId: body.teamId,
+			ownerByRole: body.ownerByRole,
+			leadAgentId: body.leadAgentId,
+		});
+		return c.json({}, 201);
+	});
 
 	return router;
 }

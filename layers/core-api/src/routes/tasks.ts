@@ -75,37 +75,33 @@ export function createTaskRoutes(
 	const handoff = buildProductionHandoff(agentOrchestration);
 
 	// POST /tasks — create a new task (agent-driven decomposition)
-	router.post(
-		"/",
-		validateBody(createTaskSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
-			const now = new Date().toISOString();
+	router.post("/", validateBody(createTaskSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
+		const now = new Date().toISOString();
 
-			// Validate bet exists
-			const bet = await work.get(db, "bet", body.betId);
-			if (!bet) {
-				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-			}
+		// Validate bet exists
+		const bet = await work.get(db, "bet", body.betId);
+		if (!bet) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
 
-			const taskId = crypto.randomUUID();
-			await work.create(db, "task", {
-				id: taskId,
-				betId: body.betId,
-				teamId: bet.teamId,
-				title: body.title,
-				description: body.description ?? null,
-				doneCondition: body.doneCondition ?? null,
-				ownerAgentId: body.ownerAgentId ?? null,
-				state: "proposed",
-				createdAt: now,
-				updatedAt: now,
-			});
+		const taskId = crypto.randomUUID();
+		await work.create(db, "task", {
+			id: taskId,
+			betId: body.betId,
+			teamId: bet.teamId,
+			title: body.title,
+			description: body.description ?? null,
+			doneCondition: body.doneCondition ?? null,
+			ownerAgentId: body.ownerAgentId ?? null,
+			state: "proposed",
+			createdAt: now,
+			updatedAt: now,
+		});
 
-			const created = await work.get(db, "task", taskId);
-			return c.json(created, 201);
-		},
-	);
+		const created = await work.get(db, "task", taskId);
+		return c.json(created, 201);
+	});
 
 	// GET /tasks — list, filterable by ids, bet_id, state, owner
 	//
@@ -149,20 +145,16 @@ export function createTaskRoutes(
 	// `CoreApiPort.work.appendTaskNote`'s backing route). Returns 404 (not a
 	// thrown error) when the task does not exist — the seam maps that to an
 	// `undefined` resolve, matching `work-service.ts`'s no-pre-read contract.
-	router.patch(
-		"/:id/notes",
-		validateBody(appendTaskNoteSchema),
-		async (c) => {
-			const taskId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof appendTaskNoteSchema>;
+	router.patch("/:id/notes", validateBody(appendTaskNoteSchema), async (c) => {
+		const taskId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof appendTaskNoteSchema>;
 
-			const result = await work.update(db, "task", taskId, { notes: { appendNote: body.entry } });
-			if (!result) {
-				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
-			return c.json(result);
-		},
-	);
+		const result = await work.update(db, "task", taskId, { notes: { appendNote: body.entry } });
+		if (!result) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		return c.json(result);
+	});
 
 	// @lore AU26 J4: `GET /tasks/:id/sessions` is DELETED. Its entire payload was
 	// agent-run data — core-api reading `agent-orchestration`'s `sessions` table
@@ -173,65 +165,61 @@ export function createTaskRoutes(
 	// client-side, so the task view and the task sheet render identically.
 
 	// POST /tasks/:id/handoff — hand off task to another agent/role/human
-	router.post(
-		"/:id/handoff",
-		validateBody(handoffSchema),
-		async (c) => {
-			const taskId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
+	router.post("/:id/handoff", validateBody(handoffSchema), async (c) => {
+		const taskId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
 
-			const task = await work.get(db, "task", taskId);
-			if (!task) {
-				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
+		const task = await work.get(db, "task", taskId);
+		if (!task) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
 
-			// @lore AU26 J4: the run row comes down the READ DOOR, not a raw
-			// `db.select().from(sessions)` — a core-api Layer route reading the other
-			// Layer's data goes through `AgentOrchestrationPort.sessions.getById`
-			// (§D-A rule 3), the same way `sessions-routes.ts` already does. No new
-			// port surface: this reuses the method that already exists. Only two
-			// fields are read below, and both are genuinely core's need — the 404
-			// (handing off a non-existent run must fail) and `agentId` (the author of
-			// every thread, message and item the handoff creates), which is a
-			// property of the run and cannot be derived from anything core owns.
-			const session = await agentOrchestration.sessions.getById(body.sessionId);
-			if (!session) {
-				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
+		// @lore AU26 J4: the run row comes down the READ DOOR, not a raw
+		// `db.select().from(sessions)` — a core-api Layer route reading the other
+		// Layer's data goes through `AgentOrchestrationPort.sessions.getById`
+		// (§D-A rule 3), the same way `sessions-routes.ts` already does. No new
+		// port surface: this reuses the method that already exists. Only two
+		// fields are read below, and both are genuinely core's need — the 404
+		// (handing off a non-existent run must fail) and `agentId` (the author of
+		// every thread, message and item the handoff creates), which is a
+		// property of the run and cannot be derived from anything core owns.
+		const session = await agentOrchestration.sessions.getById(body.sessionId);
+		if (!session) {
+			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
 
-			// Build the minimal handoff context.
-			//
-			// @lore AU26 J1: `sandboxPath`, `ingestion` and `traceId` are DELETED.
-			// `handoff` takes `PolicySessionContext = {sessionId, agentId, taskId}`
-			// (`policy/src/ports.ts:17-21`) and reads exactly those three — the other
-			// three were constructed here and never read by anything, and with them
-			// goes the `session.sandboxSnapshot` read. The `/tmp/.hyperidle-noop-*`
-			// sentinel guarded `endSession`'s `fs.promises.rm`, a code path this route
-			// no longer reaches now that H1 moved the run-end write down.
-			const sessionContext: PolicySessionContext = {
-				sessionId: session.id,
-				agentId: session.agentId,
-				taskId,
-			};
+		// Build the minimal handoff context.
+		//
+		// @lore AU26 J1: `sandboxPath`, `ingestion` and `traceId` are DELETED.
+		// `handoff` takes `PolicySessionContext = {sessionId, agentId, taskId}`
+		// (`policy/src/ports.ts:17-21`) and reads exactly those three — the other
+		// three were constructed here and never read by anything, and with them
+		// goes the `session.sandboxSnapshot` read. The `/tmp/.hyperidle-noop-*`
+		// sentinel guarded `endSession`'s `fs.promises.rm`, a code path this route
+		// no longer reaches now that H1 moved the run-end write down.
+		const sessionContext: PolicySessionContext = {
+			sessionId: session.id,
+			agentId: session.agentId,
+			taskId,
+		};
 
-			const result = await handoff(db, eventBus, {
-				sessionContext,
-				toAgent: body.toAgent,
-				toRole: body.toRole,
-				toHuman: body.toHuman,
-				metadata: {
-					context_id: body.contextId ?? session.id,
-					status: body.status ?? "completed",
-					reason: body.reason,
-					artifacts: body.artifacts ?? [],
-					remaining_work: body.remainingWork ?? [],
-					...(body.error !== undefined ? { error: body.error } : {}),
-				},
-			});
+		const result = await handoff(db, eventBus, {
+			sessionContext,
+			toAgent: body.toAgent,
+			toRole: body.toRole,
+			toHuman: body.toHuman,
+			metadata: {
+				context_id: body.contextId ?? session.id,
+				status: body.status ?? "completed",
+				reason: body.reason,
+				artifacts: body.artifacts ?? [],
+				remaining_work: body.remainingWork ?? [],
+				...(body.error !== undefined ? { error: body.error } : {}),
+			},
+		});
 
-			return c.json(result);
-		},
-	);
+		return c.json(result);
+	});
 
 	return router;
 }
