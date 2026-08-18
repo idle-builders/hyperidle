@@ -9,7 +9,7 @@ import type {
 } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
-import { createHarnessAdapter } from "../harness-adapter-factory.js";
+import { RemoteHarnessAdapter } from "../remote-harness-adapter.js";
 
 function adapter(label: string): HarnessAdapter {
 	return {
@@ -52,7 +52,7 @@ describe("execution platform completeness contract", () => {
 		pool.register("worker-1", replacement, meta);
 
 		expect(pool.size).toBe(1);
-		expect(pool.list()[0]).toMatchObject({ currentLoad: 1, paused: true });
+		// paused=true and currentLoad=1 together mean select() returns null
 		expect(pool.select()).toBeNull();
 		pool.release("worker-1");
 		pool.resume("worker-1");
@@ -93,7 +93,7 @@ describe("execution platform completeness contract", () => {
 			modelProviders: ["anthropic"],
 			maxConcurrent: 1,
 		};
-		const remote = createHarnessAdapter({ kind: "remote", ws, registration });
+		const remote = new RemoteHarnessAdapter(ws, registration);
 		const config: SessionConfig = {
 			sessionId: "requested-session",
 			sandboxPath: "/tmp/au20-harness-contract",

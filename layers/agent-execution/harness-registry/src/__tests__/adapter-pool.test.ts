@@ -64,59 +64,50 @@ const REMOTE_META: AdapterMeta = {
 	maxConcurrent: 2,
 };
 
-// ── register / list ──────────────────────────────────────────────────────────
+// ── register / has / size ─────────────────────────────────────────────────────
 
-describe("AdapterPool register/list", () => {
+describe("AdapterPool register", () => {
 	it("starts empty", () => {
 		const pool = new AdapterPool();
-		expect(pool.list()).toHaveLength(0);
 		expect(pool.size).toBe(0);
+		expect(pool.has("any")).toBe(false);
 	});
 
-	it("register adds an entry visible in list()", () => {
+	it("register adds an entry visible via has() and size", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), LOCAL_META);
-		const entries = pool.list();
-		expect(entries).toHaveLength(1);
-		expect(entries[0]?.id).toBe("local");
-		expect(entries[0]?.kind).toBe("local");
-		expect(entries[0]?.currentLoad).toBe(0);
-		expect(entries[0]?.maxConcurrent).toBe(4);
+		expect(pool.size).toBe(1);
+		expect(pool.has("local")).toBe(true);
 	});
 
 	it("register multiple adapters", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), LOCAL_META);
 		pool.register("remote-1", makeAdapter(), REMOTE_META);
-		expect(pool.list()).toHaveLength(2);
 		expect(pool.size).toBe(2);
-	});
-
-	it("list() includes connectedSince as an ISO string", () => {
-		const pool = new AdapterPool();
-		pool.register("local", makeAdapter(), LOCAL_META);
-		const entry = pool.list()[0];
-		expect(entry?.connectedSince).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		expect(pool.has("local")).toBe(true);
+		expect(pool.has("remote-1")).toBe(true);
 	});
 });
 
 // ── unregister ───────────────────────────────────────────────────────────────
 
 describe("AdapterPool unregister", () => {
-	it("unregister removes entry from list()", () => {
+	it("unregister removes entry from pool", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), LOCAL_META);
 		pool.register("remote-1", makeAdapter(), REMOTE_META);
 		pool.unregister("remote-1");
-		expect(pool.list()).toHaveLength(1);
-		expect(pool.list()[0]?.id).toBe("local");
+		expect(pool.size).toBe(1);
+		expect(pool.has("remote-1")).toBe(false);
+		expect(pool.has("local")).toBe(true);
 	});
 
 	it("unregister on unknown id is a no-op", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), LOCAL_META);
 		pool.unregister("nonexistent");
-		expect(pool.list()).toHaveLength(1);
+		expect(pool.size).toBe(1);
 	});
 });
 
@@ -136,11 +127,12 @@ describe("AdapterPool select — no requirements", () => {
 		expect(entry?.meta.name).toBe("local");
 	});
 
-	it("select increments activeSessions", () => {
+	it("select increments load — capacity of 1 exhausted after one select", () => {
 		const pool = new AdapterPool();
-		pool.register("local", makeAdapter(), LOCAL_META);
+		pool.register("local", makeAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
 		pool.select();
-		expect(pool.list()[0]?.currentLoad).toBe(1);
+		// load is now 1 == maxConcurrent, so pool is exhausted
+		expect(pool.select()).toBeNull();
 	});
 
 	it("picks the least-loaded adapter (both available)", () => {
@@ -239,20 +231,23 @@ describe("AdapterPool select — modelProviders requirement", () => {
 // ── release ───────────────────────────────────────────────────────────────────
 
 describe("AdapterPool release", () => {
-	it("release decrements activeSessions", () => {
+	it("release decrements load — adapter becomes selectable again after release", () => {
 		const pool = new AdapterPool();
-		pool.register("local", makeAdapter(), LOCAL_META);
+		pool.register("local", makeAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
 		pool.select();
-		expect(pool.list()[0]?.currentLoad).toBe(1);
+		// full — can't select
+		expect(pool.select()).toBeNull();
 		pool.release("local");
-		expect(pool.list()[0]?.currentLoad).toBe(0);
+		// slot freed — selectable again
+		expect(pool.select()).not.toBeNull();
 	});
 
-	it("release does not go below zero", () => {
+	it("release does not go below zero — adapter remains selectable", () => {
 		const pool = new AdapterPool();
-		pool.register("local", makeAdapter(), LOCAL_META);
+		pool.register("local", makeAdapter(), { ...LOCAL_META, maxConcurrent: 1 });
 		pool.release("local"); // no sessions active
-		expect(pool.list()[0]?.currentLoad).toBe(0);
+		// still selectable (load capped at 0)
+		expect(pool.select()).not.toBeNull();
 	});
 
 	it("release on unknown id is a no-op", () => {

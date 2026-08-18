@@ -20,19 +20,18 @@ export {
 	createLocalAdapterPool,
 	type SelectRequirements,
 } from "./adapter-pool.js";
-export { createHarnessAdapter, type HarnessAdapterSpec } from "./harness-adapter-factory.js";
+export { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
+export { CliHarnessAdapter, type CliAdapterConfig } from "./cli-harness-adapter.js";
+export { RemoteHarnessAdapter, type WsLike } from "./remote-harness-adapter.js";
+export { callLlm, type CallLlmOptions } from "./llm-client.js";
 export type { McpToolBridge } from "./mcp-tool-bridge.js";
 export {
 	type ProvisionOptions,
 	provisionHarnessEnvironment,
 } from "./provision-harness-environment.js";
-export {
-	createReturnEnforcement,
-	type ReturnEnforcementSpec,
-} from "./return-enforcement.js";
+export { createReturnEnforcement } from "./return-enforcement.js";
 export {
 	createSandboxAdapter,
-	type ExecResult,
 	type SandboxAdapter,
 	type SandboxHandle,
 } from "./sandbox-adapter.js";

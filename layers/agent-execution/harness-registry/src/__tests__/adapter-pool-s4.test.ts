@@ -65,32 +65,29 @@ const META: AdapterMeta = {
 // ── AC-7: pause/resume ───────────────────────────────────────────────────────
 
 describe("S4: AdapterPool pause/resume", () => {
-	it("pause(id) marks adapter as paused — list() reflects paused: true", () => {
+	it("pause(id) marks adapter as paused — select() returns null", () => {
 		const pool = new AdapterPool();
 		pool.register("w1", makeAdapter(), META);
 
 		pool.pause("w1");
 
-		const info = pool.list()[0];
-		expect(info?.paused).toBe(true);
+		expect(pool.select()).toBeNull();
 	});
 
-	it("register initialises paused: false", () => {
+	it("register initialises paused: false — adapter is immediately selectable", () => {
 		const pool = new AdapterPool();
 		pool.register("w1", makeAdapter(), META);
 
-		const info = pool.list()[0];
-		expect(info?.paused).toBe(false);
+		expect(pool.select()).not.toBeNull();
 	});
 
-	it("resume(id) clears paused flag — list() reflects paused: false", () => {
+	it("resume(id) clears paused flag — adapter becomes selectable again", () => {
 		const pool = new AdapterPool();
 		pool.register("w1", makeAdapter(), META);
 		pool.pause("w1");
 		pool.resume("w1");
 
-		const info = pool.list()[0];
-		expect(info?.paused).toBe(false);
+		expect(pool.select()).not.toBeNull();
 	});
 
 	it("select() skips paused adapter even when it has capacity", () => {
@@ -142,16 +139,15 @@ describe("S4: AdapterPool pause/resume", () => {
 		expect(() => pool.resume("nonexistent")).not.toThrow();
 	});
 
-	it("list() includes paused field for all entries", () => {
+	it("pausing one adapter does not affect the other", () => {
 		const pool = new AdapterPool();
 		pool.register("w1", makeAdapter(), META);
 		pool.register("w2", makeAdapter(), { ...META, name: "worker-2" });
 		pool.pause("w1");
 
-		const list = pool.list();
-		const w1 = list.find((e) => e.id === "w1");
-		const w2 = list.find((e) => e.id === "w2");
-		expect(w1?.paused).toBe(true);
-		expect(w2?.paused).toBe(false);
+		// w1 paused → skipped; w2 active → selected
+		const result = pool.select();
+		expect(result).not.toBeNull();
+		expect(result?.id).toBe("w2");
 	});
 });

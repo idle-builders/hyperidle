@@ -14,7 +14,7 @@
  */
 
 import { users } from "@hyperidle/db";
-import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, BuiltinHarnessAdapter, CliHarnessAdapter } from "@hyperidle/harness-registry";
 import { createLoginSession } from "@hyperidle/users";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -38,7 +38,7 @@ function authHeaders(): Record<string, string> {
  */
 function makeAH2Pool(): AdapterPool {
 	const pool = new AdapterPool();
-	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
+	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",
@@ -47,10 +47,7 @@ function makeAH2Pool(): AdapterPool {
 	});
 	pool.register(
 		"local-claude-code",
-		createHarnessAdapter({
-			kind: "cli",
-			config: { binary: "claude", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] },
-		}),
+		new CliHarnessAdapter({ binary: "claude", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] }),
 		{
 			name: "Claude Code",
 			kind: "local",

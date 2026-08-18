@@ -34,14 +34,14 @@
  */
 
 import type { HarnessAdapter, SessionConfig } from "@hyperidle/harness-protocol";
-import { createHarnessAdapter } from "@hyperidle/harness-registry";
+import { BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
 import type { LlmResponse } from "../../../agent-execution/harness-registry/src/llm-client.js";
 
 /** setSessionToolRegistry is a builtin-only duck-typed method (not on HarnessAdapter). */
 type BuiltinAdapterLike = HarnessAdapter & {
 	setSessionToolRegistry(id: string, registry: unknown): void;
 };
-/** Audited cast: createHarnessAdapter({ kind:"builtin" }) always returns BuiltinHarnessAdapter. */
+/** Audited cast: new BuiltinHarnessAdapter() always returns BuiltinHarnessAdapter. */
 function toBuiltinLike(a: HarnessAdapter): BuiltinAdapterLike {
 	return a as unknown as BuiltinAdapterLike;
 }
@@ -114,10 +114,7 @@ function makeConfig(sessionId: string): SessionConfig {
 describe("AF7 AC3: concurrent builtin sessions are isolated by sessionId", () => {
 	it("binds each session to ONLY its own pre-registered registry (no scan swap)", async () => {
 		const adapter = toBuiltinLike(
-			createHarnessAdapter({
-				kind: "builtin",
-				options: { maxIterations: 2, reflectionInterval: 99 },
-			}),
+			new BuiltinHarnessAdapter({ maxIterations: 2, reflectionInterval: 99 }),
 		);
 
 		const a = makeRecordingRegistry("A");

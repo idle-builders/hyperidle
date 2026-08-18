@@ -21,11 +21,12 @@ import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
 	AdapterPool,
-	createHarnessAdapter,
+	BuiltinHarnessAdapter,
 	createReturnEnforcement,
 	createSandboxAdapter,
 	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
+import { DirectHarnessAdapter } from "./direct-harness-adapter.js";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -124,8 +125,7 @@ export async function runEvalSession(
 	const harnessKind = params.harnessKind ?? "builtin";
 
 	if (harnessKind === "external") {
-		const externalAdapter = createHarnessAdapter({
-			kind: "direct",
+		const externalAdapter = new DirectHarnessAdapter({
 			model: deps.resolvedModel,
 			returnEnforcement: "none",
 			maxTokens: 1024,
@@ -150,10 +150,7 @@ export async function runEvalSession(
 		});
 	} else {
 		// Default: Register a BuiltinHarnessAdapter with maxIterations: 20 to limit eval cost.
-		const builtinAdapter = createHarnessAdapter({
-			kind: "builtin",
-			options: { maxIterations: 20 },
-		});
+		const builtinAdapter = new BuiltinHarnessAdapter({ maxIterations: 20 });
 		pool.register(EVAL_BUILTIN_NAME, builtinAdapter, {
 			name: "Eval Built-in Harness",
 			kind: "local",

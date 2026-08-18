@@ -58,10 +58,10 @@ describe("createLocalAdapterPool — registration", () => {
 
 	it("registers a builtin adapter", async () => {
 		const pool = await createLocalAdapterPool();
-		const entries = pool.list();
-		const builtinEntry = entries.find((e) => e.type === "builtin");
-		expect(builtinEntry).toBeDefined();
-		expect(builtinEntry?.kind).toBe("local");
+		// builtin is always present and selectable by type
+		const entry = pool.select({ harnessType: "builtin" });
+		expect(entry).not.toBeNull();
+		expect(entry?.meta.kind).toBe("local");
 	});
 
 	// "registers at least two adapters" and "claude-code adapter has id
@@ -70,9 +70,7 @@ describe("createLocalAdapterPool — registration", () => {
 
 	it("builtin adapter has id 'local-builtin'", async () => {
 		const pool = await createLocalAdapterPool();
-		const entries = pool.list();
-		const entry = entries.find((e) => e.id === "local-builtin");
-		expect(entry).toBeDefined();
+		expect(pool.has("local-builtin")).toBe(true);
 	});
 });
 

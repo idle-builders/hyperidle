@@ -7,51 +7,12 @@
  * (DisabledSandboxAdapter handles that boot guard). Laptop profile is always allowed.
  */
 
-import { spawn as spawnProcess } from "node:child_process";
-import { mkdir, readdir, rm } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import type { ExecResult, SandboxAdapter, SandboxHandle } from "./sandbox-adapter.js";
+import type { SandboxAdapter, SandboxHandle } from "./sandbox-adapter.js";
 
 let nextId = 1;
 
-/**
- * Run a shell command line via `sh -c`, returning stdout/stderr/exitCode.
- *
- * @lore I2 review MEDIUM-3: the local adapter is the run path on laptop profiles.
- * It runs commands through the host shell — the same environment the user has.
- * This is intentional: agents inherit the user's tools and credentials via the
- * real $HOME. Refused on non-laptop server profiles (see constructor guard).
- */
-function runShell(
-	command: string,
-	cwd: string,
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-	return new Promise((resolve) => {
-		const child = spawnProcess("sh", ["-c", command], { cwd });
-		let stdout = "";
-		let stderr = "";
-		child.stdout?.on("data", (b: Buffer) => {
-			stdout += b.toString();
-		});
-		child.stderr?.on("data", (b: Buffer) => {
-			stderr += b.toString();
-		});
-		child.on("close", (code) => {
-			resolve({
-				stdout: stdout.trim(),
-				stderr: stderr.trim(),
-				exitCode: code ?? 1,
-			});
-		});
-		child.on("error", (err) => {
-			resolve({
-				stdout: stdout.trim(),
-				stderr: (stderr + (err instanceof Error ? err.message : String(err))).trim(),
-				exitCode: 1,
-			});
-		});
-	});
-}
 
 export class LocalSandboxAdapter implements SandboxAdapter {
 	private readonly sandboxes = new Map<string, SandboxHandle>();
@@ -81,20 +42,6 @@ export class LocalSandboxAdapter implements SandboxAdapter {
 		return handle;
 	}
 
-	// @lore I2 review: kept async to honour the SandboxAdapter contract
-	// — callers always `await` exec() and the "unknown sandbox" branch
-	// must surface as a rejected promise (not a synchronous throw) so test
-	// expectations like `await expect(adapter.exec(fake, "ls")).rejects.toThrow(...)`
-	// hold. The runShell call also returns a Promise, so the function body
-	// is genuinely asynchronous even without an explicit `await` keyword.
-	// biome-ignore lint/suspicious/useAwait: see @lore above
-	async exec(handle: SandboxHandle, command: string): Promise<ExecResult> {
-		if (!this.sandboxes.has(handle.sandboxId)) {
-			throw new Error(`Unknown sandbox: ${handle.sandboxId}`);
-		}
-		return runShell(command, handle.path);
-	}
-
 	async destroy(handle: SandboxHandle): Promise<void> {
 		if (!this.sandboxes.has(handle.sandboxId)) {
 			throw new Error(`Unknown sandbox: ${handle.sandboxId}`);
@@ -102,15 +49,5 @@ export class LocalSandboxAdapter implements SandboxAdapter {
 
 		await rm(handle.path, { recursive: true, force: true });
 		this.sandboxes.delete(handle.sandboxId);
-	}
-
-	/** Check if a sandbox directory still exists. */
-	async exists(handle: SandboxHandle): Promise<boolean> {
-		try {
-			await readdir(handle.path);
-			return true;
-		} catch {
-			return false;
-		}
 	}
 }

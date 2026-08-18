@@ -67,7 +67,6 @@ import {
 	provisionHarnessEnvironment,
 } from "@hyperidle/harness-registry";
 import {
-	closeMcpBridgeSession,
 	createMcpToolBridge,
 	type McpToolBridge,
 	openMcpBridgeSession,
@@ -91,7 +90,7 @@ import { createTestApp } from "../__testing__/test-utils.js";
  * mounted MCP bridge (unlike the throwaway-adapter test compositions
  * elsewhere), so it builds its OWN `harnessRuntime` adapter wired to the
  * SAME `mcpBridgeRegistry`/server URL `startLiveServer` mounts — the exact
- * `openMcpBridgeSession`/`closeMcpBridgeSession` pieces `bootAgentExecution`
+ * `openMcpBridgeSession`/`bridge.close` pieces `bootAgentExecution`
  * wires production-side, aimed at this test's own bridge instance.
  */
 function buildLiveHarnessRuntimeAdapter(
@@ -114,7 +113,7 @@ function buildLiveHarnessRuntimeAdapter(
 				registry: session.toolRegistry,
 				onToolCall: session.onToolCall,
 			}),
-		closeMcpBridge: (token) => closeMcpBridgeSession(mcpBridgeRegistry, token),
+		closeMcpBridge: (token) => mcpBridgeRegistry.close(token),
 	};
 }
 

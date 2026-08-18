@@ -31,14 +31,14 @@
  */
 
 import type { HarnessAdapter, SessionConfig } from "@hyperidle/harness-protocol";
-import { createHarnessAdapter } from "@hyperidle/harness-registry";
+import { BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
 import type { LlmResponse } from "../../../agent-execution/harness-registry/src/llm-client.js";
 
 /** setSessionToolRegistry is a builtin-only duck-typed method (not on HarnessAdapter). */
 type BuiltinAdapterLike = HarnessAdapter & {
 	setSessionToolRegistry(id: string, registry: unknown): void;
 };
-/** Audited cast: createHarnessAdapter({ kind:"builtin" }) always returns BuiltinHarnessAdapter. */
+/** Audited cast: new BuiltinHarnessAdapter() always returns BuiltinHarnessAdapter. */
 function toBuiltinLike(a: HarnessAdapter): BuiltinAdapterLike {
 	return a as unknown as BuiltinAdapterLike;
 }
@@ -88,10 +88,7 @@ function makeConfig(sessionId: string): SessionConfig {
 describe("AF7 AC5: builtin abort revokes tool access before the next invoke", () => {
 	it("after abort lands mid-batch, NO new tool call starts (only the in-flight one finishes)", async () => {
 		const adapter = toBuiltinLike(
-			createHarnessAdapter({
-				kind: "builtin",
-				options: { maxIterations: 1, reflectionInterval: 99 },
-			}),
+			new BuiltinHarnessAdapter({ maxIterations: 1, reflectionInterval: 99 }),
 		);
 
 		const started: string[] = [];

@@ -1,3 +1,12 @@
+/**
+ * DirectHarnessAdapter — single-call LLM adapter for eval use only.
+ *
+ * @lore AU43: Moved from harness-registry/src/harness-adapter-factory.ts.
+ * This adapter is eval-only (ExternalShapedAdapter semantics, no Layer-A hooks),
+ * and belongs in tools/eval rather than production harness-registry.
+ * It is NOT exported from @hyperidle/harness-registry.
+ */
+
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { ResolvedModel } from "@hyperidle/domain-model";
@@ -8,44 +17,17 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-	WorkerRegisterMessage,
 } from "@hyperidle/harness-protocol";
-import type { BuiltinHarnessOptions } from "./builtin-harness-adapter.js";
-import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
-import type { CliAdapterConfig, CliAdapterDeps } from "./cli-harness-adapter.js";
-import { CliHarnessAdapter } from "./cli-harness-adapter.js";
-import type { CallLlmOptions } from "./llm-client.js";
-import { callLlm } from "./llm-client.js";
-import { RemoteHarnessAdapter } from "./remote-harness-adapter.js";
+import type { CallLlmOptions } from "@hyperidle/harness-registry";
+import { callLlm } from "@hyperidle/harness-registry";
 
-interface WsLike {
-	send(data: string): void;
-	close(): void;
-	onmessage: ((evt: { data: string }) => void) | null;
-	onclose: (() => void) | null;
-	onerror: ((err: Error) => void) | null;
-}
-
-type BuiltinSpec = { readonly kind: "builtin"; readonly options?: BuiltinHarnessOptions };
-type CliSpec = {
-	readonly kind: "cli";
-	readonly config: CliAdapterConfig;
-	readonly deps?: CliAdapterDeps;
-};
-type DirectSpec = {
-	readonly kind: "direct";
+export interface DirectAdapterOptions {
 	readonly model: ResolvedModel;
 	readonly instruction?: string;
 	readonly tools?: CallLlmOptions["tools"];
 	readonly maxTokens?: number;
 	readonly returnEnforcement: "none";
-};
-type RemoteSpec = {
-	readonly kind: "remote";
-	readonly ws: unknown;
-	readonly registration: WorkerRegisterMessage;
-};
-export type HarnessAdapterSpec = BuiltinSpec | CliSpec | DirectSpec | RemoteSpec;
+}
 
 interface DirectSession {
 	readonly systemPrompt: string;
@@ -53,10 +35,10 @@ interface DirectSession {
 	stopped: boolean;
 }
 
-class DirectHarnessAdapter implements HarnessAdapter {
+export class DirectHarnessAdapter implements HarnessAdapter {
 	private readonly sessions = new Map<string, DirectSession>();
 
-	constructor(private readonly options: DirectSpec) {}
+	constructor(private readonly options: DirectAdapterOptions) {}
 
 	async startSession(config: SessionConfig): Promise<SessionHandle> {
 		let systemPrompt = config.assembledPrompt;
@@ -142,33 +124,4 @@ class DirectHarnessAdapter implements HarnessAdapter {
 			returnEnforcement: "none",
 		};
 	}
-}
-
-export function createHarnessAdapter(spec: BuiltinSpec): BuiltinHarnessAdapter;
-export function createHarnessAdapter(spec: CliSpec): CliHarnessAdapter;
-export function createHarnessAdapter(spec: DirectSpec): HarnessAdapter;
-export function createHarnessAdapter(spec: RemoteSpec): RemoteHarnessAdapter;
-export function createHarnessAdapter(spec: HarnessAdapterSpec): HarnessAdapter {
-	switch (spec.kind) {
-		case "builtin":
-			return new BuiltinHarnessAdapter(spec.options);
-		case "cli":
-			return new CliHarnessAdapter(spec.config, spec.deps);
-		case "direct":
-			return new DirectHarnessAdapter(spec);
-		case "remote":
-			if (!isSocket(spec.ws))
-				throw new TypeError("Remote harness requires a WebSocket-like transport");
-			return new RemoteHarnessAdapter(spec.ws, spec.registration);
-	}
-}
-
-function isSocket(value: unknown): value is WsLike {
-	if (typeof value !== "object" || value === null) return false;
-	return (
-		"send" in value &&
-		typeof value.send === "function" &&
-		"close" in value &&
-		typeof value.close === "function"
-	);
 }

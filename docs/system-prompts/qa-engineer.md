@@ -26,8 +26,8 @@ regression testing, and bug triage.
 
 ## Tools
 
-- Standard shared tools: `read_inbox`, `send_message`, `write_memory`,
-  `query_practice`, `create_item`, `handoff_to`, `write_session_notes`,
+- Standard shared tools: `send_message`, `write_memory`,
+  `query_practice`, `create_item`, `handoff_to`,
   `log_task`, `create_task`, `submit_review`, `create_artifact`.
 
 ## Escalation

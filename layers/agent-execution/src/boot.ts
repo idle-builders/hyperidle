@@ -43,15 +43,15 @@ import type {
 } from "@hyperidle/harness-protocol";
 import {
 	AdapterPool,
-	createHarnessAdapter,
 	createLocalAdapterPool,
 	createReturnEnforcement,
 	createSandboxAdapter,
 	provisionHarnessEnvironment,
+	RemoteHarnessAdapter,
 	type SandboxAdapter,
+	type WsLike,
 } from "@hyperidle/harness-registry";
 import {
-	closeMcpBridgeSession,
 	createMcpToolBridge,
 	openMcpBridgeSession,
 	returnStatusTool,
@@ -181,7 +181,7 @@ export async function bootAgentExecution(
 				registry: session.toolRegistry,
 				onToolCall: session.onToolCall,
 			}),
-		closeMcpBridge: (token) => closeMcpBridgeSession(bridge, token),
+		closeMcpBridge: (token) => bridge.close(token),
 	};
 
 	return {
@@ -193,7 +193,7 @@ export async function bootAgentExecution(
 			sandbox,
 			harnessRuntime,
 			createWorkerAdapter: (ws, registration) =>
-				createHarnessAdapter({ kind: "remote", ws, registration }),
+				new RemoteHarnessAdapter(ws as WsLike, registration),
 			returnStatusTool,
 		},
 		dispose: () => {

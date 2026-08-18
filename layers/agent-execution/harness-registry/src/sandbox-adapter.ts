@@ -10,15 +10,8 @@ export interface SandboxHandle {
 	readonly path: string;
 }
 
-export interface ExecResult {
-	readonly stdout: string;
-	readonly stderr: string;
-	readonly exitCode: number;
-}
-
 export interface SandboxAdapter {
 	spawn(baseDir: string): Promise<SandboxHandle>;
-	exec(handle: SandboxHandle, command: string): Promise<ExecResult>;
 	destroy(handle: SandboxHandle): Promise<void>;
 }
 
