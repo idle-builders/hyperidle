@@ -43,7 +43,6 @@ import type { Transporter } from "nodemailer";
 import nodemailer from "nodemailer";
 import { enqueue, listNotifications, markNotifications } from "./notification-queue.js";
 import type { NotificationsDeps } from "./ports.js";
-import { isInSilenceWindow, isSilenced } from "./silence-policy.js";
 import type { Notification, NotificationAdapter, NotificationChannel } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +57,6 @@ import type { Notification, NotificationAdapter, NotificationChannel } from "./t
 
 type ConfigDeps = Pick<NotificationsDeps, "serverConfig" | "credentialCipher" | "credentialStore">;
 type MuteDeps = Pick<NotificationsDeps, "serverConfig">;
-type SilenceDeps = Pick<NotificationsDeps, "serverConfig" | "users" | "teams">;
 
 // ---------------------------------------------------------------------------
 // Private types (not exported — deleted from the public surface in AU20 Stage 2)
@@ -81,7 +79,8 @@ type Classification =
 	| { readonly kind: "push"; readonly severity: NotificationSeverity }
 	| { readonly kind: "digest"; readonly severity: "digest" }
 	| { readonly kind: "drop"; readonly reason: string };
-type QueueReason = "silence" | "digest" | "flood_coalesce" | "retry" | "agent_health_transition";
+// @lore AU43: "silence" removed (isSilenced deleted); "notification_event" added for listener path.
+type QueueReason = "notification_event" | "digest" | "flood_coalesce" | "retry" | "agent_health_transition";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -619,7 +618,7 @@ function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function scrubErrorMessage(message: string, ctx: ScrubContext = {}): string {
+function scrubErrorMessage(message: string, ctx: ScrubContext = {}): string {
 	let out = message;
 	const replacements: Array<string | null | undefined> = [
 		ctx.smtpPassword,
@@ -674,7 +673,7 @@ interface NtfyAdapterOptions {
 	readonly now?: () => Date;
 }
 
-export function priorityForSeverity(severity: NotificationSeverity): "urgent" | "high" | "default" {
+function priorityForSeverity(severity: NotificationSeverity): "urgent" | "high" | "default" {
 	switch (severity) {
 		case "blocking":
 			return "urgent";
@@ -784,7 +783,7 @@ interface NodemailerError {
 	readonly responseCode?: number;
 }
 
-export function classifySmtpRetriable(err: unknown): boolean {
+function classifySmtpRetriable(err: unknown): boolean {
 	const e = err as NodemailerError;
 	if (typeof e.responseCode === "number") return e.responseCode >= 400 && e.responseCode < 500;
 	const code = e.code;
@@ -982,20 +981,16 @@ async function enqueueNotification(
  * the system is fail-open: if the config is missing or unparseable, all
  * alerts are delivered.
  */
+// @lore AU43: quietHoursEnabled/Start/End removed — isInSilenceWindow had no
+// writer for its config (constant-false in every real install).
 interface AlertPreferences {
 	readonly blockerAlerts: boolean;
 	readonly reviewAlerts: boolean;
-	readonly quietHoursEnabled: boolean;
-	readonly quietHoursStart: string;
-	readonly quietHoursEnd: string;
 }
 
 const ALERT_PREFS_DEFAULTS: AlertPreferences = {
 	blockerAlerts: true,
 	reviewAlerts: true,
-	quietHoursEnabled: false,
-	quietHoursStart: "22:00",
-	quietHoursEnd: "08:00",
 };
 
 interface NotificationsWorkReader {
@@ -1008,7 +1003,6 @@ interface DispatcherDeps {
 	logger?: Logger;
 	readAlertPreferences?: () => Promise<AlertPreferences>;
 	notificationsConfig: ConfigDeps;
-	silencePolicy: SilenceDeps;
 	work: NotificationsWorkReader;
 }
 
@@ -1166,26 +1160,16 @@ async function flushQueue(
 	factory: AdapterFactory,
 	cfg: NotificationConfig,
 	now: Date,
-	silencePolicy: SilenceDeps,
 ): Promise<{ flushed: number; failed: number; deferred: number }> {
 	await recoverStuckLeases(db, now);
 	const rows = await listNotifications(db, { kind: "pending" });
 	let flushed = 0;
 	let failed = 0;
-	let deferred = 0;
-
-	// Read silence predicates once per tick (not per row).
-	// isSilenced covers mode + team + window.
-	const silenced = await isSilenced(db, { sourceAgentId: null }, now, silencePolicy);
+	// @lore AU43: deferred is always 0 — silence was the only deferral path.
+	const deferred = 0;
 
 	for (const row of rows) {
 		const severity = row.severity as NotificationSeverity;
-		if (severity === "blocking") {
-			if (silenced) {
-				deferred += 1;
-				continue;
-			}
-		}
 		// digest: always flush.
 		if (!(await claimRow(db, row.id, now))) continue;
 		const { adapter, channel } = adapterForRow(factory, cfg, row.channel, severity);
@@ -1315,7 +1299,6 @@ function registerNotificationDispatcher(
 		notification: Notification | null,
 		eventType: string,
 		subjectId: string | null,
-		sourceAgentId: string | null,
 		prefMeta: { itemKind?: string },
 	): Promise<void> {
 		if (state.disposed) return;
@@ -1328,25 +1311,6 @@ function registerNotificationDispatcher(
 		if (applyAlertPreferences(classification, prefs, prefMeta)) return;
 
 		const now = nowFn();
-
-		// isSilenced covers mode + team + server-config window.
-		const silenced = await isSilenced(db, { sourceAgentId }, now, deps.silencePolicy);
-		const inQuietHoursPrefs =
-			prefs.quietHoursEnabled && isInSilenceWindow(prefs.quietHoursStart, prefs.quietHoursEnd, now);
-
-		if (silenced || inQuietHoursPrefs) {
-			await enqueueNotification(db, {
-				eventType,
-				subjectId,
-				severity: classification.severity,
-				title: notification.title,
-				body: notification.body,
-				reason: "silence",
-				channel: null,
-				now,
-			});
-			return;
-		}
 
 		if (classification.kind === "digest") {
 			await enqueueNotification(db, {
@@ -1395,7 +1359,7 @@ function registerNotificationDispatcher(
 				classification.kind === "drop"
 					? null
 					: buildItemNotification(item, classification.severity, nowFn());
-			await route(classification, notification, "item_created", event.itemId, item.sourceAgentId, {
+			await route(classification, notification, "item_created", event.itemId, {
 				itemKind: item.kind ?? undefined,
 			});
 		})();
@@ -1616,7 +1580,8 @@ function registerNotificationListener(
 				severity,
 				title: item.title.slice(0, 140),
 				body: item.body?.slice(0, 10_000) ?? "",
-				reason: "silence",
+				// @lore AU43: was "silence" (misleading — listener path never silences); now "notification_event".
+				reason: "notification_event",
 				channel: null,
 				now,
 				typeKey,
@@ -1639,7 +1604,6 @@ function registerNotificationListener(
 interface DrainDeps {
 	now?: () => Date;
 	notificationsConfig: ConfigDeps;
-	silencePolicy: SilenceDeps;
 }
 
 function startNotificationDrain(
@@ -1652,7 +1616,7 @@ function startNotificationDrain(
 		void (async () => {
 			const cfg = await loadNotificationConfig(db, deps.notificationsConfig);
 			if (!cfg) return;
-			await flushQueue(db, factory, cfg, nowFn(), deps.silencePolicy);
+			await flushQueue(db, factory, cfg, nowFn());
 		})();
 	}, NOTIFICATION_DRAIN_INTERVAL_MS);
 	return (): void => {
@@ -1674,14 +1638,6 @@ function toConfigDeps(deps: NotificationsDeps): ConfigDeps {
 
 function toMuteDeps(deps: NotificationsDeps): MuteDeps {
 	return { serverConfig: deps.serverConfig };
-}
-
-function toSilenceDeps(deps: NotificationsDeps): SilenceDeps {
-	return {
-		serverConfig: deps.serverConfig,
-		users: deps.users,
-		teams: deps.teams,
-	};
 }
 
 // ---------------------------------------------------------------------------
@@ -1709,14 +1665,12 @@ export function installNotifications(
 ): () => void {
 	const factory = opts?.adapterFactory ?? defaultNotificationAdapterFactory;
 	const configDeps = toConfigDeps(deps);
-	const silenceDeps = toSilenceDeps(deps);
 	const muteDeps = toMuteDeps(deps);
 
 	const disposeDispatcher = registerNotificationDispatcher(db, bus, {
 		adapterFactory: factory,
 		readAlertPreferences: opts?.readAlertPreferences,
 		notificationsConfig: configDeps,
-		silencePolicy: silenceDeps,
 		work: deps.work,
 		now: opts?.now,
 		logger: opts?.logger,
@@ -1731,7 +1685,6 @@ export function installNotifications(
 
 	const disposeDrain = startNotificationDrain(db, factory, {
 		notificationsConfig: configDeps,
-		silencePolicy: silenceDeps,
 		now: opts?.now,
 	});
 
@@ -1759,7 +1712,6 @@ export async function deliver(
 	},
 ): Promise<DeliveryResult> {
 	const configDeps = toConfigDeps(deps);
-	const silenceDeps = toSilenceDeps(deps);
 
 	if (spec.kind === "flush") {
 		const cfg = await loadNotificationConfig(db, configDeps);
@@ -1768,7 +1720,7 @@ export async function deliver(
 		const factory = opts?.adapterOverride
 			? () => opts.adapterOverride as NotificationAdapter
 			: defaultNotificationAdapterFactory;
-		const r = await flushQueue(db, factory, cfg, now, silenceDeps);
+		const r = await flushQueue(db, factory, cfg, now);
 		return { kind: "flush", ...r };
 	}
 
@@ -1782,7 +1734,6 @@ export async function deliver(
 			{
 				adapterFactory: factory,
 				notificationsConfig: configDeps,
-				silencePolicy: silenceDeps,
 				work: deps.work,
 			},
 			now,

@@ -26,8 +26,6 @@ import type { ItemCreatedEvent, TaskStateChangedEvent } from "@hyperidle/domain-
 import {
 	installNotifications,
 	listNotifications,
-	type Notification,
-	type NotificationAdapter,
 	type NotificationConfigPatch,
 	updateConfig,
 } from "@hyperidle/notifications";
@@ -41,19 +39,17 @@ import { notificationsDeps } from "../notifications-test-deps.js";
 
 interface AdapterCall {
 	recipient: { channelId: string; label?: string };
-	notification: Notification;
+	notification: { severity: string };
 }
 
-function createFakeAdapter(
-	name: "console" | "ntfy" | "smtp" = "console",
-): NotificationAdapter & { calls: AdapterCall[] } {
+function createFakeAdapter(name: "console" | "ntfy" | "smtp" = "console") {
 	const calls: AdapterCall[] = [];
 	return {
 		name,
 		calls,
-		async send(recipient, notification) {
+		async send(recipient: { channelId: string; label?: string }, notification: { severity: string }) {
 			calls.push({ recipient, notification });
-			return { ok: true, channel: name, sentAt: new Date().toISOString() };
+			return { ok: true as const, channel: name, sentAt: new Date().toISOString() };
 		},
 	};
 }
@@ -149,7 +145,7 @@ function emitTaskStateChanged(
 function registerWithPrefs(
 	db: HyperIdleDb,
 	bus: import("@hyperidle/event-bus").EventBus,
-	adapter: NotificationAdapter,
+	adapter: ReturnType<typeof createFakeAdapter>,
 	extraDeps: Partial<{ now: () => Date }> = {},
 ): () => void {
 	return installNotifications(db, bus, notificationsDeps, {

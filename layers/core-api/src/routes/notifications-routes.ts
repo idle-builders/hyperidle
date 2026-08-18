@@ -8,8 +8,6 @@ import {
 	deliver,
 	listNotifications,
 	markNotifications,
-	type NotificationAdapter,
-	type NotificationChannel,
 	type NotificationConfigPatch,
 	type NotificationsDeps,
 	readConfig,
@@ -86,15 +84,6 @@ export interface CreateNotificationRoutesOptions {
 	 * sub-deps they need.
 	 */
 	deps: NotificationsDeps;
-	/**
-	 * Optional adapter override for `/test`, `/flush`, and `/digest`.
-	 * Production omits this; tests inject a FakeAdapter that records every send.
-	 *
-	 * @lore AU20 Ag6b: simplified from `(cfg: NotificationConfig) =>
-	 * NotificationAdapter` to a plain `NotificationAdapter` instance — the
-	 * route layer no longer needs to pass the internal config shape.
-	 */
-	adapterOverride?: NotificationAdapter;
 	now?: () => Date;
 	/**
 	 * Logger used for the admin-audit log. Injectable so tests can
@@ -217,12 +206,11 @@ export function createNotificationRoutes(
 				};
 				return c.json(response, 429);
 			}
-			const channel = body.channel as NotificationChannel | undefined;
+			const channel = body.channel as "console" | "ntfy" | "smtp" | undefined;
 			const raw = await deliver(
 				db,
 				{ kind: "test", ...(channel !== undefined ? { channel } : {}) },
 				opts.deps,
-				opts.adapterOverride !== undefined ? { adapterOverride: opts.adapterOverride } : undefined,
 			);
 			if (raw.kind !== "test") return c.json({ error: "unexpected deliver kind" }, 500);
 			if (!raw.ok && raw.error?.startsWith("recipient not configured")) {

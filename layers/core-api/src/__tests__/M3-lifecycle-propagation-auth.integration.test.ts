@@ -77,7 +77,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			await enqueue(db, row);
 		},
 	},
-	silence: { isSilenced: () => Promise.resolve(false) },
+
 };
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";

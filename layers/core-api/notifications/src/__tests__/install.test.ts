@@ -57,10 +57,7 @@ function makeDeps(
 			decryptCredentialValue: vi.fn(() => null),
 		},
 		credentialStore,
-		users: { getUserById: vi.fn(async () => undefined) },
-		teams: { getTeamMembersById: vi.fn(async () => undefined) },
 		work: {
-			listQueuedItemsSince: vi.fn(async () => []),
 			getItemById: vi.fn(async () => undefined),
 		},
 	};

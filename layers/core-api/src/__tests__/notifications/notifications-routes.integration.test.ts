@@ -18,8 +18,6 @@ import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	enqueue,
 	listNotifications,
-	type Notification,
-	type NotificationAdapter,
 	type SafeNotificationConfig,
 	updateConfig,
 } from "@hyperidle/notifications";
@@ -30,23 +28,6 @@ import { disposeApp } from "../../app.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
 const API_KEY = "test-key-H2-routes";
-
-interface AdapterCall {
-	recipient: { channelId: string; label?: string };
-	notification: Notification;
-}
-
-function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
-	const calls: AdapterCall[] = [];
-	return {
-		name: "console",
-		calls,
-		async send(recipient, notification) {
-			calls.push({ recipient, notification });
-			return { ok: true, channel: "console", sentAt: new Date().toISOString() };
-		},
-	};
-}
 
 function headers(extra: Record<string, string> = {}): Record<string, string> {
 	return {
@@ -66,8 +47,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("GET /config requires auth", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config");
 			expect(res.status).toBe(401);
@@ -80,8 +60,7 @@ describe("H2 /api/notifications routes", () => {
 		db,
 		eventBus,
 	}) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			// Seed a password + auth token; verify they come back as "***".
 			await updateConfig(
@@ -117,8 +96,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("PATCH /config rejects invalid email", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -134,8 +112,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("PATCH /config rejects unsafe ntfy URL", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -149,8 +126,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("PATCH /config accepts a valid partial patch", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -175,8 +151,7 @@ describe("H2 /api/notifications routes", () => {
 		db,
 		eventBus,
 	}) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			// Configure notifications.
 			await app.request("/api/notifications/config", {
@@ -195,7 +170,6 @@ describe("H2 /api/notifications routes", () => {
 			expect(res.status).toBe(200);
 			const result = (await res.json()) as { ok: boolean; channel: string; sentAt?: string };
 			expect(result.ok).toBe(true);
-			expect(adapter.calls).toHaveLength(1);
 			const queueRows = await listNotifications(db, { kind: "all" });
 			expect(queueRows).toHaveLength(0);
 		} finally {
@@ -203,48 +177,14 @@ describe("H2 /api/notifications routes", () => {
 		}
 	});
 
-	test("GET /queue returns pending rows", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
-		try {
-			const now = "2026-04-18T00:00:00.000Z";
-			await enqueue(db, {
-				id: "q-1",
-				eventType: "item_created",
-				subjectId: "x",
-				severity: "digest",
-				title: "Pending one",
-				body: "body",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: now,
-			});
-
-			const res = await app.request("/api/notifications/queue?status=pending", {
-				headers: headers(),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as {
-				status: string;
-				count: number;
-				rows: Array<{ id: string; title: string }>;
-			};
-			expect(body.status).toBe("pending");
-			expect(body.count).toBe(1);
-			expect(body!.rows[0]!.title).toBe("Pending one");
-		} finally {
-			disposeApp(app);
-		}
-	});
+	// @lore AU43: GET /queue route deleted — digest route + queue endpoint
+	// removed when getDailyDigest was convicted as demo-only trigger.
 
 	test("PATCH /config rejects ntfy URL pointing to private/metadata IP (SSRF)", async ({
 		db,
 		eventBus,
 	}) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -260,8 +200,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("PATCH /config rejects ntfy URL with RFC1918 private IP", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -275,8 +214,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("PATCH /config rejects ntfy URL with mDNS .local suffix", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -290,8 +228,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("PATCH /config rejects SMTP username with CR/LF", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -305,8 +242,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("PATCH /config rejects SMTP password with NUL", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			const res = await app.request("/api/notifications/config", {
 				method: "PATCH",
@@ -320,8 +256,7 @@ describe("H2 /api/notifications routes", () => {
 	});
 
 	test("PATCH /config rejects smtpIgnoreTls=true in production", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			vi.stubEnv("NODE_ENV", "production");
 			const res = await app.request("/api/notifications/config", {
@@ -343,8 +278,7 @@ describe("H2 /api/notifications routes", () => {
 		db,
 		eventBus,
 	}) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
+		const app = await createTestApp({ db, eventBus });
 		try {
 			// Tighten the bucket to 1/hour.
 			await app.request("/api/notifications/config", {
@@ -370,26 +304,13 @@ describe("H2 /api/notifications routes", () => {
 		}
 	});
 
-	test("GET /queue rejects invalid status with 400", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
-		try {
-			const res = await app.request("/api/notifications/queue?status=garbage", {
-				headers: headers(),
-			});
-			expect(res.status).toBe(400);
-			const body = (await res.json()) as ApiErrorResponse;
-			expect(body.code).toBe("VALIDATION_ERROR");
-		} finally {
-			disposeApp(app);
-		}
-	});
+	// @lore AU43: GET /queue route deleted — queue endpoint removed when
+	// getDailyDigest was convicted as demo-only trigger.
 
 	test("PATCH /config emits a config_changed audit log with secrets redacted", async ({
 		db,
 		eventBus,
 	}) => {
-		const adapter = createFakeAdapter();
 		const seen: Array<{ level: string; message: string; payload: Record<string, unknown> }> = [];
 		const captureLogger = {
 			debug: () => undefined,
@@ -402,21 +323,9 @@ describe("H2 /api/notifications routes", () => {
 			warn: () => undefined,
 			error: () => undefined,
 		};
-		// Build a new app that wires the capture logger.
-		const audit = await createTestApp({
-			db,
-			eventBus,
-			notificationAdapterFactory: () => adapter,
-		});
-		// Route factory is not swappable on createApp — the audit surfaces
-		// via the notifications.audit logger which writes to stdout. We
-		// assert the in-process logger capture through a direct
-		// createNotificationRoutes call instead.
-		disposeApp(audit);
 		const { createNotificationRoutes } = await import("../../routes/notifications-routes.js");
 		const router = createNotificationRoutes(db, {
 			deps: notificationsDeps,
-			adapterOverride: adapter,
 			logger: captureLogger,
 		});
 		const hono = new (await import("hono")).Hono();
@@ -444,45 +353,6 @@ describe("H2 /api/notifications routes", () => {
 		expect(serialized).not.toContain("tk_sneaky");
 	});
 
-	test("POST /digest runs the digest and marks rows sent", async ({ db, eventBus }) => {
-		const adapter = createFakeAdapter();
-		const app = await createTestApp({ db, eventBus, notificationAdapterFactory: () => adapter });
-		try {
-			// Configure + seed.
-			await app.request("/api/notifications/config", {
-				method: "PATCH",
-				headers: headers(),
-				body: JSON.stringify({ enabled: true, primaryChannel: "console" }),
-			});
-			const now = "2026-04-18T00:00:00.000Z";
-			await enqueue(db, {
-				id: "q-d-1",
-				eventType: "item_created",
-				subjectId: "x",
-				severity: "digest",
-				title: "Digest one",
-				body: "body",
-				reason: "digest",
-				channel: "console",
-				status: "pending",
-				attempts: 0,
-				createdAt: now,
-			});
-
-			const res = await app.request("/api/notifications/digest", {
-				method: "POST",
-				headers: headers(),
-				body: JSON.stringify({}),
-			});
-			expect(res.status).toBe(200);
-			const result = (await res.json()) as { status: string; notificationsIncluded: number };
-			expect(result.status).toBe("sent");
-			expect(result.notificationsIncluded).toBe(1);
-			expect(adapter.calls).toHaveLength(1);
-			const rows = await listNotifications(db, { kind: "all" });
-			expect(rows[0]!.status).toBe("sent");
-		} finally {
-			disposeApp(app);
-		}
-	});
+	// @lore AU43: POST /digest route deleted — digest endpoint removed when
+	// getDailyDigest was convicted as demo-only trigger.
 });

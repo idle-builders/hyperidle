@@ -19,9 +19,8 @@ export function registerPolicy(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	deps: PolicyDeps,
-	options?: { nowFn?: () => Date },
 ): () => void {
-	const unsubEngine = registerPolicyEngine(db, eventBus, deps, options);
+	const unsubEngine = registerPolicyEngine(db, eventBus, deps);
 	const unsubLifecycle = registerLifecyclePropagation(db, eventBus, deps);
 	return () => {
 		unsubEngine();

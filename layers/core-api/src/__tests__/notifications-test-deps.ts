@@ -24,9 +24,7 @@ import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/crede
 import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
 import type { WriteExecutor } from "@hyperidle/db";
 import type { NotificationsDeps } from "@hyperidle/notifications";
-import { getTeamMembers } from "@hyperidle/org";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 
 export const notificationsDeps: NotificationsDeps = {
@@ -51,11 +49,7 @@ export const notificationsDeps: NotificationsDeps = {
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 	work: {
-		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
-			work.list(exec, "item", { queued: true, createdSince: cutoff }),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 	},
 };

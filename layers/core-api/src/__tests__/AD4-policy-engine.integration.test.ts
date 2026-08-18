@@ -42,26 +42,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/domain-model";
-import { isSilenced } from "@hyperidle/notifications";
-import { getTeamMembers } from "@hyperidle/org";
 import { computeApprovalRate, type PolicyDeps, registerPolicy } from "@hyperidle/policy";
-import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
-
-/**
- * @lore AU19 Increment 2a: `registerPolicyEngine` now takes injected
- * `work`/`conversation`/`notifications` ports (Mechanism C — `policy` never
- * imports another Service). This test builds the exact same production
- * wiring `server-factory.ts` uses — no behavior change.
- */
-const silenceDeps = {
-	serverConfig: { read: readServerConfig, update: updateServerConfig },
-	users: { getUserById: (db: HyperIdleDb, id: string) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db: HyperIdleDb, id: string) => getTeamMembers(db, { id }) },
-};
 
 const policyEngineDeps: PolicyDeps = {
 	work: {
@@ -100,9 +84,6 @@ const policyEngineDeps: PolicyDeps = {
 	users: {
 		// lifecycle stub (never called in engine tests):
 		getFirstUserByKind: () => Promise.resolve(undefined),
-	},
-	silence: {
-		isSilenced: (db, item, now) => isSilenced(db, item, now, silenceDeps),
 	},
 	notifications: { insert: () => Promise.resolve() },
 };
@@ -509,35 +490,6 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	});
 
 	// =========================================================================
-	// TC8: Silence mode still queues (unchanged behavior)
-	// =========================================================================
-
-	test("TC8: silence mode + non-blocking item → queue (regardless of approval rate)", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedBase(db);
-		await updateServerConfig(db, { notifications: { silence: { mode: true } } });
-
-		// Even high-trust agent — silenced non-blocking items are queued
-		await seedVerdicts(db, 10, "approve");
-
-		const notifications: NotificationEvent[] = [];
-		eventBus.on("notification", (e) => notifications.push(e));
-		unsubscribe = registerPolicy(db, eventBus, policyEngineDeps);
-		const itemId = await createItem(db, eventBus, { riskTier: "low", blocking: false });
-		emitItemCreated(eventBus, itemId);
-
-		await vi.waitFor(async () => {
-			const [currentItem] = await db.select().from(items).where(eq(items.id, itemId)).limit(1);
-			expect(currentItem?.auditTrail).toContain("policy_queued");
-		});
-
-		await new Promise((r) => setTimeout(r, 100));
-		expect(notifications).toHaveLength(0);
-	});
-
-	// =========================================================================
 	// TC9: Custom thresholds from factory settings — RETIRED (AU18)
 	// =========================================================================
 	// @lore AU18: trust threshold settability via `factory_settings` is
@@ -547,5 +499,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 	// policy-engine.ts now always return their hardcoded defaults, so TC9a/b's
 	// "custom threshold" premise no longer applies — dropped per the plan's
 	// explicit "defaults-only, boring tech" decision for this namespace.
-	// Default-threshold policy behavior remains covered by TC1-TC8 above.
+	// Default-threshold policy behavior remains covered by TC1-TC7 above.
+	// @lore AU43: TC8 (silence mode queues) removed — silence config has no
+	// writer; silence branch was constant-false in all real installs.
 });

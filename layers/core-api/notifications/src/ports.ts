@@ -16,16 +16,14 @@
  * `@hyperidle/db`/framework packages.
  *
  * @lore AU19 Increment 1h — CLOSED: `connections` migrated this Increment.
+ *
+ * @lore AU43: users + teams removed (only consumed by isSilenced, now deleted).
+ * NotificationsSilenceConfig and silence-related fields removed from config
+ * section. listQueuedItemsSince removed from work (only consumed by
+ * getDailyDigest, now deleted).
  */
 
-import type {
-	HyperIdleDb,
-	Item,
-	ServerCredential,
-	TeamMember,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
+import type { HyperIdleDb, Item, ServerCredential, WriteExecutor } from "@hyperidle/db";
 import type { NotificationChannel } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -51,23 +49,14 @@ interface NotificationsDeliveryConfig {
 	digestCron: string;
 }
 
-interface NotificationsSilenceConfig {
-	mode: boolean;
-	silencedTeamIds: string[];
-	windowStart: string | null;
-	windowEnd: string | null;
-}
-
 interface NotificationsConfigSection {
 	delivery: NotificationsDeliveryConfig;
 	mutedTypes: string[];
-	silence: NotificationsSilenceConfig;
 }
 
 interface NotificationsConfigPatch {
 	delivery?: Partial<NotificationsDeliveryConfig>;
 	mutedTypes?: string[];
-	silence?: Partial<NotificationsSilenceConfig>;
 }
 
 interface NotificationsServerConfigPort {
@@ -75,16 +64,7 @@ interface NotificationsServerConfigPort {
 	update(db: HyperIdleDb, patch: { notifications: NotificationsConfigPatch }): Promise<unknown>;
 }
 
-interface NotificationsUserReader {
-	getUserById(db: HyperIdleDb, id: string): Promise<User | undefined>;
-}
-
-interface NotificationsTeamReader {
-	getTeamMembersById(db: HyperIdleDb, id: string): Promise<TeamMember | undefined>;
-}
-
 interface NotificationsWorkReader {
-	listQueuedItemsSince(exec: WriteExecutor, cutoff: string): Promise<Item[]>;
 	getItemById(exec: WriteExecutor, id: string): Promise<Item | undefined>;
 }
 
@@ -115,18 +95,13 @@ interface NotificationsCredentialStore {
 /**
  * @lore AU20 Ag6b: collapsed deps bag — replaces 15 individual port interfaces
  * + 4 sub-bags as the SINGLE public surface for `installNotifications`,
- * `deliver`, `readConfig`, `updateConfig`, `readPreferences`, `updatePreferences`,
- * and `getDailyDigest`. Callers build one `NotificationsDeps` at the composition
- * root; individual ports are module-private above.
- *
- * The `work` field satisfies both `dispatcher.ts` and `notification-listener.ts`
- * (both need `getItemById`) and `daily-digest.ts` (which needs `listQueuedItemsSince`).
+ * `deliver`, `readConfig`, `updateConfig`, `readPreferences`, `updatePreferences`.
+ * Callers build one `NotificationsDeps` at the composition root; individual
+ * ports are module-private above.
  */
 export interface NotificationsDeps {
 	serverConfig: NotificationsServerConfigPort;
 	credentialCipher: NotificationsCredentialCipher;
 	credentialStore: NotificationsCredentialStore;
-	users: NotificationsUserReader;
-	teams: NotificationsTeamReader;
 	work: NotificationsWorkReader;
 }

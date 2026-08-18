@@ -14,8 +14,6 @@ import {
 	enqueue,
 	installNotifications,
 	listNotifications,
-	type Notification,
-	type NotificationAdapter,
 	updateConfig,
 } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, vi } from "vitest";
@@ -26,17 +24,17 @@ import { notificationsDeps } from "../notifications-test-deps.js";
 
 interface AdapterCall {
 	recipient: { channelId: string; label?: string };
-	notification: Notification;
+	notification: { severity: string };
 }
 
-function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
+function createFakeAdapter() {
 	const calls: AdapterCall[] = [];
 	return {
-		name: "console",
+		name: "console" as const,
 		calls,
-		async send(recipient, notification) {
+		async send(recipient: { channelId: string; label?: string }, notification: { severity: string }) {
 			calls.push({ recipient, notification });
-			return { ok: true, channel: "console", sentAt: new Date().toISOString() };
+			return { ok: true as const, channel: "console" as const, sentAt: new Date().toISOString() };
 		},
 	};
 }

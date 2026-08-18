@@ -7,8 +7,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { createRateLimiter } from "@hyperidle/http-middleware";
-import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
-import { getTeamMembers } from "@hyperidle/org";
+import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -80,25 +79,8 @@ interface AppOptions {
 		readAlertPreferences?: () => Promise<{
 			readonly blockerAlerts: boolean;
 			readonly reviewAlerts: boolean;
-			readonly quietHoursEnabled: boolean;
-			readonly quietHoursStart: string;
-			readonly quietHoursEnd: string;
 		}>;
 	}) => Array<() => void>;
-	/**
-	 * Optional override for the notification adapter used by the HTTP
-	 * `/notifications/test`, `/notifications/flush`, and
-	 * `/notifications/digest` routes. Tests inject a FakeAdapter that
-	 * records every send.
-	 *
-	 * NOTE: This does NOT affect the app-level notification dispatcher. This
-	 * option is purely for the HTTP route layer.
-	 *
-	 * @lore AU20 Ag6b: factory signature simplified to `() => NotificationAdapter`
-	 * (no config arg) since the route layer delegates all config-reading to the
-	 * internal `sendTest`/`flush`/`runDigest` wrappers.
-	 */
-	notificationAdapterFactory?: () => NotificationAdapter;
 	/**
 	 * Optional override for the observability adapter (H3). Tests inject
 	 * a FakeAdapter whose `record` captures every event. When omitted
@@ -240,11 +222,7 @@ const notificationsDeps: NotificationsDeps = {
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 	work: {
-		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
-			work.list(exec, "item", { queued: true, createdSince: cutoff }),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 	},
 };
@@ -443,16 +421,9 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/search", createSearchRoutes(options.db, eventBus));
-		// Tests may override via notificationAdapterFactory for route-level adapter injection.
-		// @lore AU20 Ag6b: adapterFactory option replaced with adapterOverride (no config arg).
 		api.route(
 			"/notifications",
-			createNotificationRoutes(options.db, {
-				deps: notificationsDeps,
-				adapterOverride: options.notificationAdapterFactory
-					? options.notificationAdapterFactory()
-					: undefined,
-			}),
+			createNotificationRoutes(options.db, { deps: notificationsDeps }),
 		);
 
 		// Observability runtime. `startObservability` wires the adapter,
