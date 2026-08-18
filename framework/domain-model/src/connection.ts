@@ -50,11 +50,6 @@ export interface ServiceConnectionView {
 	removable: boolean;
 }
 
-/** Runtime type guard for the closed auth-source set. */
-export function isConnectionAuthSource(v: string): v is ConnectionAuthSource {
-	return (CONNECTION_AUTH_SOURCES as readonly string[]).includes(v);
-}
-
 /**
  * AU36 — one inherited-reach fact: a service the machine already holds auth
  * for, found by a connections-domain probe (harness MCP configs, logged-in
@@ -83,7 +78,3 @@ export interface InheritedConnectionFact {
 	readonly health: ConnectionHealth | "unknown";
 }
 
-/** Runtime type guard for the held (creatable) auth-source subset. */
-export function isHeldAuthSource(v: string): v is HeldAuthSource {
-	return (HELD_AUTH_SOURCES as readonly string[]).includes(v);
-}

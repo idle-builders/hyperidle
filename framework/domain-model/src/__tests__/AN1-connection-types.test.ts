@@ -18,10 +18,17 @@ import {
 	type ConnectionAuthSource,
 	type ConnectionHealth,
 	HELD_AUTH_SOURCES,
-	isConnectionAuthSource,
-	isHeldAuthSource,
 	type ServiceConnectionView,
 } from "../connection.js";
+
+// Guards inlined — isConnectionAuthSource / isHeldAuthSource removed from domain-model
+// (TEST-ONLY callers; each guard is a trivial array lookup).
+function isConnectionAuthSource(v: string): v is ConnectionAuthSource {
+	return (CONNECTION_AUTH_SOURCES as readonly string[]).includes(v);
+}
+function isHeldAuthSource(v: string): boolean {
+	return (HELD_AUTH_SOURCES as readonly string[]).includes(v);
+}
 
 describe("AN1 — Connection shared types", () => {
 	// AC8: closed auth-source set

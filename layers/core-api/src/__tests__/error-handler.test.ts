@@ -1,8 +1,14 @@
-import {
-	CapacityExceededError,
-	InvalidTransitionError,
-	VersionConflictError,
-} from "@hyperidle/domain-model";
+import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/domain-model";
+
+// VersionConflictError was removed from domain-model (never instantiated in production;
+// the error-handler detects it via err.name, not instanceof). Inlined here to keep
+// the test valid: the handler's name-based branch still fires for this class.
+class VersionConflictError extends Error {
+	constructor(_id: string, _expected: number, _actual: number) {
+		super(`Version conflict for ${_id}: expected ${_expected}, got ${_actual}`);
+		this.name = "VersionConflictError";
+	}
+}
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { errorHandler } from "../middleware/error-handler.js";

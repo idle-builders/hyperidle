@@ -71,15 +71,6 @@ export interface ArtifactQuery {
 	readonly sort?: "created_at_desc";
 }
 
-export interface CreateArtifactInput {
-	readonly producingTaskId: string;
-	/** Constrained to the 6 registered kinds at create time (open for reads). */
-	readonly kind: string;
-	/** Optional business-domain tag (e.g., 'contract', 'email'). */
-	readonly label?: string | null;
-	readonly preview: ArtifactPreview | null;
-}
-
 /**
  * Single-line summary of a preview. Delegates to the Kind Definition registry.
  * Returns null when the artifact has no preview or the kind is unregistered with no useful data.

@@ -10,12 +10,15 @@
 import { derivePayloads } from "@hyperidle/block-derivation";
 import type { BlockPayload, InlineRef, MentionSegment, Message } from "@hyperidle/domain-model";
 import {
-	exhaustiveAssert,
 	isRedactedPayload,
 	segmentMentions,
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "@hyperidle/domain-model";
+
+function exhaustiveAssert(value: never): never {
+	throw new Error(`Unhandled message type: ${String(value)}`);
+}
 import { clockTime, TIME_PLACEHOLDER } from "@hyperidle/presentation-format";
 import type { JSX, ReactNode } from "react";
 import { useMemo } from "react";

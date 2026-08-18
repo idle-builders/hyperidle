@@ -10,11 +10,26 @@
 
 import { describe, expect, it } from "vitest";
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry } from "../agent-roles.js";
-import {
-	classifyThreadConfiguration,
-	type ThreadConfiguration,
-	type ToolCallSummary,
-} from "../thread.js";
+import { type ToolCallSummary } from "../thread.js";
+
+// ThreadConfiguration classifier inlined (classifyThreadConfiguration removed from domain-model —
+// it was a documentation-only helper with zero prod callers; tests inline the logic directly).
+type ThreadConfiguration = "dm" | "assistant" | "feed" | "attached";
+function classifyThreadConfiguration(thread: {
+	hostKind: string;
+	pinned: boolean;
+	participants: string[];
+}): ThreadConfiguration {
+	if (thread.hostKind === "user" && thread.pinned) return "assistant";
+	if (thread.hostKind === "team" || thread.hostKind === "factory") return "feed";
+	if (
+		(thread.hostKind === "agent" || thread.hostKind === "user") &&
+		thread.participants.length === 2
+	) {
+		return "dm";
+	}
+	return "attached";
+}
 
 // ---------------------------------------------------------------------------
 // AC-11: Role catalog — "assistant" replaces "chief_of_staff"

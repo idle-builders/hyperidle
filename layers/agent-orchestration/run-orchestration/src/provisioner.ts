@@ -14,7 +14,6 @@ import {
 	type ResolvedModel,
 	type SessionOutcome,
 	TargetAgentNotRunnableError,
-	type UserRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { Filesystem } from "@hyperidle/filesystem-contract";
@@ -310,13 +309,13 @@ interface SessionLifecycleToolProvider {
 	buildToolRegistry(
 		ctx: SessionLifecycleToolContext,
 		options: {
-			readonly role: UserRole;
+			readonly role: string;
 			readonly extraTools?: readonly unknown[];
 			readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
 			readonly useOnlyExtraTools?: boolean;
 		},
 	): SessionLifecycleToolRegistry;
-	toolsForRole(role: UserRole): readonly { readonly name: string; readonly description: string }[];
+	toolsForRole(role: string): readonly { readonly name: string; readonly description: string }[];
 	/** `returnStatusTool.forRegistry(enforcementRegistry)` — opaque `RegisteredTool`, never inspected here. */
 	returnStatusToolForRegistry(registry: SessionLifecycleEnforcementRegistry): unknown;
 }
@@ -373,7 +372,7 @@ interface SessionLifecycleContextAssembly {
 		readonly sessionId: string;
 		readonly taskId: string | null;
 		readonly agentId: string;
-		readonly agentRole: UserRole;
+		readonly agentRole: string;
 		readonly teamId: string | null;
 		readonly isRoutine: boolean;
 		readonly sourceKind: AgentSessionSourceKind | null;

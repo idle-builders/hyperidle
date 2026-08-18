@@ -35,7 +35,11 @@ import type {
 	Message,
 	VerdictPayload,
 } from "@hyperidle/domain-model";
-import { exhaustiveAssert, isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
+import { isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
+
+function exhaustiveAssert(value: never): never {
+	throw new Error(`Unhandled: ${String(value)}`);
+}
 
 // ── Part discriminant (closed, derived, never stored) ───────────────
 

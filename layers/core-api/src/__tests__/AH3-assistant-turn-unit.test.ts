@@ -11,7 +11,16 @@
 
 // These imports fail until the green phase creates them:
 // ASSISTANT_TURN_TIMEOUT_MS lives in @hyperidle/domain-model (shared client/server boundary per §1.7)
-import { ASSISTANT_TURN_TIMEOUT_MS, ProviderTimeoutError } from "@hyperidle/domain-model";
+import { ASSISTANT_TURN_TIMEOUT_MS } from "@hyperidle/domain-model";
+
+// ProviderTimeoutError was removed from domain-model (TEST-ONLY; zero production callers).
+// Inlined here so these unit tests remain valid proofs of error-class shape.
+class ProviderTimeoutError extends Error {
+	constructor() {
+		super("Provider timed out");
+		this.name = "ProviderTimeoutError";
+	}
+}
 import { describe, expect, test } from "vitest";
 
 describe("AH3: ASSISTANT_TURN_TIMEOUT_MS constant", () => {

@@ -8,17 +8,6 @@ export class InvalidTransitionError extends Error {
 	}
 }
 
-export class VersionConflictError extends Error {
-	constructor(
-		public readonly entityId: string,
-		public readonly expected: number,
-		public readonly actual: number,
-	) {
-		super(`Version conflict for '${entityId}': expected ${expected}, got ${actual}`);
-		this.name = "VersionConflictError";
-	}
-}
-
 export class CapacityExceededError extends Error {
 	constructor(
 		public readonly teamId: string,
@@ -65,16 +54,6 @@ export class TargetAgentNotRunnableError extends Error {
 	}
 }
 
-export class ActiveRoutinesError extends Error {
-	constructor(
-		public readonly agentId: string,
-		public readonly count: number,
-	) {
-		super(`Agent '${agentId}' has ${count} active routines`);
-		this.name = "ActiveRoutinesError";
-	}
-}
-
 /**
  * AH2: Thrown by session provisioning when no registered adapter matches the
  * agent's harnessType. The agent's harness must be registered in the adapter
@@ -91,22 +70,6 @@ export class NoEligibleHarnessError extends Error {
 				`Check Settings → Agents or ensure the harness is registered at startup.`,
 		);
 		this.name = "NoEligibleHarnessError";
-	}
-}
-
-/**
- * AH3: Thrown when a provider hangs and never emits a completion or error event
- * within ASSISTANT_TURN_TIMEOUT_MS. Maps explicitly to the `provider_error` notice
- * class — NOT the default unmapped branch — so it does not trip console.error.
- *
- * @lore AH3: A hung provider (no throw, no completion) must be bounded by a wall-clock
- * timeout so the "never silent" guarantee holds even when the provider connection stalls.
- * This error travels through persistTurnFailure just like any other provider error.
- */
-export class ProviderTimeoutError extends Error {
-	constructor() {
-		super("Provider did not respond within the turn timeout window.");
-		this.name = "ProviderTimeoutError";
 	}
 }
 
@@ -147,27 +110,3 @@ export class HttpError extends Error {
 	}
 }
 
-/**
- * Thrown by the LLM cassette replay lane when the cassette file has no entry
- * for the request key. Fail-closed: a missing cassette must FAIL the lane,
- * never silently fall through to a network call.
- *
- * @lore AU19 Increment 3h: reclassified from `packages/server/src/harness/
- * llm-cassette.ts` to `@hyperidle/domain-model` — same reason as `HttpError` above
- * (`dispatch`'s `mapErrorToNotice` needs `instanceof` across the
- * agent-orchestration → agent-execution seam).
- */
-export class CassetteMissError extends Error {
-	public readonly missingKey: string;
-	public readonly cassettePath: string;
-
-	constructor(missingKey: string, cassettePath: string) {
-		super(
-			`Cassette miss: no recorded response for key ${missingKey.slice(0, 8)}… ` +
-				`in ${cassettePath}. Re-record with LLM_CASSETTE_MODE=record.`,
-		);
-		this.name = "CassetteMissError";
-		this.missingKey = missingKey;
-		this.cassettePath = cassettePath;
-	}
-}

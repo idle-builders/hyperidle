@@ -5,7 +5,6 @@ import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	communityForRole,
-	type UserRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { encodeTyped } from "@hyperidle/toon-codec";
@@ -679,7 +678,7 @@ interface AssembleAgentContextInput {
 	readonly sessionId: string;
 	readonly taskId: string | null;
 	readonly agentId: string;
-	readonly agentRole: UserRole;
+	readonly agentRole: string;
 	readonly teamId: string | null;
 	readonly isRoutine: boolean;
 	readonly sourceKind: AgentSessionSourceKind | null;

@@ -11,13 +11,16 @@
 
 import { describe, expect, it } from "vitest";
 import {
-	exhaustiveAssert,
 	HOST_KINDS,
 	MESSAGE_TYPES,
 	type Message,
 	type MessageType,
 	VERDICT_DECISIONS,
 } from "../thread.js";
+
+function exhaustiveAssert(value: never): never {
+	throw new Error(`Unhandled message type: ${String(value)}`);
+}
 
 function describeMessage(m: Message): string {
 	switch (m.type) {
