@@ -21,7 +21,6 @@ import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
 	type ConversationMessage,
 	type HarnessEvent,
-	isInternalExtractionDrain,
 	isReturnAction,
 	literalToolNamerForAdapterType,
 	MAX_FORCE_RETURNS,
@@ -1465,9 +1464,7 @@ async function runSession(
 	// real gate exists.
 	// The assistant is not exempt from return enforcement — it must call
 	// `reply` like every other required-return session.
-	const exempt = isInternalExtractionDrain({
-		tools: ports.toolProvider.toolsForRole(agentRole).map((d) => d.name),
-	});
+	const exempt = ports.toolProvider.toolsForRole(agentRole).length === 0;
 	ports.harnessRuntime.enforcementRegistry.register(sessionId, {
 		gate: returnGate,
 		forceCount: 0,

@@ -1,2 +1,2 @@
-check exit: 0
-lint exit: 0
+check: 0
+lint: 0

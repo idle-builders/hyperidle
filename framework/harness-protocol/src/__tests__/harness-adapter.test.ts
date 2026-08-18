@@ -159,18 +159,17 @@ describe("HarnessAdapter interface (D1)", () => {
 	});
 
 	describe("HarnessEvent discriminated union", () => {
-		it("covers all five event types (no cost_update — harness telemetry is token-usage only)", () => {
+		it("covers exactly four event types (cost_update + pre_compaction both narrowed out)", () => {
 			const events: HarnessEvent[] = [
 				{ type: "token_usage", inputTokens: 10, outputTokens: 5 },
 				{ type: "tool_call", toolName: "test", args: {} },
 				{ type: "completion", text: "done" },
 				{ type: "error", message: "fail", code: "ERR" },
-				{ type: "pre_compaction", contextTokens: 90000, maxTokens: 100000 },
 			];
 
-			expect(events).toHaveLength(5);
+			expect(events).toHaveLength(4);
 			const types = events.map((e) => e.type);
-			expect(types).toEqual(["token_usage", "tool_call", "completion", "error", "pre_compaction"]);
+			expect(types).toEqual(["token_usage", "tool_call", "completion", "error"]);
 		});
 	});
 });

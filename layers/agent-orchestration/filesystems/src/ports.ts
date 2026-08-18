@@ -31,10 +31,6 @@ interface FilesystemsGitRunner {
 
 export type FilesystemsGitRunnerFactory = (cwd: string) => FilesystemsGitRunner;
 
-export interface FilesystemsServiceConnectionResolver {
-	resolve(userId: string, connectionId: string): Promise<string | null>;
-}
-
 /** The live auth token hook used by the reachability probe.
  *  Replaces the deleted FilesystemAuthResolver seam — only resolveToken was ever called. */
 export interface FilesystemTokenResolver {

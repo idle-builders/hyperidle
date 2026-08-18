@@ -13,7 +13,6 @@ describe("AM2 real harness discovery", () => {
 			expect(["ready", "unauthenticated", "installed"]).toContain(result.codex.state);
 			if (result.codex.state === "ready") {
 				expect(result.codex.authAction?.kind).toBe("native_cli_login");
-				expect(result.codex.runtime?.fileEditing).toBe(true);
 			}
 		});
 	});

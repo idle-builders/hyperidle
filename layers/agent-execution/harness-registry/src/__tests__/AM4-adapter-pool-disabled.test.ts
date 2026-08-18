@@ -254,14 +254,11 @@ describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 		const pool = new AdapterPool();
 		await pool.refresh();
 
-		// After refresh, list descriptors — claude-code must not show runtime caps as true
-		// The critical assertion is on the known-missing path:
+		// After refresh, list descriptors — claude-code must appear in the known-missing path
 		const allDescriptors = pool.describe();
 		const claudeCode = allDescriptors.find((d) => d.type === "claude-code");
 		if (claudeCode) {
-			// Without sessionProbe.ok, caps must be false (WARNING 4)
-			expect(claudeCode.runtime.fileEditing).toBe(false);
-			expect(claudeCode.runtime.toolUse).toBe(false);
+			expect(claudeCode.discovery.state).toBeDefined();
 		}
 
 		vi.restoreAllMocks();

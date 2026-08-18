@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import type { FilesystemRow } from "@hyperidle/db";
 import type { FilesystemState } from "@hyperidle/filesystem-contract";
 import type { FilesystemsGitRunnerFactory, FilesystemTokenResolver } from "./ports.js";
 
@@ -59,20 +60,8 @@ function parseUrlHost(url: string): string | null {
 	}
 }
 
-export interface FilesystemReachabilityInput {
-	id: string;
-	teamId: string;
-	source: string;
-	kind: string;
-	connectionId: string | null;
-	resourceRef: string;
-	writeback: string;
-	state: string;
-	createdAt: string;
-}
-
 export async function resolveFilesystemState(
-	row: FilesystemReachabilityInput,
+	row: FilesystemRow,
 	deps: { authResolver: FilesystemTokenResolver; gitRunnerFactory: FilesystemsGitRunnerFactory },
 	opts?: { timeoutMs?: number },
 ): Promise<FilesystemState> {
@@ -110,7 +99,7 @@ export async function resolveFilesystemState(
 	return "needs_attention";
 }
 
-function extractLocalPath(row: FilesystemReachabilityInput): string | null {
+function extractLocalPath(row: FilesystemRow): string | null {
 	const ref = parseResourceRef(row.resourceRef);
 	if (ref == null) return null;
 	if (ref.kind === "code") {

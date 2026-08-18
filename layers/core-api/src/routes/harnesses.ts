@@ -38,11 +38,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ModelGatewayConfig } from "@hyperidle/domain-model";
 import { credentialNameForProvider } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import {
-	type HarnessCapabilityReader,
-	harnessCapabilityDescriptors,
-	refreshHarnessDiscoveries,
-} from "@hyperidle/harness-protocol";
+import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { createRateLimiter, requireBoundary } from "@hyperidle/http-middleware";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
@@ -134,7 +130,7 @@ export function createHarnessRoutes(
 	// GET / — list all known harness descriptors with discovery.disabled stamped
 	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
 		const { harnessDisabled, modelGateway } = await readServerConfig(db);
-		const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
+		const raw: HarnessCapabilityDescriptor[] = pool.describe();
 		const entries = await stampBuiltinCredential(
 			stampDisabled(raw, harnessDisabled),
 			db,
@@ -153,14 +149,10 @@ export function createHarnessRoutes(
 		redetectRateLimiter,
 		async (c) => {
 			// AU36 D5: the reach re-probe rides the SAME bounded moment — awaited
-			// alongside the discovery refresh BEFORE responding, identical
-			// observable effect to the pre-AU36 wiring. `onHarnessRedetect`
-			// cannot reject in practice (refresh never rejects); a future wiring
-			// error that DID reject 500s — the same failure mode a
-			// `refreshHarnessDiscoveries` rejection has today.
-			await Promise.all([refreshHarnessDiscoveries(pool), onHarnessRedetect?.()]);
+			// alongside the discovery refresh BEFORE responding.
+			await Promise.all([pool.refresh(), onHarnessRedetect?.()]);
 			const { harnessDisabled, modelGateway } = await readServerConfig(db);
-			const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
+			const raw: HarnessCapabilityDescriptor[] = pool.describe();
 			const entries = await stampBuiltinCredential(
 				stampDisabled(raw, harnessDisabled),
 				db,

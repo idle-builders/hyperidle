@@ -33,27 +33,15 @@ import { validateAgentConfig } from "../validate-agent-config.js";
 function makeDescriptor(
 	harnessType: string,
 	metaProviders: readonly string[],
-	capabilitiesProviders: readonly string[],
+	_capabilitiesProviders: readonly string[],
 ): HarnessCapabilityDescriptor {
 	return {
 		type: harnessType,
 		name: harnessType,
 		kind: "local",
-		accessMode: "provider-subscription-cli",
 		authAction: { kind: "native_cli_login", label: "Log in" },
 		discovery: { state: "ready" },
 		models: [],
-		runtime: {
-			// The LIVE capability list — deliberately allowed to diverge from
-			// `modelProviders` below, which is the REGISTRATION list. That
-			// divergence is the whole POLISH-060 root cause.
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: false,
-			modelProviders: capabilitiesProviders,
-			fileEditing: false,
-			toolUse: false,
-		},
 		returnEnforcement: "none",
 		modelProviders: metaProviders,
 	};

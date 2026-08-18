@@ -2,7 +2,6 @@
 
 import type { ModelTier, ResolvedModel, Reversibility, TokenUsage } from "@hyperidle/domain-model";
 import type {
-	HarnessAccessMode,
 	HarnessAuthActionDescriptor,
 	HarnessDiscoveryStatus,
 	HarnessModelDescriptor,
@@ -236,7 +235,6 @@ export interface HarnessCapabilities {
 	 */
 	readonly returnEnforcement: ReturnEnforcementChannel;
 	readonly descriptorModels?: readonly HarnessModelDescriptor[];
-	readonly accessMode?: HarnessAccessMode;
 	readonly authAction?: HarnessAuthActionDescriptor;
 	readonly discovery?: HarnessDiscoveryStatus;
 	readonly fileEditing?: boolean;

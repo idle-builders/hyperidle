@@ -34,10 +34,7 @@ export type ReturnEnforcementChannel =
 	| "soft-continue"
 	| "none";
 
-export const HARNESS_OPTION_CONTROL_KINDS = ["select", "boolean", "number", "text"] as const;
-export type HarnessOptionControlKind = (typeof HARNESS_OPTION_CONTROL_KINDS)[number];
-
-export type HarnessAccessMode = "api-gateway" | "provider-subscription-cli" | "external-byo";
+export type HarnessOptionControlKind = "select" | "boolean" | "number" | "text";
 
 export type HarnessReadinessState =
 	| "missing"
@@ -92,15 +89,6 @@ export interface HarnessModelDescriptor {
 	readonly options: readonly HarnessModelOptionDescriptor[];
 }
 
-export interface HarnessRuntimeCapabilities {
-	readonly preCompactionTrigger: boolean;
-	readonly subAgents: boolean;
-	readonly mcpSupport: boolean;
-	readonly modelProviders: readonly string[];
-	readonly fileEditing: boolean;
-	readonly toolUse: boolean;
-}
-
 export interface HarnessDiscoveryStatus {
 	readonly state: HarnessReadinessState;
 	readonly version?: string;
@@ -125,11 +113,9 @@ export interface HarnessCapabilityDescriptor {
 	readonly type: string;
 	readonly name: string;
 	readonly kind: "local" | "remote";
-	readonly accessMode: HarnessAccessMode;
 	readonly authAction: HarnessAuthActionDescriptor;
 	readonly discovery: HarnessDiscoveryStatus;
 	readonly models: readonly HarnessModelDescriptor[];
-	readonly runtime: HarnessRuntimeCapabilities;
 	readonly returnEnforcement?: ReturnEnforcementChannel;
 	/** Legacy compatibility for existing SettingsAgents selector. */
 	readonly modelProviders: readonly string[];

@@ -32,18 +32,9 @@ function builtinDescriptor(
 		type: "builtin",
 		name: "Built-in gateway",
 		kind: "remote",
-		accessMode: "api-gateway",
 		authAction: { kind: "enter_api_key", label: "Enter API key" },
 		discovery: { state },
 		models: [],
-		runtime: {
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: false,
-			modelProviders: ["anthropic"],
-			fileEditing: false,
-			toolUse: false,
-		},
 		modelProviders: ["anthropic"],
 	};
 }
@@ -52,18 +43,9 @@ const CLAUDE_CODE_READY: HarnessCapabilityDescriptor = {
 	type: "claude-code",
 	name: "Claude Code",
 	kind: "local",
-	accessMode: "provider-subscription-cli",
 	authAction: { kind: "native_cli_login", label: "Sign in", command: ["claude", "auth", "login"] },
 	discovery: { state: "ready" },
 	models: [],
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: true,
-		toolUse: true,
-	},
 	modelProviders: [],
 };
 

@@ -25,7 +25,6 @@ describe("AM2 harness capability descriptor builders", () => {
 		const descriptor = catalog.describe(BUILTIN_META, BASE_CAPS);
 
 		expect(descriptor.type).toBe("builtin");
-		expect(descriptor.accessMode).toBe("api-gateway");
 		expect(descriptor.authAction.kind).toBe("enter_api_key");
 		expect(descriptor.models.length).toBeGreaterThan(0);
 		expect(
@@ -54,7 +53,6 @@ describe("AM2 harness capability descriptor builders", () => {
 			},
 		);
 
-		expect(descriptor.accessMode).toBe("provider-subscription-cli");
 		expect(descriptor.authAction.kind).toBe("native_cli_login");
 		expect(descriptor.discovery.state).toBe("ready");
 	});
@@ -78,7 +76,6 @@ describe("AM2 harness capability descriptor builders", () => {
 				state: "ready",
 				version: "0.141.0",
 				// No sessionProbe — so fileEditing/toolUse must NOT be true (auth status ≠ launchable)
-				runtime: { fileEditing: true, toolUse: true },
 			},
 			"cursor-agent": {
 				state: "unavailable",
@@ -95,14 +92,8 @@ describe("AM2 harness capability descriptor builders", () => {
 		expect(codex?.discovery.state).toBe("ready");
 		expect(codex?.discovery.version).toBe("0.141.0");
 
-		// AC4: without sessionProbe.ok, runtime caps stay false (auth status alone ≠ launchable)
-		expect(codex?.runtime.fileEditing).toBe(false);
-		expect(codex?.runtime.toolUse).toBe(false);
-
 		expect(cursor?.discovery.state).toBe("unavailable");
 		expect(cursor?.discovery.reason).toContain("headless CLI surface");
-		expect(cursor?.runtime.fileEditing).toBe(false);
-		expect(cursor?.runtime.toolUse).toBe(false);
 	});
 
 	it("overrides registered adapter discovery from real probe results", () => {
@@ -119,10 +110,9 @@ describe("AM2 harness capability descriptor builders", () => {
 		expect(descriptor.discovery.reason).toContain("ANTHROPIC_API_KEY");
 	});
 
-	it("AC4: auth-status-only probe (no sessionProbe) leaves fileEditing/toolUse false", () => {
+	it("AC4: auth-status-only probe (no sessionProbe) surfaces discovery state", () => {
 		// A discovery that only ran auth status (state=ready but no sessionProbe)
-		// must NOT set fileEditing/toolUse = true — auth status alone proves login,
-		// NOT launchability.
+		// must surface the discovery state correctly.
 		const discoveries: Record<string, HarnessDiscoveryInput> = {
 			codex: {
 				state: "ready",
@@ -139,14 +129,11 @@ describe("AM2 harness capability descriptor builders", () => {
 		const codex = missing.find((d) => d.type === "codex");
 		expect(codex).toBeDefined();
 		expect(codex?.discovery.state).toBe("ready");
-		// Without sessionProbe.ok, runtime caps must be conservative
-		expect(codex?.runtime.fileEditing).toBe(false);
-		expect(codex?.runtime.toolUse).toBe(false);
 	});
 
-	it("AC4: sessionProbe.ok = true enables fileEditing/toolUse true", () => {
+	it("AC4: sessionProbe.ok = true surfaces ready state with session probe details", () => {
 		// A discovery that ran a real session probe (sessionProbe.ok=true) proves
-		// launchability — caps may be set to true.
+		// launchability — surfaces the session probe in discovery.
 		const discoveries: Record<string, HarnessDiscoveryInput> = {
 			codex: {
 				state: "ready",
@@ -157,7 +144,6 @@ describe("AM2 harness capability descriptor builders", () => {
 					capturedLine: '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}',
 					eventType: "turn.completed",
 				},
-				runtime: { fileEditing: true, toolUse: true },
 			},
 		};
 
@@ -169,8 +155,5 @@ describe("AM2 harness capability descriptor builders", () => {
 		const codex = missing.find((d) => d.type === "codex");
 		expect(codex).toBeDefined();
 		expect(codex?.discovery.state).toBe("ready");
-		// With sessionProbe.ok=true and runtime set, caps are proven
-		expect(codex?.runtime.fileEditing).toBe(true);
-		expect(codex?.runtime.toolUse).toBe(true);
 	});
 });

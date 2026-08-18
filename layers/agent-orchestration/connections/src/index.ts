@@ -36,10 +36,7 @@
  */
 
 // -- Provisioning read (2) — the live, in-layer spawn-time read (AU26 E3) --
-export {
-	type HeldConnectionForProvisioning,
-	listHeldConnectionsForProvisioning,
-} from "./held-connections-for-provisioning.js";
+export { listHeldConnectionsForProvisioning } from "./held-connections-for-provisioning.js";
 // -- Inherited reach (AU36 D1) — the domain's own probe + cache --
 export {
 	createInheritedReach,
