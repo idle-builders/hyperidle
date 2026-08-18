@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { pluginConfigurationDefaults, plugins, type HyperIdleDb } from "@hyperidle/db";
+import { type HyperIdleDb, pluginConfigurationDefaults, plugins } from "@hyperidle/db";
+import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { BUILTIN_PLUGIN_ID } from "@hyperidle/domain-model";
 import { failClosedAssertion } from "@hyperidle/http-middleware";
 import { writeConfigurationOverride } from "@hyperidle/settings";
@@ -33,13 +34,43 @@ async function seedAgentBehaviorConfig(db: HyperIdleDb) {
 
 	// Insert plugins — builtin + three external plugins (growth disabled, legacy removed)
 	await db.insert(plugins).values([
-		{ id: BUILTIN_PLUGIN_ID, name: "builtin", version: "1.0.0", state: "enabled", installedAt: now, updatedAt: now },
-		{ id: "plugin.product-os", name: "Product OS", version: "1.0.0", state: "enabled", installedAt: now, updatedAt: now },
-		{ id: "plugin.growth", name: "Growth", version: "1.0.0", state: "disabled", installedAt: now, updatedAt: "2026-07-09T12:03:00Z", disabledAt: "2026-07-09T12:03:00Z" },
-		{ id: "plugin.legacy", name: "Legacy Ops", version: "0.9.0", state: "removed", installedAt: now, updatedAt: "2026-07-09T12:05:00Z", removedAt: "2026-07-09T12:05:00Z" },
+		{
+			id: BUILTIN_PLUGIN_ID,
+			name: "builtin",
+			version: "1.0.0",
+			state: "enabled",
+			installedAt: now,
+			updatedAt: now,
+		},
+		{
+			id: "plugin.product-os",
+			name: "Product OS",
+			version: "1.0.0",
+			state: "enabled",
+			installedAt: now,
+			updatedAt: now,
+		},
+		{
+			id: "plugin.growth",
+			name: "Growth",
+			version: "1.0.0",
+			state: "disabled",
+			installedAt: now,
+			updatedAt: "2026-07-09T12:03:00Z",
+			disabledAt: "2026-07-09T12:03:00Z",
+		},
+		{
+			id: "plugin.legacy",
+			name: "Legacy Ops",
+			version: "0.9.0",
+			state: "removed",
+			installedAt: now,
+			updatedAt: "2026-07-09T12:05:00Z",
+			removedAt: "2026-07-09T12:05:00Z",
+		},
 	]);
 
-	type DefaultSeed = { pluginId: string; kind: string; key: string; value: unknown };
+	type DefaultSeed = { pluginId: string; kind: ConfigurationKind; key: string; value: unknown };
 	const defaults: DefaultSeed[] = [
 		{
 			pluginId: BUILTIN_PLUGIN_ID,
