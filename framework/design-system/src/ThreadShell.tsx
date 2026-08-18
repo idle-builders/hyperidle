@@ -36,7 +36,6 @@ import { isBlocking, isRedactedPayload, promotedRichMessageId } from "@hyperidle
 import { type JSX, type ReactNode, useMemo, useRef, useState } from "react";
 import { CommentRow } from "./CommentRow.js";
 import { Composer } from "./Composer.js";
-import { dsShellProps } from "./ds-attrs.js";
 import { EmptyState } from "./EmptyState.js";
 import { ErrorState } from "./ErrorState.js";
 import { RichMessageCard, type RichMessageCardAction } from "./RichMessageCard.js";
@@ -389,7 +388,9 @@ export function ThreadShell({
 
 	return (
 		<div
-			{...dsShellProps("ThreadShell")}
+			data-ds-shell="ThreadShell"
+			data-ds-tier="3"
+			data-ds-source="web-shell"
 			data-testid="thread-shell"
 			aria-live="polite"
 			className="flex flex-col h-full bg-[var(--surface-elevated)] focus-within:outline-hidden"

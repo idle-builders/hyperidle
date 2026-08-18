@@ -2,11 +2,10 @@
 
 // ── AI4: Re-export AgentOperationalStatus type (lives in shared, needed by ds consumers) ──
 export type { AgentOperationalStatus } from "@hyperidle/domain-model";
-// ── Artifact view family (closed: 3 sub-primitives + 4 layouts; L3) ──
+// ── Artifact view family (closed: 3 sub-primitives + 3 layouts; L3) ──
 // @lore AU21 Increment 14a: ArtifactCostChip deleted along with the rest of
 // the cost feature — no replacement.
-export type { ArtifactEmbedProps } from "./ArtifactEmbed.js";
-export { ArtifactEmbed } from "./ArtifactEmbed.js";
+// @lore AU43 bundle-03: ArtifactEmbed deleted — only door was /_dev/artifacts (DEV-ONLY).
 export type { ArtifactFrameProps } from "./ArtifactFrame.js";
 export { ArtifactFrame } from "./ArtifactFrame.js";
 export type { ArtifactGalleryCardProps } from "./ArtifactGalleryCard.js";
@@ -76,18 +75,20 @@ export type { ComposerProps, ComposerSubmitInput } from "./Composer.js";
 export { Composer } from "./Composer.js";
 // ── Support ──
 export { clickableProps } from "./clickable.js";
-// ── AI2: Dialog primitive + behavioral hook + portal root ──
+// ── AI2: Dialog primitive + behavioral hook ──
+// @lore AU43 bundle-03: DialogPortalRoot deleted — zero mounts; AppShell calls ensureOverlayRoot directly.
 export type { DialogLayer, DialogProps, DialogSize } from "./Dialog.js";
 export { Dialog } from "./Dialog.js";
-export { DialogPortalRoot } from "./DialogPortalRoot.js";
-// ── AM5: DS diff core — (code,diff) structural renderer + selector (K2b) ──
+// ── AM5: DS diff core — (code,diff) structural renderer (K2b) ──
+// @lore AU43 bundle-03: getDiffRenderer/DiffRendererComponent/DiffRendererProps deleted —
+// ReviewCodeDiff imports CodeDeltaRenderer directly; the registry had one entry and zero callers.
 export type { CodeDelta, CodeDeltaProps, DiffLineRef } from "./diff/code-delta-renderer.js";
 export { CodeDeltaRenderer } from "./diff/code-delta-renderer.js";
-export type { DiffRendererComponent, DiffRendererProps } from "./diff/select-diff.js";
-export { getDiffRenderer } from "./diff/select-diff.js";
 // ── DOM markers (K2) ──
-export type { DsAttrs, DsShellAttrs, DsSource, DsTier } from "./ds-attrs.js";
-export { dsProps, dsShellProps } from "./ds-attrs.js";
+// @lore AU43 bundle-03: DsShellAttrs/DsTier/DsSource/dsShellProps deleted — only consumer was
+// ThreadShell (now inlined) + SidebarV2.stories; tier taxonomy is compile-time only.
+export type { DsAttrs } from "./ds-attrs.js";
+export { dsProps } from "./ds-attrs.js";
 export type { EmptyStateProps } from "./EmptyState.js";
 // ── Utility Components ──
 export { EmptyState } from "./EmptyState.js";
@@ -205,21 +206,13 @@ export type {
 	ThreadShellProps,
 } from "./ThreadShell.js";
 export { computeSenderGrouping, ThreadShell } from "./ThreadShell.js";
-export type { ToastProps } from "./Toast.js";
-export { Toast } from "./Toast.js";
+// @lore AU43 bundle-03: Toast deleted — zero renders; core-ui ToastRegion is the real system.
 export type { ToggleProps } from "./Toggle.js";
 export { Toggle } from "./Toggle.js";
 export type { TagKind, TagKindMeta } from "./tag-kinds.js";
 export { TAG_KIND_ICONS } from "./tag-kinds.js";
-export type { BorderWidthProfile, MotionProfile, TypographyRole } from "./token-profiles.js";
-export {
-	AVATAR_INITIAL_STYLE,
-	BORDER_WIDTH_PROFILES,
-	BORDER_WIDTH_STYLE,
-	MOTION_PROFILES,
-	MOTION_STYLE,
-	TYPE_STYLE,
-	TYPOGRAPHY_ROLES,
-} from "./token-profiles.js";
+// @lore AU43 bundle-03: token-profiles.ts deleted — entire file was a JS mirror of tokens.css
+// that nothing imported at runtime; components use type-<role> CSS classes directly.
+// Census has its own copy; lint enforces profiles via regex, not these consts.
 export type { UseDialogBehavior, UseDialogBehaviorOptions } from "./useDialogBehavior.js";
 export { ensureOverlayRoot, useDialogBehavior } from "./useDialogBehavior.js";
