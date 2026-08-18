@@ -169,7 +169,7 @@ export async function transitionTask(
 	if (!transitioned) return;
 
 	if (pendingDispatch) {
-		await deps.workIntents.record(db, {
+		await deps.workIntents({
 			kind: "task_run",
 			sourceKind: "task_dispatch_attempt",
 			sourceId: pendingDispatch.attemptId,

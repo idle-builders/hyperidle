@@ -38,12 +38,7 @@ import type { PolicyDeps } from "@hyperidle/policy";
 import { reapTerminalPropagationLog, registerPolicy } from "@hyperidle/policy";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import {
-	findUser,
-	listUsers,
-	reapExpiredCredentials,
-	requireRunnableAgent,
-} from "@hyperidle/users";
+import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
@@ -108,7 +103,6 @@ export const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
  */
 const RETENTION_REAPER_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 export const TERMINAL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
 /**
  * @lore AU21 §9 Increment 10 (Decision H1): matches
  * `session-requests`'s own former `defaultRetentionBatchSize` for the same
@@ -482,15 +476,7 @@ export function registerCoreDomainServices(ctx: {
 	// No behavior change: same predicates, same TTLs, same cadence.
 	const runRetentionSweep = async (): Promise<void> => {
 		const nowMs = Date.now();
-		const expiredCutoff = new Date(nowMs).toISOString();
 		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
-		const consumedCutoff = new Date(nowMs - CONSUMED_INVITE_TTL_MS).toISOString();
-		// login_sessions + invite_codes (owned by `users`)
-		await reapExpiredCredentials(db, {
-			sessionCutoff: expiredCutoff,
-			inviteExpiredCutoff: expiredCutoff,
-			inviteConsumedCutoff: consumedCutoff,
-		});
 		// notification_queue (owned by `notifications`)
 		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
 		// propagation_log (owned by `policy`)

@@ -591,7 +591,7 @@ export async function transitionProposedCall(
 				}
 			});
 			if (pendingIntent && ports?.intentRecorder) {
-				await ports.intentRecorder.record(exec, pendingIntent);
+				await ports.intentRecorder(pendingIntent);
 			}
 			return;
 		}
@@ -714,7 +714,7 @@ async function applyLivenessRetry(
 			idempotencyKey: `liveness:retry1:${grant.proposedCallId}`,
 			bakedRequest,
 		};
-		await intentRecorder.record(db, input);
+		await intentRecorder(input);
 	} else {
 		// Second no-show: give up — transition PC to held + write failed Outcome
 		await db

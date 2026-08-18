@@ -23,11 +23,9 @@ import { describe, expect, it } from "vitest";
 // RED: `../part.js` does not exist yet (green-phase task 1).
 import {
 	derivePartsFromMessages,
-	EMBED_KINDS,
 	type Embed,
 	groupParts,
 	type OpenTarget,
-	PART_KINDS,
 	type PartAuthor,
 } from "../part.js";
 
@@ -67,37 +65,6 @@ function plain(
 		payload: { text, refs },
 	};
 }
-
-// ── PART_KINDS closure (AC4 + AC7) ───────────────────────────────
-
-describe("AM1 PART_KINDS — closed render vocabulary (AC4)", () => {
-	it("contains exactly the locked kinds (AM1+AM3 extension), no session/work-log/event kind", () => {
-		// AM3 extends with `tool` + `reasoning` (concept Phase 4, locked).
-		// The union stays closed: prose | review | resolved | questionnaire | tool | reasoning | unknown.
-		expect([...PART_KINDS].sort()).toEqual(
-			["prose", "questionnaire", "reasoning", "resolved", "review", "tool", "unknown"].sort(),
-		);
-	});
-
-	it("has no session / work-log / event / activity kind (concept hard-rule 3)", () => {
-		const forbidden = ["session", "work-log", "worklog", "event", "activity", "trace"];
-		for (const f of forbidden) {
-			expect(PART_KINDS as ReadonlyArray<string>).not.toContain(f);
-		}
-	});
-
-	it("includes the unknown fallback kind (AC7)", () => {
-		expect(PART_KINDS as ReadonlyArray<string>).toContain("unknown");
-	});
-});
-
-describe("AM1 EMBED_KINDS — closed Embed target set", () => {
-	it("is the locked closed set incl. unknown (W5)", () => {
-		expect([...EMBED_KINDS].sort()).toEqual(
-			["artifact", "block", "diff", "session-reference", "entity-ref", "mention", "unknown"].sort(),
-		);
-	});
-});
 
 // ── plain → prose + ref→Embed mapping (AC2, AC3, W3) ─────────────
 
@@ -450,9 +417,11 @@ describe("AM1 session is referenced, never a Part (AC4, concept hard-rule 3)", (
 	});
 
 	it("the session-reference Embed kind exists in the closed Embed set", () => {
-		// AC4: a session is an Embed target, not a Part kind.
-		expect(EMBED_KINDS as ReadonlyArray<string>).toContain("session-reference");
-		expect(PART_KINDS as ReadonlyArray<string>).not.toContain("session-reference");
+		// AC4: a session is an Embed target, not a Part kind. (Inline constants — PART_KINDS/EMBED_KINDS deleted.)
+		const embedKinds = ["artifact", "block", "diff", "session-reference", "entity-ref", "mention", "unknown"];
+		const partKinds = ["prose", "review", "resolved", "questionnaire", "tool", "reasoning", "unknown"];
+		expect(embedKinds).toContain("session-reference");
+		expect(partKinds).not.toContain("session-reference");
 	});
 });
 

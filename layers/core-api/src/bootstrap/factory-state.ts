@@ -21,32 +21,8 @@ import {
 	defaultFactoryRoster,
 	type FactoryAgentRef,
 } from "@hyperidle/factory-defaults";
-import { insertUserIfAbsent, listFactoryAgents, setAgentCategoryForRole } from "@hyperidle/users";
+import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/users";
 
-/**
- * @lore AB0: Backfill agentCategory on all ai users by role (idempotent).
- * This covers any existing rows that may not have agentCategory set. Verbatim
- * from `factory-bootstrap.ts`'s former `categoryByRole` map.
- */
-const CATEGORY_BY_ROLE: Readonly<Record<string, string>> = {
-	builder: "team",
-	growth: "team",
-	product_manager: "team",
-	brand_voice: "team",
-	designer: "team",
-	qa_engineer: "team",
-	ops: "team",
-	support: "team",
-	sales: "team",
-	content: "team",
-	data_analyst: "team",
-	// @lore AD8c: renamed from practice_facilitator
-	facilitator: "strategy",
-	scout: "strategy",
-	infra: "strategy",
-	platform: "strategy",
-	assistant: "individual",
-};
 
 /**
  * Apply core-api's half of the factory bootstrap: the propagation user, the
@@ -104,11 +80,6 @@ export async function applyFactoryCoreState(db: HyperIdleDb): Promise<readonly F
 			status: "active",
 			createdAt: now,
 		});
-	}
-
-	// ── AB0: Backfill agentCategory on all ai users by role (idempotent) ──
-	for (const [role, category] of Object.entries(CATEGORY_BY_ROLE)) {
-		await setAgentCategoryForRole(db, role, category);
 	}
 
 	// ── Resolve and return the roster agents: {id, role}, from the queried rows ──

@@ -92,24 +92,14 @@
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
-import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@hyperidle/work-intent-port";
+import type { AgentWorkIntentRecorderFn } from "@hyperidle/work-intent-port";
 
 // ---------------------------------------------------------------------------
-// session-requests — AgentWorkIntentRecorder (§10.3 against-grain — RULED PERMANENT, see top @lore)
+// session-requests — workIntents (§10.3 against-grain — RULED PERMANENT, see top @lore)
 // ---------------------------------------------------------------------------
 
-/**
- * AU21 §6 Decision G (recorder unification) — `work` used to re-declare its
- * own narrower local mirror (`WorkAgentWorkIntentInput`/
- * `WorkAgentWorkIntentRecord`/a local `AgentWorkIntentRecorder` interface,
- * scoped to only the two kinds `work` itself writes) instead of importing
- * `@hyperidle/work-intent-port`'s canonical `AgentWorkIntentRecorder<TTx>` — a
- * redundant re-declaration now deleted; every caller in this package
- * (`bet-decomposition.ts`, `task-state-machine.ts`, `dependency-watcher.ts`)
- * imports this ONE type instantiated with `WriteExecutor`, so `tsc` enforces
- * conformance mechanically instead of by convention.
- */
-type AgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
+/** Plain function type replacing the former `AgentWorkIntentRecorder<WriteExecutor>` interface. */
+type AgentWorkIntentRecorder = AgentWorkIntentRecorderFn;
 
 // ---------------------------------------------------------------------------
 // users — UserStoreReader (ordinary downward core-api edge, NOT against-grain)

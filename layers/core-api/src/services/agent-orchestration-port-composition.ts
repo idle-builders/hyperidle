@@ -44,7 +44,7 @@ import type {
 import type { WriteExecutor } from "@hyperidle/db";
 import type { OrgAgentRunConfigWriter } from "@hyperidle/org";
 import type {
-	AgentWorkIntentRecorder,
+	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 } from "@hyperidle/work-intent-port";
 import type { Hono } from "hono";
@@ -353,14 +353,10 @@ export function buildAgentOrchestrationPort(
  * `AgentWorkIntentRecorder<TTx>` instantiation (`HyperIdleDb` at the route
  * layer, `WriteExecutor` inside `@hyperidle/work`/`@hyperidle/policy`).
  */
-export function buildSeamBackedWorkIntentRecorder<TTx>(
+export function buildSeamBackedWorkIntentRecorder(
 	port: AgentOrchestrationPort,
-): AgentWorkIntentRecorder<TTx> {
-	return {
-		record: async (_tx: TTx, input: AgentWorkIntentRecorderInput) => {
-			return port.intents.submit(input);
-		},
-	};
+): AgentWorkIntentRecorderFn {
+	return (input: AgentWorkIntentRecorderInput) => port.intents.submit(input);
 }
 
 /**
