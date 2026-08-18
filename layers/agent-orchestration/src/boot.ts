@@ -66,7 +66,6 @@ import type {
 	RuntimeDeps,
 	RuntimeHandle,
 } from "@hyperidle/run-orchestration";
-import { startLifecycleProjectionDrain } from "@hyperidle/session-requests";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createAgentOrchestrationApp } from "./app.js";
@@ -74,7 +73,6 @@ import {
 	registerSessionStreamRoute,
 	type SessionStreamTokenStore,
 } from "./routes/session-stream-ws.js";
-import { queueDeps } from "./services/durable-agent-queue.js";
 import {
 	buildRunOrchestrationComposition,
 	type ProvisionSessionDeps,
@@ -344,13 +342,6 @@ export async function bootAgentOrchestration(
 	const disposeGateway = registerSessionActivityGateway(eventBus, sessionStreamHub);
 	let disposeSocket: () => void = () => {};
 
-	// AU31 B2 (§5, §12 lifecycle-drain cluster): relocated from `core-api`'s
-	// `service-bootstrap.ts` — `startLifecycleProjectionDrain` claims/processes
-	// rows straight off `agentLifecycleInbox`, this Layer's own table
-	// (`session-requests`'s), so it belongs to this Layer's own boot, not
-	// core's. `queueDeps` moved alongside it (same relocation).
-	const disposeDrain = startLifecycleProjectionDrain(queueDeps(db));
-
 	// AU31 §5.1: the run runtime — poller, drain, watcher — starts HERE now,
 	// not in the Application. `options.runtime` absent (every existing
 	// bare-app test fixture) means no poller: the route surface and the
@@ -410,10 +401,9 @@ export async function bootAgentOrchestration(
 		dispose: () => {
 			disposeSocket();
 			disposeGateway();
-			disposeDrain();
 			activityBuffer.stop();
 		},
-		joinLifecycleDrain: () => disposeDrain.join(),
+		joinLifecycleDrain: () => Promise.resolve(),
 		serviceConnectionsReader: {
 			listByAuthSource: (execDb, authSource) => listConnections(execDb, { authSource }),
 		},

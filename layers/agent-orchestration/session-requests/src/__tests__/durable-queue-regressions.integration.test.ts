@@ -1,19 +1,10 @@
-import {
-	agentLifecycleInbox,
-	agentSessionRequests,
-	agentWorkIntents,
-	type HyperIdleDb,
-	users,
-} from "@hyperidle/db";
+import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
 import {
 	claimSessionRequest,
-	createSessionRequest,
-	type DurableAgentQueueDeps,
 	drainIntents,
-	drainLifecycleProjections,
 	findSessionRequest,
 	releaseClaim,
 	renewClaim,
@@ -40,9 +31,10 @@ async function seedRequest(db: HyperIdleDb, suffix: string) {
 			createdAt,
 		},
 	]);
-	return createSessionRequest(db, {
-		kind: "direct",
-		request: {
+	const [row] = await db
+		.insert(agentSessionRequests)
+		.values({
+			id: `queue-request-${suffix}`,
 			sourceKind: "assistant",
 			sourceId: `queue-message-${suffix}`,
 			streamId: `thread:queue-${suffix}`,
@@ -50,14 +42,19 @@ async function seedRequest(db: HyperIdleDb, suffix: string) {
 			userId: `queue-user-${suffix}`,
 			promptMode: "conversation",
 			idempotencyKey: `queue:${suffix}`,
-			sourceCorrelation: {
+			sourceCorrelationJson: JSON.stringify({
 				threadId: `queue-thread-${suffix}`,
 				messageId: `queue-message-${suffix}`,
 				userId: `queue-user-${suffix}`,
 				assistantAgentId: `queue-agent-${suffix}`,
-			},
-		},
-	});
+			}),
+			status: "pending",
+			createdAt,
+			updatedAt: createdAt,
+		})
+		.returning();
+	if (!row) throw new Error("Insert failed");
+	return row;
 }
 
 async function seedIntent(db: HyperIdleDb, suffix: string, updatedAt = "2026-07-22T10:00:00.000Z") {
@@ -77,14 +74,8 @@ async function seedIntent(db: HyperIdleDb, suffix: string, updatedAt = "2026-07-
 	return intent!;
 }
 
-function queueDeps(
-	db: HyperIdleDb,
-	lifecycleProjection: DurableAgentQueueDeps["lifecycleProjection"] = projectionDeps("never"),
-): DurableAgentQueueDeps {
-	return {
-		db,
-		lifecycleProjection,
-	};
+function queueDeps(db: HyperIdleDb) {
+	return { db };
 }
 
 describe("durable request and intent lease fencing", () => {
@@ -181,7 +172,6 @@ describe("durable request and intent lease fencing", () => {
 				Reflect.apply(transitionSessionRequest, undefined, [
 					db,
 					transition,
-					undefined,
 					{ now: new Date(now) },
 				]),
 			).rejects.toThrow(/custody/i);
@@ -211,131 +201,5 @@ describe("durable request and intent lease fencing", () => {
 		await drainIntents(deps, { now: () => eligibleAt, maxAttempts: 1 });
 		[stored] = await db.select().from(agentWorkIntents).where(eq(agentWorkIntents.id, intent.id));
 		expect(stored).toMatchObject({ status: "failed", attempts: 1 });
-	});
-});
-
-/**
- * @lore AU21 §9 Increment 10a (Decision I) correction: `decomposition`'s
- * projector — the prior fault-injection vehicle for this poison-handling
- * exploit — is REMOVED entirely (not merely made `observeOnly` like
- * `routine`'s prior correction above): the built-in bet_decomposition
- * mechanism no longer exists. `explicit_session_start`'s projector
- * (`projectTerminalState`) is the remaining real, single-call
- * (non-transactional) projection family — same shape the retry/poison
- * mechanism under test needs — so the fault injection moves there. Its
- * correlation key is `fact.requestId` (not `fact.sourceId`, which
- * `decomposition` used) — `seedLifecycleFact` returns the real requestId so
- * callers can key the injected fault off it directly. The retry/lease/poison
- * behavior under test belongs to the drain loop itself, not to any specific
- * family.
- */
-function projectionDeps(failRequestId: string) {
-	return {
-		explicitSessionStarts: {
-			async projectTerminalState(_db: HyperIdleDb, requestId: string) {
-				if (requestId === failRequestId) throw new Error("poison projection");
-			},
-		},
-	};
-}
-
-async function seedLifecycleFact(db: HyperIdleDb, suffix: string) {
-	const request = await seedRequest(db, `projection-${suffix}`);
-	await db
-		.update(agentSessionRequests)
-		.set({ status: "completed" })
-		.where(eq(agentSessionRequests.id, request.id));
-	await db.insert(agentLifecycleInbox).values({
-		requestId: request.id,
-		sourceKind: "explicit_session_start",
-		sourceId: `projection-${suffix}-source`,
-		state: "completed",
-		occurredAt: `2026-07-22T10:00:0${suffix}.000Z`,
-	});
-	return request.id;
-}
-
-describe("lifecycle inbox retry and poison handling", () => {
-	test("reclaim observes a same-token lease extension and waits for the extended expiry", async ({
-		db,
-	}) => {
-		const requestId = await seedLifecycleFact(db, "0");
-		await db
-			.update(agentLifecycleInbox)
-			.set({
-				claimToken: "same-owner-token",
-				claimExpiresAt: "2026-07-22T10:00:20.000Z",
-			})
-			.where(eq(agentLifecycleInbox.requestId, requestId));
-
-		expect(
-			await drainLifecycleProjections(queueDeps(db, projectionDeps("never")), {
-				now: new Date("2026-07-22T10:00:19.999Z"),
-				leaseMs: 1_000,
-			}),
-		).toBe(0);
-		const [stillOwned] = await db
-			.select()
-			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, requestId));
-		expect(stillOwned).toMatchObject({
-			claimToken: "same-owner-token",
-			claimExpiresAt: "2026-07-22T10:00:20.000Z",
-			attempts: 0,
-		});
-
-		expect(
-			await drainLifecycleProjections(queueDeps(db, projectionDeps("never")), {
-				now: new Date("2026-07-22T10:00:20.001Z"),
-				leaseMs: 1_000,
-			}),
-		).toBe(1);
-	});
-
-	test("a failed projection keeps its lease and does not block a later fact in the batch", async ({
-		db,
-	}) => {
-		const poisonId = await seedLifecycleFact(db, "1");
-		const validId = await seedLifecycleFact(db, "2");
-
-		const count = await drainLifecycleProjections(queueDeps(db, projectionDeps(poisonId)), {
-			now: new Date("2026-07-22T10:00:10.000Z"),
-			leaseMs: 1_000,
-		});
-
-		expect(count).toBe(1);
-		const rows = await db.select().from(agentLifecycleInbox);
-		expect(rows.find((row) => row.requestId === poisonId)).toMatchObject({
-			attempts: 1,
-			lastError: "poison projection",
-			projectedAt: null,
-		});
-		expect(rows.find((row) => row.requestId === poisonId)?.claimToken).toBeTruthy();
-		expect(rows.find((row) => row.requestId === validId)?.projectedAt).toBeTruthy();
-	});
-
-	test("a poison fact becomes handled only on the configured maximum attempt", async ({ db }) => {
-		const poisonId = await seedLifecycleFact(db, "3");
-		const options = {
-			now: new Date("2026-07-22T10:00:10.000Z"),
-			leaseMs: 1,
-			maxAttempts: 2,
-		};
-
-		await drainLifecycleProjections(queueDeps(db, projectionDeps(poisonId)), options).catch(
-			() => {},
-		);
-		options.now = new Date("2026-07-22T10:00:10.002Z");
-		await drainLifecycleProjections(queueDeps(db, projectionDeps(poisonId)), options).catch(
-			() => {},
-		);
-
-		const [row] = await db
-			.select()
-			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, poisonId));
-		expect(row).toMatchObject({ attempts: 2, lastError: "poison projection" });
-		expect(row?.projectedAt).toBeTruthy();
-		expect(row?.claimToken).toBeNull();
 	});
 });

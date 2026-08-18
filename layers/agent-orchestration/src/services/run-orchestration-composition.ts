@@ -53,7 +53,6 @@ import {
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import type { ProposedCallWorkflowPort, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
-import { queueDeps } from "./durable-agent-queue.js";
 import { buildToolDefinitions } from "./tool-handlers-bindings.js";
 
 // AU21 §9 Increment 12 follow-up part 2 (F2 gap closure): this composition
@@ -517,7 +516,7 @@ export function buildRunOrchestrationComposition(config: {
 			// deps bundle so `failOrRelease` can actually emit
 			// `agent_run_admission_failed` in production, not just in tests that
 			// build `queueDeps(db)` + `eventBus` by hand.
-			durableQueue: overrides.durableQueue ?? { ...queueDeps(db), eventBus },
+			durableQueue: overrides.durableQueue ?? { db, eventBus },
 			composition: {
 				context: contextPorts,
 				provisioner: sessionLifecyclePorts,

@@ -6,10 +6,17 @@
  * forwards it onto `provisionParams.callingThreadId` — a JSON.parse of the
  * already-drained payload, ZERO orchestration -> core read (AU21 AC #2).
  */
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import {
+	agentSessionRequests,
+	bets,
+	type HyperIdleDb,
+	tasks,
+	teamMembers,
+	teams,
+	users,
+} from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import { createSessionRequest } from "@hyperidle/session-requests";
 import { describe, vi } from "vitest";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
@@ -47,6 +54,34 @@ async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
 	});
 }
 
+async function createRequestForTest(
+	db: HyperIdleDb,
+	opts: { idempotencyKey: string; payloadJson?: string },
+) {
+	const now = new Date().toISOString();
+	const [row] = await db
+		.insert(agentSessionRequests)
+		.values({
+			id: `test-request-${opts.idempotencyKey}`,
+			sourceKind: "task",
+			sourceId: "task-1",
+			streamId: "task:task-1",
+			taskId: "task-1",
+			agentId: "agent-1",
+			teamId: "team-1",
+			promptMode: "task",
+			payloadJson: opts.payloadJson ?? null,
+			idempotencyKey: opts.idempotencyKey,
+			sourceCorrelationJson: JSON.stringify({ taskId: "task-1", teamId: "team-1" }),
+			status: "pending",
+			createdAt: now,
+			updatedAt: now,
+		})
+		.returning();
+	if (!row) throw new Error("Insert failed");
+	return row;
+}
+
 describe("consumeAgentSessionRequest — callingThreadId bake (Increment 1)", () => {
 	test("parses callingThreadId off the drained request's payloadJson onto provisionParams", async ({
 		db,
@@ -65,20 +100,9 @@ describe("consumeAgentSessionRequest — callingThreadId bake (Increment 1)", ()
 			forceReturnCount: 0,
 		}));
 
-		const request = await createSessionRequest(db, {
-			kind: "direct",
-			request: {
-				sourceKind: "task",
-				sourceId: "task-1",
-				streamId: "task:task-1",
-				taskId: "task-1",
-				agentId: "agent-1",
-				teamId: "team-1",
-				promptMode: "task",
-				idempotencyKey: "task:task-1:calling-thread",
-				sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
-				payloadJson: JSON.stringify({ callingThreadId: "thread-calling-1" }),
-			},
+		const request = await createRequestForTest(db, {
+			idempotencyKey: "task:task-1:calling-thread",
+			payloadJson: JSON.stringify({ callingThreadId: "thread-calling-1" }),
 		});
 
 		await runSession(
@@ -109,19 +133,8 @@ describe("consumeAgentSessionRequest — callingThreadId bake (Increment 1)", ()
 			forceReturnCount: 0,
 		}));
 
-		const request = await createSessionRequest(db, {
-			kind: "direct",
-			request: {
-				sourceKind: "task",
-				sourceId: "task-1",
-				streamId: "task:task-1",
-				taskId: "task-1",
-				agentId: "agent-1",
-				teamId: "team-1",
-				promptMode: "task",
-				idempotencyKey: "task:task-1:no-calling-thread",
-				sourceCorrelation: { taskId: "task-1", teamId: "team-1" },
-			},
+		const request = await createRequestForTest(db, {
+			idempotencyKey: "task:task-1:no-calling-thread",
 		});
 
 		await runSession(
