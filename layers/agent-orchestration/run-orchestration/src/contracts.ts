@@ -195,9 +195,6 @@ export type RunOptions =
 	  };
 
 export type RunTransitionSpec = Parameters<typeof import("./transition-run.js").transitionRun>[1];
-export type RunTransitionResult = Awaited<
-	ReturnType<typeof import("./transition-run.js").transitionRun>
->;
 export interface RuntimeDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus?: EventBus;
@@ -258,4 +255,3 @@ export interface RuntimeHandle {
 	): () => void;
 	dispose(): Promise<void>;
 }
-export type AgentTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";

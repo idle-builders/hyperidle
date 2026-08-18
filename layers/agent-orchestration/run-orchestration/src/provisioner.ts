@@ -487,22 +487,19 @@ interface SessionLifecyclePorts {
 	 * Returns the effective config; an agent with no row resolves the all-null
 	 * default (`maxConcurrentSessions` 1), never `undefined`.
 	 */
-	readonly agentRunConfig: SessionLifecycleAgentRunConfigReader;
-}
-
-/** Live reader of `agent_run_config` — see `SessionLifecyclePorts.agentRunConfig`. */
-export interface SessionLifecycleAgentRunConfigReader {
-	readAgentRunConfig(
-		exec: HyperIdleDb,
-		agentUserId: string,
-	): Promise<{
-		readonly systemPrompt: string | null;
-		readonly harnessType: string | null;
-		readonly modelTierPreference: string | null;
-		readonly modelId: string | null;
-		readonly modelProvider: string | null;
-		readonly maxConcurrentSessions: number;
-	}>;
+	readonly agentRunConfig: {
+		readAgentRunConfig(
+			exec: HyperIdleDb,
+			agentUserId: string,
+		): Promise<{
+			readonly systemPrompt: string | null;
+			readonly harnessType: string | null;
+			readonly modelTierPreference: string | null;
+			readonly modelId: string | null;
+			readonly modelProvider: string | null;
+			readonly maxConcurrentSessions: number;
+		}>;
+	};
 }
 
 /**

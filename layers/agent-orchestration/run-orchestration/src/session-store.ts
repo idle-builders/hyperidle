@@ -220,30 +220,6 @@ export async function endSessionByCas(
 	return await findSessionById(db, sessionId);
 }
 
-/**
- * Record the non-terminal metadata a PATCH may carry. The patch type has no
- * `state` and no `endedAt`, which is what makes "this never ends a session" a
- * property of the type rather than of the caller's care.
- */
-export async function recordSessionMetadata(
-	db: HyperIdleDb,
-	sessionId: string,
-	patch: {
-		readonly outcome?: string;
-		readonly notes?: string;
-		readonly effectivenessScore?: string;
-		readonly effectivenessRecordedAt?: string;
-		readonly effectivenessRecordedBy?: string | null;
-	},
-): Promise<void> {
-	const updates: Record<string, unknown> = {};
-	for (const [key, value] of Object.entries(patch)) {
-		if (value !== undefined) updates[key] = value;
-	}
-	if (Object.keys(updates).length === 0) return;
-	await db.update(sessions).set(updates).where(eq(sessions.id, sessionId));
-}
-
 /** Set `notes` and nothing else. */
 export async function writeSessionNotes(
 	db: HyperIdleDb,

@@ -11,20 +11,16 @@
  *    steady state as well as the migration);
  *  - a partial write patches only the named fields and leaves the rest;
  *  - an explicit `null` in a patch clears the field (the `"x" in data`
- *    semantics `PATCH /api/agents/:id` has always had);
- *  - team defaults round-trip and default to all-null.
+ *    semantics `PATCH /api/agents/:id` has always had).
  */
 
-import { teamMembers, teams, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import {
 	DEFAULT_AGENT_RUN_CONFIG,
-	EMPTY_TEAM_RUN_CONFIG_DEFAULTS,
 	readAgentRunConfig,
 	readAgentRunConfigs,
-	readTeamRunConfigDefaults,
 	writeAgentRunConfig,
-	writeTeamRunConfigDefaults,
 } from "../index.js";
 
 const NOW = "2026-08-04T00:00:00.000Z";
@@ -154,45 +150,4 @@ describe("agent run config store", () => {
 	// exists in the schema (untouched) but nothing production does can ever trigger it. The store
 	// itself exports no delete function at all, so there is no feature here to remove either — the
 	// safety this test protected already holds by the capability being absent.
-});
-
-describe("team run config defaults store", () => {
-	test("a team with no row resolves all-null defaults", async ({ db }) => {
-		await db.insert(teams).values({ id: "t-none", name: "T", phase: "build", createdAt: NOW });
-		// The owner writes the membership row alongside the team.
-		await db.insert(teamMembers).values({
-			id: "t-none-members",
-			teamId: "t-none",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
-
-		expect(await readTeamRunConfigDefaults(db, "t-none")).toEqual({
-			defaultHarnessType: null,
-			defaultModelId: null,
-			defaultModelProvider: null,
-		});
-		expect(await readTeamRunConfigDefaults(db, "t-none")).toEqual(EMPTY_TEAM_RUN_CONFIG_DEFAULTS);
-	});
-
-	test("team defaults round-trip verbatim", async ({ db }) => {
-		await db.insert(teams).values({ id: "t-set", name: "T", phase: "build", createdAt: NOW });
-		// The owner writes the membership row alongside the team.
-		await db
-			.insert(teamMembers)
-			.values({ id: "t-set-members", teamId: "t-set", capacity: 5, activeBets: 0, formedAt: NOW });
-
-		await writeTeamRunConfigDefaults(db, "t-set", {
-			defaultHarnessType: "codex",
-			defaultModelId: "claude-sonnet-4-6",
-			defaultModelProvider: "anthropic",
-		});
-
-		expect(await readTeamRunConfigDefaults(db, "t-set")).toEqual({
-			defaultHarnessType: "codex",
-			defaultModelId: "claude-sonnet-4-6",
-			defaultModelProvider: "anthropic",
-		});
-	});
 });

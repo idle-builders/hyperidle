@@ -2,18 +2,15 @@
  * AU26 review W10 — identity and run config used to be created together, or
  * not at all, inside one `db.transaction`.
  *
- * AU31 §3.1 sites 1-3 — INVERTED (founder ruling, architecture.md §3.1/§13
- * item 9). The seam write (`AgentOrchestrationPort.runConfig.write` /
- * `.writeTeamDefaults`) can never join a caller's transaction — it is an
- * HTTP round trip through the composed app's own connection (§3.2) — so the
- * two writes on each of `POST /api/agents` (site 1: `insertUser` then
- * `runConfig.write`) and `POST /api/teams` (site 2: `createTeam` then
- * `runConfig.writeTeamDefaults`) are no longer atomic. This suite used to
- * prove they rolled back together; it now proves the named window each
- * site's `@lore` documents: the identity row survives a failed run-config
- * write, resolving `DEFAULT_AGENT_RUN_CONFIG`/`EMPTY_TEAM_RUN_CONFIG_DEFAULTS`
- * semantics (builtin, one concurrent session / no team default) until the
- * admin edit path repairs it.
+ * AU31 §3.1 site 1 — INVERTED (founder ruling, architecture.md §3.1/§13
+ * item 9). The seam write (`AgentOrchestrationPort.runConfig.write`) can
+ * never join a caller's transaction — it is an HTTP round trip through the
+ * composed app's own connection (§3.2) — so the two writes of
+ * `POST /api/agents` (site 1: `insertUser` then `runConfig.write`) are no
+ * longer atomic. This suite proves the named window each site's `@lore`
+ * documents: the identity row survives a failed run-config write, resolving
+ * `DEFAULT_AGENT_RUN_CONFIG` semantics (builtin, one concurrent session)
+ * until the admin edit path repairs it.
  *
  * The fault is injected at the SECOND write only: the run-config store
  * throws, the identity insert is untouched. What is asserted is the real
@@ -31,7 +28,6 @@ import { afterAll, describe, expect, test } from "../../__testing__/test-fixture
 vi.hoisted(() => vi.resetModules());
 
 const AGENT_NAME = "W10 Atomicity Agent";
-const TEAM_NAME = "W10 Atomicity Team";
 
 vi.mock("@hyperidle/agent-run-config", async () => {
 	const actual = await vi.importActual<typeof import("@hyperidle/agent-run-config")>(
@@ -41,9 +37,6 @@ vi.mock("@hyperidle/agent-run-config", async () => {
 		...actual,
 		writeAgentRunConfig: async (): Promise<void> => {
 			throw new Error("W10: run config write failed");
-		},
-		writeTeamRunConfigDefaults: async (): Promise<void> => {
-			throw new Error("W10: team run config defaults write failed");
 		},
 	};
 });
@@ -57,7 +50,7 @@ function authHeaders(): Record<string, string> {
 	return { "Content-Type": "application/json" };
 }
 
-describe("creation is relinquished across identity and run config (AU31 §3.1 sites 1-3)", () => {
+describe("creation is relinquished across identity and run config (AU31 §3.1 site 1)", () => {
 	test("POST /api/agents: the agent survives even when the run-config write fails", async ({
 		db,
 		app,
@@ -74,24 +67,6 @@ describe("creation is relinquished across identity and run config (AU31 §3.1 si
 		const rows = await db.select().from(users).where(eq(users.name, AGENT_NAME));
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({ name: AGENT_NAME, role: "builder", kind: "ai" });
-	});
-
-	test("POST /api/teams: the team survives even when the run-config defaults write fails", async ({
-		db,
-		app,
-	}) => {
-		const res = await app.request("/api/teams", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ name: TEAM_NAME }),
-		});
-
-		// The seam's runConfig.writeTeamDefaults fails (uncaught) — the route
-		// still 500s — but createTeam already committed before that call ran.
-		expect(res.status).toBeGreaterThanOrEqual(500);
-		const rows = await db.select().from(teams).where(eq(teams.name, TEAM_NAME));
-		expect(rows).toHaveLength(1);
-		expect(rows[0]).toMatchObject({ name: TEAM_NAME, phase: "build" });
 	});
 });
 

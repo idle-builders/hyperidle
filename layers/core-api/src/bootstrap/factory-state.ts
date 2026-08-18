@@ -16,11 +16,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	COMMUNITY_DISPLAY_NAMES,
-	defaultFactoryRoster,
-	type FactoryAgentRef,
-} from "@hyperidle/factory-defaults";
+import { COMMUNITY_DISPLAY_NAMES, defaultFactoryRoster } from "@hyperidle/factory-defaults";
 import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/users";
 
 /**
@@ -29,7 +25,9 @@ import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/users";
  * Idempotent — safe on every launch. Returns the roster agents' `{id, role}`
  * for the agent-orchestration face's run-config backfill.
  */
-export async function applyFactoryCoreState(db: HyperIdleDb): Promise<readonly FactoryAgentRef[]> {
+export async function applyFactoryCoreState(
+	db: HyperIdleDb,
+): Promise<ReadonlyArray<{ readonly id: string; readonly role: string }>> {
 	const roster = defaultFactoryRoster;
 	const now = new Date().toISOString();
 
