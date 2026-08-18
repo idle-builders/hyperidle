@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FilesystemAuthResolver, FilesystemState } from "@hyperidle/filesystem-contract";
-import type { FilesystemsGitRunnerFactory } from "./ports.js";
+import type { FilesystemState } from "@hyperidle/filesystem-contract";
+import type { FilesystemsGitRunnerFactory, FilesystemTokenResolver } from "./ports.js";
 
 interface ProbeResult {
 	state: FilesystemState;
@@ -73,7 +73,7 @@ export interface FilesystemReachabilityInput {
 
 export async function resolveFilesystemState(
 	row: FilesystemReachabilityInput,
-	deps: { authResolver: FilesystemAuthResolver; gitRunnerFactory: FilesystemsGitRunnerFactory },
+	deps: { authResolver: FilesystemTokenResolver; gitRunnerFactory: FilesystemsGitRunnerFactory },
 	opts?: { timeoutMs?: number },
 ): Promise<FilesystemState> {
 	if (row.writeback === "none") {

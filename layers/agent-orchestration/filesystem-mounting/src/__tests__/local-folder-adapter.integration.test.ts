@@ -65,7 +65,6 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		const result = await adapter.mount({
 			filesystem: makeFs(vaultDir),
 			sandboxPath,
-			auth: null,
 		});
 
 		expect(result.success).toBe(true);
@@ -86,7 +85,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(vaultDir), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(vaultDir), sandboxPath });
 
 		// Agent edits a file in the vault (via the symlink or directly).
 		fs.writeFileSync(path.join(vaultDir, "new-note.md"), "# New Note\n");
@@ -114,7 +113,6 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		const result = await adapter.mount({
 			filesystem: makeFs("/nonexistent/vault/path"),
 			sandboxPath,
-			auth: null,
 		});
 
 		expect(result.success).toBe(false);

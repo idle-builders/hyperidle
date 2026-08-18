@@ -39,7 +39,6 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { FilesystemInjection } from "@hyperidle/filesystem-contract";
 import {
 	createBodyLimit,
 	type HyperIdleEnv,
@@ -113,7 +112,7 @@ export function createFilesystemInjectionRoutes(
 				return c.json({ error: "Already injected", code: "CONFLICT" }, 409);
 			}
 
-			return c.json(injectionAttempt.injection satisfies FilesystemInjection, 201);
+			return c.json(injectionAttempt.injection, 201);
 		},
 	);
 

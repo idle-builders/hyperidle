@@ -27,13 +27,14 @@
 // Application-applied to that shared router and reaches this module unchanged.
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { Filesystem, FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
 import {
 	deleteFilesystem,
 	deleteInjection,
 	type FilesystemRow,
 	type FilesystemsServiceConnectionResolver,
+	type FilesystemTokenResolver,
 	getFilesystem,
 	inspectLocalPath,
 	listFilesystems,
@@ -99,7 +100,7 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
 // ─── Per-request resolver factory ─────────────────────────────────────────────
 
 /**
- * Build the FilesystemAuthResolver for a specific request.
+ * Build the token resolver for a specific request.
  * When a real ServiceConnectionResolver is available, creates an inline adapter
  * that closes over the request userId. Falls back to a noop resolver.
  *
@@ -113,31 +114,17 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
  * `FilesystemsServiceConnectionResolver` (`@hyperidle/filesystems`' own
  * `ports.ts`), which the concrete resolver satisfies. Zero behaviour change:
  * the Layer still composes the real resolver downward at construction.
- *
- * @lore AU20 R-filesystems: NoopAuthResolver and ServiceConnectionResolverAdapter
- * classes deleted from @hyperidle/filesystems barrel — caller-site inline objects
- * satisfy the structural FilesystemAuthResolver interface from @hyperidle/filesystem-contract.
- * ServiceConnectionResolver.resolve(userId, connectionId) is the only plaintext
- * path; sourceOf always returns null (service name derivation not needed here —
- * falls through to body.sourceHint ?? "unknown").
  */
 function buildAuthResolver(
 	connectionResolver: FilesystemsServiceConnectionResolver | undefined,
 	userId: string,
-): FilesystemAuthResolver {
+): FilesystemTokenResolver {
 	if (connectionResolver) {
 		return {
-			canResolve: async (connectionId: string) =>
-				(await connectionResolver.resolve(userId, connectionId)) != null,
-			sourceOf: (_connectionId: string) => null,
-			resolve: async (_connectionId: string) => null,
 			resolveToken: (connectionId: string) => connectionResolver.resolve(userId, connectionId),
 		};
 	}
 	return {
-		canResolve: (_connectionId: string) => false,
-		sourceOf: (_connectionId: string) => null,
-		resolve: async (_connectionId: string) => null,
 		resolveToken: async (_connectionId: string) => null,
 	};
 }
@@ -155,7 +142,7 @@ function buildAuthResolver(
 async function checkAndPersistState(
 	db: HyperIdleDb,
 	row: FilesystemRow,
-	authResolver: FilesystemAuthResolver,
+	authResolver: FilesystemTokenResolver,
 ): Promise<FilesystemRow> {
 	const newState = await resolveFilesystemState(row, {
 		authResolver,
@@ -207,8 +194,7 @@ export function createFilesystemRoutes(
 			if (connectionId == null) {
 				source = "local";
 			} else {
-				const derived = await authResolver.sourceOf(connectionId);
-				source = derived ?? body.sourceHint ?? "unknown";
+				source = body.sourceHint ?? "unknown";
 			}
 
 			const id = crypto.randomUUID();

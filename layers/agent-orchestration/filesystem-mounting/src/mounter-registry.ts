@@ -15,13 +15,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { filesystemCaptures, type WriteExecutor } from "@hyperidle/db";
-import type {
-	CaptureResult,
-	Filesystem,
-	FilesystemAuth,
-	FilesystemMounter,
-	MountResult,
-} from "@hyperidle/filesystem-contract";
+import type { Filesystem, MountResult } from "@hyperidle/filesystem-contract";
 import type { MountingGitRunnerFactory } from "./ports.js";
 import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 
@@ -36,7 +30,6 @@ export interface AdapterDeps {
 interface MountContext {
 	readonly filesystem: Filesystem;
 	readonly sandboxPath: string;
-	readonly auth: FilesystemAuth | null;
 }
 
 interface CaptureContext {
@@ -45,7 +38,10 @@ interface CaptureContext {
 	readonly sessionId: string;
 }
 
-interface AdapterCaptureResult extends CaptureResult {
+interface AdapterCaptureResult {
+	readonly success: boolean;
+	readonly captured: boolean;
+	readonly error?: string;
 	readonly capturePath?: string;
 	readonly commitSha?: string;
 }
@@ -287,19 +283,14 @@ function selectMountAdapter(fs: Filesystem, deps: AdapterDeps): MountAdapter {
 	return new CloudNotBuiltAdapter(`${fs.kind}:${fs.source}`);
 }
 
-export class RegistryFilesystemMounter implements FilesystemMounter {
+export class RegistryFilesystemMounter {
 	constructor(private readonly deps: AdapterDeps) {}
 
-	async mount(input: {
-		filesystem: Filesystem;
-		sandboxPath: string;
-		auth: import("@hyperidle/filesystem-contract").FilesystemAuth | null;
-	}): Promise<MountResult> {
+	async mount(input: { filesystem: Filesystem; sandboxPath: string }): Promise<MountResult> {
 		const adapter = selectMountAdapter(input.filesystem, this.deps);
 		const ctx: MountContext = {
 			filesystem: input.filesystem,
 			sandboxPath: input.sandboxPath,
-			auth: input.auth,
 		};
 		return adapter.mount(ctx);
 	}
@@ -308,7 +299,7 @@ export class RegistryFilesystemMounter implements FilesystemMounter {
 		filesystem: Filesystem;
 		sandboxPath: string;
 		sessionId: string;
-	}): Promise<CaptureResult> {
+	}): Promise<AdapterCaptureResult> {
 		if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(input.sessionId)) {
 			return { success: false, captured: false, error: "Invalid capture sessionId" };
 		}
