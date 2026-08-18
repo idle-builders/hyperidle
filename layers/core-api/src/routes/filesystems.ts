@@ -39,12 +39,7 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	createBodyLimit,
-	type HyperIdleEnv,
-	requireBoundary,
-	validateBody,
-} from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import { getTeamMembers } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
@@ -54,8 +49,6 @@ const injectFilesystemSchema = z.object({
 	agentUserId: z.string().min(1),
 });
 
-const FILESYSTEM_BODY_LIMIT = { maxSize: 8 * 1024 }; // 8 KB (the body is one id)
-
 export function createFilesystemInjectionRoutes(
 	db: HyperIdleDb,
 	agentOrchestration: AgentOrchestrationPort,
@@ -63,58 +56,52 @@ export function createFilesystemInjectionRoutes(
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── POST /api/filesystems/:id/injections — Inject filesystem into a bot ───
-	router.post(
-		"/:id/injections",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit(FILESYSTEM_BODY_LIMIT),
-		validateBody(injectFilesystemSchema),
-		async (c) => {
-			const fsId = c.req.param("id");
-			const body = c.req.valid("json");
+	router.post("/:id/injections", validateBody(injectFilesystemSchema), async (c) => {
+		const fsId = c.req.param("id");
+		const body = c.req.valid("json");
 
-			// Check filesystem exists + get its team (the pre-write half of the
-			// gate — see the port's own doc for why this reads separately from
-			// `persistInjection`'s own existence recheck).
-			const filesystemTeamId = await agentOrchestration.filesystems.getTeamId(fsId);
-			if (filesystemTeamId == null) {
+		// Check filesystem exists + get its team (the pre-write half of the
+		// gate — see the port's own doc for why this reads separately from
+		// `persistInjection`'s own existence recheck).
+		const filesystemTeamId = await agentOrchestration.filesystems.getTeamId(fsId);
+		if (filesystemTeamId == null) {
+			return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
+		}
+
+		// Check agent exists
+		const agent = await findUser(db, { id: body.agentUserId });
+		if (agent == null) {
+			return c.json({ error: "Agent user not found", code: "NOT_FOUND" }, 404);
+		}
+
+		// Team-consistency check: the bot's team must match the filesystem's teamId.
+		// The bot's teamId points at team_members.id (schema.ts:47); we need the teams.id.
+		// @lore AO1 §3: Route-level guard — no DB-level cross-table CHECK constraint.
+		if (agent.teamId == null) {
+			return c.json({ error: "Agent user has no team assignment", code: "TEAM_MISMATCH" }, 400);
+		}
+		const tmRow = await getTeamMembers(db, { id: agent.teamId });
+		const agentActualTeamId = tmRow?.teamId ?? null;
+		if (agentActualTeamId !== filesystemTeamId) {
+			return c.json(
+				{ error: "Agent team does not match filesystem team", code: "TEAM_MISMATCH" },
+				400,
+			);
+		}
+
+		const injectionAttempt = await agentOrchestration.filesystems.persistInjection(
+			fsId,
+			body.agentUserId,
+		);
+		if (!injectionAttempt.ok) {
+			if (injectionAttempt.code === "NOT_FOUND") {
 				return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
 			}
+			return c.json({ error: "Already injected", code: "CONFLICT" }, 409);
+		}
 
-			// Check agent exists
-			const agent = await findUser(db, { id: body.agentUserId });
-			if (agent == null) {
-				return c.json({ error: "Agent user not found", code: "NOT_FOUND" }, 404);
-			}
-
-			// Team-consistency check: the bot's team must match the filesystem's teamId.
-			// The bot's teamId points at team_members.id (schema.ts:47); we need the teams.id.
-			// @lore AO1 §3: Route-level guard — no DB-level cross-table CHECK constraint.
-			if (agent.teamId == null) {
-				return c.json({ error: "Agent user has no team assignment", code: "TEAM_MISMATCH" }, 400);
-			}
-			const tmRow = await getTeamMembers(db, { id: agent.teamId });
-			const agentActualTeamId = tmRow?.teamId ?? null;
-			if (agentActualTeamId !== filesystemTeamId) {
-				return c.json(
-					{ error: "Agent team does not match filesystem team", code: "TEAM_MISMATCH" },
-					400,
-				);
-			}
-
-			const injectionAttempt = await agentOrchestration.filesystems.persistInjection(
-				fsId,
-				body.agentUserId,
-			);
-			if (!injectionAttempt.ok) {
-				if (injectionAttempt.code === "NOT_FOUND") {
-					return c.json({ error: "Filesystem not found", code: "NOT_FOUND" }, 404);
-				}
-				return c.json({ error: "Already injected", code: "CONFLICT" }, 409);
-			}
-
-			return c.json(injectionAttempt.injection, 201);
-		},
-	);
+		return c.json(injectionAttempt.injection, 201);
+	});
 
 	return router;
 }

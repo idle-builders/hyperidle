@@ -18,7 +18,6 @@
  * rejected that pattern (architecture.md:39 — wrong boundary for the Settings UI).
  * In shared mode the founder authenticates via Bearer (no X-API-Key sent), so an
  * in-route key check would 401 every Settings page load. The global /api/* middleware
- * handles both auth strategies; requireBoundary({ kind: "public-data" }) is
  * sufficient — matches how agents.ts and all other founder-auth endpoints work.
  *
  * @lore AM4 CHANGE 3 (Seam 3): discovery.disabled is stamped in the ROUTE HANDLER,
@@ -27,10 +26,9 @@
  * discovery.disabled per descriptor by type. "builtin" is exempt even if wrongly
  * in the persisted list (belt-and-suspenders with the select() exemption, CHANGE 2).
  *
- * @lore AM4 Security: POST /redetect spawns ~10 CLI probes (5 families × version+auth)
- * each with a 15s timeout. The global 300/min limiter does NOT protect this. A dedicated
- * route-scoped limiter (1 req / 5s per identity) is mounted ONLY on this route.
- * POST /:type/disabled is a single DB write — global 300/min is acceptable (no amplification).
+ * @lore AM4: POST /redetect spawns ~10 CLI probes (5 families x version+auth), each with a
+ * 15s timeout. Its dedicated rate limiter was removed with the rest of the limiter in the AU20
+ * delete pass; nothing throttles this route now.
  */
 
 import { readCredentials } from "@hyperidle/credentials";
@@ -39,7 +37,6 @@ import type { ModelGatewayConfig } from "@hyperidle/domain-model";
 import { credentialNameForProvider } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import { createRateLimiter, requireBoundary } from "@hyperidle/http-middleware";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 
@@ -121,14 +118,8 @@ export function createHarnessRoutes(
 ): Hono {
 	const router = new Hono();
 
-	// AM4: Dedicated rate limiter for POST /redetect — created per router instance so
-	// test apps each get an independent bucket (avoids cross-test rate-limit bleed).
-	// 1 call per 5s per identity — discoverLocalHarnesses() spawns ~10 execFile probes
-	// with 15s timeout each; the global 300/min limiter alone allows a local fork-bomb. (WARNING 3)
-	const redetectRateLimiter = createRateLimiter({ limit: 1, windowMs: 5_000 });
-
 	// GET / — list all known harness descriptors with discovery.disabled stamped
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const { harnessDisabled, modelGateway } = await readServerConfig(db);
 		const raw: HarnessCapabilityDescriptor[] = pool.describe();
 		const entries = await stampBuiltinCredential(
@@ -139,28 +130,20 @@ export function createHarnessRoutes(
 		return c.json(entries);
 	});
 
-	// POST /redetect — re-run discovery and return fresh descriptors (with disabled stamped)
-	// requireBoundary must come before the rate-limiter so AF11 assertion sees it declared
-	// even when the rate-limiter returns 429. The dedicated rate-limiter is route-scoped
-	// (fork-bomb guard — WARNING 3): 1 call / 5s per identity.
-	router.post(
-		"/redetect",
-		requireBoundary({ kind: "public-data" }),
-		redetectRateLimiter,
-		async (c) => {
-			// AU36 D5: the reach re-probe rides the SAME bounded moment — awaited
-			// alongside the discovery refresh BEFORE responding.
-			await Promise.all([pool.refresh(), onHarnessRedetect?.()]);
-			const { harnessDisabled, modelGateway } = await readServerConfig(db);
-			const raw: HarnessCapabilityDescriptor[] = pool.describe();
-			const entries = await stampBuiltinCredential(
-				stampDisabled(raw, harnessDisabled),
-				db,
-				modelGateway,
-			);
-			return c.json(entries);
-		},
-	);
+	// POST /redetect — re-run discovery and return fresh descriptors (with disabled stamped).
+	router.post("/redetect", async (c) => {
+		// AU36 D5: the reach re-probe rides the SAME bounded moment — awaited
+		// alongside the discovery refresh BEFORE responding.
+		await Promise.all([pool.refresh(), onHarnessRedetect?.()]);
+		const { harnessDisabled, modelGateway } = await readServerConfig(db);
+		const raw: HarnessCapabilityDescriptor[] = pool.describe();
+		const entries = await stampBuiltinCredential(
+			stampDisabled(raw, harnessDisabled),
+			db,
+			modelGateway,
+		);
+		return c.json(entries);
+	});
 
 	return router;
 }

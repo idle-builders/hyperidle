@@ -26,7 +26,7 @@ import {
 	type ModelGatewayConfig,
 	type ModelTierConfig,
 } from "@hyperidle/domain-model";
-import { requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { validateBody } from "@hyperidle/http-middleware";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -142,7 +142,7 @@ export function createModelGatewayRoutes(db: HyperIdleDb): Hono {
 	 * GET /api/model-gateway
 	 * Returns current gateway config. Strips apiKey, returns hasApiKey instead.
 	 */
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const config = await readServerConfig(db);
 		return c.json(sanitizeConfig(config.modelGateway));
 	});
@@ -155,17 +155,12 @@ export function createModelGatewayRoutes(db: HyperIdleDb): Hono {
 	 * @lore AF15: Body is a deep-partial (PartialModelGatewaySchema). The merge happens
 	 * in updateServerConfig's mergeTier — stored apiKey is preserved when patch omits it.
 	 */
-	router.patch(
-		"/",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(PatchModelGatewaySchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof PartialModelGatewaySchema>;
+	router.patch("/", validateBody(PatchModelGatewaySchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof PartialModelGatewaySchema>;
 
-			const updated = await updateServerConfig(db, { modelGateway: body });
-			return c.json(sanitizeConfig(updated.modelGateway));
-		},
-	);
+		const updated = await updateServerConfig(db, { modelGateway: body });
+		return c.json(sanitizeConfig(updated.modelGateway));
+	});
 
 	return router;
 }

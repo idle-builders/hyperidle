@@ -6,28 +6,17 @@
  * webhook adapters and any outbound HTTP that takes a
  * user-controlled URL.
  *
- * Two gates:
- *  - `sanitizeHttpUrl` — synchronous, runs at config PATCH time.
- *    Rejects userinfo, non-http(s) protocols, private/link-local/
- *    metadata IP literals, and `.local` mDNS.
- *  - `assertUrlNotSSRF` — async DNS resolution guard, runs immediately
- *    before the HTTP call. Catches the "public hostname resolves to a
- *    private IP" DNS-rebinding class of attack.
- *
- * Both helpers return a tagged union `SanitizeResult` rather than
- * throwing so callers can compose them with existing error reporting.
+ * `resolveUrlForSSRF` is the async DNS resolution gate, run immediately
+ * before an outbound HTTP call. Returns the resolved public addresses
+ * so callers can pin one for the fetch (prevents DNS rebinding — H-1).
  */
 
 import * as dns from "node:dns";
 import * as net from "node:net";
 import { promisify } from "node:util";
 
-export type SanitizeResult = { ok: true } | { ok: false; reason: string };
-
 /**
- * Extended result from `assertUrlNotSSRF` which returns the resolved
- * IPs so a caller can pin them for the subsequent fetch (protects
- * against DNS rebinding, security review H-1).
+ * Full result from `resolveUrlForSSRF` — resolved IPs for pinning.
  */
 export type ResolveResult =
 	| { ok: true; addresses: ReadonlyArray<{ address: string; family: 4 | 6 }> }
@@ -114,9 +103,7 @@ export function isLoopbackHost(hostname: string): boolean {
 type ParseResult = { ok: true; url: URL } | { ok: false; reason: string };
 
 /**
- * Parse + sanity-check a URL in one shot. Internal helper so both the
- * sync `sanitizeHttpUrl` entry point and the async `assertUrlNotSSRF`
- * gate share exactly one `new URL(...)` call per invocation.
+ * Parse + sanity-check a URL in one shot. Internal helper for `resolveUrlForSSRF`.
  */
 function parseAndCheckUrl(input: string, opts: SanitizeUrlOptions): ParseResult {
 	const label = opts.label ?? "url";
@@ -151,33 +138,7 @@ function parseAndCheckUrl(input: string, opts: SanitizeUrlOptions): ParseResult 
 	return { ok: false, reason: `${label} must be http:// or https://` };
 }
 
-/**
- * Synchronous URL sanitizer. Rejects CR/LF/NUL, userinfo, non-http(s)
- * protocols, and private/link-local/metadata IP literals. Loopback
- * hosts may use http:// for test fixtures.
- */
-export function sanitizeHttpUrl(input: string, opts: SanitizeUrlOptions = {}): SanitizeResult {
-	const r = parseAndCheckUrl(input, opts);
-	if (!r.ok) return { ok: false, reason: r.reason };
-	return { ok: true };
-}
-
 const dnsLookup = promisify(dns.lookup);
-
-/**
- * Async DNS gate. Run immediately before issuing the outbound HTTP. If
- * the hostname resolves to a private address, refuse the request.
- * Single-parse: reuses the `URL` instance produced by the sync pre-check
- * so the input string is never parsed twice.
- */
-export async function assertUrlNotSSRF(
-	input: string,
-	opts: SanitizeUrlOptions = {},
-): Promise<SanitizeResult> {
-	const r = await resolveUrlForSSRF(input, opts);
-	if (!r.ok) return r;
-	return { ok: true };
-}
 
 /**
  * Full SSRF gate: parse + sync pre-check + DNS resolution + private-IP
@@ -185,10 +146,7 @@ export async function assertUrlNotSSRF(
  * can pin one for the subsequent fetch (prevents DNS rebinding between
  * this check and the outbound connect — security review H-1).
  *
- * @lore The public `assertUrlNotSSRF` is kept as a thin wrapper so the
- * existing call sites (notifications/ntfy, short-hand pre-checks) stay
- * unchanged. Callers that need the resolved IP list use this entry
- * point.
+ * @lore Callers that need the resolved IP list use this entry point directly.
  */
 export async function resolveUrlForSSRF(
 	input: string,

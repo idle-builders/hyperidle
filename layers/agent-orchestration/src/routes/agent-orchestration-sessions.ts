@@ -10,7 +10,7 @@
  * B1a removes that premise on both halves — this Layer has its own app, and the
  * middleware stack is applied by the **Application** to the `/api` router both
  * apps mount on, so a route here sits behind the same auth without importing
- * core-api (`HyperIdleEnv` + `requireBoundary` come from `@hyperidle/http-middleware`).
+ * core-api (`HyperIdleEnv` + `` come from `@hyperidle/http-middleware`).
  * The "door" is now literal: the data, the query and the HTTP host are all on
  * the owning side.
  *
@@ -29,7 +29,7 @@ import {
 	type AgentRunsResponse,
 	API_ERROR_CODES,
 } from "@hyperidle/domain-model";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import {
 	countActiveRunsByAgent,
 	findSessionById,
@@ -48,7 +48,7 @@ export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<Hy
 	// @lore AU26 B1a (AC5(d)): returns the session's FULL public wire row,
 	// not the seven-field narrowing the decoration reads use. The raw row
 	// has 18 columns — a narrowing would silently drop 11 fields.
-	router.get("/sessions/:sessionId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/sessions/:sessionId", async (c) => {
 		const row = await findSessionById(db, c.req.param("sessionId"));
 		if (!row) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
@@ -80,7 +80,7 @@ export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<Hy
 	// Registered before `/runs` — Hono matches in registration order and the two
 	// paths are distinct, but keeping the more specific one first is the safer
 	// habit. Agents with zero active runs are absent from the map.
-	router.get("/runs/active-counts", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/runs/active-counts", async (c) => {
 		const agentIds = parseIdList(c.req.query("agent_ids"));
 		if (agentIds !== undefined && agentIds.length === 0) {
 			return c.json({ counts: {} });
@@ -95,7 +95,7 @@ export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<Hy
 	// GET /agent-orchestration/runs/latest-outcomes?task_ids=a,b,c
 	// The outcome of the NEWEST run per task by `startedAt`. A task with no run
 	// is absent from the map (the UI renders that as `null`).
-	router.get("/runs/latest-outcomes", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/runs/latest-outcomes", async (c) => {
 		const taskIds = parseIdList(c.req.query("task_ids"));
 		if (taskIds === undefined) {
 			return missingParam(c, "task_ids");
@@ -112,7 +112,7 @@ export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<Hy
 
 	// GET /agent-orchestration/runs?task_id=…  |  ?agent_ids=a,b,c
 	// Newest first in both forms.
-	router.get("/runs", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/runs", async (c) => {
 		const taskId = c.req.query("task_id");
 		const agentIds = parseIdList(c.req.query("agent_ids"));
 		if (taskId === undefined && agentIds === undefined) {

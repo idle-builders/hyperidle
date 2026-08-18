@@ -3,7 +3,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse, ItemCreatedEvent } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
@@ -69,7 +69,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	// route. Registered BEFORE `GET /:threadId` (a single-segment param route)
 	// so the literal `/items` segment can never be shadowed by it.
 	// GET /items?reasoningMarker=... — search items by a `reasoning` LIKE marker.
-	router.get("/items", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/items", async (c) => {
 		const reasoningMarker = c.req.query("reasoningMarker");
 		if (!reasoningMarker) {
 			const response: ApiErrorResponse = {
@@ -84,7 +84,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 
 	// AU21 §9 Increment 2 — `CoreApiPort.work.getItemById`'s backing route.
 	// GET /items/:id — bare item detail (no bare detail route existed before this).
-	router.get("/items/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/items/:id", async (c) => {
 		const id = c.req.param("id");
 		const item = await work.get(db, "item", id);
 		if (!item) {
@@ -101,93 +101,83 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	// PATCH /items/:id — patch riskTier/kind/verb (used by score_attention;
 	// `route_item` was a second caller here — AU21 §6 Decision L3 deleted it
 	// outright as vestigial).
-	router.patch(
-		"/items/:id",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(updateItemSchema),
-		async (c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof updateItemSchema>;
+	router.patch("/items/:id", validateBody(updateItemSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof updateItemSchema>;
 
-			const existing = await work.get(db, "item", id);
-			if (!existing) {
-				const response: ApiErrorResponse = {
-					error: "Item not found",
-					code: API_ERROR_CODES.NOT_FOUND,
-				};
-				return c.json(response, 404);
-			}
+		const existing = await work.get(db, "item", id);
+		if (!existing) {
+			const response: ApiErrorResponse = {
+				error: "Item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
 
-			const updates: Partial<{ riskTier: string; kind: string; verb: string }> = {};
-			if (body.riskTier !== undefined) updates.riskTier = body.riskTier;
-			if (body.kind !== undefined) updates.kind = body.kind;
-			if (body.verb !== undefined) updates.verb = body.verb;
-			if (Object.keys(updates).length > 0) {
-				await work.update(db, "item", id, updates);
-			}
+		const updates: Partial<{ riskTier: string; kind: string; verb: string }> = {};
+		if (body.riskTier !== undefined) updates.riskTier = body.riskTier;
+		if (body.kind !== undefined) updates.kind = body.kind;
+		if (body.verb !== undefined) updates.verb = body.verb;
+		if (Object.keys(updates).length > 0) {
+			await work.update(db, "item", id, updates);
+		}
 
-			const updated = await work.get(db, "item", id);
-			return c.json(updated);
-		},
-	);
+		const updated = await work.get(db, "item", id);
+		return c.json(updated);
+	});
 
 	// Row 10: POST /api/conversations/items — S (principal-self: item created by principal)
 	// POST /items — create item
 	// O2: routeItem/routeToFounder calls removed; view/founderRoute fields removed from response
-	router.post(
-		"/items",
-		requireBoundary({ kind: "principal-self" }),
-		validateBody(createItemSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;
-			const id = crypto.randomUUID();
-			const now = new Date().toISOString();
+	router.post("/items", validateBody(createItemSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
 
-			// Verify thread exists
-			const thread = await findThread(db, { id: body.threadId });
-			if (!thread) {
-				const response: ApiErrorResponse = {
-					error: "Thread not found",
-					code: API_ERROR_CODES.NOT_FOUND,
-				};
-				return c.json(response, 404);
-			}
-
-			// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
-			await work.create(db, "item", {
-				id,
-				sourceAgentId: body.sourceAgentId ?? null,
-				layer: body.layer ?? null,
-				verb: body.verb ?? null,
-				kind: body.kind ?? null,
-				title: body.title,
-				body: body.body ?? null,
-				attachments: body.attachments ?? null,
-				proposedAction: body.proposedAction ?? null,
-				options: body.options ?? null,
-				riskTier: body.riskTier ?? null,
-				blocking: body.blocking ?? false,
-				reasoning: body.reasoning ?? null,
-				threadId: body.threadId,
-				createdAt: now,
-			});
-
-			const created = await work.get(db, "item", id);
-
-			// Emit item_created event
-			const event: ItemCreatedEvent = {
-				type: "item_created",
-				streamId: crypto.randomUUID(),
-				itemId: id,
-				conversationId: body.threadId,
-				kind: body.kind ?? "unknown",
-				timestamp: Date.now(),
+		// Verify thread exists
+		const thread = await findThread(db, { id: body.threadId });
+		if (!thread) {
+			const response: ApiErrorResponse = {
+				error: "Thread not found",
+				code: API_ERROR_CODES.NOT_FOUND,
 			};
-			eventBus.emit(event);
+			return c.json(response, 404);
+		}
 
-			return c.json(created, 201);
-		},
-	);
+		// O2: agents routing logic removed; sourceAgentId stored for audit purposes only
+		await work.create(db, "item", {
+			id,
+			sourceAgentId: body.sourceAgentId ?? null,
+			layer: body.layer ?? null,
+			verb: body.verb ?? null,
+			kind: body.kind ?? null,
+			title: body.title,
+			body: body.body ?? null,
+			attachments: body.attachments ?? null,
+			proposedAction: body.proposedAction ?? null,
+			options: body.options ?? null,
+			riskTier: body.riskTier ?? null,
+			blocking: body.blocking ?? false,
+			reasoning: body.reasoning ?? null,
+			threadId: body.threadId,
+			createdAt: now,
+		});
+
+		const created = await work.get(db, "item", id);
+
+		// Emit item_created event
+		const event: ItemCreatedEvent = {
+			type: "item_created",
+			streamId: crypto.randomUUID(),
+			itemId: id,
+			conversationId: body.threadId,
+			kind: body.kind ?? "unknown",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(event);
+
+		return c.json(created, 201);
+	});
 
 	// `POST /responses` removed in L1 step5 (S-C2). Verdicts go through the
 	// canonical `POST /api/threads/:id/messages` surface.

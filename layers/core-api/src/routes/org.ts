@@ -9,7 +9,7 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import { createTeam, getTeam, getTeamMembers, persistScaffoldedAgents } from "@hyperidle/org";
 import { provisionTeamRoutines } from "@hyperidle/routine";
 import { findUser, insertUser } from "@hyperidle/users";
@@ -81,7 +81,7 @@ export function createOrgRoutes(
 	// GET /teams/:teamId — narrow team view {id, name} for the CoreApiPort seam
 	// (AU21 §9 Increment 2). Distinct from `GET /teams/:teamId` (top-level
 	// `teams-routes.ts`), which builds a heavy enriched TeamDetail.
-	router.get("/teams/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/teams/:teamId", async (c) => {
 		const teamId = c.req.param("teamId");
 		const team = await getTeam(db, { id: teamId });
 		if (!team) {
@@ -91,7 +91,7 @@ export function createOrgRoutes(
 	});
 
 	// GET /teams/:teamId/membership — the `teamMembers` row keyed by `teams.id`.
-	router.get("/teams/:teamId/membership", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/teams/:teamId/membership", async (c) => {
 		const teamId = c.req.param("teamId");
 		const memberGroup = await getTeamMembers(db, { teamId });
 		if (!memberGroup) {
@@ -105,64 +105,50 @@ export function createOrgRoutes(
 
 	// GET /team-members/:teamMembersId — the AK4 two-hop resolution's second hop
 	// (`teamMembers.id` -> `teamId`, i.e. `teams.id`).
-	router.get(
-		"/team-members/:teamMembersId",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const teamMembersId = c.req.param("teamMembersId");
-			const memberGroup = await getTeamMembers(db, { id: teamMembersId });
-			if (!memberGroup) {
-				return c.json(
-					{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
-					404,
-				);
-			}
-			return c.json({ teamId: memberGroup.teamId });
-		},
-	);
+	router.get("/team-members/:teamMembersId", async (c) => {
+		const teamMembersId = c.req.param("teamMembersId");
+		const memberGroup = await getTeamMembers(db, { id: teamMembersId });
+		if (!memberGroup) {
+			return c.json(
+				{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
+				404,
+			);
+		}
+		return c.json({ teamId: memberGroup.teamId });
+	});
 
 	// POST /teams — the atomic `teams`+`teamMembers` insert ONLY (never the
 	// heavier `POST /teams` UI flow, which also scaffolds the default agent
 	// roster + provisions routines + writes an org edge + drafts a welcome
 	// message — reusing that here would DOUBLE the scaffold/provision work
 	// `create_team`'s tool handler already performs itself immediately after).
-	router.post(
-		"/teams",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(createOrgTeamSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createOrgTeamSchema>;
-			await createTeam(db, body);
-			return c.json({ id: body.id, teamMembersId: body.teamMembersId }, 201);
-		},
-	);
+	router.post("/teams", validateBody(createOrgTeamSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createOrgTeamSchema>;
+		await createTeam(db, body);
+		return c.json({ id: body.id, teamMembersId: body.teamMembersId }, 201);
+	});
 
 	// POST /scaffolded-agents — the collapsed Kernel-persist helper
 	// (`persistScaffoldedAgents`). Even `POST /teams` calls the underlying
 	// function directly in-process, never via HTTP — no UI route exists to
 	// reuse.
-	router.post(
-		"/scaffolded-agents",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(persistScaffoldedAgentsSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
-			const result = await persistScaffoldedAgents(
-				db,
-				{
-					getUserById: (db2, id) => findUser(db2, { id }),
-					insertUser,
-					// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
-					// @hyperidle/agent-run-config import (crossing-di) — now the
-					// seam-backed adapter.
-					...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
-				},
-				body.teamMembersId,
-				body.specs,
-			);
-			return c.json(result, 201);
-		},
-	);
+	router.post("/scaffolded-agents", validateBody(persistScaffoldedAgentsSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
+		const result = await persistScaffoldedAgents(
+			db,
+			{
+				getUserById: (db2, id) => findUser(db2, { id }),
+				insertUser,
+				// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
+				// @hyperidle/agent-run-config import (crossing-di) — now the
+				// seam-backed adapter.
+				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+			},
+			body.teamMembersId,
+			body.specs,
+		);
+		return c.json(result, 201);
+	});
 
 	// POST /team-routines — seeds the four builtin-routine definitions for a
 	// team (`@hyperidle/routine`'s `provisionTeamRoutines`). `teams-routes.ts`'s
@@ -170,20 +156,15 @@ export function createOrgRoutes(
 	// convention as `scaffolded-agents` above) — this route exists so
 	// `create_team`'s tool handler (already routing every other step through
 	// this seam) can reach it too, per Decision C.
-	router.post(
-		"/team-routines",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(provisionTeamRoutinesSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof provisionTeamRoutinesSchema>;
-			await provisionTeamRoutines(db, {
-				teamId: body.teamId,
-				ownerByRole: body.ownerByRole,
-				leadAgentId: body.leadAgentId,
-			});
-			return c.json({}, 201);
-		},
-	);
+	router.post("/team-routines", validateBody(provisionTeamRoutinesSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof provisionTeamRoutinesSchema>;
+		await provisionTeamRoutines(db, {
+			teamId: body.teamId,
+			ownerByRole: body.ownerByRole,
+			leadAgentId: body.leadAgentId,
+		});
+		return c.json({}, 201);
+	});
 
 	return router;
 }

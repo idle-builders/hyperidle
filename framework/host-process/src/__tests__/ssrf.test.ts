@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-	assertUrlNotSSRF,
 	isLoopbackHost,
 	isPrivateHostLiteral,
 	isPrivateIPv4,
 	isPrivateIPv6,
 	resolveUrlForSSRF,
-	sanitizeHttpUrl,
 } from "../net/ssrf.js";
 
 describe("shared/net/ssrf: isPrivateIPv4", () => {
@@ -35,8 +33,6 @@ describe("shared/net/ssrf: isPrivateIPv6", () => {
 		expect(isPrivateIPv6("::ffff:127.0.0.1")).toBe(true);
 	});
 	it("flags embedded cloud metadata IPv4 (::ffff:169.254.169.254)", () => {
-		// Adversary review: coverage gap — pin behavior for the embedded
-		// metadata-server address.
 		expect(isPrivateIPv6("::ffff:169.254.169.254")).toBe(true);
 	});
 	it("passes public v6", () => {
@@ -54,56 +50,6 @@ describe("shared/net/ssrf: isPrivateHostLiteral + isLoopbackHost", () => {
 	});
 	it("public hosts pass", () => {
 		expect(isPrivateHostLiteral("example.com")).toBe(false);
-	});
-});
-
-describe("shared/net/ssrf: sanitizeHttpUrl", () => {
-	it("accepts https to public host", () => {
-		expect(sanitizeHttpUrl("https://api.example.com")).toEqual({ ok: true });
-	});
-	it("accepts http to loopback", () => {
-		expect(sanitizeHttpUrl("http://127.0.0.1:3000")).toEqual({ ok: true });
-		expect(sanitizeHttpUrl("http://localhost:9000")).toEqual({ ok: true });
-	});
-	it("rejects http to public host", () => {
-		const r = sanitizeHttpUrl("http://evil.example.com", { label: "webhook url" });
-		expect(r.ok).toBe(false);
-		if (!r.ok) expect(r.reason).toContain("loopback");
-	});
-	it("rejects https to cloud metadata IP", () => {
-		const r = sanitizeHttpUrl("https://169.254.169.254");
-		expect(r.ok).toBe(false);
-	});
-	it("rejects userinfo", () => {
-		const r = sanitizeHttpUrl("https://user:pass@api.example.com");
-		expect(r.ok).toBe(false);
-		if (!r.ok) expect(r.reason).toContain("userinfo");
-	});
-	it("rejects control characters", () => {
-		const r = sanitizeHttpUrl("https://host.com\r\nHost: evil.com");
-		expect(r.ok).toBe(false);
-	});
-	it("rejects empty + malformed", () => {
-		expect(sanitizeHttpUrl("").ok).toBe(false);
-		expect(sanitizeHttpUrl("not a url").ok).toBe(false);
-	});
-	it("honours requireHttps=false", () => {
-		expect(sanitizeHttpUrl("http://evil.example.com", { requireHttps: false }).ok).toBe(true);
-	});
-});
-
-describe("shared/net/ssrf: assertUrlNotSSRF", () => {
-	it("passes for loopback literal (sync short-circuit)", async () => {
-		const r = await assertUrlNotSSRF("http://127.0.0.1:3000");
-		expect(r.ok).toBe(true);
-	});
-	it("rejects public http", async () => {
-		const r = await assertUrlNotSSRF("http://evil.example.com");
-		expect(r.ok).toBe(false);
-	});
-	it("rejects private IP literal", async () => {
-		const r = await assertUrlNotSSRF("https://10.0.0.1");
-		expect(r.ok).toBe(false);
 	});
 });
 

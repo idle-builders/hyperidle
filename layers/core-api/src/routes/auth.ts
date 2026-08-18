@@ -39,7 +39,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import { Hono } from "hono";
 
@@ -52,7 +52,7 @@ export function createAuthRoutes(
 
 	// GET /me — returns the authenticated user's identity.
 	// P2: reads from users table instead of factorySettings founder_name/founder_email.
-	router.get("/me", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.get("/me", async (c) => {
 		const userId = c.get("userId") ?? "u-founder";
 
 		if (!db) {
@@ -77,7 +77,7 @@ export function createAuthRoutes(
 
 	// POST /ws-token — only mounted when WebSocket support is active.
 	if (store) {
-		router.post("/ws-token", requireBoundary({ kind: "public-data" }), (c) => {
+		router.post("/ws-token", (c) => {
 			// Clients compute remaining seconds from `expiresAt` themselves; emitting
 			// a server-derived `expiresInSec` adds a clock-skew footgun for no value.
 			// @lore S1: In shared mode, identity comes from the auth middleware context
@@ -104,7 +104,7 @@ export function createAuthRoutes(
 	 * only legitimate users can obtain the WS token. Never logged or exposed in
 	 * error messages.
 	 */
-	router.post("/worker-token", requireBoundary({ kind: "public-data" }), (c) => {
+	router.post("/worker-token", (c) => {
 		const workerToken = process.env.HYPERIDLE_WORKER_TOKEN;
 		if (!workerToken) {
 			return c.json(

@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { type HyperIdleDb, pluginConfigurationDefaults, plugins } from "@hyperidle/db";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { BUILTIN_PLUGIN_ID } from "@hyperidle/domain-model";
-import { failClosedAssertion } from "@hyperidle/http-middleware";
 import { writeConfigurationOverride } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
@@ -209,7 +208,7 @@ async function createAgentBehaviorTestApp(db: HyperIdleDb): Promise<Hono> {
 	};
 	const app = new Hono();
 	app.use("/api/*", authMiddleware);
-	app.use("/api/*", failClosedAssertion());
+
 	app.route("/api/settings/agent-behavior", routeModule.createAgentBehaviorSettingsRoutes(db));
 	return app;
 }

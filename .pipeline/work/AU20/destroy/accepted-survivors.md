@@ -38,3 +38,13 @@ Not survivors — these are gaps the pass created and did not fill.
   six tests covered the risk-tier gate and died correctly with it. The sixth asserted that the
   subscriber returns a working unsubscribe function; the liveness subscriber it now guards is live and
   is part of the approval loop being finished.
+
+- **`POST /api/harnesses/redetect` now has no throttle.** Not a survivor and not a coverage gap — a
+  security posture change worth stating on its own. That route spawns roughly ten CLI probes, each
+  with a fifteen-second timeout, and carried a dedicated one-call-per-five-seconds limiter for exactly
+  that reason. The limiter died with the rest of the rate-limiting middleware, which was convicted
+  fairly: it ran pre-auth, was principal-blind, and behind a proxy collapsed a whole team into one
+  bucket. But the two uses were different in kind — the global limiter was a wall built first, this
+  one guarded a real amplification path in the product's own design. If redetect ever becomes a
+  problem, that is the learning that earns a narrow guard back, and it should be scoped to the route
+  rather than reinstated globally.

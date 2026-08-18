@@ -38,7 +38,7 @@ import {
 	scopeToLayer,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import {
 	remove as archiveKnowledgeItem,
 	count as countKnowledgeItems,
@@ -311,7 +311,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /search — FTS search across all knowledge items
 	// Must be registered before /:id to avoid route conflict
-	router.get("/search", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/search", async (c) => {
 		const rawQuery = c.req.query("q");
 		const parsed = SEARCH_QUERY_SCHEMA.safeParse(rawQuery?.trim());
 		if (!parsed.success) {
@@ -354,7 +354,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// @lore AV3: scopeName is NOT resolved here — detail endpoint only (GET /:id). Intentional
 	// list carve-out: resolving scopeName per-row would require N+1 DB queries or a batch join
 	// for every scope kind (user/team/bet/task). Detail endpoint resolves one item in one call.
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const userId = c.get("userId");
 
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
@@ -384,7 +384,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// Must be registered before /:id to avoid route conflict.
 	// @lore Y4: The filter mirrors GET / user-scope visibility: include item if scope_kind != 'user'
 	// OR updatedBy = userId. This ensures private items from other users don't inflate the count.
-	router.get("/triage-count", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/triage-count", async (c) => {
 		const userId = c.get("userId");
 		const count = await countKnowledgeItems(db, { triageVisible: userId });
 		return c.json({ count });
@@ -394,7 +394,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// Q2: returns 404 for user-scoped items not authored by the requesting user.
 	// AF13 §5: relatedItems computed as same-topic items visible to the requesting user,
 	// capped at 10, null-topic → [] (WARNING 2 from architecture-critique).
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
@@ -466,217 +466,202 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	//     factory and user scopes need no external scopeId.
 	//     user scope auto-fills scopeId from userId.
 	//     App projection layer assigned inline on creation.
-	router.post(
-		"/",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(createKnowledgeSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
-			const userId = c.get("userId");
+	router.post("/", validateBody(createKnowledgeSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
+		const userId = c.get("userId");
 
-			// Q2: scopeId validation — required for scopes that reference an external entity.
-			if (requiresScopeId(body.scopeKind) && !body.scopeId) {
-				const response: ApiErrorResponse = {
-					error: `scopeId is required for scopeKind '${body.scopeKind}'`,
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 400);
-			}
-
-			// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
-			const resolvedScopeId =
-				body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
-
-			// @lore AU14: routes through the shared repository instead of a raw insert +
-			// upsertProjectionLayer. kind is omitted so projection.kind stays null exactly
-			// as before; resolvedScopeId is passed so the kernel scopeId (read by Q2/GET
-			// filters) is preserved — this also populates projection.scopeId, which was
-			// null pre-AU14. That is a deliberate, tested convergence (plan §9 D3), not a
-			// regression: route-created scoped items now participate in scope-filtered
-			// context assembly / promotion / practice-meeting / attention like tool-created
-			// items already do. See plans/AU14/architecture.md §5, §9.
-			const created = await createKnowledgeItem(db, {
-				// AU21 §9 Increment 2 (knowledge wave): honor an explicit `layer`
-				// override when the caller supplies one (write_memory's real call
-				// always does); otherwise preserve the pre-existing derivation.
-				layer: body.layer ?? scopeToLayer(body.scopeKind),
-				scopeKind: body.scopeKind,
-				scopeId: resolvedScopeId,
-				kind: body.kind ?? null,
-				topic: body.topic ?? null,
-				title: body.title,
-				body: body.body,
-				format: body.format,
-				// O2: default status is "draft" (was "captured" in old implementation)
-				status: body.status ?? "draft",
-				updatedBy: body.updatedBy,
-			});
-
-			// Response shape preserved: re-select the raw kernel row (not the repo's
-			// KnowledgeItemWithProjection, which carries extra projection fields) so the
-			// 201 body stays byte-identical to pre-AU14.
-			const row = await getKnowledgeItem(db, created.id);
-
-			// O2: emit knowledge_created event
-			const createdEvent: KnowledgeCreatedEvent = {
-				type: "knowledge_created",
-				streamId: `knowledge:${created.id}`,
-				itemId: created.id,
-				timestamp: Date.now(),
+		// Q2: scopeId validation — required for scopes that reference an external entity.
+		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
+			const response: ApiErrorResponse = {
+				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
 			};
-			eventBus.emit(createdEvent);
+			return c.json(response, 400);
+		}
 
-			return c.json(row, 201);
-		},
-	);
+		// Q2: user scope auto-fills scopeId from userId (private to the requesting user).
+		const resolvedScopeId =
+			body.scopeKind === "user" ? (body.scopeId ?? userId) : (body.scopeId ?? null);
+
+		// @lore AU14: routes through the shared repository instead of a raw insert +
+		// upsertProjectionLayer. kind is omitted so projection.kind stays null exactly
+		// as before; resolvedScopeId is passed so the kernel scopeId (read by Q2/GET
+		// filters) is preserved — this also populates projection.scopeId, which was
+		// null pre-AU14. That is a deliberate, tested convergence (plan §9 D3), not a
+		// regression: route-created scoped items now participate in scope-filtered
+		// context assembly / promotion / practice-meeting / attention like tool-created
+		// items already do. See plans/AU14/architecture.md §5, §9.
+		const created = await createKnowledgeItem(db, {
+			// AU21 §9 Increment 2 (knowledge wave): honor an explicit `layer`
+			// override when the caller supplies one (write_memory's real call
+			// always does); otherwise preserve the pre-existing derivation.
+			layer: body.layer ?? scopeToLayer(body.scopeKind),
+			scopeKind: body.scopeKind,
+			scopeId: resolvedScopeId,
+			kind: body.kind ?? null,
+			topic: body.topic ?? null,
+			title: body.title,
+			body: body.body,
+			format: body.format,
+			// O2: default status is "draft" (was "captured" in old implementation)
+			status: body.status ?? "draft",
+			updatedBy: body.updatedBy,
+		});
+
+		// Response shape preserved: re-select the raw kernel row (not the repo's
+		// KnowledgeItemWithProjection, which carries extra projection fields) so the
+		// 201 body stays byte-identical to pre-AU14.
+		const row = await getKnowledgeItem(db, created.id);
+
+		// O2: emit knowledge_created event
+		const createdEvent: KnowledgeCreatedEvent = {
+			type: "knowledge_created",
+			streamId: `knowledge:${created.id}`,
+			itemId: created.id,
+			timestamp: Date.now(),
+		};
+		eventBus.emit(createdEvent);
+
+		return c.json(row, 201);
+	});
 
 	// PATCH /:id/scope — Q2: change scope_kind and scope_id with version tracking.
 	// Bumps version, logs change in knowledgeEditLog, updates app projection layer.
-	router.patch(
-		"/:id/scope",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(changeScopeSchema),
-		async (c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
+	router.patch("/:id/scope", validateBody(changeScopeSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
 
-			const existing = await getKnowledgeItem(db, id);
+		const existing = await getKnowledgeItem(db, id);
 
-			if (!existing) {
-				const response: ApiErrorResponse = {
-					error: "Knowledge item not found",
-					code: API_ERROR_CODES.NOT_FOUND,
-				};
-				return c.json(response, 404);
-			}
-
-			// Optimistic locking: check version
-			if (existing.version !== body.version) {
-				const response: ApiErrorResponse = {
-					error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
-					code: API_ERROR_CODES.CONFLICT,
-					details: { currentVersion: existing.version },
-				};
-				return c.json(response, 409);
-			}
-
-			// Q2: scopeId validation for the new scope kind
-			if (requiresScopeId(body.scopeKind) && !body.scopeId) {
-				const response: ApiErrorResponse = {
-					error: `scopeId is required for scopeKind '${body.scopeKind}'`,
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				};
-				return c.json(response, 400);
-			}
-
-			// @lore AU20 K2-writes: changeScope folded into transition({target:"changeScope"}).
-			// transition() fetches the item internally by id (no need to pass `existing`).
-			const updated = await knowledgeTransition(db, id, {
-				target: "changeScope",
-				scopeKind: body.scopeKind,
-				scopeId: body.scopeId ?? null,
-				reason: body.reason,
-				updatedBy: body.updatedBy,
-			});
-
-			// Emit knowledge_updated event for scope change
-			const updatedEvent: KnowledgeUpdatedEvent = {
-				type: "knowledge_updated",
-				streamId: `knowledge:${id}`,
-				itemId: id,
-				action: "updated",
-				timestamp: Date.now(),
+		if (!existing) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
 			};
-			eventBus.emit(updatedEvent);
+			return c.json(response, 404);
+		}
 
-			return c.json(updated);
-		},
-	);
+		// Optimistic locking: check version
+		if (existing.version !== body.version) {
+			const response: ApiErrorResponse = {
+				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
+				code: API_ERROR_CODES.CONFLICT,
+				details: { currentVersion: existing.version },
+			};
+			return c.json(response, 409);
+		}
+
+		// Q2: scopeId validation for the new scope kind
+		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
+			const response: ApiErrorResponse = {
+				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
+		// @lore AU20 K2-writes: changeScope folded into transition({target:"changeScope"}).
+		// transition() fetches the item internally by id (no need to pass `existing`).
+		const updated = await knowledgeTransition(db, id, {
+			target: "changeScope",
+			scopeKind: body.scopeKind,
+			scopeId: body.scopeId ?? null,
+			reason: body.reason,
+			updatedBy: body.updatedBy,
+		});
+
+		// Emit knowledge_updated event for scope change
+		const updatedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "updated",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(updatedEvent);
+
+		return c.json(updated);
+	});
 
 	// PATCH /:id — update (optimistic locking)
 	// @lore AU14: routes through the shared repository's versioned update() instead of
 	// a manual per-field edit-log loop + raw db.update. Pre-checks (404/409) stay so the
 	// common-path response body is unchanged; the try/catch below is belt-and-suspenders
 	// for a TOCTOU race between the pre-check and the repo's own transactional recheck.
-	router.patch(
-		"/:id",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(updateKnowledgeSchema),
-		async (c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
+	router.patch("/:id", validateBody(updateKnowledgeSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof updateKnowledgeSchema>;
 
-			const existing = await getKnowledgeItem(db, id);
+		const existing = await getKnowledgeItem(db, id);
 
-			if (!existing) {
+		if (!existing) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		// Optimistic locking: check version
+		if (existing.version !== body.version) {
+			const response: ApiErrorResponse = {
+				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
+				code: API_ERROR_CODES.CONFLICT,
+				details: { currentVersion: existing.version },
+			};
+			return c.json(response, 409);
+		}
+
+		try {
+			await updateKnowledgeItem(
+				db,
+				id,
+				{
+					title: body.title,
+					body: body.body,
+					topic: body.topic,
+					format: body.format,
+					status: body.status,
+					updatedBy: body.updatedBy,
+				},
+				body.version,
+			);
+		} catch (error) {
+			if (error instanceof VersionConflictError) {
+				const response: ApiErrorResponse = {
+					error: `Version conflict: expected ${body.version}, current is ${error.currentVersion}`,
+					code: API_ERROR_CODES.CONFLICT,
+					details: { currentVersion: error.currentVersion },
+				};
+				return c.json(response, 409);
+			}
+			if (error instanceof ItemDeletedError) {
 				const response: ApiErrorResponse = {
 					error: "Knowledge item not found",
 					code: API_ERROR_CODES.NOT_FOUND,
 				};
 				return c.json(response, 404);
 			}
+			throw error;
+		}
 
-			// Optimistic locking: check version
-			if (existing.version !== body.version) {
-				const response: ApiErrorResponse = {
-					error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
-					code: API_ERROR_CODES.CONFLICT,
-					details: { currentVersion: existing.version },
-				};
-				return c.json(response, 409);
-			}
+		const updated = await getKnowledgeItem(db, id);
 
-			try {
-				await updateKnowledgeItem(
-					db,
-					id,
-					{
-						title: body.title,
-						body: body.body,
-						topic: body.topic,
-						format: body.format,
-						status: body.status,
-						updatedBy: body.updatedBy,
-					},
-					body.version,
-				);
-			} catch (error) {
-				if (error instanceof VersionConflictError) {
-					const response: ApiErrorResponse = {
-						error: `Version conflict: expected ${body.version}, current is ${error.currentVersion}`,
-						code: API_ERROR_CODES.CONFLICT,
-						details: { currentVersion: error.currentVersion },
-					};
-					return c.json(response, 409);
-				}
-				if (error instanceof ItemDeletedError) {
-					const response: ApiErrorResponse = {
-						error: "Knowledge item not found",
-						code: API_ERROR_CODES.NOT_FOUND,
-					};
-					return c.json(response, 404);
-				}
-				throw error;
-			}
+		// O2: emit knowledge_updated event
+		const updatedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "updated",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(updatedEvent);
 
-			const updated = await getKnowledgeItem(db, id);
-
-			// O2: emit knowledge_updated event
-			const updatedEvent: KnowledgeUpdatedEvent = {
-				type: "knowledge_updated",
-				streamId: `knowledge:${id}`,
-				itemId: id,
-				action: "updated",
-				timestamp: Date.now(),
-			};
-			eventBus.emit(updatedEvent);
-
-			return c.json(updated);
-		},
-	);
+		return c.json(updated);
+	});
 
 	// POST /:id/archive — archive item, emit knowledge_archived event
-	router.post("/:id/archive", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/:id/archive", async (c) => {
 		const id = c.req.param("id");
 
 		const item = await getKnowledgeItem(db, id);
@@ -711,7 +696,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// no existing UI route wraps any of these, so each is new and narrow.
 
 	// GET /:id/conflicts?proposedBy= — find an open conflict on :id filed by proposedBy.
-	router.get("/:id/conflicts", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id/conflicts", async (c) => {
 		const id = c.req.param("id");
 		const proposedBy = c.req.query("proposedBy");
 		if (!proposedBy) {
@@ -726,72 +711,57 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	});
 
 	// POST /:id/conflicts — record an open knowledge_conflicts row on :id.
-	router.post(
-		"/:id/conflicts",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(createConflictSchema),
-		async (c) => {
-			const itemId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof createConflictSchema>;
+	router.post("/:id/conflicts", validateBody(createConflictSchema), async (c) => {
+		const itemId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof createConflictSchema>;
 
-			await recordKnowledgeConflict(db, {
-				id: body.id,
-				itemId,
-				versionBase: body.versionBase,
-				versionCurrent: body.versionCurrent,
-				proposedBody: body.proposedBody,
-				proposedMeta: body.proposedMeta ?? null,
-				proposedBy: body.proposedBy,
-				createdAt: body.createdAt,
-			});
+		await recordKnowledgeConflict(db, {
+			id: body.id,
+			itemId,
+			versionBase: body.versionBase,
+			versionCurrent: body.versionCurrent,
+			proposedBody: body.proposedBody,
+			proposedMeta: body.proposedMeta ?? null,
+			proposedBy: body.proposedBy,
+			createdAt: body.createdAt,
+		});
 
-			return c.json({ id: body.id, itemId, status: "open" as const }, 201);
-		},
-	);
+		return c.json({ id: body.id, itemId, status: "open" as const }, 201);
+	});
 
 	// POST /:id/promote — wraps transition({target:"promote",...}); no route wrapped this before.
-	router.post(
-		"/:id/promote",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(promoteSchema),
-		async (c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof promoteSchema>;
+	router.post("/:id/promote", validateBody(promoteSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof promoteSchema>;
 
-			const result = await knowledgeTransition(db, id, {
-				target: "promote",
-				fromStatus: body.fromStatus,
-				toStatus: body.toStatus,
-				reason: body.reason,
-				editor: body.editor,
-			});
+		const result = await knowledgeTransition(db, id, {
+			target: "promote",
+			fromStatus: body.fromStatus,
+			toStatus: body.toStatus,
+			reason: body.reason,
+			editor: body.editor,
+		});
 
-			// The domain result (ok:true|false) is forwarded as-is at HTTP 200 —
-			// a domain-level "blocked" outcome is not a transport/validation failure.
-			return c.json(result);
-		},
-	);
+		// The domain result (ok:true|false) is forwarded as-is at HTTP 200 —
+		// a domain-level "blocked" outcome is not a transport/validation failure.
+		return c.json(result);
+	});
 
 	// PATCH /:id/attention-score — wraps transition({target:"recomputeAttention",...}).
-	router.patch(
-		"/:id/attention-score",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(attentionScoreSchema),
-		async (c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof attentionScoreSchema>;
+	router.patch("/:id/attention-score", validateBody(attentionScoreSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof attentionScoreSchema>;
 
-			await knowledgeTransition(db, id, {
-				target: "recomputeAttention",
-				attentionScore: Number(body.attentionScore),
-			});
+		await knowledgeTransition(db, id, {
+			target: "recomputeAttention",
+			attentionScore: Number(body.attentionScore),
+		});
 
-			return c.json({ ok: true });
-		},
-	);
+		return c.json({ ok: true });
+	});
 
 	// POST /:id/recompute-attention — the collapsed score_attention(mode:"recompute") helper.
-	router.post("/:id/recompute-attention", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/:id/recompute-attention", async (c) => {
 		const id = c.req.param("id");
 		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
 		return c.json(result);

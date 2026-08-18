@@ -6,8 +6,7 @@
  * null to proceed.
  *
  * @lore AF11: These helpers are the second half of the two-part enforcement:
- *   (1) requireBoundary(...) middleware declares intent at route registration time.
- *   (2) authorizeRead/Write enforces the policy against the loaded resource inside
+authorizeRead/Write enforces the policy against the loaded resource inside
  *       the handler, where the resource descriptor is already in memory.
  * Keeping enforcement in the handler means zero extra DB round-trips — the route
  * already loaded the resource to build its response.

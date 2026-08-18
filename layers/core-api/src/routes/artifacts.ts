@@ -14,12 +14,11 @@ import {
 	OLD_KIND_MAP,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { createBodyLimit, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { validateBody } from "@hyperidle/http-middleware";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 
-const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;
 const HARD_LIMIT_CAP = 200;
 // L3 review fix Sec-MED-4: cap intermediate task-id materialisation.
@@ -119,7 +118,7 @@ function rowToArtifact(row: work.ArtifactRow, producingTaskTitle: string): Artif
 export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hono {
 	const router = new Hono();
 
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const axis = c.req.query("axis");
 		if (axis !== "task" && axis !== "bet" && axis !== "product" && axis !== "portfolio") {
 			return c.json({ error: "Invalid axis", code: "INVALID_QUERY" }, 400);
@@ -190,55 +189,49 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hon
 		return c.json(page);
 	});
 
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 		const row = await work.get(db, "artifact", id, { include: "taskTitle" });
 		if (!row) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
 		return c.json(rowToArtifact(row.artifact, row.taskTitle));
 	});
 
-	router.post(
-		"/",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
-		validateBody(createArtifactSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createArtifactSchema>;
+	router.post("/", validateBody(createArtifactSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createArtifactSchema>;
 
-			if (body.preview && body.preview.kind !== body.kind) {
-				return c.json({ error: "kind/preview discriminant mismatch", code: "KIND_MISMATCH" }, 400);
-			}
+		if (body.preview && body.preview.kind !== body.kind) {
+			return c.json({ error: "kind/preview discriminant mismatch", code: "KIND_MISMATCH" }, 400);
+		}
 
-			const taskRow = await work.get(db, "task", body.producingTaskId);
-			if (!taskRow) {
-				return c.json({ error: "producing_task_id not found", code: "INVALID_TASK" }, 400);
-			}
+		const taskRow = await work.get(db, "task", body.producingTaskId);
+		if (!taskRow) {
+			return c.json({ error: "producing_task_id not found", code: "INVALID_TASK" }, 400);
+		}
 
-			const id = crypto.randomUUID();
-			const now = new Date().toISOString();
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
 
-			await work.create(db, "artifact", {
-				id,
-				producingTaskId: body.producingTaskId,
-				kind: body.kind,
-				label: body.label ?? null,
-				previewJson: body.preview ? JSON.stringify(body.preview) : null,
-				createdAt: now,
-			});
+		await work.create(db, "artifact", {
+			id,
+			producingTaskId: body.producingTaskId,
+			kind: body.kind,
+			label: body.label ?? null,
+			previewJson: body.preview ? JSON.stringify(body.preview) : null,
+			createdAt: now,
+		});
 
-			const result: Artifact = {
-				id,
-				producingTaskId: body.producingTaskId,
-				producingTaskTitle: taskRow.title,
-				kind: body.kind,
-				label: body.label ?? null,
-				preview: body.preview as Artifact["preview"],
-				threadCount: 0,
-				createdAt: now,
-			};
-			return c.json(result, 201);
-		},
-	);
+		const result: Artifact = {
+			id,
+			producingTaskId: body.producingTaskId,
+			producingTaskTitle: taskRow.title,
+			kind: body.kind,
+			label: body.label ?? null,
+			preview: body.preview as Artifact["preview"],
+			threadCount: 0,
+			createdAt: now,
+		};
+		return c.json(result, 201);
+	});
 
 	// @lore O2: PATCH /:id/cost route removed — cost columns stripped from
 	// artifacts table. Cost settlement is now handled at the strategy layer.

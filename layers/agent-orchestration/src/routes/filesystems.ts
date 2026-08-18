@@ -55,12 +55,7 @@ interface FilesystemsServiceConnectionResolver {
 }
 
 import { createGitRunner } from "@hyperidle/host-process";
-import {
-	createBodyLimit,
-	type HyperIdleEnv,
-	requireBoundary,
-	validateBody,
-} from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -86,8 +81,6 @@ const registerFilesystemSchema = z.object({
 	// The route trusts it only when the resolver yields null (architecture §3, open Q7).
 	sourceHint: z.string().optional(),
 });
-
-const FILESYSTEM_BODY_LIMIT = { maxSize: 8 * 1024 }; // 8 KB (resourceRef is tiny)
 
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
 
@@ -188,92 +181,80 @@ export function createFilesystemRoutes(
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── POST /api/filesystems — Register a filesystem ──────────────────────────
-	router.post(
-		"/",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit(FILESYSTEM_BODY_LIMIT),
-		validateBody(registerFilesystemSchema),
-		async (c) => {
-			const body = c.req.valid("json");
-			const userId = c.get("userId");
-			const authResolver = buildAuthResolver(connectionResolver, userId);
+	router.post("/", validateBody(registerFilesystemSchema), async (c) => {
+		const body = c.req.valid("json");
+		const userId = c.get("userId");
+		const authResolver = buildAuthResolver(connectionResolver, userId);
 
-			// Derive source from the Connection (via resolver) or fallback.
-			// NOTE: teamId FK validation is handled in the insert catch below (→ 404 on FK violation).
-			// The old "FK guard before insert" block was a dead no-op — see M1 in the AO1 review.
-			const connectionId = body.connectionId ?? null;
-			let source: string;
-			if (connectionId == null) {
-				source = "local";
-			} else {
-				source = body.sourceHint ?? "unknown";
+		// Derive source from the Connection (via resolver) or fallback.
+		// NOTE: teamId FK validation is handled in the insert catch below (→ 404 on FK violation).
+		// The old "FK guard before insert" block was a dead no-op — see M1 in the AO1 review.
+		const connectionId = body.connectionId ?? null;
+		let source: string;
+		if (connectionId == null) {
+			source = "local";
+		} else {
+			source = body.sourceHint ?? "unknown";
+		}
+
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
+
+		// Insert with 'attached' state — probe below will update if different.
+		try {
+			await saveFilesystem(db, {
+				id,
+				teamId: body.teamId,
+				source,
+				kind: body.kind,
+				connectionId,
+				resourceRef: JSON.stringify(body.resourceRef),
+				writeback: body.writeback,
+				state: "attached",
+				createdAt: now,
+			});
+		} catch (err) {
+			// FK violation on teamId → 404
+			// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
+			const errMsg = (e: unknown): string => {
+				if (!(e instanceof Error)) return String(e);
+				const own = e.message;
+				if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key"))
+					return own;
+				return e.cause !== undefined ? errMsg(e.cause) : own;
+			};
+			const msg = errMsg(err);
+			if (msg.includes("filesystems_team_id_teams_id_fk") || msg.includes("foreign key")) {
+				return c.json({ error: "Team not found", code: "NOT_FOUND" }, 404);
 			}
+			throw err;
+		}
 
-			const id = crypto.randomUUID();
-			const now = new Date().toISOString();
+		// Row must exist — we just inserted it.
+		const inserted = await getFilesystem(db, id);
+		if (inserted == null) throw new Error("Filesystem disappeared after insert");
 
-			// Insert with 'attached' state — probe below will update if different.
-			try {
-				await saveFilesystem(db, {
-					id,
-					teamId: body.teamId,
-					source,
-					kind: body.kind,
-					connectionId,
-					resourceRef: JSON.stringify(body.resourceRef),
-					writeback: body.writeback,
-					state: "attached",
-					createdAt: now,
-				});
-			} catch (err) {
-				// FK violation on teamId → 404
-				// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
-				const errMsg = (e: unknown): string => {
-					if (!(e instanceof Error)) return String(e);
-					const own = e.message;
-					if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key"))
-						return own;
-					return e.cause !== undefined ? errMsg(e.cause) : own;
-				};
-				const msg = errMsg(err);
-				if (msg.includes("filesystems_team_id_teams_id_fk") || msg.includes("foreign key")) {
-					return c.json({ error: "Team not found", code: "NOT_FOUND" }, 404);
-				}
-				throw err;
-			}
-
-			// Row must exist — we just inserted it.
-			const inserted = await getFilesystem(db, id);
-			if (inserted == null) throw new Error("Filesystem disappeared after insert");
-
-			// Run live probe on register — persists result, returns the updated row.
-			// @lore AO1 v2: probe on register so the caller gets the real initial state.
-			const probed = await checkAndPersistState(db, inserted, authResolver);
-			return c.json(rowToFilesystem(probed), 201);
-		},
-	);
+		// Run live probe on register — persists result, returns the updated row.
+		// @lore AO1 v2: probe on register so the caller gets the real initial state.
+		const probed = await checkAndPersistState(db, inserted, authResolver);
+		return c.json(rowToFilesystem(probed), 201);
+	});
 
 	// ── POST /api/filesystems/inspect-path — Probe a local path before register ─
 	// Separate route justified by codeRefSchema.branch.min(1): the caller must know
 	// the branch BEFORE registering a `code` fs. Folding into POST / would require
 	// loosening that schema. @lore AV1: reuses createGitRunner (currentBranch verb).
-	router.post(
-		"/inspect-path",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit(FILESYSTEM_BODY_LIMIT),
-		validateBody(z.object({ path: z.string().min(1) })),
-		async (c) => {
-			const { path } = c.req.valid("json");
-			// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
-			// `git-export` package it used to live in is deleted. See `@hyperidle/filesystems`'
-			// `ports.ts` top `@lore`.
-			const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
-			return c.json(info, 200);
-		},
-	);
+	router.post("/inspect-path", validateBody(z.object({ path: z.string().min(1) })), async (c) => {
+		const { path } = c.req.valid("json");
+		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
+		// `git-export` package it used to live in is deleted. See `@hyperidle/filesystems`'
+		// `ports.ts` top `@lore`.
+		const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
+		return c.json(info, 200);
+	});
 
 	// ── GET /api/filesystems?teamId= OR ?agentUserId= ─────────────────────────
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const teamId = c.req.query("teamId");
 		const agentUserId = c.req.query("agentUserId");
 
@@ -306,7 +287,7 @@ export function createFilesystemRoutes(
 	});
 
 	// ── GET /api/filesystems/:id — Inspect one filesystem ─────────────────────
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 		const row = await getFilesystem(db, id);
 		if (row == null) {
@@ -320,7 +301,7 @@ export function createFilesystemRoutes(
 	});
 
 	// ── DELETE /api/filesystems/:id — Remove registration (cascades injections) ─
-	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.delete("/:id", async (c) => {
 		const id = c.req.param("id");
 
 		// Check exists first
@@ -335,21 +316,17 @@ export function createFilesystemRoutes(
 	});
 
 	// ── DELETE /api/filesystems/:id/injections/:agentUserId — Eject ───────────
-	router.delete(
-		"/:id/injections/:agentUserId",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const fsId = c.req.param("id");
-			const agentUserId = c.req.param("agentUserId");
+	router.delete("/:id/injections/:agentUserId", async (c) => {
+		const fsId = c.req.param("id");
+		const agentUserId = c.req.param("agentUserId");
 
-			const deleted = await deleteInjection(db, agentUserId, fsId);
-			if (!deleted) {
-				return c.json({ error: "Injection not found", code: "NOT_FOUND" }, 404);
-			}
+		const deleted = await deleteInjection(db, agentUserId, fsId);
+		if (!deleted) {
+			return c.json({ error: "Injection not found", code: "NOT_FOUND" }, 404);
+		}
 
-			return new Response(null, { status: 204 });
-		},
-	);
+		return new Response(null, { status: 204 });
+	});
 
 	return router;
 }

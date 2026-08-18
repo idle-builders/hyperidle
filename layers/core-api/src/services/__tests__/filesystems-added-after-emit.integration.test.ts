@@ -52,16 +52,13 @@ const TEAM_MEMBERS_ID = "tm-au26-f2";
 
 let tmpDir: string;
 let sandboxPath: string;
-let capturesDir: string;
 let vaultDir: string;
 
 beforeEach(() => {
 	tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "au26-f2-add-after-emit-"));
 	sandboxPath = path.join(tmpDir, "sandbox");
-	capturesDir = path.join(tmpDir, "captures");
 	vaultDir = path.join(tmpDir, "late-vault");
 	fs.mkdirSync(sandboxPath, { recursive: true });
-	fs.mkdirSync(capturesDir, { recursive: true });
 	fs.mkdirSync(vaultDir, { recursive: true });
 	fs.writeFileSync(path.join(vaultDir, "index.md"), "# Late vault\n");
 });
@@ -171,8 +168,6 @@ async function provisionFilesystems(
 		gitRunnerFactory: () => {
 			throw new Error("a doc_set mount must not reach for git");
 		},
-		capturesDir,
-		db,
 	});
 	return mountFilesystemsForAgent({
 		agentId: AGENT_ID,

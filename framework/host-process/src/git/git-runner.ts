@@ -151,7 +151,7 @@ export interface GitRunner {
 	currentBranch(): Promise<string | null>;
 }
 
-export interface CreateGitRunnerOptions {
+interface CreateGitRunnerOptions {
 	/** Override process timeouts in milliseconds, including long local filesystem operations. */
 	timeouts?: {
 		localMs?: number;
