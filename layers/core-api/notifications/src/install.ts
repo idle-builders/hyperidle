@@ -44,6 +44,7 @@ import nodemailer from "nodemailer";
 // @lore AU43 stage 2: inlined from @hyperidle/host-process after SanitizeResult was deleted
 // from that package (notifications re-implements SSRF sanitization privately).
 type SanitizeResult = { ok: true } | { ok: false; reason: string };
+
 import { enqueue, listNotifications, markNotifications } from "./notification-queue.js";
 import type { NotificationsDeps } from "./ports.js";
 import type { Notification, NotificationAdapter, NotificationChannel } from "./types.js";

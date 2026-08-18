@@ -29,7 +29,7 @@ import {
 	type AgentRunsResponse,
 	API_ERROR_CODES,
 } from "@hyperidle/domain-model";
-import { type HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import {
 	countActiveRunsByAgent,
 	findSessionById,
