@@ -11,7 +11,7 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 // P2: import new symbols — these will fail to compile until implementation is done
-import { type NewOrgEdge, type NewUser, type OrgEdge, orgEdges, users } from "../schema.js";
+import { type NewUser, orgEdges, users } from "../schema.js";
 
 const NOW = new Date().toISOString();
 
@@ -102,7 +102,7 @@ describe("P2 — org_edges table (AC5)", () => {
 			await seedHumanUser(db);
 			await seedAiUser(db, "u-ai-1", "builder");
 
-			const edge: NewOrgEdge = {
+			const edge: typeof orgEdges.$inferInsert = {
 				id: "edge-1",
 				fromUserId: "u-human-1",
 				mechanism: "direct",
@@ -115,15 +115,15 @@ describe("P2 — org_edges table (AC5)", () => {
 			const rows = await db.select().from(orgEdges).where(eq(orgEdges.id, "edge-1"));
 			const row = rows[0];
 			expect(row).toBeDefined();
-			expect((row as OrgEdge).fromUserId).toBe("u-human-1");
-			expect((row as OrgEdge).mechanism).toBe("direct");
-			expect((row as OrgEdge).target).toBe("u-ai-1");
+			expect((row as typeof orgEdges.$inferSelect).fromUserId).toBe("u-human-1");
+			expect((row as typeof orgEdges.$inferSelect).mechanism).toBe("direct");
+			expect((row as typeof orgEdges.$inferSelect).target).toBe("u-ai-1");
 		});
 
 		test("inserts an org edge with mechanism = function", async ({ db }) => {
 			await seedHumanUser(db);
 
-			const edge: NewOrgEdge = {
+			const edge: typeof orgEdges.$inferInsert = {
 				id: "edge-func-1",
 				fromUserId: "u-human-1",
 				mechanism: "function",
@@ -140,7 +140,7 @@ describe("P2 — org_edges table (AC5)", () => {
 		test("inserts an org edge with mechanism = team", async ({ db }) => {
 			await seedHumanUser(db);
 
-			const edge: NewOrgEdge = {
+			const edge: typeof orgEdges.$inferInsert = {
 				id: "edge-team-1",
 				fromUserId: "u-human-1",
 				mechanism: "team",
@@ -181,7 +181,7 @@ describe("P2 — org_edges table (AC5)", () => {
 			await seedHumanUser(db);
 			await seedAiUser(db, "u-ai-dup", "builder");
 
-			const edge1: NewOrgEdge = {
+			const edge1: typeof orgEdges.$inferInsert = {
 				id: "edge-dup-1",
 				fromUserId: "u-human-1",
 				mechanism: "direct",
@@ -189,7 +189,7 @@ describe("P2 — org_edges table (AC5)", () => {
 				createdAt: NOW,
 			};
 
-			const edge2: NewOrgEdge = {
+			const edge2: typeof orgEdges.$inferInsert = {
 				id: "edge-dup-2",
 				fromUserId: "u-human-1",
 				mechanism: "direct",
