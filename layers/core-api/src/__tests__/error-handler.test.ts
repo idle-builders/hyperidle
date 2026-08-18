@@ -9,6 +9,7 @@ class VersionConflictError extends Error {
 		this.name = "VersionConflictError";
 	}
 }
+
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { errorHandler } from "../middleware/error-handler.js";

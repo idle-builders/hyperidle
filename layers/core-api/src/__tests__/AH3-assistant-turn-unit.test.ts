@@ -21,6 +21,7 @@ class ProviderTimeoutError extends Error {
 		this.name = "ProviderTimeoutError";
 	}
 }
+
 import { describe, expect, test } from "vitest";
 
 describe("AH3: ASSISTANT_TURN_TIMEOUT_MS constant", () => {

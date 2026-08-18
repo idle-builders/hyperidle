@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "vitest";
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry } from "../agent-roles.js";
-import { type ToolCallSummary } from "../thread.js";
+import type { ToolCallSummary } from "../thread.js";
 
 // ThreadConfiguration classifier inlined (classifyThreadConfiguration removed from domain-model —
 // it was a documentation-only helper with zero prod callers; tests inline the logic directly).

@@ -77,4 +77,3 @@ export interface InheritedConnectionFact {
 	/** evidence-first; "unknown" when not provable from probe output. */
 	readonly health: ConnectionHealth | "unknown";
 }
-

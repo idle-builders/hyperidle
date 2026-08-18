@@ -19,6 +19,7 @@ import {
 function exhaustiveAssert(value: never): never {
 	throw new Error(`Unhandled message type: ${String(value)}`);
 }
+
 import { clockTime, TIME_PLACEHOLDER } from "@hyperidle/presentation-format";
 import type { JSX, ReactNode } from "react";
 import { useMemo } from "react";
