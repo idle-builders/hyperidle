@@ -48,9 +48,24 @@ for (const name of readdirSync(work).filter((entry) =>
 	}
 }
 
+// @lore AU43: Some AZ16-receipted files are later deleted in the AU20 delete pass.
+// When the final path no longer exists because the file was deliberately removed,
+// the migration is complete — the class is gone entirely (better than being in the
+// right place). These paths are recorded here so the gate does not treat deletion
+// as a broken receipt. Only add a path when the file is confirmed deleted.
+const DELIBERATELY_DELETED: ReadonlySet<string> = new Set([
+	"framework/design-system/src/ArtifactEmbed.tsx",
+	"framework/design-system/src/Toast.tsx",
+	"framework/design-system/src/diff/select-diff.tsx",
+]);
+
 const findings = validateMigrationReceipts(auditSites, receipts);
 for (const receipt of receipts) {
-	if (receipt.finalPath && !existsSync(resolve(root, receipt.finalPath))) {
+	if (
+		receipt.finalPath &&
+		!existsSync(resolve(root, receipt.finalPath)) &&
+		!DELIBERATELY_DELETED.has(receipt.finalPath)
+	) {
 		findings.push(`${receipt.auditSiteId}: final path does not exist`);
 	}
 }

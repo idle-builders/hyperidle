@@ -8,7 +8,6 @@
 // the AC-10 e2e suite has been re-pointed at the real surfaces.
 
 import {
-	ArtifactEmbed,
 	ArtifactGalleryCard,
 	ArtifactPreview,
 	ArtifactStackItem,
@@ -58,7 +57,6 @@ export function ArtifactDemo(): JSX.Element | null {
 	// Guards: items.length > 0 is proven by the early return above (noUncheckedIndexedAccess).
 	const first = items[0];
 	if (first === undefined) return null;
-	const second = items[1] ?? first;
 	return (
 		<div className="p-[24px] flex flex-col gap-[24px]">
 			<div className={`type-data ${BANNER}`}>
@@ -86,11 +84,6 @@ export function ArtifactDemo(): JSX.Element | null {
 			<section className={SECTION}>
 				<div className={`type-data ${SECTION_LABEL}`}>Single full preview</div>
 				<ArtifactPreview data={first} sanitizeHtml={sanitizeHtml} />
-			</section>
-
-			<section className={SECTION}>
-				<div className={`type-data ${SECTION_LABEL}`}>Embed (chrome-less)</div>
-				<ArtifactEmbed data={second} onOpen={noop} />
 			</section>
 		</div>
 	);

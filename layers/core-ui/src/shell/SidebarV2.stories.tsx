@@ -23,7 +23,7 @@
  * the subpage).
  */
 
-import { dsShellProps, ItemList, Row, SearchField } from "@hyperidle/design-system";
+import { ItemList, Row, SearchField } from "@hyperidle/design-system";
 import { type JSX, useState } from "react";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
@@ -253,7 +253,9 @@ function SidebarV2({ initialView = "conversations" }: { initialView?: ViewId }):
 
 	return (
 		<aside
-			{...dsShellProps("SidebarV2")}
+			data-ds-shell="SidebarV2"
+			data-ds-tier="3"
+			data-ds-source="web-shell"
 			role="navigation"
 			aria-label="Main navigation"
 			className="flex h-full w-full shrink-0 flex-col gap-[12px] p-[12px]"

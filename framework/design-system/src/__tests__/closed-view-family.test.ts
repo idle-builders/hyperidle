@@ -2,9 +2,9 @@
 // Source of truth: plans/L3/architecture.md §9, §12; concept §4.5 hard rule #2.
 //
 // Asserts:
-// 1. The DS export boundary publishes EXACTLY the 8 named exports (4 layouts + 4 sub-primitives).
+// 1. The DS export boundary publishes EXACTLY the 7 named exports (3 layouts + 4 sub-primitives).
 // 2. There is NO ambiguous `Artifact` or `ArtifactCard` export.
-// 3. There is NO 5th layout file in `framework/design-system/src/Artifact*.tsx` outside the allow-list.
+// 3. There is NO 4th layout file in `framework/design-system/src/Artifact*.tsx` outside the allow-list.
 //
 // @lore AU21 Increment 14a: ArtifactCostChip (a sub-primitive) is deleted
 // along with the rest of the cost feature — the family shrinks from 8 to 7.
@@ -14,6 +14,9 @@
 // ArtifactFrame is how an artifact of the `html` kind RUNS — its own document,
 // sealed. No existing export does that job; HtmlPayload renders sanitised
 // fragments into the app's own document, which is the opposite thing.
+//
+// @lore AU43 bundle-03: ArtifactEmbed deleted — only door was /_dev/artifacts (DEV-ONLY).
+// Family shrinks from 8 to 7.
 
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -28,11 +31,10 @@ const ALLOWED = [
 	"ArtifactGalleryCard",
 	"ArtifactStackItem",
 	"ArtifactPreview",
-	"ArtifactEmbed",
 ] as const;
 
 describe("Artifact closed view family — export boundary (protected)", () => {
-	it("exports exactly the 8 allowed Artifact* names — no more, no less", () => {
+	it("exports exactly the 7 allowed Artifact* names — no more, no less", () => {
 		const exported = Object.keys(Ds).filter((k) => /^Artifact/.test(k));
 		expect(exported.sort()).toEqual([...ALLOWED].sort());
 	});
