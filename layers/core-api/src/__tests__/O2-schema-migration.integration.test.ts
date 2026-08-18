@@ -43,14 +43,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("task_planning_signals table exists in the database", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await expect(
-				db.execute(sql.raw("SELECT id FROM task_planning_signals LIMIT 1")),
-			).resolves.toBeDefined();
-			vi.unstubAllEnvs();
-		});
-
 		test("knowledge_app_projection has FK to knowledge_items with cascade delete", async ({
 			db,
 		}) => {
@@ -64,33 +56,12 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("task_planning_signals has FK to tasks with cascade delete", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_planning_signals"}`,
-			);
-			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).toContain("id");
-			expect(colNames).toContain("task_id");
-			vi.unstubAllEnvs();
-		});
-
 		test("knowledge_app_projection does NOT have a strategy discriminator column", async ({
 			db,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_app_projection"}`,
-			);
-			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).not.toContain("strategy");
-			vi.unstubAllEnvs();
-		});
-
-		test("task_planning_signals does NOT have a strategy discriminator column", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_planning_signals"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
@@ -925,59 +896,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			// Extension row should be gone (CASCADE DELETE)
 			const afterResult = await db.execute(
 				sql.raw(`SELECT id FROM knowledge_app_projection WHERE knowledge_item_id = '${itemId}'`),
-			);
-			const after = (afterResult as { rows: Array<{ id: string }> }).rows;
-			expect(after).toHaveLength(0);
-			vi.unstubAllEnvs();
-		});
-
-		test("deleting a task cascades to task_planning_signals rows", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const now = new Date().toISOString();
-
-			// @lore U1: products→teams, teams→team_members, bets.pitch→description, bets removes product_id
-			// Seed required FK ancestors
-			await db.execute(
-				sql.raw(
-					`INSERT INTO teams (id, name, phase, created_at) VALUES ('p1-cascade', 'Prod', 'build', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('t1-cascade', 'p1-cascade', 3, 0, '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('b1-cascade', 'p1-cascade', 'Pitch', 'active', '${now}')`,
-				),
-			);
-			const taskId = crypto.randomUUID();
-			// After O2: tasks has no riskTier/attentionScore/durability/crossTeam columns
-			// After U1: tasks has no product_id column
-			await db.execute(
-				sql.raw(`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at)
-				 VALUES ('${taskId}', 'b1-cascade', 'p1-cascade', 'Task', 'pending', '${now}', '${now}')`),
-			);
-
-			// Insert extension row — table must exist with FK cascade
-			const extId = crypto.randomUUID();
-			await db.execute(
-				sql.raw(`INSERT INTO task_planning_signals (id, task_id) VALUES ('${extId}', '${taskId}')`),
-			);
-
-			// Verify extension row exists
-			const beforeResult = await db.execute(
-				sql.raw(`SELECT id FROM task_planning_signals WHERE task_id = '${taskId}'`),
-			);
-			const before = (beforeResult as { rows: Array<{ id: string }> }).rows;
-			expect(before).toHaveLength(1);
-
-			// Delete the task — cascade should remove extension rows
-			await db.execute(sql.raw(`DELETE FROM tasks WHERE id = '${taskId}'`));
-
-			const afterResult = await db.execute(
-				sql.raw(`SELECT id FROM task_planning_signals WHERE task_id = '${taskId}'`),
 			);
 			const after = (afterResult as { rows: Array<{ id: string }> }).rows;
 			expect(after).toHaveLength(0);

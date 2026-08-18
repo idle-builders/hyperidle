@@ -6,12 +6,8 @@
  * `layers/core-api/filesystems/src/mounter-registry.ts`. The relocation is a
  * package move, not a rewrite: the four adapters, `SANDBOX_SCAFFOLDING_PATHS`
  * and the capture-root containment check are unchanged, and their tests moved
- * with them. `filesystem_captures` is now owned HERE — this class is its only
- * writer (`scripts/table-ownership-guard.ts`).
- *
- * @lore AU43 stage 2: capture write code removed. `capturesDir` and `db` removed
- * from `AdapterDeps`; `captureBack` returns a declared no-op. The
- * `filesystem_captures` table stays for stage 3 cleanup.
+ * with them. `captureBack` is a declared no-op — the capture write code and
+ * its table (`filesystem_captures`) were removed in AU43.
  */
 
 import { execFileSync } from "node:child_process";
@@ -218,8 +214,6 @@ export class RegistryFilesystemMounter {
 		sandboxPath: string;
 		sessionId: string;
 	}): Promise<AdapterCaptureResult> {
-		// @lore AU43 stage 2: capture write code removed; filesystem_captures table
-		// retained for stage 3 cleanup. No file writes, no DB inserts.
 		return { success: true, captured: false };
 	}
 }

@@ -35,28 +35,6 @@ export const teams = pgTable("teams", {
 	functions: text("functions"),
 });
 
-/**
- * AU26 G1 — the team's default run-config for newly scaffolded agents.
- *
- * @lore AU26 G1 (architecture §D-L): `teams.default_harness_type` /
- * `default_model_id` / `default_model_provider` used to live on the `teams`
- * row itself (AV1, migration 0042). They are agent-execution configuration,
- * not team identity, and `teams` is a core domain record — so they relocate
- * into an `agent-orchestration`-owned table. The definitions stay here (the
- * `framework/db/src/schema.ts` rule is unchanged); the ACL owner is
- * `layers/agent-orchestration/agent-run-config`. Null = unset →
- * builtin/sonnet-4-6/anthropic fallback in `persistScaffoldedAgents`, exactly
- * as before.
- */
-export const teamRunConfigDefaults = pgTable("team_run_config_defaults", {
-	teamId: text("team_id")
-		.primaryKey()
-		.references(() => teams.id, { onDelete: "cascade" }),
-	defaultHarnessType: text("default_harness_type"),
-	defaultModelId: text("default_model_id"),
-	defaultModelProvider: text("default_model_provider"),
-});
-
 export const users = pgTable("users", {
 	id: text("id").primaryKey(),
 	/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
@@ -532,69 +510,6 @@ export const taskDispatchAttempts = pgTable(
 	],
 );
 
-/** Neutral durable lifecycle fact. Core projectors acknowledge it via projectedAt. */
-export const agentLifecycleInbox = pgTable(
-	"agent_lifecycle_inbox",
-	{
-		requestId: text("request_id")
-			.primaryKey()
-			.references(() => agentSessionRequests.id, { onDelete: "restrict" }),
-		sourceKind: text("source_kind").notNull(),
-		sourceId: text("source_id").notNull(),
-		state: text("state").notNull(),
-		sessionId: text("session_id"),
-		failureCode: text("failure_code"),
-		occurredAt: text("occurred_at").notNull(),
-		projectedAt: text("projected_at"),
-		claimToken: text("claim_token"),
-		claimExpiresAt: text("claim_expires_at"),
-		attempts: integer("attempts").notNull().default(0),
-		lastError: text("last_error"),
-	},
-	(table) => [
-		index("agent_lifecycle_inbox_projection_idx").on(table.projectedAt, table.occurredAt),
-		check(
-			"agent_lifecycle_inbox_state_ck",
-			sql`${table.state} in ('completed','failed','cancelled')`,
-		),
-		check(
-			"agent_lifecycle_inbox_source_kind_ck",
-			sql`${table.sourceKind} in ('assistant','task','knowledge','routine','proposed_call','explicit_session_start')`,
-		),
-		check(
-			"agent_lifecycle_inbox_claim_ck",
-			sql`(${table.claimToken} is null and ${table.claimExpiresAt} is null) or (${table.claimToken} is not null and ${table.claimExpiresAt} is not null)`,
-		),
-	],
-);
-
-export const triggerResolutionHistory = pgTable(
-	"trigger_resolution_history",
-	{
-		id: text("id").primaryKey(),
-		sourceKind: text("source_kind").notNull(),
-		sourceId: text("source_id").notNull(),
-		streamId: text("stream_id").notNull(),
-		eventType: text("event_type").notNull(),
-		result: text("result").notNull(),
-		triggerKey: text("trigger_key"),
-		triggerSource: text("trigger_source").notNull(),
-		chosenAgentId: text("chosen_agent_id").references(() => users.id, { onDelete: "restrict" }),
-		promptSource: text("prompt_source"),
-		requestId: text("request_id").references(() => agentSessionRequests.id, {
-			onDelete: "restrict",
-		}),
-		sessionId: text("session_id"),
-		resolutionJson: text("resolution_json").notNull(),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [
-		index("trigger_resolution_history_source_idx").on(table.sourceKind, table.sourceId),
-		index("trigger_resolution_history_request_idx").on(table.requestId),
-		index("trigger_resolution_history_session_idx").on(table.sessionId),
-	],
-);
-
 export const routines = pgTable(
 	"routines",
 	{
@@ -1008,39 +923,6 @@ export const knowledgeAppProjection = pgTable(
 	],
 );
 
-/**
- * Stores strategy-layer data computed for tasks. Each row maps 1:1 to a tasks
- * row (task_id UNIQUE). Cascade DELETE keeps orphan rows impossible.
- *
- * @lore O2: kernel/strategy separation. The strategy signal that was inline
- * on tasks (riskTier) is moved here.
- * The kernel tasks table retains only identity + work columns.
- *
- * @lore AU19 Increment 1k: formerly named `taskStrategyFabric` (physical SQL
- * name `task_strategy_fabric`) — same half-done AU3 rename gap as
- * `knowledgeAppProjection` above, finished here. Owner is `work`
- * (`layers/core-api/work`), not `review` — `riskTier` is data moved off
- * `tasks` (which `work` owns) into its own extension table, same domain,
- * same owner. `review`'s one read site (`session-review-creator.ts`) goes
- * through the `TaskRiskTierReader` DI port instead of direct table access.
- */
-export const taskPlanningSignals = pgTable(
-	"task_planning_signals",
-	{
-		id: text("id").primaryKey(),
-		taskId: text("task_id")
-			.notNull()
-			.unique()
-			.references(() => tasks.id, { onDelete: "cascade" }),
-		/**
-		 * @lore O2: riskTier moved from tasks to taskPlanningSignals.
-		 * Drives review-item creation in session-review-creator.
-		 */
-		riskTier: text("risk_tier"),
-	},
-	(table) => [index("tsf_task_id_idx").on(table.taskId)],
-);
-
 // --- Notification queue (H2) ---
 
 export const notificationQueue = pgTable(
@@ -1246,38 +1128,6 @@ export type FilesystemRow = typeof filesystems.$inferSelect; // DB row (resource
 export type NewFilesystem = typeof filesystems.$inferInsert;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
 // The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/filesystem-contract — see §1.
-
-/**
- * AO2 — Per-capture provenance. One row per captureBack call; source-agnostic.
- * `capturePath` points at a git bundle (.bundle) or snapshot dir; AO3 consumes it.
- *
- * @lore AO2: Capture is NOT an Artifact (L3) — it is a filesystem op record.
- * Separated so AO3 can locate the durable artifact without touching the L3 table.
- * `capturePath` is "none" when writeback==='none' (no-op capture).
- */
-export const filesystemCaptures = pgTable(
-	"filesystem_captures",
-	{
-		id: text("id").primaryKey(),
-		sessionId: text("session_id")
-			.notNull()
-			.references(() => sessions.id, { onDelete: "cascade" }),
-		filesystemId: text("filesystem_id")
-			.notNull()
-			.references(() => filesystems.id, { onDelete: "cascade" }),
-		/** Snapshot of writeback mode at capture time: git | file | none */
-		writeback: text("writeback").notNull(),
-		/** Durable bundle path (.bundle) | snapshot dir path | "none" */
-		capturePath: text("capture_path").notNull(),
-		/** git writeback only: the commit SHA that was bundled. */
-		commitSha: text("commit_sha"),
-		createdAt: text("created_at").notNull(),
-	},
-	(t) => [
-		index("filesystem_captures_session_idx").on(t.sessionId),
-		index("filesystem_captures_filesystem_idx").on(t.filesystemId),
-	],
-);
 
 // --- P3: Server-side credential storage (shared mode) ---
 

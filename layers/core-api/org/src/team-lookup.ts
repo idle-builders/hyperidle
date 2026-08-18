@@ -214,13 +214,6 @@ export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Pro
 		createdAt,
 	} = input;
 
-	// @lore AU26 G1 (architecture §D-L): `defaultHarnessType`/`defaultModelId`/
-	// `defaultModelProvider` left this insert with the columns. They are the run
-	// config a newly scaffolded agent inherits — agent-execution configuration,
-	// not team identity — and now live in `team_run_config_defaults`, owned by
-	// `layers/agent-orchestration/agent-run-config`. `POST /api/teams` writes
-	// them through that Service in the same handler (§D-A rule 3: the route is
-	// two-sided, so it stays core-hosted and delegates the persist down).
 	await db.insert(teams).values({
 		id,
 		name,

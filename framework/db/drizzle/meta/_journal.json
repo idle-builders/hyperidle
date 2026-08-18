@@ -400,6 +400,13 @@
 			"when": 1785636000000,
 			"tag": "0056_drop_user_skills",
 			"breakpoints": true
+		},
+		{
+			"idx": 57,
+			"version": "7",
+			"when": 1785639600000,
+			"tag": "0057_AU43_drop_five_tables",
+			"breakpoints": true
 		}
 	]
 }

@@ -289,12 +289,6 @@ export function registerCoreDomainServices(ctx: {
 	const { db, eventBus, agentOrchestration } = ctx;
 	const disposers: Array<() => void> = [];
 
-	// AU31 B2 (§5, §12 lifecycle-drain cluster): the lifecycle-projection drain
-	// relocated into `bootAgentOrchestration` (`layers/agent-orchestration/src/
-	// boot.ts`) — it claims/processes rows straight off `agentLifecycleInbox`,
-	// `session-requests`'s own table, so it is that Layer's own boot wiring now,
-	// not core's.
-
 	disposers.push(
 		identifyBootstrapOwner(
 			registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration),

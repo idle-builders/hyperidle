@@ -111,7 +111,10 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// its band: the band's `max(…, 5)` term puts the midpoint BELOW where this already sits, and a
 	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
 	{ kind: "capability", min: 8, floorKind: "magnitude" },
-	{ kind: "table:read", min: 1182, floorKind: "magnitude" },
+	// Floor re-measured after AU43 stage 3 dropped five tables (agent_lifecycle_inbox,
+	// trigger_resolution_history, filesystem_captures, task_planning_signals,
+	// team_run_config_defaults). Live count fell from ~1183 to 1178; suggestedFloor(1178) = 1060.
+	{ kind: "table:read", min: 1060, floorKind: "magnitude" },
 	{ kind: "table:write", min: 2085, floorKind: "magnitude" },
 ];
 
