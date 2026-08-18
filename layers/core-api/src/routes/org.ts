@@ -1,47 +1,26 @@
 /**
- * P2 — /api/org routes: OrgChart API.
+ * /api/org routes: seam routes for CoreApiPort (teams, scaffold, routines).
  *
- * GET  /api/org               — full org chart (all edges + denormalized users)
- * PUT  /api/org/edges         — upsert an edge (create or return existing)
- * DELETE /api/org/edges/:id   — delete an edge
- *
- * @lore P2: The org routes manage the OrgChart primitive. PUT is an upsert:
- * if the (fromUserId, mechanism, target) tuple already exists, returns 200
- * with the existing edge; otherwise creates and returns 201.
- *
- * @lore P2: The GET response includes a `users` array (id/kind/name/role only)
- * as a denormalized convenience so the UI doesn't need a second request to
- * resolve names.
+ * @lore AU43 bundle-11: org-chart routes (GET /, PUT /edges, DELETE /edges/:id,
+ * GET /review-recipients) removed with the org-edges feature. Remaining routes
+ * are seam-only helpers for the CoreApiPort (create_team tool flow).
  */
 
-// @lore U1: `teams` renamed to `teamMembers` (membership group); `products` renamed to `teams` (domain entity).
-// `mechanism: "team"` targets the agent membership group → check `teamMembers`.
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import {
 	createTeam,
-	deleteOrgEdge,
 	getTeam,
 	getTeamMembers,
-	listOrgEdges,
-	listTeamMembers,
 	persistScaffoldedAgents,
-	resolveReviewRecipients,
-	upsertOrgEdge,
 } from "@hyperidle/org";
 import { provisionTeamRoutines } from "@hyperidle/routine";
-import { findUser, insertUser, listUsers } from "@hyperidle/users";
+import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
-
-const putOrgEdgeSchema = z.object({
-	fromUserId: z.string().min(1),
-	mechanism: z.enum(ORG_EDGE_MECHANISMS),
-	target: z.string().min(1),
-});
 
 /**
  * AU21 §9 Increment 2 (org/routine/handoff wave) — the `CoreApiPort.org`
@@ -104,121 +83,6 @@ export function createOrgRoutes(
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// GET / — full org chart
-	// AF15 AC-6: Extends response with teams: {id, name}[] (teamMembers.id, teams.name)
-	// so the UI can populate the team-edge target select without a separate fetch.
-	// id = teamMembers.id (what PUT /edges validates for mechanism:"team").
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
-		const edges = await listOrgEdges(db);
-		const allUsers = await listUsers(db);
-
-		// AF15: Include non-dissolved teamMembers rows joined to teams.name.
-		// @lore AF15: teamMembers.id is the correct target for mechanism:"team" edges
-		// (org.ts line 106 validates target against teamMembers.id, not teams.id).
-		// The UI shows teams.name as the label but submits teamMembers.id as value.
-		// AO1: teamActualId (teams.id) lets the UI fetch team-scoped resources
-		// (filesystems) that key on teams.id.
-		const teamRows = await listTeamMembers(db, { active: true, withTeamName: true });
-
-		// @lore AU20/Am11: project only {id,kind,name,role} — listUsers returns full rows
-		// but this public-data endpoint must not leak email/systemPrompt/model columns
-		// (AU21 Increment 14a: the cost columns this projection also used to guard
-		// against leaking are dropped entirely, no replacement). Matches the
-		// pre-collapse listUserDirectory projection exactly.
-		const userSummaries = allUsers.map((u) => ({
-			id: u.id,
-			kind: u.kind,
-			name: u.name,
-			role: u.role,
-		}));
-		return c.json({ edges, users: userSummaries, teams: teamRows });
-	});
-
-	// PUT /edges — upsert an edge
-	router.put("/edges", requireBoundary({ kind: "public-data" }), async (c) => {
-		let rawBody: unknown;
-		try {
-			rawBody = await c.req.json();
-		} catch {
-			return c.json({ error: "Invalid JSON", code: "VALIDATION_ERROR" }, 400);
-		}
-
-		const parsed = putOrgEdgeSchema.safeParse(rawBody);
-		if (!parsed.success) {
-			return c.json(
-				{ error: "Validation failed", code: "VALIDATION_ERROR", issues: parsed.error.issues },
-				400,
-			);
-		}
-
-		const { fromUserId, mechanism, target } = parsed.data;
-
-		// Check if fromUserId exists in users table
-		const fromUser = await findUser(db, { id: fromUserId });
-		if (!fromUser) {
-			return c.json(
-				{ error: `fromUserId not found: ${fromUserId}`, code: "VALIDATION_ERROR" },
-				400,
-			);
-		}
-
-		// Validate target based on mechanism (plan section 2.3).
-		// @lore P2: mechanism-dependent target validation — "direct" targets a userId,
-		// "function" targets a UserRole string, "team" targets a teamId. Each has a
-		// distinct existence check so stale/garbage targets are rejected at write time.
-		if (mechanism === "direct") {
-			const targetUser = await findUser(db, { id: target });
-			if (!targetUser) {
-				return c.json(
-					{ error: `target userId not found: ${target}`, code: "VALIDATION_ERROR" },
-					400,
-				);
-			}
-		} else if (mechanism === "function") {
-			// AB0: roles are open strings — any non-empty string is valid.
-			// Validated by putOrgEdgeSchema (z.string().min(1)) at the route level.
-			if (!target || target.trim().length === 0) {
-				return c.json(
-					{
-						error: "target role must be a non-empty string",
-						code: "VALIDATION_ERROR",
-					},
-					400,
-				);
-			}
-		} else if (mechanism === "team") {
-			// @lore U1: `mechanism: "team"` targets a teamMembers row (agent membership group).
-			const targetTeam = await getTeamMembers(db, { id: target });
-			if (!targetTeam) {
-				return c.json(
-					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },
-					400,
-				);
-			}
-		}
-
-		// Upsert via shared helper — idempotent on (from_user_id, mechanism, target).
-		// @lore AH4: Refactored from SELECT-then-INSERT to upsertOrgEdge (INSERT …
-		// ON CONFLICT DO NOTHING + re-select) for TOCTOU safety under concurrent pg Pool.
-		// The mechanism-specific target validation above is preserved; upsertOrgEdge
-		// trusts that the target has already been validated by the caller.
-		const { edge, created } = await upsertOrgEdge(db, { fromUserId, mechanism, target });
-		return c.json(edge, created ? 201 : 200);
-	});
-
-	// DELETE /edges/:id — delete an edge
-	router.delete("/edges/:id", requireBoundary({ kind: "public-data" }), async (c) => {
-		const id = c.req.param("id");
-
-		const [existing] = await listOrgEdges(db, { id });
-		if (!existing) {
-			return c.json({ error: "Edge not found", code: "NOT_FOUND" }, 404);
-		}
-
-		await deleteOrgEdge(db, id);
-		return c.body(null, 204);
-	});
-
 	// GET /teams/:teamId — narrow team view {id, name} for the CoreApiPort seam
 	// (AU21 §9 Increment 2). Distinct from `GET /teams/:teamId` (top-level
 	// `teams-routes.ts`), which builds a heavy enriched TeamDetail.
@@ -277,23 +141,6 @@ export function createOrgRoutes(
 			return c.json({ id: body.id, teamMembersId: body.teamMembersId }, 201);
 		},
 	);
-
-	// GET /review-recipients — the pure org-edge routing query
-	// (`resolveReviewRecipients`). No UI action reaches this directly today.
-	router.get("/review-recipients", requireBoundary({ kind: "public-data" }), async (c) => {
-		const userId = c.req.query("userId");
-		const agentRole = c.req.query("agentRole");
-		const teamId = c.req.query("teamId");
-		if (!userId) {
-			return c.json({ error: "userId is required", code: API_ERROR_CODES.VALIDATION_ERROR }, 400);
-		}
-		const recipients = await resolveReviewRecipients(
-			db,
-			{ userId, agentRole, teamId },
-			{ listUsersByKind: (db2, kind) => listUsers(db2, { kind }) },
-		);
-		return c.json({ recipients });
-	});
 
 	// POST /scaffolded-agents — the collapsed Kernel-persist helper
 	// (`persistScaffoldedAgents`). Even `POST /teams` calls the underlying

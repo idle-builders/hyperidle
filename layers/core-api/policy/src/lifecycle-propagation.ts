@@ -15,7 +15,7 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { PolicyDeps } from "./ports.js";
 
 type LifecyclePropagationDeps = Pick<
@@ -184,7 +184,7 @@ const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
 
 // ─── propagation_log accessors ───────────────────────────────────────────────
 
-export interface LogPropagationEntry {
+interface LogPropagationEntry {
 	sourceLevel: string;
 	sourceId: string;
 	sourceEvent: string;
@@ -207,7 +207,7 @@ export interface LogPropagationEntry {
  * two only agreed because the cascade's inputs happened to hit the same
  * branches. There is one builder now.
  */
-export async function recordPropagationHop(
+async function recordPropagationHop(
 	db: HyperIdleDb,
 	entry: LogPropagationEntry,
 ): Promise<void> {
@@ -227,26 +227,6 @@ export async function recordPropagationHop(
 		appliedAt: entry.status === "applied" ? now : null,
 	};
 	await db.insert(propagationLog).values(row);
-}
-
-/**
- * Delete settled propagation rows older than `termCutoff` — the retention
- * sweep's predicate. `applied` and `skipped` are the settled statuses;
- * `pending_retry` rows are still live work and survive the sweep regardless of
- * age.
- */
-export async function reapTerminalPropagationLog(
-	db: HyperIdleDb,
-	termCutoff: string,
-): Promise<void> {
-	await db
-		.delete(propagationLog)
-		.where(
-			and(
-				lt(propagationLog.createdAt, termCutoff),
-				inArray(propagationLog.status, ["applied", "skipped"]),
-			),
-		);
 }
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────

@@ -35,7 +35,7 @@ import {
 } from "@hyperidle/notifications";
 import { getTeam, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
-import { reapTerminalPropagationLog, registerPolicy } from "@hyperidle/policy";
+import { registerPolicy } from "@hyperidle/policy";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
@@ -115,8 +115,7 @@ const TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE = 500;
  * `session-requests`'s `reapExpired` single atomic transaction (a harmless
  * atomicity split — pure terminal-row GC, no cross-table invariant depends on
  * it sharing that transaction) and INTO this composition root's generic
- * retention reaper, alongside `reapTerminalPropagationLog`/`reapAccessLog`/
- * `reapExpiredCredentials`. Calls `taskDispatchAttemptStore.reapTerminal`
+ * retention reaper, alongside `reapAccessLog`/`reapExpiredCredentials`. Calls `taskDispatchAttemptStore.reapTerminal`
  * directly — `work` owns this table, so a direct same-layer call (not a
  * cross-layer write) is how the sweep reaches every table it settles.
  * Exported so the predicate is directly testable without waiting on the real
@@ -468,17 +467,13 @@ export function registerCoreDomainServices(ctx: {
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
 	// live here at the composition root; per-table deletes delegate to their
-	// owning services. Every table swept below now has one — propagation_log
-	// included (owned by `policy`, reaped through `reapTerminalPropagationLog`),
-	// so this root performs no table access of its own.
+	// owning services.
 	// No behavior change: same predicates, same TTLs, same cadence.
 	const runRetentionSweep = async (): Promise<void> => {
 		const nowMs = Date.now();
 		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
 		// notification_queue (owned by `notifications`)
 		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
-		// propagation_log (owned by `policy`)
-		await reapTerminalPropagationLog(db, termCutoff);
 		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
 		// (Decision H1): relocated out of session-requests's reapExpired.
 		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);

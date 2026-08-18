@@ -21,7 +21,6 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	BetCardSummary,
 	CreateTeamRequest,
@@ -39,13 +38,11 @@ import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
 import {
 	createTeam,
-	deleteTeam,
 	getTeam,
 	getTeamMembers,
 	listTeams,
 	persistScaffoldedAgents,
 	updateTeam,
-	upsertOrgEdge,
 } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import * as routineService from "@hyperidle/routine";
@@ -85,30 +82,6 @@ function deriveTeamStatus(
 	const overCapacity = memberGroup.activeBets > memberGroup.capacity;
 	if (overCapacity) return "behind";
 	return "healthy";
-}
-
-const teamsLogger = createLogger({ pkg: "server.teams" });
-
-/**
- * Resolve the founder's userId for org-edge creation.
- * Priority: auth context userId → body userId → first human user → null.
- * Returns null only when the DB has no human users at all (e.g. unseeded test DB).
- */
-async function resolveFounderId(
-	db: HyperIdleDb,
-	ctxUserId: string | undefined,
-	bodyUserId: string | undefined,
-): Promise<string | null> {
-	if (ctxUserId) {
-		const u = await findUser(db, { id: ctxUserId });
-		if (u) return u.id;
-	}
-	if (bodyUserId) {
-		const u = await findUser(db, { id: bodyUserId });
-		if (u) return u.id;
-	}
-	const human = await findUser(db, { kind: "human" });
-	return human?.id ?? null;
 }
 
 export function createTeamRoutes(
@@ -253,6 +226,25 @@ export function createTeamRoutes(
 		const teamId = `team-${crypto.randomUUID()}`;
 		const teamMembersId = `team-${crypto.randomUUID()}`;
 
+		// AU3: route through app-owned scaffolding for the default roster.
+		// Resolved BEFORE inserting the team so an empty-specs result (unknown functions
+		// with no catalog matches) aborts with 400 without any DB writes — no rollback needed.
+		const specs = resolveAgentScaffoldSpecs({
+			trigger: "team_scaffold",
+			teamName: name.trim(),
+			functions: teamFunctions,
+			role: null,
+			name: null,
+			ownerUserId: null,
+			ownerUserName: null,
+		});
+
+		// AE2 AC-1h: If app scaffolding returns zero specs (e.g. unknown functions with no
+		// catalog matches), reject with 400 — a team with no agents is invalid.
+		if (specs.length === 0) {
+			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
+		}
+
 		// @lore AU20 Am7: atomic createTeam inserts teams + teamMembers companion in one call.
 		//
 		// AV1: persist primary harness as team default — every agent-creation path reads it.
@@ -292,26 +284,6 @@ export function createTeamRoutes(
 			defaultModelProvider: primaryHarness?.modelProvider ?? null,
 		});
 
-		// AU3: route through app-owned scaffolding for the default roster.
-		const specs = resolveAgentScaffoldSpecs({
-			trigger: "team_scaffold",
-			teamName: name.trim(),
-			functions: teamFunctions,
-			role: null,
-			name: null,
-			ownerUserId: null,
-			ownerUserName: null,
-		});
-
-		// AE2 AC-1h: If app scaffolding returns zero specs (e.g. unknown functions with no
-		// catalog matches), reject with 400 — a team with no agents is invalid.
-		// Roll back the already-inserted team + teamMembers rows.
-		if (specs.length === 0) {
-			// @lore AU20 Am7: deleteTeam cascades (deletes teamMembers then teams) in one call.
-			await deleteTeam(db, teamId);
-			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
-		}
-
 		// AK6: Kernel persists the specs (single writer, assigns ids, attaches mechanism fields).
 		// POLISH-060 B3: Thread primaryHarness from the request so onboarding-chosen harness propagates.
 		const { agentIds, leadAgentId } = await persistScaffoldedAgents(
@@ -326,25 +298,6 @@ export function createTeamRoutes(
 		// @lore AU20 Am7: updateTeam(teamId, {leadAgentId}) replaces setTeamMembersLeadAgent.
 		if (leadAgentId) {
 			await updateTeam(db, teamId, { leadAgentId });
-		}
-
-		// AH4: upsert founder→team org edge (best-effort — failure must not 500 team creation).
-		// @lore AH4: resolveFounderId prefers c.get("userId") (auth-derived) over body userId
-		// so a caller cannot create an edge from an arbitrary user by lying in the body.
-		{
-			const founderId = await resolveFounderId(db, c.get("userId"), userId);
-			if (founderId) {
-				await upsertOrgEdge(db, {
-					fromUserId: founderId,
-					mechanism: "team",
-					target: teamMembersId,
-				});
-			} else {
-				teamsLogger.warn("AH4: founder not resolved — skipping org edge for new team", {
-					teamId,
-					teamMembersId,
-				});
-			}
 		}
 
 		// AF17: provision built-in routines for this team — owned by this team's own agents.

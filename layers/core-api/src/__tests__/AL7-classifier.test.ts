@@ -1,23 +1,16 @@
 /**
- * AL7 RED — classifyReversibility + composeWorkflowAllowDeny unit tests
+ * AL7 RED — classifyReversibility + identityHash unit tests
  *
  * Tests FAIL until:
  *   - classifyReversibility(toolId, def) exported from tool-registry.ts
- *   - composeWorkflowAllowDeny(wf, allTools) exported from tool-registry.ts
  *   - identityHash(toolId, args) exported from tool-registry.ts
  *   - RegisteredTool.reversibility?: "irreversible" | "reversible" field added
  *
  * Covers: AC1 (fail-closed: no-signal → irreversible), AC2 (reversible flows),
- *         AC4 (explicit annotation respected), AC5b (arg-pin convenience),
- *         Task 4 (classifier + composer).
+ *         AC4 (explicit annotation respected), AC5b (arg-pin convenience).
  */
 
-import type { SessionWorkflow } from "@hyperidle/harness-protocol";
-import {
-	classifyReversibility,
-	composeWorkflowAllowDeny,
-	identityHash,
-} from "@hyperidle/tool-protocol";
+import { classifyReversibility, identityHash } from "@hyperidle/tool-protocol";
 import { describe, expect, it } from "vitest";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,54 +105,6 @@ describe("T2: identityHash — deterministic metadata for the arg-pin convenienc
 		const h2 = identityHash("commit_file", { content: "hello", path: "/workspace/out.txt" });
 		// Canonical JSON sorts keys → identical hash regardless of key order
 		expect(h1).toBe(h2);
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// T3 — composeWorkflowAllowDeny: session-1 vs session-2 workflow composition
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("T3: composeWorkflowAllowDeny — session workflow policy (AC1/AC5)", () => {
-	const mockTools = [
-		{ name: "commit_file", reversibility: "irreversible" as const },
-		{ name: "github_merge_pr", reversibility: "irreversible" as const },
-		{ name: "read_file", reversibility: "reversible" as const },
-		{ name: "write_notes", reversibility: "reversible" as const },
-	];
-
-	it("session-1 open-work: all irreversible tools in routeToReview, reversible in allow", () => {
-		const wf: SessionWorkflow = {
-			routeToReview: ["irreversible"],
-			sessionRole: "open-work",
-		};
-		const { allow, routeToReview } = composeWorkflowAllowDeny(wf, mockTools);
-
-		expect(routeToReview).toContain("commit_file");
-		expect(routeToReview).toContain("github_merge_pr");
-		expect(allow).toContain("read_file");
-		expect(allow).toContain("write_notes");
-		expect(allow).not.toContain("commit_file");
-		expect(routeToReview).not.toContain("read_file");
-	});
-
-	it("session-2 grant-bearing: approved tool moves from routeToReview to allow", () => {
-		const wf: SessionWorkflow = {
-			routeToReview: ["irreversible"],
-			sessionRole: "grant-bearing",
-			approvedCall: {
-				toolId: "commit_file",
-				args: { path: "/workspace/out.txt", content: "done" },
-				argPinned: false,
-			},
-		};
-		const { allow, routeToReview } = composeWorkflowAllowDeny(wf, mockTools);
-
-		// Approved tool is allowed; other irreversible tool still routes to review
-		expect(allow).toContain("commit_file");
-		expect(allow).toContain("read_file");
-		expect(allow).toContain("write_notes");
-		expect(routeToReview).toContain("github_merge_pr");
-		expect(routeToReview).not.toContain("commit_file");
 	});
 });
 

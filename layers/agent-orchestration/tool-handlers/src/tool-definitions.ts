@@ -38,13 +38,11 @@ import {
 } from "@hyperidle/domain-model";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import {
-	type AssistantToolShape,
 	err,
 	ok,
 	type RegisteredTool,
 	type ToolDefinition,
 	toRegistered,
-	wrapForRegistry,
 } from "@hyperidle/tool-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
@@ -1092,19 +1090,20 @@ const createBetInputSchema = z.object({
 
 type CreateBetInput = z.infer<typeof createBetInputSchema>;
 
-function makeCreateBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<CreateBetInput, TDb> {
+function makeCreateBetTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<CreateBetInput, TDb> {
 	return {
 		name: "create_bet",
 		description:
 			"Create a new bet in draft status for the given team. HIGH RISK: requires human approval before execution.",
 		inputSchema: createBetInputSchema,
+		roles: ["assistant"],
 		handler: async (args, ctx) => {
 			const parsed = createBetInputSchema.safeParse(args);
-			if (!parsed.success) return { status: "error", message: parsed.error.message };
+			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
 			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
-			if (!team) return { status: "error", message: `Team not found: ${input.teamId}` };
+			if (!team) return err("NOT_FOUND", `Team not found: ${input.teamId}`);
 
 			// AU21 §9 Increment 1: routes through the CoreApiPort write seam — the
 			// SAME `POST /bets` route + middleware a human caller uses — instead of
@@ -1120,10 +1119,7 @@ function makeCreateBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<Cr
 				ctx.agentId,
 			);
 
-			return {
-				status: "ok",
-				value: { betId: created.id, status: "draft" as const, teamId: created.teamId },
-			};
+			return ok({ betId: created.id, status: "draft" as const, teamId: created.teamId });
 		},
 	};
 }
@@ -1141,21 +1137,22 @@ const editBetInputSchema = z.object({
 
 type EditBetInput = z.infer<typeof editBetInputSchema>;
 
-function makeEditBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<EditBetInput, TDb> {
+function makeEditBetTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditBetInput, TDb> {
 	return {
 		name: "edit_bet",
 		description:
 			"Edit a bet's description, done condition, or hypothesis. HIGH RISK: requires human approval.",
 		inputSchema: editBetInputSchema,
+		roles: ["assistant"],
 		handler: async (args, ctx) => {
 			const parsed = editBetInputSchema.safeParse(args);
-			if (!parsed.success) return { status: "error", message: parsed.error.message };
+			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
 			const existing = await ports.coreApi.getBetById(input.betId, ctx.agentId);
-			if (!existing) return { status: "error", message: `Bet not found: ${input.betId}` };
+			if (!existing) return err("NOT_FOUND", `Bet not found: ${input.betId}`);
 			if (existing.status !== "draft")
-				return { status: "error", message: "Can only edit a draft bet." };
+				return err("INVALID_STATE", "Can only edit a draft bet.");
 
 			const updates: Partial<{
 				description: string;
@@ -1167,11 +1164,11 @@ function makeEditBetTool<TDb>(ports: ToolHandlersPorts): AssistantToolShape<Edit
 			if (input.hypothesis !== undefined) updates.hypothesis = input.hypothesis;
 
 			if (Object.keys(updates).length === 0) {
-				return { status: "error", message: "No fields to update." };
+				return err("INVALID_INPUT", "No fields to update.");
 			}
 
 			await ports.coreApi.updateBetById(input.betId, updates, ctx.agentId);
-			return { status: "ok", value: { betId: input.betId } };
+			return ok({ betId: input.betId });
 		},
 	};
 }
@@ -1498,8 +1495,8 @@ export function buildToolDefinitions(
 		toRegistered(makeCreateConflictReviewTool(ports)),
 		toRegistered(makeCreateTeamTool(ports)),
 		toRegistered(makeAddAgentTool(ports)),
-		wrapForRegistry(makeCreateBetTool(ports), ["assistant"]),
-		wrapForRegistry(makeEditBetTool(ports), ["assistant"]),
+		toRegistered(makeCreateBetTool(ports)),
+		toRegistered(makeEditBetTool(ports)),
 		toRegistered(makeCreateRoutineTool(ports)),
 		toRegistered(makeUpdateRoutineTool(ports)),
 	];

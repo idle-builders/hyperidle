@@ -1,8 +1,6 @@
 /**
  * AU20 C1 — retention package dissolved. Each TTL sweep is now exercised
  * through its owning service directly (users / notifications / knowledge).
- * The propagation_log reaper calls `reapTerminalPropagationLog` from
- * `@hyperidle/policy`, the service that owns the table.
  *
  * Exact-behavior lock against the former `reapRetentionOnce` integration
  * test (AU19 Increment 2g): same predicates, same cutoffs, same per-table
@@ -11,19 +9,14 @@
  * @lore AU21 §9 Increment 10 (Decision H1) — RED. `reapTerminalTaskDispatchAttempts`
  * is relocated OUT of `session-requests`'s `reapExpired` single atomic
  * transaction (`service.ts`, bundled with the intent/start deletes) and INTO
- * this composition root's generic retention reaper (the same sweep that
- * already runs `reapTerminalPropagationLog`/`reapAccessLog`/`reapExpiredCredentials`
- * above), calling `taskDispatchAttemptStore.reapTerminal` directly. Exported
- * from `server-factory.ts` for the SAME reason `reapTerminalPropagationLog` is
- * exported (see that function's own doc comment) — so the predicate is
- * directly testable without waiting on the real 6h `setInterval`. Does NOT
- * yet exist — this import failing to resolve is this file's primary RED
- * signal for the new describe block below.
+ * this composition root's generic retention reaper, calling
+ * `taskDispatchAttemptStore.reapTerminal` directly. Exported from
+ * `server-factory.ts` so the predicate is directly testable without waiting
+ * on the real 6h `setInterval`.
  */
 import {
 	bets,
 	type HyperIdleDb,
-	propagationLog,
 	taskDispatchAttempts,
 	tasks,
 	teamMembers,
@@ -31,8 +24,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
-import { reapTerminalPropagationLog } from "@hyperidle/policy";
-import { and, lt } from "drizzle-orm";
+import { lt } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
 // signal for the "task-dispatch-attempt reaper — relocated home" describe block.
@@ -134,42 +126,6 @@ describe("retention reaper — individual owning-service sweeps", () => {
 		);
 	});
 
-	test("prunes terminal propagation_log rows older than the TTL via the owner's reapTerminalPropagationLog", async ({
-		db,
-	}) => {
-		await db.insert(propagationLog).values([
-			{
-				id: "pl-old-applied",
-				sourceLevel: "session",
-				sourceId: "s-1",
-				sourceEvent: "session_ended",
-				targetLevel: "task",
-				targetId: "t-1",
-				status: "applied",
-				createdAt: new Date(now.getTime() - 31 * DAY).toISOString(),
-			},
-			{
-				id: "pl-old-pending",
-				sourceLevel: "session",
-				sourceId: "s-2",
-				sourceEvent: "session_ended",
-				targetLevel: "task",
-				targetId: "t-2",
-				status: "pending_retry",
-				createdAt: new Date(now.getTime() - 31 * DAY).toISOString(),
-			},
-		]);
-
-		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
-		// Call the real composition-root function — exercises the predicate directly.
-		await reapTerminalPropagationLog(db, termCutoff);
-
-		const survivors = await db
-			.select()
-			.from(propagationLog)
-			.where(and(lt(propagationLog.createdAt, termCutoff)));
-		expect(survivors.map((s) => s.id)).toEqual(["pl-old-pending"]);
-	});
 });
 
 /**
