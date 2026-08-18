@@ -9,25 +9,6 @@ import type { TeamCapacityReader } from "./ports.js";
 import * as work from "./work-service.js";
 
 /**
- * Shape of a single entry in the revision log JSON array.
- *
- * @lore L14: `actor` is optional for backward compatibility — entries written
- * before L14 will have actor === undefined at read time. New entries written
- * via human-surfaced actions pass actor from the authenticated user context
- * (set by createAuthMiddleware from users WHERE kind = 'human' LIMIT 1).
- */
-export interface RevisionLogEntry {
-	timestamp: string;
-	field: string;
-	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
-	old_value: unknown;
-	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
-	new_value: unknown;
-	reason: string;
-	actor?: string;
-}
-
-/**
  * Valid state transitions for bets.
  * Key = fromState, Value = set of allowed toStates.
  *
@@ -44,36 +25,11 @@ const VALID_TRANSITIONS: Record<BetStatus, ReadonlySet<BetStatus>> = {
 
 interface TransitionOptions {
 	reason?: string;
-	/** L14: human actor id, written to RevisionLogEntry. Defaults to undefined (system transition). */
 	actor?: string;
 }
 
 /** Fields that can be updated on an active bet. */
 const MUTABLE_FIELDS = new Set(["done_condition", "hypothesis", "appetite"]);
-
-function parseRevisionLog(raw: string | null): RevisionLogEntry[] {
-	if (!raw) return [];
-	return JSON.parse(raw) as RevisionLogEntry[];
-}
-
-function addRevisionEntry(
-	existing: RevisionLogEntry[],
-	field: string,
-	oldValue: unknown,
-	newValue: unknown,
-	reason: string,
-	actor?: string,
-): string {
-	const entry: RevisionLogEntry = {
-		timestamp: new Date().toISOString(),
-		field,
-		old_value: oldValue,
-		new_value: newValue,
-		reason,
-		...(actor !== undefined ? { actor } : {}),
-	};
-	return JSON.stringify([...existing, entry]);
-}
 
 /**
  * Transition a bet to a new state, enforcing valid transitions and business rules.
@@ -127,20 +83,8 @@ export async function transitionBet(
 		throw new Error(`TeamMembers for team '${bet.teamId}' not found`);
 	}
 
-	const revisionLog = parseRevisionLog(bet.revisionLog);
-	const reason = options?.reason ?? `Transitioned to ${toState}`;
-	const updatedLog = addRevisionEntry(
-		revisionLog,
-		"status",
-		fromState,
-		toState,
-		reason,
-		options?.actor,
-	);
-
-	const updates: Partial<Pick<work.Bet, "status" | "revisionLog" | "completedAt">> = {
+	const updates: Partial<Pick<work.Bet, "status" | "completedAt">> = {
 		status: toState,
-		revisionLog: updatedLog,
 	};
 	if (toState === "completed") {
 		updates.completedAt = new Date().toISOString();
@@ -290,17 +234,12 @@ export async function updateBetField(
 		throw new Error(`Unknown field mapping for '${field}'`);
 	}
 
-	const oldValue = bet[columnKey];
-	const revisionLog = parseRevisionLog(bet.revisionLog);
-	const updatedLog = addRevisionEntry(revisionLog, field, oldValue, newValue, reason, actor);
-
 	// @lore AU13: columnKey is a dynamic `keyof typeof bet` resolved from a caller-supplied
 	// field name (validated against MUTABLE_FIELDS above); the value is always a plain string
 	// for these three text columns. Same cast shape as the pre-AU13
 	// `.set({ [columnKey]: newValue, ... } as Record<string, string>)`.
 	await work.update(db, "bet", betId, {
 		[columnKey]: newValue,
-		revisionLog: updatedLog,
 	} as work.BetUpdatePatch);
 
 	// If done_condition changed, emit item_created for human review

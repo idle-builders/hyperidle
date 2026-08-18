@@ -14,17 +14,18 @@
  * pitch -> description. shaped -> draft. committed|in_progress -> active. shipped -> completed.
  */
 
-import { bets, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import { transitionBet, type WorkDeps } from "@hyperidle/work";
+import { transitionBet } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: WorkDeps["teamCapacity"] = {
-	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
-	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
+const teamCapacity = {
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
+		updateTeam(db, teamId, { activeBets }),
 };
 
 const TEST_API_KEY = "test-key-bets-q3";

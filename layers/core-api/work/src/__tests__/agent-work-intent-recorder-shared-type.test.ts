@@ -10,16 +10,9 @@
 import type { WriteExecutor } from "@hyperidle/db";
 import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@hyperidle/work-intent-port";
 import { describe, expectTypeOf, it } from "vitest";
-import type { WorkDeps } from "../ports.js";
 import type { TaskStateMachineDeps } from "../task-state-machine.js";
 
 describe("work's AgentWorkIntentRecorder port equals the shared canonical recorder type", () => {
-	it("WorkDeps.workIntents is exactly @hyperidle/work-intent-port's AgentWorkIntentRecorder<WriteExecutor>", () => {
-		expectTypeOf<WorkDeps["workIntents"]>().toEqualTypeOf<
-			SharedAgentWorkIntentRecorder<WriteExecutor>
-		>();
-	});
-
 	it("TaskStateMachineDeps.workIntents is exactly @hyperidle/work-intent-port's AgentWorkIntentRecorder<WriteExecutor>", () => {
 		expectTypeOf<TaskStateMachineDeps["workIntents"]>().toEqualTypeOf<
 			SharedAgentWorkIntentRecorder<WriteExecutor>

@@ -383,7 +383,6 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 				getTaskById: async () => undefined,
 				updateTaskById: async () => {},
 				createItem: async () => {},
-				getRiskTierByTaskId: async () => null,
 			},
 			conversation: {
 				insertThread: async () => {},

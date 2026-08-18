@@ -1,20 +1,16 @@
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/domain-model";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import {
-	type RevisionLogEntry,
-	transitionBet,
-	updateBetField,
-	type WorkDeps,
-} from "@hyperidle/work";
+import { transitionBet, updateBetField } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: WorkDeps["teamCapacity"] = {
-	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
-	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
+const teamCapacity = {
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
+		updateTeam(db, teamId, { activeBets }),
 };
 
 // @lore U1: teams = domain entity (products); teamMembers = membership group.
@@ -66,12 +62,6 @@ function makeBet(
 	};
 }
 
-async function getRevisionLog(db: HyperIdleDb, betId: string): Promise<RevisionLogEntry[]> {
-	const [bet] = await db.select().from(bets).where(eq(bets.id, betId));
-	if (!bet?.revisionLog) return [];
-	return JSON.parse(bet.revisionLog) as RevisionLogEntry[];
-}
-
 async function seedBaseData(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values(makeProduct());
 	await db.insert(teamMembers).values(makeTeamMembers());
@@ -79,7 +69,7 @@ async function seedBaseData(db: HyperIdleDb): Promise<void> {
 
 describe("bet-state-machine", () => {
 	describe("transitionBet", () => {
-		test("creates bet as draft, active transitions to active with revision log entry", async ({
+		test("creates bet as draft, active transitions to active", async ({
 			db,
 			eventBus,
 		}) => {
@@ -90,14 +80,6 @@ describe("bet-state-machine", () => {
 
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("active");
-
-			const log = await getRevisionLog(db, "bet-1");
-			expect(log).toHaveLength(1);
-			expect(log[0]!.field).toBe("status");
-			expect(log[0]!.old_value).toBe("draft");
-			expect(log[0]!.new_value).toBe("active");
-			expect(log[0]!.timestamp).toBeDefined();
-			expect(log[0]!.reason).toBeDefined();
 		});
 
 		test("increments team activeBets on active transition", async ({ db, eventBus }) => {
@@ -216,9 +198,6 @@ describe("bet-state-machine", () => {
 
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("killed");
-
-			const log = await getRevisionLog(db, "bet-1");
-			expect(log[0]?.reason).toBe("No longer viable");
 		});
 
 		test("decrements activeBets when killing active bet (was committed)", async ({
@@ -369,13 +348,6 @@ describe("bet-state-machine", () => {
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.doneCondition).toBe("New condition");
 
-			const log = await getRevisionLog(db, "bet-1");
-			expect(log).toHaveLength(1);
-			expect(log[0]?.field).toBe("done_condition");
-			expect(log[0]?.old_value).toBe("Old condition");
-			expect(log[0]?.new_value).toBe("New condition");
-			expect(log[0]?.reason).toBe("Scope refined");
-
 			expect(itemHandler).toHaveBeenCalledTimes(1);
 			expect(itemHandler).toHaveBeenCalledWith(
 				expect.objectContaining({ type: "item_created", kind: "done_condition_change" }),
@@ -433,48 +405,6 @@ describe("bet-state-machine", () => {
 		});
 	});
 
-	describe("revision log shape", () => {
-		test("has correct shape with timestamp, field, old_value, new_value, reason", async ({
-			db,
-			eventBus,
-		}) => {
-			await seedBaseData(db);
-			await db.insert(bets).values(makeBet({ status: "draft" }));
-
-			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
-
-			const log = await getRevisionLog(db, "bet-1");
-			expect(log).toHaveLength(1);
-
-			const entry = log[0];
-			expect(entry).toHaveProperty("timestamp");
-			expect(entry).toHaveProperty("field");
-			expect(entry).toHaveProperty("old_value");
-			expect(entry).toHaveProperty("new_value");
-			expect(entry).toHaveProperty("reason");
-			expect(typeof entry?.timestamp).toBe("string");
-			// Validate ISO timestamp format
-			expect(entry?.timestamp ? new Date(entry.timestamp).toISOString() : null).toBe(
-				entry?.timestamp ?? null,
-			);
-		});
-
-		test("accumulates entries across multiple transitions", async ({ db, eventBus }) => {
-			await seedBaseData(db);
-			await db.insert(bets).values(makeBet({ status: "draft" }));
-
-			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
-			await transitionBet(db, eventBus, teamCapacity, "bet-1", "completed");
-
-			const log = await getRevisionLog(db, "bet-1");
-			expect(log).toHaveLength(2);
-			expect(log[0]!.old_value).toBe("draft");
-			expect(log[0]!.new_value).toBe("active");
-			expect(log[1]!.old_value).toBe("active");
-			expect(log[1]!.new_value).toBe("completed");
-		});
-	});
-
 	// ---------------- I1 adversary-M1: concurrent completed transition double-emit ----------------
 	describe("I1 M1: concurrent transitions are compare-and-set", () => {
 		test("second transitionBet to completed throws InvalidTransitionError and does NOT re-emit bet_state_changed", async ({
@@ -514,10 +444,6 @@ describe("bet-state-machine", () => {
 			// The bet row is terminal — still exactly one `completed` row.
 			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 			expect(bet?.status).toBe("completed");
-			// Revision log has exactly one completed entry.
-			const log = await getRevisionLog(db, "bet-1");
-			const completedLogs = log.filter((e) => e.field === "status" && e.new_value === "completed");
-			expect(completedLogs).toHaveLength(1);
 		});
 	});
 });

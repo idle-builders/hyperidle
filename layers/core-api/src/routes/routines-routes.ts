@@ -12,13 +12,19 @@ import {
 import type { EventBus } from "@hyperidle/event-bus";
 import { requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import { getTeam } from "@hyperidle/org";
-import { deriveInitials } from "@hyperidle/presentation-format";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { fireRoutine } from "../services/routine-scheduler-bindings.js";
+
+/** Inlined from @hyperidle/presentation-format (server copy removed, row 18). */
+function deriveInitials(name: string): string {
+	const trimmed = name.trim();
+	if (trimmed.length === 0) return "?";
+	return trimmed.slice(0, 2).toUpperCase();
+}
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
 const BUILTIN_ROUTINE_KINDS = new Set([

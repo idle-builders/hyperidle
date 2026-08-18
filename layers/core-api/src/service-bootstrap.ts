@@ -45,7 +45,6 @@ import {
 	requireRunnableAgent,
 } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
@@ -415,7 +414,6 @@ export function registerCoreDomainServices(ctx: {
 					updateTaskById: (exec: WriteExecutor, id: string, patch) =>
 						work.update(exec, "task", id, patch),
 					createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
-					getRiskTierByTaskId: getTaskRiskTierByTaskId,
 				},
 				conversation: {
 					insertThread,

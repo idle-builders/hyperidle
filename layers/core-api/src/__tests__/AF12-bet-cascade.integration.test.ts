@@ -43,7 +43,7 @@ import { type PolicyDeps, recordPropagationHop, registerPolicy } from "@hyperidl
 import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
-import type { BetKillCascadeDeps, WorkDeps } from "@hyperidle/work";
+import type { BetKillCascadeDeps } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet } from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
@@ -128,9 +128,10 @@ const testDeps: BetKillCascadeDeps = {
 };
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: WorkDeps["teamCapacity"] = {
-	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
-	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
+const teamCapacity = {
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
+		updateTeam(db, teamId, { activeBets }),
 };
 
 async function seed(db: HyperIdleDb): Promise<void> {

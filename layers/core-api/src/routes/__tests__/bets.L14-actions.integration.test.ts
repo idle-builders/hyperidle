@@ -20,27 +20,22 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import type { RevisionLogEntry, WorkDeps } from "@hyperidle/work";
 import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: WorkDeps["teamCapacity"] = {
-	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
-	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
+const teamCapacity = {
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
+		updateTeam(db, teamId, { activeBets }),
 };
 
 const TEST_API_KEY = "test-key-L14";
 
 function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
-}
-
-function parseRevisionLog(raw: string | null): RevisionLogEntry[] {
-	if (!raw) return [];
-	return JSON.parse(raw) as RevisionLogEntry[];
 }
 
 async function seedBase(db: HyperIdleDb, _eventBus: EventBus): Promise<void> {
@@ -161,35 +156,6 @@ describe("L14 — Bet actions: pause / resume / enrichment / actor", () => {
 	// columns and `updateBetCostAppetiteSchema` no longer exists on the PATCH
 	// discriminated union (`field: "cost_appetite"` now 400s as an unknown
 	// field), no replacement.
-
-	// ─── AC-5: Actor field in revision log ───────────────────────────────────
-
-	describe("AC-5 — RevisionLogEntry actor field", () => {
-		test("kill action via existing route also writes actor (kill route must pass actor)", async ({
-			db,
-			app,
-			eventBus,
-		}) => {
-			await seedBase(db, eventBus);
-			await transitionBet(db, eventBus, teamCapacity, "bet1", "active");
-
-			await app.request("/api/bets/bet1/kill", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ reason: "No longer viable" }),
-			});
-
-			const res = await app.request("/api/bets/bet1", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			const body = (await res.json()) as { revisionLog: string | null };
-			const log = parseRevisionLog(body.revisionLog);
-			const killEntry = log.find((e) => e.new_value === "killed");
-			expect(killEntry).toBeDefined();
-			expect(killEntry?.actor).toBe("u-founder");
-		});
-	});
 
 	// ─── AC-6: GET /bets/:id enrichment ─────────────────────────────────────
 
