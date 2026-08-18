@@ -204,8 +204,6 @@ function rankAndBudget(
 	return enforceBudget(scored, budgetTokens) as KnowledgeItemWithProjection[];
 }
 
-export { rankAndBudget };
-
 export async function rank(
 	db: import("@hyperidle/db").HyperIdleDb,
 	items: KnowledgeItemWithProjection[],

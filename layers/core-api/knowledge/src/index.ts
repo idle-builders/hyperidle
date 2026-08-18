@@ -45,17 +45,6 @@
 export { recomputeAttention } from "./attention-service.js";
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
-// -- factory seed writer (AU29 §2.5.2 — idempotent first-boot knowledge write, no edit-log) --
-export { ensureFactoryKnowledgeSeed } from "./factory-seed.js";
-// -- knowledge_action resolver (AU21 §6 Decision B — emit-time resolve+bake) --
-export type {
-	BakedKnowledgeActionRequest,
-	KnowledgeActionResolverDeps,
-} from "./knowledge-action-resolver.js";
-export {
-	KnowledgeActionSourceUnavailableError,
-	resolveKnowledgeActionRequest,
-} from "./knowledge-action-resolver.js";
 // -- conflicts (knowledgeConflicts accessors) --
 export {
 	findOpenConflict,
@@ -63,24 +52,17 @@ export {
 	recordConflict,
 } from "./knowledge-conflicts.js";
 // -- the CRUD repository --
-// @lore Ag7c: ExportableKnowledgeItemFilters kept — inline-typed by
-// server-factory.ts via
-// `import("@hyperidle/knowledge").ExportableKnowledgeItemFilters`.
-// All other row/filter types removed (callers infer from return types).
 // @lore AU20 K1-reads: countAccessesSince/countTriageVisible/searchByText/
-// searchVisibleByText deleted from source; replaced by count()/countAccesses()/
-// search({mode:'text',...}).
+// searchVisibleByText deleted from source; replaced by count()/search({mode:'text',...}).
 // @lore AU20 K2-writes: changeScope/flagItem/mergeItems/splitItem/recordKnowledgeAccess/
 // upsertBetRetroKnowledgeItem/upsertKnowledgeAppProjectionAttentionScore deleted from
 // source; callers use transition()/recordAccess(). promoteKnowledgeItem deleted from
 // promotion-pipeline; callers use transition({target:"promote",...}).
 export {
 	count,
-	countAccesses,
 	create,
 	get,
 	list,
-	recordAccess,
 	remove,
 	search,
 	transition,
@@ -88,12 +70,8 @@ export {
 } from "./knowledge-repository.js";
 export { sweep } from "./promotion-pipeline.js";
 export { rank } from "./relevance-scoring.js";
-export { reapAccessLog, recomputeRelevance } from "./relevance-service.js";
 // -- session context assembly (AU21 §9 Increment 12, Decision H3 — the
 // requireRunnableAgent-precedent shared assembler; per-kind resolvers call
 // this intra-layer instead of run-orchestration reading knowledge back) --
 export type { SessionKnowledgeInput } from "./session-knowledge-assembler.js";
 export { assembleSessionKnowledge } from "./session-knowledge-assembler.js";
-// -- scope vocabulary (KnowledgeScope kept for core-api/src/index.ts re-export) --
-// @lore AU20 K1-reads: moved from knowledge-reader.js to types.js.
-export type { KnowledgeScope } from "./types.js";

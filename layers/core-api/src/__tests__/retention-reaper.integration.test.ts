@@ -24,9 +24,6 @@ import {
 	bets,
 	type HyperIdleDb,
 	inviteCodes,
-	knowledgeAccessLog,
-	knowledgeAppProjection,
-	knowledgeItems,
 	loginSessions,
 	propagationLog,
 	taskDispatchAttempts,
@@ -35,7 +32,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { reapAccessLog } from "@hyperidle/knowledge";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { reapTerminalPropagationLog } from "@hyperidle/policy";
 import { reapExpiredCredentials } from "@hyperidle/users";
@@ -117,21 +113,6 @@ async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
 		status: "active",
 		createdAt: now.toISOString(),
 	});
-}
-
-async function seedKnowledgeItem(db: HyperIdleDb, id: string): Promise<void> {
-	await db.insert(knowledgeItems).values({
-		id,
-		title: id,
-		body: "body",
-		format: "markdown",
-		status: "active",
-		updatedBy: "system",
-		createdAt: now.toISOString(),
-		updatedAt: now.toISOString(),
-	});
-	// The owner writes the projection row alongside the item.
-	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
 describe("retention reaper — individual owning-service sweeps", () => {
@@ -259,33 +240,6 @@ describe("retention reaper — individual owning-service sweeps", () => {
 		expect(new Set(survivors.map((s) => s.id))).toEqual(
 			new Set(["nq-old-pending", "nq-recent-sent"]),
 		);
-	});
-
-	test("prunes knowledge_access_log rows older than the TTL", async ({ db }) => {
-		await seedKnowledgeItem(db, "ki-1");
-		await db.insert(knowledgeAccessLog).values([
-			{
-				id: "kal-old",
-				itemId: "ki-1",
-				accessorKind: "human",
-				accessorId: "u-1",
-				accessedAt: new Date(now.getTime() - 31 * DAY).toISOString(),
-			},
-			{
-				id: "kal-recent",
-				itemId: "ki-1",
-				accessorKind: "human",
-				accessorId: "u-1",
-				accessedAt: now.toISOString(),
-			},
-		]);
-
-		const termCutoff = new Date(now.getTime() - TERMINAL_LOG_TTL_MS).toISOString();
-		const deleted = await reapAccessLog(db, termCutoff);
-		expect(deleted.length).toBe(1);
-
-		const survivors = await db.select().from(knowledgeAccessLog);
-		expect(survivors.map((s) => s.id)).toEqual(["kal-recent"]);
 	});
 
 	test("prunes terminal propagation_log rows older than the TTL via the owner's reapTerminalPropagationLog", async ({

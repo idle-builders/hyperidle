@@ -378,7 +378,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// on agent-orchestration's app at byte-identical paths. See
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
-		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus, agentOrchestration));
+		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route(
 			"/threads",
