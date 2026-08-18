@@ -6,7 +6,7 @@
 
 import type { ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect, it } from "vitest";
-import { closeMcpBridgeSession, createMcpToolBridge, openMcpBridgeSession } from "../mcp/index.js";
+import { createMcpToolBridge, openMcpBridgeSession } from "../mcp/index.js";
 
 const registry: ToolRegistry = {
 	definitions: [],
@@ -50,7 +50,7 @@ describe("openMcpBridgeSession", () => {
 	});
 });
 
-describe("closeMcpBridgeSession", () => {
+describe("bridge.close", () => {
 	it("revokes the token on the same bridge instance", async () => {
 		const bridge = createMcpToolBridge();
 		const { token } = await openMcpBridgeSession(bridge, "http://localhost:3001", {
@@ -58,7 +58,7 @@ describe("closeMcpBridgeSession", () => {
 			registry,
 		});
 
-		await closeMcpBridgeSession(bridge, token);
+		await bridge.close(token);
 
 		const revoked = await bridge.router.request(`/mcp/${token}`, { method: "POST" });
 		expect(revoked.status).toBe(401);

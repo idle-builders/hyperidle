@@ -63,8 +63,6 @@
  * Service may import).
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
-
 /**
  * @lore AU21 §6 Decision L3: `ToolHandlersWorkAccessor`/`routeItem` — the
  * last standalone same-process `work` DI capability — is DELETED, not
@@ -281,21 +279,6 @@ interface ToolHandlersCoreApiAccessor {
 		},
 		actorId: string,
 	): Promise<{ readonly id: string }>;
-	listInboxBySenderExclusion(
-		limit: number,
-		actorId: string,
-	): Promise<
-		ReadonlyArray<{
-			readonly participants: readonly string[];
-			readonly message: {
-				readonly id: string;
-				readonly senderId: string;
-				readonly threadId: string;
-				readonly type: string;
-				readonly payload: Record<string, unknown>;
-			};
-		}>
-	>;
 	findOrCreateDirectThread(recipientId: string, actorId: string): Promise<{ readonly id: string }>;
 	getFirstThreadByHost(
 		hostKind: string,
@@ -470,22 +453,6 @@ interface ToolHandlersCoreApiAccessor {
 }
 
 /** Every real outbound port this Service's source files need. */
-/**
- * The one `sessions` write a tool performs. `run-orchestration` owns the table,
- * and this package may not import a sibling Service, so the write crosses as a
- * port like every other cross-Service reach here.
- */
-export interface ToolHandlersSessionsAccessor {
-	/**
-	 * `db` is named concretely rather than as a `TDb`: `@hyperidle/db` is the
-	 * leaf every Service may import (see the header note above), this package
-	 * already imports the type for the tool context, and a generic here would
-	 * force the composition root to cast its real handle back.
-	 */
-	writeNotes(db: HyperIdleDb, sessionId: string, notes: string): Promise<void>;
-}
-
 export interface ToolHandlersPorts {
 	readonly coreApi: ToolHandlersCoreApiAccessor;
-	readonly sessions: ToolHandlersSessionsAccessor;
 }

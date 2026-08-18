@@ -50,11 +50,6 @@ export interface ToolCatalogEntry {
  */
 export const BUILTIN_TOOL_CATALOG: readonly ToolCatalogEntry[] = [
 	{
-		name: "read_inbox",
-		description: "Read messages from the current agent's inbox, ordered newest first.",
-		reversibility: "reversible",
-	},
-	{
 		name: "send_message",
 		description:
 			"Send a direct message to another agent. Reuses an existing direct thread when one exists between the two agents, otherwise creates a new one.",
@@ -92,12 +87,6 @@ export const BUILTIN_TOOL_CATALOG: readonly ToolCatalogEntry[] = [
 		name: "create_item",
 		description:
 			"Create a human-facing item (review, escalation, knowledge proposal, etc.) and route it to the appropriate view based on risk tier and kind. Auto-creates a thread if none is provided.",
-	},
-	{
-		name: "write_session_notes",
-		description:
-			"Persist session reflections to work/session-notes.md in the agent's workspace. Set append=true to concatenate onto existing notes; default overwrites.",
-		reversibility: "reversible",
 	},
 	{
 		name: "create_task",
@@ -167,11 +156,5 @@ export const BUILTIN_TOOL_CATALOG: readonly ToolCatalogEntry[] = [
 		description:
 			"Update an existing routine's configuration — name, description, schedule, or state.",
 		roles: ["assistant"],
-	},
-	{
-		name: "commit_file",
-		description:
-			"Write content to a file in the session sandbox. Overwrites the file if it already exists. Irreversible — routed to human review before execution.",
-		reversibility: "irreversible",
 	},
 ];

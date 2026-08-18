@@ -13,7 +13,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, RemoteHarnessAdapter, type WsLike } from "@hyperidle/harness-registry";
 import type { HandoffMetadata } from "@hyperidle/policy";
 import type { RunTransitionSpec } from "@hyperidle/run-orchestration";
 import { eq, inArray } from "drizzle-orm";
@@ -894,18 +894,14 @@ describe("Handoff Protocol", () => {
 							pool: new AdapterPool(),
 							adapterFactory: {
 								create: (ws, registration) =>
-									createHarnessAdapter({
-										kind: "remote",
-										ws,
-										registration: {
-											type: "register",
-											id: registration.id,
-											name: String(registration.name),
-											modelProviders: Array.isArray(registration.modelProviders)
-												? registration.modelProviders.map(String)
-												: [],
-											maxConcurrent: Number(registration.maxConcurrent),
-										},
+									new RemoteHarnessAdapter(ws as WsLike, {
+										type: "register",
+										id: registration.id,
+										name: String(registration.name),
+										modelProviders: Array.isArray(registration.modelProviders)
+											? registration.modelProviders.map(String)
+											: [],
+										maxConcurrent: Number(registration.maxConcurrent),
 									}),
 							},
 						},

@@ -121,27 +121,6 @@ export class AdapterPool {
 		return this.entries.has(id);
 	}
 
-	/** List all registered adapters as AdapterInfo (snapshot). */
-	list(filter?: AdapterFilter): AdapterInfo[] {
-		return Array.from(this.entries.entries())
-			.filter(
-				([, entry]) =>
-					(!filter?.type || entry.meta.type === filter.type) &&
-					(!filter?.kind || entry.meta.kind === filter.kind),
-			)
-			.map(([id, entry]) => ({
-				id,
-				name: entry.meta.name,
-				kind: entry.meta.kind,
-				type: entry.meta.type,
-				modelProviders: entry.meta.modelProviders,
-				currentLoad: entry.currentLoad,
-				maxConcurrent: entry.meta.maxConcurrent,
-				connectedSince: entry.connectedSince,
-				paused: entry.paused,
-			}));
-	}
-
 	/**
 	 * S4: Mark an adapter as paused — select() will skip it.
 	 * No-op if the ID is unknown.

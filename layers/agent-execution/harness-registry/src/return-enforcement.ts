@@ -5,7 +5,7 @@ import {
 	isRequiredReturnAction,
 } from "@hyperidle/harness-protocol";
 
-export interface ReturnEnforcementSpec {
+interface ReturnEnforcementSpec {
 	readonly isolated?: boolean;
 }
 

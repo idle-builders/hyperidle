@@ -2,7 +2,7 @@
  * @lore AK1: Renamed from disabled-workspace-adapter.ts.
  * DisabledSandboxAdapter → DisabledSandboxAdapter.
  */
-import type { ExecResult, SandboxAdapter, SandboxHandle } from "./sandbox-adapter.js";
+import type { SandboxAdapter, SandboxHandle } from "./sandbox-adapter.js";
 
 // @lore deploy / AQ1: the shared backend runs NO agents in-cluster (no Anthropic
 // creds, server profile guard). LocalSandboxAdapter executes host-local with the
@@ -19,10 +19,6 @@ export class DisabledSandboxAdapter implements SandboxAdapter {
 	}
 
 	spawn(_baseDir: string): Promise<SandboxHandle> {
-		return this.fail();
-	}
-
-	exec(_handle: SandboxHandle, _command: string): Promise<ExecResult> {
 		return this.fail();
 	}
 

@@ -22,16 +22,11 @@
  * lane, where it genuinely belongs.
  */
 import { describe, expect, test } from "vitest";
-import type { AdapterPool } from "../adapter-pool.js";
 import { createLocalAdapterPool } from "../adapter-pool.js";
 import { requireHarness } from "./require-harness.js";
 
 /** Ids `createLocalAdapterPool` registers on any host with the claude CLI present. */
 const ALWAYS_PRESENT_IDS = ["local-claude-code", "local-builtin"];
-
-function poolIds(pool: AdapterPool): string[] {
-	return pool.list().map((a) => a.id);
-}
 
 describe("[harness:claude] createLocalAdapterPool — real PATH discovery", () => {
 	requireHarness("claude");
@@ -39,10 +34,9 @@ describe("[harness:claude] createLocalAdapterPool — real PATH discovery", () =
 	// from X5-adapter-pool-multi.test.ts > createLocalAdapterPool — registration
 	test("registers a claude-code adapter", async () => {
 		const pool = await createLocalAdapterPool();
-		const entries = pool.list();
-		const claudeCodeEntry = entries.find((e) => e.type === "claude-code");
-		expect(claudeCodeEntry).toBeDefined();
-		expect(claudeCodeEntry?.kind).toBe("local");
+		const entry = pool.select({ harnessType: "claude-code" });
+		expect(entry).not.toBeNull();
+		expect(entry?.meta.kind).toBe("local");
 	});
 
 	test("registers at least two adapters (claude-code and builtin)", async () => {
@@ -52,9 +46,7 @@ describe("[harness:claude] createLocalAdapterPool — real PATH discovery", () =
 
 	test("claude-code adapter has id 'local-claude-code'", async () => {
 		const pool = await createLocalAdapterPool();
-		const entries = pool.list();
-		const entry = entries.find((e) => e.id === "local-claude-code");
-		expect(entry).toBeDefined();
+		expect(pool.has("local-claude-code")).toBe(true);
 	});
 
 	// from X5-adapter-pool-multi.test.ts > AdapterPool selection by harnessType
@@ -68,27 +60,25 @@ describe("[harness:claude] createLocalAdapterPool — real PATH discovery", () =
 	// from X3-adapter-pool-type.test.ts > X3 AC-18
 	test("createLocalAdapterPool registers with type 'claude-code'", async () => {
 		const pool = await createLocalAdapterPool();
-		const entries = pool.list();
-		const claudeEntry = entries.find((e) => e.type === "claude-code");
-		expect(claudeEntry).toBeDefined();
-		expect(claudeEntry?.type).toBe("claude-code");
+		const entry = pool.select({ harnessType: "claude-code" });
+		expect(entry).not.toBeNull();
+		expect(entry?.meta.type).toBe("claude-code");
 	});
 
 	// from aq1-adapter-pool-host-only.test.ts > AQ1 host-only
 	test("always-present local adapters are registered", async () => {
 		const pool = await createLocalAdapterPool();
-		const ids = poolIds(pool);
-
 		for (const id of ALWAYS_PRESENT_IDS) {
-			expect(ids).toContain(id);
+			expect(pool.has(id)).toBe(true);
 		}
 	});
 
 	// from builtin-harness-adapter.test.ts > AC-8
 	test("pool still has the claude-code adapter alongside builtin", async () => {
 		const pool = await createLocalAdapterPool();
-		const claudeEntry = pool.list().find((e) => e.id === "local-claude-code");
-		expect(claudeEntry).toBeDefined();
-		expect(claudeEntry?.type).toBe("claude-code");
+		const entry = pool.select({ harnessType: "claude-code" });
+		expect(entry).not.toBeNull();
+		expect(entry?.meta.type).toBe("claude-code");
+		expect(pool.has("local-claude-code")).toBe(true);
 	});
 });

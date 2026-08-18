@@ -31,7 +31,6 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		insertThread: notImplemented,
 		updateThread: notImplemented,
 		insertMessage: notImplemented,
-		listInboxBySenderExclusion: notImplemented,
 		findOrCreateDirectThread: notImplemented,
 		getFirstThreadByHost: notImplemented,
 		getTeamById: notImplemented,
@@ -55,5 +54,4 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		upsertKnowledgeAppProjectionAttentionScore: notImplemented,
 		recomputeAttentionScoreForItem: notImplemented,
 	},
-	sessions: { writeNotes: notImplemented },
 };

@@ -70,9 +70,10 @@ describe("X3 AC-18: AdapterMeta accepts optional type field", () => {
 			modelProviders: ["anthropic"],
 			maxConcurrent: 4,
 		};
-		// Should not throw
+		// Should not throw; entry is selectable by its type
 		pool.register("local", makeAdapter(), meta);
-		expect(pool.list()).toHaveLength(1);
+		expect(pool.size).toBe(1);
+		expect(pool.select({ harnessType: "claude-code" })).not.toBeNull();
 	});
 
 	it("registers adapter without type field (backward compat)", () => {
@@ -85,10 +86,12 @@ describe("X3 AC-18: AdapterMeta accepts optional type field", () => {
 			maxConcurrent: 4,
 		};
 		pool.register("local", makeAdapter(), meta);
-		expect(pool.list()).toHaveLength(1);
+		expect(pool.size).toBe(1);
+		// No-type adapter is selectable without a type filter
+		expect(pool.select()).not.toBeNull();
 	});
 
-	it("list() includes type field when adapter has one", () => {
+	it("adapter with type is selectable via harnessType filter", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), {
 			name: "local",
@@ -98,11 +101,12 @@ describe("X3 AC-18: AdapterMeta accepts optional type field", () => {
 			maxConcurrent: 4,
 		});
 
-		const entries = pool.list();
-		expect(entries[0]).toHaveProperty("type", "claude-code");
+		// select() with matching type returns the entry and exposes meta.type
+		const entry = pool.select({ harnessType: "claude-code" });
+		expect(entry?.meta.type).toBe("claude-code");
 	});
 
-	it("list() has type as undefined when adapter has no type", () => {
+	it("adapter without type does not match a specific harnessType query", () => {
 		const pool = new AdapterPool();
 		pool.register("local", makeAdapter(), {
 			name: "local",
@@ -111,9 +115,8 @@ describe("X3 AC-18: AdapterMeta accepts optional type field", () => {
 			maxConcurrent: 4,
 		});
 
-		const entries = pool.list();
-		// type should be undefined or absent — not a different value
-		expect(entries[0]?.type).toBeUndefined();
+		// No type → undefined, does not match a typed query
+		expect(pool.select({ harnessType: "claude-code" })).toBeNull();
 	});
 });
 

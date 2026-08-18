@@ -417,21 +417,22 @@ describe("AC-8: Default adapter registered in pool with type 'builtin'", () => {
 	it("createLocalAdapterPool registers a 'builtin' entry with correct meta", async () => {
 		const { createLocalAdapterPool } = await import("../adapter-pool.js");
 		const pool = await createLocalAdapterPool();
-		const entries = pool.list();
 
-		const builtinEntry = entries.find((e) => e.id === "local-builtin");
-		expect(builtinEntry).toBeDefined();
-		expect(builtinEntry?.type).toBe("builtin");
-		expect(builtinEntry?.modelProviders).toContain("anthropic");
-		expect(builtinEntry?.modelProviders).toContain("openrouter");
-		expect(builtinEntry?.modelProviders).toContain("openai-compatible");
+		expect(pool.has("local-builtin")).toBe(true);
+		// selectable by type, meta exposed through select result
+		const entry = pool.select({ harnessType: "builtin" });
+		expect(entry).not.toBeNull();
+		expect(entry?.meta.type).toBe("builtin");
+		expect(entry?.meta.modelProviders).toContain("anthropic");
+		expect(entry?.meta.modelProviders).toContain("openrouter");
+		expect(entry?.meta.modelProviders).toContain("openai-compatible");
 	});
 
 	it("builtin adapter in pool has kind 'local'", async () => {
 		const { createLocalAdapterPool } = await import("../adapter-pool.js");
 		const pool = await createLocalAdapterPool();
-		const builtinEntry = pool.list().find((e) => e.id === "local-builtin");
-		expect(builtinEntry?.kind).toBe("local");
+		const entry = pool.select({ harnessType: "builtin" });
+		expect(entry?.meta.kind).toBe("local");
 	});
 
 	// "pool still has the claude-code adapter alongside builtin" moved to

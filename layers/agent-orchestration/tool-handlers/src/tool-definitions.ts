@@ -17,8 +17,6 @@
 
 import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { type CronFields, nextCronMatch, parseCron } from "@hyperidle/cron";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
@@ -50,43 +48,6 @@ import {
 } from "@hyperidle/tool-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// read_inbox
-// ─────────────────────────────────────────────────────────────────────────────
-
-const readInboxInputSchema = z.object({
-	limit: z.number().int().positive().max(100).optional(),
-});
-
-type ReadInboxInput = z.infer<typeof readInboxInputSchema>;
-
-function makeReadInboxTool<TDb>(
-	ports: ToolHandlersPorts,
-): ToolDefinition<ReadInboxInput, TDb> & { readonly reversibility: "reversible" } {
-	return {
-		name: "read_inbox",
-		description: "Read messages from the current agent's inbox, ordered newest first.",
-		inputSchema: readInboxInputSchema,
-		reversibility: "reversible",
-		handler: async (args, ctx) => {
-			const parsed = readInboxInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const limit = parsed.data.limit ?? 50;
-			// AU21 §9 Increment 2: routes through the CoreApiPort seam — reuses the
-			// SAME `GET /threads/inbox` route this migration adds. The route only
-			// excludes the sender; the tool still filters to threads the calling
-			// agent actually participates in (participants is already a parsed
-			// array — no `JSON.parse` needed, unlike the deleted raw DI path).
-			const rows = await ports.coreApi.listInboxBySenderExclusion(limit * 4, ctx.agentId);
-			const filtered = rows
-				.filter((row) => row.participants.includes(ctx.agentId))
-				.slice(0, limit)
-				.map((row) => row.message);
-			return ok({ messages: filtered });
-		},
-	};
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // send_message
@@ -544,55 +505,6 @@ function makeCreateItemTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			// downstream tool). `routeItem`/`route_item`/`item-router.ts` are
 			// deleted outright.
 			return ok({ itemId, threadId });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// write_session_notes
-// The disk write is this tool's own; the `sessions.notes` write belongs to
-// `run-orchestration`, which owns the table, and crosses as a port.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const writeSessionNotesInputSchema = z.object({
-	notes: z.string().min(1),
-	append: z.boolean().optional(),
-});
-
-type WriteSessionNotesInput = z.infer<typeof writeSessionNotesInputSchema>;
-
-function makeWriteSessionNotesTool(ports: ToolHandlersPorts): ToolDefinition<
-	WriteSessionNotesInput,
-	HyperIdleDb
-> & {
-	readonly reversibility: "reversible";
-} {
-	return {
-		name: "write_session_notes",
-		description:
-			"Persist session reflections to work/session-notes.md in the agent's workspace. Set append=true to concatenate onto existing notes; default overwrites.",
-		inputSchema: writeSessionNotesInputSchema,
-		reversibility: "reversible",
-		handler: async (args, ctx) => {
-			const parsed = writeSessionNotesInputSchema.safeParse(args);
-			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
-			const { notes, append } = parsed.data;
-
-			const workDir = path.join(ctx.sandboxPath, "work");
-			fs.mkdirSync(workDir, { recursive: true });
-			const filePath = path.join(workDir, "session-notes.md");
-
-			let bodyOnDisk = notes;
-			if (append && fs.existsSync(filePath)) {
-				const existing = fs.readFileSync(filePath, "utf-8");
-				bodyOnDisk = `${existing}\n\n${notes}`;
-			}
-			fs.writeFileSync(filePath, bodyOnDisk, "utf-8");
-
-			await ports.sessions.writeNotes(ctx.db, ctx.sessionId, bodyOnDisk);
-
-			const bytesWritten = Buffer.byteLength(bodyOnDisk, "utf-8");
-			return ok({ sessionId: ctx.sessionId, bytesWritten });
 		},
 	};
 }
@@ -1405,52 +1317,6 @@ function makeUpdateRoutineTool<TDb>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// commit_file
-// ─────────────────────────────────────────────────────────────────────────────
-
-const commitFileInputSchema = z.object({
-	path: z.string().min(1),
-	content: z.string(),
-});
-
-type CommitFileInput = z.infer<typeof commitFileInputSchema>;
-
-function makeCommitFileTool<TDb>(): ToolDefinition<CommitFileInput, TDb> & {
-	readonly reversibility: "irreversible";
-} {
-	return {
-		name: "commit_file",
-		description:
-			"Write content to a file in the session sandbox. Overwrites the file if it already exists. Irreversible — routed to human review before execution.",
-		inputSchema: commitFileInputSchema,
-		reversibility: "irreversible",
-		// biome-ignore lint/suspicious/useAwait: all fs ops are synchronous; no async deps needed
-		handler: async (args, ctx) => {
-			const { path: filePath, content } = args;
-			const resolved = path.resolve(
-				path.isAbsolute(filePath) ? filePath : path.join(ctx.sandboxPath, filePath),
-			);
-			const sandboxResolved = path.resolve(ctx.sandboxPath);
-			if (!resolved.startsWith(sandboxResolved + path.sep) && resolved !== sandboxResolved) {
-				return err(
-					"OUTSIDE_SANDBOX",
-					`commit_file: resolved path ${resolved} falls outside sandbox ${sandboxResolved}. ` +
-						"Use a relative path or a path inside the sandbox directory.",
-				);
-			}
-			const dir = path.dirname(resolved);
-			try {
-				fs.mkdirSync(dir, { recursive: true });
-				fs.writeFileSync(resolved, content, "utf-8");
-			} catch (e) {
-				return err("WRITE_FAILED", `commit_file: could not write to ${resolved}: ${String(e)}`);
-			}
-			return ok({ written: resolved, bytes: Buffer.byteLength(content, "utf-8") });
-		},
-	};
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // log_task
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1617,7 +1483,6 @@ export function buildToolDefinitions(
 	opts?: { readonly role?: string },
 ): readonly RegisteredTool<HyperIdleDb>[] {
 	const all: readonly RegisteredTool<HyperIdleDb>[] = [
-		toRegistered(makeReadInboxTool(ports)),
 		toRegistered(makeSendMessageTool(ports)),
 		toRegistered(makeReplyTool(ports)),
 		toRegistered(makeLogTaskTool(ports)),
@@ -1625,7 +1490,6 @@ export function buildToolDefinitions(
 		toRegistered(makeWriteMemoryTool(ports)),
 		toRegistered(makeHandoffToTool(ports)),
 		toRegistered(makeCreateItemTool(ports)),
-		toRegistered(makeWriteSessionNotesTool(ports)),
 		toRegistered(makeCreateTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
@@ -1638,7 +1502,6 @@ export function buildToolDefinitions(
 		wrapForRegistry(makeEditBetTool(ports), ["assistant"]),
 		toRegistered(makeCreateRoutineTool(ports)),
 		toRegistered(makeUpdateRoutineTool(ports)),
-		toRegistered(makeCommitFileTool<HyperIdleDb>()),
 	];
 	if (opts?.role !== undefined) {
 		const role = opts.role;
