@@ -94,15 +94,11 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── intents.submit — POST /agent-orchestration/intents ──────────────────
-	router.post(
-		"/intents",
-		validateBody(workIntentInputSchema),
-		async (c) => {
-			const body = c.req.valid("json");
-			const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
-			return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
-		},
-	);
+	router.post("/intents", validateBody(workIntentInputSchema), async (c) => {
+		const body = c.req.valid("json");
+		const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
+		return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
+	});
 
 	// ── requests.listPendingIntentsByKind — GET /agent-orchestration/requests/pending-intents?kind= ──
 	router.get("/requests/pending-intents", async (c) => {
@@ -214,13 +210,10 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 
 	// ── runConfig.readTeamDefaults — GET /agent-orchestration/team-run-config-defaults/:teamId ──
 	// AU31 §3 clause 2: `teams-routes.ts:540`'s add-agent-later read.
-	router.get(
-		"/team-run-config-defaults/:teamId",
-		async (c) => {
-			const defaults = await readTeamRunConfigDefaults(db, c.req.param("teamId"));
-			return c.json({ defaults });
-		},
-	);
+	router.get("/team-run-config-defaults/:teamId", async (c) => {
+		const defaults = await readTeamRunConfigDefaults(db, c.req.param("teamId"));
+		return c.json({ defaults });
+	});
 
 	// ── runConfig.writeTeamDefaults — PATCH /agent-orchestration/team-run-config-defaults/:teamId ──
 	// AU31 §3 clause 2 / §3.1 site 2: `teams-routes.ts:280`'s team-creation write,

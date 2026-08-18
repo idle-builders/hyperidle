@@ -49,7 +49,7 @@ import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/crede
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/host-process";
-import { type HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -374,48 +374,45 @@ export function createConnectionRoutes(
 	 * without any network call. This eliminates the SSRF surface for AN1.
 	 * AN2 adds the live MCP reachability probe with full SSRF protection.
 	 */
-	router.post(
-		"/:id/validate",
-		async (c) => {
-			const userId = c.get("userId");
-			const id = c.req.param("id");
+	router.post("/:id/validate", async (c) => {
+		const userId = c.get("userId");
+		const id = c.req.param("id");
 
-			const [row] = await listConnections(db, { id, userId });
+		const [row] = await listConnections(db, { id, userId });
 
-			if (!row) {
-				return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
-			}
+		if (!row) {
+			return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
+		}
 
-			let health: ConnectionHealth;
+		let health: ConnectionHealth;
 
-			if (row.authSource === "token") {
-				// token: check presence + decrypt-OK
-				if (!row.encryptedToken) {
-					health = "needs-attention";
-				} else {
-					// decryptCredentialValue returns null when no root secret is set
-					const plaintext = decryptCredentialValue(row.encryptedToken);
-					health = plaintext ? "working" : "needs-attention";
-				}
+		if (row.authSource === "token") {
+			// token: check presence + decrypt-OK
+			if (!row.encryptedToken) {
+				health = "needs-attention";
 			} else {
-				// mcp: AN2 live MCP reachability probe.
-				// resolveUrlForSSRF → pin the resolved IP → attempt HTTP reach.
-				// This is the ONE path where AN2 owns the connect and can pin the IP
-				// to guard against DNS rebinding (W3 in the architecture critique).
-				//
-				// @lore AN2 validate-SSRF: Only /validate pins the resolved IP because
-				// AN2 owns the connect here. The provisioned-config path (spawn-time
-				// SSRF check in buildProvisioningPlan) is check-only, not pinned,
-				// because the harness owns the subsequent connect.
-				health = await probeMcpReachability(row.serverUrl);
+				// decryptCredentialValue returns null when no root secret is set
+				const plaintext = decryptCredentialValue(row.encryptedToken);
+				health = plaintext ? "working" : "needs-attention";
 			}
+		} else {
+			// mcp: AN2 live MCP reachability probe.
+			// resolveUrlForSSRF → pin the resolved IP → attempt HTTP reach.
+			// This is the ONE path where AN2 owns the connect and can pin the IP
+			// to guard against DNS rebinding (W3 in the architecture critique).
+			//
+			// @lore AN2 validate-SSRF: Only /validate pins the resolved IP because
+			// AN2 owns the connect here. The provisioned-config path (spawn-time
+			// SSRF check in buildProvisioningPlan) is check-only, not pinned,
+			// because the harness owns the subsequent connect.
+			health = await probeMcpReachability(row.serverUrl);
+		}
 
-			const now = new Date().toISOString();
-			await updateConnection(db, { id, userId }, { health, lastValidatedAt: now, updatedAt: now });
+		const now = new Date().toISOString();
+		await updateConnection(db, { id, userId }, { health, lastValidatedAt: now, updatedAt: now });
 
-			return c.json({ health });
-		},
-	);
+		return c.json({ health });
+	});
 
 	return router;
 }

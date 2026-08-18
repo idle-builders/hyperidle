@@ -15,14 +15,10 @@ export function registerTestRoutes(api: Hono): void {
 	api.get("/protected-test", (c) => c.json({ ok: true }));
 
 	// Validation route
-	api.post(
-		"/test-validate",
-		validateBody(testBodySchema),
-		(c) => {
-			const data = c.req.valid("json" as never);
-			return c.json(data);
-		},
-	);
+	api.post("/test-validate", validateBody(testBodySchema), (c) => {
+		const data = c.req.valid("json" as never);
+		return c.json(data);
+	});
 
 	// Error route — throws an unhandled error
 	api.get("/test-error", () => {

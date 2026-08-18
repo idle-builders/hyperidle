@@ -40,7 +40,6 @@
  *     route surface and the session-stream socket need no poller.
  */
 
-import * as path from "node:path";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import {
 	createInheritedReach,

@@ -56,7 +56,7 @@ class CloudNotBuiltAdapter implements MountAdapter {
 }
 
 class LocalFolderAdapter implements MountAdapter {
-	constructor(private readonly deps: AdapterDeps) {}
+	constructor() {}
 	mount(ctx: MountContext): Promise<MountResult> {
 		const ref = ctx.filesystem.resourceRef;
 		if (ref.kind !== "doc_set")
@@ -195,7 +195,7 @@ function selectMountAdapter(fs: Filesystem, deps: AdapterDeps): MountAdapter {
 		if (CLOUD_SOURCES.has(fs.source)) {
 			return new CloudNotBuiltAdapter(fs.source);
 		}
-		return new LocalFolderAdapter(deps);
+		return new LocalFolderAdapter();
 	}
 
 	return new CloudNotBuiltAdapter(`${fs.kind}:${fs.source}`);
