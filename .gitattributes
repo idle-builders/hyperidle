@@ -3,3 +3,8 @@
 # case two branches touch the same workpackage file: git concatenates both sides
 # instead of conflicting (entries are unique per workpackage+date, no dup risk).
 .pipeline/retro-log/*.jsonl merge=union
+
+# Destroyer-audit output and batch assignments: generated, and large. Collapsed in
+# review so a PR diff shows the plans and the code change, not 12k lines of evidence.
+.pipeline/work/AU20/destroy/** linguist-generated=true
+.pipeline/work/AU43/batches/** linguist-generated=true
