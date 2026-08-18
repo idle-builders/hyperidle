@@ -26,7 +26,6 @@ import * as crypto from "node:crypto";
 import { ServiceConnectionResolver } from "@hyperidle/connections";
 import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
-import type { FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/host-process";
 import { describe, expect, it } from "vitest";
@@ -75,10 +74,6 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 				},
 				{
 					authResolver: {
-						canResolve: async () => true,
-						sourceOf: async () => "github",
-						resolve: async () =>
-							PAT ? { connectionId: "conn-direct", provision: { mode: "none" as const } } : null,
 						resolveToken: async () => PAT ?? null,
 					},
 					gitRunnerFactory: createGitRunner,
@@ -108,12 +103,6 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 				},
 				{
 					authResolver: {
-						canResolve: async () => true,
-						sourceOf: async () => "github",
-						resolve: async () => ({
-							connectionId: "conn-garbage",
-							provision: { mode: "none" as const },
-						}),
 						resolveToken: async () => "ghp_garbage_token_not_real_at_all_0000",
 					},
 					gitRunnerFactory: createGitRunner,
@@ -172,23 +161,16 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			// @lore AU20 Am4: ServiceConnectionResolver no longer takes serverSecret;
 			// decryptCredentialValue reads HYPERIDLE_CREDENTIAL_KEY from env internally.
 			// @lore AU20 R-filesystems: ServiceConnectionResolverAdapter class deleted from barrel.
-			// Inline structural object satisfies FilesystemAuthResolver from @hyperidle/filesystem-contract.
+			// Inline structural object satisfies FilesystemTokenResolver from @hyperidle/filesystems.
 			const resolver = new ServiceConnectionResolver(db);
 
-			function makeAdapter(boundUserId: string): FilesystemAuthResolver {
+			function makeAdapter(boundUserId: string) {
 				return {
-					canResolve: async (cid: string) => (await resolver.resolve(boundUserId, cid)) != null,
-					sourceOf: (_cid: string) => null,
-					resolve: async (_cid: string) => null,
 					resolveToken: (cid: string) => resolver.resolve(boundUserId, cid),
 				};
 			}
 
 			const adapter = makeAdapter(userId);
-
-			// Verify the inline adapter can resolve.
-			const canResolve = await adapter.canResolve(connectionId);
-			expect(canResolve).toBe(true); // LIVE: decrypt succeeds
 
 			const rawToken = await adapter.resolveToken(connectionId);
 			expect(rawToken).toBe(PAT); // LIVE: round-trip through DB

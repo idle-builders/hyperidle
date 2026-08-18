@@ -24,7 +24,17 @@
  * route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
  */
 
-import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
+import type { Filesystem, MountResult } from "@hyperidle/filesystem-contract";
+
+/** Structural mounter port — run-orchestration declares the shape it needs (Mechanism C). */
+export interface FilesystemMounterPort {
+	mount(input: { filesystem: Filesystem; sandboxPath: string }): Promise<MountResult>;
+	captureBack(input: {
+		filesystem: Filesystem;
+		sandboxPath: string;
+		sessionId: string;
+	}): Promise<unknown>;
+}
 
 /**
  * One filesystem's provisioning-relevant fields (`resourceRef` already parsed).
@@ -74,7 +84,7 @@ export async function mountFilesystemsForAgent(params: {
 	readonly agentId: string;
 	readonly filesystems?: InjectedFilesystemsReaderPort;
 	readonly sandboxPath: string;
-	readonly mounter: FilesystemMounter;
+	readonly mounter: FilesystemMounterPort;
 }): Promise<Filesystem[]> {
 	const { agentId, filesystems, sandboxPath, mounter } = params;
 
@@ -100,7 +110,7 @@ export async function mountFilesystemsForAgent(params: {
 	const mounted: Filesystem[] = [];
 	for (const filesystem of fsList) {
 		try {
-			const result = await mounter.mount({ filesystem, sandboxPath, auth: null });
+			const result = await mounter.mount({ filesystem, sandboxPath });
 			if (result.success) {
 				mounted.push(filesystem);
 			} else {

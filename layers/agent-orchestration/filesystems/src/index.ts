@@ -31,4 +31,5 @@ export { inspectLocalPath } from "./inspect-local-path.js";
 export type {
 	FilesystemsGitRunnerFactory,
 	FilesystemsServiceConnectionResolver,
+	FilesystemTokenResolver,
 } from "./ports.js";

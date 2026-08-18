@@ -17,7 +17,7 @@ import {
 	type UserRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
 	type ConversationMessage,
@@ -41,6 +41,7 @@ import {
 } from "./connection-provisioning.js";
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
+	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
@@ -633,7 +634,7 @@ async function captureMountedFilesystems(
 	sessionId: string,
 	sandboxPath: string,
 	mountedFilesystems: Filesystem[],
-	mounter: FilesystemMounter,
+	mounter: FilesystemMounterPort,
 ): Promise<void> {
 	if (mountedFilesystems.length === 0) return;
 
@@ -709,7 +710,7 @@ interface ProvisionSessionDeps {
 	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
 	 * each endSession/crashSession call.
 	 */
-	readonly mounter?: FilesystemMounter;
+	readonly mounter?: FilesystemMounterPort;
 }
 
 interface ProvisionSessionParams {
@@ -1846,7 +1847,7 @@ interface Provisioner {
 		agentId: string,
 		filesystems: InjectedFilesystemsReaderPort | undefined,
 		sandboxPath: string,
-		mounter: FilesystemMounter,
+		mounter: FilesystemMounterPort,
 	): Promise<Filesystem[]>;
 	capture: typeof captureMountedFilesystems;
 }

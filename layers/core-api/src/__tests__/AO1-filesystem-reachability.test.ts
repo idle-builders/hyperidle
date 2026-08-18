@@ -13,7 +13,7 @@
  *   AC5  — resolveFilesystemState: writeback:none → reachable; local probe → real result;
  *            NoopAuthResolver + connectionId → needs_attention
  *   AC3  — FILESYSTEM_KINDS does not include SoR kinds
- *   AC2  — FilesystemAuthResolver seam: canResolve / sourceOf / resolve shape
+ *   AC2  — FilesystemTokenResolver seam: resolveToken
  *   LIVE — Lane A: hermetic git ls-remote (file://) + fs.access probes (no network, no secrets)
  *
  * Source of truth: plans/AO1/architecture.md §v2 (Reachability rework v2)
@@ -31,7 +31,6 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/host-process";
@@ -75,10 +74,7 @@ afterAll(() => {
 // ─── Inline noop resolver ────────────────────────────────────────────────────
 // @lore AU20 R-filesystems: NoopAuthResolver class deleted from @hyperidle/filesystems
 // barrel. Tests that needed a noop use this inline structural object instead.
-const noopAuthResolver: FilesystemAuthResolver = {
-	canResolve: (_connectionId: string) => false,
-	sourceOf: (_connectionId: string) => null,
-	resolve: async (_connectionId: string) => null,
+const noopAuthResolver = {
 	resolveToken: async (_connectionId: string) => null,
 };
 
@@ -200,12 +196,9 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 	});
 
 	it("connection-backed + real resolver (canResolve=true) + no git token → git probe runs", async () => {
-		// A fake resolver that always resolves but returns no raw token.
+		// A fake resolver that returns no raw token.
 		// resolveToken() → null means ls-remote runs without auth (public/local repo is fine).
 		const fakeResolver = {
-			canResolve: async (_connectionId: string) => true,
-			sourceOf: async (_connectionId: string) => "github",
-			resolve: async (_connectionId: string) => null as null,
 			resolveToken: async (_connectionId: string): Promise<string | null> => null,
 		};
 

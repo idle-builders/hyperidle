@@ -23,7 +23,8 @@
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
+import type { FilesystemMounterPort } from "../filesystem-provisioning.js";
 import { describe, vi } from "vitest";
 import { createProvisioner } from "../provisioner.js";
 
@@ -135,7 +136,7 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 
 function buildDeps(
 	db: HyperIdleDb,
-	mounter: FilesystemMounter,
+	mounter: FilesystemMounterPort,
 	injected: readonly InjectedFilesystem[] = [],
 	asked: string[] = [],
 ): ProvisionSessionDeps {
@@ -188,7 +189,7 @@ describe("admitSession mounts what the live injection record says", () => {
 		});
 
 		const mountCalls: Filesystem[] = [];
-		const mounter: FilesystemMounter = {
+		const mounter: FilesystemMounterPort = {
 			mount: async (input) => {
 				mountCalls.push(input.filesystem);
 				return { success: true, sandboxPath: input.sandboxPath };
@@ -252,10 +253,10 @@ describe("admitSession mounts what the live injection record says", () => {
 			createdAt: now,
 		});
 
-		const mounter: FilesystemMounter = {
+		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
 			captureBack: vi.fn(),
-		} as unknown as FilesystemMounter;
+		} as unknown as FilesystemMounterPort;
 
 		const ports = buildHarnessPorts({});
 		const provisioner = createProvisioner(ports);

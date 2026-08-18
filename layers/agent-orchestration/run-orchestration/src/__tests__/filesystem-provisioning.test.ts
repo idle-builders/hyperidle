@@ -21,12 +21,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
 import { startWatcher } from "../file-watcher.js";
 import {
 	type FilesystemForProvisioning,
+	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "../filesystem-provisioning.js";
@@ -77,7 +78,7 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		const row = buildFilesystemRecord();
 		const asked: string[] = [];
 		const mounted: Array<{ filesystem: Filesystem }> = [];
-		const mounter: FilesystemMounter = {
+		const mounter: FilesystemMounterPort = {
 			mount: async (input) => {
 				mounted.push({ filesystem: input.filesystem });
 				return { success: true, sandboxPath: input.sandboxPath };
@@ -100,10 +101,10 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	});
 
 	test("an agent with NO injected filesystems mounts nothing (no throw) — unchanged from today's behavior", async () => {
-		const mounter: FilesystemMounter = {
+		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
 			captureBack: vi.fn(),
-		} as unknown as FilesystemMounter;
+		} as unknown as FilesystemMounterPort;
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-inc12-empty",
@@ -117,10 +118,10 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	});
 
 	test("an unwired reader port mounts nothing — the same graceful no-op an absent mounter gives", async () => {
-		const mounter: FilesystemMounter = {
+		const mounter: FilesystemMounterPort = {
 			mount: vi.fn(),
 			captureBack: vi.fn(),
-		} as unknown as FilesystemMounter;
+		} as unknown as FilesystemMounterPort;
 
 		const result = await mountFilesystemsForAgent({
 			agentId: "agent-inc12-unwired",
@@ -134,7 +135,7 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 
 	test("a failed mount is excluded from the result (degrade-to-today), not thrown", async () => {
 		const bakedRow = buildFilesystemRecord({ id: "fs-inc12-fail" });
-		const mounter: FilesystemMounter = {
+		const mounter: FilesystemMounterPort = {
 			mount: async () => ({ success: false, sandboxPath, error: "mount failed" }),
 			captureBack: async () => ({ success: true, captured: true }),
 		};
