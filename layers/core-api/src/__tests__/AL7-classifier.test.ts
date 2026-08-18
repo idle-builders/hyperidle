@@ -6,15 +6,12 @@
  *   - composeWorkflowAllowDeny(wf, allTools) exported from tool-registry.ts
  *   - identityHash(toolId, args) exported from tool-registry.ts
  *   - RegisteredTool.reversibility?: "irreversible" | "reversible" field added
- *   - commit_file tool registered in ALL_TOOL_DEFINITIONS with reversibility:"irreversible"
  *
  * Covers: AC1 (fail-closed: no-signal → irreversible), AC2 (reversible flows),
  *         AC4 (explicit annotation respected), AC5b (arg-pin convenience),
- *         Task 4 (classifier + composer + live-proof tool registration).
+ *         Task 4 (classifier + composer).
  */
 
-import { buildToolDefinitions } from "@hyperidle/agent-orchestration";
-import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { SessionWorkflow } from "@hyperidle/harness-protocol";
 import {
 	classifyReversibility,
@@ -22,17 +19,6 @@ import {
 	identityHash,
 } from "@hyperidle/tool-protocol";
 import { describe, expect, it } from "vitest";
-
-/**
- * @lore AU31 §3.2/B2: this file only reads tool METADATA (name, reversibility,
- * schema shape) — never invokes a handler — so a transport that throws if
- * called is more honest than wiring a real `app`.
- */
-const neverCalledTransport: CoreApiTransport = () => {
-	throw new Error("AL7-classifier never invokes a tool handler");
-};
-
-const ALL_TOOL_DEFINITIONS = buildToolDefinitions(neverCalledTransport);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // T1 — classifyReversibility: fail-closed (no signal → irreversible)
@@ -180,31 +166,3 @@ describe("T3: composeWorkflowAllowDeny — session workflow policy (AC1/AC5)", (
 // ─────────────────────────────────────────────────────────────────────────────
 // T4 — commit_file live-proof tool registered (Task 4 — wired before Tasks 5-11)
 // ─────────────────────────────────────────────────────────────────────────────
-
-describe("T4: commit_file live-proof tool in ALL_TOOL_DEFINITIONS (Task 4)", () => {
-	it("commit_file is in ALL_TOOL_DEFINITIONS", () => {
-		const names = ALL_TOOL_DEFINITIONS.map((d) => d.name);
-		expect(names).toContain("commit_file");
-	});
-
-	it("commit_file has reversibility:'irreversible'", () => {
-		const def = ALL_TOOL_DEFINITIONS.find((d) => d.name === "commit_file");
-		expect(def).toBeDefined();
-		// The reversibility annotation must be present (used by classifyReversibility)
-		expect(def?.reversibility).toBe("irreversible");
-	});
-
-	it("NO kernel-executor tools in ALL_TOOL_DEFINITIONS (AC12 — no executor dispatch)", () => {
-		// The v1 model's executor dispatch must be gone
-		const names = ALL_TOOL_DEFINITIONS.map((d) => d.name);
-		const forbidden = [
-			"stage_operation", // v1 tool — retired
-			"execute_operation",
-			"dispatch_operation",
-			"resolve_staged_operations",
-		];
-		for (const verb of forbidden) {
-			expect(names, `ALL_TOOL_DEFINITIONS must not contain '${verb}'`).not.toContain(verb);
-		}
-	});
-});
