@@ -35,7 +35,7 @@ import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { executeTextSearch } from "./fts.js";
-import type { KnowledgeKind, KnowledgeLayer, KnowledgeScope, KnowledgeStatus } from "./types.js";
+import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Input shapes (public — used by callers of create/update)
@@ -120,7 +120,7 @@ export interface ListFilters {
 }
 
 /** Discriminant for get() — selects which projection view to return. */
-export type KnowledgeItemView = "summary" | "detail" | "projection" | "full";
+export type KnowledgeItemView = "summary" | "detail" | "full";
 
 /**
  * Augments the kernel KnowledgeItem with app-runtime fields from the
@@ -136,12 +136,6 @@ export interface KnowledgeItemWithProjection extends KnowledgeItem {
 	attentionScore?: string | null;
 	confidence?: string | null;
 	meta?: string | null;
-}
-
-/** Filters for listExportableKnowledgeItems. */
-interface ExportableKnowledgeItemFilters {
-	readonly layers: readonly string[];
-	readonly statuses: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -169,12 +163,6 @@ type DetailRow = {
 	attentionScore: string | null;
 };
 
-/** Row shape for get({view:'projection'}) — replaces exported KnowledgeItemProjectionRow. */
-type ProjectionRow = {
-	readonly layer: string | null;
-	readonly kind: string | null;
-};
-
 /** Row shape for list({retroForBet}) — replaces exported RetroExistingKnowledgeItemRow. */
 type RetroRow = {
 	readonly id: string;
@@ -186,18 +174,6 @@ type RecentRow = {
 	readonly title: string;
 	readonly updatedAt: string;
 	readonly layer: string | null;
-};
-
-/** Row shape for list({exportable}) — replaces exported ExportableKnowledgeItemRow. */
-type ExportRow = {
-	readonly id: string;
-	readonly topic: string | null;
-	readonly title: string;
-	readonly body: string;
-	readonly version: number;
-	readonly layer: string | null;
-	readonly kind: string | null;
-	readonly scopeId: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -508,7 +484,7 @@ export async function update(
 }
 
 // ---------------------------------------------------------------------------
-// READ operations — K1-reads: get / list / count / search / countAccesses
+// READ operations — K1-reads: get / list / count / search
 // ---------------------------------------------------------------------------
 
 /**
@@ -588,7 +564,6 @@ async function listBase(
  * Fetch a knowledge item by id with a discriminated view selection.
  *
  * - `{view: 'detail'}` → kernel row LEFT JOINed with projection (kind/layer/confidence/scores)
- * - `{view: 'projection'}` → projection layer+kind only
  * - default / `{view: 'summary'}` → raw kernel row (KnowledgeItem)
  *
  * @lore Ag7b: Collapses findById / findDetailById / findKnowledgeItemProjectionById
@@ -611,18 +586,13 @@ export function get(
 export function get(
 	db: HyperIdleDb,
 	id: string,
-	opts: { view: "projection" },
-): Promise<ProjectionRow | null>;
-export function get(
-	db: HyperIdleDb,
-	id: string,
 	opts?: { view?: "summary" },
 ): Promise<KnowledgeItem | null>;
 export async function get(
 	db: HyperIdleDb,
 	id: string,
 	opts?: { view?: KnowledgeItemView },
-): Promise<KnowledgeItem | DetailRow | ProjectionRow | null> {
+): Promise<KnowledgeItem | DetailRow | null> {
 	switch (opts?.view) {
 		case "full": {
 			const [item] = await db
@@ -652,20 +622,6 @@ export async function get(
 				.where(eq(knowledgeItems.id, id))
 				.limit(1);
 			return row ?? null;
-		}
-		case "projection": {
-			// Inlined from former findKnowledgeItemProjectionById.
-			const [row] = await db
-				.select({ item: knowledgeItems, projection: knowledgeAppProjection })
-				.from(knowledgeItems)
-				.leftJoin(
-					knowledgeAppProjection,
-					eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-				)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
-			if (!row) return null;
-			return { layer: row.projection?.layer ?? null, kind: row.projection?.kind ?? null };
 		}
 		default: {
 			// Inlined from former findById — summary view: raw kernel row.
@@ -718,10 +674,6 @@ export function list(
 ): Promise<readonly RecentRow[]>;
 export function list(
 	db: HyperIdleDb,
-	filter: { readonly exportable: ExportableKnowledgeItemFilters },
-): Promise<readonly ExportRow[]>;
-export function list(
-	db: HyperIdleDb,
 	filter: {
 		readonly relatedByTopic: {
 			readonly topic: string;
@@ -731,10 +683,6 @@ export function list(
 		};
 	},
 ): Promise<Array<{ id: string; title: string }>>;
-export function list(
-	db: HyperIdleDb,
-	filter: { readonly scope: KnowledgeScope },
-): Promise<KnowledgeItem[]>;
 export function list(db: HyperIdleDb, filter?: ListFilters): Promise<KnowledgeItemWithProjection[]>;
 export async function list(
 	db: HyperIdleDb,
@@ -743,7 +691,6 @@ export async function list(
 		| { readonly retroForBet: string }
 		| { readonly titlesByIds: readonly string[] }
 		| { readonly recentByLayers: { readonly layers: readonly string[]; readonly since: string } }
-		| { readonly exportable: ExportableKnowledgeItemFilters }
 		| {
 				readonly relatedByTopic: {
 					readonly topic: string;
@@ -752,7 +699,6 @@ export async function list(
 					readonly limit: number;
 				};
 		  }
-		| { readonly scope: KnowledgeScope }
 		| ListFilters,
 ): Promise<
 	| KnowledgeItemWithProjection[]
@@ -761,8 +707,6 @@ export async function list(
 	| null
 	| readonly { id: string; title: string }[]
 	| readonly RecentRow[]
-	| readonly ExportRow[]
-	| KnowledgeItem[]
 > {
 	if (!filter) return listBase(db);
 
@@ -862,34 +806,6 @@ export async function list(
 		}));
 	}
 
-	if ("exportable" in filter) {
-		// Inlined from former listExportableKnowledgeItems.
-		const filters = filter.exportable;
-		const rows = await db
-			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
-			.from(knowledgeItems)
-			.innerJoin(
-				knowledgeAppProjection,
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(
-				and(
-					inArray(knowledgeAppProjection.layer, filters.layers as string[]),
-					inArray(knowledgeItems.status, filters.statuses as string[]),
-				),
-			);
-		return rows.map((r) => ({
-			id: r.item.id,
-			topic: r.item.topic,
-			title: r.item.title,
-			body: r.item.body,
-			version: r.item.version,
-			layer: r.projection?.layer ?? null,
-			kind: r.projection?.kind ?? null,
-			scopeId: r.projection?.scopeId ?? null,
-		}));
-	}
-
 	if ("relatedByTopic" in filter) {
 		// Inlined from former findRelatedByTopic.
 		const opts = filter.relatedByTopic;
@@ -904,20 +820,6 @@ export async function list(
 				),
 			)
 			.limit(opts.limit);
-	}
-
-	if ("scope" in filter) {
-		// Inlined from former listByScope (knowledge-reader.ts, now deleted).
-		// Filters on kernel table scopeKind + scopeId — not the projection table.
-		const { scopeKind, scopeId } = filter.scope;
-		const conditions = [eq(knowledgeItems.scopeKind, scopeKind)];
-		if (scopeId != null) {
-			conditions.push(eq(knowledgeItems.scopeId, scopeId));
-		}
-		return db
-			.select()
-			.from(knowledgeItems)
-			.where(and(...conditions));
 	}
 
 	// Base ListFilters case
@@ -970,7 +872,7 @@ interface SearchOptions {
 	visibility?: string;
 }
 
-export type { ExportableKnowledgeItemFilters, SearchOptions };
+export type { SearchOptions };
 
 export async function search(
 	db: HyperIdleDb,
@@ -1057,31 +959,8 @@ export async function search(
 	return items;
 }
 
-/**
- * Count access-log entries for a given filter.
- *
- * - `{itemId, since}` — count of access rows for itemId since the ISO cutoff
- *
- * @lore AU20 K1-reads: subsumes former countAccessesSince — deleted from source.
- */
-export async function countAccesses(
-	db: HyperIdleDb,
-	filter: { readonly itemId: string; readonly since: string },
-): Promise<number> {
-	const [row] = await db
-		.select({ count: sql<number>`count(*)` })
-		.from(knowledgeAccessLog)
-		.where(
-			and(
-				eq(knowledgeAccessLog.itemId, filter.itemId),
-				sql`${knowledgeAccessLog.accessedAt} >= ${filter.since}`,
-			),
-		);
-	return Number(row?.count ?? 0);
-}
-
 // ---------------------------------------------------------------------------
-// Write operations continued (scope / merge / split / archive / flag)
+// Write operations continued (scope / archive)
 // ---------------------------------------------------------------------------
 
 /**
@@ -1159,11 +1038,6 @@ export function transition(
 export function transition(
 	db: HyperIdleDb,
 	id: string,
-	ctx: { readonly target: "flag"; readonly reason: string; readonly editId: string },
-): Promise<void>;
-export function transition(
-	db: HyperIdleDb,
-	id: string,
 	ctx: {
 		readonly target: "changeScope";
 		readonly scopeKind: string;
@@ -1172,25 +1046,6 @@ export function transition(
 		readonly updatedBy: string;
 	},
 ): Promise<KnowledgeItem>;
-export function transition(
-	db: HyperIdleDb,
-	id: string,
-	ctx: { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string },
-): Promise<KnowledgeItem>;
-export function transition(
-	db: HyperIdleDb,
-	id: string,
-	ctx: {
-		readonly target: "split";
-		readonly newItems: ReadonlyArray<{
-			readonly title: string;
-			readonly body: string;
-			readonly topic?: string;
-		}>;
-		readonly updatedBy: string;
-	},
-): Promise<KnowledgeItem[]>;
-
 // Implementation
 export async function transition(
 	db: HyperIdleDb,
@@ -1204,25 +1059,14 @@ export async function transition(
 				readonly reason?: string;
 				readonly editor: string;
 		  }
-		| { readonly target: "flag"; readonly reason: string; readonly editId: string }
 		| {
 				readonly target: "changeScope";
 				readonly scopeKind: string;
 				readonly scopeId: string | null;
 				readonly reason: string;
 				readonly updatedBy: string;
-		  }
-		| { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string }
-		| {
-				readonly target: "split";
-				readonly newItems: ReadonlyArray<{
-					readonly title: string;
-					readonly body: string;
-					readonly topic?: string;
-				}>;
-				readonly updatedBy: string;
 		  },
-): Promise<PromoteTransitionResult | void | KnowledgeItem | KnowledgeItem[]> {
+): Promise<PromoteTransitionResult | void | KnowledgeItem> {
 	switch (ctx.target) {
 		case "recomputeAttention": {
 			// Projection-only atomic upsert: computed scores are derived state, not
@@ -1291,35 +1135,6 @@ export async function transition(
 			});
 		}
 
-		case "flag": {
-			const { reason, editId } = ctx;
-			const timestamp = now();
-			// Fetch the item so we know its current status for the edit-log old-value.
-			const item = await getItemForTransition(db, id);
-			// AU31 §3.1 B2 fix: the item-status UPDATE and the edit-log INSERT are
-			// both core writes (`knowledgeItems`, `knowledgeEditLog`) — the
-			// relinquishment ruled in §3.1 covers only the seam call
-			// (`agentOrchestration.intents.submit` in `routes/knowledge.ts`), not
-			// these two writes against each other. They stay atomic.
-			await db.transaction(async (tx) => {
-				await tx
-					.update(knowledgeItems)
-					.set({ status: "draft", updatedAt: timestamp })
-					.where(eq(knowledgeItems.id, id));
-				await tx.insert(knowledgeEditLog).values({
-					id: editId,
-					itemId: id,
-					editor: item?.updatedBy ?? "system",
-					field: "status",
-					oldValue: item?.status ?? null,
-					newValue: `flagged (reason: ${reason})`,
-					editType: "flag",
-					createdAt: timestamp,
-				});
-			});
-			return;
-		}
-
 		case "changeScope": {
 			const { scopeKind, scopeId, reason, updatedBy } = ctx;
 			const timestamp = now();
@@ -1374,115 +1189,6 @@ export async function transition(
 			}
 			return updated;
 		}
-
-		case "merge": {
-			const { sourceId, updatedBy } = ctx;
-			const timestamp = now();
-
-			const target = await getItemForTransition(db, id);
-			const source = await getItemForTransition(db, sourceId);
-
-			if (!target) throw new Error(`transition('merge'): target item ${id} not found`);
-			if (!source) throw new Error(`transition('merge'): source item ${sourceId} not found`);
-
-			const mergedBody = `${target.body}\n\n---\n\n${source.body}`;
-
-			await db
-				.update(knowledgeItems)
-				.set({ body: mergedBody, version: target.version + 1, updatedBy, updatedAt: timestamp })
-				.where(eq(knowledgeItems.id, id));
-
-			await db
-				.update(knowledgeItems)
-				.set({ status: "archived", updatedBy, updatedAt: timestamp })
-				.where(eq(knowledgeItems.id, sourceId));
-
-			await db.insert(knowledgeEditLog).values({
-				id: generateId(),
-				itemId: id,
-				editor: updatedBy,
-				field: "body",
-				oldValue: target.body,
-				newValue: mergedBody,
-				editType: "merge",
-				createdAt: timestamp,
-			});
-
-			await db.insert(knowledgeEditLog).values({
-				id: generateId(),
-				itemId: sourceId,
-				editor: updatedBy,
-				field: "status",
-				oldValue: source.status,
-				newValue: "archived",
-				editType: "merge",
-				createdAt: timestamp,
-			});
-
-			const [merged] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
-			if (!merged) throw new Error(`Failed to read back knowledge item ${id} after merge`);
-			return merged;
-		}
-
-		case "split": {
-			const { newItems, updatedBy } = ctx;
-			const timestamp = now();
-
-			const original = await getItemForTransition(db, id);
-			if (!original) throw new Error(`transition('split'): item ${id} not found`);
-
-			const created: KnowledgeItem[] = [];
-
-			for (const newItem of newItems) {
-				const newId = generateId();
-				await db.insert(knowledgeItems).values({
-					id: newId,
-					scopeKind: original.scopeKind,
-					scopeId: original.scopeId,
-					topic: newItem.topic ?? original.topic,
-					title: newItem.title,
-					body: newItem.body,
-					format: original.format,
-					status: "draft",
-					version: 1,
-					updatedBy,
-					createdAt: timestamp,
-					updatedAt: timestamp,
-				});
-
-				await upsertProjectionLayer(db, newId, original.scopeKind);
-
-				const [row] = await db
-					.select()
-					.from(knowledgeItems)
-					.where(eq(knowledgeItems.id, newId))
-					.limit(1);
-				if (!row) throw new Error(`Failed to read back split item ${newId}`);
-				created.push(row);
-			}
-
-			await db
-				.update(knowledgeItems)
-				.set({ status: "archived", updatedBy, updatedAt: timestamp })
-				.where(eq(knowledgeItems.id, id));
-
-			await db.insert(knowledgeEditLog).values({
-				id: generateId(),
-				itemId: id,
-				editor: updatedBy,
-				field: "status",
-				oldValue: original.status,
-				newValue: "archived",
-				editType: "split",
-				createdAt: timestamp,
-			});
-
-			return created;
-		}
 	}
 }
 
@@ -1535,31 +1241,4 @@ export async function remove(
 		throw new Error(`Failed to read back knowledge item ${item.id} after archive`);
 	}
 	return row;
-}
-
-// ---------------------------------------------------------------------------
-// recordAccess — append access-log entry (replaces recordKnowledgeAccess)
-//
-// @lore AU20 K2-writes: renamed for consistency with the target API surface.
-// Behavior identical to former recordKnowledgeAccess.
-// ---------------------------------------------------------------------------
-
-export interface RecordAccessInput {
-	readonly itemId: string;
-	readonly accessorKind: string;
-	readonly accessorId: string;
-	readonly accessedAt: string;
-}
-
-/**
- * Append an access-log entry. Best-effort — caller keeps the try/catch.
- */
-export async function recordAccess(db: HyperIdleDb, input: RecordAccessInput): Promise<void> {
-	await db.insert(knowledgeAccessLog).values({
-		id: generateId(),
-		itemId: input.itemId,
-		accessorKind: input.accessorKind,
-		accessorId: input.accessorId,
-		accessedAt: input.accessedAt,
-	});
 }

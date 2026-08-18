@@ -37,19 +37,8 @@ import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { VersionConflictError } from "../errors.js";
 import { findOpenConflict, recordConflict } from "../knowledge-conflicts.js";
-import {
-	count,
-	countAccesses,
-	create,
-	get,
-	list,
-	recordAccess,
-	search,
-	transition,
-	update,
-} from "../knowledge-repository.js";
+import { count, create, get, list, search, transition, update } from "../knowledge-repository.js";
 import { sweep } from "../promotion-pipeline.js";
-import { reapAccessLog, recomputeRelevance } from "../relevance-service.js";
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -171,25 +160,6 @@ describe("get: summary view returns kernel row or null", () => {
 });
 
 // ===========================================================================
-// C. get (projection view) — getProjectionByItemId
-// ===========================================================================
-
-describe("get(id, {view:'projection'}): returns layer+kind from projection table", () => {
-	test("returns layer and kind for an item with a projection row", async ({ db }) => {
-		const seeded = await seedItem(db, { layer: "L3", kind: "pattern" });
-		const proj = await get(db, seeded.id, { view: "projection" });
-		expect(proj).not.toBeNull();
-		expect(proj?.layer).toBe("L3");
-		expect(proj?.kind).toBe("pattern");
-	});
-
-	test("returns null for unknown id", async ({ db }) => {
-		const proj = await get(db, "no-such-item", { view: "projection" });
-		expect(proj).toBeNull();
-	});
-});
-
-// ===========================================================================
 // D. get (detail view) — items detail read
 // ===========================================================================
 
@@ -243,43 +213,6 @@ describe("update: version-checked update writes edit-log and bumps version", () 
 		await expect(update(db, item.id, { title: "v3" }, 1)).rejects.toBeInstanceOf(
 			VersionConflictError,
 		);
-	});
-});
-
-// ===========================================================================
-// F. list({exportable}) — listExportableItems
-// ===========================================================================
-
-describe("list({exportable}): filters by layer and status", () => {
-	test("listExportableKnowledgeItems() returns items matching layer + status, excludes others", async ({
-		db,
-	}) => {
-		// Matching item: L2 + validated.
-		const a = await seedItem(db, {
-			layer: "L2",
-			status: "validated",
-			title: "Exportable",
-		});
-		// Non-matching: wrong layer.
-		await seedItem(db, { layer: "L1", status: "validated", title: "Wrong layer" });
-		// Non-matching: wrong status.
-		await seedItem(db, { layer: "L2", status: "draft", title: "Wrong status" });
-
-		const rows = await list(db, {
-			exportable: { layers: ["L2"], statuses: ["validated"] },
-		});
-
-		expect(rows.map((r) => r.id)).toContain(a.id);
-		expect(rows.length).toBe(1);
-		expect(rows[0]?.layer).toBe("L2");
-		expect(rows[0]?.title).toBe("Exportable");
-	});
-
-	test("get(id, {view:'projection'}) returns layer+kind", async ({ db }) => {
-		const item = await seedItem(db, { layer: "L2", kind: "reflection" });
-		const row = await get(db, item.id, { view: "projection" });
-		expect(row?.layer).toBe("L2");
-		expect(row?.kind).toBe("reflection");
 	});
 });
 
@@ -732,117 +665,6 @@ describe("conflicts: recordConflict and findOpenConflict", () => {
 		// But agent-A's conflict is still there.
 		const forA = await findOpenConflict(db, item.id, "agent-A");
 		expect(forA).not.toBeNull();
-	});
-});
-
-// ===========================================================================
-// O. AccessLog — recordAccess, countAccessesSince, reapKnowledgeAccessLog
-// ===========================================================================
-
-describe("access log: recordAccess / countAccessesSince / reapKnowledgeAccessLog", () => {
-	test("recordAccess appends a row; countAccessesSince counts rows since cutoff", async ({
-		db,
-	}) => {
-		const item = await seedItem(db);
-		const t0 = new Date().toISOString();
-
-		await recordAccess(db, {
-			itemId: item.id,
-			accessorKind: "user",
-			accessorId: "u-reader",
-			accessedAt: new Date().toISOString(),
-		});
-
-		const accessCount = await countAccesses(db, { itemId: item.id, since: t0 });
-		expect(accessCount).toBe(1);
-	});
-
-	test("countAccessesSince returns 0 when all accesses are before the cutoff", async ({ db }) => {
-		const item = await seedItem(db);
-
-		await recordAccess(db, {
-			itemId: item.id,
-			accessorKind: "user",
-			accessorId: "u-reader",
-			accessedAt: "2020-01-01T00:00:00.000Z",
-		});
-
-		// Cutoff AFTER the access.
-		const accessCount = await countAccesses(db, {
-			itemId: item.id,
-			since: "2020-06-01T00:00:00.000Z",
-		});
-		expect(accessCount).toBe(0);
-	});
-
-	test("reapKnowledgeAccessLog deletes rows older than cutoff and returns their ids", async ({
-		db,
-	}) => {
-		const item = await seedItem(db);
-
-		await recordAccess(db, {
-			itemId: item.id,
-			accessorKind: "user",
-			accessorId: "u-reader",
-			accessedAt: "2020-01-01T00:00:00.000Z",
-		});
-
-		const cutoff = "2021-01-01T00:00:00.000Z";
-		const deleted = await reapAccessLog(db, cutoff);
-
-		expect(deleted.length).toBeGreaterThanOrEqual(1);
-		// After reap, the count for that item is 0.
-		const accessCount = await countAccesses(db, {
-			itemId: item.id,
-			since: "2019-01-01T00:00:00.000Z",
-		});
-		expect(accessCount).toBe(0);
-	});
-});
-
-// ===========================================================================
-// P. Relevance — createRelevanceService().recomputeScores (denormalize)
-// ===========================================================================
-
-describe("recomputeRelevance: denormalizes relevanceScore onto projection row", () => {
-	test("recomputeScores() writes relevanceScore to the projection row for items with access activity", async ({
-		db,
-	}) => {
-		const item = await seedItem(db, { layer: "L2" });
-
-		// Simulate a recent access so the relevance score is not null.
-		await recordAccess(db, {
-			itemId: item.id,
-			accessorKind: "agent",
-			accessorId: "a-1",
-			accessedAt: new Date().toISOString(),
-		});
-
-		await recomputeRelevance(db, [item.id]);
-
-		const [proj] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
-		expect(proj?.relevanceScore).not.toBeNull();
-		const score = Number(proj?.relevanceScore);
-		expect(score).toBeGreaterThan(0);
-		expect(score).toBeLessThanOrEqual(1);
-	});
-
-	test("recomputeScores() writes null relevanceScore for items with no access activity", async ({
-		db,
-	}) => {
-		const item = await seedItem(db, { layer: "L2" });
-		// No access log rows.
-
-		await recomputeRelevance(db, [item.id]);
-
-		const [proj] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
-		expect(proj?.relevanceScore).toBeNull();
 	});
 });
 

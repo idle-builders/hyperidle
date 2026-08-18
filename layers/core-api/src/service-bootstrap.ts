@@ -26,7 +26,7 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { assembleSessionKnowledge, reapAccessLog } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import {
 	enqueue,
 	installNotifications,
@@ -46,7 +46,6 @@ import {
 } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { getTaskRiskTierByTaskId } from "@hyperidle/work";
-import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
@@ -410,15 +409,6 @@ export function registerCoreDomainServices(ctx: {
 
 	disposers.push(
 		identifyBootstrapOwner(
-			attachRelevanceListener(db, eventBus),
-			"relevance listener",
-			"unsubscribes",
-			["knowledge-access subscription"],
-		),
-	);
-
-	disposers.push(
-		identifyBootstrapOwner(
 			registerReviewSubscriptions(db, eventBus, {
 				work: {
 					getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
@@ -503,8 +493,6 @@ export function registerCoreDomainServices(ctx: {
 		});
 		// notification_queue (owned by `notifications`)
 		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
-		// knowledge_access_log (owned by `knowledge`)
-		await reapAccessLog(db, termCutoff);
 		// propagation_log (owned by `policy`)
 		await reapTerminalPropagationLog(db, termCutoff);
 		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10

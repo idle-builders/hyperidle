@@ -21,7 +21,6 @@ import {
 	defaultFactoryRoster,
 	type FactoryAgentRef,
 } from "@hyperidle/factory-defaults";
-import { ensureFactoryKnowledgeSeed } from "@hyperidle/knowledge";
 import { insertUserIfAbsent, listFactoryAgents, setAgentCategoryForRole } from "@hyperidle/users";
 
 /**
@@ -111,9 +110,6 @@ export async function applyFactoryCoreState(db: HyperIdleDb): Promise<readonly F
 	for (const [role, category] of Object.entries(CATEGORY_BY_ROLE)) {
 		await setAgentCategoryForRole(db, role, category);
 	}
-
-	// ── Factory principle knowledge item — DB infra ──
-	await ensureFactoryKnowledgeSeed(db, now);
 
 	// ── Resolve and return the roster agents: {id, role}, from the queried rows ──
 	// Scoped to the roster's own agent ids (system:propagation is infra — not

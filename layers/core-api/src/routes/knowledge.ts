@@ -22,12 +22,10 @@
  * visible to the caller — this is a pragmatic boundary compromise per the Q2 lore.
  */
 
-import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
-	type AgentWorkIntentEvent,
 	API_ERROR_CODES,
 	KNOWLEDGE_LAYERS,
 	type KnowledgeAccessedEvent,
@@ -43,7 +41,6 @@ import type { EventBus } from "@hyperidle/event-bus";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
 import {
 	remove as archiveKnowledgeItem,
-	countAccesses,
 	count as countKnowledgeItems,
 	create as createKnowledgeItem,
 	findOpenConflict as findOpenKnowledgeConflict,
@@ -52,9 +49,7 @@ import {
 	transition as knowledgeTransition,
 	list as listKnowledgeItems,
 	recomputeAttention,
-	recordAccess as recordKnowledgeAccess,
 	recordConflict as recordKnowledgeConflict,
-	resolveKnowledgeActionRequest,
 	search as searchKnowledge,
 	update as updateKnowledgeItem,
 	VersionConflictError,
@@ -62,12 +57,10 @@ import {
 import { getTeam, getTeamMembers } from "@hyperidle/org";
 import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
-import { readServerConfig } from "@hyperidle/settings";
-import { findUser, requireRunnableAgent } from "@hyperidle/users";
+import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { resolveOrCreateKnowledgeCallingThread } from "../services/calling-thread-bindings.js";
 
 /**
  * @lore AU21 §9 Increment 2 (knowledge wave): the 8 `KNOWLEDGE_KINDS` values
@@ -230,29 +223,6 @@ const updateKnowledgeSchema = z.object({
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
 });
 
-const mergeSchema = z.object({
-	sourceId: z.string(),
-	updatedBy: z.string(),
-});
-
-const splitSchema = z.object({
-	newItems: z
-		.array(
-			z.object({
-				title: z.string(),
-				body: z.string(),
-				topic: z.string().optional(),
-			}),
-		)
-		.min(2),
-	updatedBy: z.string(),
-});
-
-const flagSchema = z.object({
-	reason: z.string(),
-	agentId: z.string().optional(),
-});
-
 /**
  * AU21 §9 Increment 2 (knowledge wave) — schemas for the four new narrow
  * routes backing `ToolHandlersKnowledgeAccessor`'s conflict/promote/attention
@@ -332,11 +302,7 @@ const changeScopeSchema = z.object({
  * Create Hono routes for knowledge endpoints.
  * Q2: upgraded to Hono<HyperIdleEnv> to read userId from auth middleware.
  */
-export function createKnowledgeRoutes(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	agentOrchestration: AgentOrchestrationPort,
-): Hono<HyperIdleEnv> {
+export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// I2 review M-4 / HIGH-5: cap query length so an attacker cannot
@@ -426,8 +392,6 @@ export function createKnowledgeRoutes(
 
 	// GET /:id — single item, emit knowledge_accessed event
 	// Q2: returns 404 for user-scoped items not authored by the requesting user.
-	// AF13 §5: accessCount (30-day window) computed BEFORE the best-effort access-log
-	// insert so the current page-load is NOT counted (WARNING 1 from architecture-critique).
 	// AF13 §5: relatedItems computed as same-topic items visible to the requesting user,
 	// capped at 10, null-topic → [] (WARNING 2 from architecture-critique).
 	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
@@ -457,12 +421,6 @@ export function createKnowledgeRoutes(
 			return c.json(response, 404);
 		}
 
-		// AF13 §5 WARNING 1: Count access-log rows STRICTLY BEFORE the insert so the
-		// current page-load is not counted. accessCount reflects historical accesses only.
-		// @lore AF13: Order matters: count → insert. Swapping would produce N+1 counts.
-		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-		const accessCount = await countAccesses(db, { itemId: item.id, since: thirtyDaysAgo });
-
 		// AF13 §5 WARNING 2: relatedItems — same-topic items visible to this user, capped at 10.
 		// null-topic → [] (no topic match means no related items).
 		// User-scope filter: exclude other users' private (user-scoped) items.
@@ -478,21 +436,7 @@ export function createKnowledgeRoutes(
 			});
 		}
 
-		// L22: append access-log row (best-effort — never break the read)
-		// @lore O2: accessor_kind defaults to "human" for browser-initiated reads.
-		// @lore AF13: INSERT happens AFTER the count query so accessCount excludes own load.
-		try {
-			await recordKnowledgeAccess(db, {
-				itemId: item.id,
-				accessorKind: "human",
-				accessorId: "browser",
-				accessedAt: new Date().toISOString(),
-			});
-		} catch {
-			// best-effort — do not surface access-log INSERT failures to the caller
-		}
-
-		// O2: emit knowledge_accessed event (replaces inline recomputeScores call)
+		// O2: emit knowledge_accessed event
 		const accessedEvent: KnowledgeAccessedEvent = {
 			type: "knowledge_accessed",
 			streamId: `knowledge:${item.id}`,
@@ -511,8 +455,6 @@ export function createKnowledgeRoutes(
 			kind: row.kind ?? undefined,
 			layer: row.layer ?? undefined,
 			confidence: row.confidence ? Number.parseFloat(row.confidence) : undefined,
-			// AF13 §5: computed metadata fields
-			accessCount,
 			relatedItems,
 			// AV3: resolved human-readable scope name (response-only, never persisted)
 			scopeName,
@@ -733,96 +675,6 @@ export function createKnowledgeRoutes(
 		},
 	);
 
-	// POST /:id/merge — merge two items
-	router.post(
-		"/:id/merge",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(mergeSchema),
-		async (c) => {
-			const targetId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
-
-			const target = await getKnowledgeItem(db, targetId);
-
-			if (!target) {
-				const response: ApiErrorResponse = {
-					error: "Target knowledge item not found",
-					code: API_ERROR_CODES.NOT_FOUND,
-				};
-				return c.json(response, 404);
-			}
-
-			const source = await getKnowledgeItem(db, body.sourceId);
-
-			if (!source) {
-				const response: ApiErrorResponse = {
-					error: "Source knowledge item not found",
-					code: API_ERROR_CODES.NOT_FOUND,
-				};
-				return c.json(response, 404);
-			}
-
-			// @lore AU20 K2-writes: mergeItems folded into transition({target:"merge"}).
-			const merged = await knowledgeTransition(db, target.id, {
-				target: "merge",
-				sourceId: source.id,
-				updatedBy: body.updatedBy,
-			});
-
-			// O2: emit knowledge_updated event for merge
-			const mergedEvent: KnowledgeUpdatedEvent = {
-				type: "knowledge_updated",
-				streamId: `knowledge:${targetId}`,
-				itemId: targetId,
-				action: "merged",
-				timestamp: Date.now(),
-			};
-			eventBus.emit(mergedEvent);
-
-			return c.json(merged);
-		},
-	);
-
-	// POST /:id/split — split into two or more items
-	router.post(
-		"/:id/split",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(splitSchema),
-		async (c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
-
-			const original = await getKnowledgeItem(db, id);
-
-			if (!original) {
-				const response: ApiErrorResponse = {
-					error: "Knowledge item not found",
-					code: API_ERROR_CODES.NOT_FOUND,
-				};
-				return c.json(response, 404);
-			}
-
-			// @lore AU20 K2-writes: splitItem folded into transition({target:"split"}).
-			const createdItems = await knowledgeTransition(db, original.id, {
-				target: "split",
-				newItems: body.newItems,
-				updatedBy: body.updatedBy,
-			});
-
-			// O2: emit knowledge_updated event for split
-			const splitEvent: KnowledgeUpdatedEvent = {
-				type: "knowledge_updated",
-				streamId: `knowledge:${id}`,
-				itemId: id,
-				action: "split",
-				timestamp: Date.now(),
-			};
-			eventBus.emit(splitEvent);
-
-			return c.json({ items: createdItems });
-		},
-	);
-
 	// POST /:id/archive — archive item, emit knowledge_archived event
 	router.post("/:id/archive", requireBoundary({ kind: "public-data" }), async (c) => {
 		const id = c.req.param("id");
@@ -853,128 +705,6 @@ export function createKnowledgeRoutes(
 
 		return c.json(updated);
 	});
-
-	// POST /:id/flag — flag for review, emit knowledge_updated with action "flagged"
-	// O2: removed attentionScore write (column stripped from kernel table)
-	router.post(
-		"/:id/flag",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(flagSchema),
-		async (c) => {
-			const id = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof flagSchema>;
-
-			const item = await getKnowledgeItem(db, id);
-
-			if (!item) {
-				const response: ApiErrorResponse = {
-					error: "Knowledge item not found",
-					code: API_ERROR_CODES.NOT_FOUND,
-				};
-				return c.json(response, 404);
-			}
-
-			if (body.agentId) {
-				const agent = await findUser(db, { id: body.agentId });
-				if (!agent) {
-					const response: ApiErrorResponse = {
-						error: "Agent not found",
-						code: API_ERROR_CODES.NOT_FOUND,
-					};
-					return c.json(response, 404);
-				}
-			}
-
-			// O2: no attentionScore write (column stripped). Flag is recorded in the edit log.
-			// Status set to "draft" so flagged items re-enter the review queue.
-			// @lore AU20 K2-writes: flagItem folded into transition({target:"flag"}).
-			// transition() fetches the item internally by id — no need to pass `item`.
-			const editId = crypto.randomUUID();
-			await knowledgeTransition(db, item.id, {
-				target: "flag",
-				reason: body.reason,
-				editId,
-			});
-			// AU31 §3.1 site 4 — the `knowledge_action` intent submit runs AFTER
-			// the flag transition commits, not inside its transaction. Cross-layer
-			// atomicity with `agent-orchestration` is relinquished (founder ruling,
-			// architecture.md §3.1/§13 item 9): on a failed submit, the item is
-			// flagged with no queued review action; the route below returns 5xx,
-			// and a retry re-runs the idempotent flag path and re-submits under
-			// the same `knowledge:${id}:review:${editId}` key.
-			let intent: Awaited<ReturnType<typeof agentOrchestration.intents.submit>> | undefined;
-			if (body.agentId) {
-				// AU21 §6 Decision B: resolve + validate the knowledge_action run
-				// AT EMIT TIME (this Service's own domain state, plus the shared
-				// ast-<userId> runnability invariant) and bake the full request
-				// onto the intent — the drain dispatches it directly, with zero
-				// domain reads.
-				//
-				// @lore AU21 knowledge_action wave: the resolved target is the
-				// item's own `updatedBy` (whoever last touched it), NOT the
-				// flagging `agentId` — it can be a non-agent id (e.g. a human
-				// editor). Under the pre-migration drain-time model this never
-				// blocked the flag itself (resolution ran later, async, and a
-				// failure there was silent — only the eventual
-				// `agent_run_admission_failed` reaction fired). Resolving earlier
-				// must not newly gate the flag write on that outcome, so a
-				// resolution failure here is caught: the flag still commits, the
-				// intent is still recorded (unbaked, exactly the pre-migration
-				// shape), and it fails at drain immediately (zero domain reads,
-				// `default` case) — routing to the same knowledge_action
-				// admission-failure reaction (a review-flagged item) the
-				// pre-migration path already produced for this case.
-				let bakedRequest: Awaited<ReturnType<typeof resolveKnowledgeActionRequest>> | undefined;
-				try {
-					bakedRequest = await resolveKnowledgeActionRequest(db, `knowledge:${id}`, {
-						requireRunnableAgent,
-						readServerConfig,
-						// AU27: also bake callingThreadId — the knowledge item's own
-						// hostKind:"knowledge_item" thread, so a knowledge_action
-						// session's `reply` tool has somewhere real to post.
-						resolveOrCreateCallingThread: resolveOrCreateKnowledgeCallingThread,
-					});
-				} catch {
-					bakedRequest = undefined;
-				}
-				intent = await agentOrchestration.intents.submit({
-					kind: "knowledge_action",
-					sourceKind: "knowledge_action",
-					sourceId: `knowledge:${id}`,
-					requestedBy: body.agentId,
-					idempotencyKey: `knowledge:${id}:review:${editId}`,
-					bakedRequest,
-				});
-			}
-
-			const updated = await getKnowledgeItem(db, id);
-
-			// O2: emit knowledge_updated with action "flagged"
-			const flaggedEvent: KnowledgeUpdatedEvent = {
-				type: "knowledge_updated",
-				streamId: `knowledge:${id}`,
-				itemId: id,
-				action: "flagged",
-				timestamp: Date.now(),
-			};
-			eventBus.emit(flaggedEvent);
-
-			if (body.agentId && intent) {
-				eventBus.emit({
-					type: "agent_work_intent_recorded",
-					streamId: `knowledge:${id}`,
-					intentId: intent.id,
-					intentKind: "knowledge_action",
-					sourceKind: "knowledge",
-					sourceId: `knowledge:${id}`,
-					idempotencyKey: intent.idempotencyKey,
-					timestamp: Date.now(),
-				} satisfies AgentWorkIntentEvent);
-			}
-
-			return c.json(updated);
-		},
-	);
 
 	// AU21 §9 Increment 2 (knowledge wave): the four routes below back
 	// `ToolHandlersKnowledgeAccessor`'s conflict/promote/attention methods —
