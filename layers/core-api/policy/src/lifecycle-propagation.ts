@@ -207,10 +207,7 @@ interface LogPropagationEntry {
  * two only agreed because the cascade's inputs happened to hit the same
  * branches. There is one builder now.
  */
-async function recordPropagationHop(
-	db: HyperIdleDb,
-	entry: LogPropagationEntry,
-): Promise<void> {
+async function recordPropagationHop(db: HyperIdleDb, entry: LogPropagationEntry): Promise<void> {
 	const now = new Date().toISOString();
 	const row: NewPropagationLogRow = {
 		id: crypto.randomUUID(),

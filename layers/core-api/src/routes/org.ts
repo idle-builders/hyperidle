@@ -10,12 +10,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
-import {
-	createTeam,
-	getTeam,
-	getTeamMembers,
-	persistScaffoldedAgents,
-} from "@hyperidle/org";
+import { createTeam, getTeam, getTeamMembers, persistScaffoldedAgents } from "@hyperidle/org";
 import { provisionTeamRoutines } from "@hyperidle/routine";
 import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";

@@ -1151,8 +1151,7 @@ function makeEditBetTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditBetI
 
 			const existing = await ports.coreApi.getBetById(input.betId, ctx.agentId);
 			if (!existing) return err("NOT_FOUND", `Bet not found: ${input.betId}`);
-			if (existing.status !== "draft")
-				return err("INVALID_STATE", "Can only edit a draft bet.");
+			if (existing.status !== "draft") return err("INVALID_STATE", "Can only edit a draft bet.");
 
 			const updates: Partial<{
 				description: string;

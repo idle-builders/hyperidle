@@ -24,7 +24,6 @@ import {
 	users,
 } from "@hyperidle/db";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
-import { lt } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
 // signal for the "task-dispatch-attempt reaper — relocated home" describe block.
@@ -125,7 +124,6 @@ describe("retention reaper — individual owning-service sweeps", () => {
 			new Set(["nq-old-pending", "nq-recent-sent"]),
 		);
 	});
-
 });
 
 /**

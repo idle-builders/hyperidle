@@ -325,4 +325,3 @@ export function identityHash(toolId: string, args: Record<string, unknown>): str
 	const digest = crypto.createHash("sha256").update(canonicalJson(toolId, args)).digest("hex");
 	return `sha256-${digest}`;
 }
-
