@@ -67,7 +67,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(colNames).not.toContain("strategy");
 			vi.unstubAllEnvs();
 		});
-
 	});
 
 	// ---------------------------------------------------------------------------
@@ -902,7 +901,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(after).toHaveLength(0);
 			vi.unstubAllEnvs();
 		});
-
 	});
 
 	// ---------------------------------------------------------------------------
