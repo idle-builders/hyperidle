@@ -40,9 +40,7 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	createBodyLimit,
 	type HyperIdleEnv,
-	requireBoundary,
 	validateBody,
 } from "@hyperidle/http-middleware";
 import { getTeamMembers } from "@hyperidle/org";
@@ -54,7 +52,6 @@ const injectFilesystemSchema = z.object({
 	agentUserId: z.string().min(1),
 });
 
-const FILESYSTEM_BODY_LIMIT = { maxSize: 8 * 1024 }; // 8 KB (the body is one id)
 
 export function createFilesystemInjectionRoutes(
 	db: HyperIdleDb,
@@ -65,8 +62,6 @@ export function createFilesystemInjectionRoutes(
 	// ── POST /api/filesystems/:id/injections — Inject filesystem into a bot ───
 	router.post(
 		"/:id/injections",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit(FILESYSTEM_BODY_LIMIT),
 		validateBody(injectFilesystemSchema),
 		async (c) => {
 			const fsId = c.req.param("id");

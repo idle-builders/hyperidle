@@ -14,12 +14,11 @@ import {
 	OLD_KIND_MAP,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { createBodyLimit, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { validateBody } from "@hyperidle/http-middleware";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 
-const PREVIEW_BODY_LIMIT = 64 * 1024;
 const DEFAULT_LIMIT = 50;
 const HARD_LIMIT_CAP = 200;
 // L3 review fix Sec-MED-4: cap intermediate task-id materialisation.
@@ -119,7 +118,7 @@ function rowToArtifact(row: work.ArtifactRow, producingTaskTitle: string): Artif
 export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hono {
 	const router = new Hono();
 
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const axis = c.req.query("axis");
 		if (axis !== "task" && axis !== "bet" && axis !== "product" && axis !== "portfolio") {
 			return c.json({ error: "Invalid axis", code: "INVALID_QUERY" }, 400);
@@ -190,7 +189,7 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hon
 		return c.json(page);
 	});
 
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 		const row = await work.get(db, "artifact", id, { include: "taskTitle" });
 		if (!row) return c.json({ error: "Not found", code: "NOT_FOUND" }, 404);
@@ -199,8 +198,6 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hon
 
 	router.post(
 		"/",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit({ maxSize: PREVIEW_BODY_LIMIT }),
 		validateBody(createArtifactSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createArtifactSchema>;

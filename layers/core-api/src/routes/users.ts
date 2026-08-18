@@ -12,7 +12,6 @@ import { persistScaffoldedAgents } from "@hyperidle/org";
 import {
 	constantTimeStringEqual,
 	type HyperIdleEnv,
-	requireBoundary,
 } from "@hyperidle/http-middleware";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
@@ -74,7 +73,7 @@ export function createUserSetupRoute(
 		...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
 	};
 
-	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/", async (c) => {
 		let rawBody: unknown;
 		try {
 			rawBody = await c.req.json();
@@ -192,7 +191,7 @@ export function createUserRoutes(
 	// `CoreApiPort.users.listUsersByTeam`, typed `UserView = {id,name,role,teamId}`;
 	// no `layers/core-ui` file fetches it at all. Run counts are
 	// `agent-orchestration`'s and the UI reads them from that Layer directly.
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const teamMembersId = c.req.query("teamMembersId");
 		const kind = c.req.query("kind");
 		const filter = {
@@ -205,7 +204,7 @@ export function createUserRoutes(
 	});
 
 	// GET /:id — User detail
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const userId = c.req.param("id");
 		const user = await findUser(db, { id: userId });
 
@@ -219,7 +218,7 @@ export function createUserRoutes(
 	// PATCH /:id — Update human user profile (name + email)
 	// @lore P4: Only the authenticated user can patch their own profile.
 	// The userId from auth context must match the :id param — 403 otherwise.
-	router.patch("/:id", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.patch("/:id", async (c) => {
 		const targetId = c.req.param("id");
 		const authenticatedUserId = c.get("userId");
 

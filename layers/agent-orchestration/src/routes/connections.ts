@@ -34,7 +34,7 @@
  * The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
  * Application-applied to that shared router and reaches this module unchanged.
  * This file declares its own boundaries with `@hyperidle/http-middleware`'s
- * `requireBoundary` and imports nothing from core-api.
+ * `` and imports nothing from core-api.
  */
 
 import {
@@ -49,7 +49,7 @@ import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/crede
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/host-process";
-import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -193,8 +193,6 @@ export function createConnectionRoutes(
 	const router = new Hono<HyperIdleEnv>();
 
 	// Per-router-instance rate limiters (one bucket per identity, reset per app lifecycle).
-	const mutateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
-	const validateLimiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
 
 	// ── GET / ─────────────────────────────────────────────────────────────────
 	/**
@@ -209,7 +207,7 @@ export function createConnectionRoutes(
 	 * state only — no harness registry, descriptor, or adapter-pool read in the
 	 * path.
 	 */
-	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.get("/", async (c) => {
 		const userId = c.get("userId");
 
 		// Held connections from DB
@@ -242,7 +240,7 @@ export function createConnectionRoutes(
 	 * mcp path: store serverUrl, no token.
 	 * On unique violation (user × service × authSource): 409.
 	 */
-	router.post("/", requireBoundary({ kind: "principal-self" }), mutateLimiter, async (c) => {
+	router.post("/", async (c) => {
 		const userId = c.get("userId");
 
 		let rawBody: unknown;
@@ -342,7 +340,7 @@ export function createConnectionRoutes(
 	 * since PGlite's DELETE result shape varies. The SELECT is userId-scoped so
 	 * cross-user ids produce the same 404 as non-existent ids (no existence leak).
 	 */
-	router.delete("/:id", requireBoundary({ kind: "principal-self" }), mutateLimiter, async (c) => {
+	router.delete("/:id", async (c) => {
 		const userId = c.get("userId");
 		const id = c.req.param("id");
 
@@ -378,8 +376,6 @@ export function createConnectionRoutes(
 	 */
 	router.post(
 		"/:id/validate",
-		requireBoundary({ kind: "principal-self" }),
-		validateLimiter,
 		async (c) => {
 			const userId = c.get("userId");
 			const id = c.req.param("id");

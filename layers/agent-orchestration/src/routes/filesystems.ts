@@ -44,9 +44,7 @@ import {
 } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/host-process";
 import {
-	createBodyLimit,
 	type HyperIdleEnv,
-	requireBoundary,
 	validateBody,
 } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
@@ -75,7 +73,6 @@ const registerFilesystemSchema = z.object({
 	sourceHint: z.string().optional(),
 });
 
-const FILESYSTEM_BODY_LIMIT = { maxSize: 8 * 1024 }; // 8 KB (resourceRef is tiny)
 
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
 
@@ -178,8 +175,6 @@ export function createFilesystemRoutes(
 	// ── POST /api/filesystems — Register a filesystem ──────────────────────────
 	router.post(
 		"/",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit(FILESYSTEM_BODY_LIMIT),
 		validateBody(registerFilesystemSchema),
 		async (c) => {
 			const body = c.req.valid("json");
@@ -247,8 +242,6 @@ export function createFilesystemRoutes(
 	// loosening that schema. @lore AV1: reuses createGitRunner (currentBranch verb).
 	router.post(
 		"/inspect-path",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit(FILESYSTEM_BODY_LIMIT),
 		validateBody(z.object({ path: z.string().min(1) })),
 		async (c) => {
 			const { path } = c.req.valid("json");
@@ -261,7 +254,7 @@ export function createFilesystemRoutes(
 	);
 
 	// ── GET /api/filesystems?teamId= OR ?agentUserId= ─────────────────────────
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const teamId = c.req.query("teamId");
 		const agentUserId = c.req.query("agentUserId");
 
@@ -294,7 +287,7 @@ export function createFilesystemRoutes(
 	});
 
 	// ── GET /api/filesystems/:id — Inspect one filesystem ─────────────────────
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 		const row = await getFilesystem(db, id);
 		if (row == null) {
@@ -308,7 +301,7 @@ export function createFilesystemRoutes(
 	});
 
 	// ── DELETE /api/filesystems/:id — Remove registration (cascades injections) ─
-	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.delete("/:id", async (c) => {
 		const id = c.req.param("id");
 
 		// Check exists first
@@ -325,7 +318,6 @@ export function createFilesystemRoutes(
 	// ── DELETE /api/filesystems/:id/injections/:agentUserId — Eject ───────────
 	router.delete(
 		"/:id/injections/:agentUserId",
-		requireBoundary({ kind: "public-data" }),
 		async (c) => {
 			const fsId = c.req.param("id");
 			const agentUserId = c.req.param("agentUserId");

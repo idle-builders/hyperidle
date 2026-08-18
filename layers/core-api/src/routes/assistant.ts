@@ -37,7 +37,7 @@ import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
 // now call app scaffolding + persistScaffoldedAgents, identical
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv } from "@hyperidle/http-middleware";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";
@@ -193,7 +193,7 @@ export function createAssistantThreadRoute(
 	 * A user may have at most one assistant thread (ensured by create-at-most-once logic).
 	 */
 	// Row 5: GET /api/threads/assistant — S (principal-self: thread is scoped to principal)
-	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.get("/", async (c) => {
 		// @lore AF11-IDOR: identity for data-scoping MUST come from c.get("userId")
 		// (the authenticated Principal set by auth middleware), never from X-Identity
 		// header which is client-supplied and enables IDOR. readSenderId is only
@@ -286,7 +286,7 @@ export function createAssistantSoulRoutes(
 
 	// Row 6: GET /api/users/:userId/assistant — S (principal-self: self-only guard below)
 	// GET /api/users/:userId/assistant
-	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.get("/", async (c) => {
 		const targetUserId = c.req.param("userId");
 		// AF11 Hole 2: authorization derives from the authenticated Principal
 		// (c.get("userId")), never from X-Identity header. The header may only
@@ -354,7 +354,7 @@ export function createAssistantSoulRoutes(
 
 	// Row 7: PATCH /api/users/:userId/assistant — S (principal-self: self-only guard below)
 	// PATCH /api/users/:userId/assistant
-	router.patch("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.patch("/", async (c) => {
 		const targetUserId = c.req.param("userId");
 		// AF11 Hole 2: use authenticated Principal for authorization, not header.
 		const authenticatedUserId = c.get("userId");

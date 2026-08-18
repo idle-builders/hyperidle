@@ -10,7 +10,7 @@ import {
 	type RoutineRunSummary,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { validateBody } from "@hyperidle/http-middleware";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
@@ -93,7 +93,6 @@ export function createRoutineRoutes(
 	// POST / — Create routine (AA2 AC-1)
 	router.post(
 		"/",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(createRoutineSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
@@ -175,13 +174,13 @@ export function createRoutineRoutes(
 	);
 
 	// GET / — List all non-deleted routines (AA2: filter soft-deleted)
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const allRoutines = await routineService.listRoutines(db);
 		return c.json(allRoutines);
 	});
 
 	// DELETE /:id — Soft delete routine (AA2 AC-2)
-	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.delete("/:id", async (c) => {
 		const routineId = c.req.param("id");
 
 		const existing = await routineService.getRoutine(db, routineId);
@@ -200,7 +199,7 @@ export function createRoutineRoutes(
 	});
 
 	// GET /:id — RoutineDetail with run history (AC-5)
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const routineId = c.req.param("id");
 
 		const routine = await routineService.getRoutine(db, routineId);
@@ -281,7 +280,6 @@ export function createRoutineRoutes(
 	// PATCH /:id — Update routine
 	router.patch(
 		"/:id",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(updateRoutineSchema),
 		async (c) => {
 			const routineId = c.req.param("id");
@@ -329,7 +327,7 @@ export function createRoutineRoutes(
 	);
 
 	// POST /:id/trigger — Manually trigger routine
-	router.post("/:id/trigger", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/:id/trigger", async (c) => {
 		const routineId = c.req.param("id");
 
 		const routine = await routineService.getRoutine(db, routineId);

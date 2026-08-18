@@ -8,8 +8,6 @@ import { type AdapterDeps, RegistryFilesystemMounter } from "../index.js";
 
 const deps: AdapterDeps = {
 	gitRunnerFactory: () => null as never,
-	capturesDir: "/tmp/au20-filesystems-captures",
-	db: null as never,
 };
 
 function filesystem(overrides: Partial<Filesystem>): Filesystem {

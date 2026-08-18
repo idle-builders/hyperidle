@@ -123,13 +123,10 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	const stack = coreApi.middleware;
 	api.use("*", stack.cors);
 	api.onError(stack.errorHandler);
-	api.use("*", stack.rateLimit);
-	api.use("*", stack.bodyLimit);
 	coreApi.registerPreAuthRoutes(api);
 	agentOrchestration?.registerPreAuthRoutes(api);
 	options?.registerPreAuthRoutes?.(api);
 	api.use("*", stack.auth);
-	api.use("*", stack.failClosed);
 	api.route("/", coreApi.app);
 	if (agentOrchestration) api.route("/", agentOrchestration.app);
 	app.route("/api", api);

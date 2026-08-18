@@ -4,7 +4,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
 import { BET_OUTCOME_VERDICTS, InvalidTransitionError } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
@@ -279,7 +279,7 @@ export function createBetRoutes(
 
 	// GET /bets — list all bets grouped by status, with pagination
 	// @lore U1: grouped by new simplified statuses (draft, active, completed, killed).
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
 		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
@@ -312,7 +312,7 @@ export function createBetRoutes(
 	//   - progress: { done, total } computed from the tasks already fetched.
 	// Keeping enrichment in the API layer preserves the three-layer boundary.
 	// @lore U1: `description` (formerly `pitch`), `teamId`, `completedAt` (formerly `shippedAt`).
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const betId = c.req.param("id");
 		const bet = await work.get(db, "bet", betId);
 
@@ -400,7 +400,6 @@ export function createBetRoutes(
 	// status 'draft' (formerly 'shaped').
 	router.post(
 		"/",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(createBetSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createBetSchema>;
@@ -481,7 +480,6 @@ export function createBetRoutes(
 	// @lore U1: `description` (formerly `pitch`) is the patchable text field.
 	router.patch(
 		"/:id",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(updateBetSchema),
 		async (c) => {
 			const betId = c.req.param("id");
@@ -521,7 +519,7 @@ export function createBetRoutes(
 	// @lore U1: formerly "shaped→committed". Now "draft→active".
 	// @lore U1: body is optional — all fields are optional so we parse manually
 	// instead of using validateBody to avoid "Malformed JSON" when body is absent.
-	router.post("/:id/commit", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/:id/commit", async (c) => {
 		const betId = c.req.param("id");
 
 		// Parse optional body — default to {} if absent or empty
@@ -589,7 +587,6 @@ export function createBetRoutes(
 	// POST /bets/:id/kill — kill with reason (required)
 	router.post(
 		"/:id/kill",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(killBetSchema),
 		async (c) => {
 			const betId = c.req.param("id");
@@ -643,7 +640,7 @@ export function createBetRoutes(
 	// from task outcome verdicts and composes a summary from task titles + states.
 	// When LLM integration lands, replace this logic with a single bounded LLM call.
 	// The endpoint shape and frontend integration are already in place.
-	router.post("/:id/retro/draft", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/:id/retro/draft", async (c) => {
 		const betId = c.req.param("id");
 
 		const bet = await work.get(db, "bet", betId);
@@ -710,7 +707,6 @@ export function createBetRoutes(
 	// creation time and never updated by subsequent retro calls (immutability by convention).
 	router.post(
 		"/:id/retro",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(betRetroSchema),
 		async (c) => {
 			const betId = c.req.param("id");
@@ -872,7 +868,6 @@ export function createBetRoutes(
 	// bounds the worst-case payload and query cost.
 	router.get(
 		"/:id/artifact-thread-summary",
-		requireBoundary({ kind: "public-data" }),
 		async (c) => {
 			const betId = c.req.param("id");
 

@@ -3,7 +3,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse, ItemCreatedEvent } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
@@ -69,7 +69,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	// route. Registered BEFORE `GET /:threadId` (a single-segment param route)
 	// so the literal `/items` segment can never be shadowed by it.
 	// GET /items?reasoningMarker=... — search items by a `reasoning` LIKE marker.
-	router.get("/items", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/items", async (c) => {
 		const reasoningMarker = c.req.query("reasoningMarker");
 		if (!reasoningMarker) {
 			const response: ApiErrorResponse = {
@@ -84,7 +84,7 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 
 	// AU21 §9 Increment 2 — `CoreApiPort.work.getItemById`'s backing route.
 	// GET /items/:id — bare item detail (no bare detail route existed before this).
-	router.get("/items/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/items/:id", async (c) => {
 		const id = c.req.param("id");
 		const item = await work.get(db, "item", id);
 		if (!item) {
@@ -103,7 +103,6 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	// outright as vestigial).
 	router.patch(
 		"/items/:id",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(updateItemSchema),
 		async (c) => {
 			const id = c.req.param("id");
@@ -136,7 +135,6 @@ export function createConversationRoutes(db: HyperIdleDb, eventBus: EventBus): H
 	// O2: routeItem/routeToFounder calls removed; view/founderRoute fields removed from response
 	router.post(
 		"/items",
-		requireBoundary({ kind: "principal-self" }),
 		validateBody(createItemSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createItemSchema>;

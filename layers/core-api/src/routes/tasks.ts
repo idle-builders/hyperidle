@@ -2,7 +2,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import type { PolicySessionContext } from "@hyperidle/policy";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -77,7 +77,6 @@ export function createTaskRoutes(
 	// POST /tasks — create a new task (agent-driven decomposition)
 	router.post(
 		"/",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(createTaskSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
@@ -117,7 +116,7 @@ export function createTaskRoutes(
 	// existed all along; only the route had no way to ask for it. `ids` wins over
 	// the other filters, because that is what `work.list` does with it (it
 	// short-circuits to an `inArray` read).
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const ids = c.req.query("ids");
 		const betId = c.req.query("bet_id");
 		const state = c.req.query("state");
@@ -137,7 +136,7 @@ export function createTaskRoutes(
 	// GET /tasks/:id — bare task detail (AU21 §9 Increment 2: `CoreApiPort.work.getTaskById`'s
 	// backing route — no bare detail route existed before this; only the
 	// enriched `GET /bets/:id` (tasks nested under a bet) served task rows).
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const taskId = c.req.param("id");
 		const task = await work.get(db, "task", taskId);
 		if (!task) {
@@ -152,7 +151,6 @@ export function createTaskRoutes(
 	// `undefined` resolve, matching `work-service.ts`'s no-pre-read contract.
 	router.patch(
 		"/:id/notes",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(appendTaskNoteSchema),
 		async (c) => {
 			const taskId = c.req.param("id");
@@ -177,7 +175,6 @@ export function createTaskRoutes(
 	// POST /tasks/:id/handoff — hand off task to another agent/role/human
 	router.post(
 		"/:id/handoff",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(handoffSchema),
 		async (c) => {
 			const taskId = c.req.param("id");

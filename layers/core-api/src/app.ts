@@ -6,7 +6,6 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import { createRateLimiter } from "@hyperidle/http-middleware";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
@@ -305,22 +304,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	// @lore S1: The env var is read once at app construction time, not per-request.
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 	const tokenStore = options?.upgradeTokenStore ?? null;
-
-	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
-	// rate-limit bucket so a WS reconnect storm cannot starve the API
-	// budget (or vice-versa). Larger budget than the API path because
-	// browsers may legitimately reconnect in bursts during a flaky
-	// network blip; auth still gates the mint, so the cost ceiling is the
-	// API key holder's chosen budget.
-	if (tokenStore) {
-		const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "300", 10);
-		const baseRateLimit =
-			Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 300;
-		api.use(
-			"/auth/*",
-			createRateLimiter({ limit: Math.max(baseRateLimit * 2, 120), windowMs: 60_000 }),
-		);
-	}
 
 	// M3 A4: /api/auth/me is always mounted (regardless of tokenStore).
 	// The /ws-token endpoint is conditionally mounted only when WS support exists.

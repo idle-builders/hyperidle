@@ -7,22 +7,17 @@
  * Only `resolveProfile` and `DeploymentProfile` are barrel-exported from
  * `@hyperidle/host-process` — the only symbols named outside this module
  * (`applications/remote-server/src/create-server.ts`, `tools/setup/src/setup-cli.ts`).
- * `PROFILE_DEFAULTS`, `ProfileDefaults`, `DbDriver`, `SandboxAdapterKind` and
- * `ResolveOptions` stay module-level exports, reachable only by a relative
+ * `PROFILE_DEFAULTS`, `ProfileDefaults`, `DbDriver`, and `ResolveOptions` stay module-level exports, reachable only by a relative
  * import within this package — their only consumers are this module's own
  * unit test and nothing else (repo-grep verified at architecture time).
  */
 export type DeploymentProfile = "laptop" | "vps" | "cloud";
 
 export type DbDriver = "pglite" | "postgres";
-/** @lore AK1: Renamed per AK1 harness-vocab plan. */
-export type SandboxAdapterKind = "local" | "docker" | "e2b";
-
 export interface ProfileDefaults {
 	readonly profile: DeploymentProfile;
 	readonly dbDriver: DbDriver;
 	readonly dbUrlDefault: string;
-	readonly sandboxAdapter: SandboxAdapterKind;
 	readonly requiresDockerCompose: boolean;
 	readonly ports: { readonly server: number; readonly web: number };
 }
@@ -34,7 +29,6 @@ export const PROFILE_DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
 		profile: "laptop",
 		dbDriver: "pglite",
 		dbUrlDefault: "./hyperidle-pg",
-		sandboxAdapter: "local",
 		requiresDockerCompose: false,
 		ports: DEFAULT_PORTS,
 	},
@@ -42,7 +36,6 @@ export const PROFILE_DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
 		profile: "vps",
 		dbDriver: "postgres",
 		dbUrlDefault: "postgres://hyperidle:hyperidle@postgres:5432/hyperidle",
-		sandboxAdapter: "docker",
 		requiresDockerCompose: true,
 		ports: DEFAULT_PORTS,
 	},
@@ -50,7 +43,6 @@ export const PROFILE_DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
 		profile: "cloud",
 		dbDriver: "postgres",
 		dbUrlDefault: "",
-		sandboxAdapter: "e2b",
 		requiresDockerCompose: false,
 		ports: DEFAULT_PORTS,
 	},

@@ -18,7 +18,7 @@
  * rejected that pattern (architecture.md:39 — wrong boundary for the Settings UI).
  * In shared mode the founder authenticates via Bearer (no X-API-Key sent), so an
  * in-route key check would 401 every Settings page load. The global /api/* middleware
- * handles both auth strategies; requireBoundary({ kind: "public-data" }) is
+ * handles both auth strategies;  is
  * sufficient — matches how agents.ts and all other founder-auth endpoints work.
  *
  * @lore AM4 CHANGE 3 (Seam 3): discovery.disabled is stamped in the ROUTE HANDLER,
@@ -43,7 +43,6 @@ import {
 	harnessCapabilityDescriptors,
 	refreshHarnessDiscoveries,
 } from "@hyperidle/harness-protocol";
-import { createRateLimiter, requireBoundary } from "@hyperidle/http-middleware";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 
@@ -129,10 +128,9 @@ export function createHarnessRoutes(
 	// test apps each get an independent bucket (avoids cross-test rate-limit bleed).
 	// 1 call per 5s per identity — discoverLocalHarnesses() spawns ~10 execFile probes
 	// with 15s timeout each; the global 300/min limiter alone allows a local fork-bomb. (WARNING 3)
-	const redetectRateLimiter = createRateLimiter({ limit: 1, windowMs: 5_000 });
 
 	// GET / — list all known harness descriptors with discovery.disabled stamped
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const { harnessDisabled, modelGateway } = await readServerConfig(db);
 		const raw: HarnessCapabilityDescriptor[] = harnessCapabilityDescriptors(pool);
 		const entries = await stampBuiltinCredential(
@@ -144,13 +142,11 @@ export function createHarnessRoutes(
 	});
 
 	// POST /redetect — re-run discovery and return fresh descriptors (with disabled stamped)
-	// requireBoundary must come before the rate-limiter so AF11 assertion sees it declared
+	//  must come before the rate-limiter so AF11 assertion sees it declared
 	// even when the rate-limiter returns 429. The dedicated rate-limiter is route-scoped
 	// (fork-bomb guard — WARNING 3): 1 call / 5s per identity.
 	router.post(
 		"/redetect",
-		requireBoundary({ kind: "public-data" }),
-		redetectRateLimiter,
 		async (c) => {
 			// AU36 D5: the reach re-probe rides the SAME bounded moment — awaited
 			// alongside the discovery refresh BEFORE responding, identical

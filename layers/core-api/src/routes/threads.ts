@@ -47,7 +47,7 @@ import {
 	resolveMentions,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv } from "@hyperidle/http-middleware";
 import {
 	assembleSessionKnowledge,
 	get as getKnowledgeItem,
@@ -690,7 +690,7 @@ export function createThreadRoutes(
 	// dispatch's `insertThread` capability. No existing route creates a bare
 	// thread — `POST /api/threads` always requires an `initialMessage`.
 	// @lore mounted BEFORE /:id so "scaffold" is not swallowed as a thread id.
-	router.post("/scaffold", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.post("/scaffold", async (c) => {
 		let body: unknown;
 		try {
 			body = await c.req.json();
@@ -744,7 +744,7 @@ export function createThreadRoutes(
 	// `CoreApiConversationPort.findOrCreateDirectThread` seam door. The sender
 	// is always the calling actor, never a body field.
 	// @lore mounted BEFORE /:id so "direct" is not swallowed as a thread id.
-	router.post("/direct", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.post("/direct", async (c) => {
 		let body: unknown;
 		try {
 			body = await c.req.json();
@@ -770,7 +770,7 @@ export function createThreadRoutes(
 	// supplied query param (same IDOR shape `GET /api/threads`'s
 	// `participant_id` guard already closes).
 	// @lore mounted BEFORE /:id so "inbox" is not swallowed as a thread id.
-	router.get("/inbox", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.get("/inbox", async (c) => {
 		const parsed = inboxQuerySchema.safeParse({ limit: c.req.query("limit") });
 		if (!parsed.success) {
 			const e = err("validation_error", "Invalid query params", 400);
@@ -791,7 +791,7 @@ export function createThreadRoutes(
 	// `CoreApiConversationPort.updateThread` seam door. Accepts only the
 	// fields real call sites set today (participants/lastActiveAt/pinned) —
 	// not a general thread-patch surface.
-	router.patch("/:id", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.patch("/:id", async (c) => {
 		const id = c.req.param("id");
 		let body: unknown;
 		try {
@@ -821,7 +821,7 @@ export function createThreadRoutes(
 
 	// --- GET /api/threads ---------------------------------------------------
 	// Row 2: GET /api/threads — S (principal-self: AD1 guard scopes list by principal)
-	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.get("/", async (c) => {
 		const parsed = listThreadsQuerySchema.safeParse({
 			host_kind: c.req.query("host_kind"),
 			host_id: c.req.query("host_id"),
@@ -908,7 +908,7 @@ export function createThreadRoutes(
 
 	// --- GET /api/threads/:id -----------------------------------------------
 	// Row 1: GET /api/threads/:id — D (enforced: authorizeRead called after loading thread)
-	router.get("/:id", requireBoundary({ kind: "enforced" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 
 		// T5: optional block_id filter. Reject empty strings and oversized values (AC-5 security).
@@ -979,7 +979,7 @@ export function createThreadRoutes(
 
 	// --- POST /api/threads --------------------------------------------------
 	// Row 3: POST /api/threads — S (principal-self: sender is set to principal)
-	router.post("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.post("/", async (c) => {
 		let body: unknown;
 		try {
 			body = await c.req.json();
@@ -1311,7 +1311,6 @@ export function createThreadRoutes(
 	// attacker to forge the senderId and bypass the authz check.
 	router.post(
 		"/:id/messages",
-		requireBoundary({ kind: "enforced" }),
 		// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: canonical L1a contract — idempotency, verdict authz, re-open semantics, and event emission must live in one transactional path.
 		async (c) => {
 			const threadId = c.req.param("id");
@@ -1618,7 +1617,6 @@ export function createThreadRoutes(
 	});
 	router.post(
 		"/:threadId/messages/:messageId/verdict",
-		requireBoundary({ kind: "enforced" }),
 		async (c) => {
 			const threadId = c.req.param("threadId");
 			const messageId = c.req.param("messageId");

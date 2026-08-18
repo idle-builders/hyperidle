@@ -35,7 +35,7 @@ import type {
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import { endRunForHandoff, requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import {
 	enqueueWorkIntent,
@@ -96,7 +96,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// ── intents.submit — POST /agent-orchestration/intents ──────────────────
 	router.post(
 		"/intents",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(workIntentInputSchema),
 		async (c) => {
 			const body = c.req.valid("json");
@@ -106,7 +105,7 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	);
 
 	// ── requests.listPendingIntentsByKind — GET /agent-orchestration/requests/pending-intents?kind= ──
-	router.get("/requests/pending-intents", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/requests/pending-intents", async (c) => {
 		const kind = c.req.query("kind");
 		if (!(kind && isWorkIntentKind(kind))) {
 			return c.json(
@@ -126,7 +125,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// ── runs.abort — POST /agent-orchestration/runs/abort ────────────────────
 	router.post(
 		"/runs/abort",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(z.object({ sessionId: z.string().min(1) })),
 		async (c) => {
 			const { sessionId } = c.req.valid("json");
@@ -138,7 +136,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
 	router.post(
 		"/runs/stop-for-tasks",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(
 			z.object({
 				taskIds: z.array(z.string().min(1)),
@@ -166,7 +163,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// (founder ruling, architecture.md §13 item 3).
 	router.post(
 		"/runs/end-for-handoff",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(z.object({ sessionId: z.string().min(1), endedAt: z.string().min(1) })),
 		async (c) => {
 			const body = c.req.valid("json");
@@ -176,7 +172,7 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	);
 
 	// ── runConfig.read — GET /agent-orchestration/run-config/:agentId ────────
-	router.get("/run-config/:agentId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/run-config/:agentId", async (c) => {
 		const config = await readAgentRunConfig(db, c.req.param("agentId"));
 		return c.json({ config });
 	});
@@ -185,7 +181,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// (POST, not GET+query-list: an agent roster can exceed a safe query-string length.)
 	router.post(
 		"/run-config/batch",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(z.object({ agentIds: z.array(z.string().min(1)) })),
 		async (c) => {
 			const { agentIds } = c.req.valid("json");
@@ -200,7 +195,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// ── runConfig.write — PATCH /agent-orchestration/run-config/:agentId ─────
 	router.patch(
 		"/run-config/:agentId",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(
 			z.object({
 				systemPrompt: z.string().nullable().optional(),
@@ -222,7 +216,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// AU31 §3 clause 2: `teams-routes.ts:540`'s add-agent-later read.
 	router.get(
 		"/team-run-config-defaults/:teamId",
-		requireBoundary({ kind: "public-data" }),
 		async (c) => {
 			const defaults = await readTeamRunConfigDefaults(db, c.req.param("teamId"));
 			return c.json({ defaults });
@@ -234,7 +227,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// relinquished from `createTeam`'s transaction (architecture.md §3.1/§13 item 9).
 	router.patch(
 		"/team-run-config-defaults/:teamId",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(
 			z.object({
 				defaultHarnessType: z.string().nullable(),
@@ -251,7 +243,7 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 
 	// ── filesystems.getTeamId — GET /agent-orchestration/filesystems/:id/team ──
 	// The team-consistency gate's pre-write read — see the port's own doc.
-	router.get("/filesystems/:id/team", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/filesystems/:id/team", async (c) => {
 		const filesystemId = c.req.param("id");
 		const fs = await getFilesystem(db, filesystemId);
 		return c.json({ teamId: fs?.teamId ?? null });
@@ -263,7 +255,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	// gate (users + team_members) stays core-side; only the persist crosses the seam.
 	router.post(
 		"/filesystems/:id/injections/persist",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(z.object({ agentUserId: z.string().min(1) })),
 		async (c) => {
 			const filesystemId = c.req.param("id");

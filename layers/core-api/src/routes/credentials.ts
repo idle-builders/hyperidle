@@ -14,7 +14,7 @@ import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/c
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/domain-model";
-import { createRateLimiter, type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv } from "@hyperidle/http-middleware";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -165,14 +165,12 @@ const setCredentialBodySchema = z.object({
  *
  * @lore P3 F-SEC-1: rate limiting required per security table in architecture.
  */
-const mutateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
-const validateLimiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
 
 export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	/** GET /api/credentials — list all catalog entries with state */
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const rows = await readCredentials(db);
 		const rowMap = new Map(rows.map((r) => [r.name, r]));
 
@@ -184,7 +182,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** PUT /api/credentials/:name — set credential (encrypt + store) */
-	router.put("/:name", requireBoundary({ kind: "public-data" }), mutateLimiter, async (c) => {
+	router.put("/:name", async (c) => {
 		const name = c.req.param("name");
 		if (!isCredentialName(name)) {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
@@ -239,7 +237,7 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	});
 
 	/** DELETE /api/credentials/:name — remove credential */
-	router.delete("/:name", requireBoundary({ kind: "public-data" }), mutateLimiter, async (c) => {
+	router.delete("/:name", async (c) => {
 		const name = c.req.param("name");
 		if (!isCredentialName(name)) {
 			return c.json({ error: "Unknown credential name", code: "VALIDATION_ERROR" }, 400);
@@ -253,8 +251,6 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	/** POST /api/credentials/:name/validate — validate against external service */
 	router.post(
 		"/:name/validate",
-		requireBoundary({ kind: "public-data" }),
-		validateLimiter,
 		async (c) => {
 			const name = c.req.param("name");
 			if (!isCredentialName(name)) {

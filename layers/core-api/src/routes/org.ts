@@ -19,7 +19,7 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import {
 	createTeam,
 	deleteOrgEdge,
@@ -108,7 +108,7 @@ export function createOrgRoutes(
 	// AF15 AC-6: Extends response with teams: {id, name}[] (teamMembers.id, teams.name)
 	// so the UI can populate the team-edge target select without a separate fetch.
 	// id = teamMembers.id (what PUT /edges validates for mechanism:"team").
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const edges = await listOrgEdges(db);
 		const allUsers = await listUsers(db);
 
@@ -135,7 +135,7 @@ export function createOrgRoutes(
 	});
 
 	// PUT /edges — upsert an edge
-	router.put("/edges", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.put("/edges", async (c) => {
 		let rawBody: unknown;
 		try {
 			rawBody = await c.req.json();
@@ -207,7 +207,7 @@ export function createOrgRoutes(
 	});
 
 	// DELETE /edges/:id — delete an edge
-	router.delete("/edges/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.delete("/edges/:id", async (c) => {
 		const id = c.req.param("id");
 
 		const [existing] = await listOrgEdges(db, { id });
@@ -222,7 +222,7 @@ export function createOrgRoutes(
 	// GET /teams/:teamId — narrow team view {id, name} for the CoreApiPort seam
 	// (AU21 §9 Increment 2). Distinct from `GET /teams/:teamId` (top-level
 	// `teams-routes.ts`), which builds a heavy enriched TeamDetail.
-	router.get("/teams/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/teams/:teamId", async (c) => {
 		const teamId = c.req.param("teamId");
 		const team = await getTeam(db, { id: teamId });
 		if (!team) {
@@ -232,7 +232,7 @@ export function createOrgRoutes(
 	});
 
 	// GET /teams/:teamId/membership — the `teamMembers` row keyed by `teams.id`.
-	router.get("/teams/:teamId/membership", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/teams/:teamId/membership", async (c) => {
 		const teamId = c.req.param("teamId");
 		const memberGroup = await getTeamMembers(db, { teamId });
 		if (!memberGroup) {
@@ -248,7 +248,6 @@ export function createOrgRoutes(
 	// (`teamMembers.id` -> `teamId`, i.e. `teams.id`).
 	router.get(
 		"/team-members/:teamMembersId",
-		requireBoundary({ kind: "public-data" }),
 		async (c) => {
 			const teamMembersId = c.req.param("teamMembersId");
 			const memberGroup = await getTeamMembers(db, { id: teamMembersId });
@@ -269,7 +268,6 @@ export function createOrgRoutes(
 	// `create_team`'s tool handler already performs itself immediately after).
 	router.post(
 		"/teams",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(createOrgTeamSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createOrgTeamSchema>;
@@ -280,7 +278,7 @@ export function createOrgRoutes(
 
 	// GET /review-recipients — the pure org-edge routing query
 	// (`resolveReviewRecipients`). No UI action reaches this directly today.
-	router.get("/review-recipients", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/review-recipients", async (c) => {
 		const userId = c.req.query("userId");
 		const agentRole = c.req.query("agentRole");
 		const teamId = c.req.query("teamId");
@@ -301,7 +299,6 @@ export function createOrgRoutes(
 	// reuse.
 	router.post(
 		"/scaffolded-agents",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(persistScaffoldedAgentsSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof persistScaffoldedAgentsSchema>;
@@ -330,7 +327,6 @@ export function createOrgRoutes(
 	// this seam) can reach it too, per Decision C.
 	router.post(
 		"/team-routines",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(provisionTeamRoutinesSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof provisionTeamRoutinesSchema>;

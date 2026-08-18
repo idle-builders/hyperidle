@@ -1,10 +1,10 @@
 import type { HealthResponse } from "@hyperidle/domain-model";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 
 const health = new Hono();
 
-health.get("/health", requireBoundary({ kind: "public-data" }), (c) => {
+health.get("/health", (c) => {
 	const response: HealthResponse = {
 		status: "ok",
 		timestamp: new Date().toISOString(),
@@ -23,7 +23,7 @@ health.get("/health", requireBoundary({ kind: "public-data" }), (c) => {
  */
 const authHealth = new Hono<HyperIdleEnv>();
 
-authHealth.get("/auth", requireBoundary({ kind: "public-data" }), (c) => {
+authHealth.get("/auth", (c) => {
 	const userId = c.get("userId");
 	return c.json({
 		status: "ok" as const,

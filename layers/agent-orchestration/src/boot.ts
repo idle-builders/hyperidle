@@ -274,8 +274,7 @@ function buildRuntimeComposition(
  *
  * `mounter` is built only when `sandboxBasePath` is present (the same
  * graceful no-op `ProvisionSessionDeps.mounter` already gives when absent);
- * `capturesDir` derives from it exactly as the deleted
- * `create-server.ts:493` did. `heldConnections` is built only when
+ * `heldConnections` is built only when
  * `resolveProvisioningOwnerUserId` is supplied — absent means no held
  * connections are ever provisioned, matching today's empty-rows outcome for
  * a request emitted before onboarding.
@@ -297,8 +296,6 @@ function buildProvisioningReads(
 			? {
 					mounter: new RegistryFilesystemMounter({
 						gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
-						capturesDir: path.join(sandboxBasePath, ".ao2-captures"),
-						db,
 					}),
 				}
 			: {}),

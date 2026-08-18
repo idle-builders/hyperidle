@@ -26,7 +26,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type ActivityEntry, API_ERROR_CODES } from "@hyperidle/domain-model";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv } from "@hyperidle/http-middleware";
 import { findSessionById, listSessions } from "@hyperidle/run-orchestration";
 import { Hono } from "hono";
 
@@ -44,7 +44,7 @@ export function createOrchestrationSessionRoutes(
 
 	// GET / — List sessions with optional filtering by task_id, agent_id, state.
 	// @lore I6: replaces the bounded resource descriptor with actual filtering.
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const taskId = c.req.query("task_id");
 		const agentId = c.req.query("agent_id");
 		const state = c.req.query("state");
@@ -66,7 +66,7 @@ export function createOrchestrationSessionRoutes(
 
 	// GET /:id/activity — Session activity stream (Q1 §3.2). Session metadata +
 	// recent activity entries, capped at the 50 most recent to bound the response.
-	router.get("/:id/activity", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id/activity", async (c) => {
 		const sessionId = c.req.param("id");
 		const session = await findSessionById(db, sessionId);
 		if (!session) {

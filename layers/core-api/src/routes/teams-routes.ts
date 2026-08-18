@@ -36,7 +36,7 @@ import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv } from "@hyperidle/http-middleware";
 import {
 	createTeam,
 	deleteTeam,
@@ -132,7 +132,7 @@ export function createTeamRoutes(
 	};
 
 	// GET / — list all teams with portfolio counters
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const allTeams = await listTeams(db);
 
 		const result: TeamListItem[] = await Promise.all(
@@ -220,7 +220,7 @@ export function createTeamRoutes(
 	// AU3: app-owned scaffolding produces specs; persistScaffoldedAgents remains the writer.
 	// Backward compat: no `functions` in body defaults to ["development","product"].
 	// Best-effort welcome message: failure does not roll back team creation.
-	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/", async (c) => {
 		let body: unknown;
 		try {
 			body = await c.req.json();
@@ -502,7 +502,7 @@ export function createTeamRoutes(
 	// (`create_team`'s `updateTeam(teamId, {leadAgentId})`) needs exactly this
 	// field, alongside the pre-existing `phase` toggle. At least one of the
 	// two must be present.
-	router.patch("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.patch("/:teamId", async (c) => {
 		const teamId = c.req.param("teamId");
 
 		const team = await getTeam(db, { id: teamId });
@@ -549,7 +549,7 @@ export function createTeamRoutes(
 	});
 
 	// GET /:teamId — full TeamDetail
-	router.get("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:teamId", async (c) => {
 		const teamId = c.req.param("teamId");
 
 		// 1. Look up the team

@@ -38,7 +38,7 @@ import {
 	scopeToLayer,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import {
 	remove as archiveKnowledgeItem,
 	count as countKnowledgeItems,
@@ -311,7 +311,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 
 	// GET /search — FTS search across all knowledge items
 	// Must be registered before /:id to avoid route conflict
-	router.get("/search", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/search", async (c) => {
 		const rawQuery = c.req.query("q");
 		const parsed = SEARCH_QUERY_SCHEMA.safeParse(rawQuery?.trim());
 		if (!parsed.success) {
@@ -354,7 +354,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// @lore AV3: scopeName is NOT resolved here — detail endpoint only (GET /:id). Intentional
 	// list carve-out: resolving scopeName per-row would require N+1 DB queries or a batch join
 	// for every scope kind (user/team/bet/task). Detail endpoint resolves one item in one call.
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const userId = c.get("userId");
 
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
@@ -384,7 +384,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// Must be registered before /:id to avoid route conflict.
 	// @lore Y4: The filter mirrors GET / user-scope visibility: include item if scope_kind != 'user'
 	// OR updatedBy = userId. This ensures private items from other users don't inflate the count.
-	router.get("/triage-count", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/triage-count", async (c) => {
 		const userId = c.get("userId");
 		const count = await countKnowledgeItems(db, { triageVisible: userId });
 		return c.json({ count });
@@ -394,7 +394,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// Q2: returns 404 for user-scoped items not authored by the requesting user.
 	// AF13 §5: relatedItems computed as same-topic items visible to the requesting user,
 	// capped at 10, null-topic → [] (WARNING 2 from architecture-critique).
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
@@ -468,7 +468,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	//     App projection layer assigned inline on creation.
 	router.post(
 		"/",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(createKnowledgeSchema),
 		async (c) => {
 			const body = c.req.valid("json" as never) as z.infer<typeof createKnowledgeSchema>;
@@ -534,7 +533,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// Bumps version, logs change in knowledgeEditLog, updates app projection layer.
 	router.patch(
 		"/:id/scope",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(changeScopeSchema),
 		async (c) => {
 			const id = c.req.param("id");
@@ -600,7 +598,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// for a TOCTOU race between the pre-check and the repo's own transactional recheck.
 	router.patch(
 		"/:id",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(updateKnowledgeSchema),
 		async (c) => {
 			const id = c.req.param("id");
@@ -676,7 +673,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	);
 
 	// POST /:id/archive — archive item, emit knowledge_archived event
-	router.post("/:id/archive", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/:id/archive", async (c) => {
 		const id = c.req.param("id");
 
 		const item = await getKnowledgeItem(db, id);
@@ -711,7 +708,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// no existing UI route wraps any of these, so each is new and narrow.
 
 	// GET /:id/conflicts?proposedBy= — find an open conflict on :id filed by proposedBy.
-	router.get("/:id/conflicts", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id/conflicts", async (c) => {
 		const id = c.req.param("id");
 		const proposedBy = c.req.query("proposedBy");
 		if (!proposedBy) {
@@ -728,7 +725,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// POST /:id/conflicts — record an open knowledge_conflicts row on :id.
 	router.post(
 		"/:id/conflicts",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(createConflictSchema),
 		async (c) => {
 			const itemId = c.req.param("id");
@@ -752,7 +748,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// POST /:id/promote — wraps transition({target:"promote",...}); no route wrapped this before.
 	router.post(
 		"/:id/promote",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(promoteSchema),
 		async (c) => {
 			const id = c.req.param("id");
@@ -775,7 +770,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	// PATCH /:id/attention-score — wraps transition({target:"recomputeAttention",...}).
 	router.patch(
 		"/:id/attention-score",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(attentionScoreSchema),
 		async (c) => {
 			const id = c.req.param("id");
@@ -791,7 +785,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 	);
 
 	// POST /:id/recompute-attention — the collapsed score_attention(mode:"recompute") helper.
-	router.post("/:id/recompute-attention", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/:id/recompute-attention", async (c) => {
 		const id = c.req.param("id");
 		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
 		return c.json(result);

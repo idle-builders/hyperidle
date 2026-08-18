@@ -28,7 +28,7 @@ import type {
 	Thread,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv } from "@hyperidle/http-middleware";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
@@ -152,7 +152,7 @@ export function createCoachRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<Hy
 	 * to its creation the way they would to a new task thread. This keeps the
 	 * event stream clean.
 	 */
-	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.get("/", async (c) => {
 		// @lore AF11-IDOR: identity for data-scoping MUST come from c.get("userId")
 		// (the authenticated Principal set by auth middleware), never from X-Identity
 		// header which is client-supplied and enables IDOR. See AF11 fix.
