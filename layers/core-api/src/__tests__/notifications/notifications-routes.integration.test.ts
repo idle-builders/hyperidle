@@ -306,9 +306,7 @@ describe("H2 /api/notifications routes", () => {
 	// @lore AU43: GET /queue route deleted — queue endpoint removed when
 	// getDailyDigest was convicted as demo-only trigger.
 
-	test("PATCH /config emits a config_changed audit log with secrets redacted", async ({
-		db,
-	}) => {
+	test("PATCH /config emits a config_changed audit log with secrets redacted", async ({ db }) => {
 		const seen: Array<{ level: string; message: string; payload: Record<string, unknown> }> = [];
 		const captureLogger = {
 			debug: () => undefined,

@@ -402,5 +402,4 @@ describe("Policy Engine (E7)", () => {
 		const [message] = await db.select().from(messages).where(eq(messages.id, verdicts[0]!.id));
 		expect(message?.createdAt).toBeTruthy();
 	});
-
 });

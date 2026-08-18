@@ -49,7 +49,10 @@ function createFakeAdapter() {
 	return {
 		name: "console" as const,
 		calls,
-		async send(recipient: { channelId: string; label?: string }, notification: { severity: string }) {
+		async send(
+			recipient: { channelId: string; label?: string },
+			notification: { severity: string },
+		) {
 			calls.push({ recipient, notification });
 			return { ok: true as const, channel: "console" as const, sentAt: new Date().toISOString() };
 		},

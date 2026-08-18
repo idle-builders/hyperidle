@@ -77,7 +77,6 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			await enqueue(db, row);
 		},
 	},
-
 };
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";

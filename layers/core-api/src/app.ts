@@ -421,10 +421,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/search", createSearchRoutes(options.db, eventBus));
-		api.route(
-			"/notifications",
-			createNotificationRoutes(options.db, { deps: notificationsDeps }),
-		);
+		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 
 		// Observability runtime. `startObservability` wires the adapter,
 		// dispatcher and bus subscription in one call.

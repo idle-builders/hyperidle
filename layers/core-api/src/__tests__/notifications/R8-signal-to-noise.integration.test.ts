@@ -47,7 +47,10 @@ function createFakeAdapter(name: "console" | "ntfy" | "smtp" = "console") {
 	return {
 		name,
 		calls,
-		async send(recipient: { channelId: string; label?: string }, notification: { severity: string }) {
+		async send(
+			recipient: { channelId: string; label?: string },
+			notification: { severity: string },
+		) {
 			calls.push({ recipient, notification });
 			return { ok: true as const, channel: name, sentAt: new Date().toISOString() };
 		},

@@ -88,7 +88,6 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			await enqueue(db, row);
 		},
 	},
-
 };
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
