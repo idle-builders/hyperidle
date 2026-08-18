@@ -1,15 +1,10 @@
 export type {
 	Embed,
-	EmbedKind,
-	FoldDescriptor,
 	OpenHandler,
 	OpenTarget,
 	Part,
 	PartAuthor,
 	PartGroup,
-	PartId,
-	PartKind,
-	ReviewTarget,
 	ToolKind,
 	ToolRunBlock,
 } from "./part.js";
@@ -18,8 +13,6 @@ export {
 	deriveComposerPills,
 	derivePartsFromMessages,
 	derivePartsFromSession,
-	EMBED_KINDS,
 	groupParts,
-	PART_KINDS,
 	TOOL_KINDS,
 } from "./part.js";

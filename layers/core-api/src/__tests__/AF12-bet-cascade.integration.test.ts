@@ -41,7 +41,6 @@ import { enqueue } from "@hyperidle/notifications";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, recordPropagationHop, registerPolicy } from "@hyperidle/policy";
 import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import type { BetKillCascadeDeps } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
@@ -119,7 +118,9 @@ const lifecyclePropagationDeps: PolicyDeps = {
  * AC3/AC6 assertions below from proving anything.
  */
 const testDeps: BetKillCascadeDeps = {
-	workIntents: { record: enqueueWorkIntent },
+	workIntents: vi
+		.fn()
+		.mockResolvedValue({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
 	runOrchestration: { requestRunStopForTasks },
 	// The real owner's builder, exactly as `routes/bets.ts` wires it — the

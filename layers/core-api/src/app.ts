@@ -22,7 +22,6 @@ import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
-import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
@@ -172,7 +171,7 @@ interface AppOptions {
 	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
 	 * tests may override for isolation.
 	 */
-	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorder<HyperIdleDb>;
+	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorderFn;
 }
 
 /**
@@ -356,8 +355,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 					"buildAgentOrchestrationPort(transport) and pass it explicitly (AU31 §3.2: no ambient transport).",
 			);
 		}
-		const defaultAgentWorkIntentRecorder =
-			buildSeamBackedWorkIntentRecorder<HyperIdleDb>(agentOrchestration);
+		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
@@ -408,7 +406,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
 		// app now (its whole table set is `service_connections`, which that Layer
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
-		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));

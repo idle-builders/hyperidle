@@ -30,9 +30,9 @@ import type {
 	WriteExecutor,
 } from "@hyperidle/db";
 import type {
+	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 	SessionKnowledgeItemLike,
-	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
 } from "@hyperidle/work-intent-port";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ export type ReviewAgentWorkIntentInput = Extract<
 // Internal helper types — NOT exported from barrel (bundled inside ReviewPorts)
 // ---------------------------------------------------------------------------
 
-type ReviewAgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
+type ReviewAgentWorkIntentRecorder = AgentWorkIntentRecorderFn;
 
 /** Narrow patch shape `review` writes onto a task. */
 interface ReviewTaskPatch {

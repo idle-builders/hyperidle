@@ -22,22 +22,6 @@ export async function insertUserIfAbsent(exec: WriteExecutor, values: NewUser): 
 }
 
 /**
- * Backfill `agentCategory` on every ai user with the given `role`. Idempotent
- * — safe to run on every launch (matches `factory-bootstrap.ts`'s former
- * `categoryByRole` update loop).
- */
-export async function setAgentCategoryForRole(
-	db: HyperIdleDb,
-	role: string,
-	category: string,
-): Promise<void> {
-	await db
-		.update(users)
-		.set({ agentCategory: category })
-		.where(and(eq(users.role, role), eq(users.kind, "ai")));
-}
-
-/**
  * Resolve the roster agents' `{id, role}` by id. Returning the queried rows
  * (not the roster constant) preserves the upgrade-path semantics: an
  * existing row's actual role decides which template it gets.

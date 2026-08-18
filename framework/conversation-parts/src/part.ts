@@ -48,16 +48,14 @@ function exhaustiveAssert(value: never): never {
  * Stays closed + exhaustive + `unknown`-terminated. Adding a kind requires
  * a concept-doc update first (AM3 concept.md IS that update for these two).
  */
-export const PART_KINDS = [
-	"prose",
-	"review",
-	"resolved",
-	"questionnaire",
-	"tool",
-	"reasoning",
-	"unknown",
-] as const;
-export type PartKind = (typeof PART_KINDS)[number];
+type PartKind =
+	| "prose"
+	| "review"
+	| "resolved"
+	| "questionnaire"
+	| "tool"
+	| "reasoning"
+	| "unknown";
 
 /**
  * AM3: Closed tool-family set — icon/verb/expanded-shape per family.
@@ -82,7 +80,7 @@ export const TOOL_KINDS = [
 export type ToolKind = (typeof TOOL_KINDS)[number];
 
 /** A Part's identity derives from its source — no new opaque id minted. */
-export type PartId = string;
+type PartId = string;
 
 export interface PartAuthor {
 	readonly id: string;
@@ -102,15 +100,9 @@ interface BasePart {
 }
 
 /** Opaque routing target the review hook resolves (betId/reviewId pair). */
-export interface ReviewTarget {
+interface ReviewTarget {
 	readonly betId: string;
 	readonly reviewId: string;
-}
-
-export interface FoldDescriptor {
-	readonly label?: string;
-	readonly cta: string;
-	readonly target: OpenTarget;
 }
 
 export type Part =
@@ -169,19 +161,6 @@ export type Part =
 			readonly kind: "unknown";
 			readonly reason: "wire-unrecognised-type" | "redacted";
 	  });
-
-// ── Embed discriminant (closed target-kind set) ─────────────────────
-
-export const EMBED_KINDS = [
-	"artifact",
-	"block",
-	"diff",
-	"session-reference",
-	"entity-ref",
-	"mention",
-	"unknown",
-] as const;
-export type EmbedKind = (typeof EMBED_KINDS)[number];
 
 export type Embed =
 	| {

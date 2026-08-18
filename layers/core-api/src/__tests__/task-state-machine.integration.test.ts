@@ -1,6 +1,5 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/domain-model";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, InvalidTransitionError, transitionTask } from "@hyperidle/work";
@@ -15,13 +14,13 @@ type TaskAuditEntry = StateTransitionAuditEntry;
 
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = {
-	workIntents: { record: enqueueWorkIntent },
+	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
 };
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
-	workIntents: { record: enqueueWorkIntent },
+	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
 };
 

@@ -1,6 +1,5 @@
 export type {
-	AgentWorkIntentReader,
-	AgentWorkIntentRecorder,
+	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 	BakedAgentRunnableConfig,
 	BakedContextBundle,

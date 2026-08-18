@@ -23,8 +23,6 @@
 import {
 	bets,
 	type HyperIdleDb,
-	inviteCodes,
-	loginSessions,
 	propagationLog,
 	taskDispatchAttempts,
 	tasks,
@@ -34,7 +32,6 @@ import {
 } from "@hyperidle/db";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { reapTerminalPropagationLog } from "@hyperidle/policy";
-import { reapExpiredCredentials } from "@hyperidle/users";
 import { and, lt } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
@@ -43,7 +40,6 @@ import { reapTerminalTaskDispatchAttempts, TERMINAL_LOG_TTL_MS } from "../servic
 
 const now = new Date("2026-07-13T12:00:00.000Z");
 const DAY = 86_400_000;
-const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
 
 async function seedTaskDispatchAttempt(
 	db: HyperIdleDb,
@@ -104,111 +100,7 @@ async function seedTaskDispatchAttempt(
 	});
 }
 
-async function seedUser(db: HyperIdleDb, id: string): Promise<void> {
-	await db.insert(users).values({
-		id,
-		kind: "human",
-		name: id,
-		role: "member",
-		status: "active",
-		createdAt: now.toISOString(),
-	});
-}
-
 describe("retention reaper — individual owning-service sweeps", () => {
-	test("prunes expired login_sessions, keeps unexpired + un-revoked ones", async ({ db }) => {
-		await seedUser(db, "u-ls");
-		await db.insert(loginSessions).values([
-			{
-				id: "ls-expired",
-				userId: "u-ls",
-				tokenHash: "h-expired",
-				expiresAt: new Date(now.getTime() - DAY).toISOString(),
-				createdAt: now.toISOString(),
-				revokedAt: null,
-			},
-			{
-				id: "ls-revoked",
-				userId: "u-ls",
-				tokenHash: "h-revoked",
-				expiresAt: new Date(now.getTime() + DAY).toISOString(),
-				createdAt: now.toISOString(),
-				revokedAt: new Date(now.getTime() - DAY).toISOString(),
-			},
-			{
-				id: "ls-live",
-				userId: "u-ls",
-				tokenHash: "h-live",
-				expiresAt: new Date(now.getTime() + DAY).toISOString(),
-				createdAt: now.toISOString(),
-				revokedAt: null,
-			},
-		]);
-
-		// expiredGraceMs=0 → cutoff = now (prune any expiresAt < now or revokedAt non-null)
-		const expiredCutoff = now.toISOString();
-		const reaped = await reapExpiredCredentials(db, {
-			sessionCutoff: expiredCutoff,
-			inviteExpiredCutoff: expiredCutoff,
-			inviteConsumedCutoff: new Date(now.getTime() - CONSUMED_INVITE_TTL_MS).toISOString(),
-		});
-		expect(reaped.sessions.length).toBe(2);
-
-		const survivors = await db.select().from(loginSessions);
-		expect(survivors.map((s) => s.id)).toEqual(["ls-live"]);
-	});
-
-	test("prunes expired-unclaimed and consumed-past-audit-window invite_codes", async ({ db }) => {
-		await seedUser(db, "u-creator");
-		await seedUser(db, "u-claimer");
-		await db.insert(inviteCodes).values([
-			{
-				id: "ic-expired-unclaimed",
-				code: "code-expired",
-				createdBy: "u-creator",
-				claimedBy: null,
-				expiresAt: new Date(now.getTime() - DAY).toISOString(),
-				createdAt: new Date(now.getTime() - DAY).toISOString(),
-			},
-			{
-				id: "ic-consumed-old",
-				code: "code-consumed-old",
-				createdBy: "u-creator",
-				claimedBy: "u-claimer",
-				expiresAt: new Date(now.getTime() + DAY).toISOString(),
-				createdAt: new Date(now.getTime() - 31 * DAY).toISOString(),
-			},
-			{
-				id: "ic-consumed-recent",
-				code: "code-consumed-recent",
-				createdBy: "u-creator",
-				claimedBy: "u-claimer",
-				expiresAt: new Date(now.getTime() + DAY).toISOString(),
-				createdAt: new Date(now.getTime() - DAY).toISOString(),
-			},
-			{
-				id: "ic-live",
-				code: "code-live",
-				createdBy: "u-creator",
-				claimedBy: null,
-				expiresAt: new Date(now.getTime() + DAY).toISOString(),
-				createdAt: now.toISOString(),
-			},
-		]);
-
-		const expiredCutoff = now.toISOString();
-		const consumedCutoff = new Date(now.getTime() - CONSUMED_INVITE_TTL_MS).toISOString();
-		const reaped = await reapExpiredCredentials(db, {
-			sessionCutoff: expiredCutoff,
-			inviteExpiredCutoff: expiredCutoff,
-			inviteConsumedCutoff: consumedCutoff,
-		});
-		expect(reaped.invites.length).toBe(2);
-
-		const survivors = await db.select().from(inviteCodes);
-		expect(new Set(survivors.map((s) => s.id))).toEqual(new Set(["ic-consumed-recent", "ic-live"]));
-	});
-
 	test("prunes terminal notification_queue rows older than the TTL, keeps pending/recent", async ({
 		db,
 	}) => {

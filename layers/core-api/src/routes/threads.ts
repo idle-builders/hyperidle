@@ -60,7 +60,7 @@ import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import type { AgentWorkIntentRecorder } from "@hyperidle/work-intent-port";
+import type { AgentWorkIntentRecorderFn } from "@hyperidle/work-intent-port";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { z as zod } from "zod";
@@ -668,7 +668,7 @@ function err(
 export function createThreadRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	agentWorkIntentRecorder: AgentWorkIntentRecorder<HyperIdleDb>,
+	agentWorkIntentRecorder: AgentWorkIntentRecorderFn,
 	wsHub?: WsPushTarget,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
@@ -1517,7 +1517,7 @@ export function createThreadRoutes(
 					requireRunnableAgent,
 					readServerConfig,
 				});
-				await agentWorkIntentRecorder.record(db, {
+				await agentWorkIntentRecorder({
 					kind: "assistant_turn",
 					sourceKind: "thread_message",
 					sourceId: messageId,

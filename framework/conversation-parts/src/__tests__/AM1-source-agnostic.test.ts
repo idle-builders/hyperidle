@@ -18,10 +18,19 @@ import { describe, expect, it } from "vitest";
 import {
 	derivePartsFromMessages,
 	derivePartsFromSession,
-	PART_KINDS,
 	type Part,
 	type PartAuthor,
 } from "../part.js";
+
+const PART_KINDS_INLINE = [
+	"prose",
+	"review",
+	"resolved",
+	"questionnaire",
+	"tool",
+	"reasoning",
+	"unknown",
+] as const;
 
 const IDENTITIES: PartAuthor[] = [{ id: "a-atlas", name: "Atlas", isAgent: true, isMe: false }];
 /** A minimal agent author for the session adapter's required `agent` param. */
@@ -30,7 +39,7 @@ const SESSION_AGENT: PartAuthor = { id: "a-atlas", name: "Atlas", isAgent: true,
 function isWellFormedPart(p: Part): boolean {
 	return (
 		typeof p.id === "string" &&
-		(PART_KINDS as ReadonlyArray<string>).includes(p.kind) &&
+		(PART_KINDS_INLINE as ReadonlyArray<string>).includes(p.kind) &&
 		typeof p.author?.name === "string" &&
 		Array.isArray(p.embeds)
 	);
