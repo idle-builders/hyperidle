@@ -1,9 +1,4 @@
-import {
-	agentSessionRequests,
-	agentWorkIntents,
-	type HyperIdleDb,
-	users,
-} from "@hyperidle/db";
+import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
@@ -208,4 +203,3 @@ describe("durable request and intent lease fencing", () => {
 		expect(stored).toMatchObject({ status: "failed", attempts: 1 });
 	});
 });
-

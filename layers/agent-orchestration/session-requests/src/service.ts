@@ -6,15 +6,10 @@ import type {
 	HyperIdleDb,
 	WriteExecutor,
 } from "@hyperidle/db";
-import {
-	agentSessionRequests,
-	agentWorkIntents,
-	explicitSessionStarts,
-} from "@hyperidle/db";
+import { agentSessionRequests, agentWorkIntents, explicitSessionStarts } from "@hyperidle/db";
 import type {
 	AgentRunAdmissionFailureCode,
 	AgentSessionRequestInput,
-	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 } from "@hyperidle/domain-model";
 import {
@@ -54,7 +49,6 @@ type TerminalInput =
 			readonly failureCode?: string;
 			readonly errorMessage?: string;
 	  };
-
 
 function nowIso() {
 	return /* @__PURE__ */ new Date().toISOString();
@@ -1010,7 +1004,6 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	knowledge: "knowledge",
 	proposed_call: "proposed_call",
 };
-
 
 export type WorkIntentInput = {
 	readonly kind:

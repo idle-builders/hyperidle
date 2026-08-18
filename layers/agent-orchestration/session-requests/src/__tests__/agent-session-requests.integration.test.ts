@@ -125,23 +125,24 @@ describe("agent session request repository", () => {
 			},
 		]);
 
-		await createSessionRequest(db, {
-			kind: "direct",
-			request: {
-				sourceKind: "assistant",
-				sourceId: "msg-3",
-				streamId: "thread:thread-3",
-				agentId: "agent-3",
+		await db.insert(agentSessionRequests).values({
+			id: "request-msg-3",
+			sourceKind: "assistant",
+			sourceId: "msg-3",
+			streamId: "thread:thread-3",
+			agentId: "agent-3",
+			userId: "user-3",
+			promptMode: "conversation",
+			idempotencyKey: "assistant:msg-3",
+			sourceCorrelationJson: JSON.stringify({
+				threadId: "thread-3",
+				messageId: "msg-3",
 				userId: "user-3",
-				promptMode: "conversation",
-				idempotencyKey: "assistant:msg-3",
-				sourceCorrelation: {
-					threadId: "thread-3",
-					messageId: "msg-3",
-					userId: "user-3",
-					assistantAgentId: "agent-3",
-				},
-			},
+				assistantAgentId: "agent-3",
+			}),
+			status: "pending",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		});
 
 		const [claimed, second] = await Promise.all([

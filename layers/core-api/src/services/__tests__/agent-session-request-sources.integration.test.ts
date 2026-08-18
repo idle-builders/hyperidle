@@ -5,6 +5,7 @@ import {
 	agentRunConfig,
 	agentSessionRequests,
 	bets,
+	type HyperIdleDb,
 	messages,
 	routines,
 	tasks,
@@ -59,7 +60,7 @@ class RecordingHarnessAdapter implements HarnessAdapter {
 	}
 }
 
-async function seedWork(db: Parameters<typeof createSessionRequest>[0]): Promise<void> {
+async function seedWork(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
@@ -269,6 +270,7 @@ describe("agent session request sources", () => {
 
 		for (const source of sources) {
 			const now = new Date().toISOString();
+			const sourceRecord = source as Record<string, unknown>;
 			const [request] = await db
 				.insert(agentSessionRequests)
 				.values({
@@ -276,7 +278,9 @@ describe("agent session request sources", () => {
 					sourceKind: source.sourceKind,
 					sourceId: source.sourceId,
 					streamId: source.streamId,
+					taskId: typeof sourceRecord.taskId === "string" ? sourceRecord.taskId : null,
 					agentId: source.agentId,
+					teamId: typeof source.teamId === "string" ? source.teamId : null,
 					userId: source.userId ?? null,
 					promptMode: source.promptMode,
 					payloadJson: source.payloadJson ?? null,

@@ -131,7 +131,6 @@ export interface RuntimePorts {
 						sessionId: string;
 				  }
 				| { target: "explicitStart"; to: "failed"; startId: string; failureCode: string },
-			deps?: DurableQueueDeps,
 			options?: { now?: Date },
 		): Promise<
 			| AgentSessionRequest
