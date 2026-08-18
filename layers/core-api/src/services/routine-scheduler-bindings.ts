@@ -35,9 +35,7 @@ import {
 import { getTeam } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
-	fireBuiltinRoutine,
 	fireGenericRoutine,
-	isBuiltinRoutineId,
 	type RoutineSchedulerConfig,
 	type RoutineSchedulerPorts,
 	registerBuiltinRoutineHandlers,
@@ -186,8 +184,5 @@ export function fireRoutine(
 	},
 ): Promise<FireRoutineResult> {
 	const ports = buildRoutineSchedulerPorts(agentOrchestration);
-	if (isBuiltinRoutineId(routine.id)) {
-		return fireBuiltinRoutine(db, eventBus, ports, routine.id, opts?.args);
-	}
 	return fireGenericRoutine(db, eventBus, routine, ports, opts?.recordSkippedRun);
 }

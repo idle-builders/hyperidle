@@ -26,7 +26,6 @@ export type {
 	AgentOrchestrationWorkIntentKind,
 	AgentOrchestrationWorkIntentReceipt,
 } from "./agent-orchestration-port.js";
-export type { AuthMeResponse } from "./auth.js";
 export type {
 	BetView,
 	CaptureProposedCallRequest,
@@ -92,5 +91,3 @@ export type {
 	UserView,
 } from "./core-api-port.js";
 export { CORE_API_ACTOR_OVERRIDE_HEADER } from "./core-api-port.js";
-export type { CreateSessionAcceptedResponse, PendingSessionStart } from "./session.js";
-export { isPendingSessionStart } from "./session.js";
