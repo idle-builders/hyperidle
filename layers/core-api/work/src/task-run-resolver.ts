@@ -77,9 +77,6 @@ export interface TaskRunResolverDeps {
 	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
-/** Thrown when the dispatch attempt or its task is unavailable / ineligible. */
-export class TaskRunSourceUnavailableError extends Error {}
-
 /** The baked `task_run` request shape, matching `resolveIntentInputInternal`'s current return. */
 export interface BakedTaskRunRequest {
 	readonly defaultAgentId: string;
@@ -182,14 +179,14 @@ export async function resolveTaskRunRequest(
 ): Promise<BakedTaskRunRequest> {
 	const attempt = await taskDispatchAttemptStore.get(db, attemptId);
 	if (attempt?.status !== "requested") {
-		throw new TaskRunSourceUnavailableError("Task dispatch attempt is unavailable");
+		throw new Error("Task dispatch attempt is unavailable");
 	}
 	const task = await work.get(db, "task", attempt.taskId);
 	if (!(task && AGENT_WORK_ELIGIBLE_TASK_STATES.has(task.state))) {
-		throw new TaskRunSourceUnavailableError("Task is not eligible for agent work");
+		throw new Error("Task is not eligible for agent work");
 	}
 	if (task.ownerAgentId && task.ownerAgentId !== attempt.agentId) {
-		throw new TaskRunSourceUnavailableError("Task owner changed after intent creation");
+		throw new Error("Task owner changed after intent creation");
 	}
 	const agent = await deps.requireRunnableAgent(db, attempt.agentId);
 

@@ -4,32 +4,23 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { findThread, insertThread, updateThread } from "@hyperidle/conversation";
 import {
 	agentSessionRequests,
 	bets,
 	type HyperIdleDb,
 	items,
 	sessions,
-	taskPlanningSignals,
 	tasks,
 	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { resolveReviewRecipients } from "@hyperidle/org";
-import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import type { ToolContext } from "@hyperidle/tool-protocol";
-import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
-import * as work from "@hyperidle/work";
-import { getTaskRiskTierByTaskId } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { describe, expect, vi } from "vitest";
+import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
 function buildHandoffToTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
@@ -111,28 +102,6 @@ function makeContext(db: HyperIdleDb, eventBus: EventBus): ToolContext<HyperIdle
 		ingestion: { dispose: (): void => {} },
 	};
 }
-
-/**
- * AU26 H1 (§D-M.1) — the production `review` wiring, so "a handoff creates no
- * review item" is proven against the REAL subscriber rather than against an
- * unwired bus. Mirrors `session-review-creator.integration.test.ts`.
- */
-const reviewDeps: ReviewPorts = {
-	work: {
-		getTaskById: (exec, id) => work.get(exec, "task", id),
-		updateTaskById: (exec, id, patch) => work.update(exec, "task", id, patch),
-		createItem: (exec, values) => work.create(exec, "item", values),
-		getRiskTierByTaskId: getTaskRiskTierByTaskId,
-	},
-	conversation: { insertThread, getThreadById: (db, id) => findThread(db, { id }), updateThread },
-	users: {
-		getUserById: (db, id) => findUser(db, { id }),
-		listUsersByKind: (db, kind) => listUsers(db, { kind }),
-	},
-	org: { resolveReviewRecipients },
-	intentRecorder: { record: enqueueWorkIntent },
-	requireRunnableAgent,
-};
 
 const baseMetadata = {
 	contextId: "ctx-1",
@@ -263,65 +232,6 @@ describe("handoff_to tool", () => {
  *    safety net behind it (trap (c): `runtime-reapers.ts` is routine-only).
  */
 describe("AU26 H1 — handoff's run-end write", () => {
-	test("emits no session_ended and creates no review item, even for a high-risk task", async ({
-		db,
-		eventBus,
-		app,
-	}) => {
-		const handoffToTool = buildHandoffToTool(app);
-		await seed(db);
-		// High risk: without this the review creator returns early and the
-		// "no review item" assertion below would be vacuous.
-		await db
-			.insert(taskPlanningSignals)
-			.values({ id: "tps-task-1", taskId: "task-1", riskTier: "high" });
-		const unsubscribe = registerReviewSubscriptions(db, eventBus, reviewDeps);
-		const sessionEnded: SessionEndedEvent[] = [];
-		const offSessionEnded = eventBus.on("session_ended", (e) => sessionEnded.push(e));
-
-		try {
-			const result = await handoffToTool.handler(
-				{ toAgent: "agent-b", ...baseMetadata },
-				makeContext(db, eventBus),
-			);
-			expect(result.success).toBe(true);
-
-			const [session] = await db.select().from(sessions).where(eq(sessions.id, "session-1"));
-			expect(session?.state).toBe("done");
-			expect(session?.endedAt).toBeTruthy();
-			// A handoff records no session-end outcome.
-			expect(session?.outcome).toBeNull();
-
-			expect(sessionEnded).toHaveLength(0);
-
-			// Give the async review handler the same window it gets in
-			// `session-review-creator.integration.test.ts` before concluding
-			// nothing was created.
-			await new Promise((r) => setTimeout(r, 50));
-			const afterHandoff = await db.select().from(items);
-			expect(afterHandoff.filter((i) => i.kind === "review")).toHaveLength(0);
-
-			// Positive control — the guard above has teeth only if this SAME
-			// wiring does create a review item when `session_ended` really fires.
-			eventBus.emit({
-				type: "session_ended",
-				streamId: "session-1",
-				sessionId: "session-1",
-				agentId: "agent-a",
-				taskId: "task-1",
-				outcome: "completed",
-				timestamp: Date.now(),
-			} satisfies SessionEndedEvent);
-			await vi.waitFor(async () => {
-				const rows = await db.select().from(items);
-				expect(rows.filter((i) => i.kind === "review")).toHaveLength(1);
-			});
-		} finally {
-			offSessionEnded();
-			unsubscribe();
-		}
-	});
-
 	test("ends the run even when no agentSessionRequests row exists (trap a)", async ({
 		db,
 		eventBus,

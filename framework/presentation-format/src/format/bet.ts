@@ -34,11 +34,3 @@ export function deriveTitle(description: string, betId: string): string {
 	}
 	return betId;
 }
-
-/**
- * @deprecated Use `deriveTitle` instead. Kept for backward compatibility during U1 migration.
- * Will be removed in a subsequent workpackage.
- */
-export function deriveTitleFromPitch(pitch: string, betId: string): string {
-	return deriveTitle(pitch, betId);
-}

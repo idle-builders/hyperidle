@@ -89,7 +89,6 @@ export interface ReviewPorts {
 		getTaskById(db: WriteExecutor, id: string): Promise<Task | undefined>;
 		updateTaskById(db: WriteExecutor, id: string, patch: ReviewTaskPatch): Promise<void>;
 		createItem(db: WriteExecutor, values: NewItem): Promise<void>;
-		getRiskTierByTaskId(db: HyperIdleDb, taskId: string): Promise<string | null>;
 	};
 	readonly conversation: {
 		insertThread(db: HyperIdleDb, values: NewThread): Promise<void>;

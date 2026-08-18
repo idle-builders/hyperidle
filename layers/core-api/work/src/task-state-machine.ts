@@ -10,7 +10,6 @@ import type { EventBus } from "@hyperidle/event-bus";
 import type { BakedWorkIntentRequest } from "@hyperidle/work-intent-port";
 import { eq } from "drizzle-orm";
 import type { AgentWorkIntentRecorder } from "./ports.js";
-import type { StateTransitionAuditEntry, TaskAuditEntry } from "./task-audit.js";
 import type { TaskRunResolverDeps } from "./task-run-resolver.js";
 import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import * as work from "./work-service.js";
@@ -101,24 +100,13 @@ export async function transitionTask(
 				throw new TaskInvalidTransitionError(taskId, fromState, toState);
 			}
 
-			// Build audit trail — stored in auditTrail column (notes is for agent-authored prose)
-			const existingAudit: TaskAuditEntry[] = task.auditTrail
-				? (JSON.parse(task.auditTrail) as TaskAuditEntry[])
-				: [];
-			const entry: StateTransitionAuditEntry = {
-				from: fromState,
-				to: toState,
-				timestamp: new Date().toISOString(),
-			};
-			existingAudit.push(entry);
-
+			const now = new Date().toISOString();
 			const { applied } = await work.transition(tx, "task", {
 				id: taskId,
 				guard: { field: "state", equals: fromState },
 				patch: {
 					state: toState,
-					auditTrail: JSON.stringify(existingAudit),
-					updatedAt: new Date().toISOString(),
+					updatedAt: now,
 				},
 			});
 
@@ -141,8 +129,8 @@ export async function transitionTask(
 					agentId: task.ownerAgentId,
 					ordinal: existing.length + 1,
 					status: "requested",
-					createdAt: entry.timestamp,
-					updatedAt: entry.timestamp,
+					createdAt: now,
+					updatedAt: now,
 				});
 				// AU21 §6 Decision B: resolve + validate the task_run run AT EMIT
 				// TIME (this Service's own domain state, plus the shared

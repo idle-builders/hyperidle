@@ -47,7 +47,7 @@ import {
 	updateTeam,
 	upsertOrgEdge,
 } from "@hyperidle/org";
-import { deriveInitials, deriveTitle } from "@hyperidle/presentation-format";
+import { deriveTitle } from "@hyperidle/presentation-format";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
@@ -55,6 +55,13 @@ import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import { resolveHarnessAvailable } from "./agent-profile.js";
+
+/** Inlined from @hyperidle/presentation-format (server copy removed, row 18). */
+function deriveInitials(name: string): string {
+	const trimmed = name.trim();
+	if (trimmed.length === 0) return "?";
+	return trimmed.slice(0, 2).toUpperCase();
+}
 
 /**
  * Derive team status from team_members and active bet states.

@@ -56,9 +56,6 @@ export interface SessionStartResolverDeps {
 	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
-/** Thrown when the session-start's target task does not exist. */
-export class SessionStartSourceUnavailableError extends Error {}
-
 /** The baked `session_start` request shape, matching `resolveIntentInputInternal`'s current return. */
 export interface BakedSessionStartRequest {
 	readonly defaultAgentId: string;
@@ -106,7 +103,7 @@ export async function resolveSessionStartRequest(
 	const agent = await deps.requireRunnableAgent(db, input.requestedAgentId);
 	const task = await work.get(db, "task", input.taskId);
 	if (!task) {
-		throw new SessionStartSourceUnavailableError("Explicit session task is unavailable");
+		throw new Error("Explicit session task is unavailable");
 	}
 	const harnessDisabled = deps.readServerConfig
 		? (await deps.readServerConfig(db)).harnessDisabled

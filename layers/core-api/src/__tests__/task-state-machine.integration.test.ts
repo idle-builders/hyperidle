@@ -2,15 +2,16 @@ import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/domain-model";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
-import type {
-	StateTransitionAuditEntry,
-	TaskAuditEntry,
-	TaskStateMachineDeps,
-} from "@hyperidle/work";
+import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, InvalidTransitionError, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
+
+// task-audit.ts was deleted (bundle-07 dead-code pass) — types were only used for
+// casting JSON reads of the auditTrail column; inline minimal shapes here.
+type StateTransitionAuditEntry = { from: string; to: string; timestamp: string };
+type TaskAuditEntry = StateTransitionAuditEntry;
 
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = {

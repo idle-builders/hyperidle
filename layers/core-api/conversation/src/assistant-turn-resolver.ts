@@ -44,9 +44,6 @@ export interface AssistantTurnResolverDeps {
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
-/** Thrown when the source message does not exist, is deleted, or is redacted. */
-export class AssistantTurnSourceUnavailableError extends Error {}
-
 /** One raw transcript row. */
 export interface BakedTranscriptRow {
 	readonly senderId: string;
@@ -123,7 +120,7 @@ export async function resolveAssistantTurnRequest(
 ): Promise<BakedAssistantTurnRequest> {
 	const message = await findMessage(db, { id: messageId });
 	if (!message || message.deletedAt || message.redactedAt) {
-		throw new AssistantTurnSourceUnavailableError("Assistant source message is unavailable");
+		throw new Error("Assistant source message is unavailable");
 	}
 	const targetAgentId = resolveAssistantAgentIdForSender(message.senderId);
 	const agent = await deps.requireRunnableAgent(db, targetAgentId);

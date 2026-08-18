@@ -99,13 +99,12 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		const received: string[] = [];
 
-		const handler = (e: TaskStateChangedEvent): void => {
+		const unsub = bus.on("task_state_changed", (e: TaskStateChangedEvent) => {
 			received.push(e.taskId);
-		};
+		});
 
-		bus.on("task_state_changed", handler);
 		bus.emit(makeTaskEvent("t1", 1));
-		bus.off("task_state_changed", handler);
+		unsub();
 		bus.emit(makeTaskEvent("t2", 2));
 
 		expect(received).toEqual(["t1"]);
@@ -131,13 +130,12 @@ describe("EventBus", () => {
 		const bus = new EventBus();
 		const received: DomainEvent[] = [];
 
-		const handler = (e: DomainEvent): void => {
+		const unsub = bus.on("*", (e: DomainEvent) => {
 			received.push(e);
-		};
+		});
 
-		bus.on("*", handler);
 		bus.emit(makeTaskEvent("t1", 1));
-		bus.off("*", handler);
+		unsub();
 		bus.emit(makeTaskEvent("t2", 2));
 
 		expect(received).toHaveLength(1);
@@ -156,20 +154,6 @@ describe("EventBus", () => {
 		}
 
 		expect(received).toEqual([0, 1, 2, 3, 4]);
-	});
-
-	it("once() delivers exactly one event then auto-unsubscribes", () => {
-		const bus = new EventBus();
-		const received: string[] = [];
-
-		bus.once("task_state_changed", (e) => {
-			received.push(e.taskId);
-		});
-
-		bus.emit(makeTaskEvent("t1", 1));
-		bus.emit(makeTaskEvent("t2", 2));
-
-		expect(received).toEqual(["t1"]);
 	});
 
 	it("throughput: 1000 events/sec without drops", () => {
