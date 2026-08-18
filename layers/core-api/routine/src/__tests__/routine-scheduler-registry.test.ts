@@ -26,8 +26,11 @@ describe("builtin-routine registry no longer offers practice-meeting", () => {
 		"builtin:portfolio-retro",
 		"builtin:knowledge-decay",
 		"builtin:knowledge-promotion",
-	] as const)("the other builtin kind %s is still recognized by extractBuiltinKind, bare and per-team", (id) => {
-		expect(extractBuiltinKind(id)).toBe(id);
-		expect(extractBuiltinKind(`${id}:prod-1`)).toBe(id);
-	});
+	] as const)(
+		"the other builtin kind %s is still recognized by extractBuiltinKind, bare and per-team",
+		(id) => {
+			expect(extractBuiltinKind(id)).toBe(id);
+			expect(extractBuiltinKind(`${id}:prod-1`)).toBe(id);
+		},
+	);
 });
