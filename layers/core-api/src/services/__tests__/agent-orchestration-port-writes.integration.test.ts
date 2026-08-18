@@ -339,5 +339,4 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(await port.filesystems.getTeamId("aopw-fst-1")).toBe("aopw-fst-team-parent");
 		expect(await port.filesystems.getTeamId("aopw-fst-does-not-exist")).toBeNull();
 	});
-
 });
