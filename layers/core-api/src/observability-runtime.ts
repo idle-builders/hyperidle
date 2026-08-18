@@ -27,16 +27,19 @@
  * It existed only because `composition-boundary-guard` bans a core-api Service
  * from importing `@hyperidle/settings`; this file is the Layer, not a Service,
  * so it imports settings directly like every other composition module here.
+ *
+ * @lore AU43 settings batch: readObservabilityConfig deleted (no door could
+ * write to the observability section; updateObservabilityConfig had zero callers).
+ * The runtime now uses hard-coded defaults, which are identical to what was
+ * stored — equivalent because no path ever diverged from the defaults.
  */
 
-import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	createConsoleObservabilityAdapter,
 	createLogger,
 	type ObservabilityAdapter,
 } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type ObservabilityConfig, readObservabilityConfig } from "@hyperidle/settings";
 import {
 	createObservabilityDispatcher,
 	registerObservabilityDispatcher,
@@ -44,11 +47,10 @@ import {
 
 /** Everything the composition root injects into the observability runtime. */
 export interface ObservabilityDeps {
-	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
 	/**
 	 * Optional test seam — inject a fake adapter instead of constructing one
-	 * from the `config.adapter` enum.
+	 * from the default config.
 	 */
 	readonly adapter?: ObservabilityAdapter;
 }
@@ -59,22 +61,32 @@ export interface ObservabilityRuntime {
 	dispose(): Promise<void>;
 }
 
-function buildAdapterFromConfig(cfg: ObservabilityConfig): ObservabilityAdapter | null {
+/**
+ * Observability defaults — no door could write to this section so constants
+ * are always equivalent to a DB read. Schema defaults from ObservabilitySchema.
+ */
+const OBS_DEFAULTS = {
+	enabled: true,
+	adapter: "console" as const,
+	batchSize: 100,
+	flushIntervalMs: 2000,
+	bufferCap: 10_000,
+};
+
+function buildAdapterFromConfig(cfg: typeof OBS_DEFAULTS): ObservabilityAdapter {
 	switch (cfg.adapter) {
 		case "console":
 			return createConsoleObservabilityAdapter();
-		case "noop":
-			return null;
 	}
 }
 
 /**
- * Read config, select the adapter, construct the ring dispatcher, and subscribe
- * to the bus. Returns a handle the caller disposes at shutdown.
+ * Select the adapter, construct the ring dispatcher, and subscribe to the bus.
+ * Returns a handle the caller disposes at shutdown.
  */
 export async function startObservability(deps: ObservabilityDeps): Promise<ObservabilityRuntime> {
 	const logger = createLogger({ pkg: "observability.runtime" });
-	const cfg = await readObservabilityConfig(deps.db);
+	const cfg = OBS_DEFAULTS;
 
 	const adapter = cfg.enabled ? (deps.adapter ?? buildAdapterFromConfig(cfg)) : null;
 	if (!adapter) {

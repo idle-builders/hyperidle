@@ -441,13 +441,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		agentExecution.dispose,
 	]);
 
-	// AU2 / AU31 §2.2/§3 clause 2/§5.2: project existing first-party behavior
-	// into the editable configuration model. Deferred until now — the seam
-	// call inside it (agentRunConfig) would throw the same named error the
-	// singleton it replaced threw if it ran before the transport above was
-	// filled (§3.2 clause 4).
-	await coreApi.runConfigurationBackfill(agentOrchestration.serviceConnectionsReader);
-
 	// Serve built frontend when HYPERIDLE_STATIC_DIR is set.
 	// The SPA falls back to index.html for client-side routing.
 	const staticDir = process.env.HYPERIDLE_STATIC_DIR;

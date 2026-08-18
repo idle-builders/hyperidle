@@ -33,7 +33,6 @@ import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
-import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
@@ -411,7 +410,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus, agentOrchestration));
-		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route(
 			"/threads",
@@ -464,7 +462,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// is read once at boot; changing it is a restart.
 		const db = options.db;
 		const observabilityRuntime = await startObservability({
-			db,
 			eventBus,
 			...(options?.observabilityAdapter ? { adapter: options.observabilityAdapter } : {}),
 		});
