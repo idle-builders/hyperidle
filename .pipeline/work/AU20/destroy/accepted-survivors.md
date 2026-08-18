@@ -15,3 +15,9 @@ for a future deletion to succeed.
 - `triggerResolutionHistory` — table row (bundle-01, row 45). Table deletion is stage 3 only, after every reader and writer is gone. The type aliases `TriggerResolutionHistoryRow` and `NewTriggerResolutionHistoryRow` were deleted in this bundle; the table itself waits for the stage-3 pass.
 
 - `filesystemCaptures` — table row (bundle-01, row 46). Table deletion is stage 3 only. The type aliases `FilesystemCaptureRow` and `NewFilesystemCaptureRow` were deleted in this bundle; the table and its INSERT site in mounter-registry wait for the stage-3 pass.
+
+- `extractBuiltinKind` — bundle-05, routine row 15. Cannot delete: `fireBuiltinRoutine` (PLUGIN, BA9) calls it directly (`const kind = extractBuiltinKind(routineId)`). Deletes when BA9 removes `fireBuiltinRoutine`.
+
+- `BuiltinRoutineId` — bundle-05, routine row 16. Cannot delete: return type of `extractBuiltinKind` (survivor above). Deletes with `extractBuiltinKind`.
+
+- `RunBuiltinResult` — bundle-05, routine row 17. Cannot delete: return type of `fireBuiltinRoutine` (PLUGIN, BA9). Deletes when BA9 removes `fireBuiltinRoutine`.

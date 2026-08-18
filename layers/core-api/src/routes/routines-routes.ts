@@ -21,18 +21,6 @@ import z from "zod";
 import { fireRoutine } from "../services/routine-scheduler-bindings.js";
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
-const BUILTIN_ROUTINE_KINDS = new Set([
-	"builtin:post-bet-retro",
-	"builtin:portfolio-retro",
-	"builtin:knowledge-decay",
-	"builtin:knowledge-promotion",
-]);
-
-function builtinKind(id: string): string | null {
-	const parts = id.split(":");
-	const kind = parts.length >= 2 ? `builtin:${parts[1]}` : id;
-	return BUILTIN_ROUTINE_KINDS.has(kind) ? kind : null;
-}
 
 /**
  * AA2: Schema for POST /api/routines (create routine).
@@ -349,34 +337,6 @@ export function createRoutineRoutes(
 				{ error: "Routine is disabled (active=0)", code: API_ERROR_CODES.FORBIDDEN },
 				403,
 			);
-		}
-
-		// G4 AC7: dispatch to the builtin handler when the routine id is a
-		// builtin. The builtin handlers do not create sessions.
-		// @lore AF17: isBuiltinRoutineId now checks the kind prefix so per-team
-		// ids (`builtin:post-bet-retro:<teamId>`) are correctly recognised.
-		const kind = builtinKind(routineId);
-		if (kind) {
-			let args: { readonly betId: string } | undefined;
-			// Check if this is a post-bet-retro by kind prefix (not exact id)
-			if (kind === "builtin:post-bet-retro") {
-				const body = (await c.req.json().catch(() => ({}))) as { betId?: string };
-				if (!body.betId || typeof body.betId !== "string") {
-					return c.json(
-						{
-							error: "builtin:post-bet-retro requires { betId } in the request body",
-							code: API_ERROR_CODES.VALIDATION_ERROR,
-						},
-						400,
-					);
-				}
-				args = { betId: body.betId };
-			}
-			const result = await fireRoutine(db, eventBus, agentOrchestration, routine, { args });
-			if (!result.fired) {
-				return c.json({ routineId, fired: false, reason: result.reason }, 200);
-			}
-			return c.json({ routineId, fired: true, ...(result.extra ?? {}) }, 200);
 		}
 
 		const result = await fireRoutine(db, eventBus, agentOrchestration, routine, {
