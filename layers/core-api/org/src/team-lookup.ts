@@ -91,13 +91,6 @@ export async function listTeams(
 // TeamMembers reads (collapse 5 → 2, fixes the getTeamMembersById/getTeamMembersByTeamId duplicate)
 // ---------------------------------------------------------------------------
 
-/** Row shape for {@link listTeamMembers} with `withTeamName: true`. */
-export interface ActiveTeamMembersWithTeamName {
-	readonly id: string;
-	readonly name: string;
-	readonly teamActualId: string;
-}
-
 /**
  * Read the single `teamMembers` row keyed by `{ id }` (teamMembers.id) or
  * `{ teamId }` (teamMembers.teamId), or `undefined` if none exists.
@@ -154,38 +147,17 @@ export async function getTeamMembers(
 }
 
 /**
- * List `teamMembers` rows, optionally filtered by active status and/or
- * joined to the team name.
- *
- * With `withTeamName: true` returns `ActiveTeamMembersWithTeamName[]`
- * (id, teams.name, teams.id as teamActualId). The join is ACL-private to
- * this package; callers receive the projected shape.
+ * List `teamMembers` rows, optionally filtered by active status.
  *
  * With `active: true` filters to rows where `dissolvedAt IS NULL`.
  *
- * @example listTeamMembers(db)                                   — all rows, full TeamMember
- * @example listTeamMembers(db, { active: true, withTeamName: true })  — org-chart shape
+ * @example listTeamMembers(db)               — all rows
+ * @example listTeamMembers(db, { active: true }) — active rows only
  */
-export function listTeamMembers(
-	db: HyperIdleDb,
-	filter: { active?: boolean; withTeamName: true },
-): Promise<ActiveTeamMembersWithTeamName[]>;
-export function listTeamMembers(
-	db: HyperIdleDb,
-	filter?: { active?: boolean; withTeamName?: false },
-): Promise<TeamMember[]>;
 export async function listTeamMembers(
 	db: HyperIdleDb,
-	filter?: { active?: boolean; withTeamName?: boolean },
-): Promise<TeamMember[] | ActiveTeamMembersWithTeamName[]> {
-	if (filter?.withTeamName) {
-		const q = db
-			.select({ id: teamMembers.id, name: teams.name, teamActualId: teams.id })
-			.from(teamMembers)
-			.innerJoin(teams, eq(teams.id, teamMembers.teamId));
-		if (filter.active) return q.where(isNull(teamMembers.dissolvedAt));
-		return q;
-	}
+	filter?: { active?: boolean },
+): Promise<TeamMember[]> {
 	if (filter?.active) {
 		return db.select().from(teamMembers).where(isNull(teamMembers.dissolvedAt));
 	}
@@ -294,16 +266,6 @@ export async function updateTeam(
 	if (Object.keys(membersPatch).length > 0) {
 		await db.update(teamMembers).set(membersPatch).where(eq(teamMembers.teamId, teamId));
 	}
-}
-
-/**
- * Delete a team and its `teamMembers` companion (1:1 cascade).
- * Deletes the membership-group row first (to keep FK order safe), then the
- * team row. The primary use case is the POST /teams rollback path (AC-1h).
- */
-export async function deleteTeam(db: HyperIdleDb, teamId: string): Promise<void> {
-	await db.delete(teamMembers).where(eq(teamMembers.teamId, teamId));
-	await db.delete(teams).where(eq(teams.id, teamId));
 }
 
 // @lore AU21 Increment 14a: `applyTeamCost` (the `teamMembers.costActual`

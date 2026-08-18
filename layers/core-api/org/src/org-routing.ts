@@ -3,19 +3,6 @@ import { and, eq } from "drizzle-orm";
 import type { OrgUserDirectory } from "./ports.js";
 
 /**
- * Context for routing: identifies the AI user/role/team being reviewed.
- * All fields are optional — only the fields present are matched against org edges.
- */
-export interface ReviewRoutingContext {
-	/** Direct-mechanism target: the userId of the specific AI user */
-	userId?: string;
-	/** Function-mechanism target: the role string of the AI user */
-	agentRole?: string;
-	/** Team-mechanism target: the teamId the AI user belongs to */
-	teamId?: string;
-}
-
-/**
  * Resolve which human users should receive a review/escalation.
  *
  * Resolution algorithm:
@@ -40,7 +27,7 @@ export interface ReviewRoutingContext {
  */
 export async function resolveReviewRecipients(
 	db: HyperIdleDb,
-	context: ReviewRoutingContext,
+	context: { userId?: string; agentRole?: string; teamId?: string },
 	users: Pick<OrgUserDirectory, "listUsersByKind">,
 ): Promise<string[]> {
 	const matchedFromUserIds = new Set<string>();

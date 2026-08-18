@@ -12,7 +12,6 @@ import {
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, updateTeam } from "@hyperidle/org";
-import { recordPropagationHop } from "@hyperidle/policy";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
@@ -622,9 +621,6 @@ export function createBetRoutes(
 					requestRunStopForTasks: (_exec, taskIds, opts) =>
 						agentOrchestration.runs.stopForTasks(taskIds, opts.reason),
 				},
-				// `policy` owns `propagation_log`, so the cascade's hop rows go
-				// through its builder — same Mechanism C shape as the line above.
-				policy: { recordPropagationHop },
 			});
 			const updated = await work.get(db, "bet", betId);
 			if (!updated) {

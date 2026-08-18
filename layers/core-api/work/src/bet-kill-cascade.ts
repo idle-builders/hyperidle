@@ -21,27 +21,6 @@ export interface BetKillCascadeDeps extends TaskStateMachineDeps {
 			opts: { reason: "bet_killed" },
 		): Promise<readonly { readonly taskId: string; readonly sessionId: string }[]>;
 	};
-	/**
-	 * `policy` owns `propagation_log`. Same Mechanism C as `runOrchestration`
-	 * above — a nested Service asks, it does not import a sibling — and wired at
-	 * the same site, `routes/bets.ts`.
-	 */
-	readonly policy: {
-		recordPropagationHop(
-			db: HyperIdleDb,
-			entry: {
-				readonly sourceLevel: string;
-				readonly sourceId: string;
-				readonly sourceEvent: string;
-				readonly targetLevel: string;
-				readonly targetId: string;
-				readonly targetTransition: string | null;
-				readonly status: string;
-				readonly failureReason?: string;
-				readonly attempts?: number;
-			},
-		): Promise<void>;
-	};
 }
 
 /** Task states that are terminal — never re-killed by the cascade. */
@@ -107,64 +86,16 @@ export async function cascadeBetKill(
 	);
 
 	for (const task of nonTerminalTasks) {
-		// 3. One `propagation_log` hop per run actually stopped, recorded by the
-		// service that owns the table.
+		// 3. Track runs actually stopped.
 		for (const run of stoppedRuns.filter((r) => r.taskId === task.id)) {
 			sessionsStopped.push(run.sessionId);
-			await writeCascadeRow(db, deps, {
-				sourceLevel: "task",
-				sourceId: task.id,
-				targetLevel: "session",
-				targetId: run.sessionId,
-				targetTransition: "active -> stopped",
-			});
 		}
 
 		// 4. Kill the task via the CAS-guarded transitionTask (emits task_state_changed;
 		// the upward engine sees a terminal bet and logs `skipped` — harmless).
-		const fromState = task.state;
 		await transitionTask(db, eventBus, task.id, "killed", deps);
 		tasksKilled.push(task.id);
-		await writeCascadeRow(db, deps, {
-			sourceLevel: "bet",
-			sourceId: betId,
-			targetLevel: "task",
-			targetId: task.id,
-			targetTransition: `${fromState} -> killed`,
-		});
 	}
 
 	return { tasksKilled, sessionsStopped };
-}
-
-/**
- * Write a single downward-cascade `propagation_log` row through the service
- * that owns the table.
- *
- * @lore This used to be a local row builder whose own comment said it "mirrors
- * fabric's `logPropagation` field-for-field". It did — by hand, and only for as
- * long as someone kept reading both. `policy` owns `propagation_log` and now
- * exposes the real builder, so the cascade fills in what is genuinely its own
- * (the hop, and `sourceEvent: "bet_killed"`) and nothing else.
- */
-async function writeCascadeRow(
-	db: HyperIdleDb,
-	deps: BetKillCascadeDeps,
-	hop: {
-		sourceLevel: string;
-		sourceId: string;
-		targetLevel: string;
-		targetId: string;
-		targetTransition: string;
-	},
-): Promise<void> {
-	await deps.policy.recordPropagationHop(db, {
-		sourceLevel: hop.sourceLevel,
-		sourceId: hop.sourceId,
-		sourceEvent: "bet_killed",
-		targetLevel: hop.targetLevel,
-		targetId: hop.targetId,
-		targetTransition: hop.targetTransition,
-		status: "applied",
-	});
 }

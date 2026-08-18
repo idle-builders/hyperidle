@@ -5,7 +5,7 @@
  * Proves the moved function still resolves tier + per-agent requests
  * identically to the deleted `@hyperidle/model-gateway` package: same
  * inputs, same resolved `{provider,model,apiKey,baseUrl}` output, same
- * thrown error types (`MissingCredentialError`/`UnsupportedAgentProviderError`).
+ * thrown error types (`MissingCredentialError` / plain `Error` for unsupported provider).
  * `dispatch` and `run-orchestration` never call `resolveModel` directly —
  * they call it through a composition-root closure
  * (`dispatch-bindings.ts`/`server-factory.ts`'s `makeResolveModel`) — so this
@@ -17,11 +17,7 @@
 
 import { BUILT_IN_GATEWAY_CONFIG, MissingCredentialError } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
-import {
-	type CredentialResolver,
-	resolveModel,
-	UnsupportedAgentProviderError,
-} from "../resolve-model.js";
+import { type CredentialResolver, resolveModel } from "../resolve-model.js";
 
 function credentialResolverWith(keys: Record<string, string | null>): CredentialResolver {
 	return {
@@ -80,7 +76,7 @@ describe("resolveModel: tier + per-agent model resolution", () => {
 		});
 	});
 
-	it("throws UnsupportedAgentProviderError for openai-compatible on the agent path", async () => {
+	it("throws for openai-compatible on the agent path", async () => {
 		const resolver = credentialResolverWith({});
 		await expect(
 			resolveModel(
@@ -93,7 +89,7 @@ describe("resolveModel: tier + per-agent model resolution", () => {
 				BUILT_IN_GATEWAY_CONFIG,
 				resolver,
 			),
-		).rejects.toBeInstanceOf(UnsupportedAgentProviderError);
+		).rejects.toThrow(/not supported|openai-compatible/i);
 	});
 
 	it("throws MissingCredentialError when the required key is absent", async () => {

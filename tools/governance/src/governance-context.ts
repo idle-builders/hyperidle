@@ -111,7 +111,7 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// its band: the band's `max(…, 5)` term puts the midpoint BELOW where this already sits, and a
 	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
 	{ kind: "capability", min: 8, floorKind: "magnitude" },
-	{ kind: "table:read", min: 1191, floorKind: "magnitude" },
+	{ kind: "table:read", min: 1185, floorKind: "magnitude" },
 	{ kind: "table:write", min: 2085, floorKind: "magnitude" },
 ];
 

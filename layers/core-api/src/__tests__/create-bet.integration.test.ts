@@ -138,9 +138,7 @@ describe("create_bet tool", () => {
 		expect(result.success).toBe(false);
 	});
 
-	// @lore AD8b: role "chief_of_staff" renamed to "assistant". The AssistantToolShape
-	// itself has no roles field; roles filter is applied in tool-registry wrapForRegistry.
-	test("createBetTool is an AssistantToolShape (name and handler defined)", ({ app }) => {
+	test("createBetTool is a ToolDefinition (name and handler defined)", ({ app }) => {
 		const createBetTool = buildCreateBetTool(app);
 		expect(createBetTool.name).toBe("create_bet");
 		expect(typeof createBetTool.handler).toBe("function");

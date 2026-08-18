@@ -41,7 +41,7 @@ export interface CredentialResolver {
 }
 
 /**
- * AU21 Increment 14b (Decision L2): `resolveModel` + `UnsupportedAgentProviderError`
+ * AU21 Increment 14b (Decision L2): `resolveModel` + `Error`
  * + `ModelRequest` moved here from the now-dissolved `@hyperidle/model-gateway`
  * core-api package. `resolveModel` is a pure, stateless function — it owns zero
  * tables and its one dependency (`CredentialResolver`) is injected by the caller
@@ -68,27 +68,13 @@ export interface CredentialResolver {
  */
 
 /**
- * AH2: Error thrown when a per-agent model uses an unsupported provider.
- * Only "anthropic" and "openrouter" are supported for per-agent model selection.
- */
-export class UnsupportedAgentProviderError extends Error {
-	constructor(public readonly provider: string) {
-		super(
-			`Per-agent model provider '${provider}' is not supported. ` +
-				`Only 'anthropic' models are available for per-agent selection.`,
-		);
-		this.name = "UnsupportedAgentProviderError";
-	}
-}
-
-/**
  * AH2: Shared provider resolution logic — extracts the provider-specific
  * credential/baseUrl lookup so it can be reused by both the tier path and the
  * agent path without duplicating the switch.
  *
  * @throws {MissingCredentialError} when the required API key is absent.
  * @throws {Error} when openai-compatible provider has no baseUrl.
- * @throws {UnsupportedAgentProviderError} when called from the per-agent
+ * @throws {Error} when called from the per-agent
  *   path with a non-anthropic provider (agentPath: true).
  */
 async function resolveProvider(
@@ -135,7 +121,10 @@ async function resolveProvider(
 
 		case "openai-compatible": {
 			if (options.agentPath) {
-				throw new UnsupportedAgentProviderError("openai-compatible");
+				throw new Error(
+					"Per-agent model provider 'openai-compatible' is not supported. " +
+						"Only 'anthropic' models are available for per-agent selection.",
+				);
 			}
 			// A-ERR-2: Defensive check for missing baseUrl
 			if (!options.baseUrl) {
@@ -188,14 +177,14 @@ async function resolveModelTier(
  *  - `{ kind: "agent", modelId, modelProvider, tierFallback }` — uses the
  *    per-agent model when `modelId` is set; falls back to the tier when null.
  *    "openai-compatible" is rejected on the agent path (throws
- *    `UnsupportedAgentProviderError`).
+ *    `Error`).
  *
  * This is the single entry point that replaces `resolveModelTier` +
  * `resolveAgentModel`. The two were already one operation with a discriminated
  * input — `resolveAgentModel` already delegated to `resolveModelTier` on the
  * null-modelId path.
  *
- * @throws {UnsupportedAgentProviderError} when agent.modelProvider is "openai-compatible".
+ * @throws {Error} when agent.modelProvider is "openai-compatible".
  * @throws {MissingCredentialError} when the required API key is absent.
  * @throws {Error} when openai-compatible tier has no baseUrl (A-ERR-2).
  */
