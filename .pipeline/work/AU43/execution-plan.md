@@ -59,6 +59,21 @@ checkpoint's job, and running them 38 times is the waste this model exists to av
 | End-to-end (`npm run test:e2e`) | Once, at the end of the pass |
 | Full suite (`npm run test:all`) | Once, at the end of the pass |
 
+## The crossing floors will drift, and that is not signal
+
+`tools/governance` declares magnitude floors — "this detector must still find at least N crossings" —
+to catch a detector that has silently stopped finding anything. A large deletion pass walks straight
+through them: every merge removes real table reads, so the count falls honestly and the floor trips.
+
+Re-measure it when it blocks a checkpoint, and say in the commit why the drop is real. Do not treat
+the trip as a finding; the detector is fine, the code is smaller. **Re-measure it once more at the end
+of the pass**, after stage 3, so the number that lands is the settled one rather than the last
+transient value.
+
+One thing to fix eventually, noted rather than done here: the floor check fires while building the
+governance context, so it also blocks `npm run governance:floors` — the tool that exists to re-measure
+it. A floor you cannot re-measure without hand-editing will be hand-edited.
+
 ## Rules that bind every batch
 
 - **Never touch a row marked `FINISH` or `PLUGIN`.** That code belongs to the feature track, which
