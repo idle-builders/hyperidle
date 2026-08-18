@@ -71,7 +71,6 @@ describe("GitCloneAdapter integration", () => {
 		const result = await adapter.mount({
 			filesystem: makeFs(repoPath),
 			sandboxPath,
-			auth: null,
 		});
 
 		expect(result.success).toBe(true);
@@ -86,7 +85,7 @@ describe("GitCloneAdapter integration", () => {
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		// In a regular clone, .git is a directory.
 		const excludeContent = fs.readFileSync(
@@ -104,7 +103,7 @@ describe("GitCloneAdapter integration", () => {
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		// Agent authors a new file.
 		fs.writeFileSync(path.join(sandboxPath, "agent-out.txt"), "clone capture test\n");

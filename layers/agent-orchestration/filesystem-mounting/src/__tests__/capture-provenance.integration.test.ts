@@ -140,7 +140,7 @@ describe("mount engine — capture provenance", () => {
 			},
 		});
 
-		const mounted = await mounter.mount({ filesystem, sandboxPath: sandbox, auth: null });
+		const mounted = await mounter.mount({ filesystem, sandboxPath: sandbox });
 		expect(mounted.success).toBe(true);
 		fs.writeFileSync(path.join(source, "authored.md"), "authored\n");
 		const captured = await mounter.captureBack({ filesystem, sandboxPath: sandbox, sessionId });

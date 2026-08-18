@@ -75,7 +75,6 @@ describe("GitWorktreeAdapter integration", () => {
 		const result = await adapter.mount({
 			filesystem: makeFs(repoPath),
 			sandboxPath,
-			auth: null,
 		});
 
 		expect(result.success).toBe(true);
@@ -91,7 +90,7 @@ describe("GitWorktreeAdapter integration", () => {
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		// In a worktree, .git is a file pointing to the real gitdir.
 		// Resolve the real gitdir to find info/exclude.
@@ -119,7 +118,7 @@ describe("GitWorktreeAdapter integration", () => {
 		const expectedBranch = `agent/${sandboxBasename}`.replace(/[^a-zA-Z0-9/_.-]/g, "-");
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		// Agent edits a NON-scaffolding file.
 		fs.writeFileSync(path.join(sandboxPath, "agent-output.txt"), "work done\n");
@@ -150,7 +149,7 @@ describe("GitWorktreeAdapter integration", () => {
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 		fs.writeFileSync(path.join(sandboxPath, "output.txt"), "done\n");
 
 		await adapter.captureBack({
@@ -172,7 +171,7 @@ describe("GitWorktreeAdapter integration", () => {
 		const expectedBranch = `agent/${sandboxBasename}`.replace(/[^a-zA-Z0-9/_.-]/g, "-");
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		// Simulate assembly overwriting CLAUDE.md + AGENTS.md with scaffolding content.
 		fs.writeFileSync(path.join(sandboxPath, "CLAUDE.md"), "# Scaffolding content\n");

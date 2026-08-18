@@ -150,7 +150,6 @@ describe("Git worktree live proof on this repo", () => {
 		const mountResult = await adapter.mount({
 			filesystem: fsDef,
 			sandboxPath,
-			auth: null,
 		});
 		expect(mountResult.error, mountResult.error).toBeUndefined();
 		expect(mountResult).toEqual({ success: true, sandboxPath });
