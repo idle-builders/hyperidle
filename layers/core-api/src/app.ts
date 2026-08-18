@@ -9,7 +9,7 @@ import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { createRateLimiter } from "@hyperidle/http-middleware";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
+import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";

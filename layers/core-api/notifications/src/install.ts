@@ -80,7 +80,12 @@ type Classification =
 	| { readonly kind: "digest"; readonly severity: "digest" }
 	| { readonly kind: "drop"; readonly reason: string };
 // @lore AU43: "silence" removed (isSilenced deleted); "notification_event" added for listener path.
-type QueueReason = "notification_event" | "digest" | "flood_coalesce" | "retry" | "agent_health_transition";
+type QueueReason =
+	| "notification_event"
+	| "digest"
+	| "flood_coalesce"
+	| "retry"
+	| "agent_health_transition";
 
 // ---------------------------------------------------------------------------
 // Constants

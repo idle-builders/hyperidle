@@ -107,7 +107,6 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			await enqueue(db, row);
 		},
 	},
-
 };
 
 /**

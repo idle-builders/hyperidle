@@ -16,7 +16,6 @@
 
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
-	enqueue,
 	listNotifications,
 	type SafeNotificationConfig,
 	updateConfig,
@@ -309,7 +308,6 @@ describe("H2 /api/notifications routes", () => {
 
 	test("PATCH /config emits a config_changed audit log with secrets redacted", async ({
 		db,
-		eventBus,
 	}) => {
 		const seen: Array<{ level: string; message: string; payload: Record<string, unknown> }> = [];
 		const captureLogger = {
