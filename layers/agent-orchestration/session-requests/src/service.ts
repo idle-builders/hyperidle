@@ -10,6 +10,7 @@ import { agentSessionRequests, agentWorkIntents, explicitSessionStarts } from "@
 import type {
 	AgentRunAdmissionFailureCode,
 	AgentSessionRequestInput,
+	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 } from "@hyperidle/domain-model";
 import {
@@ -18,7 +19,6 @@ import {
 	isAgentWorkIntentSourceKind,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { BakedWorkIntentRequest } from "@hyperidle/work-intent-port";
 import { and, asc, eq, gt, inArray, lt, lte, or, sql } from "drizzle-orm";
 
 type IntentOptions = {
@@ -1026,6 +1026,117 @@ export type WorkIntentInput = {
 	/** See `BakedWorkIntentRequest`. Absent for a not-yet-migrated kind (`routine_run` only, by the end of Increment 3). */
 	readonly bakedRequest?: BakedWorkIntentRequest;
 };
+/**
+ * Local mirror of `@hyperidle/work-intent-port`'s `BakedWorkIntentRequest`.
+ *
+ * @lore AU43 survivor — deleting this mirror forced session-requests to import
+ * `@hyperidle/work-intent-port`, whose enforced audience excludes it. The
+ * duplication is real but the fix is a boundary change (widening the port's
+ * audience or relocating the types), not a deletion. Recorded in
+ * `.pipeline/work/AU20/destroy/accepted-survivors.md`.
+ */
+export type BakedWorkIntentRequest = {
+	readonly defaultAgentId: string;
+	readonly sourceKind: AgentSessionSourceKind;
+	readonly sourceId: string;
+	readonly streamId: string;
+	readonly taskId?: string | null;
+	readonly teamId?: string;
+	readonly userId?: string;
+	readonly sourceCorrelation: AgentSessionSourceCorrelation;
+	/**
+	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
+	 * thread transcript (`conversation`'s `resolveAssistantTurnRequest`).
+	 * Absent for every other kind — carried through onto the created
+	 * `AgentSessionRequest.payloadJson` so `dispatch` sources the harness
+	 * conversation from the baked payload instead of a live read.
+	 */
+	readonly transcript?: ReadonlyArray<{
+		readonly senderId: string;
+		readonly payload: string;
+		readonly type: string;
+	}>;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
+	 * `routine_run`/`reengagement` families' baked entity content (task/bet/
+	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
+	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
+	 * Absent for `assistant_turn` (bakes `transcript` instead) — see
+	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
+	 */
+	readonly contextBundle?: BakedContextBundle;
+	/**
+	 * AU21 §9 Increment 12 (Decision H3), Wave E — every kind's baked
+	 * agent-runnability snapshot / disabled-harness-types list. See
+	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
+	 */
+	readonly agentConfig?: {
+		readonly kind: string;
+		readonly status: string;
+		readonly role: string;
+		readonly teamId: string | null;
+	};
+	readonly harnessDisabled?: readonly string[];
+	/**
+	 * AU27 Increment 1 (Decision 1) — the session's calling thread id. Absent
+	 * for `routine_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
+	 * `@hyperidle/work-intent-port` for the full `@lore`.
+	 */
+	readonly callingThreadId?: string;
+};
+/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/work-intent-port`). */
+export interface BakedContextKnowledgeItem {
+	readonly id: string;
+	readonly title: string;
+	readonly body: string;
+	readonly format: string;
+	readonly version: number;
+	readonly layer: string | null;
+}
+/** Local mirror of `@hyperidle/work-intent-port`'s `BakedContextBundle` — see there for the full `@lore`. */
+export type BakedContextBundle =
+	| {
+			readonly kind: "task";
+			readonly task: {
+				readonly id: string;
+				readonly title: string;
+				readonly description: string | null;
+				readonly state: string;
+			};
+			readonly bet: {
+				readonly id: string;
+				readonly description: string;
+				readonly appetite: string;
+				readonly doneCondition: string | null;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			readonly team: { readonly id: string; readonly name: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  }
+	| {
+			readonly kind: "routine";
+			readonly routine: {
+				readonly id: string;
+				readonly name: string;
+				readonly description: string | null;
+				readonly lastRunSummary: string | null;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			readonly team: { readonly id: string; readonly name: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  }
+	| {
+			readonly kind: "knowledge";
+			readonly item: {
+				readonly id: string;
+				readonly title: string;
+				readonly body: string;
+				readonly format: string;
+				readonly version: number;
+			};
+			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
+			readonly knowledge: readonly BakedContextKnowledgeItem[];
+	  };
 /**
  * @lore AU21 §9 Increment 9: the `"triggered"` kind (trigger-rule config
  * matching against `settings`'s `kind:"trigger"` entries, target-agent
