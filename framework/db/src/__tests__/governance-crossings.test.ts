@@ -420,7 +420,6 @@ describe("AU28 — database surfaces", () => {
 		sourceRoot: "db/src",
 		barrel: "db/src/index.ts",
 		schemaModule: "db/src/schema.ts",
-		zodModule: "db/src/zod-schemas.ts",
 		moduleSurface: { "connection.ts": "db:client", "like-escape.ts": "db:util" },
 	};
 	const sources: Record<string, string> = {
@@ -429,7 +428,6 @@ describe("AU28 — database surfaces", () => {
 			export type Bet = typeof bets.$inferSelect;
 			export const notATable = 5;
 		`,
-		"db/src/zod-schemas.ts": "export const betSchema = createSelectSchema(bets);",
 		"db/src/index.ts": `
 			export { bets, Bet, notATable } from "./schema.js";
 			export { createPgliteDb } from "./connection.js";
@@ -453,13 +451,6 @@ describe("AU28 — database surfaces", () => {
 		expect(index.resolve("db/src/index.ts", "Bet", false).surface).toBe("db:row-type");
 		expect(index.resolve("db/src/index.ts", "createPgliteDb", false).surface).toBe("db:client");
 		expect(index.resolve("db/src/index.ts", "escapeLikePattern", false).surface).toBe("db:util");
-	});
-
-	it("treats a generated zod schema as a reach into the table it came from", () => {
-		expect(index.resolve("db/src/zod-schemas.ts", "betSchema", false)).toMatchObject({
-			surface: "db:table",
-			table: "bets",
-		});
 	});
 
 	it("treats taking the module whole as the schema namespace", () => {
@@ -494,7 +485,6 @@ describe("AU28 — re-export laundering", () => {
 				export const bets = pgTable("bets", {});
 				export type Bet = typeof bets.$inferSelect;
 			`,
-		"framework/db/src/zod-schemas.ts": "export const betSchema = createSelectSchema(bets);",
 		"framework/db/src/index.ts": `
 				export { bets, Bet } from "./schema.js";
 				export { escapeLikePattern } from "./like-escape.js";
@@ -547,7 +537,6 @@ describe("AU28 — re-export laundering", () => {
 					sourceRoot: "framework/db/src",
 					barrel: "framework/db/src/index.ts",
 					schemaModule: "framework/db/src/schema.ts",
-					zodModule: "framework/db/src/zod-schemas.ts",
 					moduleSurface: { "like-escape.ts": "db:util" },
 				},
 				repo.readFile,

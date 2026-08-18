@@ -1,4 +1,4 @@
-import { createPgDb } from "@hyperidle/db";
+import { createPostgresDb } from "@hyperidle/db";
 import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 
 // @lore AF17: seed-pg-cli now calls runFactoryBootstrap (factory rows only).
@@ -17,7 +17,7 @@ async function main(): Promise<number> {
 		process.stderr.write("[seed:pg] DATABASE_URL is required for Postgres seeding.\n");
 		return 1;
 	}
-	const { db, close } = createPgDb({ url });
+	const { db, close } = createPostgresDb(url);
 	try {
 		await runFactoryBootstrap(db);
 		process.stdout.write("[seed:pg] Factory bootstrap complete.\n");

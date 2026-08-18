@@ -30,7 +30,6 @@ export interface DatabasePackageConfig {
 	readonly sourceRoot: string;
 	readonly barrel: string;
 	readonly schemaModule: string;
-	readonly zodModule: string;
 	readonly moduleSurface: Readonly<Record<string, DbSurface>>;
 }
 
@@ -126,24 +125,6 @@ export function buildDbSurfaceIndex(
 		);
 	}
 
-	// --- zod schemas are the same table wearing a different hat ------------------------------
-	// `createSelectSchema(bets)` is a reach into `bets`. Allowing the generated schema while
-	// forbidding the table would be a hole straight around the ownership rule.
-	const zodTable = new Map<string, string>();
-	const zod = parse(config.zodModule, readFile(config.zodModule));
-	for (const statement of zod.statements) {
-		if (!ts.isVariableStatement(statement)) continue;
-		for (const declaration of statement.declarationList.declarations) {
-			if (!ts.isIdentifier(declaration.name) || declaration.initializer === undefined) continue;
-			if (!ts.isCallExpression(declaration.initializer)) continue;
-			const fn = declaration.initializer.expression;
-			if (!(ts.isIdentifier(fn) && /^create(Select|Insert)Schema$/.test(fn.text))) continue;
-			const arg = declaration.initializer.arguments[0];
-			if (arg !== undefined && ts.isIdentifier(arg) && tables.has(arg.text))
-				zodTable.set(declaration.name.text, arg.text);
-		}
-	}
-
 	// --- the barrel: symbol → the module it came from -----------------------------------------
 	const barrelSurface = new Map<string, DbSurface>();
 	const barrelTable = new Map<string, string>();
@@ -194,14 +175,6 @@ export function buildDbSurfaceIndex(
 
 		if (base.startsWith("__testing__/") || base.startsWith("__tests__/"))
 			return { surface: "db:testing" };
-
-		if (toFile === config.zodModule) {
-			const table = zodTable.get(symbol);
-			if (table !== undefined) return { surface: "db:table", table };
-			if (namespace) return { surface: "db:schema-ns" };
-			unplaced.set(`zod:${symbol}`, "exported from the zod module but not generated from a table");
-			return { surface: "db:unknown", unknownReason: "not generated from a table" };
-		}
 
 		if (toFile === config.schemaModule) {
 			if (namespace) return { surface: "db:schema-ns" };

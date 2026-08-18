@@ -11,3 +11,7 @@ for a future deletion to succeed.
 - `BakedContextKnowledgeItem` — local mirror of the same type in @hyperidle/work-intent-port; same boundary constraint as BakedWorkIntentRequest above. Cannot be deleted independently (BakedContextBundle references it).
 
 - `BakedContextBundle` — local mirror of the same type in @hyperidle/work-intent-port; same boundary constraint as BakedWorkIntentRequest above. Used internally by BakedWorkIntentRequest.
+
+- `triggerResolutionHistory` — table row (bundle-01, row 45). Table deletion is stage 3 only, after every reader and writer is gone. The type aliases `TriggerResolutionHistoryRow` and `NewTriggerResolutionHistoryRow` were deleted in this bundle; the table itself waits for the stage-3 pass.
+
+- `filesystemCaptures` — table row (bundle-01, row 46). Table deletion is stage 3 only. The type aliases `FilesystemCaptureRow` and `NewFilesystemCaptureRow` were deleted in this bundle; the table and its INSERT site in mounter-registry wait for the stage-3 pass.

@@ -1,4 +1,4 @@
-import { createPgDb } from "@hyperidle/db";
+import { createPostgresDb } from "@hyperidle/db";
 import { seedDemoWorld } from "./demo-fixture.js";
 import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 
@@ -22,7 +22,7 @@ async function main(): Promise<number> {
 		return 1;
 	}
 	const demo = process.argv.includes("--demo") || process.env.HYPERIDLE_DEMO === "1";
-	const { db, close } = createPgDb({ url });
+	const { db, close } = createPostgresDb(url);
 	try {
 		await runFactoryBootstrap(db);
 		if (demo) {

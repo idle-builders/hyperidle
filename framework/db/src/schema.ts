@@ -1041,11 +1041,6 @@ export const taskPlanningSignals = pgTable(
 	(table) => [index("tsf_task_id_idx").on(table.taskId)],
 );
 
-export type KnowledgeAppProjectionRow = typeof knowledgeAppProjection.$inferSelect;
-export type NewKnowledgeAppProjectionRow = typeof knowledgeAppProjection.$inferInsert;
-export type TaskPlanningSignalRow = typeof taskPlanningSignals.$inferSelect;
-export type NewTaskPlanningSignalRow = typeof taskPlanningSignals.$inferInsert;
-
 // --- Notification queue (H2) ---
 
 export const notificationQueue = pgTable(
@@ -1249,7 +1244,6 @@ export const filesystemInjections = pgTable(
 
 export type FilesystemRow = typeof filesystems.$inferSelect; // DB row (resourceRef: string). NOT named `Filesystem`.
 export type NewFilesystem = typeof filesystems.$inferInsert;
-export type FilesystemInjectionRow = typeof filesystemInjections.$inferSelect;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
 // The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/filesystem-contract — see §1.
 
@@ -1284,9 +1278,6 @@ export const filesystemCaptures = pgTable(
 		index("filesystem_captures_filesystem_idx").on(t.filesystemId),
 	],
 );
-
-export type FilesystemCaptureRow = typeof filesystemCaptures.$inferSelect;
-export type NewFilesystemCaptureRow = typeof filesystemCaptures.$inferInsert;
 
 // --- P3: Server-side credential storage (shared mode) ---
 
@@ -1587,7 +1578,6 @@ export const operationOutcomes = pgTable("operation_outcomes", {
 // @lore U1: Team (formerly Product) is the domain entity. TeamMember (formerly Team)
 // is the agent-membership group. See architecture U1 §4.2.
 export type Team = typeof teams.$inferSelect;
-export type NewTeam = typeof teams.$inferInsert;
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -1595,14 +1585,9 @@ export type NewUser = typeof users.$inferInsert;
 // @lore AU26 G1: the run-config row types. `AgentRunConfigRow` is the raw
 // table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s
 // `AgentRunConfig` is the keyless value object callers actually consume.
-export type AgentRunConfigRow = typeof agentRunConfig.$inferSelect;
 export type NewAgentRunConfigRow = typeof agentRunConfig.$inferInsert;
 
-export type TeamRunConfigDefaultsRow = typeof teamRunConfigDefaults.$inferSelect;
-export type NewTeamRunConfigDefaultsRow = typeof teamRunConfigDefaults.$inferInsert;
-
 export type TeamMember = typeof teamMembers.$inferSelect;
-export type NewTeamMember = typeof teamMembers.$inferInsert;
 
 export type Bet = typeof bets.$inferSelect;
 export type NewBet = typeof bets.$inferInsert;
@@ -1611,21 +1596,14 @@ export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
 
 export type Session = typeof sessions.$inferSelect;
-export type NewSession = typeof sessions.$inferInsert;
 
 export type AgentSessionRequest = typeof agentSessionRequests.$inferSelect;
-export type NewAgentSessionRequest = typeof agentSessionRequests.$inferInsert;
 export type AgentWorkIntent = typeof agentWorkIntents.$inferSelect;
-export type NewAgentWorkIntent = typeof agentWorkIntents.$inferInsert;
 export type ExplicitSessionStart = typeof explicitSessionStarts.$inferSelect;
-
-export type TriggerResolutionHistoryRow = typeof triggerResolutionHistory.$inferSelect;
-export type NewTriggerResolutionHistoryRow = typeof triggerResolutionHistory.$inferInsert;
 
 export type Routine = typeof routines.$inferSelect;
 export type NewRoutine = typeof routines.$inferInsert;
 
-export type RoutineRun = typeof routineRuns.$inferSelect;
 export type NewRoutineRun = typeof routineRuns.$inferInsert;
 
 export type Thread = typeof threads.$inferSelect;
@@ -1637,47 +1615,23 @@ export type NewMessage = typeof messages.$inferInsert;
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
 
-export type OrgEdge = typeof orgEdges.$inferSelect;
-export type NewOrgEdge = typeof orgEdges.$inferInsert;
-
 export type KnowledgeItem = typeof knowledgeItems.$inferSelect;
-export type NewKnowledgeItem = typeof knowledgeItems.$inferInsert;
-
-export type KnowledgeEditLogEntry = typeof knowledgeEditLog.$inferSelect;
-export type NewKnowledgeEditLogEntry = typeof knowledgeEditLog.$inferInsert;
-
-export type KnowledgeAccessLogEntry = typeof knowledgeAccessLog.$inferSelect;
-export type NewKnowledgeAccessLogEntry = typeof knowledgeAccessLog.$inferInsert;
-
-export type KnowledgeConflict = typeof knowledgeConflicts.$inferSelect;
-export type NewKnowledgeConflict = typeof knowledgeConflicts.$inferInsert;
 
 export type NotificationQueueRow = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
 export type ArtifactRow = typeof artifacts.$inferSelect;
-export type NewArtifactRow = typeof artifacts.$inferInsert;
 
-export type PropagationLogRow = typeof propagationLog.$inferSelect;
 export type NewPropagationLogRow = typeof propagationLog.$inferInsert;
 
 export type ServerCredential = typeof serverCredentials.$inferSelect;
-export type NewServerCredential = typeof serverCredentials.$inferInsert;
-
-export type ServerConfigRow = typeof serverConfig.$inferSelect;
-export type NewServerConfigRow = typeof serverConfig.$inferInsert;
 
 export type PluginRow = typeof plugins.$inferSelect;
-export type NewPluginRow = typeof plugins.$inferInsert;
 
 export type PluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferSelect;
-export type NewPluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferInsert;
 
 export type ConfigurationOverrideRow = typeof configurationOverrides.$inferSelect;
 export type NewConfigurationOverrideRow = typeof configurationOverrides.$inferInsert;
-
-export type HintProgressRow = typeof hintProgress.$inferSelect;
-export type NewHintProgressRow = typeof hintProgress.$inferInsert;
 
 export type LoginSession = typeof loginSessions.$inferSelect;
 export type NewLoginSession = typeof loginSessions.$inferInsert;
@@ -1692,7 +1646,6 @@ export type TailoredGrant = typeof tailoredGrants.$inferSelect;
 export type NewTailoredGrant = typeof tailoredGrants.$inferInsert;
 
 export type OperationOutcome = typeof operationOutcomes.$inferSelect;
-export type NewOperationOutcome = typeof operationOutcomes.$inferInsert;
 
 // --- AN1: Service connections (per-user external tool connections) ---
 
@@ -1746,8 +1699,3 @@ export const serviceConnections = pgTable(
 
 export type ServiceConnectionRow = typeof serviceConnections.$inferSelect;
 export type NewServiceConnectionRow = typeof serviceConnections.$inferInsert;
-
-export type TaskDispatchAttempt = typeof taskDispatchAttempts.$inferSelect;
-export type NewTaskDispatchAttempt = typeof taskDispatchAttempts.$inferInsert;
-export type AgentLifecycleInboxRow = typeof agentLifecycleInbox.$inferSelect;
-export type NewAgentLifecycleInboxRow = typeof agentLifecycleInbox.$inferInsert;
