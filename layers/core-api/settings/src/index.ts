@@ -55,16 +55,9 @@ export {
 export type { RoutineReader, SettingsCredentialCipher, SettingsUserDirectory } from "./ports.js";
 
 // -- server config (P3 — server_config single-row table read/write) --
-export type {
-	ObservabilityConfig,
-	ObservabilityConfigPatch,
-	ServerConfig,
-	ServerConfigPatch,
-} from "./server-config.js";
+export type { ServerConfig, ServerConfigPatch } from "./server-config.js";
 export {
 	migrateCredentialsToStore,
-	readObservabilityConfig,
 	readServerConfig,
-	updateObservabilityConfig,
 	updateServerConfig,
 } from "./server-config.js";

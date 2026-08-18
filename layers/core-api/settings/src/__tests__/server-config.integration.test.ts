@@ -99,12 +99,12 @@ describe("server config read/write", () => {
 			const secondHandle = new Proxy(db, {});
 			await Promise.all([
 				updateServerConfig(firstHandle, { notifications: { reviewAlerts: false } }),
-				updateServerConfig(secondHandle, { observability: { adapter: "noop" } }),
+				updateServerConfig(secondHandle, { harnessDisabled: ["codex"] }),
 			]);
 
 			const config = await readServerConfig(db);
 			expect(config.notifications.reviewAlerts).toBe(false);
-			expect(config.observability.adapter).toBe("noop");
+			expect(config.harnessDisabled).toEqual(["codex"]);
 		});
 	});
 

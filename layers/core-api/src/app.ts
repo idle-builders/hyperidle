@@ -14,7 +14,6 @@ import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hype
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
-import { type ObservabilityDeps, startObservability } from "./observability-runtime.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
@@ -99,16 +98,6 @@ interface AppOptions {
 	 * internal `sendTest`/`flush`/`runDigest` wrappers.
 	 */
 	notificationAdapterFactory?: () => NotificationAdapter;
-	/**
-	 * Optional override for the observability adapter (H3). Tests inject
-	 * a FakeAdapter whose `record` captures every event. When omitted
-	 * production wiring picks console or noop based on
-	 * `server_config.observability.adapter`.
-	 *
-	 * Typed as `ObservabilityDeps['adapter']` — the test seam field on the
-	 * single deps contract, same shape as before (structural adapter interface).
-	 */
-	observabilityAdapter?: ObservabilityDeps["adapter"];
 	/**
 	 * Optional WebSocket registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router just after the
@@ -455,20 +444,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 			}),
 		);
 
-		// Observability runtime. `startObservability` wires the adapter,
-		// dispatcher and bus subscription in one call.
-		//
-		// @lore AU26 C2: the `/api/observability*` routes are GONE — all four had
-		// zero requesters repo-wide — and with them the `reconfigure` seam that
-		// let PATCH /config rotate the adapter without a process restart. Config
-		// is read once at boot; changing it is a restart.
 		const db = options.db;
-		const observabilityRuntime = await startObservability({
-			db,
-			eventBus,
-			...(options?.observabilityAdapter ? { adapter: options.observabilityAdapter } : {}),
-		});
-
 		const disposers: Array<() => void> = [];
 
 		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus, agentOrchestration }) ?? [];
@@ -498,9 +474,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		});
 		disposers.push(unsubDepWatcher);
 
-		disposers.push(() => {
-			void observabilityRuntime.dispose();
-		});
 		APP_DISPOSERS.set(api, disposers);
 	}
 

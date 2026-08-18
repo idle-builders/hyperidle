@@ -1,7 +1,7 @@
 /**
  * Shared secret-token regex patterns used to scrub error messages and
  * tool-arg summaries across the server. Consolidated here so inline
- * scrubbers (dispatcher.summarizeToolArgs) and context-aware error
+ * scrubbers (summarizeToolArgs) and context-aware error
  * scrubbers (notifications/redact.scrubErrorMessage)
  * share a single set of patterns.
  *
@@ -14,40 +14,40 @@
 export const REDACTED_TAG = "[REDACTED]" as const;
 
 /** GitHub personal-access / user-to-server tokens. */
-export const GITHUB_TOKEN_RE: RegExp = /gh[pousr]_[A-Za-z0-9]{20,}/g;
+const GITHUB_TOKEN_RE: RegExp = /gh[pousr]_[A-Za-z0-9]{20,}/g;
 
 /** `Bearer <token>` in HTTP Authorization headers. */
-export const BEARER_TOKEN_RE: RegExp = /Bearer\s+[A-Za-z0-9._-]{8,}/g;
+const BEARER_TOKEN_RE: RegExp = /Bearer\s+[A-Za-z0-9._-]{8,}/g;
 
 /** OpenAI / generic "sk-" secret key shape. */
-export const SK_TOKEN_RE: RegExp = /sk-[A-Za-z0-9._-]{8,}/g;
+const SK_TOKEN_RE: RegExp = /sk-[A-Za-z0-9._-]{8,}/g;
 
 /** Generic "pk-" publishable key shape. */
-export const PK_TOKEN_RE: RegExp = /pk-[A-Za-z0-9._-]{8,}/g;
+const PK_TOKEN_RE: RegExp = /pk-[A-Za-z0-9._-]{8,}/g;
 
 /** `tk_`-prefixed generic tokens. */
-export const TK_TOKEN_RE: RegExp = /\btk_[A-Za-z0-9._-]{8,}/g;
+const TK_TOKEN_RE: RegExp = /\btk_[A-Za-z0-9._-]{8,}/g;
 
 /** 32+ hex chars (covers many API secret shapes). */
-export const HEX_TOKEN_RE: RegExp = /\b[A-Fa-f0-9]{32,}\b/g;
+const HEX_TOKEN_RE: RegExp = /\b[A-Fa-f0-9]{32,}\b/g;
 
 /** AWS access key (AKIA + 16 uppercase alnum). */
-export const AWS_AKIA_RE: RegExp = /\bAKIA[0-9A-Z]{16}\b/g;
+const AWS_AKIA_RE: RegExp = /\bAKIA[0-9A-Z]{16}\b/g;
 
 /** Slack tokens: xox[abpsr]-... */
-export const SLACK_TOKEN_RE: RegExp = /\bxox[abpsr]-[A-Za-z0-9-]{10,}\b/g;
+const SLACK_TOKEN_RE: RegExp = /\bxox[abpsr]-[A-Za-z0-9-]{10,}\b/g;
 
 /** Google API keys: AIza followed by 35 alnum / _ / -. */
-export const GOOGLE_API_KEY_RE: RegExp = /\bAIza[0-9A-Za-z_-]{35}\b/g;
+const GOOGLE_API_KEY_RE: RegExp = /\bAIza[0-9A-Za-z_-]{35}\b/g;
 
 /** JWTs: three base64url segments separated by dots, starting with eyJ. */
-export const JWT_RE: RegExp = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
+const JWT_RE: RegExp = /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g;
 
 /** Stripe live/test keys: sk_live_, sk_test_, pk_live_, pk_test_, rk_live_, rk_test_. */
-export const STRIPE_TOKEN_RE: RegExp = /\b(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{8,}\b/g;
+const STRIPE_TOKEN_RE: RegExp = /\b(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{8,}\b/g;
 
 /** PEM private-key body (BEGIN ... END block). Multiline-safe. */
-export const PEM_BLOCK_RE: RegExp =
+const PEM_BLOCK_RE: RegExp =
 	/-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----/g;
 
 /**
@@ -121,38 +121,4 @@ function redactSafeStringify(value: unknown): string {
 	} catch {
 		return "[unserialisable]";
 	}
-}
-
-/**
- * Redact credentials from a database/connection URL for logging.
- *
- * Replaces the password in `scheme://user:password@host/…` forms and,
- * best-effort, scrubs `?password=` and `?pwd=` query params. Parses via
- * `new URL()` when possible; falls back to a regex otherwise.
- *
- * @lore Single source of truth for DB URL scrubbing. Previously duplicated
- * in `framework/db/src/setup-cli.ts` (now `tools/setup/src/setup-cli.ts`, AU29)
- * and `framework/db/src/__testing__/pg-test-runner.ts` (H4 review finding).
- */
-export function redactDbUrl(url: string): string {
-	let out = url;
-	try {
-		const parsed = new URL(url);
-		if (parsed.password) {
-			parsed.password = "***";
-		}
-		for (const key of ["password", "pwd", "pass"]) {
-			if (parsed.searchParams.has(key)) {
-				parsed.searchParams.set(key, "***");
-			}
-		}
-		out = parsed.toString();
-	} catch {
-		// Not a URL-parseable string — fall through to the regex.
-	}
-	// Belt-and-suspenders: strip the `:password@` form even if URL parsing
-	// missed it (some postgres URIs accept user:pw@ shapes the WHATWG URL
-	// parser rejects).
-	out = out.replace(/(:\/\/[^:@/]+:)([^:@/]+)(@)/, "$1***$3");
-	return out;
 }
