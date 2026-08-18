@@ -48,6 +48,13 @@ existing approve action does, not how it looks.
 **Out of scope.** Any general approval gate over ordinary agent actions. Reworking the review screen's
 layout. Approval routing across teams.
 
+**The only irreversible tool has been deleted.** `commit_file` was the single builtin that declared
+itself irreversible, and the cleanup pass removed it — fairly: it had no callers. The consequence for
+this work package is that inverting the default leaves *nothing* routed to review, so the loop cannot
+be demonstrated end to end without a genuinely consequential tool that carries the signal. Decide
+which tool earns it, or recreate one, and treat that as part of this work rather than a surprise
+found during it. The deleted implementation is recoverable from git history.
+
 ## Acceptance criteria
 
 - Approving a proposed action results in the proposing agent performing that specific action, observable
