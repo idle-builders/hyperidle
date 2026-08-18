@@ -47,37 +47,6 @@ export interface FactoryFacilitatorSpec {
 }
 
 /**
- * The system-assistant singleton entry.
- * null = no system assistant (Minimal factory roster).
- */
-export interface FactorySystemAssistantSpec {
-	/** always "assistant" */
-	readonly role: string;
-	/** id-hint to preserve: "seed-agent-cos" */
-	readonly idHint: string;
-}
-
-/**
- * The factory-bootstrap roster spec — a PURE VALUE consumed by
- * `applyFactoryCoreState(db)`.
- *
- * Determines:
- *   - Which facilitator agents exist (one per entry in `facilitators`)
- *   - Whether a system-assistant singleton exists (`systemAssistant`)
- *
- * Does NOT determine:
- *   - `system:propagation` (always written unconditionally by `applyFactoryCoreState`)
- *   - `seed-ki-1` knowledge item (always written by `applyFactoryCoreState`)
- *   - Facilitator display names (derived from `community` via `COMMUNITY_DISPLAY_NAMES`, below)
- */
-export interface FactoryRosterSpec {
-	/** One facilitator per community of practice. Empty under Minimal. */
-	readonly facilitators: readonly FactoryFacilitatorSpec[];
-	/** The system-assistant singleton. null under Minimal. */
-	readonly systemAssistant: FactorySystemAssistantSpec | null;
-}
-
-/**
  * The default factory roster — reproduces today's pre-AK6 seed rows byte-for-byte.
  *
  * 5 communities × 1 facilitator + 1 system assistant.
@@ -117,19 +86,7 @@ export const COMMUNITY_DISPLAY_NAMES: Record<PracticeCommunity, string> = {
 	facilitation: "Facilitation",
 };
 
-/**
- * @lore AU29 §2.5.1: one factory agent the core-api first-boot face ensured —
- * the id/role pair the agent-orchestration run-config face's prompt/AH2
- * backfill needs. Lives here (not in either layer face) because the other
- * layer importing it would be a new `layer → layer (other)` crossing, which
- * the baseline generator refuses.
- */
-export interface FactoryAgentRef {
-	readonly id: string;
-	readonly role: string;
-}
-
-export const defaultFactoryRoster: FactoryRosterSpec = {
+export const defaultFactoryRoster = {
 	facilitators: [
 		{
 			community: "build",

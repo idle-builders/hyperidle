@@ -36,9 +36,3 @@ export {
 	readAgentRunConfigs,
 	writeAgentRunConfig,
 } from "./agent-run-config-store.js";
-export type { TeamRunConfigDefaults } from "./team-run-config-defaults-store.js";
-export {
-	EMPTY_TEAM_RUN_CONFIG_DEFAULTS,
-	readTeamRunConfigDefaults,
-	writeTeamRunConfigDefaults,
-} from "./team-run-config-defaults-store.js";

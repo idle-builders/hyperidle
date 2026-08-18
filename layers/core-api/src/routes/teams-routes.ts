@@ -254,22 +254,6 @@ export function createTeamRoutes(
 		const teamMembersId = `team-${crypto.randomUUID()}`;
 
 		// @lore AU20 Am7: atomic createTeam inserts teams + teamMembers companion in one call.
-		//
-		// AV1: persist primary harness as team default — every agent-creation path reads it.
-		// @lore AU26 G1 (§D-L): the three `teams.default_*` columns moved into
-		// `team_run_config_defaults`, so the write is a second call to their owner.
-		// The route stays core-hosted and delegates the persist down (§D-A rule 3).
-		//
-		// AU31 §3.1 site 2 — RELINQUISHED (founder ruling, architecture.md
-		// §3.1/§13 item 9): the seam write can never join a caller's transaction
-		// (§3.2), so `runConfig.writeTeamDefaults` follows after `createTeam`
-		// commits rather than sharing its transaction. On a failed write, the
-		// team exists with no harness defaults, so agents scaffolded onto it
-		// later fall back to builtin (`org/src/scaffold-agents.ts:194-202`) —
-		// the team settings edit repairs it.
-		//
-		// `createTeam`'s own two writes (`teams`, `teamMembers`) are core writes,
-		// not the cross-layer one, so they stay atomic with each other.
 		await db.transaction(async (tx) => {
 			await createTeam(tx, {
 				id: teamId,
@@ -285,11 +269,6 @@ export function createTeamRoutes(
 				activeBets: 0,
 				formedAt: now,
 			});
-		});
-		await agentOrchestration.runConfig.writeTeamDefaults(teamId, {
-			defaultHarnessType: primaryHarness?.harnessType ?? null,
-			defaultModelId: primaryHarness?.modelId ?? null,
-			defaultModelProvider: primaryHarness?.modelProvider ?? null,
 		});
 
 		// AU3: route through app-owned scaffolding for the default roster.

@@ -25,7 +25,7 @@ import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
  * request shape — a genuine simplification (the old function never read
  * them), not a behavior change.
  */
-export interface AgentScaffoldRequest {
+interface AgentScaffoldRequest {
 	readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
 	readonly teamName: string | null;
 	readonly functions: readonly string[] | null;

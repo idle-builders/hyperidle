@@ -35,7 +35,6 @@ import type {
 	AgentOrchestrationRunConfigView,
 	AgentOrchestrationSessionWireRow,
 	AgentOrchestrationStoppedRun,
-	AgentOrchestrationTeamRunConfigDefaultsView,
 	AgentOrchestrationTransport,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
@@ -103,15 +102,6 @@ interface AgentOrchestrationHcClient {
 			};
 			readonly batch: {
 				$post(args: { readonly json: { readonly agentIds: readonly string[] } }): Promise<Response>;
-			};
-		};
-		readonly "team-run-config-defaults": {
-			readonly ":teamId": {
-				$get(args: { readonly param: { readonly teamId: string } }): Promise<Response>;
-				$patch(args: {
-					readonly param: { readonly teamId: string };
-					readonly json: AgentOrchestrationTeamRunConfigDefaultsView;
-				}): Promise<Response>;
 			};
 		};
 		readonly filesystems: {
@@ -281,25 +271,6 @@ export function buildAgentOrchestrationPort(
 					json: patch,
 				});
 				if (!res.ok) return throwSeamError("runConfig.write", res);
-			},
-			async readTeamDefaults(teamId: string): Promise<AgentOrchestrationTeamRunConfigDefaultsView> {
-				const res = await client["agent-orchestration"]["team-run-config-defaults"][":teamId"].$get(
-					{ param: { teamId } },
-				);
-				if (!res.ok) return throwSeamError("runConfig.readTeamDefaults", res);
-				const body = (await res.json()) as {
-					readonly defaults: AgentOrchestrationTeamRunConfigDefaultsView;
-				};
-				return body.defaults;
-			},
-			async writeTeamDefaults(
-				teamId: string,
-				defaults: AgentOrchestrationTeamRunConfigDefaultsView,
-			): Promise<void> {
-				const res = await client["agent-orchestration"]["team-run-config-defaults"][
-					":teamId"
-				].$patch({ param: { teamId }, json: defaults });
-				if (!res.ok) return throwSeamError("runConfig.writeTeamDefaults", res);
 			},
 		},
 		filesystems: {

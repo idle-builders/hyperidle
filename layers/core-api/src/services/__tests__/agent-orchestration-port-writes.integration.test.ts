@@ -340,37 +340,4 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(await port.filesystems.getTeamId("aopw-fst-does-not-exist")).toBeNull();
 	});
 
-	// AU31 §3 clause 2 — the team-defaults pair `teams-routes.ts` needs
-	// (:540 reads, :280 writes, site 2's relinquished write).
-	test("runConfig.writeTeamDefaults then readTeamDefaults round-trips through the real route", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-team-defaults");
-		await db
-			.insert(teams)
-			.values({ id: "aopw-td-team", name: "aopw-td", phase: "build", createdAt: NOW });
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-
-		// Absent row ≡ all-null row.
-		const before = await port.runConfig.readTeamDefaults("aopw-td-team");
-		expect(before).toEqual({
-			defaultHarnessType: null,
-			defaultModelId: null,
-			defaultModelProvider: null,
-		});
-
-		await port.runConfig.writeTeamDefaults("aopw-td-team", {
-			defaultHarnessType: "claude-code",
-			defaultModelId: "claude-sonnet-4-6",
-			defaultModelProvider: "anthropic",
-		});
-		const after = await port.runConfig.readTeamDefaults("aopw-td-team");
-
-		expect(after).toEqual({
-			defaultHarnessType: "claude-code",
-			defaultModelId: "claude-sonnet-4-6",
-			defaultModelProvider: "anthropic",
-		});
-	});
 });
