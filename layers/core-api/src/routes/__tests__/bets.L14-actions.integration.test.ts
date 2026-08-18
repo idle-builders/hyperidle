@@ -19,18 +19,8 @@
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
-
-// AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
-// to the real migrated `org` Service.
-const teamCapacity = {
-	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
-	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
-		updateTeam(db, teamId, { activeBets }),
-};
 
 const TEST_API_KEY = "test-key-L14";
 

@@ -56,7 +56,6 @@ export interface SessionStartResolverDeps {
 	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
-
 /** The baked `session_start` request shape, matching `resolveIntentInputInternal`'s current return. */
 export interface BakedSessionStartRequest {
 	readonly defaultAgentId: string;

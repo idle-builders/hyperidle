@@ -69,10 +69,7 @@ async function seedBaseData(db: HyperIdleDb): Promise<void> {
 
 describe("bet-state-machine", () => {
 	describe("transitionBet", () => {
-		test("creates bet as draft, active transitions to active", async ({
-			db,
-			eventBus,
-		}) => {
+		test("creates bet as draft, active transitions to active", async ({ db, eventBus }) => {
 			await seedBaseData(db);
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 

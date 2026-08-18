@@ -194,7 +194,12 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 		// earlier owner's cleanup observation.
 		await new Promise<void>((resolve) => setImmediate(resolve));
 		await new Promise<void>((resolve) => setImmediate(resolve));
-		const off = vi.spyOn(eventBus, "off");
+		// off is private — cast through any to observe cleanup without making the method public.
+		// biome-ignore lint/suspicious/noExplicitAny: test-only spy on a private method; keeping it public is worse
+		const off = vi.spyOn(eventBus as any, "off") as unknown as {
+			mock: { calls: [string, unknown][] };
+			mockRestore(): void;
+		};
 		const clear = vi.spyOn(globalThis, "clearInterval");
 		const observedEffects: Array<{
 			unsubscribedEvents: string[];

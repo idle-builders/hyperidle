@@ -18,7 +18,6 @@ import {
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
-import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";

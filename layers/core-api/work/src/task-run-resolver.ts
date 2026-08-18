@@ -77,7 +77,6 @@ export interface TaskRunResolverDeps {
 	resolveOrCreateCallingThread?(db: HyperIdleDb, taskId: string, agentId: string): Promise<string>;
 }
 
-
 /** The baked `task_run` request shape, matching `resolveIntentInputInternal`'s current return. */
 export interface BakedTaskRunRequest {
 	readonly defaultAgentId: string;

@@ -207,8 +207,8 @@ export async function updateBetField(
 	betId: string,
 	field: string,
 	newValue: string,
-	reason: string,
-	actor?: string,
+	_reason: string,
+	_actor?: string,
 ): Promise<void> {
 	if (!MUTABLE_FIELDS.has(field)) {
 		throw new Error(`Field '${field}' is not mutable on an active bet`);

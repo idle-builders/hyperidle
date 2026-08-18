@@ -34,4 +34,3 @@ export function deriveTitle(description: string, betId: string): string {
 	}
 	return betId;
 }
-
