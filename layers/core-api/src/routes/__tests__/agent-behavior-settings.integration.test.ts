@@ -1,10 +1,9 @@
-import type { HyperIdleDb } from "@hyperidle/db";
+import { createHash } from "node:crypto";
+import { type HyperIdleDb, pluginConfigurationDefaults, plugins } from "@hyperidle/db";
+import type { ConfigurationKind } from "@hyperidle/domain-model";
+import { BUILTIN_PLUGIN_ID } from "@hyperidle/domain-model";
 import { failClosedAssertion } from "@hyperidle/http-middleware";
-import {
-	seedConfigurationDefaults,
-	setPluginState,
-	writeConfigurationOverride,
-} from "@hyperidle/settings";
+import { writeConfigurationOverride } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
@@ -18,127 +17,178 @@ function authHeaders(): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY };
 }
 
+function testHash(value: string): string {
+	return createHash("sha256").update(value).digest("hex");
+}
+
+function testStableJson(value: unknown): string {
+	return JSON.stringify(value);
+}
+
+function defaultRowId(pluginId: string, kind: string, key: string): string {
+	return `pd_${testHash(`${pluginId}\0${kind}\0${key}`).slice(0, 24)}`;
+}
+
 async function seedAgentBehaviorConfig(db: HyperIdleDb) {
-	await seedConfigurationDefaults(db, {
-		defaults: [
-			{
-				kind: "agent",
-				key: "agent.ast-founder",
-				value: {
-					id: "ast-founder",
-					name: "Assistant",
-					role: "assistant",
-					systemPrompt: "Help the founder.",
-					harnessType: "builtin",
-				},
-			},
-			{
-				kind: "skill",
-				key: "skill.ast-founder.create-bet",
-				value: {
-					userId: "ast-founder",
-					skillId: "create-bet",
-					autonomyLevel: 3,
-				},
-			},
-			{
-				kind: "routine",
-				key: "routine.daily-product-scan",
-				value: {
-					id: "daily-product-scan",
-					name: "Daily product scan",
-					ownerAgentId: "agent-product-manager",
-					triggerType: "calendar",
-					triggerConfig: { cron: "0 8 * * 1-5" },
-					active: true,
-				},
-			},
-			{
-				kind: "tool",
-				key: "tool.create_task",
-				value: {
-					name: "create_task",
-					description: "Create a task from agent output.",
-					enabled: true,
-				},
-			},
-			{
-				kind: "mcp_server",
-				key: "mcp_server.figma",
-				value: {
-					id: "mcp-figma",
-					service: "Figma",
-					serverUrl: "https://mcp.figma.example/sse",
-					health: "working",
-				},
-			},
-			{
-				kind: "trigger",
-				key: "trigger.task-accepted",
-				value: {
-					eventType: "task.accepted",
-					sourceKind: "task",
-					agentId: "ast-founder",
-				},
-			},
-		],
-		now: "2026-07-09T12:00:00Z",
-	});
+	const now = "2026-07-09T12:00:00Z";
 
-	await seedConfigurationDefaults(db, {
-		source: { id: "plugin.product-os", name: "Product OS", version: "1.0.0" },
-		defaults: [
-			{
-				kind: "trigger",
-				key: "trigger.daily-product-scan",
-				value: {
-					eventType: "routine.fire",
-					sourceKind: "routine",
-					scope: { sourceId: "daily-product-scan", teamId: "team-product" },
-					agentId: "agent-product-manager",
-					prompt: "Summarize customer signals and propose tasks.",
-				},
-			},
-		],
-		now: "2026-07-09T12:01:00Z",
-	});
+	// Insert plugins — builtin + three external plugins (growth disabled, legacy removed)
+	await db.insert(plugins).values([
+		{
+			id: BUILTIN_PLUGIN_ID,
+			name: "builtin",
+			version: "1.0.0",
+			state: "enabled",
+			installedAt: now,
+			updatedAt: now,
+		},
+		{
+			id: "plugin.product-os",
+			name: "Product OS",
+			version: "1.0.0",
+			state: "enabled",
+			installedAt: now,
+			updatedAt: now,
+		},
+		{
+			id: "plugin.growth",
+			name: "Growth",
+			version: "1.0.0",
+			state: "disabled",
+			installedAt: now,
+			updatedAt: "2026-07-09T12:03:00Z",
+			disabledAt: "2026-07-09T12:03:00Z",
+		},
+		{
+			id: "plugin.legacy",
+			name: "Legacy Ops",
+			version: "0.9.0",
+			state: "removed",
+			installedAt: now,
+			updatedAt: "2026-07-09T12:05:00Z",
+			removedAt: "2026-07-09T12:05:00Z",
+		},
+	]);
 
-	await seedConfigurationDefaults(db, {
-		source: { id: "plugin.growth", name: "Growth", version: "1.0.0" },
-		defaults: [
-			{
-				kind: "trigger",
-				key: "trigger.growth-digest",
-				value: {
-					eventType: "routine.fire",
-					sourceKind: "routine",
-					scope: { sourceId: "growth-digest" },
-					agentId: "agent-growth",
-					prompt: "Inspect growth metrics.",
-				},
+	type DefaultSeed = { pluginId: string; kind: ConfigurationKind; key: string; value: unknown };
+	const defaults: DefaultSeed[] = [
+		{
+			pluginId: BUILTIN_PLUGIN_ID,
+			kind: "agent",
+			key: "agent.ast-founder",
+			value: {
+				id: "ast-founder",
+				name: "Assistant",
+				role: "assistant",
+				systemPrompt: "Help the founder.",
+				harnessType: "builtin",
 			},
-		],
-		now: "2026-07-09T12:02:00Z",
-	});
-	await setPluginState(db, "plugin.growth", "disabled", "2026-07-09T12:03:00Z");
-
-	await seedConfigurationDefaults(db, {
-		source: { id: "plugin.legacy", name: "Legacy Ops", version: "0.9.0" },
-		defaults: [
-			{
-				kind: "tool",
-				key: "tool.legacy_report",
-				value: {
-					name: "legacy_report",
-					description: "Old report generator.",
-					enabled: true,
-				},
+		},
+		{
+			pluginId: BUILTIN_PLUGIN_ID,
+			kind: "skill",
+			key: "skill.ast-founder.create-bet",
+			value: {
+				userId: "ast-founder",
+				skillId: "create-bet",
+				autonomyLevel: 3,
 			},
-		],
-		now: "2026-07-09T12:04:00Z",
-	});
-	await setPluginState(db, "plugin.legacy", "removed", "2026-07-09T12:05:00Z");
+		},
+		{
+			pluginId: BUILTIN_PLUGIN_ID,
+			kind: "routine",
+			key: "routine.daily-product-scan",
+			value: {
+				id: "daily-product-scan",
+				name: "Daily product scan",
+				ownerAgentId: "agent-product-manager",
+				triggerType: "calendar",
+				triggerConfig: { cron: "0 8 * * 1-5" },
+				active: true,
+			},
+		},
+		{
+			pluginId: BUILTIN_PLUGIN_ID,
+			kind: "tool",
+			key: "tool.create_task",
+			value: {
+				name: "create_task",
+				description: "Create a task from agent output.",
+				enabled: true,
+			},
+		},
+		{
+			pluginId: BUILTIN_PLUGIN_ID,
+			kind: "mcp_server",
+			key: "mcp_server.figma",
+			value: {
+				id: "mcp-figma",
+				service: "Figma",
+				serverUrl: "https://mcp.figma.example/sse",
+				health: "working",
+			},
+		},
+		{
+			pluginId: BUILTIN_PLUGIN_ID,
+			kind: "trigger",
+			key: "trigger.task-accepted",
+			value: {
+				eventType: "task.accepted",
+				sourceKind: "task",
+				agentId: "ast-founder",
+			},
+		},
+		{
+			pluginId: "plugin.product-os",
+			kind: "trigger",
+			key: "trigger.daily-product-scan",
+			value: {
+				eventType: "routine.fire",
+				sourceKind: "routine",
+				scope: { sourceId: "daily-product-scan", teamId: "team-product" },
+				agentId: "agent-product-manager",
+				prompt: "Summarize customer signals and propose tasks.",
+			},
+		},
+		{
+			pluginId: "plugin.growth",
+			kind: "trigger",
+			key: "trigger.growth-digest",
+			value: {
+				eventType: "routine.fire",
+				sourceKind: "routine",
+				scope: { sourceId: "growth-digest" },
+				agentId: "agent-growth",
+				prompt: "Inspect growth metrics.",
+			},
+		},
+		{
+			pluginId: "plugin.legacy",
+			kind: "tool",
+			key: "tool.legacy_report",
+			value: {
+				name: "legacy_report",
+				description: "Old report generator.",
+				enabled: true,
+			},
+		},
+	];
 
+	for (const d of defaults) {
+		const valueJson = testStableJson(d.value);
+		await db.insert(pluginConfigurationDefaults).values({
+			id: defaultRowId(d.pluginId, d.kind, d.key),
+			pluginId: d.pluginId,
+			kind: d.kind,
+			key: d.key,
+			defaultValueJson: valueJson,
+			defaultVersionHash: testHash(valueJson),
+			createdAt: now,
+			updatedAt: now,
+		});
+	}
+
+	// Write user override for the product-os trigger
 	await writeConfigurationOverride(db, {
 		kind: "trigger",
 		key: "trigger.daily-product-scan",

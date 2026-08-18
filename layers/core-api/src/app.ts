@@ -400,7 +400,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
 		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus, agentOrchestration));
-		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route(
 			"/threads",
@@ -432,6 +431,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/search", createSearchRoutes(options.db, eventBus));
+		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
 		// @lore AU20 Ag6b: adapterFactory option replaced with adapterOverride (no config arg).
 		api.route(

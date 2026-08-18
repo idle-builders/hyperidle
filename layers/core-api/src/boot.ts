@@ -53,15 +53,10 @@ import {
 	resolveModel as resolveModelAgainstGateway,
 } from "@hyperidle/credential-access";
 import { DbCredentialResolver, readCredentials, writeCredential } from "@hyperidle/credentials";
-import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
+
 import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { listRoutines } from "@hyperidle/routine";
-import {
-	backfillConfigurationDefaults,
-	migrateCredentialsToStore,
-	readServerConfig,
-} from "@hyperidle/settings";
+import { migrateCredentialsToStore, readServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
@@ -149,27 +144,6 @@ export interface CoreApiBoot {
 	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
 	/** The production credential resolver this boot constructed (or the caller's override) — exposed for the same reason `wsHub` is: AH1's single-resolver invariant test asserts `instanceof DbCredentialResolver` against it. */
 	readonly credentialResolver?: CredentialResolver;
-	/**
-	 * AU2 / AU31 §2.2/§3 clause 2/§5.2: projects existing first-party behavior
-	 * (registered tools, builtin harness metadata, legacy rows) into the
-	 * editable configuration model. `users`/`routines`/`settings` are this
-	 * Layer's own — read in-layer here; `agentRunConfig` crosses the seam
-	 * (`AgentOrchestrationPort.runConfig.readBatch`, `options.agentOrchestration`)
-	 * exactly as it does everywhere else on this door. The ONE piece this
-	 * boot cannot reach is `serviceConnections` (`connections` is
-	 * agent-orchestration's own service) — the Application passes that
-	 * capability in from `bootAgentOrchestration`'s `serviceConnectionsReader`.
-	 * A DEFERRED call, not run inside this boot: the seam's transport does not
-	 * resolve until the composed app exists (§3.2 clause 4), so the
-	 * Application calls this AFTER mounting, same ordering constraint the
-	 * deleted `create-server.ts:920` backfill call already honored.
-	 */
-	readonly runConfigurationBackfill: (serviceConnections: {
-		readonly listByAuthSource: (
-			db: HyperIdleDb,
-			authSource: string,
-		) => Promise<ServiceConnectionRow[]>;
-	}) => Promise<void>;
 }
 
 /**
@@ -345,31 +319,6 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 
 	const disposers: Array<() => void> = [...takeAppDisposers(app)];
 
-	const agentOrchestrationPort = options?.agentOrchestration;
-	const runConfigurationBackfill = async (serviceConnections: {
-		readonly listByAuthSource: (
-			execDb: HyperIdleDb,
-			authSource: string,
-		) => Promise<ServiceConnectionRow[]>;
-	}): Promise<void> => {
-		if (!db) return;
-		await backfillConfigurationDefaults(db, {
-			users: { listUsersByKind: (execDb, kind) => listUsers(execDb, { kind }) },
-			routines: { listRoutines },
-			serviceConnections,
-			agentRunConfig: {
-				readAgentRunConfigs: (_execDb, agentUserIds) => {
-					if (!agentOrchestrationPort) {
-						throw new Error(
-							"runConfigurationBackfill requires AppOptions.agentOrchestration when db is provided.",
-						);
-					}
-					return agentOrchestrationPort.runConfig.readBatch(agentUserIds);
-				},
-			},
-		});
-	};
-
 	return {
 		app,
 		registerPreAuthRoutes: (apiRouter) => {
@@ -389,6 +338,5 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 			: {}),
 		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),
 		...(credentialResolver ? { credentialResolver } : {}),
-		runConfigurationBackfill,
 	};
 }

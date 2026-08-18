@@ -1,11 +1,7 @@
-import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
-import { seedConfigurationDefaults } from "@hyperidle/settings";
 import { BUILTIN_TOOL_CATALOG } from "@hyperidle/tool-protocol";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { buildToolDefinitions } from "../tool-definitions.js";
 import { STUB_TOOL_HANDLERS_PORTS } from "./stub-ports.js";
-
-const NOW = "2026-07-11T09:00:00.000Z";
 
 // Descriptor metadata (name/description/roles/reversibility) never touches a
 // port method — a stub ports bundle is enough to assemble the catalogue.
@@ -34,39 +30,5 @@ describe("builtin tool catalog consistency", () => {
 			expect(entry.roles).toEqual(tool?.roles);
 			expect(entry.reversibility).toEqual(tool?.reversibility);
 		}
-	});
-});
-
-describe("builtin tool catalog capability validation (AC5)", () => {
-	let handle: TestDbHandle;
-
-	beforeEach(async () => {
-		handle = await createTestDb();
-	});
-
-	afterEach(async () => {
-		await handle.close();
-	});
-
-	test("every catalog entry projects through the real validated seeding path without throwing", async () => {
-		const defaults = BUILTIN_TOOL_CATALOG.map((entry) => ({
-			kind: "tool" as const,
-			key: `tool.${entry.name}`,
-			value: {
-				name: entry.name,
-				description: entry.description,
-				roles: entry.roles ?? null,
-				reversibility: entry.reversibility ?? null,
-			},
-		}));
-
-		// Omitting source selects the service-owned built-in source.
-		// validateConfigurationValue over every seed before persisting (plugin-configuration.ts).
-		// A throw here means a catalog entry produced an invalid `tool` configuration
-		// value — proving capability validation is explicit and inspectable without
-		// the catalog owning runtime discovery.
-		await expect(
-			seedConfigurationDefaults(handle.db, { defaults, now: NOW }),
-		).resolves.toBeUndefined();
 	});
 });

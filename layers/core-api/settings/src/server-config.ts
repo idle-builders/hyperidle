@@ -17,7 +17,12 @@ import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/domain-mode
 import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import type { SettingsCredentialCipher } from "./ports.js";
+
+/** Secret transformation dependency for the one-shot credential migration. */
+interface CredentialCipher {
+	encryptCredentialValue(plaintext: string): string;
+	decryptCredentialValue(encrypted: string): string | null;
+}
 
 const NotificationsDeliverySchema = z.object({
 	enabled: z.boolean().default(false),
@@ -345,7 +350,7 @@ async function patchServerConfig(
 /** Relocate legacy inline keys before stripping them; idempotent and absent-only. */
 export async function migrateCredentialsToStore(
 	db: HyperIdleDb,
-	cipher: SettingsCredentialCipher,
+	cipher: CredentialCipher,
 	credentialStore: {
 		findByName(db: HyperIdleDb, name: string): Promise<ServerCredential | undefined>;
 		insert(
