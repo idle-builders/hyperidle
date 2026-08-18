@@ -24,7 +24,6 @@ import type {
 	SessionResult,
 } from "@hyperidle/harness-protocol";
 import { AdapterPool, createSandboxAdapter } from "@hyperidle/harness-registry";
-import { createSessionRequest } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
 import { test as fixtureTest } from "../../__testing__/test-fixtures.js";
@@ -269,7 +268,26 @@ describe("agent session request sources", () => {
 		];
 
 		for (const source of sources) {
-			const request = await createSessionRequest(db, { kind: "direct", request: source });
+			const now = new Date().toISOString();
+			const [request] = await db
+				.insert(agentSessionRequests)
+				.values({
+					id: `test-request-${source.idempotencyKey}`,
+					sourceKind: source.sourceKind,
+					sourceId: source.sourceId,
+					streamId: source.streamId,
+					agentId: source.agentId,
+					userId: source.userId ?? null,
+					promptMode: source.promptMode,
+					payloadJson: source.payloadJson ?? null,
+					idempotencyKey: source.idempotencyKey,
+					sourceCorrelationJson: JSON.stringify(source.sourceCorrelation ?? {}),
+					status: "pending",
+					createdAt: now,
+					updatedAt: now,
+				})
+				.returning();
+			if (!request) throw new Error("Insert failed");
 			await composition.runSession(deps, {
 				mode: "durable",
 				request,

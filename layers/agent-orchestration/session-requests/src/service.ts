@@ -7,11 +7,9 @@ import type {
 	WriteExecutor,
 } from "@hyperidle/db";
 import {
-	agentLifecycleInbox,
 	agentSessionRequests,
 	agentWorkIntents,
 	explicitSessionStarts,
-	triggerResolutionHistory,
 } from "@hyperidle/db";
 import type {
 	AgentRunAdmissionFailureCode,
@@ -25,15 +23,9 @@ import {
 	isAgentWorkIntentSourceKind,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { and, asc, eq, gt, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
+import type { BakedWorkIntentRequest } from "@hyperidle/work-intent-port";
+import { and, asc, eq, gt, inArray, lt, lte, or, sql } from "drizzle-orm";
 
-type LifecycleProjectionDeps = DurableAgentQueueDeps["lifecycleProjection"];
-type LifecycleOptions = {
-	readonly now?: Date;
-	readonly leaseMs?: number;
-	readonly workerId?: string;
-	readonly maxAttempts?: number;
-};
 type IntentOptions = {
 	readonly now?: () => Date;
 	readonly leaseMs?: number;
@@ -63,276 +55,12 @@ type TerminalInput =
 			readonly errorMessage?: string;
 	  };
 
-const lifecycleSourceKinds = [
-	"assistant",
-	"task",
-	"knowledge",
-	"routine",
-	"proposed_call",
-	"explicit_session_start",
-] as const;
-type LifecycleSourceKind = (typeof lifecycleSourceKinds)[number];
-type Projector = (
-	db: HyperIdleDb,
-	fact: AgentLifecycleFact,
-	deps: LifecycleProjectionDeps,
-) => Promise<void>;
-function isLifecycleSourceKind(value: string): value is LifecycleSourceKind {
-	return (lifecycleSourceKinds as readonly string[]).includes(value);
-}
-function isTerminalState(value: string): value is AgentLifecycleFact["state"] {
-	return value === "completed" || value === "failed" || value === "cancelled";
-}
-const observeOnly: Projector = async (db, fact, deps) => {
-	void db;
-	void fact;
-	void deps;
-};
-const projectExplicitStart: Projector = async (db, fact, deps) => {
-	await deps.explicitSessionStarts.projectTerminalState(db, fact.requestId, {
-		status: fact.state,
-		sessionId: fact.sessionId ?? null,
-		failureCode: fact.state === "failed" ? (fact.failureCode ?? "INTERNAL_ERROR") : null,
-	});
-};
-const lifecycleProjectors: Record<LifecycleSourceKind, Projector> = {
-	assistant: observeOnly,
-	// @lore AU21 §9 Increment 10 (Decision H1): `task`'s post-session
-	// writeback (`taskDispatchAttempts` finalize) moved to a core-api event
-	// subscriber (`work-session-end-reactions.ts`, subscribing
-	// `agent_run_lifecycle_changed` directly) — the same migration `routine`
-	// went through in Increment 4. This drain's job for `task` is now purely
-	// observational; it must never call `deps.work`/`updateTaskDispatchAttemptIfActive`
-	// again (that port + `DurableAgentQueueDeps.lifecycleProjection.work` are
-	// deleted entirely, not merely unused).
-	task: observeOnly,
-	knowledge: observeOnly,
-	// @lore AU21 §6 Decision B″ correction: `routine` used to run its own
-	// `projectRoutine` (a direct `updateRoutineRunIfRunning` cross-layer
-	// write). Wave C's `registerRoutineRunSessionEndReactions` (core-api,
-	// `routine-run-session-end-reactions.ts`) already finalizes routineRuns
-	// off `session_ended`/`agent_run_lifecycle_changed` — the proper
-	// event-driven mechanism — so this drain's job for `routine` is now
-	// purely observational, same as `assistant`/`knowledge`/`proposed_call`.
-	routine: observeOnly,
-	proposed_call: observeOnly,
-	explicit_session_start: projectExplicitStart,
-};
-async function processLifecycleInternal(
-	db: HyperIdleDb,
-	deps: LifecycleProjectionDeps,
-	options: LifecycleOptions = {},
-) {
-	let projected = 0;
-	for (;;) {
-		const now = options.now ?? /* @__PURE__ */ new Date();
-		const token = `${options.workerId ?? "core"}:${randomUUID()}`;
-		const [candidate] = await db
-			.select()
-			.from(agentLifecycleInbox)
-			.where(
-				and(
-					isNull(agentLifecycleInbox.projectedAt),
-					or(
-						isNull(agentLifecycleInbox.claimToken),
-						lt(agentLifecycleInbox.claimExpiresAt, now.toISOString()),
-					),
-				),
-			)
-			.limit(1);
-		if (!candidate) return projected;
-		const [row] = await db
-			.update(agentLifecycleInbox)
-			.set({
-				claimToken: token,
-				claimExpiresAt: new Date(now.getTime() + (options.leaseMs ?? 3e4)).toISOString(),
-				attempts: candidate.attempts + 1,
-			})
-			.where(
-				and(
-					eq(agentLifecycleInbox.requestId, candidate.requestId),
-					isNull(agentLifecycleInbox.projectedAt),
-					candidate.claimToken
-						? and(
-								eq(agentLifecycleInbox.claimToken, candidate.claimToken),
-								eq(agentLifecycleInbox.claimExpiresAt, candidate.claimExpiresAt ?? ""),
-								lt(agentLifecycleInbox.claimExpiresAt, now.toISOString()),
-							)
-						: isNull(agentLifecycleInbox.claimToken),
-				),
-			)
-			.returning();
-		if (!row) continue;
-		try {
-			if (!(isLifecycleSourceKind(row.sourceKind) && isTerminalState(row.state))) {
-				throw new Error(`Unsupported lifecycle source ${row.sourceKind}`);
-			}
-			const fact: AgentLifecycleFact = {
-				requestId: row.requestId,
-				sourceKind: row.sourceKind,
-				sourceId: row.sourceId,
-				state: row.state,
-				...(row.sessionId ? { sessionId: row.sessionId } : {}),
-				...(row.failureCode ? { failureCode: row.failureCode } : {}),
-			};
-			await lifecycleProjectors[row.sourceKind](db, fact, deps);
-			const acknowledged = await db
-				.update(agentLifecycleInbox)
-				.set({
-					projectedAt: /* @__PURE__ */ new Date().toISOString(),
-					lastError: null,
-					claimToken: null,
-					claimExpiresAt: null,
-				})
-				.where(
-					and(
-						eq(agentLifecycleInbox.requestId, row.requestId),
-						eq(agentLifecycleInbox.claimToken, token),
-					),
-				)
-				.returning({ requestId: agentLifecycleInbox.requestId });
-			projected += acknowledged.length;
-		} catch (error) {
-			const poison = row.attempts >= (options.maxAttempts ?? 3);
-			await db
-				.update(agentLifecycleInbox)
-				.set({
-					lastError: error instanceof Error ? error.message : String(error),
-					...(poison
-						? {
-								projectedAt: /* @__PURE__ */ new Date().toISOString(),
-								claimToken: null,
-								claimExpiresAt: null,
-							}
-						: {}),
-				})
-				.where(
-					and(
-						eq(agentLifecycleInbox.requestId, row.requestId),
-						eq(agentLifecycleInbox.claimToken, token),
-					),
-				);
-		}
-	}
-}
-export type LifecycleProjectionDrainStop = (() => void) & {
-	readonly join: () => Promise<void>;
-};
-
-function startLifecycleInternal(
-	db: HyperIdleDb,
-	deps: LifecycleProjectionDeps,
-	options: { readonly pollIntervalMs?: number } = {},
-): LifecycleProjectionDrainStop {
-	let stopping = false;
-	let active: Promise<void> | null = null;
-	const failures: unknown[] = [];
-	let joinPromise: Promise<void> | null = null;
-	let timer: ReturnType<typeof setInterval> | undefined;
-
-	const drain = (): void => {
-		if (stopping || active) return;
-		// @lore A fire-and-forget lifecycle drain still needs a rejection handler
-		// in its launch turn. Retain that failure for the fixture-only join seam;
-		// returning the rejecting work promise here would reintroduce an unhandled
-		// rejection in production callers that intentionally only use sync stop.
-		const observed = processLifecycleInternal(db, deps).then(
-			() => {},
-			(error: unknown) => {
-				failures.push(error);
-			},
-		);
-		active = observed;
-		void observed.then(() => {
-			if (active === observed) active = null;
-		});
-	};
-	drain();
-	// Node clamps overflowing delays to 1ms, which turns a disabled/long-lived
-	// drain into a hot loop. Clamp explicitly to the largest supported delay.
-	const pollIntervalMs = Math.min(Math.max(1, options.pollIntervalMs ?? 1e3), 2_147_483_647);
-	timer = setInterval(drain, pollIntervalMs);
-	timer.unref();
-
-	const stopPhase = (): void => {
-		if (stopping) return;
-		stopping = true;
-		if (timer) clearInterval(timer);
-	};
-	const join = (): Promise<void> => {
-		stopPhase();
-		if (!joinPromise) {
-			joinPromise = (async () => {
-				if (active) await active;
-				const retained = failures.splice(0);
-				if (retained.length === 1) throw retained[0];
-				if (retained.length > 1) {
-					throw new AggregateError(retained, "Lifecycle projection drains failed");
-				}
-			})();
-		}
-		return joinPromise;
-	};
-	return Object.assign(stopPhase, { join });
-}
-
-async function appendLifecycleFactInternal(
-	exec: WriteExecutor,
-	fact: AgentLifecycleFact & { readonly occurredAt: string },
-) {
-	await exec
-		.insert(agentLifecycleInbox)
-		.values({
-			requestId: fact.requestId,
-			sourceKind: fact.sourceKind,
-			sourceId: fact.sourceId,
-			state: fact.state,
-			sessionId: fact.sessionId,
-			failureCode: fact.failureCode,
-			occurredAt: fact.occurredAt,
-		})
-		.onConflictDoNothing();
-}
-function listReapableLifecycleInternal(exec: WriteExecutor, cutoff: string, batchSize: number) {
-	return exec
-		.select({ requestId: agentLifecycleInbox.requestId })
-		.from(agentLifecycleInbox)
-		.where(
-			and(isNotNull(agentLifecycleInbox.projectedAt), lt(agentLifecycleInbox.occurredAt, cutoff)),
-		)
-		.limit(batchSize);
-}
-async function deleteLifecycleFactsInternal(exec: WriteExecutor, requestIds: string[]) {
-	if (requestIds.length === 0) return;
-	await exec.delete(agentLifecycleInbox).where(inArray(agentLifecycleInbox.requestId, requestIds));
-}
 
 function nowIso() {
 	return /* @__PURE__ */ new Date().toISOString();
 }
 function rowToRequest(row: AgentSessionRequest): AgentSessionRequest {
 	return row;
-}
-async function findRequestIdentityInternal(
-	db: HyperIdleDb,
-	key: {
-		readonly sourceKind: AgentSessionSourceKind;
-		readonly sourceId: string;
-		readonly idempotencyKey: string;
-	},
-) {
-	const [existing] = await db
-		.select()
-		.from(agentSessionRequests)
-		.where(
-			and(
-				eq(agentSessionRequests.sourceKind, key.sourceKind),
-				eq(agentSessionRequests.sourceId, key.sourceId),
-				eq(agentSessionRequests.idempotencyKey, key.idempotencyKey),
-			),
-		)
-		.limit(1);
-	return existing;
 }
 async function findRequestSessionInternal(db: HyperIdleDb, sessionId: string) {
 	const [row] = await db
@@ -567,10 +295,6 @@ async function admitClaimedRequestInternal(
 		.where(predicate)
 		.returning({ id: agentSessionRequests.id });
 	if (updated.length !== 1) throw new Error(`Lost request custody before admission: ${requestId}`);
-	await db
-		.update(triggerResolutionHistory)
-		.set({ sessionId })
-		.where(eq(triggerResolutionHistory.requestId, requestId));
 }
 async function requeueClaimedRequestInternal(
 	db: HyperIdleDb,
@@ -630,15 +354,17 @@ async function finishRequestInTxInternal(tx: WriteExecutor, input: TerminalInput
 		.where(predicate)
 		.returning();
 	if (!winner) return null;
-	await appendLifecycleFactInternal(tx, {
-		requestId: winner.id,
-		sourceKind: winner.sourceKind,
-		sourceId: winner.sourceId,
-		state: input.state,
-		...(input.precondition === "running" ? { sessionId: input.sessionId } : {}),
-		...(input.failureCode ? { failureCode: input.failureCode } : {}),
-		occurredAt: now,
-	});
+	// Inline the one real projection (explicit_session_start → explicitSessionStarts)
+	// that the former lifecycle-inbox poller did asynchronously. All other source kinds
+	// were observeOnly no-ops; this single branch replaces the entire outbox drain.
+	if (winner.sourceKind === "explicit_session_start") {
+		await projectStartInternal(tx, {
+			requestId: winner.id,
+			state: input.state,
+			sessionId: input.precondition === "running" ? input.sessionId : null,
+			failureCode: input.state === "failed" ? (input.failureCode ?? "INTERNAL_ERROR") : null,
+		});
+	}
 	return winner;
 }
 async function finishRequestInternal(db: HyperIdleDb, input: TerminalInput) {
@@ -737,7 +463,7 @@ async function claimIntentInternal(
 }
 async function failOrRelease(
 	db: HyperIdleDb,
-	deps: DurableAgentQueueDeps,
+	eventBus: EventBus | undefined,
 	intent: AgentWorkIntent,
 	error: unknown,
 	options: IntentOptions,
@@ -781,11 +507,11 @@ async function failOrRelease(
 	// deliberately do not import each other, and now share the event *type*
 	// (`events.ts`, now in `@hyperidle/domain-model`), not an emit helper.
 	if (
-		deps.eventBus &&
+		eventBus &&
 		isAgentWorkIntentKind(intent.kind) &&
 		isAgentWorkIntentSourceKind(intent.sourceKind)
 	) {
-		deps.eventBus.emit({
+		eventBus.emit({
 			type: "agent_run_admission_failed",
 			streamId: `${intent.kind}:${intent.sourceId}`,
 			intentId: intent.id,
@@ -931,7 +657,7 @@ async function handOffInternal(
 }
 async function processIntentsInternal(
 	db: HyperIdleDb,
-	deps: DurableAgentQueueDeps,
+	eventBus: EventBus | undefined,
 	options: IntentOptions = {},
 ) {
 	for (;;) {
@@ -970,7 +696,7 @@ async function processIntentsInternal(
 				);
 			}
 		} catch (error) {
-			await failOrRelease(db, deps, intent, error, options);
+			await failOrRelease(db, eventBus, intent, error, options);
 		}
 	}
 }
@@ -1061,13 +787,6 @@ async function reapIntentsInternal(db: HyperIdleDb, options: ReapOptions = {}) {
 	const batchSize = options.batchSize ?? defaultRetentionBatchSize;
 	const cutoff = new Date(now.getTime() - retentionDays * 864e5).toISOString();
 	return await db.transaction(async (tx: WriteExecutor) => {
-		const projected = await listReapableLifecycleInternal(tx, cutoff, batchSize);
-		if (projected.length > 0) {
-			await deleteLifecycleFactsInternal(
-				tx,
-				projected.map((row) => row.requestId),
-			);
-		}
 		const candidates = (await tx.execute(sql`
 			select i.id
 			from agent_work_intents i
@@ -1092,7 +811,6 @@ async function reapIntentsInternal(db: HyperIdleDb, options: ReapOptions = {}) {
 			)
 			.returning({ id: explicitSessionStarts.id });
 		return {
-			inbox: projected.length,
 			intents: ids.length,
 			explicitStarts: oldStarts.length,
 		};
@@ -1195,12 +913,6 @@ function queryRequestInternal(exec: HyperIdleDb, query: FindQuery) {
 	switch (query.by) {
 		case "id":
 			return findRequestIdInternal(exec, query.requestId);
-		case "idempotencyKey":
-			return findRequestIdentityInternal(exec, {
-				sourceKind: query.sourceKind,
-				sourceId: query.sourceId,
-				idempotencyKey: query.idempotencyKey,
-			});
 		case "sessionId":
 			return findRequestSessionInternal(exec, query.sessionId);
 		case "terminationReason":
@@ -1229,10 +941,8 @@ function queryRequestInternal(exec: HyperIdleDb, query: FindQuery) {
 function mutateRequestInternal(
 	db: HyperIdleDb,
 	spec: TransitionSpec,
-	deps: DurableAgentQueueDeps | undefined,
 	options: { readonly now?: Date; readonly existingTransaction?: boolean } = {},
 ) {
-	void deps;
 	if ("target" in spec) {
 		if ("requestId" in spec && spec.to !== "admitted") {
 			return projectStartInternal(db, {
@@ -1301,119 +1011,6 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	proposed_call: "proposed_call",
 };
 
-/**
- * AU21 §6 Decision B / §10 — the emit-time-resolved request a migrated
- * family's core-api resolver produces: the exact shape
- * `resolveIntentInputInternal` returns per kind today, minus the fields
- * (`eventType`, `idempotencyKey`) trivially re-derivable from the intent row
- * itself at drain time. When an intent carries this, the drain dispatches it
- * directly with ZERO domain reads instead of falling through to its per-kind
- * resolution branch (the co-existence scaffolding — §9 Increment 3).
- */
-export type BakedWorkIntentRequest = {
-	readonly defaultAgentId: string;
-	readonly sourceKind: AgentSessionSourceKind;
-	readonly sourceId: string;
-	readonly streamId: string;
-	readonly taskId?: string | null;
-	readonly teamId?: string;
-	readonly userId?: string;
-	readonly sourceCorrelation: AgentSessionSourceCorrelation;
-	/**
-	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
-	 * thread transcript (`conversation`'s `resolveAssistantTurnRequest`).
-	 * Absent for every other kind — carried through onto the created
-	 * `AgentSessionRequest.payloadJson` so `dispatch` sources the harness
-	 * conversation from the baked payload instead of a live read.
-	 */
-	readonly transcript?: ReadonlyArray<{
-		readonly senderId: string;
-		readonly payload: string;
-		readonly type: string;
-	}>;
-	/**
-	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
-	 * `routine_run`/`reengagement` families' baked entity content (task/bet/
-	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
-	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
-	 * Absent for `assistant_turn` (bakes `transcript` instead) — see
-	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
-	 */
-	readonly contextBundle?: BakedContextBundle;
-	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — every kind's baked
-	 * agent-runnability snapshot / disabled-harness-types list. See
-	 * `BakedWorkIntentRequest` in `@hyperidle/work-intent-port` for the full `@lore`.
-	 */
-	readonly agentConfig?: {
-		readonly kind: string;
-		readonly status: string;
-		readonly role: string;
-		readonly teamId: string | null;
-	};
-	readonly harnessDisabled?: readonly string[];
-	/**
-	 * AU27 Increment 1 (Decision 1) — the session's calling thread id. Absent
-	 * for `routine_run`/`knowledge_action` — see `BakedWorkIntentRequest` in
-	 * `@hyperidle/work-intent-port` for the full `@lore`.
-	 */
-	readonly callingThreadId?: string;
-};
-
-/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/work-intent-port`). */
-export interface BakedContextKnowledgeItem {
-	readonly id: string;
-	readonly title: string;
-	readonly body: string;
-	readonly format: string;
-	readonly version: number;
-	readonly layer: string | null;
-}
-
-/** Local mirror of `@hyperidle/work-intent-port`'s `BakedContextBundle` — see there for the full `@lore`. */
-export type BakedContextBundle =
-	| {
-			readonly kind: "task";
-			readonly task: {
-				readonly id: string;
-				readonly title: string;
-				readonly description: string | null;
-				readonly state: string;
-			};
-			readonly bet: {
-				readonly id: string;
-				readonly description: string;
-				readonly appetite: string;
-				readonly doneCondition: string | null;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly team: { readonly id: string; readonly name: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  }
-	| {
-			readonly kind: "routine";
-			readonly routine: {
-				readonly id: string;
-				readonly name: string;
-				readonly description: string | null;
-				readonly lastRunSummary: string | null;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly team: { readonly id: string; readonly name: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  }
-	| {
-			readonly kind: "knowledge";
-			readonly item: {
-				readonly id: string;
-				readonly title: string;
-				readonly body: string;
-				readonly format: string;
-				readonly version: number;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  };
 
 export type WorkIntentInput = {
 	readonly kind:
@@ -1457,28 +1054,20 @@ export type WorkIntentInput = {
  * That is a genuine, pre-existing, orphaned-feature product gap, out of
  * AU21's boundary-seam scope; flagged for founder attention, not fixed here.
  */
-export type CreateSessionRequestInput =
-	| { readonly kind: "direct"; readonly request: AgentSessionRequestInput }
-	| {
-			readonly kind: "explicitStart";
-			readonly start: {
-				readonly id?: string;
-				readonly requestedBy: string;
-				readonly requestedAgentId: string;
-				readonly requestedModelTier?: string;
-				readonly taskId: string;
-				readonly idempotencyKey: string;
-			};
-	  };
+export type CreateSessionRequestInput = {
+	readonly kind: "explicitStart";
+	readonly start: {
+		readonly id?: string;
+		readonly requestedBy: string;
+		readonly requestedAgentId: string;
+		readonly requestedModelTier?: string;
+		readonly taskId: string;
+		readonly idempotencyKey: string;
+	};
+};
 export type FindQuery =
 	| { readonly by: "id"; readonly requestId: string }
 	| { readonly by: "sessionId"; readonly sessionId: string }
-	| {
-			readonly by: "idempotencyKey";
-			readonly sourceKind: AgentSessionSourceKind;
-			readonly sourceId: string;
-			readonly idempotencyKey: string;
-	  }
 	| {
 			readonly by: "claimActive";
 			readonly requestId: string;
@@ -1552,81 +1141,10 @@ export interface ClaimOptions {
 	readonly now: Date;
 	readonly leaseMs: number;
 }
-export type AgentLifecycleFact = {
-	readonly requestId: string;
-	readonly sourceKind: string;
-	readonly sourceId: string;
-	readonly state: "completed" | "failed" | "cancelled";
-	readonly sessionId?: string;
-	readonly failureCode?: string;
-};
-export interface DurableAgentQueueDeps {
+type DurableQueueDeps = {
 	readonly db: HyperIdleDb;
-	/**
-	 * @lore AU21 §9 Increment 10 (Decision H1): `work` (the
-	 * `updateTaskDispatchAttemptIfActive` port `lifecycleProjection.work` used
-	 * to carry) is REMOVED ENTIRELY — `task`'s post-session writeback now
-	 * lives core-side as an `agent_run_lifecycle_changed` event subscriber
-	 * (`core-api`'s `work-session-end-reactions.ts`), the same migration
-	 * `routine` already went through in Increment 4 (see
-	 * `lifecycleProjectors.routine`'s `observeOnly` entry below and
-	 * `routine-run-session-end-reactions.ts`). `lifecycleProjectors.task` is
-	 * now `observeOnly` too, so this drain has no port left through which to
-	 * reach `work` for a `task`-sourced fact — `explicitSessionStarts` is the
-	 * only surviving projection target.
-	 */
-	readonly lifecycleProjection: {
-		readonly explicitSessionStarts: {
-			projectTerminalState(
-				exec: WriteExecutor,
-				requestId: string,
-				patch: {
-					readonly status: "completed" | "failed" | "cancelled";
-					readonly sessionId: string | null;
-					readonly failureCode: string | null;
-				},
-			): Promise<void>;
-		};
-	};
-	/**
-	 * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): `config`
-	 * (`listConfiguration`), `teams` (`getTeamMembersByTeamId`), and `users`
-	 * (`getUserByIdScopedToTeam`) REMOVED in their entirety — their one and
-	 * only consumer, `createTriggeredInternal` (the drain-time trigger-rule +
-	 * target-agent resolution for the `"triggered"` `CreateSessionRequestInput`
-	 * kind), is deleted alongside this: confirmed via git archaeology + a full
-	 * production call-site grep that it had ZERO real callers, in AU21 or
-	 * before (see `CreateSessionRequestInput`'s own doc comment above).
-	 *
-	 * @lore AU21 §9 Increment 10 (Decision H1): the top-level `work` field
-	 * (`reapTerminalTaskDispatchAttempts`) is ALSO REMOVED ENTIRELY —
-	 * relocated out of this drain's `reapExpired` atomic transaction into
-	 * `layers/core-api/src/server-factory.ts`'s generic retention reaper
-	 * (a harmless atomicity split; pure terminal-row GC, no invariant depends
-	 * on it sharing the intent/start-delete transaction), calling
-	 * `taskDispatchAttemptStore.reapTerminal` directly there. Together with
-	 * the `lifecycleProjection.work` removal above, `session-requests` now
-	 * holds ZERO `→ work` edge of any kind, closing the
-	 * `DEFERRED_FOLLOWUP` (`session-requests::work`) gap the anti-regrowth
-	 * guard tracked through Increment 9's forensic-triage wave.
-	 *
-	 * @lore AU21 §6 Decision B4: the pre-handoff failure report-back channel.
-	 * Optional so every existing `queueDeps(db)` call site (which never wired
-	 * one) keeps compiling unchanged — `failOrRelease` simply skips emission
-	 * when absent. Production call sites pass the real bus (composition-root
-	 * `{ ...queueDeps(db), eventBus }`) so the channel is genuinely live.
-	 */
 	readonly eventBus?: EventBus;
-	/**
-	 * @lore AU21 §9 Increment 9: `conversation`/`review`/`routine`/`knowledge`
-	 * groups REMOVED in their entirety — confirmed zero real call sites
-	 * anywhere in this file (`getMessageById`/`findGrantedProposedCall`/
-	 * `getRoutineRunById`/`getRoutineById`/`findById` were declared but never
-	 * invoked; each family's real resolve-at-emit migration
-	 * (architecture.md §9 Increment 3) already deleted the call sites, this
-	 * dead composition wiring was simply never cleaned up alongside it).
-	 */
-}
+};
 
 export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {
 	return insertIntentInternal(exec, input);
@@ -1662,23 +1180,14 @@ export function listPendingIntentsByKind(
 }
 export function createSessionRequest(
 	exec: HyperIdleDb,
-	input: Extract<CreateSessionRequestInput, { kind: "direct" }>,
-): Promise<AgentSessionRequest>;
-export function createSessionRequest(
-	exec: HyperIdleDb,
 	input: Extract<CreateSessionRequestInput, { kind: "explicitStart" }>,
 ): Promise<ExplicitSessionStart>;
 export function createSessionRequest(exec: HyperIdleDb, input: CreateSessionRequestInput) {
-	if (input.kind === "direct") return insertRequestInternal(exec, input.request);
 	return insertStartInternal(exec, input.start);
 }
 export function findSessionRequest(
 	exec: HyperIdleDb,
 	query: Extract<FindQuery, { by: "id" }>,
-): Promise<AgentSessionRequest | undefined>;
-export function findSessionRequest(
-	exec: HyperIdleDb,
-	query: Extract<FindQuery, { by: "idempotencyKey" }>,
 ): Promise<AgentSessionRequest | undefined>;
 export function findSessionRequest(
 	exec: HyperIdleDb,
@@ -1739,53 +1248,32 @@ export function releaseClaim(exec: HyperIdleDb, requestId: string, claimToken: s
 export function transitionSessionRequest(
 	exec: WriteExecutor,
 	transition: SessionRequestTransition & { readonly transaction: "existing" },
-	deps?: DurableAgentQueueDeps,
 	options?: { readonly now?: Date },
 ): ReturnType<typeof mutateRequestInternal>;
 export function transitionSessionRequest(
 	exec: HyperIdleDb,
 	transition: SessionRequestTransition,
-	deps?: DurableAgentQueueDeps,
 	options?: { readonly now?: Date },
 ): ReturnType<typeof mutateRequestInternal>;
 export function transitionSessionRequest(
 	exec: HyperIdleDb | WriteExecutor,
 	transition: SessionRequestTransition,
-	deps?: DurableAgentQueueDeps,
 	options?: { readonly now?: Date },
 ) {
 	const { transaction, ...spec } = transition;
-	const invoke = mutateRequestInternal;
-	return invoke(exec, spec, deps, {
+	return mutateRequestInternal(exec, spec, {
 		...options,
 		existingTransaction: transaction === "existing",
 	});
 }
 export function drainIntents(
-	deps: DurableAgentQueueDeps,
+	deps: DurableQueueDeps,
 	options?: { readonly now?: () => Date; readonly leaseMs?: number; readonly maxAttempts?: number },
 ) {
-	return processIntentsInternal(deps.db, deps, options);
-}
-export function drainLifecycleProjections(
-	deps: DurableAgentQueueDeps,
-	options?: {
-		readonly now?: Date;
-		readonly leaseMs?: number;
-		readonly workerId?: string;
-		readonly maxAttempts?: number;
-	},
-) {
-	return processLifecycleInternal(deps.db, deps.lifecycleProjection, options);
-}
-export function startLifecycleProjectionDrain(
-	deps: DurableAgentQueueDeps,
-	options?: { readonly pollIntervalMs?: number },
-) {
-	return startLifecycleInternal(deps.db, deps.lifecycleProjection, options);
+	return processIntentsInternal(deps.db, deps.eventBus, options);
 }
 export function reapExpired(
-	deps: DurableAgentQueueDeps,
+	deps: DurableQueueDeps,
 	options?: { readonly now?: Date; readonly retentionDays?: number; readonly batchSize?: number },
 ) {
 	return reapIntentsInternal(deps.db, options);

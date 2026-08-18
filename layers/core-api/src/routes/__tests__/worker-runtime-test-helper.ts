@@ -11,7 +11,7 @@ export async function startWorkerTestRuntime(pool: AdapterPool): Promise<Runtime
 		ports: {
 			sessionRequests: {
 				listSessionRequests: async () => [],
-				reapExpired: async () => ({ inbox: 0, intents: 0, explicitStarts: 0 }),
+				reapExpired: async () => ({ intents: 0, explicitStarts: 0 }),
 				drainIntents: async () => undefined,
 			},
 			sessionLifecycle: {
