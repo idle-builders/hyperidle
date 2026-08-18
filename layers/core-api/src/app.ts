@@ -33,6 +33,7 @@ import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
+import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
@@ -441,6 +442,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/search", createSearchRoutes(options.db, eventBus));
+		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
 		// Tests may override via notificationAdapterFactory for route-level adapter injection.
 		// @lore AU20 Ag6b: adapterFactory option replaced with adapterOverride (no config arg).
 		api.route(

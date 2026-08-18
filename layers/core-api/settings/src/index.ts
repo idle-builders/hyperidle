@@ -6,16 +6,19 @@
  * defeat Table ACL (Mechanism A). Consumers get typed functions; the table
  * stays private to this Service.
  *
- * @lore AU43 settings batch: plugin-configuration module and its resolution
- * engine (listConfiguration, writeConfigurationOverride, seedConfigurationDefaults,
- * backfillConfigurationDefaults, setPluginState) deleted along with their types
- * (PluginConfigurationSource, PluginConfigurationSeed, BackfillLegacyConfigurationDeps)
- * and DI ports (RoutineReader, SettingsUserDirectory). The agent-behavior settings
- * route and its view-model (agent-behavior-config-impl.ts) were deleted with them.
- * ObservabilityConfig/ObservabilityConfigPatch aliases and readObservabilityConfig/
- * updateObservabilityConfig deleted — observability runtime now uses constants.
- * SettingsCredentialCipher port deleted — migrateCredentialsToStore uses an inline type.
+ * @lore AU43 settings batch: seedConfigurationDefaults, backfillConfigurationDefaults,
+ * setPluginState deleted along with their types (PluginConfigurationSource,
+ * PluginConfigurationSeed, BackfillLegacyConfigurationDeps) and DI ports
+ * (RoutineReader, SettingsUserDirectory). listConfiguration and
+ * writeConfigurationOverride are retained — they serve the agent-behavior
+ * settings UI. ObservabilityConfig/ObservabilityConfigPatch aliases and
+ * readObservabilityConfig/updateObservabilityConfig deleted — observability
+ * runtime now uses constants. SettingsCredentialCipher port deleted —
+ * migrateCredentialsToStore uses an inline type.
  */
+
+// -- plugin configuration (resolution engine, agent-behavior UI) --
+export { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
 
 // -- server config (P3 — server_config single-row table read/write) --
 export type { ServerConfig, ServerConfigPatch } from "./server-config.js";
