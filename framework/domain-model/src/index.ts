@@ -79,8 +79,6 @@ export type {
 export {
 	BUILTIN_PLUGIN_ID,
 	CONFIGURATION_KINDS,
-	isConfigurationKind,
-	isPluginState,
 	PLUGIN_STATES,
 } from "./configuration.js";
 export type {
@@ -94,8 +92,6 @@ export {
 	CONNECTION_AUTH_SOURCES,
 	CONNECTION_HEALTH,
 	HELD_AUTH_SOURCES,
-	isConnectionAuthSource,
-	isHeldAuthSource,
 } from "./connection.js";
 export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
 export {
@@ -107,18 +103,14 @@ export {
 	isCredentialName,
 } from "./credential.js";
 export {
-	ActiveRoutinesError,
 	ASSISTANT_TURN_TIMEOUT_MS,
 	CapacityExceededError,
-	CassetteMissError,
 	ConcurrencyLimitError,
 	HttpError,
 	InvalidTransitionError,
 	MissingCredentialError,
 	NoEligibleHarnessError,
-	ProviderTimeoutError,
 	TargetAgentNotRunnableError,
-	VersionConflictError,
 } from "./errors.js";
 export type {
 	AgentAddedEvent,
@@ -137,7 +129,6 @@ export type {
 	EventHandler,
 	EventType,
 	ItemCreatedEvent,
-	KernelEvent,
 	KnowledgeAccessedEvent,
 	KnowledgeArchivedEvent,
 	KnowledgeCreatedEvent,
@@ -155,7 +146,6 @@ export type {
 	SessionNotReturnedEvent,
 	SessionOutcome,
 	SessionStartedEvent,
-	StrategyEvent,
 	TaskStateChangedEvent,
 	TeamCreatedEvent,
 	ThreadArchivedEvent,
@@ -184,19 +174,14 @@ export type {
 } from "./kinds/registry.js";
 export { ARTIFACT_KINDS, getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
 export type {
-	AutonomyLevel,
 	KnowledgeAccessorKind,
 	KnowledgeKind,
 	KnowledgeLayer,
-	KnowledgeRelevanceSignals,
 	KnowledgeScope,
 	KnowledgeSortOption,
 	KnowledgeStatus,
 	KnowledgeTopicHealth,
 	PropagationLevel,
-	PropagationResult,
-	PropagationStatus,
-	RiskTier,
 } from "./knowledge.js";
 export {
 	KNOWLEDGE_LAYERS,
@@ -238,12 +223,11 @@ export type {
 	NotificationTypeKey,
 	NotificationUrgency,
 } from "./notifications.js";
-export { NOTIFICATION_TYPES, shortLabelForType, urgencyForType } from "./notifications.js";
+export { NOTIFICATION_TYPES, shortLabelForType } from "./notifications.js";
 export type { ProposedCall, ProposedCallStatus, Reversibility } from "./proposed-call.js";
 export { PROPOSED_CALL_STATUSES, REVERSIBILITY } from "./proposed-call.js";
 export type {
 	RoutineCardSummary,
-	RoutineCreatePayload,
 	RoutineDetail,
 	RoutineInfo,
 	RoutineRunOutcome,
@@ -273,7 +257,6 @@ export {
 	AGENT_SESSION_SOURCE_KINDS,
 	agentSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
-	buildSessionLifecycleCorrelation,
 	knowledgeSessionRequestInputSchema,
 	proposedCallSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
@@ -324,7 +307,6 @@ export type {
 	RedactedPayload,
 	ReviewPayload,
 	Thread,
-	ThreadConfiguration,
 	ThreadId,
 	ToolCallSummary,
 	VerdictDecision,
@@ -332,8 +314,6 @@ export type {
 } from "./thread.js";
 export {
 	ARTIFACT_VIEW_SHAPES,
-	classifyThreadConfiguration,
-	exhaustiveAssert,
 	HOST_KINDS,
 	headCollapsePredicate,
 	isBlocking,
@@ -346,7 +326,6 @@ export {
 } from "./thread.js";
 export type {
 	TriggerEventType,
-	TriggerResolutionResult,
 	TriggerResultState,
 	TriggerRuleValue,
 } from "./trigger.js";
@@ -362,45 +341,26 @@ export type {
 	ArtifactPage,
 	ArtifactPreview,
 	ArtifactQuery,
-	CreateArtifactInput,
 } from "./types/artifact.js";
 export { artifactDisplayTitle, summarizePreview } from "./types/artifact.js";
-export type { CurrencyCode, Money, TierTokenCount, TokenUsage, WireMoney } from "./types/money.js";
-export {
-	addMoney,
-	addTokenUsage,
-	CURRENCY_CODES,
-	CURRENCY_SCALE,
-	compareMoney,
-	moneyFromWire,
-	moneyToWire,
-	scaleForCurrency,
-	totalTokens,
-	zeroMoney,
-} from "./types/money.js";
+export type { TierTokenCount, TokenUsage } from "./types/money.js";
 export type {
 	AgentCategory,
 	BetOutcomeVerdict,
 	BetStatus,
 	HealthResponse,
 	KernelKnowledgeStatus,
-	KnowledgeFormat,
 	ModelTier,
 	// @lore AU34: the one aliased publication the old substrate barrel carried. It reached
 	// `types/money.ts` and was re-exported from there under a second name; the declaration is and
 	// always was `ModelTier` in `types.ts`, so the alias is stated here rather than at a hop that no
 	// longer exists.
 	ModelTier as MoneyModelTier,
-	MutableBetField,
 	OrgEdgeMechanism,
 	ScopeKind,
-	SessionState,
 	TaskOutcomeVerdict,
 	TaskState,
 	TriggerType,
-	UserKind,
-	UserRole,
-	UserStatus,
 } from "./types.js";
 export {
 	AGENT_CATEGORIES,
@@ -411,7 +371,6 @@ export {
 	BET_STATUSES,
 	KERNEL_KNOWLEDGE_STATUSES,
 	MODEL_TIERS,
-	MUTABLE_BET_FIELDS,
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
@@ -419,5 +378,4 @@ export {
 	TASK_OUTCOME_VERDICTS,
 	TASK_STATE_LABEL,
 	TASK_STATES,
-	USER_KINDS,
 } from "./types.js";

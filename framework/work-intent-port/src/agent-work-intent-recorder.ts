@@ -22,7 +22,6 @@
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	UserRole,
 } from "@hyperidle/domain-model";
 
 /**
@@ -132,7 +131,7 @@ export interface BakedWorkIntentRequest {
 export interface BakedAgentRunnableConfig {
 	readonly kind: string;
 	readonly status: string;
-	readonly role: UserRole;
+	readonly role: string;
 	readonly teamId: string | null;
 }
 

@@ -37,7 +37,6 @@ import {
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
 	type TaskStateChangedEvent,
-	type UserRole,
 } from "@hyperidle/domain-model";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import {
@@ -1615,7 +1614,7 @@ function makeCreateArtifactTool<TDb>(
  */
 export function buildToolDefinitions(
 	ports: ToolHandlersPorts,
-	opts?: { readonly role?: UserRole },
+	opts?: { readonly role?: string },
 ): readonly RegisteredTool<HyperIdleDb>[] {
 	const all: readonly RegisteredTool<HyperIdleDb>[] = [
 		toRegistered(makeReadInboxTool(ports)),

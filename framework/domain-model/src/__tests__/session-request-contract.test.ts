@@ -3,7 +3,7 @@ import type { SessionEndedEvent, SessionStartedEvent } from "../events.js";
 import {
 	type AgentSessionRequestInput,
 	agentSessionRequestInputSchema,
-	buildSessionLifecycleCorrelation,
+	type SessionLifecycleCorrelation,
 } from "../session-request.js";
 
 describe("agent session request contract", () => {
@@ -94,7 +94,7 @@ describe("agent session request contract", () => {
 	});
 
 	test("lifecycle events carry request/source correlation and taskId is optional", () => {
-		const correlation = buildSessionLifecycleCorrelation({
+		const correlation: SessionLifecycleCorrelation = {
 			requestId: "req-1",
 			sourceKind: "assistant",
 			sourceId: "msg-1",
@@ -104,7 +104,7 @@ describe("agent session request contract", () => {
 				userId: "user-1",
 				assistantAgentId: "assistant-1",
 			},
-		});
+		};
 		const started: SessionStartedEvent = {
 			type: "session_started",
 			streamId: "thread:thread-1",

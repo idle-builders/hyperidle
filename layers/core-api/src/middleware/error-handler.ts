@@ -4,7 +4,6 @@ import {
 	API_ERROR_CODES,
 	CapacityExceededError,
 	InvalidTransitionError,
-	VersionConflictError,
 } from "@hyperidle/domain-model";
 import type { ErrorHandler } from "hono";
 
@@ -22,7 +21,6 @@ export const errorHandler: ErrorHandler = (err, c) => {
 	if (
 		err instanceof InvalidTransitionError ||
 		err instanceof CapacityExceededError ||
-		err instanceof VersionConflictError ||
 		err.name === "InvalidTransitionError" ||
 		err.name === "CapacityExceededError" ||
 		err.name === "VersionConflictError"

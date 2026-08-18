@@ -19,7 +19,6 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
-import { MUTABLE_BET_FIELDS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -786,32 +785,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(typeof body.atRisk).toBe("boolean");
 		expect(body.atRisk).toBe(true);
 		vi.unstubAllEnvs();
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AC-6: MUTABLE_BET_FIELDS includes "description" and "at_risk"
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("AC-6: MUTABLE_BET_FIELDS shared constant", () => {
-	test("MUTABLE_BET_FIELDS includes 'description'", () => {
-		expect(MUTABLE_BET_FIELDS).toContain("description");
-	});
-
-	test("MUTABLE_BET_FIELDS includes 'at_risk'", () => {
-		expect(MUTABLE_BET_FIELDS).toContain("at_risk");
-	});
-
-	test("MUTABLE_BET_FIELDS still includes existing fields", () => {
-		expect(MUTABLE_BET_FIELDS).toContain("done_condition");
-		expect(MUTABLE_BET_FIELDS).toContain("hypothesis");
-	});
-
-	// @lore AU21 Increment 14a: "cost_appetite" removed from MUTABLE_BET_FIELDS
-	// — `bets.costAppetiteMinor/costAppetiteCurrency` are dropped columns, no
-	// replacement mutable field.
-	test("MUTABLE_BET_FIELDS no longer includes 'cost_appetite'", () => {
-		expect(MUTABLE_BET_FIELDS).not.toContain("cost_appetite");
 	});
 });
 

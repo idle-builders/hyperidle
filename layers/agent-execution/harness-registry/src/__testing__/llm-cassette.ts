@@ -24,7 +24,6 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { CassetteMissError } from "@hyperidle/domain-model";
 import { type CallLlmOptions, setLlmInterceptor } from "../llm-client.js";
 import type {
 	LlmContentBlock,
@@ -54,14 +53,24 @@ interface CassetteEntry {
 // ---------------------------------------------------------------------------
 
 /**
- * `CassetteMissError` moved to `@hyperidle/domain-model` (AU19 Increment 3h) —
- * `dispatch`'s `mapErrorToNotice` needs `instanceof CassetteMissError`
- * across the agent-orchestration → agent-execution seam, and Mechanism C
- * forbids a Service importing another Service's class. Re-exported here
- * unchanged so this file's own `throw new CassetteMissError(...)` call site
- * needs no edit.
+ * Thrown when the cassette replay lane finds no entry for a request key.
+ * Fail-closed: a missing cassette must FAIL the lane, never silently fall
+ * through to a network call.
  */
-export { CassetteMissError };
+export class CassetteMissError extends Error {
+	public readonly missingKey: string;
+	public readonly cassettePath: string;
+
+	constructor(missingKey: string, cassettePath: string) {
+		super(
+			`Cassette miss: no recorded response for key ${missingKey.slice(0, 8)}… ` +
+				`in ${cassettePath}. Re-record with LLM_CASSETTE_MODE=record.`,
+		);
+		this.name = "CassetteMissError";
+		this.missingKey = missingKey;
+		this.cassettePath = cassettePath;
+	}
+}
 
 // ---------------------------------------------------------------------------
 // Default values

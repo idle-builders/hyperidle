@@ -25,8 +25,6 @@
  * `docs/system-prompts/*.md` read at bootstrap (unchanged).
  */
 
-import type { UserRole } from "@hyperidle/domain-model";
-
 /**
  * One facilitator entry in the factory roster.
  *
@@ -41,7 +39,7 @@ export interface FactoryFacilitatorSpec {
 	/** community of practice key (e.g. "build", "product", "growth", "ops", "facilitation") */
 	readonly community: string;
 	/** always "facilitator" */
-	readonly role: UserRole;
+	readonly role: string;
 	/** id-hint to preserve: `seed-agent-pf-${community}` */
 	readonly idHint: string;
 	/** which `system_template:<role>` key in factorySettings the persona reads from */
@@ -54,7 +52,7 @@ export interface FactoryFacilitatorSpec {
  */
 export interface FactorySystemAssistantSpec {
 	/** always "assistant" */
-	readonly role: UserRole;
+	readonly role: string;
 	/** id-hint to preserve: "seed-agent-cos" */
 	readonly idHint: string;
 }

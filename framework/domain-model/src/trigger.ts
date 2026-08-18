@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AGENT_SESSION_SOURCE_KINDS, type AgentSessionSourceKind } from "./session-request.js";
+import { AGENT_SESSION_SOURCE_KINDS } from "./session-request.js";
 
 export const TRIGGER_EVENT_TYPES = [
 	"task.accepted",
@@ -33,21 +33,6 @@ export const TriggerRuleValueSchema = z
 	.passthrough();
 
 export type TriggerRuleValue = z.infer<typeof TriggerRuleValueSchema>;
-
-export interface TriggerResolutionResult {
-	readonly eventType: TriggerEventType;
-	readonly sourceKind: AgentSessionSourceKind;
-	readonly sourceId: string;
-	readonly result: TriggerResultState;
-	readonly triggerKey: string | null;
-	readonly triggerSource: "fallback" | "default" | "user_override" | "user_owned" | "failed";
-	readonly chosenAgentId: string | null;
-	readonly prompt: string | null;
-	readonly promptSource: string | null;
-	readonly conflicts: readonly string[];
-	readonly deterministicOrder: readonly string[];
-	readonly reason: string;
-}
 
 export function isTriggerEventType(value: string): value is TriggerEventType {
 	return (TRIGGER_EVENT_TYPES as readonly string[]).includes(value);

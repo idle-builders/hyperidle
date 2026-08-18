@@ -17,7 +17,6 @@ import {
 	type NotificationType,
 	type NotificationTypeKey,
 	type NotificationUrgency,
-	urgencyForType,
 } from "../notifications.js";
 
 describe("AF8 — notification type registry (AC8)", () => {
@@ -54,11 +53,6 @@ describe("AF8 — notification type registry (AC8)", () => {
 		const entry = NOTIFICATION_TYPES.find((t) => t.key === "blocker_alert");
 		expect(entry).toBeDefined();
 		expect(entry!.defaultUrgency).toBe("immediate");
-	});
-
-	it("urgencyForType returns the registry default for known keys", () => {
-		expect(urgencyForType("review_request")).toBe("immediate");
-		expect(urgencyForType("blocker_alert")).toBe("immediate");
 	});
 
 	// Type-level: NotificationUrgency is closed

@@ -5,15 +5,15 @@
  *   - framework/domain-model/src/proposed-call.ts exports ProposedCall, ProposedCallStatus,
  *     PROPOSED_CALL_STATUSES, Reversibility, REVERSIBILITY
  *   - SessionWorkflow + SessionConfig.sessionWorkflow added to harness-adapter.ts
- *   - ProposedCallGrantedEvent added to events.ts + KernelEvent union
+ *   - ProposedCallGrantedEvent added to events.ts + DomainEvent union
  *   - staged-operation.ts / StagedOperationSpec removed from shared index
  *
  * Covers: AC1 (Proposed Call shape), AC3 (event shape), AC10b (verbatim args),
- *         AC13 (verdict grammar unchanged — existing KernelEvent switch still compiles).
+ *         AC13 (verdict grammar unchanged — existing DomainEvent switch still compiles).
  */
 
 import type {
-	KernelEvent,
+	DomainEvent,
 	ProposedCall,
 	ProposedCallGrantedEvent,
 	ProposedCallStatus,
@@ -141,10 +141,10 @@ describe("T2: SessionWorkflow shape", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// T3 — ProposedCallGrantedEvent in KernelEvent union + bus round-trip (AC3)
+// T3 — ProposedCallGrantedEvent in DomainEvent union + bus round-trip (AC3)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("T3: ProposedCallGrantedEvent is in the KernelEvent union", () => {
+describe("T3: ProposedCallGrantedEvent is in the DomainEvent union", () => {
 	it("EventBus.on('proposed_call_granted') receives the published event with correct payload", () => {
 		const bus = new EventBus();
 		const received: ProposedCallGrantedEvent[] = [];
@@ -159,9 +159,9 @@ describe("T3: ProposedCallGrantedEvent is in the KernelEvent union", () => {
 			timestamp: Date.now(),
 		};
 
-		// EventBus.emit requires KernelEvent — fails to compile if
-		// ProposedCallGrantedEvent is not in the KernelEvent union.
-		bus.emit(event as KernelEvent);
+		// EventBus.emit requires DomainEvent — fails to compile if
+		// ProposedCallGrantedEvent is not in the DomainEvent union.
+		bus.emit(event as DomainEvent);
 
 		expect(received).toHaveLength(1);
 		expect(received[0]?.type).toBe("proposed_call_granted");
@@ -172,15 +172,15 @@ describe("T3: ProposedCallGrantedEvent is in the KernelEvent union", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// T4 — AC13: exhaustive KernelEvent switch still compiles after AL7 additions
+// T4 — AC13: exhaustive DomainEvent switch still compiles after AL7 additions
 // (verdict grammar unchanged; new events added, none removed from prior list)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)", () => {
-	it("switch(event.type) over KernelEvent compiles with proposed_call_granted + no operation_executed", () => {
+describe("T4: exhaustive DomainEvent switch handles proposed_call_granted (AC13)", () => {
+	it("switch(event.type) over DomainEvent compiles with proposed_call_granted + no operation_executed", () => {
 		// This switch must compile without a default arm; any missing arm causes a TS error.
 		// AL7 renames operation_executed → proposed_call_executed and adds proposed_call_granted.
-		function handleEvent(event: KernelEvent): string {
+		function handleEvent(event: DomainEvent): string {
 			switch (event.type) {
 				case "agent_work_intent_recorded":
 					return "agent_work_intent_recorded";
@@ -244,6 +244,17 @@ describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)
 				// AL7: re-engage trigger after approve
 				case "proposed_call_granted":
 					return "proposed_call_granted";
+				// StrategyEvent members
+				case "notification":
+					return "notification";
+				case "propagation_applied":
+					return "propagation_applied";
+				case "propagation_failed":
+					return "propagation_failed";
+				case "routine_fired":
+					return "routine_fired";
+				case "tool_call_recorded":
+					return "tool_call_recorded";
 			}
 		}
 
@@ -255,6 +266,6 @@ describe("T4: exhaustive KernelEvent switch handles proposed_call_granted (AC13)
 			agentId: "agent-x",
 			timestamp: Date.now(),
 		};
-		expect(handleEvent(event as KernelEvent)).toBe("proposed_call_granted");
+		expect(handleEvent(event as DomainEvent)).toBe("proposed_call_granted");
 	});
 });

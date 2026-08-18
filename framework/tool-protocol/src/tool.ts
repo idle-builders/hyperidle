@@ -27,7 +27,6 @@ import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 	Reversibility,
-	UserRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { SessionWorkflow } from "@hyperidle/harness-protocol";
@@ -99,7 +98,7 @@ export interface ToolDefinition<Input = unknown, TDb = unknown> {
 	readonly description: string;
 	readonly inputSchema: z.ZodType<Input>;
 	readonly handler: ToolHandler<Input, TDb>;
-	readonly roles?: readonly UserRole[];
+	readonly roles?: readonly string[];
 	readonly reversibility?: Reversibility;
 	readonly annotations?: {
 		readonly destructiveHint?: boolean;
@@ -130,7 +129,7 @@ export interface RegisteredTool<TDb = unknown> {
 	 * be — three inlined copies of the filter beat one shared function that
 	 * structurally invites it. This comment is the filter's one remaining home.
 	 */
-	readonly roles?: readonly UserRole[];
+	readonly roles?: readonly string[];
 	readonly reversibility?: Reversibility;
 	readonly annotations?: {
 		readonly destructiveHint?: boolean;
@@ -169,7 +168,7 @@ export interface RegistrySessionWorkflow extends SessionWorkflow {
 
 /** Options accepted by `tool-provider`'s `buildToolRegistry`. */
 export interface BuildToolRegistryOptions<TDb = unknown> {
-	readonly role: UserRole;
+	readonly role: string;
 	readonly extraTools?: readonly RegisteredTool<TDb>[];
 	readonly sessionWorkflow?: RegistrySessionWorkflow;
 	readonly useOnlyExtraTools?: boolean;
@@ -260,7 +259,7 @@ export function toRegistered<Input, TDb = unknown>(
  */
 export function wrapForRegistry<T, TDb = unknown>(
 	shape: AssistantToolShape<T, TDb>,
-	roles: readonly UserRole[],
+	roles: readonly string[],
 ): RegisteredTool<TDb> {
 	return toRegistered<T, TDb>({
 		name: shape.name,

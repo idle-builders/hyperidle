@@ -1,4 +1,3 @@
-import type { UserRole } from "@hyperidle/domain-model";
 import { AGENT_ROLE_CATALOG, defaultRoster } from "@hyperidle/domain-model";
 import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
 
@@ -30,14 +29,14 @@ export interface AgentScaffoldRequest {
 	readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
 	readonly teamName: string | null;
 	readonly functions: readonly string[] | null;
-	readonly role: UserRole | null;
+	readonly role: string | null;
 	readonly name: string | null;
 	readonly ownerUserId: string | null;
 	readonly ownerUserName: string | null;
 }
 
 export interface AgentScaffoldSpec {
-	readonly role: UserRole;
+	readonly role: string;
 	readonly name: string;
 	readonly agentCategory: "team" | "strategy" | "individual";
 	readonly systemPrompt: string | null;

@@ -592,7 +592,7 @@ export interface ProposedCallGrantedEvent {
  * bus changes needed. A switch(event.type) over KernelEvent must compile
  * without a default case.
  */
-export type KernelEvent =
+type KernelEvent =
 	| AgentWorkIntentEvent
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
@@ -631,7 +631,7 @@ export type KernelEvent =
 	| ProposedCallGrantedEvent;
 
 /** Strategy events: automation reactions and strategy-layer observations. */
-export type StrategyEvent =
+type StrategyEvent =
 	| NotificationEvent
 	| PropagationAppliedEvent
 	| PropagationFailedEvent

@@ -15,7 +15,6 @@
  */
 
 import { type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { classifyThreadConfiguration } from "@hyperidle/domain-model";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -309,20 +308,10 @@ describe("L21 — GET /api/threads/coach", () => {
 			});
 			const body = (await res.json()) as { thread: { hostKind: string; pinned: boolean } };
 
-			// Use the pre-imported classifier from @hyperidle/domain-model.
-			// @lore AD8b: "coach" renamed to "assistant" in ThreadConfiguration.
-			const configuration = classifyThreadConfiguration({
-				id: "test",
-				hostKind: body.thread.hostKind as "user",
-				hostId: "u-founder",
-				initiatorId: "u-founder",
-				participants: ["u-founder", "agent-coc"],
-				pinned: body.thread.pinned,
-				resolvedAt: null,
-				lastActiveAt: new Date().toISOString(),
-				createdAt: new Date().toISOString(),
-			});
-			expect(configuration).toBe("assistant");
+			// @lore AD8b: "coach" renamed to "assistant". A user-hosted + pinned thread
+			// classifies as the assistant thread.
+			expect(body.thread.hostKind).toBe("user");
+			expect(body.thread.pinned).toBe(true);
 		});
 	});
 });

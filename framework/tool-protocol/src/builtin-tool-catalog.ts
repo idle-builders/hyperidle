@@ -1,4 +1,4 @@
-import type { Reversibility, UserRole } from "@hyperidle/domain-model";
+import type { Reversibility } from "@hyperidle/domain-model";
 
 /**
  * A single built-in tool's configuration-relevant metadata: the fields the
@@ -18,7 +18,7 @@ import type { Reversibility, UserRole } from "@hyperidle/domain-model";
 export interface ToolCatalogEntry {
 	readonly name: string;
 	readonly description: string;
-	readonly roles?: readonly UserRole[];
+	readonly roles?: readonly string[];
 	readonly reversibility?: Reversibility;
 }
 
