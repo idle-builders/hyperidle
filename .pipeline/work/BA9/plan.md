@@ -48,6 +48,13 @@ firing of global sweeps is a defect, not a behaviour to preserve.
 **Out of scope.** Building a plugin marketplace or distribution mechanism. Reworking the knowledge store
 itself. Deciding whether teams should hold retros.
 
+**Re-provide what the cleanup removed.** The delete pass removed the knowledge merge and split
+operations from core, including their routes. Two destroyers reached that outcome by different
+routes — one convicted the implementation as unreachable bulk curation, the other marked the doors
+as leaving core for this plugin — and both measured zero callers, so nothing reachable was lost.
+Re-providing merge, split and flag-for-review is this package's obligation, not a regression to
+investigate. Recover the deleted implementations from git history rather than rewriting them blind.
+
 ## Acceptance criteria
 
 - The rituals are available as a plugin a team can install.
