@@ -13,8 +13,40 @@
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Filesystem, MountResult } from "@hyperidle/domain-model";
 import type { MountingGitRunnerFactory } from "./mounter-ports.js";
+
+/**
+ * Structural local type — mirrors @hyperidle/filesystems' Filesystem shape.
+ * run-orchestration is a sibling service and may not import from filesystems
+ * directly (Mechanism C). The two types are structurally identical and the
+ * Application composes them.
+ *
+ * @lore AU44 b2: domain-model's Filesystem type dissolved here with its
+ * auxiliary types (ResourceRef etc.) inlined.
+ */
+export interface Filesystem {
+	id: string;
+	teamId: string;
+	source: string;
+	kind: string;
+	connectionId: string | null;
+	resourceRef: { kind: "code"; repo: string; branch: string } | { kind: "doc_set"; folder: string };
+	writeback: "git" | "file" | "none";
+	state: string;
+	createdAt: string;
+}
+
+/**
+ * Outcome of a mount call.
+ * @lore AU44 b2: dissolved from @hyperidle/domain-model. sandboxPath removed
+ * because it is write-only — the caller already holds it before calling mount;
+ * the result carries only success/failure information.
+ */
+export interface MountResult {
+	success: boolean;
+	error?: string;
+}
+
 import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 
 const CLOUD_SOURCES = new Set(["gdrive", "dropbox", "s3"]);
@@ -42,10 +74,9 @@ interface MountAdapter {
 
 class CloudNotBuiltAdapter implements MountAdapter {
 	constructor(private readonly source: string) {}
-	mount(ctx: MountContext): Promise<MountResult> {
+	mount(_ctx: MountContext): Promise<MountResult> {
 		return Promise.resolve({
 			success: false,
-			sandboxPath: ctx.sandboxPath,
 			error: `mount adapter not built for source '${this.source}' (built in its connector WP)`,
 		});
 	}
@@ -58,7 +89,6 @@ class LocalFolderAdapter implements MountAdapter {
 		if (ref.kind !== "doc_set")
 			return Promise.resolve({
 				success: false,
-				sandboxPath: ctx.sandboxPath,
 				error: "Expected doc_set resourceRef",
 			});
 		try {
@@ -71,11 +101,10 @@ class LocalFolderAdapter implements MountAdapter {
 				)
 					throw new Error(`mount path already exists: '${link}'`);
 			} else fs.symlinkSync(ref.folder, link);
-			return Promise.resolve({ success: true, sandboxPath: ctx.sandboxPath });
+			return Promise.resolve({ success: true });
 		} catch (error) {
 			return Promise.resolve({
 				success: false,
-				sandboxPath: ctx.sandboxPath,
 				error: String(error),
 			});
 		}
@@ -98,14 +127,13 @@ class GitCloneAdapter implements MountAdapter {
 	constructor(private readonly deps: AdapterDeps) {}
 	async mount(ctx: MountContext): Promise<MountResult> {
 		const ref = ctx.filesystem.resourceRef;
-		if (ref.kind !== "code")
-			return { success: false, sandboxPath: ctx.sandboxPath, error: "Expected code resourceRef" };
+		if (ref.kind !== "code") return { success: false, error: "Expected code resourceRef" };
 		try {
 			await this.deps.gitRunnerFactory(ctx.sandboxPath).clone(ref.repo, ref.branch, { depth: 1 });
 			writeExclude(path.join(ctx.sandboxPath, ".git"));
-			return { success: true, sandboxPath: ctx.sandboxPath };
+			return { success: true };
 		} catch (error) {
-			return { success: false, sandboxPath: ctx.sandboxPath, error: String(error) };
+			return { success: false, error: String(error) };
 		}
 	}
 }
@@ -114,8 +142,7 @@ class GitWorktreeAdapter implements MountAdapter {
 	constructor(private readonly deps: AdapterDeps) {}
 	async mount(ctx: MountContext): Promise<MountResult> {
 		const ref = ctx.filesystem.resourceRef;
-		if (ref.kind !== "code")
-			return { success: false, sandboxPath: ctx.sandboxPath, error: "Expected code resourceRef" };
+		if (ref.kind !== "code") return { success: false, error: "Expected code resourceRef" };
 		try {
 			await this.deps
 				.gitRunnerFactory(ref.repo)
@@ -131,9 +158,9 @@ class GitWorktreeAdapter implements MountAdapter {
 				const common = resolveCommonGitDir(ref.repo);
 				if (gitDir.startsWith(`${path.join(common, "worktrees")}${path.sep}`)) writeExclude(gitDir);
 			}
-			return { success: true, sandboxPath: ctx.sandboxPath };
+			return { success: true };
 		} catch (error) {
-			return { success: false, sandboxPath: ctx.sandboxPath, error: String(error) };
+			return { success: false, error: String(error) };
 		}
 	}
 }

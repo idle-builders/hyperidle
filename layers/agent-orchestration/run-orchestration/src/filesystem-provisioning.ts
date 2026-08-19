@@ -24,7 +24,10 @@
  * route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
  */
 
-import type { Filesystem, MountResult } from "@hyperidle/domain-model";
+// Filesystem and MountResult are local to this package — run-orchestration is a sibling
+// service to @hyperidle/filesystems and may not import from it (Mechanism C).
+// Declared in mounter.ts (the mount engine) and imported here.
+import type { Filesystem, MountResult } from "./mounter.js";
 
 /** Structural mounter port — run-orchestration declares the shape it needs (Mechanism C). */
 export interface FilesystemMounterPort {
