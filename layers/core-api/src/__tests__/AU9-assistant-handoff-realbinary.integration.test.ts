@@ -1,6 +1,6 @@
 import { bootAgentExecution } from "@hyperidle/agent-execution";
 import { SESSION_NOT_RETURNED_NOTICE_TEXT } from "@hyperidle/conversation";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	agentRunConfig,
 	agentSessionRequests,

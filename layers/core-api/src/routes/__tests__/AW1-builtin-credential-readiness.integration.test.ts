@@ -82,7 +82,6 @@ describe("AW1 — built-in readiness reflects stored credentials", () => {
 			encryptedValue: "enc-value",
 			validationState: "present_untested",
 			lastValidatedAt: null,
-			updatedAt: new Date().toISOString(),
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
@@ -99,7 +98,6 @@ describe("AW1 — built-in readiness reflects stored credentials", () => {
 			encryptedValue: "enc-value",
 			validationState: "present_untested",
 			lastValidatedAt: null,
-			updatedAt: new Date().toISOString(),
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
@@ -115,7 +113,6 @@ describe("AW1 — built-in readiness reflects stored credentials", () => {
 			encryptedValue: "enc-value",
 			validationState: "present_untested",
 			lastValidatedAt: null,
-			updatedAt: new Date().toISOString(),
 		});
 		const tier = { provider: "openrouter" as const, model: "anthropic/claude-opus-5" };
 		await updateServerConfig(db, {
@@ -132,7 +129,6 @@ describe("AW1 — built-in readiness reflects stored credentials", () => {
 			encryptedValue: "enc-value",
 			validationState: "present_untested",
 			lastValidatedAt: null,
-			updatedAt: new Date().toISOString(),
 		});
 		// reasoning stays anthropic; the other two move to openrouter.
 		const openrouter = { provider: "openrouter" as const, model: "anthropic/claude-opus-5" };
@@ -148,7 +144,6 @@ describe("AW1 — built-in readiness reflects stored credentials", () => {
 			encryptedValue: "enc-value",
 			validationState: "present_untested",
 			lastValidatedAt: null,
-			updatedAt: new Date().toISOString(),
 		});
 		const app2 = await createTestApp({ db, eventBus, adapterPool: makePool() });
 		expect(await builtinState(app2)).toBe("ready");
@@ -160,7 +155,6 @@ describe("AW1 — built-in readiness reflects stored credentials", () => {
 			encryptedValue: "enc-value",
 			validationState: "present_untested",
 			lastValidatedAt: null,
-			updatedAt: new Date().toISOString(),
 		});
 
 		const app = await createTestApp({ db, eventBus, adapterPool: makePool("missing") });

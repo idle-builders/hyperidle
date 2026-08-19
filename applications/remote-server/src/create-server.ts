@@ -50,8 +50,7 @@ import {
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
-import { bootCoreApi } from "@hyperidle/core-api/boot";
-import type { CredentialResolver } from "@hyperidle/credential-access";
+import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { resolveProfile } from "@hyperidle/host-process";
@@ -128,18 +127,14 @@ export interface CreateServerDeps {
  * invariant test can assert `instanceof DbCredentialResolver` without relying
  * on indirect observable effects. This is the correct scope: the test must
  * fail if someone reverts the wiring to EnvCredentialResolver.
- * @lore AU31 §5.3 (AU34 update): `CredentialResolver` is `@hyperidle/
- * credential-access`'s own type (`credentials` re-exports it unchanged for
- * convenience) — this Application reaches it through the framework package
- * whose declared reach names `remote-server` directly, never
- * `@hyperidle/credentials` (a Service) directly. The runtime VALUE is still
- * the real `DbCredentialResolver`, so `instanceof DbCredentialResolver` in a
- * test (a development file, free to import the Service) works unchanged.
+ * @lore AU44-b2: `credentialResolver` type derived from `CoreApiBoot` so this
+ * application does not import @hyperidle/credentials (a Service) at the
+ * application layer — the layer barrel is the only boundary a composition root crosses.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly credentialResolver: CredentialResolver;
+	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -399,6 +394,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
+		cipher: coreApi.cipher,
 	});
 	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();

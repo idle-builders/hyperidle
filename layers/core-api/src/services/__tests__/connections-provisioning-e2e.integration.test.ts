@@ -30,12 +30,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	listHeldConnectionsForProvisioning,
-	ServiceConnectionResolver,
-} from "@hyperidle/connections";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { listConnections, resolveHeldToken } from "@hyperidle/connections";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { serviceConnections, users } from "@hyperidle/db";
+import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
 import { eq } from "drizzle-orm";
 import {
@@ -70,9 +68,23 @@ function buildRealDeps(db: import("@hyperidle/db").HyperIdleDb): {
 } {
 	return {
 		connections: {
-			listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, USER_HUMAN_ID),
+			listHeldForProvisioning: () =>
+				listConnections(db, { userId: USER_HUMAN_ID }).then((rows) =>
+					rows
+						.filter((r) => (HELD_AUTH_SOURCES as readonly string[]).includes(r.authSource))
+						.map((r) => ({
+							id: r.id,
+							userId: r.userId,
+							service: r.service,
+							authSource: r.authSource as HeldAuthSource,
+							serverUrl: r.serverUrl ?? null,
+						})),
+				),
 		},
-		resolver: new ServiceConnectionResolver(db),
+		resolver: {
+			resolve: (userId: string, connectionId: string) =>
+				resolveHeldToken(db, userId, connectionId, decryptCredentialValue),
+		},
 	};
 }
 

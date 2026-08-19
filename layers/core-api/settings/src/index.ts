@@ -22,8 +22,4 @@ export { listConfiguration, writeConfigurationOverride } from "./plugin-configur
 
 // -- server config (P3 — server_config single-row table read/write) --
 export type { ServerConfig, ServerConfigPatch } from "./server-config.js";
-export {
-	migrateCredentialsToStore,
-	readServerConfig,
-	updateServerConfig,
-} from "./server-config.js";
+export { readServerConfig, updateServerConfig } from "./server-config.js";

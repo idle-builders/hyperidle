@@ -159,6 +159,15 @@ export type {
 	WorkSelectionRequestedEvent,
 } from "./events.js";
 export { AGENT_WORK_INTENT_KINDS } from "./events.js";
+export type {
+	Filesystem,
+	FilesystemKind,
+	FilesystemState,
+	MountResult,
+	ResourceRef,
+	WriteBack,
+} from "./filesystem.js";
+export { FILESYSTEM_KINDS, WRITEBACK_MODES } from "./filesystem.js";
 export type { HintCatalogEntry, HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";

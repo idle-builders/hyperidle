@@ -1,5 +1,5 @@
-// AO1 — Filesystem primitive: types, constants, and seam interfaces.
-// Source of truth: plans/AO1/architecture.md §1 (types) + §4 (Connection seam) + §5 (AO2 seam).
+// Filesystem primitive: types, constants, and mount result.
+// Moved from @hyperidle/filesystem-contract (dissolved in AU44 batch 2).
 
 /** OPEN vocabulary. Initial committed kinds. Systems of record are categorically excluded.
  *  The create-route Zod enum constrains writes; reads stay open.
@@ -20,25 +20,22 @@ export type FilesystemState = "attached" | "reachable" | "needs_attention";
 
 /** Discriminated resource selector (the `resourceRef` JSON payload), keyed by kind. */
 export type ResourceRef =
-	| { kind: "code"; repo: string; branch: string } // GitHub-style "owner/repo" or clone URL + branch
-	| { kind: "doc_set"; folder: string }; // absolute folder path (local or connection-relative)
+	| { kind: "code"; repo: string; branch: string }
+	| { kind: "doc_set"; folder: string };
 
 /** The Filesystem wire/domain type. A REGISTERED, team-scoped file source — NOT owned by one agent.
  *  Mirrors docs/process-layer/canonical-shapes.md §Filesystem. */
 export interface Filesystem {
-	id: string; // opaque, stable
-	teamId: string; // FK → teams.id. The REGISTRY scope. Required.
-	source: string; // source type, derived from the Connection (or 'local'). Shown prominently.
-	kind: FilesystemKind; // open vocab; create constrained to FILESYSTEM_KINDS.
-	connectionId: string | null; // reference to a Connection (AN). null → bare local path.
-	resourceRef: ResourceRef; // parsed selector (stored as JSON text in DB).
+	id: string;
+	teamId: string;
+	source: string;
+	kind: FilesystemKind;
+	connectionId: string | null;
+	resourceRef: ResourceRef;
 	writeback: WriteBack;
 	state: FilesystemState;
-	createdAt: string; // ISO 8601
-	// NOTE: no `agentUserId` — per-bot wiring is the FilesystemInjection mapping below.
+	createdAt: string;
 }
-
-// ─── AO2 mount seam ───────────────────────────────────────────────
 
 /** Outcome of a mount call. */
 export interface MountResult {

@@ -23,12 +23,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-	listHeldConnectionsForProvisioning,
-	ServiceConnectionResolver,
-} from "@hyperidle/connections";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { listConnections, resolveHeldToken } from "@hyperidle/connections";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { agentSessionRequests, type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
+import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -142,9 +140,23 @@ async function provisionConnections(
 ): Promise<Awaited<ReturnType<typeof buildProvisioningPlan>>> {
 	const plan = await buildProvisioningPlan({
 		connections: {
-			listHeldForProvisioning: () => listHeldConnectionsForProvisioning(db, ownerUserId),
+			listHeldForProvisioning: () =>
+				listConnections(db, { userId: ownerUserId }).then((rows) =>
+					rows
+						.filter((r) => (HELD_AUTH_SOURCES as readonly string[]).includes(r.authSource))
+						.map((r) => ({
+							id: r.id,
+							userId: r.userId,
+							service: r.service,
+							authSource: r.authSource as HeldAuthSource,
+							serverUrl: r.serverUrl ?? null,
+						})),
+				),
 		},
-		resolver: new ServiceConnectionResolver(db),
+		resolver: {
+			resolve: (userId: string, connectionId: string) =>
+				resolveHeldToken(db, userId, connectionId, decryptCredentialValue),
+		},
 	});
 	await applyProvisioningPlan({
 		plan,
@@ -306,8 +318,11 @@ describe("held connections are read live at spawn, never carried on the request"
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db);
-		expect(await resolver.resolve(HUMAN_ID, "sc-au26-e3-isolation")).toBe("gh_isolation_token");
-		expect(await resolver.resolve(OTHER_HUMAN_ID, "sc-au26-e3-isolation")).toBeNull();
+		expect(
+			await resolveHeldToken(db, HUMAN_ID, "sc-au26-e3-isolation", decryptCredentialValue),
+		).toBe("gh_isolation_token");
+		expect(
+			await resolveHeldToken(db, OTHER_HUMAN_ID, "sc-au26-e3-isolation", decryptCredentialValue),
+		).toBeNull();
 	});
 });

@@ -1691,54 +1691,6 @@
 			}
 		},
 		{
-			"source": "core-api",
-			"target": "framework/filesystem-contract",
-			"kind": "import",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 3
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/filesystem-contract",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "core-api",
-			"target": "framework/filesystem-contract",
-			"kind": "manifest",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/filesystem-contract",
-			"kind": "manifest",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
 			"source": "core-ui",
 			"target": "framework/conversation-parts",
 			"kind": "import",
@@ -2161,54 +2113,6 @@
 		{
 			"source": "tooling",
 			"target": "framework/factory-defaults",
-			"kind": "manifest",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 1
-			}
-		},
-		{
-			"source": "core-api",
-			"target": "framework/credential-access",
-			"kind": "import",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 4,
-				"development": 14
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/credential-access",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 2
-			}
-		},
-		{
-			"source": "core-api",
-			"target": "framework/credential-access",
-			"kind": "manifest",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/credential-access",
 			"kind": "manifest",
 			"scope": "general",
 			"production": "forbidden",

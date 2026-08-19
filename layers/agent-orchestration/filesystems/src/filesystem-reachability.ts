@@ -1,8 +1,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FilesystemRow } from "@hyperidle/db";
-import type { FilesystemState } from "@hyperidle/filesystem-contract";
+import type { FilesystemRow, WriteExecutor } from "@hyperidle/db";
+import type { FilesystemState } from "@hyperidle/domain-model";
+import { updateFilesystemState } from "./filesystem-registry.js";
 import type { FilesystemsGitRunnerFactory, FilesystemTokenResolver } from "./ports.js";
 
 interface ProbeResult {
@@ -155,4 +156,25 @@ function withTimeout(p: Promise<ProbeResult>, timeoutMs: number): Promise<ProbeR
 			setTimeout(() => resolve({ state: "needs_attention", reason: "probe timeout" }), timeoutMs),
 		),
 	]);
+}
+
+/**
+ * Probe a filesystem's reachability and persist any state transition atomically.
+ * Folds `resolveFilesystemState` + `updateFilesystemState` + the route's
+ * `checkAndPersistState` helper into one service method.
+ *
+ * Returns the updated row (or the original if state unchanged).
+ */
+export async function refreshFilesystemState(
+	exec: WriteExecutor,
+	row: FilesystemRow,
+	deps: { authResolver: FilesystemTokenResolver; gitRunnerFactory: FilesystemsGitRunnerFactory },
+	opts?: { timeoutMs?: number },
+): Promise<FilesystemRow> {
+	const newState = await resolveFilesystemState(row, deps, opts);
+	if (newState !== row.state) {
+		await updateFilesystemState(exec, row.id, newState);
+		return { ...row, state: newState };
+	}
+	return row;
 }

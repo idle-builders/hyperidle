@@ -11,9 +11,7 @@
 		{
 			"path": "../../framework/api-contract"
 		},
-		{
-			"path": "../../framework/credential-access"
-		},
+		{},
 		{
 			"path": "../../framework/db"
 		},
@@ -26,9 +24,7 @@
 		{
 			"path": "../../framework/factory-defaults"
 		},
-		{
-			"path": "../../framework/filesystem-contract"
-		},
+		{},
 		{
 			"path": "../../framework/harness-protocol"
 		},

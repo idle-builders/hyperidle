@@ -24,7 +24,7 @@
  * route's `rowToFilesystem`) — this function must NOT re-`JSON.parse` it.
  */
 
-import type { Filesystem, MountResult } from "@hyperidle/filesystem-contract";
+import type { Filesystem, MountResult } from "@hyperidle/domain-model";
 
 /** Structural mounter port — run-orchestration declares the shape it needs (Mechanism C). */
 export interface FilesystemMounterPort {

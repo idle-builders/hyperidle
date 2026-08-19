@@ -27,8 +27,8 @@
 // Application-applied to that shared router and reaches this module unchanged.
 
 import type { FilesystemRow, HyperIdleDb } from "@hyperidle/db";
-import type { Filesystem } from "@hyperidle/filesystem-contract";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
+import type { Filesystem } from "@hyperidle/domain-model";
+import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/domain-model";
 import {
 	deleteFilesystem,
 	deleteInjection,
@@ -36,9 +36,8 @@ import {
 	getFilesystem,
 	inspectLocalPath,
 	listFilesystems,
-	resolveFilesystemState,
+	refreshFilesystemState,
 	saveFilesystem,
-	updateFilesystemState,
 } from "@hyperidle/filesystems";
 
 /**
@@ -137,31 +136,19 @@ function buildAuthResolver(
 // ─── Reachability helper (mutates stored state) ───────────────────────────────
 
 /**
- * Run a live reachability probe and persist any state transition.
- * Only call this on single-row paths (GET /:id, POST register).
- * The LIST route MUST NOT call this — use stored state only (perf constraint:
- * one ls-remote per list row makes team-list latency-bound on the forge).
- *
  * @lore AO1 v2: list = cached state; inspect/register = live probe.
+ * Delegates to refreshFilesystemState (probe + persist in one call).
  */
 async function checkAndPersistState(
 	db: HyperIdleDb,
 	row: FilesystemRow,
 	authResolver: FilesystemTokenResolver,
 ): Promise<FilesystemRow> {
-	const newState = await resolveFilesystemState(row, {
+	return refreshFilesystemState(db, row, {
 		authResolver,
-		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
-		// `git-export` package it used to live in is deleted. Closes `filesystems`' Increment 2b
-		// `FilesystemsGitRunnerFactory` forward-reference. See
-		// `@hyperidle/filesystems`' `ports.ts` top `@lore`.
+		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`.
 		gitRunnerFactory: createGitRunner,
 	});
-	if (newState !== row.state) {
-		await updateFilesystemState(db, row.id, newState);
-		return { ...row, state: newState };
-	}
-	return row;
 }
 
 // ─── createFilesystemRoutes ───────────────────────────────────────────────────
