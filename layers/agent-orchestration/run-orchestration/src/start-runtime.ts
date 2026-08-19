@@ -329,7 +329,7 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	const unsubscribe = deps.eventBus?.on("*", () => void wake());
 	const timer = setInterval(() => void wake(), 1_000);
 	const reapTimer = setInterval(
-		() => void deps.ports.sessionRequests.reapExpired(deps.durableQueue),
+		() => void deps.ports.sessionRequests.reapExpired(deps.db),
 		AGENT_LAYER_REAP_INTERVAL_MS,
 	);
 	reapTimer.unref();

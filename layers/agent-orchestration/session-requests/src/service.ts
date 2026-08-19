@@ -1212,8 +1212,7 @@ type TransitionSpec =
 			readonly to: "failed";
 			readonly startId: string;
 			readonly failureCode: string;
-	  }
-;
+	  };
 export type SessionRequestTransition = TransitionSpec & {
 	readonly transaction?: "existing";
 };
