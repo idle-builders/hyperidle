@@ -24,17 +24,17 @@ describe("API Availability Regression Guard (I6)", () => {
 	 * segment after /api/. For each, a GET to the base path must return
 	 * something other than 404.
 	 */
+	// Removed: /api/conversations root (door #72 DELETE), /api/status (doors #115-118 DELETE),
+	// /api/notifications root (door #129 DELETE) — these routes were convicted and removed.
 	const ROUTE_MODULES = [
 		{ path: "/api/health", description: "Health (public)" },
 		{ path: "/api/bets", description: "Bets" },
 		{ path: "/api/tasks", description: "Tasks" },
 		{ path: "/api/knowledge", description: "Knowledge" },
-		{ path: "/api/conversations", description: "Conversations" },
 		{ path: "/api/users", description: "Users" },
 		{ path: "/api/routines", description: "Routines" },
 		{ path: "/api/sessions", description: "Sessions" },
-		{ path: "/api/status", description: "Status" },
-		{ path: "/api/notifications", description: "Notifications" },
+		{ path: "/api/notifications/inbox", description: "Notifications (inbox)" },
 	] as const;
 
 	for (const route of ROUTE_MODULES) {

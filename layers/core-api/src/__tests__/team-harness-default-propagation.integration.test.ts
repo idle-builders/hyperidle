@@ -58,48 +58,6 @@ describe("primary harness persisted as team default", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("add-agent-later inherits the persisted team default (not builtin)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		// Create team with primaryHarness
-		const createRes = await app.request("/api/teams", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				name: "Inherit Team",
-				functions: ["development"],
-				primaryHarness: {
-					harnessType: "claude-code",
-					modelId: "claude-haiku-4-5",
-					modelProvider: "anthropic",
-				},
-			}),
-		});
-		expect(createRes.status).toBe(201);
-		const createBody = (await createRes.json()) as { team: { id: string } };
-		const teamId = createBody.team.id;
-
-		// Add agent later — no harness in body
-		const addRes = await app.request(`/api/teams/${teamId}/agents`, {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ role: "designer" }),
-		});
-		expect(addRes.status).toBe(201);
-		const addBody = (await addRes.json()) as { agentId: string };
-
-		// Assert new agent inherits the persisted team default, NOT builtin
-		const [newAgent] = await db
-			.select()
-			.from(agentRunConfig)
-			.where(eq(agentRunConfig.agentUserId, addBody.agentId))
-			.limit(1);
-		expect(newAgent?.harnessType).toBe("claude-code");
-		expect(newAgent?.modelId).toBe("claude-haiku-4-5");
-
-		vi.unstubAllEnvs();
-	});
-
 	test("unset default: no team default AND scaffolded agents fall back to builtin", async ({
 		db,
 		app,
@@ -116,8 +74,7 @@ describe("primary harness persisted as team default", () => {
 			}),
 		});
 		expect(res.status).toBe(201);
-		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
-		const teamId = body.team.id;
+		const body = (await res.json()) as { teamMembers: { id: string } };
 		const teamMembersId = body.teamMembers.id;
 
 		// Scaffolded agents fall back to builtin/claude-sonnet-4-6
@@ -132,22 +89,6 @@ describe("primary harness persisted as team default", () => {
 			expect(config?.harnessType).toBe("builtin");
 			expect(config?.modelId).toBe("claude-sonnet-4-6");
 		}
-
-		// Add-agent-later also falls back to builtin
-		const addRes = await app.request(`/api/teams/${teamId}/agents`, {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ role: "designer" }),
-		});
-		expect(addRes.status).toBe(201);
-		const addBody = (await addRes.json()) as { agentId: string };
-		const [newAgent] = await db
-			.select()
-			.from(agentRunConfig)
-			.where(eq(agentRunConfig.agentUserId, addBody.agentId))
-			.limit(1);
-		expect(newAgent?.harnessType).toBe("builtin");
-		expect(newAgent?.modelId).toBe("claude-sonnet-4-6");
 
 		vi.unstubAllEnvs();
 	});

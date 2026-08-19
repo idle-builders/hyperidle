@@ -114,11 +114,7 @@ describe("app runtime domain observability", () => {
 			);
 
 			await deliver(db, { kind: "flush" }, notificationsDeps);
-			const queueRes = await app.request("/api/notifications/queue?status=sent", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			expect(queueRes.status).toBe(200);
+			// GET /api/notifications/queue (door #133) deleted — status check removed.
 
 			const routinesRes = await app.request("/api/routines", {
 				method: "GET",

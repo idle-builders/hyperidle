@@ -1,7 +1,5 @@
 import { bets, teamMembers, teams } from "@hyperidle/db";
-import { createTestDb } from "@hyperidle/db/testing";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
-import { createTestApp } from "../__testing__/test-utils.js";
 
 // @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
 // POST /api/bets accepts teamId referencing teams.id (NOT teamMembers.id).
@@ -413,85 +411,7 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC6: transitions active bet to completed", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-
-		const createRes = await app.request("/api/bets", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				teamId: "prod-1",
-				description: "Build feature X",
-			}),
-		});
-		const bet = (await createRes.json()) as Record<string, unknown>;
-		const betId = bet.id as string;
-
-		await app.request(`/api/bets/${betId}/commit`, { method: "POST", headers: authHeaders() });
-
-		const res = await app.request(`/api/bets/${betId}/ship`, {
-			method: "POST",
-			headers: authHeaders(),
-		});
-
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.status).toBe("completed");
-		expect(body.completedAt).toBeTruthy();
-		vi.unstubAllEnvs();
-	});
-
-	// @lore U2: Invalid bet transitions return 400 (not 409). 409 is reserved for
-	// capacity conflicts (ApiError CONFLICT). InvalidTransitionError -> 400 VALIDATION_ERROR.
-	test("AC6: rejects ship from draft (invalid transition 400)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-
-		const createRes = await app.request("/api/bets", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				teamId: "prod-1",
-				description: "Build feature X",
-			}),
-		});
-		const bet = (await createRes.json()) as Record<string, unknown>;
-
-		const res = await app.request(`/api/bets/${bet.id}/ship`, {
-			method: "POST",
-			headers: authHeaders(),
-		});
-
-		expect(res.status).toBe(400);
-		vi.unstubAllEnvs();
-	});
+	// POST /api/bets/:id/ship (door #30) deleted. Tests removed with the route.
 
 	test("AC7: kills a draft bet with reason", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -606,78 +526,7 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC11: returns draft, active, and capacity info", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		await db.insert(teams).values({
-			id: "prod-1",
-			name: "Test Product",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
-
-		async function createBet(
-			overrides?: Record<string, unknown>,
-		): Promise<Record<string, unknown>> {
-			const res = await app.request("/api/bets", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					teamId: "prod-1",
-					description: "Build feature X",
-					...overrides,
-				}),
-			});
-			return (await res.json()) as Record<string, unknown>;
-		}
-
-		await createBet({ description: "Draft bet" });
-		const bet2 = await createBet({ description: "Active bet" });
-		await app.request(`/api/bets/${bet2.id}/commit`, { method: "POST", headers: authHeaders() });
-
-		const res = await app.request("/api/bets/canvas", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			draft: unknown[];
-			active: unknown[];
-			capacity: { used: number; max: number };
-		};
-
-		expect(body.draft).toHaveLength(1);
-		expect(body.active).toHaveLength(1);
-		expect(body.capacity.max).toBe(2);
-		expect(body.capacity.used).toBe(1);
-		vi.unstubAllEnvs();
-	});
-
-	test("AC11: returns zero capacity when no teamMembers exist", async ({ eventBus }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		// Use a fresh db with only teams/products (no teamMembers)
-		const freshHandle = await createTestDb();
-		const freshApp = await createTestApp({ db: freshHandle.db, eventBus });
-		await freshHandle.db.insert(teams).values({
-			id: "prod-1",
-			name: "Test",
-			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-
-		const res = await freshApp.request("/api/bets/canvas", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { capacity: { used: number; max: number } };
-		expect(body.capacity.used).toBe(0);
-		expect(body.capacity.max).toBe(0);
-		await freshHandle.close();
-		vi.unstubAllEnvs();
-	});
+	// GET /api/bets/canvas (door #24) deleted. Tests removed with the route.
 
 	test("AC12: first commit succeeds, second rejected 409 (no race)", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
