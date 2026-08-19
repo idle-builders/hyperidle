@@ -59,7 +59,7 @@ async function seedTeam(db: HyperIdleDb, teamMembersId: string): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Team ${teamMembersId}`, phase: "build", createdAt: NOW });
-	}
+}
 
 function messageValues(
 	id: string,

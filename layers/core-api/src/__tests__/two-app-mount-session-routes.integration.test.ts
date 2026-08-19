@@ -49,7 +49,7 @@ const NOW = "2026-08-04T00:00:00.000Z";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW });
-		await db.insert(users).values({
+	await db.insert(users).values({
 		id: "agent-1",
 		name: "Builder",
 		role: "builder",

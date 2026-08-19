@@ -27,7 +27,7 @@ async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 	// Insert domain entity (teams table, formerly products)
 	await db.insert(teams).values({ id: productId, name: "P", phase: "build", createdAt: NOW });
 	// Insert membership group (teamMembers table, formerly teams)
-	
+
 	// @lore U1: bets.teamId references teams.id (domain entity), not teamMembers.id
 	await db.insert(bets).values({
 		id: betId,

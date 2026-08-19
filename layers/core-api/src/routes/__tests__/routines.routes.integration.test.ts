@@ -49,7 +49,7 @@ async function seedRoutine(db: HyperIdleDb): Promise<{ routineId: string; taskId
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: now });
-		await db.insert(users).values({
+	await db.insert(users).values({
 		id: "agent-1",
 		kind: "ai",
 		name: "Test Agent",

@@ -70,7 +70,7 @@ describe("agent-layer boot recovery", () => {
 		await db
 			.insert(teams)
 			.values({ id: "boot-team", name: "boot", phase: "build", createdAt: nowIso });
-			await db.insert(users).values([
+		await db.insert(users).values([
 			{
 				id: "boot-agent",
 				kind: "ai",

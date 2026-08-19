@@ -19,15 +19,7 @@
  *   - R5 tx-visibility: a read fn called with `tx` inside an open transaction
  *     must see an uncommitted row written earlier in the same `tx`.
  */
-import {
-	bets,
-	type HyperIdleDb,
-	items,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, items, tasks, teams, threads, users } from "@hyperidle/db";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";

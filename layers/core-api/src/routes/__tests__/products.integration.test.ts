@@ -56,7 +56,6 @@ describe("GET /api/teams", () => {
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
 
-		
 		await db.insert(bets).values({
 			id: "b1",
 			teamId: "p1",
@@ -269,7 +268,6 @@ describe("GET /api/teams/:id", () => {
 			.insert(teams)
 			.values({ id: "p2", name: "Shipped Product", phase: "cool-down", createdAt: NOW });
 
-		
 		await db.insert(bets).values({
 			id: "b-s1",
 			teamId: "p2",

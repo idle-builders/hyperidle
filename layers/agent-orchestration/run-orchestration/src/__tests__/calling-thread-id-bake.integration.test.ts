@@ -6,14 +6,7 @@
  * forwards it onto `provisionParams.callingThreadId` — a JSON.parse of the
  * already-drained payload, ZERO orchestration -> core read (AU21 AC #2).
  */
-import {
-	agentSessionRequests,
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { agentSessionRequests, bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";

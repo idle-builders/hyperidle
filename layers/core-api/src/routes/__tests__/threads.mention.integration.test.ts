@@ -14,15 +14,7 @@
  * - MAX_MENTIONS_PER_MESSAGE cap prevents unbounded lookups.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 

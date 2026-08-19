@@ -21,7 +21,7 @@ function buildLogTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>[nu
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	
+
 	await db.insert(bets).values({
 		id: "b1",
 		teamId: "p1",

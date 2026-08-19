@@ -124,7 +124,7 @@ describe("Policy Engine (E7)", () => {
 		await db
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-				await db.insert(users).values([
+		await db.insert(users).values([
 			{
 				id: "agent-1",
 				kind: "ai",

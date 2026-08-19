@@ -10,15 +10,7 @@
  * - AC-6: Work portfolio shows routine count per team alongside bet count
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	routineRuns,
-	routines,
-	tasks,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, routineRuns, routines, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 

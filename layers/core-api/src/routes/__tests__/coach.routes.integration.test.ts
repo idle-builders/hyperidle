@@ -34,7 +34,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 
 	// Seed base product/team
 	await db.insert(teams).values({ id: "p1", name: "TestProduct", phase: "build", createdAt: now });
-	
+
 	// Seed founder user
 	await db.insert(users).values({
 		id: "u-founder",

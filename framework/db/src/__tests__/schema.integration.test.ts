@@ -101,9 +101,6 @@ describe("A2: Database Schema", () => {
 				status: "active",
 			});
 		});
-
-
-
 	});
 	// --- AC3: knowledge_ kernel indexes exist; strategy indexes on extension table ---
 	describe("AC3: knowledge_ indexes", () => {

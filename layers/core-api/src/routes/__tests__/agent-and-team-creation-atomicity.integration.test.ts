@@ -93,10 +93,7 @@ describe("createTeam's single-table write is atomic (AU31 B2 — team_members di
 			body: JSON.stringify({ name: TEAM_NAME_CORE_ATOMICITY }),
 		});
 		expect([200, 201]).toContain(res.status);
-		const teamRows = await db
-			.select()
-			.from(teams)
-			.where(eq(teams.name, TEAM_NAME_CORE_ATOMICITY));
+		const teamRows = await db.select().from(teams).where(eq(teams.name, TEAM_NAME_CORE_ATOMICITY));
 		expect(teamRows).toHaveLength(1);
 	});
 });

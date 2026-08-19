@@ -77,15 +77,7 @@ import {
 	createInProcessCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	bets,
-	type HyperIdleDb,
-	routines,
-	sessions,
-	tasks,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, routines, sessions, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import {
@@ -190,7 +182,7 @@ async function seedTeam(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Org Inc2 Team", phase: "build", createdAt: NOW });
-		return { teamId, teamMembersId };
+	return { teamId, teamMembersId };
 }
 
 async function seedAgent(
@@ -301,11 +293,7 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 		const port = buildSeamPort("agent-org-updateteam1", app);
 		await port.org.updateTeam(teamId, { leadAgentId: "agent-org-updateteam1" });
 
-		const [row] = await db
-			.select()
-			.from(teams)
-			.where(eq(teams.id, teamMembersId))
-			.limit(1);
+		const [row] = await db.select().from(teams).where(eq(teams.id, teamMembersId)).limit(1);
 		expect(row?.leadAgentId).toBe("agent-org-updateteam1");
 	});
 

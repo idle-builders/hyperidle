@@ -22,7 +22,6 @@ async function seedSession(db: HyperIdleDb): Promise<void> {
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
-	
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Builder",

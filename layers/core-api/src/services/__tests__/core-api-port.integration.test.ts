@@ -66,7 +66,7 @@ interface SeamCoreApiPort {
 async function seedTeamImpl(db: HyperIdleDb): Promise<{ teamId: string }> {
 	const teamId = `team-seam-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 	await db.insert(teams).values({ id: teamId, name: "Seam Team", phase: "build", createdAt: NOW });
-		return { teamId };
+	return { teamId };
 }
 
 describe("CoreApiPort write seam — §11 contract-test harness", () => {

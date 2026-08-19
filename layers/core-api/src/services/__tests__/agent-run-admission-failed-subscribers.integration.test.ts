@@ -116,7 +116,7 @@ async function seedTeam(
 	const teamId = `${id}-team`;
 	const membersId = `${id}-members`;
 	await db.insert(teams).values({ id: teamId, name: id, phase: "build", createdAt: NOW });
-		return { teamId, membersId };
+	return { teamId, membersId };
 }
 
 async function seedAgent(

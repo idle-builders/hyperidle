@@ -137,10 +137,7 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 	describe("AC: kind=review routes to humans on the agent's team", () => {
 		it("adds only the team's humans when the team has human members", async () => {
 			// Put founder-ad1 ON the team (Id = tm-ad1)
-			await db
-				.update(users)
-				.set({ teamId: TEST_TEAM_ID })
-				.where(eq(users.id, "founder-ad1"));
+			await db.update(users).set({ teamId: TEST_TEAM_ID }).where(eq(users.id, "founder-ad1"));
 
 			// Seed a human NOT on the team
 			await db.insert(users).values({

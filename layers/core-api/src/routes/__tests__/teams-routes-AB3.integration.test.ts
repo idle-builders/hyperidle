@@ -69,10 +69,7 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 		createdAt: NOW,
 	});
 
-	await db
-		.update(teams)
-		.set({ leadAgentId: teamAgentId })
-		.where(eq(teams.id, teamId));
+	await db.update(teams).set({ leadAgentId: teamAgentId }).where(eq(teams.id, teamId));
 
 	return { teamId, teamMembersId, teamAgentId, strategyAgentId };
 }

@@ -318,7 +318,7 @@ describe("E2E API Integration (I5)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-1", name: "E2E Product", phase: "build", createdAt: now });
-						await db.insert(bets).values({
+			await db.insert(bets).values({
 				id: "bet-1",
 				teamId: "prod-1",
 				description: "Test bet",

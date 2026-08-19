@@ -33,7 +33,7 @@ async function seedTeamWithAgents(
 ): Promise<string[]> {
 	await db.insert(teams).values({ id: teamId, name: teamName, phase: "build", createdAt: NOW });
 	const tmId = `${teamId}-tm`;
-	
+
 	const agentIds: string[] = [];
 	for (let i = 1; i <= agentCount; i++) {
 		const agentId = `${teamId}-agent-${i}`;
@@ -88,7 +88,7 @@ describe("AB2 AC-5: GET /teams includes agentCount", () => {
 		await db
 			.insert(teams)
 			.values({ id: "empty-team", name: "Empty Team", phase: "build", createdAt: NOW });
-		
+
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		expect(res.status).toBe(200);
 

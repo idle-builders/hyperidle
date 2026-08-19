@@ -22,7 +22,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "srch-team", name: "Search Team", phase: "build", createdAt: now });
-		await db.insert(users).values({
+	await db.insert(users).values({
 		id: "srch-user",
 		kind: "human",
 		name: "Searcher",

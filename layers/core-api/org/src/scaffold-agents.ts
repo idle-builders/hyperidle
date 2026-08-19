@@ -89,7 +89,13 @@ async function resolveAgentId(
  */
 function resolveHarness(
 	explicit: PrimaryHarnessConfig | undefined,
-	team: { defaultHarnessType?: string | null; defaultModelId?: string | null; defaultModelProvider?: string | null } | undefined,
+	team:
+		| {
+				defaultHarnessType?: string | null;
+				defaultModelId?: string | null;
+				defaultModelProvider?: string | null;
+		  }
+		| undefined,
 ): PrimaryHarnessConfig | undefined {
 	if (explicit !== undefined) return explicit;
 	if (team?.defaultHarnessType != null) {

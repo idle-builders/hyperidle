@@ -33,7 +33,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 async function seedBet(db: HyperIdleDb, eventBus: EventBus): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	
+
 	await db.insert(bets).values({
 		id: "bet1",
 		teamId: "p1",

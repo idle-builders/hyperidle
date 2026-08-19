@@ -53,7 +53,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 		{ id: TEAM_ID, name: "Parity Team", phase: "build", createdAt: NOW },
 		{ id: OTHER_TEAM_ID, name: "Other Team", phase: "build", createdAt: NOW },
 	]);
-		await db.insert(users).values({
+	await db.insert(users).values({
 		id: AGENT_ID,
 		name: "Parity Agent",
 		role: AGENT_ROLE,
