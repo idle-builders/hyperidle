@@ -114,6 +114,18 @@ to prove itself.
   their floors honestly. The floor check also blocks the tool that re-measures it, so the floors were
   settled in one pass by zeroing them, reading the tool's own values, and restoring.
 
+## The list is not closed
+
+Checked after the fact with the pass's own accounting tool, which was built to gate this work and never
+run at ship: 64 convicted symbols are still declared in the package that convicted them, 34 of them still
+on the public surface. Ten of those are the KEEP-marked routes the pass restored on purpose and never
+added to the survivor list. Eleven are the invite and login-session substrate, whose standing changed
+with the ruling that the shared backend gets OIDC rather than invites. Thirteen have no explanation on
+file and need their rows re-read.
+
+Nothing in this set is a regression. It is an accounting failure: the criterion was reported met and is
+not. The full breakdown is `UNFINISHED.md`, alongside this file on branch `pipeline/AU44`.
+
 ## Accepted survivors, coverage gaps, and one posture change
 
 Eight rows survived deletion, each for a structural reason rather than caution: some are obliged by an
