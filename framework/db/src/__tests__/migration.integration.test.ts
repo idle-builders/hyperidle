@@ -60,6 +60,9 @@ describe("A2: Migration", () => {
 		// the repo that reads the real post-migration database and can say the drop
 		// happened.
 		expect(tableNames).not.toContain("user_skills");
+		// @lore AU44 B1: `team_members` dissolved into `teams` in migration 0058.
+		// Exact-absence proves the DROP TABLE in 0058 ran.
+		expect(tableNames).not.toContain("team_members");
 		expect(tableNames.length).toBeGreaterThanOrEqual(14);
 	});
 
@@ -68,11 +71,25 @@ describe("A2: Migration", () => {
 		const now = new Date().toISOString();
 		await db
 			.insert(teams)
-			.values({ id: "test-prod", name: "Test", phase: "build", createdAt: now });
+			.values({
+				id: "test-prod",
+				name: "Test",
+				phase: "build",
+				createdAt: now,
+				capacity: 7,
+				activeBets: 2,
+				formedAt: now,
+			});
 
 		const result = await db.select().from(teams);
 		expect(result).toHaveLength(1);
-		expect(result[0]).toMatchObject({ id: "test-prod", name: "Test" });
+		expect(result[0]).toMatchObject({
+			id: "test-prod",
+			name: "Test",
+			capacity: 7,
+			activeBets: 2,
+			formedAt: now,
+		});
 	});
 
 	test("migrated database has kernel and fabric knowledge indexes", async ({ db }) => {
