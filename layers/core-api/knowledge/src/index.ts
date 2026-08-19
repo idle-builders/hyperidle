@@ -43,6 +43,11 @@
 
 // -- attention engine (recompute service) --
 export { recomputeAttention } from "./attention-service.js";
+// -- review-item factory (moved from @hyperidle/review, AU44 batch 4 rows 9/10 MERGE) --
+// The LIKE-probe idempotency contract belongs to knowledge; both callers live here.
+// Kills the KnowledgeReviewWriter DI port and the currying factory shape in review.
+export type { CreateReviewItemInput, CreateReviewItemResult } from "./review-item-factory.js";
+export { attentionReviewReasoningMarker, createReviewItem } from "./review-item-factory.js";
 // -- errors --
 export { ItemDeletedError, VersionConflictError } from "./errors.js";
 // -- conflicts (knowledgeConflicts accessors) --

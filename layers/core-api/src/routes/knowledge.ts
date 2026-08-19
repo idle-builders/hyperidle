@@ -56,7 +56,6 @@ import {
 } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers } from "@hyperidle/org";
 import { scopeKindToLabel } from "@hyperidle/presentation-format";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -263,10 +262,6 @@ async function recomputeAttentionScoreForKnowledgeItem(
 	eventBus: EventBus,
 	knowledgeItemId: string,
 ): Promise<{ readonly current: number }> {
-	const createReviewItemForKnowledge = createReviewItem({
-		conversation: { insertThread },
-		work: { createItem: (exec, values) => work.create(exec, "item", values) },
-	});
 	const result = await recomputeAttention(
 		{
 			db,
@@ -276,8 +271,9 @@ async function recomputeAttentionScoreForKnowledgeItem(
 					const rows = await work.list(exec, "item", { marker });
 					return rows[0] ? { id: rows[0].id } : undefined;
 				},
+				createItem: (exec, values) => work.create(exec, "item", values),
 			},
-			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+			conversation: { insertThread },
 		},
 		{ itemId: knowledgeItemId },
 	);

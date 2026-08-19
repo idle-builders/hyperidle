@@ -33,7 +33,6 @@ import {
 	sweep,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
 	extractBuiltinKind,
 	fireBuiltinRoutine,
@@ -58,10 +57,6 @@ async function recomputeAttentionForCandidates(
 	eventBus: EventBus,
 	candidateIds: readonly string[],
 ) {
-	const createReviewItemForKnowledge = createReviewItem({
-		conversation: { insertThread },
-		work: { createItem: (exec, values) => work.create(exec, "item", values) },
-	});
 	const result = await recomputeAttention(
 		{
 			db,
@@ -71,8 +66,9 @@ async function recomputeAttentionForCandidates(
 					const rows = await work.list(exec, "item", { marker });
 					return rows[0] ? { id: rows[0].id } : undefined;
 				},
+				createItem: (exec, values) => work.create(exec, "item", values),
 			},
-			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+			conversation: { insertThread },
 		},
 		{ filter: { ids: candidateIds as string[] } },
 	);

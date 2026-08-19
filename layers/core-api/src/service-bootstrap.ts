@@ -11,7 +11,6 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	findThread,
 	insertMessage,
 	insertThread,
 	listMessages,
@@ -398,18 +397,6 @@ export function registerCoreDomainServices(ctx: {
 			registerReviewSubscriptions(db, eventBus, {
 				work: {
 					getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-					updateTaskById: (exec: WriteExecutor, id: string, patch) =>
-						work.update(exec, "task", id, patch),
-					createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
-				},
-				conversation: {
-					insertThread,
-					getThreadById: (db, id) => findThread(db, { id }),
-					updateThread,
-				},
-				users: {
-					getUserById: (db, id) => findUser(db, { id }),
-					listUsersByKind: (db, kind) => listUsers(db, { kind }),
 				},
 				org: {
 					// @lore AU20 ruling 1: `resolveReviewRecipients` no longer uses the

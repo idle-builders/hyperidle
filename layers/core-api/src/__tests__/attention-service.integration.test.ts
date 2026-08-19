@@ -12,8 +12,7 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import type { ItemCreatedEvent, KnowledgeUpdatedEvent } from "@hyperidle/domain-model";
-import { recomputeAttention } from "@hyperidle/knowledge";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
+import { attentionReviewReasoningMarker, recomputeAttention } from "@hyperidle/knowledge";
 import * as work from "@hyperidle/work";
 import { eq, like } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -38,13 +37,11 @@ const workPort = {
 		const rows = await work.list(exec, "item", { marker });
 		return rows[0] ? { id: rows[0].id } : undefined;
 	},
+	createItem: (exec: import("@hyperidle/db").WriteExecutor, values: import("@hyperidle/db").NewItem) =>
+		work.create(exec, "item", values),
 };
-const reviewPort = {
-	createReviewItemForKnowledge: createReviewItem({
-		conversation: { insertThread },
-		work: { createItem: (exec, values) => work.create(exec, "item", values) },
-	}),
-	attentionReviewReasoningMarker,
+const conversationPort = {
+	insertThread,
 };
 
 const MAX_RECOMPUTE_BATCH = 5000;
@@ -195,7 +192,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		await service.recomputeOne("ki-1");
@@ -234,7 +231,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		const result = await service.recomputeOne("ki-crosses");
@@ -271,7 +268,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		const result = await service.recomputeOne("ki-stable-high");
@@ -298,7 +295,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		const result = await service.recomputeOne("ki-low");
@@ -330,7 +327,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		const start = performance.now();
@@ -386,7 +383,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		await service.recomputeMany(["c1", "c2", "c3", "ok1", "ok2"]);
@@ -411,7 +408,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		await service.recomputeMany(["k-0", "k-1", "k-2"]);
@@ -453,7 +450,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		const result = await service.recomputeScope({ layer: "L3", scopeId: "build" });
@@ -518,7 +515,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		const first = await service.recomputeOne("ki-dup");
@@ -568,7 +565,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		// Kick off two recomputes "simultaneously". SQLite under better-sqlite3
@@ -592,7 +589,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		const result = await service.recomputeScope({});
@@ -614,7 +611,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 		const result = await service.recomputeScope({ layer: "L9" });
@@ -649,7 +646,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 
@@ -701,7 +698,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => NOW_MS,
 		});
 
@@ -742,7 +739,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => fixedNow,
 		});
 		const a = await svcA.recomputeOne("det-1");
@@ -759,7 +756,7 @@ describe("attention-service", () => {
 			db,
 			eventBus,
 			work: workPort,
-			review: reviewPort,
+			conversation: conversationPort,
 			now: () => fixedNow,
 		});
 		const b = await svcB.recomputeOne("det-1");

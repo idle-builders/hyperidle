@@ -21,11 +21,8 @@
 import type {
 	Bet,
 	HyperIdleDb,
-	NewItem,
-	NewThread,
 	Task,
 	Team,
-	Thread,
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
@@ -60,11 +57,6 @@ export type ReviewAgentWorkIntentInput = Extract<
 
 type ReviewAgentWorkIntentRecorder = AgentWorkIntentRecorderFn;
 
-/** Narrow patch shape `review` writes onto a task. */
-interface ReviewTaskPatch {
-	readonly threadId: string;
-}
-
 /** Org-routing context for resolving review recipients. */
 interface ReviewRoutingContext {
 	userId?: string;
@@ -86,18 +78,8 @@ interface ReviewRoutingContext {
  */
 export interface ReviewPorts {
 	readonly work: {
+		/** Used by the liveness-net resolver to check the agent's task. */
 		getTaskById(db: WriteExecutor, id: string): Promise<Task | undefined>;
-		updateTaskById(db: WriteExecutor, id: string, patch: ReviewTaskPatch): Promise<void>;
-		createItem(db: WriteExecutor, values: NewItem): Promise<void>;
-	};
-	readonly conversation: {
-		insertThread(db: HyperIdleDb, values: NewThread): Promise<void>;
-		updateThread(db: HyperIdleDb, id: string, patch: Partial<NewThread>): Promise<void>;
-		getThreadById(db: HyperIdleDb, id: string): Promise<Thread | undefined>;
-	};
-	readonly users: {
-		getUserById(db: HyperIdleDb, id: string): Promise<User | undefined>;
-		listUsersByKind(db: HyperIdleDb, kind: string): Promise<User[]>;
 	};
 	readonly org: {
 		/**

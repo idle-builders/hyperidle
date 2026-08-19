@@ -36,11 +36,8 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { AgentRunAdmissionFailedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import {
-	type CreateReviewItemResult,
-	createReviewItem,
-	reengageOnAdmissionFailure,
-} from "@hyperidle/review";
+import { type CreateReviewItemResult, createReviewItem } from "@hyperidle/knowledge";
+import { reengageOnAdmissionFailure } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
