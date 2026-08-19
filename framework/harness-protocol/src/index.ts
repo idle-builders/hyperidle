@@ -35,7 +35,6 @@ export type {
 	ReturnActionName,
 } from "./harness/return-actions.js";
 export {
-	buildForceReturnMessage,
 	FORCE_RETURN_MESSAGE,
 	isRequiredReturnAction,
 	isReturnAction,
