@@ -635,7 +635,6 @@ export function createTeamRoutes(
 					const [latestRun] = await routineService.listRoutineRuns(db, {
 						routineId: r.id,
 						limit: 1,
-						order: "desc",
 					});
 
 					const owner = ownerMap.get(r.ownerAgentId);

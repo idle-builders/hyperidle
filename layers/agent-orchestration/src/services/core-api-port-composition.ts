@@ -646,9 +646,12 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 			},
 		},
 		routine: {
-			async insertRoutine(input: InsertRoutineRequest): Promise<void> {
+			async insertRoutine(input: InsertRoutineRequest): Promise<string | null> {
 				const res = await client.routines.$post({ json: input });
 				if (!res.ok) return throwSeamError("routine.insertRoutine", res);
+				// Route returns the created routine; extract owner-computed nextRunAt.
+				const body = (await res.json()) as { readonly nextRunAt?: string | null } | null;
+				return body?.nextRunAt ?? null;
 			},
 
 			async getRoutineById(id: string): Promise<RoutineView | undefined> {

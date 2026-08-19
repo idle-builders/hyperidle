@@ -153,7 +153,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 			agentId: "agent-trun-1",
 		});
 
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-1", { requireRunnableAgent });
+		const baked = await resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-1" }, { requireRunnableAgent });
 
 		expect(baked).toMatchObject({
 			defaultAgentId: "agent-trun-1",
@@ -169,7 +169,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 	test("rejects a dispatch attempt that does not exist", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 		await expect(
-			resolveTaskRunRequest(db, "attempt-does-not-exist", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-does-not-exist" }, { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 
@@ -191,7 +191,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		});
 
 		await expect(
-			resolveTaskRunRequest(db, "attempt-trun-2", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-2" }, { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 
@@ -213,7 +213,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		});
 
 		await expect(
-			resolveTaskRunRequest(db, "attempt-trun-3", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-3" }, { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 
@@ -238,7 +238,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		});
 
 		await expect(
-			resolveTaskRunRequest(db, "attempt-trun-4", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-4" }, { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 
@@ -271,7 +271,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		});
 
 		await expect(
-			resolveTaskRunRequest(db, "attempt-trun-5", { requireRunnableAgent }),
+			resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-5" }, { requireRunnableAgent }),
 		).rejects.toThrow();
 	});
 });
@@ -364,7 +364,7 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 		// Left uncast deliberately (no `any`/`as` — CLAUDE.md strict-TS rule): the
 		// compile error itself IS the expected RED signal. Vitest's esbuild
 		// transpile (type-erasure only, no type-check) still executes this file.
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-ctx-1", {
+		const baked = await resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-ctx-1" }, {
 			requireRunnableAgent,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,
@@ -447,7 +447,7 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 			agentId: "agent-trun-thread-1",
 		});
 
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-thread-1", {
+		const baked = await resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-thread-1" }, {
 			requireRunnableAgent,
 			resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
 		});
@@ -476,7 +476,7 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 			status: "requested",
 		});
 
-		const firstBake = await resolveTaskRunRequest(db, "attempt-trun-thread-2a", {
+		const firstBake = await resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-thread-2a" }, {
 			requireRunnableAgent,
 			resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
 		});
@@ -511,7 +511,7 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 			agentId: "agent-trun-thread-3",
 		});
 
-		const baked = await resolveTaskRunRequest(db, "attempt-trun-thread-3", {
+		const baked = await resolveTaskRunRequest(db, { kind: "task_run", attemptId: "attempt-trun-thread-3" }, {
 			requireRunnableAgent,
 		});
 

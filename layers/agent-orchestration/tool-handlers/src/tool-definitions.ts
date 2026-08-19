@@ -11,13 +11,17 @@
  * tests to drive `buildToolDefinitions`, completing the collapse.
  *
  * @lore AU20 Stage 2: `parseCron`/`nextCronMatch` removed from the dispatch
- * port — they are pure utilities now in `@hyperidle/cron`; `create_routine`
- * imports them directly, no dispatch back-edge needed.
+ * port — they were pure utilities now in `@hyperidle/cron`; `create_routine`
+ * imported them directly, no dispatch back-edge needed.
+ *
+ * @lore AU44 B3: `@hyperidle/cron` dissolved into `@hyperidle/routine`.
+ * `create_routine` no longer calls parseCron/nextCronMatch — nextRunAt
+ * computation is owner-side in insertRoutine. The port method now returns
+ * the computed nextRunAt.
  */
 
 import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
-import { type CronFields, nextCronMatch, parseCron } from "@hyperidle/cron";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
@@ -1169,8 +1173,10 @@ function makeEditBetTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditBetI
 
 // ─────────────────────────────────────────────────────────────────────────────
 // create_routine
-// @lore AU20 Stage 2: parseCron/nextCronMatch imported from @hyperidle/cron
-// (relocated from dispatch port) — no longer a dispatch back-edge.
+// @lore AU44 B3: cron computation moved owner-side into insertRoutine
+// (routine service). The tool no longer imports @hyperidle/cron — cron
+// validation happens at the service boundary; an invalid expression returns
+// INVALID_INPUT via the port.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const createRoutineInputSchema = z.object({
@@ -1204,6 +1210,8 @@ function makeCreateRoutineTool<TDb>(
 			const agent = await ports.coreApi.getUserById(input.ownerAgentId, ctx.agentId);
 			if (!agent) return err("NOT_FOUND", `Agent not found: ${input.ownerAgentId}`);
 
+			// Validate triggerConfig JSON structure — cron expression validation
+			// is owner-side in insertRoutine (throws INVALID_INPUT on bad cron).
 			let triggerConfigParsed: { cron?: string };
 			try {
 				triggerConfigParsed = JSON.parse(input.triggerConfig) as { cron?: string };
@@ -1215,33 +1223,32 @@ function makeCreateRoutineTool<TDb>(
 				return err("INVALID_INPUT", "triggerConfig must include a cron field");
 			}
 
-			let parsedCron: CronFields;
-			try {
-				parsedCron = parseCron(triggerConfigParsed.cron);
-			} catch {
-				return err("INVALID_INPUT", `Invalid cron expression: ${triggerConfigParsed.cron}`);
-			}
-
 			const routineId = randomUUID();
 			const now = new Date().toISOString();
-			const nextRunAt = nextCronMatch(parsedCron, new Date()).toISOString();
 
-			await ports.coreApi.insertRoutine(
-				{
-					id: routineId,
-					name: input.name,
-					description: input.description ?? null,
-					teamId: input.teamId,
-					ownerAgentId: input.ownerAgentId,
-					triggerType: input.triggerType,
-					triggerConfig: input.triggerConfig,
-					state: "active",
-					active: true,
-					nextRunAt,
-					createdAt: now,
-				},
-				ctx.agentId,
-			);
+			let nextRunAt: string | null = null;
+			try {
+				nextRunAt = await ports.coreApi.insertRoutine(
+					{
+						id: routineId,
+						name: input.name,
+						description: input.description ?? null,
+						teamId: input.teamId,
+						ownerAgentId: input.ownerAgentId,
+						triggerType: input.triggerType,
+						triggerConfig: input.triggerConfig,
+						state: "active",
+						active: true,
+						createdAt: now,
+					},
+					ctx.agentId,
+				);
+			} catch {
+				return err(
+					"INVALID_INPUT",
+					`Invalid cron expression: ${triggerConfigParsed.cron}`,
+				);
+			}
 
 			return ok({ routineId, name: input.name, nextRunAt });
 		},

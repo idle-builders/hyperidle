@@ -205,7 +205,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 		try {
 			// -- Real production bake (Wave B, already GREEN): resolveTaskRunRequest
 			// derives the contextBundle from the SAME seeded rows. --
-			const baked = await resolveTaskRunRequest(db, ATTEMPT_ID, {
+			const baked = await resolveTaskRunRequest(db, { kind: "task_run", attemptId: ATTEMPT_ID }, {
 				requireRunnableAgent,
 				getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 				assembleSessionKnowledge,

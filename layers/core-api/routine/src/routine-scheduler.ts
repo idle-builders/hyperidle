@@ -50,11 +50,11 @@
  * sole caller of (`ports.ts`). The other four builtins are unaffected.
  */
 import * as crypto from "node:crypto";
-import { computeNextRunAt, nextCronMatch, parseCron } from "@hyperidle/cron";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { BetStateChangedEvent, EventType, ItemCreatedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import { computeNextRunAt, nextCronMatch, parseCron } from "./cron.js";
 import type { RoutineSchedulerPorts } from "./ports.js";
 import {
 	type BakedRoutineRunRequest,
@@ -230,9 +230,6 @@ export interface FireResult {
 	fired: boolean;
 	reason?: string;
 	runId?: string;
-	sessionId?: string;
-	emitted?: readonly string[];
-	extra?: Record<string, unknown>;
 }
 
 function postBetRetroBetIdMarker(betId: string): string {
