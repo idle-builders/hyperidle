@@ -133,5 +133,5 @@ acting on the remaining rows must read **both** sides for a feature before touch
 ## Where the evidence lives
 
 The full audit, the per-package verdicts, the revised verdicts, the census and the tooling were committed
-during the pass and removed at ship. Recover them from git history at `aafa592d1`, under
+during the pass and removed at ship. Recover them from the `au20-audit-evidence` tag (PR #505 was squash-merged, so the commit is not reachable from `main` — the tag is what keeps it alive), under
 `.pipeline/work/AU20/destroy/`.
