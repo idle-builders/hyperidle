@@ -1243,8 +1243,14 @@ function makeCreateRoutineTool<TDb>(
 					},
 					ctx.agentId,
 				);
-			} catch {
-				return err("INVALID_INPUT", `Invalid cron expression: ${triggerConfigParsed.cron}`);
+			} catch (e) {
+				// Only mislabel the failure as a cron error when the thrown message is
+				// actually from parseCron — DB or network errors must propagate so the
+				// agent sees a 500, not a misleading "Invalid cron expression".
+				if (e instanceof Error && /invalid cron/i.test(e.message)) {
+					return err("INVALID_INPUT", `Invalid cron expression: ${triggerConfigParsed.cron}`);
+				}
+				throw e;
 			}
 
 			return ok({ routineId, name: input.name, nextRunAt });

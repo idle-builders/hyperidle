@@ -54,10 +54,10 @@ import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { BetStateChangedEvent, EventType, ItemCreatedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { computeNextRunAt, nextCronMatch, parseCron } from "./cron.js";
 import type { RoutineSchedulerPorts } from "./ports.js";
 import {
 	type BakedRoutineRunRequest,
+	computeRoutineNextRunAt,
 	getRoutine,
 	insertRoutine,
 	insertRoutineRun,
@@ -179,16 +179,13 @@ export async function provisionTeamRoutines(
 	},
 ): Promise<void> {
 	const { teamId, ownerByRole, leadAgentId } = opts;
-	const now = new Date();
 	for (const spec of BUILTIN_SPECS) {
 		const routineId = `${spec.id}:${teamId}`;
-		let nextRunAt: string | null = null;
-		const cron = (spec.triggerConfig as { cron?: string }).cron;
-		if (spec.triggerType === "calendar" && cron) {
-			nextRunAt = nextCronMatch(parseCron(cron), now).toISOString();
-		}
 		const ownerAgentId = ownerByRole[spec.ownerRole] ?? leadAgentId;
 
+		// nextRunAt is computed owner-side by insertRoutine — no caller-side
+		// pre-computation needed (AU44 B3: computeRoutineNextRunAt is now the
+		// single canonical function; the duplicate inline computation here was dead).
 		await insertRoutine(
 			db,
 			{
@@ -205,7 +202,6 @@ export async function provisionTeamRoutines(
 				humanReview: spec.humanReview,
 				silent: spec.silent,
 				active: true,
-				nextRunAt,
 			},
 			{ onConflictDoNothing: true },
 		);
@@ -530,7 +526,7 @@ export function registerBuiltinRoutineHandlers(
 
 function safeNextRunAt(routine: Routine, now: Date): string | null {
 	try {
-		return computeNextRunAt(routine, now);
+		return computeRoutineNextRunAt(routine.triggerType, routine.triggerConfig, now);
 	} catch {
 		return routine.nextRunAt ?? null;
 	}
@@ -746,7 +742,7 @@ async function backfillMissingNextRunAt(db: HyperIdleDb): Promise<number> {
 
 	let count = 0;
 	for (const routine of candidates) {
-		const nextRunAt = computeNextRunAt(routine, now);
+		const nextRunAt = computeRoutineNextRunAt(routine.triggerType, routine.triggerConfig, now);
 		if (!nextRunAt) continue;
 		await updateRoutine(db, routine.id, { nextRunAt });
 		count += 1;
