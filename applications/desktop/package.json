@@ -22,7 +22,6 @@
 		"@hyperidle/agent-execution": "*",
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/core-api": "*",
-		"@hyperidle/credential-access": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/host-process": "*",

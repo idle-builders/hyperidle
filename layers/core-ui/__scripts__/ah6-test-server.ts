@@ -44,7 +44,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	agentRunConfig,
 	applyMigrations,

@@ -16,7 +16,6 @@ import {
 	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { Filesystem } from "@hyperidle/filesystem-contract";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
 	type ConversationMessage,
@@ -43,6 +42,9 @@ import {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
+// Filesystem: local to this package — sibling service boundary (Mechanism C).
+// @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
+import type { Filesystem } from "./mounter.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];

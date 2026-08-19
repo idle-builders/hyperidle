@@ -3,7 +3,9 @@
 // `file-watcher.ts` — zero DB coupling, only ever called at session-launch
 // time, and an agent-orchestration package may not import a core-api Service
 // directly (Mechanism B).
-export { resolveFilesystemState } from "./filesystem-reachability.js";
+
+export type { FilesystemState } from "./filesystem-reachability.js";
+export { refreshFilesystemState, resolveFilesystemState } from "./filesystem-reachability.js";
 export type { FilesystemFilter } from "./filesystem-registry.js";
 export {
 	deleteFilesystem,
@@ -14,6 +16,7 @@ export {
 	saveInjection,
 	updateFilesystemState,
 } from "./filesystem-registry.js";
+export type { Filesystem } from "./filesystem-shape.js";
 // AU26 F2 — the LIVE, in-layer read one spawn performs. It replaces AU21 §9
 // Increment 12's emit-time bake helper outright: no per-kind resolver calls
 // anything about filesystems any more, and nothing about filesystems rides the

@@ -36,9 +36,8 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
-import { mountFilesystemsForAgent } from "@hyperidle/run-orchestration";
+import { mountFilesystemsForAgent, RegistryFilesystemMounter } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";

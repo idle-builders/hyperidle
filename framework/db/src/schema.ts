@@ -1127,7 +1127,7 @@ export const filesystemInjections = pgTable(
 export type FilesystemRow = typeof filesystems.$inferSelect; // DB row (resourceRef: string). NOT named `Filesystem`.
 export type NewFilesystem = typeof filesystems.$inferInsert;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
-// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/filesystem-contract — see §1.
+// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/domain-model — see §1.
 
 // --- P3: Server-side credential storage (shared mode) ---
 

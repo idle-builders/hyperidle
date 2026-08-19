@@ -16,8 +16,7 @@
  * When AH5 lands, the same PUT-then-resolve seam is what the live lane drives.
  */
 
-import { resolveModel } from "@hyperidle/credential-access";
-import { DbCredentialResolver } from "@hyperidle/credentials";
+import { resolveCredential, resolveModel } from "@hyperidle/credentials";
 import { serverCredentials } from "@hyperidle/db";
 import { MissingCredentialError } from "@hyperidle/domain-model";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -43,7 +42,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 	});
 
 	describe("anthropic provider path", () => {
-		test("key stored via PUT resolves through DbCredentialResolver without MissingCredentialError", async ({
+		test("key stored via PUT resolves through resolveCredential without MissingCredentialError", async ({
 			app,
 			db,
 		}) => {
@@ -66,7 +65,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 
 			// Step 3: Construct DbCredentialResolver with the same secret — this is the
 			// PRODUCTION wiring AH1 §3 mandates. No mock of the resolver.
-			const resolver = new DbCredentialResolver(db);
+			const resolver = { resolve: (name: string) => resolveCredential(db, name) };
 
 			// Step 4: Call resolveModelTier — the same function makeResolveModel wraps in
 			// server-factory. Use the default workhorse tier (anthropic provider).
@@ -90,7 +89,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 			db,
 		}) => {
 			// No key stored — resolver returns null → MissingCredentialError.
-			const resolver = new DbCredentialResolver(db);
+			const resolver = { resolve: (name: string) => resolveCredential(db, name) };
 			const cfg = await readServerConfig(db);
 
 			// Must throw MissingCredentialError, never return undefined or swallow.
@@ -101,7 +100,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 	});
 
 	describe("openai-compatible provider path", () => {
-		test("key stored via PUT resolves through DbCredentialResolver for openai-compatible tier", async ({
+		test("key stored via PUT resolves through resolveCredential for openai-compatible tier", async ({
 			app,
 			db,
 		}) => {
@@ -132,7 +131,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 			expect(putRes.status).toBe(200);
 
 			// Step 3: Construct the PRODUCTION resolver.
-			const resolver = new DbCredentialResolver(db);
+			const resolver = { resolve: (name: string) => resolveCredential(db, name) };
 
 			// Step 4: Resolve the openai-compatible tier.
 			const cfg = await readServerConfig(db);
@@ -164,7 +163,7 @@ describe("AH1 AC4 — key reaches the runtime resolver (deterministic harness)",
 				},
 			});
 
-			const resolver = new DbCredentialResolver(db);
+			const resolver = { resolve: (name: string) => resolveCredential(db, name) };
 			const cfg = await readServerConfig(db);
 
 			// Fails today: the current path reads tier.apiKey (absent after §2) and

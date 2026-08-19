@@ -20,8 +20,13 @@
  * that takes the collapsed type.
  */
 
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
-import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
+import {
+	decryptCredentialValue,
+	deleteCredential,
+	encryptCredentialValue,
+	readCredentials,
+	writeCredential,
+} from "@hyperidle/credentials";
 import type { WriteExecutor } from "@hyperidle/db";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
@@ -45,7 +50,6 @@ export const notificationsDeps: NotificationsDeps = {
 				encryptedValue: values.encryptedValue,
 				validationState: values.validationState,
 				lastValidatedAt: values.lastValidatedAt,
-				updatedAt: values.updatedAt,
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},

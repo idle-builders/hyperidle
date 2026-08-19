@@ -10,42 +10,32 @@
  *
  * @lore AU26 E2 (AU21 Decision J2): this package used to be
  * `layers/core-api/connections` / `@hyperidle/connections` and held BOTH
- * catalogs. `service_connections` — its CRUD, its held-token resolver, its
- * inherited projection — left for `layers/agent-orchestration/connections`,
- * because core never operationally consumed a Connection; it only let a human
- * administer one. `server_credentials` stayed, on J2's consumer-locus
- * argument: its key is resolved on core's OWN call path (model resolution), so
- * moving it would invert a clean edge to fix nothing. The package is now named
- * for what it actually holds.
+ * catalogs. `service_connections` left for `layers/agent-orchestration/connections`.
+ * `server_credentials` stayed, on J2's consumer-locus argument: its key is
+ * resolved on core's OWN call path (model resolution).
  *
- * @lore AU20 Am4: collapsed from 34 to 18 exports (the pre-split count).
- * Internalized: getServerSecret, requireServerSecret, deriveKey,
- *   held-row query, CLI carrier map, MCP entry shape,
- *   ServerCredentialWriteValues, SetCredentialValueInput.
- * Collapsed: 9 credential-row accessors → readCredentials/writeCredential/deleteCredential;
- *   5 encryption exports → encryptCredentialValue/decryptCredentialValue (no secret param);
- *   DbCredentialResolver constructor simplified (no serverSecret arg).
+ * @lore AU20 Am4: collapsed from 34 to 18 exports. Internalized: getServerSecret,
+ * requireServerSecret, deriveKey, held-row query, CLI carrier map, MCP entry shape,
+ * ServerCredentialWriteValues, SetCredentialValueInput.
  *
- * @lore AU26 E1 (AU21 J1): `encryptCredentialValue`/`decryptCredentialValue`
- * are NOT here. The AES-256-GCM cipher is a primitive, not a Service member: it
- * reads no table, holds no db handle, and both Layers need it. It lives at
- * `@hyperidle/credential-access` and every caller imports it from there —
- * deliberately NOT re-exported here, so this Service does not become a second,
- * competing source of truth for it.
+ * @lore AU44 batch2: DbCredentialResolver replaced by resolveCredential (function).
+ * updatedAt dropped from CredentialWrite (stamped internally). credential-encryption
+ * and resolve-model moved HERE from framework/credential-access (dissolved).
+ * migrateCredentialsToStore deleted from settings; seedAnthropicKeyFromEnv lives here.
  */
 
-// -- CredentialResolver family (1) — the DB implementation --
-// @lore AU20 R-connections: EnvCredentialResolver relocated to tools/eval (eval-only
-// fixture, AH1 §3). Production barrel exports only DbCredentialResolver.
-// @lore AU34: the `CredentialResolver` interface itself is no longer republished here. This service
-// implements the port; it does not own it, and republishing it handed a narrow-audience name to
-// anyone who could name this service. Its two production readers name the declaring package.
-export { DbCredentialResolver } from "./credential-resolver.js";
-
-// -- CredentialStore (4) — server_credentials read/write/delete + patch type --
+// -- Cipher (2) — AES-256-GCM encrypt/decrypt (moved from @hyperidle/credential-access) --
+export { decryptCredentialValue, encryptCredentialValue } from "./credential-encryption.js";
+// -- CredentialStore (5) — server_credentials read/write/delete/resolve + seed --
 export {
 	type CredentialWrite,
 	deleteCredential,
 	readCredentials,
+	resolveCredential,
+	seedAnthropicKeyFromEnv,
 	writeCredential,
 } from "./credential-store.js";
+// -- CredentialResolver (1) — port interface (moved from @hyperidle/credential-access) --
+export type { CredentialResolver } from "./resolve-model.js";
+// -- Model resolution (1) — resolveModel (moved from @hyperidle/credential-access) --
+export { resolveModel } from "./resolve-model.js";

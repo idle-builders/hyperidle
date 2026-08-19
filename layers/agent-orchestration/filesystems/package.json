@@ -12,7 +12,6 @@
 	},
 	"dependencies": {
 		"@hyperidle/db": "*",
-		"@hyperidle/filesystem-contract": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

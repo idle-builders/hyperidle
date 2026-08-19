@@ -22,11 +22,11 @@
  *   then restored → GREEN.
  */
 
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
-import { ServiceConnectionResolver } from "../service-connection-resolver.js";
+import { resolveHeldToken } from "../service-connection-resolver.js";
 
 const SERVER_SECRET = "integration-test-server-secret-an1";
 const NOW = new Date().toISOString();
@@ -98,8 +98,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db);
-		const result = await resolver.resolve(USER_A_ID, rowId);
+		const result = await resolveHeldToken(db, USER_A_ID, rowId, decryptCredentialValue);
 
 		// Must return the EXACT plaintext — not null, not a different string.
 		expect(result).toBe(PLAINTEXT);
@@ -138,10 +137,8 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db);
-
 		// USER_B must NOT get USER_A's plaintext — cross-user → null
-		const result = await resolver.resolve(USER_B_ID, rowId);
+		const result = await resolveHeldToken(db, USER_B_ID, rowId, decryptCredentialValue);
 		expect(result).toBeNull();
 
 		// Sanity-break evidence:
@@ -173,8 +170,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db);
-		const result = await resolver.resolve(USER_A_ID, mcpRowId);
+		const result = await resolveHeldToken(db, USER_A_ID, mcpRowId, decryptCredentialValue);
 
 		// mcp rows have no secret → resolver must return null
 		expect(result).toBeNull();
@@ -185,8 +181,12 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 	test("(d) resolve(userA, absentId) returns null — non-existent row", async ({ db }) => {
 		await seedUsers(db);
 
-		const resolver = new ServiceConnectionResolver(db);
-		const result = await resolver.resolve(USER_A_ID, "sc-does-not-exist-at-all");
+		const result = await resolveHeldToken(
+			db,
+			USER_A_ID,
+			"sc-does-not-exist-at-all",
+			decryptCredentialValue,
+		);
 
 		expect(result).toBeNull();
 	});
@@ -212,13 +212,11 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 			updatedAt: NOW,
 		});
 
-		const resolver = new ServiceConnectionResolver(db);
-
 		// Must return null, must not throw
 		let threw = false;
 		let result: string | null = "sentinel";
 		try {
-			result = await resolver.resolve(USER_A_ID, rowId);
+			result = await resolveHeldToken(db, USER_A_ID, rowId, decryptCredentialValue);
 		} catch {
 			threw = true;
 		}
@@ -259,8 +257,7 @@ describe("ServiceConnectionResolver (real DB integration)", () => {
 		delete process.env.HYPERIDLE_CREDENTIAL_KEY;
 		delete process.env.HYPERIDLE_API_KEY;
 
-		const resolver = new ServiceConnectionResolver(db);
-		const result = await resolver.resolve(USER_A_ID, rowId);
+		const result = await resolveHeldToken(db, USER_A_ID, rowId, decryptCredentialValue);
 		expect(result).toBeNull();
 	});
 });

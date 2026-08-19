@@ -16,7 +16,6 @@
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/filesystem-contract": "*",
 		"@hyperidle/harness-capability": "*",
 		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/host-process": "*",

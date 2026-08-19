@@ -9,9 +9,6 @@
 	"include": ["src"],
 	"references": [
 		{
-			"path": "../../../framework/credential-access"
-		},
-		{
 			"path": "../../../framework/db"
 		},
 		{

@@ -2,10 +2,9 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { describe, expect, it } from "vitest";
 import { RegistryFilesystemMounter } from "../index.js";
-import type { AdapterDeps } from "../mounter-registry.js";
+import type { AdapterDeps, Filesystem } from "../mounter.js";
 
 const deps: AdapterDeps = {
 	gitRunnerFactory: () => null as never,

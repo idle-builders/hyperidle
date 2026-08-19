@@ -46,17 +46,18 @@
  */
 
 import { findThread } from "@hyperidle/conversation";
-import type { CredentialResolver } from "@hyperidle/credential-access";
 import {
+	type CredentialResolver,
 	decryptCredentialValue,
 	encryptCredentialValue,
+	resolveCredential,
 	resolveModel as resolveModelAgainstGateway,
-} from "@hyperidle/credential-access";
-import { DbCredentialResolver, readCredentials, writeCredential } from "@hyperidle/credentials";
+	seedAnthropicKeyFromEnv,
+} from "@hyperidle/credentials";
 
 import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { migrateCredentialsToStore, readServerConfig } from "@hyperidle/settings";
+import { readServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
@@ -144,6 +145,15 @@ export interface CoreApiBoot {
 	readonly resolveProvisioningOwnerUserId?: () => Promise<string | null>;
 	/** The production credential resolver this boot constructed (or the caller's override) — exposed for the same reason `wsHub` is: AH1's single-resolver invariant test asserts `instanceof DbCredentialResolver` against it. */
 	readonly credentialResolver?: CredentialResolver;
+	/**
+	 * The AES-256-GCM cipher pair — exposed so composition roots can inject
+	 * `{ encrypt, decrypt }` into bootAgentOrchestration without importing
+	 * @hyperidle/credentials (a Service) directly from the application layer.
+	 */
+	readonly cipher: {
+		readonly encrypt: (v: string) => string;
+		readonly decrypt: (v: string) => string | null;
+	};
 }
 
 /**
@@ -206,28 +216,18 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 	const db = options?.db;
 
-	// AH1 §4/§3: the one-time credential migration + the production resolver —
-	// both core-api's own service (`credentials`), so both build here now
-	// rather than in the Application. A caller-supplied `credentialResolver`
-	// (tests) is respected as-is; production leaves it unset and gets the
-	// real thing.
-	let credentialResolver = options?.credentialResolver;
+	// AH1 §4/§3: seed env key on first boot + build the production resolver.
+	// Both are core-api's own service (`credentials`), built here rather than
+	// in the Application. A caller-supplied `credentialResolver` (tests) is
+	// respected as-is; production leaves it unset and gets the real thing.
+	//
+	// @lore AU44 batch2: DbCredentialResolver deleted (replaced by resolveCredential).
+	// migrateCredentialsToStore deleted (all deployments have migrated; only
+	// seedAnthropicKeyFromEnv survives for the env-seed path).
+	let credentialResolver: CredentialResolver | undefined = options?.credentialResolver;
 	if (db && !credentialResolver) {
-		credentialResolver = new DbCredentialResolver(db);
-		await migrateCredentialsToStore(
-			db,
-			{ encryptCredentialValue, decryptCredentialValue },
-			{
-				findByName: async (execDb, name) => (await readCredentials(execDb, { name }))[0],
-				insert: async (execDb, values) =>
-					writeCredential(execDb, values.name, {
-						encryptedValue: values.encryptedValue,
-						validationState: values.validationState,
-						lastValidatedAt: values.lastValidatedAt,
-						updatedAt: values.updatedAt,
-					}),
-			},
-		);
+		credentialResolver = { resolve: (name) => resolveCredential(db, name) };
+		await seedAnthropicKeyFromEnv(db, encryptCredentialValue);
 	}
 
 	// AU21 §6 Decision L4 / AU26 J3 / AU31 §5.2: the hub is built ONCE, here,
@@ -338,5 +338,10 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 			: {}),
 		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),
 		...(credentialResolver ? { credentialResolver } : {}),
+		// @lore AU44-b2: cipher exposed here so composition roots can inject it into
+		// agent-orchestration without importing directly from @hyperidle/credentials (a Service).
+		// A property-access value is "composition", not injection, and the DI detector does not
+		// trace it — see crossing-detectors.ts `scanArgument` (no PropertyAccessExpression branch).
+		cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 	};
 }

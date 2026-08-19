@@ -31,8 +31,7 @@
  */
 
 import { bootAgentExecution } from "@hyperidle/agent-execution";
-import { ServiceConnectionResolver } from "@hyperidle/connections";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	filesystemInjections,
 	filesystems,
@@ -160,9 +159,14 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 		topology: "disabled",
 		mcpBaseUrl: "http://localhost:0",
 	});
+	// @lore AU44-b2: cipher is required by connections route since @hyperidle/credential-access was
+	// dissolved into @hyperidle/credentials. The development-world import here (agent-orchestration →
+	// core-api/credentials) is a warning-level crossing — acceptable in integration tests that need
+	// the real AES cipher to round-trip with seed data encrypted by encryptCredentialValue above.
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
+		cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 		runtime: {
 			harnessRuntime: agentExecution.adapters.harnessRuntime,
 			returnStatusTool: {
@@ -203,9 +207,9 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		await seed(db);
 		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
 		try {
-			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeInstanceOf(
-				ServiceConnectionResolver,
-			);
+			// @lore AU44 batch2: instanceof check removed (ServiceConnectionResolver class deleted).
+			// replaced by resolveHeldToken function. Functional check below proves the same contract.
+			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeDefined();
 			// The two-argument call the provisioner makes. This is the exact
 			// call that silently returned null in production.
 			expect(

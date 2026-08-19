@@ -17,11 +17,9 @@
  * precedent as `@hyperidle/org`'s `org-edges.integration.test.ts`.
  */
 
-import { serverConfig } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
-import { eq } from "drizzle-orm";
-import { describe, expect, vi } from "vitest";
-import { migrateCredentialsToStore, readServerConfig, updateServerConfig } from "../index.js";
+import { describe, expect } from "vitest";
+import { readServerConfig, updateServerConfig } from "../index.js";
 
 describe("server config read/write", () => {
 	describe("readServerConfig", () => {
@@ -105,37 +103,6 @@ describe("server config read/write", () => {
 			const config = await readServerConfig(db);
 			expect(config.notifications.reviewAlerts).toBe(false);
 			expect(config.harnessDisabled).toEqual(["codex"]);
-		});
-	});
-
-	describe("credential migration", () => {
-		test("keeps legacy key in config when durable credential write fails", async ({ db }) => {
-			const legacy = {
-				modelGateway: {
-					reasoning: { provider: "openai-compatible", model: "reasoning", apiKey: "keep-me" },
-				},
-			};
-			await db.execute(
-				`INSERT INTO server_config (id, config, updated_at) VALUES ('default', '${JSON.stringify(legacy)}', now())`,
-			);
-			const insert = vi.fn().mockRejectedValue(new Error("credential store unavailable"));
-
-			await expect(
-				migrateCredentialsToStore(
-					db,
-					{
-						decryptCredentialValue: () => null,
-						encryptCredentialValue: (value) => `encrypted:${value}`,
-					},
-					{ findByName: async () => undefined, insert },
-				),
-			).rejects.toThrow("credential store unavailable");
-
-			const [row] = await db
-				.select({ config: serverConfig.config })
-				.from(serverConfig)
-				.where(eq(serverConfig.id, "default"));
-			expect(JSON.parse(row?.config ?? "{}")).toMatchObject(legacy);
 		});
 	});
 

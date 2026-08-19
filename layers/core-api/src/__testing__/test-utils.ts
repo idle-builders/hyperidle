@@ -34,6 +34,16 @@ export interface TestAppOptions extends AppOptions {
 	 */
 	agentOrchestrationBoot?: AgentOrchestrationBoot;
 	/**
+	 * AES-256-GCM cipher injected into the agent-orchestration Layer for connection
+	 * token encrypt/decrypt. Required since @hyperidle/credential-access was dissolved
+	 * into @hyperidle/credentials (AU44-b2). Falls back to a throw-on-encrypt no-op
+	 * when absent — pass this in any test that uses the /api/connections routes.
+	 */
+	cipher?: {
+		readonly encrypt: (plaintext: string) => string;
+		readonly decrypt: (ciphertext: string) => string | null;
+	};
+	/**
 	 * Mount extra routes on the `/api` router at the exact point production's
 	 * Application mounts the MCP bridge: after both Layers' pre-auth
 	 * registrations, BEFORE `stack.auth`.
@@ -98,7 +108,9 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	// `bootCoreApi`).
 	const agentOrchestration =
 		options?.agentOrchestrationBoot ??
-		(options?.db ? await bootAgentOrchestration({ db: options.db, eventBus }) : undefined);
+		(options?.db
+			? await bootAgentOrchestration({ db: options.db, eventBus, cipher: options.cipher })
+			: undefined);
 	if (options?.db && agentOrchestration) {
 		registerFixtureOrchestrationCleanup(options.db, () => {
 			agentOrchestration.dispose();

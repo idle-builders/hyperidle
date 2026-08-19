@@ -16,7 +16,6 @@
 	"dependencies": {
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/conversation": "*",
-		"@hyperidle/credential-access": "*",
 		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
@@ -48,8 +47,6 @@
 		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/block-derivation": "*",
 		"@hyperidle/connections": "*",
-		"@hyperidle/filesystem-contract": "*",
-		"@hyperidle/filesystem-mounting": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-registry": "*",
 		"@hyperidle/host-process": "*",

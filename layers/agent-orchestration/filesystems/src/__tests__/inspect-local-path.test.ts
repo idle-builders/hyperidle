@@ -14,27 +14,12 @@ function makeFakeRunner(
 	branch: string | null,
 ): ReturnType<FilesystemsGitRunnerFactory> {
 	return {
-		async add() {},
-		async commit() {
-			return "sha";
-		},
-		async diffCached() {
-			return true;
-		},
 		async revParseIsInsideWorkTree() {
 			return isInsideWorkTree;
-		},
-		async lsFiles() {
-			return [];
 		},
 		async lsRemote() {
 			return { reachable: true };
 		},
-		async clone() {},
-		async bundle() {},
-		async worktreeAdd() {},
-		async worktreeRemove() {},
-		async restoreStaged() {},
 		async currentBranch() {
 			return branch;
 		},

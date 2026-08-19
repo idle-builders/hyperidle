@@ -78,20 +78,18 @@ export async function updateConnection(
 	db: HyperIdleDb,
 	params: { id: string; userId: string },
 	patch: {
-		readonly health?: string;
-		readonly lastValidatedAt?: string;
+		readonly health: string;
+		readonly lastValidatedAt: string;
 		readonly updatedAt: string;
 	},
 ): Promise<void> {
-	const updateSet: Partial<typeof serviceConnections.$inferInsert> = {
-		updatedAt: patch.updatedAt,
-	};
-	if (patch.health !== undefined) updateSet.health = patch.health;
-	if (patch.lastValidatedAt !== undefined) updateSet.lastValidatedAt = patch.lastValidatedAt;
-
 	await db
 		.update(serviceConnections)
-		.set(updateSet)
+		.set({
+			health: patch.health,
+			lastValidatedAt: patch.lastValidatedAt,
+			updatedAt: patch.updatedAt,
+		})
 		.where(and(eq(serviceConnections.id, params.id), eq(serviceConnections.userId, params.userId)));
 }
 

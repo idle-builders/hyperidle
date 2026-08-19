@@ -5,14 +5,18 @@
  * package, so the pin drives the moved entry (`createInheritedReach`) directly
  * — seeded isolated homes, `assertIdentityOnly`, real binaries, zero stubs.
  *
- * Hard-rule 4 survives the move: every produced fact is identity-only
- * (name/kind/source/health — no secret, token, env, or command value).
+ * Hard-rule 4 survives the move: every produced view is identity-only
+ * (service/via/authSource/health/removable — no secret, token, env, or command value).
  *
  * @lore AU36: gate divergence from the AN1 original, deliberately: the
  * opencode probe parses a config file and execs NOTHING, so it carries no
  * binary gate (the original's requireHarness("opencode") gated a discovery
  * that ran every family probe; the reach entry runs only the four reach
  * probes). claude/codex gates stay — their probes exec the real binary.
+ *
+ * @lore AU44 batch2: list() now returns ServiceConnectionView[] — assertIdentityOnly
+ * updated to check the view shape (authSource/health/id/removable/service/via).
+ * Source filtering now uses id.startsWith("inherited:<source>:").
  *
  * FAILS until layers/agent-orchestration/connections/src/inherited-reach.ts
  * exists and exports createInheritedReach (D1).
@@ -21,7 +25,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { InheritedConnectionFact } from "@hyperidle/domain-model";
+import type { ServiceConnectionView } from "@hyperidle/domain-model";
 import { afterEach, describe, expect, test } from "vitest";
 import { createInheritedReach } from "../inherited-reach.js";
 import { requireBinary } from "./require-binary.js";
@@ -40,10 +44,24 @@ afterEach(async () => {
 	);
 });
 
-/** AN1 hard-rule 4, re-pinned on the moved fact shape: identity fields only. */
-function assertIdentityOnly(facts: readonly InheritedConnectionFact[]): void {
+/**
+ * AN1 hard-rule 4, re-pinned on the ServiceConnectionView shape.
+ * list() projects facts into views — all fields are identity/display only,
+ * no secret/token/env/command value may appear.
+ *
+ * @lore AU44 batch2: keys updated from [health,kind,name,source] to the
+ * ServiceConnectionView shape [authSource,health,id,removable,service,via].
+ */
+function assertIdentityOnly(facts: readonly ServiceConnectionView[]): void {
 	for (const fact of facts) {
-		expect(Object.keys(fact).sort()).toEqual(["health", "kind", "name", "source"]);
+		expect(Object.keys(fact).sort()).toEqual([
+			"authSource",
+			"health",
+			"id",
+			"removable",
+			"service",
+			"via",
+		]);
 	}
 }
 
@@ -60,12 +78,15 @@ describe("AN1 real-harness inherited reach (moved pin)", () => {
 			const reach = createInheritedReach();
 			await reach.refresh({ env: { ...process.env, CODEX_HOME: home } });
 			const facts = reach.list();
-			expect(facts).toContainEqual({
-				name: "an1-codex",
-				kind: "mcp-server",
-				source: "codex",
-				health: "unknown",
-			});
+			// @lore AU44 batch2: InheritedConnectionFact.health "unknown" maps to
+			// ServiceConnectionView.health "working" (anything != "needs-attention").
+			expect(facts).toContainEqual(
+				expect.objectContaining({
+					service: "an1-codex",
+					authSource: "inherited",
+					health: "working",
+				}),
+			);
 			assertIdentityOnly(facts);
 		});
 
@@ -73,7 +94,7 @@ describe("AN1 real-harness inherited reach (moved pin)", () => {
 			const home = await temporaryDirectory("an1-codex-empty-");
 			const reach = createInheritedReach();
 			await reach.refresh({ env: { ...process.env, CODEX_HOME: home } });
-			expect(reach.list().filter((fact) => fact.source === "codex")).toEqual([]);
+			expect(reach.list().filter((fact) => fact.id.startsWith("inherited:codex:"))).toEqual([]);
 		});
 	});
 
@@ -92,11 +113,12 @@ describe("AN1 real-harness inherited reach (moved pin)", () => {
 			);
 			const reach = createInheritedReach();
 			await reach.refresh({ cwd });
-			const facts = reach.list().filter((fact) => fact.source === "claude-code");
+			const facts = reach.list().filter((fact) => fact.id.startsWith("inherited:claude-code:"));
 			expect(facts).toContainEqual(
 				expect.objectContaining({
-					name: "an1-claude",
-					health: expect.stringMatching(/^(needs-attention|unknown)$/),
+					service: "an1-claude",
+					// "unknown" → "working"; "needs-attention" stays "needs-attention"
+					health: expect.stringMatching(/^(needs-attention|working)$/),
 				}),
 			);
 			assertIdentityOnly(facts);
@@ -122,12 +144,13 @@ describe("AN1 real-harness inherited reach (moved pin)", () => {
 			const reach = createInheritedReach();
 			await reach.refresh({ env: { ...process.env, XDG_CONFIG_HOME: configHome } });
 			const facts = reach.list();
-			expect(facts).toContainEqual({
-				name: "an1-opencode",
-				kind: "mcp-server",
-				source: "opencode",
-				health: "unknown",
-			});
+			expect(facts).toContainEqual(
+				expect.objectContaining({
+					service: "an1-opencode",
+					authSource: "inherited",
+					health: "working",
+				}),
+			);
 			assertIdentityOnly(facts);
 		});
 
@@ -138,14 +161,14 @@ describe("AN1 real-harness inherited reach (moved pin)", () => {
 			await writeFile(join(configDirectory, "opencode.jsonc"), JSON.stringify({ theme: "system" }));
 			const reach = createInheritedReach();
 			await reach.refresh({ env: { ...process.env, XDG_CONFIG_HOME: configHome } });
-			expect(reach.list().filter((fact) => fact.source === "opencode")).toEqual([]);
+			expect(reach.list().filter((fact) => fact.id.startsWith("inherited:opencode:"))).toEqual([]);
 		});
 
 		test("reports honest none when config is absent", async () => {
 			const configHome = await temporaryDirectory("an1-opencode-no-config-");
 			const reach = createInheritedReach();
 			await reach.refresh({ env: { ...process.env, XDG_CONFIG_HOME: configHome } });
-			expect(reach.list().filter((fact) => fact.source === "opencode")).toEqual([]);
+			expect(reach.list().filter((fact) => fact.id.startsWith("inherited:opencode:"))).toEqual([]);
 		});
 	});
 
@@ -158,11 +181,10 @@ describe("AN1 real-harness inherited reach (moved pin)", () => {
 			await reach.refresh();
 			const facts = reach.list();
 			assertIdentityOnly(facts);
-			const github = facts.find(({ name }) => name === "github");
+			const github = facts.find(({ service }) => service === "github");
 			if (github) {
 				expect(github).toMatchObject({
-					kind: "cli",
-					source: "environment",
+					authSource: "inherited",
 					health: "working",
 				});
 			}

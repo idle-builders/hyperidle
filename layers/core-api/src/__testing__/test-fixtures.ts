@@ -1,6 +1,7 @@
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type DbFixtures,
@@ -82,6 +83,8 @@ export async function createServiceTestApp(
 		db,
 		eventBus,
 		authApiKey,
+		// AU44-b2: cipher required for /api/connections POST (AES-256-GCM token encrypt/decrypt).
+		cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 		registerExtraRoutes: registerTestRoutes,
 	});
 	const rawFetch = app.fetch.bind(app);
@@ -129,7 +132,11 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// or throw).
 	eventBus: async ({ db }, use) => {
 		const eventBus = new EventBus();
-		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
+		const orchestrationBoot = await bootAgentOrchestration({
+			db,
+			eventBus,
+			cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
+		});
 		registerFixtureOrchestrationCleanup(db, () => {
 			orchestrationBoot.dispose();
 			return orchestrationBoot.joinLifecycleDrain();
@@ -156,7 +163,11 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 	// `eventBus` fixture's own): cheap wiring, no I/O, and keeps this fixture
 	// usable whether or not a test also requests `eventBus`/`app`.
 	agentOrchestration: async ({ db, eventBus }, use) => {
-		const orchestrationBoot = await bootAgentOrchestration({ db, eventBus });
+		const orchestrationBoot = await bootAgentOrchestration({
+			db,
+			eventBus,
+			cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
+		});
 		registerFixtureOrchestrationCleanup(db, () => {
 			orchestrationBoot.dispose();
 			return orchestrationBoot.joinLifecycleDrain();

@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { decryptCredentialValue, encryptCredentialValue } from "../crypto/credential-encryption.js";
+import { decryptCredentialValue, encryptCredentialValue } from "../credential-encryption.js";
 
 const TEST_SECRET = "test-server-secret-12345-xyzwq!!!";
 const OTHER_SECRET = "other-server-secret-99999-abcde!!!";

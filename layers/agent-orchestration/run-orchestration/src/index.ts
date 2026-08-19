@@ -41,11 +41,14 @@ export {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
+export { RegistryFilesystemMounter } from "./mounter.js";
+export type { MountingGitRunnerFactory } from "./mounter-ports.js";
 export {
 	requestRunStopForTasks,
 	type StoppedRun,
 } from "./request-run-stop-for-tasks.js";
 export { runSession } from "./runtime.js";
+export { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 // -- `sessions`: this Service owns the table, so these are its only doors --
 export {
 	countActiveRunsByAgent,

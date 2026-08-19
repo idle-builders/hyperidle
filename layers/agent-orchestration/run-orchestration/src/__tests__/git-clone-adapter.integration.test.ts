@@ -1,55 +1,50 @@
 /**
- * AO2 — GitWorktreeAdapter integration test.
+ * AO2 — GitCloneAdapter integration test.
  *
- * AC1: mount creates a worktree on agent/<sessionId>; files present.
+ * AC1: mount shallow-clones a bare repo; files present.
  * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
- * Scaffolding-exclusion: CLAUDE.md/AGENTS.md excluded paths set in git info/exclude.
  */
 
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { createGitRunner } from "@hyperidle/host-process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { RegistryFilesystemMounter } from "../index.js";
-import type { AdapterDeps } from "../mounter-registry.js";
+import type { AdapterDeps, Filesystem } from "../mounter.js";
 
+// Create a local bare-style repo (works for local clone with git-cli).
 async function createSourceRepo(parentDir: string): Promise<string> {
 	const repoDir = path.join(parentDir, "source-repo");
 	fs.mkdirSync(repoDir, { recursive: true });
 	const runner = createGitRunner(repoDir);
 	await runner.init("main");
-	// Create files including AGENTS.md + CLAUDE.md (self-host case).
-	fs.writeFileSync(path.join(repoDir, "README.md"), "# Source Repo\n");
-	fs.writeFileSync(path.join(repoDir, "AGENTS.md"), "# AGENTS\n");
-	fs.writeFileSync(path.join(repoDir, "CLAUDE.md"), "# CLAUDE\n");
-	fs.writeFileSync(path.join(repoDir, ".mcp.json"), '{"mcpServers":{}}\n');
+	fs.writeFileSync(path.join(repoDir, "README.md"), "# Source\n");
 	await runner.add([]);
 	await runner.commit("initial", "test", "test@test.com");
 	return repoDir;
 }
 
-function makeFs(repoPath: string): Filesystem {
+function makeFs(repoUrl: string, branch = "main"): Filesystem {
 	return {
-		id: "fs-wt-test",
+		id: "fs-clone-test",
 		teamId: "team-1",
-		source: "local",
+		source: "github",
 		kind: "code",
-		connectionId: null,
-		resourceRef: { kind: "code", repo: repoPath, branch: "main" },
+		connectionId: "conn-123",
+		resourceRef: { kind: "code", repo: repoUrl, branch },
 		writeback: "git",
 		state: "reachable",
 		createdAt: "2025-01-01T00:00:00Z",
 	};
 }
 
-describe("GitWorktreeAdapter integration", () => {
+describe("GitCloneAdapter integration", () => {
 	let tmpDir: string;
 
 	beforeEach(() => {
-		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-wt-adapter-"));
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-clone-adapter-"));
 	});
 
 	afterEach(() => {
@@ -62,7 +57,7 @@ describe("GitWorktreeAdapter integration", () => {
 		};
 	}
 
-	it("mount: creates a worktree with source files at sandboxPath", async () => {
+	it("mount: clones the repo into sandboxPath", async () => {
 		const repoPath = await createSourceRepo(tmpDir);
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
@@ -75,12 +70,11 @@ describe("GitWorktreeAdapter integration", () => {
 
 		expect(result.success).toBe(true);
 		expect(fs.existsSync(path.join(sandboxPath, "README.md"))).toBe(true);
-		// Git worktree is a real git repo.
-		const wtRunner = createGitRunner(sandboxPath);
-		expect(await wtRunner.revParseIsInsideWorkTree()).toBe(true);
+		const runner = createGitRunner(sandboxPath);
+		expect(await runner.revParseIsInsideWorkTree()).toBe(true);
 	});
 
-	it("mount: writes git/info/exclude with scaffolding paths (resolves worktree gitdir)", async () => {
+	it("mount: writes .git/info/exclude with scaffolding paths", async () => {
 		const repoPath = await createSourceRepo(tmpDir);
 		const sandboxPath = path.join(tmpDir, `sandbox-${randomUUID()}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
@@ -88,20 +82,13 @@ describe("GitWorktreeAdapter integration", () => {
 		const adapter = new RegistryFilesystemMounter(makeDeps());
 		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
-		// In a worktree, .git is a file pointing to the real gitdir.
-		// Resolve the real gitdir to find info/exclude.
-		const dotGit = path.join(sandboxPath, ".git");
-		const dotGitContent = fs.readFileSync(dotGit, "utf-8").trim();
-		const match = dotGitContent.match(/^gitdir:\s*(.+)$/);
-		const gitDir = match?.[1]?.trim() ? path.resolve(sandboxPath, match[1].trim()) : null;
-		expect(gitDir).not.toBeNull();
-
-		const excludeContent = fs.readFileSync(path.join(gitDir!, "info", "exclude"), "utf-8");
-		// Key scaffolding paths should be excluded.
+		// In a regular clone, .git is a directory.
+		const excludeContent = fs.readFileSync(
+			path.join(sandboxPath, ".git", "info", "exclude"),
+			"utf-8",
+		);
 		expect(excludeContent).toContain("/.fabric");
-		expect(excludeContent).toContain("/context");
-		expect(excludeContent).toContain("/knowledge");
-		expect(excludeContent).toContain("/.claude");
+		expect(excludeContent).toContain("/CLAUDE.md");
 	});
 
 	it("captureBack: returns success no-op (write code removed in AU43 stage 2)", async () => {

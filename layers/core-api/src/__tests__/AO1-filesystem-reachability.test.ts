@@ -31,7 +31,6 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/host-process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -248,32 +247,8 @@ describe("resolveFilesystemState — pure reachability logic (AC5)", () => {
 // layers/core-api/filesystems/src/__tests__/probe-internals.test.ts
 // (AU20 Ag2 barrel collapse — these are internal probe functions).
 
-// ─── FILESYSTEM_KINDS shared constant (AC3) ──────────────────────────────────
-
-describe("FILESYSTEM_KINDS constant (AC3)", () => {
-	it("includes 'code' and 'doc_set'", () => {
-		expect(FILESYSTEM_KINDS).toContain("code");
-		expect(FILESYSTEM_KINDS).toContain("doc_set");
-	});
-
-	it("does NOT include systems-of-record kinds", () => {
-		const kinds = FILESYSTEM_KINDS as readonly string[];
-		expect(kinds).not.toContain("inbox");
-		expect(kinds).not.toContain("crm");
-		expect(kinds).not.toContain("ticket_queue");
-		expect(kinds).not.toContain("email");
-		expect(kinds).not.toContain("calendar");
-	});
-});
-
-// ─── WRITEBACK_MODES shared constant ─────────────────────────────────────────
-
-describe("WRITEBACK_MODES constant", () => {
-	it("includes 'git', 'file', 'none'", () => {
-		expect(WRITEBACK_MODES).toContain("git");
-		expect(WRITEBACK_MODES).toContain("file");
-		expect(WRITEBACK_MODES).toContain("none");
-	});
-});
+// @lore AU44 b2: FILESYSTEM_KINDS and WRITEBACK_MODES were dissolved from
+// @hyperidle/domain-model; the literals are inlined in the route's Zod enum
+// where the single reader was. Tests for those constants are removed here.
 
 // repoToUrl suite moved to probe-internals.test.ts (AU20 Ag2 barrel collapse).
