@@ -2171,54 +2171,6 @@
 			}
 		},
 		{
-			"source": "core-api",
-			"target": "framework/cron",
-			"kind": "import",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/cron",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "core-api",
-			"target": "framework/cron",
-			"kind": "manifest",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/cron",
-			"kind": "manifest",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
 			"source": "run-orchestration",
 			"target": "framework/toon-codec",
 			"kind": "import",

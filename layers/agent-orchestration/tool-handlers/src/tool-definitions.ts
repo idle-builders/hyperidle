@@ -1244,10 +1244,7 @@ function makeCreateRoutineTool<TDb>(
 					ctx.agentId,
 				);
 			} catch {
-				return err(
-					"INVALID_INPUT",
-					`Invalid cron expression: ${triggerConfigParsed.cron}`,
-				);
+				return err("INVALID_INPUT", `Invalid cron expression: ${triggerConfigParsed.cron}`);
 			}
 
 			return ok({ routineId, name: input.name, nextRunAt });

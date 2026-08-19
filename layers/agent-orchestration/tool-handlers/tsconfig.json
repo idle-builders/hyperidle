@@ -9,9 +9,6 @@
 	"include": ["src"],
 	"references": [
 		{
-			"path": "../../../framework/cron"
-		},
-		{
 			"path": "../../../framework/db"
 		},
 		{

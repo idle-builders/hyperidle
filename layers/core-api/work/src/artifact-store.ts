@@ -35,5 +35,4 @@ export interface ArtifactWithTaskTitle {
 	readonly taskTitle: string;
 }
 
-
 export type { CreateArtifactInput };

@@ -184,11 +184,7 @@ const NOTE_SEPARATOR = "\n\n---\n\n";
 // AU20 change), so get/list can call them with the same exec they receive.
 // ---------------------------------------------------------------------------
 
-import type {
-	ArtifactRow,
-	ArtifactWithTaskTitle,
-	CreateArtifactInput,
-} from "./artifact-store.js";
+import type { ArtifactRow, ArtifactWithTaskTitle, CreateArtifactInput } from "./artifact-store.js";
 
 /** Discriminant union of all work-owned entity kinds. */
 export type WorkEntity = "bet" | "task" | "item" | "artifact";
