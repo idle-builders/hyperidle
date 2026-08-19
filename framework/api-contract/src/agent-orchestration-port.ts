@@ -117,7 +117,7 @@ export interface AgentOrchestrationIntentsPort {
 	submit(input: AgentOrchestrationWorkIntentInput): Promise<AgentOrchestrationWorkIntentReceipt>;
 }
 
-/** The requests family — outstanding-work readers. */
+/** The requests family — outstanding-work readers and session-start lifecycle writers. */
 export interface AgentOrchestrationRequestsPort {
 	/** `listPendingIntentsByKind` — the B‴ coherence trigger's outstanding-work reader. */
 	listPendingIntentsByKind(kind: AgentOrchestrationWorkIntentKind): Promise<
@@ -127,6 +127,11 @@ export interface AgentOrchestrationRequestsPort {
 			readonly requestedBy: string | null;
 		}>
 	>;
+	/**
+	 * Mark an explicit session-start row as failed.
+	 * Called by core-api's `session_start` admission-failure reaction.
+	 */
+	failExplicitSessionStart(startId: string, failureCode: string): Promise<void>;
 }
 
 /** One run actually stopped by `runs.stopForTasks` — mirrors `StoppedRun`. */

@@ -22,6 +22,8 @@ async function createRequestForTest(db: HyperIdleDb, request: AgentSessionReques
 			promptMode: request.promptMode,
 			payloadJson: request.payloadJson ?? null,
 			idempotencyKey: request.idempotencyKey,
+			teamId: request.teamId ?? null,
+			taskId: request.taskId ?? null,
 			sourceCorrelationJson: JSON.stringify(request.sourceCorrelation ?? {}),
 			status: "pending",
 			createdAt: now,

@@ -10,7 +10,7 @@
  * contract, covered by `layers/agent-orchestration/src/__tests__/factory-run-config.integration.test.ts`.
  */
 
-import { knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { applyFactoryCoreState } from "../factory-state.js";
@@ -25,7 +25,7 @@ const ROSTER_IDS = [
 ];
 
 describe("applyFactoryCoreState — first-boot core state (AU29 AC 7)", () => {
-	test("creates the propagation user, roster users and the knowledge seed", async ({ db }) => {
+	test("creates the propagation user and roster users", async ({ db }) => {
 		await applyFactoryCoreState(db);
 
 		const propagation = await db.select().from(users).where(eq(users.id, "system:propagation"));
@@ -52,17 +52,8 @@ describe("applyFactoryCoreState — first-boot core state (AU29 AC 7)", () => {
 			expect(f.teamId).toBeNull();
 		}
 
-		const ki = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, "seed-ki-1"));
-		expect(ki).toHaveLength(1);
-		expect(ki[0]?.title).toBe("Boil the Lake");
-		expect(ki[0]?.scopeKind).toBe("factory");
-
-		const proj = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.id, "seed-ksf-1"));
-		expect(proj).toHaveLength(1);
-		expect(proj[0]?.knowledgeItemId).toBe("seed-ki-1");
+		// @lore AU43 repair: seed-ki-1 knowledge item assertions removed — ensureFactoryKnowledgeSeed
+		// was deleted by AU43 bundle-4. Bootstrap no longer seeds knowledge items.
 	});
 
 	test("returns the roster agents' {id, role} — the FactoryAgentRef contract the run-config face needs", async ({

@@ -71,6 +71,16 @@ interface AgentOrchestrationHcClient {
 					readonly query: { readonly kind: AgentOrchestrationWorkIntentKind };
 				}): Promise<Response>;
 			};
+			readonly "explicit-starts": {
+				readonly ":startId": {
+					readonly fail: {
+						$post(args: {
+							readonly param: { readonly startId: string };
+							readonly json: { readonly failureCode: string };
+						}): Promise<Response>;
+					};
+				};
+			};
 		};
 		readonly runs: {
 			readonly abort: {
@@ -217,6 +227,12 @@ export function buildAgentOrchestrationPort(
 					}>;
 				};
 				return body.entries;
+			},
+			async failExplicitSessionStart(startId: string, failureCode: string): Promise<void> {
+				const res = await client["agent-orchestration"].requests["explicit-starts"][
+					":startId"
+				].fail.$post({ param: { startId }, json: { failureCode } });
+				if (!res.ok) return throwSeamError("requests.failExplicitSessionStart", res);
 			},
 		},
 		runs: {

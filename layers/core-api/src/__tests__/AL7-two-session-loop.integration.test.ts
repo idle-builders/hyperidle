@@ -166,7 +166,13 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 function makeCtx(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	opts: { agentId: string; taskId: string; sessionId: string; sandboxPath: string },
+	opts: {
+		agentId: string;
+		taskId: string;
+		sessionId: string;
+		sandboxPath: string;
+		threadId?: string;
+	},
 ): ToolContext<HyperIdleDb> {
 	return {
 		db,
@@ -176,6 +182,7 @@ function makeCtx(
 		taskId: opts.taskId,
 		teamId: "team-loop",
 		sandboxPath: opts.sandboxPath,
+		threadId: opts.threadId,
 		ingestion: { dispose: (): void => {} },
 	};
 }
@@ -185,8 +192,10 @@ function makeCtx(
 // The real file must exist on disk (not a stub proof).
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("AC4: session 2 executes approved commit_file via CAS-consume → Outcome + file on disk", () => {
-	test("grant-bearing registry: commit_file CAS-consumes grant, writes file, records Outcome", async ({
+// @lore AU20 repair: commit_file deleted — AC4 ported to log_task (irreversible, builder-visible).
+// The CAS-consume + outcome-record path is the behavior under test, not commit_file's file-write.
+describe("AC4: session 2 executes approved op via CAS-consume → Outcome recorded", () => {
+	test("grant-bearing registry: log_task CAS-consumes grant, runs handler, records Outcome", async ({
 		db,
 		eventBus,
 		buildToolRegistry,
@@ -195,7 +204,6 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 		const sandboxPath = makeSandbox("s2");
 		const sessionId2 = `sess-s2-${crypto.randomUUID()}`;
 		const pcId = `pc-loop-${crypto.randomUUID()}`;
-		const outputFile = path.join(sandboxPath, "result.txt");
 
 		// Pre-insert a granted Proposed Call + tailored grant (simulates the approve verdict path)
 		await db.insert(proposedCalls).values({
@@ -204,8 +212,8 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 			subjectThreadId: threadId,
 			artifactId,
 			originSessionId: `sess-s1-${pcId}`,
-			toolId: "commit_file",
-			args: JSON.stringify({ path: outputFile, content: "hello from approved op" }),
+			toolId: "log_task",
+			args: JSON.stringify({ note: "ac4 approved note" }),
 			identityHash: "sha256-loop",
 			reversibility: "irreversible",
 			status: "granted",
@@ -217,8 +225,8 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 			proposedCallId: pcId,
 			taskScope: taskId,
 			agentScope: agentId,
-			approvedToolId: "commit_file",
-			approvedArgs: JSON.stringify({ path: outputFile, content: "hello from approved op" }),
+			approvedToolId: "log_task",
+			approvedArgs: JSON.stringify({ note: "ac4 approved note" }),
 			argPinned: false,
 			identityHash: "sha256-loop",
 			consumed: false,
@@ -236,26 +244,18 @@ describe("AC4: session 2 executes approved commit_file via CAS-consume → Outco
 				subjectThreadId: threadId,
 				artifactId,
 				approvedCall: {
-					toolId: "commit_file",
-					args: { path: outputFile, content: "hello from approved op" },
+					toolId: "log_task",
+					args: { note: "ac4 approved note" },
 					argPinned: false,
 				},
 			},
 		} as BuildToolRegistryOptions<HyperIdleDb>);
 
-		// Invoke commit_file — should CAS-consume the grant + run the handler
-		const result = await registry.invoke("commit_file", {
-			path: outputFile,
-			content: "hello from approved op",
-		});
+		// Invoke log_task — should CAS-consume the grant + run the handler
+		const result = await registry.invoke("log_task", { note: "ac4 approved note" });
 
 		// The approved op SUCCEEDS (not AWAITING_REVIEW)
 		expect(result.success).toBe(true);
-
-		// AC4: the real file must exist on disk (not a stub)
-		expect(fs.existsSync(outputFile)).toBe(true);
-		const fileContent = fs.readFileSync(outputFile, "utf8");
-		expect(fileContent).toBe("hello from approved op");
 
 		// Grant consumed
 		const grants = await db
@@ -579,11 +579,10 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 // The plan: "after the approved commit_file records the Outcome, session 2's
 // stream produces ≥1 further agent action ... the session does not end at the
 // approved call."
-//
-// For the builtin in-process proof: after registry.invoke("commit_file")
-// CAS-consumes the grant and returns success, a subsequent call to a
-// REVERSIBLE tool (e.g. write_session_notes) ALSO succeeds — proving the
-// registry/session does not terminate after the approved op.
+// @lore AU20 repair: commit_file + read_inbox deleted. AC11 ported to log_task (approved op)
+// + reply (reversible continuation). `reply` is the only surviving tool with explicit
+// reversibility:"reversible" — AU27 C11 Decision 1 / classifyReversibility fails closed.
+// Supply ctx.threadId so reply has a thread to post into.
 //
 // @lore AL7 NIT-3: this is the SAME session-2 run proceeding after the tool
 // returns. No phantom second event, no second provisioning — just the next
@@ -591,7 +590,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AC11: work continues in session 2 after the approved op executes", () => {
-	test("registry stays functional after approved commit_file: reversible tool succeeds", async ({
+	test("registry stays functional after approved op: reversible tool succeeds", async ({
 		db,
 		eventBus,
 		buildToolRegistry,
@@ -600,7 +599,6 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 		const sandboxPath = makeSandbox("s2-ac11");
 		const sessionId2 = `sess-s2-ac11-${crypto.randomUUID()}`;
 		const pcId = `pc-loop-ac11-${crypto.randomUUID()}`;
-		const outputFile = path.join(sandboxPath, "ac11-result.txt");
 
 		// Pre-insert a granted Proposed Call + tailored grant
 		await db.insert(proposedCalls).values({
@@ -609,8 +607,8 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 			subjectThreadId: threadId,
 			artifactId,
 			originSessionId: `sess-s1-${pcId}`,
-			toolId: "commit_file",
-			args: JSON.stringify({ path: outputFile, content: "AC11 approved content" }),
+			toolId: "log_task",
+			args: JSON.stringify({ note: "ac11 approved note" }),
 			identityHash: "sha256-ac11",
 			reversibility: "irreversible",
 			status: "granted",
@@ -622,8 +620,8 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 			proposedCallId: pcId,
 			taskScope: taskId,
 			agentScope: agentId,
-			approvedToolId: "commit_file",
-			approvedArgs: JSON.stringify({ path: outputFile, content: "AC11 approved content" }),
+			approvedToolId: "log_task",
+			approvedArgs: JSON.stringify({ note: "ac11 approved note" }),
 			argPinned: false,
 			identityHash: "sha256-ac11",
 			consumed: false,
@@ -631,7 +629,14 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 			mintedAt: NOW,
 		});
 
-		const ctx = makeCtx(db, eventBus, { agentId, taskId, sessionId: sessionId2, sandboxPath });
+		// @lore AU20 repair: threadId added to ctx so reply can post into the seeded bet thread.
+		const ctx = makeCtx(db, eventBus, {
+			agentId,
+			taskId,
+			sessionId: sessionId2,
+			sandboxPath,
+			threadId,
+		});
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -641,20 +646,16 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 				subjectThreadId: threadId,
 				artifactId,
 				approvedCall: {
-					toolId: "commit_file",
-					args: { path: outputFile, content: "AC11 approved content" },
+					toolId: "log_task",
+					args: { note: "ac11 approved note" },
 					argPinned: false,
 				},
 			},
 		} as BuildToolRegistryOptions<HyperIdleDb>);
 
-		// Step 1: invoke the approved op (commit_file) — CAS-consumes grant + writes file
-		const approvedResult = await registry.invoke("commit_file", {
-			path: outputFile,
-			content: "AC11 approved content",
-		});
+		// Step 1: invoke the approved op (log_task) — CAS-consumes grant + runs handler
+		const approvedResult = await registry.invoke("log_task", { note: "ac11 approved note" });
 		expect(approvedResult.success).toBe(true);
-		expect(fs.existsSync(outputFile)).toBe(true);
 
 		// Grant is consumed
 		const grants = await db
@@ -664,21 +665,13 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 		expect(grants[0]?.consumed).toBe(true);
 
 		// Step 2: invoke a REVERSIBLE tool — it must succeed (work continues).
-		// read_inbox is explicitly reversibility:"reversible" so the workflow router
-		// lets it flow without routing it to review.
+		// `reply` is the only surviving tool with explicit reversibility:"reversible"
+		// (AU27 C11 Decision 1). All other tools fail closed to "irreversible".
 		// The session does NOT end after the approved op — the loop continues.
-		//
-		// @lore AL7 AC11: read_inbox is chosen because it is the only tool in
-		// ALL_TOOL_DEFINITIONS with explicit reversibility:"reversible" annotation.
-		// Any tool without an annotation defaults to irreversible (fail-closed),
-		// which would make this test prove nothing if we chose a non-annotated tool.
-		const continueResult = await registry.invoke("read_inbox", { limit: 5 });
-		// read_inbox may fail in a test environment (no real inbox data) but it must
-		// NOT return AWAITING_REVIEW — that would mean the registry routed a reversible
-		// tool to review, which would prove the session ended at the approved call.
+		const continueResult = await registry.invoke("reply", { text: "continuing" });
+		// reply may fail if there's no thread, but it must NOT return AWAITING_REVIEW —
+		// that would prove the router blocked a reversible tool (i.e. session ended).
 		if (!continueResult.success) {
-			// Allowed: tool handler error (empty DB, etc.) — the handler ran, loop continues.
-			// Forbidden: AWAITING_REVIEW — the router blocked a reversible tool.
 			const failResult = continueResult as { success: false; code: string };
 			expect(failResult.code).not.toBe("AWAITING_REVIEW");
 		}

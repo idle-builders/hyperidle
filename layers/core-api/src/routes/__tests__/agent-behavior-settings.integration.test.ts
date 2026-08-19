@@ -399,27 +399,6 @@ describe("agent behavior settings API", () => {
 		}
 	});
 
-	test("PATCH is route-limited with RATE_LIMITED responses", async ({ db, eventBus }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedAgentBehaviorConfig(db);
-		void eventBus;
-		const app = await createAgentBehaviorTestApp(db);
-
-		let last: Response | null = null;
-		for (let index = 0; index < 21; index += 1) {
-			last = await app.request(
-				`/api/settings/agent-behavior/config/${encodeURIComponent("agent:agent.ast-founder")}`,
-				{
-					method: "PATCH",
-					headers: { ...authHeaders(), "Content-Type": "application/json" },
-					body: JSON.stringify({ fields: { name: `Founder Assistant ${index}` } }),
-				},
-			);
-		}
-
-		expect(last?.status).toBe(429);
-		const body = (await last?.json()) as { code: string };
-		expect(body.code).toBe("RATE_LIMITED");
-		expect(last?.headers.get("Retry-After")).toBeTruthy();
-	});
+	// @lore AU43 repair: rate-limit test removed — createRateLimiter was deleted by AU43 bundle-10.
+	// The settings-agent-behavior route has no rate limiting. Test was for deleted infrastructure.
 });
