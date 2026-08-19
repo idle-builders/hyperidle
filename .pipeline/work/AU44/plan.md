@@ -46,6 +46,20 @@ signature and type shrinking needs no pre-build.
 **Out of scope.** Deleting anything — that was the previous pass. Rewriting a surviving implementation
 beyond the shrink the audit names. Changing which service owns which table.
 
+**Where the row list lives.** The audit that produced the 72 merge and 327 simplify rows, plus every
+package-level dissolve verdict and its measured consumer list, was committed during the delete pass and
+removed at ship. Recover it from git history at `aafa592d1`, under
+`.pipeline/work/AU20/destroy/verdicts-revised/` (falling back to `verdicts/` where no revision exists).
+Do not re-derive it by re-running the audit — the rulings that reshaped it are recorded there and
+nowhere else.
+
+**Two corrections the delete pass earned, which apply directly here.** First, a symbol convicted against
+its call sites can still be obliged by an interface that declares it; removing one such method broke both
+production servers. Check for interface obligations before folding anything, not only callers. Second,
+`check` and `lint` prove compilation, not behaviour — the delete pass held them green through nineteen
+checkpoints while the service-integration lane was red and the product was broken in four places. Run the
+integration lane per checkpoint here, not at the end.
+
 ## Acceptance criteria
 
 - Every row the audit marks `MERGE` or `SIMPLIFY` is either performed or carries a written reason it

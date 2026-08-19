@@ -65,3 +65,74 @@ Behaviour changes of any kind. Rewriting a surviving implementation while removi
   dropped table remains.
 - Given the running product, when a person exercises each main surface, then everything behaves as it
   did before the pass.
+
+---
+
+# As built
+
+The pass ran and shipped. What follows is the record that outlives the working files.
+
+## Result
+
+217 convicted symbols removed, 52 entry doors (216 → 164), 5 tables (44 → 39). Roughly 34,000 lines
+deleted across 94 commits. Executed as 12 batches plus a doors stage and a tables stage, each in its
+own worktree, merged one at a time so every merge was a checkpoint where the tree was green.
+
+## The eight defects this uncovered
+
+None were on the audit's list. They surfaced because removing code forces every remaining dependency
+to prove itself.
+
+1. A work-intent recorder that accepted a transaction, ignored it, and made an HTTP call instead — its
+   header described a world an earlier boundary change had already deleted.
+2. An interface obligation that broke both production servers: a pool method was convicted against a
+   dead HTTP door while an interface still declared it as contract.
+3. A desktop login command left unreachable behind a stubbed function.
+4. A review-recipients seam that 404'd at runtime — every agent creating a review failed outright.
+5. The org chart, filesystems settings page and hints, all deleted while marked KEEP.
+6. An org chart that would have rendered permanently empty after being "restored", because team
+   creation had stopped writing the founder edge.
+7. A test measuring its own mock rather than the product: a stub claimed to list humans but filtered
+   only by team, so it returned agents while production was correct.
+8. Two direct-message dedupe paths that cannot see each other, and an unscoped list returning every
+   human's threads to any caller.
+
+## What the execution model taught
+
+- **An escape hatch beats a target.** Nine times an agent was told "if a test asserts something that
+  should still work, stop and report rather than delete", and nine times it was right. Told instead to
+  make a lane green, it would have deleted nine files and buried three broken surfaces.
+- **Gate receipts must be written after the final edit.** Several batches reported green while both
+  gates were failing; a gate piped to `tail` returns the pipe's exit code, not the gate's. Every gate
+  in this pass was ultimately verified independently, and that is why the branch is honest.
+- **`check` and `lint` prove compilation, not behaviour.** They were green at all 19 checkpoints while
+  the service-integration lane was red the entire time and the product was broken in four places.
+  Compilation gates cannot tell you a route still answers or a page still renders.
+- **No failure is yours until you have seen it pass somewhere else.** Four suspected regressions were
+  checked against untouched `main`; three were inherited.
+- **Crossing floors drift during a deletion pass and that is not signal.** Nine detectors fell below
+  their floors honestly. The floor check also blocks the tool that re-measures it, so the floors were
+  settled in one pass by zeroing them, reading the tool's own values, and restoring.
+
+## Accepted survivors, coverage gaps, and one posture change
+
+Eight rows survived deletion, each for a structural reason rather than caution: some are obliged by an
+enforced architecture boundary, some are called by code the feature track owns, and deleting them would
+reach across a track boundary.
+
+Three coverage gaps were created and not filled: review participant routing and the session-review
+unsubscribe path both lost their integration coverage when the risk-tier gate they were bundled with
+died correctly; and the knowledge flag, merge and split tests left with routes that move to a plugin.
+
+One deliberate security posture change: `POST /api/harnesses/redetect` now has no throttle. It spawns
+about ten CLI probes with fifteen-second timeouts and carried a dedicated limiter for that reason. The
+limiter died with the global rate limiter, which was convicted fairly — pre-auth, principal-blind, and
+behind a proxy it collapsed a whole team into one bucket. The two uses were different in kind. If
+redetect becomes a problem, that is the learning that earns a narrow, route-scoped guard back.
+
+## Where the evidence lives
+
+The full audit — 1,713 verdict rows, per-package verdicts, the revised verdicts after the founder
+rulings, the batch assignments, the census and the tooling — was committed during the pass and removed
+at ship. It is recoverable in git history at `aafa592d1`, under `.pipeline/work/AU20/destroy/` and
+`.pipeline/work/AU43/batches/`.
