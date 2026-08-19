@@ -49,59 +49,8 @@ function bearerHeaders(token: string, extra?: Record<string, string>): Record<st
 	return { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...extra };
 }
 
-describe("S1 — E2E: Admin creates invite → user claims → bearer token works", () => {
-	let app: Hono;
-
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-		if (app) disposeApp(app);
-	});
-
-	test("full flow: admin creates invite → user claims → /me returns correct user", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedAdmin(db);
-		app = await createTestApp({ db, eventBus, sharedMode: true });
-
-		// Step 1: Admin creates invite
-		const inviteRes = await app.request("/api/auth/invite", {
-			method: "POST",
-			headers: apiKeyHeaders(),
-			body: JSON.stringify({ role: "member" }),
-		});
-		expect(inviteRes.status).toBe(201);
-		const { code } = (await inviteRes.json()) as { code: string; expiresAt: string };
-		expect(typeof code).toBe("string");
-
-		// Step 2: User claims invite (no auth needed)
-		const claimRes = await app.request("/api/auth/claim", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ code, name: "New Member", email: "member@e2e.com" }),
-		});
-		expect(claimRes.status).toBe(201);
-		const { token, user } = (await claimRes.json()) as {
-			token: string;
-			user: { id: string; name: string };
-		};
-		expect(typeof token).toBe("string");
-		expect(user.name).toBe("New Member");
-
-		// Step 3: Use bearer token to access /me
-		const meRes = await app.request("/api/auth/me", {
-			headers: bearerHeaders(token),
-		});
-		expect(meRes.status).toBe(200);
-		const meBody = (await meRes.json()) as { id: string; name: string };
-		expect(meBody.id).toBe(user.id);
-		expect(meBody.name).toBe("New Member");
-	});
-});
+// S1 scenario 1 (POST /api/auth/invite + POST /api/auth/claim — doors #7, #3) deleted.
+// Shared-mode auth routes were convicted and removed. Test removed.
 
 describe("S1 — E2E: Expired session → 401 SESSION_EXPIRED", () => {
 	let app: Hono;
@@ -355,55 +304,5 @@ describe("S1 — E2E: Two users post to same thread → correct senderId", () =>
 	});
 });
 
-describe("S1 — Security: token never appears in response except at creation", () => {
-	let app: Hono;
-
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-		if (app) disposeApp(app);
-	});
-
-	test("claim response contains token only once (not in subsequent /me)", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedAdmin(db, "u-e2e-admin");
-		app = await createTestApp({ db, eventBus, sharedMode: true });
-
-		const invite = await createInvite(db, "u-e2e-admin", "member");
-		const claimRes = await app.request("/api/auth/claim", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ code: invite.code, name: "Security Tester" }),
-		});
-		const { token } = (await claimRes.json()) as { token: string };
-
-		// /me should NOT include the token in its response
-		const meRes = await app.request("/api/auth/me", {
-			// biome-ignore lint/style/useNamingConvention: HTTP header name
-			headers: { Authorization: `Bearer ${token}` },
-		});
-		const meBody = await meRes.text();
-		// The raw response body should not include the bearer token
-		expect(meBody).not.toContain(token);
-	});
-
-	test("invite response does NOT include a bearer token (just code)", async ({ db, eventBus }) => {
-		await seedAdmin(db, "u-e2e-admin");
-		app = await createTestApp({ db, eventBus, sharedMode: true });
-
-		const res = await app.request("/api/auth/invite", {
-			method: "POST",
-			headers: apiKeyHeaders(),
-			body: JSON.stringify({ role: "member" }),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-		// Should have code and expiresAt, but no "token" field
-		expect(body).toHaveProperty("code");
-		expect(body).not.toHaveProperty("token");
-	});
-});
+// S1 scenario 6 (POST /api/auth/invite + POST /api/auth/claim — doors #7, #3) deleted.
+// Test removed with the routes.

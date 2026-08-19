@@ -167,26 +167,7 @@ describe("routines routes", () => {
 		});
 	});
 
-	describe("POST /api/routines/:id/retire", () => {
-		test("returns 200 with routine.active=false", async ({ db, app }) => {
-			const { routineId } = await seedRoutine(db);
-			const res = await app.request(`/api/routines/${routineId}/retire`, {
-				method: "POST",
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { id: string; active: boolean };
-			expect(body.active).toBe(false);
-		});
-
-		test("returns 404 for non-existent routine", async ({ app }) => {
-			const res = await app.request("/api/routines/non-existent/retire", {
-				method: "POST",
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(404);
-		});
-	});
+	// POST /api/routines/:id/retire deleted. Tests removed with the route.
 
 	describe("POST /api/routines/:id/trigger", () => {
 		test("returns 200 after atomically recording a routine run and neutral intent", async ({
@@ -227,11 +208,8 @@ describe("routines routes", () => {
 
 		test("returns 403 when routine is disabled (active=false)", async ({ db, app }) => {
 			const { routineId } = await seedRoutine(db);
-			// First retire the routine
-			await app.request(`/api/routines/${routineId}/retire`, {
-				method: "POST",
-				headers: authHeaders(),
-			});
+			// retire route is deleted; disable the routine directly via DB
+			await db.update(routines).set({ active: false }).where(eq(routines.id, routineId));
 
 			// Then try to trigger it
 			const res = await app.request(`/api/routines/${routineId}/trigger`, {

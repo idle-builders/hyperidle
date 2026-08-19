@@ -4,7 +4,6 @@ import {
 	agentWorkIntents,
 	artifacts,
 	bets,
-	explicitSessionStarts,
 	type HyperIdleDb,
 	knowledgeEditLog,
 	knowledgeItems,
@@ -21,11 +20,10 @@ import {
 	users,
 } from "@hyperidle/db";
 import { transitionProposedCall } from "@hyperidle/review";
-import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
 
@@ -245,152 +243,9 @@ describe("atomic production handoffs", () => {
 		expect("handOffIntent" in worker).toBe(false);
 	});
 
-	test("explicit session command commits one source and intent before any request and replays exactly", async ({
-		db,
-		app,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		const request = () =>
-			app.request("/api/sessions", {
-				method: "POST",
-				headers: { ...authHeaders, "Idempotency-Key": "au9-production-explicit" },
-				body: JSON.stringify({
-					agentId: "au9-production-agent",
-					taskId: "au9-production-task",
-					modelTier: "workhorse",
-				}),
-			});
+	// POST /api/sessions (door #114) deleted. Two explicit-session tests removed with the route.
 
-		const first = await request();
-		expect(first.status).toBe(202);
-		const firstBody = (await first.json()) as { startId: string; status: string };
-		expect(firstBody.status).toBe("requested");
-		expect(await db.select().from(explicitSessionStarts)).toHaveLength(1);
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, firstBody.startId));
-		expect(intent).toMatchObject({
-			kind: "session_start",
-			sourceKind: "explicit_session_start",
-			status: "pending",
-			requestId: null,
-		});
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
-
-		const replay = await request();
-		expect(replay.status).toBe(202);
-		expect(await replay.json()).toEqual(firstBody);
-		expect(await db.select().from(explicitSessionStarts)).toHaveLength(1);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(1);
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
-	});
-
-	test("intent drain checkpoints one exact request and never invokes a domain callback", async ({
-		db,
-		app,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		const response = await app.request("/api/sessions", {
-			method: "POST",
-			headers: { ...authHeaders, "Idempotency-Key": "au9-single-consume" },
-			body: JSON.stringify({
-				agentId: "au9-production-agent",
-				taskId: "au9-production-task",
-				modelTier: "workhorse",
-			}),
-		});
-		expect(response.status).toBe(202);
-		let callbacks = 0;
-		await drainIntents(queueDeps(db), {
-			now: () => new Date(Date.now() + 1_000),
-			...({
-				onRequest: async () => {
-					callbacks += 1;
-				},
-			} as object),
-		});
-		await drainIntents(queueDeps(db), { now: () => new Date(Date.now() + 2_000) });
-		const [intent] = await db.select().from(agentWorkIntents);
-		const requests = await db.select().from(agentSessionRequests);
-		expect(callbacks, JSON.stringify(intent)).toBe(0);
-		expect(requests, JSON.stringify(intent)).toHaveLength(1);
-		expect(intent).toMatchObject({ status: "handed_off", requestId: requests[0]?.id });
-	});
-
-	test("task route acceptance atomically records its dispatch occasion before returning", async ({
-		db,
-		app,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		await db
-			.update(tasks)
-			.set({ state: "proposed", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
-
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({ state: "accepted" }),
-		});
-
-		expect(response.status).toBe(200);
-		const attempts = await db
-			.select()
-			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-task"));
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
-		expect(intents).toHaveLength(1);
-		expect(intents[0]).toMatchObject({
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
-			status: "pending",
-			requestId: null,
-		});
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
-	});
-
-	test("accepted-task event observes exactly one durable attempt and one intent", async ({
-		db,
-		app,
-		eventBus,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		await db
-			.update(tasks)
-			.set({ state: "proposed", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
-		let observed: Promise<readonly [number, number]> | undefined;
-		const unsubscribe = eventBus.on("task_state_changed", (event) => {
-			if (event.taskId !== "au9-production-task" || event.toState !== "accepted") return;
-			observed = Promise.all([
-				db
-					.select()
-					.from(taskDispatchAttempts)
-					.where(eq(taskDispatchAttempts.taskId, event.taskId))
-					.then((rows) => rows.length),
-				db
-					.select()
-					.from(agentWorkIntents)
-					.where(eq(agentWorkIntents.sourceKind, "task_dispatch_attempt"))
-					.then((rows) => rows.length),
-			]);
-		});
-
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({ state: "accepted" }),
-		});
-		unsubscribe();
-
-		expect(response.status).toBe(200);
-		expect(observed).toBeDefined();
-		expect(await observed).toEqual([1, 1]);
-	});
+	// POST /api/tasks/:id/transition (door #40) deleted. Two transition tests removed with the route.
 
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
 		db,
@@ -660,29 +515,7 @@ describe("atomic production handoffs", () => {
 		});
 	});
 
-	test("hold to accepted retry records one durable dispatch occasion", async ({ db, app }) => {
-		await seedExplicitSessionAuthority(db);
-		await db
-			.update(tasks)
-			.set({ state: "hold", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({ state: "accepted" }),
-		});
-		expect(response.status).toBe(200);
-		const attempts = await db
-			.select()
-			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-task"));
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
-		expect(intents).toHaveLength(1);
-		expect(attempts[0]?.occasion).toBe("retry");
-	});
+	// POST /api/tasks/:id/transition (door #40) deleted. Retry-transition test removed.
 
 	test("real proposed-call grant command records one replay-safe reengagement occasion", async ({
 		db,

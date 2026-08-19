@@ -154,29 +154,7 @@ describe("Routine Endpoints (E6)", () => {
 		});
 	});
 
-	// AC6: POST /api/routines/:id/retire — retire
-	describe("AC6: POST /api/routines/:id/retire — retire routine", () => {
-		test("retires a routine by setting active=false", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/routine-1/retire", {
-				method: "POST",
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.active).toBe(false);
-		});
-
-		test("returns 404 for unknown routine", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/routines/nonexistent/retire", {
-				method: "POST",
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(404);
-		});
-	});
+	// POST /api/routines/:id/retire deleted. Tests removed with the route.
 
 	// AC7: POST /api/routines/:id/trigger — manually trigger for testing
 	describe("AC7: POST /api/routines/:id/trigger — manual trigger", () => {

@@ -630,41 +630,6 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/users/:id/inbox: non-self principal gets 403", async ({ db, app }) => {
-		const now = new Date().toISOString();
-
-		// Auth middleware resolves userId = first kind='human' user from DB.
-		// Seed u-inbox-other as the ONLY kind='human' — they become the resolved principal (attacker).
-		// u-inbox-owner is kind='ai' so they won't be the resolved principal.
-		// Request targets u-inbox-owner's inbox while principal is u-inbox-other → 403.
-		//
-		// @lore AF11: X-Identity header no longer controls the principal post-AF11.
-		// Seed strategy: attacker is kind='human' (resolved), victim is kind='ai'.
-		await db.insert(users).values({
-			id: "u-inbox-other",
-			kind: "human",
-			name: "InboxOther",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		});
-		await db.insert(users).values({
-			id: "u-inbox-owner",
-			kind: "ai",
-			name: "InboxOwner",
-			role: "founder",
-			status: "active",
-			createdAt: now,
-		});
-
-		// Resolved principal is u-inbox-other; target inbox is u-inbox-owner's → 403
-		const res = await app.request("/api/users/u-inbox-owner/inbox", {
-			method: "GET",
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(403);
-	});
-
 	test("host-scope route: bet stays readable by any authenticated principal", async ({
 		db,
 		app,

@@ -32,27 +32,7 @@ describe("notifications routes", () => {
 		vi.unstubAllEnvs();
 	});
 
-	describe("notifications auth", () => {
-		test("returns 401 without auth header on GET /api/notifications", async ({ db, eventBus }) => {
-			const app = await createTestApp({ db, eventBus });
-			const res = await app.request("/api/notifications", { method: "GET" });
-			expect(res.status).toBe(401);
-		});
-	});
-
-	describe("GET /api/notifications", () => {
-		test("returns 200 with resource descriptor", async ({ db, eventBus }) => {
-			const app = await createTestApp({ db, eventBus });
-			const res = await app.request("/api/notifications", {
-				method: "GET",
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { ok: boolean; resource: string };
-			expect(body.ok).toBe(true);
-			expect(body.resource).toBe("notifications");
-		});
-	});
+	// GET /api/notifications root (door #129) deleted. Tests removed with the route.
 
 	describe("GET /api/notifications/config", () => {
 		test("returns 200 with redacted config", async ({ db, eventBus }) => {

@@ -141,16 +141,7 @@ describe("core-api serves no agent-run decorations", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/status does not report activeSessions", async ({ db, app }) => {
-		await seed(db);
-		const res = await app.request("/api/status", { headers: authHeaders() });
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body).not.toHaveProperty("activeSessions");
-		// The route's own core-domain output is untouched.
-		expect(body).toHaveProperty("agentStates");
-		expect(body).toHaveProperty("uptime");
-	});
+	// GET /api/status deleted (zero consumers, AU43) — test removed.
 
 	test("GET /api/users does not report per-user activeSessions", async ({ db, app }) => {
 		await seed(db);

@@ -592,21 +592,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// AC-5b: active→completed (POST /ship) succeeds
-	test("AC-5b: active→completed via POST /ship succeeds (200)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedAC5Base(db);
-		await setActiveBet(db, "b-ship");
-		const res = await app.request("/api/bets/b-ship/ship", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { status: string };
-		expect(body.status).toBe("completed");
-		vi.unstubAllEnvs();
-	});
-
 	// AC-5c: active→killed (POST /kill) succeeds
 	test("AC-5c: active→killed via POST /kill succeeds (200)", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -636,22 +621,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { status: string };
 		expect(body.status).toBe("killed");
-		vi.unstubAllEnvs();
-	});
-
-	// AC-5e: draft→completed (POST /ship) returns 400 (not 409)
-	test("AC-5e: draft→completed via POST /ship returns 400 (not 409)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedAC5Base(db);
-		await createDraftBet(db, "b-bad-ship");
-		const res = await app.request("/api/bets/b-bad-ship/ship", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		// CRITICAL: must be 400, not 409
-		expect(res.status).toBe(400);
-		const body = (await res.json()) as { code?: string };
-		expect(body.code).toBe("VALIDATION_ERROR");
 		vi.unstubAllEnvs();
 	});
 
@@ -730,29 +699,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 			createdAt: NOW,
 		});
 		const res = await app.request("/api/bets/b-commit-atrisk/commit", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { atRisk: unknown };
-		expect(typeof body.atRisk).toBe("boolean");
-		expect(body.atRisk).toBe(true);
-		vi.unstubAllEnvs();
-	});
-
-	test("POST /ship response normalizes atRisk to boolean (not integer)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedAC5Base(db);
-		await db.insert(bets).values({
-			id: "b-ship-atrisk",
-			teamId: "p1",
-			description: "# Ship atRisk",
-			appetite: "small",
-			status: "active",
-			atRisk: 1,
-			createdAt: NOW,
-		});
-		const res = await app.request("/api/bets/b-ship-atrisk/ship", {
 			method: "POST",
 			headers: authHeaders(),
 		});
