@@ -11,7 +11,6 @@ import {
 	items,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -32,10 +31,7 @@ function buildHandoffToTool(app: Hono): ReturnType<typeof buildToolDefinitions>[
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
-	await db.insert(bets).values({
+		await db.insert(bets).values({
 		id: "b1",
 		teamId: "p1",
 		description: "Test",

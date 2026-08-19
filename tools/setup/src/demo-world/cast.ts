@@ -7,7 +7,7 @@
  * resolves the first human user, so the founder is who lands in the app.
  */
 
-import { agentRunConfig, type HyperIdleDb, orgEdges, teamMembers, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, orgEdges, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
 	ASSISTANT_ID,
@@ -16,7 +16,6 @@ import {
 	FOUNDER_ID,
 	GROWTH_ID,
 	MAYA_ID,
-	MEMBERS_ID,
 	PM_ID,
 	QA_ID,
 	TEAM_ID,
@@ -86,7 +85,7 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 				role: agent.role,
 				agentCategory: "team",
 				status: "active",
-				teamId: MEMBERS_ID,
+				teamId: TEAM_ID,
 				createdAt: agent.createdAt,
 			})
 			.onConflictDoNothing();
@@ -133,8 +132,5 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 
 	// Team state reflects six weeks of use: the PM leads (docs/process-layer
 	// default), two bets are live.
-	await db
-		.update(teamMembers)
-		.set({ leadAgentId: PM_ID, activeBets: 2, formedAt: clock.daysAgo(44) })
-		.where(eq(teamMembers.id, MEMBERS_ID));
+	await db.update(teams).set({ leadAgentId: PM_ID, activeBets: 2, formedAt: clock.daysAgo(44) }).where(eq(teams.id, TEAM_ID));
 }

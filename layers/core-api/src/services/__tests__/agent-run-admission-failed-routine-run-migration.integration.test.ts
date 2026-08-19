@@ -40,7 +40,6 @@ import {
 	type HyperIdleDb,
 	routineRuns,
 	routines,
-	teamMembers,
 	teams,
 	users,
 	type WriteExecutor,
@@ -157,10 +156,7 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 		const teamMembersId = "team-au21-rrun-mig-members";
 		const ownerAgentId = "agent-au21-rrun-mig-owner";
 		await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-		await db.insert(users).values({
+				await db.insert(users).values({
 			id: ownerAgentId,
 			kind: "ai",
 			name: "Owner",

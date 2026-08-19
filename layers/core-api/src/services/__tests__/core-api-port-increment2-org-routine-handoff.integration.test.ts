@@ -3,7 +3,7 @@
  *
  * Extends the §11 contract-test harness to the remaining `tool-handlers`
  * capabilities named in this wave's scope (`edge-disposition.md`'s
- * `org.{getTeam, getTeamMembers, createTeam, updateTeam}`,
+ * `org.{getTeam, getTeam, createTeam, updateTeam}`,
  * `routine.{getRoutine, insertRoutine, updateRoutine}`, and `policy.handoff`
  * rows — all `§4 seam`):
  *
@@ -83,7 +83,6 @@ import {
 	routines,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -186,14 +185,12 @@ async function seedTeam(
 	opts: { readonly suffix: string },
 ): Promise<{ readonly teamId: string; readonly teamMembersId: string }> {
 	const teamId = `team-org-inc2-${opts.suffix}`;
-	const teamMembersId = `tm-org-inc2-${opts.suffix}`;
+	// @lore AU44 B1: teamMembersId = teamId after fold (one row, one id).
+	const teamMembersId = teamId;
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Org Inc2 Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	return { teamId, teamMembersId };
+		return { teamId, teamMembersId };
 }
 
 async function seedAgent(
@@ -267,7 +264,8 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-org-key-createteam");
 		await seedAgent(db, "agent-org-createteam1");
 		const teamId = "team-org-inc2-created1";
-		const teamMembersId = "tm-org-inc2-created1";
+		// @lore AU44 B1: teamMembersId = teamId after fold; still passed through for backward compat.
+		const teamMembersId = teamId;
 
 		const port = buildSeamPort("agent-org-createteam1", app);
 		await port.org.createTeam({
@@ -285,16 +283,10 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 
 		const [teamRow] = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
 		expect(teamRow?.name).toBe("Freshly Created");
-		const [memberRow] = await db
-			.select()
-			.from(teamMembers)
-			.where(eq(teamMembers.id, teamMembersId))
-			.limit(1);
-		expect(memberRow?.teamId).toBe(teamId);
 
 		// No agents should have been scaffolded — this is the ATOMIC insert only,
 		// distinct from the heavier `POST /teams` UI flow.
-		const scaffoldedAgents = await db.select().from(users).where(eq(users.teamId, teamMembersId));
+		const scaffoldedAgents = await db.select().from(users).where(eq(users.teamId, teamId));
 		expect(scaffoldedAgents).toHaveLength(0);
 	});
 
@@ -311,8 +303,8 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 
 		const [row] = await db
 			.select()
-			.from(teamMembers)
-			.where(eq(teamMembers.id, teamMembersId))
+			.from(teams)
+			.where(eq(teams.id, teamMembersId))
 			.limit(1);
 		expect(row?.leadAgentId).toBe("agent-org-updateteam1");
 	});

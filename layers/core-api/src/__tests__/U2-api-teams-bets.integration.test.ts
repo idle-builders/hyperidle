@@ -18,7 +18,7 @@
  * catches InvalidTransitionError as 400, and drops the product field.
  */
 
-import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -40,9 +40,6 @@ describe("AC-1: /api/teams routes", () => {
 		await db
 			.insert(teams)
 			.values({ id: "team-1", name: "Growth Team", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: "tm-1", teamId: "team-1", capacity: 3, activeBets: 0, formedAt: NOW });
 	}
 
 	// AC-1a: GET /api/teams returns list
@@ -68,7 +65,7 @@ describe("AC-1: /api/teams routes", () => {
 		};
 		expect(body.team.id).toBe("team-1");
 		expect(body.team.name).toBe("Growth Team");
-		expect(body.teamMembers.id).toBe("tm-1");
+		expect(body.teamMembers.id).toBe("team-1"); // AU44 B1: teamMembers.id = team.id after fold
 		vi.unstubAllEnvs();
 	});
 
@@ -143,9 +140,6 @@ describe("AC-1: /api/teams routes", () => {
 describe("AC-2: Bet status values in responses", () => {
 	async function seedAC2(db: HyperIdleDb): Promise<void> {
 		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	}
 
 	test("GET /api/bets response has draft, active, completed, killed groups", async ({
@@ -285,9 +279,6 @@ describe("AC-2: Bet status values in responses", () => {
 describe("AC-3: Bet creation with `description` field", () => {
 	async function seedAC3(db: HyperIdleDb): Promise<void> {
 		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	}
 
 	// AC-3a: POST /api/bets with `description` succeeds (201)
@@ -351,9 +342,6 @@ describe("AC-3: Bet creation with `description` field", () => {
 describe("AC-4: at_risk PATCH", () => {
 	async function seedAC4(db: HyperIdleDb): Promise<void> {
 		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
 		await db.insert(bets).values({
 			id: "bet-draft",
@@ -527,9 +515,6 @@ describe("AC-4: at_risk PATCH", () => {
 describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 	async function seedAC5Base(db: HyperIdleDb): Promise<void> {
 		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	}
 
 	async function createDraftBet(db: HyperIdleDb, id: string): Promise<void> {
@@ -741,9 +726,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 describe("AC-8: Bet detail response has `team` not `product`", () => {
 	async function seedAC8(db: HyperIdleDb): Promise<void> {
 		await db.insert(teams).values({ id: "p1", name: "Acme", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 		await db.insert(bets).values({
 			id: "bet-detail",
 			teamId: "p1",

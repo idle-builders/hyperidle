@@ -19,7 +19,6 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 	tasks,
-	teamMembers,
 	teams,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
@@ -35,14 +34,6 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 async function seedRetroBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: "tm1",
-		teamId: "t1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
-
 	await db.insert(bets).values([
 		{
 			id: "bet-completed",
@@ -534,14 +525,6 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 
 async function seedDraftBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: "tm1",
-		teamId: "t1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
-
 	await db.insert(bets).values([
 		{
 			id: "bet-completed",

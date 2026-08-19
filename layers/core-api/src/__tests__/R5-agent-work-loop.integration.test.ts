@@ -27,7 +27,6 @@ import {
 	type HyperIdleDb,
 	messages,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -69,9 +68,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
 		teamId: "team-1",
@@ -84,7 +80,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			id: "agent-a",
 			name: "Builder Agent",
 			role: "builder",
-			teamId: "tm-1",
+			teamId: "team-1",
 			status: "active",
 			createdAt: NOW,
 		},
@@ -96,7 +92,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			kind: "human",
 			name: "Founder",
 			role: "founder",
-			teamId: "tm-1",
+			teamId: "team-1",
 			status: "active",
 			createdAt: NOW,
 		},

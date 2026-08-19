@@ -16,7 +16,7 @@
  * (post-bet-retro, portfolio-retro, knowledge-decay, knowledge-promotion).
  */
 
-import { routines, teamMembers, teams, users } from "@hyperidle/db";
+import { routines, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -102,19 +102,17 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
 		const teamsId = body.team.id;
-		const teamMembersId = body.teamMembers.id;
 
-		// These two ids must be different (both are UUIDs with different prefixes)
-		expect(teamsId).not.toBe(teamMembersId);
+		// @lore AU44 B1: teamMembers.id = team.id after the fold — same entity, one id.
+		expect(body.teamMembers.id).toBe(teamsId);
 
 		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamsId));
 
 		expect(builtinRows.filter((r) => r.id.startsWith("builtin:")).length).toBe(4);
 
-		// Each routine must reference teams.id (not team_members.id)
+		// Each routine references teams.id
 		for (const r of builtinRows) {
 			expect(r.teamId).toBe(teamsId);
-			expect(r.teamId).not.toBe(teamMembersId);
 		}
 
 		vi.unstubAllEnvs();
@@ -135,13 +133,12 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
 		const teamId = body.team.id;
-		const teamMembersId = body.teamMembers.id;
-
 		// Get this team's roster agent ids
+		// @lore AU44 B1: users.teamId references teams.id directly
 		const rosterAgents = await db
 			.select({ id: users.id })
 			.from(users)
-			.where(eq(users.teamId, teamMembersId));
+			.where(eq(users.teamId, teamId));
 
 		const rosterIds = new Set(rosterAgents.map((a) => a.id));
 		expect(rosterIds.size).toBeGreaterThan(0);
@@ -194,9 +191,6 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 		await db
 			.insert(teams)
 			.values({ id: team2Id, name: "Team Beta", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: teamMembers2Id, teamId: team2Id, capacity: 5, activeBets: 0, formedAt: NOW });
 		await db.insert(users).values({
 			id: agent2Id,
 			kind: "ai",
@@ -253,9 +247,6 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 		await db
 			.insert(teams)
 			.values({ id: teamId, name: "Marketing Team", phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: tmId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 		await db.insert(users).values({
 			id: leadId,
 			kind: "ai",

@@ -40,7 +40,7 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
-import { getTeamMembers } from "@hyperidle/org";
+
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -80,8 +80,8 @@ export function createFilesystemInjectionRoutes(
 		if (agent.teamId == null) {
 			return c.json({ error: "Agent user has no team assignment", code: "TEAM_MISMATCH" }, 400);
 		}
-		const tmRow = await getTeamMembers(db, { id: agent.teamId });
-		const agentActualTeamId = tmRow?.teamId ?? null;
+		// @lore AU44 B1: after team_members fold, agent.teamId IS teams.id directly.
+		const agentActualTeamId = agent.teamId;
 		if (agentActualTeamId !== filesystemTeamId) {
 			return c.json(
 				{ error: "Agent team does not match filesystem team", code: "TEAM_MISMATCH" },

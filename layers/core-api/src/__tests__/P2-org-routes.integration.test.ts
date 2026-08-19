@@ -14,7 +14,6 @@
 import {
 	// P2: import new symbols — compile error until implementation done
 	orgEdges,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -41,13 +40,6 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-org",
-				teamId: "prod-org",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "u-human-org",
 				kind: "human",
@@ -63,7 +55,7 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-org",
+				teamId: "prod-org",
 				createdAt: NOW,
 			});
 
@@ -85,13 +77,6 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-org",
-				teamId: "prod-org",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "u-human-org",
 				kind: "human",
@@ -107,7 +92,7 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-org",
+				teamId: "prod-org",
 				createdAt: NOW,
 			});
 
@@ -176,13 +161,6 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-org",
-				teamId: "prod-org",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "u-human-org",
 				kind: "human",
@@ -198,7 +176,7 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-org",
+				teamId: "prod-org",
 				createdAt: NOW,
 			});
 
@@ -233,13 +211,6 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-org",
-				teamId: "prod-org",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "u-human-org",
 				kind: "human",
@@ -255,7 +226,7 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-org",
+				teamId: "prod-org",
 				createdAt: NOW,
 			});
 
@@ -423,13 +394,6 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-org",
-				teamId: "prod-org",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "u-human-org",
 				kind: "human",
@@ -480,13 +444,6 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-org",
-				teamId: "prod-org",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "u-human-org",
 				kind: "human",
@@ -502,7 +459,7 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-org",
+				teamId: "prod-org",
 				createdAt: NOW,
 			});
 
@@ -545,13 +502,6 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-org", name: "Org Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-org",
-				teamId: "prod-org",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "u-human-org",
 				kind: "human",
@@ -567,7 +517,7 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-org",
+				teamId: "prod-org",
 				createdAt: NOW,
 			});
 

@@ -8,10 +8,10 @@
  * handler maps to 500.
  */
 
-import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { getTeamMembers, updateTeam } from "@hyperidle/org";
+import { getTeam, updateTeam } from "@hyperidle/org";
 import { transitionBet } from "@hyperidle/work";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -19,7 +19,7 @@ import { test } from "../../__testing__/test-fixtures.js";
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
 const teamCapacity = {
-	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
 	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
 		updateTeam(db, teamId, { activeBets }),
 };
@@ -33,10 +33,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 async function seedBet(db: HyperIdleDb, eventBus: EventBus): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
-
+	
 	await db.insert(bets).values({
 		id: "bet1",
 		teamId: "p1",

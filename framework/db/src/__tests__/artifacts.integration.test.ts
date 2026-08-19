@@ -5,18 +5,14 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import type { HyperIdleDb } from "../connection.js";
 // @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
-import { artifacts, bets, tasks, teamMembers, teams } from "../schema.js";
+import { artifacts, bets, tasks, teams } from "../schema.js";
 
 const NOW = "2026-04-28T00:00:00.000Z";
 
-// @lore U1: seedTask now uses `teams` (formerly `products`) and `teamMembers` (formerly `teams`).
 async function seedTask(
 	db: HyperIdleDb,
 ): Promise<{ taskId: string; betId: string; teamId: string }> {
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm1", teamId: "p1", capacity: 1, activeBets: 0, formedAt: NOW });
 
 	await db.insert(bets).values({
 		id: "b1",

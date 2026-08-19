@@ -37,7 +37,6 @@ import {
 	knowledgeItems,
 	routineRuns,
 	routines,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -50,9 +49,6 @@ async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const createdAt = new Date().toISOString();
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt });
 	// The owner writes the membership row alongside the team.
-	await db
-		.insert(teamMembers)
-		.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: createdAt });
 }
 
 async function seedAgent(

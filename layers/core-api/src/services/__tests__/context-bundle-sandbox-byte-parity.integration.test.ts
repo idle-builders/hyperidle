@@ -40,7 +40,6 @@ import {
 	knowledgeItems,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -64,10 +63,7 @@ async function seedFixedCorpus(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: TEAM_ID, name: "Byte Parity Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-i12c-parity", teamId: TEAM_ID, capacity: 3, activeBets: 0, formedAt: NOW });
-	await db.insert(users).values({
+		await db.insert(users).values({
 		id: AGENT_ID,
 		kind: "ai",
 		name: "Byte Parity Agent",

@@ -15,7 +15,6 @@ import {
 	knowledgeItems,
 	messages,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -37,13 +36,6 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: "t1",
-		teamId: "p1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(users).values({
 		id: "u-founder",
 		kind: "human",

@@ -39,7 +39,6 @@ import {
 	type HyperIdleDb,
 	routines,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -91,7 +90,6 @@ export async function seedDemoWorld(
 ): Promise<{ teamId: string; founderId: string }> {
 	const clock = createDemoClock();
 	const teamId = "demo-team-acme";
-	const teamMembersId = "demo-team-members-acme";
 	const founderId = "demo-founder";
 
 	// Demo team (domain entity — the "Acme" workspace), founded six weeks ago.
@@ -103,18 +101,6 @@ export async function seedDemoWorld(
 			phase: "build",
 			functions: JSON.stringify(["development", "product"]),
 			createdAt: clock.daysAgo(44),
-		})
-		.onConflictDoNothing();
-
-	// Team membership record
-	await db
-		.insert(teamMembers)
-		.values({
-			id: teamMembersId,
-			teamId,
-			capacity: 5,
-			activeBets: 0,
-			formedAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
 
@@ -161,7 +147,7 @@ export async function seedDemoWorld(
 			role: "builder",
 			agentCategory: "team",
 			status: "active",
-			teamId: teamMembersId,
+			teamId: teamId,
 			createdAt: clock.daysAgo(43),
 		})
 		.onConflictDoNothing();
@@ -176,7 +162,7 @@ export async function seedDemoWorld(
 			name: "Acme Product Manager",
 			role: "product_manager",
 			agentCategory: "team",
-			teamId: teamMembersId,
+			teamId: teamId,
 			status: "active",
 			createdAt: clock.daysAgo(43),
 		})
@@ -184,10 +170,7 @@ export async function seedDemoWorld(
 	await upsertDemoRunConfig(db, "demo-agent-pm", { maxConcurrentSessions: 1 });
 
 	// Set team lead to demo builder
-	await db
-		.update(teamMembers)
-		.set({ leadAgentId: "demo-agent-builder" })
-		.where(eq(teamMembers.id, teamMembersId));
+	await db.update(teams).set({ leadAgentId: "demo-agent-builder" }).where(eq(teams.id, teamId));
 
 	// Daily digest bet (disabled by default — operator enables)
 	await db

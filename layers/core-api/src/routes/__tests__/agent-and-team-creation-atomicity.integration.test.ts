@@ -18,7 +18,7 @@
  * survive the second one failing.
  */
 
-import { teamMembers, teams, users } from "@hyperidle/db";
+import { teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { afterAll, describe, expect, test } from "../../__testing__/test-fixtures.js";
@@ -79,52 +79,24 @@ describe("creation is relinquished across identity and run config (AU31 §3.1 si
  */
 const TEAM_NAME_CORE_ATOMICITY = "B2 Core Atomicity Team";
 
-describe("createTeam's own two writes stay atomic with each other (AU31 review B2)", () => {
-	test("POST /api/teams: a fault between the teams insert and the teamMembers insert rolls both back", async ({
+// @lore AU44 B1: the two-table atomicity concern (teams + team_members) is
+// gone after the fold — POST /teams now writes ONE row to `teams`. A single
+// SQL INSERT is inherently atomic; no fault-injection test is needed.
+describe("createTeam's single-table write is atomic (AU31 B2 — team_members dissolved)", () => {
+	test("POST /api/teams: creates exactly one team row with no side effects", async ({
 		db,
 		app,
 	}) => {
-		// Fault injection at the driver level (vi.spyOn on the real transaction
-		// handle's own `insert` method), not a raw-SQL trigger — a raw `sql`
-		// template naming `team_members` reads to the governance census as a
-		// literal write with no `teams` companion in the same file, which is
-		// exactly the invariant this test exists to prove is NOT violated by
-		// the real request path. Faulting only the second insert this way
-		// stays entirely inside real driver behavior: the request still goes
-		// through the real HTTP route against the real database.
-		const originalTransaction = db.transaction.bind(db);
-		const transactionSpy = vi.spyOn(db, "transaction").mockImplementation((callback) =>
-			originalTransaction(async (tx) => {
-				const originalInsert = tx.insert.bind(tx);
-				const insertSpy = vi.spyOn(tx, "insert").mockImplementation((table) => {
-					if (table === teamMembers) {
-						throw new Error("AU31 B2 injected team_members write failure");
-					}
-					return originalInsert(table);
-				});
-				try {
-					return await callback(tx);
-				} finally {
-					insertSpy.mockRestore();
-				}
-			}),
-		);
-
-		try {
-			const res = await app.request("/api/teams", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ name: TEAM_NAME_CORE_ATOMICITY }),
-			});
-
-			expect(res.status).toBeGreaterThanOrEqual(500);
-			const teamRows = await db
-				.select()
-				.from(teams)
-				.where(eq(teams.name, TEAM_NAME_CORE_ATOMICITY));
-			expect(teamRows).toHaveLength(0);
-		} finally {
-			transactionSpy.mockRestore();
-		}
+		const res = await app.request("/api/teams", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ name: TEAM_NAME_CORE_ATOMICITY }),
+		});
+		expect([200, 201]).toContain(res.status);
+		const teamRows = await db
+			.select()
+			.from(teams)
+			.where(eq(teams.name, TEAM_NAME_CORE_ATOMICITY));
+		expect(teamRows).toHaveLength(1);
 	});
 });

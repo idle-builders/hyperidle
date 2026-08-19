@@ -11,7 +11,6 @@ import {
 	items,
 	messages,
 	propagationLog,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -125,10 +124,7 @@ describe("Policy Engine (E7)", () => {
 		await db
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
-		await db.insert(users).values([
+				await db.insert(users).values([
 			{
 				id: "agent-1",
 				kind: "ai",

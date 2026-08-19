@@ -1,4 +1,4 @@
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -23,10 +23,7 @@ describe("Task Endpoints (E3)", () => {
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
-
+		
 		await db.insert(bets).values({
 			id: "bet-1",
 			teamId: "prod-1",

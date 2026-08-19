@@ -20,7 +20,6 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -44,13 +43,6 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		phase: "build",
 		createdAt: NOW,
 	});
-	await db.insert(teamMembers).values({
-		id: "ad4-profile-tm",
-		teamId: "ad4-profile-team",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	// Human founder — required for auth middleware
 	await db.insert(users).values({
 		id: "ad4-profile-founder",
@@ -73,7 +65,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "AD4 Builder Bot",
 		role: "builder",
 		status: "active",
-		teamId: "ad4-profile-tm",
+		teamId: "ad4-profile-team",
 		createdAt: NOW,
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.

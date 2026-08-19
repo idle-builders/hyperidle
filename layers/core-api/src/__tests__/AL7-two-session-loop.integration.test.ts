@@ -33,7 +33,6 @@ import {
 	proposedCalls,
 	tailoredGrants,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -100,9 +99,6 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 	const artifactId = `art-loop-${crypto.randomUUID()}`;
 
 	await db.insert(teams).values({ id: teamId, name: "Loop Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: `tm-${teamId}`, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

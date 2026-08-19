@@ -36,7 +36,6 @@ import {
 	sessions,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -60,13 +59,6 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: `${TEAM_ID}-members`,
-		teamId: TEAM_ID,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(bets).values({
 		id: BET_ID,
 		teamId: TEAM_ID,

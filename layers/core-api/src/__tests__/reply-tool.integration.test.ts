@@ -16,7 +16,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, messages, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
@@ -57,10 +57,7 @@ async function seedTaskWithAgentAndThread(
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
-	await db.insert(users).values({
+		await db.insert(users).values({
 		id: opts.agentId,
 		name: "Agent",
 		role: "builder",

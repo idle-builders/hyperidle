@@ -13,7 +13,7 @@
  * shows teams.name but submits teamMembers.id.
  */
 
-import { teamMembers, teams, users } from "@hyperidle/db";
+import { teams, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -32,13 +32,6 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		await db
 			.insert(teams)
 			.values({ id: "team-af15-1", name: "Alpha Team", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({
-			id: "tm-af15-1",
-			teamId: "team-af15-1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
 		await db.insert(users).values({
 			id: "u-human-af15",
 			kind: "human",
@@ -70,24 +63,9 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		await db
 			.insert(teams)
 			.values({ id: "team-active", name: "Active Team", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "tm-active",
-			teamId: "team-active",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: now,
-		});
 		await db
 			.insert(teams)
 			.values({ id: "team-dissolved", name: "Old Team", phase: "archived", createdAt: past });
-		await db.insert(teamMembers).values({
-			id: "tm-dissolved",
-			teamId: "team-dissolved",
-			capacity: 1,
-			activeBets: 0,
-			formedAt: past,
-			dissolvedAt: past,
-		});
 
 		const res = await app.request("/api/org", { headers: authHeaders() });
 		expect(res.status).toBe(200);
@@ -125,13 +103,6 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		await db
 			.insert(teams)
 			.values({ id: "team-af15-2", name: "Beta Team", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({
-			id: "tm-af15-2",
-			teamId: "team-af15-2",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
 		await db.insert(users).values({
 			id: "u-human-af15b",
 			kind: "human",

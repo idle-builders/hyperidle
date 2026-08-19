@@ -15,7 +15,6 @@ import {
 	explicitSessionStarts,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -71,14 +70,7 @@ describe("agent-layer boot recovery", () => {
 		await db
 			.insert(teams)
 			.values({ id: "boot-team", name: "boot", phase: "build", createdAt: nowIso });
-		await db.insert(teamMembers).values({
-			id: "boot-member",
-			teamId: "boot-team",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: nowIso,
-		});
-		await db.insert(users).values([
+			await db.insert(users).values([
 			{
 				id: "boot-agent",
 				kind: "ai",

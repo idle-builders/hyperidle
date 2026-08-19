@@ -27,7 +27,6 @@ import {
 	type HyperIdleDb,
 	knowledgeItems,
 	serverConfig,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -64,9 +63,6 @@ async function seedTeamAndBots(db: HyperIdleDb, prefix: string): Promise<SeedRes
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `AO1 Team ${prefix}`, phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: botId,
 		kind: "ai",

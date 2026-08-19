@@ -1,14 +1,14 @@
-import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams } from "@hyperidle/db";
 import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/domain-model";
-import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import { transitionBet } from "@hyperidle/work";
+import { getTeam, updateTeam } from "@hyperidle/org";
+import { transitionBet, updateBetField } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
 const teamCapacity = {
-	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
 	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
 		updateTeam(db, teamId, { activeBets }),
 };
@@ -22,21 +22,13 @@ function makeProduct(overrides: Partial<{ id: string; name: string }> = {}) {
 		id: overrides.id ?? "prod-1",
 		name: overrides.name ?? "Test Product",
 		phase: "build",
+		capacity: 3,
+		activeBets: 0,
+		formedAt: new Date().toISOString(),
 		createdAt: new Date().toISOString(),
 	};
 }
 
-function makeTeamMembers(
-	overrides: Partial<{ id: string; teamId: string; capacity: number; activeBets: number }> = {},
-) {
-	return {
-		id: overrides.id ?? "team-1",
-		teamId: overrides.teamId ?? "prod-1",
-		capacity: overrides.capacity ?? 3,
-		activeBets: overrides.activeBets ?? 0,
-		formedAt: new Date().toISOString(),
-	};
-}
 
 function makeBet(
 	overrides: Partial<{
@@ -64,7 +56,6 @@ function makeBet(
 
 async function seedBaseData(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values(makeProduct());
-	await db.insert(teamMembers).values(makeTeamMembers());
 }
 
 describe("bet-state-machine", () => {
@@ -85,13 +76,13 @@ describe("bet-state-machine", () => {
 
 			await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
 
-			const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
-			expect(member?.activeBets).toBe(1);
+			const [team] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
+			expect(team?.activeBets).toBe(1);
 		});
 
 		test("throws CapacityExceededError when team is at capacity", async ({ db, eventBus }) => {
 			await seedBaseData(db);
-			await db.update(teamMembers).set({ activeBets: 3 }).where(eq(teamMembers.id, "team-1"));
+			await db.update(teams).set({ activeBets: 3 }).where(eq(teams.id, "prod-1"));
 			await db.insert(bets).values(makeBet({ status: "draft" }));
 
 			await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "active")).rejects.toThrow(
@@ -118,7 +109,7 @@ describe("bet-state-machine", () => {
 			eventBus,
 		}) => {
 			await seedBaseData(db);
-			await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "team-1"));
+			await db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "prod-1"));
 			await db.insert(bets).values(makeBet({ status: "active" }));
 
 			const completedHandler = vi.fn();
@@ -143,8 +134,8 @@ describe("bet-state-machine", () => {
 			);
 
 			// activeBets decremented
-			const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
-			expect(member?.activeBets).toBe(0);
+			const [team] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
+			expect(team?.activeBets).toBe(0);
 		});
 
 		test("emits bet_state_changed on every transition", async ({ db, eventBus }) => {
@@ -202,13 +193,13 @@ describe("bet-state-machine", () => {
 			eventBus,
 		}) => {
 			await seedBaseData(db);
-			await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "team-1"));
+			await db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "prod-1"));
 			await db.insert(bets).values(makeBet({ status: "active" }));
 
 			await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Cancelled" });
 
-			const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
-			expect(member?.activeBets).toBe(0);
+			const [team] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
+			expect(team?.activeBets).toBe(0);
 		});
 
 		test("decrements activeBets when killing active bet (was in_progress)", async ({
@@ -216,13 +207,13 @@ describe("bet-state-machine", () => {
 			eventBus,
 		}) => {
 			await seedBaseData(db);
-			await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "team-1"));
+			await db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "prod-1"));
 			await db.insert(bets).values(makeBet({ status: "active" }));
 
 			await transitionBet(db, eventBus, teamCapacity, "bet-1", "killed", { reason: "Cancelled" });
 
-			const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
-			expect(member?.activeBets).toBe(0);
+			const [team] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
+			expect(team?.activeBets).toBe(0);
 		});
 
 		test("throws InvalidTransitionError for active → draft (U1: reshape removed, only active→completed|killed)", async ({
@@ -240,10 +231,10 @@ describe("bet-state-machine", () => {
 		});
 
 		// ---------------- I1 / Bet state atomicity (B1-B3) ----------------
-		// The two writes that activate a bet — incrementing `teamMembers.activeBets`
+		// The two writes that activate a bet — incrementing `teams.activeBets`
 		// and flipping `bets.status` to active — must happen atomically.
 		// Without a transaction, a failure between them drifts
-		// `teamMembers.activeBets` away from the real count.
+		// `teams.activeBets` away from the real count.
 
 		describe("I1 B1: transitionBet wraps mutating writes in db.transaction", () => {
 			test("calls db.transaction exactly once per transition", async ({ db, eventBus }) => {
@@ -269,8 +260,8 @@ describe("bet-state-machine", () => {
 				await transitionBet(db, eventBus, teamCapacity, "bet-a", "active");
 				await transitionBet(db, eventBus, teamCapacity, "bet-b", "active");
 
-				const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
-				expect(member?.activeBets).toBe(2);
+				const [team] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
+				expect(team?.activeBets).toBe(2);
 
 				const [a] = await db.select().from(bets).where(eq(bets.id, "bet-a"));
 				const [b] = await db.select().from(bets).where(eq(bets.id, "bet-b"));
@@ -293,27 +284,27 @@ describe("bet-state-machine", () => {
 				await db.insert(bets).values(makeBet({ status: "draft" }));
 
 				// Snapshot pre-condition.
-				const [memberBefore] = await db
+				const [teamBefore] = await db
 					.select()
-					.from(teamMembers)
-					.where(eq(teamMembers.id, "team-1"));
-				expect(memberBefore?.activeBets).toBe(0);
+					.from(teams)
+					.where(eq(teams.id, "prod-1"));
+				expect(teamBefore?.activeBets).toBe(0);
 
 				// Commit first bet to consume one slot (capacity=3, activeBets will become 1)
 				await transitionBet(db, eventBus, teamCapacity, "bet-1", "active");
-				const [memberMid] = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
-				expect(memberMid?.activeBets).toBe(1);
+				const [teamMid] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
+				expect(teamMid?.activeBets).toBe(1);
 
 				// Now attempt an invalid transition (active → draft — not a valid transition)
 				// This should throw and leave activeBets unchanged
 				await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "draft")).rejects.toThrow();
 
 				// Post-condition: teamMembers.activeBets is unchanged (still 1, not leaked)
-				const [memberAfter] = await db
+				const [teamAfter] = await db
 					.select()
-					.from(teamMembers)
-					.where(eq(teamMembers.id, "team-1"));
-				expect(memberAfter?.activeBets).toBe(1);
+					.from(teams)
+					.where(eq(teams.id, "prod-1"));
+				expect(teamAfter?.activeBets).toBe(1);
 
 				// Bet is still active
 				const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));

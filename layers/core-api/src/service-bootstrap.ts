@@ -416,19 +416,8 @@ export function registerCoreDomainServices(ctx: {
 					listUsersByKind: (db, kind) => listUsers(db, { kind }),
 				},
 				org: {
-					// @lore AU20 ruling 1: `resolveReviewRecipients` no longer uses the
-					// caller-supplied `users` argument (which carried `listUsersByKind` in
-					// the old edge-matrix approach). We inject `listHumans` directly so
-					// the function reaches the right query. The `_u` parameter is accepted
-					// for interface compatibility but intentionally unused.
-					resolveReviewRecipients: (db2, ctx, _u) =>
-						resolveReviewRecipients(db2, ctx, {
-							listHumans: (db3, teamMembersId?) =>
-								listUsers(db3, {
-									kind: "human",
-									...(teamMembersId !== undefined ? { teamIds: [teamMembersId] } : {}),
-								}),
-						}),
+					// @lore AU44 B1: resolveReviewRecipients simplified — 2-arg, no injection.
+					resolveReviewRecipients: (db2, ctx) => resolveReviewRecipients(db2, ctx),
 				},
 				// AU31 §3.1 site 9 / §3.2: seam-backed — `proposed-call-workflow.ts`'s
 				// own transaction is restructured to relinquish atomicity with this

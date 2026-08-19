@@ -13,7 +13,7 @@
  *  - schema + migration 0032 adds model_id/model_provider columns
  */
 
-import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { AdapterPool, BuiltinHarnessAdapter, CliHarnessAdapter } from "@hyperidle/harness-registry";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -60,13 +60,6 @@ async function seedPrereqs(db: HyperIdleDb) {
 	await db
 		.insert(teams)
 		.values({ id: "ah2-team", name: "AH2 Team", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: "ah2-tm",
-		teamId: "ah2-team",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	await db.insert(users).values({
 		id: "u-founder-ah2",
 		kind: "human",
@@ -167,7 +160,7 @@ describe("AH2 AC1: per-agent model — distinct models on different agents", () 
 			name: "AH2 Builder",
 			role: "builder",
 			status: "active",
-			teamId: "ah2-tm",
+			teamId: "ah2-team",
 			createdAt: NOW,
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.

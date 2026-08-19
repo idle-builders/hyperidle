@@ -32,7 +32,6 @@ import {
 	messages,
 	proposedCalls,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -64,9 +63,6 @@ async function seedApprovableWorld(
 	const artifactId = `${idPrefix}-artifact`;
 
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

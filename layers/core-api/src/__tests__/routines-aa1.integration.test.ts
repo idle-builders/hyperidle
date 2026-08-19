@@ -16,7 +16,6 @@ import {
 	routineRuns,
 	routines,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -39,20 +38,12 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 
-	await db.insert(teamMembers).values({
-		id: "tm-aa1",
-		teamId: "team-aa1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
-
 	await db.insert(users).values({
 		id: "agent-aa1",
 		name: "AA1 Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-aa1",
+		teamId: "team-aa1",
 		createdAt: now,
 	});
 }

@@ -56,7 +56,6 @@ import {
 	tailoredGrants,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -117,10 +116,7 @@ async function seedTeam(
 	const teamId = `${id}-team`;
 	const membersId = `${id}-members`;
 	await db.insert(teams).values({ id: teamId, name: id, phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: membersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	return { teamId, membersId };
+		return { teamId, membersId };
 }
 
 async function seedAgent(
