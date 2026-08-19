@@ -11,10 +11,10 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/db": "*",
 		"@hyperidle/filesystem-contract": "*"
 	},
 	"devDependencies": {
+		"@hyperidle/db": "*",
 		"@hyperidle/host-process": "*",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"
