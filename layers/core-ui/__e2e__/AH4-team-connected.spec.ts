@@ -23,7 +23,7 @@ import * as path from "node:path";
 import { expect, test } from "./fixtures";
 
 const FOUNDER_ID = "test-founder";
-const TEAM_MEMBERS_ID = "tm-ah4-e2e";
+const TEAM_ID = "team-ah4-e2e";
 const TEAM_NAME = "AH4 E2E Team";
 const EDGE_ID = "edge-ah4-e2e";
 
@@ -34,7 +34,7 @@ function makeOrgResponse() {
 				id: EDGE_ID,
 				fromUserId: FOUNDER_ID,
 				mechanism: "team",
-				target: TEAM_MEMBERS_ID,
+				target: TEAM_ID,
 				createdAt: new Date().toISOString(),
 			},
 		],
@@ -46,7 +46,7 @@ function makeOrgResponse() {
 				role: "founder",
 			},
 		],
-		teams: [{ id: TEAM_MEMBERS_ID, name: TEAM_NAME }],
+		teams: [{ id: TEAM_ID, name: TEAM_NAME }],
 	};
 }
 
@@ -84,7 +84,7 @@ test.describe("AH4 AC5 — Org chart shows founder→team edge after team creati
 		});
 	});
 
-	test("Org Chart edge row target matches the created team's teamMembers id", async ({ page }) => {
+	test("Org Chart edge row target matches the created team's id", async ({ page }) => {
 		await page.route("**/api/org", async (route) => {
 			if (route.request().method() === "GET") {
 				await route.fulfill({
@@ -102,7 +102,7 @@ test.describe("AH4 AC5 — Org chart shows founder→team edge after team creati
 
 		const orgChartSection = page.locator("[data-testid='settings-section-org-chart']");
 
-		// The target cell should contain the teamMembers id
-		await expect(orgChartSection.getByText(TEAM_MEMBERS_ID)).toBeVisible({ timeout: 5000 });
+		// The target cell should contain the team id (teamMembers.id = teams.id after AU44 fold)
+		await expect(orgChartSection.getByText(TEAM_ID)).toBeVisible({ timeout: 5000 });
 	});
 });

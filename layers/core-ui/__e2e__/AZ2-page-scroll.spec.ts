@@ -132,7 +132,7 @@ function makeOverflowingTeam() {
 			status: "healthy",
 			leadAgentId: "agent-0",
 		},
-		teamMembers: { id: "tm-az2", formedAt: new Date().toISOString(), dissolvedAt: null },
+		teamMembers: { id: TEAM_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
 		roster: Array.from({ length: 24 }, (_, i) => ({
 			agentId: `agent-${i}`,
 			name: `Agent ${i}`,

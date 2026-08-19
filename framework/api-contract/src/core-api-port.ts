@@ -163,7 +163,7 @@ export interface CreateArtifactResponse {
 /**
  * Mirrors `GET /users/:id` / `GET /users` — only the fields a `CoreApiPort`
  * consumer relies on. `teamId` is `users.teamId` — per the AK4 two-hop
- * lore, this actually stores `teamMembers.id`, not `teams.id`.
+ * lore AU44 B1: after the fold, this stores `teams.id` directly.
  */
 export interface UserView {
 	readonly id: string;

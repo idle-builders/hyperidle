@@ -50,7 +50,7 @@ import { createDemoClock } from "./demo-world/time.js";
 /**
  * Seed a demo world for onboarding / development mode.
  *
- * Creates: team "Acme" + team_members row, two humans, the founder's
+ * Creates: team "Acme" (AU44 B1: team_members dissolved), two humans, the founder's
  * assistant and five team agents, eight bets across every lifecycle with
  * ~27 tasks, fifteen threads with ~100 messages, a ~40-item knowledge
  * corpus, ~45 sessions, routines with run history, and notifications —
