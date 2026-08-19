@@ -24,6 +24,9 @@
 
 // -- factory writers (AU29 §2.5.2 — idempotent first-boot users writes) --
 export { insertUserIfAbsent, listFactoryAgents } from "./factory-writers.js";
+// -- hint progress (P5 — first-time hint dismissal tracking) --
+export type { DismissedHint } from "./hint-progress.js";
+export { dismissHint, listDismissedHints } from "./hint-progress.js";
 // -- invite code (S1 — invite/claim flow) --
 export { claimInvite, createInvite } from "./invite-code.js";
 // -- login session (S1 — bearer-token auth) --

@@ -21,6 +21,7 @@ import { createCredentialRoutes } from "./routes/credentials.js";
 import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
+import { createHintRoutes } from "./routes/hints.js";
 import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
@@ -372,6 +373,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		);
 		api.route("/users", createUserRoutes(options.db, agentOrchestration, options.adapterPool));
 		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
+		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
