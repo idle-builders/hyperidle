@@ -179,7 +179,7 @@ async function executeAction(
 				createdAt: respondedAt,
 			});
 			if (reviewMessage) {
-				await deps.conversation.updateMessage(db, reviewMessage.id, { resolvedAt: respondedAt });
+				await deps.conversation.resolveMessageIfUnresolved(db, reviewMessage.id, respondedAt);
 			}
 			await deps.conversation.updateThread(db, item.threadId, { resolvedAt: respondedAt });
 			break;

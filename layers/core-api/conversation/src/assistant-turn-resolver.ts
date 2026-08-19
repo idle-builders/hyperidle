@@ -34,14 +34,11 @@ import { findMessage, listMessages } from "./conversation-store.js";
 export interface AssistantTurnResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
-	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/conversation`
-	 * cannot import `@hyperidle/settings` directly) for the `harnessDisabled`
-	 * bake. Absent at a call site not yet wired — the resolver bakes no
-	 * `harnessDisabled` (matches `admitSession`'s "absent = nothing disabled"
-	 * degrade).
+	 * `@hyperidle/settings`'s `readServerConfig`, injected (Mechanism C —
+	 * `@hyperidle/conversation` cannot import `@hyperidle/settings` directly)
+	 * for the `harnessDisabled` bake.
 	 */
-	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+	readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** One raw transcript row. */
@@ -95,12 +92,8 @@ export interface BakedAssistantTurnRequest {
 	 * -validated `agent: User` row.
 	 */
 	readonly agentConfig: BakedAgentRunnableConfig;
-	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
-	 * disabled-harness-types list. Present only when `deps.readServerConfig`
-	 * was supplied.
-	 */
-	readonly harnessDisabled?: readonly string[];
+	/** The server's disabled-harness-types list. */
+	readonly harnessDisabled: readonly string[];
 }
 
 function resolveAssistantAgentIdForSender(senderId: string): string {
@@ -134,9 +127,7 @@ export async function resolveAssistantTurnRequest(
 		payload: row.payload,
 		type: row.type,
 	}));
-	const harnessDisabled = deps.readServerConfig
-		? (await deps.readServerConfig(db)).harnessDisabled
-		: undefined;
+	const { harnessDisabled } = await deps.readServerConfig(db);
 	return {
 		defaultAgentId: targetAgentId,
 		sourceKind: "assistant",
@@ -152,6 +143,6 @@ export async function resolveAssistantTurnRequest(
 		transcript,
 		callingThreadId: message.threadId,
 		agentConfig: bakeAgentRunnableConfig(agent),
-		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
+		harnessDisabled,
 	};
 }

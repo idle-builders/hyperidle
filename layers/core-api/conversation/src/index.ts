@@ -34,8 +34,6 @@
  * `listInbox` with `ThreadFilter`, `MessageFilter`, `InboxFilter`.
  */
 
-// -- assistant-thread pin reaction (AU21 §9 Increment 11, Decision H2/F4) --
-export { registerAssistantThreadPinReaction } from "./assistant-thread-pin-reaction.js";
 // -- assistant-turn resolver (AU21 §6 Decision B — emit-time resolve+bake) --
 export type {
 	AssistantTurnResolverDeps,
@@ -68,7 +66,6 @@ export {
 	listThreads,
 	resolveMessageIfUnresolved,
 	searchConversations,
-	updateMessage,
 	updateThread,
 } from "./conversation-store.js";
 // -- never-silent net (AU27 Increment 5, Decision 5) --

@@ -14,9 +14,8 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	registerAssistantThreadPinReaction,
 	registerSessionNotReturnedNotice,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
 import {
@@ -47,6 +46,7 @@ import * as work from "@hyperidle/work";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
+import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
@@ -215,7 +215,7 @@ const policyDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		insertThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
@@ -352,13 +352,11 @@ export function registerCoreDomainServices(ctx: {
 	);
 
 	// AU21 §9 Increment 11 (Decision H2/F4): "pin the assistant thread after
-	// its first AI reply" — a `@hyperidle/conversation`-owned reaction to its
-	// OWN `thread_message_appended` event.
+	// its first AI reply" — Layer-owned since it directly imports both
+	// @hyperidle/conversation and @hyperidle/users (no DI port needed).
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAssistantThreadPinReaction(db, eventBus, {
-				findUserById: (execDb: HyperIdleDb, id: string) => findUser(execDb, { id }),
-			}),
+			registerAssistantThreadPinReaction(db, eventBus),
 			"assistant thread pin reaction",
 			"unsubscribe",
 			["thread_message_appended subscription"],
