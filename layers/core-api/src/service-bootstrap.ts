@@ -416,8 +416,14 @@ export function registerCoreDomainServices(ctx: {
 					listUsersByKind: (db, kind) => listUsers(db, { kind }),
 				},
 				org: {
-					// @lore AU44 B1: resolveReviewRecipients simplified — 2-arg, no injection.
-					resolveReviewRecipients: (db2, ctx) => resolveReviewRecipients(db2, ctx),
+					resolveReviewRecipients: (db2, ctx) =>
+						resolveReviewRecipients(db2, ctx, {
+							listHumans: (db3, teamId) =>
+								listUsers(db3, {
+									kind: "human",
+									...(teamId !== undefined ? { teamIds: [teamId] } : {}),
+								}),
+						}),
 				},
 				// AU31 §3.1 site 9 / §3.2: seam-backed — `proposed-call-workflow.ts`'s
 				// own transaction is restructured to relinquish atomicity with this

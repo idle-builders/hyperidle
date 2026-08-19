@@ -198,8 +198,14 @@ export function createOrgRoutes(
 		const teamId = c.req.query("teamId") ?? undefined;
 		// userId and agentRole accepted for backward-compat but not used (AU44 B1 simplification).
 
-		// @lore AU44 B1: resolveReviewRecipients simplified — no injection port needed.
-		const recipients = await resolveReviewRecipients(db, { teamId });
+		const recipients = await resolveReviewRecipients(
+			db,
+			{ teamId },
+			{
+				listHumans: (db2, tid) =>
+					listUsers(db2, { kind: "human", ...(tid !== undefined ? { teamIds: [tid] } : {}) }),
+			},
+		);
 		return c.json({ recipients });
 	});
 
