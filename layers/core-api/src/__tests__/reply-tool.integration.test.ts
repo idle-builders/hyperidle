@@ -61,7 +61,7 @@ async function seedTaskWithAgentAndThread(
 		id: opts.agentId,
 		name: "Agent",
 		role: "builder",
-		teamId: "t1",
+		teamId: "p1",
 		status: "active",
 		createdAt: now,
 	});

@@ -32,8 +32,6 @@ async function seedTeamWithAgents(
 	agentCount: number,
 ): Promise<string[]> {
 	await db.insert(teams).values({ id: teamId, name: teamName, phase: "build", createdAt: NOW });
-	const tmId = `${teamId}-tm`;
-
 	const agentIds: string[] = [];
 	for (let i = 1; i <= agentCount; i++) {
 		const agentId = `${teamId}-agent-${i}`;
@@ -44,7 +42,7 @@ async function seedTeamWithAgents(
 			name: `${teamName} Agent ${i}`,
 			role: "builder",
 			status: "active",
-			teamId: tmId,
+			teamId: teamId,
 			createdAt: NOW,
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.

@@ -55,7 +55,7 @@ async function seedRoutine(db: HyperIdleDb): Promise<{ routineId: string; taskId
 		name: "Test Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-1",
+		teamId: "team-1",
 		createdAt: now,
 	});
 	await db.insert(bets).values({

@@ -101,8 +101,8 @@ describe("task_run is resolved and baked at emit time (three real call sites)", 
 	describe("via handoff-protocol (POST /api/tasks/:id/handoff)", () => {
 		async function seedHandoffWorld(db: HyperIdleDb): Promise<void> {
 			await seedTeamAndBet(db, { teamId: "team-au21-trun-4", betId: "bet-au21-trun-4" });
-			await seedAgent(db, "agent-au21-trun-4-source", "team-au21-trun-4-members");
-			await seedAgent(db, "agent-au21-trun-4-target", "team-au21-trun-4-members");
+			await seedAgent(db, "agent-au21-trun-4-source", "team-au21-trun-4");
+			await seedAgent(db, "agent-au21-trun-4-target", "team-au21-trun-4");
 			const now = new Date().toISOString();
 			await db.insert(tasks).values({
 				id: "task-au21-trun-4",

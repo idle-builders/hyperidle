@@ -52,7 +52,7 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		expect(Array.isArray(body.teams)).toBe(true);
 		expect(body.teams).toHaveLength(1);
 		// id is teamMembers.id (what the edge target needs)
-		expect(body.teams[0]).toMatchObject({ id: "tm-af15-1", name: "Alpha Team" });
+		expect(body.teams[0]).toMatchObject({ id: "team-af15-1", name: "Alpha Team" });
 		vi.unstubAllEnvs();
 	});
 
@@ -71,8 +71,8 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { teams: { id: string }[] };
 		const ids = body.teams.map((t) => t.id);
-		expect(ids).toContain("tm-active");
-		expect(ids).not.toContain("tm-dissolved");
+		expect(ids).toContain("team-active");
+		expect(ids).not.toContain("team-dissolved");
 		vi.unstubAllEnvs();
 	});
 
@@ -119,13 +119,13 @@ describe("AF15 AC-6 — GET /api/org includes teams list", () => {
 			body: JSON.stringify({
 				fromUserId: "u-human-af15b",
 				mechanism: "team",
-				target: "tm-af15-2", // teamMembers.id
+				target: "team-af15-2", // teams.id (after AU44 fold)
 			}),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { mechanism: string; target: string };
 		expect(body.mechanism).toBe("team");
-		expect(body.target).toBe("tm-af15-2");
+		expect(body.target).toBe("team-af15-2");
 		vi.unstubAllEnvs();
 	});
 

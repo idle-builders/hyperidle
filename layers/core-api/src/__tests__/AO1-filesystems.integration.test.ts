@@ -39,7 +39,6 @@ function auth(extra?: Record<string, string>): Record<string, string> {
 
 interface SeedResult {
 	teamId: string;
-	teamMembersId: string;
 	botId: string;
 	bot2Id: string;
 }
@@ -50,7 +49,6 @@ interface SeedResult {
  */
 async function seedTeamAndBots(db: HyperIdleDb, prefix: string): Promise<SeedResult> {
 	const teamId = `team-ao1-${prefix}`;
-	const teamMembersId = `tm-ao1-${prefix}`;
 	const botId = `bot-ao1-${prefix}-1`;
 	const bot2Id = `bot-ao1-${prefix}-2`;
 
@@ -63,7 +61,7 @@ async function seedTeamAndBots(db: HyperIdleDb, prefix: string): Promise<SeedRes
 		name: "Builder Bot",
 		role: "builder",
 		status: "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
@@ -72,11 +70,11 @@ async function seedTeamAndBots(db: HyperIdleDb, prefix: string): Promise<SeedRes
 		name: "QA Bot",
 		role: "qa_engineer",
 		status: "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 
-	return { teamId, teamMembersId, botId, bot2Id };
+	return { teamId, botId, bot2Id };
 }
 
 // ─── Test lifecycle ───────────────────────────────────────────────────────────
@@ -450,7 +448,7 @@ describe("AO1: Filesystem registry + per-bot injection", () => {
 		}) => {
 			// Two separate teams
 			const { teamId: teamA } = await seedTeamAndBots(db, "inj6a");
-			const { teamMembersId: tmB } = await seedTeamAndBots(db, "inj6b");
+			const { teamId: tmB } = await seedTeamAndBots(db, "inj6b");
 			// A bot from team B
 			const botFromB = `bot-ao1-inj6b-alien`;
 			await db.insert(users).values({

@@ -173,8 +173,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -222,8 +222,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "product_manager", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "product_manager", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -250,7 +250,7 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "product_manager", "t1");
+			await insertAgent(db, "agent-a", "product_manager", "p1");
 			// No builder agents exist
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
@@ -281,7 +281,7 @@ describe("Handoff Protocol", () => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
 			// Agent A is also a builder -- should not hand off to itself
-			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -306,7 +306,7 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -341,8 +341,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -388,8 +388,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -422,8 +422,8 @@ describe("Handoff Protocol", () => {
 		test("logs handoff in task audit trail", async ({ db, eventBus, agentOrchestration }) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -453,8 +453,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 
 			// Insert task with existing audit trail (in the auditTrail column,
 			// per the schema contract) AND agent prose in `notes` — handoff
@@ -511,9 +511,9 @@ describe("Handoff Protocol", () => {
 		test("tracks multiple handoffs in sequence", async ({ db, eventBus, agentOrchestration }) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
-			await insertAgent(db, "agent-c", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
+			await insertAgent(db, "agent-c", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -554,8 +554,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 
 			// Seed task with agent-authored prose in `notes`. Handoff must
 			// not touch this column.
@@ -614,8 +614,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-h1-null", "in_progress", "agent-a");
 			await insertSession(db, "session-h1-null", "task-h1-null", "agent-a");
 
@@ -668,9 +668,9 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
-			await insertAgent(db, "agent-c", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
+			await insertAgent(db, "agent-c", "builder", "p1");
 			await insertTask(db, "task-concurrent", "in_progress", "agent-a");
 			const expectedVersion = "2099-01-01T00:00:00.000Z";
 			await db
@@ -727,8 +727,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-atomic", "in_progress", "agent-a");
 			await insertSession(db, "session-atomic", "task-atomic", "agent-a");
 
@@ -815,7 +815,7 @@ describe("Handoff Protocol", () => {
 		test("throws when task not found", async ({ db, eventBus, agentOrchestration }) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
 			const ctx = makeSessionContext("session-a", "agent-a", "nonexistent-task");
 			const metadata = makeMetadata();
 
@@ -827,7 +827,7 @@ describe("Handoff Protocol", () => {
 		test("throws when target agent not found", async ({ db, eventBus, agentOrchestration }) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -851,8 +851,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 
@@ -876,8 +876,8 @@ describe("Handoff Protocol", () => {
 		}) => {
 			const handoff = buildProductionHandoff(agentOrchestration);
 			await seedPrerequisites(db);
-			await insertAgent(db, "agent-a", "builder", "t1");
-			await insertAgent(db, "agent-b", "builder", "t1");
+			await insertAgent(db, "agent-a", "builder", "p1");
+			await insertAgent(db, "agent-b", "builder", "p1");
 			await insertTask(db, "task-1", "in_progress", "agent-a");
 			await insertSession(db, "session-a", "task-1", "agent-a");
 			const runtime = await startRuntime(

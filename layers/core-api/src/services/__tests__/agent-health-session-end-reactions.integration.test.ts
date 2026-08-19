@@ -56,7 +56,6 @@ async function seedAgent(
 	id: string,
 ): Promise<{ readonly agentId: string; readonly agentName: string; readonly teamName: string }> {
 	const teamId = `${id}-team`;
-	const teamMembersId = `${id}-tm`;
 	const agentId = `${id}-agent`;
 	const teamName = `Team ${id}`;
 	const agentName = `Agent ${id}`;
@@ -67,7 +66,7 @@ async function seedAgent(
 		name: agentName,
 		role: "builder",
 		status: "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(agentRunConfig).values({ agentUserId: agentId, maxConcurrentSessions: 2 });

@@ -28,7 +28,6 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 	stubTaskId: string;
 }> {
 	const teamId = `team-${Date.now()}`;
-	const teamMembersId = `tm-${Date.now()}`;
 	const agentId = `agent-${Date.now()}`;
 	const betId = `bet-${Date.now()}`;
 	const stubTaskId = `task-${Date.now()}`;
@@ -40,7 +39,7 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 		name: "Test Agent",
 		role: "builder",
 		status: "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(bets).values({

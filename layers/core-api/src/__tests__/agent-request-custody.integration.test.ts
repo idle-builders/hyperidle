@@ -81,7 +81,7 @@ async function seedTaskRequest(
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: `${id}-member`,
+		teamId: `${id}-team`,
 		createdAt: now,
 	});
 	await db.insert(bets).values({

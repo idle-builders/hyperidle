@@ -35,7 +35,14 @@ describe("AF12 AC1 — activate at capacity returns 409", () => {
 
 	test("POST /bets/:id/commit at full capacity returns 409 CONFLICT", async ({ db, app }) => {
 		const now = new Date().toISOString();
-		await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
+		await db.insert(teams).values({
+			id: "prod-1",
+			name: "Test",
+			phase: "build",
+			capacity: 1,
+			activeBets: 1,
+			createdAt: now,
+		});
 		// Team is at capacity: capacity 1, activeBets 1.
 		await db.insert(bets).values({
 			id: "bet-draft",

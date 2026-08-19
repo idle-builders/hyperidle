@@ -410,7 +410,7 @@ describe("P2 — /api/org endpoints (AC5, AC6, AC10)", () => {
 				body: JSON.stringify({
 					fromUserId: "u-human-org",
 					mechanism: "team",
-					target: "team-org",
+					target: "prod-org",
 				}),
 			});
 			expect(res.status).toBe(201);

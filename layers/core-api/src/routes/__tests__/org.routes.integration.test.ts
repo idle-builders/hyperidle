@@ -37,7 +37,7 @@ async function seedUsers(
 		name: "Target Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-1",
+		teamId: "team-1",
 		createdAt: now,
 	});
 	return { fromUserId: "human-1", targetUserId: "agent-1", teamMembersId: "tm-1" };

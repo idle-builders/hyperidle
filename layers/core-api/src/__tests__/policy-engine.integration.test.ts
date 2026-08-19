@@ -131,7 +131,7 @@ describe("Policy Engine (E7)", () => {
 				name: "Builder",
 				role: "builder",
 				status: "idle",
-				teamId: "team-1",
+				teamId: "prod-1",
 				createdAt: now,
 			},
 			{

@@ -77,7 +77,7 @@ describe("agent-layer boot recovery", () => {
 				name: "Agent",
 				role: "builder",
 				status: "active",
-				teamId: "boot-member",
+				teamId: "boot-team",
 				createdAt: nowIso,
 			},
 			{
