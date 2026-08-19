@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { Filesystem } from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -16,7 +17,6 @@ import {
 	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { Filesystem } from "@hyperidle/filesystem-contract";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
 	type ConversationMessage,

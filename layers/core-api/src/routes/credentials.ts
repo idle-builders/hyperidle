@@ -9,8 +9,13 @@
  * credentials live in safeStorage on the desktop.
  */
 
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
-import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
+import {
+	decryptCredentialValue,
+	deleteCredential,
+	encryptCredentialValue,
+	readCredentials,
+	writeCredential,
+} from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/domain-model";
@@ -220,15 +225,12 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 			);
 		}
 
-		const now = new Date().toISOString();
-
 		// Upsert: resets validationState to "present_untested" + clears
 		// lastValidatedAt on every write (a new value has never been re-validated).
 		await writeCredential(db, name, {
 			encryptedValue,
 			validationState: "present_untested",
 			lastValidatedAt: null,
-			updatedAt: now,
 		});
 
 		const [row] = await readCredentials(db, { name });
@@ -348,7 +350,6 @@ export function createCredentialRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 		await writeCredential(db, name, {
 			validationState: newState,
 			lastValidatedAt: now,
-			updatedAt: now,
 		});
 
 		// Response MUST NOT include the raw value

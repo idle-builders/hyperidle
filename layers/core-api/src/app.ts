@@ -1,7 +1,12 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import type { CredentialResolver } from "@hyperidle/credential-access";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
-import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
+import {
+	type CredentialResolver,
+	decryptCredentialValue,
+	deleteCredential,
+	encryptCredentialValue,
+	readCredentials,
+	writeCredential,
+} from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
@@ -207,7 +212,6 @@ const notificationsDeps: NotificationsDeps = {
 				encryptedValue: values.encryptedValue,
 				validationState: values.validationState,
 				lastValidatedAt: values.lastValidatedAt,
-				updatedAt: values.updatedAt,
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},

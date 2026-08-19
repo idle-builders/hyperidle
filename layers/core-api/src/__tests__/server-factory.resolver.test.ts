@@ -4,27 +4,19 @@
  * Concept Hard Rule 3: "Exactly one CredentialResolver is instantiated in
  * server-factory; the LLM client obtains keys only through it."
  *
- * Proof type: integration — assert createServer wires DbCredentialResolver
- * (exposed via ServerHandle.credentialResolver).
+ * Proof type: integration — assert createServer wires a resolver that reads
+ * from the DB (resolveCredential under the hood).
  *
- * The instanceof test is the core invariant: it FAILS if someone reverts
- * the wiring to any other resolver. No indirection, no spy — the runtime
- * type is the assertion.
- *
- * @lore AH1 §3: The single-production-resolver invariant is enforced here
- * by instanceof DbCredentialResolver. EnvCredentialResolver has been
- * relocated to tools/eval (AU20 R-connections) — the negative assertion
- * is no longer needed because the positive instanceof assertion already
- * catches any wrong-resolver regression.
  * @lore AH1 §3: credentialResolver is exposed on ServerHandle so the invariant
- * test can assert `instanceof DbCredentialResolver` directly without relying on
- * indirect observable effects (spy calls, endpoint behavior).
+ * test can assert the resolver's functional behavior directly.
+ * @lore AU44 batch2: DbCredentialResolver class deleted; replaced by
+ * resolveCredential function wired as an anonymous `{ resolve }` object in boot.
+ * instanceof check replaced by functional check (resolver reads from DB).
  */
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
-import { DbCredentialResolver } from "@hyperidle/credentials";
+import { encryptCredentialValue, resolveCredential } from "@hyperidle/credentials";
 import { serverCredentials } from "@hyperidle/db";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { eq } from "drizzle-orm";
@@ -48,7 +40,7 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		vi.restoreAllMocks();
 	});
 
-	test("DbCredentialResolver resolves key from DB even when env is clear", async ({ db }) => {
+	test("resolveCredential reads key from DB even when env is clear", async ({ db }) => {
 		// Store a key in the DB via direct insert (bypassing HTTP route).
 		const encryptedValue = encryptCredentialValue(TEST_PLAINTEXT_KEY);
 		await db.insert(serverCredentials).values({
@@ -59,21 +51,17 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 			updatedAt: new Date().toISOString(),
 		});
 
-		// DbCredentialResolver reads from the DB — should resolve the key.
-		const dbResolver = new DbCredentialResolver(db);
-		const resolved = await dbResolver.resolve("anthropic_api_key");
+		// resolveCredential reads from the DB — should find the key.
+		const resolved = await resolveCredential(db, "anthropic_api_key");
 		expect(resolved).toBe(TEST_PLAINTEXT_KEY);
 
 		// Cleanup.
 		await db.delete(serverCredentials).where(eq(serverCredentials.name, "anthropic_api_key"));
 	}, 15_000);
 
-	test("createServer wires DbCredentialResolver (instanceof)", async ({ db }) => {
+	test("createServer wires DB-backed resolver (functional invariant)", async ({ db }) => {
 		// THE CORE INVARIANT TEST.
-		// This test is GREEN because createServer wires DbCredentialResolver.
-		// No spy, no indirection — the runtime type of the wired resolver is asserted directly.
-		// ServerHandle.credentialResolver exposes the wired resolver for this check.
-
+		// createServer wires the resolver; this test asserts it reads from the DB.
 		const handle = await createServer(0, {
 			db,
 			topology: "disabled",
@@ -81,8 +69,9 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		});
 
 		try {
-			// Core invariant: the production resolver MUST be DbCredentialResolver.
-			expect(handle.credentialResolver).toBeInstanceOf(DbCredentialResolver);
+			// Core invariant: the production resolver must be non-null and callable.
+			expect(handle.credentialResolver).toBeDefined();
+			expect(typeof handle.credentialResolver?.resolve).toBe("function");
 		} finally {
 			handle.dispose();
 		}
@@ -91,11 +80,9 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 	test("createServer production wiring: DB key resolved, env key ignored (functional invariant)", async ({
 		db,
 	}) => {
-		// Functional complement to the instanceof test.
-		// Store a key in DB only (env is cleared in beforeEach).
-		// Boot createServer with the DB. Resolve anthropic_api_key via handle.credentialResolver.
-		// If DbCredentialResolver is wired → key is found (TEST_PLAINTEXT_KEY).
-		// If EnvCredentialResolver is wired → null (env is clear).
+		// Functional complement: store a key in DB only (env is cleared in beforeEach).
+		// If the resolver is DB-backed → key is found (TEST_PLAINTEXT_KEY).
+		// If it were env-backed → null (env is clear).
 
 		const encryptedValue = encryptCredentialValue(TEST_PLAINTEXT_KEY);
 		await db.insert(serverCredentials).values({
@@ -113,8 +100,8 @@ describe("AH1 — single-(production-)resolver invariant", () => {
 		});
 
 		try {
-			// The wired DbCredentialResolver must find the key in DB (env is clear).
-			const resolved = await handle.credentialResolver.resolve("anthropic_api_key");
+			// The wired resolver must find the key in DB (env is clear).
+			const resolved = await handle.credentialResolver?.resolve("anthropic_api_key");
 			expect(resolved).toBe(TEST_PLAINTEXT_KEY);
 		} finally {
 			handle.dispose();

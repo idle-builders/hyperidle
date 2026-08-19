@@ -14,9 +14,7 @@
 		{
 			"path": "../../framework/block-derivation"
 		},
-		{
-			"path": "../../framework/credential-access"
-		},
+		{},
 		{
 			"path": "../../framework/db"
 		},
@@ -32,9 +30,7 @@
 		{
 			"path": "../../framework/factory-defaults"
 		},
-		{
-			"path": "../../framework/filesystem-contract"
-		},
+		{},
 		{
 			"path": "../../framework/harness-capability"
 		},
@@ -61,9 +57,6 @@
 		},
 		{
 			"path": "../agent-orchestration/connections"
-		},
-		{
-			"path": "../agent-orchestration/filesystem-mounting"
 		},
 		{
 			"path": "../agent-orchestration/filesystems"

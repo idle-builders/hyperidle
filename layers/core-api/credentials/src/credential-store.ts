@@ -5,6 +5,7 @@
  *   readCredentials   — filter by name or list all
  *   writeCredential   — upsert (value path) or update (validation path) via CredentialWrite patch
  *   deleteCredential  — delete by name
+ *   resolveCredential — read + decrypt in one call (replaces DbCredentialResolver)
  *
  * @lore AU20 Am4: collapsed from 9 per-intent methods (findByName/listAll/insert/
  * upsert/setCredentialValue/updateCredentialValidationState/deleteCredentialByName
@@ -16,14 +17,19 @@
  * @lore AU19 Increment 1h: this file originally extracted raw CRUD to close
  * `settings`' and `notifications`' DI ports (Mechanism C). The AU20 collapse
  * further reduces the surface without changing any SQL semantics.
+ *
+ * @lore AU44 batch2: `updatedAt` dropped from CredentialWrite — stamped inside
+ * writeCredential so callers never need to supply it. DbCredentialResolver replaced
+ * by resolveCredential function (simpler: no class, no DI, same result).
  */
 
 import { type HyperIdleDb, type ServerCredential, serverCredentials } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
+import { decryptCredentialValue, encryptCredentialValue } from "./credential-encryption.js";
 
 /**
  * Partial patch shape for writeCredential.
- * Include only the columns that should change; updatedAt is always required.
+ * Include only the columns that should change; updatedAt is stamped internally.
  *
  * - encryptedValue: present → upsert path (INSERT or UPDATE value).
  * - validationState / lastValidatedAt: present → written to the row (either path).
@@ -33,7 +39,6 @@ export interface CredentialWrite {
 	readonly encryptedValue?: string;
 	readonly validationState?: string;
 	readonly lastValidatedAt?: string | null;
-	readonly updatedAt: string;
 }
 
 /**
@@ -71,13 +76,18 @@ export async function readCredentials(
  *   This is the validation-outcome write-back path (POST /:name/validate).
  *   Since validation is always called on an existing row, the INSERT path
  *   never fires; the UPDATE is correct and safe.
+ *
+ * @lore AU44 batch2: updatedAt is now stamped here (new Date().toISOString())
+ * rather than supplied by callers — one fewer param to pass and one fewer place
+ * to get the ISO string wrong.
  */
 export async function writeCredential(
 	db: HyperIdleDb,
 	name: string,
 	patch: CredentialWrite,
 ): Promise<void> {
-	const { encryptedValue, validationState, lastValidatedAt, updatedAt } = patch;
+	const { encryptedValue, validationState, lastValidatedAt } = patch;
+	const updatedAt = new Date().toISOString();
 
 	if (encryptedValue !== undefined) {
 		// Upsert path: insert or update the value + any provided validation columns.
@@ -118,3 +128,43 @@ export async function writeCredential(
 export async function deleteCredential(db: HyperIdleDb, name: string): Promise<void> {
 	await db.delete(serverCredentials).where(eq(serverCredentials.name, name));
 }
+
+/**
+ * Resolve the plaintext value for a stored credential by name.
+ * Returns null when the credential does not exist, has no value,
+ * or decryption fails (missing/wrong root secret).
+ *
+ * Replaces DbCredentialResolver.resolve() — same semantics, no class overhead.
+ *
+ * @lore AU44 batch2: DbCredentialResolver (a class wrapping this exact logic)
+ * deleted; pure function with the same contract is simpler and easier to test.
+ */
+export async function resolveCredential(db: HyperIdleDb, name: string): Promise<string | null> {
+	const [row] = await readCredentials(db, { name });
+	if (!row?.encryptedValue) return null;
+	return decryptCredentialValue(row.encryptedValue);
+}
+
+/**
+ * Seed the anthropic API key from env on first boot.
+ * No-op when ANTHROPIC_API_KEY is unset or a credential named "anthropic" already exists.
+ * Replaces migrateCredentialsToStore's env-seed step (the legacy config-blob migration
+ * that step also did is no longer needed — all deployments have migrated).
+ *
+ * @lore AU44 batch2: split from migrateCredentialsToStore (which did two things:
+ * strip legacy apiKey from config blob + seed env key). The blob-strip path is
+ * deleted; only the seed survives, extracted here where the table it writes lives.
+ */
+export async function seedAnthropicKeyFromEnv(
+	db: HyperIdleDb,
+	encrypt: (value: string) => string,
+): Promise<void> {
+	const apiKey = process.env.ANTHROPIC_API_KEY;
+	if (!apiKey) return;
+	const existing = await readCredentials(db, { name: "anthropic" });
+	if (existing.length > 0) return;
+	const encryptedValue = encrypt(apiKey);
+	await writeCredential(db, "anthropic", { encryptedValue });
+}
+
+export { decryptCredentialValue, encryptCredentialValue };

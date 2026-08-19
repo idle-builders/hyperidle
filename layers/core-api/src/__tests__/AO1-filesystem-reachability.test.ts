@@ -31,7 +31,7 @@ import * as cp from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
+import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/domain-model";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/host-process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

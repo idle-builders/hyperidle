@@ -85,9 +85,7 @@ function newFilesystem(id: string, teamId: string, folder: string) {
 }
 
 describe("filesystems completeness contract", () => {
-	test("registry CRUD and unified team/id filters preserve exact rows and state", async ({
-		db,
-	}) => {
+	test("registry CRUD and team filter preserve exact rows and state", async ({ db }) => {
 		const suffix = randomUUID();
 		const { teamId } = await seedIdentity(db, suffix);
 		const folder = temporaryDirectory("registry");
@@ -104,10 +102,6 @@ describe("filesystems completeness contract", () => {
 		expect((await listFilesystems(db, { teamId })).map((row) => row.id).sort()).toEqual(
 			[firstId, secondId].sort(),
 		);
-		expect((await listFilesystems(db, { ids: [secondId] })).map((row) => row.id)).toEqual([
-			secondId,
-		]);
-		expect(await listFilesystems(db, { ids: [] })).toEqual([]);
 
 		await updateFilesystemState(db, firstId, "reachable");
 		expect((await getFilesystem(db, firstId))?.state).toBe("reachable");

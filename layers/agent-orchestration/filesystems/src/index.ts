@@ -3,7 +3,7 @@
 // `file-watcher.ts` — zero DB coupling, only ever called at session-launch
 // time, and an agent-orchestration package may not import a core-api Service
 // directly (Mechanism B).
-export { resolveFilesystemState } from "./filesystem-reachability.js";
+export { refreshFilesystemState, resolveFilesystemState } from "./filesystem-reachability.js";
 export type { FilesystemFilter } from "./filesystem-registry.js";
 export {
 	deleteFilesystem,

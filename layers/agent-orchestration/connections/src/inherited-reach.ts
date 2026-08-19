@@ -24,7 +24,7 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
-import type { InheritedConnectionFact } from "@hyperidle/domain-model";
+import type { InheritedConnectionFact, ServiceConnectionView } from "@hyperidle/domain-model";
 
 const execFileAsync = promisify(execFile);
 
@@ -41,24 +41,11 @@ function stripAnsi(value: string): string {
  * absent; tests seed isolated homes through it.
  */
 export interface InheritedProbeDeps {
-	/**
-	 * Injected command runner. Defaults to `execFile`ing the first element with
-	 * the rest as args. Tests provide a stub so unit tests never touch the
-	 * filesystem.
-	 */
-	readonly run?: (
-		args: readonly string[],
-		context?: {
-			readonly cwd: string;
-			readonly env: NodeJS.ProcessEnv;
-			readonly signal: AbortSignal;
-		},
-	) => Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>;
 	/** Environment passed to real binary executions and read for config paths. */
 	readonly env?: NodeJS.ProcessEnv;
 	/**
 	 * Working directory for real binary invocations (e.g. to pick up a project
-	 * .mcp.json for `claude mcp list`). Ignored when `run` is injected.
+	 * .mcp.json for `claude mcp list`).
 	 * Defaults to process.cwd().
 	 *
 	 * @lore AN1: claude mcp list reads .mcp.json from the working directory
@@ -100,21 +87,16 @@ async function runCommand(
 	const cwd = resolve(d?.cwd ?? process.cwd());
 	const controller = new AbortController();
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	const runner = d?.run;
 	try {
-		const command = (
-			runner
-				? Promise.resolve(runner(args, { cwd, env, signal: controller.signal }))
-				: execFileAsync(args[0] ?? "", args.slice(1), {
-						cwd,
-						env,
-						signal: controller.signal,
-					}).then(({ stdout, stderr }) => ({ stdout, stderr, exitCode: 0 }))
-		)
-			.then(({ stdout, stderr, exitCode }) => ({
+		const command = execFileAsync(args[0] ?? "", args.slice(1), {
+			cwd,
+			env,
+			signal: controller.signal,
+		})
+			.then(({ stdout, stderr }) => ({
 				stdout: stripAnsi(stdout),
 				stderr: stripAnsi(stderr),
-				exitCode,
+				exitCode: 0 as const,
 			}))
 			.catch(failedCommandResult);
 		const timeout = new Promise<{
@@ -418,6 +400,10 @@ async function inspectInheritedTools(
  * AU36 (D1) — the reach cache face. Built by `bootAgentOrchestration` (always)
  * and read by `/api/connections`' inherited projection; refreshed at the boot
  * and redetect moments through composition-root wiring (D4/D5).
+ *
+ * @lore AU44 batch2: list() now returns ServiceConnectionView[] directly —
+ * projectInheritedConnections folded in here so the route no longer needs a
+ * separate projection call. The InheritedConnectionFact snapshot is internal.
  */
 export interface InheritedReach {
 	/**
@@ -426,8 +412,32 @@ export interface InheritedReach {
 	 * worst case is an empty inherited group.
 	 */
 	refresh(deps?: InheritedProbeDeps): Promise<void>;
-	/** The current frozen snapshot. Empty until the first refresh. */
-	list(): readonly InheritedConnectionFact[];
+	/**
+	 * The current frozen snapshot, projected to ServiceConnectionView[].
+	 * Empty until the first refresh.
+	 *
+	 * @lore AU44 batch2: projectInheritedConnections logic inlined here so the
+	 * route receives ready-to-serve views, not raw facts.
+	 */
+	list(): ServiceConnectionView[];
+}
+
+function projectFacts(facts: readonly InheritedConnectionFact[]): ServiceConnectionView[] {
+	const seen = new Set<string>();
+	const result: ServiceConnectionView[] = [];
+	for (const fact of facts) {
+		if (seen.has(fact.name)) continue;
+		seen.add(fact.name);
+		result.push({
+			id: `inherited:${fact.source}:${fact.name}`,
+			service: fact.name,
+			via: `${fact.source} · ${fact.name}`,
+			authSource: "inherited",
+			health: fact.health === "needs-attention" ? "needs-attention" : "working",
+			removable: false,
+		});
+	}
+	return result;
 }
 
 export function createInheritedReach(): InheritedReach {
@@ -461,6 +471,6 @@ export function createInheritedReach(): InheritedReach {
 
 	return {
 		refresh,
-		list: () => snapshot,
+		list: () => projectFacts(snapshot),
 	};
 }

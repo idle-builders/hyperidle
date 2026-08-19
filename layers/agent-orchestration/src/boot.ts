@@ -45,13 +45,11 @@ import {
 	createInheritedReach,
 	type InheritedReach,
 	listConnections,
-	listHeldConnectionsForProvisioning,
-	ServiceConnectionResolver,
+	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
-import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
+import { HELD_AUTH_SOURCES, type ModelTier, type ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import type { HarnessAdapter, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import { createGitRunner } from "@hyperidle/host-process";
@@ -64,6 +62,7 @@ import type {
 	RuntimeDeps,
 	RuntimeHandle,
 } from "@hyperidle/run-orchestration";
+import { RegistryFilesystemMounter } from "@hyperidle/run-orchestration";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createAgentOrchestrationApp } from "./app.js";
@@ -171,6 +170,16 @@ export interface AgentOrchestrationBootOptions {
 	readonly probeInheritedReach?: boolean;
 	/** AU31 §5.1 — absent means "no runtime": the route surface and session-stream socket exist, but no poller starts (the shape every existing bare-app test fixture already relies on). */
 	readonly runtime?: AgentOrchestrationRuntimeOptions;
+	/**
+	 * AU44 batch2: injected AES-256-GCM cipher for connection token encrypt/decrypt.
+	 * Sourced from `@hyperidle/credentials` at the Application layer; this Layer
+	 * does NOT import from core-api directly (architecture Mechanism B).
+	 * Absent → connections route rejects token writes and resolves null for reads.
+	 */
+	readonly cipher?: {
+		readonly encrypt: (plaintext: string) => string;
+		readonly decrypt: (ciphertext: string) => string | null;
+	};
 }
 
 export interface AgentOrchestrationBoot {
@@ -282,13 +291,16 @@ interface OrchestrationProvisioningReads {
 	readonly mounter?: RegistryFilesystemMounter;
 	readonly heldConnections?: HeldConnectionsReaderPort;
 	readonly injectedFilesystems: InjectedFilesystemsReaderPort;
-	readonly serviceConnectionResolver: ServiceConnectionResolver;
+	readonly serviceConnectionResolver: {
+		resolve(userId: string, connectionId: string): Promise<string | null>;
+	};
 }
 
 function buildProvisioningReads(
 	db: HyperIdleDb,
 	sandboxBasePath: string | undefined,
 	resolveProvisioningOwnerUserId: (() => Promise<string | null>) | undefined,
+	decrypt: (ciphertext: string) => string | null,
 ): OrchestrationProvisioningReads {
 	return {
 		...(sandboxBasePath
@@ -304,7 +316,18 @@ function buildProvisioningReads(
 						listHeldForProvisioning: async () => {
 							const ownerUserId = await resolveProvisioningOwnerUserId();
 							if (!ownerUserId) return [];
-							return listHeldConnectionsForProvisioning(db, ownerUserId);
+							// @lore AU44 batch2: listHeldConnectionsForProvisioning deleted; inline
+							// listConnections with the same filter (userId + held authSources).
+							const rows = await listConnections(db, { userId: ownerUserId });
+							return rows
+								.filter((r) => (HELD_AUTH_SOURCES as readonly string[]).includes(r.authSource))
+								.map((row) => ({
+									id: row.id,
+									userId: row.userId,
+									service: row.service,
+									authSource: row.authSource as (typeof HELD_AUTH_SOURCES)[number],
+									serverUrl: row.serverUrl ?? null,
+								}));
 						},
 					},
 				}
@@ -313,14 +336,18 @@ function buildProvisioningReads(
 			listInjectedForProvisioning: (agentId: string) =>
 				listInjectedFilesystemsForProvisioning(db, agentId),
 		},
-		serviceConnectionResolver: new ServiceConnectionResolver(db),
+		serviceConnectionResolver: {
+			resolve: (userId: string, connectionId: string) =>
+				resolveHeldToken(db, userId, connectionId, decrypt),
+		},
 	};
 }
 
 export async function bootAgentOrchestration(
 	options: AgentOrchestrationBootOptions,
 ): Promise<AgentOrchestrationBoot> {
-	const { db, eventBus, sessionStream, probeInheritedReach, runtime } = options;
+	const { db, eventBus, sessionStream, probeInheritedReach, runtime, cipher } = options;
+	const decrypt = cipher?.decrypt ?? (() => null);
 
 	// AU36 D4: the reach cache is ALWAYS built; `probeInheritedReach` only
 	// decides whether boot awaits the initial probe (refresh never rejects, so
@@ -357,6 +384,7 @@ export async function bootAgentOrchestration(
 			db,
 			runtime.sandboxBasePath,
 			runtime.resolveProvisioningOwnerUserId,
+			decrypt,
 		);
 		runRuntime = await composition.startRuntime(
 			composition.runtimeDeps(db, eventBus, {
@@ -372,6 +400,7 @@ export async function bootAgentOrchestration(
 		db,
 		getRecentActivity: (sessionId) => activityBuffer.getActivity(sessionId),
 		inheritedReach,
+		...(cipher ? { cipher } : {}),
 	});
 
 	return {

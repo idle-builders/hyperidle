@@ -31,8 +31,7 @@
  */
 
 import { bootAgentExecution } from "@hyperidle/agent-execution";
-import { ServiceConnectionResolver } from "@hyperidle/connections";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	filesystemInjections,
 	filesystems,
@@ -203,9 +202,9 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		await seed(db);
 		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
 		try {
-			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeInstanceOf(
-				ServiceConnectionResolver,
-			);
+			// @lore AU44 batch2: instanceof check removed (ServiceConnectionResolver class deleted).
+			// replaced by resolveHeldToken function. Functional check below proves the same contract.
+			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeDefined();
 			// The two-argument call the provisioner makes. This is the exact
 			// call that silently returned null in production.
 			expect(

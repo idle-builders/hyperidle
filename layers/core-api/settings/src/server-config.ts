@@ -7,22 +7,11 @@
  * Corrupt JSON in the DB falls back to defaults — the app always boots.
  */
 
-import {
-	type HyperIdleDb,
-	type ServerCredential,
-	serverConfig,
-	type WriteExecutor,
-} from "@hyperidle/db";
+import { type HyperIdleDb, serverConfig, type WriteExecutor } from "@hyperidle/db";
 import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/domain-model";
 import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-
-/** Secret transformation dependency for the one-shot credential migration. */
-interface CredentialCipher {
-	encryptCredentialValue(plaintext: string): string;
-	decryptCredentialValue(encrypted: string): string | null;
-}
 
 const NotificationsDeliverySchema = z.object({
 	enabled: z.boolean().default(false),
@@ -341,129 +330,3 @@ async function patchServerConfig(
 // @lore AU20 Am6: ServerConfigSchema / NotificationsSchema / ModelGatewayConfigSchema /
 // ModelTierConfigSchema are validation internals — zero census demand from callers;
 // dropped from the public barrel. Not re-exported here.
-
-// ---------------------------------------------------------------------------
-// AH1 §4: One-shot boot migration — relocate legacy openai-compatible key +
-//          seed anthropic key from env. Replaces migrateServerConfigEncryption.
-// ---------------------------------------------------------------------------
-
-/** Relocate legacy inline keys before stripping them; idempotent and absent-only. */
-export async function migrateCredentialsToStore(
-	db: HyperIdleDb,
-	cipher: CredentialCipher,
-	credentialStore: {
-		findByName(db: HyperIdleDb, name: string): Promise<ServerCredential | undefined>;
-		insert(
-			db: HyperIdleDb,
-			values: {
-				readonly name: string;
-				readonly encryptedValue: string;
-				readonly validationState: string;
-				readonly lastValidatedAt: string | null;
-				readonly updatedAt: string;
-			},
-		): Promise<void>;
-	},
-): Promise<void> {
-	// @lore AU20 Am4: cipher.getServerSecret() is gone; cipher.encryptCredentialValue
-	// throws MISSING_ROOT_SECRET when no secret is configured. We probe availability
-	// lazily — the first encrypt call will throw and we return early.
-
-	const now = new Date().toISOString();
-
-	// Step 1: Read the existing server_config blob and strip legacy apiKey fields.
-	const [configRow] = await db
-		.select()
-		.from(serverConfig)
-		.where(eq(serverConfig.id, "default"))
-		.limit(1);
-
-	if (configRow) {
-		let rawJson: unknown;
-		try {
-			rawJson = JSON.parse(configRow.config);
-		} catch {
-			rawJson = null;
-		}
-
-		if (rawJson && typeof rawJson === "object") {
-			// Look for legacy tier blobs with apiKey — not typed since ModelTierConfig
-			// no longer has apiKey, but the raw DB JSON may still carry it.
-			const raw = rawJson as Record<string, unknown>;
-			const gateway = raw.modelGateway as Record<string, Record<string, unknown>> | undefined;
-			let needsRewrite = false;
-			let legacyApiKey: string | null = null;
-
-			if (gateway && typeof gateway === "object") {
-				for (const [_tierName, tier] of Object.entries(gateway)) {
-					if (tier && typeof tier === "object" && "apiKey" in tier) {
-						const rawKey = tier.apiKey;
-						if (typeof rawKey === "string" && rawKey !== "") {
-							// Decrypt-or-take-as-is: if it's our ciphertext, decrypt (null = no secret
-							// or tampered); else treat as legacy plaintext.
-							const decrypted = cipher.decryptCredentialValue(rawKey);
-							const plaintext = decrypted !== null ? decrypted : rawKey;
-							if (plaintext !== "" && legacyApiKey === null) {
-								legacyApiKey = plaintext;
-							}
-						}
-						// Strip the apiKey from the tier blob.
-						delete tier.apiKey;
-						needsRewrite = true;
-					}
-				}
-			}
-
-			// Persist a non-empty key before stripping it from the legacy blob. A failed
-			// encryption/store write leaves the only durable copy untouched for retry.
-			if (legacyApiKey !== null) {
-				const existing = await credentialStore.findByName(db, "openai_compatible_api_key");
-				if (!existing) {
-					let encryptedValue: string;
-					try {
-						encryptedValue = cipher.encryptCredentialValue(legacyApiKey);
-					} catch {
-						// No root secret — cannot encrypt; skip migration (boot warning already logged).
-						return;
-					}
-					await credentialStore.insert(db, {
-						name: "openai_compatible_api_key",
-						encryptedValue,
-						validationState: "present_untested",
-						lastValidatedAt: null,
-						updatedAt: now,
-					});
-				}
-			}
-
-			if (needsRewrite) {
-				await db
-					.update(serverConfig)
-					.set({ config: JSON.stringify(raw), updatedAt: now })
-					.where(eq(serverConfig.id, "default"));
-			}
-		}
-	}
-
-	// Step 2: Seed anthropic_api_key from env (desktop safeStorage one-time bridge).
-	const envAnthropicKey = process.env.ANTHROPIC_API_KEY;
-	if (envAnthropicKey && envAnthropicKey !== "") {
-		const existing = await credentialStore.findByName(db, "anthropic_api_key");
-		if (!existing) {
-			let encryptedValue: string;
-			try {
-				encryptedValue = cipher.encryptCredentialValue(envAnthropicKey);
-			} catch {
-				// No root secret — skip (same no-op as when getServerSecret() returned null).
-				return;
-			}
-			await credentialStore.insert(db, {
-				name: "anthropic_api_key",
-				encryptedValue,
-				validationState: "present_untested",
-				lastValidatedAt: null,
-				updatedAt: now,
-			});
-		}
-	}
-}

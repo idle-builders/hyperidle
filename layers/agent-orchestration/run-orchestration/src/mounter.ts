@@ -13,8 +13,8 @@
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { Filesystem, MountResult } from "@hyperidle/filesystem-contract";
-import type { MountingGitRunnerFactory } from "./ports.js";
+import type { Filesystem, MountResult } from "@hyperidle/domain-model";
+import type { MountingGitRunnerFactory } from "./mounter-ports.js";
 import { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";
 
 const CLOUD_SOURCES = new Set(["gdrive", "dropbox", "s3"]);
