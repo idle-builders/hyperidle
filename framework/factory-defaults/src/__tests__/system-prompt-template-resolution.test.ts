@@ -7,35 +7,7 @@
  */
 
 import { describe, expect, test } from "vitest";
-import {
-	readSystemPromptTemplateForRole,
-	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "../system-prompt-templates.js";
-
-describe("SYSTEM_PROMPT_TEMPLATE_FILES", () => {
-	test("has exactly the 7 canonical roles", () => {
-		expect(Object.keys(SYSTEM_PROMPT_TEMPLATE_FILES).sort()).toEqual(
-			[
-				"builder",
-				"designer",
-				"facilitator",
-				"growth",
-				"ops",
-				"product_manager",
-				"qa_engineer",
-			].sort(),
-		);
-	});
-
-	test("underscore roles map to hyphenated filenames", () => {
-		expect(SYSTEM_PROMPT_TEMPLATE_FILES.product_manager).toBe("product-manager.md");
-		expect(SYSTEM_PROMPT_TEMPLATE_FILES.qa_engineer).toBe("qa-engineer.md");
-	});
-
-	test("does not include assistant", () => {
-		expect(SYSTEM_PROMPT_TEMPLATE_FILES.assistant).toBeUndefined();
-	});
-});
+import { readSystemPromptTemplateForRole } from "../system-prompt-templates.js";
 
 describe("readSystemPromptTemplateForRole — positive, real seeded roles", () => {
 	test("product_manager resolves the hyphenated product-manager.md content (underscore→hyphen regression guard)", () => {

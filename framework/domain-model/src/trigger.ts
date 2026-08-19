@@ -33,7 +33,3 @@ export const TriggerRuleValueSchema = z
 	.passthrough();
 
 export type TriggerRuleValue = z.infer<typeof TriggerRuleValueSchema>;
-
-export function isTriggerEventType(value: string): value is TriggerEventType {
-	return (TRIGGER_EVENT_TYPES as readonly string[]).includes(value);
-}

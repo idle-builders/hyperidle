@@ -11,7 +11,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type AdapterDeps, RegistryFilesystemMounter } from "../index.js";
+import { RegistryFilesystemMounter } from "../index.js";
+import type { AdapterDeps } from "../mounter-registry.js";
 
 function makeFs(folderPath: string): Filesystem {
 	return {

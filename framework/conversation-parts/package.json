@@ -13,7 +13,6 @@
 		"vitest": "^4.1.9"
 	},
 	"dependencies": {
-		"@hyperidle/domain-model": "*",
-		"@hyperidle/harness-capability": "*"
+		"@hyperidle/domain-model": "*"
 	}
 }

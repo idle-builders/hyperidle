@@ -29,7 +29,7 @@ import * as path from "node:path";
  * cwd-relative `docs/` resolution and the closed allowlist map are unchanged
  * — this IS the traversal defense; "improving" it is a regression, not a move.
  */
-export const SYSTEM_PROMPT_TEMPLATE_FILES: Readonly<Record<string, string>> = {
+const SYSTEM_PROMPT_TEMPLATE_FILES: Readonly<Record<string, string>> = {
 	product_manager: "product-manager.md",
 	facilitator: "facilitator.md",
 	builder: "builder.md",

@@ -15,10 +15,7 @@
  */
 
 import { describe, expect, test } from "vitest";
-import {
-	readSystemPromptTemplateForRole,
-	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "../system-prompt-templates.js";
+import { readSystemPromptTemplateForRole } from "../system-prompt-templates.js";
 
 describe("X3 AC-2: system prompt templates readable from docs/system-prompts/ via the shared resolver", () => {
 	test("product_manager template resolves with non-empty content, no frontmatter", () => {
@@ -51,20 +48,6 @@ describe("X3 AC-2: system prompt templates readable from docs/system-prompts/ vi
 	test("product_manager template content contains recognizable persona content", () => {
 		const content = readSystemPromptTemplateForRole("product_manager") ?? "";
 		expect(content).toMatch(/#|You are|Product Manager|PM/i);
-	});
-
-	test("the canonical map exposes exactly 7 roles (facilitator, product_manager, builder, growth, designer, qa_engineer, ops)", () => {
-		expect(Object.keys(SYSTEM_PROMPT_TEMPLATE_FILES).sort()).toEqual(
-			[
-				"builder",
-				"designer",
-				"facilitator",
-				"growth",
-				"ops",
-				"product_manager",
-				"qa_engineer",
-			].sort(),
-		);
 	});
 
 	// AB0: builder and growth now have templates (docs/system-prompts/builder.md, docs/system-prompts/growth.md added)

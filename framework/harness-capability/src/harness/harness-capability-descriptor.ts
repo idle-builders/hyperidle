@@ -34,8 +34,6 @@ export type ReturnEnforcementChannel =
 	| "soft-continue"
 	| "none";
 
-export type HarnessOptionControlKind = "select" | "boolean" | "number" | "text";
-
 export type HarnessReadinessState =
 	| "missing"
 	| "installed"

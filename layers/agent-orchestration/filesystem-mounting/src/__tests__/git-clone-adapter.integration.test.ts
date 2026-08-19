@@ -12,7 +12,8 @@ import * as path from "node:path";
 import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { createGitRunner } from "@hyperidle/host-process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type AdapterDeps, RegistryFilesystemMounter } from "../index.js";
+import { RegistryFilesystemMounter } from "../index.js";
+import type { AdapterDeps } from "../mounter-registry.js";
 
 // Create a local bare-style repo (works for local clone with git-cli).
 async function createSourceRepo(parentDir: string): Promise<string> {

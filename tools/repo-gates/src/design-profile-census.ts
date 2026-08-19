@@ -18,7 +18,7 @@ const EXPECTED = {
 		metadata: 231, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx
 		small: 225, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx
 		copy: 45,
-		control: 98, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
+		control: 96, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView
 		input: 10,
 		"avatar-initial": 14,
 		subheading: 9,
