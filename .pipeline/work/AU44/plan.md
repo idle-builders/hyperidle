@@ -47,11 +47,15 @@ signature and type shrinking needs no pre-build.
 beyond the shrink the audit names. Changing which service owns which table.
 
 **Where the row list lives.** The audit that produced the 72 merge and 327 simplify rows, plus every
-package-level dissolve verdict and its measured consumer list, was committed during the delete pass and
-removed at ship. Recover it from git history at `aafa592d1`, under
-`.pipeline/work/AU20/destroy/verdicts-revised/` (falling back to `verdicts/` where no revision exists).
-Do not re-derive it by re-running the audit — the rulings that reshaped it are recorded there and
-nowhere else.
+package-level dissolve verdict and its measured consumer list, is carried in this branch under
+`.pipeline/work/AU20/destroy/` — read `verdicts-revised/` first and fall back to `verdicts/` where no
+revision exists, because the founder rulings only reshaped fifteen packages. The delete pass's own
+working record sits next to it under `.pipeline/work/AU43/`.
+
+These files are deliberately not on `main`; they were removed at the delete pass's ship because they are
+working files, not product. Do not re-derive the list by re-running the audit — the rulings that reshaped
+it exist only here. Do not assume a future `main` still has them, and do not delete this branch until the
+merge and simplify pass is accepted.
 
 **Two corrections the delete pass earned, which apply directly here.** First, a symbol convicted against
 its call sites can still be obliged by an interface that declares it; removing one such method broke both

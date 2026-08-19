@@ -132,7 +132,8 @@ redetect becomes a problem, that is the learning that earns a narrow, route-scop
 
 ## Where the evidence lives
 
-The full audit — 1,713 verdict rows, per-package verdicts, the revised verdicts after the founder
+The full audit — 1,681 verdict rows, per-package verdicts, the revised verdicts after the founder
 rulings, the batch assignments, the census and the tooling — was committed during the pass and removed
-at ship. It is recoverable in git history at `aafa592d1`, under `.pipeline/work/AU20/destroy/` and
-`.pipeline/work/AU43/batches/`.
+at ship, because it is working material rather than product. It is carried on the branch
+`pipeline/AU44`, under `.pipeline/work/AU20/destroy/` and `.pipeline/work/AU43/`, and is also reachable
+from the tag `au20-audit-evidence`. The branch is the copy to rely on; the tag is a backstop.
