@@ -27,7 +27,7 @@
  * convention to the implementer.
  */
 
-import { agentWorkIntents, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentWorkIntents, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
@@ -91,14 +91,6 @@ async function seedRoutineVehicleFks(db: HyperIdleDb, idSuffix: string): Promise
 		name: `Emission vehicle team ${idSuffix}`,
 		phase: "build",
 		createdAt: NOW,
-	});
-	// The owner writes the membership row alongside the team.
-	await db.insert(teamMembers).values({
-		id: `emission-vehicle-team-${idSuffix}-members`,
-		teamId: `emission-vehicle-team-${idSuffix}`,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
 	});
 	await db.insert(users).values({
 		id: `emission-vehicle-agent-${idSuffix}`,

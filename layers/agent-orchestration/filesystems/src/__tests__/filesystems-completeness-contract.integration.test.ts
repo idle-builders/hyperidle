@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { sessions, teamMembers, teams, users } from "@hyperidle/db";
+import { sessions, teams, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { afterEach, describe, expect } from "vitest";
 import {
@@ -44,14 +44,6 @@ async function seedIdentity(db: Parameters<typeof saveFilesystem>[0], suffix: st
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Filesystem ${suffix}`, phase: "build", createdAt: NOW });
-	// The owner writes the membership row alongside the team.
-	await db.insert(teamMembers).values({
-		id: `${teamId}-members`,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

@@ -20,7 +20,6 @@
 import {
 	filesystemInjections,
 	filesystems as filesystemsTable,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -38,13 +37,6 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			.insert(teams)
 			.values({ id: "team-rifa-1", name: "RIFA Team", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
-		await db.insert(teamMembers).values({
-			id: "team-rifa-1-members",
-			teamId: "team-rifa-1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
 		await db.insert(users).values({
 			id: "agent-rifa-1",
 			kind: "ai",
@@ -96,13 +88,6 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 			.insert(teams)
 			.values({ id: "team-rifa-2", name: "RIFA Team 2", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
-		await db.insert(teamMembers).values({
-			id: "team-rifa-2-members",
-			teamId: "team-rifa-2",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
 		await db.insert(users).values({
 			id: "agent-rifa-2",
 			kind: "ai",

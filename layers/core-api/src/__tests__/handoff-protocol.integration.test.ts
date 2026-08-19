@@ -8,7 +8,6 @@ import {
 	messages,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -41,10 +40,7 @@ import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
-
+	
 	await db.insert(bets).values({
 		id: "b1",
 		teamId: "p1",

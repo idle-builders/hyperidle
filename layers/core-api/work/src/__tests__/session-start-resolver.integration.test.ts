@@ -40,7 +40,7 @@
  */
 
 import { findThread } from "@hyperidle/conversation";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { requireRunnableAgent } from "@hyperidle/users";
 
@@ -52,13 +52,6 @@ async function seedTeamAndBet(
 	await db
 		.insert(teams)
 		.values({ id: options.teamId, name: options.teamId, phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: `${options.teamId}-members`,
-		teamId: options.teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(bets).values({
 		id: options.betId,
 		teamId: options.teamId,

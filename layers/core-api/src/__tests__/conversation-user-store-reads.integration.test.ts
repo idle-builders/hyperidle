@@ -22,7 +22,7 @@ import {
 	listThreads,
 	searchConversations,
 } from "@hyperidle/conversation";
-import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
@@ -59,10 +59,7 @@ async function seedTeam(db: HyperIdleDb, teamMembersId: string): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Team ${teamMembersId}`, phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-}
+	}
 
 function messageValues(
 	id: string,

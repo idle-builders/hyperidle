@@ -14,7 +14,7 @@
  * to 400; an earlier AF12 plan did so on the false premise that it otherwise 500s.
  */
 
-import { bets, teamMembers, teams } from "@hyperidle/db";
+import { bets, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../__testing__/test-fixtures.js";
@@ -37,9 +37,6 @@ describe("AF12 AC1 — activate at capacity returns 409", () => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
 		// Team is at capacity: capacity 1, activeBets 1.
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 1, activeBets: 1, formedAt: now });
 		await db.insert(bets).values({
 			id: "bet-draft",
 			teamId: "prod-1",

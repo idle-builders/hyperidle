@@ -33,7 +33,6 @@ import {
 	routineRuns,
 	routines,
 	sessions,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -75,23 +74,19 @@ async function seedRoutineSession(
 	readonly teamId: string;
 }> {
 	const teamId = `${id}-team`;
-	const tmId = `${id}-tm`;
 	const agentId = `${id}-agent`;
 	const routineId = `${id}-routine`;
 	const runId = `${id}-run`;
 	const sessionId = `${id}-session`;
 
 	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: tmId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: tmId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({
@@ -220,20 +215,13 @@ describe("transitionRun session disposition — routineRuns collapse (Decision B
 		await db
 			.insert(teams)
 			.values({ id: "trc-nr-team", name: "Team", phase: "build", createdAt: NOW });
-		await db.insert(teamMembers).values({
-			id: "trc-nr-tm",
-			teamId: "trc-nr-team",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: NOW,
-		});
 		await db.insert(users).values({
 			id: "trc-nr-agent",
 			kind: "ai",
 			name: "Agent",
 			role: "builder",
 			status: "active",
-			teamId: "trc-nr-tm",
+			teamId: "trc-nr-team",
 			createdAt: NOW,
 		});
 		await db.insert(sessions).values({

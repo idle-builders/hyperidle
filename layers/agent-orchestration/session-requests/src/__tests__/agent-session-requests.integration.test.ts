@@ -23,7 +23,6 @@ import {
 	type HyperIdleDb,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -99,13 +98,6 @@ describe("agent session request repository", () => {
 	test("claimNextAgentSessionRequest claims exactly one pending request", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "team-3", name: "Team", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "members-3",
-			teamId: "team-3",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
 		await db.insert(users).values([
 			{
 				id: "agent-3",
@@ -363,13 +355,6 @@ describe("agent session request repository", () => {
 		await db
 			.insert(teams)
 			.values({ id: "explicit-team", name: "Team", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "explicit-members",
-			teamId: "explicit-team",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
 		await db.insert(users).values([
 			{
 				id: "explicit-agent",

@@ -44,7 +44,6 @@ import {
 	sessions,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -69,13 +68,7 @@ async function seedTeamAndBet(
 	await db
 		.insert(teams)
 		.values({ id: options.teamId, name: options.teamId, phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: `${options.teamId}-members`,
-		teamId: options.teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
+
 	await db.insert(bets).values({
 		id: options.betId,
 		teamId: options.teamId,
@@ -85,14 +78,14 @@ async function seedTeamAndBet(
 	});
 }
 
-async function seedAgent(db: HyperIdleDb, id: string, teamMembersId?: string): Promise<void> {
+async function seedAgent(db: HyperIdleDb, id: string, teamId?: string): Promise<void> {
 	await db.insert(users).values({
 		id,
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: teamMembersId,
+		teamId,
 		createdAt: new Date().toISOString(),
 	});
 }

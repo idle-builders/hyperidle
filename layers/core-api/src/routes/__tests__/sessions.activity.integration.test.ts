@@ -5,7 +5,7 @@
  * ring buffer. Response includes session metadata + activity array.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -22,10 +22,7 @@ async function seedSession(db: HyperIdleDb): Promise<void> {
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
 
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
-
+	
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Builder",

@@ -36,7 +36,7 @@
  *   - Rows older than the window do not count.
  */
 
-import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import type { SessionEndedEvent, SessionOutcome } from "@hyperidle/domain-model";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
@@ -61,10 +61,7 @@ async function seedAgent(
 	const teamName = `Team ${id}`;
 	const agentName = `Agent ${id}`;
 	await db.insert(teams).values({ id: teamId, name: teamName, phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
-	await db.insert(users).values({
+		await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
 		name: agentName,

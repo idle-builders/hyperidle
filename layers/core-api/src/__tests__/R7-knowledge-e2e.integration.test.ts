@@ -22,7 +22,6 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -62,9 +61,6 @@ const AGENT_ID = "agent-r7";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: TEAM_ID, name: "R7 Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-r7", teamId: TEAM_ID, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: AGENT_ID,
 		name: "Builder Agent",

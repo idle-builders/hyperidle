@@ -137,16 +137,9 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 		const now = new Date().toISOString();
 
 		// Import needed tables
-		const { teams, teamMembers, bets, tasks } = await import("@hyperidle/db");
+		const { teams, bets, tasks } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({ id: "p-af11", name: "P-AF11", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "tm-af11",
-			teamId: "p-af11",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: now,
-		});
 		await db.insert(bets).values({
 			id: "bet-af11",
 			teamId: "p-af11",
@@ -636,13 +629,10 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 	}) => {
 		const now = new Date().toISOString();
 
-		const { teams, teamMembers, bets } = await import("@hyperidle/db");
+		const { teams, bets } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({ id: "p-ac5", name: "P-AC5", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "tm-ac5", teamId: "p-ac5", capacity: 5, activeBets: 0, formedAt: now });
-		await db.insert(bets).values({
+				await db.insert(bets).values({
 			id: "bet-ac5",
 			teamId: "p-ac5",
 			description: "AC5 bet",

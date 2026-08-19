@@ -41,7 +41,7 @@ import type {
 	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
 import type { WriteExecutor } from "@hyperidle/db";
-import type { OrgAgentRunConfigWriter } from "@hyperidle/org";
+import type { OrgUserDirectory } from "@hyperidle/org";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
@@ -360,9 +360,13 @@ export function buildSeamBackedWorkIntentRecorder(
  */
 export function buildSeamBackedAgentRunConfigWriter(
 	port: AgentOrchestrationPort,
-): OrgAgentRunConfigWriter {
+): Pick<OrgUserDirectory, "writeAgentRunConfig"> {
 	return {
-		writeAgentRunConfig: async (_db: WriteExecutor, agentUserId: string, patch) => {
+		writeAgentRunConfig: async (
+			_db: WriteExecutor,
+			agentUserId: string,
+			patch: AgentOrchestrationRunConfigPatch,
+		) => {
 			await port.runConfig.write(agentUserId, patch);
 		},
 	};

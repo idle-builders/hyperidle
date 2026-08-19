@@ -38,7 +38,6 @@ import {
 	filesystems,
 	type HyperIdleDb,
 	serviceConnections,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -57,7 +56,6 @@ const OWNER_ID = "u-au26-c1-owner";
 const OTHER_HUMAN_ID = "u-au26-c1-other";
 const AGENT_ID = "agent-au26-c1-target";
 const TEAM_ID = "team-au26-c1";
-const TEAM_MEMBERS_ID = "tm-au26-c1";
 const OWNER_CREATED_AT = "2026-08-01T00:00:00.000Z";
 const OTHER_CREATED_AT = "2026-08-02T00:00:00.000Z";
 
@@ -72,13 +70,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: TEAM_ID, name: "AU26 C1", phase: "build", createdAt: OWNER_CREATED_AT });
-	await db.insert(teamMembers).values({
-		id: TEAM_MEMBERS_ID,
-		teamId: TEAM_ID,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: OWNER_CREATED_AT,
-	});
 	await db.insert(users).values([
 		{
 			id: OWNER_ID,
@@ -86,7 +77,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Owner",
 			role: "founder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: OWNER_CREATED_AT,
 		},
 		{
@@ -95,7 +86,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Other Human",
 			role: "member",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: OTHER_CREATED_AT,
 		},
 		{
@@ -104,7 +95,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Target Agent",
 			role: "builder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: OWNER_CREATED_AT,
 		},
 	]);

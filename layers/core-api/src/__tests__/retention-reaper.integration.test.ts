@@ -19,7 +19,6 @@ import {
 	type HyperIdleDb,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -47,13 +46,7 @@ async function seedTaskDispatchAttempt(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Team", phase: "build", createdAt: now.toISOString() });
-	await db.insert(teamMembers).values({
-		id: `${options.id}-tm`,
-		teamId,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: now.toISOString(),
-	});
+
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

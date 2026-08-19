@@ -71,7 +71,6 @@ import {
 	type HyperIdleDb,
 	items,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -173,10 +172,7 @@ async function seedTeamAndBet(
 	const teamMembersId = `tm-inc2-${opts.suffix}`;
 	const betId = `bet-inc2-${opts.suffix}`;
 	await db.insert(teams).values({ id: teamId, name: "Inc2 Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	await db.insert(bets).values({
+		await db.insert(bets).values({
 		id: betId,
 		teamId,
 		description: "Inc2 bet",

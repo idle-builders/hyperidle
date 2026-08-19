@@ -40,7 +40,6 @@ import {
 	knowledgeItems,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -58,13 +57,6 @@ async function seedTeamAndBet(
 	await db
 		.insert(teams)
 		.values({ id: options.teamId, name: options.teamId, phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: `${options.teamId}-members`,
-		teamId: options.teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(bets).values({
 		id: options.betId,
 		teamId: options.teamId,

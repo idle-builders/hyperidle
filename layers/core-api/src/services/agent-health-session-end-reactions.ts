@@ -70,7 +70,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
-import { getTeam, getTeamMembers } from "@hyperidle/org";
+import { getTeam } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 
 const logger = createLogger({ pkg: "core-api.agent-health-session-end-reactions" });
@@ -114,9 +114,8 @@ async function describeAgent(
 	const agent = await findUser(db, { id: agentId });
 	if (!agent) return undefined;
 	if (!agent.teamId) return { name: agent.name, teamName: null };
-	const memberGroup = await getTeamMembers(db, { id: agent.teamId });
-	if (!memberGroup) return { name: agent.name, teamName: null };
-	const team = await getTeam(db, { id: memberGroup.teamId });
+	// @lore AU44 B1: agent.teamId now references teams.id directly (no two-hop).
+	const team = await getTeam(db, { id: agent.teamId });
 	return { name: agent.name, teamName: team?.name ?? null };
 }
 

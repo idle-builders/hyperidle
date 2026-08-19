@@ -13,7 +13,7 @@
  * unguarded UPDATE lets both racers "succeed" and double-emits.
  */
 
-import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/domain-model";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
@@ -31,9 +31,6 @@ const testDeps: TaskStateMachineDeps = {
 async function seed(db: HyperIdleDb, taskState = "accepted"): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
 	await db.insert(bets).values({
 		id: "bet-1",
 		teamId: "prod-1",

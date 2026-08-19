@@ -20,7 +20,6 @@ import {
 	knowledgeItems,
 	routineRuns,
 	routines,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -41,13 +40,6 @@ const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}`;
  */
 async function seedOwners(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
-	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW_ISO,
-	});
 	await db.insert(users).values({
 		id: "seed-agent-cos",
 		name: "System Agent",

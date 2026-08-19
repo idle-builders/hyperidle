@@ -11,7 +11,6 @@ import {
 	bets,
 	type HyperIdleDb,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -24,9 +23,6 @@ import { buildTestPorts } from "./test-ports.js";
 async function seedTaskFixture(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "member-1", teamId: "team-1", capacity: 3, activeBets: 0, formedAt: now });
 	await db.insert(users).values({
 		id: "agent-1",
 		kind: "ai",

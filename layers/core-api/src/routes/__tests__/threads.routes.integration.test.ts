@@ -13,7 +13,7 @@
  *  - plan §11 (security/abuse cases)
  */
 
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { type DomainEvent, HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -31,13 +31,6 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: "t1",
-		teamId: "p1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 
 	// "u-founder" is the founder participant; "agent-1" is an agent.
 	// @lore AF11-IDOR: kind="human" added so auth middleware resolves "u-founder"

@@ -27,7 +27,7 @@
  *       so the coming deletions can't silently regress it.
  */
 
-import { agentWorkIntents, bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentWorkIntents, bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
@@ -62,13 +62,6 @@ async function seedTeamWithEligibleAgent(
 	await db
 		.insert(teams)
 		.values({ id: teamParentId, name: "Inc10a", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: membershipId,
-		teamId: teamParentId,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(users).values({
 		id: "inc10a-agent",
 		kind: "ai",

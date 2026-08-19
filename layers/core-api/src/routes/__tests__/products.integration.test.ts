@@ -10,7 +10,7 @@
  * 6. GET /api/teams/:id returns activeBets: [] for a product whose bets are all shipped.
  */
 
-import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, tasks, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -56,10 +56,7 @@ describe("GET /api/teams", () => {
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
 
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
-
+		
 		await db.insert(bets).values({
 			id: "b1",
 			teamId: "p1",
@@ -150,20 +147,12 @@ describe("GET /api/teams/:id", () => {
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
 
-		await db.insert(teamMembers).values({
-			id: "t1",
-			teamId: "p1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
-
 		await db.insert(users).values({
 			id: "agent-lead",
 			name: "Lead Agent",
 			role: "lead",
 			status: "active",
-			teamId: "t1",
+			teamId: "p1",
 			createdAt: NOW,
 		});
 
@@ -172,7 +161,7 @@ describe("GET /api/teams/:id", () => {
 			name: "Alice Agent",
 			role: "member",
 			status: "active",
-			teamId: "t1",
+			teamId: "p1",
 			createdAt: NOW,
 		});
 
@@ -280,10 +269,7 @@ describe("GET /api/teams/:id", () => {
 			.insert(teams)
 			.values({ id: "p2", name: "Shipped Product", phase: "cool-down", createdAt: NOW });
 
-		await db
-			.insert(teamMembers)
-			.values({ id: "t2", teamId: "p2", capacity: 3, activeBets: 0, formedAt: NOW });
-
+		
 		await db.insert(bets).values({
 			id: "b-s1",
 			teamId: "p2",

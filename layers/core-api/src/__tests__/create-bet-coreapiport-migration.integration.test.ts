@@ -36,7 +36,7 @@ import {
 	buildToolHandlersPorts,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -46,17 +46,9 @@ import { makeContext, NOW } from "./_helpers.js";
 
 async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId: string }> {
 	const teamId = `team-migrate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-	const teamMembersId = `tm-migrate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Migration Team", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: teamMembersId,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	return { teamId };
 }
 

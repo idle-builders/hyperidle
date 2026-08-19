@@ -23,7 +23,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { ArtifactPreview } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
@@ -58,9 +58,6 @@ async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `R6 Product${suffix}`, phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: `tm-r6${suffix}`, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: betId,
 		teamId,

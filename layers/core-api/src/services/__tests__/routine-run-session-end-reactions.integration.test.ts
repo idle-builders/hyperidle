@@ -41,7 +41,6 @@ import {
 	routineRuns,
 	routines,
 	sessions,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -61,10 +60,7 @@ async function seedRunningRoutine(
 	const tmId = `${id}-tm`;
 	const agentId = `${id}-agent`;
 	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: tmId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
-	await db.insert(users).values({
+		await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
 		name: "Agent",

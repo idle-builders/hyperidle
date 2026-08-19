@@ -21,7 +21,6 @@ import {
 	type HyperIdleDb,
 	messages,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -44,10 +43,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
-
+	
 	await db.insert(users).values({
 		id: "u-founder",
 		name: "Founder",

@@ -11,7 +11,7 @@ import {
 	list as listKnowledgeItems,
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
-import { getTeam, getTeamMembers, updateTeam } from "@hyperidle/org";
+import { getTeam, updateTeam } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
@@ -28,7 +28,7 @@ const SUMMARY_CAP = 10;
 // @lore AU20 Am7: adapters bridge TeamCapacityReader to the new parameterized API.
 const teamCapacity = {
 	getByTeamId: (db: import("@hyperidle/db").WriteExecutor, teamId: string) =>
-		getTeamMembers(db, { teamId }),
+		getTeam(db, { id: teamId }),
 	setActiveBets: (db: import("@hyperidle/db").WriteExecutor, teamId: string, activeBets: number) =>
 		updateTeam(db, teamId, { activeBets }),
 };
@@ -526,17 +526,11 @@ export function createBetRoutes(
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 
-		try {
-			await getTeamMembers(db, { teamId: bet.teamId }, { require: true });
-		} catch (err) {
-			// @lore AU20 R-org: ApiError is unexported from @hyperidle/org (it is an
-			// internal invariant-enforcement class). Duck-type on err.name to surface
-			// the status/code without an instanceof import.
-			if (err instanceof Error && err.name === "ApiError" && "status" in err && "code" in err) {
-				const apiErr = err as Error & { status: number; code: string };
-				return c.json({ error: apiErr.message, code: apiErr.code }, apiErr.status as 500);
-			}
-			throw err;
+		// @lore AU44 B1: after team_members fold, team IS the capacity entity.
+		// `getTeam` returns undefined instead of throwing like the old `getTeamMembers({ require: true })`.
+		const teamCheck = await getTeam(db, { id: bet.teamId });
+		if (!teamCheck) {
+			return c.json({ error: "Team not found", code: "TEAM_NOT_FOUND" }, 500);
 		}
 
 		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.

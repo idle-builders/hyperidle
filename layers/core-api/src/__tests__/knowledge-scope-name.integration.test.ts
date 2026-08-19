@@ -17,7 +17,6 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -136,13 +135,6 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 			createdAt: new Date().toISOString(),
 		});
 		const memberId = crypto.randomUUID();
-		await db.insert(teamMembers).values({
-			id: memberId,
-			teamId,
-			capacity: 3,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
 		const id = await createKnowledgeItem(db, {
 			scopeKind: "team",
 			scopeId: memberId, // using team_members.id

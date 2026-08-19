@@ -32,7 +32,6 @@ import {
 	type HyperIdleDb,
 	routineRuns,
 	routines,
-	teamMembers,
 	teams,
 	users,
 	type WriteExecutor,
@@ -134,10 +133,7 @@ async function seedManualRoutine(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Baked-emit team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	await db.insert(users).values({
+		await db.insert(users).values({
 		id: ownerAgentId,
 		kind: "ai",
 		name: "Owner",

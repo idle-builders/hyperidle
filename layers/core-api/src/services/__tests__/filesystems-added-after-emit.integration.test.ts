@@ -31,7 +31,6 @@ import {
 	filesystemInjections,
 	filesystems,
 	type HyperIdleDb,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -69,10 +68,7 @@ afterEach(() => {
 
 async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: TEAM_ID, name: "AU26 F2", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: TEAM_MEMBERS_ID, teamId: TEAM_ID, capacity: 3, activeBets: 0, formedAt: NOW });
-	await db.insert(users).values([
+		await db.insert(users).values([
 		{
 			id: HUMAN_ID,
 			kind: "human",

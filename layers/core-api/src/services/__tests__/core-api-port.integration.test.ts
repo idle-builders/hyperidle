@@ -30,7 +30,7 @@ import {
 	createNetworkCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
 	afterEach,
@@ -65,12 +65,8 @@ interface SeamCoreApiPort {
 
 async function seedTeamImpl(db: HyperIdleDb): Promise<{ teamId: string }> {
 	const teamId = `team-seam-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-	const teamMembersId = `tm-seam-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 	await db.insert(teams).values({ id: teamId, name: "Seam Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	return { teamId };
+		return { teamId };
 }
 
 describe("CoreApiPort write seam — §11 contract-test harness", () => {

@@ -24,7 +24,6 @@ import {
 	type HyperIdleDb,
 	items,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -41,19 +40,12 @@ async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 		phase: "build",
 		createdAt: new Date().toISOString(),
 	});
-	await db.insert(teamMembers).values({
-		id: "tm-1",
-		teamId: "team-1",
-		capacity: 3,
-		activeBets: 0,
-		formedAt: new Date().toISOString(),
-	});
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Agent One",
 		role: "builder",
 		status: "idle",
-		teamId: "tm-1",
+		teamId: "team-1",
 		createdAt: new Date().toISOString(),
 	});
 }

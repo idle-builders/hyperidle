@@ -16,7 +16,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, teamMembers, teams } from "@hyperidle/db";
+import { bets, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
@@ -42,15 +42,7 @@ const TEST_API_KEY = "create-bet-test-key";
 
 async function seedTeam(db: Parameters<typeof makeContext>[0]): Promise<{ teamId: string }> {
 	const teamId = `team-${Date.now()}`;
-	const teamMembersId = `tm-${Date.now()}`;
 	await db.insert(teams).values({ id: teamId, name: "Test Team", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: teamMembersId,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	return { teamId };
 }
 

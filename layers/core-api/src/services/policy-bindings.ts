@@ -43,7 +43,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertMessage, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb, NewItem, NewTask, WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { getTeamMembers } from "@hyperidle/org";
+import { getTeam } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
@@ -92,7 +92,7 @@ function buildHandoffDeps(port: AgentOrchestrationPort) {
 				excludeId: string,
 			) => findUser(db, { role, teamIds: teamMembersIds, status: "active", excludeId }),
 		},
-		org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeamMembers(db, { teamId }) },
+		org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeam(db, { id: teamId }) },
 		sessionRequests: {
 			record: (
 				_exec: WriteExecutor,

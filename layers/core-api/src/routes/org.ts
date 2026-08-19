@@ -20,9 +20,8 @@ import {
 	createTeam,
 	deleteOrgEdge,
 	getTeam,
-	getTeamMembers,
 	listOrgEdges,
-	listTeamMembers,
+	listTeams,
 	persistScaffoldedAgents,
 	resolveReviewRecipients,
 	upsertOrgEdge,
@@ -106,7 +105,9 @@ export function createOrgRoutes(
 	router.get("/", async (c) => {
 		const edges = await listOrgEdges(db);
 		const allUsers = await listUsers(db);
-		const teamRows = await listTeamMembers(db, { active: true, withTeamName: true });
+		// @lore AU44 B1: listTeamMembers folded into listTeams; id = teamActualId after fold.
+		const allTeams = await listTeams(db);
+		const teamRows = allTeams.map((t) => ({ id: t.id, name: t.name, teamActualId: t.id }));
 
 		// @lore AU20/Am11: project only {id,kind,name,role} — must not leak email/
 		// systemPrompt/model columns on a public-data endpoint.
@@ -162,7 +163,7 @@ export function createOrgRoutes(
 				);
 			}
 		} else if (mechanism === "team") {
-			const targetTeam = await getTeamMembers(db, { id: target });
+			const targetTeam = await getTeam(db, { id: target });
 			if (!targetTeam) {
 				return c.json(
 					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },
@@ -195,20 +196,10 @@ export function createOrgRoutes(
 	// so every review still reaches someone on a single-team or cross-team org.
 	router.get("/review-recipients", async (c) => {
 		const teamId = c.req.query("teamId") ?? undefined;
-		const userId = c.req.query("userId") ?? undefined;
-		const agentRole = c.req.query("agentRole") ?? undefined;
+		// userId and agentRole accepted for backward-compat but not used (AU44 B1 simplification).
 
-		const recipients = await resolveReviewRecipients(
-			db,
-			{ teamId, userId, agentRole },
-			{
-				listHumans: (db2, teamMembersId?) =>
-					listUsers(db2, {
-						kind: "human",
-						...(teamMembersId !== undefined ? { teamIds: [teamMembersId] } : {}),
-					}),
-			},
-		);
+		// @lore AU44 B1: resolveReviewRecipients simplified — no injection port needed.
+		const recipients = await resolveReviewRecipients(db, { teamId });
 		return c.json({ recipients });
 	});
 
@@ -224,31 +215,31 @@ export function createOrgRoutes(
 		return c.json({ id: team.id, name: team.name });
 	});
 
-	// GET /teams/:teamId/membership — the `teamMembers` row keyed by `teams.id`.
+	// GET /teams/:teamId/membership — after AU44 B1 fold, teamId IS the membership id.
 	router.get("/teams/:teamId/membership", async (c) => {
 		const teamId = c.req.param("teamId");
-		const memberGroup = await getTeamMembers(db, { teamId });
-		if (!memberGroup) {
+		const team = await getTeam(db, { id: teamId });
+		if (!team) {
 			return c.json(
 				{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
 				404,
 			);
 		}
-		return c.json({ id: memberGroup.id });
+		return c.json({ id: team.id });
 	});
 
-	// GET /team-members/:teamMembersId — the AK4 two-hop resolution's second hop
-	// (`teamMembers.id` -> `teamId`, i.e. `teams.id`).
+	// GET /team-members/:teamMembersId — AU44 B1: teamMembersId IS teams.id after fold.
 	router.get("/team-members/:teamMembersId", async (c) => {
 		const teamMembersId = c.req.param("teamMembersId");
-		const memberGroup = await getTeamMembers(db, { id: teamMembersId });
-		if (!memberGroup) {
+		const team = await getTeam(db, { id: teamMembersId });
+		if (!team) {
 			return c.json(
 				{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
 				404,
 			);
 		}
-		return c.json({ teamId: memberGroup.teamId });
+		// After fold, teamMembersId = teams.id — return the same id as teamId for backward compat.
+		return c.json({ teamId: team.id });
 	});
 
 	// POST /teams — the atomic `teams`+`teamMembers` insert ONLY (never the

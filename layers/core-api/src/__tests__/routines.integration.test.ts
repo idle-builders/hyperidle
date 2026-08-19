@@ -4,7 +4,6 @@ import {
 	routines,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -28,20 +27,12 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: new Date().toISOString(),
 	});
 
-	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
-		capacity: 3,
-		activeBets: 0,
-		formedAt: new Date().toISOString(),
-	});
-
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Builder Bot",
 		role: "builder",
 		status: "idle",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: new Date().toISOString(),
 	});
 

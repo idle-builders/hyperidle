@@ -407,6 +407,13 @@
 			"when": 1785639600000,
 			"tag": "0057_AU43_drop_five_tables",
 			"breakpoints": true
+		},
+		{
+			"idx": 58,
+			"version": "7",
+			"when": 1785643200000,
+			"tag": "0058_AU44_fold_team_members",
+			"breakpoints": true
 		}
 	]
 }

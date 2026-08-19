@@ -39,7 +39,6 @@ import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import {
 	createTeam,
 	getTeam,
-	getTeamMembers,
 	listTeams,
 	persistScaffoldedAgents,
 	updateTeam,
@@ -134,9 +133,7 @@ export function createTeamRoutes(
 
 		const result: TeamListItem[] = await Promise.all(
 			allTeams.map(async (team) => {
-				// Fetch the team_members for this team (may be missing — tolerate gracefully here)
-				const memberGroup = await getTeamMembers(db, { teamId: team.id });
-
+				// @lore AU44 B1: team_members dissolved — team row now carries capacity/activeBets/leadAgentId.
 				// Count active and completed bets
 				const activeBetCount = await work.list(db, "bet", {
 					teamId: team.id,
@@ -164,16 +161,14 @@ export function createTeamRoutes(
 					progressDone += taskRows.filter((t) => t.state === "done").length;
 				}
 
-				const leadAgentId = memberGroup?.leadAgentId ?? null;
-				const status = memberGroup
-					? deriveTeamStatus(
-							{
-								activeBets: memberGroup.activeBets,
-								capacity: memberGroup.capacity,
-							},
-							false,
-						)
-					: ("healthy" as const);
+				const leadAgentId = team.leadAgentId ?? null;
+				const status = deriveTeamStatus(
+					{
+						activeBets: team.activeBets,
+						capacity: team.capacity,
+					},
+					false,
+				);
 
 				// AA1: routine count for this team (AA2: exclude soft-deleted)
 				const routineCount = (await routineService.listRoutines(db, { teamId: team.id })).length;
@@ -188,9 +183,7 @@ export function createTeamRoutes(
 				// `sortTeamsByAttention.ts:7`, a comment stating the simplified row
 				// deliberately does NOT use `agentHealthWarning`. `agentCount` is a
 				// `users` read (core's own table) and stays.
-				const teamAgentRows = memberGroup
-					? await listUsers(db, { teamIds: [memberGroup.id], kind: "ai" })
-					: [];
+				const teamAgentRows = await listUsers(db, { teamIds: [team.id], kind: "ai" });
 
 				const agentCount = teamAgentRows.length;
 
@@ -247,8 +240,8 @@ export function createTeamRoutes(
 
 		const now = new Date().toISOString();
 		// @lore U2: ID prefix changed from `product-` to `team-` (domain rename).
+		// @lore AU44 B1: teamMembersId removed — a single teamId now identifies the team row.
 		const teamId = `team-${crypto.randomUUID()}`;
-		const teamMembersId = `team-${crypto.randomUUID()}`;
 
 		// AU3: route through app-owned scaffolding for the default roster.
 		// Resolved BEFORE inserting the team so an empty-specs result (unknown functions
@@ -269,7 +262,8 @@ export function createTeamRoutes(
 			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
 		}
 
-		// @lore AU20 Am7: atomic createTeam inserts teams + teamMembers companion in one call.
+		// @lore AU44 B1: createTeam now inserts a single teams row (capacity/activeBets/formedAt
+		// live on teams with schema defaults — no separate team_members insert needed).
 		await db.transaction(async (tx) => {
 			await createTeam(tx, {
 				id: teamId,
@@ -279,11 +273,6 @@ export function createTeamRoutes(
 				// AE2: store chosen functions as JSON for future reads.
 				functions: JSON.stringify(teamFunctions),
 				createdAt: now,
-				// teamMembers companion (1:1)
-				teamMembersId,
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
 			});
 		});
 
@@ -292,7 +281,7 @@ export function createTeamRoutes(
 		const { agentIds, leadAgentId } = await persistScaffoldedAgents(
 			db,
 			orgUsers,
-			teamMembersId,
+			teamId,
 			specs,
 			primaryHarness,
 		);
@@ -311,16 +300,16 @@ export function createTeamRoutes(
 				await upsertOrgEdge(db, {
 					fromUserId: founderId,
 					mechanism: "team",
-					target: teamMembersId,
+					target: teamId,
 				});
 			}
 		}
 
 		// AF17: provision built-in routines for this team — owned by this team's own agents.
-		// @lore AF17: routines.team_id must be teams.id (teamId), NOT team_members.id (teamMembersId).
+		// @lore AU44 B1: users.teamId references teams.id directly — teamId is the only id needed.
 		// ownerByRole is built from the created roster rows in the DB.
 		{
-			const createdAgents = await listUsers(db, { teamIds: [teamMembersId] });
+			const createdAgents = await listUsers(db, { teamIds: [teamId] });
 			const ownerByRole: Partial<Record<string, string>> = {};
 			for (const agent of createdAgents) {
 				if (agent.role && !ownerByRole[agent.role]) {
@@ -337,11 +326,12 @@ export function createTeamRoutes(
 		}
 
 		// AK6 T6: emit team_created event AFTER all agents are persisted.
+		// @lore AU44 B1: teamMembersId = teamId after the fold (one entity, one id).
 		eventBus.emit({
 			type: "team_created",
 			streamId: teamId,
 			teamId,
-			teamMembersId,
+			teamMembersId: teamId,
 			functions: teamFunctions,
 			agentIds,
 			at: now,
@@ -432,7 +422,7 @@ export function createTeamRoutes(
 
 				// Build agent names list for welcome message text.
 				// Use the persisted roster from DB (app-decided set).
-				const agentRows = await listUsers(db, { teamIds: [teamMembersId] });
+				const agentRows = await listUsers(db, { teamIds: [teamId] });
 				const agentLabels = agentRows
 					.map(({ role }) => {
 						const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
@@ -456,9 +446,10 @@ export function createTeamRoutes(
 			}
 		}
 
+		// @lore AU44 B1: teamMembers.id = teamId after the fold — kept in response for API backward compat.
 		const result: CreateTeamResponse = {
 			team: { id: teamId, name: name.trim(), phase: "build" },
-			teamMembers: { id: teamMembersId },
+			teamMembers: { id: teamId },
 		};
 
 		return c.json(result, 201);
@@ -527,17 +518,17 @@ export function createTeamRoutes(
 			return c.json({ error: "Team not found", code: "not_found" }, 404);
 		}
 
-		// 2. Load the team_members row (enforces 1:1 invariant — throws ApiError(500) if broken)
-		try {
-			const memberGroup = await getTeamMembers(db, { teamId }, { require: true });
+		// 2. @lore AU44 B1: team_members dissolved — team row carries capacity/activeBets/leadAgentId.
+		// No separate team_members load needed; use `team` directly.
+		{
 			// 3. Load roster
-			const agentRows = await listUsers(db, { teamIds: [memberGroup.id] });
+			const agentRows = await listUsers(db, { teamIds: [team.id] });
 
 			const roster: RosterMember[] = agentRows.map((agent) => ({
 				agentId: agent.id,
 				name: agent.name,
 				role: agent.role,
-				isLead: agent.id === memberGroup.leadAgentId,
+				isLead: agent.id === team.leadAgentId,
 				agentCategory: agent.agentCategory ?? null, // AB3
 			}));
 
@@ -661,44 +652,36 @@ export function createTeamRoutes(
 			// 6. Derive team status
 			const teamStatus = deriveTeamStatus(
 				{
-					activeBets: memberGroup.activeBets,
-					capacity: memberGroup.capacity,
+					activeBets: team.activeBets,
+					capacity: team.capacity,
 				},
 				hasBlockedTask,
 			);
 
+			// @lore AU44 B1: teamMembers.id = team.id; dissolvedAt was dropped (use teams.phase = "archived").
 			const detail: TeamDetail = {
 				team: {
 					id: team.id,
 					name: team.name,
 					phase: team.phase,
 					status: teamStatus,
-					leadAgentId: memberGroup.leadAgentId ?? null,
+					leadAgentId: team.leadAgentId ?? null,
 				},
 				teamMembers: {
-					id: memberGroup.id,
-					formedAt: memberGroup.formedAt,
-					dissolvedAt: memberGroup.dissolvedAt ?? null,
+					id: team.id,
+					formedAt: team.formedAt ?? team.createdAt,
+					dissolvedAt: null,
 				},
 				roster,
 				burn: {
-					capacity: memberGroup.capacity,
-					activeBets: memberGroup.activeBets,
+					capacity: team.capacity,
+					activeBets: team.activeBets,
 				},
 				activeBets,
 				routines: teamRoutines,
 			};
 
 			return c.json(detail);
-		} catch (err) {
-			// @lore AU20 R-org: ApiError is unexported from @hyperidle/org (internal
-			// invariant-enforcement class). Duck-type on err.name to surface the
-			// status/code without an instanceof import.
-			if (err instanceof Error && err.name === "ApiError" && "status" in err && "code" in err) {
-				const apiErr = err as Error & { status: number; code: string };
-				return c.json({ error: apiErr.message, code: apiErr.code }, apiErr.status as 500);
-			}
-			throw err;
 		}
 	});
 

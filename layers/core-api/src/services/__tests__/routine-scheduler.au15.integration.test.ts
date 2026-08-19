@@ -23,7 +23,6 @@ import {
 	routineRuns,
 	routines,
 	sessions,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -89,10 +88,7 @@ async function seedRoutineWorld(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "AU15 sched team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: tmId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	await db.insert(users).values({
+		await db.insert(users).values({
 		id: ownerAgentId,
 		kind: "ai",
 		name: "Owner",

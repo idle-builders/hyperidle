@@ -36,7 +36,6 @@ import {
 	type HyperIdleDb,
 	items,
 	messages,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -121,13 +120,6 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 			phase: "build",
 			createdAt: NOW,
 		});
-		await db.insert(teamMembers).values({
-			id: "ad4-tm-1",
-			teamId: "ad4-team-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: NOW,
-		});
 		await db.insert(users).values([
 			{
 				id: "ad4-agent-1",
@@ -135,7 +127,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 				name: "Builder Agent",
 				role: "builder",
 				status: "idle",
-				teamId: "ad4-tm-1",
+				teamId: "ad4-team-1",
 				createdAt: NOW,
 			},
 			{

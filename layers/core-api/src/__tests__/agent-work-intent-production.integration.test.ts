@@ -12,7 +12,6 @@ import {
 	sessions,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -36,13 +35,6 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	await db
 		.insert(teams)
 		.values({ id: "au9-production-team", name: "AU9", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: "au9-production-membership",
-		teamId: "au9-production-team",
-		capacity: 2,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(users).values([
 		{
 			id: "au9-production-human",

@@ -16,7 +16,6 @@ import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
-	teamMembers,
 	teams,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -35,13 +34,6 @@ async function seedBase(db: HyperIdleDb, _eventBus: EventBus): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-ak5", name: "AK5 Team", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: "tm-ak5",
-		teamId: "team-ak5",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(knowledgeItems).values({
 		id: "ki-ak5",
 		title: "Architecture Decision: Auth Strategy",
