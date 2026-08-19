@@ -102,7 +102,7 @@ function resolveAssistantAgentIdForSender(senderId: string): string {
 
 /**
  * Resolve + validate an `assistant_turn` run at emit time: load the message,
- * reject if unavailable (missing/deleted/redacted), resolve the target
+ * reject if unavailable (missing), resolve the target
  * `ast-<senderId>` assistant agent, and validate its runnability (never the
  * human sender) via the shared core-api invariant.
  */
@@ -112,7 +112,7 @@ export async function resolveAssistantTurnRequest(
 	deps: AssistantTurnResolverDeps,
 ): Promise<BakedAssistantTurnRequest> {
 	const message = await findMessage(db, { id: messageId });
-	if (!message || message.deletedAt || message.redactedAt) {
+	if (!message) {
 		throw new Error("Assistant source message is unavailable");
 	}
 	const targetAgentId = resolveAssistantAgentIdForSender(message.senderId);

@@ -123,6 +123,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 
 		const baked = await resolveAssistantTurnRequest(db, "message-resolver-1", {
 			requireRunnableAgent,
+			readServerConfig: async () => ({ harnessDisabled: [] }),
 		});
 
 		expect(baked).toMatchObject({
@@ -147,7 +148,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 	test("rejects a source message that does not exist", async ({ db }) => {
 		const { resolveAssistantTurnRequest } = await import("../assistant-turn-resolver.js");
 		await expect(
-			resolveAssistantTurnRequest(db, "message-does-not-exist", { requireRunnableAgent }),
+			resolveAssistantTurnRequest(db, "message-does-not-exist", { requireRunnableAgent, readServerConfig: async () => ({ harnessDisabled: [] }) }),
 		).rejects.toThrow();
 	});
 
@@ -174,7 +175,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 		});
 
 		await expect(
-			resolveAssistantTurnRequest(db, "message-resolver-deleted", { requireRunnableAgent }),
+			resolveAssistantTurnRequest(db, "message-resolver-deleted", { requireRunnableAgent, readServerConfig: async () => ({ harnessDisabled: [] }) }),
 		).rejects.toThrow();
 	});
 
@@ -201,7 +202,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 		});
 
 		await expect(
-			resolveAssistantTurnRequest(db, "message-resolver-redacted", { requireRunnableAgent }),
+			resolveAssistantTurnRequest(db, "message-resolver-redacted", { requireRunnableAgent, readServerConfig: async () => ({ harnessDisabled: [] }) }),
 		).rejects.toThrow();
 	});
 
@@ -224,7 +225,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 		});
 
 		await expect(
-			resolveAssistantTurnRequest(db, "message-resolver-unrunnable", { requireRunnableAgent }),
+			resolveAssistantTurnRequest(db, "message-resolver-unrunnable", { requireRunnableAgent, readServerConfig: async () => ({ harnessDisabled: [] }) }),
 		).rejects.toThrow();
 	});
 });

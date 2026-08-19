@@ -24,7 +24,7 @@
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { requireRunnableAgent, readServerConfig: async () => ({ harnessDisabled: [] }) } from "@hyperidle/users";
 
 async function seedThread(
 	db: HyperIdleDb,
