@@ -40,3 +40,4 @@ export {
 	type RemoteWorkerClientOptions,
 	type WorkerStatus,
 } from "./remote-worker-client.js";
+export type { WorkerRegisterMessage } from "@hyperidle/harness-registry";

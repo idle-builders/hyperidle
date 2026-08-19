@@ -5,7 +5,7 @@ import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/c
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
+import type { HarnessCapabilityReader } from "./services/harness-capability-reader.js";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";

@@ -27,7 +27,7 @@ import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
 	harnessRegistrationMeta,
-} from "@hyperidle/harness-protocol";
+} from "../harness-capability-reader.js";
 import { AdapterPool } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
 

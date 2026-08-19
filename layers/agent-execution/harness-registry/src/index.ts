@@ -14,6 +14,21 @@
  * `@hyperidle/tool-protocol` directly, so the re-export is dropped rather
  * than repointed.
  */
+export type { EnforcementEntry, EnforcementRegistry } from "./enforcement-registry.js";
+export { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
+export type {
+	ServerDispatchMessage,
+	ServerRegisteredMessage,
+	ServerStopMessage,
+	ServerToWorkerMessage,
+	WorkerErrorMessage,
+	WorkerEventMessage,
+	WorkerPauseMessage,
+	WorkerRegisterMessage,
+	WorkerResumeMessage,
+	WorkerSessionResultMessage,
+	WorkerToServerMessage,
+} from "./worker-protocol.js";
 export {
 	type AdapterFilter,
 	AdapterPool,

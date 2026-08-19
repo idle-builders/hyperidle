@@ -45,7 +45,7 @@ import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
-} from "@hyperidle/harness-protocol";
+} from "../services/harness-capability-reader.js";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { getTeam, getTeamMembers } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";

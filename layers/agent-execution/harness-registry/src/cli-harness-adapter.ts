@@ -31,11 +31,10 @@ import type {
 import {
 	isRequiredReturnAction,
 	MAX_FORCE_RETURNS,
-	normalizeHarnessEvent,
 	opencodeToolName,
-	preMapClaudeEvent,
 	shouldForceReturn,
 } from "@hyperidle/harness-protocol";
+import { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
 
 import { createReturnEnforcement } from "./return-enforcement.js";
 

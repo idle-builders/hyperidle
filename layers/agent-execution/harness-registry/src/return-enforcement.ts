@@ -1,9 +1,5 @@
-import {
-	type EnforcementEntry,
-	type EnforcementRegistry,
-	type HarnessEvent,
-	isRequiredReturnAction,
-} from "@hyperidle/harness-protocol";
+import { type HarnessEvent, isRequiredReturnAction } from "@hyperidle/harness-protocol";
+import type { EnforcementEntry, EnforcementRegistry } from "./enforcement-registry.js";
 
 interface ReturnEnforcementSpec {
 	readonly isolated?: boolean;

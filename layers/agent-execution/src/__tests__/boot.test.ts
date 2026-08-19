@@ -5,8 +5,8 @@
  * is a pure `.test.ts`, not an integration suite — every assertion is a
  * direct call against the boot's return value.
  */
-import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import type { ToolRegistry } from "@hyperidle/harness-protocol";
+import type { WorkerRegisterMessage } from "@hyperidle/harness-registry";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { bootAgentExecution } from "../boot.js";

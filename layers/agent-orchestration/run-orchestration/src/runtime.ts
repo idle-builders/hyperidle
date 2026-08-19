@@ -9,16 +9,19 @@ import {
 	isAgentWorkIntentSourceKind,
 	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
-import type {
-	AdmittedRun,
-	ConversationMessage,
-	HarnessPortDeps,
-	RunContextBundle,
-} from "@hyperidle/harness-protocol";
+import type { ConversationMessage } from "@hyperidle/harness-protocol";
 import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
 import { eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
-import type { RunOptions, RunResult, RuntimeDeps, RuntimePorts } from "./contracts.js";
+import type {
+	AdmittedRun,
+	HarnessPortDeps,
+	RunContextBundle,
+	RunOptions,
+	RunResult,
+	RuntimeDeps,
+	RuntimePorts,
+} from "./contracts.js";
 import { createProvisioner } from "./provisioner.js";
 
 type RuntimeProvisionDeps = HarnessPortDeps<HyperIdleDb>;

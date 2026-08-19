@@ -36,11 +36,11 @@
  */
 
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
+import type { HarnessAdapter } from "@hyperidle/harness-protocol";
 import type {
 	EnforcementRegistry as BaseEnforcementRegistry,
-	HarnessAdapter,
 	WorkerRegisterMessage,
-} from "@hyperidle/harness-protocol";
+} from "@hyperidle/harness-registry";
 import {
 	AdapterPool,
 	createLocalAdapterPool,

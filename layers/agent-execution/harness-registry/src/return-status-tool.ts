@@ -23,11 +23,8 @@
  * passes the per-session enforcementRegistry from session-provisioning.ts.
  */
 
-import {
-	type EnforcementRegistry,
-	MAX_FORCE_RETURNS,
-	shouldForceReturn,
-} from "@hyperidle/harness-protocol";
+import { MAX_FORCE_RETURNS, shouldForceReturn } from "@hyperidle/harness-protocol";
+import type { EnforcementRegistry } from "./enforcement-registry.js";
 import {
 	ok,
 	type RegisteredTool,

@@ -27,6 +27,11 @@ export {
 	type ServiceConnectionResolverPort,
 } from "./connection-provisioning.js";
 export type {
+	AdmittedRun,
+	HarnessPort,
+	HarnessPortDeps,
+	HarnessRunOutput,
+	RunContextBundle,
 	RunOptions,
 	RunResult,
 	RunTransitionSpec,

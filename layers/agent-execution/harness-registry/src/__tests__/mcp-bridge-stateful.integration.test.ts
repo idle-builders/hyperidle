@@ -31,13 +31,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
-import type { EnforcementRegistry } from "@hyperidle/harness-protocol";
 import {
 	err,
 	ok,
 	type RegisteredTool,
 	type ToolRegistry,
 } from "@hyperidle/harness-protocol";
+import type { EnforcementRegistry } from "../enforcement-registry.js";
 import { toClaudeToolSpec, toRegistered } from "@hyperidle/tool-handlers";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";

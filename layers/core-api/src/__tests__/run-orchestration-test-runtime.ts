@@ -5,7 +5,7 @@ import {
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import type { WorkerRegisterMessage } from "@hyperidle/harness-registry";
 import {
 	AdapterPool,
 	createReturnEnforcement,

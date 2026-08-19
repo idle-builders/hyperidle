@@ -12,7 +12,7 @@
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import type { HarnessEvent } from "@hyperidle/harness-protocol";
-import { preMapClaudeEvent } from "@hyperidle/harness-protocol";
+import { preMapClaudeEvent } from "../harness-event-normalization.js";
 import { describe, expect, it, vi } from "vitest";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 

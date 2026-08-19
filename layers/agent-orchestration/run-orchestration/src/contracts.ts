@@ -4,9 +4,86 @@ import type {
 	ExplicitSessionStart,
 	HyperIdleDb,
 } from "@hyperidle/db";
-import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
+import type {
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
+	ModelTier,
+	ResolvedModel,
+	SessionOutcome,
+} from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { HarnessPort, HarnessRunOutput, RunContextBundle } from "@hyperidle/harness-protocol";
+import type { ConversationMessage, SessionMetrics } from "@hyperidle/harness-protocol";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
+
+// ---------------------------------------------------------------------------
+// Harness port types (moved from @hyperidle/harness-protocol harness-port.ts)
+// ---------------------------------------------------------------------------
+
+/** Deps `HarnessPort`'s two methods need. `TDb` is the composition root's real DB type. */
+export interface HarnessPortDeps<TDb = unknown> {
+	readonly db: TDb;
+	readonly eventBus: EventBus;
+	readonly onHarnessStarted?: () => void;
+}
+
+/**
+ * Narrow mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionParams`
+ * — every field `run-orchestration` constructs when dispatching a run.
+ */
+export interface RunContextBundle {
+	readonly taskId: string | null;
+	readonly agentId: string;
+	readonly productId: string;
+	readonly sandboxBasePath: string;
+	readonly modelTier?: ModelTier;
+	readonly resolvedModel?: ResolvedModel;
+	readonly routineId?: string;
+	readonly requestContext?: {
+		readonly requestId: string;
+		readonly sourceKind: AgentSessionSourceKind;
+		readonly sourceId: string;
+		readonly sourceCorrelation: AgentSessionSourceCorrelation;
+		readonly triggerPromptOverride?: string;
+	};
+	/** Opaque pass-through — `session-lifecycle`-owned `RegistrySessionWorkflow`. Never inspected here. */
+	readonly sessionWorkflow?: unknown;
+	readonly contextBundle?: BakedContextBundle;
+	readonly agentConfig?: BakedAgentRunnableConfig;
+	readonly harnessDisabled?: readonly string[];
+	readonly callingThreadId?: string;
+	readonly transcript?: readonly ConversationMessage[];
+}
+
+/** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession`. */
+export interface AdmittedRun {
+	readonly sessionId: string;
+	readonly sessionContext: { readonly taskId: string | null };
+}
+
+/** Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult`. */
+export interface HarnessRunOutput {
+	readonly sessionId: string;
+	readonly outcome: SessionOutcome;
+	readonly taskId: string | null;
+	readonly returnVerdict?: "returned" | "not_returned";
+	readonly forceReturnCount: number;
+	readonly metrics?: SessionMetrics;
+}
+
+/** Application-injected port for "dispatch a run to some execution" (§7.4). */
+export interface HarnessPort<TDb = unknown> {
+	admitSession(
+		deps: HarnessPortDeps<TDb>,
+		bundle: RunContextBundle,
+		enforceResolvedModelGuard?: boolean,
+	): Promise<AdmittedRun>;
+	runSession(
+		deps: HarnessPortDeps<TDb>,
+		bundle: RunContextBundle,
+		admitted: AdmittedRun,
+		onHarnessStarted?: () => void,
+	): Promise<HarnessRunOutput>;
+}
 
 interface DurableQueueDeps {
 	readonly db: HyperIdleDb;

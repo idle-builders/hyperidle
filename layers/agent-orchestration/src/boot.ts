@@ -53,7 +53,8 @@ import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
-import type { HarnessAdapter, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
+import type { HarnessAdapter } from "@hyperidle/harness-protocol";
+import type { WorkerRegisterMessage } from "@hyperidle/agent-execution";
 import { createGitRunner } from "@hyperidle/host-process";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import type {
