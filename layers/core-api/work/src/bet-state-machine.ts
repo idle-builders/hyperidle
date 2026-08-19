@@ -28,7 +28,6 @@ interface TransitionOptions {
 	actor?: string;
 }
 
-
 /**
  * Transition a bet to a new state, enforcing valid transitions and business rules.
  *

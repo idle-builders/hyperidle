@@ -500,7 +500,10 @@ export function createBetRoutes(
 		if (bet.status !== "active") {
 			return c.json({ error: "Can only update fields on active bets", code: "INVALID_STATE" }, 400);
 		}
-		const columnMap: Record<string, string> = { done_condition: "doneCondition", hypothesis: "hypothesis" };
+		const columnMap: Record<string, string> = {
+			done_condition: "doneCondition",
+			hypothesis: "hypothesis",
+		};
 		const columnKey = columnMap[body.field];
 		if (!columnKey) {
 			return c.json({ error: `Unknown field: ${body.field}`, code: "INVALID_INPUT" }, 400);

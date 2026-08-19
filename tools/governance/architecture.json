@@ -91,10 +91,6 @@
 			],
 			"why": "the Filesystem primitive's vocabulary and its mount, auth and capture seams. Mounting a sandbox is a server act; the interface renders a filesystem through the API's response shape. Giving a browser the mounter interface would make it look like a plausible host."
 		},
-		"framework/cron": {
-			"reach": ["core-api", "routine", "tool-handlers"],
-			"why": "parsing a cron expression and computing the next run from it. The routine service owns the tick, core-api validates one at its route, and the tool handler that creates a routine parses one."
-		},
 		"framework/toon-codec": {
 			"reach": ["run-orchestration"],
 			"why": "the TOON text codec and its parse error. One service encodes context bundles as TOON, and nothing else speaks the format."

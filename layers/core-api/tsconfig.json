@@ -18,9 +18,6 @@
 			"path": "../../framework/credential-access"
 		},
 		{
-			"path": "../../framework/cron"
-		},
-		{
 			"path": "../../framework/db"
 		},
 		{
