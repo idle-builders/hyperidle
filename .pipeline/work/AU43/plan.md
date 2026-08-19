@@ -134,5 +134,5 @@ redetect becomes a problem, that is the learning that earns a narrow, route-scop
 
 The full audit — 1,713 verdict rows, per-package verdicts, the revised verdicts after the founder
 rulings, the batch assignments, the census and the tooling — was committed during the pass and removed
-at ship. It is recoverable in git history at `aafa592d1`, under `.pipeline/work/AU20/destroy/` and
+at ship. It is recoverable at the `au20-audit-evidence` tag (PR #505 was squash-merged, so the commit is not reachable from `main` — the tag is what keeps it alive), under `.pipeline/work/AU20/destroy/` and
 `.pipeline/work/AU43/batches/`.
