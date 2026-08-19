@@ -21,9 +21,6 @@
 			"path": "../../../framework/event-bus"
 		},
 		{
-			"path": "../../../framework/filesystem-contract"
-		},
-		{
 			"path": "../../../framework/harness-capability"
 		},
 		{

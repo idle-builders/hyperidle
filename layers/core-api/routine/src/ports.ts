@@ -115,8 +115,8 @@ export interface RoutineSchedulerPorts {
 				readonly sourceId: string;
 				readonly requestedBy?: string;
 				readonly idempotencyKey: string;
-				/** See `BakedWorkIntentRequest`. Populated at emit time by `routine-service.ts`'s `resolveRoutineRunRequest` (AU21 Increment 4). */
-				readonly bakedRequest?: BakedWorkIntentRequest;
+				/** See `BakedWorkIntentRequest`. Required since AU44 — all routine_run intents bake at emit. */
+				readonly bakedRequest: BakedWorkIntentRequest;
 			},
 		): Promise<{ readonly id: string; readonly idempotencyKey: string }>;
 	};

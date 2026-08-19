@@ -297,7 +297,7 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	const eventBus = resolveEventBus(deps);
 	await recoverRunningRequests(deps.db, eventBus, deps.ports);
 	await deps.ports.sessionLifecycle.recoverRequestedTerminations(deps.db, eventBus);
-	await deps.ports.sessionRequests.reapExpired(deps.durableQueue);
+	await deps.ports.sessionRequests.reapExpired(deps.db);
 	// @lore The service lane reuses a fixture DB after RuntimeHandle.dispose().
 	// Stop timer/event triggers synchronously, then let the already-async dispose
 	// path join the observed wake before that DB can be checked in and truncated.
@@ -329,7 +329,7 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	const unsubscribe = deps.eventBus?.on("*", () => void wake());
 	const timer = setInterval(() => void wake(), 1_000);
 	const reapTimer = setInterval(
-		() => void deps.ports.sessionRequests.reapExpired(deps.durableQueue),
+		() => void deps.ports.sessionRequests.reapExpired(deps.db),
 		AGENT_LAYER_REAP_INTERVAL_MS,
 	);
 	reapTimer.unref();

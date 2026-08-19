@@ -122,7 +122,11 @@ function buildHandoffDeps(port: AgentOrchestrationPort) {
 		// the concrete resolver in.
 		taskRunResolver: {
 			resolve: (exec: WriteExecutor, attemptId: string) =>
-				resolveTaskRunRequest(exec as HyperIdleDb, attemptId, taskRunResolverDeps),
+				resolveTaskRunRequest(
+					exec as HyperIdleDb,
+					{ kind: "task_run", attemptId },
+					taskRunResolverDeps,
+				),
 		},
 		// AU31 §3.1 site 7 / §13 item 2: seam-backed, superseding AU26 H1's
 		// "a plain downward call, NOT an `AgentOrchestrationPort` method (that

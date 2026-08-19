@@ -133,44 +133,11 @@ function captureAdmissionFailures(eventBus: {
 }
 
 describe("agent_run_admission_failed — emission from failOrRelease", () => {
-	test("terminal INVALID_WORK_SOURCE failure emits the event with the correct shape", async ({
-		db,
-		eventBus,
-	}) => {
-		const deps = { ...queueDeps(db), eventBus };
-		const { events } = captureAdmissionFailures(eventBus);
-
-		const intent = await enqueueWorkIntent(db, {
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
-			sourceId: "wave0-nonexistent-attempt",
-			idempotencyKey: "wave0-invalid-work-source",
-		});
-
-		await drainIntents(deps);
-
-		expect(events).toHaveLength(1);
-		const [event] = events;
-		expect(event).toMatchObject({
-			type: "agent_run_admission_failed",
-			intentId: intent.id,
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
-			sourceId: "wave0-nonexistent-attempt",
-			failureCode: "INVALID_WORK_SOURCE",
-			terminal: true,
-		});
-		expect(typeof event?.streamId).toBe("string");
-		expect(event?.streamId?.length).toBeGreaterThan(0);
-		expect(typeof event?.timestamp).toBe("number");
-
-		const [row] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.id, intent.id));
-		expect(row?.status).toBe("failed");
-		expect(row?.lastErrorCode).toBe("INVALID_WORK_SOURCE");
-	});
+	// @lore AU44: The "terminal INVALID_WORK_SOURCE failure" test was deleted here.
+	// It relied on the unbaked-intent drain path (resolveIntentInputInternal) which
+	// AU44 removed — bakedRequest is now required, unbaked intents are unreachable.
+	// The MAX_ATTEMPTS_EXCEEDED and non-terminal tests below (baked + Postgres
+	// trigger) remain as the live emission proofs.
 
 	// @lore AU21 §9 Increment 4, Wave B: these two tests originally used
 	// `assistant_turn`, then `routine_run` (once `assistant_turn` migrated),
@@ -249,32 +216,8 @@ describe("agent_run_admission_failed — emission from failOrRelease", () => {
 		);
 	});
 
-	test("failOrRelease itself no longer performs the direct routineRuns write for a terminal routine_run failure", async ({
-		db,
-		eventBus,
-	}) => {
-		// AU21 §9 Increment 9: `DurableAgentQueueDeps.routine` (the
-		// `getRoutineRunById`/`getRoutineById` pair this test used to also
-		// smuggle an ad hoc `updateRoutineRunIfRunning` spy onto) is REMOVED —
-		// confirmed zero real call sites anywhere in `@hyperidle/session-
-		// requests`. There is no `deps.routine.*` surface left at all for
-		// `failOrRelease` to call into — the type system itself is now the
-		// proof the old direct write is gone, stronger than a runtime spy.
-		const deps = { ...queueDeps(db), eventBus };
-
-		const intent = await enqueueWorkIntent(db, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: "wave0-nonexistent-routine-run",
-			idempotencyKey: "wave0-routine-direct-write-removed",
-		});
-
-		await drainIntents(deps);
-
-		const [row] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.id, intent.id));
-		expect(row?.status).toBe("failed");
-	});
+	// @lore AU44: "failOrRelease direct routineRuns write" test deleted.
+	// It also relied on the unbaked-intent drain path which AU44 removed.
+	// The type system is the live proof: deps.routine no longer exists on
+	// DurableQueueDeps (removed in AU21 §9 Increment 9).
 });

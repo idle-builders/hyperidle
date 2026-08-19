@@ -43,8 +43,7 @@ import {
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
-import { bootCoreApi } from "@hyperidle/core-api/boot";
-import type { CredentialResolver } from "@hyperidle/credential-access";
+import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import { resolveProfile } from "@hyperidle/host-process";
@@ -64,14 +63,15 @@ export interface CreateServerDeps {
 
 /**
  * @lore AH1 §3 / N1: same shape as `remote-server`'s own `ServerHandle` — see
- * that file's doc comment for why `credentialResolver` rides the handle, and
- * why its type comes from `@hyperidle/credential-access` rather than
- * `@hyperidle/credentials`.
+ * that file's doc comment for why `credentialResolver` rides the handle.
+ * @lore AU44-b2: `credentialResolver` type derived from `CoreApiBoot` so this
+ * application does not import @hyperidle/credentials (a Service) at the
+ * application layer — the layer barrel is the only boundary a composition root crosses.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly credentialResolver: CredentialResolver;
+	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -286,6 +286,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
+		cipher: coreApi.cipher,
 	});
 	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();

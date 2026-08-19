@@ -26,12 +26,6 @@
 			"path": "framework/conversation-parts"
 		},
 		{
-			"path": "framework/filesystem-contract"
-		},
-		{
-			"path": "framework/cron"
-		},
-		{
 			"path": "framework/toon-codec"
 		},
 		{
@@ -45,9 +39,6 @@
 		},
 		{
 			"path": "framework/http-middleware"
-		},
-		{
-			"path": "framework/credential-access"
 		},
 		{
 			"path": "framework/harness-protocol"

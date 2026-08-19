@@ -11,7 +11,6 @@
 	},
 	"include": ["src"],
 	"references": [
-		{ "path": "../../framework/credential-access" },
 		{ "path": "../../framework/db" },
 		{ "path": "../../framework/diagnostics" },
 		{ "path": "../../framework/event-bus" },

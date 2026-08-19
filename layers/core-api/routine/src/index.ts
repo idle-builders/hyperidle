@@ -65,23 +65,22 @@ export {
 	startRoutineScheduler,
 } from "./routine-scheduler.js";
 // -- routine-service (AU13: routines + routineRuns CRUD + reads) --
+// resolveRoutineRunRequest/RoutineRunResolverDeps/BakedRoutineRunRequest/
+// RoutineRunSourceUnavailableError are private to the package (AU44 B3 fold).
 export type {
-	BakedRoutineRunRequest,
 	Routine,
 	RoutinePatch,
 	RoutineRun,
 	RoutineRunPatch,
-	RoutineRunResolverDeps,
 } from "./routine-service.js";
 export {
+	computeRoutineNextRunAt,
 	getRoutine,
 	getRoutineRun,
 	insertRoutine,
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
-	RoutineRunSourceUnavailableError,
-	resolveRoutineRunRequest,
 	updateRoutine,
 	updateRoutineRun,
 } from "./routine-service.js";

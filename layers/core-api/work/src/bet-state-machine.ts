@@ -28,9 +28,6 @@ interface TransitionOptions {
 	actor?: string;
 }
 
-/** Fields that can be updated on an active bet. */
-const MUTABLE_FIELDS = new Set(["done_condition", "hypothesis", "appetite"]);
-
 /**
  * Transition a bet to a new state, enforcing valid transitions and business rules.
  *
@@ -183,75 +180,6 @@ export async function transitionBet(
 	});
 }
 
-/**
- * Statuses from which mutable bet fields (done_condition, hypothesis, appetite)
- * may be updated.
- *
- * @lore U1: Simplified to `active` only (formerly in_progress, paused, behind, blocked).
- * @lore L14: the original implementation only allowed in_progress. The
- * architecture critique identified that the UI exposes Adjust Appetite for
- * paused/behind/blocked bets; restricting to in_progress was incorrect.
- * With U1 simplification, all of these map to `active`.
- */
-const MUTABLE_IN_STATUSES = new Set(["active"]);
-
-/**
- * Update a mutable field on an active bet with revision logging.
- *
- * @lore L14: `actor` is optional — callers that don't pass it leave actor
- * undefined in the log entry (backward-compatible with pre-L14 call sites).
- */
-export async function updateBetField(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	betId: string,
-	field: string,
-	newValue: string,
-	_reason: string,
-	_actor?: string,
-): Promise<void> {
-	if (!MUTABLE_FIELDS.has(field)) {
-		throw new Error(`Field '${field}' is not mutable on an active bet`);
-	}
-
-	const bet = await work.get(db, "bet", betId);
-	if (!bet) {
-		throw new Error(`Bet '${betId}' not found`);
-	}
-
-	if (!MUTABLE_IN_STATUSES.has(bet.status)) {
-		throw new Error(`Can only update fields on active bets, current status: '${bet.status}'`);
-	}
-
-	// Map field name to the DB column key
-	const columnMap: Record<string, keyof typeof bet> = {
-		done_condition: "doneCondition",
-		hypothesis: "hypothesis",
-		appetite: "appetite",
-	};
-	const columnKey = columnMap[field];
-	if (!columnKey) {
-		throw new Error(`Unknown field mapping for '${field}'`);
-	}
-
-	// @lore AU13: columnKey is a dynamic `keyof typeof bet` resolved from a caller-supplied
-	// field name (validated against MUTABLE_FIELDS above); the value is always a plain string
-	// for these three text columns. Same cast shape as the pre-AU13
-	// `.set({ [columnKey]: newValue, ... } as Record<string, string>)`.
-	await work.update(db, "bet", betId, {
-		[columnKey]: newValue,
-	} as work.BetUpdatePatch);
-
-	// If done_condition changed, emit item_created for human review
-	if (field === "done_condition") {
-		eventBus.emit({
-			type: "item_created",
-			// @lore U1: streamId is now bet.teamId (formerly bet.productId).
-			streamId: bet.teamId,
-			itemId: `review-${betId}-${Date.now()}`,
-			conversationId: betId,
-			kind: "done_condition_change",
-			timestamp: Date.now(),
-		});
-	}
-}
+// @lore AU44 B3: updateBetField folded into bets.ts route PATCH handler.
+// The false item_created emit for done_condition_change was deleted (no items
+// row exists for the fabricated id — a lying announcement). See bets.ts PATCH.

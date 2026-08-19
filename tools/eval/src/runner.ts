@@ -12,7 +12,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveModel } from "@hyperidle/credential-access";
+import { resolveModel } from "@hyperidle/credentials";
 import { applyMigrations, createPgliteDb, type HyperIdleDb } from "@hyperidle/db";
 import type { ModelGatewayConfig, ResolvedModel } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";

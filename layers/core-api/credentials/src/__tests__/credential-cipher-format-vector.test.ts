@@ -1,5 +1,5 @@
 /**
- * The AES-256-GCM credential cipher, in its new home: `@hyperidle/credential-access`.
+ * The AES-256-GCM credential cipher, in its new home: `@hyperidle/credentials`.
  *
  * @lore AU26 E1 (J1): the move's proof obligation is that the *format* did not
  * change. A round-trip alone cannot prove that — a cipher that silently changed
@@ -13,7 +13,7 @@
  * un-rollbackable migration.
  */
 import { describe, expect, test, vi } from "vitest";
-import { decryptCredentialValue, encryptCredentialValue } from "../crypto/credential-encryption.js";
+import { decryptCredentialValue, encryptCredentialValue } from "../credential-encryption.js";
 
 /** Fixed key used to mint the golden vector below. */
 const FIXED_KEY = "au26-e1-fixed-key";

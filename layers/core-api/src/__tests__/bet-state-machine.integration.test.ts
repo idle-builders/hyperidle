@@ -1,7 +1,7 @@
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
 import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/domain-model";
 import { getTeamMembers, updateTeam } from "@hyperidle/org";
-import { transitionBet, updateBetField } from "@hyperidle/work";
+import { transitionBet } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -319,86 +319,6 @@ describe("bet-state-machine", () => {
 				const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
 				expect(bet?.status).toBe("active");
 			});
-		});
-	});
-
-	describe("updateBetField", () => {
-		test("updates done_condition on active bet with revision log and item_created event", async ({
-			db,
-			eventBus,
-		}) => {
-			await seedBaseData(db);
-			await db.insert(bets).values(makeBet({ status: "active", doneCondition: "Old condition" }));
-
-			const itemHandler = vi.fn();
-			eventBus.on("item_created", itemHandler);
-
-			await updateBetField(
-				db,
-				eventBus,
-				"bet-1",
-				"done_condition",
-				"New condition",
-				"Scope refined",
-			);
-
-			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.doneCondition).toBe("New condition");
-
-			expect(itemHandler).toHaveBeenCalledTimes(1);
-			expect(itemHandler).toHaveBeenCalledWith(
-				expect.objectContaining({ type: "item_created", kind: "done_condition_change" }),
-			);
-		});
-
-		test("rejects field update on non-active bet", async ({ db, eventBus }) => {
-			await seedBaseData(db);
-			await db.insert(bets).values(makeBet({ status: "draft" }));
-
-			await expect(
-				updateBetField(db, eventBus, "bet-1", "done_condition", "New", "reason"),
-			).rejects.toThrow("Can only update fields on active bets");
-		});
-
-		test("rejects unknown field", async ({ db, eventBus }) => {
-			await seedBaseData(db);
-			await db.insert(bets).values(makeBet({ status: "active" }));
-
-			await expect(
-				updateBetField(db, eventBus, "bet-1", "pitch", "New pitch", "reason"),
-			).rejects.toThrow("Field 'pitch' is not mutable");
-		});
-
-		test("allows updating hypothesis on active bet", async ({ db, eventBus }) => {
-			await seedBaseData(db);
-			await db.insert(bets).values(makeBet({ status: "active" }));
-
-			await updateBetField(db, eventBus, "bet-1", "hypothesis", "New hypothesis", "Learnings");
-
-			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.hypothesis).toBe("New hypothesis");
-		});
-
-		test("allows updating appetite on active bet", async ({ db, eventBus }) => {
-			await seedBaseData(db);
-			await db.insert(bets).values(makeBet({ status: "active" }));
-
-			await updateBetField(db, eventBus, "bet-1", "appetite", "4 weeks", "Extended");
-
-			const [bet] = await db.select().from(bets).where(eq(bets.id, "bet-1"));
-			expect(bet?.appetite).toBe("4 weeks");
-		});
-
-		test("does not emit item_created for hypothesis changes", async ({ db, eventBus }) => {
-			await seedBaseData(db);
-			await db.insert(bets).values(makeBet({ status: "active" }));
-
-			const itemHandler = vi.fn();
-			eventBus.on("item_created", itemHandler);
-
-			await updateBetField(db, eventBus, "bet-1", "hypothesis", "New", "reason");
-
-			expect(itemHandler).not.toHaveBeenCalled();
 		});
 	});
 

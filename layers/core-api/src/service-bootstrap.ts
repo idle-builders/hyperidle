@@ -19,8 +19,13 @@ import {
 	updateMessage,
 	updateThread,
 } from "@hyperidle/conversation";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
-import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
+import {
+	decryptCredentialValue,
+	deleteCredential,
+	encryptCredentialValue,
+	readCredentials,
+	writeCredential,
+} from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ResolvedModel } from "@hyperidle/domain-model";
@@ -154,7 +159,6 @@ const notificationsDeps: NotificationsDeps = {
 				encryptedValue: values.encryptedValue,
 				validationState: values.validationState,
 				lastValidatedAt: values.lastValidatedAt,
-				updatedAt: values.updatedAt,
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},

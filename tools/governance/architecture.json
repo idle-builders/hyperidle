@@ -81,20 +81,6 @@
 			"reach": ["core-ui"],
 			"why": "the Part vocabulary and the adapters that derive Parts from messages and session activity. There is exactly one conversation surface. A second consumer of the Part vocabulary means a second conversation, which is a product decision, not an import."
 		},
-		"framework/filesystem-contract": {
-			"reach": [
-				"core-api",
-				"agent-orchestration",
-				"filesystems",
-				"filesystem-mounting",
-				"run-orchestration"
-			],
-			"why": "the Filesystem primitive's vocabulary and its mount, auth and capture seams. Mounting a sandbox is a server act; the interface renders a filesystem through the API's response shape. Giving a browser the mounter interface would make it look like a plausible host."
-		},
-		"framework/cron": {
-			"reach": ["core-api", "routine", "tool-handlers"],
-			"why": "parsing a cron expression and computing the next run from it. The routine service owns the tick, core-api validates one at its route, and the tool handler that creates a routine parses one."
-		},
 		"framework/toon-codec": {
 			"reach": ["run-orchestration"],
 			"why": "the TOON text codec and its parse error. One service encodes context bundles as TOON, and nothing else speaks the format."
@@ -127,17 +113,6 @@
 				"desktop"
 			],
 			"why": "the primitives a route file on either application's Hono app needs. Only the two layers that publish an HTTP API and the two services that mount a route or compare a key. This is the package that carries hono, and the reason thirty other manifests stop carrying it. `composeApiApplication` (AU31 \u00a75.3, relocated here from the deleted `@hyperidle/shared`) is the layer-blind Hono mount recipe both Applications build their one composed app from \u2014 `remote-server` and `desktop` name it directly rather than each other, closing the `application \u2192 application` crossing AU31 found."
-		},
-		"framework/credential-access": {
-			"reach": [
-				"core-api",
-				"credentials",
-				"agent-orchestration",
-				"connections",
-				"remote-server",
-				"desktop"
-			],
-			"why": "everything that needs a live secret: the port that resolves a credential's value, the AES-256-GCM cipher that decrypts a stored one, and the model resolution that cannot produce a ResolvedModel without one. The six that hold one: credentials implements the resolver, core-api and agent-orchestration route the store, connections resolves a service credential, and both server Applications compose the resolver at boot \u2014 `desktop` (AU31 \u00a75.3) the same shape `remote-server` already had, not a borrowed one. Not a preemptive wall \u2014 the observation that nothing else has ever held a secret, written down so nothing else starts by accident."
 		},
 		"framework/harness-protocol": {
 			"reach": [
@@ -195,6 +170,10 @@
 		"db:testing": {
 			"reach": [],
 			"why": "development code. A production file naming it is already an error under the production-may-not-name-development clause; this entry keeps the two answers from disagreeing."
+		},
+		"core-api/credentials": {
+			"reach": ["core-api", "remote-server", "desktop"],
+			"why": "The credential store and its AES-256-GCM cipher (moved from @hyperidle/credential-access). core-api consumes the store directly; both server Applications compose the cipher at boot to inject into agent-orchestration via bootAgentOrchestration."
 		}
 	},
 	"databasePackage": {

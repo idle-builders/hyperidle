@@ -13,7 +13,7 @@
  * this class — it is an eval fixture, not a vault capability.
  */
 
-import type { CredentialResolver } from "@hyperidle/credential-access";
+import type { CredentialResolver } from "@hyperidle/credentials";
 import type { CredentialName } from "@hyperidle/domain-model";
 
 /**

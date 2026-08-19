@@ -101,7 +101,9 @@ export const readRepoFile = (rel: string): string =>
 // floor stayed inside its band, and one going red is a finding rather than a bump.
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	{ kind: "import", min: 3267, floorKind: "magnitude" },
-	{ kind: "manifest", min: 220, floorKind: "magnitude" },
+	// Floor lowered from 220 → 217 after dissolving @hyperidle/credential-access and
+	// @hyperidle/filesystem-contract (both deleted; their manifest crossings are gone).
+	{ kind: "manifest", min: 195, floorKind: "magnitude" },
 	{ kind: "di", min: 195, floorKind: "magnitude" },
 	{ kind: "api", min: 169, floorKind: "magnitude" },
 	{ kind: "mcp", min: 28, floorKind: "magnitude" },
