@@ -69,17 +69,15 @@ describe("A2: Migration", () => {
 	test("migrated database supports CRUD with Drizzle ORM", async ({ db }) => {
 		// @lore U1: `schema.products` renamed to `schema.teams` (domain entity).
 		const now = new Date().toISOString();
-		await db
-			.insert(teams)
-			.values({
-				id: "test-prod",
-				name: "Test",
-				phase: "build",
-				createdAt: now,
-				capacity: 7,
-				activeBets: 2,
-				formedAt: now,
-			});
+		await db.insert(teams).values({
+			id: "test-prod",
+			name: "Test",
+			phase: "build",
+			createdAt: now,
+			capacity: 7,
+			activeBets: 2,
+			formedAt: now,
+		});
 
 		const result = await db.select().from(teams);
 		expect(result).toHaveLength(1);
