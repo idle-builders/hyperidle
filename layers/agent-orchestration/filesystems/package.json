@@ -12,8 +12,7 @@
 	},
 	"dependencies": {
 		"@hyperidle/db": "*",
-		"drizzle-orm": "^0.45.2",
-		"@hyperidle/domain-model": "workspace:*"
+		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {
 		"vitest": "^4.1.9"

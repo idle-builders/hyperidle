@@ -147,7 +147,7 @@ export async function resolveCredential(db: HyperIdleDb, name: string): Promise<
 
 /**
  * Seed the anthropic API key from env on first boot.
- * No-op when ANTHROPIC_API_KEY is unset or a credential named "anthropic" already exists.
+ * No-op when ANTHROPIC_API_KEY is unset or a credential named "anthropic_api_key" already exists.
  * Replaces migrateCredentialsToStore's env-seed step (the legacy config-blob migration
  * that step also did is no longer needed — all deployments have migrated).
  *
@@ -161,10 +161,10 @@ export async function seedAnthropicKeyFromEnv(
 ): Promise<void> {
 	const apiKey = process.env.ANTHROPIC_API_KEY;
 	if (!apiKey) return;
-	const existing = await readCredentials(db, { name: "anthropic" });
+	const existing = await readCredentials(db, { name: "anthropic_api_key" });
 	if (existing.length > 0) return;
 	const encryptedValue = encrypt(apiKey);
-	await writeCredential(db, "anthropic", { encryptedValue });
+	await writeCredential(db, "anthropic_api_key", { encryptedValue });
 }
 
 export { decryptCredentialValue, encryptCredentialValue };
