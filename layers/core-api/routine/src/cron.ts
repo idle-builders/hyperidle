@@ -7,8 +7,9 @@
  * do not need cron access after the nextRunAt computation moved inside
  * insertRoutine.
  *
- * @lore AU44 B3: computeNextRunAt folded into routine-scheduler.ts
- * (its only caller was there). parseCron/nextCronMatch stay as private
+ * @lore AU44 B3: computeNextRunAt merged into computeRoutineNextRunAt in
+ * routine-service.ts (single canonical next-run-at function, returns null for
+ * event triggers rather than ""). parseCron/nextCronMatch stay as private
  * helpers here. CronFields is an internal type.
  */
 
@@ -144,28 +145,3 @@ export function nextCronMatch(cron: CronFields, from: Date): Date {
 	throw new Error("No cron match found within 400 days");
 }
 
-interface ScheduledRoutine {
-	triggerType: string;
-	triggerConfig: string | null;
-}
-
-interface TriggerConfig {
-	intervalSeconds?: number;
-	cron?: string;
-}
-
-/** Compute a routine's next scheduled timestamp; event triggers return an empty string. */
-export function computeNextRunAt(routine: ScheduledRoutine, now: Date): string {
-	const config = JSON.parse(routine.triggerConfig ?? "{}") as TriggerConfig;
-
-	if (routine.triggerType === "heartbeat" || routine.triggerType === "continuous") {
-		const intervalMs = (config.intervalSeconds ?? 60) * 1000;
-		return new Date(now.getTime() + intervalMs).toISOString();
-	}
-
-	if (routine.triggerType === "calendar" && config.cron) {
-		return nextCronMatch(parseCron(config.cron), now).toISOString();
-	}
-
-	return "";
-}
