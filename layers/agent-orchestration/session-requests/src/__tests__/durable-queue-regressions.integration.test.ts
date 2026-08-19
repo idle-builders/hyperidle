@@ -1,5 +1,6 @@
 import { agentSessionRequests, agentWorkIntents, type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
+import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
 import {
@@ -75,7 +76,7 @@ async function seedIntent(db: HyperIdleDb, suffix: string, updatedAt = "2026-07-
 }
 
 function queueDeps(db: HyperIdleDb) {
-	return { db };
+	return { db, eventBus: new EventBus() };
 }
 
 describe("durable request and intent lease fencing", () => {

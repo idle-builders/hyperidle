@@ -13,11 +13,10 @@ interface DurableQueueDeps {
 	/**
 	 * @lore AU21 §6 Decision B4: mirrors the private `DurableQueueDeps.eventBus`
 	 * in `@hyperidle/session-requests` (Mechanism C — this Service declares its
-	 * own structural copy rather than importing that type directly). Optional
-	 * for the same back-compat reason: existing `durableQueue` overrides that
-	 * never wired one keep compiling.
+	 * own structural copy rather than importing that type directly). Required
+	 * since AU44 — an admission failure that emits nowhere is a silent black hole.
 	 */
-	readonly eventBus?: EventBus;
+	readonly eventBus: EventBus;
 }
 
 type RunOrchestrationTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";
@@ -147,7 +146,7 @@ export interface RuntimePorts {
 			options?: { now?: () => Date; leaseMs?: number; maxAttempts?: number },
 		): Promise<void>;
 		reapExpired(
-			deps: DurableQueueDeps,
+			db: HyperIdleDb,
 			options?: { now?: Date; retentionDays?: number; batchSize?: number },
 		): Promise<{ intents: number; explicitStarts: number }>;
 	};

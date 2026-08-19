@@ -222,37 +222,6 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 		expect(request).toMatchObject({ agentId: `${routineId}-owner` });
 	});
 
-	test("a manually-enqueued unbaked routine_run intent no longer reaches resolveIntentInputInternal's per-kind reads (case deleted)", async ({
-		db,
-		eventBus,
-	}) => {
-		// No routineRuns/routines rows seeded at all — if the drain ever fell
-		// through to the old per-kind resolution it would have called
-		// `deps.routine.getRoutineRunById`/`getRoutineById`; AU21 §9 Increment 9
-		// deleted that field from `DurableAgentQueueDeps` entirely (confirmed
-		// zero real call sites anywhere in `@hyperidle/session-requests` — same
-		// verification bar as the Decision F1 `agentSelection` removal noted
-		// below) — there is no domain-read surface left to reach at all.
-		// @lore AU21 §6 Decision F1: `DurableAgentQueueDeps.agentSelection` was
-		// REMOVED as dead weight — see the sibling test's own `@lore` above.
-		const deps = { ...queueDeps(db), eventBus };
-
-		await enqueueWorkIntent(db, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: "inc4b-unbaked-run-does-not-exist",
-			idempotencyKey: "inc4b-unbaked-key",
-		});
-		await drainIntents(deps);
-
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "inc4b-unbaked-run-does-not-exist"));
-		// Terminal (no baked payload => drain fails without ever reading domain state).
-		expect(intent?.status).toBe("failed");
-	});
-
 	test("does not persist a run or an intent when the resolved target agent is not runnable", async ({
 		db,
 		eventBus,

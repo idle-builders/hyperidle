@@ -672,21 +672,13 @@ async function processIntentsInternal(
 		}
 
 		try {
+			// AU21 §6 Decision B / §9 Increment 4: every intent kind now bakes at
+			// emit time; an unbaked intent row is production-unreachable. bakedRequest
+			// is required on WorkIntentInput since AU44.
 			const baked = parseBakedRequest(intent);
 			if (baked) {
 				await handOffInternal(db, intent, claimToken, now, (tx) =>
 					createFromBakedRequestInternal(tx, intent, baked),
-				);
-			} else {
-				// AU21 §6 Decision B / §9 Increment 4: every one of the seven
-				// intent kinds now resolves + bakes its request at EMIT time
-				// (`resolveIntentInputInternal`'s per-kind drain-time resolution —
-				// the last surviving case, `routine_run` — is deleted). An intent
-				// reaching the drain with no baked payload is not a kind to resolve
-				// here; it is an invalid work source (the same terminal-failure
-				// shape a truly invalid source always produced).
-				throw new InvalidAgentWorkSourceError(
-					`Intent ${intent.id} (kind ${intent.kind}) carries no baked request`,
 				);
 			}
 		} catch (error) {
@@ -721,7 +713,7 @@ async function insertIntentInternal(db: WriteExecutor, input: WorkIntentInput) {
 			requestedBy: input.requestedBy ?? null,
 			idempotencyKey: input.idempotencyKey,
 			status: "pending",
-			bakedRequestJson: input.bakedRequest ? JSON.stringify(input.bakedRequest) : null,
+			bakedRequestJson: JSON.stringify(input.bakedRequest),
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		})
@@ -938,14 +930,6 @@ function mutateRequestInternal(
 	options: { readonly now?: Date; readonly existingTransaction?: boolean } = {},
 ) {
 	if ("target" in spec) {
-		if ("requestId" in spec && spec.to !== "admitted") {
-			return projectStartInternal(db, {
-				requestId: spec.requestId,
-				state: spec.to,
-				sessionId: spec.sessionId,
-				failureCode: spec.failureCode,
-			});
-		}
 		if (spec.to === "admitted") {
 			return admitStartInternal(db, {
 				id: spec.startId,
@@ -1023,8 +1007,7 @@ export type WorkIntentInput = {
 	readonly sourceId: string;
 	readonly requestedBy?: string;
 	readonly idempotencyKey: string;
-	/** See `BakedWorkIntentRequest`. Absent for a not-yet-migrated kind (`routine_run` only, by the end of Increment 3). */
-	readonly bakedRequest?: BakedWorkIntentRequest;
+	readonly bakedRequest: BakedWorkIntentRequest;
 };
 /**
  * Local mirror of `@hyperidle/work-intent-port`'s `BakedWorkIntentRequest`.
@@ -1230,13 +1213,7 @@ type TransitionSpec =
 			readonly startId: string;
 			readonly failureCode: string;
 	  }
-	| {
-			readonly target: "explicitStart";
-			readonly to: "completed" | "failed" | "cancelled";
-			readonly requestId: string;
-			readonly sessionId: string | null;
-			readonly failureCode: string | null;
-	  };
+;
 export type SessionRequestTransition = TransitionSpec & {
 	readonly transaction?: "existing";
 };
@@ -1247,7 +1224,7 @@ export interface ClaimOptions {
 }
 type DurableQueueDeps = {
 	readonly db: HyperIdleDb;
-	readonly eventBus?: EventBus;
+	readonly eventBus: EventBus;
 };
 
 export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {
@@ -1377,8 +1354,8 @@ export function drainIntents(
 	return processIntentsInternal(deps.db, deps.eventBus, options);
 }
 export function reapExpired(
-	deps: DurableQueueDeps,
+	db: HyperIdleDb,
 	options?: { readonly now?: Date; readonly retentionDays?: number; readonly batchSize?: number },
 ) {
-	return reapIntentsInternal(deps.db, options);
+	return reapIntentsInternal(db, options);
 }
