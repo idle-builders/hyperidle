@@ -37,7 +37,7 @@ import {
 } from "@hyperidle/domain-model";
 import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { getTeamMembers } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
@@ -151,7 +151,7 @@ export function createAgentRoutes(
 	// @lore AB1: Must be registered BEFORE /:id so "profile" is not captured
 	// as the id param when the URL is /api/agents/someId/profile.
 	// Hono matches routes by registration order within the same method.
-	router.get("/:id/profile", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id/profile", async (c) => {
 		return handleAgentProfile(c, db, adapterPool, agentOrchestration);
 	});
 
@@ -168,7 +168,7 @@ export function createAgentRoutes(
 	// access — an untrusted `role` that isn't an exact map key returns `null`
 	// (404) without ever touching `fs`, so traversal stays closed by
 	// construction. See system-prompt-templates.ts for the full rationale.
-	router.get("/templates/:role", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/templates/:role", async (c) => {
 		const role = c.req.param("role");
 		const content = readSystemPromptTemplateForRole(role);
 
@@ -180,7 +180,7 @@ export function createAgentRoutes(
 	});
 
 	// ── GET / — list AI agents (excludes system role and retired) ──
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		// Query all non-system, non-retired AI agents
 		// List AI agents excluding system role and retired (former listAgentProfiles scope).
 		const allAiRows = await listUsers(db, { kind: "ai" });
@@ -222,7 +222,7 @@ export function createAgentRoutes(
 	});
 
 	// ── POST / — create new agent ──
-	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/", async (c) => {
 		let rawBody: unknown;
 		try {
 			rawBody = await c.req.json();
@@ -319,7 +319,7 @@ export function createAgentRoutes(
 	});
 
 	// ── PATCH /:id — update agent config ──
-	router.patch("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.patch("/:id", async (c) => {
 		const id = c.req.param("id");
 
 		const existing = await findUser(db, { id });
@@ -490,7 +490,7 @@ export function createAgentRoutes(
 	});
 
 	// ── DELETE /:id — soft-delete (status = "retired") ──
-	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.delete("/:id", async (c) => {
 		const id = c.req.param("id");
 
 		const existing = await findUser(db, { id });

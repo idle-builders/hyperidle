@@ -1,4 +1,4 @@
-// AM5 T2 — Tests for the DS (code,diff) core: CodeDeltaRenderer + getDiffRenderer.
+// AM5 T2 — Tests for the DS (code,diff) core: CodeDeltaRenderer.
 // RED phase — these fail until the diff/ directory and files are created.
 
 // @vitest-environment jsdom
@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 // These imports will fail (red) until the diff/ module is created
 import { CodeDeltaRenderer } from "../diff/code-delta-renderer.js";
-import { getDiffRenderer } from "../diff/select-diff.js"; // .tsx → .js in import (TS ESM convention)
 
 afterEach(cleanup);
 
@@ -103,30 +102,5 @@ describe("CodeDeltaRenderer (DS diff core)", () => {
 		const { container } = render(<CodeDeltaRenderer delta={{ file: "test.ts", hunks: [] }} />);
 		// Section is present with no crash
 		expect(container.querySelector("pre")).toBeTruthy();
-	});
-});
-
-describe("getDiffRenderer (DS diff selector)", () => {
-	it("returns CodeDeltaRenderer for kind='code'", () => {
-		const DiffRenderer = getDiffRenderer("code");
-		expect(DiffRenderer).toBeDefined();
-		// Render it to confirm it works
-		const { container } = render(<DiffRenderer delta={FIXTURE_DELTA} kind="code" />);
-		expect(container.querySelector("pre")).toBeTruthy();
-	});
-
-	it("returns an UnknownDiff fallback for unknown kinds (K1)", () => {
-		const DiffRenderer = getDiffRenderer("mystery_kind");
-		expect(DiffRenderer).toBeDefined();
-		// Should not throw
-		const { container } = render(<DiffRenderer delta={null} kind="mystery_kind" />);
-		expect(container.firstChild).toBeTruthy();
-	});
-
-	it("AC5: getDiffRenderer('mystery') → UnknownDiff — does not throw", () => {
-		const DiffRenderer = getDiffRenderer("mystery");
-		// biome-ignore lint/suspicious/noExplicitAny: test fixture
-		const { container } = render(<DiffRenderer delta={null as any} kind="mystery" />);
-		expect(container.firstChild).toBeTruthy();
 	});
 });

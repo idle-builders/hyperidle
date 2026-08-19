@@ -24,7 +24,7 @@ import {
 	PageScaffold,
 	Select,
 } from "@hyperidle/design-system";
-import { deriveTitleFromPitch } from "@hyperidle/presentation-format";
+import { deriveTitle } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
@@ -68,7 +68,7 @@ export function WorkBetCreate(): JSX.Element {
 	}, [knowledgeBody, body]);
 
 	const resolvedTeamId = singleTeam ? (teams[0]?.id ?? "") : teamId;
-	const derivedTitle = body.trim() ? deriveTitleFromPitch(body, "") : "";
+	const derivedTitle = body.trim() ? deriveTitle(body, "") : "";
 	// .length > 0 keeps canCreate a boolean (string && would return last operand),
 	// mirroring KnowledgeCreate.tsx:69.
 	const canCreate = resolvedTeamId.trim().length > 0 && body.trim().length > 0 && !submitting;

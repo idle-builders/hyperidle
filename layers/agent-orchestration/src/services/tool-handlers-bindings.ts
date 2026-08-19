@@ -51,7 +51,6 @@ import type {
 	InsertRoutineRequest,
 	UpdateRoutineRequest,
 } from "@hyperidle/api-contract";
-import { writeSessionNotes } from "@hyperidle/run-orchestration";
 import type { ToolHandlersPorts } from "@hyperidle/tool-handlers";
 import { buildToolDefinitions as buildToolDefinitionsFromPorts } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, withActorTransport } from "./core-api-port-composition.js";
@@ -154,8 +153,6 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 				seamPortForActor(actorId).conversation.updateThread(id, updates),
 			insertMessage: (input, actorId) =>
 				seamPortForActor(actorId).conversation.insertMessage(input),
-			listInboxBySenderExclusion: (limit, actorId) =>
-				seamPortForActor(actorId).conversation.listInboxBySenderExclusion(limit),
 			findOrCreateDirectThread: (recipientId, actorId) =>
 				seamPortForActor(actorId).conversation.findOrCreateDirectThread(recipientId),
 			getFirstThreadByHost: (hostKind, hostId, actorId) =>
@@ -213,11 +210,6 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 			recomputeAttentionScoreForItem: (knowledgeItemId, actorId) =>
 				seamPortForActor(actorId).knowledge.recomputeAttentionScoreForItem(knowledgeItemId),
 		},
-		// Ruling 5: `run-orchestration` owns `sessions`, and this composition root
-		// is where the tool's notes write meets its owner. Reaching a Service in
-		// the other Layer from here is a known crossing; it is carried
-		// deliberately and resolves with the layer-composition work package.
-		sessions: { writeNotes: writeSessionNotes },
 	};
 }
 

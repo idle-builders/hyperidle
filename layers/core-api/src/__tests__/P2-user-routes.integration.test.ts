@@ -201,45 +201,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// AC10: user inbox endpoints
-	// -------------------------------------------------------------------------
-	describe("AC10: GET /api/users/:id/inbox — user inbox", () => {
-		test("returns 200 with empty inbox array by default", async ({ app, db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await db
-				.insert(teams)
-				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
-			await db.insert(users).values({
-				id: "user-p2-1",
-				// AF11: kind='human' so auth middleware resolves this user as the principal.
-				// GET /api/users/:id/inbox is principal-self only (AC5 AF11); principal must
-				// match the inbox owner. With kind='human', resolved principal = "user-p2-1".
-				kind: "human",
-				name: "Builder Bot",
-				role: "builder",
-				status: "active",
-				teamId: "team-p2",
-				createdAt: NOW,
-			});
-
-			const res = await app.request("/api/users/user-p2-1/inbox", {
-				headers: authHeaders(),
-			});
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as { messages: unknown[]; total: number };
-			expect(Array.isArray(body.messages)).toBe(true);
-			vi.unstubAllEnvs();
-		});
-	});
+	// AC10 GET /api/users/:id/inbox (door #92) was deleted. Test removed.
 
 	// -------------------------------------------------------------------------
 	// AC3: No factorySettings founder keys in responses

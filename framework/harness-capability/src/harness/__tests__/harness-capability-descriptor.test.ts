@@ -3,7 +3,6 @@ import type {
 	HarnessCapabilityDescriptor,
 	HarnessModelOptionDescriptor,
 } from "../harness-capability-descriptor.js";
-import { HARNESS_OPTION_CONTROL_KINDS } from "../harness-capability-descriptor.js";
 
 function selectOption(
 	overrides: Partial<HarnessModelOptionDescriptor> = {},
@@ -27,16 +26,11 @@ function selectOption(
 }
 
 describe("AM2 HarnessCapabilityDescriptor", () => {
-	it("uses the closed generic option control vocabulary", () => {
-		expect(HARNESS_OPTION_CONTROL_KINDS).toEqual(["select", "boolean", "number", "text"]);
-	});
-
 	it("describes per-model options without backend-specific UI branching", () => {
 		const descriptor: HarnessCapabilityDescriptor = {
 			type: "fixture-harness",
 			name: "Fixture Harness",
 			kind: "local",
-			accessMode: "api-gateway",
 			authAction: {
 				kind: "enter_api_key",
 				label: "Enter API key",
@@ -44,14 +38,6 @@ describe("AM2 HarnessCapabilityDescriptor", () => {
 			},
 			discovery: { state: "ready" },
 			modelProviders: ["openrouter"],
-			runtime: {
-				preCompactionTrigger: true,
-				subAgents: false,
-				mcpSupport: false,
-				modelProviders: ["openrouter"],
-				fileEditing: true,
-				toolUse: true,
-			},
 			models: [
 				{
 					id: "model-a",
@@ -79,7 +65,7 @@ describe("AM2 HarnessCapabilityDescriptor", () => {
 			for (const option of model.options) {
 				expect(option.key).toBeTruthy();
 				expect(option.label).toBeTruthy();
-				expect(HARNESS_OPTION_CONTROL_KINDS).toContain(option.control.kind);
+				expect(["select", "boolean", "number", "text"]).toContain(option.control.kind);
 				if (option.control.kind === "select") {
 					expect(option.control.choices.length).toBeGreaterThan(0);
 				}

@@ -6,19 +6,15 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import { createRateLimiter } from "@hyperidle/http-middleware";
-import type { NotificationAdapter, NotificationsDeps } from "@hyperidle/notifications";
-import { getTeamMembers } from "@hyperidle/org";
+import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import { createUpgradeTokenStore, findUser, type UpgradeTokenStore } from "@hyperidle/users";
+import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { Hono } from "hono";
-import { type ObservabilityDeps, startObservability } from "./observability-runtime.js";
 import { createAgentRoutes } from "./routes/agents.js";
 import { createArtifactRoutes } from "./routes/artifacts.js";
 import { createAuthRoutes } from "./routes/auth.js";
-import { createPublicAuthRoutes } from "./routes/auth-public.js";
 import { createBetRoutes } from "./routes/bets.js";
 import { createConversationRoutes } from "./routes/conversations.js";
 import { createCredentialRoutes } from "./routes/credentials.js";
@@ -26,7 +22,7 @@ import { createFilesystemInjectionRoutes } from "./routes/filesystems.js";
 import { createHarnessRoutes } from "./routes/harnesses.js";
 import { authHealth } from "./routes/health.js";
 import { createHintRoutes } from "./routes/hints.js";
-import { createKnowledgeRoutes, createTeamMembersRoutes } from "./routes/knowledge.js";
+import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
@@ -34,15 +30,11 @@ import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
 import { createSearchRoutes } from "./routes/search.js";
-import { createSessionRoutes } from "./routes/sessions-routes.js";
-import { createSettingsRoutes } from "./routes/settings.js";
 import { createAgentBehaviorSettingsRoutes } from "./routes/settings-agent-behavior.js";
-import { createStatusRoutes } from "./routes/status.js";
 import { createTaskRoutes } from "./routes/tasks.js";
 import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
-import { createWorkersRoutes } from "./routes/workers.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
@@ -85,35 +77,9 @@ interface AppOptions {
 		readAlertPreferences?: () => Promise<{
 			readonly blockerAlerts: boolean;
 			readonly reviewAlerts: boolean;
-			readonly quietHoursEnabled: boolean;
-			readonly quietHoursStart: string;
-			readonly quietHoursEnd: string;
 		}>;
 	}) => Array<() => void>;
 	/**
-	 * Optional override for the notification adapter used by the HTTP
-	 * `/notifications/test`, `/notifications/flush`, and
-	 * `/notifications/digest` routes. Tests inject a FakeAdapter that
-	 * records every send.
-	 *
-	 * NOTE: This does NOT affect the app-level notification dispatcher. This
-	 * option is purely for the HTTP route layer.
-	 *
-	 * @lore AU20 Ag6b: factory signature simplified to `() => NotificationAdapter`
-	 * (no config arg) since the route layer delegates all config-reading to the
-	 * internal `sendTest`/`flush`/`runDigest` wrappers.
-	 */
-	notificationAdapterFactory?: () => NotificationAdapter;
-	/**
-	 * Optional override for the observability adapter (H3). Tests inject
-	 * a FakeAdapter whose `record` captures every event. When omitted
-	 * production wiring picks console or noop based on
-	 * `server_config.observability.adapter`.
-	 *
-	 * Typed as `ObservabilityDeps['adapter']` — the test seam field on the
-	 * single deps contract, same shape as before (structural adapter interface).
-	 */
-	observabilityAdapter?: ObservabilityDeps["adapter"];
 	/**
 	 * Optional WebSocket registration hook. When provided,
 	 * `createApp` invokes it with the `/api` sub-router just after the
@@ -205,7 +171,7 @@ interface AppOptions {
 	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
 	 * tests may override for isolation.
 	 */
-	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorder<HyperIdleDb>;
+	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorderFn;
 }
 
 /**
@@ -245,11 +211,7 @@ const notificationsDeps: NotificationsDeps = {
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 	work: {
-		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
-			work.list(exec, "item", { queued: true, createdSince: cutoff }),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 	},
 };
@@ -290,8 +252,6 @@ export function registerCoreApiPreAuthRoutes(
 	options: AppOptions | undefined,
 	tokenStore: UpgradeTokenStore | null,
 ): void {
-	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
-
 	// Public: /api/health (no auth required)
 	api.get("/health", (c) => {
 		const response = {
@@ -311,13 +271,6 @@ export function registerCoreApiPreAuthRoutes(
 			"/users",
 			createUserSetupRoute(options.db, earlyEventBus, options.agentOrchestration),
 		);
-	}
-
-	// S1: Public: POST /api/auth/claim (invite claim — no auth required).
-	// Only mounted in shared mode — claim is meaningless in local desktop mode
-	// where there are no invite flows.
-	if (options?.db && sharedMode) {
-		api.route("/auth", createPublicAuthRoutes(options.db));
 	}
 
 	// WS upgrades authenticate via a one-shot upgrade token (`?token=...`) in a
@@ -353,22 +306,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 	const sharedMode = options?.sharedMode ?? process.env.HYPERIDLE_SHARED_MODE === "true";
 	const tokenStore = options?.upgradeTokenStore ?? null;
 
-	// I2 review O6 / arch H-1: the WS-token mint endpoint gets its OWN
-	// rate-limit bucket so a WS reconnect storm cannot starve the API
-	// budget (or vice-versa). Larger budget than the API path because
-	// browsers may legitimately reconnect in bursts during a flaky
-	// network blip; auth still gates the mint, so the cost ceiling is the
-	// API key holder's chosen budget.
-	if (tokenStore) {
-		const rateLimitPerMin = Number.parseInt(process.env.HYPERIDLE_RATE_LIMIT_PER_MIN ?? "300", 10);
-		const baseRateLimit =
-			Number.isFinite(rateLimitPerMin) && rateLimitPerMin > 0 ? rateLimitPerMin : 300;
-		api.use(
-			"/auth/*",
-			createRateLimiter({ limit: Math.max(baseRateLimit * 2, 120), windowMs: 60_000 }),
-		);
-	}
-
 	// M3 A4: /api/auth/me is always mounted (regardless of tokenStore).
 	// The /ws-token endpoint is conditionally mounted only when WS support exists.
 	// @lore S1: createAuthRoutes takes sharedMode to conditionally mount
@@ -402,8 +339,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 					"buildAgentOrchestrationPort(transport) and pass it explicitly (AU31 §3.2: no ambient transport).",
 			);
 		}
-		const defaultAgentWorkIntentRecorder =
-			buildSeamBackedWorkIntentRecorder<HyperIdleDb>(agentOrchestration);
+		const defaultAgentWorkIntentRecorder = buildSeamBackedWorkIntentRecorder(agentOrchestration);
 
 		// @lore U2: `/products` URL renamed to `/teams` (domain rename: Product → Team).
 		// The old `createTeamsRoutes` (knowledge team_members listing) relocated to `/team-members`.
@@ -424,10 +360,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// on agent-orchestration's app at byte-identical paths. See
 		// `routes/filesystems.ts`'s own top-of-file `@lore`.
 		api.route("/filesystems", createFilesystemInjectionRoutes(options.db, agentOrchestration));
-		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus, agentOrchestration));
-		api.route("/team-members", createTeamMembersRoutes(options.db));
-		api.route("/settings", createSettingsRoutes(options.db, eventBus));
-		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
+		api.route("/knowledge", createKnowledgeRoutes(options.db, eventBus));
 		api.route("/conversations", createConversationRoutes(options.db, eventBus));
 		api.route(
 			"/threads",
@@ -440,39 +373,15 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		);
 		api.route("/users", createUserRoutes(options.db, agentOrchestration, options.adapterPool));
 		api.route("/org", createOrgRoutes(options.db, agentOrchestration));
+		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/routines", createRoutineRoutes(options.db, eventBus, agentOrchestration));
 		api.route("/recipients", createRecipientRoutes(options.db, eventBus));
 
-		// AU26 B1a (§D-A's `sessions-routes.ts` split): `POST /api/sessions` is all that is left of this
-		// route module. `GET /`, `GET /starts/:startId`, `GET /:id/activity` and
-		// `PATCH /:id` moved onto agent-orchestration's own app — same URLs (§D-A
-		// rule 7), different host. POST stays because its handler gates on `tasks`
-		// and bakes `users`/`server_config`: a two-sided table set, and §D-A rule 3
-		// gives a two-sided route exactly one legal host.
-		//
-		// @lore AU26 B1a: the `SessionActivityBuffer` this block used to construct
-		// and start is GONE from core-api. Both of its readers (the REST activity
-		// route and the `AgentOrchestrationPort` backing route) are on the owning
-		// side now, so `bootAgentOrchestration` owns the buffer's lifecycle.
-		api.route(
-			"/sessions",
-			// AU11 AC-2: the route only ever read the adapter-pool PRESENCE as a
-			// boolean gate (see routes/sessions-routes.ts's removal note) — the
-			// composition root now computes that boolean directly instead of
-			// threading the whole harness-typed deps object into the route.
-			createSessionRoutes(options.db, eventBus, Boolean(options.adapterPool), agentOrchestration),
-		);
-		api.route("/status", createStatusRoutes(options.db));
-
-		// S2: worker admin visibility — GET /api/workers lists registered adapters.
-		// Requires X-API-Key matching HYPERIDLE_API_KEY (admin-level auth inside route).
-		// Only mounted when adapterPool is provided so kernel-only mode is unaffected.
+		// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
+		// AM4 CHANGE 3 (Seam 3): thread options.db so the handler can stamp discovery.disabled
+		// and the redetect/disable routes can read/write server_config.
+		// AU36 D5: thread onHarnessRedetect so redetect also refreshes inherited reach.
 		if (options.adapterPool) {
-			api.route("/workers", createWorkersRoutes(options.adapterPool));
-			// AH2: GET /api/harnesses — deduped harness type list for SettingsAgents selector.
-			// AM4 CHANGE 3 (Seam 3): thread options.db so the handler can stamp discovery.disabled
-			// and the redetect/disable routes can read/write server_config.
-			// AU36 D5: thread onHarnessRedetect so redetect also refreshes inherited reach.
 			api.route(
 				"/harnesses",
 				createHarnessRoutes(options.adapterPool, options.db, options.onHarnessRedetect),
@@ -482,34 +391,11 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// AU26 E4: `/api/connections` is served by `agent-orchestration`'s own
 		// app now (its whole table set is `service_connections`, which that Layer
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
-		api.route("/hint-progress", createHintRoutes(options.db));
 		api.route("/search", createSearchRoutes(options.db, eventBus));
-		// Tests may override via notificationAdapterFactory for route-level adapter injection.
-		// @lore AU20 Ag6b: adapterFactory option replaced with adapterOverride (no config arg).
-		api.route(
-			"/notifications",
-			createNotificationRoutes(options.db, {
-				deps: notificationsDeps,
-				adapterOverride: options.notificationAdapterFactory
-					? options.notificationAdapterFactory()
-					: undefined,
-			}),
-		);
+		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
+		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 
-		// Observability runtime. `startObservability` wires the adapter,
-		// dispatcher and bus subscription in one call.
-		//
-		// @lore AU26 C2: the `/api/observability*` routes are GONE — all four had
-		// zero requesters repo-wide — and with them the `reconfigure` seam that
-		// let PATCH /config rotate the adapter without a process restart. Config
-		// is read once at boot; changing it is a restart.
 		const db = options.db;
-		const observabilityRuntime = await startObservability({
-			db,
-			eventBus,
-			...(options?.observabilityAdapter ? { adapter: options.observabilityAdapter } : {}),
-		});
-
 		const disposers: Array<() => void> = [];
 
 		const serviceDisposers = options.serviceBootstrap?.({ db, eventBus, agentOrchestration }) ?? [];
@@ -539,9 +425,6 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		});
 		disposers.push(unsubDepWatcher);
 
-		disposers.push(() => {
-			void observabilityRuntime.dispose();
-		});
 		APP_DISPOSERS.set(api, disposers);
 	}
 

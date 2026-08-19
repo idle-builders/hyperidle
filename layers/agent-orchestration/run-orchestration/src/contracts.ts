@@ -3,7 +3,6 @@ import type {
 	AgentWorkIntent,
 	ExplicitSessionStart,
 	HyperIdleDb,
-	WriteExecutor,
 } from "@hyperidle/db";
 import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -12,44 +11,13 @@ import type { HarnessPort, HarnessRunOutput, RunContextBundle } from "@hyperidle
 interface DurableQueueDeps {
 	readonly db: HyperIdleDb;
 	/**
-	 * @lore AU21 §9 Increment 10 (Decision H1): mirrors
-	 * `DurableAgentQueueDeps.lifecycleProjection` from
-	 * `@hyperidle/session-requests` post-shrink — `work`
-	 * (`updateTaskDispatchAttemptIfActive`) REMOVED ENTIRELY, `task`'s
-	 * post-session writeback moved to a core-api event subscriber
-	 * (`work-session-end-reactions.ts`). `explicitSessionStarts` is the only
-	 * surviving projection target.
-	 */
-	readonly lifecycleProjection: {
-		readonly explicitSessionStarts: {
-			projectTerminalState(
-				exec: WriteExecutor,
-				requestId: string,
-				patch: {
-					status: "completed" | "failed" | "cancelled";
-					sessionId: string | null;
-					failureCode: string | null;
-				},
-			): Promise<void>;
-		};
-	};
-	/**
-	 * @lore AU21 §6 Decision B4: mirrors `DurableAgentQueueDeps.eventBus` from
-	 * `@hyperidle/session-requests` (Mechanism C — this Service declares its
+	 * @lore AU21 §6 Decision B4: mirrors the private `DurableQueueDeps.eventBus`
+	 * in `@hyperidle/session-requests` (Mechanism C — this Service declares its
 	 * own structural copy rather than importing that type directly). Optional
 	 * for the same back-compat reason: existing `durableQueue` overrides that
 	 * never wired one keep compiling.
 	 */
 	readonly eventBus?: EventBus;
-	/**
-	 * @lore AU21 §9 Increment 9: `conversation`/`review`/`routine`/`knowledge`
-	 * groups REMOVED in their entirety, mirroring `DurableAgentQueueDeps`'s own
-	 * shrink — confirmed zero real call sites anywhere in
-	 * `@hyperidle/session-requests` (each family's real resolve-at-emit
-	 * migration, architecture.md §9 Increment 3, already deleted the call
-	 * sites; this structural-mirror wiring was simply never cleaned up
-	 * alongside it).
-	 */
 }
 
 type RunOrchestrationTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";
@@ -163,7 +131,6 @@ export interface RuntimePorts {
 						sessionId: string;
 				  }
 				| { target: "explicitStart"; to: "failed"; startId: string; failureCode: string },
-			deps?: DurableQueueDeps,
 			options?: { now?: Date },
 		): Promise<
 			| AgentSessionRequest
@@ -182,7 +149,7 @@ export interface RuntimePorts {
 		reapExpired(
 			deps: DurableQueueDeps,
 			options?: { now?: Date; retentionDays?: number; batchSize?: number },
-		): Promise<{ inbox: number; intents: number; explicitStarts: number }>;
+		): Promise<{ intents: number; explicitStarts: number }>;
 	};
 	readonly sessionLifecycle: RunOrchestrationSessionLifecycleRuntime;
 	/** Test-only execution seam; production runSession binds the internal provisioner. */
@@ -228,9 +195,6 @@ export type RunOptions =
 	  };
 
 export type RunTransitionSpec = Parameters<typeof import("./transition-run.js").transitionRun>[1];
-export type RunTransitionResult = Awaited<
-	ReturnType<typeof import("./transition-run.js").transitionRun>
->;
 export interface RuntimeDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus?: EventBus;
@@ -291,4 +255,3 @@ export interface RuntimeHandle {
 	): () => void;
 	dispose(): Promise<void>;
 }
-export type AgentTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";

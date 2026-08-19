@@ -124,13 +124,6 @@ export interface PolicyDeps {
 	readonly org?: {
 		getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
 	};
-	readonly silence: {
-		isSilenced(
-			db: WriteExecutor,
-			item: { readonly sourceAgentId: string | null },
-			now: Date,
-		): Promise<boolean>;
-	};
 	readonly notifications: {
 		insert(db: WriteExecutor, row: NewNotificationQueueRow): Promise<void>;
 	};

@@ -322,56 +322,5 @@ describe("AF11 CRITICAL-2 — POST /api/threads/:id/messages non-participant spo
 	});
 });
 
-// ────────────────────────────────────────────────────────────────────────────
-// WARNING-1: POST /api/users/:id/inbox — spoofed X-Identity header
-// ────────────────────────────────────────────────────────────────────────────
-
-describe("AF11 WARNING-1 — POST /api/users/:id/inbox spoofed X-Identity", () => {
-	test("inbox message senderId is the authenticated principal, not the X-Identity header", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		const ATK = "atk-A";
-		const RECIPIENT = "recip-R";
-		const IMPERSONATED = "some-other-user";
-		const now = new Date().toISOString();
-
-		// ATK is the authenticated principal (first human user)
-		await seedAttacker(db, ATK);
-
-		// Seed the recipient
-		await db
-			.insert(users)
-			.values({
-				id: RECIPIENT,
-				kind: "human",
-				name: "Recipient",
-				email: "recip@test.dev",
-				role: "member",
-				status: "active",
-				createdAt: now,
-			})
-			.onConflictDoNothing();
-
-		// Attacker sends with spoofed X-Identity: some-other-user
-		const res = await app.request(`/api/users/${RECIPIENT}/inbox`, {
-			method: "POST",
-			headers: authHeaders({ "X-Identity": IMPERSONATED }),
-			body: JSON.stringify({
-				body: "Hello from attacker",
-			}),
-		});
-
-		// Must succeed (ATK is authenticated and can message RECIPIENT)
-		expect(res.status).toBe(201);
-
-		const persisted = (await res.json()) as { senderId?: string };
-		// senderId must be ATK (authenticated principal), NOT the spoofed header
-		expect(persisted.senderId).toBe(ATK);
-		expect(persisted.senderId).not.toBe(IMPERSONATED);
-
-		vi.unstubAllEnvs();
-	});
-});
+// WARNING-1 (POST /api/users/:id/inbox — door #93) was deleted (dead inbox surface).
+// Test removed with the route.

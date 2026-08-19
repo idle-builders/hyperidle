@@ -1,16 +1,12 @@
 import {
-	type FilesystemRow as DbFilesystemRow,
-	type NewFilesystem as DbNewFilesystem,
-	type NewFilesystemInjection as DbNewFilesystemInjection,
+	type FilesystemRow,
 	filesystemInjections,
 	filesystems,
+	type NewFilesystem,
+	type NewFilesystemInjection,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
-
-export type FilesystemRow = DbFilesystemRow;
-export type NewFilesystem = DbNewFilesystem;
-export type NewFilesystemInjection = DbNewFilesystemInjection;
 
 export interface FilesystemFilter {
 	readonly teamId?: string;

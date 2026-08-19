@@ -17,7 +17,6 @@ import {
 	type Block,
 	type BlockDerivationResult,
 	type BlockHostKind,
-	type BlockId,
 	type BlockPayload,
 	IMAGE_URL_SAFE_SCHEMES,
 	type InlineNode,
@@ -427,49 +426,5 @@ export function deriveBlocks(
 		}
 	}
 
-	// Dev-mode collision check (AC-52). In production this is suppressed for cost;
-	// the deterministic id derivation makes runtime collisions vanishingly rare,
-	// and the snapshot test (golden-ids.test.ts) is the canonical guard.
-	if (typeof process !== "undefined" && process.env?.NODE_ENV !== "production") {
-		assertNoCollisions(blocks, defaultLogger);
-	}
-
 	return { blocks };
-}
-
-interface CollisionLogger {
-	critical: (msg: string) => void;
-}
-
-const defaultLogger: CollisionLogger = {
-	critical: (_msg: string): void => {
-		// Intentionally no-op default — wire a real logger in callers.
-	},
-};
-
-/**
- * AC-52: collision detector. Wired in dev mode by `deriveBlocks`; exported
- * for direct invocation in tests.
- *
- * @param blocks blocks to check (need only carry an `id` field)
- * @param logger an injection point — caller supplies a `critical` channel
- *   (e.g. observability adapter). Defaults to a no-op so callers may invoke
- *   without configuration.
- */
-export function assertNoCollisions(
-	blocks: { id: BlockId | string }[],
-	logger: CollisionLogger = defaultLogger,
-): void {
-	const seen = new Map<string, number>();
-	for (let i = 0; i < blocks.length; i++) {
-		const block = blocks[i];
-		if (block === undefined) continue;
-		const id = block.id;
-		const prev = seen.get(id);
-		if (prev !== undefined) {
-			logger.critical(`BlockId collision detected: ids[${prev}] and ids[${i}] both = ${id}`);
-		} else {
-			seen.set(id, i);
-		}
-	}
 }

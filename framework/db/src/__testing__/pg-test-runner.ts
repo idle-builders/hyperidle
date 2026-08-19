@@ -1,11 +1,27 @@
 import { spawnSync } from "node:child_process";
-import { redactDbUrl } from "@hyperidle/diagnostics";
 
 // @lore Real-Postgres smoke runner. When `DATABASE_URL` is unset we exit 0
 // with a message — the pg-migration + pg-connection tests in the default
 // `npm run test` already exercise pglite. Set `DATABASE_URL` to spawn a
 // vitest run targeted at the db + server projects against a real cluster.
 // We do NOT env-mutate the PGlite test path; real-PG integration is opt-in.
+
+/** Redact the password from a DB connection URL for safe logging. */
+function redactDbUrl(url: string): string {
+	let out = url;
+	try {
+		const parsed = new URL(url);
+		if (parsed.password) parsed.password = "***";
+		for (const key of ["password", "pwd", "pass"]) {
+			if (parsed.searchParams.has(key)) parsed.searchParams.set(key, "***");
+		}
+		out = parsed.toString();
+	} catch {
+		// Not a URL-parseable string — fall through to the regex.
+	}
+	out = out.replace(/(:\/\/[^:@/]+:)([^:@/]+)(@)/, "$1***$3");
+	return out;
+}
 
 function main(): number {
 	const url = process.env.DATABASE_URL;

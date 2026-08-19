@@ -11,8 +11,5 @@
 	},
 	"devDependencies": {
 		"vitest": "^4.1.9"
-	},
-	"dependencies": {
-		"@hyperidle/domain-model": "*"
 	}
 }

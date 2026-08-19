@@ -1,8 +1,7 @@
 /**
  * AU18 §5 — server_config schema extension round-trip tests.
  *
- * Proves each new top-level section (observability) and the
- * extended notifications sub-sections (delivery,
+ * Proves the extended notifications sub-sections (delivery,
  * mutedTypes, silence) read/write/merge correctly, including the deepened
  * notifications merge branch (a delivery-only patch must not clobber an
  * already-set silence section, and vice versa — plan §5's merge-hazard fix).
@@ -14,32 +13,6 @@
 import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
 import { readServerConfig, updateServerConfig } from "../index.js";
-
-describe("server_config — observability section", () => {
-	test("readServerConfig returns observability defaults when empty", async ({ db }) => {
-		const config = await readServerConfig(db);
-		expect(config.observability.enabled).toBe(true);
-		expect(config.observability.adapter).toBe("console");
-		expect(config.observability.batchSize).toBe(100);
-		expect(config.observability.flushIntervalMs).toBe(2000);
-		expect(config.observability.bufferCap).toBe(10_000);
-	});
-
-	test("updateServerConfig merges a partial observability patch without losing other keys", async ({
-		db,
-	}) => {
-		await updateServerConfig(db, { observability: { batchSize: 50 } });
-		const config = await readServerConfig(db);
-		expect(config.observability.batchSize).toBe(50);
-		expect(config.observability.adapter).toBe("console");
-	});
-
-	test("updateServerConfig can disable observability", async ({ db }) => {
-		await updateServerConfig(db, { observability: { enabled: false } });
-		const config = await readServerConfig(db);
-		expect(config.observability.enabled).toBe(false);
-	});
-});
 
 describe("server_config — notifications.delivery / mutedTypes / silence", () => {
 	test("readServerConfig returns delivery defaults", async ({ db }) => {

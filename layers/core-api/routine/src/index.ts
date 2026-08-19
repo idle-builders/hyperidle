@@ -58,7 +58,6 @@ export {
 	extractBuiltinKind,
 	fireBuiltinRoutine,
 	fireGenericRoutine,
-	isBuiltinRoutineId,
 	// AU21 §9 Increment 9: relocated from `@hyperidle/dispatch` — team-creation-
 	// time builtin-routine definition seeding, now an intra-package call.
 	provisionTeamRoutines,

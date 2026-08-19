@@ -24,7 +24,6 @@ import { Input } from "../Input.js";
 import { Progress } from "../Progress.js";
 import { Select } from "../Select.js";
 import { TabBar } from "../TabBar.js";
-import { Toast } from "../Toast.js";
 import { Toggle } from "../Toggle.js";
 
 // Silence React 19 act() warnings for sync render+assert pattern below.
@@ -86,16 +85,6 @@ const PRIMITIVE_CASES: ComponentCase[] = [
 					{ id: "b", label: "Tab B" },
 				],
 				activeId: "a",
-			}),
-	},
-	{
-		name: "Toast",
-		render: () =>
-			createElement(Toast, {
-				variant: "success",
-				icon: null,
-				title: "Saved",
-				message: "Your changes were saved.",
 			}),
 	},
 	{
@@ -323,41 +312,6 @@ describe("W2 — Button variants (AC-3)", () => {
 		expect(ButtonVariantSetIsExact).toBe(true);
 		expect(ButtonSizeSetIsExact).toBe(true);
 	});
-});
-
-describe("W2 — Toast variants (AC-3)", () => {
-	let container: HTMLDivElement;
-	let root: Root;
-
-	beforeEach(() => {
-		container = document.createElement("div");
-		document.body.appendChild(container);
-		root = createRoot(container);
-	});
-
-	afterEach(() => {
-		root.unmount();
-		container.remove();
-	});
-
-	const toastVariants = ["success", "error", "warning", "info"] as const;
-
-	for (const variant of toastVariants) {
-		it(`Toast variant="${variant}" renders`, async () => {
-			await act(async () => {
-				root.render(
-					createElement(Toast, {
-						variant,
-						icon: null,
-						title: "Title",
-						message: "Message",
-					}),
-				);
-			});
-			const el = container.querySelector("[data-ds-component='Toast']");
-			expect(el).not.toBeNull();
-		});
-	}
 });
 
 describe("W2 — Progress variants (AC-3)", () => {

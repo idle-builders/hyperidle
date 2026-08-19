@@ -8,8 +8,7 @@
  * fail-closed / `onError` / `notFound` are **Application-applied** to the `/api`
  * router both apps mount on. `createAuthMiddleware` legitimately reads
  * `@hyperidle/users` (a core-api Service), and only an Application may choose to
- * put another Layer's routes behind it — so this app declares boundaries with
- * `@hyperidle/http-middleware`'s `requireBoundary` and never imports core-api.
+ * put another Layer's routes behind it — so this app never imports core-api.
  *
  * Mounted at `/` on the Application's `/api` router, so every path string here
  * keeps its byte-identical public URL (§D-A rule 7).
@@ -25,7 +24,6 @@
 import { type InheritedReach, ServiceConnectionResolver } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ActivityEntry } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
@@ -36,7 +34,6 @@ import { createOrchestrationSessionRoutes } from "./routes/sessions.js";
 
 export interface AgentOrchestrationAppOptions {
 	readonly db: HyperIdleDb;
-	readonly eventBus: EventBus;
 	/** Reads the Layer's own `SessionActivityBuffer` — see `boot.ts`. */
 	readonly getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>;
 	/**
@@ -52,13 +49,13 @@ export function createAgentOrchestrationApp(
 	options: AgentOrchestrationAppOptions,
 ): Hono<HyperIdleEnv> {
 	const app = new Hono<HyperIdleEnv>();
-	const { db, eventBus, getRecentActivity, inheritedReach } = options;
+	const { db, getRecentActivity, inheritedReach } = options;
 
-	app.route("/sessions", createOrchestrationSessionRoutes(db, eventBus, getRecentActivity));
-	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db, getRecentActivity));
+	app.route("/sessions", createOrchestrationSessionRoutes(db, getRecentActivity));
+	app.route("/agent-orchestration", createAgentOrchestrationSessionsRoutes(db));
 	// AU31 §3: the write side of `AgentOrchestrationPort`, mounted beside the
 	// read routes above — same internal `/agent-orchestration` seam prefix.
-	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db, eventBus));
+	app.route("/agent-orchestration", createAgentOrchestrationIntakeRoutes(db));
 	// AU26 E4: `/api/connections` — the path is unchanged; only the host app is.
 	app.route("/connections", createConnectionRoutes(db, inheritedReach));
 	// AU26 F2: `/api/filesystems` — same story. The reachability probe needs the

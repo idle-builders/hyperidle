@@ -2,16 +2,9 @@
  * Barrel for @hyperidle/work (core-api Layer, SQL-owning Service).
  *
  * Typed functions only. This barrel MUST NOT re-export the raw `bets`/`tasks`/
- * `items`/`taskPlanningSignals` pgTable objects — that would let a consumer
- * obtain a table transitively and defeat Table ACL (Mechanism A). Consumers
- * get typed functions; the tables stay private to this Service.
- *
- * @lore AU19 Increment 1k: `taskPlanningSignals` (`task_planning_signals`,
- * O2's `riskTier` extension table) added as `work`'s fourth owned table —
- * `riskTier` moved off `tasks` (which `work` already owns), same domain,
- * same owner. `review`'s one read site (`session-review-creator.ts`) goes
- * through the `TaskRiskTierReader` DI port instead of direct table access
- * (mirrors `org`'s `TeamCapacityReader` precedent, Increment 1c).
+ * `items` pgTable objects — that would let a consumer obtain a table
+ * transitively and defeat Table ACL (Mechanism A). Consumers get typed
+ * functions; the tables stay private to this Service.
  *
  * @lore AU19 Increment 1b: this is the real cut-over — `work-service.ts` +
  * `bet-decomposition(-subscriber)`/`bet-kill-cascade`/`bet-state-machine`/
@@ -42,41 +35,24 @@
 //             create()/transition() primitives below; only row types remain.) --
 export type {
 	ArtifactRow,
-	ArtifactTaskSummaryRow,
 	ArtifactWithTaskTitle,
 	CreateArtifactInput,
 } from "./artifact-store.js";
 // -- bet kill cascade (AF12) --
 export { type BetKillCascadeDeps, cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --
-export type { RevisionLogEntry } from "./bet-state-machine.js";
 export { transitionBet, updateBetField } from "./bet-state-machine.js";
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
 export { checkAndUnblockDependents } from "./dependency-watcher.js";
-// -- ports (Mechanism C — DI-injected outbound edges) --
-// Individual port/DTO interfaces are internal to this Service — callers access
-// them via WorkDeps["fieldName"]. Only the bundle type is product surface.
-export type { WorkDeps } from "./ports.js";
 // -- session_start resolver (AU21 §6 Decision B — emit-time resolution) --
 export type {
 	BakedSessionStartRequest,
 	SessionStartResolverDeps,
 } from "./session-start-resolver.js";
-export {
-	resolveSessionStartRequest,
-	SessionStartSourceUnavailableError,
-} from "./session-start-resolver.js";
-// -- task audit (auditTrail entry shapes) --
-export type {
-	HandoffAuditEntry,
-	StateTransitionAuditEntry,
-	TaskAuditEntry,
-} from "./task-audit.js";
-// -- task planning signals (O2 extension table: riskTier) --
-export { getTaskRiskTierByTaskId } from "./task-planning-signals.js";
+export { resolveSessionStartRequest } from "./session-start-resolver.js";
 // -- task_run resolver (AU21 §6 Decision B — emit-time resolution) --
 export type { BakedTaskRunRequest, TaskRunResolverDeps } from "./task-run-resolver.js";
-export { resolveTaskRunRequest, TaskRunSourceUnavailableError } from "./task-run-resolver.js";
+export { resolveTaskRunRequest } from "./task-run-resolver.js";
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
 export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";

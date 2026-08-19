@@ -26,14 +26,13 @@
 // The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
 // Application-applied to that shared router and reaches this module unchanged.
 
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { Filesystem, FilesystemAuthResolver } from "@hyperidle/filesystem-contract";
+import type { FilesystemRow, HyperIdleDb } from "@hyperidle/db";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
 import {
 	deleteFilesystem,
 	deleteInjection,
-	type FilesystemRow,
-	type FilesystemsServiceConnectionResolver,
+	type FilesystemTokenResolver,
 	getFilesystem,
 	inspectLocalPath,
 	listFilesystems,
@@ -41,13 +40,22 @@ import {
 	saveFilesystem,
 	updateFilesystemState,
 } from "@hyperidle/filesystems";
+
+/**
+ * Structural port: the shape of the service-connection resolver this route
+ * needs to build per-request token resolvers. Declared here so this module
+ * does not import across the Layer boundary.
+ *
+ * @lore AU43: formerly exported from `@hyperidle/filesystems` as
+ * `FilesystemsServiceConnectionResolver`; deleted there as a dead re-export,
+ * declared inline here where it is the only consumer.
+ */
+interface FilesystemsServiceConnectionResolver {
+	resolve(userId: string, connectionId: string): Promise<string | null>;
+}
+
 import { createGitRunner } from "@hyperidle/host-process";
-import {
-	createBodyLimit,
-	type HyperIdleEnv,
-	requireBoundary,
-	validateBody,
-} from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
 
@@ -74,8 +82,6 @@ const registerFilesystemSchema = z.object({
 	sourceHint: z.string().optional(),
 });
 
-const FILESYSTEM_BODY_LIMIT = { maxSize: 8 * 1024 }; // 8 KB (resourceRef is tiny)
-
 // ─── Row → wire mappers ───────────────────────────────────────────────────────
 
 function rowToFilesystem(row: FilesystemRow): Filesystem {
@@ -99,7 +105,7 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
 // ─── Per-request resolver factory ─────────────────────────────────────────────
 
 /**
- * Build the FilesystemAuthResolver for a specific request.
+ * Build the token resolver for a specific request.
  * When a real ServiceConnectionResolver is available, creates an inline adapter
  * that closes over the request userId. Falls back to a noop resolver.
  *
@@ -113,31 +119,17 @@ function rowToFilesystem(row: FilesystemRow): Filesystem {
  * `FilesystemsServiceConnectionResolver` (`@hyperidle/filesystems`' own
  * `ports.ts`), which the concrete resolver satisfies. Zero behaviour change:
  * the Layer still composes the real resolver downward at construction.
- *
- * @lore AU20 R-filesystems: NoopAuthResolver and ServiceConnectionResolverAdapter
- * classes deleted from @hyperidle/filesystems barrel — caller-site inline objects
- * satisfy the structural FilesystemAuthResolver interface from @hyperidle/filesystem-contract.
- * ServiceConnectionResolver.resolve(userId, connectionId) is the only plaintext
- * path; sourceOf always returns null (service name derivation not needed here —
- * falls through to body.sourceHint ?? "unknown").
  */
 function buildAuthResolver(
 	connectionResolver: FilesystemsServiceConnectionResolver | undefined,
 	userId: string,
-): FilesystemAuthResolver {
+): FilesystemTokenResolver {
 	if (connectionResolver) {
 		return {
-			canResolve: async (connectionId: string) =>
-				(await connectionResolver.resolve(userId, connectionId)) != null,
-			sourceOf: (_connectionId: string) => null,
-			resolve: async (_connectionId: string) => null,
 			resolveToken: (connectionId: string) => connectionResolver.resolve(userId, connectionId),
 		};
 	}
 	return {
-		canResolve: (_connectionId: string) => false,
-		sourceOf: (_connectionId: string) => null,
-		resolve: async (_connectionId: string) => null,
 		resolveToken: async (_connectionId: string) => null,
 	};
 }
@@ -155,7 +147,7 @@ function buildAuthResolver(
 async function checkAndPersistState(
 	db: HyperIdleDb,
 	row: FilesystemRow,
-	authResolver: FilesystemAuthResolver,
+	authResolver: FilesystemTokenResolver,
 ): Promise<FilesystemRow> {
 	const newState = await resolveFilesystemState(row, {
 		authResolver,
@@ -189,93 +181,80 @@ export function createFilesystemRoutes(
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── POST /api/filesystems — Register a filesystem ──────────────────────────
-	router.post(
-		"/",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit(FILESYSTEM_BODY_LIMIT),
-		validateBody(registerFilesystemSchema),
-		async (c) => {
-			const body = c.req.valid("json");
-			const userId = c.get("userId");
-			const authResolver = buildAuthResolver(connectionResolver, userId);
+	router.post("/", validateBody(registerFilesystemSchema), async (c) => {
+		const body = c.req.valid("json");
+		const userId = c.get("userId");
+		const authResolver = buildAuthResolver(connectionResolver, userId);
 
-			// Derive source from the Connection (via resolver) or fallback.
-			// NOTE: teamId FK validation is handled in the insert catch below (→ 404 on FK violation).
-			// The old "FK guard before insert" block was a dead no-op — see M1 in the AO1 review.
-			const connectionId = body.connectionId ?? null;
-			let source: string;
-			if (connectionId == null) {
-				source = "local";
-			} else {
-				const derived = await authResolver.sourceOf(connectionId);
-				source = derived ?? body.sourceHint ?? "unknown";
+		// Derive source from the Connection (via resolver) or fallback.
+		// NOTE: teamId FK validation is handled in the insert catch below (→ 404 on FK violation).
+		// The old "FK guard before insert" block was a dead no-op — see M1 in the AO1 review.
+		const connectionId = body.connectionId ?? null;
+		let source: string;
+		if (connectionId == null) {
+			source = "local";
+		} else {
+			source = body.sourceHint ?? "unknown";
+		}
+
+		const id = crypto.randomUUID();
+		const now = new Date().toISOString();
+
+		// Insert with 'attached' state — probe below will update if different.
+		try {
+			await saveFilesystem(db, {
+				id,
+				teamId: body.teamId,
+				source,
+				kind: body.kind,
+				connectionId,
+				resourceRef: JSON.stringify(body.resourceRef),
+				writeback: body.writeback,
+				state: "attached",
+				createdAt: now,
+			});
+		} catch (err) {
+			// FK violation on teamId → 404
+			// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
+			const errMsg = (e: unknown): string => {
+				if (!(e instanceof Error)) return String(e);
+				const own = e.message;
+				if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key"))
+					return own;
+				return e.cause !== undefined ? errMsg(e.cause) : own;
+			};
+			const msg = errMsg(err);
+			if (msg.includes("filesystems_team_id_teams_id_fk") || msg.includes("foreign key")) {
+				return c.json({ error: "Team not found", code: "NOT_FOUND" }, 404);
 			}
+			throw err;
+		}
 
-			const id = crypto.randomUUID();
-			const now = new Date().toISOString();
+		// Row must exist — we just inserted it.
+		const inserted = await getFilesystem(db, id);
+		if (inserted == null) throw new Error("Filesystem disappeared after insert");
 
-			// Insert with 'attached' state — probe below will update if different.
-			try {
-				await saveFilesystem(db, {
-					id,
-					teamId: body.teamId,
-					source,
-					kind: body.kind,
-					connectionId,
-					resourceRef: JSON.stringify(body.resourceRef),
-					writeback: body.writeback,
-					state: "attached",
-					createdAt: now,
-				});
-			} catch (err) {
-				// FK violation on teamId → 404
-				// @lore drizzle-orm 0.45.2: wraps PGlite errors — walk cause chain to find FK message.
-				const errMsg = (e: unknown): string => {
-					if (!(e instanceof Error)) return String(e);
-					const own = e.message;
-					if (own.includes("filesystems_team_id_teams_id_fk") || own.includes("foreign key"))
-						return own;
-					return e.cause !== undefined ? errMsg(e.cause) : own;
-				};
-				const msg = errMsg(err);
-				if (msg.includes("filesystems_team_id_teams_id_fk") || msg.includes("foreign key")) {
-					return c.json({ error: "Team not found", code: "NOT_FOUND" }, 404);
-				}
-				throw err;
-			}
-
-			// Row must exist — we just inserted it.
-			const inserted = await getFilesystem(db, id);
-			if (inserted == null) throw new Error("Filesystem disappeared after insert");
-
-			// Run live probe on register — persists result, returns the updated row.
-			// @lore AO1 v2: probe on register so the caller gets the real initial state.
-			const probed = await checkAndPersistState(db, inserted, authResolver);
-			return c.json(rowToFilesystem(probed), 201);
-		},
-	);
+		// Run live probe on register — persists result, returns the updated row.
+		// @lore AO1 v2: probe on register so the caller gets the real initial state.
+		const probed = await checkAndPersistState(db, inserted, authResolver);
+		return c.json(rowToFilesystem(probed), 201);
+	});
 
 	// ── POST /api/filesystems/inspect-path — Probe a local path before register ─
 	// Separate route justified by codeRefSchema.branch.min(1): the caller must know
 	// the branch BEFORE registering a `code` fs. Folding into POST / would require
 	// loosening that schema. @lore AV1: reuses createGitRunner (currentBranch verb).
-	router.post(
-		"/inspect-path",
-		requireBoundary({ kind: "public-data" }),
-		createBodyLimit(FILESYSTEM_BODY_LIMIT),
-		validateBody(z.object({ path: z.string().min(1) })),
-		async (c) => {
-			const { path } = c.req.valid("json");
-			// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
-			// `git-export` package it used to live in is deleted. See `@hyperidle/filesystems`'
-			// `ports.ts` top `@lore`.
-			const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
-			return c.json(info, 200);
-		},
-	);
+	router.post("/inspect-path", validateBody(z.object({ path: z.string().min(1) })), async (c) => {
+		const { path } = c.req.valid("json");
+		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
+		// `git-export` package it used to live in is deleted. See `@hyperidle/filesystems`'
+		// `ports.ts` top `@lore`.
+		const info = await inspectLocalPath(path, { gitRunnerFactory: createGitRunner });
+		return c.json(info, 200);
+	});
 
 	// ── GET /api/filesystems?teamId= OR ?agentUserId= ─────────────────────────
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const teamId = c.req.query("teamId");
 		const agentUserId = c.req.query("agentUserId");
 
@@ -308,7 +287,7 @@ export function createFilesystemRoutes(
 	});
 
 	// ── GET /api/filesystems/:id — Inspect one filesystem ─────────────────────
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const id = c.req.param("id");
 		const row = await getFilesystem(db, id);
 		if (row == null) {
@@ -322,7 +301,7 @@ export function createFilesystemRoutes(
 	});
 
 	// ── DELETE /api/filesystems/:id — Remove registration (cascades injections) ─
-	router.delete("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.delete("/:id", async (c) => {
 		const id = c.req.param("id");
 
 		// Check exists first
@@ -337,21 +316,17 @@ export function createFilesystemRoutes(
 	});
 
 	// ── DELETE /api/filesystems/:id/injections/:agentUserId — Eject ───────────
-	router.delete(
-		"/:id/injections/:agentUserId",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const fsId = c.req.param("id");
-			const agentUserId = c.req.param("agentUserId");
+	router.delete("/:id/injections/:agentUserId", async (c) => {
+		const fsId = c.req.param("id");
+		const agentUserId = c.req.param("agentUserId");
 
-			const deleted = await deleteInjection(db, agentUserId, fsId);
-			if (!deleted) {
-				return c.json({ error: "Injection not found", code: "NOT_FOUND" }, 404);
-			}
+		const deleted = await deleteInjection(db, agentUserId, fsId);
+		if (!deleted) {
+			return c.json({ error: "Injection not found", code: "NOT_FOUND" }, 404);
+		}
 
-			return new Response(null, { status: 204 });
-		},
-	);
+		return new Response(null, { status: 204 });
+	});
 
 	return router;
 }

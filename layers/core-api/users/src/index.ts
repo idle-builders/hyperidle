@@ -22,18 +22,8 @@
  * Net: 38 → 20 public exports.
  */
 
-// -- credential reaper (AU20 Am11 — merges former reapLoginSessions + reapInviteCodes) --
-export type {
-	ReapExpiredCredentialsArgs,
-	ReapExpiredCredentialsResult,
-} from "./credentials-reaper.js";
-export { reapExpiredCredentials } from "./credentials-reaper.js";
 // -- factory writers (AU29 §2.5.2 — idempotent first-boot users writes) --
-export {
-	insertUserIfAbsent,
-	listFactoryAgents,
-	setAgentCategoryForRole,
-} from "./factory-writers.js";
+export { insertUserIfAbsent, listFactoryAgents } from "./factory-writers.js";
 // -- hint progress (P5 — first-time hint dismissal tracking) --
 export type { DismissedHint } from "./hint-progress.js";
 export { dismissHint, listDismissedHints } from "./hint-progress.js";

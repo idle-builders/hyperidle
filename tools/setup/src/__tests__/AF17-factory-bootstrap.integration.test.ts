@@ -102,30 +102,8 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(rows).toHaveLength(0);
 	});
 
-	test("factory principle knowledge item (seed-ki-1) exists with scope_kind=factory", async ({
-		db,
-	}) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ id: string; scope_kind: string }>(
-			db,
-			"SELECT id, scope_kind FROM knowledge_items WHERE id = 'seed-ki-1'",
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.scope_kind).toBe("factory");
-	});
-
-	test("factory principle has a strategy fabric row", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ knowledge_item_id: string; layer: string; kind: string }>(
-			db,
-			"SELECT knowledge_item_id, layer, kind FROM knowledge_app_projection WHERE knowledge_item_id = 'seed-ki-1'",
-		);
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.layer).toBe("L4");
-		expect(rows[0]?.kind).toBe("principle");
-	});
+	// @lore AU43 repair: seed-ki-1 tests removed — ensureFactoryKnowledgeSeed deleted by AU43 bundle-4.
+	// Bootstrap no longer seeds knowledge items or the strategy fabric projection row.
 
 	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {
 		await runFactoryBootstrap(db);

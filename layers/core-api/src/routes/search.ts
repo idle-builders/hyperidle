@@ -26,7 +26,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
@@ -80,7 +80,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(200);
 
 	// GET / — global search across conversations, work (bets), and knowledge
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const userId = c.get("userId");
 		const rawQuery = c.req.query("q");
 

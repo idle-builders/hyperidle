@@ -1,5 +1,5 @@
 import { EventBus } from "@hyperidle/event-bus";
-import { type AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
+import { type AdapterPool, RemoteHarnessAdapter, type WsLike } from "@hyperidle/harness-registry";
 import { type RuntimeDeps, type RuntimeHandle, startRuntime } from "@hyperidle/run-orchestration";
 
 /** Exercise worker ingress only through the owned public runtime handle. */
@@ -11,7 +11,7 @@ export async function startWorkerTestRuntime(pool: AdapterPool): Promise<Runtime
 		ports: {
 			sessionRequests: {
 				listSessionRequests: async () => [],
-				reapExpired: async () => ({ inbox: 0, intents: 0, explicitStarts: 0 }),
+				reapExpired: async () => ({ intents: 0, explicitStarts: 0 }),
 				drainIntents: async () => undefined,
 			},
 			sessionLifecycle: {
@@ -28,26 +28,25 @@ export async function startWorkerTestRuntime(pool: AdapterPool): Promise<Runtime
 				adapterFactory: {
 					create: (ws: unknown, registration: { readonly id: string }) => {
 						const source = ws as {
-							readonly readyState?: number;
 							send(data: string): void;
 							close?(): void;
+							onmessage?: ((evt: { data: string }) => void) | null;
+							onclose?: (() => void) | null;
+							onerror?: ((err: Error) => void) | null;
 						};
-						return createHarnessAdapter({
-							kind: "remote",
-							ws: {
-								get readyState() {
-									return source.readyState;
-								},
-								send: (data: string) => source.send(data),
-								close: () => source.close?.(),
-							},
-							registration: {
-								type: "register",
-								id: registration.id,
-								name: registration.id,
-								modelProviders: [],
-								maxConcurrent: 1,
-							},
+						const wsLike: WsLike = {
+							send: (data: string) => source.send(data),
+							close: () => source.close?.(),
+							onmessage: source.onmessage ?? null,
+							onclose: source.onclose ?? null,
+							onerror: source.onerror ?? null,
+						};
+						return new RemoteHarnessAdapter(wsLike, {
+							type: "register",
+							id: registration.id,
+							name: registration.id,
+							modelProviders: [],
+							maxConcurrent: 1,
 						});
 					},
 				},

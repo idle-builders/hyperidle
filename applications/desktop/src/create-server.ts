@@ -311,8 +311,6 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		agentExecution.dispose,
 	]);
 
-	await coreApi.runConfigurationBackfill(agentOrchestration.serviceConnectionsReader);
-
 	// Serve the Electron renderer's built assets when HYPERIDLE_STATIC_DIR is
 	// set — `main.ts` sets it before calling `startServer()`.
 	const staticDir = process.env.HYPERIDLE_STATIC_DIR;

@@ -246,12 +246,6 @@ export type Message =
 			readonly payload: VerdictPayload | RedactedPayload;
 	  });
 
-// ── Exhaustiveness helper ───────────────────────────────────────
-
-export function exhaustiveAssert(value: never): never {
-	throw new Error(`Unhandled message type: ${String(value)}`);
-}
-
 // ── Payload narrowing helper ─────────────────────────────────────
 
 /**
@@ -266,33 +260,6 @@ export function isRedactedPayload(payload: unknown): payload is RedactedPayload 
 		payload !== null &&
 		(payload as { redacted?: unknown }).redacted === true
 	);
-}
-
-// ── Configuration classifier ────────────────────────────────────
-
-// @lore AD8b: ThreadConfiguration "coach" member renamed to "assistant".
-export type ThreadConfiguration = "dm" | "assistant" | "feed" | "attached";
-
-/**
- * Plan §4: documentation-only classifier — never persisted. Used by the
- * docs/ section files to describe how a thread reads visually; the data
- * is the host_kind + pinned + participants tuple.
- *
- * @lore AD8b: Reviewer C1 fix — the assistant thread starts unpinned.
- * A pinned user-hosted thread classifies as "assistant". Before the first
- * response (unpinned), the thread classifies as "dm" — functionally correct:
- * before the assistant has responded, it is a DM.
- */
-export function classifyThreadConfiguration(thread: Thread): ThreadConfiguration {
-	if (thread.hostKind === "user" && thread.pinned) return "assistant";
-	if (thread.hostKind === "team" || thread.hostKind === "factory") return "feed";
-	if (
-		(thread.hostKind === "agent" || thread.hostKind === "user") &&
-		thread.participants.length === 2
-	) {
-		return "dm";
-	}
-	return "attached";
 }
 
 // ── Predicates ──────────────────────────────────────────────────

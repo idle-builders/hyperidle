@@ -50,7 +50,6 @@ function deps(): RuntimeDeps {
 		sessionRequests: {
 			listSessionRequests: vi.fn(async () => []),
 			reapExpired: vi.fn(async () => ({
-				inbox: 0,
 				intents: 0,
 				explicitStarts: 0,
 			})),

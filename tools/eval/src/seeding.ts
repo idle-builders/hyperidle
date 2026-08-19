@@ -36,7 +36,6 @@ import type {
 	ModelTier,
 	ScopeKind,
 	TaskState,
-	UserRole,
 } from "@hyperidle/domain-model";
 import { findRoleCatalogEntry } from "@hyperidle/domain-model";
 import type { ScenarioSeedResult } from "./types.js";
@@ -107,7 +106,7 @@ export async function seedAgent(
 	opts: {
 		agentId?: string;
 		name: string;
-		role: UserRole;
+		role: string;
 		teamMembersId: string;
 		systemPrompt?: string;
 		harnessType?: string;
@@ -270,7 +269,7 @@ export async function seedKnowledge(
 export async function seedMinimalWorld(
 	db: HyperIdleDb,
 	opts?: {
-		agentRole?: UserRole;
+		agentRole?: string;
 		agentSystemPrompt?: string;
 		taskTitle?: string;
 		taskDescription?: string;
@@ -624,9 +623,9 @@ export async function seedActiveSession(
 export async function seedMultiAgentWorld(
 	db: HyperIdleDb,
 	opts?: {
-		agentRole?: UserRole;
+		agentRole?: string;
 		agentSystemPrompt?: string;
-		secondAgentRole?: UserRole;
+		secondAgentRole?: string;
 		secondAgentName?: string;
 		secondAgentSystemPrompt?: string;
 		taskTitle?: string;
@@ -673,7 +672,7 @@ export async function seedMultiAgentWorld(
 // Internals
 // ---------------------------------------------------------------------------
 
-function buildDefaultSystemPrompt(role: UserRole): string {
+function buildDefaultSystemPrompt(role: string): string {
 	return `You are an AI ${role} agent in an agentic operating system.
 Your job is to complete assigned tasks using the available tools.
 Be thorough, accurate, and document your work with session notes.

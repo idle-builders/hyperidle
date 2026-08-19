@@ -13,8 +13,6 @@
 import { describe, expect, test } from "vitest";
 import { FTS_MAX_QUERY_CHARS, FTS_MAX_TOKENS, sanitizeFtsQuery } from "../fts.js";
 import type { KnowledgeItemWithProjection } from "../knowledge-repository.js";
-import { rankAndBudget } from "../relevance-scoring.js";
-import type { ScoringContext, ScoringWeights } from "../scoring-config.js";
 import { countTokens, enforceBudget } from "../token-budget.js";
 
 // ---------------------------------------------------------------------------
@@ -47,22 +45,6 @@ function makeItem(
 		...overrides,
 	};
 }
-
-const BASE_WEIGHTS: ScoringWeights = {
-	tagMatch: 0.35,
-	roleMatch: 0.15,
-	recency: 0.15,
-	confidence: 0.1,
-	layerProximity: 0.15,
-	attentionScore: 0.1,
-};
-
-const BASE_CONTEXT: ScoringContext = {
-	taskDescription: "test task",
-	taskTags: [],
-	agentRole: "engineer",
-	productId: "prod-1",
-};
 
 // ===========================================================================
 // sanitizeFtsQuery
@@ -145,7 +127,7 @@ describe("countTokens: approximate token count via whitespace split", () => {
 });
 
 // ===========================================================================
-// enforceBudget / rankAndBudget: L4 always included, greedy fill
+// enforceBudget: L4 always included, greedy fill
 // ===========================================================================
 
 describe("enforceBudget prioritizes always-included items then greedily fills", () => {
@@ -204,42 +186,5 @@ describe("enforceBudget prioritizes always-included items then greedily fills", 
 	test("handles empty input gracefully", () => {
 		const result = enforceBudget([], 1000);
 		expect(result).toHaveLength(0);
-	});
-});
-
-describe("rankAndBudget: scores items and applies budget enforcement", () => {
-	test("returns empty array for empty input", () => {
-		const result = rankAndBudget([], BASE_CONTEXT, BASE_WEIGHTS, 10_000);
-		expect(result).toHaveLength(0);
-	});
-
-	test("returns items when within budget", () => {
-		const items = [makeItem("a"), makeItem("b")];
-		const result = rankAndBudget(items, BASE_CONTEXT, BASE_WEIGHTS, 100_000);
-		expect(result.length).toBe(2);
-	});
-
-	test("always-included items appear regardless of score", () => {
-		const now = Date.now();
-		const l4 = makeItem("l4", {
-			layer: "L4",
-			title: "Factory principle",
-			body: "Always applicable.",
-			// old item — low recency score
-			updatedAt: new Date(now - 60 * 24 * 60 * 60 * 1000).toISOString(),
-		});
-		const fresh = makeItem("fresh", {
-			layer: "L2",
-			title: "Fresh team finding",
-			body: "Recent discovery.",
-			updatedAt: new Date(now - 1000).toISOString(),
-		});
-
-		// Very tight budget — just enough for one item's tokens.
-		const tightBudget = 4; // "Fresh team finding" (3 tokens) + "Recent discovery." (2 tokens) = 5 > 4
-		const result = rankAndBudget([l4, fresh], BASE_CONTEXT, BASE_WEIGHTS, tightBudget);
-
-		// L4 item must be included (non-negotiable), even though budget is tight.
-		expect(result.map((r) => r.id)).toContain("l4");
 	});
 });

@@ -10,16 +10,8 @@ export const CONFIGURATION_KINDS = [
 
 export type ConfigurationKind = (typeof CONFIGURATION_KINDS)[number];
 
-export function isConfigurationKind(value: string): value is ConfigurationKind {
-	return (CONFIGURATION_KINDS as readonly string[]).includes(value);
-}
-
 export const PLUGIN_STATES = ["enabled", "disabled", "removed"] as const;
 export type PluginState = "enabled" | "disabled" | "removed";
-
-export function isPluginState(value: string): value is PluginState {
-	return (PLUGIN_STATES as readonly string[]).includes(value);
-}
 
 export type ConfigurationOriginType = "builtin" | "plugin" | "user";
 export type ConfigurationValueSource = "default" | "user_override" | "user_owned";

@@ -19,7 +19,6 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { requireBoundary } from "@hyperidle/http-middleware";
 import { listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 
@@ -37,7 +36,7 @@ export function createRecipientRoutes(db: HyperIdleDb): Hono;
 export function createRecipientRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hono {
 	const router = new Hono();
 
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const q = c.req.query("q") ?? "";
 		const kind = c.req.query("kind");
 

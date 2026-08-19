@@ -5,7 +5,6 @@ import type {
 } from "@hyperidle/api-contract";
 import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { requireBoundary } from "@hyperidle/http-middleware";
 import { relativeLong } from "@hyperidle/presentation-format";
 import { findProposedCall, recordProposedCall, transitionProposedCall } from "@hyperidle/review";
 import * as work from "@hyperidle/work";
@@ -83,7 +82,7 @@ const FIXTURE_REVIEW = {
 export function createReviewRoutes(db: HyperIdleDb): Hono {
 	const app = new Hono();
 
-	app.get("/:reviewMessageId", requireBoundary({ kind: "public-data" }), async (c) => {
+	app.get("/:reviewMessageId", async (c) => {
 		const reviewMessageId = c.req.param("reviewMessageId");
 
 		// Stub fixture path for design/demo (plan §7: keep the stub data).
@@ -179,18 +178,18 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 	// through this one door instead of importing `@hyperidle/review` directly
 	// (which would be an orchestration → core-api service import after the
 	// move). Reachable by any authenticated caller like every other mounted
-	// route (`requireBoundary({kind:"public-data"})`) — a consistency gate's
+	// route (``) — a consistency gate's
 	// placement, not a security boundary (ETHOS: no preemptive wall), same
 	// reasoning as `routes/filesystems.ts`'s injection-persist route.
 	// -------------------------------------------------------------------------
 
-	app.post("/proposed-calls", requireBoundary({ kind: "public-data" }), async (c) => {
+	app.post("/proposed-calls", async (c) => {
 		const input = (await c.req.json()) as CaptureProposedCallRequest;
 		const result = await recordProposedCall(db, input);
 		return c.json(result);
 	});
 
-	app.post("/proposed-calls/consume", requireBoundary({ kind: "public-data" }), async (c) => {
+	app.post("/proposed-calls/consume", async (c) => {
 		const input = (await c.req.json()) as ConsumeTailoredGrantRequest;
 		const result = await transitionProposedCall(db, {
 			to: "consumed",
@@ -201,7 +200,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		return c.json(result);
 	});
 
-	app.post("/proposed-calls/:id/outcome", requireBoundary({ kind: "public-data" }), async (c) => {
+	app.post("/proposed-calls/:id/outcome", async (c) => {
 		const id = c.req.param("id");
 		const { result } = (await c.req.json()) as { readonly result: ProposedCallOutcomeResult };
 		await transitionProposedCall(db, { to: "outcome-recorded", id, result });

@@ -2,8 +2,8 @@
  * AO2 — GitWorktreeAdapter integration test.
  *
  * AC1: mount creates a worktree on agent/<sessionId>; files present.
- * AC2: captureBack commits + bundles + removes; filesystem_captures row exists.
- * Scaffolding-exclusion: tracked CLAUDE.md/AGENTS.md excluded from authored commit.
+ * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
+ * Scaffolding-exclusion: CLAUDE.md/AGENTS.md excluded paths set in git info/exclude.
  */
 
 import { randomUUID } from "node:crypto";
@@ -46,12 +46,9 @@ function makeFs(repoPath: string): Filesystem {
 
 describe("GitWorktreeAdapter integration", () => {
 	let tmpDir: string;
-	let capturesDir: string;
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-wt-adapter-"));
-		capturesDir = path.join(tmpDir, "captures");
-		fs.mkdirSync(capturesDir, { recursive: true });
 	});
 
 	afterEach(() => {
@@ -61,8 +58,6 @@ describe("GitWorktreeAdapter integration", () => {
 	function makeDeps(): AdapterDeps {
 		return {
 			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
-			capturesDir,
-			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
 	}
 
@@ -75,7 +70,6 @@ describe("GitWorktreeAdapter integration", () => {
 		const result = await adapter.mount({
 			filesystem: makeFs(repoPath),
 			sandboxPath,
-			auth: null,
 		});
 
 		expect(result.success).toBe(true);
@@ -91,7 +85,7 @@ describe("GitWorktreeAdapter integration", () => {
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		// In a worktree, .git is a file pointing to the real gitdir.
 		// Resolve the real gitdir to find info/exclude.
@@ -109,76 +103,14 @@ describe("GitWorktreeAdapter integration", () => {
 		expect(excludeContent).toContain("/.claude");
 	});
 
-	it("captureBack: commits authored file and produces a bundle", async () => {
-		const repoPath = await createSourceRepo(tmpDir);
-		const sessionId = randomUUID();
-		const sandboxBasename = `sandbox-${sessionId}`;
-		const sandboxPath = path.join(tmpDir, sandboxBasename);
-		fs.mkdirSync(sandboxPath, { recursive: true });
-		// The adapter derives branch name from path.basename(sandboxPath).
-		const expectedBranch = `agent/${sandboxBasename}`.replace(/[^a-zA-Z0-9/_.-]/g, "-");
-
-		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
-
-		// Agent edits a NON-scaffolding file.
-		fs.writeFileSync(path.join(sandboxPath, "agent-output.txt"), "work done\n");
-
-		const result = await adapter.captureBack({
-			filesystem: makeFs(repoPath),
-			sandboxPath,
-			sessionId,
-		});
-
-		expect(result.success).toBe(true);
-		expect(result.captured).toBe(true);
-		const bundlePath = path.join(capturesDir, `${sessionId}.bundle`);
-		expect(fs.existsSync(bundlePath)).toBe(true);
-
-		// Bundle clones and contains the authored file.
-		const verifyDir = path.join(tmpDir, "verify");
-		fs.mkdirSync(verifyDir, { recursive: true });
-		const vRunner = createGitRunner(verifyDir);
-		await vRunner.clone(bundlePath, expectedBranch);
-		expect(fs.existsSync(path.join(verifyDir, "agent-output.txt"))).toBe(true);
-	});
-
-	it("captureBack: removes the worktree after bundling", async () => {
+	it("captureBack: returns success no-op (write code removed in AU43 stage 2)", async () => {
 		const repoPath = await createSourceRepo(tmpDir);
 		const sessionId = randomUUID();
 		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
-		fs.writeFileSync(path.join(sandboxPath, "output.txt"), "done\n");
-
-		await adapter.captureBack({
-			filesystem: makeFs(repoPath),
-			sandboxPath,
-			sessionId,
-		});
-
-		// Worktree dir removed.
-		expect(fs.existsSync(sandboxPath)).toBe(false);
-	});
-
-	it("captureBack: tracked CLAUDE.md not replaced with scaffolding in the captured commit", async () => {
-		const repoPath = await createSourceRepo(tmpDir);
-		const sessionId = randomUUID();
-		const sandboxBasename = `sandbox-${sessionId}`;
-		const sandboxPath = path.join(tmpDir, sandboxBasename);
-		fs.mkdirSync(sandboxPath, { recursive: true });
-		const expectedBranch = `agent/${sandboxBasename}`.replace(/[^a-zA-Z0-9/_.-]/g, "-");
-
-		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
-
-		// Simulate assembly overwriting CLAUDE.md + AGENTS.md with scaffolding content.
-		fs.writeFileSync(path.join(sandboxPath, "CLAUDE.md"), "# Scaffolding content\n");
-		fs.writeFileSync(path.join(sandboxPath, "AGENTS.md"), "# Scaffolding content\n");
-		// Agent also writes an authored file.
-		fs.writeFileSync(path.join(sandboxPath, "real-work.txt"), "authored output\n");
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		const result = await adapter.captureBack({
 			filesystem: makeFs(repoPath),
@@ -187,16 +119,6 @@ describe("GitWorktreeAdapter integration", () => {
 		});
 
 		expect(result.success).toBe(true);
-
-		const bundlePath = path.join(capturesDir, `${sessionId}.bundle`);
-		if (fs.existsSync(bundlePath)) {
-			// Verify bundle: real-work.txt should be present; CLAUDE.md should have original content.
-			const verifyDir = path.join(tmpDir, "verify-excl");
-			fs.mkdirSync(verifyDir, { recursive: true });
-			const vRunner = createGitRunner(verifyDir);
-			await vRunner.clone(bundlePath, expectedBranch);
-			// real-work.txt should be present.
-			expect(fs.existsSync(path.join(verifyDir, "real-work.txt"))).toBe(true);
-		}
+		expect(result.captured).toBe(false);
 	});
 });

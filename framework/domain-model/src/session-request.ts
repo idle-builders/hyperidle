@@ -122,7 +122,3 @@ export interface SessionLifecycleCorrelation {
 	readonly sourceId: string;
 	readonly sourceCorrelation: AgentSessionSourceCorrelation;
 }
-
-export function buildSessionLifecycleCorrelation(input: SessionLifecycleCorrelation) {
-	return input;
-}

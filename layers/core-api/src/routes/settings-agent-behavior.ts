@@ -6,7 +6,6 @@ import {
 	type AgentBehaviorConfigPatchResponse,
 	isAgentBehaviorConfigKind,
 } from "@hyperidle/domain-model";
-import { createRateLimiter, requireBoundary } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import {
 	AgentBehaviorConfigError,
@@ -16,9 +15,8 @@ import {
 
 export function createAgentBehaviorSettingsRoutes(db: HyperIdleDb): Hono {
 	const router = new Hono();
-	const mutateLimiter = createRateLimiter({ limit: 20, windowMs: 60_000 });
 
-	router.get("/config", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/config", async (c) => {
 		const kind = c.req.query("kind");
 		if (kind && !isAgentBehaviorConfigKind(kind)) {
 			return c.json(errorResponse("INVALID_KIND", `Unsupported configuration kind: ${kind}`), 400);
@@ -31,30 +29,25 @@ export function createAgentBehaviorSettingsRoutes(db: HyperIdleDb): Hono {
 		return c.json({ items } satisfies AgentBehaviorConfigListResponse);
 	});
 
-	router.patch(
-		"/config/:id",
-		requireBoundary({ kind: "public-data" }),
-		mutateLimiter,
-		async (c) => {
-			const body = (await c.req.json().catch(() => null)) as AgentBehaviorConfigPatchRequest | null;
-			if (!body || typeof body !== "object" || !body.fields || typeof body.fields !== "object") {
-				return c.json(errorResponse("INVALID_VALUE", "Expected fields object."), 422);
+	router.patch("/config/:id", async (c) => {
+		const body = (await c.req.json().catch(() => null)) as AgentBehaviorConfigPatchRequest | null;
+		if (!body || typeof body !== "object" || !body.fields || typeof body.fields !== "object") {
+			return c.json(errorResponse("INVALID_VALUE", "Expected fields object."), 422);
+		}
+		try {
+			const item = await patchAgentBehaviorConfiguration(db, {
+				id: c.req.param("id"),
+				fields: body.fields,
+			});
+			return c.json({ item } satisfies AgentBehaviorConfigPatchResponse);
+		} catch (err) {
+			if (err instanceof AgentBehaviorConfigError) {
+				const status = statusForError(err.code);
+				return c.json(errorResponse(err.code, err.message), status);
 			}
-			try {
-				const item = await patchAgentBehaviorConfiguration(db, {
-					id: c.req.param("id"),
-					fields: body.fields,
-				});
-				return c.json({ item } satisfies AgentBehaviorConfigPatchResponse);
-			} catch (err) {
-				if (err instanceof AgentBehaviorConfigError) {
-					const status = statusForError(err.code);
-					return c.json(errorResponse(err.code, err.message), status);
-				}
-				throw err;
-			}
-		},
-	);
+			throw err;
+		}
+	});
 
 	return router;
 }

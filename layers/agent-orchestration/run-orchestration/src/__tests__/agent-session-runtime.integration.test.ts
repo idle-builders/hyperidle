@@ -1,5 +1,4 @@
 import {
-	agentLifecycleInbox,
 	agentSessionRequests,
 	agentWorkIntents,
 	bets,
@@ -16,14 +15,36 @@ import {
 	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import { createSessionRequest } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
-const createRequestForTest = (db: HyperIdleDb, request: AgentSessionRequestInput) =>
-	createSessionRequest(db, { kind: "direct", request });
+async function createRequestForTest(db: HyperIdleDb, request: AgentSessionRequestInput) {
+	const now = new Date().toISOString();
+	const [row] = await db
+		.insert(agentSessionRequests)
+		.values({
+			id: `test-request-${request.idempotencyKey}`,
+			sourceKind: request.sourceKind,
+			sourceId: request.sourceId,
+			streamId: request.streamId,
+			agentId: request.agentId,
+			userId: request.userId ?? null,
+			promptMode: request.promptMode,
+			payloadJson: request.payloadJson ?? null,
+			idempotencyKey: request.idempotencyKey,
+			teamId: request.teamId ?? null,
+			taskId: request.taskId ?? null,
+			sourceCorrelationJson: JSON.stringify(request.sourceCorrelation ?? {}),
+			status: "pending",
+			createdAt: now,
+			updatedAt: now,
+		})
+		.returning();
+	if (!row) throw new Error("Insert failed");
+	return row;
+}
 
 describe("agent session runtime consumer", () => {
 	test("runSession claims request, marks running before runSession, and marks terminal", async ({
@@ -237,12 +258,6 @@ describe("agent session runtime consumer", () => {
 			status: "failed",
 			sessionId: "failure-session",
 		});
-		const facts = await db
-			.select()
-			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, request.id));
-		expect(facts).toHaveLength(1);
-		expect(facts[0]).toMatchObject({ state: "failed", sessionId: "failure-session" });
 	});
 
 	test("a deactivated-agent provisioning failure reports back via agent_run_admission_failed", async ({

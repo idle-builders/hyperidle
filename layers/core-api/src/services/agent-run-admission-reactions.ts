@@ -104,8 +104,9 @@ async function reactToAdmissionFailure(
 			await work.taskDispatchAttemptStore.markFailed(db, event.sourceId);
 			return;
 		case "session_start":
-			// AU31 §3: seam-backed — `runs.failExplicitStart`.
-			await agentOrchestration.runs.failExplicitStart(event.sourceId, event.failureCode);
+			// Mark the explicitSessionStarts row failed. No automatic retry —
+			// an explicit human/agent-requested start must not be silently restarted.
+			await agentOrchestration.requests.failExplicitSessionStart(event.sourceId, event.failureCode);
 			return;
 		case "knowledge_action":
 			await flagStalledKnowledgeAction(db, eventBus, event);
@@ -116,7 +117,7 @@ async function reactToAdmissionFailure(
 				// AU31 §2.1a/§3.2: seam-backed — this fires from an `EventBus`
 				// reaction, so it needs the port handed in at registration time,
 				// not read from a module-level singleton.
-				intentRecorder: buildSeamBackedWorkIntentRecorder<WriteExecutor>(agentOrchestration),
+				intentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
 				// AU21 §6 Decision B: bake the re-provision request at emit time —
 				// see `applyLivenessRetry`'s `@lore` in `proposed-call-workflow.ts`.
 				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),

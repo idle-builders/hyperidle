@@ -22,7 +22,6 @@
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-	UserRole,
 } from "@hyperidle/domain-model";
 
 /**
@@ -132,7 +131,7 @@ export interface BakedWorkIntentRequest {
 export interface BakedAgentRunnableConfig {
 	readonly kind: string;
 	readonly status: string;
-	readonly role: UserRole;
+	readonly role: string;
 	readonly teamId: string | null;
 }
 
@@ -342,19 +341,11 @@ export type AgentWorkIntentRecorderInput =
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  };
 
-/** Application-injected port for `session-requests`' durable `agent_work_intents` writer (Mechanism C, §11). */
-export interface AgentWorkIntentRecorder<TTx = unknown> {
-	record(
-		tx: TTx,
-		input: AgentWorkIntentRecorderInput,
-	): Promise<{ readonly id: string; readonly idempotencyKey: string }>;
-}
-
-/** Application-injected port for `session-requests`' `agent_work_intents` reader (Mechanism C, §11). */
-export interface AgentWorkIntentReader<TDb = unknown> {
-	findByKindAndSource(
-		db: TDb,
-		kind: "assistant_turn" | "session_start",
-		sourceId: string,
-	): Promise<{ readonly id: string; readonly idempotencyKey: string } | undefined>;
-}
+/**
+ * Plain function type replacing the former `AgentWorkIntentRecorder<TTx>` interface.
+ * The TTx parameter was a lie — the sole implementation ignored it (seam calls
+ * never join a caller's transaction). Every caller now holds a direct function.
+ */
+export type AgentWorkIntentRecorderFn = (
+	input: AgentWorkIntentRecorderInput,
+) => Promise<{ readonly id: string; readonly idempotencyKey: string }>;

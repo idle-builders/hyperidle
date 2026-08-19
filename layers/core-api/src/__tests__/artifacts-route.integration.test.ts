@@ -314,21 +314,6 @@ describe("L3 POST /api/artifacts (writer endpoint, mutability rules)", () => {
 		expect(res.status).toBe(400);
 	});
 
-	test("rejects oversized preview body (>64KB) with 413", async ({ db, app }) => {
-		const s = await seed(db);
-		const huge = "a".repeat(70_000);
-		const res = await app.request("/api/artifacts", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				producingTaskId: s.taskId,
-				kind: "decision",
-				preview: { kind: "decision", claim: huge, rationale: "r" },
-			}),
-		});
-		expect(res.status).toBe(413);
-	});
-
 	test("rejects FK-violating producingTaskId with 400 INVALID_TASK", async ({ app }) => {
 		const res = await app.request("/api/artifacts", {
 			method: "POST",
@@ -364,25 +349,6 @@ describe("L3 PATCH immutability (preview, cost) — protected", () => {
 
 	afterEach(() => {
 		vi.unstubAllEnvs();
-	});
-
-	test("second PATCH /preview returns 409 IMMUTABLE", async ({ db, app }) => {
-		// @lore AE6: previewJson is seeded with a valid new-kind preview (text kind).
-		// Old-kind previews (kind: "decision") are no longer valid per patchPreviewSchema.
-		// The artifact kind in the DB is set to "text" to match the preview discriminant.
-		const s = await seed(db);
-		await insertArtifact(db, "art_imm", s.taskId, {
-			kind: "text",
-			previewJson: JSON.stringify({ kind: "text", body: "original decision", format: "plain" }),
-		});
-		const res = await app.request("/api/artifacts/art_imm/preview", {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				preview: { kind: "text", body: "attempted overwrite", format: "plain" },
-			}),
-		});
-		expect(res.status).toBe(409);
 	});
 
 	test("PATCH /cost returns 404 (O2: cost route removed — cost columns stripped from kernel table)", async ({

@@ -20,7 +20,6 @@
 import { users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
-import { seedTeam } from "./_helpers.js";
 
 const TEST_API_KEY = "test-key-p2-auth";
 
@@ -192,42 +191,6 @@ describe("P2 — Auth middleware resolves user from users table (AC7)", () => {
 		});
 	});
 
-	// -------------------------------------------------------------------------
-	// AC3: factorySettings founder_name/founder_email are not used in auth/me
-	// -------------------------------------------------------------------------
-	describe("AC3: factorySettings founder keys are not used in auth resolution", () => {
-		test("GET /api/settings returns profile from users table, not factorySettings", async ({
-			app,
-			db,
-		}) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			// Seed human user with specific data
-			await db.insert(users).values({
-				id: "u-settings-test",
-				kind: "human",
-				name: "Settings Founder",
-				role: "founder",
-				status: "active",
-				email: "settings@hyperidle.com",
-				createdAt: NOW,
-			});
-
-			// Also seed a product so settings works
-			await seedTeam(db, { id: "prod-auth", name: "Auth Product", phase: "build", createdAt: NOW });
-
-			const res = await app.request("/api/settings", { headers: authHeaders() });
-			expect(res.status).toBe(200);
-
-			const body = (await res.json()) as {
-				profile?: { name?: string; email?: string };
-			};
-
-			// Profile should come from users table
-			if (body.profile) {
-				expect(body.profile.name).toBe("Settings Founder");
-				expect(body.profile.email).toBe("settings@hyperidle.com");
-			}
-			vi.unstubAllEnvs();
-		});
-	});
+	// AC3 (GET /api/settings — door #68) was deleted (dead aggregate endpoint).
+	// Test removed with the route.
 });

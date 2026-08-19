@@ -13,7 +13,6 @@ import { requireHarness } from "./require-harness.js";
 
 function adapter(): HarnessAdapter {
 	const capabilities: HarnessCapabilities = {
-		accessMode: "provider-subscription-cli",
 		preCompactionTrigger: false,
 		subAgents: false,
 		mcpSupport: true,

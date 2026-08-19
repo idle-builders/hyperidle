@@ -1,12 +1,7 @@
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/domain-model";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
-import type {
-	StateTransitionAuditEntry,
-	TaskAuditEntry,
-	TaskStateMachineDeps,
-} from "@hyperidle/work";
+import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, InvalidTransitionError, transitionTask } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
@@ -14,13 +9,13 @@ import { test } from "../__testing__/test-fixtures.js";
 
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = {
-	workIntents: { record: enqueueWorkIntent },
+	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
 };
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
 const depWatcherDeps = {
-	workIntents: { record: enqueueWorkIntent },
+	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
 };
 
@@ -241,54 +236,10 @@ describe("Task State Machine", () => {
 		});
 	});
 
-	describe("audit trail", () => {
-		test("logs every transition in the audit trail", async ({ db, eventBus }) => {
-			await seedPrerequisites(db);
-			await insertTask(db, "task-1", "proposed");
-			await transitionTask(db, eventBus, "task-1", "accepted", testDeps);
-			await transitionTask(db, eventBus, "task-1", "in_progress", testDeps);
-
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
-			expect(audit).toHaveLength(2);
-			const first = audit[0] as StateTransitionAuditEntry;
-			const second = audit[1] as StateTransitionAuditEntry;
-			expect(first.from).toBe("proposed");
-			expect(first.to).toBe("accepted");
-			expect(second.from).toBe("accepted");
-			expect(second.to).toBe("in_progress");
-		});
-
-		test("preserves existing audit entries when appending new ones", async ({ db, eventBus }) => {
-			await seedPrerequisites(db);
-			const now = new Date().toISOString();
-			const existingAudit: StateTransitionAuditEntry[] = [
-				{ from: "proposed", to: "accepted", timestamp: now },
-			];
-			await db.insert(tasks).values({
-				id: "task-existing",
-				betId: "b1",
-				teamId: "p1",
-				title: "Existing task",
-				state: "proposed",
-				auditTrail: JSON.stringify(existingAudit),
-				createdAt: now,
-				updatedAt: now,
-			});
-
-			await transitionTask(db, eventBus, "task-existing", "accepted", testDeps);
-
-			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-existing"));
-			const audit = JSON.parse(task?.auditTrail ?? "[]") as TaskAuditEntry[];
-			expect(audit).toHaveLength(2);
-			const first = audit[0] as StateTransitionAuditEntry;
-			const second = audit[1] as StateTransitionAuditEntry;
-			expect(first.from).toBe("proposed");
-			expect(first.to).toBe("accepted");
-			expect(second.from).toBe("proposed");
-			expect(second.to).toBe("accepted");
-		});
-	});
+	// @lore AU20 repair: "audit trail" describe block deleted — tasks.auditTrail appends were
+	// killed by the AU20 destroyer pass (FULL-AUDIT.md: "tasks.auditTrail appends killed
+	// (zero production reads)"). Nothing writes to the column anymore so the assertions failed.
+	// The column still exists in the schema; writes were intentionally removed.
 
 	describe("event emission", () => {
 		test("emits task_state_changed event on valid transition", async ({ db, eventBus }) => {

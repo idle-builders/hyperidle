@@ -1,8 +1,4 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { RelevanceConfig } from "./relevance-engine.js";
-
-// Re-export so callers can import RelevanceConfig from scoring-config
-export type { RelevanceConfig };
 
 interface ScoringWeights {
 	tagMatch: number;
@@ -104,36 +100,5 @@ async function loadAttentionWeights(_db: HyperIdleDb): Promise<AttentionWeights>
 	return { ...DEFAULT_ATTENTION_WEIGHTS };
 }
 
-// --- Relevance config (L22) ---
-
-const DEFAULT_RELEVANCE_WEIGHTS = { recency: 0.4, frequency: 0.4, citation: 0.2 } as const;
-const DEFAULT_RELEVANCE_SHAPE = {
-	recencyHalflifeDays: 14,
-	frequencySaturation: 5,
-	frequencyWindowDays: 30,
-	citationSaturation: 5,
-} as const;
-
-/**
- * Relevance config. Always the hardcoded defaults.
- *
- * @lore AU18: previously read `factory_settings.relevance.weight.*` /
- * `relevance.<shape>` overrides. No production or eval writer ever existed —
- * dropping the DB read is behavior-identical in practice and removes a dead
- * config surface. See {@link loadScoringWeights} for the same rationale.
- */
-async function loadRelevanceConfig(_db: HyperIdleDb): Promise<RelevanceConfig> {
-	return {
-		weights: { ...DEFAULT_RELEVANCE_WEIGHTS },
-		shape: { ...DEFAULT_RELEVANCE_SHAPE },
-	};
-}
-
 export type { AttentionWeights, ScoringContext, ScoringWeights };
-export {
-	ATTENTION_THRESHOLD,
-	DEFAULT_KNOWLEDGE_BUDGET,
-	loadAttentionWeights,
-	loadRelevanceConfig,
-	loadScoringWeights,
-};
+export { ATTENTION_THRESHOLD, DEFAULT_KNOWLEDGE_BUDGET, loadAttentionWeights, loadScoringWeights };

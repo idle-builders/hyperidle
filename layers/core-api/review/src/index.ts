@@ -19,9 +19,6 @@
  * @lore AU19 Increment 1j: `proposedCalls`/`operationOutcomes`/`tailoredGrants`
  * are `review`'s confirmed owned table set (Table ACL, Mechanism A).
  *
- * @lore AU19 Increment 1k: `taskPlanningSignals`'s real owner is `work`;
- * `review` reads it through `ReviewPorts.work.getRiskTierByTaskId`.
- *
  * @lore AU19 Increment 5 item 4 (review sub-item): `findProposedCall` subsumes
  * the `routes/threads.ts` verdict-handler's raw `proposedCalls` access that was
  * added to close the Table ACL violation in that increment.

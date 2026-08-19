@@ -26,10 +26,7 @@ import {
 } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
-import {
-	type InjectedFilesystemForProvisioning,
-	listInjectedFilesystemsForProvisioning,
-} from "../index.js";
+import { listInjectedFilesystemsForProvisioning } from "../index.js";
 
 const NOW = "2026-08-02T00:00:00.000Z";
 
@@ -146,9 +143,7 @@ describe("listInjectedFilesystemsForProvisioning reads an agent's injected files
 		const result = await listInjectedFilesystemsForProvisioning(db, "agent-rifa-2");
 
 		expect(result).toHaveLength(2);
-		const byId = new Map<string, InjectedFilesystemForProvisioning>(
-			result.map((row) => [row.id, row]),
-		);
+		const byId = new Map(result.map((row) => [row.id, row]));
 		expect(byId.get("fs-rifa-2a")).toEqual({
 			id: "fs-rifa-2a",
 			teamId: "team-rifa-2",

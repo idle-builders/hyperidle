@@ -53,7 +53,7 @@ describe("HarnessAdapter interface unchanged — exactly 4 methods (AC7)", () =>
 	});
 });
 
-describe("HarnessEvent union — exactly 5 variants (AC7; cost_update narrowed out)", () => {
+describe("HarnessEvent union — exactly 4 variants (AC7; cost_update + pre_compaction narrowed out)", () => {
 	it("has token_usage variant", () => {
 		const ev = { type: "token_usage" as const, inputTokens: 1, outputTokens: 1 };
 		expect(ev.type).toBe("token_usage");
@@ -81,10 +81,5 @@ describe("HarnessEvent union — exactly 5 variants (AC7; cost_update narrowed o
 				: true;
 		const hasCostUpdate: HasCostUpdate = false;
 		expect(hasCostUpdate).toBe(false);
-	});
-
-	it("has pre_compaction variant", () => {
-		const ev = { type: "pre_compaction" as const, contextTokens: 100, maxTokens: 200000 };
-		expect(ev.type).toBe("pre_compaction");
 	});
 });

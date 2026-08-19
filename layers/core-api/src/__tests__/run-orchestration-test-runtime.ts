@@ -8,9 +8,10 @@ import type { EventBus } from "@hyperidle/event-bus";
 import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 import {
 	AdapterPool,
-	createHarnessAdapter,
 	createReturnEnforcement,
 	provisionHarnessEnvironment,
+	RemoteHarnessAdapter,
+	type WsLike,
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { create, recordConflict, update } from "@hyperidle/knowledge";
@@ -102,7 +103,7 @@ export function startTestRuntime(
 									: [],
 								maxConcurrent: Number(registration.maxConcurrent),
 							};
-							return createHarnessAdapter({ kind: "remote", ws, registration: message });
+							return new RemoteHarnessAdapter(ws as WsLike, message);
 						},
 					},
 				},

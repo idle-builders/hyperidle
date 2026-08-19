@@ -21,7 +21,6 @@
 	"devDependencies": {
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-protocol": "*",
-		"@hyperidle/settings": "*",
 		"@hyperidle/work": "*",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"

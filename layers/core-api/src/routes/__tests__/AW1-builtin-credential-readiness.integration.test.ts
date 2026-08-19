@@ -13,7 +13,7 @@
  */
 
 import { writeCredential } from "@hyperidle/credentials";
-import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
 import { updateServerConfig } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -39,7 +39,7 @@ function makePool(builtinState: HarnessDiscoveryInput["state"] = "unauthenticate
 		},
 		"claude-code": { state: "missing", reason: "claude CLI is not installed or not on PATH." },
 	});
-	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
+	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",

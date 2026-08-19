@@ -43,7 +43,7 @@ describe("bootAgentExecution", () => {
 				mcpBaseUrl: "http://localhost:9999",
 			});
 
-			expect(boot.adapters.pool.list({ type: "builtin" })).toHaveLength(1);
+			expect(boot.adapters.pool.has("local-builtin")).toBe(true);
 		});
 	});
 

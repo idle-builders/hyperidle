@@ -271,12 +271,6 @@ export function listThreads(exec: HyperIdleDb, f: ThreadFilter): Promise<Thread[
 	return q;
 }
 
-/** Total thread count. */
-export async function countThreads(exec: HyperIdleDb): Promise<number> {
-	const [row] = await exec.select({ count: sql<number>`COUNT(*)` }).from(threads).limit(1);
-	return row?.count ?? 0;
-}
-
 // =============================================================================
 // Message reads — general filter interface (AU20 Am5)
 // =============================================================================

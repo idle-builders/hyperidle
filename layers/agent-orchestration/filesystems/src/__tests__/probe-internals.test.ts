@@ -2,16 +2,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { type FilesystemReachabilityInput, resolveFilesystemState } from "../index.js";
+import { resolveFilesystemState } from "../index.js";
 import type { FilesystemsGitRunnerFactory } from "../ports.js";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "au20-reachability-"));
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
 
-function row(
-	resourceRef: unknown,
-	connectionId: string | null = null,
-): FilesystemReachabilityInput {
+function row(resourceRef: unknown, connectionId: string | null = null) {
 	return {
 		id: "fs",
 		teamId: "team",

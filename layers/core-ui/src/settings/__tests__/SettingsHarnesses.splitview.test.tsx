@@ -47,17 +47,8 @@ const BUILTIN_DESCRIPTOR: HarnessCapabilityDescriptor = {
 		},
 	],
 	modelProviders: ["anthropic", "openrouter", "openai-compatible"],
-	accessMode: "api-gateway",
 	discovery: { state: "ready" },
 	authAction: { kind: "enter_api_key", label: "Enter API key" },
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: true,
-		toolUse: true,
-	},
 };
 
 const CLAUDE_CODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
@@ -76,20 +67,11 @@ const CLAUDE_CODE_DESCRIPTOR: HarnessCapabilityDescriptor = {
 		},
 	],
 	modelProviders: ["anthropic"],
-	accessMode: "provider-subscription-cli",
 	discovery: { state: "ready" },
 	authAction: {
 		kind: "native_cli_login",
 		label: "Log in to Claude Code",
 		command: ["claude", "auth", "login"],
-	},
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: true,
-		toolUse: true,
 	},
 };
 
@@ -99,20 +81,11 @@ const CODEX_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	kind: "local",
 	models: [],
 	modelProviders: [],
-	accessMode: "provider-subscription-cli",
 	discovery: { state: "missing" },
 	authAction: {
 		kind: "native_cli_login",
 		label: "Log in to Codex",
 		command: ["codex", "login"],
-	},
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: false,
-		toolUse: false,
 	},
 };
 
@@ -123,17 +96,8 @@ const EMPTY_DESCRIPTOR: HarnessCapabilityDescriptor = {
 	kind: "local",
 	models: [],
 	modelProviders: [],
-	accessMode: "external-byo",
 	discovery: { state: "missing" },
 	authAction: { kind: "none", label: "" },
-	runtime: {
-		preCompactionTrigger: false,
-		subAgents: false,
-		mcpSupport: false,
-		modelProviders: [],
-		fileEditing: false,
-		toolUse: false,
-	},
 };
 
 const MODEL_GATEWAY_RESPONSE = {

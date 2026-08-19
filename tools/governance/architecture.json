@@ -1,8 +1,8 @@
 {
 	"governanceArchitecture": true,
-	"note": "The registries the governance clauses read. This file is DATA — it changes when packages, surfaces or owners change. The clauses that read it are CODE (tools/governance/src/lib/governance-model.ts) — they change only by founder ruling on architecture. Nothing here is a per-pair verdict; verdicts are derived.",
+	"note": "The registries the governance clauses read. This file is DATA \u2014 it changes when packages, surfaces or owners change. The clauses that read it are CODE (tools/governance/src/lib/governance-model.ts) \u2014 they change only by founder ruling on architecture. Nothing here is a per-pair verdict; verdicts are derived.",
 	"roles": {
-		"note": "A package's role comes from the `workspaces` glob in the root manifest that claims it — never from matching its directory path (Ruling 5). Adding a role folder is an edit here plus an edit to `workspaces`, and nothing else.",
+		"note": "A package's role comes from the `workspaces` glob in the root manifest that claims it \u2014 never from matching its directory path (Ruling 5). Adding a role folder is an edit here plus an edit to `workspaces`, and nothing else.",
 		"byWorkspacePattern": [
 			{
 				"pattern": "layers/*",
@@ -35,11 +35,11 @@
 		"note": "Who may name this surface. `everyone` = any actor; `composition roots` = the roles above plus the repo root; a list = exactly those roles or package names; an empty list = nobody.",
 		"framework/domain-model": {
 			"reach": "everyone",
-			"why": "the product's nouns — the closed sets, the wire shapes and the pure predicates over them. Nothing here declares a port and nothing here carries a dependency a browser cannot run. The one successor of the old substrate that keeps universal reach, for the same reason db:row-type has it: a shape is not an access path."
+			"why": "the product's nouns \u2014 the closed sets, the wire shapes and the pure predicates over them. Nothing here declares a port and nothing here carries a dependency a browser cannot run. The one successor of the old substrate that keeps universal reach, for the same reason db:row-type has it: a shape is not an access path."
 		},
 		"framework/diagnostics": {
 			"reach": ["core-api", "agent-orchestration", "service", "application"],
-			"why": "the structured logger, the secret scrubber, and the observability event/adapter contract with its console sink. A log line happens where the process is and every service runs in one; every application installs a sink. `layer` is deliberately not granted, because core-ui is a layer and must not log — core-api and agent-orchestration are named individually instead, the same reason `run-orchestration-composition.ts` (AU31 §2.1(b), relocated into agent-orchestration's own boot) logs a summarized tool arg."
+			"why": "the structured logger, the secret scrubber, and the observability event/adapter contract with its console sink. A log line happens where the process is and every service runs in one; every application installs a sink. `layer` is deliberately not granted, because core-ui is a layer and must not log \u2014 core-api and agent-orchestration are named individually instead, the same reason `run-orchestration-composition.ts` (AU31 \u00a72.1(b), relocated into agent-orchestration's own boot) logs a summarized tool arg."
 		},
 		"framework/harness-capability": {
 			"reach": [
@@ -50,7 +50,7 @@
 				"run-orchestration",
 				"agent-execution"
 			],
-			"why": "what an installed harness IS — its readiness, the models it offers, the tools it already has, the auth action it needs, and how its return enforcement is provisioned. A screen renders this; run-orchestration provisions the enforcement channel; agent-execution's own boot (AU31 §6) types the `ReturnEnforcementChannel` its `returnStatusTool` adapter carries out to the layer that consumes it. Separating it from the protocol is what lets the protocol say no to the interface."
+			"why": "what an installed harness IS \u2014 its readiness, the models it offers, the tools it already has, the auth action it needs, and how its return enforcement is provisioned. A screen renders this; run-orchestration provisions the enforcement channel; agent-execution's own boot (AU31 \u00a76) types the `ReturnEnforcementChannel` its `returnStatusTool` adapter carries out to the layer that consumes it. Separating it from the protocol is what lets the protocol say no to the interface."
 		},
 		"framework/work-intent-port": {
 			"reach": [
@@ -67,7 +67,7 @@
 		},
 		"framework/event-bus": {
 			"reach": ["core-api", "agent-execution", "agent-orchestration", "service", "application"],
-			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot — so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types in framework/domain-model."
+			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot \u2014 so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types in framework/domain-model."
 		},
 		"framework/presentation-format": {
 			"reach": ["core-ui", "core-api"],
@@ -115,7 +115,7 @@
 				"remote-server",
 				"desktop"
 			],
-			"why": "the host as seen from a server process: spawning git, resolving a hostname before we fetch it, reading the environment at boot, resolving the deployment profile. Every module here names the operating system. Both server Applications open the same way (`resolveProfile`), so both compose it at boot — `desktop` (AU31 §5.3) duplicates `remote-server`'s own composition-root recipe rather than importing it (an `application → application` crossing), so it carries the same framework dependency, not a borrowed one."
+			"why": "the host as seen from a server process: spawning git, resolving a hostname before we fetch it, reading the environment at boot, resolving the deployment profile. Every module here names the operating system. Both server Applications open the same way (`resolveProfile`), so both compose it at boot \u2014 `desktop` (AU31 \u00a75.3) duplicates `remote-server`'s own composition-root recipe rather than importing it (an `application \u2192 application` crossing), so it carries the same framework dependency, not a borrowed one."
 		},
 		"framework/http-middleware": {
 			"reach": [
@@ -126,7 +126,7 @@
 				"remote-server",
 				"desktop"
 			],
-			"why": "the primitives a route file on either application's Hono app needs. Only the two layers that publish an HTTP API and the two services that mount a route or compare a key. This is the package that carries hono, and the reason thirty other manifests stop carrying it. `composeApiApplication` (AU31 §5.3, relocated here from the deleted `@hyperidle/shared`) is the layer-blind Hono mount recipe both Applications build their one composed app from — `remote-server` and `desktop` name it directly rather than each other, closing the `application → application` crossing AU31 found."
+			"why": "the primitives a route file on either application's Hono app needs. Only the two layers that publish an HTTP API and the two services that mount a route or compare a key. This is the package that carries hono, and the reason thirty other manifests stop carrying it. `composeApiApplication` (AU31 \u00a75.3, relocated here from the deleted `@hyperidle/shared`) is the layer-blind Hono mount recipe both Applications build their one composed app from \u2014 `remote-server` and `desktop` name it directly rather than each other, closing the `application \u2192 application` crossing AU31 found."
 		},
 		"framework/credential-access": {
 			"reach": [
@@ -137,7 +137,7 @@
 				"remote-server",
 				"desktop"
 			],
-			"why": "everything that needs a live secret: the port that resolves a credential's value, the AES-256-GCM cipher that decrypts a stored one, and the model resolution that cannot produce a ResolvedModel without one. The six that hold one: credentials implements the resolver, core-api and agent-orchestration route the store, connections resolves a service credential, and both server Applications compose the resolver at boot — `desktop` (AU31 §5.3) the same shape `remote-server` already had, not a borrowed one. Not a preemptive wall — the observation that nothing else has ever held a secret, written down so nothing else starts by accident."
+			"why": "everything that needs a live secret: the port that resolves a credential's value, the AES-256-GCM cipher that decrypts a stored one, and the model resolution that cannot produce a ResolvedModel without one. The six that hold one: credentials implements the resolver, core-api and agent-orchestration route the store, connections resolves a service credential, and both server Applications compose the resolver at boot \u2014 `desktop` (AU31 \u00a75.3) the same shape `remote-server` already had, not a borrowed one. Not a preemptive wall \u2014 the observation that nothing else has ever held a secret, written down so nothing else starts by accident."
 		},
 		"framework/harness-protocol": {
 			"reach": [
@@ -150,7 +150,7 @@
 				"remote-worker",
 				"agent-execution"
 			],
-			"why": "how a run is dispatched to a harness and how its output comes back: the adapter interface, the event stream, the worker wire protocol, the return-action set. A contract between a harness process, the layer that runs it and the worker that hosts it. The web UI is not one of those. `agent-execution`'s own boot (AU31 §6, `bootAgentExecution`) is the layer that runs it — it types the enforcement registry, the harness adapter and the worker-registration message its `AgentExecutionAdapters` bundle carries out to whichever layer consumes it; neither server Application needs the protocol itself, only the already-typed function value the boot hands back."
+			"why": "how a run is dispatched to a harness and how its output comes back: the adapter interface, the event stream, the worker wire protocol, the return-action set. A contract between a harness process, the layer that runs it and the worker that hosts it. The web UI is not one of those. `agent-execution`'s own boot (AU31 \u00a76, `bootAgentExecution`) is the layer that runs it \u2014 it types the enforcement registry, the harness adapter and the worker-registration message its `AgentExecutionAdapters` bundle carries out to whichever layer consumes it; neither server Application needs the protocol itself, only the already-typed function value the boot hands back."
 		},
 		"framework/tool-protocol": {
 			"reach": [
@@ -162,7 +162,7 @@
 				"agent-execution",
 				"agent-orchestration"
 			],
-			"why": "the descriptor/dispatch contract the tool provider and the tool handlers agree on, and the catalog of built-in tools it can carry. The two halves of tool dispatch live in different layers and must not name each other; this is what they name instead. `agent-execution`'s own boot types the `returnStatusTool` adapter it hands out as a `RegisteredTool`/`ToolRegistry` pair (the provider half); `agent-orchestration`'s own `run-orchestration-composition.ts` (AU31 §2.1(b), relocated from core-api) types the seam-backed `ProposedCallWorkflowPort`/`ToolContext`/`ToolRegistry` its tool dispatch consumes (the handler half) — both are the outer layer's own composition root, not a nested service, so each is named beside its own service."
+			"why": "the descriptor/dispatch contract the tool provider and the tool handlers agree on, and the catalog of built-in tools it can carry. The two halves of tool dispatch live in different layers and must not name each other; this is what they name instead. `agent-execution`'s own boot types the `returnStatusTool` adapter it hands out as a `RegisteredTool`/`ToolRegistry` pair (the provider half); `agent-orchestration`'s own `run-orchestration-composition.ts` (AU31 \u00a72.1(b), relocated from core-api) types the seam-backed `ProposedCallWorkflowPort`/`ToolContext`/`ToolRegistry` its tool dispatch consumes (the handler half) \u2014 both are the outer layer's own composition root, not a nested service, so each is named beside its own service."
 		},
 		"framework/db": {
 			"reach": "everyone",
@@ -198,12 +198,11 @@
 		}
 	},
 	"databasePackage": {
-		"note": "`framework/db` is not one target — it is several surfaces with different rules (Ruling 11.2). Which surface an import lands on is decided by the MODULE the symbol is defined in. Tables and row types are detected from the schema source itself, so they are absent here. A module not listed falls to `db:unknown` and is reported — guessing its surface would be fabrication.",
+		"note": "`framework/db` is not one target \u2014 it is several surfaces with different rules (Ruling 11.2). Which surface an import lands on is decided by the MODULE the symbol is defined in. Tables and row types are detected from the schema source itself, so they are absent here. A module not listed falls to `db:unknown` and is reported \u2014 guessing its surface would be fabrication.",
 		"packageName": "db",
 		"sourceRoot": "framework/db/src",
 		"barrel": "framework/db/src/index.ts",
 		"schemaModule": "framework/db/src/schema.ts",
-		"zodModule": "framework/db/src/zod-schemas.ts",
 		"moduleSurface": {
 			"connection.ts": "db:client",
 			"migrate.ts": "db:client",
@@ -228,21 +227,21 @@
 	"eventBus": {
 		"host": "framework",
 		"typesModule": "framework/domain-model/src/events.ts",
-		"typesNote": "Every event the bus can carry, declared as `readonly type: \"...\"`. An emit or subscribe naming something absent from this module is not a bus event — filtering on it is what keeps ordinary `.on()` and `.emit()` calls from being counted as crossings.",
+		"typesNote": "Every event the bus can carry, declared as `readonly type: \"...\"`. An emit or subscribe naming something absent from this module is not a bus event \u2014 filtering on it is what keeps ordinary `.on()` and `.emit()` calls from being counted as crossings.",
 		"why": "the framework provides the bus. A framework package that also publishes on it is both the pipe and the water, and the bus can no longer be reasoned about from the outside."
 	},
 	"rawRuntime": {
 		"host": "agent-execution",
 		"why": "every model and agent call goes through one door so it can be recorded, priced and replayed. Importing a vendor SDK or spawning an agent CLI anywhere else builds a path the rest of the system cannot see.",
-		"spellingNote": "Ruling 14 — importing the SDK and spawning the CLI are ONE act with two spellings, and one target. They used to be two targets, which let the development world hold the import and wave the spawn through the same door."
+		"spellingNote": "Ruling 14 \u2014 importing the SDK and spawning the CLI are ONE act with two spellings, and one target. They used to be two targets, which let the development world hold the import and wave the spawn through the same door."
 	},
 	"oneDoorSurfaces": {
-		"note": "The development world relaxes every production rule EXCEPT these. Each names a surface where production has exactly one door — going around it builds a world production cannot produce, which is the one thing a test may not do.",
+		"note": "The development world relaxes every production rule EXCEPT these. Each names a surface where production has exactly one door \u2014 going around it builds a world production cannot produce, which is the one thing a test may not do.",
 		"surfaces": ["db:schema-ns", "db:unknown", "framework/design-system"],
 		"rawRuntime": true,
-		"rawRuntimeNote": "Ruling 14 — this holds BOTH spellings of the one act, the SDK import and the CLI spawn, because they are one target. Going around a door production has only one of is the one thing a test may not do, and a test spawning `claude` directly is doing exactly that.",
+		"rawRuntimeNote": "Ruling 14 \u2014 this holds BOTH spellings of the one act, the SDK import and the CLI spawn, because they are one target. Going around a door production has only one of is the one thing a test may not do, and a test spawning `claude` directly is doing exactly that.",
 		"why": "a test may cross any boundary to arrange the world; it may not go around a door production has only one of",
 		"foreignTableWriteMissingCompanion": true,
-		"foreignTableWriteNote": "Ruling 13. A test may write any foreign table directly — 63% of those writes would otherwise route through a function that is literally `insert(X).values(v)`. What is held is narrower and real: where the owner writes two rows in ONE call it has a cross-row invariant, and writing one without the other builds a state production cannot produce. The companion groups are derived from the owners' own writers, never listed."
+		"foreignTableWriteNote": "Ruling 13. A test may write any foreign table directly \u2014 63% of those writes would otherwise route through a function that is literally `insert(X).values(v)`. What is held is narrower and real: where the owner writes two rows in ONE call it has a cross-row invariant, and writing one without the other builds a state production cannot produce. The companion groups are derived from the owners' own writers, never listed."
 	}
 }

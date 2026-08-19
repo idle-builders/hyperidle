@@ -34,12 +34,21 @@ import {
 	aggregateToolRun,
 	deriveComposerPills,
 	derivePartsFromSession,
-	PART_KINDS,
 	type Part,
 	type PartAuthor,
 	TOOL_KINDS,
 	type ToolKind,
 } from "../part.js";
+
+const PART_KINDS_INLINE = [
+	"prose",
+	"review",
+	"resolved",
+	"questionnaire",
+	"tool",
+	"reasoning",
+	"unknown",
+] as const;
 
 // ── Fixture helpers ──────────────────────────────────────────────
 
@@ -103,44 +112,6 @@ function humanEntry(text: string): Extract<ActivityEntry, { type: "human_message
 		data: { text, author: HUMAN },
 	} as Extract<ActivityEntry, { type: "human_message" }>;
 }
-
-// ── PART_KINDS — extended closed union (AC1, architecture §a) ────────
-
-describe("AM3 PART_KINDS — extended closed union", () => {
-	it("contains 'tool' and 'reasoning' alongside the AM1 set", () => {
-		expect(PART_KINDS as ReadonlyArray<string>).toContain("tool");
-		expect(PART_KINDS as ReadonlyArray<string>).toContain("reasoning");
-	});
-
-	it("still contains all AM1 kinds (prose/review/resolved/questionnaire/unknown)", () => {
-		const am1Kinds = ["prose", "review", "resolved", "questionnaire", "unknown"];
-		for (const k of am1Kinds) {
-			expect(PART_KINDS as ReadonlyArray<string>).toContain(k);
-		}
-	});
-
-	it("is exactly the locked set — no extra kinds", () => {
-		expect([...PART_KINDS].sort()).toEqual(
-			["prose", "review", "resolved", "questionnaire", "tool", "reasoning", "unknown"].sort(),
-		);
-	});
-
-	it("does NOT contain session/work-log/event/activity (concept hard-rule 3)", () => {
-		const forbidden = [
-			"session",
-			"work-log",
-			"worklog",
-			"event",
-			"activity",
-			"trace",
-			"block",
-			"blocked",
-		];
-		for (const f of forbidden) {
-			expect(PART_KINDS as ReadonlyArray<string>).not.toContain(f);
-		}
-	});
-});
 
 // ── TOOL_KINDS — closed family set with generic fallback ──────────────
 
@@ -658,18 +629,9 @@ describe("AM3 deriveComposerPills — descriptor-driven, no per-backend branch",
 		type: "claude-code",
 		name: "Claude Code",
 		kind: "local",
-		accessMode: "provider-subscription-cli",
 		authAction: { kind: "native_cli_login", label: "Logged in" },
 		discovery: { state: "ready", version: "1.4.2" },
 		modelProviders: ["anthropic"],
-		runtime: {
-			preCompactionTrigger: true,
-			subAgents: true,
-			mcpSupport: true,
-			modelProviders: ["anthropic"],
-			fileEditing: true,
-			toolUse: true,
-		},
 		models: [
 			{
 				id: "claude-opus-4",
@@ -785,11 +747,6 @@ describe("AM3 deriveComposerPills — descriptor-driven, no per-backend branch",
 // ── Queued message — pre-Part FIFO state ─────────────────────────────
 
 describe("AM3 queued message — pre-Part state (not a Part kind)", () => {
-	it("queued messages are NOT in PART_KINDS (they are pre-Part state)", () => {
-		expect(PART_KINDS as ReadonlyArray<string>).not.toContain("queued");
-		expect(PART_KINDS as ReadonlyArray<string>).not.toContain("pending");
-	});
-
 	it("a queued message converts to a prose Part on delivery", () => {
 		// Simulated delivery: a human_message entry (the queue head consumed)
 		const entries: ActivityEntry[] = [humanEntry("Check the Safari issue too")];
@@ -822,7 +779,7 @@ describe("AM3 source-agnostic boundary — session adapter uses ActivityEntry[] 
 		const parts = derivePartsFromSession(entries, AGENT);
 		for (const p of parts) {
 			expect(typeof p.id).toBe("string");
-			expect((PART_KINDS as ReadonlyArray<string>).includes(p.kind)).toBe(true);
+			expect((PART_KINDS_INLINE as ReadonlyArray<string>).includes(p.kind)).toBe(true);
 			expect(Array.isArray(p.embeds)).toBe(true);
 			expect(typeof p.author?.name).toBe("string");
 		}

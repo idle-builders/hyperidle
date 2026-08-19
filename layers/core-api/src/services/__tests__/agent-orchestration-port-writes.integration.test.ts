@@ -11,7 +11,6 @@
 import {
 	agentWorkIntents,
 	bets,
-	explicitSessionStarts,
 	filesystemInjections,
 	filesystems,
 	type HyperIdleDb,
@@ -124,75 +123,6 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		});
 
 		expect(second.id).toBe(first.id);
-	});
-
-	test("intents.createExplicitStart atomically creates the explicit start AND its baked intent", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-explicit-start");
-		await seedTeamAndTask(db, "aopw-es");
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-
-		const result = await port.intents.createExplicitStart({
-			startId: "aopw-es-start",
-			taskId: "aopw-es-task",
-			requestedAgentId: "aopw-es-agent",
-			requestedModelTier: "workhorse",
-			requestedBy: "aopw-es-human",
-			idempotencyKey: "aopw-es-key",
-			intentIdempotencyKey: "explicit-session-start:aopw-es-start",
-			bakedRequest: { defaultAgentId: "aopw-es-agent" },
-		});
-
-		expect(result.start.id).toBe("aopw-es-start");
-		expect(result.start.status).toBe("requested");
-		expect(result.intent?.id).toBeTruthy();
-
-		const [startRow] = await db
-			.select()
-			.from(explicitSessionStarts)
-			.where(eq(explicitSessionStarts.id, "aopw-es-start"))
-			.limit(1);
-		expect(startRow?.taskId).toBe("aopw-es-task");
-
-		const [intentRow] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "aopw-es-start"))
-			.limit(1);
-		expect(intentRow?.kind).toBe("session_start");
-		expect(intentRow?.bakedRequestJson).toContain("aopw-es-agent");
-	});
-
-	test("requests.findExplicitStartByIdempotencyKey / findExplicitStartById reach the real routes", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-find");
-		await seedTeamAndTask(db, "aopw-find");
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-
-		await port.intents.createExplicitStart({
-			startId: "aopw-find-start",
-			taskId: "aopw-find-task",
-			requestedAgentId: "aopw-find-agent",
-			requestedBy: "aopw-find-human",
-			idempotencyKey: "aopw-find-key",
-			intentIdempotencyKey: "explicit-session-start:aopw-find-start",
-		});
-
-		const byKey = await port.requests.findExplicitStartByIdempotencyKey(
-			"aopw-find-human",
-			"aopw-find-key",
-		);
-		expect(byKey?.id).toBe("aopw-find-start");
-
-		const byId = await port.requests.findExplicitStartById("aopw-find-start");
-		expect(byId?.taskId).toBe("aopw-find-task");
-
-		const missing = await port.requests.findExplicitStartById("aopw-find-does-not-exist");
-		expect(missing).toBeNull();
 	});
 
 	test("requests.listPendingIntentsByKind returns only pending/claimed intents for that kind", async ({
@@ -321,25 +251,6 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		if (!notFound.ok) expect(notFound.code).toBe("NOT_FOUND");
 	});
 
-	test("runs.createBareRun inserts an active session row through the real route", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-bare-run");
-		await seedTeamAndTask(db, "aopw-bare");
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-
-		const session = await port.runs.createBareRun({
-			agentId: "aopw-bare-agent",
-			taskId: "aopw-bare-task",
-			modelTier: "workhorse",
-		});
-
-		expect(session.state).toBe("active");
-		const [row] = await db.select().from(sessions).where(eq(sessions.id, session.id)).limit(1);
-		expect(row?.agentId).toBe("aopw-bare-agent");
-	});
-
 	test("runs.stopForTasks stops the active session for a task and returns it", async ({
 		db,
 		app,
@@ -393,33 +304,6 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		expect(row?.state).toBe("done");
 	});
 
-	test("runs.failExplicitStart marks the explicit start failed through the real route", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-fail-start");
-		await seedTeamAndTask(db, "aopw-fail");
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-		await port.intents.createExplicitStart({
-			startId: "aopw-fail-start",
-			taskId: "aopw-fail-task",
-			requestedAgentId: "aopw-fail-agent",
-			requestedBy: "aopw-fail-human",
-			idempotencyKey: "aopw-fail-key",
-			intentIdempotencyKey: "explicit-session-start:aopw-fail-start",
-		});
-
-		await port.runs.failExplicitStart("aopw-fail-start", "no_runnable_agent");
-
-		const [row] = await db
-			.select()
-			.from(explicitSessionStarts)
-			.where(eq(explicitSessionStarts.id, "aopw-fail-start"))
-			.limit(1);
-		expect(row?.status).toBe("failed");
-		expect(row?.failureCode).toBe("no_runnable_agent");
-	});
-
 	test("auth/boundary middleware genuinely ran — a raw call with no credentials is rejected", async ({
 		requestWithoutAuth,
 	}) => {
@@ -454,39 +338,5 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 
 		expect(await port.filesystems.getTeamId("aopw-fst-1")).toBe("aopw-fst-team-parent");
 		expect(await port.filesystems.getTeamId("aopw-fst-does-not-exist")).toBeNull();
-	});
-
-	// AU31 §3 clause 2 — the team-defaults pair `teams-routes.ts` needs
-	// (:540 reads, :280 writes, site 2's relinquished write).
-	test("runConfig.writeTeamDefaults then readTeamDefaults round-trips through the real route", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "aop-write-key-team-defaults");
-		await db
-			.insert(teams)
-			.values({ id: "aopw-td-team", name: "aopw-td", phase: "build", createdAt: NOW });
-		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
-
-		// Absent row ≡ all-null row.
-		const before = await port.runConfig.readTeamDefaults("aopw-td-team");
-		expect(before).toEqual({
-			defaultHarnessType: null,
-			defaultModelId: null,
-			defaultModelProvider: null,
-		});
-
-		await port.runConfig.writeTeamDefaults("aopw-td-team", {
-			defaultHarnessType: "claude-code",
-			defaultModelId: "claude-sonnet-4-6",
-			defaultModelProvider: "anthropic",
-		});
-		const after = await port.runConfig.readTeamDefaults("aopw-td-team");
-
-		expect(after).toEqual({
-			defaultHarnessType: "claude-code",
-			defaultModelId: "claude-sonnet-4-6",
-			defaultModelProvider: "anthropic",
-		});
 	});
 });

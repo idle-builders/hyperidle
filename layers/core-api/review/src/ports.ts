@@ -30,9 +30,9 @@ import type {
 	WriteExecutor,
 } from "@hyperidle/db";
 import type {
+	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 	SessionKnowledgeItemLike,
-	AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder,
 } from "@hyperidle/work-intent-port";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ export type ReviewAgentWorkIntentInput = Extract<
 // Internal helper types — NOT exported from barrel (bundled inside ReviewPorts)
 // ---------------------------------------------------------------------------
 
-type ReviewAgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
+type ReviewAgentWorkIntentRecorder = AgentWorkIntentRecorderFn;
 
 /** Narrow patch shape `review` writes onto a task. */
 interface ReviewTaskPatch {
@@ -89,7 +89,6 @@ export interface ReviewPorts {
 		getTaskById(db: WriteExecutor, id: string): Promise<Task | undefined>;
 		updateTaskById(db: WriteExecutor, id: string, patch: ReviewTaskPatch): Promise<void>;
 		createItem(db: WriteExecutor, values: NewItem): Promise<void>;
-		getRiskTierByTaskId(db: HyperIdleDb, taskId: string): Promise<string | null>;
 	};
 	readonly conversation: {
 		insertThread(db: HyperIdleDb, values: NewThread): Promise<void>;
@@ -101,10 +100,17 @@ export interface ReviewPorts {
 		listUsersByKind(db: HyperIdleDb, kind: string): Promise<User[]>;
 	};
 	readonly org: {
+		/**
+		 * @lore AU20 destroyer ruling 1: the old edges matrix is gone; the new
+		 * implementation queries humans on the agent's team (fallback: all humans).
+		 * The `users` parameter now carries `listHumans` instead of `listUsersByKind`.
+		 */
 		resolveReviewRecipients(
 			db: HyperIdleDb,
 			context: ReviewRoutingContext,
-			users: { listUsersByKind(db: HyperIdleDb, kind: string): Promise<User[]> },
+			users: {
+				listHumans(db: HyperIdleDb, teamMembersId?: string): Promise<Array<{ id: string }>>;
+			},
 		): Promise<string[]>;
 	};
 	readonly intentRecorder: ReviewAgentWorkIntentRecorder;

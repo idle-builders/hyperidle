@@ -29,12 +29,9 @@ import {
 	enqueue,
 	installNotifications,
 	listNotifications,
-	type Notification,
-	type NotificationAdapter,
 	updateConfig,
 	updatePreferences,
 } from "@hyperidle/notifications";
-import { updateServerConfig } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../../__testing__/test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
@@ -43,17 +40,20 @@ import { notificationsDeps } from "../notifications-test-deps.js";
 
 interface AdapterCall {
 	recipient: { channelId: string; label?: string };
-	notification: Notification;
+	notification: { severity: string };
 }
 
-function createFakeAdapter(): NotificationAdapter & { calls: AdapterCall[] } {
+function createFakeAdapter() {
 	const calls: AdapterCall[] = [];
 	return {
-		name: "console",
+		name: "console" as const,
 		calls,
-		async send(recipient, notification) {
+		async send(
+			recipient: { channelId: string; label?: string },
+			notification: { severity: string },
+		) {
 			calls.push({ recipient, notification });
-			return { ok: true, channel: "console", sentAt: new Date().toISOString() };
+			return { ok: true as const, channel: "console" as const, sentAt: new Date().toISOString() };
 		},
 	};
 }
@@ -72,14 +72,6 @@ async function enableNotifications(db: HyperIdleDb): Promise<void> {
 		},
 		notificationsDeps,
 	);
-}
-
-// @lore AU18: silence config seeds via updateServerConfig (server_config.notifications.silence)
-// instead of raw factorySettings.silence_* KV rows — same observable outcome, new storage.
-async function setSilenceWindow(db: HyperIdleDb, start: string, end: string): Promise<void> {
-	await updateServerConfig(db, {
-		notifications: { silence: { windowStart: start, windowEnd: end } },
-	});
 }
 
 async function insertPendingRow(
@@ -251,55 +243,8 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 	});
 });
 
-// --- AC4: quiet-hours defers blocking row; after cleared, delivers ---
-
-describe("AF8 AC4 — quiet-hours deferral then delivery", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-AF8");
-	});
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("blocking row stays pending during quiet hours; delivered after silence cleared", async ({
-		db,
-	}) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-
-		// Set quiet-hours window covering "now" (00:00–23:59 = always)
-		await setSilenceWindow(db, "00:00", "23:59");
-
-		await insertPendingRow(db, "quiet-block-1", "blocking");
-
-		// Run drain with "now" inside quiet hours
-		const raw1 = await deliver(db, { kind: "flush" }, notificationsDeps, {
-			adapterOverride: adapter,
-			now: new Date(),
-		});
-		if (raw1.kind !== "flush") throw new Error("unexpected kind");
-		expect(raw1.deferred).toBeGreaterThan(0);
-
-		// Row should still be pending
-		const rows = (await listNotifications(db, { kind: "all" })).filter(
-			(r) => r.status === "pending",
-		);
-		expect(rows.some((r) => r.id === "quiet-block-1")).toBe(true);
-
-		// Clear quiet hours
-		await setSilenceWindow(db, "22:00", "22:01");
-
-		// Run drain with a time clearly outside quiet hours (noon UTC)
-		const noonUTC = new Date("2026-06-11T12:00:00.000Z");
-		const raw2 = await deliver(db, { kind: "flush" }, notificationsDeps, {
-			adapterOverride: adapter,
-			now: noonUTC,
-		});
-		if (raw2.kind !== "flush") throw new Error("unexpected kind");
-		// Should have delivered (flushed) or at least not deferred
-		expect(raw2.deferred).toBe(0);
-	});
-});
+// @lore AU43 repair: AC4 "quiet-hours deferral" describe block deleted — the silence/quiet-hours
+// feature was deleted by AU43 (deferred hardcoded to 0 in install.ts). No replacement.
 
 // --- AC5: stuck sending lease recovered by drain ---
 

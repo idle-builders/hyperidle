@@ -65,16 +65,6 @@ export const NOTIFICATION_TYPES: readonly NotificationType[] = [
 ] as const;
 
 /**
- * Returns the default urgency for a type key.
- * Falls back to "ambient" for unknown keys (defensive; should not happen
- * if callers use NotificationTypeKey strictly).
- */
-export function urgencyForType(key: NotificationTypeKey): NotificationUrgency {
-	const entry = NOTIFICATION_TYPES.find((t) => t.key === key);
-	return entry?.defaultUrgency ?? "ambient";
-}
-
-/**
  * AI4 Decision 4: Returns the compact uppercase shortLabel for a notification
  * type key. Replaces the page-local TYPE_LABELS map in NotificationPopover.
  * Falls back to the key string for unknown keys (defensive).

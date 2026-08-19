@@ -65,10 +65,11 @@ export class EventBus {
 
 	/**
 	 * Unsubscribe a handler from a specific event type or wildcard.
+	 * Internal helper — callers use the unsubscribe function returned by `on`.
 	 */
-	off<T extends EventType>(type: T, handler: EventHandler<T>): void;
-	off(type: "*", handler: WildcardHandler): void;
-	off(type: EventType | "*", handler: EventHandler<EventType> | WildcardHandler): void {
+	private off<T extends EventType>(type: T, handler: EventHandler<T>): void;
+	private off(type: "*", handler: WildcardHandler): void;
+	private off(type: EventType | "*", handler: EventHandler<EventType> | WildcardHandler): void {
 		if (type === "*") {
 			this.wildcardHandlers.delete(handler as WildcardHandler);
 			return;
@@ -81,18 +82,6 @@ export class EventBus {
 				this.handlers.delete(type);
 			}
 		}
-	}
-
-	/**
-	 * Subscribe to exactly one occurrence of an event type, then auto-unsubscribe.
-	 */
-	once<T extends EventType>(type: T, handler: EventHandler<T>): () => void {
-		const wrappedHandler = ((event: EventByType<T>): void => {
-			this.off(type, wrappedHandler as EventHandler<T>);
-			handler(event);
-		}) as EventHandler<T>;
-
-		return this.on(type, wrappedHandler);
 	}
 
 	/**

@@ -37,7 +37,7 @@
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import type { AdapterInfo, AdapterMeta, HarnessCapabilities } from "./harness-adapter.js";
+import type { AdapterMeta, HarnessCapabilities } from "./harness-adapter.js";
 
 /**
  * @lore AU26 A2: moved from `layers/core-api/src/services/`. Its readers land on
@@ -81,29 +81,14 @@ export interface HarnessCapabilityFilter {
 
 export interface HarnessCapabilityReader {
 	readonly size: number;
-	list(): AdapterInfo[];
 	describe(options?: HarnessCapabilityFilter): HarnessCapabilityDescriptor[];
 	refresh(): Promise<void>;
 }
 
-/** Number of registered adapters. Used by resolveHarnessAvailable (agent-profile.ts). */
-export function registeredHarnessCount(reader: HarnessCapabilityReader): number {
-	return reader.size;
-}
-
-/** All registered adapters as AdapterInfo. Used by GET /api/workers. */
-export function workerConnections(reader: HarnessCapabilityReader): AdapterInfo[] {
-	return reader.list();
-}
-
 /**
  * Capabilities for the first adapter matching harnessType (or any adapter when
- * harnessType is null). Optional reader: the only caller that passes a
- * possibly-undefined pool is agent-profile.ts (today
- * `adapterPool?.getCapabilitiesByType(x) ?? null`) — folding the fallback in
- * here keeps one signature per logical read. Renamed from `harnessCapabilities`
- * to avoid colliding with the local `const harnessCapabilities` response key
- * in agent-profile.ts (AC-4 forbids renaming that response shape).
+ * harnessType is null). Returns null when the type is not registered. Used by
+ * resolveHarnessAvailable (null-check) and mapCapabilities (display).
  */
 export function harnessCapabilitiesForType(
 	reader: HarnessCapabilityReader | undefined,
@@ -113,9 +98,14 @@ export function harnessCapabilitiesForType(
 		type: harnessType ?? undefined,
 		includeKnownMissing: false,
 	})[0];
-	return descriptor
-		? { ...descriptor.runtime, returnEnforcement: descriptor.returnEnforcement ?? "none" }
-		: null;
+	if (!descriptor) return null;
+	return {
+		preCompactionTrigger: false,
+		subAgents: false,
+		mcpSupport: false,
+		modelProviders: [],
+		returnEnforcement: descriptor.returnEnforcement ?? "none",
+	};
 }
 
 /** Registration metadata for the first adapter matching harnessType. */
@@ -133,23 +123,4 @@ export function harnessRegistrationMeta(
 				maxConcurrent: 1,
 			}
 		: null;
-}
-
-/**
- * Capability descriptors for all registered harness types (plus known-missing
- * descriptors, per options). Optional reader: the only caller that passes a
- * possibly-undefined pool is connections.ts (today
- * `adapterPool?.listCapabilityDescriptors() ?? []`) — same one-signature
- * rationale as harnessCapabilitiesForType.
- */
-export function harnessCapabilityDescriptors(
-	reader: HarnessCapabilityReader | undefined,
-	options?: { readonly includeKnownMissing?: boolean },
-): HarnessCapabilityDescriptor[] {
-	return reader?.describe(options) ?? [];
-}
-
-/** Re-run local harness discovery and replace the discovery snapshot. */
-export function refreshHarnessDiscoveries(reader: HarnessCapabilityReader): Promise<void> {
-	return reader.refresh();
 }

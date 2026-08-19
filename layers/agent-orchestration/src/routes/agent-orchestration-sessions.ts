@@ -10,7 +10,7 @@
  * B1a removes that premise on both halves — this Layer has its own app, and the
  * middleware stack is applied by the **Application** to the `/api` router both
  * apps mount on, so a route here sits behind the same auth without importing
- * core-api (`HyperIdleEnv` + `requireBoundary` come from `@hyperidle/http-middleware`).
+ * core-api (`HyperIdleEnv` + `` come from `@hyperidle/http-middleware`).
  * The "door" is now literal: the data, the query and the HTTP host are all on
  * the owning side.
  *
@@ -24,93 +24,36 @@
 import type { AgentOrchestrationSessionWireRow } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	type ActivityEntry,
-	AGENT_SESSION_SOURCE_KINDS,
 	type AgentRunActiveCountsResponse,
 	type AgentRunLatestOutcomesResponse,
 	type AgentRunsResponse,
-	type AgentSessionSourceKind,
 	API_ERROR_CODES,
 } from "@hyperidle/domain-model";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import {
 	countActiveRunsByAgent,
 	findSessionById,
 	listLatestOutcomeByTask,
 	listRunSummaries,
 } from "@hyperidle/run-orchestration";
-import { listSessionRequests } from "@hyperidle/session-requests";
 import type { Context } from "hono";
 import { Hono } from "hono";
 
-function isAgentSessionSourceKind(value: string): value is AgentSessionSourceKind {
-	return (AGENT_SESSION_SOURCE_KINDS as readonly string[]).includes(value);
-}
-
-/**
- * @param getRecentActivity - reads the `SessionActivityBuffer` (AU31 §2.7:
- *   this Layer's own `session-activity-buffer.js`) this Layer's own boot owns
- *   and starts — an in-process call, the same shape as this file's direct calls into
- *   `@hyperidle/session-requests`' query functions. No DB-existence check here
- *   (mirrors the buffer's own `unknown session → []` semantics); the REST
- *   consumer (`routes/sessions.ts`'s `GET /:id/activity`) keeps its own 404.
- */
-export function createAgentOrchestrationSessionsRoutes(
-	db: HyperIdleDb,
-	getRecentActivity: (sessionId: string) => ReadonlyArray<ActivityEntry>,
-): Hono<HyperIdleEnv> {
+export function createAgentOrchestrationSessionsRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// GET /agent-orchestration/sessions?sourceKind=&sourceId= — backs
-	// `AgentOrchestrationPort.sessions.listSessionHistoryBySource`.
-	router.get("/sessions", requireBoundary({ kind: "public-data" }), async (c) => {
-		const sourceKind = c.req.query("sourceKind");
-		const sourceId = c.req.query("sourceId");
-		if (!(sourceKind && sourceId)) {
-			return c.json(
-				{ error: "sourceKind and sourceId are required", code: API_ERROR_CODES.VALIDATION_ERROR },
-				400,
-			);
-		}
-		if (!isAgentSessionSourceKind(sourceKind)) {
-			return c.json(
-				{ error: `Unknown sourceKind: ${sourceKind}`, code: API_ERROR_CODES.VALIDATION_ERROR },
-				400,
-			);
-		}
-		const rows = await listSessionRequests(db, { source: { kind: sourceKind, id: sourceId } });
-		return c.json({
-			entries: rows.map((row) => ({
-				id: row.id,
-				sessionId: row.sessionId,
-				status: row.status,
-			})),
-		});
-	});
-
 	// GET /agent-orchestration/sessions/:sessionId — backs
-	// `AgentOrchestrationPort.sessions.getById`, the door core-hosted
-	// `POST /api/sessions` reads its admitted session row through (§D-A's `sessions-routes.ts` split).
+	// `AgentOrchestrationPort.sessions.getById`.
 	//
-	// @lore AU26 B1a (AC5(d)): this returns the session's FULL public wire row,
-	// not the seven-field narrowing the decoration reads use. The 202 branch of
-	// `POST /api/sessions` returns whatever this yields verbatim, and the raw row
-	// has 18 columns — a narrowing here would silently drop 11 fields from a
-	// shipped response with no route test catching it.
-	router.get("/sessions/:sessionId", requireBoundary({ kind: "public-data" }), async (c) => {
+	// @lore AU26 B1a (AC5(d)): returns the session's FULL public wire row,
+	// not the seven-field narrowing the decoration reads use. The raw row
+	// has 18 columns — a narrowing would silently drop 11 fields.
+	router.get("/sessions/:sessionId", async (c) => {
 		const row = await findSessionById(db, c.req.param("sessionId"));
 		if (!row) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 		return c.json({ session: row satisfies AgentOrchestrationSessionWireRow });
-	});
-
-	// GET /agent-orchestration/sessions/:sessionId/activity — backs
-	// `AgentOrchestrationPort.sessions.getRecentActivity`. Unknown sessionId
-	// resolves an empty array, mirroring the buffer's own semantics.
-	router.get("/sessions/:sessionId/activity", requireBoundary({ kind: "public-data" }), (c) => {
-		const sessionId = c.req.param("sessionId");
-		return c.json({ entries: getRecentActivity(sessionId) });
 	});
 
 	// ---------------------------------------------------------------------
@@ -137,7 +80,7 @@ export function createAgentOrchestrationSessionsRoutes(
 	// Registered before `/runs` — Hono matches in registration order and the two
 	// paths are distinct, but keeping the more specific one first is the safer
 	// habit. Agents with zero active runs are absent from the map.
-	router.get("/runs/active-counts", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/runs/active-counts", async (c) => {
 		const agentIds = parseIdList(c.req.query("agent_ids"));
 		if (agentIds !== undefined && agentIds.length === 0) {
 			return c.json({ counts: {} });
@@ -152,7 +95,7 @@ export function createAgentOrchestrationSessionsRoutes(
 	// GET /agent-orchestration/runs/latest-outcomes?task_ids=a,b,c
 	// The outcome of the NEWEST run per task by `startedAt`. A task with no run
 	// is absent from the map (the UI renders that as `null`).
-	router.get("/runs/latest-outcomes", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/runs/latest-outcomes", async (c) => {
 		const taskIds = parseIdList(c.req.query("task_ids"));
 		if (taskIds === undefined) {
 			return missingParam(c, "task_ids");
@@ -169,7 +112,7 @@ export function createAgentOrchestrationSessionsRoutes(
 
 	// GET /agent-orchestration/runs?task_id=…  |  ?agent_ids=a,b,c
 	// Newest first in both forms.
-	router.get("/runs", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/runs", async (c) => {
 		const taskId = c.req.query("task_id");
 		const agentIds = parseIdList(c.req.query("agent_ids"));
 		if (taskId === undefined && agentIds === undefined) {

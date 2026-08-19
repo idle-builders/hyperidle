@@ -2,9 +2,9 @@
  * Barrel for `@hyperidle/agent-run-config` (agent-orchestration Layer, SQL-owning Service).
  *
  * Typed functions only. This barrel MUST NOT re-export the raw `agentRunConfig`
- * / `teamRunConfigDefaults` pgTable objects — that would let a consumer obtain a
- * table transitively and defeat the Table ACL. Consumers get typed functions;
- * the tables stay private to this Service.
+ * pgTable object — that would let a consumer obtain a table transitively and
+ * defeat the Table ACL. Consumers get typed functions; the table stays private
+ * to this Service.
  *
  * @lore AU26 G1 (architecture §D-L): this Service is the new home of the nine
  * run-config columns that lived on `users` (six) and `teams` (three) until
@@ -36,9 +36,3 @@ export {
 	readAgentRunConfigs,
 	writeAgentRunConfig,
 } from "./agent-run-config-store.js";
-export type { TeamRunConfigDefaults } from "./team-run-config-defaults-store.js";
-export {
-	EMPTY_TEAM_RUN_CONFIG_DEFAULTS,
-	readTeamRunConfigDefaults,
-	writeTeamRunConfigDefaults,
-} from "./team-run-config-defaults-store.js";

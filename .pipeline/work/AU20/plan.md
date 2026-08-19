@@ -80,3 +80,58 @@ When this ships: every Service has a written holistic analysis (product purpose 
 - Given the scaling thought-experiment is applied to a Service's proposed API ("add dozens more services and hundreds more calls"), when the reviewer critiques it, then an API that would still grow a method per new use case is rejected and sent back, and only a sub-linearly-scaling design passes.
 - Given a Service whose existence verdict is "fold into a sibling" (no defensible standalone product purpose at MVP tier), when the fold is applied, then its owned tables, DI ports, and every caller are migrated and the suite stays green.
 - Given `log_task` is called twice concurrently against the same task, when the atomic-append fix lands, then no note is lost (a real concurrency test that fails on today's read-modify-write and passes after the fix).
+
+---
+
+# Reopened as a destroyer pass (2026-08-17)
+
+The first pass shipped but predates the code graph, so nothing was ever traced to a real door, and the
+`packages/` → `layers/`+`framework/` restructure killed every path in its analysis.
+
+Re-run as 38 agents — one per service, one per framework package, one for the entry-door surface — each
+tracing every export to a UI, agent-harness or scheduler door against a standing bar: a method survives
+only if it proves a core value. **1,713 rows, one verdict each, nothing sampled**: 423 delete, 21 plugin,
+22 finish, 72 merge, 327 simplify, 848 keep.
+
+## Three founder rulings reshaped it, and they outlive this work package
+
+1. **The product runs as a shared backend** for a team and an organisation of teams. Identity arrives
+   through an OIDC provider, not invitations. Nothing may be judged as though the product had one user.
+   Fifteen packages were re-audited on this basis.
+2. **Events are an extension surface.** Everything that happens emits an event and plugins attach
+   triggers, so "nothing internal subscribes" is never evidence of death. No event type may be deleted
+   for lack of an in-repo listener.
+3. **Knowledge-management ritual leaves core and becomes a plugin.** The test is whether something is
+   the machinery of working or a ritual *about* the work.
+
+## What the corrected premise found
+
+Defects the single-user lens had hidden, none of which were the audit's own targets: two direct-message
+dedupe paths that cannot see each other and fork threads between the same pair; an unscoped conversation
+list returning every human's direct messages to any caller; approval rates aggregating all humans into
+one number; ship confirmations addressed to a hardcoded first-human-by-insertion-order; and a proposed-call
+path that hardcodes every call irreversible — the gate-by-default classifier the ethos forbids, sitting
+inside a feature the product intends to finish.
+
+## Corrections to this work package's own claims
+
+Recorded because they were wrong and were acted upon before being caught:
+
+- The propagation retry tick is **not** bookkeeping. Task-to-bet is a real database transition healed
+  only there, and it survives.
+- Agent completion text already arrives from all four harnesses and is silently dropped, which makes a
+  live session view a missing case arm rather than a feature build.
+
+## The audit contradicts itself in places
+
+The service destroyer and the door destroyer judged the same features differently — the org-edge matrix
+convicted as an approval chart while the routes serving the org chart were kept; knowledge merge and split
+convicted as unreachable while their doors were marked for the plugin. The delete pass was briefed on the
+service verdicts alone, which is how three user-facing surfaces were deleted while marked KEEP. Anyone
+acting on the remaining rows must read **both** sides for a feature before touching it.
+
+## Where the evidence lives
+
+The full audit, the per-package verdicts, the revised verdicts, the census and the tooling were committed
+during the pass and removed at ship. Recover them from git history at `aafa592d1`, under
+`.pipeline/work/AU20/destroy/`.

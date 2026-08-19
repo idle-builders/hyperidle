@@ -14,15 +14,13 @@ import {
 	type ResolvedModel,
 	type SessionOutcome,
 	TargetAgentNotRunnableError,
-	type UserRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { Filesystem, FilesystemMounter } from "@hyperidle/filesystem-contract";
+import type { Filesystem } from "@hyperidle/filesystem-contract";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
 	type ConversationMessage,
 	type HarnessEvent,
-	isInternalExtractionDrain,
 	isReturnAction,
 	literalToolNamerForAdapterType,
 	MAX_FORCE_RETURNS,
@@ -41,6 +39,7 @@ import {
 } from "./connection-provisioning.js";
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
+	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
@@ -309,13 +308,13 @@ interface SessionLifecycleToolProvider {
 	buildToolRegistry(
 		ctx: SessionLifecycleToolContext,
 		options: {
-			readonly role: UserRole;
+			readonly role: string;
 			readonly extraTools?: readonly unknown[];
 			readonly sessionWorkflow?: SessionLifecycleRegistrySessionWorkflow;
 			readonly useOnlyExtraTools?: boolean;
 		},
 	): SessionLifecycleToolRegistry;
-	toolsForRole(role: UserRole): readonly { readonly name: string; readonly description: string }[];
+	toolsForRole(role: string): readonly { readonly name: string; readonly description: string }[];
 	/** `returnStatusTool.forRegistry(enforcementRegistry)` — opaque `RegisteredTool`, never inspected here. */
 	returnStatusToolForRegistry(registry: SessionLifecycleEnforcementRegistry): unknown;
 }
@@ -372,7 +371,7 @@ interface SessionLifecycleContextAssembly {
 		readonly sessionId: string;
 		readonly taskId: string | null;
 		readonly agentId: string;
-		readonly agentRole: UserRole;
+		readonly agentRole: string;
 		readonly teamId: string | null;
 		readonly isRoutine: boolean;
 		readonly sourceKind: AgentSessionSourceKind | null;
@@ -487,22 +486,19 @@ interface SessionLifecyclePorts {
 	 * Returns the effective config; an agent with no row resolves the all-null
 	 * default (`maxConcurrentSessions` 1), never `undefined`.
 	 */
-	readonly agentRunConfig: SessionLifecycleAgentRunConfigReader;
-}
-
-/** Live reader of `agent_run_config` — see `SessionLifecyclePorts.agentRunConfig`. */
-export interface SessionLifecycleAgentRunConfigReader {
-	readAgentRunConfig(
-		exec: HyperIdleDb,
-		agentUserId: string,
-	): Promise<{
-		readonly systemPrompt: string | null;
-		readonly harnessType: string | null;
-		readonly modelTierPreference: string | null;
-		readonly modelId: string | null;
-		readonly modelProvider: string | null;
-		readonly maxConcurrentSessions: number;
-	}>;
+	readonly agentRunConfig: {
+		readAgentRunConfig(
+			exec: HyperIdleDb,
+			agentUserId: string,
+		): Promise<{
+			readonly systemPrompt: string | null;
+			readonly harnessType: string | null;
+			readonly modelTierPreference: string | null;
+			readonly modelId: string | null;
+			readonly modelProvider: string | null;
+			readonly maxConcurrentSessions: number;
+		}>;
+	};
 }
 
 /**
@@ -633,7 +629,7 @@ async function captureMountedFilesystems(
 	sessionId: string,
 	sandboxPath: string,
 	mountedFilesystems: Filesystem[],
-	mounter: FilesystemMounter,
+	mounter: FilesystemMounterPort,
 ): Promise<void> {
 	if (mountedFilesystems.length === 0) return;
 
@@ -709,7 +705,7 @@ interface ProvisionSessionDeps {
 	 * When present, mount runs after sandbox spawn (Phase 4.5) and captureBack runs before
 	 * each endSession/crashSession call.
 	 */
-	readonly mounter?: FilesystemMounter;
+	readonly mounter?: FilesystemMounterPort;
 }
 
 interface ProvisionSessionParams {
@@ -1465,9 +1461,7 @@ async function runSession(
 	// real gate exists.
 	// The assistant is not exempt from return enforcement — it must call
 	// `reply` like every other required-return session.
-	const exempt = isInternalExtractionDrain({
-		tools: ports.toolProvider.toolsForRole(agentRole).map((d) => d.name),
-	});
+	const exempt = ports.toolProvider.toolsForRole(agentRole).length === 0;
 	ports.harnessRuntime.enforcementRegistry.register(sessionId, {
 		gate: returnGate,
 		forceCount: 0,
@@ -1846,7 +1840,7 @@ interface Provisioner {
 		agentId: string,
 		filesystems: InjectedFilesystemsReaderPort | undefined,
 		sandboxPath: string,
-		mounter: FilesystemMounter,
+		mounter: FilesystemMounterPort,
 	): Promise<Filesystem[]>;
 	capture: typeof captureMountedFilesystems;
 }

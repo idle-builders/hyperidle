@@ -78,10 +78,6 @@ const BUILTIN_ROUTINE_IDS = [
 
 export type BuiltinRoutineId = (typeof BUILTIN_ROUTINE_IDS)[number];
 
-export function isBuiltinRoutineId(id: string): boolean {
-	return extractBuiltinKind(id) !== null;
-}
-
 export function extractBuiltinKind(id: string): BuiltinRoutineId | null {
 	if ((BUILTIN_ROUTINE_IDS as readonly string[]).includes(id)) {
 		return id as BuiltinRoutineId;
@@ -820,13 +816,11 @@ export async function startRoutineScheduler(
 					});
 
 					for (const routine of dueRoutines) {
-						if (isBuiltinRoutineId(routine.id)) {
-							const kind = extractBuiltinKind(routine.id);
-							if (kind === "builtin:post-bet-retro") continue;
-							const nextRunAt = computeNextRunAt(routine, new Date());
-							await updateRoutine(db, routine.id, { nextRunAt });
-							void fireBuiltinRoutine(db, eventBus, ports, routine.id).catch(() => {
-								/* builtin firing writes its own terminal run row (§3a) */
+						const builtinKind = extractBuiltinKind(routine.id);
+						if (builtinKind) {
+							// Builtins run in-process — no agent provisioning required.
+							fireBuiltinRoutine(db, eventBus, ports, routine.id).catch(() => {
+								/* fire-and-forget: errors do not block subsequent routines */
 							});
 						} else {
 							if (!canProvision) continue;

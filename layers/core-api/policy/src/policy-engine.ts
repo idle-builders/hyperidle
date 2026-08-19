@@ -4,12 +4,13 @@ import type { EventBus } from "@hyperidle/event-bus";
 import { computeApprovalRate } from "./approval-rate.js";
 import type { PolicyDeps } from "./ports.js";
 
-type PolicyEngineDeps = Pick<PolicyDeps, "work" | "conversation" | "silence">;
-
-interface PolicyEngineOptions {
-	/** Inject current time for testability. Defaults to () => new Date(). */
-	nowFn?: () => Date;
-}
+/**
+ * @lore AU43: silence removed from PolicyEngineDeps — isSilenced had no
+ * writer for its config (constant-false in every real install). The silence
+ * branch in determineAction is deleted; db and nowFn are no longer needed
+ * there, so determineAction is now synchronous.
+ */
+type PolicyEngineDeps = Pick<PolicyDeps, "work" | "conversation">;
 
 type PolicyAction = "push" | "queue" | "auto_resolve";
 
@@ -20,20 +21,17 @@ interface TrustSignal {
 
 /**
  * Registers the policy engine event handler.
- * Subscribes to `item_created` events and applies trust/silence rules.
+ * Subscribes to `item_created` events and applies trust rules.
  * Returns an unsubscribe function.
  */
 function registerPolicyEngine(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	deps: PolicyEngineDeps,
-	options?: PolicyEngineOptions,
 ): () => void {
-	const nowFn = options?.nowFn ?? (() => new Date());
-
 	const handler = (event: ItemCreatedEvent): void => {
 		void (async () => {
-			await evaluateItem(db, eventBus, event.itemId, deps, nowFn);
+			await evaluateItem(db, eventBus, event.itemId, deps);
 		})().catch(async (error: unknown) => {
 			const timestamp = new Date().toISOString();
 			await db.insert(propagationLog).values({
@@ -63,7 +61,6 @@ async function evaluateItem(
 	eventBus: EventBus,
 	itemId: string,
 	deps: PolicyEngineDeps,
-	nowFn: () => Date,
 ): Promise<void> {
 	// 1. Load the item
 	const item = await deps.work.getItemById(db, itemId);
@@ -73,7 +70,7 @@ async function evaluateItem(
 	const trust = await getAgentTrustSignal(db, item.sourceAgentId, deps);
 
 	// 3. Determine action (priority order)
-	const action = await determineAction(db, item, trust, deps, nowFn);
+	const action = determineAction(item, trust);
 
 	// 4. Execute the action
 	await executeAction(db, eventBus, itemId, action, deps);
@@ -103,34 +100,20 @@ async function getAgentTrustSignal(
 	};
 }
 
-async function determineAction(
-	db: HyperIdleDb,
+function determineAction(
 	item: {
 		riskTier: string | null;
 		kind: string | null;
-		blocking: number | boolean | null;
-		sourceAgentId: string | null;
 	},
 	trust: TrustSignal,
-	deps: PolicyEngineDeps,
-	nowFn: () => Date,
-): Promise<PolicyAction> {
+): PolicyAction {
 	// a. High-risk: ALWAYS push
 	if (item.riskTier === "high") return "push";
 
 	// b. Skill-change: ALWAYS push
 	if (item.kind === "skill_change") return "push";
 
-	const isBlocking = !!item.blocking;
-
-	// c. Check silence modes (only for non-blocking items)
-	if (!isBlocking) {
-		if (await deps.silence.isSilenced(db, { sourceAgentId: item.sourceAgentId }, nowFn())) {
-			return "queue";
-		}
-	}
-
-	// d. Trust-based rules (replaces autonomy level rules)
+	// c. Trust-based rules (replaces autonomy level rules)
 	// @lore AU18: thresholds were settable via factory_settings; now fixed defaults.
 	const autoResolveThreshold = TRUST_AUTO_RESOLVE_THRESHOLD;
 	const autoResolveMinVerdicts = TRUST_AUTO_RESOLVE_MIN_VERDICTS;

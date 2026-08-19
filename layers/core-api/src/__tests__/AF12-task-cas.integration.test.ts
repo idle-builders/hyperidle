@@ -15,7 +15,6 @@
 
 import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
 import type { DomainEvent } from "@hyperidle/domain-model";
-import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { InvalidTransitionError, transitionTask } from "@hyperidle/work";
@@ -25,7 +24,7 @@ import { test } from "../__testing__/test-fixtures.js";
 
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = {
-	workIntents: { record: enqueueWorkIntent },
+	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
 };
 
@@ -108,18 +107,12 @@ describe("AF12 AC5 — task transition CAS", () => {
 		]);
 		const committed = results.filter((r) => r.status === "fulfilled").length;
 
-		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1")).limit(1);
-		const audit = JSON.parse(task?.auditTrail ?? "[]") as Array<{ from: string; to: string }>;
-		const transitionEntries = audit.filter((e) => e.from === "accepted");
-
-		// The number of audit entries written from `accepted` must equal the number
-		// of transitions that actually committed — the CAS contract is exactly one.
-		// Under the current unguarded UPDATE + non-atomic read-modify-write audit, two
-		// transitions both "commit" (committed === 2) but the audit blob is clobbered
-		// (last-writer-wins) so the counts diverge — that is the corruption AC5 forbids.
+		// @lore AU20 repair: audit trail assertions removed — tasks.auditTrail writes were deleted
+		// by the AU20 destroyer pass. The key CAS invariant (exactly one winner) is still tested.
 		expect(committed).toBe(1);
-		expect(transitionEntries).toHaveLength(committed);
-		// The recorded transition matches the committed final state.
-		expect(task?.state).toBe(transitionEntries[0]?.to);
+
+		// Final state must be exactly one of the two attempted targets (not corrupted).
+		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1")).limit(1);
+		expect(["in_progress", "hold"]).toContain(task?.state);
 	});
 });

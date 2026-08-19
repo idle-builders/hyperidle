@@ -5,7 +5,6 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./zod-schemas": "./src/zod-schemas.ts",
 		"./test-fixtures": "./src/__testing__/test-fixtures.ts",
 		"./testing": "./src/__testing__/test-utils.ts",
 		"./test-pool": "./src/__testing__/test-pool.ts"
@@ -19,12 +18,9 @@
 		"@electric-sql/pglite": "^0.5.4",
 		"@hyperidle/domain-model": "*",
 		"drizzle-orm": "^0.45.2",
-		"drizzle-zod": "^0.8.3",
-		"postgres": "^3.4.9",
-		"zod": "^4.3.6"
+		"postgres": "^3.4.9"
 	},
 	"devDependencies": {
-		"@hyperidle/diagnostics": "*",
 		"drizzle-kit": "^0.31.10",
 		"vitest": "^4.1.9"
 	}

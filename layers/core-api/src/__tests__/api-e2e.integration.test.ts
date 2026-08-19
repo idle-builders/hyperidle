@@ -238,17 +238,7 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.code).toBe("NOT_FOUND");
 		});
 
-		test("GET /api/bets/canvas returns canvas data", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/bets/canvas", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as {
-				shaped: unknown[];
-				committed: unknown[];
-				capacity: { used: number; max: number };
-			};
-			expect(body.capacity.max).toBe(5);
-		});
+		// GET /api/bets/canvas (door #24) deleted. Test removed.
 
 		// @lore U1: commit transitions draft→active (formerly shaped→committed).
 		test("POST /api/bets/:id/commit transitions a shaped bet to committed", async ({ db, app }) => {
@@ -301,84 +291,16 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.every((t) => t.betId === "bet-1")).toBe(true);
 		});
 
-		test("PATCH /api/tasks/:id updates task fields", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			const res = await app.request("/api/tasks/task-1", {
-				method: "PATCH",
-				headers: auth(),
-				body: JSON.stringify({ title: "Updated Title" }),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { title: string };
-			expect(body.title).toBe("Updated Title");
-		});
-
-		test("PATCH /api/tasks/:id returns 404 for nonexistent task", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			const res = await app.request("/api/tasks/nonexistent", {
-				method: "PATCH",
-				headers: auth(),
-				body: JSON.stringify({ title: "X" }),
-			});
-			expect(res.status).toBe(404);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("NOT_FOUND");
-		});
-
-		test("POST /api/tasks/:id/transition transitions task state", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			// proposed -> accepted is a valid transition
-			const res = await app.request("/api/tasks/task-1/transition", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({ state: "accepted" }),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { state: string };
-			expect(body.state).toBe("accepted");
-		});
-
-		test("POST /api/tasks/:id/transition returns 400 for invalid state", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			const res = await app.request("/api/tasks/task-1/transition", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({ state: "invalid_state" }),
-			});
-			expect(res.status).toBe(400);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("VALIDATION_ERROR");
-		});
+		// PATCH /api/tasks/:id (door #39) and POST /api/tasks/:id/transition (door #40) deleted.
+		// Tests removed with the routes.
 	});
 
 	// -------------------------------------------------------
 	// 5. Conversations
 	// -------------------------------------------------------
 	describe("Conversations", () => {
-		test("GET /api/conversations lists threads", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			await seedConversationData(db);
-			const res = await app.request("/api/conversations", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { threads: unknown[]; pagination: { total: number } };
-			expect(body.pagination.total).toBeGreaterThanOrEqual(1);
-		});
-
-		test("GET /api/conversations/:threadId returns thread with items", async ({ db, app }) => {
-			await seedBase(db);
-			await seedTaskData(db);
-			await seedConversationData(db);
-			const res = await app.request("/api/conversations/thread-1", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { id: string; items: unknown[] };
-			expect(body.id).toBe("thread-1");
-			expect(body.items.length).toBeGreaterThanOrEqual(1);
-		});
+		// GET /api/conversations (door #72) and GET /api/conversations/:threadId (door #76)
+		// deleted. Tests removed with the routes.
 
 		test("POST /api/conversations/items creates an item", async ({ db, app }) => {
 			await seedBase(db);
@@ -606,31 +528,8 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.code).toBe("NOT_FOUND");
 		});
 
-		test("GET /api/users/:id/inbox returns empty inbox", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/users/agent-1/inbox", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { messages: unknown[]; total: number };
-			expect(body.messages).toEqual([]);
-			expect(body.total).toBe(0);
-		});
-
-		test("POST /api/users/:id/inbox sends message and returns 201", async ({ db, app }) => {
-			await seedBase(db);
-			// L1 step9 (Adv-C2): sender is derived from X-Identity, not the body.
-			const res = await app.request("/api/users/agent-1/inbox", {
-				method: "POST",
-				headers: auth({ "X-Identity": "agent-1" }),
-				body: JSON.stringify({ body: "Hello agent!" }),
-			});
-			expect(res.status).toBe(201);
-			// L1a: messages now carry payload (JSON), not body/recipientId.
-			// Recipient is derived from the thread.host_id (plan §5.3).
-			const body = (await res.json()) as { senderId: string; payload: string };
-			expect(body.senderId).toBe("agent-1");
-			const payload = JSON.parse(body.payload) as { text?: string };
-			expect(payload.text).toBe("Hello agent!");
-		});
+		// GET /api/users/:id/inbox (door #92) and POST /api/users/:id/inbox (door #93)
+		// deleted. Tests removed with the routes.
 	});
 
 	// -------------------------------------------------------
@@ -646,104 +545,11 @@ describe("E2E API Integration (I5)", () => {
 			expect(Array.isArray(body)).toBe(true);
 		});
 
-		test("POST /api/sessions creates a session and emits event", async ({ db, app, eventBus }) => {
-			await seedBase(db);
-			await seedSessionData(db);
-			const events: unknown[] = [];
-			eventBus.on("session_started", (e: unknown) => events.push(e));
-
-			const res = await app.request("/api/sessions", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-s",
-					modelTier: "workhorse",
-				}),
-			});
-			expect(res.status).toBe(201);
-			const body = (await res.json()) as { id: string; state: string };
-			expect(body.state).toBe("active");
-			expect(events.length).toBe(1);
-		});
-
-		test("PATCH /api/sessions/:id ends a session", async ({ db, app }) => {
-			await seedBase(db);
-			await seedSessionData(db);
-			// Create a session first
-			const createRes = await app.request("/api/sessions", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-s",
-					modelTier: "fast",
-				}),
-			});
-			const created = (await createRes.json()) as { id: string };
-
-			const res = await app.request(`/api/sessions/${created.id}`, {
-				method: "PATCH",
-				headers: auth(),
-				body: JSON.stringify({ state: "done" }),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { state: string; endedAt: string };
-			expect(body.state).toBe("done");
-			expect(body.endedAt).toBeTruthy();
-		});
-
-		test("PATCH /api/sessions/:id returns 404 for nonexistent session", async ({ db, app }) => {
-			await seedBase(db);
-			await seedSessionData(db);
-			const res = await app.request("/api/sessions/nonexistent", {
-				method: "PATCH",
-				headers: auth(),
-				body: JSON.stringify({ state: "done" }),
-			});
-			expect(res.status).toBe(404);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("NOT_FOUND");
-		});
+		// POST /api/sessions (door #114) and PATCH /api/sessions/:id (door #144) deleted.
+		// Tests removed with the routes.
 	});
 
-	// -------------------------------------------------------
-	// 10. Status
-	// -------------------------------------------------------
-	describe("Status", () => {
-		// @lore AU26 J1: `activeSessions` is gone from this response.
-		test("GET /api/status returns factory-wide status", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/status", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { agentStates: Record<string, number>; uptime: string };
-			expect(typeof body.uptime).toBe("string");
-			expect(body.agentStates).toBeTypeOf("object");
-		});
-
-		test("GET /api/status/health returns authenticated health", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/status/health", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { status: string };
-			expect(body.status).toBe("ok");
-		});
-
-		// @lore AU18: the generic `GET`/`PATCH /api/status/settings` catch-all is
-		// retired along with `factorySettings` — every legitimate key it carried
-		// now has a domain-specific route backed by `server_config`
-		// (notifications config has its own route tests). No web
-		// client depended on the raw-rows shape (confirmed via grep).
-
-		test("GET /api/status/digest returns digest data", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/status/digest", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { items: unknown[]; generatedAt: string };
-			expect(Array.isArray(body.items)).toBe(true);
-			expect(typeof body.generatedAt).toBe("string");
-		});
-	});
+	// Status routes (doors #115-118) deleted. Tests removed with the routes.
 
 	// -------------------------------------------------------
 	// 11. Routines
@@ -771,43 +577,14 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.active).toBe(false);
 		});
 
-		test("POST /api/routines/:id/retire retires routine", async ({ db, app }) => {
-			await seedBase(db);
-			await seedRoutineData(db);
-			const res = await app.request("/api/routines/routine-1/retire", {
-				method: "POST",
-				headers: auth(),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { active: boolean };
-			expect(body.active).toBe(false);
-		});
-
-		test("POST /api/routines/:id/retire returns 404 for unknown routine", async ({ db, app }) => {
-			await seedBase(db);
-			await seedRoutineData(db);
-			const res = await app.request("/api/routines/nonexistent/retire", {
-				method: "POST",
-				headers: auth(),
-			});
-			expect(res.status).toBe(404);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("NOT_FOUND");
-		});
+		// POST /api/routines/:id/retire (door #?) deleted. Tests removed with the route.
 	});
 
 	// -------------------------------------------------------
 	// 12. Notifications
 	// -------------------------------------------------------
 	describe("Notifications", () => {
-		test("GET /api/notifications returns resource descriptor", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/notifications", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { ok: boolean; resource: string };
-			expect(body.ok).toBe(true);
-			expect(body.resource).toBe("notifications");
-		});
+		// GET /api/notifications root (door #129) deleted. Test removed with the route.
 
 		test("GET /api/notifications/config returns notification config", async ({ db, app }) => {
 			await seedBase(db);
@@ -818,22 +595,7 @@ describe("E2E API Integration (I5)", () => {
 			expect(typeof body.primaryChannel).toBe("string");
 		});
 
-		test("GET /api/notifications/queue returns queued notifications", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/notifications/queue", { headers: auth() });
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { status: string; count: number; rows: unknown[] };
-			expect(body.status).toBe("pending");
-			expect(Array.isArray(body.rows)).toBe(true);
-		});
-
-		test("GET /api/notifications/queue?status=invalid returns 400", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/notifications/queue?status=invalid", { headers: auth() });
-			expect(res.status).toBe(400);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("VALIDATION_ERROR");
-		});
+		// GET /api/notifications/queue (door #133) deleted. Tests removed with the route.
 
 		test("POST /api/notifications/test sends a test notification via console adapter", async ({
 			db,
@@ -874,21 +636,7 @@ describe("E2E API Integration (I5)", () => {
 	// 15. Validation
 	// -------------------------------------------------------
 	describe("Request validation", () => {
-		test("POST /api/sessions returns 400 for invalid modelTier", async ({ db, app }) => {
-			await seedBase(db);
-			const res = await app.request("/api/sessions", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({
-					agentId: "agent-1",
-					taskId: "task-1",
-					modelTier: "invalid",
-				}),
-			});
-			expect(res.status).toBe(400);
-			const body = (await res.json()) as { code: string };
-			expect(body.code).toBe("VALIDATION_ERROR");
-		});
+		// POST /api/sessions (door #114) deleted. Validation test removed with the route.
 
 		test("PATCH /api/routines/:id returns 404 for nonexistent routine", async ({ db, app }) => {
 			await seedBase(db);

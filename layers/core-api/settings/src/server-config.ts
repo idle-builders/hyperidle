@@ -17,7 +17,12 @@ import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/domain-mode
 import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import type { SettingsCredentialCipher } from "./ports.js";
+
+/** Secret transformation dependency for the one-shot credential migration. */
+interface CredentialCipher {
+	encryptCredentialValue(plaintext: string): string;
+	decryptCredentialValue(encrypted: string): string | null;
+}
 
 const NotificationsDeliverySchema = z.object({
 	enabled: z.boolean().default(false),
@@ -43,15 +48,6 @@ const NotificationsSilenceSchema = z.object({
 	silencedTeamIds: z.array(z.string()).default([]),
 	windowStart: z.string().nullable().default(null),
 	windowEnd: z.string().nullable().default(null),
-});
-
-const ObservabilitySchema = z.object({
-	// @lore AF16 T14: default-on so tracing is "configured rather than silently off".
-	enabled: z.boolean().default(true),
-	adapter: z.enum(["console", "noop"]).default("console"),
-	batchSize: z.number().default(100),
-	flushIntervalMs: z.number().default(2000),
-	bufferCap: z.number().default(10_000),
 });
 
 /**
@@ -111,8 +107,6 @@ const ServerConfigSchema = z.object({
 	/** X4: Model gateway configuration (provider per tier). Optional — defaults to BUILT_IN_GATEWAY_CONFIG. */
 	modelGateway: ModelGatewayConfigSchema.optional(),
 	harnessDisabled: z.array(z.string()).default([]),
-	/** AU18: observability config (migrated from factorySettings). */
-	observability: ObservabilitySchema.optional(),
 });
 
 type RawServerConfig = z.infer<typeof ServerConfigSchema>;
@@ -126,8 +120,6 @@ export type ServerConfig = {
 	modelGateway: ModelGatewayConfig;
 	/** AM4: List of harness types the user has disabled. Defaults to []. */
 	harnessDisabled: string[];
-	/** AU18: fully-typed observability config (always present, defaults applied). */
-	observability: z.infer<typeof ObservabilitySchema>;
 };
 
 /** Deep partial type for use in updateServerConfig patches. */
@@ -173,8 +165,6 @@ export type ServerConfigPatch = {
 	 * Use updateServerConfig to add/remove a type atomically (read-modify-write).
 	 */
 	harnessDisabled?: string[];
-	/** AU18: shallow partial — every field is independently patchable. */
-	observability?: Partial<z.infer<typeof ObservabilitySchema>>;
 };
 
 /**
@@ -207,7 +197,6 @@ const DEFAULTS: ServerConfig = {
 	notifications: applyNotificationsDefaults(undefined),
 	modelGateway: BUILT_IN_GATEWAY_CONFIG,
 	harnessDisabled: [],
-	observability: ObservabilitySchema.parse({}),
 };
 
 /**
@@ -223,7 +212,6 @@ function applyDefaults(raw: RawServerConfig): ServerConfig {
 			: BUILT_IN_GATEWAY_CONFIG,
 		// AM4: default to empty array when absent (legacy rows have no harnessDisabled key)
 		harnessDisabled: Array.isArray(raw.harnessDisabled) ? raw.harnessDisabled : [],
-		observability: ObservabilitySchema.parse(raw.observability ?? {}),
 	};
 }
 
@@ -338,11 +326,6 @@ async function patchServerConfig(
 		// AM4: Full-replacement — the patch supplies the complete new list of disabled types.
 		harnessDisabled:
 			patch.harnessDisabled !== undefined ? patch.harnessDisabled : current.harnessDisabled,
-		// AU18: shallow merges — each new top-level section is flat (no nested sub-objects).
-		observability:
-			patch.observability !== undefined
-				? { ...current.observability, ...patch.observability }
-				: current.observability,
 	};
 
 	// AH1 §2: no apiKey in tiers — no encryption step needed here. Keys go to server_credentials.
@@ -367,7 +350,7 @@ async function patchServerConfig(
 /** Relocate legacy inline keys before stripping them; idempotent and absent-only. */
 export async function migrateCredentialsToStore(
 	db: HyperIdleDb,
-	cipher: SettingsCredentialCipher,
+	cipher: CredentialCipher,
 	credentialStore: {
 		findByName(db: HyperIdleDb, name: string): Promise<ServerCredential | undefined>;
 		insert(
@@ -483,44 +466,4 @@ export async function migrateCredentialsToStore(
 			});
 		}
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Observability config
-// ---------------------------------------------------------------------------
-
-/**
- * The observability section of `server_config`, fully defaulted.
- *
- * @lore AU26 C2: this type + the read/update pair below arrived from the
- * dissolved `layers/core-api/observability`. There they were a two-line
- * pass-through over an injected `{ read, update }` port — a port that existed
- * ONLY because `composition-boundary-guard` bans one core-api Service from
- * importing another. `settings` owns `server_config`, and `ObservabilitySchema`
- * (`:48`) has always lived right here, so at home the port is unnecessary
- * indirection and is gone: `readObservabilityConfig(db)` reads settings' own
- * config. The observability *runtime* keeps no config-shaped DI seam.
- */
-export type ObservabilityConfig = ServerConfig["observability"];
-
-/** Patch shape for {@link updateObservabilityConfig}. */
-export type ObservabilityConfigPatch = Partial<ObservabilityConfig>;
-
-/**
- * Always returns a config (even when disabled), so a caller can surface the
- * persisted values regardless of the `enabled` flag. Callers that want a null
- * short-circuit when observability is off inline the `cfg.enabled` check.
- */
-export async function readObservabilityConfig(db: HyperIdleDb): Promise<ObservabilityConfig> {
-	const { observability } = await readServerConfig(db);
-	return observability;
-}
-
-/** Apply a partial observability patch and return the merged result. */
-export async function updateObservabilityConfig(
-	db: HyperIdleDb,
-	patch: ObservabilityConfigPatch,
-): Promise<ObservabilityConfig> {
-	const { observability } = await updateServerConfig(db, { observability: patch });
-	return observability;
 }

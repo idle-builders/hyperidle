@@ -19,14 +19,9 @@ export type {
 } from "./harness/harness-capability-read-model.js";
 export {
 	harnessCapabilitiesForType,
-	harnessCapabilityDescriptors,
 	harnessRegistrationMeta,
-	refreshHarnessDiscoveries,
-	registeredHarnessCount,
-	workerConnections,
 } from "./harness/harness-capability-read-model.js";
 export {
-	isHarnessEvent,
 	normalizeHarnessEvent,
 	preMapClaudeEvent,
 } from "./harness/harness-event-normalization.js";
@@ -35,7 +30,6 @@ export type {
 	ErrorEvent,
 	HarnessEvent,
 	HarnessEventType,
-	PreCompactionEvent,
 	TokenUsageEvent,
 	ToolCallEvent,
 } from "./harness/harness-events.js";
@@ -47,7 +41,6 @@ export type {
 export {
 	buildForceReturnMessage,
 	FORCE_RETURN_MESSAGE,
-	isInternalExtractionDrain,
 	isRequiredReturnAction,
 	isReturnAction,
 	literalToolNamerForAdapterType,

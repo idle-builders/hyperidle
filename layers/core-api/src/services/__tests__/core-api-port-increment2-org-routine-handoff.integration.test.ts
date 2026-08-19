@@ -80,7 +80,6 @@ import {
 import {
 	bets,
 	type HyperIdleDb,
-	orgEdges,
 	routines,
 	sessions,
 	tasks,
@@ -318,20 +317,17 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 		expect(row?.leadAgentId).toBe("agent-org-updateteam1");
 	});
 
-	test("resolveReviewRecipientsForItem reaches the real review-routing route (org edge match)", async ({
+	test("resolveReviewRecipientsForItem reaches the real review-routing route (fallback all humans)", async ({
 		db,
 		app,
 	}) => {
+		// @lore AU20 ruling 1: the old org-edge matrix is gone. Recipients are the
+		// humans on the agent's team; when teamId is undefined or the team has no
+		// humans, every human is returned so the review reaches someone.
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-org-key-reviewrecipients");
 		await seedAgent(db, "agent-org-reviewer-target", { role: "builder" });
 		await seedAgent(db, "human-org-reviewer", { kind: "human", role: "founder" });
-		await db.insert(orgEdges).values({
-			id: "edge-inc2-1",
-			fromUserId: "human-org-reviewer",
-			mechanism: "function",
-			target: "builder",
-			createdAt: NOW,
-		});
+		// No teamId provided → fallback path → all humans returned.
 
 		const port = buildSeamPort("agent-org-reviewer-target", app);
 		const recipients = await port.org.resolveReviewRecipientsForItem({

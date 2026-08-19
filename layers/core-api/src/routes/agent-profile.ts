@@ -45,7 +45,6 @@ import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
-	registeredHarnessCount,
 } from "@hyperidle/harness-protocol";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { getTeam, getTeamMembers } from "@hyperidle/org";
@@ -189,7 +188,7 @@ export function resolveHarnessAvailable(
 	if (!adapterPool) return true;
 	if (!harnessType) {
 		// No preference — any adapter will do
-		return registeredHarnessCount(adapterPool) > 0;
+		return adapterPool.size > 0;
 	}
 	// Specific type required — check if it's registered
 	return harnessCapabilitiesForType(adapterPool, harnessType) !== null;

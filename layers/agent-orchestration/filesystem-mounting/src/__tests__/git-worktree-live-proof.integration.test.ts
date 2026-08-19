@@ -104,22 +104,19 @@ async function seedFilesystem(
 
 describe("Git worktree live proof on this repo", () => {
 	let tmpDir: string;
-	let capturesDir: string;
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-live-proof-"));
-		capturesDir = path.join(tmpDir, "captures");
-		fs.mkdirSync(capturesDir, { recursive: true });
 	});
 
 	afterEach(() => {
 		fs.rmSync(tmpDir, { recursive: true, force: true });
 	});
 
-	test("real worktreeAdd → real edit → real captureBack → bundle clones + scaffolding-exclusion holds", async ({
-		db,
-		skip,
-	}) => {
+	// @lore AU43 repair: captureBack (git add/commit/bundle/worktreeRemove) was deleted by
+	// AU43 bundle-10. It is now a declared no-op returning {success:true, captured:false}.
+	// Steps 4b (bundle clone), 4c (scaffolding-exclusion), 4d (worktree removal) are removed.
+	test("real worktreeAdd → real captureBack is a declared no-op", async ({ db, skip }) => {
 		// Guard: this test requires a git repo with origin/main.
 		// Use vitest's ctx.skip() so the test is reported as SKIPPED (not silently passing).
 		// A silent `return` would let this keystone green-skip without any trace.
@@ -140,8 +137,6 @@ describe("Git worktree live proof on this repo", () => {
 
 		const deps = {
 			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
-			capturesDir,
-			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
 
 		const adapter = new RegistryFilesystemMounter(deps);
@@ -150,7 +145,6 @@ describe("Git worktree live proof on this repo", () => {
 		const mountResult = await adapter.mount({
 			filesystem: fsDef,
 			sandboxPath,
-			auth: null,
 		});
 		expect(mountResult.error, mountResult.error).toBeUndefined();
 		expect(mountResult).toEqual({ success: true, sandboxPath });
@@ -158,21 +152,7 @@ describe("Git worktree live proof on this repo", () => {
 		// Working tree present in sandbox.
 		expect(fs.existsSync(path.join(sandboxPath, "package.json"))).toBe(true);
 
-		// ── Step 2: real edit — NOT a scaffolding file ───────────────────────
-		const agentOutputFile = "ao2-live-proof-output.txt";
-		const agentOutputPath = path.join(sandboxPath, agentOutputFile);
-		fs.writeFileSync(agentOutputPath, `live proof session=${sessionId}\n`);
-
-		// Simulate context-assembly overwriting tracked scaffolding files (self-host case).
-		// CLAUDE.md + AGENTS.md are tracked by this repo; assembly overwrites them.
-		if (fs.existsSync(path.join(sandboxPath, "CLAUDE.md"))) {
-			fs.writeFileSync(
-				path.join(sandboxPath, "CLAUDE.md"),
-				"# Scaffolding content (should NOT appear in authored commit)\n",
-			);
-		}
-
-		// ── Step 3: captureBack (real git add/commit/bundle) ─────────────────
+		// ── Step 3: captureBack — confirmed declared no-op ───────────────────
 		const captureResult = await adapter.captureBack({
 			filesystem: fsDef,
 			sandboxPath,
@@ -181,56 +161,8 @@ describe("Git worktree live proof on this repo", () => {
 
 		expect(captureResult.error).toBeUndefined();
 		expect(captureResult.success).toBe(true);
-		expect(captureResult.captured).toBe(true);
-
-		const bundlePath = path.join(capturesDir, `${sessionId}.bundle`);
-		expect(fs.existsSync(bundlePath)).toBe(true);
-
-		// ── Step 4b: bundle clones and contains the bot's edit ───────────────
-		// (filesystem_captures DB row write requires a real sessions FK — covered by
-		// adapter integration tests. Live-proof focuses on the git + scaffolding proof.)
-		const verifyDir = path.join(tmpDir, "verify");
-		fs.mkdirSync(verifyDir, { recursive: true });
-		const vRunner = createGitRunner(verifyDir);
-
-		const expectedBranch = `agent/${sandboxBasename}`.replace(/[^a-zA-Z0-9/_.-]/g, "-");
-		await vRunner.clone(bundlePath, expectedBranch);
-
-		// The authored file is present.
-		expect(fs.existsSync(path.join(verifyDir, agentOutputFile))).toBe(true);
-		expect(fs.readFileSync(path.join(verifyDir, agentOutputFile), "utf-8")).toContain(
-			`session=${sessionId}`,
-		);
-
-		// ── Step 4c: scaffolding-exclusion — CLAUDE.md unchanged from HEAD ──
-		// CLAUDE.md is tracked by this repo. The authored commit must NOT carry
-		// the scaffolding-overwritten version. It should match HEAD's version.
-		//
-		// @lore AO2 live-proof scaffolding-check: We compare against HEAD:CLAUDE.md
-		// (not originSha:CLAUDE.md) because on a feature branch the repo HEAD may
-		// differ from origin/main. The worktree gets HEAD's CLAUDE.md; captureBack
-		// must preserve it (not the scaffolding-overwritten version). originSha is
-		// still fetched above for use in the worktree branch base; the CLAUDE.md
-		// check correctly uses HEAD (the actual content the adapter restores to).
-		if (fs.existsSync(path.join(verifyDir, "CLAUDE.md"))) {
-			// Get the CLAUDE.md content from this repo's current HEAD.
-			const headClaude = execSync("git show HEAD:CLAUDE.md", {
-				cwd: REPO_ROOT,
-			}).toString();
-			const capturedClaude = fs.readFileSync(path.join(verifyDir, "CLAUDE.md"), "utf-8");
-			// The scaffolding string MUST NOT be in the captured version.
-			expect(capturedClaude).not.toContain("Scaffolding content (should NOT appear");
-			// The captured version must match HEAD (scaffolding-exclusion held).
-			expect(capturedClaude).toBe(headClaude);
-		}
-
-		// ── Step 4d: worktree removed — no dangling worktree ─────────────────
-		// The adapter removes the worktree in captureBack.
-		expect(fs.existsSync(sandboxPath)).toBe(false);
-
-		// Also verify git worktree list doesn't show the temp path.
-		const worktreeList = execSync("git worktree list", { cwd: REPO_ROOT }).toString();
-		expect(worktreeList).not.toContain(sandboxPath);
+		// AU43 stage 2: capture write code removed; captureBack is a no-op.
+		expect(captureResult.captured).toBe(false);
 
 		// ── Bonus: assert no secret leakage (AC4) ────────────────────────────
 		// The filesystem row must NOT contain any token column (static — schema has none).
@@ -249,5 +181,12 @@ describe("Git worktree live proof on this repo", () => {
 		expect(SANDBOX_SCAFFOLDING_PATHS).toContain("CLAUDE.md");
 		expect(SANDBOX_SCAFFOLDING_PATHS).toContain("AGENTS.md");
 		expect(SANDBOX_SCAFFOLDING_PATHS).toContain(".fabric");
+
+		// Clean up the dangling worktree (captureBack no longer does it).
+		try {
+			await createGitRunner(REPO_ROOT).worktreeRemove(sandboxPath, { force: true });
+		} catch {
+			// best-effort cleanup; afterEach removes the files
+		}
 	});
 });

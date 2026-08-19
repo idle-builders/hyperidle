@@ -48,24 +48,10 @@ export const TASK_STATE_LABEL: Record<TaskState, string> = {
  * bad `field` value is rejected by Zod (400) instead of falling through to
  * the service layer (which would throw a generic 500).
  */
-// @lore AU21 Increment 14a: "cost_appetite" removed — `bets.costAppetiteMinor/
-// costAppetiteCurrency` are dropped columns and the PATCH schema no longer
-// accepts this field, no replacement.
-export const MUTABLE_BET_FIELDS = [
-	"done_condition",
-	"hypothesis",
-	"description",
-	"at_risk",
-] as const;
-
-export type MutableBetField = (typeof MUTABLE_BET_FIELDS)[number];
-
 export interface HealthResponse {
 	status: "ok";
 	timestamp: string;
 }
-
-export type KnowledgeFormat = "markdown" | "toon";
 
 /**
  * Kernel-level knowledge statuses: the three states the kernel cares about
@@ -105,8 +91,6 @@ export const BET_STATUS_LABEL: Record<BetStatus, string> = {
 	killed: "Killed",
 };
 
-export type SessionState = "active" | "paused" | "done" | "crashed";
-
 export type ModelTier = "reasoning" | "workhorse" | "fast";
 
 /**
@@ -142,17 +126,6 @@ export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
  * could not accommodate new domain-specific roles (designer, QA, ops, etc.)
  * without code changes. Open string + catalog avoids the enum expansion problem.
  */
-export type UserRole = string;
-
-export type UserStatus = "active" | "paused" | "retired";
-
-/**
- * P2: Human vs AI kind discriminator.
- * "human" = a real person (the founder); "ai" = an AI agent.
- */
-export const USER_KINDS = ["human", "ai"] as const;
-export type UserKind = (typeof USER_KINDS)[number];
-
 /**
  * P2: OrgChart edge mechanisms.
  * "direct" = edge targets a specific userId,

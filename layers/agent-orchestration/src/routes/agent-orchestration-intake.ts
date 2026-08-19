@@ -22,33 +22,20 @@ import {
 	type DEFAULT_AGENT_RUN_CONFIG,
 	readAgentRunConfig,
 	readAgentRunConfigs,
-	readTeamRunConfigDefaults,
 	writeAgentRunConfig,
-	writeTeamRunConfigDefaults,
 } from "@hyperidle/agent-run-config";
 import type {
-	AgentOrchestrationCreateBareRunRequest,
-	AgentOrchestrationExplicitStartRequest,
-	AgentOrchestrationExplicitStartView,
 	AgentOrchestrationRunConfigPatch,
-	AgentOrchestrationTeamRunConfigDefaultsView,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
-import type { ExplicitSessionStart, HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import { endRunForHandoff, requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import {
-	createBareRun,
-	endRunForHandoff,
-	requestRunStopForTasks,
-} from "@hyperidle/run-orchestration";
-import {
-	createSessionRequest,
 	enqueueWorkIntent,
-	findSessionRequest,
 	listPendingIntentsByKind,
 	sessionRunRegistry,
 	transitionSessionRequest,
@@ -92,20 +79,6 @@ function toWorkIntentInput(body: AgentOrchestrationWorkIntentInput): WorkIntentI
 	};
 }
 
-function rowToExplicitStartView(row: ExplicitSessionStart): AgentOrchestrationExplicitStartView {
-	return {
-		id: row.id,
-		status: row.status,
-		taskId: row.taskId,
-		requestedAgentId: row.requestedAgentId,
-		requestedModelTier: row.requestedModelTier,
-		requestedBy: row.requestedBy,
-		idempotencyKey: row.idempotencyKey,
-		sessionId: row.sessionId,
-		failureCode: row.failureCode,
-	};
-}
-
 const workIntentInputSchema = z.object({
 	kind: z.enum(WORK_INTENT_KINDS),
 	sourceKind: z.string().min(1),
@@ -115,112 +88,18 @@ const workIntentInputSchema = z.object({
 	bakedRequest: z.unknown().optional(),
 }) satisfies z.ZodType<AgentOrchestrationWorkIntentInput>;
 
-const explicitStartRequestSchema = z.object({
-	startId: z.string().min(1),
-	taskId: z.string().min(1),
-	requestedAgentId: z.string().min(1),
-	requestedModelTier: z.string().optional(),
-	requestedBy: z.string().min(1),
-	idempotencyKey: z.string().min(1),
-	intentIdempotencyKey: z.string().min(1),
-	bakedRequest: z.unknown().optional(),
-}) satisfies z.ZodType<AgentOrchestrationExplicitStartRequest>;
-
-export function createAgentOrchestrationIntakeRoutes(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-): Hono<HyperIdleEnv> {
+export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// ── intents.submit — POST /agent-orchestration/intents ──────────────────
-	router.post(
-		"/intents",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(workIntentInputSchema),
-		async (c) => {
-			const body = c.req.valid("json");
-			const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
-			return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
-		},
-	);
-
-	// ── intents.createExplicitStart — POST /agent-orchestration/intents/explicit-start ──
-	// The atomic pair: one orchestration-side transaction creates the
-	// explicit start AND records the baked session_start intent, preserving
-	// the atomicity `sessions-routes.ts` had before the seam existed (P3).
-	router.post(
-		"/intents/explicit-start",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(explicitStartRequestSchema),
-		async (c) => {
-			const body = c.req.valid("json");
-			const result = await db.transaction(async (tx) => {
-				const start = await createSessionRequest(tx as HyperIdleDb, {
-					kind: "explicitStart",
-					start: {
-						id: body.startId,
-						taskId: body.taskId,
-						requestedAgentId: body.requestedAgentId,
-						requestedModelTier: body.requestedModelTier,
-						requestedBy: body.requestedBy,
-						idempotencyKey: body.idempotencyKey,
-					},
-				});
-				const intent = await enqueueWorkIntent(tx as HyperIdleDb, {
-					kind: "session_start",
-					sourceKind: "explicit_session_start",
-					sourceId: body.startId,
-					requestedBy: body.requestedBy,
-					idempotencyKey: body.intentIdempotencyKey,
-					bakedRequest: body.bakedRequest as never,
-				});
-				return { start, intent };
-			});
-			return c.json({
-				start: rowToExplicitStartView(result.start),
-				intent: { id: result.intent.id, idempotencyKey: result.intent.idempotencyKey },
-			});
-		},
-	);
-
-	// ── requests.findExplicitStartByIdempotencyKey — GET /agent-orchestration/requests/explicit-start ──
-	router.get("/requests/explicit-start", requireBoundary({ kind: "public-data" }), async (c) => {
-		const requestedBy = c.req.query("requestedBy");
-		const idempotencyKey = c.req.query("idempotencyKey");
-		if (!(requestedBy && idempotencyKey)) {
-			return c.json(
-				{
-					error: "requestedBy and idempotencyKey are required",
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				},
-				400,
-			);
-		}
-		const start = await findSessionRequest(db, {
-			by: "explicitStart",
-			requestedBy,
-			idempotencyKey,
-		});
-		if (!start) return c.json({ start: null }, 404);
-		return c.json({ start: rowToExplicitStartView(start) });
+	router.post("/intents", validateBody(workIntentInputSchema), async (c) => {
+		const body = c.req.valid("json");
+		const intent = await enqueueWorkIntent(db, toWorkIntentInput(body));
+		return c.json({ id: intent.id, idempotencyKey: intent.idempotencyKey });
 	});
 
-	// ── requests.findExplicitStartById — GET /agent-orchestration/requests/explicit-start/:startId ──
-	router.get(
-		"/requests/explicit-start/:startId",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const start = await findSessionRequest(db, {
-				by: "explicitStart",
-				startId: c.req.param("startId"),
-			});
-			if (!start) return c.json({ start: null }, 404);
-			return c.json({ start: rowToExplicitStartView(start) });
-		},
-	);
-
 	// ── requests.listPendingIntentsByKind — GET /agent-orchestration/requests/pending-intents?kind= ──
-	router.get("/requests/pending-intents", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/requests/pending-intents", async (c) => {
 		const kind = c.req.query("kind");
 		if (!(kind && isWorkIntentKind(kind))) {
 			return c.json(
@@ -237,10 +116,29 @@ export function createAgentOrchestrationIntakeRoutes(
 		});
 	});
 
+	// ── requests.failExplicitSessionStart — POST /agent-orchestration/requests/explicit-starts/:startId/fail ──
+	// Called by core-api's `session_start` admission-failure reaction to mark the
+	// explicitSessionStarts row failed. No retry — explicit session starts are
+	// human/agent-requested and must not be silently restarted.
+	router.post(
+		"/requests/explicit-starts/:startId/fail",
+		validateBody(z.object({ failureCode: z.string().min(1) })),
+		async (c) => {
+			const startId = c.req.param("startId");
+			const { failureCode } = c.req.valid("json");
+			await transitionSessionRequest(db, {
+				target: "explicitStart",
+				to: "failed",
+				startId,
+				failureCode,
+			});
+			return c.json({ ok: true });
+		},
+	);
+
 	// ── runs.abort — POST /agent-orchestration/runs/abort ────────────────────
 	router.post(
 		"/runs/abort",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(z.object({ sessionId: z.string().min(1) })),
 		async (c) => {
 			const { sessionId } = c.req.valid("json");
@@ -252,7 +150,6 @@ export function createAgentOrchestrationIntakeRoutes(
 	// ── runs.stopForTasks — POST /agent-orchestration/runs/stop-for-tasks ────
 	router.post(
 		"/runs/stop-for-tasks",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(
 			z.object({
 				taskIds: z.array(z.string().min(1)),
@@ -280,7 +177,6 @@ export function createAgentOrchestrationIntakeRoutes(
 	// (founder ruling, architecture.md §13 item 3).
 	router.post(
 		"/runs/end-for-handoff",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(z.object({ sessionId: z.string().min(1), endedAt: z.string().min(1) })),
 		async (c) => {
 			const body = c.req.valid("json");
@@ -289,43 +185,8 @@ export function createAgentOrchestrationIntakeRoutes(
 		},
 	);
 
-	// ── runs.createBareRun — POST /agent-orchestration/runs/bare ─────────────
-	router.post(
-		"/runs/bare",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(
-			z.object({
-				agentId: z.string().min(1),
-				taskId: z.string().min(1),
-				modelTier: z.string().min(1),
-			}) satisfies z.ZodType<AgentOrchestrationCreateBareRunRequest>,
-		),
-		async (c) => {
-			const body = c.req.valid("json");
-			const created = await createBareRun(db, eventBus, body);
-			return c.json({ session: created }, 201);
-		},
-	);
-
-	// ── runs.failExplicitStart — POST /agent-orchestration/runs/explicit-start/fail ──
-	router.post(
-		"/runs/explicit-start/fail",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(z.object({ startId: z.string().min(1), failureCode: z.string().min(1) })),
-		async (c) => {
-			const body = c.req.valid("json");
-			await transitionSessionRequest(db, {
-				target: "explicitStart",
-				to: "failed",
-				startId: body.startId,
-				failureCode: body.failureCode,
-			});
-			return c.json({ ok: true });
-		},
-	);
-
 	// ── runConfig.read — GET /agent-orchestration/run-config/:agentId ────────
-	router.get("/run-config/:agentId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/run-config/:agentId", async (c) => {
 		const config = await readAgentRunConfig(db, c.req.param("agentId"));
 		return c.json({ config });
 	});
@@ -334,7 +195,6 @@ export function createAgentOrchestrationIntakeRoutes(
 	// (POST, not GET+query-list: an agent roster can exceed a safe query-string length.)
 	router.post(
 		"/run-config/batch",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(z.object({ agentIds: z.array(z.string().min(1)) })),
 		async (c) => {
 			const { agentIds } = c.req.valid("json");
@@ -349,7 +209,6 @@ export function createAgentOrchestrationIntakeRoutes(
 	// ── runConfig.write — PATCH /agent-orchestration/run-config/:agentId ─────
 	router.patch(
 		"/run-config/:agentId",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(
 			z.object({
 				systemPrompt: z.string().nullable().optional(),
@@ -367,40 +226,9 @@ export function createAgentOrchestrationIntakeRoutes(
 		},
 	);
 
-	// ── runConfig.readTeamDefaults — GET /agent-orchestration/team-run-config-defaults/:teamId ──
-	// AU31 §3 clause 2: `teams-routes.ts:540`'s add-agent-later read.
-	router.get(
-		"/team-run-config-defaults/:teamId",
-		requireBoundary({ kind: "public-data" }),
-		async (c) => {
-			const defaults = await readTeamRunConfigDefaults(db, c.req.param("teamId"));
-			return c.json({ defaults });
-		},
-	);
-
-	// ── runConfig.writeTeamDefaults — PATCH /agent-orchestration/team-run-config-defaults/:teamId ──
-	// AU31 §3 clause 2 / §3.1 site 2: `teams-routes.ts:280`'s team-creation write,
-	// relinquished from `createTeam`'s transaction (architecture.md §3.1/§13 item 9).
-	router.patch(
-		"/team-run-config-defaults/:teamId",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(
-			z.object({
-				defaultHarnessType: z.string().nullable(),
-				defaultModelId: z.string().nullable(),
-				defaultModelProvider: z.string().nullable(),
-			}) satisfies z.ZodType<AgentOrchestrationTeamRunConfigDefaultsView>,
-		),
-		async (c) => {
-			const defaults = c.req.valid("json");
-			await writeTeamRunConfigDefaults(db, c.req.param("teamId"), defaults);
-			return c.json({ ok: true });
-		},
-	);
-
 	// ── filesystems.getTeamId — GET /agent-orchestration/filesystems/:id/team ──
 	// The team-consistency gate's pre-write read — see the port's own doc.
-	router.get("/filesystems/:id/team", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/filesystems/:id/team", async (c) => {
 		const filesystemId = c.req.param("id");
 		const fs = await getFilesystem(db, filesystemId);
 		return c.json({ teamId: fs?.teamId ?? null });
@@ -412,7 +240,6 @@ export function createAgentOrchestrationIntakeRoutes(
 	// gate (users + team_members) stays core-side; only the persist crosses the seam.
 	router.post(
 		"/filesystems/:id/injections/persist",
-		requireBoundary({ kind: "public-data" }),
 		validateBody(z.object({ agentUserId: z.string().min(1) })),
 		async (c) => {
 			const filesystemId = c.req.param("id");

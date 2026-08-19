@@ -47,10 +47,7 @@ import { Hono } from "hono";
 export interface ComposedApiMiddleware {
 	readonly cors: MiddlewareHandler;
 	readonly errorHandler: ErrorHandler;
-	readonly rateLimit: MiddlewareHandler;
-	readonly bodyLimit: MiddlewareHandler;
 	readonly auth: MiddlewareHandler;
-	readonly failClosed: MiddlewareHandler;
 }
 
 export interface ComposeApiApplicationOptions {
@@ -81,19 +78,13 @@ export function composeApiApplication(options: ComposeApiApplicationOptions): Ho
 	const { middleware } = options;
 	api.use("*", middleware.cors);
 	api.onError(middleware.errorHandler);
-	// I2 R1-R5/R4: rate limit + body cap BEFORE auth, so an unauthenticated
-	// flood is throttled without ever touching the database.
-	api.use("*", middleware.rateLimit);
-	api.use("*", middleware.bodyLimit);
 
 	for (const register of options.preAuthRegistrars) {
 		register(api);
 	}
 
-	// M3 A3 / AF11: auth, then the fail-closed boundary assertion. Everything
-	// mounted after this line is authenticated — including every mounted app.
+	// M3 A3: auth. Everything mounted after this line is authenticated — including every mounted app.
 	api.use("*", middleware.auth);
-	api.use("*", middleware.failClosed);
 
 	for (const mounted of options.apps) {
 		api.route("/", mounted);

@@ -10,7 +10,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { createHarnessAdapter } from "@hyperidle/harness-registry";
+import { BuiltinHarnessAdapter } from "@hyperidle/harness-registry";
 import { requireHarness } from "@hyperidle/harness-registry/test-utils";
 import { createServer } from "@hyperidle/remote-server/create-server";
 import { eq } from "drizzle-orm";
@@ -105,10 +105,7 @@ describe("[harness:builtin] assistant durable handoff", () => {
 		});
 		agentExecutionBoot.adapters.pool.register(
 			"local-builtin",
-			createHarnessAdapter({
-				kind: "builtin",
-				options: { maxIterations: 1, maxOutputTokens: 120 },
-			}),
+			new BuiltinHarnessAdapter({ maxIterations: 1, maxOutputTokens: 120 }),
 			{
 				name: "Builtin",
 				kind: "local",

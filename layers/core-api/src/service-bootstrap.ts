@@ -26,28 +26,20 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { assembleSessionKnowledge, reapAccessLog } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import {
 	enqueue,
 	installNotifications,
-	isSilenced,
 	type NotificationsDeps,
 	reap,
 } from "@hyperidle/notifications";
-import { getTeam, getTeamMembers, resolveReviewRecipients } from "@hyperidle/org";
+import { getTeam, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
-import { reapTerminalPropagationLog, registerPolicy } from "@hyperidle/policy";
+import { registerPolicy } from "@hyperidle/policy";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
-import {
-	findUser,
-	listUsers,
-	reapExpiredCredentials,
-	requireRunnableAgent,
-} from "@hyperidle/users";
+import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { getTaskRiskTierByTaskId } from "@hyperidle/work";
-import { attachRelevanceListener } from "../knowledge/src/relevance-listener.js";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
@@ -110,7 +102,6 @@ export const DEFAULT_REAPER_STALE_AFTER_MS = 60 * 60 * 1000;
  */
 const RETENTION_REAPER_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 export const TERMINAL_LOG_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const CONSUMED_INVITE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30-day audit window
 /**
  * @lore AU21 §9 Increment 10 (Decision H1): matches
  * `session-requests`'s own former `defaultRetentionBatchSize` for the same
@@ -124,8 +115,7 @@ const TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE = 500;
  * `session-requests`'s `reapExpired` single atomic transaction (a harmless
  * atomicity split — pure terminal-row GC, no cross-table invariant depends on
  * it sharing that transaction) and INTO this composition root's generic
- * retention reaper, alongside `reapTerminalPropagationLog`/`reapAccessLog`/
- * `reapExpiredCredentials`. Calls `taskDispatchAttemptStore.reapTerminal`
+ * retention reaper, alongside `reapAccessLog`/`reapExpiredCredentials`. Calls `taskDispatchAttemptStore.reapTerminal`
  * directly — `work` owns this table, so a direct same-layer call (not a
  * cross-layer write) is how the sweep reaches every table it settles.
  * Exported so the predicate is directly testable without waiting on the real
@@ -169,11 +159,7 @@ const notificationsDeps: NotificationsDeps = {
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},
-	users: { getUserById: (db, id) => findUser(db, { id }) },
-	teams: { getTeamMembersById: (db, id) => getTeamMembers(db, { id }) },
 	work: {
-		listQueuedItemsSince: (exec: WriteExecutor, cutoff: string) =>
-			work.list(exec, "item", { queued: true, createdSince: cutoff }),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 	},
 };
@@ -240,9 +226,6 @@ const policyDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	silence: {
-		isSilenced: (db, item, now) => isSilenced(db, item, now, notificationsDeps),
-	},
 	notifications: {
 		insert: async (db, row) => {
 			await enqueue(db, row);
@@ -287,9 +270,6 @@ export function registerCoreDomainServices(ctx: {
 	readonly readAlertPreferences?: () => Promise<{
 		blockerAlerts: boolean;
 		reviewAlerts: boolean;
-		quietHoursEnabled: boolean;
-		quietHoursStart: string;
-		quietHoursEnd: string;
 	}>;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
@@ -308,12 +288,6 @@ export function registerCoreDomainServices(ctx: {
 }): Array<() => void> {
 	const { db, eventBus, agentOrchestration } = ctx;
 	const disposers: Array<() => void> = [];
-
-	// AU31 B2 (§5, §12 lifecycle-drain cluster): the lifecycle-projection drain
-	// relocated into `bootAgentOrchestration` (`layers/agent-orchestration/src/
-	// boot.ts`) — it claims/processes rows straight off `agentLifecycleInbox`,
-	// `session-requests`'s own table, so it is that Layer's own boot wiring now,
-	// not core's.
 
 	disposers.push(
 		identifyBootstrapOwner(
@@ -421,22 +395,12 @@ export function registerCoreDomainServices(ctx: {
 
 	disposers.push(
 		identifyBootstrapOwner(
-			attachRelevanceListener(db, eventBus),
-			"relevance listener",
-			"unsubscribes",
-			["knowledge-access subscription"],
-		),
-	);
-
-	disposers.push(
-		identifyBootstrapOwner(
 			registerReviewSubscriptions(db, eventBus, {
 				work: {
 					getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 					updateTaskById: (exec: WriteExecutor, id: string, patch) =>
 						work.update(exec, "task", id, patch),
 					createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
-					getRiskTierByTaskId: getTaskRiskTierByTaskId,
 				},
 				conversation: {
 					insertThread,
@@ -447,11 +411,25 @@ export function registerCoreDomainServices(ctx: {
 					getUserById: (db, id) => findUser(db, { id }),
 					listUsersByKind: (db, kind) => listUsers(db, { kind }),
 				},
-				org: { resolveReviewRecipients },
+				org: {
+					// @lore AU20 ruling 1: `resolveReviewRecipients` no longer uses the
+					// caller-supplied `users` argument (which carried `listUsersByKind` in
+					// the old edge-matrix approach). We inject `listHumans` directly so
+					// the function reaches the right query. The `_u` parameter is accepted
+					// for interface compatibility but intentionally unused.
+					resolveReviewRecipients: (db2, ctx, _u) =>
+						resolveReviewRecipients(db2, ctx, {
+							listHumans: (db3, teamMembersId?) =>
+								listUsers(db3, {
+									kind: "human",
+									...(teamMembersId !== undefined ? { teamIds: [teamMembersId] } : {}),
+								}),
+						}),
+				},
 				// AU31 §3.1 site 9 / §3.2: seam-backed — `proposed-call-workflow.ts`'s
 				// own transaction is restructured to relinquish atomicity with this
 				// write (grant commits, the reengagement intent follows post-commit).
-				intentRecorder: buildSeamBackedWorkIntentRecorder<WriteExecutor>(agentOrchestration),
+				intentRecorder: buildSeamBackedWorkIntentRecorder(agentOrchestration),
 				requireRunnableAgent,
 				// AU21 §9 Increment 12 (Decision H3): the liveness-net reengagement
 				// re-provision (`applyLivenessRetry`) also bakes a contextBundle now.
@@ -497,27 +475,13 @@ export function registerCoreDomainServices(ctx: {
 	// AF16 T17: in-process 6h TTL retention reaper. Runs unconditionally.
 	// @lore AU20 C1: retention package dissolved — sweep logic and scheduler
 	// live here at the composition root; per-table deletes delegate to their
-	// owning services. Every table swept below now has one — propagation_log
-	// included (owned by `policy`, reaped through `reapTerminalPropagationLog`),
-	// so this root performs no table access of its own.
+	// owning services.
 	// No behavior change: same predicates, same TTLs, same cadence.
 	const runRetentionSweep = async (): Promise<void> => {
 		const nowMs = Date.now();
-		const expiredCutoff = new Date(nowMs).toISOString();
 		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
-		const consumedCutoff = new Date(nowMs - CONSUMED_INVITE_TTL_MS).toISOString();
-		// login_sessions + invite_codes (owned by `users`)
-		await reapExpiredCredentials(db, {
-			sessionCutoff: expiredCutoff,
-			inviteExpiredCutoff: expiredCutoff,
-			inviteConsumedCutoff: consumedCutoff,
-		});
 		// notification_queue (owned by `notifications`)
 		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
-		// knowledge_access_log (owned by `knowledge`)
-		await reapAccessLog(db, termCutoff);
-		// propagation_log (owned by `policy`)
-		await reapTerminalPropagationLog(db, termCutoff);
 		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
 		// (Decision H1): relocated out of session-requests's reapExpired.
 		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);

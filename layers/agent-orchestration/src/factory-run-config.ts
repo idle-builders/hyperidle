@@ -14,7 +14,6 @@
 import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	type FactoryAgentRef,
 	readSystemPromptTemplateForRole,
 	SYSTEM_PROMPT_TEMPLATE_FILES,
 } from "@hyperidle/factory-defaults";
@@ -33,7 +32,7 @@ const AH2_DEFAULTS = {
  */
 export async function applyFactoryRunConfigDefaults(
 	db: HyperIdleDb,
-	rosterAgents: readonly FactoryAgentRef[],
+	rosterAgents: ReadonlyArray<{ readonly id: string; readonly role: string }>,
 ): Promise<void> {
 	// ── AH2: runnable defaults so factory agents can start without configuration ──
 	for (const agent of rosterAgents) {

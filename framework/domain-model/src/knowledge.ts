@@ -56,27 +56,7 @@ export type KnowledgeTopicHealth = (typeof KNOWLEDGE_TOPIC_HEALTHS)[number];
 
 export type KnowledgeAccessorKind = "human" | "agent";
 
-export interface KnowledgeRelevanceSignals {
-	recency: string | null;
-	accessCount30d: number | null;
-	citationCount: number | null;
-}
-
 export const KNOWLEDGE_SORT_OPTIONS = ["relevance", "recency", "frequency"] as const;
 export type KnowledgeSortOption = (typeof KNOWLEDGE_SORT_OPTIONS)[number];
 
-export type RiskTier = "low" | "medium" | "high";
-export type AutonomyLevel = 1 | 2 | 3 | 4;
-
 export type PropagationLevel = "session" | "task" | "bet" | "team" | "portfolio";
-export type PropagationStatus = "applied" | "skipped" | "failed" | "pending_retry";
-
-export interface PropagationResult {
-	sourceLevel: PropagationLevel;
-	sourceId: string;
-	targetLevel: PropagationLevel;
-	targetId: string;
-	targetTransition: string | null;
-	status: PropagationStatus;
-	failureReason?: string;
-}

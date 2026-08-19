@@ -26,23 +26,6 @@ import type { WriteExecutor } from "@hyperidle/db";
 import { listFilesystems } from "./filesystem-registry.js";
 
 /**
- * One injected filesystem's provisioning-relevant fields — `resourceRef`
- * already parsed, mirroring `routes/filesystems.ts`'s `rowToFilesystem` so the
- * mount step sees exactly the shape it has always seen.
- */
-export interface InjectedFilesystemForProvisioning {
-	readonly id: string;
-	readonly teamId: string;
-	readonly source: string;
-	readonly kind: string;
-	readonly connectionId: string | null;
-	readonly resourceRef: unknown;
-	readonly writeback: string;
-	readonly state: string;
-	readonly createdAt: string;
-}
-
-/**
  * Read every filesystem injected into `agentId` (`filesystem_injections` joined
  * to `filesystems`), live, for one session spawn. Both tables are this Layer's
  * own since F2, so the join stays a single query — the two-owner decomposition
@@ -50,10 +33,7 @@ export interface InjectedFilesystemForProvisioning {
  *
  * An agent with no injections resolves `[]`, never a throw.
  */
-export async function listInjectedFilesystemsForProvisioning(
-	exec: WriteExecutor,
-	agentId: string,
-): Promise<readonly InjectedFilesystemForProvisioning[]> {
+export async function listInjectedFilesystemsForProvisioning(exec: WriteExecutor, agentId: string) {
 	const rows = await listFilesystems(exec, { agentId });
 	return rows.map((row) => ({
 		id: row.id,

@@ -21,7 +21,6 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findThread, insertMessage, insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	BetCardSummary,
 	CreateTeamRequest,
@@ -32,14 +31,13 @@ import type {
 	TeamDetail,
 	TeamListItem,
 } from "@hyperidle/domain-model";
-import { AGENT_ROLE_CATALOG, findRoleCatalogEntry } from "@hyperidle/domain-model";
+import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import {
 	createTeam,
-	deleteTeam,
 	getTeam,
 	getTeamMembers,
 	listTeams,
@@ -47,7 +45,7 @@ import {
 	updateTeam,
 	upsertOrgEdge,
 } from "@hyperidle/org";
-import { deriveInitials, deriveTitle } from "@hyperidle/presentation-format";
+import { deriveTitle } from "@hyperidle/presentation-format";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
@@ -55,6 +53,13 @@ import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
 import { resolveHarnessAvailable } from "./agent-profile.js";
+
+/** Inlined from @hyperidle/presentation-format (server copy removed, row 18). */
+function deriveInitials(name: string): string {
+	const trimmed = name.trim();
+	if (trimmed.length === 0) return "?";
+	return trimmed.slice(0, 2).toUpperCase();
+}
 
 /**
  * Derive team status from team_members and active bet states.
@@ -80,12 +85,11 @@ function deriveTeamStatus(
 	return "healthy";
 }
 
-const teamsLogger = createLogger({ pkg: "server.teams" });
-
 /**
- * Resolve the founder's userId for org-edge creation.
- * Priority: auth context userId → body userId → first human user → null.
- * Returns null only when the DB has no human users at all (e.g. unseeded test DB).
+ * Resolve the founder for a founder→team org edge.
+ *
+ * Prefers the auth-derived user over anything in the body, so a caller cannot
+ * create an edge from an arbitrary user by lying in the request.
  */
 async function resolveFounderId(
 	db: HyperIdleDb,
@@ -125,7 +129,7 @@ export function createTeamRoutes(
 	};
 
 	// GET / — list all teams with portfolio counters
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const allTeams = await listTeams(db);
 
 		const result: TeamListItem[] = await Promise.all(
@@ -213,7 +217,7 @@ export function createTeamRoutes(
 	// AU3: app-owned scaffolding produces specs; persistScaffoldedAgents remains the writer.
 	// Backward compat: no `functions` in body defaults to ["development","product"].
 	// Best-effort welcome message: failure does not roll back team creation.
-	router.post("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.post("/", async (c) => {
 		let body: unknown;
 		try {
 			body = await c.req.json();
@@ -246,23 +250,26 @@ export function createTeamRoutes(
 		const teamId = `team-${crypto.randomUUID()}`;
 		const teamMembersId = `team-${crypto.randomUUID()}`;
 
+		// AU3: route through app-owned scaffolding for the default roster.
+		// Resolved BEFORE inserting the team so an empty-specs result (unknown functions
+		// with no catalog matches) aborts with 400 without any DB writes — no rollback needed.
+		const specs = resolveAgentScaffoldSpecs({
+			trigger: "team_scaffold",
+			teamName: name.trim(),
+			functions: teamFunctions,
+			role: null,
+			name: null,
+			ownerUserId: null,
+			ownerUserName: null,
+		});
+
+		// AE2 AC-1h: If app scaffolding returns zero specs (e.g. unknown functions with no
+		// catalog matches), reject with 400 — a team with no agents is invalid.
+		if (specs.length === 0) {
+			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
+		}
+
 		// @lore AU20 Am7: atomic createTeam inserts teams + teamMembers companion in one call.
-		//
-		// AV1: persist primary harness as team default — every agent-creation path reads it.
-		// @lore AU26 G1 (§D-L): the three `teams.default_*` columns moved into
-		// `team_run_config_defaults`, so the write is a second call to their owner.
-		// The route stays core-hosted and delegates the persist down (§D-A rule 3).
-		//
-		// AU31 §3.1 site 2 — RELINQUISHED (founder ruling, architecture.md
-		// §3.1/§13 item 9): the seam write can never join a caller's transaction
-		// (§3.2), so `runConfig.writeTeamDefaults` follows after `createTeam`
-		// commits rather than sharing its transaction. On a failed write, the
-		// team exists with no harness defaults, so agents scaffolded onto it
-		// later fall back to builtin (`org/src/scaffold-agents.ts:194-202`) —
-		// the team settings edit repairs it.
-		//
-		// `createTeam`'s own two writes (`teams`, `teamMembers`) are core writes,
-		// not the cross-layer one, so they stay atomic with each other.
 		await db.transaction(async (tx) => {
 			await createTeam(tx, {
 				id: teamId,
@@ -279,31 +286,6 @@ export function createTeamRoutes(
 				formedAt: now,
 			});
 		});
-		await agentOrchestration.runConfig.writeTeamDefaults(teamId, {
-			defaultHarnessType: primaryHarness?.harnessType ?? null,
-			defaultModelId: primaryHarness?.modelId ?? null,
-			defaultModelProvider: primaryHarness?.modelProvider ?? null,
-		});
-
-		// AU3: route through app-owned scaffolding for the default roster.
-		const specs = resolveAgentScaffoldSpecs({
-			trigger: "team_scaffold",
-			teamName: name.trim(),
-			functions: teamFunctions,
-			role: null,
-			name: null,
-			ownerUserId: null,
-			ownerUserName: null,
-		});
-
-		// AE2 AC-1h: If app scaffolding returns zero specs (e.g. unknown functions with no
-		// catalog matches), reject with 400 — a team with no agents is invalid.
-		// Roll back the already-inserted team + teamMembers rows.
-		if (specs.length === 0) {
-			// @lore AU20 Am7: deleteTeam cascades (deletes teamMembers then teams) in one call.
-			await deleteTeam(db, teamId);
-			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
-		}
 
 		// AK6: Kernel persists the specs (single writer, assigns ids, attaches mechanism fields).
 		// POLISH-060 B3: Thread primaryHarness from the request so onboarding-chosen harness propagates.
@@ -321,9 +303,8 @@ export function createTeamRoutes(
 			await updateTeam(db, teamId, { leadAgentId });
 		}
 
-		// AH4: upsert founder→team org edge (best-effort — failure must not 500 team creation).
-		// @lore AH4: resolveFounderId prefers c.get("userId") (auth-derived) over body userId
-		// so a caller cannot create an edge from an arbitrary user by lying in the body.
+		// Write the founder→team org edge the org chart renders. Best effort: a
+		// failure here must not fail team creation.
 		{
 			const founderId = await resolveFounderId(db, c.get("userId"), userId);
 			if (founderId) {
@@ -331,11 +312,6 @@ export function createTeamRoutes(
 					fromUserId: founderId,
 					mechanism: "team",
 					target: teamMembersId,
-				});
-			} else {
-				teamsLogger.warn("AH4: founder not resolved — skipping org edge for new team", {
-					teamId,
-					teamMembersId,
 				});
 			}
 		}
@@ -488,83 +464,6 @@ export function createTeamRoutes(
 		return c.json(result, 201);
 	});
 
-	// POST /:teamId/agents — add an agent to an existing team via app scaffolding.
-	// AU3: This route uses app-owned scaffold specs, persistScaffoldedAgents, and emits agent_added.
-	router.post("/:teamId/agents", requireBoundary({ kind: "public-data" }), async (c) => {
-		const teamId = c.req.param("teamId");
-
-		let body: unknown;
-		try {
-			body = await c.req.json();
-		} catch {
-			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
-		}
-
-		const { role, name } = body as { role?: string; name?: string };
-		if (!role || typeof role !== "string" || role.trim().length === 0) {
-			return c.json({ error: "role is required", code: "validation_error" }, 400);
-		}
-
-		// Validate role against catalog
-		const catalogEntry = findRoleCatalogEntry(role);
-		if (!catalogEntry) {
-			return c.json({ error: `Unknown role: ${role}`, code: "validation_error" }, 400);
-		}
-
-		// Look up team + membership group
-		const team = await getTeam(db, { id: teamId });
-		if (!team) {
-			return c.json({ error: "Team not found", code: "not_found" }, 404);
-		}
-		const memberGroup = await getTeamMembers(db, { teamId });
-		if (!memberGroup) {
-			return c.json({ error: "Team membership group not found", code: "not_found" }, 404);
-		}
-
-		// AU3: route through app-owned scaffolding for agent_added.
-		const specs = resolveAgentScaffoldSpecs({
-			trigger: "agent_added",
-			teamName: team.name,
-			functions: null,
-			role,
-			// Pass caller-supplied name through (persisted unchanged per add-agent.ts:79 contract).
-			name: typeof name === "string" && name.trim().length > 0 ? name.trim() : null,
-			ownerUserId: null,
-			ownerUserName: null,
-		});
-
-		// AV1: read team default so add-agent-later inherits the persisted primary harness.
-		// @lore AU20 Am7: pass the team defaults to persistScaffoldedAgents — it accepts
-		// TeamHarnessDefault (defaultHarnessType/modelId/modelProvider) and resolves
-		// team-default → builtin internally (resolveTeamAgentHarness folded in).
-		// @lore AU26 G1 (§D-L): those three columns left `teams`, so the defaults come
-		// from `team_run_config_defaults` instead of off the team row. An absent row is
-		// an all-null row, so a team created before the move still resolves builtin.
-		const teamDefaults = await agentOrchestration.runConfig.readTeamDefaults(teamId);
-		const { agentIds } = await persistScaffoldedAgents(
-			db,
-			orgUsers,
-			memberGroup.id,
-			specs,
-			teamDefaults,
-		);
-		const agentId = agentIds[0] ?? crypto.randomUUID();
-		const now = new Date().toISOString();
-
-		// AK6 T7: emit agent_added event AFTER agent is persisted.
-		eventBus.emit({
-			type: "agent_added",
-			streamId: teamId,
-			teamId,
-			teamMembersId: memberGroup.id,
-			agentId,
-			role,
-			at: now,
-		});
-
-		return c.json({ agentId, role, teamId }, 201);
-	});
-
 	// PATCH /:teamId — update team phase (active ↔ archived)
 	// P4 AC-18: SettingsTeams needs to toggle team active/archived state.
 	// @lore AU21 §9 Increment 2: extended to also accept `leadAgentId` — the
@@ -572,7 +471,7 @@ export function createTeamRoutes(
 	// (`create_team`'s `updateTeam(teamId, {leadAgentId})`) needs exactly this
 	// field, alongside the pre-existing `phase` toggle. At least one of the
 	// two must be present.
-	router.patch("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.patch("/:teamId", async (c) => {
 		const teamId = c.req.param("teamId");
 
 		const team = await getTeam(db, { id: teamId });
@@ -619,7 +518,7 @@ export function createTeamRoutes(
 	});
 
 	// GET /:teamId — full TeamDetail
-	router.get("/:teamId", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:teamId", async (c) => {
 		const teamId = c.req.param("teamId");
 
 		// 1. Look up the team

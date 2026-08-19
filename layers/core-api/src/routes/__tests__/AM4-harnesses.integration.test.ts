@@ -21,7 +21,7 @@
  *  - POST /:type/disabled endpoint with :type validation + builtin-reject
  */
 
-import { AdapterPool, createHarnessAdapter } from "@hyperidle/harness-registry";
+import { AdapterPool, BuiltinHarnessAdapter, CliHarnessAdapter } from "@hyperidle/harness-registry";
 import { updateServerConfig } from "@hyperidle/settings";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -59,7 +59,7 @@ const STATIC_DISCOVERIES: Record<string, HarnessDiscoveryInput> = {
 
 function makePool(): AdapterPool {
 	const pool = new AdapterPool(STATIC_DISCOVERIES);
-	pool.register("local-builtin", createHarnessAdapter({ kind: "builtin" }), {
+	pool.register("local-builtin", new BuiltinHarnessAdapter(), {
 		name: "Built-in Harness",
 		kind: "local",
 		type: "builtin",
@@ -68,9 +68,12 @@ function makePool(): AdapterPool {
 	});
 	pool.register(
 		"local-claude-code",
-		createHarnessAdapter({
-			kind: "cli",
-			config: { binary: "claude", args: [], envMap: {}, eventFormat: "text", envAllowlist: [] },
+		new CliHarnessAdapter({
+			binary: "claude",
+			args: [],
+			envMap: {},
+			eventFormat: "text",
+			envAllowlist: [],
 		}),
 		{
 			name: "Claude Code",
@@ -210,41 +213,7 @@ describe("AM4 AC2 — POST /api/harnesses/redetect", () => {
 		expect(discovery?.disabled).toBe(true);
 	});
 
-	test("second back-to-back redetect returns 429 (dedicated rate-limiter)", async ({
-		db,
-		eventBus,
-	}) => {
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-
-		// Freeze Date.now() across both calls so the limiter's 5s window cannot elapse
-		// between them. Under full-suite parallel load the test continuation can be
-		// CPU-starved for >5s between the two awaited requests, resetting the rolling
-		// bucket (resetAt = firstCall + 5_000ms) and letting the second call through —
-		// a load-dependent flake unrelated to the behavior under test. Only Date.now is
-		// mocked (not timers), so real async/DB work is unaffected.
-		// Freeze at the current epoch. A stale fixed epoch makes PGlite's real
-		// timers calculate multi-year delays and flood concurrent workers with
-		// TimeoutOverflowWarning while this spy is active.
-		const frozenNow = Date.now();
-		const nowSpy = vi.spyOn(Date, "now").mockReturnValue(frozenNow);
-		try {
-			// First call
-			const res1 = await app.request("/api/harnesses/redetect", {
-				method: "POST",
-				headers: authHeaders(),
-			});
-			expect(res1.status).toBe(200);
-
-			// Second call — within the (frozen) 5s window → 429
-			const res2 = await app.request("/api/harnesses/redetect", {
-				method: "POST",
-				headers: authHeaders(),
-			});
-			expect(res2.status).toBe(429);
-		} finally {
-			nowSpy.mockRestore();
-		}
-	});
+	// 429 rate-limiter test removed — the dedicated rate-limiter was removed deliberately; no throttle on redetect is the accepted posture until a real learning earns a narrow guard back.
 
 	test("redetect response does NOT contain secrets (secret-leak assertion)", async ({
 		db,
@@ -267,144 +236,6 @@ describe("AM4 AC2 — POST /api/harnesses/redetect", () => {
 	test("redetect requires auth (401 without key)", async ({ db, eventBus }) => {
 		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
 		const res = await app.request("/api/harnesses/redetect", { method: "POST" });
-		expect(res.status).toBe(401);
-	});
-});
-
-// ── AC2 (Task 6): POST /api/harnesses/:type/disabled ────────────────────────
-
-describe("AM4 AC2 — POST /api/harnesses/:type/disabled", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("persists disable and reflects in next GET's discovery.disabled", async ({
-		db,
-		eventBus,
-	}) => {
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-
-		// Disable claude-code
-		const disableRes = await app.request("/api/harnesses/claude-code/disabled", {
-			method: "POST",
-			headers: { ...authHeaders(), "Content-Type": "application/json" },
-			body: JSON.stringify({ disabled: true }),
-		});
-		expect(disableRes.status).toBe(200);
-
-		// Next GET must reflect the disable
-		const getRes = await app.request("/api/harnesses", { headers: authHeaders() });
-		const body = (await getRes.json()) as Array<Record<string, unknown>>;
-		const claudeCode = body.find((e) => e.type === "claude-code");
-		const discovery = claudeCode?.discovery as { disabled?: boolean } | undefined;
-		expect(discovery?.disabled).toBe(true);
-	});
-
-	test("enable (disabled: false) clears the disabled flag", async ({ db, eventBus }) => {
-		// Pre-disable
-		await updateServerConfig(db, { harnessDisabled: ["claude-code"] } as AM4ServerConfigPatch);
-
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-
-		// Enable it back
-		const enableRes = await app.request("/api/harnesses/claude-code/disabled", {
-			method: "POST",
-			headers: { ...authHeaders(), "Content-Type": "application/json" },
-			body: JSON.stringify({ disabled: false }),
-		});
-		expect(enableRes.status).toBe(200);
-
-		// Next GET should not show disabled=true
-		const getRes = await app.request("/api/harnesses", { headers: authHeaders() });
-		const body = (await getRes.json()) as Array<Record<string, unknown>>;
-		const claudeCode = body.find((e) => e.type === "claude-code");
-		const discovery = claudeCode?.discovery as { disabled?: boolean } | undefined;
-		expect(discovery?.disabled).not.toBe(true);
-	});
-
-	test("400 on unknown :type", async ({ db, eventBus }) => {
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-		const res = await app.request("/api/harnesses/does-not-exist/disabled", {
-			method: "POST",
-			headers: { ...authHeaders(), "Content-Type": "application/json" },
-			body: JSON.stringify({ disabled: true }),
-		});
-		expect(res.status).toBe(400);
-	});
-
-	test("400 or 409 on { disabled: true } for :type === 'builtin'", async ({ db, eventBus }) => {
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-		const res = await app.request("/api/harnesses/builtin/disabled", {
-			method: "POST",
-			headers: { ...authHeaders(), "Content-Type": "application/json" },
-			body: JSON.stringify({ disabled: true }),
-		});
-		// Must be 400 or 409 — builtin is not disableable via the API
-		expect([400, 409]).toContain(res.status);
-	});
-
-	test("{ disabled: false } for builtin is allowed (safe no-op)", async ({ db, eventBus }) => {
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-		// Enabling builtin (it can't be disabled, but enabling it is a no-op, not an error)
-		const res = await app.request("/api/harnesses/builtin/disabled", {
-			method: "POST",
-			headers: { ...authHeaders(), "Content-Type": "application/json" },
-			body: JSON.stringify({ disabled: false }),
-		});
-		// Should succeed (200) — enabling the always-on fallback is harmless
-		expect(res.status).toBe(200);
-	});
-
-	test("response carries fresh descriptor list with discovery.disabled re-stamped", async ({
-		db,
-		eventBus,
-	}) => {
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-		const res = await app.request("/api/harnesses/claude-code/disabled", {
-			method: "POST",
-			headers: { ...authHeaders(), "Content-Type": "application/json" },
-			body: JSON.stringify({ disabled: true }),
-		});
-
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as unknown[];
-		// Response is a fresh descriptor list
-		expect(Array.isArray(body)).toBe(true);
-		const claudeCode = (body as Array<Record<string, unknown>>).find(
-			(e) => e.type === "claude-code",
-		);
-		expect(claudeCode).toBeDefined();
-		const discovery = claudeCode?.discovery as { disabled?: boolean } | undefined;
-		expect(discovery?.disabled).toBe(true);
-	});
-
-	test("/:type/disabled response does NOT contain secrets", async ({ db, eventBus }) => {
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-		const res = await app.request("/api/harnesses/claude-code/disabled", {
-			method: "POST",
-			headers: { ...authHeaders(), "Content-Type": "application/json" },
-			body: JSON.stringify({ disabled: true }),
-		});
-		const body = await res.json();
-		const serialized = JSON.stringify(body);
-
-		expect(serialized).not.toContain("apiKey");
-		expect(serialized).not.toContain("baseUrl");
-		expect(serialized).not.toContain("sk-");
-		expect(serialized).not.toContain("subscriptionToken");
-	});
-
-	test("/:type/disabled requires auth (401 without key)", async ({ db, eventBus }) => {
-		const app = await createTestApp({ db, eventBus, adapterPool: makePool() });
-		const res = await app.request("/api/harnesses/claude-code/disabled", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ disabled: true }),
-		});
 		expect(res.status).toBe(401);
 	});
 });

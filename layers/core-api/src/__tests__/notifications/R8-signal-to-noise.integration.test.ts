@@ -26,8 +26,6 @@ import type { ItemCreatedEvent, TaskStateChangedEvent } from "@hyperidle/domain-
 import {
 	installNotifications,
 	listNotifications,
-	type Notification,
-	type NotificationAdapter,
 	type NotificationConfigPatch,
 	updateConfig,
 } from "@hyperidle/notifications";
@@ -41,19 +39,20 @@ import { notificationsDeps } from "../notifications-test-deps.js";
 
 interface AdapterCall {
 	recipient: { channelId: string; label?: string };
-	notification: Notification;
+	notification: { severity: string };
 }
 
-function createFakeAdapter(
-	name: "console" | "ntfy" | "smtp" = "console",
-): NotificationAdapter & { calls: AdapterCall[] } {
+function createFakeAdapter(name: "console" | "ntfy" | "smtp" = "console") {
 	const calls: AdapterCall[] = [];
 	return {
 		name,
 		calls,
-		async send(recipient, notification) {
+		async send(
+			recipient: { channelId: string; label?: string },
+			notification: { severity: string },
+		) {
 			calls.push({ recipient, notification });
-			return { ok: true, channel: name, sentAt: new Date().toISOString() };
+			return { ok: true as const, channel: name, sentAt: new Date().toISOString() };
 		},
 	};
 }
@@ -149,7 +148,7 @@ function emitTaskStateChanged(
 function registerWithPrefs(
 	db: HyperIdleDb,
 	bus: import("@hyperidle/event-bus").EventBus,
-	adapter: NotificationAdapter,
+	adapter: ReturnType<typeof createFakeAdapter>,
 	extraDeps: Partial<{ now: () => Date }> = {},
 ): () => void {
 	return installNotifications(db, bus, notificationsDeps, {
@@ -626,50 +625,9 @@ describe("R8 AC5 — Quiet hours dispatcher integration", () => {
 		expect(silenceRows).toHaveLength(0);
 	});
 
-	test("quietHoursEnabled=true — blocking item is queued (silenced) within the window", async ({
-		db,
-		eventBus,
-	}) => {
-		const adapter = createFakeAdapter();
-		// quietHoursEnabled=true with a window that covers 12:00 UTC.
-		// The dispatcher should enqueue instead of push.
-		await enableNotifications(db);
-		await updateServerConfig(db, {
-			notifications: {
-				quietHoursEnabled: true,
-				quietHoursStart: "10:00",
-				quietHoursEnd: "14:00",
-			},
-		});
-
-		const threadId = await seedThread(db, "thread-r8-qh");
-		await createItem(db, { id: "qh-on-blocking", blocking: true, riskTier: "medium", threadId });
-
-		const fixedNow = new Date("2026-05-30T12:00:00.000Z"); // 12:00 UTC — inside 10:00–14:00
-		unsubscribe = registerWithPrefs(db, eventBus, adapter, { now: () => fixedNow });
-
-		const event: ItemCreatedEvent = {
-			type: "item_created",
-			streamId: "stream-r8",
-			itemId: "qh-on-blocking",
-			conversationId: threadId,
-			kind: "approval",
-			timestamp: fixedNow.getTime(),
-		};
-		eventBus.emit(event);
-
-		await vi.waitFor(async () => {
-			const rows = await listNotifications(db, { kind: "all" });
-			expect(rows).toHaveLength(1);
-		});
-
-		// Adapter must NOT have been called
-		expect(adapter.calls).toHaveLength(0);
-
-		const rows = await listNotifications(db, { kind: "all" });
-		expect(rows[0]!.reason).toBe("silence");
-		expect(rows[0]!.severity).toBe("blocking");
-	});
+	// @lore AU43 repair: "quietHoursEnabled=true" test deleted — quiet-hours/silence feature was
+	// deleted by AU43 (deferred hardcoded to 0 in install.ts). The test expected rows to be
+	// silenced, but the silence path no longer exists.
 });
 
 // ---------------------------------------------------------------------------

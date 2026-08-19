@@ -40,7 +40,8 @@ describe("app runtime route boot", () => {
 					["/api/health", false],
 					["/api/knowledge", true],
 					["/api/routines", true],
-					["/api/notifications", true],
+					// GET /api/notifications root (door #129) deleted
+					["/api/notifications/inbox", true],
 					["/api/harnesses", true],
 				] as const;
 

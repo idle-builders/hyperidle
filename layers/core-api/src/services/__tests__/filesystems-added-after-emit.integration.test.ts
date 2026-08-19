@@ -35,6 +35,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import { mountFilesystemsForAgent } from "@hyperidle/run-orchestration";
@@ -51,16 +52,13 @@ const TEAM_MEMBERS_ID = "tm-au26-f2";
 
 let tmpDir: string;
 let sandboxPath: string;
-let capturesDir: string;
 let vaultDir: string;
 
 beforeEach(() => {
 	tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "au26-f2-add-after-emit-"));
 	sandboxPath = path.join(tmpDir, "sandbox");
-	capturesDir = path.join(tmpDir, "captures");
 	vaultDir = path.join(tmpDir, "late-vault");
 	fs.mkdirSync(sandboxPath, { recursive: true });
-	fs.mkdirSync(capturesDir, { recursive: true });
 	fs.mkdirSync(vaultDir, { recursive: true });
 	fs.writeFileSync(path.join(vaultDir, "index.md"), "# Late vault\n");
 });
@@ -103,7 +101,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
  */
 async function emitAndDrain(
 	db: HyperIdleDb,
-	eventBus: { emit: unknown },
+	eventBus: EventBus,
 	idempotencyKey: string,
 ): Promise<{ readonly payloadJson: string | null }> {
 	await enqueueWorkIntent(db, {
@@ -125,9 +123,7 @@ async function emitAndDrain(
 			},
 		},
 	});
-	await drainIntents({ ...queueDeps(db), eventBus } as ReturnType<typeof queueDeps> & {
-		eventBus: unknown;
-	});
+	await drainIntents({ ...queueDeps(db), eventBus });
 
 	const [request] = await db
 		.select()
@@ -172,8 +168,6 @@ async function provisionFilesystems(
 		gitRunnerFactory: () => {
 			throw new Error("a doc_set mount must not reach for git");
 		},
-		capturesDir,
-		db,
 	});
 	return mountFilesystemsForAgent({
 		agentId: AGENT_ID,

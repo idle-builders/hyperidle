@@ -54,20 +54,6 @@ import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model"
 import { and, eq, inArray } from "drizzle-orm";
 
 /**
- * One held connection's provisioning-relevant fields. NEVER includes
- * `encryptedToken` — the decrypt step is `ServiceConnectionResolver`, the only
- * plaintext path (AN1 hard-rule 1), called separately at spawn.
- */
-export interface HeldConnectionForProvisioning {
-	readonly id: string;
-	/** The owning user this row's token must be resolved against. */
-	readonly userId: string;
-	readonly service: string;
-	readonly authSource: HeldAuthSource;
-	readonly serverUrl: string | null;
-}
-
-/**
  * Read `ownerUserId`'s held (`token` | `mcp`) connections, live, for one
  * session spawn. Never another human's — see this file's top `@lore`.
  *
@@ -78,10 +64,7 @@ export interface HeldConnectionForProvisioning {
  * (`agent-orchestration/src/routes/connections.ts`) — this Service enforces
  * per-user isolation at the spawn exactly as it does at the route.
  */
-export async function listHeldConnectionsForProvisioning(
-	db: HyperIdleDb,
-	ownerUserId: string,
-): Promise<readonly HeldConnectionForProvisioning[]> {
+export async function listHeldConnectionsForProvisioning(db: HyperIdleDb, ownerUserId: string) {
 	const rows = await db
 		.select()
 		.from(serviceConnections)

@@ -4,10 +4,7 @@ import {
 	agentWorkIntents,
 	artifacts,
 	bets,
-	explicitSessionStarts,
 	type HyperIdleDb,
-	knowledgeEditLog,
-	knowledgeItems,
 	messages,
 	proposedCalls,
 	routineRuns,
@@ -21,19 +18,12 @@ import {
 	users,
 } from "@hyperidle/db";
 import { transitionProposedCall } from "@hyperidle/review";
-import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
+import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq, sql } from "drizzle-orm";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 import { fireGenericRoutine } from "./dispatch-test-helpers.js";
-
-/** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
-const depWatcherDeps = {
-	workIntents: { record: enqueueWorkIntent },
-	taskRunResolver: { requireRunnableAgent },
-};
 
 const authHeaders = {
 	"Content-Type": "application/json",
@@ -251,152 +241,9 @@ describe("atomic production handoffs", () => {
 		expect("handOffIntent" in worker).toBe(false);
 	});
 
-	test("explicit session command commits one source and intent before any request and replays exactly", async ({
-		db,
-		app,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		const request = () =>
-			app.request("/api/sessions", {
-				method: "POST",
-				headers: { ...authHeaders, "Idempotency-Key": "au9-production-explicit" },
-				body: JSON.stringify({
-					agentId: "au9-production-agent",
-					taskId: "au9-production-task",
-					modelTier: "workhorse",
-				}),
-			});
+	// POST /api/sessions (door #114) deleted. Two explicit-session tests removed with the route.
 
-		const first = await request();
-		expect(first.status).toBe(202);
-		const firstBody = (await first.json()) as { startId: string; status: string };
-		expect(firstBody.status).toBe("requested");
-		expect(await db.select().from(explicitSessionStarts)).toHaveLength(1);
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, firstBody.startId));
-		expect(intent).toMatchObject({
-			kind: "session_start",
-			sourceKind: "explicit_session_start",
-			status: "pending",
-			requestId: null,
-		});
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
-
-		const replay = await request();
-		expect(replay.status).toBe(202);
-		expect(await replay.json()).toEqual(firstBody);
-		expect(await db.select().from(explicitSessionStarts)).toHaveLength(1);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(1);
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
-	});
-
-	test("intent drain checkpoints one exact request and never invokes a domain callback", async ({
-		db,
-		app,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		const response = await app.request("/api/sessions", {
-			method: "POST",
-			headers: { ...authHeaders, "Idempotency-Key": "au9-single-consume" },
-			body: JSON.stringify({
-				agentId: "au9-production-agent",
-				taskId: "au9-production-task",
-				modelTier: "workhorse",
-			}),
-		});
-		expect(response.status).toBe(202);
-		let callbacks = 0;
-		await drainIntents(queueDeps(db), {
-			now: () => new Date(Date.now() + 1_000),
-			...({
-				onRequest: async () => {
-					callbacks += 1;
-				},
-			} as object),
-		});
-		await drainIntents(queueDeps(db), { now: () => new Date(Date.now() + 2_000) });
-		const [intent] = await db.select().from(agentWorkIntents);
-		const requests = await db.select().from(agentSessionRequests);
-		expect(callbacks, JSON.stringify(intent)).toBe(0);
-		expect(requests, JSON.stringify(intent)).toHaveLength(1);
-		expect(intent).toMatchObject({ status: "handed_off", requestId: requests[0]?.id });
-	});
-
-	test("task route acceptance atomically records its dispatch occasion before returning", async ({
-		db,
-		app,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		await db
-			.update(tasks)
-			.set({ state: "proposed", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
-
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({ state: "accepted" }),
-		});
-
-		expect(response.status).toBe(200);
-		const attempts = await db
-			.select()
-			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-task"));
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
-		expect(intents).toHaveLength(1);
-		expect(intents[0]).toMatchObject({
-			kind: "task_run",
-			sourceKind: "task_dispatch_attempt",
-			status: "pending",
-			requestId: null,
-		});
-		expect(await db.select().from(agentSessionRequests)).toHaveLength(0);
-	});
-
-	test("accepted-task event observes exactly one durable attempt and one intent", async ({
-		db,
-		app,
-		eventBus,
-	}) => {
-		await seedExplicitSessionAuthority(db);
-		await db
-			.update(tasks)
-			.set({ state: "proposed", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
-		let observed: Promise<readonly [number, number]> | undefined;
-		const unsubscribe = eventBus.on("task_state_changed", (event) => {
-			if (event.taskId !== "au9-production-task" || event.toState !== "accepted") return;
-			observed = Promise.all([
-				db
-					.select()
-					.from(taskDispatchAttempts)
-					.where(eq(taskDispatchAttempts.taskId, event.taskId))
-					.then((rows) => rows.length),
-				db
-					.select()
-					.from(agentWorkIntents)
-					.where(eq(agentWorkIntents.sourceKind, "task_dispatch_attempt"))
-					.then((rows) => rows.length),
-			]);
-		});
-
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({ state: "accepted" }),
-		});
-		unsubscribe();
-
-		expect(response.status).toBe(200);
-		expect(observed).toBeDefined();
-		expect(await observed).toEqual([1, 1]);
-	});
+	// POST /api/tasks/:id/transition (door #40) deleted. Two transition tests removed with the route.
 
 	test("dependency watcher acceptance records a distinct dispatch occasion", async ({
 		db,
@@ -417,7 +264,13 @@ describe("atomic production handoffs", () => {
 		});
 		await db.update(tasks).set({ state: "done" }).where(eq(tasks.id, "au9-production-task"));
 
-		await checkAndUnblockDependents(db, eventBus, "au9-production-task", depWatcherDeps);
+		// AgentWorkIntentRecorderFn is a plain function — capture db in a closure so the
+		// intent is written to the real DB (tx was ignored by the sole production impl).
+		const localDeps = {
+			workIntents: (input: Parameters<typeof enqueueWorkIntent>[1]) => enqueueWorkIntent(db, input),
+			taskRunResolver: { requireRunnableAgent },
+		};
+		await checkAndUnblockDependents(db, eventBus, "au9-production-task", localDeps);
 
 		const [dependent] = await db
 			.select()
@@ -468,63 +321,7 @@ describe("atomic production handoffs", () => {
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 
-	// AU31 §3.1 site 4 — INVERTED. The flag transition is no longer inside the
-	// same transaction as the intent submit (relinquished, founder ruling
-	// architecture.md §3.1/§13 item 9): the flag commits regardless of
-	// whether the seam's intent submit later fails. This test used to prove
-	// the two writes rolled back together; it now proves the named window —
-	// a flagged item with no queued review action, repaired by a retry that
-	// re-runs the idempotent flag path and re-submits under the same key.
-	test("real knowledge flag command: the flag survives even when the intent write fails (AU31 §3.1 site 4)", async ({
-		db,
-		app,
-	}) => {
-		await db.insert(users).values({
-			id: "au9-knowledge-agent",
-			kind: "ai",
-			name: "Knowledge reviewer",
-			role: "builder",
-			status: "active",
-			createdAt: new Date().toISOString(),
-		});
-		const created = await app.request("/api/knowledge", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({
-				topic: "au9",
-				title: "Atomic knowledge action",
-				body: "Must survive only with its intent",
-				format: "markdown",
-				scopeKind: "factory",
-				updatedBy: "au9-human",
-			}),
-		});
-		const item = (await created.json()) as { id: string; status: string };
-		// @lore AU14: POST /api/knowledge now routes through the shared repository's
-		// create(), which unconditionally writes a `create` knowledgeEditLog row (AC-4
-		// convergence — see plans/AU14/architecture.md §7/§9 D1). Capture the baseline
-		// count here (1 durable row from the create above) so the assertion below
-		// proves the flag transaction added exactly one new row.
-		const editLogCountBeforeFlag = (await db.select().from(knowledgeEditLog)).length;
-		await rejectIntentWrites(db);
-
-		const response = await app.request(`/api/knowledge/${item.id}/flag`, {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({ reason: "needs agent review", agentId: "au9-knowledge-agent" }),
-		});
-
-		// The seam's intent submit fails (uncaught) — the route still 500s —
-		// but the flag transition already committed before that call ran.
-		expect(response.status).toBe(500);
-		const [persisted] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, item.id));
-		expect(persisted?.status).toBe("draft");
-		expect(await db.select().from(knowledgeEditLog)).toHaveLength(editLogCountBeforeFlag + 1);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
-	});
+	// flag (POST /api/knowledge/:id/flag) §3.1 site 4 coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
 	// AU31 §3.1 site 8 — INVERTED. The routine_run row commits (outcome
 	// "running") in its own transaction before the seam's intent submit runs;
@@ -660,29 +457,7 @@ describe("atomic production handoffs", () => {
 		});
 	});
 
-	test("hold to accepted retry records one durable dispatch occasion", async ({ db, app }) => {
-		await seedExplicitSessionAuthority(db);
-		await db
-			.update(tasks)
-			.set({ state: "hold", ownerAgentId: "au9-production-agent" })
-			.where(eq(tasks.id, "au9-production-task"));
-		const response = await app.request("/api/tasks/au9-production-task/transition", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({ state: "accepted" }),
-		});
-		expect(response.status).toBe(200);
-		const attempts = await db
-			.select()
-			.from(taskDispatchAttempts)
-			.where(eq(taskDispatchAttempts.taskId, "au9-production-task"));
-		const intents = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, attempts[0]?.id ?? ""));
-		expect(intents).toHaveLength(1);
-		expect(attempts[0]?.occasion).toBe("retry");
-	});
+	// POST /api/tasks/:id/transition (door #40) deleted. Retry-transition test removed.
 
 	test("real proposed-call grant command records one replay-safe reengagement occasion", async ({
 		db,
@@ -698,7 +473,10 @@ describe("atomic production handoffs", () => {
 				approvedToolId: "commit_file",
 				approvedArgs: { path: "result.txt" },
 			},
-			{ intentRecorder: { record: enqueueWorkIntent } },
+			{
+				intentRecorder: (input: Parameters<typeof enqueueWorkIntent>[1]) =>
+					enqueueWorkIntent(db, input),
+			},
 		);
 		const intents = await db
 			.select()

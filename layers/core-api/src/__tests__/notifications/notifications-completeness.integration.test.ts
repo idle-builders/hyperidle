@@ -28,9 +28,6 @@ import {
 	deliver,
 	enqueue,
 	listNotifications,
-	type Notification,
-	type NotificationAdapter,
-	type NotificationChannel,
 	readConfig,
 	readPreferences,
 	updateConfig,
@@ -64,19 +61,20 @@ function pendingRow(
 
 interface AdapterCall {
 	recipient: { channelId: string };
-	notification: Notification;
+	notification: { title: string; severity: string };
 }
 
-function createFakeAdapter(channel: NotificationChannel = "console"): NotificationAdapter & {
-	calls: AdapterCall[];
-} {
+function createFakeAdapter(channel: "console" | "ntfy" | "smtp" = "console") {
 	const calls: AdapterCall[] = [];
 	return {
 		name: channel,
 		calls,
-		async send(recipient, notification) {
+		async send(
+			recipient: { channelId: string },
+			notification: { title: string; severity: string },
+		) {
 			calls.push({ recipient, notification });
-			return { ok: true, channel, sentAt: new Date().toISOString() };
+			return { ok: true as const, channel, sentAt: new Date().toISOString() };
 		},
 	};
 }

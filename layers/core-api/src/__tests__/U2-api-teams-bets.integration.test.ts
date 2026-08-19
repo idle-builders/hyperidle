@@ -19,7 +19,6 @@
  */
 
 import { bets, type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
-import { MUTABLE_BET_FIELDS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -593,21 +592,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		vi.unstubAllEnvs();
 	});
 
-	// AC-5b: active→completed (POST /ship) succeeds
-	test("AC-5b: active→completed via POST /ship succeeds (200)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedAC5Base(db);
-		await setActiveBet(db, "b-ship");
-		const res = await app.request("/api/bets/b-ship/ship", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { status: string };
-		expect(body.status).toBe("completed");
-		vi.unstubAllEnvs();
-	});
-
 	// AC-5c: active→killed (POST /kill) succeeds
 	test("AC-5c: active→killed via POST /kill succeeds (200)", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -637,22 +621,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { status: string };
 		expect(body.status).toBe("killed");
-		vi.unstubAllEnvs();
-	});
-
-	// AC-5e: draft→completed (POST /ship) returns 400 (not 409)
-	test("AC-5e: draft→completed via POST /ship returns 400 (not 409)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedAC5Base(db);
-		await createDraftBet(db, "b-bad-ship");
-		const res = await app.request("/api/bets/b-bad-ship/ship", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		// CRITICAL: must be 400, not 409
-		expect(res.status).toBe(400);
-		const body = (await res.json()) as { code?: string };
-		expect(body.code).toBe("VALIDATION_ERROR");
 		vi.unstubAllEnvs();
 	});
 
@@ -741,29 +709,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST /ship response normalizes atRisk to boolean (not integer)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedAC5Base(db);
-		await db.insert(bets).values({
-			id: "b-ship-atrisk",
-			teamId: "p1",
-			description: "# Ship atRisk",
-			appetite: "small",
-			status: "active",
-			atRisk: 1,
-			createdAt: NOW,
-		});
-		const res = await app.request("/api/bets/b-ship-atrisk/ship", {
-			method: "POST",
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { atRisk: unknown };
-		expect(typeof body.atRisk).toBe("boolean");
-		expect(body.atRisk).toBe(true);
-		vi.unstubAllEnvs();
-	});
-
 	test("POST /kill response normalizes atRisk to boolean (not integer)", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedAC5Base(db);
@@ -786,32 +731,6 @@ describe("AC-5: Bet lifecycle transitions with 400 on invalid", () => {
 		expect(typeof body.atRisk).toBe("boolean");
 		expect(body.atRisk).toBe(true);
 		vi.unstubAllEnvs();
-	});
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AC-6: MUTABLE_BET_FIELDS includes "description" and "at_risk"
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("AC-6: MUTABLE_BET_FIELDS shared constant", () => {
-	test("MUTABLE_BET_FIELDS includes 'description'", () => {
-		expect(MUTABLE_BET_FIELDS).toContain("description");
-	});
-
-	test("MUTABLE_BET_FIELDS includes 'at_risk'", () => {
-		expect(MUTABLE_BET_FIELDS).toContain("at_risk");
-	});
-
-	test("MUTABLE_BET_FIELDS still includes existing fields", () => {
-		expect(MUTABLE_BET_FIELDS).toContain("done_condition");
-		expect(MUTABLE_BET_FIELDS).toContain("hypothesis");
-	});
-
-	// @lore AU21 Increment 14a: "cost_appetite" removed from MUTABLE_BET_FIELDS
-	// — `bets.costAppetiteMinor/costAppetiteCurrency` are dropped columns, no
-	// replacement mutable field.
-	test("MUTABLE_BET_FIELDS no longer includes 'cost_appetite'", () => {
-		expect(MUTABLE_BET_FIELDS).not.toContain("cost_appetite");
 	});
 });
 

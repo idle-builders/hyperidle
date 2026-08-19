@@ -19,7 +19,6 @@ function makeDescriptor(
 		type,
 		name: type,
 		kind: "local",
-		accessMode: "api-gateway",
 		authAction: { kind: "none", label: "None" },
 		discovery: { state: "ready" },
 		models: models.map((m) => ({
@@ -30,14 +29,6 @@ function makeDescriptor(
 			inheritedFromGateway: false,
 			options: [],
 		})),
-		runtime: {
-			preCompactionTrigger: false,
-			subAgents: false,
-			mcpSupport: false,
-			modelProviders: modelProviders ?? [],
-			fileEditing: false,
-			toolUse: false,
-		},
 		modelProviders: modelProviders ?? [],
 	};
 }

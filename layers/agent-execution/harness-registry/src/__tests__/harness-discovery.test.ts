@@ -102,7 +102,6 @@ describe("discoverLocalHarnesses cohesive discovery", () => {
 });
 
 const capabilities: HarnessCapabilities = {
-	accessMode: "api-gateway",
 	preCompactionTrigger: false,
 	subAgents: false,
 	mcpSupport: false,

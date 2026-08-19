@@ -20,8 +20,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { HyperIdleDb, LoginSession } from "@hyperidle/db";
 import { loginSessions } from "@hyperidle/db";
-import { LOGIN_SESSION_TTL_MS } from "@hyperidle/domain-model";
 import { and, eq, isNull } from "drizzle-orm";
+
+const LOGIN_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 // ─── Token generation ─────────────────────────────────────────────────────────
 

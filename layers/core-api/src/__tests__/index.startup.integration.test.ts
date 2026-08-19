@@ -5,7 +5,7 @@
  * VPS/cloud profiles fail fast when the key is unset.
  */
 
-import { LAPTOP_DEV_API_KEY, validateStartupEnv } from "@hyperidle/host-process";
+import { validateStartupEnv } from "@hyperidle/host-process";
 import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 describe("I2 A6 — validateStartupEnv", () => {
@@ -17,14 +17,14 @@ describe("I2 A6 — validateStartupEnv", () => {
 		const env: Record<string, string | undefined> = {};
 		const result = validateStartupEnv(env);
 		expect(result).toBeNull();
-		expect(env.HYPERIDLE_API_KEY).toBe(LAPTOP_DEV_API_KEY);
+		expect(env.HYPERIDLE_API_KEY).toBe("hyperidle-dev-local");
 	});
 
 	test("defaults to dev key when undefined", () => {
 		const env: Record<string, string | undefined> = { HYPERIDLE_API_KEY: undefined };
 		const result = validateStartupEnv(env);
 		expect(result).toBeNull();
-		expect(env.HYPERIDLE_API_KEY).toBe(LAPTOP_DEV_API_KEY);
+		expect(env.HYPERIDLE_API_KEY).toBe("hyperidle-dev-local");
 	});
 
 	test("returns error when missing in vps profile", () => {

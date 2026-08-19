@@ -114,19 +114,6 @@ export interface RoutineDetail {
 }
 
 /**
- * AA2: Wire type for POST /api/routines request body.
- */
-export interface RoutineCreatePayload {
-	name: string;
-	description?: string;
-	teamId: string;
-	ownerAgentId: string;
-	triggerType: "calendar";
-	/** JSON: { cron: "<expression>" } */
-	triggerConfig: string;
-}
-
-/**
  * AA2: Cron presets for the schedule picker.
  */
 export const SCHEDULE_PRESETS = [

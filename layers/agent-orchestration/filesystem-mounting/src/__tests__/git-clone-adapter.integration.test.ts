@@ -2,7 +2,7 @@
  * AO2 — GitCloneAdapter integration test.
  *
  * AC1: mount shallow-clones a bare repo; files present.
- * AC2: captureBack commits + named-ref bundle.
+ * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
  */
 
 import { randomUUID } from "node:crypto";
@@ -42,12 +42,9 @@ function makeFs(repoUrl: string, branch = "main"): Filesystem {
 
 describe("GitCloneAdapter integration", () => {
 	let tmpDir: string;
-	let capturesDir: string;
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-clone-adapter-"));
-		capturesDir = path.join(tmpDir, "captures");
-		fs.mkdirSync(capturesDir, { recursive: true });
 	});
 
 	afterEach(() => {
@@ -57,8 +54,6 @@ describe("GitCloneAdapter integration", () => {
 	function makeDeps(): AdapterDeps {
 		return {
 			gitRunnerFactory: (repoPath: string) => createGitRunner(repoPath),
-			capturesDir,
-			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
 	}
 
@@ -71,7 +66,6 @@ describe("GitCloneAdapter integration", () => {
 		const result = await adapter.mount({
 			filesystem: makeFs(repoPath),
 			sandboxPath,
-			auth: null,
 		});
 
 		expect(result.success).toBe(true);
@@ -86,7 +80,7 @@ describe("GitCloneAdapter integration", () => {
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		// In a regular clone, .git is a directory.
 		const excludeContent = fs.readFileSync(
@@ -97,17 +91,14 @@ describe("GitCloneAdapter integration", () => {
 		expect(excludeContent).toContain("/CLAUDE.md");
 	});
 
-	it("captureBack: commits authored changes and produces a named-ref bundle", async () => {
+	it("captureBack: returns success no-op (write code removed in AU43 stage 2)", async () => {
 		const repoPath = await createSourceRepo(tmpDir);
 		const sessionId = randomUUID();
 		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath, auth: null });
-
-		// Agent authors a new file.
-		fs.writeFileSync(path.join(sandboxPath, "agent-out.txt"), "clone capture test\n");
+		await adapter.mount({ filesystem: makeFs(repoPath), sandboxPath });
 
 		const result = await adapter.captureBack({
 			filesystem: makeFs(repoPath),
@@ -116,15 +107,6 @@ describe("GitCloneAdapter integration", () => {
 		});
 
 		expect(result.success).toBe(true);
-		expect(result.captured).toBe(true);
-		const bundlePath = path.join(capturesDir, `${sessionId}.bundle`);
-		expect(fs.existsSync(bundlePath)).toBe(true);
-
-		// Bundle should be cloneable and contain the authored file.
-		const verifyDir = path.join(tmpDir, "verify");
-		fs.mkdirSync(verifyDir, { recursive: true });
-		const vRunner = createGitRunner(verifyDir);
-		await vRunner.clone(bundlePath, "main");
-		expect(fs.existsSync(path.join(verifyDir, "agent-out.txt"))).toBe(true);
+		expect(result.captured).toBe(false);
 	});
 });

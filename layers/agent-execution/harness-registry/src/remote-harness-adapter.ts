@@ -60,7 +60,7 @@ function asRemoteWorkerMessage(msg: unknown): RemoteWorkerMessage | null {
 }
 
 /** Minimal WebSocket interface used by RemoteHarnessAdapter (avoids ws/DOM type coupling). */
-interface WsLike {
+export interface WsLike {
 	send(data: string): void;
 	close(): void;
 	onmessage: ((evt: { data: string }) => void) | null;

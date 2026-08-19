@@ -14,11 +14,14 @@
  * `@hyperidle/users`'s `hint-progress.ts` (ruled owned by `users`, cascades
  * from `users.id`) — this route now calls `listDismissedHints`/`dismissHint`
  * instead of querying the table directly.
+ *
+ * @lore AU43 bundle-8: routes were removed by mistake — door audit marked
+ * rows 126/127 as KEEP because useHints.tsx calls them. Restored here.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { isHintId } from "@hyperidle/domain-model";
-import { type HyperIdleEnv, requireBoundary } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { dismissHint, listDismissedHints } from "@hyperidle/users";
 import { Hono } from "hono";
 
@@ -27,10 +30,11 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 
 	/**
 	 * GET / — return all dismissed hints for the authenticated user.
+	 * userId is set by the global auth middleware.
 	 *
 	 * Response: { dismissed: Array<{ hintId: string; seenAt: string }> }
 	 */
-	router.get("/", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.get("/", async (c) => {
 		const userId = c.get("userId");
 		const dismissed = await listDismissedHints(db, userId);
 		return c.json({ dismissed });
@@ -48,7 +52,7 @@ export function createHintRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	 * existed (empty result). This avoids the SELECT-then-INSERT TOCTOU race condition
 	 * and does not rely on the SQLite-only `.changes` property.
 	 */
-	router.post("/:hintId/dismiss", requireBoundary({ kind: "principal-self" }), async (c) => {
+	router.post("/:hintId/dismiss", async (c) => {
 		const userId = c.get("userId");
 		const hintId = c.req.param("hintId");
 

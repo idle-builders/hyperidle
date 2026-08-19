@@ -5,13 +5,12 @@ import {
 	shouldForceReturn,
 } from "@hyperidle/harness-protocol";
 /**
- * @lore AU26 B1a: the local `requireBoundary` re-implementation this file used
+ * @lore AU26 B1a: the local `` re-implementation this file used
  * to declare (with its own `@lore` saying it existed only to avoid importing
  * core-api's copy) is DELETED. A1 moved the AF11 declaration into
  * `@hyperidle/http-middleware`, a package `harness-registry` already depends on, so
  * the reason is gone and the duplicate goes with it.
  */
-import { requireBoundary } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 
 interface McpSessionRegistry {
@@ -80,7 +79,7 @@ export function createMcpRouter(
 	// so the hook script sees a non-empty response and falls back to allow-stop
 	// (drain-gate floor backstops). Production wiring (server-factory.ts) MUST
 	// pass the registry.
-	router.post("/mcp/:token/return-status", requireBoundary({ kind: "public-data" }), (c) => {
+	router.post("/mcp/:token/return-status", (c) => {
 		const token = c.req.param("token");
 
 		// Validate Bearer token in Authorization header (optional belt-and-suspenders

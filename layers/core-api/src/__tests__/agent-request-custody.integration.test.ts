@@ -9,7 +9,6 @@
  */
 
 import {
-	agentLifecycleInbox,
 	agentRunConfig,
 	agentSessionRequests,
 	bets,
@@ -286,12 +285,6 @@ describe("request custody drives the real drain and runtime", () => {
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, "terminal-request"));
 		expect(request?.status).toBe("completed");
-		const inbox = await db
-			.select()
-			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "terminal-request"));
-		expect(inbox).toHaveLength(1);
-		expect(inbox[0]).toMatchObject({ state: "completed" });
 	});
 
 	// -------------------------------------------------------------------------
@@ -326,12 +319,5 @@ describe("request custody drives the real drain and runtime", () => {
 			.from(sessions)
 			.where(eq(sessions.requestId, "assistant-lifecycle-request"));
 		expect(session?.sourceKind).toBe("assistant");
-
-		const inbox = await db
-			.select()
-			.from(agentLifecycleInbox)
-			.where(eq(agentLifecycleInbox.requestId, "assistant-lifecycle-request"));
-		expect(inbox).toHaveLength(1);
-		expect(inbox[0]).toMatchObject({ state: "completed" });
 	});
 });

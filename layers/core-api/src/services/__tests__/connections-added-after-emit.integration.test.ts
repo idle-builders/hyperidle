@@ -29,6 +29,7 @@ import {
 } from "@hyperidle/connections";
 import { encryptCredentialValue } from "@hyperidle/credential-access";
 import { agentSessionRequests, type HyperIdleDb, serviceConnections, users } from "@hyperidle/db";
+import type { EventBus } from "@hyperidle/event-bus";
 import { applyProvisioningPlan, buildProvisioningPlan } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
@@ -94,7 +95,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
  */
 async function emitAndDrain(
 	db: HyperIdleDb,
-	eventBus: Parameters<typeof queueDeps>[0] extends never ? never : { emit: unknown },
+	eventBus: EventBus,
 	idempotencyKey: string,
 ): Promise<{ readonly payloadJson: string | null }> {
 	await enqueueWorkIntent(db, {
@@ -116,9 +117,7 @@ async function emitAndDrain(
 			},
 		},
 	});
-	await drainIntents({ ...queueDeps(db), eventBus } as ReturnType<typeof queueDeps> & {
-		eventBus: unknown;
-	});
+	await drainIntents({ ...queueDeps(db), eventBus });
 
 	const [request] = await db
 		.select()

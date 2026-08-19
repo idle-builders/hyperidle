@@ -29,7 +29,7 @@ import { getTeamMembers, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { transitionBet, type WorkDeps } from "@hyperidle/work";
+import { transitionBet } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -88,14 +88,14 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			await enqueue(db, row);
 		},
 	},
-	silence: { isSilenced: () => Promise.resolve(false) },
 };
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
-const teamCapacity: WorkDeps["teamCapacity"] = {
-	getByTeamId: (db, teamId) => getTeamMembers(db, { teamId }),
-	setActiveBets: (db, teamId, activeBets) => updateTeam(db, teamId, { activeBets }),
+const teamCapacity = {
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
+		updateTeam(db, teamId, { activeBets }),
 };
 
 const TEST_API_KEY = "test-key-r7-bets";

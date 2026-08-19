@@ -30,18 +30,11 @@
  */
 
 import type {
-	AgentOrchestrationCreateBareRunRequest,
-	AgentOrchestrationExplicitStartRequest,
-	AgentOrchestrationExplicitStartResult,
-	AgentOrchestrationExplicitStartView,
 	AgentOrchestrationPort,
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationRunConfigView,
-	AgentOrchestrationSessionActivityEntry,
-	AgentOrchestrationSessionHistoryEntry,
 	AgentOrchestrationSessionWireRow,
 	AgentOrchestrationStoppedRun,
-	AgentOrchestrationTeamRunConfigDefaultsView,
 	AgentOrchestrationTransport,
 	AgentOrchestrationWorkIntentInput,
 	AgentOrchestrationWorkIntentKind,
@@ -50,7 +43,7 @@ import type {
 import type { WriteExecutor } from "@hyperidle/db";
 import type { OrgAgentRunConfigWriter } from "@hyperidle/org";
 import type {
-	AgentWorkIntentRecorder,
+	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 } from "@hyperidle/work-intent-port";
 import type { Hono } from "hono";
@@ -65,35 +58,28 @@ import type { AppType } from "../schemas/index.js";
 interface AgentOrchestrationHcClient {
 	readonly "agent-orchestration": {
 		readonly sessions: {
-			$get(args: {
-				readonly query: { readonly sourceKind: string; readonly sourceId: string };
-			}): Promise<Response>;
 			readonly ":sessionId": {
 				$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
-				readonly activity: {
-					$get(args: { readonly param: { readonly sessionId: string } }): Promise<Response>;
-				};
 			};
 		};
 		readonly intents: {
 			$post(args: { readonly json: AgentOrchestrationWorkIntentInput }): Promise<Response>;
-			readonly "explicit-start": {
-				$post(args: { readonly json: AgentOrchestrationExplicitStartRequest }): Promise<Response>;
-			};
 		};
 		readonly requests: {
-			readonly "explicit-start": {
-				$get(args: {
-					readonly query: { readonly requestedBy: string; readonly idempotencyKey: string };
-				}): Promise<Response>;
-				readonly ":startId": {
-					$get(args: { readonly param: { readonly startId: string } }): Promise<Response>;
-				};
-			};
 			readonly "pending-intents": {
 				$get(args: {
 					readonly query: { readonly kind: AgentOrchestrationWorkIntentKind };
 				}): Promise<Response>;
+			};
+			readonly "explicit-starts": {
+				readonly ":startId": {
+					readonly fail: {
+						$post(args: {
+							readonly param: { readonly startId: string };
+							readonly json: { readonly failureCode: string };
+						}): Promise<Response>;
+					};
+				};
 			};
 		};
 		readonly runs: {
@@ -109,16 +95,6 @@ interface AgentOrchestrationHcClient {
 				$post(args: {
 					readonly json: { readonly sessionId: string; readonly endedAt: string };
 				}): Promise<Response>;
-			};
-			readonly bare: {
-				$post(args: { readonly json: AgentOrchestrationCreateBareRunRequest }): Promise<Response>;
-			};
-			readonly "explicit-start": {
-				readonly fail: {
-					$post(args: {
-						readonly json: { readonly startId: string; readonly failureCode: string };
-					}): Promise<Response>;
-				};
 			};
 			readonly "is-at-capacity": {
 				$post(args: {
@@ -136,15 +112,6 @@ interface AgentOrchestrationHcClient {
 			};
 			readonly batch: {
 				$post(args: { readonly json: { readonly agentIds: readonly string[] } }): Promise<Response>;
-			};
-		};
-		readonly "team-run-config-defaults": {
-			readonly ":teamId": {
-				$get(args: { readonly param: { readonly teamId: string } }): Promise<Response>;
-				$patch(args: {
-					readonly param: { readonly teamId: string };
-					readonly json: AgentOrchestrationTeamRunConfigDefaultsView;
-				}): Promise<Response>;
 			};
 		};
 		readonly filesystems: {
@@ -215,26 +182,9 @@ export function buildAgentOrchestrationPort(
 
 	return {
 		sessions: {
-			async listSessionHistoryBySource(
-				sourceKind: string,
-				sourceId: string,
-			): Promise<ReadonlyArray<AgentOrchestrationSessionHistoryEntry>> {
-				const res = await client["agent-orchestration"].sessions.$get({
-					query: { sourceKind, sourceId },
-				});
-				if (!res.ok) return throwSeamError("sessions.listSessionHistoryBySource", res);
-				const body = (await res.json()) as {
-					readonly entries: ReadonlyArray<AgentOrchestrationSessionHistoryEntry>;
-				};
-				return body.entries;
-			},
-
 			/**
 			 * @lore AU26 B1a (AC5(d)): returns the FULL 18-column wire row, never
-			 * the seven-field decoration narrowing — `POST /api/sessions`'s 202
-			 * branch returns whatever this yields verbatim. A 404 from the backing
-			 * route is the "no such session" answer, not a seam failure, so it
-			 * resolves `null` instead of throwing.
+			 * the seven-field decoration narrowing. A 404 resolves `null`.
 			 */
 			async getById(sessionId: string): Promise<AgentOrchestrationSessionWireRow | null> {
 				const res = await client["agent-orchestration"].sessions[":sessionId"].$get({
@@ -247,19 +197,6 @@ export function buildAgentOrchestrationPort(
 				};
 				return body.session;
 			},
-
-			async getRecentActivity(
-				sessionId: string,
-			): Promise<ReadonlyArray<AgentOrchestrationSessionActivityEntry>> {
-				const res = await client["agent-orchestration"].sessions[":sessionId"].activity.$get({
-					param: { sessionId },
-				});
-				if (!res.ok) return throwSeamError("sessions.getRecentActivity", res);
-				const body = (await res.json()) as {
-					readonly entries: ReadonlyArray<AgentOrchestrationSessionActivityEntry>;
-				};
-				return body.entries;
-			},
 		},
 		intents: {
 			async submit(
@@ -269,40 +206,8 @@ export function buildAgentOrchestrationPort(
 				if (!res.ok) return throwSeamError("intents.submit", res);
 				return (await res.json()) as AgentOrchestrationWorkIntentReceipt;
 			},
-			async createExplicitStart(
-				input: AgentOrchestrationExplicitStartRequest,
-			): Promise<AgentOrchestrationExplicitStartResult> {
-				const res = await client["agent-orchestration"].intents["explicit-start"].$post({
-					json: input,
-				});
-				if (!res.ok) return throwSeamError("intents.createExplicitStart", res);
-				return (await res.json()) as AgentOrchestrationExplicitStartResult;
-			},
 		},
 		requests: {
-			async findExplicitStartByIdempotencyKey(
-				requestedBy: string,
-				idempotencyKey: string,
-			): Promise<AgentOrchestrationExplicitStartView | null> {
-				const res = await client["agent-orchestration"].requests["explicit-start"].$get({
-					query: { requestedBy, idempotencyKey },
-				});
-				if (res.status === 404) return null;
-				if (!res.ok) return throwSeamError("requests.findExplicitStartByIdempotencyKey", res);
-				const body = (await res.json()) as { readonly start: AgentOrchestrationExplicitStartView };
-				return body.start;
-			},
-			async findExplicitStartById(
-				startId: string,
-			): Promise<AgentOrchestrationExplicitStartView | null> {
-				const res = await client["agent-orchestration"].requests["explicit-start"][":startId"].$get(
-					{ param: { startId } },
-				);
-				if (res.status === 404) return null;
-				if (!res.ok) return throwSeamError("requests.findExplicitStartById", res);
-				const body = (await res.json()) as { readonly start: AgentOrchestrationExplicitStartView };
-				return body.start;
-			},
 			async listPendingIntentsByKind(kind: AgentOrchestrationWorkIntentKind): Promise<
 				ReadonlyArray<{
 					readonly id: string;
@@ -322,6 +227,12 @@ export function buildAgentOrchestrationPort(
 					}>;
 				};
 				return body.entries;
+			},
+			async failExplicitSessionStart(startId: string, failureCode: string): Promise<void> {
+				const res = await client["agent-orchestration"].requests["explicit-starts"][
+					":startId"
+				].fail.$post({ param: { startId }, json: { failureCode } });
+				if (!res.ok) return throwSeamError("requests.failExplicitSessionStart", res);
 			},
 		},
 		runs: {
@@ -344,23 +255,9 @@ export function buildAgentOrchestrationPort(
 				});
 				if (!res.ok) return throwSeamError("runs.endForHandoff", res);
 			},
-			async createBareRun(
-				input: AgentOrchestrationCreateBareRunRequest,
-			): Promise<AgentOrchestrationSessionWireRow> {
-				const res = await client["agent-orchestration"].runs.bare.$post({ json: input });
-				if (!res.ok) return throwSeamError("runs.createBareRun", res);
-				const body = (await res.json()) as { readonly session: AgentOrchestrationSessionWireRow };
-				return body.session;
-			},
 			async abort(sessionId: string): Promise<void> {
 				const res = await client["agent-orchestration"].runs.abort.$post({ json: { sessionId } });
 				if (!res.ok) return throwSeamError("runs.abort", res);
-			},
-			async failExplicitStart(startId: string, failureCode: string): Promise<void> {
-				const res = await client["agent-orchestration"].runs["explicit-start"].fail.$post({
-					json: { startId, failureCode },
-				});
-				if (!res.ok) return throwSeamError("runs.failExplicitStart", res);
 			},
 		},
 		runConfig: {
@@ -390,25 +287,6 @@ export function buildAgentOrchestrationPort(
 					json: patch,
 				});
 				if (!res.ok) return throwSeamError("runConfig.write", res);
-			},
-			async readTeamDefaults(teamId: string): Promise<AgentOrchestrationTeamRunConfigDefaultsView> {
-				const res = await client["agent-orchestration"]["team-run-config-defaults"][":teamId"].$get(
-					{ param: { teamId } },
-				);
-				if (!res.ok) return throwSeamError("runConfig.readTeamDefaults", res);
-				const body = (await res.json()) as {
-					readonly defaults: AgentOrchestrationTeamRunConfigDefaultsView;
-				};
-				return body.defaults;
-			},
-			async writeTeamDefaults(
-				teamId: string,
-				defaults: AgentOrchestrationTeamRunConfigDefaultsView,
-			): Promise<void> {
-				const res = await client["agent-orchestration"]["team-run-config-defaults"][
-					":teamId"
-				].$patch({ param: { teamId }, json: defaults });
-				if (!res.ok) return throwSeamError("runConfig.writeTeamDefaults", res);
 			},
 		},
 		filesystems: {
@@ -462,14 +340,10 @@ export function buildAgentOrchestrationPort(
  * `AgentWorkIntentRecorder<TTx>` instantiation (`HyperIdleDb` at the route
  * layer, `WriteExecutor` inside `@hyperidle/work`/`@hyperidle/policy`).
  */
-export function buildSeamBackedWorkIntentRecorder<TTx>(
+export function buildSeamBackedWorkIntentRecorder(
 	port: AgentOrchestrationPort,
-): AgentWorkIntentRecorder<TTx> {
-	return {
-		record: async (_tx: TTx, input: AgentWorkIntentRecorderInput) => {
-			return port.intents.submit(input);
-		},
-	};
+): AgentWorkIntentRecorderFn {
+	return (input: AgentWorkIntentRecorderInput) => port.intents.submit(input);
 }
 
 /**

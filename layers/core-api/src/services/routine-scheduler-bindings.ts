@@ -35,9 +35,9 @@ import {
 import { getTeam } from "@hyperidle/org";
 import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
+	extractBuiltinKind,
 	fireBuiltinRoutine,
 	fireGenericRoutine,
-	isBuiltinRoutineId,
 	type RoutineSchedulerConfig,
 	type RoutineSchedulerPorts,
 	registerBuiltinRoutineHandlers,
@@ -174,6 +174,13 @@ export interface FireRoutineResult {
  * `dispatchOps.fireRoutine` used to make (relocated verbatim, now core-api-
  * side). The manual-trigger route (`routines-routes.ts`) and test helpers
  * (`dispatch-test-helpers.ts`) are this function's real callers.
+ *
+ * @lore AU20 repair: the builtin-vs-generic branch was lost in the AU20
+ * destroyer pass. `extractBuiltinKind` detects per-team builtin ids
+ * (e.g. `builtin:knowledge-promotion:team-1`) and routes them through
+ * `fireBuiltinRoutine`, which runs the in-process handler and writes the
+ * terminal `routine_runs` row itself. Generic routines continue through
+ * `fireGenericRoutine`, which enqueues a work intent for agent dispatch.
  */
 export function fireRoutine(
 	db: HyperIdleDb,
@@ -186,7 +193,8 @@ export function fireRoutine(
 	},
 ): Promise<FireRoutineResult> {
 	const ports = buildRoutineSchedulerPorts(agentOrchestration);
-	if (isBuiltinRoutineId(routine.id)) {
+	const builtinKind = extractBuiltinKind(routine.id);
+	if (builtinKind) {
 		return fireBuiltinRoutine(db, eventBus, ports, routine.id, opts?.args);
 	}
 	return fireGenericRoutine(db, eventBus, routine, ports, opts?.recordSkippedRun);

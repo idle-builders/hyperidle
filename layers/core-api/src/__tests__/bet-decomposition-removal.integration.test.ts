@@ -27,24 +27,11 @@
  *       so the coming deletions can't silently regress it.
  */
 
-import {
-	agentWorkIntents,
-	bets,
-	explicitSessionStarts,
-	type HyperIdleDb,
-	sessions,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { agentWorkIntents, bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { createServer, type ServerHandle } from "@hyperidle/remote-server/create-server";
-import type { RuntimePorts } from "@hyperidle/run-orchestration";
-import { drainIntents } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
-import { queueDeps } from "../__testing__/durable-agent-queue-test-deps.js";
 import { afterEach, beforeEach, describe, expect, test } from "../__testing__/test-fixtures.js";
-import { startTestRuntime } from "./run-orchestration-test-runtime.js";
 
 const TEST_API_KEY = "test-key-au21-inc10a";
 
@@ -168,134 +155,5 @@ describe("committing a bet no longer triggers the built-in bet_decomposition mec
 		} finally {
 			await handle.dispose();
 		}
-	});
-});
-
-// ---------------------------------------------------------------------------
-// (b) The preserved capability: generic explicit-session-start against a
-// bet's task still provisions a real agent session, unaffected by Decision
-// I's removal. This mirrors `explicit-session-start.production.integration
-// .test.ts`'s "admits a requested start to 200 with a real session" — it
-// already passes today; it is pinned here as an Increment 10a regression
-// guard so the surrounding deletions can't silently break it.
-// ---------------------------------------------------------------------------
-
-const sessionProvisioner: NonNullable<RuntimePorts["sessionProvisioner"]> = {
-	admitSession: vi.fn(async (deps, params) => {
-		const requestId = params.requestContext?.requestId;
-		const [existing] = requestId
-			? await deps.db.select().from(sessions).where(eq(sessions.requestId, requestId)).limit(1)
-			: [];
-		const sessionId = existing?.id ?? `stub-session-${requestId ?? "unknown"}`;
-		return {
-			sessionId,
-			sessionContext: {
-				sessionId,
-				agentId: params.agentId,
-				taskId: params.taskId,
-				sandboxPath: "/tmp/au21-inc10a-explicit-start",
-				ingestion: { dispose: vi.fn() },
-				traceId: "trace-au21-inc10a-explicit-start",
-				requestContext: params.requestContext,
-			},
-		};
-	}),
-	runSession: vi.fn(async () => ({
-		sessionId: "unused",
-		outcome: "completed" as const,
-		taskId: null,
-		forceReturnCount: 0,
-	})),
-};
-
-describe("the generic explicit-session-start mechanism against a bet's task still provisions an agent session", () => {
-	const key = "au21-inc10a-session-key";
-	beforeEach(() => vi.stubEnv("HYPERIDLE_API_KEY", key));
-	afterEach(() => vi.unstubAllEnvs());
-
-	test("explicit session start against a bet's task still provisions a real agent session", async ({
-		db,
-		app,
-	}) => {
-		const now = new Date().toISOString();
-		await db
-			.insert(teams)
-			.values({ id: "inc10a-b-team-parent", name: "Inc10aB", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "inc10a-b-team",
-			teamId: "inc10a-b-team-parent",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
-		await db.insert(users).values([
-			{
-				id: "inc10a-b-human",
-				kind: "human",
-				name: "Founder",
-				role: "founder",
-				status: "active",
-				createdAt: now,
-			},
-			{
-				id: "inc10a-b-agent",
-				kind: "ai",
-				name: "Agent",
-				role: "builder",
-				status: "idle",
-				teamId: "inc10a-b-team",
-				createdAt: now,
-			},
-		]);
-		await db.insert(bets).values({
-			id: "inc10a-b-bet",
-			teamId: "inc10a-b-team-parent",
-			description: "Preserved capability bet",
-			status: "active",
-			createdAt: now,
-		});
-		const { tasks } = await import("@hyperidle/db");
-		await db.insert(tasks).values({
-			id: "inc10a-b-task",
-			betId: "inc10a-b-bet",
-			teamId: "inc10a-b-team-parent",
-			title: "Preserved capability task",
-			state: "in_progress",
-			createdAt: now,
-			updatedAt: now,
-		});
-
-		const created = await app.request("/api/sessions", {
-			method: "POST",
-			headers: {
-				"X-API-Key": key,
-				"Content-Type": "application/json",
-				"Idempotency-Key": "inc10a-b",
-			},
-			body: JSON.stringify({
-				agentId: "inc10a-b-agent",
-				taskId: "inc10a-b-task",
-				modelTier: "workhorse",
-			}),
-		});
-		expect(created.status).toBe(202);
-		const { startId } = (await created.json()) as { startId: string };
-
-		await drainIntents(queueDeps(db));
-		const eventBus = new (await import("@hyperidle/event-bus")).EventBus();
-		const runtime = await startTestRuntime(db, eventBus, { db, eventBus }, sessionProvisioner);
-		await runtime.dispose();
-
-		const poll = await app.request(`/api/sessions/starts/${startId}`, {
-			headers: { "X-API-Key": key },
-		});
-		expect(poll.status).toBe(202);
-		const body = (await poll.json()) as { state?: string };
-		expect(body.state).toBe("active");
-		const [start] = await db
-			.select()
-			.from(explicitSessionStarts)
-			.where(eq(explicitSessionStarts.id, startId));
-		expect(start).toMatchObject({ status: "admitted" });
 	});
 });

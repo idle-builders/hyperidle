@@ -17,7 +17,6 @@
  * post-hand-off provision failure (`projectRoutine`).
  */
 import {
-	agentLifecycleInbox,
 	agentSessionRequests,
 	agentWorkIntents,
 	type HyperIdleDb,
@@ -30,7 +29,7 @@ import {
 } from "@hyperidle/db";
 import type { AgentRunLifecycleChangedEvent } from "@hyperidle/domain-model";
 import * as routineService from "@hyperidle/routine";
-import { drainIntents, startLifecycleProjectionDrain } from "@hyperidle/session-requests";
+import { drainIntents } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
@@ -301,19 +300,12 @@ describe("terminal-failure finalization of session-less running runs", () => {
 	});
 
 	/**
-	 * AU21 correction (post-Increment-5 verification): this scenario's
-	 * finalization used to happen INSIDE the lifecycle-inbox drain, via
-	 * `projectRoutine`'s direct `updateRoutineRunIfRunning` write — the THIRD
-	 * raw cross-layer write path the gap report found. That projector is now
-	 * `observeOnly` (matching `assistant`/`knowledge`/`proposed_call`); the
-	 * drain still claims/acks the inbox fact (that mechanism is untouched) but
-	 * performs no `routineRuns` write. Wave C's
-	 * `registerRoutineRunSessionEndReactions`, reacting to
-	 * `agent_run_lifecycle_changed` (the "request disposition" path for a
-	 * routine session that never reached a live `session_ended`), is now the
-	 * SOLE mechanism finalizing this post-hand-off provision failure.
+	 * AU21 correction: `registerRoutineRunSessionEndReactions`, reacting to
+	 * `agent_run_lifecycle_changed`, is the SOLE mechanism finalizing a
+	 * post-hand-off provision failure. The lifecycle-inbox drain is removed
+	 * (AU43); this test now directly emits the event to verify the reaction.
 	 */
-	test("AC-3c: terminal PROVISION failure (post-hand-off) finalizes the run via Wave C's agent_run_lifecycle_changed reaction, not the drain", async ({
+	test("AC-3c: terminal PROVISION failure (post-hand-off) finalizes the run via Wave C's agent_run_lifecycle_changed reaction", async ({
 		db,
 		eventBus,
 	}) => {
@@ -339,39 +331,8 @@ describe("terminal-failure finalization of session-less running runs", () => {
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
-		await db.insert(agentLifecycleInbox).values({
-			requestId,
-			sourceKind: "routine",
-			sourceId: runId,
-			state: "failed",
-			failureCode: "INTERNAL_ERROR",
-			occurredAt: NOW,
-		});
 
-		const stop = startLifecycleProjectionDrain(queueDeps(db), { pollIntervalMs: 10 });
-		try {
-			const deadline = Date.now() + 5_000;
-			for (;;) {
-				const [inboxRow] = await db
-					.select({ projectedAt: agentLifecycleInbox.projectedAt })
-					.from(agentLifecycleInbox)
-					.where(eq(agentLifecycleInbox.requestId, requestId));
-				if (inboxRow?.projectedAt) break;
-				if (Date.now() > deadline) throw new Error("Projection timed out");
-				await new Promise((resolve) => setTimeout(resolve, 15));
-			}
-		} finally {
-			await stop.join();
-		}
-
-		// The drain alone must NOT finalize the run — `routine`'s projector is
-		// observeOnly now.
-		const [afterDrain] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
-		expect(afterDrain?.outcome).toBe("running");
-
-		// Wave C's reaction is the only thing left that finalizes it — register
-		// it and emit the `agent_run_lifecycle_changed` fact production emits
-		// for this exact "request disposition" failure path.
+		// Wave C's reaction finalizes the run via the event.
 		registerRoutineRunSessionEndReactions(db, eventBus);
 		const event: AgentRunLifecycleChangedEvent = {
 			type: "agent_run_lifecycle_changed",

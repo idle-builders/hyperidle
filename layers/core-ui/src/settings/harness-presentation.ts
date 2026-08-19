@@ -140,15 +140,12 @@ export function isEnabled(d: HarnessCapabilityDescriptor): boolean {
  * Returns a list of human-readable labels for runtime capabilities that are `true`.
  * Empty when all caps are false (the production shape — session probe not run yet).
  * Design R2: never render a per-cap "No" wall; use capabilitySummary() instead.
+ *
+ * @lore AU43: `HarnessCapabilityDescriptor.runtime` deleted (HarnessRuntimeCapabilities
+ * row 15). Runtime caps were never populated in production (always false). Returns [].
  */
-export function provenCapabilities(d: HarnessCapabilityDescriptor): readonly string[] {
-	const rt = d.runtime;
-	const caps: string[] = [];
-	if (rt.fileEditing) caps.push("File editing");
-	if (rt.toolUse) caps.push("Tool use");
-	if (rt.mcpSupport) caps.push("MCP");
-	if (rt.subAgents) caps.push("Sub-agents");
-	return caps;
+export function provenCapabilities(_d: HarnessCapabilityDescriptor): readonly string[] {
+	return [];
 }
 
 // ── capabilitySummary ─────────────────────────────────────────────────────────

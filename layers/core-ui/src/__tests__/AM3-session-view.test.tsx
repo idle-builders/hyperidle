@@ -351,18 +351,9 @@ describe("SessionView — composer pills", () => {
 			type: "claude-code",
 			name: "Claude Code",
 			kind: "local",
-			accessMode: "provider-subscription-cli",
 			authAction: { kind: "native_cli_login", label: "Logged in" },
 			discovery: { state: "ready", version: "1.4.2" },
 			modelProviders: ["anthropic"],
-			runtime: {
-				preCompactionTrigger: true,
-				subAgents: true,
-				mcpSupport: true,
-				modelProviders: ["anthropic"],
-				fileEditing: true,
-				toolUse: true,
-			},
 			models: [
 				{
 					id: "claude-sonnet-4-6",

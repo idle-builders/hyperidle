@@ -1,17 +1,13 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/domain-model";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, requireBoundary, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import type { PolicySessionContext } from "@hyperidle/policy";
 import * as work from "@hyperidle/work";
-import { transitionTask } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
-import { enumValues } from "../schemas/common.schema.js";
-import { buildSeamBackedWorkIntentRecorder } from "../services/agent-orchestration-port-composition.js";
 import { buildProductionHandoff } from "../services/policy-bindings.js";
-import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
 /**
  * Zod schemas for request validation.
@@ -33,15 +29,6 @@ const createTaskSchema = z.object({
 	ownerAgentId: z.string().nullish(),
 });
 
-const updateTaskSchema = z.object({
-	title: z.string().optional(),
-	description: z.string().optional(),
-	doneCondition: z.string().optional(),
-	ownerAgentId: z.string().optional(),
-	/** AC1: Optional task outcome verdict. Set during review — not by the state machine. */
-	outcomeVerdict: z.enum(enumValues(TASK_OUTCOME_VERDICTS)).optional(),
-});
-
 /**
  * AU21 §9 Increment 2 — the `CoreApiPort.work.appendTaskNote` seam method's
  * backing route. Mirrors `work-service.ts`'s atomic SQL-CASE note append
@@ -51,12 +38,6 @@ const updateTaskSchema = z.object({
  */
 const appendTaskNoteSchema = z.object({
 	entry: z.string().min(1),
-});
-
-// I2 V1: enum-validate at the boundary so an unknown state surfaces as
-// 400 from Zod, not 409 from the state machine.
-const transitionTaskSchema = z.object({
-	state: z.enum(TASK_STATES),
 });
 
 /**
@@ -94,38 +75,33 @@ export function createTaskRoutes(
 	const handoff = buildProductionHandoff(agentOrchestration);
 
 	// POST /tasks — create a new task (agent-driven decomposition)
-	router.post(
-		"/",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(createTaskSchema),
-		async (c) => {
-			const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
-			const now = new Date().toISOString();
+	router.post("/", validateBody(createTaskSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
+		const now = new Date().toISOString();
 
-			// Validate bet exists
-			const bet = await work.get(db, "bet", body.betId);
-			if (!bet) {
-				return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
-			}
+		// Validate bet exists
+		const bet = await work.get(db, "bet", body.betId);
+		if (!bet) {
+			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		}
 
-			const taskId = crypto.randomUUID();
-			await work.create(db, "task", {
-				id: taskId,
-				betId: body.betId,
-				teamId: bet.teamId,
-				title: body.title,
-				description: body.description ?? null,
-				doneCondition: body.doneCondition ?? null,
-				ownerAgentId: body.ownerAgentId ?? null,
-				state: "proposed",
-				createdAt: now,
-				updatedAt: now,
-			});
+		const taskId = crypto.randomUUID();
+		await work.create(db, "task", {
+			id: taskId,
+			betId: body.betId,
+			teamId: bet.teamId,
+			title: body.title,
+			description: body.description ?? null,
+			doneCondition: body.doneCondition ?? null,
+			ownerAgentId: body.ownerAgentId ?? null,
+			state: "proposed",
+			createdAt: now,
+			updatedAt: now,
+		});
 
-			const created = await work.get(db, "task", taskId);
-			return c.json(created, 201);
-		},
-	);
+		const created = await work.get(db, "task", taskId);
+		return c.json(created, 201);
+	});
 
 	// GET /tasks — list, filterable by ids, bet_id, state, owner
 	//
@@ -136,7 +112,7 @@ export function createTaskRoutes(
 	// existed all along; only the route had no way to ask for it. `ids` wins over
 	// the other filters, because that is what `work.list` does with it (it
 	// short-circuits to an `inArray` read).
-	router.get("/", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/", async (c) => {
 		const ids = c.req.query("ids");
 		const betId = c.req.query("bet_id");
 		const state = c.req.query("state");
@@ -156,7 +132,7 @@ export function createTaskRoutes(
 	// GET /tasks/:id — bare task detail (AU21 §9 Increment 2: `CoreApiPort.work.getTaskById`'s
 	// backing route — no bare detail route existed before this; only the
 	// enriched `GET /bets/:id` (tasks nested under a bet) served task rows).
-	router.get("/:id", requireBoundary({ kind: "public-data" }), async (c) => {
+	router.get("/:id", async (c) => {
 		const taskId = c.req.param("id");
 		const task = await work.get(db, "task", taskId);
 		if (!task) {
@@ -169,21 +145,16 @@ export function createTaskRoutes(
 	// `CoreApiPort.work.appendTaskNote`'s backing route). Returns 404 (not a
 	// thrown error) when the task does not exist — the seam maps that to an
 	// `undefined` resolve, matching `work-service.ts`'s no-pre-read contract.
-	router.patch(
-		"/:id/notes",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(appendTaskNoteSchema),
-		async (c) => {
-			const taskId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof appendTaskNoteSchema>;
+	router.patch("/:id/notes", validateBody(appendTaskNoteSchema), async (c) => {
+		const taskId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof appendTaskNoteSchema>;
 
-			const result = await work.update(db, "task", taskId, { notes: { appendNote: body.entry } });
-			if (!result) {
-				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
-			return c.json(result);
-		},
-	);
+		const result = await work.update(db, "task", taskId, { notes: { appendNote: body.entry } });
+		if (!result) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		return c.json(result);
+	});
 
 	// @lore AU26 J4: `GET /tasks/:id/sessions` is DELETED. Its entire payload was
 	// agent-run data — core-api reading `agent-orchestration`'s `sessions` table
@@ -193,136 +164,62 @@ export function createTaskRoutes(
 	// `GET /api/agent-orchestration/runs?task_id=…` and does the same mapping
 	// client-side, so the task view and the task sheet render identically.
 
-	// PATCH /tasks/:id — update mutable fields
-	router.patch(
-		"/:id",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(updateTaskSchema),
-		async (c) => {
-			const taskId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof updateTaskSchema>;
-
-			const task = await work.get(db, "task", taskId);
-			if (!task) {
-				return c.json({ error: "Task not found", code: "NOT_FOUND" }, 404);
-			}
-
-			const now = new Date().toISOString();
-			const updates: work.TaskPatch = {
-				updatedAt: now,
-			};
-			if (body.title !== undefined) updates.title = body.title;
-			if (body.description !== undefined) updates.description = body.description;
-			if (body.doneCondition !== undefined) updates.doneCondition = body.doneCondition;
-			if (body.ownerAgentId !== undefined) updates.ownerAgentId = body.ownerAgentId;
-
-			// AC1: Record task outcome verdict with audit trail
-			if (body.outcomeVerdict !== undefined) {
-				updates.outcomeVerdict = body.outcomeVerdict;
-				updates.outcomeRecordedAt = now;
-				updates.outcomeRecordedBy = c.get("userId") ?? null;
-
-				// Append to audit trail
-				const auditTrail: Array<Record<string, unknown>> = task.auditTrail
-					? (JSON.parse(task.auditTrail) as Array<Record<string, unknown>>)
-					: [];
-				auditTrail.push({
-					timestamp: now,
-					field: "outcomeVerdict",
-					old_value: task.outcomeVerdict ?? null,
-					new_value: body.outcomeVerdict,
-					actor: c.get("userId") ?? null,
-				});
-				updates.auditTrail = JSON.stringify(auditTrail);
-			}
-
-			await work.update(db, "task", taskId, updates);
-
-			const updated = await work.get(db, "task", taskId);
-			return c.json(updated);
-		},
-	);
-
-	// POST /tasks/:id/transition — state transition
-	router.post(
-		"/:id/transition",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(transitionTaskSchema),
-		async (c) => {
-			const taskId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof transitionTaskSchema>;
-
-			await transitionTask(db, eventBus, taskId, body.state, {
-				workIntents: buildSeamBackedWorkIntentRecorder(agentOrchestration),
-				taskRunResolver: taskRunResolverDeps,
-			});
-
-			const updated = await work.get(db, "task", taskId);
-			return c.json(updated);
-		},
-	);
-
 	// POST /tasks/:id/handoff — hand off task to another agent/role/human
-	router.post(
-		"/:id/handoff",
-		requireBoundary({ kind: "public-data" }),
-		validateBody(handoffSchema),
-		async (c) => {
-			const taskId = c.req.param("id");
-			const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
+	router.post("/:id/handoff", validateBody(handoffSchema), async (c) => {
+		const taskId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
 
-			const task = await work.get(db, "task", taskId);
-			if (!task) {
-				return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
+		const task = await work.get(db, "task", taskId);
+		if (!task) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
 
-			// @lore AU26 J4: the run row comes down the READ DOOR, not a raw
-			// `db.select().from(sessions)` — a core-api Layer route reading the other
-			// Layer's data goes through `AgentOrchestrationPort.sessions.getById`
-			// (§D-A rule 3), the same way `sessions-routes.ts` already does. No new
-			// port surface: this reuses the method that already exists. Only two
-			// fields are read below, and both are genuinely core's need — the 404
-			// (handing off a non-existent run must fail) and `agentId` (the author of
-			// every thread, message and item the handoff creates), which is a
-			// property of the run and cannot be derived from anything core owns.
-			const session = await agentOrchestration.sessions.getById(body.sessionId);
-			if (!session) {
-				return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-			}
+		// @lore AU26 J4: the run row comes down the READ DOOR, not a raw
+		// `db.select().from(sessions)` — a core-api Layer route reading the other
+		// Layer's data goes through `AgentOrchestrationPort.sessions.getById`
+		// (§D-A rule 3), the same way `sessions-routes.ts` already does. No new
+		// port surface: this reuses the method that already exists. Only two
+		// fields are read below, and both are genuinely core's need — the 404
+		// (handing off a non-existent run must fail) and `agentId` (the author of
+		// every thread, message and item the handoff creates), which is a
+		// property of the run and cannot be derived from anything core owns.
+		const session = await agentOrchestration.sessions.getById(body.sessionId);
+		if (!session) {
+			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
 
-			// Build the minimal handoff context.
-			//
-			// @lore AU26 J1: `sandboxPath`, `ingestion` and `traceId` are DELETED.
-			// `handoff` takes `PolicySessionContext = {sessionId, agentId, taskId}`
-			// (`policy/src/ports.ts:17-21`) and reads exactly those three — the other
-			// three were constructed here and never read by anything, and with them
-			// goes the `session.sandboxSnapshot` read. The `/tmp/.hyperidle-noop-*`
-			// sentinel guarded `endSession`'s `fs.promises.rm`, a code path this route
-			// no longer reaches now that H1 moved the run-end write down.
-			const sessionContext: PolicySessionContext = {
-				sessionId: session.id,
-				agentId: session.agentId,
-				taskId,
-			};
+		// Build the minimal handoff context.
+		//
+		// @lore AU26 J1: `sandboxPath`, `ingestion` and `traceId` are DELETED.
+		// `handoff` takes `PolicySessionContext = {sessionId, agentId, taskId}`
+		// (`policy/src/ports.ts:17-21`) and reads exactly those three — the other
+		// three were constructed here and never read by anything, and with them
+		// goes the `session.sandboxSnapshot` read. The `/tmp/.hyperidle-noop-*`
+		// sentinel guarded `endSession`'s `fs.promises.rm`, a code path this route
+		// no longer reaches now that H1 moved the run-end write down.
+		const sessionContext: PolicySessionContext = {
+			sessionId: session.id,
+			agentId: session.agentId,
+			taskId,
+		};
 
-			const result = await handoff(db, eventBus, {
-				sessionContext,
-				toAgent: body.toAgent,
-				toRole: body.toRole,
-				toHuman: body.toHuman,
-				metadata: {
-					context_id: body.contextId ?? session.id,
-					status: body.status ?? "completed",
-					reason: body.reason,
-					artifacts: body.artifacts ?? [],
-					remaining_work: body.remainingWork ?? [],
-					...(body.error !== undefined ? { error: body.error } : {}),
-				},
-			});
+		const result = await handoff(db, eventBus, {
+			sessionContext,
+			toAgent: body.toAgent,
+			toRole: body.toRole,
+			toHuman: body.toHuman,
+			metadata: {
+				context_id: body.contextId ?? session.id,
+				status: body.status ?? "completed",
+				reason: body.reason,
+				artifacts: body.artifacts ?? [],
+				remaining_work: body.remainingWork ?? [],
+				...(body.error !== undefined ? { error: body.error } : {}),
+			},
+		});
 
-			return c.json(result);
-		},
-	);
+		return c.json(result);
+	});
 
 	return router;
 }

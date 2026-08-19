@@ -110,27 +110,6 @@ export function isRequiredReturnAction(
 }
 
 /**
- * Exemption predicate for internal-extraction drains (concept §1.5).
- *
- * A session run is an internal-extraction drain — exempt from return
- * enforcement — when its SessionConfig.tools is empty. With no tools the
- * run structurally CANNOT invoke a return action; enforcing one is
- * impossible, not merely skipped.
- *
- * The other two legs of the §1.5 predicate (deterministic structured-output
- * contract; not acting on the user's behalf) are call-site contracts that the
- * empty-tools leg already implies for any platform-internal drain.
- *
- * @lore Accepts `{ tools: readonly string[] }` (a structural subset of
- * SessionConfig) so it can be called without importing the full SessionConfig
- * type — keeping this helper usable in tests that construct minimal config
- * objects without satisfying the entire interface.
- */
-export function isInternalExtractionDrain(config: { tools: readonly string[] }): boolean {
-	return config.tools.length === 0;
-}
-
-/**
  * The canonical forcing message re-injected when an agent attempts to
  * stop without returning. Single source of truth — used by the SDK Stop hook
  * callback, the builtin loop re-inject, and any future forcing path.

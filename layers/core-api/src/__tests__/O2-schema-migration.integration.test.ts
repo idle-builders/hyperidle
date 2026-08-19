@@ -43,14 +43,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("task_planning_signals table exists in the database", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			await expect(
-				db.execute(sql.raw("SELECT id FROM task_planning_signals LIMIT 1")),
-			).resolves.toBeDefined();
-			vi.unstubAllEnvs();
-		});
-
 		test("knowledge_app_projection has FK to knowledge_items with cascade delete", async ({
 			db,
 		}) => {
@@ -64,33 +56,12 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("task_planning_signals has FK to tasks with cascade delete", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_planning_signals"}`,
-			);
-			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).toContain("id");
-			expect(colNames).toContain("task_id");
-			vi.unstubAllEnvs();
-		});
-
 		test("knowledge_app_projection does NOT have a strategy discriminator column", async ({
 			db,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			const result = await db.execute(
 				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"knowledge_app_projection"}`,
-			);
-			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
-			expect(colNames).not.toContain("strategy");
-			vi.unstubAllEnvs();
-		});
-
-		test("task_planning_signals does NOT have a strategy discriminator column", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const result = await db.execute(
-				sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${"task_planning_signals"}`,
 			);
 			const colNames = (result as { rows: Array<SqlColumnRow> }).rows.map((r) => r.column_name);
 			expect(colNames).not.toContain("strategy");
@@ -727,44 +698,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("POST /api/knowledge/:id/flag emits 'knowledge_updated' event with action 'flagged'", async ({
-			app,
-			eventBus,
-		}) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const createRes = await app.request("/api/knowledge", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					topic: "testing",
-					title: "Flag Event",
-					body: "Body.",
-					format: "markdown",
-					scopeKind: "factory",
-					updatedBy: "human",
-				}),
-			});
-			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created.id as string;
-
-			const events: unknown[] = [];
-			eventBus.on("*", (e: DomainEvent) => events.push(e));
-
-			const flagRes = await app.request(`/api/knowledge/${id}/flag`, {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ reason: "Needs review" }),
-			});
-			expect(flagRes.status).toBe(200);
-
-			const flaggedEvents = events.filter(
-				(e) =>
-					(e as Record<string, unknown>).type === "knowledge_updated" &&
-					(e as Record<string, unknown>).action === "flagged",
-			);
-			expect(flaggedEvents).toHaveLength(1);
-			vi.unstubAllEnvs();
-		});
+		// flag event coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 	});
 
 	// ---------------------------------------------------------------------------
@@ -930,59 +864,6 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			expect(after).toHaveLength(0);
 			vi.unstubAllEnvs();
 		});
-
-		test("deleting a task cascades to task_planning_signals rows", async ({ db }) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const now = new Date().toISOString();
-
-			// @lore U1: products→teams, teams→team_members, bets.pitch→description, bets removes product_id
-			// Seed required FK ancestors
-			await db.execute(
-				sql.raw(
-					`INSERT INTO teams (id, name, phase, created_at) VALUES ('p1-cascade', 'Prod', 'build', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('t1-cascade', 'p1-cascade', 3, 0, '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('b1-cascade', 'p1-cascade', 'Pitch', 'active', '${now}')`,
-				),
-			);
-			const taskId = crypto.randomUUID();
-			// After O2: tasks has no riskTier/attentionScore/durability/crossTeam columns
-			// After U1: tasks has no product_id column
-			await db.execute(
-				sql.raw(`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at)
-				 VALUES ('${taskId}', 'b1-cascade', 'p1-cascade', 'Task', 'pending', '${now}', '${now}')`),
-			);
-
-			// Insert extension row — table must exist with FK cascade
-			const extId = crypto.randomUUID();
-			await db.execute(
-				sql.raw(`INSERT INTO task_planning_signals (id, task_id) VALUES ('${extId}', '${taskId}')`),
-			);
-
-			// Verify extension row exists
-			const beforeResult = await db.execute(
-				sql.raw(`SELECT id FROM task_planning_signals WHERE task_id = '${taskId}'`),
-			);
-			const before = (beforeResult as { rows: Array<{ id: string }> }).rows;
-			expect(before).toHaveLength(1);
-
-			// Delete the task — cascade should remove extension rows
-			await db.execute(sql.raw(`DELETE FROM tasks WHERE id = '${taskId}'`));
-
-			const afterResult = await db.execute(
-				sql.raw(`SELECT id FROM task_planning_signals WHERE task_id = '${taskId}'`),
-			);
-			const after = (afterResult as { rows: Array<{ id: string }> }).rows;
-			expect(after).toHaveLength(0);
-			vi.unstubAllEnvs();
-		});
 	});
 
 	// ---------------------------------------------------------------------------
@@ -1094,123 +975,8 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		});
 	});
 
-	// ---------------------------------------------------------------------------
-	// 12. Session create/update works without stripped fields
-	// ---------------------------------------------------------------------------
-
-	describe("12. Sessions work without stripped schema fields", () => {
-		test("POST /api/sessions creates session and does not expose traceId, harnessUrl, tokensInput, tokensOutput in response", async ({
-			app,
-			db,
-		}) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			// @lore U1: products→teams, teams→team_members, bets.pitch→description, tasks removes product_id
-			const now = new Date().toISOString();
-			await db.execute(
-				sql.raw(
-					`INSERT INTO teams (id, name, phase, created_at) VALUES ('prod-sess', 'Prod', 'build', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-sess', 'prod-sess', 3, 0, '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-sess', 'Agent', 'builder', 'idle', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-sess', 'prod-sess', 'Pitch', 'active', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at)
-				 VALUES ('task-sess', 'bet-sess', 'prod-sess', 'Task', 'in_progress', '${now}', '${now}')`),
-			);
-
-			const res = await app.request("/api/sessions", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					agentId: "agent-sess",
-					taskId: "task-sess",
-					modelTier: "workhorse",
-				}),
-			});
-			expect(res.status).toBe(201);
-			const body = (await res.json()) as Record<string, unknown>;
-			// O2 requirement: stripped columns must not appear in the response at all
-			// (neither as null nor as a value — the columns no longer exist)
-			expect(Object.hasOwn(body, "traceId")).toBe(false);
-			expect(Object.hasOwn(body, "harnessUrl")).toBe(false);
-			expect(Object.hasOwn(body, "tokensInput")).toBe(false);
-			expect(Object.hasOwn(body, "tokensOutput")).toBe(false);
-			vi.unstubAllEnvs();
-		});
-
-		test("PATCH /api/sessions/:id ends session without tokensInput/tokensOutput fields", async ({
-			app,
-			db,
-		}) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const now = new Date().toISOString();
-			await db.execute(
-				sql.raw(
-					`INSERT INTO teams (id, name, phase, created_at) VALUES ('prod-sess', 'Prod', 'build', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-sess', 'prod-sess', 3, 0, '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO users (id, name, role, status, created_at) VALUES ('agent-sess', 'Agent', 'builder', 'idle', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO bets (id, team_id, description, status, created_at) VALUES ('bet-sess', 'prod-sess', 'Pitch', 'active', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(`INSERT INTO tasks (id, bet_id, team_id, title, state, created_at, updated_at)
-				 VALUES ('task-sess', 'bet-sess', 'prod-sess', 'Task', 'in_progress', '${now}', '${now}')`),
-			);
-
-			// Create session
-			const createRes = await app.request("/api/sessions", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					agentId: "agent-sess",
-					taskId: "task-sess",
-					modelTier: "workhorse",
-				}),
-			});
-			expect(createRes.status).toBe(201);
-			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created.id as string;
-
-			// End session without stripped fields
-			const patchRes = await app.request(`/api/sessions/${id}`, {
-				method: "PATCH",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					state: "done",
-					outcome: "success",
-				}),
-			});
-			expect(patchRes.status).toBe(200);
-			const body = (await patchRes.json()) as Record<string, unknown>;
-			expect(body.state).toBe("done");
-			vi.unstubAllEnvs();
-		});
-	});
+	// POST /api/sessions (door #114) and PATCH /api/sessions/:id (door #144) deleted.
+	// Describe 12 removed with the routes.
 
 	// ---------------------------------------------------------------------------
 	// 13. Knowledge list uses LEFT JOIN for pre-computed scores

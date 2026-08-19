@@ -16,38 +16,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	COMMUNITY_DISPLAY_NAMES,
-	defaultFactoryRoster,
-	type FactoryAgentRef,
-} from "@hyperidle/factory-defaults";
-import { ensureFactoryKnowledgeSeed } from "@hyperidle/knowledge";
-import { insertUserIfAbsent, listFactoryAgents, setAgentCategoryForRole } from "@hyperidle/users";
-
-/**
- * @lore AB0: Backfill agentCategory on all ai users by role (idempotent).
- * This covers any existing rows that may not have agentCategory set. Verbatim
- * from `factory-bootstrap.ts`'s former `categoryByRole` map.
- */
-const CATEGORY_BY_ROLE: Readonly<Record<string, string>> = {
-	builder: "team",
-	growth: "team",
-	product_manager: "team",
-	brand_voice: "team",
-	designer: "team",
-	qa_engineer: "team",
-	ops: "team",
-	support: "team",
-	sales: "team",
-	content: "team",
-	data_analyst: "team",
-	// @lore AD8c: renamed from practice_facilitator
-	facilitator: "strategy",
-	scout: "strategy",
-	infra: "strategy",
-	platform: "strategy",
-	assistant: "individual",
-};
+import { COMMUNITY_DISPLAY_NAMES, defaultFactoryRoster } from "@hyperidle/factory-defaults";
+import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/users";
 
 /**
  * Apply core-api's half of the factory bootstrap: the propagation user, the
@@ -55,7 +25,9 @@ const CATEGORY_BY_ROLE: Readonly<Record<string, string>> = {
  * Idempotent — safe on every launch. Returns the roster agents' `{id, role}`
  * for the agent-orchestration face's run-config backfill.
  */
-export async function applyFactoryCoreState(db: HyperIdleDb): Promise<readonly FactoryAgentRef[]> {
+export async function applyFactoryCoreState(
+	db: HyperIdleDb,
+): Promise<ReadonlyArray<{ readonly id: string; readonly role: string }>> {
 	const roster = defaultFactoryRoster;
 	const now = new Date().toISOString();
 
@@ -106,14 +78,6 @@ export async function applyFactoryCoreState(db: HyperIdleDb): Promise<readonly F
 			createdAt: now,
 		});
 	}
-
-	// ── AB0: Backfill agentCategory on all ai users by role (idempotent) ──
-	for (const [role, category] of Object.entries(CATEGORY_BY_ROLE)) {
-		await setAgentCategoryForRole(db, role, category);
-	}
-
-	// ── Factory principle knowledge item — DB infra ──
-	await ensureFactoryKnowledgeSeed(db, now);
 
 	// ── Resolve and return the roster agents: {id, role}, from the queried rows ──
 	// Scoped to the roster's own agent ids (system:propagation is infra — not

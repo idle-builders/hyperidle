@@ -2,7 +2,7 @@
  * AO2 — LocalFolderAdapter integration test (thin).
  *
  * AC1: mount symlinks the folder into sandboxPath; files accessible.
- * AC2: captureBack snapshots the changed subtree; snapshot dir exists with edit.
+ * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
  */
 
 import { randomUUID } from "node:crypto";
@@ -29,13 +29,10 @@ function makeFs(folderPath: string): Filesystem {
 
 describe("LocalFolderAdapter integration (thin)", () => {
 	let tmpDir: string;
-	let capturesDir: string;
 	let vaultDir: string;
 
 	beforeEach(() => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ao2-folder-adapter-"));
-		capturesDir = path.join(tmpDir, "captures");
-		fs.mkdirSync(capturesDir, { recursive: true });
 		// Create a test vault with some markdown files.
 		vaultDir = path.join(tmpDir, "my-vault");
 		fs.mkdirSync(vaultDir, { recursive: true });
@@ -52,8 +49,6 @@ describe("LocalFolderAdapter integration (thin)", () => {
 			gitRunnerFactory: (_repoPath: string) => {
 				throw new Error("LocalFolderAdapter should not call gitRunnerFactory");
 			},
-			capturesDir,
-			db: { insert: () => ({ values: async () => undefined }) } as never,
 		};
 	}
 
@@ -65,7 +60,6 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		const result = await adapter.mount({
 			filesystem: makeFs(vaultDir),
 			sandboxPath,
-			auth: null,
 		});
 
 		expect(result.success).toBe(true);
@@ -80,16 +74,13 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		expect(fs.realpathSync(linkPath)).toBe(fs.realpathSync(vaultDir));
 	});
 
-	it("captureBack: snapshots the folder and returns capturePath", async () => {
+	it("captureBack: returns success no-op (write code removed in AU43 stage 2)", async () => {
 		const sessionId = randomUUID();
 		const sandboxPath = path.join(tmpDir, `sandbox-${sessionId}`);
 		fs.mkdirSync(sandboxPath, { recursive: true });
 
 		const adapter = new RegistryFilesystemMounter(makeDeps());
-		await adapter.mount({ filesystem: makeFs(vaultDir), sandboxPath, auth: null });
-
-		// Agent edits a file in the vault (via the symlink or directly).
-		fs.writeFileSync(path.join(vaultDir, "new-note.md"), "# New Note\n");
+		await adapter.mount({ filesystem: makeFs(vaultDir), sandboxPath });
 
 		const result = await adapter.captureBack({
 			filesystem: makeFs(vaultDir),
@@ -98,12 +89,7 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		});
 
 		expect(result.success).toBe(true);
-		expect(result.captured).toBe(true);
-		const capturePath = path.join(capturesDir, fs.readdirSync(capturesDir)[0]!);
-		expect(fs.existsSync(capturePath)).toBe(true);
-		// Snapshot contains the edited file.
-		expect(fs.existsSync(path.join(capturePath, "new-note.md"))).toBe(true);
-		expect(fs.readFileSync(path.join(capturePath, "new-note.md"), "utf-8")).toBe("# New Note\n");
+		expect(result.captured).toBe(false);
 	});
 
 	it("mount: returns success:false when folder does not exist", async () => {
@@ -114,7 +100,6 @@ describe("LocalFolderAdapter integration (thin)", () => {
 		const result = await adapter.mount({
 			filesystem: makeFs("/nonexistent/vault/path"),
 			sandboxPath,
-			auth: null,
 		});
 
 		expect(result.success).toBe(false);

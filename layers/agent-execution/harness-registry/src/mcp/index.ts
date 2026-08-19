@@ -83,8 +83,3 @@ export async function openMcpBridgeSession(
 	const { token } = await bridge.open(session);
 	return { token, url: `${baseUrl}/api/mcp/${token}` };
 }
-
-/** The dial's close half — see `openMcpBridgeSession`'s `@lore`. */
-export function closeMcpBridgeSession(bridge: McpToolBridge, token: string): Promise<void> {
-	return bridge.close(token);
-}

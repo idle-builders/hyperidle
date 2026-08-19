@@ -8,8 +8,6 @@ import { type AdapterDeps, RegistryFilesystemMounter } from "../index.js";
 
 const deps: AdapterDeps = {
 	gitRunnerFactory: () => null as never,
-	capturesDir: "/tmp/au20-filesystems-captures",
-	db: null as never,
 };
 
 function filesystem(overrides: Partial<Filesystem>): Filesystem {
@@ -32,7 +30,6 @@ describe("RegistryFilesystemMounter dispatch", () => {
 		const result = await new RegistryFilesystemMounter(deps).mount({
 			filesystem: filesystem({ source: "gdrive" }),
 			sandboxPath: "/tmp/sandbox",
-			auth: null,
 		});
 		expect(result).toMatchObject({ success: false, error: expect.stringContaining("not built") });
 	});
@@ -47,7 +44,6 @@ describe("RegistryFilesystemMounter dispatch", () => {
 			new RegistryFilesystemMounter(deps).mount({
 				filesystem: remote,
 				sandboxPath: "/tmp/s",
-				auth: null,
 			}),
 		).rejects.toThrow("MalformedFilesystem");
 	});
@@ -77,7 +73,6 @@ describe("RegistryFilesystemMounter dispatch", () => {
 				resourceRef: { kind: "code", repo, branch: "main" },
 			}),
 			sandboxPath: sandbox,
-			auth: null,
 		});
 		expect(result.success).toBe(true);
 		expect(fs.existsSync(path.join(external, "info", "exclude"))).toBe(false);

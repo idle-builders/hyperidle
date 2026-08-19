@@ -27,7 +27,6 @@ import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
 	Reversibility,
-	UserRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { SessionWorkflow } from "@hyperidle/harness-protocol";
@@ -99,7 +98,7 @@ export interface ToolDefinition<Input = unknown, TDb = unknown> {
 	readonly description: string;
 	readonly inputSchema: z.ZodType<Input>;
 	readonly handler: ToolHandler<Input, TDb>;
-	readonly roles?: readonly UserRole[];
+	readonly roles?: readonly string[];
 	readonly reversibility?: Reversibility;
 	readonly annotations?: {
 		readonly destructiveHint?: boolean;
@@ -130,7 +129,7 @@ export interface RegisteredTool<TDb = unknown> {
 	 * be — three inlined copies of the filter beat one shared function that
 	 * structurally invites it. This comment is the filter's one remaining home.
 	 */
-	readonly roles?: readonly UserRole[];
+	readonly roles?: readonly string[];
 	readonly reversibility?: Reversibility;
 	readonly annotations?: {
 		readonly destructiveHint?: boolean;
@@ -169,7 +168,7 @@ export interface RegistrySessionWorkflow extends SessionWorkflow {
 
 /** Options accepted by `tool-provider`'s `buildToolRegistry`. */
 export interface BuildToolRegistryOptions<TDb = unknown> {
-	readonly role: UserRole;
+	readonly role: string;
 	readonly extraTools?: readonly RegisteredTool<TDb>[];
 	readonly sessionWorkflow?: RegistrySessionWorkflow;
 	readonly useOnlyExtraTools?: boolean;
@@ -207,19 +206,6 @@ export interface ProposedCallWorkflowPort<TDb = unknown> {
 	recordOutcome(db: TDb, proposedCallId: string, result: ToolResult): Promise<void>;
 }
 
-/** Status-discriminated result for assistant tool handlers (AD8b). */
-export type AssistantToolResult<T = unknown> =
-	| { readonly status: "ok"; readonly value: T }
-	| { readonly status: "error"; readonly message: string };
-
-/** Shape of an assistant-specific tool definition (AD8b). */
-export interface AssistantToolShape<Input = unknown, TDb = unknown> {
-	readonly name: string;
-	readonly description: string;
-	readonly inputSchema: z.ZodType<Input>;
-	readonly handler: (args: Input, ctx: ToolContext<TDb>) => Promise<AssistantToolResult>;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure, db-free tool-registry helpers (AU19 Increment 4: moved from
 // `packages/server/src/tools/tool-registry.ts`). BOTH `tool-provider`
@@ -251,30 +237,6 @@ export function toRegistered<Input, TDb = unknown>(
 		...(def.reversibility !== undefined ? { reversibility: def.reversibility } : {}),
 		...(def.annotations !== undefined ? { annotations: def.annotations } : {}),
 	};
-}
-
-/**
- * Wrap an `AssistantToolShape` to produce a `RegisteredTool` with a role
- * filter (AD8b: assistant tools use `{ status: "ok" | "error" }` rather than
- * the older `{ success: boolean }` `ToolResult`).
- */
-export function wrapForRegistry<T, TDb = unknown>(
-	shape: AssistantToolShape<T, TDb>,
-	roles: readonly UserRole[],
-): RegisteredTool<TDb> {
-	return toRegistered<T, TDb>({
-		name: shape.name,
-		description: shape.description,
-		inputSchema: shape.inputSchema,
-		roles,
-		handler: async (args, ctx) => {
-			const result = await shape.handler(args, ctx);
-			if (result.status === "ok") {
-				return ok(result.value);
-			}
-			return err("TOOL_ERROR", result.message);
-		},
-	});
 }
 
 /**
@@ -362,45 +324,4 @@ export function canonicalJson(toolId: string, args: Record<string, unknown>): st
 export function identityHash(toolId: string, args: Record<string, unknown>): string {
 	const digest = crypto.createHash("sha256").update(canonicalJson(toolId, args)).digest("hex");
 	return `sha256-${digest}`;
-}
-
-/**
- * Determine which tools to allow and which to route to review, given a
- * `SessionWorkflow` and the full list of tools visible in the session.
- *
- * session-1 (open-work):
- *   - `routeToReview` = all irreversible tools
- *   - `allow` = reversible tools
- *
- * session-2 (grant-bearing):
- *   - `routeToReview` = irreversible tools EXCEPT the approvedCall.toolId
- *   - `allow` = reversible tools + approvedCall.toolId
- *
- * @lore AL7 D1: used by per-harness native carriers (Claude `allowedTools`/
- * `disallowedTools`). The router in `invoke` is the uniform record/consume
- * point; this helper surfaces the same partitioning to harness-specific adapters.
- */
-export function composeWorkflowAllowDeny(
-	wf: SessionWorkflow,
-	allTools: ReadonlyArray<Pick<RegisteredTool, "name" | "reversibility" | "annotations">>,
-): { allow: string[]; routeToReview: string[] } {
-	const allow: string[] = [];
-	const routeToReview: string[] = [];
-
-	for (const tool of allTools) {
-		const rev = classifyReversibility(tool.name, tool);
-		const isIrreversible = wf.routeToReview.includes(rev as Reversibility);
-
-		if (isIrreversible) {
-			if (wf.sessionRole === "grant-bearing" && wf.approvedCall?.toolId === tool.name) {
-				allow.push(tool.name);
-			} else {
-				routeToReview.push(tool.name);
-			}
-		} else {
-			allow.push(tool.name);
-		}
-	}
-
-	return { allow, routeToReview };
 }

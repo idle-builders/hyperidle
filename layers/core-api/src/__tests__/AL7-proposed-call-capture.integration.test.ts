@@ -352,7 +352,8 @@ describe("AC2: reversible call flows with no capture", () => {
 		const { agentId, taskId, threadId, reviewMessageId, artifactId } = await seedWorld(db);
 		const sessionId = `sess-rev-${crypto.randomUUID()}`;
 
-		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId);
+		// @lore AU20 repair: reply needs ctx.threadId to post into — supply the seeded bet thread.
+		const ctx = makeCtx(db, eventBus, agentId, taskId, sessionId, { threadId });
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {
@@ -364,9 +365,11 @@ describe("AC2: reversible call flows with no capture", () => {
 			},
 		});
 
-		// A reversible tool — must flow without routing to review
-		// (read_inbox is reversible per its definition: read-only, no side effects)
-		const result = await registry.invoke("read_inbox", {});
+		// A reversible tool — must flow without routing to review.
+		// @lore AU20 repair: read_inbox was deleted. `reply` is the only surviving tool
+		// explicitly marked reversibility:"reversible" (AU27 C11 Decision 1 — fails closed
+		// otherwise). Supply ctx.threadId so reply has a thread to post into.
+		const result = await registry.invoke("reply", { text: "hi" });
 
 		// The handler result is returned (not an AWAITING_REVIEW error)
 		expect(result.success).toBe(true);

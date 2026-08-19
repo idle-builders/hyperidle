@@ -3,14 +3,36 @@ import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@h
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import { createSessionRequest } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, vi } from "vitest";
 import { runSession as executeAgentRunRequest } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
-const createRequestForTest = (db: HyperIdleDb, request: AgentSessionRequestInput) =>
-	createSessionRequest(db, { kind: "direct", request });
+async function createRequestForTest(db: HyperIdleDb, request: AgentSessionRequestInput) {
+	const now = new Date().toISOString();
+	const [row] = await db
+		.insert(agentSessionRequests)
+		.values({
+			id: `test-request-${request.idempotencyKey}`,
+			sourceKind: request.sourceKind,
+			sourceId: request.sourceId,
+			streamId: request.streamId,
+			agentId: request.agentId,
+			userId: request.userId ?? null,
+			promptMode: request.promptMode,
+			payloadJson: request.payloadJson ?? null,
+			idempotencyKey: request.idempotencyKey,
+			teamId: request.teamId ?? null,
+			taskId: request.taskId ?? null,
+			sourceCorrelationJson: JSON.stringify(request.sourceCorrelation ?? {}),
+			status: "pending",
+			createdAt: now,
+			updatedAt: now,
+		})
+		.returning();
+	if (!row) throw new Error("Insert failed");
+	return row;
+}
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "team-au6", name: "AU6", phase: "build", createdAt: now });

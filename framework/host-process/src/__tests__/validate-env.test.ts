@@ -13,7 +13,7 @@
  */
 
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { LAPTOP_DEV_API_KEY, validateStartupEnv } from "../validate-env.js";
+import { validateStartupEnv } from "../validate-env.js";
 
 describe("validateStartupEnv", () => {
 	afterEach(() => {
@@ -24,14 +24,14 @@ describe("validateStartupEnv", () => {
 		const env: Record<string, string | undefined> = {};
 		const result = validateStartupEnv(env);
 		expect(result).toBeNull();
-		expect(env.HYPERIDLE_API_KEY).toBe(LAPTOP_DEV_API_KEY);
+		expect(env.HYPERIDLE_API_KEY).toBe("hyperidle-dev-local");
 	});
 
 	test("defaults to dev key when undefined", () => {
 		const env: Record<string, string | undefined> = { HYPERIDLE_API_KEY: undefined };
 		const result = validateStartupEnv(env);
 		expect(result).toBeNull();
-		expect(env.HYPERIDLE_API_KEY).toBe(LAPTOP_DEV_API_KEY);
+		expect(env.HYPERIDLE_API_KEY).toBe("hyperidle-dev-local");
 	});
 
 	test("returns error when missing in vps profile", () => {

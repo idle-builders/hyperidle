@@ -92,53 +92,14 @@
  */
 
 import type { TeamMember, WriteExecutor } from "@hyperidle/db";
-import type { AgentWorkIntentRecorder as SharedAgentWorkIntentRecorder } from "@hyperidle/work-intent-port";
+import type { AgentWorkIntentRecorderFn } from "@hyperidle/work-intent-port";
 
 // ---------------------------------------------------------------------------
-// session-requests — AgentWorkIntentRecorder (§10.3 against-grain — RULED PERMANENT, see top @lore)
+// session-requests — workIntents (§10.3 against-grain — RULED PERMANENT, see top @lore)
 // ---------------------------------------------------------------------------
 
-/**
- * AU21 §6 Decision G (recorder unification) — `work` used to re-declare its
- * own narrower local mirror (`WorkAgentWorkIntentInput`/
- * `WorkAgentWorkIntentRecord`/a local `AgentWorkIntentRecorder` interface,
- * scoped to only the two kinds `work` itself writes) instead of importing
- * `@hyperidle/work-intent-port`'s canonical `AgentWorkIntentRecorder<TTx>` — a
- * redundant re-declaration now deleted; every caller in this package
- * (`bet-decomposition.ts`, `task-state-machine.ts`, `dependency-watcher.ts`)
- * imports this ONE type instantiated with `WriteExecutor`, so `tsc` enforces
- * conformance mechanically instead of by convention.
- */
-type AgentWorkIntentRecorder = SharedAgentWorkIntentRecorder<WriteExecutor>;
-
-// ---------------------------------------------------------------------------
-// users — UserStoreReader (ordinary downward core-api edge, NOT against-grain)
-// ---------------------------------------------------------------------------
-
-interface WorkUserRow {
-	readonly id: string;
-	readonly kind: string;
-	readonly status: string;
-	readonly role: string;
-}
-
-/**
- * Port for `users`' read surface `work` calls directly today.
- *
- * @lore AU19 Increment 1d: `users` migrated for real. Wired at every real
- * call site (`server-factory.ts`, `__tests__/bet-decomposition.test.ts`'s
- * production-mirroring `productionPorts`) to `@hyperidle/users`' real
- * exported `getUserById`/`listActiveAiUsersByTeams` — no more
- * forward-reference to `packages/server`'s (now-deleted) `user-store.ts`
- * copy; the DI port abstraction itself is unchanged (zero behavior change).
- */
-interface UserStoreReader {
-	getUserById(db: WriteExecutor, id: string): Promise<WorkUserRow | undefined>;
-	listActiveAiUsersByTeams(
-		db: WriteExecutor,
-		teamMembersIds: string[],
-	): Promise<readonly WorkUserRow[]>;
-}
+/** Plain function type replacing the former `AgentWorkIntentRecorder<WriteExecutor>` interface. */
+type AgentWorkIntentRecorder = AgentWorkIntentRecorderFn;
 
 // ---------------------------------------------------------------------------
 // org — TeamCapacityReader (ordinary downward core-api edge, NOT against-grain)
@@ -164,29 +125,4 @@ interface TeamCapacityReader {
 	setActiveBets(db: WriteExecutor, teamId: string, activeBets: number): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// WorkDeps — bundled inbound wiring contract (Ag5a)
-// ---------------------------------------------------------------------------
-
-/**
- * Single composition-root wiring contract bundling all five inbound DI ports.
- *
- * The composition root (`server-factory.ts`) builds this once and passes
- * or spreads it wherever `work`'s outbound edges are needed. The individual
- * port interfaces are internal to this Service; callers reference them via
- * `WorkDeps["fieldName"]` rather than importing the interface by name.
- *
- * @lore AU20 Ag5a: individual port exports removed from barrel — `WorkDeps`
- * is the only wiring type callers should import. This closes the over-exposure
- * of inbound DI contracts as product surface (84 → ~32 export target).
- */
-export interface WorkDeps {
-	/** Injected `users` port (ordinary downward core-api edge). */
-	readonly users: UserStoreReader;
-	/** Injected `org` port (ordinary downward core-api edge — closes W2). */
-	readonly teamCapacity: TeamCapacityReader;
-	/** Injected `session-requests` port (§10.3 against-grain — RULED PERMANENT). */
-	readonly workIntents: AgentWorkIntentRecorder;
-}
-
-export type { AgentWorkIntentRecorder, TeamCapacityReader, UserStoreReader, WorkUserRow };
+export type { AgentWorkIntentRecorder, TeamCapacityReader };

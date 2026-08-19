@@ -61,7 +61,7 @@ function capabilities(pool: AdapterPool, type: string | null) {
 		pool.describe({
 			type: type ?? undefined,
 			includeKnownMissing: false,
-		})[0]?.runtime ?? null
+		})[0] ?? null
 	);
 }
 
@@ -104,8 +104,8 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 
 		const result = capabilities(pool, "claude-code");
 		expect(result).not.toBeNull();
-		expect(result?.mcpSupport).toBe(true);
-		expect(result?.subAgents).toBe(true);
+		expect(result?.type).toBe("claude-code");
+		expect(result?.returnEnforcement).toBeDefined();
 	});
 
 	it("returns capabilities for the matching type when multiple types are registered", () => {
@@ -128,8 +128,8 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 		const claudeCodeResult = capabilities(pool, "claude-code");
 		const aiderResult = capabilities(pool, "aider");
 
-		expect(claudeCodeResult?.mcpSupport).toBe(true);
-		expect(aiderResult?.mcpSupport).toBe(false);
+		expect(claudeCodeResult?.type).toBe("claude-code");
+		expect(aiderResult?.type).toBe("aider");
 	});
 
 	it("returns null when the type-matched adapter has no getCapabilities", () => {
@@ -155,10 +155,10 @@ describe("AdapterPool.getCapabilitiesByType", () => {
 			type: "generic",
 		});
 
-		// Searching with null should return the generic adapter's capabilities
+		// Searching with null should return the generic adapter's descriptor
 		const result = capabilities(pool, null);
 		expect(result).not.toBeNull();
-		expect(result?.subAgents).toBe(false);
+		expect(result?.type).toBe("generic");
 	});
 
 	it("returns null when getCapabilitiesByType(null) but pool is empty", () => {

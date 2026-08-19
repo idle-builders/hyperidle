@@ -1,5 +1,5 @@
 /**
- * @lore AU20 Stage 2: minimal barrel — ~12m/11t (design target: 12m/10t).
+ * @lore AU20 Stage 2: minimal barrel — ~12m/8t (design target: 12m/10t).
  * The 66m/44t sprawl is deleted; only the coherent product API is re-exported.
  *
  * Queue ops (4m/3t):
@@ -13,20 +13,14 @@
  * Config + prefs (4m):
  *   readConfig, updateConfig, readPreferences, updatePreferences
  *
- * Silence (1m):
- *   isSilenced
- *
- * Daily digest (1m):
- *   getDailyDigest
- *
  * Shared deps type (1t):
  *   NotificationsDeps
  *
- * Base types (3t):
- *   Notification, NotificationChannel, NotificationAdapter
+ * @lore AU43: getDailyDigest (demo-only trigger), isSilenced (constant-false,
+ * no writer), Notification / NotificationAdapter / NotificationChannel (adapter
+ * abstraction over one channel) removed from the public surface.
  */
 
-export { getDailyDigest } from "./daily-digest.js";
 export type {
 	DeliveryResult,
 	DeliverySpec,
@@ -49,5 +43,3 @@ export type {
 } from "./notification-queue.js";
 export { enqueue, listNotifications, markNotifications, reap } from "./notification-queue.js";
 export type { NotificationsDeps } from "./ports.js";
-export { isSilenced } from "./silence-policy.js";
-export type { Notification, NotificationAdapter, NotificationChannel } from "./types.js";

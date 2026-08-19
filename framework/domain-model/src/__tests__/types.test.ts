@@ -7,7 +7,6 @@ import {
 	type KernelKnowledgeStatus,
 	TASK_STATES,
 	type TaskState,
-	type UserRole,
 } from "../types.js";
 
 /**
@@ -81,9 +80,9 @@ describe("status-union runtime constants", () => {
 			expect(AGENT_CATEGORIES).toContain("individual");
 		});
 
-		it("UserRole is a string type (open vocabulary)", () => {
-			// UserRole is now `string` — any non-empty string is a valid role
-			const r: UserRole = "any_custom_role";
+		it("UserRole is a plain string (open vocabulary)", () => {
+			// UserRole was removed from domain-model — it was `type UserRole = string`, zero safety.
+			const r: string = "any_custom_role";
 			expect(typeof r).toBe("string");
 		});
 	});
