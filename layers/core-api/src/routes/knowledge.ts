@@ -356,21 +356,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
 		// access-signal aggregation all moved into the repository's
 		// listVisibleWithSignals — see knowledge-repository.ts §6.
-		const rows = await listKnowledgeItems(db, { visibleWithSignals: userId });
-
-		const items = rows.map(
-			({ item, relevanceScore, attentionScore, accessCount30d, lastActivityAt }) => ({
-				...item,
-				signals: {
-					lastActivityAt,
-					accessCount30d,
-					citationCount: null, // AC-3: citation staged — always null in L22
-					relevanceScore: relevanceScore ?? null,
-					// Y4: attentionScore stored as text in DB, parse to number in API response
-					attentionScore: attentionScore ? Number.parseFloat(attentionScore) : null,
-				},
-			}),
-		);
+		const items = await listKnowledgeItems(db, { visibleWithSignals: userId });
 
 		return c.json({ items });
 	});
@@ -394,9 +380,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
-		// @lore AU14 round 2: kernel row + projection LEFT JOIN moved into the
-		// repository's findDetailById. Q2 stays a route-side 404 decision (§5).
-		const row = await getKnowledgeItem(db, id, { view: "detail" });
+		// @lore AU44 batch 4 MERGE row 9: detail→full; after score columns die, two
+		// joined views are one. KnowledgeItemWithProjection is the single joined view.
+		const row = await getKnowledgeItem(db, id, { view: "full" });
 
 		if (!row) {
 			const response: ApiErrorResponse = {
@@ -406,10 +392,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
-		const { item } = row;
-
 		// Q2: user-scoped items are private — return 404 (not 403) to avoid leaking existence.
-		if (item.scopeKind === "user" && item.updatedBy !== userId) {
+		if (row.scopeKind === "user" && row.updatedBy !== userId) {
 			const response: ApiErrorResponse = {
 				error: "Knowledge item not found",
 				code: API_ERROR_CODES.NOT_FOUND,
@@ -421,11 +405,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// null-topic → [] (no topic match means no related items).
 		// User-scope filter: exclude other users' private (user-scoped) items.
 		let relatedItems: Array<{ id: string; title: string }> = [];
-		if (item.topic !== null) {
+		if (row.topic !== null) {
 			relatedItems = await listKnowledgeItems(db, {
 				relatedByTopic: {
-					topic: item.topic,
-					excludeId: item.id,
+					topic: row.topic,
+					excludeId: row.id,
 					viewerUserId: userId,
 					limit: 10,
 				},
@@ -435,8 +419,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// O2: emit knowledge_accessed event
 		const accessedEvent: KnowledgeAccessedEvent = {
 			type: "knowledge_accessed",
-			streamId: `knowledge:${item.id}`,
-			itemId: item.id,
+			streamId: `knowledge:${row.id}`,
+			itemId: row.id,
 			accessorKind: "human",
 			accessorId: "browser",
 			timestamp: Date.now(),
@@ -444,12 +428,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		eventBus.emit(accessedEvent);
 
 		// AV3: resolve scopeName — response-only derived field, never persisted.
-		const scopeName = await resolveScopeName(db, item.scopeKind, item.scopeId);
+		const scopeName = await resolveScopeName(db, row.scopeKind, row.scopeId);
 
 		return c.json({
-			...item,
-			kind: row.kind ?? undefined,
-			layer: row.layer ?? undefined,
+			...row,
 			confidence: row.confidence ? Number.parseFloat(row.confidence) : undefined,
 			relatedItems,
 			// AV3: resolved human-readable scope name (response-only, never persisted)

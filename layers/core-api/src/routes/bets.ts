@@ -5,12 +5,7 @@ import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
 import { BET_OUTCOME_VERDICTS, InvalidTransitionError } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
-import {
-	create as createKnowledgeItem,
-	get as getKnowledgeItem,
-	list as listKnowledgeItems,
-	update as updateKnowledgeItem,
-} from "@hyperidle/knowledge";
+import { get as getKnowledgeItem } from "@hyperidle/knowledge";
 import { getTeam, getTeamMembers, updateTeam } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";
@@ -742,96 +737,16 @@ export function createBetRoutes(
 			});
 		}
 
-		// Compose retro knowledge item body (markdown only — no YAML frontmatter in body per arch critique)
-		const learningsSection =
-			body.learnings && body.learnings.trim() ? body.learnings.trim() : "(No learnings recorded)";
-
-		const kiBody = `## Reality\n\n${body.summary}\n\n## Learnings\n\n${learningsSection}`;
-
-		// Derive knowledge item title: "Retro: {bet title}"
-		const betTitle = deriveTitle(bet.description, bet.id);
-		const kiTitle = `Retro: ${betTitle}`;
-
-		// Find existing retro knowledge item for this bet (upsert pattern)
-		// Query: knowledge_items scoped to this bet + projection kind='reflection'
-		//
-		// @lore AU19 Increment 5 item 4 (guard-retirement full-sweep, knowledge
-		// sub-item): this used to be a direct `.from(knowledgeItems).innerJoin(
-		// knowledgeAppProjection, …)` query plus the transaction's own raw
-		// `knowledgeItems`/`knowledgeAppProjection` reads/writes — both
-		// `knowledge`-owned (TABLE_OWNER since Increment 1a). Now uses
-		// `@hyperidle/knowledge`'s `create`/`update` directly — same exact write
-		// sequence (meta fields reconstructed from known inputs, no lossy merge).
-		// @lore AU20 K2-writes: upsertBetRetroKnowledgeItem deleted from barrel;
-		// inlined here using create()/update(). The meta merge on update was
-		// reconstructing {betId, hypothesis, verdict, validatedAt, validatedBy} — all
-		// known at call-site except the immutable creation-time hypothesis. Updates
-		// read the existing projection and preserve that snapshot while refreshing
-		// only its validation fields. create() generates the id internally; captured
-		// from its return value for the response.
-		const hypothesisSnapshot = bet.hypothesis?.trim() || "(no hypothesis recorded)";
-		let retroKnowledgeItemId = "";
-
-		// @lore AC2: Atomic transaction wrapping bet-outcome write + knowledge-item upsert.
-		// Without this, a partial failure (outcome saved, knowledge item not) leaves the bet
-		// in an inconsistent state. The existing projection read stays in the same
-		// transaction so the optimistic update preserves the exact snapshot it read.
-		await db.transaction(async (tx) => {
-			const knowledgeDb = tx as HyperIdleDb;
-			const existingKi = await listKnowledgeItems(knowledgeDb, { retroForBet: betId });
-			retroKnowledgeItemId = existingKi?.id ?? "";
-
-			// Write outcome fields on bet
-			await work.update(tx, "bet", betId, {
-				outcomeVerdict: body.verdict,
-				outcomeSummary: body.summary,
-				outcomeRecordedAt: now,
-				outcomeRecordedBy: actor ?? null,
-				revisionLog: JSON.stringify(revisionLog),
-			});
-
-			if (existingKi) {
-				const existingKnowledge = await getKnowledgeItem(knowledgeDb, existingKi.id, {
-					view: "full",
-				});
-				const existingMeta = JSON.parse(existingKnowledge?.meta ?? "{}") as Record<string, unknown>;
-				await updateKnowledgeItem(
-					knowledgeDb,
-					existingKi.id,
-					{
-						title: kiTitle,
-						body: kiBody,
-						meta: JSON.stringify({
-							...existingMeta,
-							verdict: body.verdict,
-							validatedAt: now,
-							validatedBy: actor ?? null,
-						}),
-						updatedBy: actor ?? "system",
-					},
-					existingKi.version,
-				);
-			} else {
-				const created = await createKnowledgeItem(knowledgeDb, {
-					layer: null,
-					scopeKind: "bet",
-					scopeId: betId,
-					title: kiTitle,
-					body: kiBody,
-					format: "markdown",
-					status: "active",
-					updatedBy: actor ?? "system",
-					kind: "reflection",
-					meta: JSON.stringify({
-						betId,
-						hypothesis: hypothesisSnapshot,
-						verdict: body.verdict,
-						validatedAt: now,
-						validatedBy: actor ?? null,
-					}),
-				});
-				retroKnowledgeItemId = created.id;
-			}
+		// Write outcome fields on bet
+		// @lore AU44 batch 4: bet-retro knowledge reflection upsert removed (bet-retro
+		// is a named ritual per Ruling 3 and leaves with the curation plugin). The
+		// bet-outcome write itself is bets machinery and stays.
+		await work.update(db, "bet", betId, {
+			outcomeVerdict: body.verdict,
+			outcomeSummary: body.summary,
+			outcomeRecordedAt: now,
+			outcomeRecordedBy: actor ?? null,
+			revisionLog: JSON.stringify(revisionLog),
 		});
 
 		const updated = await work.get(db, "bet", betId);
@@ -839,7 +754,7 @@ export function createBetRoutes(
 			return c.json({ error: "Bet not found after update", code: "INTERNAL_ERROR" }, 500);
 		}
 		// @lore U2: normalize atRisk 0/1 to boolean on the wire.
-		return c.json({ ...updated, atRisk: updated.atRisk === 1, retroKnowledgeItemId });
+		return c.json({ ...updated, atRisk: updated.atRisk === 1 });
 	});
 
 	// GET /bets/:id/artifact-thread-summary — per-bet aggregate of artifact threads.
