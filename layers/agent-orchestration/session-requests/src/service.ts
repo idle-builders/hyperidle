@@ -675,10 +675,17 @@ async function processIntentsInternal(
 			// AU21 §6 Decision B / §9 Increment 4: every intent kind now bakes at
 			// emit time; an unbaked intent row is production-unreachable. bakedRequest
 			// is required on WorkIntentInput since AU44.
+			// @lore AU44: unbaked intents are production-unreachable (bakedRequest is
+			// required at emit time), but legacy rows with bakedRequestJson=null must
+			// fail cleanly via INVALID_WORK_SOURCE rather than being stuck claimed.
 			const baked = parseBakedRequest(intent);
 			if (baked) {
 				await handOffInternal(db, intent, claimToken, now, (tx) =>
 					createFromBakedRequestInternal(tx, intent, baked),
+				);
+			} else {
+				throw new InvalidAgentWorkSourceError(
+					`Intent ${intent.id} (kind: ${intent.kind}) has no bakedRequestJson — unbaked intents are production-unreachable since AU44`,
 				);
 			}
 		} catch (error) {
