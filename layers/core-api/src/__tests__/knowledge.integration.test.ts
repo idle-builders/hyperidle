@@ -216,101 +216,7 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 	});
 
-	// AC6: POST /api/knowledge/:id/merge — merge two items
-	describe("AC6: POST /api/knowledge/:layer/:id/merge — merge two items", () => {
-		test("merges two items, combining body, both IDs redirect", async ({ app }) => {
-			const item1 = await createItem(app, "L0", { title: "Item One", body: "Body one." });
-			const item2 = await createItem(app, "L0", { title: "Item Two", body: "Body two." });
-			const id1 = item1.id as string;
-			const id2 = item2.id as string;
-
-			const res = await app.request(`/api/knowledge/${id1}/merge`, {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					sourceId: id2,
-					updatedBy: "curator",
-				}),
-			});
-
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as Record<string, unknown>;
-			// Merged item should contain both bodies
-			expect(body.body as string).toContain("Body one.");
-			expect(body.body as string).toContain("Body two.");
-
-			// Source item should be archived (merged)
-			const sourceRes = await app.request(`/api/knowledge/${id2}`, { headers: authHeaders() });
-			expect(sourceRes.status).toBe(200);
-			const sourceBody = (await sourceRes.json()) as Record<string, unknown>;
-			expect(sourceBody.status).toBe("archived");
-		});
-
-		test("returns 404 when source item does not exist", async ({ app }) => {
-			const item = await createItem(app, "L0");
-			const id = item.id as string;
-
-			const res = await app.request(`/api/knowledge/${id}/merge`, {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					sourceId: "nonexistent",
-					updatedBy: "curator",
-				}),
-			});
-
-			expect(res.status).toBe(404);
-		});
-	});
-
-	// AC7: POST /api/knowledge/:id/split — split into two
-	describe("AC7: POST /api/knowledge/:layer/:id/split — split into two items", () => {
-		test("splits an item into two new items", async ({ app }) => {
-			const item = await createItem(app, "L0", { title: "Combined", body: "Part A. Part B." });
-			const id = item.id as string;
-
-			const res = await app.request(`/api/knowledge/${id}/split`, {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					newItems: [
-						{ title: "Part A", body: "Part A content." },
-						{ title: "Part B", body: "Part B content." },
-					],
-					updatedBy: "curator",
-				}),
-			});
-
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as Record<string, unknown>;
-			const items = body.items as Record<string, unknown>[];
-			expect(items).toHaveLength(2);
-			expect(items[0]?.title).toBe("Part A");
-			expect(items[1]?.title).toBe("Part B");
-			expect((items[0] as Record<string, unknown>).version).toBe(1);
-
-			// Original item should be archived
-			const origRes = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
-			const origBody = (await origRes.json()) as Record<string, unknown>;
-			expect(origBody.status).toBe("archived");
-		});
-
-		test("returns 400 when newItems has fewer than 2 entries", async ({ app }) => {
-			const item = await createItem(app, "L0");
-			const id = item.id as string;
-
-			const res = await app.request(`/api/knowledge/${id}/split`, {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					newItems: [{ title: "Only One", body: "Only one." }],
-					updatedBy: "curator",
-				}),
-			});
-
-			expect(res.status).toBe(400);
-		});
-	});
+	// AC6 (merge) and AC7 (split) coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
 	// AC8: POST /api/knowledge/:id/archive — archive
 	describe("AC8: POST /api/knowledge/:layer/:id/archive — archive item", () => {
@@ -337,35 +243,7 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 	});
 
-	// AC9: POST /api/knowledge/:id/flag — flag for review
-	describe("AC9: POST /api/knowledge/:layer/:id/flag — flag for review", () => {
-		test("flags an item (records in edit log)", async ({ app }) => {
-			// @lore O2: attentionScore column stripped from kernel table.
-			// Flag now records in edit log; status is NOT changed to "provisional".
-			const item = await createItem(app, "L0");
-			const id = item.id as string;
-
-			const res = await app.request(`/api/knowledge/${id}/flag`, {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ reason: "Needs review" }),
-			});
-
-			expect(res.status).toBe(200);
-			// O2: flag records in edit log; item is still returned
-			const body = (await res.json()) as Record<string, unknown>;
-			expect(body.id).toBe(id);
-		});
-
-		test("returns 404 for non-existent item", async ({ app }) => {
-			const res = await app.request("/api/knowledge/nonexistent/flag", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ reason: "Needs review" }),
-			});
-			expect(res.status).toBe(404);
-		});
-	});
+	// AC9 (flag) coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
 	// AC10: GET /api/knowledge/search?q=... — FTS5 search
 	describe("AC10: GET /api/knowledge/search?q=... — FTS5 search", () => {
