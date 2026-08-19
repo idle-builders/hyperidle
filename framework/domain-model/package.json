@@ -11,9 +11,7 @@
 	},
 	"devDependencies": {
 		"@hyperidle/block-derivation": "*",
-		"@hyperidle/http-middleware": "*",
 		"@hyperidle/work-intent-port": "*",
-		"hono": "^4.12.27",
 		"vitest": "^4.1.9"
 	},
 	"dependencies": {

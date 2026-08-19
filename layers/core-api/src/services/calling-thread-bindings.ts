@@ -78,16 +78,3 @@ export function resolveOrCreateCallingThread(
 ): Promise<string> {
 	return resolveOrCreateHostCallingThread(db, "task", taskId, agentId);
 }
-
-/**
- * Resolve the knowledge item's `hostKind:"knowledge_item"` thread, or create
- * one if absent — the `knowledge_action` sibling of
- * `resolveOrCreateCallingThread`. Idempotent, same shape.
- */
-export function resolveOrCreateKnowledgeCallingThread(
-	db: HyperIdleDb,
-	knowledgeItemId: string,
-	agentId: string,
-): Promise<string> {
-	return resolveOrCreateHostCallingThread(db, "knowledge_item", knowledgeItemId, agentId);
-}

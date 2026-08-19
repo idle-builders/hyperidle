@@ -68,9 +68,6 @@
 			"ignoreBinaries": ["vitest"]
 		},
 		"framework/api-contract": {},
-		"layers/agent-execution/harness-registry": {
-			"entry": ["src/harness-session-probe.ts!"]
-		},
 		"framework/design-system": {
 			"entry": ["src/**/*.stories.tsx", "__scripts__/*.ts!"]
 		},

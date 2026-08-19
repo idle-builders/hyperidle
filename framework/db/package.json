@@ -21,7 +21,6 @@
 		"postgres": "^3.4.9"
 	},
 	"devDependencies": {
-		"@hyperidle/diagnostics": "*",
 		"drizzle-kit": "^0.31.10",
 		"vitest": "^4.1.9"
 	}
