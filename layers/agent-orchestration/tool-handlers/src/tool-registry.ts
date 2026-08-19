@@ -30,18 +30,20 @@
  */
 
 import {
-	type BuildToolRegistryOptions,
-	type ClaudeToolSpec,
-	classifyReversibility,
 	err,
-	identityHash,
-	type ProposedCallWorkflowPort,
+	type ClaudeToolSpec,
 	type RegisteredTool,
 	type ToolContext,
 	type ToolRegistry,
 	type ToolResult,
+} from "@hyperidle/harness-protocol";
+import {
+	type BuildToolRegistryOptions,
+	classifyReversibility,
+	identityHash,
+	type ProposedCallWorkflowPort,
 	toClaudeToolSpec,
-} from "@hyperidle/tool-protocol";
+} from "./tool-types.js";
 
 /**
  * Build a fresh registry bound to the given context, filtered to the agent's

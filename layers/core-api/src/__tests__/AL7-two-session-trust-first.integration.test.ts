@@ -79,9 +79,8 @@ import {
 	type ToolContext,
 	type ToolRegistry,
 	type ToolResult,
-	toClaudeToolSpec,
-	toRegistered,
-} from "@hyperidle/tool-protocol";
+} from "@hyperidle/harness-protocol";
+import { toClaudeToolSpec, toRegistered } from "@hyperidle/tool-handlers";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import z from "zod";

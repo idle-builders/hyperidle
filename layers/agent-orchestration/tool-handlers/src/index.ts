@@ -22,6 +22,16 @@
  */
 
 export type { ToolHandlersPorts } from "./ports.js";
+export type {
+	BuildToolRegistryOptions,
+	ProposedCallWorkflowPort,
+} from "./tool-types.js";
+export {
+	classifyReversibility,
+	identityHash,
+	toClaudeToolSpec,
+	toRegistered,
+} from "./tool-types.js";
 export { buildToolDefinitions } from "./tool-definitions.js";
 /**
  * @lore AU31 §2.5: `buildToolRegistry` relocated from `@hyperidle/harness-

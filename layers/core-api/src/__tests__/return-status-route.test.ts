@@ -1,7 +1,7 @@
 import { MAX_FORCE_RETURNS } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
-import type { ToolRegistry } from "@hyperidle/tool-protocol";
+import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import { describe, expect, test } from "vitest";
 
 const registry: ToolRegistry = {

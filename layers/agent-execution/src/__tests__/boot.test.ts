@@ -6,7 +6,7 @@
  * direct call against the boot's return value.
  */
 import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
-import type { ToolRegistry } from "@hyperidle/tool-protocol";
+import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { bootAgentExecution } from "../boot.js";

@@ -14,7 +14,7 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/tool-protocol": "*",
+		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/work-intent-port": "*",
 		"drizzle-orm": "^0.45.2"
 	},

@@ -26,7 +26,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 
 export const NOW = "2026-04-18T00:00:00.000Z";
 

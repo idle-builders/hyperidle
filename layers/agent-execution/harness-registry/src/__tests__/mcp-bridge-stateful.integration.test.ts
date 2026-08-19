@@ -37,9 +37,8 @@ import {
 	ok,
 	type RegisteredTool,
 	type ToolRegistry,
-	toClaudeToolSpec,
-	toRegistered,
-} from "@hyperidle/tool-protocol";
+} from "@hyperidle/harness-protocol";
+import { toClaudeToolSpec, toRegistered } from "@hyperidle/tool-handlers";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Hono } from "hono";

@@ -29,7 +29,6 @@
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",
 		"@hyperidle/tool-handlers": "*",
-		"@hyperidle/tool-protocol": "*",
 		"hono": "^4.12.27",
 		"zod": "^4.3.6"
 	},

@@ -57,9 +57,6 @@
 			"path": "../../framework/query-escaping"
 		},
 		{
-			"path": "../../framework/tool-protocol"
-		},
-		{
 			"path": "../../framework/work-intent-port"
 		},
 		{

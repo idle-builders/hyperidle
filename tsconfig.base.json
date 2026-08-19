@@ -34,7 +34,6 @@
 			"@hyperidle/http-middleware": ["./framework/http-middleware/src"],
 			"@hyperidle/credential-access": ["./framework/credential-access/src"],
 			"@hyperidle/harness-protocol": ["./framework/harness-protocol/src"],
-			"@hyperidle/tool-protocol": ["./framework/tool-protocol/src"],
 			"@hyperidle/db": ["./framework/db/src"],
 			"@hyperidle/core-ui": ["./layers/core-ui/src"],
 			"@hyperidle/design-system": ["./framework/design-system/src"],

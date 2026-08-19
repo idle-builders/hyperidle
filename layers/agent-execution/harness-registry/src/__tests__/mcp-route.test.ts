@@ -1,4 +1,4 @@
-import type { ToolRegistry } from "@hyperidle/tool-protocol";
+import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { createMcpToolBridge } from "../mcp-tool-bridge.js";
 import { createReturnEnforcement } from "../return-enforcement.js";

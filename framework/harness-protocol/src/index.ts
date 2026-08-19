@@ -1,5 +1,14 @@
 export type { EnforcementEntry, EnforcementRegistry } from "./harness/enforcement-registry.js";
 export type {
+	AnySchema,
+	ClaudeToolSpec,
+	RegisteredTool,
+	ToolContext,
+	ToolRegistry,
+	ToolResult,
+} from "./harness/tool-seam.js";
+export { err, ok } from "./harness/tool-seam.js";
+export type {
 	AdapterInfo,
 	AdapterMeta,
 	ConversationMessage,

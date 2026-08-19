@@ -33,7 +33,7 @@ import {
 	type RegisteredTool,
 	type ToolContext,
 	type ToolResult,
-} from "@hyperidle/tool-protocol";
+} from "@hyperidle/harness-protocol";
 import z from "zod";
 
 /** Input schema: the tool accepts an empty object (no required args). */

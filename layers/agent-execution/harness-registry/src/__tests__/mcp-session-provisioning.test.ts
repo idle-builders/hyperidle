@@ -4,7 +4,7 @@
  * `provisioner.ts`. See the `@lore` at `mcp/index.ts`'s definition.
  */
 
-import type { ToolRegistry } from "@hyperidle/tool-protocol";
+import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { createMcpToolBridge, openMcpBridgeSession } from "../mcp/index.js";
 

@@ -51,7 +51,8 @@ import {
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import type { ProposedCallWorkflowPort, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
+import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
+import type { ProposedCallWorkflowPort } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
 import { buildToolDefinitions } from "./tool-handlers-bindings.js";
 

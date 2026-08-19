@@ -1595,54 +1595,6 @@
 			}
 		},
 		{
-			"source": "harness-registry",
-			"target": "framework/tool-protocol",
-			"kind": "import",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 5,
-				"development": 2
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/tool-protocol",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "harness-registry",
-			"target": "framework/tool-protocol",
-			"kind": "manifest",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/tool-protocol",
-			"kind": "manifest",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
 			"source": "core-api",
 			"target": "framework/work-intent-port",
 			"kind": "import",
