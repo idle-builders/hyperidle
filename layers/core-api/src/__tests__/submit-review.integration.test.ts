@@ -14,15 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	bets,
-	type HyperIdleDb,
-	messages,
-	tasks,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -48,7 +40,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
-		await db.insert(bets).values({
+	await db.insert(bets).values({
 		id: "b1",
 		teamId: "team-1",
 		description: "Implement feature X",

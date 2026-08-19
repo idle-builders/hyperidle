@@ -17,12 +17,7 @@
  * byte-identical; only WHEN it is read moved.
  */
 
-import {
-	filesystemInjections,
-	filesystems as filesystemsTable,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { filesystemInjections, filesystems as filesystemsTable, teams, users } from "@hyperidle/db";
 import { test } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
 import { listInjectedFilesystemsForProvisioning } from "../index.js";

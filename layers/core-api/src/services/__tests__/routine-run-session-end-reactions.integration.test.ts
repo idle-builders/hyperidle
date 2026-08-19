@@ -36,14 +36,7 @@
  *     for a routine session that never reached `session_ended` at all (a
  *     pre-session-launch provisioning failure).
  */
-import {
-	type HyperIdleDb,
-	routineRuns,
-	routines,
-	sessions,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, sessions, teams, users } from "@hyperidle/db";
 import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
@@ -60,7 +53,7 @@ async function seedRunningRoutine(
 	const tmId = `${id}-tm`;
 	const agentId = `${id}-agent`;
 	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
-		await db.insert(users).values({
+	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
 		name: "Agent",

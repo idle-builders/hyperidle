@@ -21,7 +21,7 @@ async function seedThread(db: HyperIdleDb): Promise<{ threadId: string }> {
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: now });
-		await db.insert(users).values({
+	await db.insert(users).values({
 		id: "human-1",
 		kind: "human",
 		name: "Initiator",

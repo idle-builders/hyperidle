@@ -17,7 +17,7 @@ const depWatcherDeps = {
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
-	
+
 	await db.insert(bets).values({
 		id: "b1",
 		teamId: "p1",

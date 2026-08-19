@@ -43,7 +43,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	
+
 	await db.insert(users).values({
 		id: "u-founder",
 		name: "Founder",

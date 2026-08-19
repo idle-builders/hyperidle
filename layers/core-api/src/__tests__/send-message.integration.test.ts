@@ -21,7 +21,7 @@ function buildSendMessageTool(app: Hono): ReturnType<typeof buildToolDefinitions
 async function seedFactory(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	
+
 	await db.insert(users).values([
 		{
 			id: "agent-a",

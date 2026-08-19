@@ -64,7 +64,7 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-au3-agent", name: "AU3 Agent", phase: "build", createdAt: now });
-		await db.insert(users).values([
+	await db.insert(users).values([
 		{
 			id: "agent-au3-agent",
 			kind: "ai",

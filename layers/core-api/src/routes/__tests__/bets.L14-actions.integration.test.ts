@@ -32,7 +32,7 @@ async function seedBase(db: HyperIdleDb, _eventBus: EventBus): Promise<void> {
 	const now = new Date().toISOString();
 	// @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
 	await db.insert(teams).values({ id: "p1", name: "Alpha", phase: "build", createdAt: now });
-	
+
 	await db.insert(bets).values({
 		id: "bet1",
 		// @lore U1: bets.teamId references teams.id (domain entity), NOT teamMembers.id

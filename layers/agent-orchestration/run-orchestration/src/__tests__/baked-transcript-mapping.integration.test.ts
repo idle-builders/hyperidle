@@ -7,14 +7,7 @@
  * `provisionParams.transcript` — a JSON.parse + pure mapping of the
  * already-drained payload, ZERO orchestration -> core read.
  */
-import {
-	agentSessionRequests,
-	bets,
-	type HyperIdleDb,
-	tasks,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { agentSessionRequests, bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";

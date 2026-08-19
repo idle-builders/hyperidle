@@ -632,7 +632,7 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 		const { teams, bets } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({ id: "p-ac5", name: "P-AC5", phase: "build", createdAt: now });
-				await db.insert(bets).values({
+		await db.insert(bets).values({
 			id: "bet-ac5",
 			teamId: "p-ac5",
 			description: "AC5 bet",

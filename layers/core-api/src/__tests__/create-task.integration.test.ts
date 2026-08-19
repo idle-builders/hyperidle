@@ -35,7 +35,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
-		await db.insert(bets).values({
+	await db.insert(bets).values({
 		id: "b1",
 		teamId: "team-1",
 		description: "Implement feature X",

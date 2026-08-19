@@ -29,7 +29,6 @@ function makeProduct(overrides: Partial<{ id: string; name: string }> = {}) {
 	};
 }
 
-
 function makeBet(
 	overrides: Partial<{
 		id: string;
@@ -284,10 +283,7 @@ describe("bet-state-machine", () => {
 				await db.insert(bets).values(makeBet({ status: "draft" }));
 
 				// Snapshot pre-condition.
-				const [teamBefore] = await db
-					.select()
-					.from(teams)
-					.where(eq(teams.id, "prod-1"));
+				const [teamBefore] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
 				expect(teamBefore?.activeBets).toBe(0);
 
 				// Commit first bet to consume one slot (capacity=3, activeBets will become 1)
@@ -300,10 +296,7 @@ describe("bet-state-machine", () => {
 				await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "draft")).rejects.toThrow();
 
 				// Post-condition: teamMembers.activeBets is unchanged (still 1, not leaked)
-				const [teamAfter] = await db
-					.select()
-					.from(teams)
-					.where(eq(teams.id, "prod-1"));
+				const [teamAfter] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
 				expect(teamAfter?.activeBets).toBe(1);
 
 				// Bet is still active

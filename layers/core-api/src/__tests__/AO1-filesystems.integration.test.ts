@@ -23,13 +23,7 @@
  */
 
 import * as os from "node:os";
-import {
-	type HyperIdleDb,
-	knowledgeItems,
-	serverConfig,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeItems, serverConfig, teams, users } from "@hyperidle/db";
 import { sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

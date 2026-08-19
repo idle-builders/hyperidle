@@ -25,14 +25,7 @@
  * test fails before ever observing a `session_ended` emission or a
  * `routineRuns` finalize.
  */
-import {
-	type HyperIdleDb,
-	routineRuns,
-	routines,
-	sessions,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, sessions, teams, users } from "@hyperidle/db";
 import { describe, expect, test, vi } from "@hyperidle/db/test-fixtures";
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";

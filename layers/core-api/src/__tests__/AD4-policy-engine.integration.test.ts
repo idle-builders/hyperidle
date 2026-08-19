@@ -32,14 +32,7 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
-import {
-	type HyperIdleDb,
-	items,
-	messages,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, items, messages, teams, threads, users } from "@hyperidle/db";
 import type { NotificationEvent } from "@hyperidle/domain-model";
 import { computeApprovalRate, type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import * as work from "@hyperidle/work";
