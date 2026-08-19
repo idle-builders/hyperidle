@@ -4,11 +4,13 @@ import {
 	BodyEditor,
 	Breadcrumb,
 	Button,
+	EmptyState,
 	knowledgeStatusToStatus,
 	Menu,
 	PageHeader,
 	PageScaffold,
 	SectionLabel,
+	SkeletonCard,
 	StatusChip,
 } from "@hyperidle/design-system";
 /**
@@ -306,8 +308,24 @@ export function KnowledgeDetail({
 	// items (k1, k2, k11, k12) are used when the API returns null (test env or
 	// when item doesn't exist in the DB). Full fixture removal deferred to a
 	// future workpackage once tests are migrated to seeded DB data.
-	const { data: apiItem } = useKnowledgeItem(knowledgeId);
+	const { data: apiItem, isLoading: apiLoading } = useKnowledgeItem(knowledgeId);
 	const fixtureItem = findDetail(knowledgeId);
+
+	// @lore UI-knowledge-loading: while the API call is in flight both apiItem and
+	// fixtureItem are null/undefined for real (non-fixture) ids. Without the loading
+	// guard the component falls through to FALLBACK_DETAIL which boldly claims
+	// "Unknown Knowledge Item / This knowledge item was not found." — a confident
+	// not-found claim during a transient loading state. Show a skeleton instead.
+	if (apiLoading && !fixtureItem) {
+		return (
+			<PageScaffold frame="page" header={<PageHeader title="Knowledge" />}>
+				<div className="flex flex-col gap-[12px] p-[24px]">
+					<SkeletonCard ariaLabel="Loading knowledge item" />
+					<SkeletonCard ariaLabel="Loading knowledge body" />
+				</div>
+			</PageScaffold>
+		);
+	}
 
 	let item: DetailItem;
 	if (apiItem) {
@@ -384,7 +402,12 @@ function BacklinksCard({
 					))}
 				</ul>
 			) : (
-				<p className="type-small  text-[var(--text-tertiary)]">No related items.</p>
+				/* UI-021: use EmptyState compact for consistency */
+				<EmptyState
+					compact
+					title="No backlinks"
+					description="Related and same-topic items will appear here."
+				/>
 			)}
 		</div>
 	);
@@ -466,7 +489,7 @@ function KnowledgeOverflowMenu({
 				aria-expanded={overflowOpen}
 				aria-haspopup="menu"
 				/* AI5 AQ-015: hit-area expansion only (AG5 menu trigger stays a button). */
-				className="border-[var(--bw-default)] inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
+				className="border-width-default inline-flex items-center justify-center w-[32px] h-[32px] min-h-[44px] min-w-[44px] xl:min-h-[32px] xl:min-w-[32px] rounded-[var(--r-pill)] border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] cursor-pointer hover:border-[var(--accent-deep)] hover:text-[var(--text-primary)]"
 				onClick={onToggle}
 			>
 				<svg aria-hidden="true" viewBox="0 0 16 16" className="h-[16px] w-[16px]">
@@ -841,17 +864,19 @@ function KnowledgeDetailView({
 							>
 								confidence {formatConfidence(item.confidence)}
 							</span>
-							<span
-								className="type-metadata  text-[var(--text-tertiary)]"
-								data-testid="knowledge-origin-agent"
-							>
-								by {item.originAgent ?? "unknown"}
-							</span>
+							{item.originAgent && (
+								<span
+									className="type-metadata  text-[var(--text-tertiary)]"
+									data-testid="knowledge-origin-agent"
+								>
+									by {item.originAgent}
+								</span>
+							)}
 							<span
 								className="type-metadata  text-[var(--text-tertiary)]"
 								data-testid="knowledge-updated-at"
 							>
-								{item.timestamp}
+								{absoluteDateTime(item.timestamp)}
 							</span>
 						</div>
 					}
@@ -922,7 +947,7 @@ function KnowledgeDetailView({
 					{archiveError !== null && (
 						<div
 							role="alert"
-							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="type-small border-width-thin flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="archive-error"
 						>
 							<span className="text-[var(--status-error)]">{archiveError}</span>
@@ -940,7 +965,7 @@ function KnowledgeDetailView({
 					{promoteError !== null && (
 						<div
 							role="alert"
-							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="type-small border-width-thin flex items-center justify-between gap-[9px] px-[12px] py-[9px]  bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="promote-error"
 						>
 							<span className="text-[var(--status-error)]">{promoteError}</span>
@@ -958,7 +983,7 @@ function KnowledgeDetailView({
 					{conflictVersion !== null && (
 						<div
 							role="alert"
-							className="type-small border-[var(--bw-thin)] flex items-center justify-between gap-[9px] px-[12px] py-[9px] bg-[var(--surface-container)] border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
+							className="type-small border-width-thin flex items-center justify-between gap-[9px] px-[12px] py-[9px] bg-[var(--surface-container)] border-[var(--border-subtle)] rounded-[var(--r-subtle)]"
 							data-testid="conflict-banner"
 						>
 							<span className="text-[var(--text-secondary)]">
@@ -1058,14 +1083,14 @@ function KnowledgeDetailView({
 					{/* Metadata card */}
 					<div className="bg-[var(--surface-page)] rounded-[var(--r-default)] p-[18px]">
 						<SectionLabel label="Metadata" as="h2" />
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Kind</span>
 							{/* AF13 §5: null/undefined kind renders "—" not blank or "undefined" */}
 							<span className="type-small text-[var(--text-primary)] ">{item.kind ?? "—"}</span>
 						</div>
 						{/* AV3: Scope row — resolved scope name + Change/ReadOnly affordance */}
 						<div
-							className="type-small border-b-[var(--bw-thin)] flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
+							className="type-small border-width-thin-b flex justify-between items-center py-[6px]  border-[var(--border-subtle)] "
 							data-testid="knowledge-scope-row"
 						>
 							<span className="text-[var(--text-tertiary)]">Scope</span>
@@ -1094,23 +1119,23 @@ function KnowledgeDetailView({
 								)}
 							</span>
 						</div>
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Status</span>
 							<StatusChip status={knowledgeStatusToStatus(item.status)} />
 						</div>
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Confidence</span>
 							<span className="type-data text-[var(--text-primary)]   tabular-nums">
 								{formatConfidence(item.confidence)}
 							</span>
 						</div>
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Last edited</span>
 							<span className="type-small text-[var(--text-primary)] ">
 								{absoluteDateTime(item.timestamp)}
 							</span>
 						</div>
-						<div className="border-b-[var(--bw-thin)] type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
+						<div className="border-width-thin-b type-small flex justify-between items-center py-[6px]  border-[var(--border-subtle)] ">
 							<span className="text-[var(--text-tertiary)]">Editor</span>
 							{/* Resolve updatedBy to display name:
 							    - If it matches the current user's id, show their name.
@@ -1119,20 +1144,12 @@ function KnowledgeDetailView({
 							{item.updatedBy && item.updatedBy === user?.id ? (
 								<span className="type-small text-[var(--text-primary)] ">{user.name}</span>
 							) : item.updatedBy && item.updatedBy !== "Unknown" ? (
-								<span className="type-data text-[var(--text-primary)]   " title={item.updatedBy}>
-									{item.updatedBy.length > 12 ? `${item.updatedBy.slice(0, 8)}…` : item.updatedBy}
-								</span>
+								<span className="type-small text-[var(--text-primary)] ">Another editor</span>
 							) : (
 								<span className="type-small text-[var(--text-primary)] ">
 									{item.updatedBy ?? "Unknown"}
 								</span>
 							)}
-						</div>
-						<div className="type-small flex justify-between items-center py-[6px] ">
-							<span className="text-[var(--text-tertiary)]">Access count</span>
-							<span className="type-data text-[var(--text-primary)]   tabular-nums">
-								{item.accessCount ?? 0}
-							</span>
 						</div>
 					</div>
 

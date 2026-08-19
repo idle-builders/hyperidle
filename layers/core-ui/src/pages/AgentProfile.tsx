@@ -42,8 +42,12 @@ import {
 	Tag,
 } from "@hyperidle/design-system";
 import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
-import { AGENT_OPERATIONAL_STATUS_LABEL, findRoleCatalogEntry } from "@hyperidle/domain-model";
-import { absoluteDate, relativeLong } from "@hyperidle/presentation-format";
+import {
+	AGENT_OPERATIONAL_STATUS_LABEL,
+	findRoleCatalogEntry,
+	roleLabel,
+} from "@hyperidle/domain-model";
+import { absoluteDate } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
@@ -51,6 +55,27 @@ import { type AgentRunState, useAgentRunState } from "../hooks/useAgentRunState.
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
+
+// UI-041: static display names for known harness families. Matches
+// KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts.
+const HARNESS_DISPLAY: Record<string, string> = {
+	builtin: "Built-in",
+	"claude-code": "Claude Code",
+	codex: "Codex",
+	"cursor-agent": "Cursor Agent",
+	opencode: "OpenCode",
+};
+
+function harnessLabel(type: string | null | undefined): string {
+	if (!type) return "Any";
+	return (
+		HARNESS_DISPLAY[type] ??
+		type
+			.split(/[-_]/)
+			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+			.join(" ")
+	);
+}
 
 /** F2: Narrow string|null to SessionOutcome without an unsafe cast. */
 const SESSION_OUTCOMES: ReadonlySet<SessionOutcome> = new Set<SessionOutcome>([
@@ -86,12 +111,16 @@ export function AgentProfile({
 	overrideRunState,
 }: AgentProfileProps = {}): JSX.Element {
 	const { agentId } = useParams<{ agentId: string }>();
+	const navigate = useNavigate();
 
 	const fetched = useAgentProfile(overrideData !== undefined ? undefined : agentId);
 
 	const loading = overrideLoading === true || (overrideData === undefined && fetched.loading);
 	const error = overrideError !== undefined ? (overrideError ?? null) : (fetched.error ?? null);
 	const data = overrideData !== undefined ? overrideData : (fetched.data ?? null);
+	// @lore UI-014: httpStatus comes from the hook so AgentProfile can branch on the numeric
+	// code without parsing error.message strings. Null when using overrideError (tests/stories).
+	const httpStatus = overrideError !== undefined ? null : (fetched.httpStatus ?? null);
 
 	if (loading) {
 		return (
@@ -110,15 +139,20 @@ export function AgentProfile({
 	}
 
 	if (error !== null) {
-		const is404 = error.message.includes("404");
+		// @lore UI-014: check httpStatus (numeric, no string parsing) when available;
+		// fall back to error.message parsing for overrideError callers (tests/stories).
+		const is404 = httpStatus === 404 || error.message.includes("404");
 		if (is404) {
 			return (
+				// @lore UI-129: body="managed" gives children a flex-1 flex-col container
+				// with definite height (fills the AppShell h-screen chain). frame="page" wraps
+				// in PageFrame (block, auto height), so min-h-full = content height not viewport.
 				<PageScaffold
-					frame="page"
+					body="managed"
 					header={<PageHeader title="Agent" />}
 					data-testid="agent-profile-page"
 				>
-					<div className="p-[24px]">
+					<div className="flex-1 flex items-center justify-center p-[48px_24px]">
 						<EmptyState
 							title="Agent not found"
 							description="The agent you are looking for does not exist."
@@ -128,14 +162,25 @@ export function AgentProfile({
 				</PageScaffold>
 			);
 		}
+		const is429 = httpStatus === 429 || error.message.includes("429");
+		const is5xx = (httpStatus !== null && httpStatus >= 500) || /5\d\d/.test(error.message);
+		const friendlyMessage = is429
+			? "Too many requests. Please wait a moment and try again."
+			: is5xx
+				? "Something went wrong on the server. Please try again."
+				: "This profile couldn't be loaded. Please try again.";
 		return (
 			<PageScaffold
-				frame="page"
+				body="managed"
 				header={<PageHeader title="Agent" />}
 				data-testid="agent-profile-page"
 			>
-				<div className="p-[24px]">
-					<ErrorState title="Failed to load agent profile" description={error.message} />
+				<div className="flex-1 flex items-center justify-center p-[48px_24px]">
+					<ErrorState
+						title="Failed to load agent profile"
+						description={friendlyMessage}
+						onRetry={() => navigate(0)}
+					/>
 				</div>
 			</PageScaffold>
 		);
@@ -144,11 +189,11 @@ export function AgentProfile({
 	if (data === null) {
 		return (
 			<PageScaffold
-				frame="page"
+				body="managed"
 				header={<PageHeader title="Agent" />}
 				data-testid="agent-profile-page"
 			>
-				<div className="p-[24px]">
+				<div className="flex-1 flex items-center justify-center p-[48px_24px]">
 					<EmptyState
 						title="Agent not found"
 						description="The agent you are looking for does not exist."
@@ -189,8 +234,22 @@ function AgentProfileLoaded({
 		overrideRunState ? null : data.id,
 		data.harnessAvailable,
 	);
-	const { activeSession, recentSessions, performance, healthSignals, status } =
-		overrideRunState ?? fetchedRunState;
+	const {
+		activeSession,
+		recentSessions: rawRecentSessions,
+		performance,
+		healthSignals,
+		status,
+	} = overrideRunState ?? fetchedRunState;
+
+	// @lore UI-072: orchestration can return duplicate sessionId rows when a run
+	// appears in both the "active" slot and the "recent" list mid-flight, or when
+	// the hook re-maps the same run twice via flatMap. Dedup by sessionId (first
+	// occurrence wins) before rendering. This is a display-only guard — the source
+	// of truth is not altered.
+	const recentSessions = rawRecentSessions.filter(
+		(session, index, arr) => arr.findIndex((s) => s.sessionId === session.sessionId) === index,
+	);
 	// @lore AU26 review W6: a failed run read must not paint a healthy agent.
 	// `computeHealthSignals([])` says "not degraded" — true of an agent with no
 	// runs, a lie about an agent whose runs we could not read. The banner below
@@ -275,6 +334,10 @@ function AgentProfileLoaded({
 				)}
 
 				{/* F2: Health banner — only shown when degraded, has role="alert" */}
+				{/* @lore UI-105: icon + "Edit in Settings" route added — the banner carried
+				    copy but no icon or action. A warning icon makes the alert immediately
+				    scannable; the Settings route (same as the Edit button) lets the founder
+				    act on "harness not available" without scrolling the page. */}
 				{!runStateUnavailable && healthSignals.degraded && (
 					<div
 						role="alert"
@@ -285,26 +348,43 @@ function AgentProfileLoaded({
 								"var(--bw-thin) solid color-mix(in oklab, var(--status-warning) 20%, transparent)",
 						}}
 					>
-						<span className="type-small  text-[var(--text-primary)]">Health warning</span>
-						{healthSignals.failureRate7d > 0.5 && (
-							<span className="ml-[6px]">
-								High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in last 7 days.
-							</span>
-						)}
-						{healthSignals.lastSessionCrashed && (
-							<span className="ml-[6px]">Last session crashed.</span>
-						)}
-						{!healthSignals.harnessAvailable && (
-							<span className="ml-[6px]">Required harness not available.</span>
-						)}
+						<div className="flex items-start gap-[9px]">
+							<svg
+								aria-hidden="true"
+								viewBox="0 0 16 16"
+								fill="currentColor"
+								className="shrink-0"
+								style={{ width: 14, height: 14, color: "var(--status-warning)" }}
+							>
+								<path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 10.5a.75.75 0 110-1.5.75.75 0 010 1.5zM7.25 5h1.5l-.25 4.5h-1L7.25 5z" />
+							</svg>
+							<div className="flex-1 min-w-0">
+								<span className="type-small  text-[var(--text-primary)]">Health warning</span>
+								{healthSignals.failureRate7d > 0.5 && (
+									<span className="ml-[6px]">
+										High failure rate: {Math.round(healthSignals.failureRate7d * 100)}% in last 7
+										days.
+									</span>
+								)}
+								{healthSignals.lastSessionCrashed && (
+									<span className="ml-[6px]">Last session crashed.</span>
+								)}
+								{!healthSignals.harnessAvailable && (
+									<span className="ml-[6px]">Required harness not available.</span>
+								)}
+								<RRLink
+									to="/conversations?settings=open"
+									className="type-control ml-[12px]  text-[var(--accent-deep)] hover:underline"
+								>
+									Edit in Settings
+								</RRLink>
+							</div>
+						</div>
 					</div>
 				)}
 
 				{/* Identity block — Avatar + meta. Name/status live in PageHeader (AI7). */}
-				<section
-					aria-label="Agent identity"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
-				>
+				<section aria-label="Agent identity" className="flex flex-col gap-[12px]">
 					<div className="flex items-start gap-[12px]">
 						<Avatar initials={initials} size="md" agent />
 						<div className="flex-1 min-w-0">
@@ -339,8 +419,8 @@ function AgentProfileLoaded({
 								</div>
 							)}
 						</div>
-						{/* F1: Link to Settings — /conversations?settings=open (deep-link broken fix) */}
-						<RRLink to="/conversations?settings=open" className="btn btn-ghost btn-sm shrink-0">
+						{/* @lore FR-18: Link to /settings (real route) — was /conversations?settings=open */}
+						<RRLink to="/settings" className="btn btn-ghost btn-sm shrink-0">
 							Edit in Settings
 						</RRLink>
 					</div>
@@ -350,12 +430,12 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Configuration"
 					data-testid="agent-config-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Configuration" as="h2" />
-					<div className="grid grid-cols-2 gap-x-[24px] gap-y-[6px]">
-						<KeyValue label="Role" value={data.role} />
-						<KeyValue label="Harness" value={data.harnessType ?? "Any"} />
+					<div className="flex flex-col gap-[6px] max-w-[320px]">
+						<KeyValue label="Role" value={roleLabel(data.role)} />
+						<KeyValue label="Harness" value={harnessLabel(data.harnessType)} />
 						<KeyValue label="Category" value={data.agentCategory ?? "team"} />
 						<KeyValue label="Model tier" value={data.modelTierPreference ?? "Default"} />
 						{data.teamName && <KeyValue label="Team" value={data.teamName} />}
@@ -378,7 +458,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Harness capabilities"
 					data-testid="agent-capabilities-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Harness Capabilities" as="h2" />
 					<div className="flex flex-wrap gap-[6px]">
@@ -396,7 +476,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Review track record"
 					data-testid="agent-track-record-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Review Track Record" as="h2" />
 					{data.reviewTrackRecord.totalVerdicts === 0 ? (
@@ -424,7 +504,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Recent activity"
 					data-testid="agent-activity-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Recent Activity" as="h2" />
 					{runStateUnavailable ? (
@@ -434,9 +514,15 @@ function AgentProfileLoaded({
 					) : recentSessions.length === 0 ? (
 						<p className="type-metadata  text-[var(--text-tertiary)]">No sessions recorded.</p>
 					) : (
+						// @lore UI-073: an HTML <table> is the right element here — this is
+						// genuinely tabular data: sessions × (task, outcome, when). A flex/grid
+						// layout would need role=grid and aria-rowcount/colcount to stay
+						// accessible; a table gets those semantics for free and lets screen
+						// readers announce "row 3 of 8, column 2: completed". ThreadRow is for
+						// conversation-like entries with avatar + unread count — not applicable.
 						<table className="type-metadata w-full " aria-label="Recent agent session activity">
 							<thead>
-								<tr className="border-b-[var(--bw-thin)] text-[var(--text-tertiary)] text-left  border-[var(--border-subtle)]">
+								<tr className="border-width-thin-b text-[var(--text-tertiary)] text-left  border-[var(--border-subtle)]">
 									<th className="type-small pb-[6px] ">Task</th>
 									<th className="type-small pb-[6px] ">Outcome</th>
 									<th className="type-small pb-[6px] ">When</th>
@@ -446,7 +532,7 @@ function AgentProfileLoaded({
 								{recentSessions.map((session) => (
 									<tr
 										key={session.sessionId}
-										className="border-b-[var(--bw-thin)] border-none  border-[var(--border-subtle)] "
+										className="border-width-thin-b border-none  border-[var(--border-subtle)] "
 									>
 										<td className="py-[6px] text-[var(--text-primary)] truncate max-w-[200px]">
 											{session.taskTitle}
@@ -463,7 +549,7 @@ function AgentProfileLoaded({
 											)}
 										</td>
 										<td className="py-[6px] text-[var(--text-tertiary)]">
-											{relativeLong(session.startedAt)}
+											{absoluteDate(session.startedAt)}
 										</td>
 									</tr>
 								))}
@@ -476,7 +562,7 @@ function AgentProfileLoaded({
 				<section
 					aria-label="Performance"
 					data-testid="agent-performance-section"
-					className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px]"
+					className="flex flex-col gap-[12px]"
 				>
 					<SectionLabel label="Performance" as="h2" />
 					<div className="flex gap-[24px] flex-wrap">

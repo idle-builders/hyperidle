@@ -178,7 +178,7 @@ export function SettingsWorker(): JSX.Element {
 
 			{/* Status section — only shown when enabled */}
 			{status.enabled && (
-				<div className="border-t-[var(--bw-thin)] flex flex-col gap-[12px]  border-[var(--border-subtle)] pt-[12px]">
+				<div className="border-width-thin-t flex flex-col gap-[12px]  border-[var(--border-subtle)] pt-[12px]">
 					{/* Connection status */}
 					<div className="flex items-center gap-[12px]">
 						<span className="type-small  text-[var(--text-secondary)]">Status</span>

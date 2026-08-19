@@ -46,15 +46,19 @@ export interface ScopePickerProps {
 }
 
 const PILL_BASE =
-	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-[var(--bw-default)] cursor-pointer focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
+	"inline-flex items-center justify-center px-[12px] py-[4px] min-h-[44px] xl:min-h-[24px] rounded-[var(--r-pill)] border-width-default focus-visible:outline focus-visible:outline-[2px] focus-visible:outline-[var(--accent-deep)] focus-visible:outline-offset-[2px]";
 
+// @lore UI-007: cursor is computed per-pill inline — never included in a shared
+// constant that applies to both enabled and disabled pills. Tailwind resolves
+// conflicting cursor-* classes by CSS stylesheet order (cursor-pointer comes
+// after cursor-not-allowed alphabetically → wins when both are present). The only
+// safe fix is to ensure cursor-pointer is physically absent from disabled pills'
+// class list, which means building it conditionally rather than from a shared const.
+// Same principle for hover:text-* — a disabled control must not respond to hover.
 const PILL_ACTIVE =
 	"bg-[var(--accent-primary-dim)] border-[var(--accent-deep)] text-[var(--accent-deep)]";
 
-const PILL_INACTIVE =
-	"bg-transparent border-[var(--border-default)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]";
-
-const PILL_DISABLED = "opacity-40 cursor-not-allowed";
+const PILL_INACTIVE = "bg-transparent border-[var(--border-default)] text-[var(--text-secondary)]";
 
 export function ScopePicker({
 	options,
@@ -102,7 +106,13 @@ export function ScopePicker({
 						className={`type-control ${[
 							PILL_BASE,
 							isActive ? PILL_ACTIVE : PILL_INACTIVE,
-							isDisabled ? PILL_DISABLED : "",
+							// UI-007: cursor and hover are conditional so they are ABSENT from
+							// the disabled pill's class list. Tailwind resolves cursor-pointer
+							// after cursor-not-allowed in the stylesheet, so having both present
+							// always renders pointer — the only safe fix is omission.
+							isDisabled
+								? "opacity-40 cursor-not-allowed"
+								: `cursor-pointer${isActive ? "" : " hover:text-[var(--text-primary)]"}`,
 						].join(" ")}`}
 					>
 						{option.label}

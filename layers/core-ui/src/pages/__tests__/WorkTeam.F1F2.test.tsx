@@ -14,7 +14,6 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HintProvider } from "../../hooks/useHints";
 import { WorkTeam } from "../WorkTeam";
 
 vi.mock("../../components/ArtifactSection.js", () => ({
@@ -73,15 +72,13 @@ const TEAM_EMPTY: TeamDetail = {
 
 function renderWithRouter(ui: ReactNode, path = "/work/team/f1-team-1"): ReturnType<typeof render> {
 	return render(
-		<HintProvider>
-			<MemoryRouter initialEntries={[path]}>
-				<Routes>
-					<Route path="/work/team/:teamId" element={ui} />
-					<Route path="/work/bet/new" element={<div data-testid="bet-new-page">New Bet</div>} />
-					<Route path="*" element={ui} />
-				</Routes>
-			</MemoryRouter>
-		</HintProvider>,
+		<MemoryRouter initialEntries={[path]}>
+			<Routes>
+				<Route path="/work/team/:teamId" element={ui} />
+				<Route path="/work/bet/new" element={<div data-testid="bet-new-page">New Bet</div>} />
+				<Route path="*" element={ui} />
+			</Routes>
+		</MemoryRouter>,
 	);
 }
 

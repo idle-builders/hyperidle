@@ -160,8 +160,8 @@ export function AnchoredThreadCard({
 	const showReplyComposer = !readOnly && replyOpen;
 
 	return (
-		<div className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] overflow-hidden">
-			<div className="border-b-[var(--bw-thin)] flex items-center gap-[6px]  border-[var(--border-subtle)] px-[12px] py-[6px]">
+		<div className="border-width-thin rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)] overflow-hidden">
+			<div className="border-width-thin-b flex items-center gap-[6px]  border-[var(--border-subtle)] px-[12px] py-[6px]">
 				<span
 					className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]"
 					aria-hidden="true"

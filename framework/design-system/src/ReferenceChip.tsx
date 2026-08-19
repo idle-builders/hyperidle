@@ -59,7 +59,7 @@ function Glyph({ d, size = 13 }: { d: string; size?: number }): JSX.Element {
 
 // Same outer shell in BOTH modes — identical look. Only the trailing slot differs.
 const SHELL =
-	"group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border-[var(--bw-thin)] border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] hover:border-[var(--border-default)]";
+	"group/refchip inline-flex max-w-[260px] items-center gap-[6px] rounded-[var(--r-subtle)] border-width-thin border-[var(--border-subtle)] bg-[var(--surface-container)] py-[3px] pl-[9px] pr-[3px] hover:border-[var(--border-default)]";
 
 export function ReferenceChip({
 	kind,

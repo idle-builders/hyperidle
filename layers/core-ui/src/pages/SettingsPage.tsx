@@ -4,11 +4,17 @@
  * W3 AC-47: All settings sections stacked vertically in one scrollable page.
  * No sidebar navigation — all sections visible simultaneously.
  *
- * W3 AC-52: Content max-width 680px, centered.
+ * @lore FR-9: max-w-[720px] with NO mx-auto on the body container. Content
+ * left-aligns with the PageHeader title which also starts at the PageFrame
+ * left edge (px-[24px]). mx-auto on the body would create a different left
+ * edge from the title (centered vs left-aligned). One measure, one left edge.
  *
- * @lore W3: Replaces the tabbed settings navigation. The page renders all
- * sections in a stacked layout so users can scroll through them without
- * switching tabs. This matches the approved mockup for the settings screen.
+ * @lore FR-15: Provider keys section is grouped inside the Agents & backends
+ * group so users understand these credentials configure the built-in AI
+ * gateway (one of the agent backends), not arbitrary secrets. The
+ * settings-section-credentials testid is preserved for E2E compatibility.
+ * Full structural merge (CredentialsTab into SettingsHarnesses detail pane)
+ * is an IA decision deferred to the next work package.
  */
 
 import { PageHeader, PageScaffold } from "@hyperidle/design-system";
@@ -26,13 +32,9 @@ import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
 import { SettingsWorker } from "../settings/SettingsWorker.js";
 
-/** Shared section title style: 13px/600 uppercase, text-tertiary, border-bottom */
+/** Section label: 13px uppercase, text-tertiary. No border — spacing creates rhythm. */
 function SectionTitle({ children }: { children: string }): JSX.Element {
-	return (
-		<h2 className="border-b-[var(--bw-thin)] type-label   uppercase  text-[var(--text-tertiary)] pb-[6px]  border-[var(--border-subtle)]">
-			{children}
-		</h2>
-	);
+	return <h2 className="type-label uppercase text-[var(--text-tertiary)] pb-[4px]">{children}</h2>;
 }
 
 export function SettingsPage(): JSX.Element {
@@ -44,122 +46,140 @@ export function SettingsPage(): JSX.Element {
 				<PageHeader title="Settings" subtitle="Manage your profile, team, and app preferences." />
 			}
 		>
-			<div data-testid="settings-body" className="flex flex-col gap-[24px] w-full py-[24px]">
-				{/* W3 AC-47: Profile section */}
-				<section
-					id="settings-section-profile"
-					data-testid="settings-section-profile"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
-				>
-					<SectionTitle>Profile</SectionTitle>
-					<SettingsProfile />
-				</section>
+			{/*
+			 * settings-body: max-w-[720px] with no mx-auto so content left-aligns
+			 * with the Settings title above. Three section groups separated by
+			 * gap-[48px]; sections within a group use gap-[24px].
+			 */}
+			<div
+				data-testid="settings-body"
+				className="flex flex-col gap-[48px] max-w-[720px] w-full py-[24px]"
+			>
+				{/* ── Group 1: Identity ───────────────────────────────────────────── */}
+				<div className="flex flex-col gap-[24px]">
+					<section
+						id="settings-section-profile"
+						data-testid="settings-section-profile"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Profile</SectionTitle>
+						<SettingsProfile />
+					</section>
 
-				{/* W3 AC-47 / AC-49: Org chart section */}
-				<section
-					id="settings-section-orgchart"
-					data-testid="settings-section-org-chart"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
-				>
-					<SectionTitle>Org chart</SectionTitle>
-					<SettingsOrgChart />
-				</section>
+					<section
+						id="settings-section-orgchart"
+						data-testid="settings-section-org-chart"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Org chart</SectionTitle>
+						<SettingsOrgChart />
+					</section>
+				</div>
 
-				{/* AV2: Models section removed — model tiers moved into builtin harness detail in SettingsHarnesses */}
+				{/* ── Group 2: Agents & backends ──────────────────────────────────── */}
+				<div className="flex flex-col gap-[24px]">
+					<section
+						id="settings-section-agents"
+						data-testid="settings-section-agents"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Agents</SectionTitle>
+						<SettingsAgents />
+					</section>
 
-				{/* AV2: Agents section (was after Models) */}
-				<section
-					id="settings-section-agents"
-					data-testid="settings-section-agents"
-					className="flex flex-col gap-[9px] max-w-[960px] w-full"
-				>
-					<SectionTitle>Agents</SectionTitle>
-					<SettingsAgents />
-				</section>
+					<section
+						id="settings-section-agent-behavior"
+						data-testid="settings-section-agent-behavior"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Agent behavior</SectionTitle>
+						<SettingsAgentBehavior />
+					</section>
 
-				<section
-					id="settings-section-agent-behavior"
-					data-testid="settings-section-agent-behavior"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
-				>
-					<SectionTitle>Agent behavior</SectionTitle>
-					<SettingsAgentBehavior />
-				</section>
+					<section
+						id="settings-section-filesystems"
+						data-testid="settings-section-filesystems"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Filesystems</SectionTitle>
+						<SettingsFilesystems />
+					</section>
 
-				{/* AO1: Filesystems registry section — team-scoped file sources (code repos, doc sets).
-					     Sibling of Harnesses/Models/Agents per approved design (plans/AO1/design/approved.md). */}
-				<section
-					id="settings-section-filesystems"
-					data-testid="settings-section-filesystems"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
-				>
-					<SectionTitle>Filesystems</SectionTitle>
-					<SettingsFilesystems />
-				</section>
+					{/* AM4: Agent backends section — harness detection + enable/disable */}
+					<section
+						id="settings-section-agent-backends"
+						data-testid="settings-section-agent-backends"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Agent backends</SectionTitle>
+						<SettingsHarnesses />
+					</section>
 
-				{/* AM4: Agent backends section — harness detection + enable/disable */}
-				<section
-					id="settings-section-agent-backends"
-					data-testid="settings-section-agent-backends"
-					className="flex flex-col gap-[9px] max-w-[960px] w-full"
-				>
-					<SectionTitle>Agent backends</SectionTitle>
-					<SettingsHarnesses />
-				</section>
+					{/*
+					 * Provider keys — API credentials for the built-in AI gateway
+					 * (Anthropic + OpenRouter). Grouped here so users see these as
+					 * configuring the built-in backend, not arbitrary secrets.
+					 *
+					 * @lore FR-15: grouped with Agent backends to present built-in
+					 * harness credentials as provider configuration. testid preserved
+					 * for E2E (ah1-onboarding-credentials.spec.ts).
+					 */}
+					<section
+						id="settings-section-credentials"
+						data-testid="settings-section-credentials"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Provider keys</SectionTitle>
+						<CredentialsTab />
+					</section>
+				</div>
 
-				{/* AN1: Connections section — after Agent backends. SettingsConnections owns its own h2 heading,
-					     so no SectionTitle wrapper here. */}
-				<section
-					id="settings-section-connections"
-					data-testid="settings-section-connections"
-					className="flex flex-col max-w-[680px] mx-auto w-full"
-				>
-					<SettingsConnections />
-				</section>
+				{/* ── Group 3: Preferences ────────────────────────────────────────── */}
+				<div className="flex flex-col gap-[24px]">
+					{/* AN1: SettingsConnections owns its own heading — no SectionTitle wrapper */}
+					<section
+						id="settings-section-connections"
+						data-testid="settings-section-connections"
+						className="flex flex-col"
+					>
+						<SettingsConnections />
+					</section>
 
-				{/* AV2: Assistant section removed — assistant is now a row in Agents (SettingsAssistant deleted). */}
+					<section
+						id="settings-section-appearance"
+						data-testid="settings-section-appearance"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Appearance</SectionTitle>
+						<SettingsAppearance />
+					</section>
 
-				{/* W3 AC-47: Appearance section */}
-				<section
-					id="settings-section-appearance"
-					data-testid="settings-section-appearance"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
-				>
-					<SectionTitle>Appearance</SectionTitle>
-					<SettingsAppearance />
-				</section>
+					<section
+						id="settings-section-notifications"
+						data-testid="settings-section-notifications"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Notifications</SectionTitle>
+						<SettingsNotifications />
+					</section>
 
-				{/* Credentials section — desktop only (CredentialsTab handles non-desktop gracefully) */}
-				<section
-					id="settings-section-credentials"
-					data-testid="settings-section-credentials"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
-				>
-					<SectionTitle>Credentials</SectionTitle>
-					<CredentialsTab />
-				</section>
-
-				{/* Notifications section */}
-				<section
-					id="settings-section-notifications"
-					data-testid="settings-section-notifications"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
-				>
-					<SectionTitle>Notifications</SectionTitle>
-					<SettingsNotifications />
-				</section>
-
-				{/* W3 AC-47 / AC-51: Backend section — Worker folded in (shared-mode only; SettingsWorker self-gates). */}
-				<section
-					id="settings-section-backend"
-					data-testid="settings-section-backend"
-					className="flex flex-col gap-[9px] max-w-[680px] mx-auto w-full"
-				>
-					<SectionTitle>Backend</SectionTitle>
-					<SettingsBackend />
-					{/* AV2 sub-area (d): Worker folded under Backend. SettingsWorker self-gates to shared-mode Electron. */}
-					<SettingsWorker />
-				</section>
+					{/*
+					 * Backend: SettingsBackend + SettingsWorker separated by a thin rule.
+					 * @lore FR-17: two distinct sub-areas, not one undifferentiated list.
+					 */}
+					<section
+						id="settings-section-backend"
+						data-testid="settings-section-backend"
+						className="flex flex-col gap-[18px]"
+					>
+						<SectionTitle>Backend</SectionTitle>
+						<SettingsBackend />
+						<div className="border-width-thin-t flex flex-col gap-[12px] border-[var(--border-subtle)] pt-[18px]">
+							<span className="type-label uppercase text-[var(--text-tertiary)]">Worker</span>
+							<SettingsWorker />
+						</div>
+					</section>
+				</div>
 			</div>
 		</PageScaffold>
 	);

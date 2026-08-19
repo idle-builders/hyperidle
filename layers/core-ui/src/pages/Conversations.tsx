@@ -50,7 +50,6 @@ import { SessionView } from "../components/SessionView";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { ThreadSections } from "../components/ThreadSections";
 import { useCurrentUser } from "../hooks/useCurrentUser";
-import { useHint } from "../hooks/useHints";
 import { useSessionActivity } from "../hooks/useSessionActivity";
 import type { ThreadDetail } from "../hooks/useThreadDetail";
 import { useThreadDetail } from "../hooks/useThreadDetail";
@@ -304,7 +303,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// AM1: viewer identity for own-message ("You") styling in the Part column.
 	const { user } = useCurrentUser();
 	const viewerId = user?.id ?? "";
-	const hintReviewVerdict = useHint("review-verdict");
 	// @lore L9: read ToastContext directly (not useToast) so the page renders
 	// in unit tests / Storybook without a <ToastRegion> ancestor. Production
 	// always has the provider via AppShell. When absent, async-ack falls back
@@ -465,8 +463,11 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 	// AM1: derive the render units + header/participants ONCE for both layouts.
 	// The conversation column comes from the Part adapter (the only Message-aware
 	// seam); the header/participants come from the values the page already has.
+	// @lore UI-003: API returns messages DESC (newest-first, dir:"desc"). Reverse
+	// to ASC (oldest-first) before the adapter so PartList renders oldest → newest
+	// top-to-bottom as expected.
 	const parts = derivePartsFromMessages(
-		data.messages,
+		[...data.messages].reverse(),
 		viewerId,
 		identitiesToAuthors(data.identities, viewerId),
 	);
@@ -488,7 +489,8 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		onInspectPath: (path) => setInspection({ kind: "path", path }),
 		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
 	});
-	const threadTitle: string = data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
+	const threadTitle: string =
+		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
 	const hostRoute = resolveHostRoute(data.thread.hostKind, data.thread.hostId);
 	const hostTitle =
 		data.hostTitle ?? data.identities[data.thread.hostId]?.name ?? data.thread.hostId;
@@ -531,44 +533,32 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 			<div />
 		);
 
-	// P5: Hint #4 — review-verdict. Trigger: thread is loaded with review messages.
-	const hasReviewMessages = data.messages.some((m) => m.type === "review");
-
 	return (
 		<PageScaffold
 			data-testid="conversations-page"
 			header={
-				inspection ? undefined : (
+				// @lore NEW-28: on mobile (sidebarMobile) the breadcrumb is suppressed
+				// and the title is hidden md:block, so the <header> would be a 37px
+				// empty container if rendered with no visible content. Skip it entirely
+				// on mobile unless dialInButton is present (the only mobile-visible
+				// content). Desktop always renders the full header.
+				inspection ? undefined : !sidebarMobile || dialInButton ? (
 					<PageHeader
 						title={threadTitle}
 						leading={
-							<Breadcrumb
-								segments={[
-									{ label: "Conversations", to: "/conversations" },
-									{ label: threadTitle },
-								]}
-								LinkComponent={Link}
-							/>
+							sidebarMobile ? undefined : (
+								<Breadcrumb
+									segments={[
+										{ label: "Conversations", to: "/conversations" },
+										{ label: threadTitle },
+									]}
+									LinkComponent={Link}
+								/>
+							)
 						}
-						actions={
-							<>
-								{dialInButton}
-								{hintReviewVerdict.visible && hasReviewMessages && (
-									<Button variant="ghost" size="sm" onClick={hintReviewVerdict.dismiss}>
-										Got it
-									</Button>
-								)}
-							</>
-						}
-						subtitle={
-							hintReviewVerdict.visible && hasReviewMessages ? (
-								<span role="status" data-testid={hintReviewVerdict.testId}>
-									{hintReviewVerdict.copy}
-								</span>
-							) : undefined
-						}
+						actions={dialInButton}
 					/>
-				)
+				) : undefined
 			}
 			body="managed"
 		>
@@ -590,6 +580,7 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						participants={participants}
 						onSend={onSend}
 						scroll
+						reviewBetId={reviewBetId}
 						headerPresentation={inspection ? "pane" : "read"}
 					/>
 				}
@@ -657,15 +648,15 @@ export function Conversations(): JSX.Element {
 				frame="page"
 				data-testid="conversations-page"
 				header={
-					/* AI7: PageHeader — Conversations list title + optional "New thread" action.
-					    data-conversations-header wrapper preserved for e2e + unit test selectors. */
+					/* AI7: PageHeader — Conversations title + New thread button in actions.
+					 * Button sits in the PageFrame right edge aligned with the content header.
+					 * data-conversations-header wrapper preserved for e2e + unit test selectors. */
 					<div data-conversations-header>
 						<PageHeader
 							data-testid="conversations-filter-bar"
 							title="Conversations"
 							actions={
-								/* W3 AC-8: New thread button in header — only shown when threads exist. */
-								!isEmpty ? (
+								isEmpty ? undefined : (
 									<Button
 										variant="primary"
 										size="sm"
@@ -674,7 +665,7 @@ export function Conversations(): JSX.Element {
 									>
 										New thread
 									</Button>
-								) : undefined
+								)
 							}
 						/>
 					</div>

@@ -97,6 +97,34 @@ describe("useCurrentUser (M3 A10)", () => {
 		expect(result.current.error).not.toBeNull();
 	});
 
+	it("exposes retry() that re-fetches after an error (NEW-24)", async () => {
+		const user: AuthMeResponse = {
+			id: "recovered-user",
+			name: "Recovered",
+			email: "recovered@hyperidle.dev",
+			avatarUrl: null,
+		};
+		// First call: network failure. Second call (after retry): success.
+		fetchSpy
+			.mockRejectedValueOnce(new Error("Network error"))
+			.mockResolvedValueOnce(makeOkResponse(user));
+
+		const { result } = renderHook(() => useCurrentUser());
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("error");
+		});
+		expect(typeof result.current.retry).toBe("function");
+
+		result.current.retry();
+
+		await waitFor(() => {
+			expect(result.current.status).toBe("ready");
+		});
+		expect(result.current.user?.id).toBe("recovered-user");
+		expect(result.current.error).toBeNull();
+	});
+
 	it("returned user id is NOT the hardcoded 'u-founder' string", async () => {
 		const user: AuthMeResponse = {
 			id: "real-user-from-api",

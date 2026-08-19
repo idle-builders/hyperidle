@@ -162,4 +162,13 @@ describe("WorkTask — Session effectiveness score (AC-6)", () => {
 		// Score displayed to 2 decimal places
 		expect(screen.getByTestId("session-effectiveness-score")).toHaveTextContent("0.87");
 	});
+
+	it("UI-106: effectiveness score element contains the 'Effectiveness' label", () => {
+		// The score element must include both the label and the numeric value —
+		// a bare number without context is unreadable.
+		renderTask("b-with-outcome", "t-with-outcome");
+		const scoreEl = screen.getByTestId("session-effectiveness-score");
+		expect(scoreEl).toHaveTextContent("Effectiveness");
+		expect(scoreEl).toHaveTextContent("0.87");
+	});
 });

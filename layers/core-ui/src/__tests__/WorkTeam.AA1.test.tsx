@@ -8,8 +8,7 @@
  */
 
 import type { TeamDetail } from "@hyperidle/domain-model";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { WorkTeam } from "../pages/WorkTeam";
@@ -158,16 +157,16 @@ describe("WorkTeam — AA1 Routines Section", () => {
 		expect(screen.getByText("Failing routine")).toBeInTheDocument();
 	});
 
-	it("clicking a routine row navigates to its canonical page", async () => {
-		const user = userEvent.setup();
+	// UI-080: routine rows are now <a href> links so ⌘-click / middle-click work natively.
+	// In jsdom + MemoryRouter, <a href> clicks don't trigger SPA navigation; the correct
+	// assertion is that the row has the right href attribute.
+	it("routine row has href to its canonical page (UI-080 link conversion)", () => {
 		renderPage(TEAM_WITH_ROUTINES);
 
-		// Find the routine row by the routine name and click it
-		const routineRow =
-			screen.getByText("Daily digest").closest("[data-testid='routine-row']") ??
-			screen.getByText("Daily digest");
-		await user.click(routineRow as HTMLElement);
-
-		await waitFor(() => expect(screen.getByTestId("work-routine-page")).toBeInTheDocument());
+		// The routine title is inside the anchor row; find the closest <a> ancestor.
+		const routineTitle = screen.getByText("Daily digest");
+		const link = routineTitle.closest("a");
+		expect(link).not.toBeNull();
+		expect(link?.getAttribute("href")).toBe("/work/routine/routine-1");
 	});
 });

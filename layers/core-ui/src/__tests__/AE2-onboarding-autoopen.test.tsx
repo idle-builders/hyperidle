@@ -35,6 +35,8 @@ function renderShell(initialPath: string): ReturnType<typeof render> {
 					{ path: "work/portfolio", element: <div>Portfolio Page (redirects to /work)</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					// @lore FR-18: /settings is now a real route — stub avoids 404 error.
+					{ path: "settings", element: <div>Settings</div> },
 				],
 			},
 		],
@@ -101,6 +103,7 @@ describe("AE2 — AppShell ?onboarding=true auto-open", () => {
 					children: [
 						{ path: "work", element: <div data-testid="portfolio">Work Overview</div> },
 						{ path: "conversations", element: <div>Conversations</div> },
+						{ path: "settings", element: <div>Settings</div> },
 					],
 				},
 			],

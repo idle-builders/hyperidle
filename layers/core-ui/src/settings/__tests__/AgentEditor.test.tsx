@@ -392,6 +392,80 @@ describe("Save payload anti-422 guard (modelProvider reconcile)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// UI-103 — form field labels are sentence-case in rendered output
+// ---------------------------------------------------------------------------
+
+describe("UI-103 — AgentEditor field labels are sentence-case (not hardcoded ALLCAPS)", () => {
+	beforeEach(() => {
+		mockApiFetch();
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("Role label text content is 'Role', not 'ROLE'", () => {
+		render(
+			<AgentEditor
+				agentId="agent-1"
+				draft={NORMAL_AGENT_DRAFT}
+				onDraftChange={vi.fn()}
+				harnesses={[BUILTIN_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+			/>,
+		);
+
+		// The form label span must have sentence-case text content — CSS handles
+		// the visual uppercase. getAllByText confirms at least one "Role" node exists
+		// in the rendered DOM (the label span); queryByText("ROLE") confirms none
+		// are hardcoded all-caps.
+		expect(screen.getAllByText("Role").length).toBeGreaterThan(0);
+		expect(screen.queryByText("ROLE")).not.toBeInTheDocument();
+	});
+
+	it("when harness has no models, Model label text content is 'Model', not 'MODEL'", () => {
+		render(
+			<AgentEditor
+				agentId="agent-1"
+				draft={{ ...NORMAL_AGENT_DRAFT, harnessType: "codex", modelId: "", modelProvider: null }}
+				onDraftChange={vi.fn()}
+				harnesses={[CODEX_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+			/>,
+		);
+
+		// Codex branch renders the affordance span (no <Select>).
+		// The label span text must be sentence-case.
+		expect(screen.getByText("Model")).toBeInTheDocument();
+		expect(screen.queryByText("MODEL")).not.toBeInTheDocument();
+	});
+
+	it("Filesystems label text content is 'Filesystems', not 'FILESYSTEMS'", () => {
+		render(
+			<AgentEditor
+				agentId="agent-1"
+				draft={{ ...NORMAL_AGENT_DRAFT, filesystemIds: ["fs-1"] }}
+				onDraftChange={vi.fn()}
+				harnesses={[BUILTIN_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+				filesystems={[{ id: "fs-1", source: "github", resource: "org/repo", kind: "code" }]}
+			/>,
+		);
+
+		expect(screen.getByText("Filesystems")).toBeInTheDocument();
+		expect(screen.queryByText("FILESYSTEMS")).not.toBeInTheDocument();
+	});
+});
+
+// ---------------------------------------------------------------------------
 // AC-2: SplitView ratio persistence (onRatioChange required)
 // ---------------------------------------------------------------------------
 

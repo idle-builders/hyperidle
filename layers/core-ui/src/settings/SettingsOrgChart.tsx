@@ -38,6 +38,7 @@ import {
 	ErrorState,
 	Input,
 	ItemList,
+	Menu,
 	Row,
 	Select,
 	SkeletonList,
@@ -66,6 +67,8 @@ interface OrgUser {
 interface OrgTeam {
 	id: string;
 	name: string;
+	/** UI-034: the actual teams.id — edge.target stores this, not teamMembers.id. */
+	teamActualId?: string;
 }
 
 interface OrgData {
@@ -88,6 +91,8 @@ export function SettingsOrgChart(): JSX.Element {
 	const [adding, setAdding] = useState(false);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const [formError, setFormError] = useState<string | null>(null);
+	// @lore FR-10: per-row action menu open state — only one open at a time.
+	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
 	const loadOrg = useCallback(async (): Promise<void> => {
 		setStatus("loading");
@@ -197,9 +202,13 @@ export function SettingsOrgChart(): JSX.Element {
 	// D4 (POLISH-060): resolve edge target to a human-readable label.
 	// For "team" mechanism, target is a team-<uuid> — look it up in data.teams.
 	// For other mechanisms (direct/function), target is a user id or free text — use as-is.
+	// UI-034: edge.target stores teams.id (e.g. "demo-team-acme") but GET /api/org
+	// returns teams with t.id = teamMembers.id and t.teamActualId = teams.id — check
+	// both to avoid falling back to the raw slug when teamActualId matches.
 	const targetLabel = (edge: OrgEdge): string => {
 		if (edge.mechanism === "team") {
-			return teams.find((t) => t.id === edge.target)?.name ?? edge.target;
+			const team = teams.find((t) => t.id === edge.target || t.teamActualId === edge.target);
+			return team?.name ?? edge.target;
 		}
 		return edge.target;
 	};
@@ -228,6 +237,7 @@ export function SettingsOrgChart(): JSX.Element {
 					description="Teams don't auto-create org edges. Add a reporting line, function, or team relationship to define your chart."
 				/>
 			) : (
+				// @lore FR-10: destructive actions moved behind a Menu — no inline Delete on rows.
 				<ItemList variant="flush" isEmpty={false}>
 					{edges.map((edge) => (
 						<Row
@@ -236,15 +246,53 @@ export function SettingsOrgChart(): JSX.Element {
 							subtitle={targetLabel(edge)}
 							cells={[{ content: edge.mechanism }]}
 							actions={
-								<Button
-									variant="destructive"
-									size="sm"
-									onClick={() => void handleDelete(edge.id)}
-									disabled={deletingId === edge.id}
-									aria-label={`Delete edge ${edge.id}`}
-								>
-									{deletingId === edge.id ? "…" : "Delete"}
-								</Button>
+								<div className="relative">
+									<button
+										type="button"
+										aria-label={`Actions for edge from ${userName(edge.fromUserId)}`}
+										aria-haspopup="menu"
+										aria-expanded={openMenuId === edge.id}
+										disabled={deletingId === edge.id}
+										onClick={(e) => {
+											e.stopPropagation();
+											setOpenMenuId(openMenuId === edge.id ? null : edge.id);
+										}}
+										className="type-control cursor-pointer inline-flex h-[28px] w-[28px] items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] hover:text-[var(--text-primary)] disabled:opacity-40"
+									>
+										{deletingId === edge.id ? (
+											<span className="type-metadata">…</span>
+										) : (
+											<svg
+												width="14"
+												height="14"
+												viewBox="0 0 24 24"
+												fill="currentColor"
+												aria-hidden="true"
+											>
+												<circle cx="12" cy="5" r="2" />
+												<circle cx="12" cy="12" r="2" />
+												<circle cx="12" cy="19" r="2" />
+											</svg>
+										)}
+									</button>
+									<Menu
+										open={openMenuId === edge.id}
+										onClose={() => setOpenMenuId(null)}
+										label={`Edge actions`}
+										align="end"
+										items={[
+											{
+												id: "delete",
+												label: "Delete",
+												destructive: true,
+												onSelect: () => {
+													setOpenMenuId(null);
+													void handleDelete(edge.id);
+												},
+											},
+										]}
+									/>
+								</div>
 							}
 						/>
 					))}
@@ -264,7 +312,7 @@ export function SettingsOrgChart(): JSX.Element {
 					}}
 					data-testid="add-edge-btn"
 				>
-					+ Add Edge
+					Add relationship
 				</Button>
 			) : (
 				<AddEdgeForm
@@ -331,7 +379,7 @@ function AddEdgeForm({
 	const canAdd = Boolean(fromUserId && target && !adding);
 
 	return (
-		<div className="border-[var(--bw-default)] flex flex-col gap-[12px] p-[18px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
+		<div className="border-width-default flex flex-col gap-[12px] p-[18px]  border-[var(--border-subtle)] rounded-[var(--r-subtle)]">
 			<div className="flex gap-[12px] flex-wrap">
 				{/* From */}
 				<div className="flex-1 min-w-[120px]">

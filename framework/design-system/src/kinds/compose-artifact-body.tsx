@@ -51,12 +51,12 @@ import { ArtifactUnrenderable } from "./artifact-unrenderable.js";
 // InlineNode[][][] — out of AM5 scope. This is a plain lifted rows table.
 function DataRowsTable({ rows }: { rows: Record<string, string>[] }): JSX.Element {
 	return (
-		<div className="border-[var(--bw-thin)] overflow-x-auto rounded-[var(--r-default)]  border-[var(--border-subtle)]">
+		<div className="border-width-thin overflow-x-auto rounded-[var(--r-default)]  border-[var(--border-subtle)]">
 			<table className="type-small w-full  border-collapse">
 				<tbody>
 					{rows.map((row, ri) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: row keys are not unique; index is correct
-						<tr key={ri} className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)]">
+						<tr key={ri} className="border-width-thin-t  border-[var(--border-subtle)]">
 							{Object.entries(row).map(([k, v]) => (
 								<td key={k} className="py-1 pr-3 px-2 text-[var(--text-primary)]">
 									{v}

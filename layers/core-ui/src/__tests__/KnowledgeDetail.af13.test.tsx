@@ -74,6 +74,7 @@ describe("AF13 §2 — Editability: self-authored factory item shows Edit button
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		// Factory item authored by "u1" (same as current user)
@@ -126,6 +127,7 @@ describe("AF13 §2 — Editability: agent-authored factory item stays read-only"
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		// Factory item authored by a different agent
@@ -181,6 +183,7 @@ describe("AF13 §5 — Kind aside renders '—' for unknown/null kind", () => {
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		// API item with no kind
@@ -241,6 +244,7 @@ describe("AF13 §4A — ScopeChangeDialog renders labeled options (not raw enums
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 	});
 
@@ -297,6 +301,7 @@ describe("AF13 §4A SUGGESTION — default-option resolution", () => {
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 	});
 
@@ -361,6 +366,7 @@ describe("AF13 §6 — ScopeChangeDialog Team option gated by hasTeam (parity wi
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		render(
@@ -386,6 +392,7 @@ describe("AF13 §6 — ScopeChangeDialog Team option gated by hasTeam (parity wi
 			user: { id: "u1", name: "Founder", email: "f@example.com", avatarUrl: null, teamId: "t1" },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		render(

@@ -52,7 +52,6 @@ export function ArtifactPreview({
 					<span>{data.producingTaskTitle}</span>
 					<span className="text-[var(--text-tertiary)]">·</span>
 					<ArtifactTimestamp value={data.createdAt} />
-					<span className="ml-auto text-[var(--text-tertiary)] normal-case">{data.id}</span>
 				</div>
 				{showTitle && <div className={`type-title ${TITLE}`}>{artifactDisplayTitle(data)}</div>}
 			</div>

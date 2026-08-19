@@ -55,7 +55,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 68,
+    "line": 70,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
     "shape": "import",
@@ -64,7 +64,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 128,
+    "line": 130,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
@@ -73,7 +73,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 206,
+    "line": 208,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -82,7 +82,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 212,
+    "line": 214,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",

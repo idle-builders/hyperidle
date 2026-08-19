@@ -68,6 +68,8 @@ function renderShell(
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "work/team", element: <div>Team Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					// @lore FR-18: /settings is now a real route — stub avoids 404 error.
+					{ path: "settings", element: <div>Settings Page</div> },
 				],
 			},
 		],
@@ -94,10 +96,10 @@ describe("AppShell", () => {
 	it("renders the Conversations section in the sidebar", async () => {
 		// @lore U6: The sidebar section header for Conversations uses only aria-label
 		// (no visible text) to avoid collision with the empty-state "No recent conversations".
-		// Use getByRole with name to find the section button.
+		// UI-080: section headers are <Link> elements (role="link"), not buttons.
 		renderShell("/conversations");
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /conversations/i })).toBeInTheDocument();
+			expect(screen.getByRole("link", { name: /conversations/i })).toBeInTheDocument();
 		});
 	});
 
@@ -109,8 +111,8 @@ describe("AppShell", () => {
 			expect(screen.getByText("Test Page Content")).toBeInTheDocument();
 		});
 
-		// Click Work view button in sidebar
-		const workButton = screen.getByRole("button", { name: /work/i });
+		// Click Work view link in sidebar (UI-080: section headers are links now)
+		const workButton = screen.getByRole("link", { name: /work/i });
 		await user.click(workButton);
 
 		await waitFor(() => {
@@ -137,7 +139,8 @@ describe("AppShell", () => {
 				"aria-current",
 				"page",
 			);
-			expect(screen.getByRole("button", { name: /^conversations$/i })).toBeInTheDocument();
+			// UI-080: section headers are links now
+			expect(screen.getByRole("link", { name: /^conversations$/i })).toBeInTheDocument();
 		});
 	});
 

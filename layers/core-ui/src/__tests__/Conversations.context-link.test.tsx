@@ -341,8 +341,9 @@ describe("AE5 — Conversations header context link", () => {
 		// that it does NOT render as a navigable link to /work/task/task-123.
 		expect(heading ?? hostText).not.toBeNull();
 		const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-		expect(breadcrumb).toHaveTextContent("task-123");
-		expect(breadcrumb).not.toHaveTextContent("My Test Task");
+		// UI-030: threadTitle now prefers data.hostTitle ("My Test Task") over raw hostId ("task-123").
+		expect(breadcrumb).toHaveTextContent("My Test Task");
+		expect(breadcrumb).not.toHaveTextContent("task-123");
 		// Confirm there is no link to the old dead task route
 		const links = document.querySelectorAll("a[href*='/work/task/task-123']");
 		expect(links).toHaveLength(0);

@@ -34,6 +34,7 @@
 // hearth-internal-padding
 import {
 	Button,
+	Checkbox,
 	EmptyState,
 	ErrorState,
 	Input,
@@ -51,7 +52,7 @@ import {
 } from "@hyperidle/design-system";
 import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/domain-model";
 import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
-import { absoluteDate, absoluteDateTime } from "@hyperidle/presentation-format";
+import { absoluteDateTime } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRoutine } from "../../hooks/useRoutine.js";
@@ -72,6 +73,17 @@ const AUTONOMY_LABELS: Record<number, string> = {
 	3: "L3 — Autonomous, human on error",
 	4: "L4 — Fully autonomous",
 };
+
+function formatTriggerType(type: string): string {
+	const map: Record<string, string> = {
+		calendar: "Scheduled",
+		manual: "Manual",
+		heartbeat: "Heartbeat",
+		event: "Event",
+		continuous: "Continuous",
+	};
+	return map[type] ?? type;
+}
 
 /** Map run outcome to RowDot tone. */
 function outcomeTone(
@@ -341,7 +353,7 @@ function RoutineDetailPaneLoaded({
 			<div
 				className={
 					presentation === "page"
-						? "max-w-[960px] flex flex-col gap-[24px] py-[24px]"
+						? "max-w-[960px] mx-auto flex flex-col gap-[24px] py-[24px]"
 						: "flex flex-col gap-[24px] p-[18px]"
 				}
 			>
@@ -455,37 +467,29 @@ function RoutineDetailPaneLoaded({
 								</div>
 							)}
 
-							<div className="flex items-center gap-[9px] mb-[9px]">
-								<input
-									id="routine-silent-toggle"
-									aria-label="Silent"
-									type="checkbox"
-									className="checkbox checkbox-sm"
+							<div className="mb-[9px]">
+								<Checkbox
+									label="Silent — don't post on each run"
 									checked={silent}
-									onChange={(e) => setSilent(e.target.checked)}
+									onChange={(checked) => setSilent(checked)}
 									disabled={saving}
 								/>
-								<label
-									className="type-metadata  text-[var(--text-secondary)] cursor-pointer"
-									htmlFor="routine-silent-toggle"
-								>
-									Silent — don't post on each run
-								</label>
 							</div>
 						</>
 					) : (
-						<div className="flex flex-col gap-[9px]">
+						<div className="flex flex-col gap-[9px] max-w-[320px]">
 							<KeyValue label="Prompt" value={routine.description || "—"} layout="stacked" />
 							<KeyValue label="Autonomy" value={autonomyLabel} />
 							<KeyValue label="Silent" value={routine.silent ? "On" : "Off"} />
 						</div>
 					)}
 
-					{/* Read-only metadata stack — on page surface, no grey card */}
-					<div className="flex flex-col gap-[9px] mt-[12px]">
+					{/* Read-only metadata stack — max-w-[320px] prevents justify-between from
+					    stretching label/value across the full pane width */}
+					<div className="flex flex-col gap-[9px] mt-[12px] max-w-[320px]">
 						<KeyValue label="Agent" value={routine.agentName} />
 						<KeyValue label="Schedule" value={routine.scheduleLabel} />
-						<KeyValue label="Trigger type" value={routine.triggerType} />
+						<KeyValue label="Trigger type" value={formatTriggerType(routine.triggerType)} />
 						<KeyValue label="Current autonomy" value={autonomyLabel} />
 						<KeyValue
 							label="Next run"
@@ -495,7 +499,7 @@ function RoutineDetailPaneLoaded({
 						{routine.createdAt && (
 							<KeyValue
 								label="Created"
-								value={absoluteDate(routine.createdAt)}
+								value={absoluteDateTime(routine.createdAt)}
 								data-testid="routine-created"
 							/>
 						)}
@@ -568,6 +572,8 @@ function RoutineDetailPaneLoaded({
 					<SectionLabel label="Last Run Summary" as="h2" />
 					{routine.lastRunSummary ? (
 						<p className="type-metadata  text-[var(--text-secondary)]">{routine.lastRunSummary}</p>
+					) : runs.length > 0 ? (
+						<p className="type-metadata  text-[var(--text-tertiary)]">No summary available</p>
 					) : (
 						<p className="type-metadata  text-[var(--text-tertiary)]">No previous runs</p>
 					)}

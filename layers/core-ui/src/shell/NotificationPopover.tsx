@@ -135,12 +135,17 @@ export function NotificationPopover({
 			data-testid="notification-popover"
 			data-dialog-layer={overlayProps["data-dialog-layer"]}
 			// @lore AI2: z-30 removed; z-layer now via --z-overlay token in style prop (AC-3).
-			className="border-[var(--bw-thin)] fixed bottom-16 left-4 flex w-[360px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
+			// @lore AZ-bugs: Repositioned from bottom-16 left-4 (bottom-left corner, ~600px
+			// from bell trigger) to top-[108px] left-[9px] to clear below the bell trigger
+			// (bell bottom ≈ 105px). top-[60px] overlapped the bell; top-[108px] clears it.
+			// Width expanded to w-[440px] so notification titles don't truncate (scrollWidth 221px
+			// needs more than the prior w-[360px] left-rail 75px trailing affordances).
+			className="border-width-thin fixed top-[108px] left-[9px] flex w-[440px] flex-col overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]"
 			style={{ zIndex: overlayProps.style.zIndex, maxHeight: "70vh" }}
 		>
 			{/* Header */}
 			<div
-				className="border-b-[var(--bw-thin)] flex shrink-0 items-center justify-between  border-[var(--border-subtle)]"
+				className="border-width-thin-b flex shrink-0 items-center justify-between  border-[var(--border-subtle)]"
 				style={{ padding: "12px 18px" }}
 			>
 				<span
@@ -227,7 +232,7 @@ export function NotificationPopover({
 								<li
 									key={row.id}
 									data-testid={`notification-row-${row.id}`}
-									className="border-b-[var(--bw-thin)] group relative  border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
+									className="border-width-thin-b group relative  border-[var(--border-subtle)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 								>
 									{/*
 									 * Single-line dense row: div with row-level keyboard/click for jump,

@@ -8,9 +8,16 @@
  * These tests will FAIL until the prop is added to Sidebar and the badge rendered.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render as renderRaw, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
+
+// UI-080: Sidebar uses <Link> — requires router context.
+function render(element: ReactElement): ReturnType<typeof renderRaw> {
+	return renderRaw(<MemoryRouter>{element}</MemoryRouter>);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

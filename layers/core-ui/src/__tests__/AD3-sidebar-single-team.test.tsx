@@ -10,10 +10,17 @@
  * specifically — the list should be suppressed with 1 team.
  */
 
-import { render, screen } from "@testing-library/react";
+import { render as renderRaw, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { Sidebar } from "../shell/Sidebar";
+
+// UI-080: Sidebar uses <Link> — requires router context.
+function render(element: ReactElement): ReturnType<typeof renderRaw> {
+	return renderRaw(<MemoryRouter>{element}</MemoryRouter>);
+}
 
 type SidebarThread = { id: string; title: string; hasUnresolvedReview: boolean };
 type SidebarTeam = { id: string; name: string };

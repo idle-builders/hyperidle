@@ -153,7 +153,7 @@ export function RecipientPicker({ onSelect, onCancel }: RecipientPickerProps): J
 	return (
 		<div
 			data-testid="recipient-picker"
-			className="border-[var(--bw-thin)] flex flex-col gap-[9px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)]  border-[var(--border-default)]"
+			className="border-width-thin flex flex-col gap-[9px] p-[12px] bg-[var(--surface-container)] rounded-[var(--r-subtle)]  border-[var(--border-default)]"
 			onKeyDown={handleKeyDown}
 		>
 			{pickerState === "browsing" && (

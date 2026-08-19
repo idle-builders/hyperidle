@@ -20,6 +20,12 @@ export interface ThreadItem {
 	timestamp: string;
 	/** M3 E1: null means no avatar — renders initials chip instead of <img>. */
 	avatarUrl: string | null;
+	/**
+	 * UI-061: right-side overlapping participant avatar circles.
+	 * Shape is structurally compatible with ThreadRow's ThreadAvatarItem.
+	 * Omit to show no avatars; supply initials to render participant chips.
+	 */
+	avatars?: ReadonlyArray<{ initials: string; agent?: boolean }>;
 	hostKind: HostKind;
 	hasUnresolvedReview: boolean;
 	blocking: boolean;
@@ -172,6 +178,13 @@ export interface ThreadSectionsProps {
 	threads: ReadonlyArray<ThreadItem>;
 	/** Milliseconds since epoch. Defaults to Date.now() at render time. */
 	now?: number;
+	/**
+	 * @deprecated Navigation is now handled by ThreadRow's href prop.
+	 * Retained so existing callers compile without changes.
+	 *
+	 * @lore UI-080: ThreadRow renders as <a href> — the selected state updates
+	 * via selectedId (URL-derived), so onSelect is no longer needed for navigation.
+	 */
 	onSelect?: (id: string) => void;
 	/** L8: lifted-selection target — at most one row carries aria-current. */
 	selectedId?: string | null;
@@ -199,7 +212,7 @@ export interface ThreadSectionsProps {
 export function ThreadSections({
 	threads,
 	now = Date.now(),
-	onSelect,
+	onSelect: _onSelect,
 	selectedId = null,
 	errorMessage,
 	onRetry,
@@ -247,11 +260,12 @@ export function ThreadSections({
 						/>
 					</div>
 				) : (
-					<div className="flex flex-col max-w-[800px] w-full" data-testid="flat-thread-list">
+					<div className="flex flex-col w-full" data-testid="flat-thread-list">
 						{flatFiltered.map((t) => (
 							<ThreadRow
 								key={t.id}
 								avatarUrl={t.avatarUrl}
+								avatars={t.avatars as import("@hyperidle/design-system").ThreadRowProps["avatars"]}
 								title={t.title}
 								snippet={t.snippet}
 								timestamp={t.timestamp}
@@ -261,7 +275,7 @@ export function ThreadSections({
 								pinned={t.pinned}
 								hostTag={t.hostKind}
 								selected={selectedId === t.id}
-								onClick={onSelect ? () => onSelect(t.id) : undefined}
+								href={`/conversations/${encodeURIComponent(t.id)}`}
 							/>
 						))}
 					</div>
@@ -388,6 +402,9 @@ export function ThreadSections({
 									<li key={t.id} className={section.id === "resolved" ? "opacity-70" : undefined}>
 										<ThreadRow
 											avatarUrl={t.avatarUrl}
+											avatars={
+												t.avatars as import("@hyperidle/design-system").ThreadRowProps["avatars"]
+											}
 											title={t.title}
 											snippet={t.snippet}
 											timestamp={t.timestamp}
@@ -397,7 +414,7 @@ export function ThreadSections({
 											pinned={t.pinned}
 											hostTag={t.hostKind}
 											selected={selectedId === t.id}
-											onClick={onSelect ? () => onSelect(t.id) : undefined}
+											href={`/conversations/${encodeURIComponent(t.id)}`}
 										/>
 									</li>
 								))}

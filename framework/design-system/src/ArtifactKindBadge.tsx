@@ -12,8 +12,18 @@ export interface ArtifactKindBadgeProps {
 const BADGE_BASE =
 	"inline-flex items-center px-[8px] py-[2px] rounded-[var(--r-default)] bg-[color-mix(in_oklab,var(--text-secondary)_8%,transparent)] text-[var(--text-secondary)] uppercase whitespace-nowrap";
 
+/**
+ * UI-108: For "unknown" kind (and any future machine-internal sentinel values),
+ * show a user-friendly label instead of the raw machine string in uppercase.
+ * Known kinds render via the standard underscore→space→uppercase path so that
+ * e.g. "code_diff" → "CODE DIFF" (the badge class applies `uppercase` CSS).
+ */
+const FRIENDLY_KIND_LABELS: Record<string, string> = {
+	unknown: "Other",
+};
+
 function kindLabel(kind: string): string {
-	return kind.replace(/_/g, " ").toUpperCase();
+	return FRIENDLY_KIND_LABELS[kind] ?? kind.replace(/_/g, " ").toUpperCase();
 }
 
 export function ArtifactKindBadge({ kind }: ArtifactKindBadgeProps): JSX.Element {

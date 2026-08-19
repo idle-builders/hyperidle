@@ -69,6 +69,15 @@ export interface RowProps {
 	/** trailing buttons; presence triggers div[role=button] wrapper */
 	actions?: ReactNode;
 	onClick?: () => void;
+	/**
+	 * When set, the whole row renders as an <a href> link so ⌘-click,
+	 * middle-click, "copy link" and hover-preview all work natively.
+	 * Actions in this mode MUST be display-only (no nested <button>/<a>).
+	 *
+	 * @lore UI-080: navigation rows that change the address must be real links,
+	 * not buttons with programmatic navigate() calls.
+	 */
+	href?: string;
 	selected?: boolean;
 	/** escape hatch; default heuristic (§nested-button) is correct without it */
 	as?: "button" | "div" | "li";
@@ -127,6 +136,7 @@ export function Row({
 	cells,
 	actions,
 	onClick,
+	href,
 	selected = false,
 	as: asProp,
 	"data-testid": dataTestId,
@@ -142,7 +152,7 @@ export function Row({
 		? [
 				"bg-[var(--surface-elevated)]",
 				"shadow-[var(--shadow-subtle)]",
-				"border-l-[var(--bw-strong)]",
+				"border-width-strong-l",
 				"border-[var(--accent-deep)]",
 				"rounded-[var(--r-subtle)]",
 			].join(" ")
@@ -152,7 +162,7 @@ export function Row({
 		"flex items-center gap-[12px]",
 		"min-h-[44px]",
 		px,
-		"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none",
+		"border-width-thin-b border-[var(--border-subtle)] last:border-none",
 		selectedClasses,
 	]
 		.filter(Boolean)
@@ -206,14 +216,31 @@ export function Row({
 	// wrapper goes through clickableProps(onClick, baseClasses) — one path to rule them all.
 	const clickable = onClick ? clickableProps(onClick, baseClasses) : null;
 
+	// UI-080: href takes priority — renders a real anchor link so ⌘-click,
+	// middle-click, "copy link" and hover-preview work natively. Actions must be
+	// display-only (no nested <button>/<a>) when href is used.
+	if (href) {
+		return (
+			<a
+				href={href}
+				{...commonProps}
+				className={`w-full text-left ${clickable?.className ?? baseClasses}`}
+			>
+				{inner}
+			</a>
+		);
+	}
+
 	if (resolvedAs === "button") {
 		// Simple: onClick + no actions → native <button type="button">
 		// W2 fix: button also gets hover/focus classes from clickableProps.
+		// UI-060: w-full added so the button fills its container (matches the
+		// li-branch inner div which already has w-full on the layout class).
 		return (
 			<button
 				type="button"
 				{...commonProps}
-				className={clickable?.className ?? baseClasses}
+				className={`w-full text-left ${clickable?.className ?? baseClasses}`}
 				onClick={onClick}
 			>
 				{inner}
@@ -235,12 +262,11 @@ export function Row({
 		// move onto a w-full inner div so the hover background fills edge-to-edge
 		// instead of being inset inside the li's px-[24px]. This matches the <button>
 		// branch behaviour and fixes WorkOverview / KnowledgeList / WorkTeam li-rows.
-		// The li separator classes ("border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none")
+		// The li separator classes ("border-width-thin-b border-[var(--border-subtle)] last:border-none")
 		// stay on the li so the row divider is always full-width.
 
 		// Separator classes stay on <li>; all layout/padding/hover move to the inner div.
-		const liSeparatorClass =
-			"border-b-[var(--bw-thin)] border-[var(--border-subtle)] last:border-none";
+		const liSeparatorClass = "border-width-thin-b border-[var(--border-subtle)] last:border-none";
 
 		// @lore AD9 W1 (review fix): The inner div must NOT inherit the separator classes
 		// (border-b / last:border-b-0) from baseClasses — those stay on the <li> only.
@@ -262,7 +288,9 @@ export function Row({
 					aria-current={commonProps["aria-current"]}
 					data-testid={commonProps["data-testid"]}
 					data-focused={commonProps["data-focused"]}
-					className={[liSeparatorClass, selectedClasses].filter(Boolean).join(" ")}
+					className={["flex items-center", liSeparatorClass, selectedClasses]
+						.filter(Boolean)
+						.join(" ")}
 				>
 					{/* biome-ignore lint/a11y/useSemanticElements: div[role=button] required — inner <button> elements (actions) cannot be nested inside a <button>; li keeps listitem role */}
 					<div {...clickableProps(onClick, "")} className={innerClickableClass}>

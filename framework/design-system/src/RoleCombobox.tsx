@@ -203,7 +203,7 @@ export function RoleCombobox({
 				// measurement scanner), so both move to `--surface-elevated`
 				// together — leaving one fixed and one not would make a single
 				// component internally inconsistent about its own fill.
-				className={`type-control border-[var(--bw-thin)] flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left ${
+				className={`type-control border-width-thin flex h-[36px] items-center justify-between gap-[9px] rounded-[var(--r-subtle)] border-[var(--border-default)] bg-[var(--surface-elevated)] px-[9px] text-left ${
 					disabled
 						? "cursor-not-allowed text-[var(--text-tertiary)] opacity-70"
 						: "text-[var(--text-primary)] hover:border-[var(--border-strong)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]"
@@ -217,8 +217,8 @@ export function RoleCombobox({
 
 			{/* Popover */}
 			{open && !disabled && (
-				<div className="border-[var(--bw-thin)] absolute left-0 right-0 top-[62px] z-20 flex flex-col overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]">
-					<div className="border-b-[var(--bw-thin)]  border-[var(--border-subtle)] p-[6px]">
+				<div className="border-width-thin absolute left-0 right-0 top-[62px] z-20 flex flex-col overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] shadow-[var(--shadow-elevated)]">
+					<div className="border-width-thin-b  border-[var(--border-subtle)] p-[6px]">
 						<input
 							ref={inputRef}
 							type="text"

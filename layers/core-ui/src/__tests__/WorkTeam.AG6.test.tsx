@@ -27,15 +27,6 @@ vi.mock("../hooks/useTeamAgents", () => ({
 	useTeamAgents: vi.fn().mockReturnValue({ agents: new Map(), refetch: vi.fn() }),
 }));
 
-vi.mock("../hooks/useHints", () => ({
-	useHint: vi.fn().mockReturnValue({
-		visible: false,
-		testId: "hint",
-		copy: "",
-		dismiss: vi.fn(),
-	}),
-}));
-
 // @lore AU26 J4: the roster's run state is fetched from `agent-orchestration`
 // (`useRosterRunState`), not stamped onto `RosterMember` by core-api. Stub the
 // hook with the values the wire fixtures used to carry — the row's rendering

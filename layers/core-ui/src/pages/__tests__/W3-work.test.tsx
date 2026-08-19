@@ -250,8 +250,10 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 		expect(taskRows.length).toBeGreaterThan(0);
 	});
 
-	it("clicking a task row navigates to task detail route", async () => {
-		const user = userEvent.setup();
+	// UI-080: task rows are now <a href> links so ⌘-click / middle-click work natively.
+	// In jsdom + MemoryRouter, <a href> clicks don't trigger SPA navigation; the correct
+	// assertion is that each row has an href pointing to the task detail route.
+	it("task row is an anchor link with href to task detail route", () => {
 		const betWithTask: BetDetail = {
 			...MOCK_BETS.b1!,
 			tasks: [
@@ -268,32 +270,28 @@ describe("W3 AC-22 — Task rows in bet detail", () => {
 			<MemoryRouter initialEntries={[`/work/bet/${betWithTask.id}`]}>
 				<Routes>
 					<Route path="/work/bet/:betId" element={<WorkBet overrideBet={betWithTask} />} />
-					<Route
-						path="/work/bet/:betId/task/:taskId"
-						element={<div data-testid="task-detail-page" />}
-					/>
 				</Routes>
 			</MemoryRouter>,
 		);
 
 		const taskRow = document.querySelector("[data-testid='task-row']");
-		if (taskRow) {
-			await user.click(taskRow as HTMLElement);
-		}
-		// After clicking, MemoryRouter navigates to the task detail route
-		expect(document.querySelector("[data-testid='task-detail-page']")).toBeInTheDocument();
+		expect(taskRow).not.toBeNull();
+		expect(taskRow?.tagName.toLowerCase()).toBe("a");
+		// href must point to the task detail route
+		expect(taskRow?.getAttribute("href")).toMatch(/\/work\/bet\/.+\/task\/.+/);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// AC-25: Bet detail content max-width 800px, centered
+// AC-25: Bet detail content max-width 960px (workbench lane), left-aligned in page frame.
+// FR-5: upgraded from 800px to 960px to use the workbench lane for richer bet detail.
 // ---------------------------------------------------------------------------
-describe("W3 AC-25 — Bet detail max-width 800px", () => {
-	it("bet detail body keeps 800px measure and starts in the page frame", () => {
+describe("W3 AC-25 — Bet detail max-width 960px", () => {
+	it("bet detail body keeps 960px measure and starts in the page frame", () => {
 		renderBet();
 		const detailBody = document.querySelector("[data-testid='bet-detail-body']");
 		expect(detailBody).not.toBeNull();
-		expect(detailBody?.className).toMatch(/max-w-\[800px\]/);
+		expect(detailBody?.className).toMatch(/max-w-\[960px\]/);
 		expect(detailBody?.className).not.toMatch(/mx-auto/);
 		expect(detailBody?.closest("[data-page-frame]")).not.toBeNull();
 	});

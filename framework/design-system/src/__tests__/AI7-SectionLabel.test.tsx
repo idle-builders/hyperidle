@@ -95,24 +95,26 @@ describe("AI7 — SectionLabel component", () => {
 	});
 
 	describe("Divider prop (optional, default false)", () => {
-		it("no divider by default — no border-b class", () => {
+		it("no divider by default — no border-width-thin-b class", () => {
 			const { container } = render(<SectionLabel label="Members" />);
 			const heading = container.querySelector("h3");
-			// The outermost element should NOT have border-b when divider=false
-			expect(heading?.className).not.toContain("border-b");
+			// NEW-18: border-b-[var(--bw-thin)] → border-width-thin-b @utility
+			expect(heading?.className).not.toContain("border-width-thin-b");
 		});
 
-		it("divider=true adds border-b and pb-[6px] classes", () => {
+		it("divider=true adds border-width-thin-b and pb-[6px] classes", () => {
 			const { container } = render(<SectionLabel label="Members" divider />);
 			const heading = container.querySelector("h3");
-			expect(heading?.className).toContain("border-b");
+			// NEW-18: border-b-[var(--bw-thin)] → border-width-thin-b @utility
+			expect(heading?.className).toContain("border-width-thin-b");
 			expect(heading?.className).toContain("pb-[6px]");
 		});
 
-		it("divider=false (explicit) has no border-b", () => {
+		it("divider=false (explicit) has no border-width-thin-b", () => {
 			const { container } = render(<SectionLabel label="Members" divider={false} />);
 			const heading = container.querySelector("h3");
-			expect(heading?.className).not.toContain("border-b");
+			// NEW-18: border-b-[var(--bw-thin)] → border-width-thin-b @utility
+			expect(heading?.className).not.toContain("border-width-thin-b");
 		});
 	});
 

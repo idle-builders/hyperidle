@@ -10,10 +10,17 @@ export interface ArtifactGalleryCardProps {
 	data: Artifact;
 	onOpen: () => void;
 	state?: "populated" | "loading" | "error";
+	/**
+	 * When set, renders as an <a href> link so ⌘-click, middle-click,
+	 * "copy link" and hover-preview work natively.
+	 *
+	 * @lore UI-080: artifact gallery cards must be real links.
+	 */
+	href?: string;
 }
 
 const CARD_BASE =
-	"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[12px] flex flex-col gap-[9px] cursor-pointer shadow-[var(--shadow-default)] border-[var(--bw-thin)] border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]";
+	"bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[12px] flex flex-col gap-[9px] cursor-pointer shadow-[var(--shadow-default)] border-width-thin border-[var(--border-subtle)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]";
 const HEADER = "flex items-center gap-[6px] uppercase text-[var(--text-secondary)]";
 // @lore L3 review fix D-B2: derived title row per approved.md §2 + HTML ref line 29.
 const TITLE = "text-[var(--text-primary)]";
@@ -24,18 +31,12 @@ const PILL =
 export function ArtifactGalleryCard({
 	data,
 	onOpen,
+	href,
 	state = "populated",
 }: ArtifactGalleryCardProps): JSX.Element {
 	const count = data.threadCount;
-	return (
-		<button
-			{...dsProps("ArtifactGalleryCard", "2")}
-			className={`motion-move ${CARD_BASE}`}
-			onClick={onOpen}
-			type="button"
-			data-state={state}
-			aria-label={artifactDisplayTitle(data)}
-		>
+	const inner = (
+		<>
 			<div className={`type-data ${HEADER}`}>
 				<ArtifactKindBadge kind={data.kind} />
 				{data.label && (
@@ -57,6 +58,34 @@ export function ArtifactGalleryCard({
 					<span className={PILL}>{count === 1 ? "1 thread" : `${count} threads`}</span>
 				) : null}
 			</div>
+		</>
+	);
+
+	// UI-080: href → real anchor link for native ⌘-click / middle-click support.
+	if (href) {
+		return (
+			<a
+				{...dsProps("ArtifactGalleryCard", "2")}
+				href={href}
+				className={`motion-move ${CARD_BASE}`}
+				data-state={state}
+				aria-label={artifactDisplayTitle(data)}
+			>
+				{inner}
+			</a>
+		);
+	}
+
+	return (
+		<button
+			{...dsProps("ArtifactGalleryCard", "2")}
+			className={`motion-move ${CARD_BASE}`}
+			onClick={onOpen}
+			type="button"
+			data-state={state}
+			aria-label={artifactDisplayTitle(data)}
+		>
+			{inner}
 		</button>
 	);
 }

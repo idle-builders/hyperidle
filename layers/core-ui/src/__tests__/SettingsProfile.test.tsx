@@ -167,6 +167,7 @@ describe("SettingsProfile", () => {
 			user: null,
 			status: "loading",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		render(<SettingsProfile />);

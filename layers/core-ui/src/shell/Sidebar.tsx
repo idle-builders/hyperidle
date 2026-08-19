@@ -37,8 +37,21 @@
 
 // hearth-internal-padding
 import type { JSX } from "react";
+import { Link } from "react-router-dom";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
+
+/**
+ * @lore UI-080: Canonical href for each primary nav view.
+ * The work href is /work (not /work/team/:id even in the 1-team case)
+ * because WorkOverview already redirects when there is exactly one team,
+ * and the Link-based navigation must produce a stable, bookmarkable URL.
+ */
+const VIEW_HREFS: Record<ViewId, string> = {
+	conversations: "/conversations",
+	work: "/work",
+	knowledge: "/knowledge",
+};
 
 export interface SidebarThread {
 	id: string;
@@ -123,6 +136,36 @@ export interface SidebarProps {
 	 * AF8: whether the NotificationPopover is currently open (for aria-expanded).
 	 */
 	notificationPopoverOpen?: boolean;
+
+	/**
+	 * UI-011/012/013: When true, the fast-nav sub-list for the corresponding
+	 * section is still loading. Suppresses the "No X yet" empty-state message so
+	 * it doesn't flash during the initial fetch or after a 429/retry.
+	 */
+	threadsLoading?: boolean;
+	teamsLoading?: boolean;
+	knowledgeLoading?: boolean;
+
+	/**
+	 * UI-011/012/013: When true, the API call for the corresponding section
+	 * failed. Renders an honest "Couldn't load" message instead of the misleading
+	 * "No X yet" empty state (which implies success with zero items).
+	 */
+	threadsError?: boolean;
+	teamsError?: boolean;
+	knowledgeError?: boolean;
+
+	/**
+	 * When true, the sidebar is rendered inside the mobile drawer (300px overlay).
+	 * Forces nav labels visible and stacks the nav items vertically regardless of
+	 * viewport width — the drawer itself is the breakpoint gate, not CSS media queries.
+	 *
+	 * @lore mobile-drawer-labels: nav items use `hidden min-[769px]:inline` for labels
+	 * so they collapse at narrow viewports. In the drawer the viewport width stays 375px
+	 * even though the drawer panel is wide enough for labels. Passing drawerMode={true}
+	 * overrides the breakpoint check so the drawer shows labeled items.
+	 */
+	drawerMode?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,8 +183,11 @@ interface SectionHeaderProps {
 	view: ViewId;
 	activeView: ViewId | "";
 	onViewChange: (view: ViewId) => void;
+	/** Destination href for the section Link (UI-080: nav items must be real links). */
+	href: string;
 	/** Optional badge count rendered to the right of the label */
 	badgeCount?: number;
+	drawerMode?: boolean;
 }
 
 function BrandMark(): JSX.Element {
@@ -184,10 +230,12 @@ function NotificationButton({
 	unseenNotificationCount,
 	onClick,
 	open,
+	drawerMode,
 }: {
 	unseenNotificationCount?: number;
 	onClick?: () => void;
 	open?: boolean;
+	drawerMode?: boolean;
 }): JSX.Element {
 	const hasUnread = (unseenNotificationCount ?? 0) > 0;
 	return (
@@ -197,7 +245,7 @@ function NotificationButton({
 			onClick={onClick}
 			aria-label="Notifications"
 			aria-expanded={open}
-			className="type-control relative flex h-[44px] w-full items-center justify-center gap-[9px] rounded-[var(--r-subtle)] px-[9px]   text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[769px]:justify-start min-[1025px]:h-[36px]"
+			className={`type-control cursor-pointer relative flex h-[44px] w-full items-center gap-[9px] rounded-[var(--r-subtle)] px-[9px] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1 text-[var(--text-secondary)] hover:bg-[color-mix(in_oklab,var(--text-secondary)_4%,transparent)] min-[1025px]:h-[36px] ${drawerMode ? "justify-start" : "justify-center min-[769px]:justify-start"}`}
 		>
 			<span className="inline-flex text-[var(--text-tertiary)]" aria-hidden="true">
 				<svg
@@ -215,10 +263,10 @@ function NotificationButton({
 					<path d="M10 21h4" />
 				</svg>
 			</span>
-			<span className="hidden min-[769px]:inline">Notifications</span>
+			<span className={drawerMode ? "inline" : "hidden min-[769px]:inline"}>Notifications</span>
 			{hasUnread && (
 				<span
-					className="ml-auto h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-error)]"
+					className="ml-auto h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--accent-primary)]"
 					data-testid="notification-unread-dot"
 					aria-hidden="true"
 				/>
@@ -231,25 +279,36 @@ function SectionHeader({
 	view,
 	activeView,
 	onViewChange,
+	href,
 	badgeCount,
+	drawerMode,
 }: SectionHeaderProps): JSX.Element {
 	const isActive = view === activeView;
 	const { label, icon } = VIEW_ICONS[view];
 
+	/*
+	 * @lore UI-080: SectionHeader is a real navigable link, not a button.
+	 * Right-click → open in new tab, screen readers see a link destination.
+	 * onViewChange is called for side effects only (e.g. closing the settings
+	 * panel); Link's `to` prop handles client-side navigation.
+	 *
+	 * Test note (was @lore visual-parity-audit): tests must now query
+	 * getByRole("link", { name: /conversations/i }) — role changed from "button".
+	 */
 	return (
-		<button
-			type="button"
+		<Link
+			to={href}
 			data-section-header={view}
 			data-section={view}
 			data-active={isActive ? "true" : "false"}
 			onClick={() => onViewChange(view)}
 			aria-label={label}
 			aria-current={isActive ? "page" : undefined}
-			className={`type-control ${[
-				"flex h-[44px] w-full items-center justify-center gap-[9px] px-[9px] min-[769px]:justify-start min-[1025px]:h-[36px]",
+			className={`type-control cursor-pointer ${[
+				`flex h-[44px] w-full items-center gap-[9px] px-[9px] min-[1025px]:h-[36px] ${drawerMode ? "justify-start" : "justify-center min-[769px]:justify-start"}`,
 				" ",
 				"rounded-[var(--r-subtle)] mb-[3px]",
-				"  ",
+				"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 				// AD9: active item → elevated surface; inactive → accent-tinted hover
 				// to match the fast-nav Row hover (uniform surface grammar).
 				isActive
@@ -269,7 +328,10 @@ function SectionHeader({
 			>
 				{icon}
 			</span>
-			<span className="hidden min-[769px]:inline" data-section-label={view}>
+			<span
+				className={drawerMode ? "inline" : "hidden min-[769px]:inline"}
+				data-section-label={view}
+			>
 				{label}
 			</span>
 			{badgeCount != null && badgeCount > 0 && (
@@ -286,7 +348,7 @@ function SectionHeader({
 					{badgeCount > 99 ? "99+" : badgeCount}
 				</span>
 			)}
-		</button>
+		</Link>
 	);
 }
 
@@ -313,7 +375,7 @@ function AssistantIconButton({
 			// A pressed/open TOGGLE state, not an action Button (Button has no
 			// built-in pressed treatment distinct from its 4 action variants).
 			className={[
-				"inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
+				"inline-flex cursor-pointer h-[44px] w-[44px] shrink-0 items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
 				"  ",
 				// @lore AZ7 N1: bg-[var(--accent-primary-dim)] is Set 3's row-hover /
 				// selected tint — not a no-handrolled-control violation.
@@ -352,7 +414,7 @@ function SearchAssistantTools({
 }): JSX.Element {
 	return (
 		<fieldset
-			className="border-[var(--bw-thin)] flex shrink-0 overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
+			className="border-width-thin flex shrink-0 overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)]"
 			aria-label="Search and assistant tools"
 		>
 			<button
@@ -361,7 +423,7 @@ function SearchAssistantTools({
 				onClick={onSearchClick}
 				aria-label="Search"
 				title="Search (⌘K)"
-				className="inline-flex h-[44px] w-[44px] items-center justify-center text-[var(--text-secondary)]  hover:text-[var(--text-primary)] min-[1025px]:h-[32px] min-[1025px]:w-[32px]"
+				className="inline-flex cursor-pointer h-[44px] w-[44px] items-center justify-center text-[var(--text-secondary)]  hover:text-[var(--text-primary)] min-[1025px]:h-[32px] min-[1025px]:w-[32px]"
 			>
 				<svg
 					width="16"
@@ -396,7 +458,7 @@ function SettingsFooter({
 }): JSX.Element {
 	return (
 		<nav
-			className="border-t-[var(--bw-thin)] flex shrink-0 justify-end  border-[var(--border-subtle)] p-[6px]"
+			className="border-width-thin-t flex shrink-0 justify-end  border-[var(--border-subtle)] p-[6px]"
 			data-sidebar-bottom
 			aria-label="App utilities"
 		>
@@ -407,7 +469,7 @@ function SettingsFooter({
 				onClick={onClick}
 				aria-label="Settings"
 				aria-current={active ? "page" : undefined}
-				className={`type-control ${[
+				className={`type-control cursor-pointer ${[
 					"flex h-[44px] w-[44px] items-center justify-center min-[1025px]:h-[32px] min-[1025px]:w-[32px]",
 					" ",
 					"rounded-[var(--r-subtle)]",
@@ -454,7 +516,9 @@ function SettingsFooter({
 interface FastNavItemProps {
 	label: string;
 	selected: boolean;
-	onClick: () => void;
+	/** Destination href — makes the item a real link (UI-080). */
+	href: string;
+	onClick?: () => void;
 	/** Optional data attrs for section-specific E2E / unit selectors */
 	"data-thread-id"?: string;
 	"data-team-id"?: string;
@@ -465,17 +529,21 @@ interface FastNavItemProps {
 function FastNavItem({
 	label,
 	selected,
+	href,
 	onClick,
 	"data-thread-id": dataThreadId,
 	"data-team-id": dataTeamId,
 	"data-knowledge-id": dataKnowledgeId,
 	"data-testid": dataTestId,
 }: FastNavItemProps): JSX.Element {
-	// @lore AD9: <li data-thread-id aria-current> wraps <button> so:
+	// @lore AD9: <li data-thread-id aria-current> wraps <Link> so:
 	// - [data-thread-id] queries find the <li> (for E2E selectors and unit tests)
 	// - [aria-current="page"] is on the <li> for semantic selected state
-	// - firstItem.querySelector("button") finds the inner <button> for click events
-	// Both the <li> selector and the <button> click target work independently.
+	// - firstItem.querySelector("a") finds the inner link for click events
+	// Both the <li> selector and the <a> click target work independently.
+	//
+	// @lore UI-080: Changed from <button> to <Link> so items are real navigable
+	// links — right-click → open in new tab, proper link semantics.
 	return (
 		<li
 			data-thread-id={dataThreadId}
@@ -486,16 +554,20 @@ function FastNavItem({
 				.filter(Boolean)
 				.join(" ")}
 		>
-			<button
-				type="button"
+			<Link
+				to={href}
 				data-testid={dataTestId}
 				onClick={onClick}
 				title={label}
-				className={`type-control ${[
+				className={`type-control cursor-pointer ${[
 					"flex h-[44px] w-full items-center rounded-[var(--r-subtle)] px-[9px] min-[1025px]:h-[34px]",
 					"  text-[var(--text-primary)] truncate",
 					"  ",
-					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)]",
+					// @lore UI-083: -outline-offset-1 matches SectionHeader + NotificationButton.
+					// Without it the 1px outline renders at the element's exact border edge and
+					// bleeds into the row below. All other sidebar interactive elements already
+					// use this inset; FastNavItem was the only one missing it.
+					"focus-visible:outline focus-visible:outline-1 focus-visible:outline-[var(--accent-deep)] focus-visible:-outline-offset-1",
 					!selected
 						? "hover:bg-[color-mix(in_oklab,var(--accent-primary)_4%,var(--surface-elevated))]"
 						: "",
@@ -504,7 +576,7 @@ function FastNavItem({
 					.join(" ")}`}
 			>
 				<span className="truncate">{label}</span>
-			</button>
+			</Link>
 		</li>
 	);
 }
@@ -534,6 +606,13 @@ export function Sidebar({
 	unseenNotificationCount,
 	onNotificationClick,
 	notificationPopoverOpen,
+	threadsLoading,
+	teamsLoading,
+	knowledgeLoading,
+	threadsError,
+	teamsError,
+	knowledgeError,
+	drawerMode,
 }: SidebarProps): JSX.Element {
 	// Cap threads at 5 for the fast-nav head
 	const visibleThreads = threads.slice(0, 5);
@@ -555,6 +634,16 @@ export function Sidebar({
 	function renderFastNavItems(): JSX.Element | null {
 		if (activeView === "conversations") {
 			if (visibleThreads.length === 0) {
+				// UI-011: suppress empty message while initial fetch is in flight
+				if (threadsLoading) return null;
+				// UI-011: honest error state — don't claim "No threads yet" when the API failed
+				if (threadsError) {
+					return (
+						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
+							Couldn't load threads
+						</p>
+					);
+				}
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
@@ -568,6 +657,7 @@ export function Sidebar({
 							key={t.id}
 							label={t.title}
 							selected={t.id === selectedThreadId}
+							href={`/conversations/${encodeURIComponent(t.id)}`}
 							onClick={() => onSelectThread(t.id)}
 							data-thread-id={t.id}
 							data-testid={`fastnav-${t.id}`}
@@ -586,6 +676,16 @@ export function Sidebar({
 			}
 			const visibleTeams = teams;
 			if (visibleTeams.length === 0) {
+				// UI-012: suppress empty message while initial fetch is in flight
+				if (teamsLoading) return null;
+				// UI-012: honest error state — don't claim "No teams yet" when the API failed
+				if (teamsError) {
+					return (
+						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
+							Couldn't load teams
+						</p>
+					);
+				}
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
@@ -599,6 +699,7 @@ export function Sidebar({
 							key={t.id}
 							label={t.name}
 							selected={t.id === activeTeamId}
+							href={`/work/team/${encodeURIComponent(t.id)}`}
 							onClick={() => onSelectTeam(t.id)}
 							data-team-id={t.id}
 							data-testid={`fastnav-${t.id}`}
@@ -611,6 +712,16 @@ export function Sidebar({
 		if (activeView === "knowledge") {
 			const visibleKnowledge = knowledgeItems.slice(0, 5);
 			if (visibleKnowledge.length === 0) {
+				// UI-013: suppress empty message while initial fetch is in flight
+				if (knowledgeLoading) return null;
+				// UI-013: honest error state — don't claim "No knowledge yet" when the API failed
+				if (knowledgeError) {
+					return (
+						<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
+							Couldn't load knowledge
+						</p>
+					);
+				}
 				return (
 					<p className="type-small px-[24px] py-[12px]  text-[var(--text-tertiary)]">
 						{emptyMessage}
@@ -624,6 +735,7 @@ export function Sidebar({
 							key={k.id}
 							label={k.title}
 							selected={false}
+							href={`/knowledge/${encodeURIComponent(k.id)}`}
 							onClick={() => onSelectKnowledgeItem?.(k.id)}
 							data-knowledge-id={k.id}
 							data-testid={`fastnav-${k.id}`}
@@ -655,22 +767,30 @@ export function Sidebar({
 			</header>
 
 			<nav
-				className="border-b-[var(--bw-thin)] grid h-[52px] shrink-0 grid-cols-4 gap-[3px]  border-[var(--border-subtle)] px-[9px] pb-[3px] min-[769px]:h-auto min-[769px]:grid-cols-1 min-[769px]:gap-0 min-[769px]:pb-[9px] min-[769px]:pt-[6px]"
+				className={`border-width-thin-b grid shrink-0  border-[var(--border-subtle)] px-[9px] ${
+					drawerMode
+						? "h-auto grid-cols-1 gap-0 pb-[9px] pt-[6px]"
+						: "h-[52px] grid-cols-4 gap-[3px] pb-[3px] min-[769px]:h-auto min-[769px]:grid-cols-1 min-[769px]:gap-0 min-[769px]:pb-[9px] min-[769px]:pt-[6px]"
+				}`}
 				aria-label="Main navigation"
 			>
 				<NotificationButton
 					unseenNotificationCount={unseenNotificationCount}
 					onClick={onNotificationClick}
 					open={notificationPopoverOpen}
+					drawerMode={drawerMode}
 				/>
+				{/* @lore FR-18: suppress domain-section highlight at /settings — no domain is "active". */}
 				{VIEW_IDS.map((view) => (
 					<SectionHeader
 						key={view}
 						view={view}
-						activeView={activeView}
+						activeView={settingsOpen ? "" : activeView}
 						onViewChange={(v) => {
 							onViewChange(v);
 						}}
+						href={VIEW_HREFS[view]}
+						drawerMode={drawerMode}
 						badgeCount={
 							view === "conversations"
 								? conversationsBlockingCount

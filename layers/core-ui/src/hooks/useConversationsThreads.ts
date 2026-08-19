@@ -16,6 +16,12 @@ import type { ThreadItem } from "../components/ThreadSections";
 import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";
 
+// @lore NEW-21: HOST_KIND_SNIPPET was removed. The snippet slot is intentionally
+// empty — the thread list API does not return message previews, and showing the
+// hostKind (e.g. "Task") duplicated the chip rendered immediately beside it.
+// An empty string leaves the snippet blank; future work can populate it from a
+// last-message preview field once the server exposes one.
+
 interface ThreadListRow {
 	id: string;
 	hostKind: HostKind;
@@ -107,17 +113,31 @@ function rowToItem(row: ThreadListRow): ThreadItem {
 	// is replaced by the server-resolved title from AF14 onwards.
 	const title = row.title ?? `${capitalize(row.hostKind)} thread ${row.id.slice(0, 8)}`;
 	const relative = relativeShort(row.lastActiveAt);
+	const blocking = row.blocking ?? false;
 	return {
 		id: row.id,
 		title,
+		// @lore NEW-21: snippet is intentionally empty — the thread list API has no
+		// message preview field, and the previous hostKind-derived snippet (e.g. "Task")
+		// duplicated the chip rendered beside it. Left blank until the server exposes
+		// a last-message preview field.
 		snippet: "",
 		timestamp: relative,
 		// AF14 AC1: carry lastActiveAt as the ISO sort key for flat-list comparator.
 		lastActiveAt: row.lastActiveAt,
 		avatarUrl: null,
+		// @lore NEW-21: avatars are intentionally omitted. The thread list response
+		// carries only participant IDs — not names. Title-derived initials (e.g. "IA"
+		// from "Implement annual billing toggle") are meaningless as participant chips.
+		// Left undefined until participant names are returned by the list endpoint.
+		avatars: undefined,
 		hostKind: row.hostKind,
 		hasUnresolvedReview: row.hasUnresolvedReview,
-		blocking: row.blocking ?? false,
+		blocking,
+		// @lore UI-061: map hasUnresolvedReview to "behind" status so ThreadRow
+		// renders a StatusChip when there is a pending review. Skip when already
+		// blocking — the "Blocking" badge already conveys urgency.
+		status: !blocking && row.hasUnresolvedReview ? "behind" : undefined,
 		pinned: row.pinned,
 		resolvedAt: row.resolvedAt ?? undefined,
 	};
@@ -171,7 +191,8 @@ export function useConversationsThreads(
 				// would otherwise stomp the latest cycle's `loading` state.
 				if (ac.signal.aborted) return;
 				if (!res.ok) {
-					setError(`HTTP ${res.status}`);
+					// @lore NEW-22: user-facing message — no raw HTTP status code.
+					setError("Something went wrong. Please try again.");
 					setStatus("error");
 					return;
 				}

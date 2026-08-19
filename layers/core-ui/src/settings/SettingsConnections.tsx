@@ -260,10 +260,10 @@ function ConnectionRow({ connection: c, onRemove }: ConnectionRowProps): JSX.Ele
 					{c.removable ? (
 						confirming ? (
 							<span className="flex items-center gap-[6px]">
+								{/* @lore UI-066: one destructive variant app-wide */}
 								<Button
-									variant="ghost"
+									variant="destructive"
 									size="sm"
-									className="text-[var(--status-error)]"
 									onClick={() => {
 										void onRemove(c.id).then(() => setConfirming(false));
 									}}

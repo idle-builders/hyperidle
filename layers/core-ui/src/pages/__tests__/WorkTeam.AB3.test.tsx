@@ -24,7 +24,6 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HintProvider } from "../../hooks/useHints";
 import { WorkTeam } from "../WorkTeam";
 
 // ---------------------------------------------------------------------------
@@ -145,14 +144,12 @@ const MOCK_AGENT_CONFIGS = [
 
 function renderWithHints(ui: ReactNode, path = "/work/team/ab3-team-1"): ReturnType<typeof render> {
 	return render(
-		<HintProvider>
-			<MemoryRouter initialEntries={[path]}>
-				<Routes>
-					<Route path="/work/team/:teamId" element={ui} />
-					<Route path="*" element={ui} />
-				</Routes>
-			</MemoryRouter>
-		</HintProvider>,
+		<MemoryRouter initialEntries={[path]}>
+			<Routes>
+				<Route path="/work/team/:teamId" element={ui} />
+				<Route path="*" element={ui} />
+			</Routes>
+		</MemoryRouter>,
 	);
 }
 
@@ -729,98 +726,6 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 			expect(body.name).toBe("New Custom Agent");
 			// teamId must be the teamMembers.id (not team.id)
 			expect(body.teamId).toBe("tm-ab3");
-		});
-	});
-});
-
-// ---------------------------------------------------------------------------
-// AC-6: First-time hint banner
-//
-// @lore AB3: apiFetch is mocked via vi.mock() for this entire test file
-// (agent configs use mockApiFetch). HintProvider also calls apiFetch, so
-// hint responses must be set on mockApiFetch for hint-progress endpoints,
-// not on global.fetch (which is only reached when apiFetch is NOT mocked).
-// ---------------------------------------------------------------------------
-
-describe("AB3 AC-6 — First-time hint banner (review-agents)", () => {
-	afterEach(() => {
-		vi.restoreAllMocks();
-		mockApiFetch.mockReset();
-	});
-
-	it("hint-review-agents banner is visible when hint is not dismissed", async () => {
-		// Route calls: hint-progress → empty dismissed list, /api/agents → agent configs
-		mockApiFetch.mockImplementation((url: string) => {
-			if (typeof url === "string" && url.includes("hint-progress")) {
-				return Promise.resolve(makeHintResponse([]));
-			}
-			return Promise.resolve(makeAgentsResponse());
-		});
-
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			expect(screen.getByTestId("hint-review-agents")).toBeInTheDocument();
-		});
-	});
-
-	it("hint-review-agents is NOT visible when already dismissed", async () => {
-		// Route calls: hint-progress → review-agents dismissed
-		mockApiFetch.mockImplementation((url: string) => {
-			if (typeof url === "string" && url.includes("hint-progress")) {
-				return Promise.resolve(makeHintResponse(["review-agents"]));
-			}
-			return Promise.resolve(makeAgentsResponse());
-		});
-
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		// Wait for hints + cards to load
-		await waitFor(() => {
-			expect(screen.queryAllByTestId("agent-row").length).toBe(3);
-		});
-
-		// Extra tick to let hint state settle
-		await new Promise((r) => setTimeout(r, 50));
-
-		expect(screen.queryByTestId("hint-review-agents")).not.toBeInTheDocument();
-	});
-
-	it("clicking 'Got it' on the hint fires the dismiss POST", async () => {
-		const dismissSpy = vi
-			.fn()
-			.mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
-
-		mockApiFetch.mockImplementation((url: string, init?: RequestInit) => {
-			if (typeof url === "string" && url.includes("hint-progress") && !url.includes("dismiss")) {
-				return Promise.resolve(makeHintResponse([]));
-			}
-			if (typeof url === "string" && url.includes("review-agents/dismiss")) {
-				return dismissSpy(url, init);
-			}
-			return Promise.resolve(makeAgentsResponse());
-		});
-
-		const user = userEvent.setup();
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			expect(screen.getByTestId("hint-review-agents")).toBeInTheDocument();
-		});
-
-		// Click "Got it" within the review-agents hint banner specifically
-		const hintBanner = screen.getByTestId("hint-review-agents");
-		const gotItBtn = hintBanner.querySelector("button");
-		expect(gotItBtn).not.toBeNull();
-		if (!gotItBtn) return;
-		await user.click(gotItBtn);
-
-		// Optimistic: banner disappears immediately
-		expect(screen.queryByTestId("hint-review-agents")).not.toBeInTheDocument();
-
-		// Verify dismiss POST was fired
-		await waitFor(() => {
-			expect(dismissSpy).toHaveBeenCalledTimes(1);
 		});
 	});
 });

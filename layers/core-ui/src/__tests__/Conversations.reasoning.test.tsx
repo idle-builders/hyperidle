@@ -22,8 +22,12 @@ const THREAD_ID = "demo-thread-1";
 
 const FAKE_THREAD = {
 	id: THREAD_ID,
-	hostKind: "task",
-	hostId: "task-1",
+	// UI-005: use bet-hosted thread so the page can derive reviewBetId from
+	// hostId. Task-hosted threads produce null reviewBetId → the "Open review"
+	// button is correctly hidden. This test verifies the button IS shown when the
+	// bet is available, which is the happy path for the reasoning-relocation AC.
+	hostKind: "bet",
+	hostId: "bet-1",
 	initiatorId: "agent-1",
 	participants: ["u-founder", "agent-1"],
 	pinned: false,

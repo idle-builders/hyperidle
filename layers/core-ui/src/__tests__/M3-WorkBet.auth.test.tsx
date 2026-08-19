@@ -40,6 +40,7 @@ describe("M3 — WorkBet: uses useCurrentUser, not FOUNDER_ID constant (A12)", (
 			user: { id: "mock-user-from-hook", name: "Mock User", email: "m@test.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		renderPage();
@@ -52,6 +53,7 @@ describe("M3 — WorkBet: uses useCurrentUser, not FOUNDER_ID constant (A12)", (
 			user: { id: "mock-user-from-hook", name: "Mock User", email: "m@test.com", avatarUrl: null },
 			status: "ready",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		const { container } = renderPage();
@@ -69,6 +71,7 @@ describe("M3 — WorkBet: uses useCurrentUser, not FOUNDER_ID constant (A12)", (
 			user: null,
 			status: "loading",
 			error: null,
+			retry: vi.fn(),
 		});
 
 		renderPage();

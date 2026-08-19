@@ -200,12 +200,19 @@ interface FolderInfo {
 	branch: string | null;
 }
 
-/** Abstract 3-card welcome illustration matching onboarding.html welcome-visual */
+/**
+ * Abstract 3-card welcome illustration.
+ *
+ * @lore UI-109: The previous version used grey bg-[var(--border-subtle)] bars
+ * that looked identical to loading skeletons. Replaced with labelled cards so
+ * the illustration reads as intentional, not as "the page is still loading".
+ * Each card previews one of the three main areas of HyperIdle.
+ */
 function WelcomeVisual(): JSX.Element {
-	const dotColors = [
-		"var(--accent-primary)",
-		"var(--accent-secondary)",
-		"var(--status-info)",
+	const cards = [
+		{ color: "var(--accent-primary)", label: "Conversations", hint: "Chat with agents" },
+		{ color: "var(--accent-secondary)", label: "Work", hint: "Bets & tasks" },
+		{ color: "var(--status-info)", label: "Knowledge", hint: "Shared docs" },
 	] as const;
 
 	return (
@@ -214,21 +221,21 @@ function WelcomeVisual(): JSX.Element {
 			aria-hidden="true"
 			className="flex gap-[9px] bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[12px] mb-[24px]"
 		>
-			{dotColors.map((dotColor, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: static array, stable order
+			{cards.map((card) => (
 				<div
-					key={i}
+					key={card.label}
 					className="flex-1 bg-[var(--surface-elevated)] rounded-[var(--r-subtle)] p-[9px]"
 				>
 					<div className="flex items-center gap-[6px] mb-[6px]">
 						<span
 							className="block w-[8px] h-[8px] rounded-[var(--r-pill)] shrink-0"
-							style={{ background: dotColor }}
+							style={{ background: card.color }}
 						/>
-						<span className="block h-[6px] rounded-[var(--r-pill)] bg-[var(--border-subtle)] w-3/5" />
+						<span className="type-label  truncate" style={{ color: card.color }}>
+							{card.label}
+						</span>
 					</div>
-					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-[var(--r-pill)] w-[90%] mb-[3px]" />
-					<span className="block h-[6px] bg-[var(--border-subtle)] rounded-[var(--r-pill)] w-3/5" />
+					<span className="type-metadata  text-[var(--text-tertiary)]">{card.hint}</span>
 				</div>
 			))}
 		</div>
@@ -576,7 +583,7 @@ export function SetupFlow(): JSX.Element {
 			{/* W3 AC-53: Card with shadow */}
 			<div
 				data-testid="onboarding-card"
-				className="w-[calc(100%-48px)] max-w-[520px] m-auto bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
+				className="w-[calc(100%-48px)] max-w-[520px] mx-auto my-[24px] bg-[var(--surface-elevated)] rounded-[var(--r-default)] shadow-[var(--shadow-elevated)] p-[48px]"
 			>
 				{/* Brand + tagline */}
 				<div
@@ -623,7 +630,7 @@ export function SetupFlow(): JSX.Element {
 							</span>
 						</p>
 						{/* ONE bordered container with hairline-divided rows — same as SettingsHarnesses */}
-						<div className="border-[var(--bw-thin)]  border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
+						<div className="border-width-thin  border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-default)] overflow-hidden">
 							{/* Built-in row — always first, always choosable. Owns its own
 							    credential entry: this is the one harness whose key we hold. */}
 							<div data-testid="harness-row-builtin">
@@ -638,7 +645,7 @@ export function SetupFlow(): JSX.Element {
 										value="builtin"
 										checked={usingBuiltin}
 										onChange={() => setSelectedHarnessType("builtin")}
-										className="shrink-0"
+										className="radio radio-sm shrink-0"
 									/>
 									<div className="flex-1 min-w-0">
 										<span className="type-copy   text-[var(--text-primary)] ">
@@ -755,7 +762,7 @@ export function SetupFlow(): JSX.Element {
 												{choosable ? (
 													<label
 														data-testid={`harness-row-${d.type}`}
-														className="flex items-center gap-[9px] px-[12px] py-[12px] cursor-pointer"
+														className={`flex items-center gap-[9px] px-[12px] py-[12px] cursor-pointer${isSelected ? " bg-[var(--accent-primary-dim)]" : ""}`}
 													>
 														<input
 															type="radio"
@@ -764,7 +771,7 @@ export function SetupFlow(): JSX.Element {
 															value={d.type}
 															checked={isSelected}
 															onChange={() => setSelectedHarnessType(d.type)}
-															className="shrink-0"
+															className="radio radio-sm shrink-0"
 														/>
 														<div className="flex-1 min-w-0">
 															<span className="type-copy    text-[var(--text-primary)]">

@@ -12,7 +12,7 @@ export interface TablePayloadProps {
 
 export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.Element {
 	return (
-		<div className="border-[var(--bw-thin)] overflow-x-auto rounded-[var(--r-default)]  border-[var(--border-subtle)]">
+		<div className="border-width-thin overflow-x-auto rounded-[var(--r-default)]  border-[var(--border-subtle)]">
 			<table className="type-small w-full border-collapse ">
 				<thead className="sticky top-0 bg-[var(--surface-container)]">
 					<tr>
@@ -21,7 +21,7 @@ export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.El
 								key={i}
 								scope="col"
 								style={{ textAlign: align[i] ?? "left" }}
-								className="type-label border-b-[var(--bw-thin)]   uppercase  text-[var(--text-secondary)] px-[12px] py-[9px]  border-[var(--border-subtle)]"
+								className="type-label border-width-thin-b   uppercase  text-[var(--text-secondary)] px-[12px] py-[9px]  border-[var(--border-subtle)]"
 							>
 								{renderInline(cell)}
 							</th>
@@ -35,7 +35,7 @@ export function TablePayload({ align, header, rows }: TablePayloadProps): JSX.El
 								<td
 									key={ci}
 									style={{ textAlign: align[ci] ?? "left" }}
-									className="border-b-[var(--bw-thin)] px-[12px] py-[9px]  border-[var(--border-subtle)] tabular-nums"
+									className="border-width-thin-b px-[12px] py-[9px]  border-[var(--border-subtle)] tabular-nums"
 								>
 									{renderInline(cell)}
 								</td>

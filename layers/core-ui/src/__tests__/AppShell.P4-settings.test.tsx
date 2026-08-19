@@ -16,6 +16,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../layouts/AppShell";
+import { SettingsPage } from "../pages/SettingsPage";
 
 function renderShell(initialPath = "/conversations"): ReturnType<typeof render> {
 	const router = createMemoryRouter(
@@ -28,6 +29,8 @@ function renderShell(initialPath = "/conversations"): ReturnType<typeof render> 
 					{ path: "conversations/:threadId", element: <div>Conversations Page</div> },
 					{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 					{ path: "knowledge", element: <div>Knowledge Page</div> },
+					// @lore FR-18: /settings is now a real route rendered by Outlet.
+					{ path: "settings", element: <SettingsPage /> },
 				],
 			},
 		],
@@ -155,7 +158,8 @@ describe("AppShell — P4 Settings overlay", () => {
 			// SettingsPage renders all sections simultaneously in Main.
 			expect(screen.getAllByText("Profile").length).toBeGreaterThanOrEqual(1);
 			expect(screen.getAllByText("Org chart").length).toBeGreaterThanOrEqual(1);
-			expect(screen.getAllByText("Credentials").length).toBeGreaterThanOrEqual(1);
+			// @lore FR-15: "Credentials" renamed to "Provider keys" to match SetupFlow presentation.
+			expect(screen.getAllByText("Provider keys").length).toBeGreaterThanOrEqual(1);
 			expect(screen.getAllByText("Notifications").length).toBeGreaterThanOrEqual(1);
 			expect(screen.getAllByText("Appearance").length).toBeGreaterThanOrEqual(1);
 			// AF15 AC-1: "Agents" section added (SettingsAgents now mounted)

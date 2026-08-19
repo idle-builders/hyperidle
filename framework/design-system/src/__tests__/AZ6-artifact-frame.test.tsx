@@ -71,6 +71,25 @@ describe("buildArtifactDocument (the layer the artifact runs in)", () => {
 		const doc = buildArtifactDocument(ARTIFACT);
 		expect(doc.indexOf(ARTIFACT_SIZE_CHANGED_METHOD)).toBeLessThan(doc.indexOf("Signups"));
 	});
+
+	it("gives the artifact document a white background in the head — not injected into the artifact's own markup", () => {
+		// Without a white background on the wrapper document, the browser's dark-mode
+		// default (inherited via color-scheme) makes dark text invisible. The style is
+		// on the HEAD we compose, not on the artifact's own HTML (which is verbatim).
+		const doc = buildArtifactDocument(ARTIFACT);
+		const headClose = doc.indexOf("</head>");
+		const bgIndex = doc.indexOf("background-color:#fff");
+		expect(bgIndex).toBeGreaterThanOrEqual(0);
+		expect(bgIndex).toBeLessThan(headClose);
+	});
+
+	it("declares color-scheme:light in the artifact document HEAD", () => {
+		const doc = buildArtifactDocument(ARTIFACT);
+		const headClose = doc.indexOf("</head>");
+		const csIndex = doc.indexOf("color-scheme:light");
+		expect(csIndex).toBeGreaterThanOrEqual(0);
+		expect(csIndex).toBeLessThan(headClose);
+	});
 });
 
 describe("escapeSrcdocAttribute", () => {
@@ -124,6 +143,23 @@ describe("buildArtifactSrcdoc (the shell)", () => {
 	it("relays its child's size notification", () => {
 		const shell = buildArtifactSrcdoc(ARTIFACT);
 		expect(shell).toContain(ARTIFACT_SIZE_CHANGED_METHOD);
+	});
+
+	it("shell document carries a white background — it is the visible canvas in the outer frame", () => {
+		// The shell sits inside the outer <iframe> element. If the shell's own document
+		// has no background, the browser paints it with dark defaults when the app is in
+		// dark mode (color-scheme is inherited from the embedding context). The white
+		// background here is independent of the artifact's own styles.
+		//
+		// We anchor on `overflow:hidden` (shell-unique) to confirm this style is on the
+		// shell document, not in the escaped inner artifact srcdoc.
+		const shell = buildArtifactSrcdoc(ARTIFACT);
+		expect(shell).toContain("overflow:hidden;background-color:#fff");
+	});
+
+	it("shell document declares color-scheme:light so browser controls use light defaults", () => {
+		const shell = buildArtifactSrcdoc(ARTIFACT);
+		expect(shell).toContain("overflow:hidden;background-color:#fff;color-scheme:light");
 	});
 });
 
@@ -219,6 +255,25 @@ describe("ArtifactFrame", () => {
 			);
 		});
 		expect(frame.style.height).toBe(`${FRAME_MAX_HEIGHT}px`);
+	});
+
+	it("outer iframe element does not use a theme-dependent background", () => {
+		// NEW-20: bg-[var(--surface-page)] resolved to the app's dark canvas in dark
+		// mode. The iframe element's background shows as a letterbox behind the shell
+		// canvas; it must be theme-independent (white), not theme-adaptive.
+		const { container } = render(<ArtifactFrame html={ARTIFACT} />);
+		const frame = container.querySelector("iframe[data-artifact-frame]");
+		expect(frame?.className).not.toContain("surface-page");
+		expect(frame?.className).toContain("bg-white");
+	});
+
+	it("outer iframe element declares color-scheme:light via inline style", () => {
+		// NEW-20: the browser uses the iframe ELEMENT's color-scheme to determine the
+		// srcdoc document's initial rendering context. Without this, color-scheme:dark
+		// (inherited from the app root) is passed into the shell's rendering context.
+		const { container } = render(<ArtifactFrame html={ARTIFACT} />);
+		const frame = container.querySelector("iframe[data-artifact-frame]") as HTMLIFrameElement;
+		expect(frame?.style.colorScheme).toBe("light");
 	});
 });
 

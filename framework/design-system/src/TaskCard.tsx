@@ -28,7 +28,7 @@ export function TaskCard({
 			{...dsProps("TaskCard", "2")}
 			{...clickableProps(
 				onClick,
-				"motion-move border-[var(--bw-thin)] border-[var(--border-subtle)] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] max-w-[320px] shadow-[var(--shadow-default)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)]",
+				"motion-move border-width-thin border-[var(--border-subtle)] bg-[var(--surface-elevated)] rounded-[var(--r-default)] p-[18px] flex flex-col gap-[6px] max-w-[320px] shadow-[var(--shadow-default)] hover:translate-y-[-2px] hover:shadow-[var(--shadow-elevated)]",
 			)}
 		>
 			<span

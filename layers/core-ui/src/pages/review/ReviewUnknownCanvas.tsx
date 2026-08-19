@@ -15,7 +15,7 @@ export function ReviewUnknownCanvas({ artifact }: ReviewCanvasProps): JSX.Elemen
 		<div
 			data-ds-component="ReviewUnknownCanvas"
 			data-testid="review-unknown-canvas"
-			className="border-[var(--bw-thin)] w-full max-w-[760px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-left shadow-[var(--shadow-default)]"
+			className="border-width-thin w-full max-w-[760px] overflow-hidden rounded-[var(--r-default)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-left shadow-[var(--shadow-default)]"
 		>
 			<CanvasSourceHeader
 				tool={artifact.tool}

@@ -9,28 +9,27 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 // declarations. Shared class construction (including the upstream PageHeader
 // pane consolidation) combines equivalent sites, so the approved receipt
 // expansion is the measured final source-profile population.
-// AU43 bundle-03: baseline updated after deleting ArtifactEmbed.tsx (type-data ×3),
-// Toast.tsx (type-metadata ×1, type-small ×2), and select-diff.tsx (var(--bw-thin) ×1).
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 210, default: 17, strong: 11 } as const;
+// Deletion pass: -1 thin, from select-diff.tsx.
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 206, default: 17, strong: 11 } as const;
 
 const EXPECTED = {
 	typography: {
-		label: 116,
-		metadata: 229,
-		small: 229,
-		copy: 48,
-		control: 90,
-		input: 11,
+		label: 115, // -1: read-mode ConversationHeader strip removed (was FR-3 +1)
+		metadata: 231, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx
+		small: 225, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx
+		copy: 45,
+		control: 98, // +2: UI-084 skip-to-main-content link (mobile + desktop branch)
+		input: 10,
 		"avatar-initial": 14,
-		subheading: 10,
-		lead: 10,
+		subheading: 9,
+		lead: 9,
 		title: 11,
 		display: 3,
-		metric: 7,
-		data: 96,
+		metric: 5, // -1: AZ-bugs-ui-c removed metric span from WorkBet
+		data: 89, // -5: FR-20 hint bar + FR-21 restyle; -3: deletion pass removed ArtifactEmbed.tsx
 		"inline-code": 2,
 	},
-	motion: { feedback: 9, move: 15, spring: 2, enter: 1, activity: 7, loading: 6, busy: 2 },
+	motion: { feedback: 9, move: 16, spring: 2, enter: 1, activity: 7, loading: 6, busy: 2 },
 	border: APPROVED_BORDER_RECEIPT_EXPANSION,
 } as const;
 

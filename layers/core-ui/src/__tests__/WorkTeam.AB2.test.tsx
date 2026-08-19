@@ -88,11 +88,6 @@ vi.mock("../hooks/useAgentRunState", async () => {
 	};
 });
 
-// Mock useHints — suppresses hint banners in all tests
-vi.mock("../hooks/useHints", () => ({
-	useHint: vi.fn().mockReturnValue({ visible: false, testId: "hint", copy: "", dismiss: vi.fn() }),
-}));
-
 const BASE_TEAM: TeamDetail = {
 	team: {
 		id: "team-ab2",

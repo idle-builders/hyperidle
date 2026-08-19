@@ -185,12 +185,11 @@ export function AgentDetailPane({
 		>
 			{/* Same content as AgentEditDialog, Dialog shell stripped */}
 			<div className="p-[18px]">
-				{/* Header */}
-				<div className="flex items-start gap-[12px] mb-[18px]">
+				{/* Lead avatar + role info — agentName already shown in PageHeader */}
+				<div className="flex items-center gap-[12px] mb-[18px]">
 					<Avatar initials={initials} size="sm" agent />
 					<div>
-						<p className="type-lead   text-[var(--text-primary)] ">{agentName}</p>
-						<p className="type-small  text-[var(--text-secondary)] mt-[3px]">{roleLabel}</p>
+						<p className="type-small  text-[var(--text-secondary)]">{roleLabel}</p>
 						<p className="type-small  text-[var(--text-secondary)] mt-[3px]">{roleDescription}</p>
 					</div>
 				</div>

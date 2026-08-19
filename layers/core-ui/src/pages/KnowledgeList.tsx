@@ -50,17 +50,32 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/domain-model";
 import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
-import { relativeShort } from "@hyperidle/presentation-format";
-import { type JSX, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
+import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { useFetch } from "../hooks/useFetch";
-import { useHint } from "../hooks/useHints";
+import type { AppShellOutletContext } from "../layouts/AppShell.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { clipExcerpt } from "../utils/clip-excerpt.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
 
 type KnowledgeTab = "triage" | "curated";
+
+/**
+ * UI-045: Convert topic slugs from the API ("GENERAL", "PRODUCT-IDENTITY") to
+ * human-readable title case ("General", "Product Identity").
+ * Splits on hyphens, underscores, and spaces; title-cases each word.
+ */
+function slugToTitle(slug: string): string {
+	return slug
+		.toLowerCase()
+		.split(/[-_\s]+/)
+		.filter(Boolean)
+		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+		.join(" ");
+}
 
 /**
  * S1 fix: hoisted to module scope — was rebuilt per-row as new Set([...]) inside .map(),
@@ -258,11 +273,18 @@ interface KnowledgeListContentProps {
 	apiError: string | null;
 	isCuratedEmpty: boolean;
 	isTriageEmpty: boolean;
-	hintKnowledgeEmpty: ReturnType<typeof useHint>;
 	onNavigate: (id: string) => void;
 	searchQuery: string;
 	/** Y4: called when the user validates (active) or rejects (archived) a triage item. */
 	onTriageAction: (itemId: string, newStatus: "active" | "archived") => void;
+	/** UI-010/UI-015: re-issues the /api/knowledge request from the error state. */
+	onRetry?: () => void;
+	/** FR-19: tab change callback — moves tab control from PageHeader into the body lane. */
+	onTabChange: (tab: KnowledgeTab) => void;
+	/** FR-19: search query change callback. */
+	onSearchChange: (query: string) => void;
+	/** FR-19: navigate to new knowledge item creation. */
+	onNewItem: () => void;
 }
 
 function KnowledgeListContent({
@@ -278,10 +300,13 @@ function KnowledgeListContent({
 	apiError,
 	isCuratedEmpty,
 	isTriageEmpty,
-	hintKnowledgeEmpty,
 	onNavigate,
 	searchQuery,
 	onTriageAction,
+	onRetry,
+	onTabChange,
+	onSearchChange,
+	onNewItem,
 }: KnowledgeListContentProps): JSX.Element {
 	// Y4: keyboard navigation state for triage items (-1 = no focus)
 	const [focusedIndex, setFocusedIndex] = useState<number>(-1);
@@ -363,6 +388,65 @@ function KnowledgeListContent({
 
 	return (
 		<div className="max-w-[800px] w-full">
+			{/* FR-19: Tab controls + search + New — moved from PageHeader.actions to body at 800px lane */}
+			<div className="flex items-center justify-between py-[12px]">
+				<div
+					role="tablist"
+					aria-label="Knowledge view"
+					className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
+					data-testid="knowledge-tabs"
+				>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === "curated"}
+						className={`type-control ${
+							tab === "curated"
+								? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+								: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+						}`}
+						onClick={() => onTabChange("curated")}
+					>
+						Curated
+					</button>
+					<button
+						type="button"
+						role="tab"
+						aria-selected={tab === "triage"}
+						className={`type-control ${
+							tab === "triage"
+								? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
+								: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
+						}`}
+						onClick={() => onTabChange("triage")}
+					>
+						Triage
+					</button>
+				</div>
+				<div className="flex items-center gap-[9px]">
+					<input
+						type="search"
+						aria-label="Filter knowledge"
+						data-testid="knowledge-search"
+						placeholder="Filter…"
+						value={searchQuery}
+						onChange={(e) => onSearchChange(e.target.value)}
+						style={{
+							width: "160px",
+							borderRadius: "var(--r-pill)",
+							border: "var(--bw-default) solid var(--border-default)",
+							padding: "7px 12px",
+							background: "var(--surface-page)",
+							color: "var(--text-primary)",
+							outline: "none",
+						}}
+						className="type-input hidden sm:inline"
+					/>
+					<Button variant="primary" size="sm" onClick={onNewItem}>
+						+ New
+					</Button>
+				</div>
+			</div>
 			{/*
 			 * AD6: Static 4-pill scope filter row.
 			 * All → no filter | Shared → factory+product+practice | Team → team | Private → user.
@@ -426,14 +510,23 @@ function KnowledgeListContent({
 			</div>
 
 			{tab === "triage" ? (
-				<div className="flex flex-col" data-testid="knowledge-triage-view">
+				// @lore UI-125: block (not flex) so sticky bottom-0 on the hint bar resolves
+				// to the scroll container (overflow-y-auto), not to this flex container.
+				// position:sticky's containing block for flex items is the flex parent,
+				// which has no overflow — so sticky never fired. Block flow lets it find
+				// the real scroll ancestor.
+				<div data-testid="knowledge-triage-view">
 					{apiLoading ? (
 						<div className="py-[12px]">
 							<SkeletonList rows={4} ariaLabel="Loading triage items" />
 						</div>
 					) : apiError ? (
 						<div className="py-[12px]">
-							<ErrorState title="Couldn't load knowledge" description={apiError} />
+							<ErrorState
+								title="Couldn't load knowledge"
+								description={apiError}
+								onRetry={onRetry}
+							/>
 						</div>
 					) : isTriageEmpty || filteredTriageItems.length === 0 ? (
 						<div className="flex items-center justify-center p-[48px_24px]">
@@ -470,7 +563,9 @@ function KnowledgeListContent({
 											data-testid="knowledge-row"
 											data-focused={focusedIndex === index ? "true" : undefined}
 											title={item.title}
-											subtitle={item.body?.slice(0, 120) || undefined}
+											subtitle={
+												item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
+											}
 											cells={[
 												...(isPrivate
 													? [
@@ -530,6 +625,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Validate"
+														title="Validate"
 														onClick={(e) => {
 															e.stopPropagation();
 															onTriageAction(item.id, "active");
@@ -553,6 +649,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Reject"
+														title="Reject"
 														onClick={(e) => {
 															e.stopPropagation();
 															onTriageAction(item.id, "archived");
@@ -576,6 +673,7 @@ function KnowledgeListContent({
 													<button
 														type="button"
 														aria-label="Open"
+														title="Open"
 														onClick={(e) => {
 															e.stopPropagation();
 															onNavigate(item.id);
@@ -603,39 +701,6 @@ function KnowledgeListContent({
 									);
 								})}
 							</ItemList>
-							{/* Y4: keyboard hint bar — only shown when triage has items */}
-							<div
-								data-testid="triage-keyboard-hint"
-								className="type-metadata border-t-[var(--bw-thin)] flex items-center gap-[12px] py-[9px] border-[var(--border-subtle)] text-[var(--text-tertiary)]"
-							>
-								<span>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
-										j
-									</kbd>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)] ml-[3px]">
-										k
-									</kbd>
-									&nbsp;navigate
-								</span>
-								<span>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
-										Enter
-									</kbd>
-									&nbsp;open
-								</span>
-								<span>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
-										v
-									</kbd>
-									&nbsp;validate
-								</span>
-								<span>
-									<kbd className="border-[var(--bw-thin)] type-data inline-flex items-center px-[4px] py-[2px] rounded-[var(--r-subtle)] bg-[var(--surface-container)]    border-[var(--border-subtle)]">
-										x
-									</kbd>
-									&nbsp;reject
-								</span>
-							</div>
 						</>
 					)}
 				</div>
@@ -645,6 +710,16 @@ function KnowledgeListContent({
 						<div className="py-[12px]">
 							<SkeletonList rows={4} ariaLabel="Loading curated items" />
 						</div>
+					) : apiError ? (
+						/* UI-010: a 500/network failure must show an error state with retry,
+						 * not the "No knowledge items yet" empty state (which implies success). */
+						<div className="py-[12px]">
+							<ErrorState
+								title="Couldn't load knowledge"
+								description={apiError}
+								onRetry={onRetry}
+							/>
+						</div>
 					) : isCuratedEmpty ? (
 						<div className="flex items-center justify-center p-[48px_24px]">
 							<EmptyState
@@ -652,33 +727,12 @@ function KnowledgeListContent({
 								description="Agents will populate this scope as they learn. Check back after the next review cycle."
 								dataTestId="knowledge-curated-empty"
 							/>
-							{hintKnowledgeEmpty.visible && (
-								<div
-									role="status"
-									data-testid={hintKnowledgeEmpty.testId}
-									className="rounded-[var(--r-subtle)] bg-[var(--surface-container)] p-[18px] flex flex-col gap-[6px] mt-[12px]"
-								>
-									<p className="type-copy  text-[var(--text-secondary)] ">
-										{hintKnowledgeEmpty.copy}
-									</p>
-									<div className="flex gap-[9px]">
-										<Button
-											variant="ghost"
-											size="sm"
-											className="text-[var(--text-tertiary)]"
-											onClick={hintKnowledgeEmpty.dismiss}
-										>
-											Got it
-										</Button>
-									</div>
-								</div>
-							)}
 						</div>
 					) : (
 						filteredGrouped.map((g) => (
 							<KnowledgeTopicGroup
 								key={g.topic}
-								topic={g.topic}
+								topic={slugToTitle(g.topic)}
 								itemCount={g.items.length}
 								staleCount={g.staleCount}
 								health={g.health}
@@ -692,14 +746,15 @@ function KnowledgeListContent({
 												? item.scopeKind
 												: undefined;
 										const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
-										const itemStatus = toKnowledgeStatus(item.status);
 										return (
 											<Row
 												key={item.id}
 												as="li"
 												data-testid="knowledge-row"
 												title={item.title}
-												subtitle={item.body?.slice(0, 120) || undefined}
+												subtitle={
+													item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
+												}
 												cells={[
 													...(isPrivate
 														? [
@@ -735,20 +790,6 @@ function KnowledgeListContent({
 																},
 															]
 														: []),
-													...(itemStatus === "active" || itemStatus === "archived"
-														? [
-																{
-																	content: (
-																		<span data-testid="status-badge">
-																			<StatusChip
-																				status={knowledgeStatusToStatus(itemStatus)}
-																				label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
-																			/>
-																		</span>
-																	),
-																},
-															]
-														: []),
 													{
 														content: relativeShort(item.updatedAt),
 														"data-testid": "knowledge-time" as const,
@@ -778,11 +819,12 @@ export function KnowledgeList({
 	error = null,
 }: KnowledgeListProps = {}): JSX.Element {
 	const navigate = useNavigate();
-	const hintKnowledgeEmpty = useHint("knowledge-empty");
 	const [searchParams, setSearchParams] = useSearchParams();
 	const scope = deriveScope(searchParams);
 	const sort = deriveSort(searchParams);
-	const { user } = useCurrentUser();
+	const { user, retry: retryUser } = useCurrentUser();
+	// @lore NEW-24: optional — gracefully absent in story/test contexts without an AppShell outlet.
+	const outletCtx = useOutletContext<AppShellOutletContext | null>();
 
 	const [tab, setTab] = useState<KnowledgeTab>("triage");
 	const tabManuallySelectedRef = useRef(false);
@@ -807,7 +849,18 @@ export function KnowledgeList({
 		data: apiData,
 		isLoading: apiLoading,
 		error: apiError,
+		refetch: apiRefetch,
 	} = useFetch<ApiKnowledgeListResponse>("/api/knowledge");
+
+	// @lore NEW-24: combined retry re-issues the knowledge fetch + all AppShell-owned fetches
+	// (user and sidebar knowledge list). Without retrying the user fetch, the N5 short-circuit
+	// (no participantId → no thread fetch) stays active after an outage+restart, so the sidebar
+	// stays in error even when the main-pane content loads.
+	const handleRetry = useCallback((): void => {
+		apiRefetch();
+		retryUser();
+		outletCtx?.onRetryShell?.();
+	}, [apiRefetch, retryUser, outletCtx]);
 
 	const allItems = useMemo<ApiKnowledgeItem[]>(() => apiData?.items ?? [], [apiData]);
 
@@ -929,6 +982,11 @@ export function KnowledgeList({
 		setSearchParams(next, { replace: true });
 	}
 
+	function handleTabChange(newTab: KnowledgeTab): void {
+		tabManuallySelectedRef.current = true;
+		setTab(newTab);
+	}
+
 	if (loading) {
 		return (
 			<PageScaffold
@@ -957,7 +1015,9 @@ export function KnowledgeList({
 		);
 	}
 
-	const systemEmpty = allItems.length === 0 && !apiLoading;
+	// UI-010: only show "system empty" when there is no API error — a 500/429 must
+	// surface as an error state (ErrorState + retry), NOT as "your knowledge base is empty".
+	const systemEmpty = allItems.length === 0 && !apiLoading && !apiError;
 	const isCuratedEmpty = grouped.length === 0 && !apiLoading;
 	const isTriageEmpty = triageItems.length === 0 && !apiLoading;
 
@@ -974,76 +1034,6 @@ export function KnowledgeList({
 							<span className="sr-only">Knowledge Base</span>
 							Knowledge
 						</>
-					}
-					actions={
-						!systemEmpty ? (
-							<div className="flex items-center gap-[9px]">
-								{/* Curated/Triage tabs */}
-								<div
-									role="tablist"
-									aria-label="Knowledge view"
-									className="inline-flex gap-[6px] bg-[var(--surface-container)] rounded-[var(--r-pill)] p-[3px]"
-									data-testid="knowledge-tabs"
-								>
-									<button
-										type="button"
-										role="tab"
-										aria-selected={tab === "curated"}
-										className={`type-control ${
-											tab === "curated"
-												? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-												: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-										}`}
-										onClick={() => {
-											tabManuallySelectedRef.current = true;
-											setTab("curated");
-										}}
-									>
-										Curated
-									</button>
-									<button
-										type="button"
-										role="tab"
-										aria-selected={tab === "triage"}
-										className={`type-control ${
-											tab === "triage"
-												? "px-[12px] py-[6px] rounded-[var(--r-pill)]   bg-[var(--surface-elevated)] text-[var(--accent-deep)] shadow-[var(--shadow-subtle)] cursor-pointer border-none"
-												: "px-[12px] py-[6px] rounded-[var(--r-pill)]   text-[var(--text-secondary)] cursor-pointer border-none bg-transparent"
-										}`}
-										onClick={() => {
-											tabManuallySelectedRef.current = true;
-											setTab("triage");
-										}}
-									>
-										Triage
-									</button>
-								</div>
-								{/* Search + New */}
-								{/* hearth-internal-padding */}
-								<input
-									type="search"
-									aria-label="Search knowledge"
-									data-testid="knowledge-search"
-									placeholder="Search…"
-									value={searchQuery}
-									onChange={(e) => setSearchQuery(e.target.value)}
-									style={{
-										width: "200px",
-										borderRadius: "var(--r-pill)",
-										border: "var(--bw-default) solid var(--border-default)",
-										padding: "7px 12px",
-										background: "var(--surface-page)",
-										color: "var(--text-primary)",
-										outline: "none",
-									}}
-									className="type-input"
-								/>
-								{/* AI5: shared Button primitive. */}
-								<Button variant="primary" size="sm" onClick={() => navigate("/knowledge/new")}>
-									+ New
-								</Button>
-							</div>
-						) : undefined
 					}
 				/>
 			}
@@ -1093,10 +1083,13 @@ export function KnowledgeList({
 					apiError={apiError}
 					isCuratedEmpty={isCuratedEmpty}
 					isTriageEmpty={isTriageEmpty}
-					hintKnowledgeEmpty={hintKnowledgeEmpty}
 					onNavigate={(id) => navigate(`/knowledge/${id}`)}
 					searchQuery={searchQuery}
 					onTriageAction={handleTriageAction}
+					onRetry={handleRetry}
+					onTabChange={handleTabChange}
+					onSearchChange={setSearchQuery}
+					onNewItem={() => navigate("/knowledge/new")}
 				/>
 			)}
 		</PageScaffold>

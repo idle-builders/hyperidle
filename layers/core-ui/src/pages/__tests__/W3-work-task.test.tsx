@@ -13,11 +13,12 @@
  * Also validates critique mandates: loading state, error state, not-found state.
  */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 // Mock useBet to return bet fixture
+const mockRefresh = vi.fn();
 vi.mock("../../hooks/useBet", () => ({
 	useBet: (betId: string) => {
 		if (betId === "b1") {
@@ -35,19 +36,27 @@ vi.mock("../../hooks/useBet", () => ({
 							state: "in_progress",
 							startedAt: "2026-01-01T10:00:00.000Z",
 						},
+						{
+							id: "t2",
+							title: "Setup database schema",
+							owner: null, // UI-020: null owner
+							state: "in_progress",
+							startedAt: "2026-01-01T10:00:00.000Z",
+						},
 					],
 				},
 				loading: false,
 				error: null,
+				refresh: mockRefresh,
 			};
 		}
 		if (betId === "error-bet") {
-			return { data: null, loading: false, error: new Error("Not found") };
+			return { data: null, loading: false, error: new Error("Not found"), refresh: mockRefresh };
 		}
 		if (betId === "loading-bet") {
-			return { data: null, loading: true, error: null };
+			return { data: null, loading: true, error: null, refresh: mockRefresh };
 		}
-		return { data: null, loading: false, error: new Error("Not found") };
+		return { data: null, loading: false, error: new Error("Not found"), refresh: mockRefresh };
 	},
 }));
 
@@ -281,5 +290,23 @@ describe("W3 WorkTask — not-found state (critique CRITICAL-3)", () => {
 		const notFound = screen.queryByTestId("task-detail-not-found");
 		const heading = screen.queryByText(/not found|task not found/i);
 		expect(notFound ?? heading).not.toBeNull();
+	});
+});
+
+describe("W3 WorkTask — retry affordance (UI-015)", () => {
+	it("renders a retry button in the error state that calls refresh", () => {
+		renderTaskPage("error-bet", "t1");
+		const retryBtn = screen.queryByTestId("error-state-retry");
+		expect(retryBtn).not.toBeNull();
+		fireEvent.click(retryBtn!);
+		expect(mockRefresh).toHaveBeenCalled();
+	});
+});
+
+describe("W3 WorkTask — Unassigned owner (UI-020)", () => {
+	it("renders 'Unassigned' when the task owner is null", () => {
+		// Task t2 has owner: null in the b1 fixture
+		renderTaskPage("b1", "t2");
+		expect(screen.queryByText("Unassigned")).not.toBeNull();
 	});
 });

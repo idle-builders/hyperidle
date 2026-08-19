@@ -222,7 +222,7 @@ function buildRichSlots(
 								disabled
 								aria-disabled="true"
 								title="Answer dispatch lands in a follow-up"
-								className="type-control border-[var(--bw-thin)] px-[9px] py-[6px] min-h-[44px] rounded-[var(--r-subtle)]    bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] disabled:opacity-50 disabled:cursor-not-allowed"
+								className="type-control border-width-thin px-[9px] py-[6px] min-h-[44px] rounded-[var(--r-subtle)]    bg-transparent text-[var(--text-secondary)] border-[var(--border-subtle)] disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{opt}
 							</button>

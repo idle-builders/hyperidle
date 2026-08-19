@@ -1,7 +1,17 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
+
+// Stub the knowledge API hook to return settled state immediately.
+// In real usage the hook fetches from /api/knowledge/:id — in JSDOM tests
+// apiFetch never resolves, leaving isLoading=true on the first render and
+// causing the loading skeleton to display instead of the fallback.
+// Returning isLoading=false simulates a completed fetch with no server data,
+// which is the correct state for the fallback rendering tests to exercise.
+vi.mock("../hooks/useKnowledgeItem.js", () => ({
+	useKnowledgeItem: () => ({ data: null, error: null, isLoading: false }),
+}));
 
 function renderPage(knowledgeId = "k1"): ReturnType<typeof render> {
 	return render(
@@ -31,11 +41,12 @@ describe("KnowledgeDetail", () => {
 		expect(screen.getByText(/JWT-based authentication with refresh tokens/)).toBeInTheDocument();
 	});
 
-	it("renders source and timestamp", () => {
+	it("renders source and does not echo raw timestamp string", () => {
 		renderPage("k1");
 		expect(screen.getByText("Architecture review session, Architect Agent")).toBeInTheDocument();
-		// W3: timestamp appears in both metadata bar and metadata aside; accept multiple occurrences.
-		expect(screen.getAllByText("1d ago").length).toBeGreaterThanOrEqual(1);
+		// UI-037: the raw fixture timestamp "1d ago" must not appear verbatim (absoluteDateTime formats it).
+		// Fixture k1 has timestamp "1d ago" (not ISO) — absoluteDateTime returns "—" (TIME_PLACEHOLDER).
+		expect(screen.queryByText("1d ago")).not.toBeInTheDocument();
 	});
 
 	it("renders kind in the metadata aside", () => {

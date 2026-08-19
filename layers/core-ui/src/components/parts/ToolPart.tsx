@@ -180,7 +180,7 @@ export function ToolPart({
 							e.stopPropagation();
 							onOpen(diffEmbed.target);
 						}}
-						className="border-[var(--bw-thin)] inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]   hover:border-[var(--border-default)]"
+						className="border-width-thin inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]   hover:border-[var(--border-default)]"
 					>
 						<span className="type-data   text-[var(--text-tertiary)]">
 							{diffEmbed.label.split("/").pop()}
@@ -205,7 +205,7 @@ export function ToolPart({
 							onOpen({ route: "session", sessionId: part.opensSession?.sessionId ?? "" });
 						}}
 						title={`Open the ${part.opensSession.label} session`}
-						className="type-control border-[var(--bw-thin)] inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:border-[var(--accent-deep)] hover:text-[var(--accent-deep)]"
+						className="type-control border-width-thin inline-flex shrink-0 items-center gap-[6px] rounded-[var(--r-pill)]  border-[var(--border-subtle)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:border-[var(--accent-deep)] hover:text-[var(--accent-deep)]"
 					>
 						<svg
 							viewBox="0 0 16 16"

@@ -1,7 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
+
+// Same rationale as KnowledgeDetail.test.tsx: the API hook starts with
+// isLoading=true in JSDOM tests (apiFetch never resolves synchronously),
+// so the loading skeleton fires before fixture data can render. Settle it.
+vi.mock("../hooks/useKnowledgeItem.js", () => ({
+	useKnowledgeItem: () => ({ data: null, error: null, isLoading: false }),
+}));
 
 function renderPage(knowledgeId: string): ReturnType<typeof render> {
 	return render(
@@ -33,6 +40,6 @@ describe("KnowledgeDetail — J7 related items sidebar", () => {
 		// An item with no related items shows an empty-state message.
 		renderPage("k10");
 		const sidebar = screen.getByTestId("knowledge-backlinks-card");
-		expect(within(sidebar).getByText(/No related items/i)).toBeInTheDocument();
+		expect(within(sidebar).getByText(/No backlinks/i)).toBeInTheDocument();
 	});
 });

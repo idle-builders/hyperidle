@@ -22,7 +22,7 @@ export function TabBar({ tabs, activeId, onChange, variant = "pill" }: TabBarPro
 		return (
 			<div
 				{...dsProps("TabBar", "0")}
-				className="border-b-[var(--bw-thin)] flex items-end gap-[18px]  border-[var(--border-default)]"
+				className="border-width-thin-b flex items-end gap-[18px]  border-[var(--border-default)]"
 				role="tablist"
 			>
 				{tabs.map((tab) => {

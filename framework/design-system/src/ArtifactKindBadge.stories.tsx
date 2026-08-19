@@ -25,3 +25,10 @@ export const CustomKinds = (): React.JSX.Element => (
 		<ArtifactKindBadge kind="custom_report" />
 	</div>
 );
+
+/** UI-108: "unknown" kind → renders "OTHER" (friendly label) instead of "UNKNOWN". */
+export const UnknownKind = (): React.JSX.Element => (
+	<div className="flex flex-wrap gap-3">
+		<ArtifactKindBadge kind="unknown" />
+	</div>
+);

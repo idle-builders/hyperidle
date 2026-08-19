@@ -74,7 +74,8 @@ describe("AppShell — Knowledge sidebar section (W3 AC-3)", () => {
 	it("does NOT render scope sub-items (Practices/Products/Factory) in sidebar", async () => {
 		renderShellAt("/knowledge");
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /knowledge/i })).toBeInTheDocument();
+			// UI-080: Knowledge section header is now a <Link> (role="link"), not a button
+			expect(screen.getByRole("link", { name: /knowledge/i })).toBeInTheDocument();
 		});
 		// W3 AC-3: scope sub-items removed from sidebar
 		expect(screen.queryByText("Practices")).not.toBeInTheDocument();
@@ -89,8 +90,8 @@ describe("AppShell — Knowledge sidebar section (W3 AC-3)", () => {
 			expect(screen.getByTestId("knowledge-page")).toBeInTheDocument();
 		});
 
-		// Knowledge section header button should be active
-		// @lore U6: data-section="knowledge" data-active="true" is on the section header button
+		// Knowledge section header should be active (now a <Link>, not button — UI-080)
+		// @lore U6: data-section="knowledge" data-active="true" is on the section header element
 		const knowledgeBtn = document.querySelector("[data-section='knowledge'][data-active='true']");
 		expect(knowledgeBtn).toBeInTheDocument();
 	});

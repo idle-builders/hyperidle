@@ -331,7 +331,7 @@ function ChangedFilesPanel({
 	return (
 		<div
 			data-ds-component="ChangedFilesPanel"
-			className="border-[var(--bw-thin)] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
+			className="border-width-thin rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
 		>
 			<div className="flex items-center gap-[9px] px-[12px] py-[9px]">
 				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Changed files</span>
@@ -353,13 +353,13 @@ function ChangedFilesPanel({
 								onOpen(first.embed.target);
 							}
 						}}
-						className="type-control border-[var(--bw-thin)] rounded-[var(--r-pill)]  border-[var(--border-default)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:text-[var(--text-primary)]"
+						className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:text-[var(--text-primary)]"
 					>
 						View diff
 					</button>
 				) : null}
 			</div>
-			<div className="border-t-[var(--bw-thin)]  border-[var(--border-subtle)] px-[12px] py-[9px]">
+			<div className="border-width-thin-t  border-[var(--border-subtle)] px-[12px] py-[9px]">
 				{diffs.map(({ embed, toolId }) => {
 					if (embed.kind !== "diff") return null;
 					const label = embed.label;
@@ -585,7 +585,7 @@ function SessionComposer({
 	return (
 		<div
 			data-ds-component="SessionComposer"
-			className="border-[var(--bw-thin)] rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]"
+			className="border-width-thin rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)] shadow-[var(--shadow-subtle)]   focus-within:shadow-[var(--shadow-default)]"
 		>
 			<div className="flex items-end gap-[9px] px-[12px] py-[9px]">
 				{/* eslint-disable-next-line design/no-op-button -- Insert opens an attachment picker; AM3 scope covers the shell only, action is a future affordance -- tracked in #429 */}
@@ -593,7 +593,7 @@ function SessionComposer({
 					type="button"
 					aria-label="Insert"
 					aria-haspopup="menu"
-					className="border-[var(--bw-thin)] flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--border-default)] text-[var(--text-secondary)]   hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+					className="border-width-thin flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[var(--r-subtle)]  border-[var(--border-default)] text-[var(--text-secondary)]   hover:border-[var(--border-strong)] hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
 				>
 					<ComposerGlyph d={ICON_PLUS} size={14} />
 				</button>
@@ -626,7 +626,7 @@ function SessionComposer({
 			</div>
 
 			{/* descriptor pill row — model · per-model options + working state */}
-			<div className="border-t-[var(--bw-thin)] flex items-center gap-[3px]  border-[var(--border-subtle)] px-[9px] py-[6px]">
+			<div className="border-width-thin-t flex items-center gap-[3px]  border-[var(--border-subtle)] px-[9px] py-[6px]">
 				{descriptor && (
 					<>
 						<button
@@ -755,7 +755,7 @@ export function SessionView({
 			style={{}}
 		>
 			{/* header — minimal session identity */}
-			<header className="border-b-[var(--bw-thin)] flex shrink-0 items-center gap-[12px]  border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
+			<header className="border-width-thin-b flex shrink-0 items-center gap-[12px]  border-[var(--border-subtle)] bg-[var(--surface-page)] px-[18px] py-[12px]">
 				<div className="mx-auto flex w-full max-w-[760px] items-center gap-[12px]">
 					<div className="min-w-0 flex-1">
 						<div className="type-metadata flex items-center gap-[6px]  text-[var(--text-secondary)]">
