@@ -284,7 +284,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// ({ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 })
 				// is removed here — the listener itself was deleted with the
 				// whole relevance engine.
-				{ unsubscribedEvents: ["session_ended", "session_ended"], clearedIntervals: 0 },
+				// One `session_ended` subscription, not two: the risk-tier session-review
+				// subscriber was deleted with the gate it served (nothing ever wrote a risk
+				// tier, so it always returned early). The liveness subscriber beside it stays.
+				{ unsubscribedEvents: ["session_ended"], clearedIntervals: 0 },
 				{
 					unsubscribedEvents: [
 						"item_created",
