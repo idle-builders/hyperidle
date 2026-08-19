@@ -51,10 +51,12 @@ into `teams` — this batch owns a migration), `users`, `factory-defaults` disso
 the two duplicate team doors. The `getTeamMembers` / `listTeamMembers` overload families collapse into
 `getTeam` / `listTeams` once the tables are one.
 
-**2 — Filesystems, mounting, connections, credentials.** ~28 rows. Dissolves `filesystem-contract`
+**2 — Filesystems, mounting, connections, credentials, settings.** ~31 rows. Dissolves `filesystem-contract`
 (a 160-line type file with zero functions) into `filesystems`, and `credential-access` into
 `credentials`. Folds the probe/persist trio into one service method, widens `listConnections` to absorb
-its duplicate reader.
+its duplicate reader. `settings` rides here whole: its one merge row folds credential migration into
+`credentials`, and its two simplify rows drop the dead `observability` member from the server config
+read and write shapes.
 
 **3 — Work, routine and session requests.** ~41 rows. Dissolves `cron` into `routine`. Collapses the two
 session-start/task-run resolver families into one discriminated resolver, and the two guarded-field-set
@@ -65,22 +67,49 @@ mechanics on bets into one patch path.
 message dedupe paths into one. Two duplicate doors fold here. **Care: `knowledge` and `routine` carry
 PLUGIN rows owned by the finish-and-plugin track — those must not be touched.**
 
-**5 — The harness seam.** ~28 rows. `tool-protocol` dies into `harness-protocol`; `harness-protocol`
+**5 — The harness seam.** ~38 rows. `tool-protocol` dies into `harness-protocol`; `harness-protocol`
 sheds four modules to `harness-registry` and `run-orchestration`; `harness-capability` stays and loses
-its duplicated capability fields. `tool-handlers` simplifies alongside.
+its duplicated capability fields. `tool-handlers` simplifies alongside. **`harness-registry` is not only
+a destination here — it carries ten rows of its own**: the four-copy CLI probe collapse in
+`discoverLocalHarnesses`, the capability-catalog and return-enforcement factories, the adapter/bridge/
+sandbox shrinks, and two merges that derive the model context window from the catalog and fold the MCP
+bridge URL into `open`.
 
-**6 — Host and run substrate.** ~62 rows. The homeless-helper packages: `host-process`,
-`http-middleware`, `presentation-format`, `query-escaping` and `toon-codec` all die, split to their real
-owners. `diagnostics` keeps a two-file core and sheds the rest. `run-orchestration`, `policy`, `fw-db`,
-`event-bus` and `agent-run-config` simplify.
+**6 — Host and run substrate.** ~69 rows. The homeless-helper packages `host-process`,
+`query-escaping` and `toon-codec` die, split to their real owners. `diagnostics` keeps a two-file core
+and sheds the rest. `run-orchestration`, `policy`, `fw-db`, `event-bus` and `agent-run-config` simplify.
+`api-contract` is gutted to the one seam it really is — the core-api to agent-orchestration contract —
+which belongs here rather than with the type spine: it has zero UI consumers and it writes into nothing
+a later batch reshapes.
 
-**7 — The UI substrate.** ~65 rows. `design-system` and `conversation-parts` dissolve into `core-ui`,
-with `block-derivation` folding in on the way. The largest visible-surface risk in the pass.
+**7 — The UI substrate.** ~66 rows. `design-system` and `conversation-parts` dissolve into `core-ui`,
+with `block-derivation` folding in on the way. `presentation-format` dies here too, not in batch 6: its
+time module's stated target is `design-system`, and landing it there first would move it twice. The
+largest visible-surface risk in the pass.
 
-**8 — The shared type spine.** ~90 rows. `domain-model` splits — 55% of its surface moves to its real
-owners, a slimmed shared core stays — `work-intent-port` folds into it, and `api-contract` is gutted to
-the one seam it actually is. Last on purpose: 456 files import `domain-model`, and going last means
-every symbol moves once, into the home the earlier batches settled.
+**8 — The shared type spine.** ~82 rows. `domain-model` splits — 55% of its surface moves to its real
+owners, a slimmed shared core stays — and `work-intent-port` folds into it. `http-middleware` dies here
+rather than in batch 6, because its wire-contract slice targets `domain-model` and must land after the
+split settles, not before it.
+
+Last on purpose: 456 files import `domain-model`, and going last means every symbol moves once, into the
+home the earlier batches settled. **Two of the audit's stated targets are stale by the time this batch
+runs** and must be retargeted, not followed literally: the display-helper and `segmentMentions` slice is
+written as going to `design-system`, and the block types slice to `block-derivation` — batch 7 dissolved
+both. Both go to `core-ui`.
+
+This batch is past what one reviewer covers in a sitting. Review it as two scopes — the split itself, and
+everything that lands downstream of it — rather than shrinking the split, which would defeat moving once.
+
+## The door rows
+
+Seven door rows carry a merge or simplify verdict and are easy to lose because no package owns them.
+Each belongs to exactly one batch: the two duplicate team doors and the `POST /api/threads/scaffold`
+fold to batch 1 and batch 4 respectively; `GET /api/knowledge/search` folding into `GET /api/search`
+goes to batch 4; the session-read response shrink goes to batch 5; the agent-layer reap tick folding
+into the wake drain goes to batch 6 with `run-orchestration`. The retention reaper's simplify row goes
+to **batch 0**, not batch 6 — what it drops is the `login_sessions` and `invite_codes` sweeps, which are
+the auth substrate, so it moves or waits with that decision rather than ahead of it.
 
 ## What each batch proves before it merges
 
@@ -100,8 +129,11 @@ Batch-specific, on top:
 
 - **Batch 1** — migration proven both ways: fresh database migrates clean, and an existing database
   migrates without loss. Team and org surfaces exercised in the running app.
-- **Batches 4 and 7** — the running app, walked surface by surface. Batch 7 is the one where reading the
-  source is not a check; the painted output is.
+- **Batches 2, 3, 4 and 7** — the running app, walked surface by surface. Batch 7 is the one where
+  reading the source is not a check; the painted output is. Batches 2 and 3 are on the list because they
+  change runtime behaviour the service integration lane does not necessarily exercise: batch 3 folds a
+  cron parser into the routine scheduler, so the next-run time it computes needs asserting directly, and
+  batch 2 folds a probe-and-persist trio into one method behind the filesystems and connections pages.
 - **Batch 5** — the harness lane (`npm run test:integration:harness`), local, since it has no CI job.
 - **Batch 8** — full `npm run verify`, because a type-spine change is exactly what breaks a build that
   every other gate passes.
