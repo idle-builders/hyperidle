@@ -115,10 +115,10 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// trigger_resolution_history, filesystem_captures, task_planning_signals,
 	// team_run_config_defaults). Live count fell from ~1183 to 1178; suggestedFloor(1178) = 1060.
 	{ kind: "table:read", min: 1014, floorKind: "magnitude" },
-	// Floor re-measured after AU43 stage 1 route deletions + test-file repair pass. Test
-	// deletions removed ~61 table:write crossings; live fell from 2085 to 2024;
-	// suggestedFloor(2024) = 1821. event fell from 216 to 215; suggestedFloor(215) = 193.
-	{ kind: "table:write", min: 1796, floorKind: "magnitude" },
+	// Floor re-measured after AU44 B1: team_members table dissolved into teams.
+	// teamMembers writes eliminated; live fell from 1796+ to 1729;
+	// suggestedFloor(1729) = 1556.
+	{ kind: "table:write", min: 1556, floorKind: "magnitude" },
 ];
 
 /** Every floor the build declares, live counts attached — the population `floors-tight` checks. */

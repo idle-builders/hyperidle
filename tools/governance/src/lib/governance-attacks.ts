@@ -589,36 +589,6 @@ export const ATTACKS: readonly Attack[] = [
 		},
 	},
 	{
-		id: "missing-companion",
-		detail: "a test creating a team with no membership row — Ruling 13's companion rule",
-		rules: ["crossing-table-write"],
-		overlay: {
-			[`${a.developmentDir}/attack-missing-companion.test.ts`]:
-				`import { teams } from "@hyperidle/db";\n` +
-				`export const seed = (db: { insert: (x: unknown) => { values: (v: unknown) => unknown } }) =>\n` +
-				`\tdb.insert(teams).values({});\n`,
-		},
-		expect: {
-			sort: "violation",
-			file: `${a.developmentDir}/attack-missing-companion.test.ts`,
-			groupKey: "layer → db:table (other) [table:write] development",
-		},
-	},
-	{
-		id: "missing-companion-control",
-		detail: "the same fixture writing BOTH rows, one of them under an alias, is credited and clean",
-		rules: ["crossing-table-write"],
-		overlay: {
-			[`${a.developmentDir}/attack-companion-supplied.test.ts`]:
-				`import { teams, teamMembers as members } from "@hyperidle/db";\n` +
-				`export const seed = (db: { insert: (x: unknown) => { values: (v: unknown) => unknown } }) => {\n` +
-				`\tdb.insert(teams).values({});\n` +
-				`\treturn db.insert(members).values({});\n` +
-				`};\n`,
-		},
-		expect: { sort: "clean", file: `${a.developmentDir}/attack-companion-supplied.test.ts` },
-	},
-	{
 		id: "cross-layer-di",
 		detail:
 			"a value from another layer injected into this package's factory — the crossing invisible to import checks",

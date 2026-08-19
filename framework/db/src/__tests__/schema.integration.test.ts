@@ -55,6 +55,9 @@ describe("A2: Database Schema", () => {
 			// list above is `arrayContaining` and tolerates extras — see the longer
 			// note in migration.integration.test.ts.
 			expect(tableNames).not.toContain("user_skills");
+			// @lore AU44 B1: `team_members` dissolved into `teams` in migration 0058.
+			// Exact-absence proves the DROP TABLE in 0058 ran.
+			expect(tableNames).not.toContain("team_members");
 			expect(tableNames.length).toBeGreaterThanOrEqual(15);
 		});
 	});

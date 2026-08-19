@@ -398,8 +398,8 @@ export function buildCompanionGroups(
 	 * not part of the entity's state. Nothing reads it to decide what the entity is, and its foreign
 	 * key points AT the entity rather than the other way round — so a test that omits it produces the
 	 * same mutable state production would. `knowledgeEditLog` and `knowledgeAccessLog` have zero
-	 * updates between them; `teamMembers` and `knowledgeAppProjection` are updated by their owners and
-	 * are genuinely part of the row set. Requiring a fabricated audit row in 51 test sites would have
+	 * updates between them; `knowledgeAppProjection` is updated by its owner and
+	 * is genuinely part of the row set. Requiring a fabricated audit row in 51 test sites would have
 	 * been exactly the ceremony Ruling 13 removed, one scale smaller.
 	 */
 	const revised = new Set<string>();
