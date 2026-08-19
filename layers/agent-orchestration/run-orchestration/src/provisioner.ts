@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { Filesystem } from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -43,6 +42,9 @@ import {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
+// Filesystem: local to this package — sibling service boundary (Mechanism C).
+// @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
+import type { Filesystem } from "./mounter.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];

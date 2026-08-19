@@ -20,7 +20,6 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Filesystem } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // biome-ignore lint/correctness/noUnresolvedImports: RED phase — relocated module does not exist yet in this pass.
@@ -31,6 +30,8 @@ import {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "../filesystem-provisioning.js";
+// Filesystem is a local type in mounter.ts (AU44 b2: dissolved from domain-model).
+import type { Filesystem } from "../mounter.js";
 
 let sandboxPath: string;
 beforeEach(() => {
@@ -81,7 +82,7 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 		const mounter: FilesystemMounterPort = {
 			mount: async (input) => {
 				mounted.push({ filesystem: input.filesystem });
-				return { success: true, sandboxPath: input.sandboxPath };
+				return { success: true };
 			},
 			captureBack: async () => ({ success: true, captured: true }),
 		};
@@ -136,7 +137,7 @@ describe("mountFilesystemsForAgent reads the injected filesystems live at spawn"
 	test("a failed mount is excluded from the result (degrade-to-today), not thrown", async () => {
 		const bakedRow = buildFilesystemRecord({ id: "fs-inc12-fail" });
 		const mounter: FilesystemMounterPort = {
-			mount: async () => ({ success: false, sandboxPath, error: "mount failed" }),
+			mount: async () => ({ success: false, error: "mount failed" }),
 			captureBack: async () => ({ success: true, captured: true }),
 		};
 

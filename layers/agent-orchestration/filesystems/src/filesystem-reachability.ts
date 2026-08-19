@@ -2,8 +2,17 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { FilesystemRow, WriteExecutor } from "@hyperidle/db";
-import type { FilesystemState } from "@hyperidle/domain-model";
 import { updateFilesystemState } from "./filesystem-registry.js";
+
+/** Reachability lifecycle.
+ *  - attached: freshly registered (no check yet).
+ *  - reachable: connection resolves.
+ *  - needs_attention: unresolvable / unauthenticated connection.
+ *
+ * Declared here — next to resolveFilesystemState which returns it — not as a
+ * named export in @hyperidle/domain-model (AU44 b2 dissolution). */
+export type FilesystemState = "attached" | "reachable" | "needs_attention";
+
 import type { FilesystemsGitRunnerFactory, FilesystemTokenResolver } from "./ports.js";
 
 interface ProbeResult {

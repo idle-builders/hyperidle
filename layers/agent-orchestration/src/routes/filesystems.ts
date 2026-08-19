@@ -27,8 +27,7 @@
 // Application-applied to that shared router and reaches this module unchanged.
 
 import type { FilesystemRow, HyperIdleDb } from "@hyperidle/db";
-import type { Filesystem } from "@hyperidle/domain-model";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/domain-model";
+import type { Filesystem } from "@hyperidle/filesystems";
 import {
 	deleteFilesystem,
 	deleteInjection,
@@ -71,11 +70,13 @@ const resourceRefSchema = z.discriminatedUnion("kind", [codeRefSchema, docSetRef
 /** Register body: `source` is NOT client-supplied — derived from the Connection (or 'local'). */
 const registerFilesystemSchema = z.object({
 	teamId: z.string().min(1),
-	// Kind constrained to FILESYSTEM_KINDS at create time (SoRs rejected here).
-	kind: z.enum(FILESYSTEM_KINDS),
+	// Kind constrained to committed kinds at create time (SoRs rejected here).
+	// @lore AU44 b2: inlined from FILESYSTEM_KINDS constant (dissolved with filesystem-contract).
+	kind: z.enum(["code", "doc_set"]),
 	connectionId: z.string().nullable().optional(),
 	resourceRef: resourceRefSchema,
-	writeback: z.enum(WRITEBACK_MODES),
+	// @lore AU44 b2: inlined from WRITEBACK_MODES constant (dissolved with filesystem-contract).
+	writeback: z.enum(["git", "file", "none"]),
 	// Optional hint: when the NoopAuthResolver can't derive source, the caller may supply it.
 	// The route trusts it only when the resolver yields null (architecture §3, open Q7).
 	sourceHint: z.string().optional(),
