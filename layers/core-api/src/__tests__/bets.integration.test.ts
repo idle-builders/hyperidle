@@ -249,7 +249,7 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC4: returns 500 for non-active bet", async ({ db, app }) => {
+	test("AC4: returns 400 for non-active bet", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await db.insert(teams).values({
@@ -285,7 +285,9 @@ describe("Bet Endpoints (E3)", () => {
 				reason: "Change",
 			}),
 		});
-		expect(res.status).toBe(500);
+		// AU44 B3: updateBetField folded into route. Now returns 400 (not 500
+		// from an uncaught exception) for a non-active bet patch.
+		expect(res.status).toBe(400);
 		vi.unstubAllEnvs();
 	});
 

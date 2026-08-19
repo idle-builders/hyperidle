@@ -140,7 +140,7 @@ export async function transitionTask(
 				// in the SAME transaction, so this read sees it.
 				const bakedRequest = await resolveTaskRunRequest(
 					tx as HyperIdleDb,
-					attemptId,
+					{ kind: "task_run", attemptId },
 					deps.taskRunResolver,
 				);
 				// AU31 §3.1 site 6: the bake reads the dispatch-attempt row just

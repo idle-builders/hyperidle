@@ -14,7 +14,7 @@ import {
 import { getTeam, getTeamMembers, updateTeam } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";
-import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
+import { cascadeBetKill, transitionBet } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";
@@ -492,7 +492,23 @@ export function createBetRoutes(
 			return c.json(result.row);
 		}
 
-		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, c.get("userId"));
+		// @lore AU44 B3: updateBetField folded here (done_condition / hypothesis).
+		// The false `item_created` emit for done_condition_change is deleted —
+		// no items row exists for the fabricated id, making it a lying announce.
+		const bet = await work.get(db, "bet", betId);
+		if (!bet) return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		if (bet.status !== "active") {
+			return c.json({ error: "Can only update fields on active bets", code: "INVALID_STATE" }, 400);
+		}
+		const columnMap: Record<string, string> = {
+			done_condition: "doneCondition",
+			hypothesis: "hypothesis",
+		};
+		const columnKey = columnMap[body.field];
+		if (!columnKey) {
+			return c.json({ error: `Unknown field: ${body.field}`, code: "INVALID_INPUT" }, 400);
+		}
+		await work.update(db, "bet", betId, { [columnKey]: body.value } as work.BetUpdatePatch);
 
 		const updated = await work.get(db, "bet", betId);
 		return c.json(updated);
@@ -854,21 +870,23 @@ export function createBetRoutes(
 		//    conversation summaries from conversation-store (threads+messages only,
 		//    keyed by artifactId) and merge per-artifact in JS — AU12 decomposition
 		//    keeps neither side crossing the ownership boundary.
-		const artifactRows = await work.list(db, "artifact", { taskIds, include: "taskSummary" });
+		// @lore AU44 B3: taskSummary overload folded into taskTitle include; caller
+		// projects its four fields from ArtifactWithTaskTitle.
+		const artifactRows = await work.list(db, "artifact", { taskIds, include: "taskTitle" });
 		const summaryByArtifact = new Map(
 			(
 				await getArtifactThreadSummaries(
 					db,
-					artifactRows.map((a) => a.artifactId),
+					artifactRows.map((a) => a.artifact.id),
 				)
 			).map((s) => [s.artifactId, s]),
 		);
 		const rows = artifactRows.map((a) => {
-			const s = summaryByArtifact.get(a.artifactId);
+			const s = summaryByArtifact.get(a.artifact.id);
 			return {
-				artifactId: a.artifactId,
-				artifactKind: a.artifactKind,
-				artifactPreviewJson: a.artifactPreviewJson,
+				artifactId: a.artifact.id,
+				artifactKind: a.artifact.kind,
+				artifactPreviewJson: a.artifact.previewJson,
 				taskTitle: a.taskTitle,
 				threadId: s?.threadId ?? null,
 				messageCount: s?.messageCount ?? 0,
