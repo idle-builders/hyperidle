@@ -144,4 +144,3 @@ export function nextCronMatch(cron: CronFields, from: Date): Date {
 
 	throw new Error("No cron match found within 400 days");
 }
-

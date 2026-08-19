@@ -605,7 +605,11 @@ describe("resolveTaskRunRequest — session_start path", () => {
 		await expect(
 			resolveTaskRunRequest(
 				db,
-				{ kind: "session_start", taskId: "task-does-not-exist", requestedAgentId: "agent-sstart-missing-task" },
+				{
+					kind: "session_start",
+					taskId: "task-does-not-exist",
+					requestedAgentId: "agent-sstart-missing-task",
+				},
 				{ requireRunnableAgent },
 			),
 		).rejects.toThrow();
@@ -622,7 +626,11 @@ describe("resolveTaskRunRequest — session_start path", () => {
 		await expect(
 			resolveTaskRunRequest(
 				db,
-				{ kind: "session_start", taskId: "task-sstart-2", requestedAgentId: "agent-sstart-2-unrunnable" },
+				{
+					kind: "session_start",
+					taskId: "task-sstart-2",
+					requestedAgentId: "agent-sstart-2-unrunnable",
+				},
 				{ requireRunnableAgent },
 			),
 		).rejects.toThrow();
@@ -642,7 +650,11 @@ describe("resolveTaskRunRequest — session_start path", () => {
 		await expect(
 			resolveTaskRunRequest(
 				db,
-				{ kind: "session_start", taskId: "task-sstart-3", requestedAgentId: "agent-sstart-3-retired" },
+				{
+					kind: "session_start",
+					taskId: "task-sstart-3",
+					requestedAgentId: "agent-sstart-3-retired",
+				},
 				{ requireRunnableAgent },
 			),
 		).rejects.toThrow();
@@ -685,7 +697,11 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 
 		const baked = await resolveTaskRunRequest(
 			db,
-			{ kind: "session_start", taskId: "task-sstart-thread-1", requestedAgentId: "agent-sstart-thread-1" },
+			{
+				kind: "session_start",
+				taskId: "task-sstart-thread-1",
+				requestedAgentId: "agent-sstart-thread-1",
+			},
 			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
 		);
 
@@ -709,12 +725,20 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 
 		const first = await resolveTaskRunRequest(
 			db,
-			{ kind: "session_start", taskId: "task-sstart-thread-2", requestedAgentId: "agent-sstart-thread-2" },
+			{
+				kind: "session_start",
+				taskId: "task-sstart-thread-2",
+				requestedAgentId: "agent-sstart-thread-2",
+			},
 			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
 		);
 		const second = await resolveTaskRunRequest(
 			db,
-			{ kind: "session_start", taskId: "task-sstart-thread-2", requestedAgentId: "agent-sstart-thread-2" },
+			{
+				kind: "session_start",
+				taskId: "task-sstart-thread-2",
+				requestedAgentId: "agent-sstart-thread-2",
+			},
 			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
 		);
 
@@ -734,7 +758,11 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 
 		const baked = await resolveTaskRunRequest(
 			db,
-			{ kind: "session_start", taskId: "task-sstart-thread-3", requestedAgentId: "agent-sstart-thread-3" },
+			{
+				kind: "session_start",
+				taskId: "task-sstart-thread-3",
+				requestedAgentId: "agent-sstart-thread-3",
+			},
 			{ requireRunnableAgent },
 		);
 
