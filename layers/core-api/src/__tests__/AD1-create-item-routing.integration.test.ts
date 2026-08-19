@@ -1,16 +1,17 @@
 /**
- * AD1 RED — Wire Review Routing to Humans: create-item routing tests.
- *
- * These tests FAIL until:
- *  - resolveReviewRecipients is wired into create-item.ts handler
- *  - When kind === "review" || kind === "escalation" || verb === "review",
- *    the resulting thread participants include human reviewers from org_edges
- *  - When no org_edges match, ALL human users are added as participants
- *  - For non-review kinds, no extra participants are added
+ * AD1 — Wire Review Routing to Humans: create-item routing tests.
  *
  * AC: When an agent creates a review item, the resulting thread includes
- *     the appropriate human(s) as participants — determined by
- *     resolveReviewRecipients() based on org_edges.
+ *     the appropriate human(s) as participants — determined by team membership:
+ *
+ *  - Recipients are the humans on the agent's team (via ctx.teamId).
+ *  - If the team has no humans, fall back to ALL humans so every review
+ *    still reaches someone.
+ *  - For non-review kinds (and non-review verbs), no extra participants.
+ *
+ * @lore AU20 ruling 1: the old org-edges matrix is gone. Routing is now
+ * purely team-scoped: team membership answers "who reviews this agent's work".
+ * The fallback (all humans) ensures no review is silently dropped.
  */
 
 import * as os from "node:os";
@@ -19,16 +20,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import {
-	bets,
-	type HyperIdleDb,
-	orgEdges,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
@@ -40,6 +32,7 @@ import { disposeApp } from "../app.js";
 
 const NOW = new Date().toISOString();
 const TEST_TEAM_ID = "team-ad1";
+const TEST_TEAM_MEMBERS_ID = "tm-ad1";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({
@@ -49,7 +42,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 	await db.insert(teamMembers).values({
-		id: "tm-ad1",
+		id: TEST_TEAM_MEMBERS_ID,
 		teamId: TEST_TEAM_ID,
 		capacity: 3,
 		activeBets: 0,
@@ -62,24 +55,25 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(users).values([
-		{
-			id: "agent-ad1",
-			kind: "ai",
-			name: "Builder Agent",
-			role: "builder",
-			status: "active",
-			createdAt: NOW,
-		},
-		{
-			id: "founder-ad1",
-			kind: "human",
-			name: "Founder",
-			role: "founder",
-			status: "active",
-			createdAt: NOW,
-		},
-	]);
+	// Agent on the team (AI — never a review recipient)
+	await db.insert(users).values({
+		id: "agent-ad1",
+		kind: "ai",
+		name: "Builder Agent",
+		role: "builder",
+		status: "active",
+		teamId: TEST_TEAM_MEMBERS_ID,
+		createdAt: NOW,
+	});
+	// Human NOT on the team by default — tests opt-in by setting teamId
+	await db.insert(users).values({
+		id: "founder-ad1",
+		kind: "human",
+		name: "Founder",
+		role: "founder",
+		status: "active",
+		createdAt: NOW,
+	});
 	await db.insert(tasks).values({
 		id: "task-ad1",
 		betId: "bet-ad1",
@@ -146,26 +140,23 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 	});
 
 	// -------------------------------------------------------------------------
-	// AC: review kind → human participants added via org_edges
+	// AC: review kind → human participants added, team-scoped
 	// -------------------------------------------------------------------------
-	describe("AC: kind=review routes to matched human via org_edges", () => {
-		it("adds matched human reviewer when direct org_edge exists for the agent", async () => {
-			// Seed a second human NOT connected via org_edge
+	describe("AC: kind=review routes to humans on the agent's team", () => {
+		it("adds only the team's humans when the team has human members", async () => {
+			// Put founder-ad1 ON the team (teamMembersId = tm-ad1)
+			await db
+				.update(users)
+				.set({ teamId: TEST_TEAM_MEMBERS_ID })
+				.where(eq(users.id, "founder-ad1"));
+
+			// Seed a human NOT on the team
 			await db.insert(users).values({
 				id: "unrelated-human",
 				kind: "human",
 				name: "Unrelated Human",
 				role: "founder",
 				status: "active",
-				createdAt: NOW,
-			});
-
-			// founder-ad1 reviews agent-ad1 directly
-			await db.insert(orgEdges).values({
-				id: "edge-direct-ad1",
-				fromUserId: "founder-ad1",
-				mechanism: "direct",
-				target: "agent-ad1",
 				createdAt: NOW,
 			});
 
@@ -185,14 +176,15 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 			const { threadId } = result.data as { threadId: string; itemId: string; view: unknown };
 			const participants = await getThreadParticipants(db, threadId);
 
-			// Thread participants must include founder-ad1 (the matched reviewer)
+			// Thread participants must include founder-ad1 (on the team)
 			expect(participants).toContain("founder-ad1");
-			// unrelated-human should NOT be included (edge matched, so no fallback)
+			// unrelated-human is NOT on the team and team has humans → no fallback
 			expect(participants).not.toContain("unrelated-human");
 		});
 
-		it("falls back to all humans when no org_edges exist for the agent", async () => {
-			// Seed a second human (no org_edges seeded)
+		it("falls back to all humans when the agent's team has no human members", async () => {
+			// founder-ad1 is NOT on the team (no teamId set in seedBase)
+			// Seed a second human also not on the team
 			await db.insert(users).values({
 				id: "fallback-human-2",
 				kind: "human",
@@ -218,7 +210,7 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 			const { threadId } = result.data as { threadId: string; itemId: string; view: unknown };
 			const participants = await getThreadParticipants(db, threadId);
 
-			// Both humans must be in participants (fallback = all humans)
+			// Fallback: team has no humans → all humans are included
 			expect(participants).toContain("founder-ad1");
 			expect(participants).toContain("fallback-human-2");
 		});
@@ -245,7 +237,7 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 			const { threadId } = result.data as { threadId: string; itemId: string; view: unknown };
 			const participants = await getThreadParticipants(db, threadId);
 
-			// fallback: all humans (no org_edges seeded)
+			// team has no humans → fallback → founder-ad1 (only human) is included
 			expect(participants).toContain("founder-ad1");
 		});
 	});
@@ -324,21 +316,20 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 	// AC: participants are sorted and deduplicated
 	// -------------------------------------------------------------------------
 	describe("AC: thread participants are sorted and deduplicated", () => {
-		it("deduplicates agent when agent is also a matched reviewer (edge case)", async () => {
-			// Agent is the same user as an org_edge fromUserId (weird but possible)
-			await db.insert(orgEdges).values({
-				id: "edge-self",
-				fromUserId: "agent-ad1",
-				mechanism: "direct",
-				target: "agent-ad1",
+		it("deduplicates and sorts participants when agent is also a human on the team", async () => {
+			// Put agent-ad1 as a human on the team (unusual but tests deduplication)
+			await db.insert(users).values({
+				id: "human-also-on-team",
+				kind: "human",
+				name: "Human On Team",
+				role: "founder",
+				status: "active",
+				teamId: TEST_TEAM_MEMBERS_ID,
 				createdAt: NOW,
 			});
 
 			const ctx = makeContext(db, eventBus);
-			const result = await createItemTool.handler(
-				{ title: "Self-review edge case", kind: "review" },
-				ctx,
-			);
+			const result = await createItemTool.handler({ title: "Dedup test", kind: "review" }, ctx);
 
 			expect(result.success).toBe(true);
 			if (!result.success) return;

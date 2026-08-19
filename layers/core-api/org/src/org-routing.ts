@@ -1,76 +1,41 @@
-import { type HyperIdleDb, orgEdges } from "@hyperidle/db";
-import { and, eq } from "drizzle-orm";
-import type { OrgUserDirectory } from "./ports.js";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { getTeamMembers } from "./team-lookup.js";
 
 /**
  * Resolve which human users should receive a review/escalation.
  *
  * Resolution algorithm:
- *  1. Query WHERE mechanism="direct" AND target=context.userId (if userId provided)
- *  2. Query WHERE mechanism="function" AND target=context.agentRole (if agentRole provided)
- *  3. Query WHERE mechanism="team" AND target=context.teamId (if teamId provided)
- *  4. Union the fromUserId values (deduplicated via Set)
- *  5. If result set is empty, return all human user IDs
+ *  1. If teamId is provided, find the teamMembers row for that team.
+ *  2. Query humans whose users.teamId matches that teamMembers.id.
+ *  3. If any humans found on the team, return them.
+ *  4. Otherwise fall back to ALL human users so every review still reaches someone.
  *
- * @lore P2: This is the kernel-level routing query. It superseded the old
- * strategy-layer founder-router.ts for review routing; founder-router.ts
- * itself (dead, 0 real callers) was deleted in AU11. When no org edges
- * exist (or none match), falls back to ALL human users — ensuring every
- * review always reaches someone.
- *
- * @lore AU19 Increment 1c: `users` is an injected `OrgUserDirectory` port
- * (Mechanism C) — this used to import `listUsersByKind` directly from the
- * sibling `user-store.ts` (an ordinary downward core-api→core-api edge, NOT
- * §10.3 against-grain; `users` just hasn't migrated to its own package yet).
- * Callers (`tools/create-item.ts`, `session-review-creator.ts`) pass the real
- * `packages/server` function reference unchanged — no behavior change.
+ * @lore AU20 destroy pass + founder ruling 1: the old org-edges matrix
+ * (direct/function/team edges configuring named reviewers per agent/role/team)
+ * was an approval chart — hierarchy and roles-as-permissions the product ethos
+ * forbids. The matrix is gone; the capability survives as a simpler query:
+ * team membership already encodes who the humans on a team are, so
+ * "which humans review this agent's work" = "the humans on this agent's team".
+ * The fallback (team has no humans → all humans) ensures no review is silently
+ * lost on a mixed-team org where a team has only agents right now.
  */
 export async function resolveReviewRecipients(
 	db: HyperIdleDb,
 	context: { userId?: string; agentRole?: string; teamId?: string },
-	users: Pick<OrgUserDirectory, "listUsersByKind">,
+	users: { listHumans(db: HyperIdleDb, teamMembersId?: string): Promise<Array<{ id: string }>> },
 ): Promise<string[]> {
-	const matchedFromUserIds = new Set<string>();
-
-	// Query direct edges (mechanism = "direct", target = userId)
-	if (context.userId) {
-		const directMatches = await db
-			.select({ fromUserId: orgEdges.fromUserId })
-			.from(orgEdges)
-			.where(and(eq(orgEdges.mechanism, "direct"), eq(orgEdges.target, context.userId)));
-		for (const row of directMatches) {
-			matchedFromUserIds.add(row.fromUserId);
-		}
-	}
-
-	// Query function edges (mechanism = "function", target = agentRole)
-	if (context.agentRole) {
-		const functionMatches = await db
-			.select({ fromUserId: orgEdges.fromUserId })
-			.from(orgEdges)
-			.where(and(eq(orgEdges.mechanism, "function"), eq(orgEdges.target, context.agentRole)));
-		for (const row of functionMatches) {
-			matchedFromUserIds.add(row.fromUserId);
-		}
-	}
-
-	// Query team edges (mechanism = "team", target = teamId)
+	// Team-scoped: find humans on the agent's own team.
 	if (context.teamId) {
-		const teamMatches = await db
-			.select({ fromUserId: orgEdges.fromUserId })
-			.from(orgEdges)
-			.where(and(eq(orgEdges.mechanism, "team"), eq(orgEdges.target, context.teamId)));
-		for (const row of teamMatches) {
-			matchedFromUserIds.add(row.fromUserId);
+		const memberGroup = await getTeamMembers(db, { teamId: context.teamId });
+		if (memberGroup) {
+			const teamHumans = await users.listHumans(db, memberGroup.id);
+			if (teamHumans.length > 0) {
+				return teamHumans.map((u) => u.id);
+			}
 		}
 	}
 
-	// If any edges matched, return those fromUserIds
-	if (matchedFromUserIds.size > 0) {
-		return Array.from(matchedFromUserIds);
-	}
-
-	// Fallback: return all human user IDs
-	const humanUsers = await users.listUsersByKind(db, "human");
-	return humanUsers.map((u) => u.id);
+	// Fallback: all humans — every review reaches someone.
+	const allHumans = await users.listHumans(db, undefined);
+	return allHumans.map((u) => u.id);
 }

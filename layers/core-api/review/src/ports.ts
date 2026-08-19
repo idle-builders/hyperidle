@@ -100,10 +100,17 @@ export interface ReviewPorts {
 		listUsersByKind(db: HyperIdleDb, kind: string): Promise<User[]>;
 	};
 	readonly org: {
+		/**
+		 * @lore AU20 destroyer ruling 1: the old edges matrix is gone; the new
+		 * implementation queries humans on the agent's team (fallback: all humans).
+		 * The `users` parameter now carries `listHumans` instead of `listUsersByKind`.
+		 */
 		resolveReviewRecipients(
 			db: HyperIdleDb,
 			context: ReviewRoutingContext,
-			users: { listUsersByKind(db: HyperIdleDb, kind: string): Promise<User[]> },
+			users: {
+				listHumans(db: HyperIdleDb, teamMembersId?: string): Promise<Array<{ id: string }>>;
+			},
 		): Promise<string[]>;
 	};
 	readonly intentRecorder: ReviewAgentWorkIntentRecorder;
