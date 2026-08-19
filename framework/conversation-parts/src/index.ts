@@ -10,7 +10,6 @@ export type {
 } from "./part.js";
 export {
 	aggregateToolRun,
-	deriveComposerPills,
 	derivePartsFromMessages,
 	derivePartsFromSession,
 	groupParts,

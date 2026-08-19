@@ -13,10 +13,7 @@
 
 import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	readSystemPromptTemplateForRole,
-	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "@hyperidle/factory-defaults";
+import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
 
 const AH2_DEFAULTS = {
 	harnessType: "builtin",
@@ -44,12 +41,11 @@ export async function applyFactoryRunConfigDefaults(
 	// (graceful degradation) — writing `systemPrompt: null` on a missing file
 	// would overwrite an existing prompt, which the `content !== null` guard
 	// below exists to prevent.
-	for (const role of Object.keys(SYSTEM_PROMPT_TEMPLATE_FILES)) {
-		const content = readSystemPromptTemplateForRole(role);
+	// @lore AU44 B0: formerly iterated SYSTEM_PROMPT_TEMPLATE_FILES keys; now iterates
+	// rosterAgents directly so the deleted SYSTEM_PROMPT_TEMPLATE_FILES export is not needed.
+	for (const agent of rosterAgents) {
+		const content = readSystemPromptTemplateForRole(agent.role);
 		if (content === null) continue;
-		for (const agent of rosterAgents) {
-			if (agent.role !== role) continue;
-			await writeAgentRunConfig(db, agent.id, { systemPrompt: content });
-		}
+		await writeAgentRunConfig(db, agent.id, { systemPrompt: content });
 	}
 }

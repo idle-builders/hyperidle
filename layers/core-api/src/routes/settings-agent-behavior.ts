@@ -1,6 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
-	type AgentBehaviorConfigErrorResponse,
 	type AgentBehaviorConfigListResponse,
 	type AgentBehaviorConfigPatchRequest,
 	type AgentBehaviorConfigPatchResponse,
@@ -12,6 +11,14 @@ import {
 	listAgentBehaviorConfiguration,
 	patchAgentBehaviorConfiguration,
 } from "./agent-behavior-config-impl.js";
+
+type AgentBehaviorCode =
+	| "INVALID_KIND"
+	| "NOT_FOUND"
+	| "UNEDITABLE_FIELD"
+	| "INVALID_VALUE"
+	| "SECRET_VALUE_REJECTED"
+	| "RATE_LIMITED";
 
 export function createAgentBehaviorSettingsRoutes(db: HyperIdleDb): Hono {
 	const router = new Hono();
@@ -53,13 +60,13 @@ export function createAgentBehaviorSettingsRoutes(db: HyperIdleDb): Hono {
 }
 
 function errorResponse(
-	code: AgentBehaviorConfigErrorResponse["code"],
+	code: AgentBehaviorCode,
 	error: string,
-): AgentBehaviorConfigErrorResponse {
+): { code: AgentBehaviorCode; error: string } {
 	return { code, error };
 }
 
-function statusForError(code: AgentBehaviorConfigErrorResponse["code"]): 400 | 404 | 422 {
+function statusForError(code: AgentBehaviorCode): 400 | 404 | 422 {
 	switch (code) {
 		case "INVALID_KIND":
 		case "UNEDITABLE_FIELD":

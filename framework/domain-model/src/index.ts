@@ -1,5 +1,4 @@
 export type {
-	AgentBehaviorConfigErrorResponse,
 	AgentBehaviorConfigKind,
 	AgentBehaviorConfigLink,
 	AgentBehaviorConfigListResponse,
@@ -330,7 +329,6 @@ export type {
 	TriggerRuleValue,
 } from "./trigger.js";
 export {
-	isTriggerEventType,
 	TRIGGER_EVENT_TYPES,
 	TRIGGER_RESULT_STATES,
 	TriggerRuleValueSchema,

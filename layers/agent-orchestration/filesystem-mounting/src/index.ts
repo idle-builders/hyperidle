@@ -14,7 +14,6 @@
  * `@hyperidle/filesystems` — `filesystems` is still a core-owned table.
  */
 
-export type { AdapterDeps } from "./mounter-registry.js";
 export { RegistryFilesystemMounter } from "./mounter-registry.js";
 export type { MountingGitRunnerFactory } from "./ports.js";
 export { SANDBOX_SCAFFOLDING_PATHS } from "./scaffolding-paths.js";

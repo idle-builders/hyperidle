@@ -1481,7 +1481,6 @@ export type PluginRow = typeof plugins.$inferSelect;
 export type PluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferSelect;
 
 export type ConfigurationOverrideRow = typeof configurationOverrides.$inferSelect;
-export type NewConfigurationOverrideRow = typeof configurationOverrides.$inferInsert;
 
 export type LoginSession = typeof loginSessions.$inferSelect;
 export type NewLoginSession = typeof loginSessions.$inferInsert;
@@ -1490,10 +1489,8 @@ export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
 
 export type ProposedCall = typeof proposedCalls.$inferSelect;
-export type NewProposedCall = typeof proposedCalls.$inferInsert;
 
 export type TailoredGrant = typeof tailoredGrants.$inferSelect;
-export type NewTailoredGrant = typeof tailoredGrants.$inferInsert;
 
 export type OperationOutcome = typeof operationOutcomes.$inferSelect;
 

@@ -24,6 +24,47 @@ for a future deletion to succeed.
 
 ---
 
+## AU44 Batch 0 additions (AU43 close-out, 2026-08-19)
+
+### KEEP-restored routes — added during AU43 but never recorded here
+
+The AU43 delete pass restored these symbols while marked KEEP in the audit. They are intentionally
+present and were never added to this list as required.
+
+- `listOrgEdges` — restored with org chart feature during AU43. Intentional survivor.
+- `deleteOrgEdge` — restored with org chart feature during AU43. Intentional survivor.
+- `upsertOrgEdge` — restored with org chart feature during AU43. Intentional survivor.
+- `UpsertOrgEdgeInput` — restored with org chart feature during AU43. Intentional survivor.
+- `ActiveTeamMembersWithTeamName` — restored with org chart feature during AU43. Intentional survivor.
+- `listDismissedHints` — restored with hints feature during AU43. Intentional survivor.
+- `dismissHint` — restored with hints feature during AU43. Intentional survivor.
+- `DismissedHint` — restored with hints feature during AU43. Intentional survivor.
+- `listConfiguration` — restored with filesystems settings page during AU43. Intentional survivor.
+- `writeConfigurationOverride` — restored with filesystems settings page during AU43. Intentional survivor.
+
+### Auth substrate — boundary belongs to the auth work package
+
+The A7 ruling changed standing for the invite/session substrate. The shared backend needs the session
+half; the invite half remains convicted but splitting it is the auth work package's call.
+
+- `createInvite` — convicted by AU20; A7 ruling defers to auth work package. Deletes when auth WP removes invite-based login.
+- `claimInvite` — same as `createInvite` above.
+- `createLoginSession` — convicted by AU20; session substrate the shared backend requires. Deletes with auth WP login-session removal.
+- `validateBearerToken` — convicted by AU20; used by auth middleware on every request. Deletes with auth WP.
+- `revokeLoginSession` — convicted by AU20; session substrate needed by shared backend. Deletes with auth WP.
+- `InviteRole` — type parameter of `createInvite`; deletes with it.
+- `INVITE_ROLES` — runtime guard inside `createInvite`; deletes with it.
+- `LOGIN_SESSION_TTL_MS` — constant used by `createLoginSession`; deletes with auth WP session removal.
+- `INVITE_CODE_TTL_MS` — constant used by `createInvite`; deletes with invite removal.
+- `NewLoginSession` — inferred insert type for the login_sessions table; deletes with auth WP.
+- `NewInviteCode` — inferred insert type for the invite_codes table; deletes with invite removal.
+
+### PostBetRetroArgs — blocked by PLUGIN neighbours
+
+- `PostBetRetroArgs` — input type for `postBetRetro`. Its direct callers `fireBuiltinRoutine` and `registerBuiltinRoutineHandlers` are PLUGIN rows (BA9). Deletes when BA9 removes those two.
+
+---
+
 ## Coverage lost, worth re-establishing
 
 Not survivors — these are gaps the pass created and did not fill.

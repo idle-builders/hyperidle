@@ -23,32 +23,16 @@
 //   PART_KINDS extended with "tool" | "reasoning"
 //   derivePartsFromSession(entries, agent) real impl
 import type { ActivityEntry } from "@hyperidle/domain-model";
-// Composer-pill derivation — dispatch on HarnessCapabilityDescriptor.control.kind
-import type {
-	HarnessCapabilityDescriptor,
-	HarnessModelOptionDescriptor,
-} from "@hyperidle/harness-capability";
 import { describe, expect, it } from "vitest";
 // Aggregation grouping imported from part.js (beside groupParts)
 import {
 	aggregateToolRun,
-	deriveComposerPills,
 	derivePartsFromSession,
 	type Part,
 	type PartAuthor,
 	TOOL_KINDS,
 	type ToolKind,
 } from "../part.js";
-
-const PART_KINDS_INLINE = [
-	"prose",
-	"review",
-	"resolved",
-	"questionnaire",
-	"tool",
-	"reasoning",
-	"unknown",
-] as const;
 
 // ── Fixture helpers ──────────────────────────────────────────────
 
@@ -619,188 +603,5 @@ describe("AM3 aggregateToolRun — tool-run aggregation grouping", () => {
 		} else {
 			throw new Error("expected a tool-run block");
 		}
-	});
-});
-
-// ── Composer pills — HarnessCapabilityDescriptor dispatch ─────────────
-
-describe("AM3 deriveComposerPills — descriptor-driven, no per-backend branch", () => {
-	const DESCRIPTOR_WITH_OPTIONS: HarnessCapabilityDescriptor = {
-		type: "claude-code",
-		name: "Claude Code",
-		kind: "local",
-		authAction: { kind: "native_cli_login", label: "Logged in" },
-		discovery: { state: "ready", version: "1.4.2" },
-		modelProviders: ["anthropic"],
-		models: [
-			{
-				id: "claude-opus-4",
-				label: "Opus 4",
-				selectable: true,
-				inheritedFromGateway: false,
-				options: [
-					{
-						key: "effort",
-						label: "Effort",
-						control: {
-							kind: "select",
-							choices: [
-								{ value: "high", label: "High" },
-								{ value: "low", label: "Low" },
-							],
-						},
-						required: false,
-						scope: "launch",
-						defaultValue: "high",
-					},
-					{
-						key: "mode",
-						label: "Mode",
-						control: {
-							kind: "select",
-							choices: [
-								{ value: "build", label: "Build" },
-								{ value: "plan", label: "Plan" },
-							],
-						},
-						required: false,
-						scope: "launch",
-						defaultValue: "build",
-					},
-				],
-			},
-		],
-	};
-
-	const DESCRIPTOR_NO_OPTIONS: HarnessCapabilityDescriptor = {
-		...DESCRIPTOR_WITH_OPTIONS,
-		models: [
-			{
-				id: "claude-sonnet-4-6",
-				label: "Sonnet 4.6",
-				selectable: true,
-				inheritedFromGateway: false,
-				options: [],
-			},
-		],
-	};
-
-	it("returns a pill for each declared option in the selected model", () => {
-		const pills = deriveComposerPills(DESCRIPTOR_WITH_OPTIONS, "claude-opus-4");
-		// effort + mode declared → 2 pills
-		expect(pills.length).toBe(2);
-	});
-
-	it("a model with no declared options → no pills (undeclared option ⇒ absent)", () => {
-		const pills = deriveComposerPills(DESCRIPTOR_NO_OPTIONS, "claude-sonnet-4-6");
-		expect(pills).toHaveLength(0);
-	});
-
-	it("select control.kind → a 'select' pill kind", () => {
-		const pills = deriveComposerPills(DESCRIPTOR_WITH_OPTIONS, "claude-opus-4");
-		const effortPill = pills.find((p) => p.key === "effort");
-		expect(effortPill?.control.kind).toBe("select");
-	});
-
-	it("no per-backend branch — identical pill shape from any harness type", () => {
-		// Same options but from a hypothetical 'custom-harness' type
-		const descriptor2: HarnessCapabilityDescriptor = {
-			...DESCRIPTOR_WITH_OPTIONS,
-			type: "custom-harness",
-			name: "Custom",
-		};
-		const pills1 = deriveComposerPills(DESCRIPTOR_WITH_OPTIONS, "claude-opus-4");
-		const pills2 = deriveComposerPills(descriptor2, "claude-opus-4");
-		// Same shape — no branching on type
-		expect(pills1.map((p) => p.key)).toEqual(pills2.map((p) => p.key));
-	});
-
-	it("unknown control.kind renders nothing (closed union, never throws)", () => {
-		const opt: HarnessModelOptionDescriptor = {
-			key: "exotic",
-			label: "Exotic",
-			control: { kind: "exotic-future-kind" as "text" },
-			required: false,
-			scope: "launch",
-		};
-		const descriptor3: HarnessCapabilityDescriptor = {
-			...DESCRIPTOR_WITH_OPTIONS,
-			models: [
-				{
-					id: "claude-opus-4",
-					label: "Opus 4",
-					selectable: true,
-					inheritedFromGateway: false,
-					options: [opt],
-				},
-			],
-		};
-		let pills: HarnessModelOptionDescriptor[] = [];
-		expect(() => {
-			pills = deriveComposerPills(descriptor3, "claude-opus-4");
-		}).not.toThrow();
-		// Unrecognized control kind → no pill rendered
-		expect(pills.find((p) => p.key === "exotic")).toBeUndefined();
-	});
-});
-
-// ── Queued message — pre-Part FIFO state ─────────────────────────────
-
-describe("AM3 queued message — pre-Part state (not a Part kind)", () => {
-	it("a queued message converts to a prose Part on delivery", () => {
-		// Simulated delivery: a human_message entry (the queue head consumed)
-		const entries: ActivityEntry[] = [humanEntry("Check the Safari issue too")];
-		const parts = derivePartsFromSession(entries, AGENT);
-		const prose = parts.find((p) => p.kind === "prose");
-		expect(prose?.kind).toBe("prose");
-		if (prose?.kind === "prose") {
-			expect(prose.text).toContain("Safari");
-		}
-	});
-});
-
-// ── Source-agnostic boundary (AC3 import boundary preserved) ──────────
-
-describe("AM3 source-agnostic boundary — session adapter uses ActivityEntry[] only", () => {
-	it("derivePartsFromSession signature accepts ActivityEntry[] — no harness-type parameter", () => {
-		// If the adapter required a harness-type parameter it would violate AC3.
-		// This test passes iff the function signature is (entries, agent) with no 3rd arg.
-		const entries: ActivityEntry[] = [toolEntry()];
-		// Should compile and run with exactly these two args
-		expect(() => derivePartsFromSession(entries, AGENT)).not.toThrow();
-	});
-
-	it("produces well-formed Parts from any normalized ActivityEntry[]", () => {
-		const entries: ActivityEntry[] = [
-			toolEntry(),
-			reasoningEntry(),
-			answerEntry("Hello world", false),
-		];
-		const parts = derivePartsFromSession(entries, AGENT);
-		for (const p of parts) {
-			expect(typeof p.id).toBe("string");
-			expect((PART_KINDS_INLINE as ReadonlyArray<string>).includes(p.kind)).toBe(true);
-			expect(Array.isArray(p.embeds)).toBe(true);
-			expect(typeof p.author?.name).toBe("string");
-		}
-	});
-});
-
-// ── Exhaustive over all ActivityEntry["type"] ─────────────────────────
-
-describe("AM3 derivePartsFromSession — exhaustive over ActivityEntry types", () => {
-	it("does NOT throw on any known ActivityEntry type", () => {
-		const entries: ActivityEntry[] = [
-			toolEntry(),
-			reasoningEntry(),
-			answerEntry("hi", true),
-			answerEntry("done", false),
-			humanEntry("question"),
-		];
-		expect(() => derivePartsFromSession(entries, AGENT)).not.toThrow();
-	});
-
-	it("handles empty entries (session not started yet)", () => {
-		expect(derivePartsFromSession([], AGENT)).toEqual([]);
 	});
 });

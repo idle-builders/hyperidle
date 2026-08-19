@@ -37,7 +37,6 @@
 import type { OpenHandler, Part, PartAuthor, ToolRunBlock } from "@hyperidle/conversation-parts";
 import {
 	aggregateToolRun,
-	deriveComposerPills,
 	derivePartsFromSession,
 	groupParts,
 } from "@hyperidle/conversation-parts";
@@ -560,10 +559,6 @@ function SessionComposer({
 }): JSX.Element {
 	const [text, setText] = useState("");
 	const [selectedModelId, setSelectedModelId] = useState(initialModelId);
-	// Per-option toggle state (boolean) or selected-choice state (select).
-	const [optionValues, setOptionValues] = useState<Record<string, string | boolean>>({});
-	const pills = descriptor ? deriveComposerPills(descriptor, selectedModelId) : [];
-
 	/** Cycle to the next model in the descriptor list. */
 	const handleModelCycle = (): void => {
 		if (!descriptor) return;
@@ -625,61 +620,16 @@ function SessionComposer({
 				)}
 			</div>
 
-			{/* descriptor pill row — model · per-model options + working state */}
+			{/* descriptor pill row — model · working state */}
 			<div className="border-width-thin-t flex items-center gap-[3px]  border-[var(--border-subtle)] px-[9px] py-[6px]">
 				{descriptor && (
-					<>
-						<button
-							type="button"
-							onClick={handleModelCycle}
-							className="type-control inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
-						>
-							{descriptor.models.find((m) => m.id === selectedModelId)?.label ?? selectedModelId}
-						</button>
-						{pills.length > 0 && <span className="h-[16px] w-px bg-[var(--border-subtle)]" />}
-						{pills.map((opt) => {
-							if (opt.control.kind === "select") {
-								const choices = opt.control.choices;
-								const current = optionValues[opt.key] as string | undefined;
-								const currentIdx = choices.findIndex((c) => c.value === current);
-								const displayLabel =
-									choices.find((c) => c.value === current)?.label ?? choices[0]?.label ?? opt.label;
-								return (
-									<button
-										key={opt.key}
-										type="button"
-										data-ds-control="select"
-										onClick={() => {
-											const next = choices[(currentIdx + 1) % choices.length];
-											if (next) {
-												setOptionValues((prev) => ({ ...prev, [opt.key]: next.value }));
-											}
-										}}
-										className="type-control inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
-									>
-										{displayLabel}
-									</button>
-								);
-							}
-							if (opt.control.kind === "boolean") {
-								const on = optionValues[opt.key] === true;
-								return (
-									<button
-										key={opt.key}
-										type="button"
-										data-ds-control="boolean"
-										onClick={() => {
-											setOptionValues((prev) => ({ ...prev, [opt.key]: !prev[opt.key] }));
-										}}
-										className={`type-control ${`inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]     hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)] ${on ? "text-[var(--accent-deep)]" : "text-[var(--text-secondary)]"}`}`}
-									>
-										{opt.label}
-									</button>
-								);
-							}
-							return null;
-						})}
-					</>
+					<button
+						type="button"
+						onClick={handleModelCycle}
+						className="type-control inline-flex items-center gap-[6px] rounded-[var(--r-pill)] px-[9px] py-[3px]   text-[var(--text-secondary)]   hover:bg-[var(--surface-container)] hover:text-[var(--text-primary)]"
+					>
+						{descriptor.models.find((m) => m.id === selectedModelId)?.label ?? selectedModelId}
+					</button>
 				)}
 				<span className="flex-1" />
 				{running && (

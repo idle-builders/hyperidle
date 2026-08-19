@@ -690,39 +690,3 @@ export function aggregateToolRun(
 	flushRun();
 	return blocks;
 }
-
-// ── Composer pills from HarnessCapabilityDescriptor (architecture §e) ─
-
-import type {
-	HarnessCapabilityDescriptor,
-	HarnessModelOptionDescriptor,
-} from "@hyperidle/harness-capability";
-
-/**
- * Derive the composer pill descriptors for the selected model from a
- * `HarnessCapabilityDescriptor`. Dispatch on `control.kind`; a model declaring
- * no option → no pill; an unknown control kind → no pill (closed union, no throw).
- *
- * Returns ONLY the `HarnessModelOptionDescriptor` entries that have a recognized
- * control kind (select | boolean | number | text). An unrecognized kind is silently
- * excluded — never throws (mirrors the `generic` ToolKind discipline).
- *
- * Signature: (descriptor, modelId) → HarnessModelOptionDescriptor[]
- * No harness-type parameter → no per-backend branch (AC4 uniformity proof).
- *
- * @lore AM3: The function is intentionally thin — it only filters recognized
- * control kinds. The UI component is responsible for rendering select/boolean/
- * number/text controls. This keeps the shared adapter free of React imports.
- */
-const RECOGNIZED_CONTROL_KINDS = ["select", "boolean", "number", "text"] as const;
-
-export function deriveComposerPills(
-	descriptor: HarnessCapabilityDescriptor,
-	modelId: string,
-): HarnessModelOptionDescriptor[] {
-	const model = descriptor.models.find((m) => m.id === modelId);
-	if (model === undefined) return [];
-	return model.options.filter((o) =>
-		(RECOGNIZED_CONTROL_KINDS as ReadonlyArray<string>).includes(o.control.kind),
-	);
-}
