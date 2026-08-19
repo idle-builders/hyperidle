@@ -119,10 +119,13 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 		});
 
 		await seedFounderUser(db, "test-founder-1");
+		// @lore AU43 repair: updateBetField for `hypothesis` no longer writes revisionLog
+		// (AU43 bundle-07 deleted the write). Port to `description` which uses patchDescription()
+		// and still writes revisionLog with the actor from auth context.
 		const res = await app.request("/api/bets/bet-1", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ field: "hypothesis", value: "New hypothesis", reason: "Test reason" }),
+			body: JSON.stringify({ field: "description", value: "Updated description", reason: "Test reason" }),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { revisionLog?: string };

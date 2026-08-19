@@ -212,9 +212,9 @@ describe("registerWorkSessionStartedReactions", () => {
 		await new Promise((resolve) => setTimeout(resolve, 30));
 
 		const [row] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+		// @lore AU20 repair: audit trail check removed — tasks.auditTrail writes were deleted by
+		// the AU20 destroyer pass. The idempotency check (state stays in_progress) is preserved.
 		expect(row?.state).toBe("in_progress");
-		const auditTrail = row?.auditTrail ? (JSON.parse(row.auditTrail) as unknown[]) : [];
-		expect(auditTrail).toHaveLength(1);
 	});
 
 	test("session_started with taskId: null (task-free session) is a no-op", async ({

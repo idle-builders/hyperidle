@@ -103,6 +103,14 @@ async function reactToAdmissionFailure(
 		case "task_run":
 			await work.taskDispatchAttemptStore.markFailed(db, event.sourceId);
 			return;
+		case "session_start":
+			// Mark the explicitSessionStarts row failed. No automatic retry —
+			// an explicit human/agent-requested start must not be silently restarted.
+			await agentOrchestration.requests.failExplicitSessionStart(
+				event.sourceId,
+				event.failureCode,
+			);
+			return;
 		case "knowledge_action":
 			await flagStalledKnowledgeAction(db, eventBus, event);
 			return;

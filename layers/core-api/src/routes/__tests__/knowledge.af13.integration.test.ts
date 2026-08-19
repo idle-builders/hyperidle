@@ -18,7 +18,6 @@
 
 import {
 	type HyperIdleDb,
-	knowledgeAccessLog,
 	knowledgeAppProjection,
 	knowledgeItems,
 	users,
@@ -73,103 +72,8 @@ async function seedItem(
 	await db.insert(knowledgeAppProjection).values({ id: `${id}-projection`, knowledgeItemId: id });
 }
 
-async function seedAccessLog(
-	db: HyperIdleDb,
-	itemId: string,
-	count: number,
-	withinWindow = true,
-): Promise<void> {
-	const now = Date.now();
-	for (let i = 0; i < count; i++) {
-		const offset = withinWindow
-			? // within 30-day window: 1..count days ago
-				(i + 1) * 24 * 60 * 60 * 1000
-			: // outside window: 35 days ago
-				35 * 24 * 60 * 60 * 1000 + i * 1000;
-		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId,
-			accessorKind: "human",
-			accessorId: "browser",
-			accessedAt: new Date(now - offset).toISOString(),
-		});
-	}
-}
-
-// ---------------------------------------------------------------------------
-// §5 AC WARNING 1: Access count timing — count before insert
-// ---------------------------------------------------------------------------
-
-describe("AF13 §5 — Detail route: accessCount excludes the current page-load", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("GET /:id returns accessCount === N where N = pre-existing rows (not N+1 from own load)", async ({
-		db,
-		eventBus,
-	}) => {
-		// Arrange: seed founder, item, and 3 access-log rows within the 30-day window
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-access", { scopeKind: "factory", updatedBy: "u-founder" });
-		await seedAccessLog(db, "item-access", 3, true); // 3 existing rows
-
-		const app = await createTestApp({ db, eventBus });
-
-		// Act: fetch the detail once (triggers the best-effort access-log insert)
-		const res = await app.request("/api/knowledge/item-access", {
-			headers: authHeaders(),
-		});
-
-		// Assert
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { accessCount?: number };
-		// Must be exactly 3 (pre-existing), NOT 4 (would mean own load was counted)
-		// This test will fail until the route returns accessCount AND counts before insert.
-		expect(body.accessCount).toBe(3);
-	});
-
-	test("GET /:id returns accessCount === 0 when no prior access-log rows exist", async ({
-		db,
-		eventBus,
-	}) => {
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-zero-access", { scopeKind: "factory", updatedBy: "u-founder" });
-		// No access log rows seeded
-
-		const app = await createTestApp({ db, eventBus });
-
-		const res = await app.request("/api/knowledge/item-zero-access", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { accessCount?: number };
-		// Zero-access item should return 0 (real computed zero, not undefined)
-		// This fails until accessCount is added to the response.
-		expect(body.accessCount).toBe(0);
-	});
-
-	test("GET /:id does not count access-log rows older than 30 days", async ({ db, eventBus }) => {
-		await seedFounder(db, "u-founder");
-		await seedItem(db, "item-old-access", { scopeKind: "factory", updatedBy: "u-founder" });
-		await seedAccessLog(db, "item-old-access", 2, true); // 2 within window
-		await seedAccessLog(db, "item-old-access", 5, false); // 5 outside window
-
-		const app = await createTestApp({ db, eventBus });
-
-		const res = await app.request("/api/knowledge/item-old-access", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { accessCount?: number };
-		// Only the 2 within-window rows, not the 5 old ones.
-		expect(body.accessCount).toBe(2);
-	});
-});
+// @lore AU43 repair: accessCount describe block deleted — recordKnowledgeAccess was deleted by
+// AU43 bundle-4. The route never returns accessCount. The seedAccessLog helper is removed with it.
 
 // ---------------------------------------------------------------------------
 // §5 AC WARNING 2: relatedItems on the ROUTE RESPONSE

@@ -12,17 +12,16 @@ import { type ToolContext, toClaudeToolSpec } from "@hyperidle/tool-protocol";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
+// @lore AU20 repair: read_inbox, write_session_notes, commit_file deleted by the destroyer pass.
 const EXPECTED_TOOL_NAMES = [
 	"create_item",
 	"handoff_to",
 	"log_task",
 	"query_practice",
-	"read_inbox",
 	"send_message",
 	// AU27 Increment 2: the generic reply tool.
 	"reply",
 	"write_memory",
-	"write_session_notes",
 	// R5 agent work loop tools
 	"create_task",
 	"submit_review",
@@ -40,8 +39,6 @@ const EXPECTED_TOOL_NAMES = [
 	"update_routine",
 	// AK4: bet draft/edit tool for assistant conversational drafting
 	"edit_bet",
-	// AL7: commit_file — live-proof tool; declared reversibility:"irreversible" for the checkpoint
-	"commit_file",
 ];
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {

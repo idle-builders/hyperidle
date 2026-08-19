@@ -133,11 +133,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// (agent-orchestration's own per-session-cost write reaction,
 			// `session-requests`'s subscriber) is HARD-DELETED along with the
 			// rest of the cost feature — no replacement.
-			{
-				owner: "relevance listener",
-				cleanupEffect: "unsubscribes",
-				constituents: ["knowledge-access subscription"],
-			},
+			// @lore AU20 row 38/40: the "relevance listener" (knowledge_accessed
+			// subscriber that called recomputeRelevance) is HARD-DELETED — the
+			// whole relevance engine goes; the knowledge_accessed event stays as
+			// an extension surface for plugins.
 			{
 				owner: "review subscriptions",
 				cleanupEffect: "unsubscribe",
@@ -281,7 +280,10 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// @lore AU21 Increment 14a: `registerSessionCostRecorder`'s owned
 				// disposer (previously here, "session_ended" only) is HARD-DELETED
 				// along with the rest of the cost feature — no replacement.
-				{ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 },
+				// @lore AU20 row 38/40: the "relevance listener" disposer
+				// ({ unsubscribedEvents: ["knowledge_accessed"], clearedIntervals: 0 })
+				// is removed here — the listener itself was deleted with the
+				// whole relevance engine.
 				{ unsubscribedEvents: ["session_ended", "session_ended"], clearedIntervals: 0 },
 				{
 					unsubscribedEvents: [

@@ -49,11 +49,6 @@ function buildCreateTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>
 		(t) => t.name === "create_task",
 	)!;
 }
-function buildReadInboxTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
-	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
-		(t) => t.name === "read_inbox",
-	)!;
-}
 function buildSubmitReviewTool(app: Hono): ReturnType<typeof buildToolDefinitions>[number] {
 	return buildToolDefinitions(createInProcessCoreApiTransport(app)).find(
 		(t) => t.name === "submit_review",
@@ -262,77 +257,9 @@ describe("R5: Agent Work Loop integration", () => {
 		});
 	});
 
-	// AC3: Verdict round-trip — founder posts verdict, agent reads it via read_inbox
-	describe("AC3: verdict round-trip", () => {
-		test("founder verdict is readable by agent via read_inbox after review posted", async ({
-			db,
-			eventBus,
-			app,
-		}) => {
-			await seedBase(db);
-			const ctx = makeContext(db, eventBus);
-			const submitReviewTool = buildSubmitReviewTool(app);
-			const readInboxTool = buildReadInboxTool(app);
-
-			// Step 1: Agent submits review — establishes bet thread
-			const reviewResult = await submitReviewTool.handler(
-				{
-					title: "Work complete",
-					reasoning: ["All criteria met"],
-					artifactRef: { id: "art-1", kind: "content_preview" },
-				},
-				ctx,
-			);
-			expect(reviewResult.success).toBe(true);
-			if (!reviewResult.success) return;
-
-			const { threadId, messageId: reviewMessageId } = reviewResult.data as {
-				threadId: string;
-				messageId: string;
-			};
-
-			// Ensure founder is a participant so they can post the verdict
-			const [thread] = await db.select().from(threads).where(eq(threads.id, threadId));
-			const participants = JSON.parse(thread?.participants ?? "[]") as string[];
-			if (!participants.includes("founder-1")) {
-				const updated = [...participants, "founder-1"];
-				await db
-					.update(threads)
-					.set({ participants: JSON.stringify(updated) })
-					.where(eq(threads.id, threadId));
-			}
-
-			// Step 2: Founder posts verdict via API
-			const verdictClientKey = `verdict-${Date.now()}`;
-			const verdictRes = await app.request(`/api/threads/${threadId}/messages`, {
-				method: "POST",
-				headers: {
-					...authHeaders(),
-					"X-Identity": "founder-1",
-				},
-				body: JSON.stringify({
-					type: "verdict",
-					payload: {
-						decision: "approve",
-						resolvesMessageId: reviewMessageId,
-					},
-					clientKey: verdictClientKey,
-				}),
-			});
-			expect([200, 201]).toContain(verdictRes.status);
-
-			// Step 3: Agent reads inbox — verdict should appear
-			const inboxResult = await readInboxTool.handler({ limit: 20 }, ctx);
-			expect(inboxResult.success).toBe(true);
-			if (!inboxResult.success) return;
-
-			const inboxData = inboxResult.data as {
-				messages: Array<{ id: string; type: string }>;
-			};
-			const verdictMsg = inboxData.messages.find((m) => m.type === "verdict");
-			expect(verdictMsg).toBeDefined();
-		});
-	});
+	// @lore AU20 repair: AC3 "founder verdict readable via read_inbox" deleted — read_inbox was
+	// removed by the AU20 destroyer pass. The verdict IS still persisted to the DB (covered by
+	// other message + thread tests); the read_inbox polling interface is gone with no replacement.
 
 	// @lore AU21 Increment 14a: the "AC4: cost accumulation on bet" describe
 	// block (costOps.record → bets.costActualMinor) is HARD-DELETED along with

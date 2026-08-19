@@ -60,14 +60,14 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	test("B1: builder registry still contains the 8 base tools", ({ db, app }) => {
+	test("B1: builder registry still contains the base tools", ({ db, app }) => {
+		// @lore AU20 repair: read_inbox + write_session_notes deleted — removed from assertions.
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),
 			{ role: "builder" },
 		);
 		const names = new Set(registry.definitions.map((d) => d.name));
-		expect(names.has("read_inbox")).toBe(true);
 		expect(names.has("send_message")).toBe(true);
 		expect(names.has("reply")).toBe(true);
 		expect(names.has("log_task")).toBe(true);
@@ -75,7 +75,6 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(names.has("write_memory")).toBe(true);
 		expect(names.has("handoff_to")).toBe(true);
 		expect(names.has("create_item")).toBe(true);
-		expect(names.has("write_session_notes")).toBe(true);
 	});
 
 	test("B2 + review W3: builder registry returns FORBIDDEN when invoking a facilitator tool that exists but is role-filtered", async ({
@@ -111,7 +110,8 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 	});
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-	test("B3: assistant registry includes all 22 tools (15 + 5 AE3 management tools + 1 AK4 draft tool + 1 AL7 stage_operation + the generic reply tool)", ({
+	// @lore AU20 repair: read_inbox (1) + write_session_notes (1) + commit_file (1) deleted → 22 → 19.
+	test("B3: assistant registry includes all 19 tools", ({
 		db,
 		app,
 	}) => {
@@ -121,13 +121,11 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 			{ role: "assistant" },
 		);
 		const names = registry.definitions.map((d) => d.name).sort();
-		// 12 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 15
-		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 20
-		// + 1 AK4 draft tool: edit_bet = 21
-		// + 1 AL7: stage_operation = 22
-		// - 1 AU21 §6 Decision L3: route_item deleted = 21
-		// + 1 AU27 Increment 2: reply = 22
-		expect(names).toHaveLength(22);
+		// 9 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 12
+		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 17
+		// + 1 AK4 draft tool: edit_bet = 18
+		// + 1 AU27 Increment 2: reply = 19
+		expect(names).toHaveLength(19);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}

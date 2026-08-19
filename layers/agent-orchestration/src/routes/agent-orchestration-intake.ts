@@ -38,6 +38,7 @@ import {
 	enqueueWorkIntent,
 	listPendingIntentsByKind,
 	sessionRunRegistry,
+	transitionSessionRequest,
 	type WorkIntentInput,
 } from "@hyperidle/session-requests";
 import { Hono } from "hono";
@@ -114,6 +115,26 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 			entries: pending.map((p) => ({ id: p.id, sourceId: p.sourceId, requestedBy: p.requestedBy })),
 		});
 	});
+
+	// ── requests.failExplicitSessionStart — POST /agent-orchestration/requests/explicit-starts/:startId/fail ──
+	// Called by core-api's `session_start` admission-failure reaction to mark the
+	// explicitSessionStarts row failed. No retry — explicit session starts are
+	// human/agent-requested and must not be silently restarted.
+	router.post(
+		"/requests/explicit-starts/:startId/fail",
+		validateBody(z.object({ failureCode: z.string().min(1) })),
+		async (c) => {
+			const startId = c.req.param("startId");
+			const { failureCode } = c.req.valid("json");
+			await transitionSessionRequest(db, {
+				target: "explicitStart",
+				to: "failed",
+				startId,
+				failureCode,
+			});
+			return c.json({ ok: true });
+		},
+	);
 
 	// ── runs.abort — POST /agent-orchestration/runs/abort ────────────────────
 	router.post(
