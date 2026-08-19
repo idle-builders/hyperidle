@@ -48,8 +48,10 @@ beyond the shrink the audit names. Changing which service owns which table.
 
 **Where the row list lives.** The audit that produced the 72 merge and 327 simplify rows, plus every
 package-level dissolve verdict and its measured consumer list, was committed during the delete pass and
-removed at ship. Recover it from the `au20-audit-evidence` tag (PR #505 was squash-merged, so the commit is not reachable from `main` — the tag is what keeps it alive), under
-`.pipeline/work/AU20/destroy/verdicts-revised/` (falling back to `verdicts/` where no revision exists).
+removed at ship, because it is working material rather than product. It is carried on the branch
+`pipeline/AU44`, and also reachable from the tag `au20-audit-evidence` as a backstop — the branch is the
+copy to work from. Read `.pipeline/work/AU20/destroy/verdicts-revised/`, falling back to `verdicts/`
+where no revision exists.
 Do not re-derive it by re-running the audit — the rulings that reshaped it are recorded there and
 nowhere else.
 
