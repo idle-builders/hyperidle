@@ -122,8 +122,21 @@ answers. So, every batch, no exceptions:
 2. `npm run test:full` — the whole fast suite, not the affected slice. Merges move symbols across
    package lines, which is exactly what change-detection misses.
 3. `npm run test:integration:service` — **every batch**, not at the end.
-4. A reviewer agent on the batch diff, briefed with the rows the batch claimed and asked to find what
+4. `npm run knip` and `npm run knip:production`. These are in `verify` but not in the compile-and-test
+   gates, so a batch that deletes a package leaves a workspace entry pointing at nothing and every gate
+   still passes. Two batches did exactly that.
+5. **If the batch adds or removes a package, regenerate `package-lock.json` and commit it.** The
+   standing rule against committing the lockfile is right when it churns incidentally and wrong here:
+   CI runs `npm ci`, which hard-fails when the manifests and the lockfile disagree, and every local gate
+   runs against the already-installed `node_modules` and cannot see it. Regenerate with Node 24 — the
+   default shell node is v22 and writes a lockfile full of phantom errors.
+6. A reviewer agent on the batch diff, briefed with the rows the batch claimed and asked to find what
    moved that shouldn't have.
+
+**Read the failed FILE count, not just the failed test count.** A file that fails to load runs zero
+tests, so a broken build reports the same "2 failures" as the healthy baseline. One batch shipped
+thirteen non-loading files behind a test count that looked clean. The baseline on this branch is
+2 files / 2 tests.
 
 Batch-specific, on top:
 
