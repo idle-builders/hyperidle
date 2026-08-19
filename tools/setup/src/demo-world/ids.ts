@@ -9,7 +9,6 @@
 
 // ── Cast ────────────────────────────────────────────────────────────────────
 export const TEAM_ID = "demo-team-acme";
-export const MEMBERS_ID = "demo-team-members-acme";
 export const FOUNDER_ID = "demo-founder";
 export const MAYA_ID = "demo-human-maya";
 export const ASSISTANT_ID = "ast-demo-founder";

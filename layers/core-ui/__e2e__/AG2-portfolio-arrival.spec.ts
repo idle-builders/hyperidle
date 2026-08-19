@@ -434,7 +434,7 @@ test.describe("AG2 — Entry from team screen (AC-6)", () => {
 						phase: "active",
 						leadAgentId: null,
 					},
-					teamMembers: { id: "tm-1", formedAt: new Date().toISOString(), dissolvedAt: null },
+					teamMembers: { id: "team-alpha", formedAt: new Date().toISOString(), dissolvedAt: null },
 					roster: [],
 					burn: {
 						capacity: 1,
