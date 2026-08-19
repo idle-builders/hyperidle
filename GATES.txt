@@ -1,0 +1,11 @@
+check (npm run check):               exit 0
+lint  (npm run lint):                exit 0
+test:integration:service:            exit 1  (76 failed, pre-existing; 3 target files pass)
+
+Target files — all PASS:
+  layers/core-api/src/__tests__/AD1-create-item-routing.integration.test.ts
+  layers/core-api/src/__tests__/create-item.integration.test.ts
+  layers/core-api/src/services/__tests__/core-api-port-increment2-org-routine-handoff.integration.test.ts
+
+Baseline before fix: same 3 target files + pre-existing failures.
+After fix:  76 files fail (all pre-existing, none from this change).

@@ -1,18 +1,28 @@
 /**
- * /api/org routes: seam routes for CoreApiPort (teams, scaffold, routines).
+ * /api/org routes: seam routes for CoreApiPort (teams, scaffold, routines,
+ * review-recipients).
  *
- * @lore AU43 bundle-11: org-chart routes (GET /, PUT /edges, DELETE /edges/:id,
- * GET /review-recipients) removed with the org-edges feature. Remaining routes
- * are seam-only helpers for the CoreApiPort (create_team tool flow).
+ * @lore AU43 bundle-11: org-chart routes (GET /, PUT /edges, DELETE /edges/:id)
+ * removed with the org-edges feature. GET /review-recipients was also removed
+ * in that pass but is restored here with a simpler team-scoped mechanism per
+ * AU20 ruling 1: recipients are the humans on the agent's team; if that team
+ * has no humans, fall back to all humans. The old edge-matrix is permanently
+ * gone — team membership is the scope unit.
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
-import { createTeam, getTeam, getTeamMembers, persistScaffoldedAgents } from "@hyperidle/org";
+import {
+	createTeam,
+	getTeam,
+	getTeamMembers,
+	persistScaffoldedAgents,
+	resolveReviewRecipients,
+} from "@hyperidle/org";
 import { provisionTeamRoutines } from "@hyperidle/routine";
-import { findUser, insertUser } from "@hyperidle/users";
+import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
@@ -77,6 +87,32 @@ export function createOrgRoutes(
 	agentOrchestration: AgentOrchestrationPort,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
+
+	// GET /review-recipients — team-scoped recipient resolution for review/escalation
+	// items (AU20 ruling 1 + seam repair). Query params: teamId (optional),
+	// userId and agentRole are accepted for backward-compat but no longer drive
+	// the result (the edge matrix that used them is gone).
+	//
+	// New algorithm: humans on the agent's team (via teamId); fallback = all humans
+	// so every review still reaches someone on a single-team or cross-team org.
+	router.get("/review-recipients", async (c) => {
+		const teamId = c.req.query("teamId") ?? undefined;
+		const userId = c.req.query("userId") ?? undefined;
+		const agentRole = c.req.query("agentRole") ?? undefined;
+
+		const recipients = await resolveReviewRecipients(
+			db,
+			{ teamId, userId, agentRole },
+			{
+				listHumans: (db2, teamMembersId?) =>
+					listUsers(db2, {
+						kind: "human",
+						...(teamMembersId !== undefined ? { teamIds: [teamMembersId] } : {}),
+					}),
+			},
+		);
+		return c.json({ recipients });
+	});
 
 	// GET /teams/:teamId — narrow team view {id, name} for the CoreApiPort seam
 	// (AU21 §9 Increment 2). Distinct from `GET /teams/:teamId` (top-level
