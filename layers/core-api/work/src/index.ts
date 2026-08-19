@@ -41,17 +41,20 @@ export type {
 // -- bet kill cascade (AF12) --
 export { type BetKillCascadeDeps, cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --
-export { transitionBet, updateBetField } from "./bet-state-machine.js";
+// updateBetField folded into bets.ts PATCH route (AU44 B3).
+export { transitionBet } from "./bet-state-machine.js";
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
 export { checkAndUnblockDependents } from "./dependency-watcher.js";
-// -- session_start resolver (AU21 §6 Decision B — emit-time resolution) --
+// -- unified emit-time resolver (AU21 §6 Decision B; AU44 B3 merge) --
+// resolveSessionStartRequest (session_start) merged into resolveTaskRunRequest
+// as the `{ kind: "session_start" }` discriminated path. SessionStartResolverDeps
+// folded into TaskRunResolverDeps; BakedSessionStartRequest folded into
+// BakedTaskRunRequest (strict subset, same fields minus contextBundle).
 export type {
-	BakedSessionStartRequest,
-	SessionStartResolverDeps,
-} from "./session-start-resolver.js";
-export { resolveSessionStartRequest } from "./session-start-resolver.js";
-// -- task_run resolver (AU21 §6 Decision B — emit-time resolution) --
-export type { BakedTaskRunRequest, TaskRunResolverDeps } from "./task-run-resolver.js";
+	BakedTaskRunRequest,
+	ResolveInput,
+	TaskRunResolverDeps,
+} from "./task-run-resolver.js";
 export { resolveTaskRunRequest } from "./task-run-resolver.js";
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";

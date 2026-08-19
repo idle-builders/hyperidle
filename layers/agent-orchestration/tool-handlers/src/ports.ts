@@ -345,7 +345,7 @@ interface ToolHandlersCoreApiAccessor {
 		},
 		actorId: string,
 	): Promise<void>;
-	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<void>;
+	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<string | null>;
 	getRoutineById(
 		id: string,
 		actorId: string,

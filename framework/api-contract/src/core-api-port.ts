@@ -495,7 +495,8 @@ export interface UpdateRoutineRequest {
  * insertRoutine, updateRoutine}` row.
  */
 export interface CoreApiRoutinePort {
-	insertRoutine(input: InsertRoutineRequest): Promise<void>;
+	/** Returns the owner-computed nextRunAt (AU44 B3: computation moved into service). */
+	insertRoutine(input: InsertRoutineRequest): Promise<string | null>;
 	getRoutineById(id: string): Promise<RoutineView | undefined>;
 	updateRoutineById(id: string, updates: UpdateRoutineRequest): Promise<void>;
 }

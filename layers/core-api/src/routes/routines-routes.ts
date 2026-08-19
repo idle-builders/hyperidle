@@ -1,5 +1,4 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { nextCronMatch, parseCron } from "@hyperidle/cron";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	API_ERROR_CODES,
@@ -106,7 +105,8 @@ export function createRoutineRoutes(
 			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		// Validate cron expression
+		// Validate triggerConfig JSON structure (cron expression validation is
+		// owner-side in insertRoutine — invalid cron throws, caught below).
 		let triggerConfigParsed: { cron?: string };
 		try {
 			triggerConfigParsed = JSON.parse(body.triggerConfig) as { cron?: string };
@@ -130,40 +130,28 @@ export function createRoutineRoutes(
 			);
 		}
 
+		const routineId = body.id ?? crypto.randomUUID();
+		const now = new Date().toISOString();
+
 		try {
-			parseCron(triggerConfigParsed.cron);
+			await routineService.insertRoutine(db, {
+				id: routineId,
+				name: body.name,
+				description: body.description ?? null,
+				teamId: body.teamId,
+				ownerAgentId: body.ownerAgentId,
+				triggerType: body.triggerType,
+				triggerConfig: body.triggerConfig,
+				state: "active",
+				active: true,
+				createdAt: now,
+			});
 		} catch {
 			return c.json(
 				{ error: "Invalid cron expression", code: API_ERROR_CODES.VALIDATION_ERROR },
 				400,
 			);
 		}
-
-		const routineId = body.id ?? crypto.randomUUID();
-		const now = new Date().toISOString();
-
-		// Compute nextRunAt from the cron expression
-		let nextRunAt: string | null = null;
-		try {
-			const cron = parseCron(triggerConfigParsed.cron);
-			nextRunAt = nextCronMatch(cron, new Date()).toISOString();
-		} catch {
-			// Should not reach here — already validated above
-		}
-
-		await routineService.insertRoutine(db, {
-			id: routineId,
-			name: body.name,
-			description: body.description ?? null,
-			teamId: body.teamId,
-			ownerAgentId: body.ownerAgentId,
-			triggerType: body.triggerType,
-			triggerConfig: body.triggerConfig,
-			state: "active",
-			active: true,
-			createdAt: now,
-			nextRunAt,
-		});
 
 		const created = await routineService.getRoutine(db, routineId);
 		return c.json(created, 201);
@@ -216,7 +204,6 @@ export function createRoutineRoutes(
 		const allRuns = await routineService.listRoutineRuns(db, {
 			routineId,
 			limit: 20,
-			order: "desc",
 		});
 
 		const runSummaries: RoutineRunSummary[] = allRuns.map((run) => {

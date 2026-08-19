@@ -11,7 +11,6 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/cron": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",

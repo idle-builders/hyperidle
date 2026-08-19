@@ -109,14 +109,14 @@ describe("resolveSessionStartRequest — emit-time session_start resolver (work)
 	test("bakes the full request for a valid task + runnable agent, matching resolveIntentInputInternal's shape", async ({
 		db,
 	}) => {
-		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		const { resolveTaskRunRequest: resolveSessionStartRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndBet(db, { teamId: "team-sstart-1", betId: "bet-sstart-1" });
 		await seedAgent(db, "agent-sstart-1");
 		await seedTask(db, { taskId: "task-sstart-1", betId: "bet-sstart-1", teamId: "team-sstart-1" });
 
 		const baked = await resolveSessionStartRequest(
 			db,
-			{ taskId: "task-sstart-1", requestedAgentId: "agent-sstart-1" },
+			{ kind: "session_start", taskId: "task-sstart-1", requestedAgentId: "agent-sstart-1" },
 			{ requireRunnableAgent },
 		);
 
@@ -132,20 +132,20 @@ describe("resolveSessionStartRequest — emit-time session_start resolver (work)
 	});
 
 	test("rejects a task that does not exist", async ({ db }) => {
-		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		const { resolveTaskRunRequest: resolveSessionStartRequest } = await import("../task-run-resolver.js");
 		await seedAgent(db, "agent-sstart-missing-task");
 
 		await expect(
 			resolveSessionStartRequest(
 				db,
-				{ taskId: "task-does-not-exist", requestedAgentId: "agent-sstart-missing-task" },
+				{ kind: "session_start", taskId: "task-does-not-exist", requestedAgentId: "agent-sstart-missing-task" },
 				{ requireRunnableAgent },
 			),
 		).rejects.toThrow();
 	});
 
 	test("rejects when the requested agent is not a runnable AI agent", async ({ db }) => {
-		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		const { resolveTaskRunRequest: resolveSessionStartRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndBet(db, { teamId: "team-sstart-2", betId: "bet-sstart-2" });
 		await seedTask(db, { taskId: "task-sstart-2", betId: "bet-sstart-2", teamId: "team-sstart-2" });
 		// Deliberately do NOT seed "agent-sstart-2-unrunnable" — the resolver must
@@ -154,14 +154,14 @@ describe("resolveSessionStartRequest — emit-time session_start resolver (work)
 		await expect(
 			resolveSessionStartRequest(
 				db,
-				{ taskId: "task-sstart-2", requestedAgentId: "agent-sstart-2-unrunnable" },
+				{ kind: "session_start", taskId: "task-sstart-2", requestedAgentId: "agent-sstart-2-unrunnable" },
 				{ requireRunnableAgent },
 			),
 		).rejects.toThrow();
 	});
 
 	test("rejects a retired (non-runnable-status) requested agent", async ({ db }) => {
-		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		const { resolveTaskRunRequest: resolveSessionStartRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndBet(db, { teamId: "team-sstart-3", betId: "bet-sstart-3" });
 		await seedAgent(db, "agent-sstart-3-retired", { status: "retired" });
 		await seedTask(db, { taskId: "task-sstart-3", betId: "bet-sstart-3", teamId: "team-sstart-3" });
@@ -169,7 +169,7 @@ describe("resolveSessionStartRequest — emit-time session_start resolver (work)
 		await expect(
 			resolveSessionStartRequest(
 				db,
-				{ taskId: "task-sstart-3", requestedAgentId: "agent-sstart-3-retired" },
+				{ kind: "session_start", taskId: "task-sstart-3", requestedAgentId: "agent-sstart-3-retired" },
 				{ requireRunnableAgent },
 			),
 		).rejects.toThrow();
@@ -207,7 +207,7 @@ describe("resolveSessionStartRequest — callingThreadId baking (Increment 1)", 
 	}
 
 	test("bakes callingThreadId by resolving-or-creating the task's thread", async ({ db }) => {
-		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		const { resolveTaskRunRequest: resolveSessionStartRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndBet(db, { teamId: "team-sstart-thread-1", betId: "bet-sstart-thread-1" });
 		await seedAgent(db, "agent-sstart-thread-1");
 		await seedTask(db, {
@@ -218,7 +218,7 @@ describe("resolveSessionStartRequest — callingThreadId baking (Increment 1)", 
 
 		const baked = await resolveSessionStartRequest(
 			db,
-			{ taskId: "task-sstart-thread-1", requestedAgentId: "agent-sstart-thread-1" },
+			{ kind: "session_start", taskId: "task-sstart-thread-1", requestedAgentId: "agent-sstart-thread-1" },
 			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
 		);
 
@@ -230,7 +230,7 @@ describe("resolveSessionStartRequest — callingThreadId baking (Increment 1)", 
 	test("reuses the SAME thread across two session_start bakes for the same task (idempotent)", async ({
 		db,
 	}) => {
-		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		const { resolveTaskRunRequest: resolveSessionStartRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndBet(db, { teamId: "team-sstart-thread-2", betId: "bet-sstart-thread-2" });
 		await seedAgent(db, "agent-sstart-thread-2");
 		await seedTask(db, {
@@ -241,12 +241,12 @@ describe("resolveSessionStartRequest — callingThreadId baking (Increment 1)", 
 
 		const first = await resolveSessionStartRequest(
 			db,
-			{ taskId: "task-sstart-thread-2", requestedAgentId: "agent-sstart-thread-2" },
+			{ kind: "session_start", taskId: "task-sstart-thread-2", requestedAgentId: "agent-sstart-thread-2" },
 			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
 		);
 		const second = await resolveSessionStartRequest(
 			db,
-			{ taskId: "task-sstart-thread-2", requestedAgentId: "agent-sstart-thread-2" },
+			{ kind: "session_start", taskId: "task-sstart-thread-2", requestedAgentId: "agent-sstart-thread-2" },
 			{ requireRunnableAgent, resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest },
 		);
 
@@ -254,7 +254,7 @@ describe("resolveSessionStartRequest — callingThreadId baking (Increment 1)", 
 	});
 
 	test("bakes no callingThreadId when the dep is not supplied", async ({ db }) => {
-		const { resolveSessionStartRequest } = await import("../session-start-resolver.js");
+		const { resolveTaskRunRequest: resolveSessionStartRequest } = await import("../task-run-resolver.js");
 		await seedTeamAndBet(db, { teamId: "team-sstart-thread-3", betId: "bet-sstart-thread-3" });
 		await seedAgent(db, "agent-sstart-thread-3");
 		await seedTask(db, {
@@ -265,7 +265,7 @@ describe("resolveSessionStartRequest — callingThreadId baking (Increment 1)", 
 
 		const baked = await resolveSessionStartRequest(
 			db,
-			{ taskId: "task-sstart-thread-3", requestedAgentId: "agent-sstart-thread-3" },
+			{ kind: "session_start", taskId: "task-sstart-thread-3", requestedAgentId: "agent-sstart-thread-3" },
 			{ requireRunnableAgent },
 		);
 

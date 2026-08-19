@@ -18,7 +18,6 @@
 		"@hyperidle/conversation": "*",
 		"@hyperidle/credential-access": "*",
 		"@hyperidle/credentials": "*",
-		"@hyperidle/cron": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",
