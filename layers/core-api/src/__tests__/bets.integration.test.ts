@@ -316,6 +316,8 @@ describe("Bet Endpoints (E3)", () => {
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
+			capacity: 2,
+			activeBets: 0,
 			createdAt: new Date().toISOString(),
 		});
 
@@ -451,9 +453,11 @@ describe("Bet Endpoints (E3)", () => {
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
+			capacity: 1,
+			activeBets: 0,
 			createdAt: new Date().toISOString(),
 		});
-		// @lore U1: capacity is on teamMembers, not teams (domain entity)
+		// @lore AU44 B1: capacity is now on teams (folded from team_members)
 
 		async function createBet(desc: string): Promise<Record<string, unknown>> {
 			const res = await app.request("/api/bets", {

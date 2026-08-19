@@ -23,11 +23,9 @@ function buildCreateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitio
 
 async function seedTeamAndAgent(db: Parameters<typeof makeContext>[0]): Promise<{
 	teamId: string;
-	teamMembersId: string;
 	agentId: string;
 }> {
 	const teamId = `team-${Date.now()}`;
-	const teamMembersId = `tm-${Date.now()}`;
 	const agentId = `agent-${Date.now()}`;
 	await db.insert(teams).values({ id: teamId, name: "Test Team", phase: "build", createdAt: NOW });
 	await db.insert(users).values({
@@ -35,10 +33,10 @@ async function seedTeamAndAgent(db: Parameters<typeof makeContext>[0]): Promise<
 		name: "Test Agent",
 		role: "builder",
 		status: "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
-	return { teamId, teamMembersId, agentId };
+	return { teamId, agentId };
 }
 
 describe("create_routine tool", () => {

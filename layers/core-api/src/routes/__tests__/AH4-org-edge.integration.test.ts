@@ -132,7 +132,7 @@ describe("AH4 — Org edge wiring", () => {
 
 			// Verify users.teamId is set in the DB
 			const [row] = await db.select().from(users).where(eq(users.id, created.id)).limit(1);
-			expect(row?.teamId).toBe("ah4-tm-agent");
+			expect(row?.teamId).toBe("ah4-team-agent");
 		});
 	});
 
@@ -318,7 +318,7 @@ describe("AH4 — Org edge wiring", () => {
 				body: JSON.stringify({
 					fromUserId: "ah4-human-upsert",
 					mechanism: "team",
-					target: "ah4-tm-upsert",
+					target: "ah4-team-upsert",
 				}),
 			});
 			expect(first.status).toBe(201);
@@ -331,7 +331,7 @@ describe("AH4 — Org edge wiring", () => {
 				body: JSON.stringify({
 					fromUserId: "ah4-human-upsert",
 					mechanism: "team",
-					target: "ah4-tm-upsert",
+					target: "ah4-team-upsert",
 				}),
 			});
 			expect(second.status).toBe(200);

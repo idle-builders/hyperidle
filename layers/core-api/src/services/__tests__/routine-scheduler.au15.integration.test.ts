@@ -82,7 +82,6 @@ async function seedRoutineWorld(
 	id = "au15-sched-routine",
 ): Promise<{ routineId: string; ownerAgentId: string }> {
 	const teamId = `${id}-team`;
-	const tmId = `${id}-tm`;
 	const ownerAgentId = `${id}-owner`;
 
 	await db
@@ -94,7 +93,7 @@ async function seedRoutineWorld(
 		name: "Owner",
 		role: "builder",
 		status: "active",
-		teamId: tmId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({

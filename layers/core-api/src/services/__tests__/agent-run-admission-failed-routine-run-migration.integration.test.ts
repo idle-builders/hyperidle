@@ -153,7 +153,6 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 		eventBus,
 	}) => {
 		const teamId = "team-au21-rrun-mig";
-		const teamMembersId = "team-au21-rrun-mig-members";
 		const ownerAgentId = "agent-au21-rrun-mig-owner";
 		await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
 		await db.insert(users).values({
@@ -162,7 +161,7 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 			name: "Owner",
 			role: "builder",
 			status: "active",
-			teamId: teamMembersId,
+			teamId: teamId,
 			createdAt: NOW,
 		});
 		await db.insert(routines).values({

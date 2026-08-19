@@ -185,7 +185,6 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 
 		// Insert a second team directly
 		const team2Id = "team-af17-test-2";
-		const teamMembers2Id = "team-af17-tm-2";
 		const agent2Id = "agent-pm-af17-test-2";
 
 		await db
@@ -198,7 +197,7 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 			role: "product_manager",
 			agentCategory: "team",
 			status: "active",
-			teamId: teamMembers2Id,
+			teamId: team2Id,
 			createdAt: NOW,
 		});
 
@@ -241,7 +240,6 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 		db,
 	}) => {
 		const teamId = "team-af17-fallback";
-		const tmId = "team-af17-fallback-tm";
 		const leadId = "agent-af17-fallback-lead";
 
 		await db
@@ -254,7 +252,7 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 			role: "growth",
 			agentCategory: "team",
 			status: "active",
-			teamId: tmId,
+			teamId: teamId,
 			createdAt: NOW,
 		});
 

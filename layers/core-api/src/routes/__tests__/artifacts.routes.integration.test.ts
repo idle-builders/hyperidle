@@ -27,7 +27,7 @@ async function seedBase(db: HyperIdleDb): Promise<{ taskId: string }> {
 		name: "Test Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-1",
+		teamId: "team-1",
 		createdAt: now,
 	});
 	await db.insert(bets).values({

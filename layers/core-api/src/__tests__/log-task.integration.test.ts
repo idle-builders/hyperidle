@@ -35,7 +35,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		id: "agent-a",
 		name: "A",
 		role: "builder",
-		teamId: "t1",
+		teamId: "p1",
 		status: "active",
 		createdAt: now,
 	});

@@ -877,16 +877,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			// Seed required data for conversations/items
-			// @lore U1: products→teams, teams→team_members
+			// @lore AU44 B1: team_members dissolved into teams
 			const now = new Date().toISOString();
 			await db.execute(
 				sql.raw(
 					`INSERT INTO teams (id, name, phase, created_at) VALUES ('prod-conv', 'Prod', 'build', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-conv', 'prod-conv', 3, 0, '${now}')`,
 				),
 			);
 			await db.execute(
@@ -931,15 +926,11 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			eventBus,
 		}) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
+			// @lore AU44 B1: team_members dissolved into teams
 			const now = new Date().toISOString();
 			await db.execute(
 				sql.raw(
 					`INSERT INTO teams (id, name, phase, created_at) VALUES ('prod-conv', 'Prod', 'build', '${now}')`,
-				),
-			);
-			await db.execute(
-				sql.raw(
-					`INSERT INTO team_members (id, team_id, capacity, active_bets, formed_at) VALUES ('team-conv', 'prod-conv', 3, 0, '${now}')`,
 				),
 			);
 			await db.execute(

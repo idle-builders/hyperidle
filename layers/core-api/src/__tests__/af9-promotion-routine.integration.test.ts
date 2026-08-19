@@ -59,7 +59,7 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "Acme PM",
 		role: "product_manager",
 		status: "active",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: NOW_ISO,
 	});
 }

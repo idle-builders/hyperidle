@@ -69,7 +69,7 @@ async function seedTeamWithEligibleAgent(
 		role: "builder",
 		agentCategory: "team",
 		status: "active",
-		teamId: membershipId,
+		teamId: teamParentId,
 		createdAt: now,
 	});
 	return { teamParentId, membershipId };

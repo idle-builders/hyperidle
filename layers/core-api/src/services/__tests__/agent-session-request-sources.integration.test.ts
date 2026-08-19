@@ -71,7 +71,7 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "tm-au3-agent",
+			teamId: "team-au3-agent",
 			createdAt: now,
 		},
 		{
@@ -206,7 +206,7 @@ describe("agent session request sources", () => {
 				kind: "ai",
 				status: "active",
 				role: "builder",
-				teamId: "tm-au3-agent",
+				teamId: "team-au3-agent",
 				systemPrompt: null,
 				modelTierPreference: null,
 				harnessType: "recording",

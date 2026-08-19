@@ -55,7 +55,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			kind: "ai",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: now,
 		},
 		{
@@ -64,7 +64,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			kind: "human",
 			role: "founder",
 			status: "active",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: now,
 		},
 	]);

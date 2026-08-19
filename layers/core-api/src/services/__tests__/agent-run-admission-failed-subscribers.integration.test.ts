@@ -68,20 +68,16 @@ import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
 const NOW = new Date().toISOString();
 
-async function seedTeam(
-	db: HyperIdleDb,
-	id: string,
-): Promise<{ teamId: string; membersId: string }> {
+async function seedTeam(db: HyperIdleDb, id: string): Promise<{ teamId: string }> {
 	const teamId = `${id}-team`;
-	const membersId = `${id}-members`;
 	await db.insert(teams).values({ id: teamId, name: id, phase: "build", createdAt: NOW });
-	return { teamId, membersId };
+	return { teamId };
 }
 
 async function seedAgent(
 	db: HyperIdleDb,
 	id: string,
-	opts: { readonly teamMembersId?: string; readonly status?: string } = {},
+	opts: { readonly teamId?: string; readonly status?: string } = {},
 ): Promise<void> {
 	await db.insert(users).values({
 		id,
@@ -89,7 +85,7 @@ async function seedAgent(
 		name: "Agent",
 		role: "builder",
 		status: opts.status ?? "active",
-		teamId: opts.teamMembersId,
+		teamId: opts.teamId,
 		createdAt: NOW,
 	});
 }
@@ -99,8 +95,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-routine");
-		await seedAgent(db, "w0-sub-routine-owner", { teamMembersId: membersId });
+		const { teamId } = await seedTeam(db, "w0-sub-routine");
+		await seedAgent(db, "w0-sub-routine-owner", { teamId });
 		await db.insert(routines).values({
 			id: "w0-sub-routine",
 			name: "Wave 0 subscriber routine",
@@ -149,10 +145,10 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	});
 
 	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-task");
+		const { teamId } = await seedTeam(db, "w0-sub-task");
 		// The dispatch attempt's agent is not runnable (paused) — forces
 		// requireRunnableActor's InvalidAgentWorkSourceError at drain.
-		await seedAgent(db, "w0-sub-task-agent", { teamMembersId: membersId, status: "paused" });
+		await seedAgent(db, "w0-sub-task-agent", { teamId, status: "paused" });
 		await db.insert(bets).values({
 			id: "w0-sub-task-bet",
 			teamId,
@@ -205,9 +201,9 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-start");
+		const { teamId } = await seedTeam(db, "w0-sub-start");
 		// The requested agent is not runnable — forces InvalidAgentWorkSourceError.
-		await seedAgent(db, "w0-sub-start-agent", { teamMembersId: membersId, status: "retired" });
+		await seedAgent(db, "w0-sub-start-agent", { teamId, status: "retired" });
 		await db.insert(bets).values({
 			id: "w0-sub-start-bet",
 			teamId,
@@ -312,8 +308,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-reengage");
-		await seedAgent(db, "w0-sub-reengage-agent", { teamMembersId: membersId });
+		const { teamId } = await seedTeam(db, "w0-sub-reengage");
+		await seedAgent(db, "w0-sub-reengage-agent", { teamId });
 		await db.insert(bets).values({
 			id: "w0-sub-reengage-bet",
 			teamId,

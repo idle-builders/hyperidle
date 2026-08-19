@@ -50,7 +50,7 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "au9-production-membership",
+			teamId: "au9-production-team",
 			createdAt: now,
 		},
 	]);
@@ -378,7 +378,7 @@ describe("atomic production handoffs", () => {
 			name: "Source",
 			role: "product_manager",
 			status: "active",
-			teamId: "au9-production-membership",
+			teamId: "au9-production-team",
 			createdAt: now,
 		});
 		await db.insert(threads).values({

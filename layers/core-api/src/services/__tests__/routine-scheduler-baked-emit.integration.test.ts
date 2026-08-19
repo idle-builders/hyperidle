@@ -128,7 +128,6 @@ async function seedManualRoutine(
 	opts: { readonly ownerStatus?: string } = {},
 ): Promise<{ readonly routineId: string; readonly teamId: string; readonly ownerAgentId: string }> {
 	const teamId = `${id}-team`;
-	const teamMembersId = `${id}-members`;
 	const ownerAgentId = `${id}-owner`;
 	await db
 		.insert(teams)
@@ -139,7 +138,7 @@ async function seedManualRoutine(
 		name: "Owner",
 		role: "builder",
 		status: opts.ownerStatus ?? "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({

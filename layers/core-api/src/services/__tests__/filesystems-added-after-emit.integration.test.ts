@@ -47,7 +47,6 @@ const NOW = "2026-08-04T00:00:00.000Z";
 const HUMAN_ID = "u-au26-f2-owner";
 const AGENT_ID = "agent-au26-f2-target";
 const TEAM_ID = "team-au26-f2";
-const TEAM_MEMBERS_ID = "tm-au26-f2";
 
 let tmpDir: string;
 let sandboxPath: string;
@@ -75,7 +74,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Owner",
 			role: "founder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: NOW,
 		},
 		{
@@ -84,7 +83,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Target Agent",
 			role: "builder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: NOW,
 		},
 	]);

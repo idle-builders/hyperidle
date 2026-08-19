@@ -125,7 +125,7 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 		expect(body.scopeName).not.toBe(teamId);
 	});
 
-	test("team item with team_members id returns team name (two-hop)", async ({ db, app }) => {
+	test("team item returns team name via teams.id", async ({ db, app }) => {
 		// Create team + team_members
 		const teamId = crypto.randomUUID();
 		await db.insert(teams).values({
@@ -134,10 +134,9 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 			phase: "active",
 			createdAt: new Date().toISOString(),
 		});
-		const memberId = crypto.randomUUID();
 		const id = await createKnowledgeItem(db, {
 			scopeKind: "team",
-			scopeId: memberId, // using team_members.id
+			scopeId: teamId,
 		});
 		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);

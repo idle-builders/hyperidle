@@ -49,7 +49,7 @@ async function seedRecipients(db: HyperIdleDb): Promise<void> {
 		role: "builder",
 		status: "active",
 		kind: "ai",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({

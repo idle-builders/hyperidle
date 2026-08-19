@@ -106,8 +106,11 @@ export function createOrgRoutes(
 		const edges = await listOrgEdges(db);
 		const allUsers = await listUsers(db);
 		// @lore AU44 B1: listTeamMembers folded into listTeams; id = teamActualId after fold.
+		// Org chart shows only active teams (not archived/dissolved).
 		const allTeams = await listTeams(db);
-		const teamRows = allTeams.map((t) => ({ id: t.id, name: t.name, teamActualId: t.id }));
+		const teamRows = allTeams
+			.filter((t) => t.phase !== "archived")
+			.map((t) => ({ id: t.id, name: t.name, teamActualId: t.id }));
 
 		// @lore AU20/Am11: project only {id,kind,name,role} — must not leak email/
 		// systemPrompt/model columns on a public-data endpoint.

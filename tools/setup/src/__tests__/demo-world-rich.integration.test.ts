@@ -317,7 +317,6 @@ describe("AX1: lived-in demo world", () => {
 		const tables = [
 			"users",
 			"teams",
-			"team_members",
 			"bets",
 			"tasks",
 			"threads",
@@ -349,7 +348,8 @@ describe("AX1: lived-in demo world", () => {
 
 		const members = await rows<{ active_bets: number; lead_agent_id: string | null }>(
 			db,
-			"SELECT active_bets, lead_agent_id FROM team_members WHERE id = 'demo-team-members-acme'",
+			// @lore AU44 B1: team_members folded into teams; active_bets/lead_agent_id now on teams
+			"SELECT active_bets, lead_agent_id FROM teams WHERE id = 'demo-team-acme'",
 		);
 		const activeBets = await count(
 			db,
