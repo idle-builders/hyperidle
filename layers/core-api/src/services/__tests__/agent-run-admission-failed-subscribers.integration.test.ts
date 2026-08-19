@@ -65,7 +65,7 @@ import { attentionReviewReasoningMarker } from "@hyperidle/review";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { and, eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
 /**
  * @lore AU44: The original vehicle for terminal failures (unbaked intent →
@@ -75,8 +75,24 @@ import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
  * insert, forcing a MAX_ATTEMPTS_EXCEEDED terminal failure. The subscriber
  * reactions are unchanged — they fire on any terminal agent_run_admission_failed
  * regardless of failureCode.
+ *
+ * @lore pool-trigger-leak: the service test pool shares one PGlite instance per
+ * worker (isolate:false). truncateAllTables clears data but not DDL. The trigger
+ * must be explicitly dropped after each test that installs it — via afterEach —
+ * or it leaks into subsequent test files running on the same worker.
  */
+let _triggerDb: HyperIdleDb | null = null;
+afterEach(async () => {
+	if (_triggerDb) {
+		await _triggerDb.execute(
+			sql`drop trigger if exists au44_reject_session_request_write_sub on agent_session_requests`,
+		);
+		_triggerDb = null;
+	}
+});
+
 async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	_triggerDb = db;
 	await db.execute(
 		sql`drop trigger if exists au44_reject_session_request_write_sub on agent_session_requests`,
 	);
