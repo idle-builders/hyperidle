@@ -1,5 +1,4 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { listUsers } from "@hyperidle/users";
 
 /**
  * Resolve which human users should receive a review/escalation.
@@ -18,30 +17,26 @@ import { listUsers } from "@hyperidle/users";
  * The fallback (team has no humans → all humans) ensures no review is silently
  * lost on a mixed-team org where a team has only agents right now.
  *
- * @lore AU44 B1: `getTeamMembers` call removed — `users.teamId` now references
- * `teams.id` directly, so a `listUsers({ teamIds: [teamId] })` suffices without
- * the former two-hop (teamId → teamMembers.id → users.teamId). The DI port
- * (`listHumans`) is also collapsed: `listUsers` is called directly since this
- * module is in core-api and can import from `@hyperidle/users`.
- * `userId` and `agentRole` fields removed from context — they were the
+ * @lore AU44 B1: `getTeamMembers` two-hop removed — `users.teamId` now references
+ * `teams.id` directly. The `listUsers` call moves to the DI port `listHumans`;
+ * `@hyperidle/users` stays out of this module (governance: org is not a composition
+ * root). `userId` and `agentRole` fields removed from context — they were the
  * direct/function edge mechanisms wearing a type; they die with the edges.
  */
 export async function resolveReviewRecipients(
 	db: HyperIdleDb,
 	context: { teamId?: string },
+	usersPort: { listHumans(db: HyperIdleDb, teamId?: string): Promise<Array<{ id: string }>> },
 ): Promise<string[]> {
 	// Team-scoped: find humans on the agent's own team.
 	if (context.teamId) {
-		const teamHumans = await listUsers(db, {
-			kind: "human",
-			teamIds: [context.teamId],
-		});
+		const teamHumans = await usersPort.listHumans(db, context.teamId);
 		if (teamHumans.length > 0) {
 			return teamHumans.map((u) => u.id);
 		}
 	}
 
 	// Fallback: all humans — every review reaches someone.
-	const allHumans = await listUsers(db, { kind: "human" });
+	const allHumans = await usersPort.listHumans(db, undefined);
 	return allHumans.map((u) => u.id);
 }
