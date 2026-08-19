@@ -29,9 +29,6 @@
 			"path": "framework/filesystem-contract"
 		},
 		{
-			"path": "framework/cron"
-		},
-		{
 			"path": "framework/toon-codec"
 		},
 		{
