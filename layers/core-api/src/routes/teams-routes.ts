@@ -43,6 +43,7 @@ import {
 	listTeams,
 	persistScaffoldedAgents,
 	updateTeam,
+	upsertOrgEdge,
 } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import * as routineService from "@hyperidle/routine";
@@ -82,6 +83,29 @@ function deriveTeamStatus(
 	const overCapacity = memberGroup.activeBets > memberGroup.capacity;
 	if (overCapacity) return "behind";
 	return "healthy";
+}
+
+/**
+ * Resolve the founder for a founder→team org edge.
+ *
+ * Prefers the auth-derived user over anything in the body, so a caller cannot
+ * create an edge from an arbitrary user by lying in the request.
+ */
+async function resolveFounderId(
+	db: HyperIdleDb,
+	ctxUserId: string | undefined,
+	bodyUserId: string | undefined,
+): Promise<string | null> {
+	if (ctxUserId) {
+		const u = await findUser(db, { id: ctxUserId });
+		if (u) return u.id;
+	}
+	if (bodyUserId) {
+		const u = await findUser(db, { id: bodyUserId });
+		if (u) return u.id;
+	}
+	const human = await findUser(db, { kind: "human" });
+	return human?.id ?? null;
 }
 
 export function createTeamRoutes(
@@ -277,6 +301,19 @@ export function createTeamRoutes(
 		// @lore AU20 Am7: updateTeam(teamId, {leadAgentId}) replaces setTeamMembersLeadAgent.
 		if (leadAgentId) {
 			await updateTeam(db, teamId, { leadAgentId });
+		}
+
+		// Write the founder→team org edge the org chart renders. Best effort: a
+		// failure here must not fail team creation.
+		{
+			const founderId = await resolveFounderId(db, c.get("userId"), userId);
+			if (founderId) {
+				await upsertOrgEdge(db, {
+					fromUserId: founderId,
+					mechanism: "team",
+					target: teamMembersId,
+				});
+			}
 		}
 
 		// AF17: provision built-in routines for this team — owned by this team's own agents.

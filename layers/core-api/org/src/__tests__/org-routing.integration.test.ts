@@ -12,7 +12,7 @@
 
 import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { describe } from "vitest";
 import { resolveReviewRecipients } from "../org-routing.js";
 
@@ -25,9 +25,12 @@ const NOW = new Date().toISOString();
  */
 const orgUsersPort = {
 	async listHumans(db2: HyperIdleDb, teamMembersId?: string) {
+		// Both branches filter on kind. The team branch used to filter on team alone,
+		// which made the stub return agents from the team and disagree with what the
+		// composition root injects — the test was measuring the stub, not the product.
 		const q = db2.select({ id: users.id }).from(users);
 		if (teamMembersId !== undefined) {
-			return q.where(eq(users.teamId, teamMembersId));
+			return q.where(and(eq(users.kind, "human"), eq(users.teamId, teamMembersId)));
 		}
 		return q.where(eq(users.kind, "human"));
 	},
