@@ -1,31 +1,43 @@
 /**
- * /api/org routes: seam routes for CoreApiPort (teams, scaffold, routines,
- * review-recipients).
+ * /api/org routes: OrgChart API (UI) + seam routes for CoreApiPort (teams,
+ * scaffold, routines, review-recipients).
  *
- * @lore AU43 bundle-11: org-chart routes (GET /, PUT /edges, DELETE /edges/:id)
- * removed with the org-edges feature. GET /review-recipients was also removed
- * in that pass but is restored here with a simpler team-scoped mechanism per
- * AU20 ruling 1: recipients are the humans on the agent's team; if that team
- * has no humans, fall back to all humans. The old edge-matrix is permanently
- * gone — team membership is the scope unit.
+ * GET  /api/org/               — full org chart (edges + users + teams)
+ * PUT  /api/org/edges          — upsert an edge (idempotent)
+ * DELETE /api/org/edges/:id    — delete an edge
+ *
+ * @lore AU43 bundle-11: org-chart routes were removed by mistake — the door
+ * audit marked rows 96/97/98 as KEEP because SettingsOrgChart calls them.
+ * Restored here. GET /review-recipients uses the new team-scoped mechanism
+ * per AU20 ruling 1 (not org edges).
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import {
 	createTeam,
+	deleteOrgEdge,
 	getTeam,
 	getTeamMembers,
+	listOrgEdges,
+	listTeamMembers,
 	persistScaffoldedAgents,
 	resolveReviewRecipients,
+	upsertOrgEdge,
 } from "@hyperidle/org";
 import { provisionTeamRoutines } from "@hyperidle/routine";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
+
+const putOrgEdgeSchema = z.object({
+	fromUserId: z.string().min(1),
+	mechanism: z.enum(ORG_EDGE_MECHANISMS),
+	target: z.string().min(1),
+});
 
 /**
  * AU21 §9 Increment 2 (org/routine/handoff wave) — the `CoreApiPort.org`
@@ -87,6 +99,92 @@ export function createOrgRoutes(
 	agentOrchestration: AgentOrchestrationPort,
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
+
+	// GET / — full org chart
+	// AF15 AC-6: includes teams: {id, name, teamActualId}[] so the UI can populate
+	// the team-edge target select without a separate fetch.
+	router.get("/", async (c) => {
+		const edges = await listOrgEdges(db);
+		const allUsers = await listUsers(db);
+		const teamRows = await listTeamMembers(db, { active: true, withTeamName: true });
+
+		// @lore AU20/Am11: project only {id,kind,name,role} — must not leak email/
+		// systemPrompt/model columns on a public-data endpoint.
+		const userSummaries = allUsers.map((u) => ({
+			id: u.id,
+			kind: u.kind,
+			name: u.name,
+			role: u.role,
+		}));
+		return c.json({ edges, users: userSummaries, teams: teamRows });
+	});
+
+	// PUT /edges — upsert an edge (idempotent on fromUserId+mechanism+target)
+	router.put("/edges", async (c) => {
+		let rawBody: unknown;
+		try {
+			rawBody = await c.req.json();
+		} catch {
+			return c.json({ error: "Invalid JSON", code: "VALIDATION_ERROR" }, 400);
+		}
+
+		const parsed = putOrgEdgeSchema.safeParse(rawBody);
+		if (!parsed.success) {
+			return c.json(
+				{ error: "Validation failed", code: "VALIDATION_ERROR", issues: parsed.error.issues },
+				400,
+			);
+		}
+
+		const { fromUserId, mechanism, target } = parsed.data;
+
+		const fromUser = await findUser(db, { id: fromUserId });
+		if (!fromUser) {
+			return c.json(
+				{ error: `fromUserId not found: ${fromUserId}`, code: "VALIDATION_ERROR" },
+				400,
+			);
+		}
+
+		if (mechanism === "direct") {
+			const targetUser = await findUser(db, { id: target });
+			if (!targetUser) {
+				return c.json(
+					{ error: `target userId not found: ${target}`, code: "VALIDATION_ERROR" },
+					400,
+				);
+			}
+		} else if (mechanism === "function") {
+			if (!target || target.trim().length === 0) {
+				return c.json(
+					{ error: "target role must be a non-empty string", code: "VALIDATION_ERROR" },
+					400,
+				);
+			}
+		} else if (mechanism === "team") {
+			const targetTeam = await getTeamMembers(db, { id: target });
+			if (!targetTeam) {
+				return c.json(
+					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },
+					400,
+				);
+			}
+		}
+
+		const { edge, created } = await upsertOrgEdge(db, { fromUserId, mechanism, target });
+		return c.json(edge, created ? 201 : 200);
+	});
+
+	// DELETE /edges/:id — delete an edge
+	router.delete("/edges/:id", async (c) => {
+		const id = c.req.param("id");
+		const [existing] = await listOrgEdges(db, { id });
+		if (!existing) {
+			return c.json({ error: "Edge not found", code: "NOT_FOUND" }, 404);
+		}
+		await deleteOrgEdge(db, id);
+		return c.body(null, 204);
+	});
 
 	// GET /review-recipients — team-scoped recipient resolution for review/escalation
 	// items (AU20 ruling 1 + seam repair). Query params: teamId (optional),

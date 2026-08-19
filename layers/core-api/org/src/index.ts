@@ -26,6 +26,10 @@
  * The class is now private to team-lookup.ts where it is defined and used.
  */
 
+// -- org edges (P2 — org chart edge CRUD) --
+export type { UpsertOrgEdgeInput } from "./org-edges.js";
+export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
+
 // -- org routing (P2 — review recipient resolution) --
 export { resolveReviewRecipients } from "./org-routing.js";
 
@@ -37,7 +41,7 @@ export type { AgentScaffoldSpec, ScaffoldResult } from "./scaffold-agents.js";
 export { persistScaffoldedAgents } from "./scaffold-agents.js";
 
 // -- team lookup (L13 — 1:1 Team=TeamMembers invariant, AU20 Am7 collapse) --
-export type { CreateTeamInput } from "./team-lookup.js";
+export type { ActiveTeamMembersWithTeamName, CreateTeamInput } from "./team-lookup.js";
 export {
 	createTeam,
 	getTeam,

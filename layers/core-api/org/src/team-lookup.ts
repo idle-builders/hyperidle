@@ -147,17 +147,46 @@ export async function getTeamMembers(
 }
 
 /**
- * List `teamMembers` rows, optionally filtered by active status.
+/** Row shape for {@link listTeamMembers} with `withTeamName: true`. */
+export interface ActiveTeamMembersWithTeamName {
+	readonly id: string;
+	readonly name: string;
+	readonly teamActualId: string;
+}
+
+/**
+ * List `teamMembers` rows, optionally filtered by active status and/or
+ * joined to the team name.
+ *
+ * With `withTeamName: true` returns `ActiveTeamMembersWithTeamName[]`
+ * (id, teams.name, teams.id as teamActualId). The join is ACL-private to
+ * this package; callers receive the projected shape.
  *
  * With `active: true` filters to rows where `dissolvedAt IS NULL`.
  *
- * @example listTeamMembers(db)               — all rows
- * @example listTeamMembers(db, { active: true }) — active rows only
+ * @example listTeamMembers(db)                                   — all rows, full TeamMember
+ * @example listTeamMembers(db, { active: true, withTeamName: true })  — org-chart shape
  */
+export function listTeamMembers(
+	db: HyperIdleDb,
+	filter: { active?: boolean; withTeamName: true },
+): Promise<ActiveTeamMembersWithTeamName[]>;
+export function listTeamMembers(
+	db: HyperIdleDb,
+	filter?: { active?: boolean; withTeamName?: false },
+): Promise<TeamMember[]>;
 export async function listTeamMembers(
 	db: HyperIdleDb,
-	filter?: { active?: boolean },
-): Promise<TeamMember[]> {
+	filter?: { active?: boolean; withTeamName?: boolean },
+): Promise<TeamMember[] | ActiveTeamMembersWithTeamName[]> {
+	if (filter?.withTeamName) {
+		const q = db
+			.select({ id: teamMembers.id, name: teams.name, teamActualId: teams.id })
+			.from(teamMembers)
+			.innerJoin(teams, eq(teams.id, teamMembers.teamId));
+		if (filter.active) return q.where(isNull(teamMembers.dissolvedAt));
+		return q;
+	}
 	if (filter?.active) {
 		return db.select().from(teamMembers).where(isNull(teamMembers.dissolvedAt));
 	}
