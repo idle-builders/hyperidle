@@ -5,8 +5,6 @@ import {
 	artifacts,
 	bets,
 	type HyperIdleDb,
-	knowledgeEditLog,
-	knowledgeItems,
 	messages,
 	proposedCalls,
 	routineRuns,
@@ -323,63 +321,7 @@ describe("atomic production handoffs", () => {
 		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
 	});
 
-	// AU31 §3.1 site 4 — INVERTED. The flag transition is no longer inside the
-	// same transaction as the intent submit (relinquished, founder ruling
-	// architecture.md §3.1/§13 item 9): the flag commits regardless of
-	// whether the seam's intent submit later fails. This test used to prove
-	// the two writes rolled back together; it now proves the named window —
-	// a flagged item with no queued review action, repaired by a retry that
-	// re-runs the idempotent flag path and re-submits under the same key.
-	test("real knowledge flag command: the flag survives even when the intent write fails (AU31 §3.1 site 4)", async ({
-		db,
-		app,
-	}) => {
-		await db.insert(users).values({
-			id: "au9-knowledge-agent",
-			kind: "ai",
-			name: "Knowledge reviewer",
-			role: "builder",
-			status: "active",
-			createdAt: new Date().toISOString(),
-		});
-		const created = await app.request("/api/knowledge", {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({
-				topic: "au9",
-				title: "Atomic knowledge action",
-				body: "Must survive only with its intent",
-				format: "markdown",
-				scopeKind: "factory",
-				updatedBy: "au9-human",
-			}),
-		});
-		const item = (await created.json()) as { id: string; status: string };
-		// @lore AU14: POST /api/knowledge now routes through the shared repository's
-		// create(), which unconditionally writes a `create` knowledgeEditLog row (AC-4
-		// convergence — see plans/AU14/architecture.md §7/§9 D1). Capture the baseline
-		// count here (1 durable row from the create above) so the assertion below
-		// proves the flag transaction added exactly one new row.
-		const editLogCountBeforeFlag = (await db.select().from(knowledgeEditLog)).length;
-		await rejectIntentWrites(db);
-
-		const response = await app.request(`/api/knowledge/${item.id}/flag`, {
-			method: "POST",
-			headers: authHeaders,
-			body: JSON.stringify({ reason: "needs agent review", agentId: "au9-knowledge-agent" }),
-		});
-
-		// The seam's intent submit fails (uncaught) — the route still 500s —
-		// but the flag transition already committed before that call ran.
-		expect(response.status).toBe(500);
-		const [persisted] = await db
-			.select()
-			.from(knowledgeItems)
-			.where(eq(knowledgeItems.id, item.id));
-		expect(persisted?.status).toBe("draft");
-		expect(await db.select().from(knowledgeEditLog)).toHaveLength(editLogCountBeforeFlag + 1);
-		expect(await db.select().from(agentWorkIntents)).toHaveLength(0);
-	});
+	// flag (POST /api/knowledge/:id/flag) §3.1 site 4 coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
 	// AU31 §3.1 site 8 — INVERTED. The routine_run row commits (outcome
 	// "running") in its own transaction before the seam's intent submit runs;

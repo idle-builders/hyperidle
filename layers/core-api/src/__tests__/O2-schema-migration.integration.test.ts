@@ -698,44 +698,7 @@ describe("O2 — Schema Migration & Route Rewrite", () => {
 			vi.unstubAllEnvs();
 		});
 
-		test("POST /api/knowledge/:id/flag emits 'knowledge_updated' event with action 'flagged'", async ({
-			app,
-			eventBus,
-		}) => {
-			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-			const createRes = await app.request("/api/knowledge", {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({
-					topic: "testing",
-					title: "Flag Event",
-					body: "Body.",
-					format: "markdown",
-					scopeKind: "factory",
-					updatedBy: "human",
-				}),
-			});
-			const created = (await createRes.json()) as Record<string, unknown>;
-			const id = created.id as string;
-
-			const events: unknown[] = [];
-			eventBus.on("*", (e: DomainEvent) => events.push(e));
-
-			const flagRes = await app.request(`/api/knowledge/${id}/flag`, {
-				method: "POST",
-				headers: authHeaders(),
-				body: JSON.stringify({ reason: "Needs review" }),
-			});
-			expect(flagRes.status).toBe(200);
-
-			const flaggedEvents = events.filter(
-				(e) =>
-					(e as Record<string, unknown>).type === "knowledge_updated" &&
-					(e as Record<string, unknown>).action === "flagged",
-			);
-			expect(flaggedEvents).toHaveLength(1);
-			vi.unstubAllEnvs();
-		});
+		// flag event coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 	});
 
 	// ---------------------------------------------------------------------------
