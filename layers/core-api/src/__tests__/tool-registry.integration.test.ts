@@ -138,7 +138,10 @@ describe("buildToolRegistry", () => {
 			const registry = buildToolRegistry(makeContext(db, eventBus), { role: "assistant" });
 			// limit must be a positive integer — passing a string triggers Zod validation error.
 			// @lore AU20 repair: was read_inbox { limit: "not-a-number" } (deleted) — ported to query_practice.
-			const result = await registry.invoke("query_practice", { query: "test", limit: "not-a-number" });
+			const result = await registry.invoke("query_practice", {
+				query: "test",
+				limit: "not-a-number",
+			});
 			expect(result.success).toBe(false);
 			if (!result.success) {
 				expect(result.code).toBe("INVALID_INPUT");

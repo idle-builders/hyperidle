@@ -166,7 +166,13 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 function makeCtx(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	opts: { agentId: string; taskId: string; sessionId: string; sandboxPath: string; threadId?: string },
+	opts: {
+		agentId: string;
+		taskId: string;
+		sessionId: string;
+		sandboxPath: string;
+		threadId?: string;
+	},
 ): ToolContext<HyperIdleDb> {
 	return {
 		db,
@@ -624,7 +630,13 @@ describe("AC11: work continues in session 2 after the approved op executes", () 
 		});
 
 		// @lore AU20 repair: threadId added to ctx so reply can post into the seeded bet thread.
-		const ctx = makeCtx(db, eventBus, { agentId, taskId, sessionId: sessionId2, sandboxPath, threadId });
+		const ctx = makeCtx(db, eventBus, {
+			agentId,
+			taskId,
+			sessionId: sessionId2,
+			sandboxPath,
+			threadId,
+		});
 		const registry = buildToolRegistry(ctx, {
 			role: "builder",
 			sessionWorkflow: {

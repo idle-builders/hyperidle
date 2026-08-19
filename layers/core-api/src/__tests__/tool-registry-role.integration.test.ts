@@ -111,10 +111,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
 	// @lore AU20 repair: read_inbox (1) + write_session_notes (1) + commit_file (1) deleted → 22 → 19.
-	test("B3: assistant registry includes all 19 tools", ({
-		db,
-		app,
-	}) => {
+	test("B3: assistant registry includes all 19 tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),

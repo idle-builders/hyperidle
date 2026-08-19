@@ -125,7 +125,11 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 		const res = await app.request("/api/bets/bet-1", {
 			method: "PATCH",
 			headers: authHeaders(),
-			body: JSON.stringify({ field: "description", value: "Updated description", reason: "Test reason" }),
+			body: JSON.stringify({
+				field: "description",
+				value: "Updated description",
+				reason: "Test reason",
+			}),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { revisionLog?: string };
