@@ -22,11 +22,11 @@
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import { describe, expect, it } from "vitest";
 import type {
 	HarnessCapabilityFilter,
 	HarnessCapabilityReader,
 } from "../../services/harness-capability-reader.js";
-import { describe, expect, it } from "vitest";
 import { validateAgentConfig } from "../validate-agent-config.js";
 
 // ---------------------------------------------------------------------------

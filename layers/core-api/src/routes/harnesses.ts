@@ -36,9 +36,9 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ModelGatewayConfig } from "@hyperidle/domain-model";
 import { credentialNameForProvider } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 
 /**
  * Helper: stamp discovery.disabled per descriptor based on harnessDisabled config.

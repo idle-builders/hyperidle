@@ -42,14 +42,14 @@ import type {
 	AgentReviewTrackRecord,
 } from "@hyperidle/domain-model";
 import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
-import {
-	type HarnessCapabilityReader,
-	harnessCapabilitiesForType,
-} from "../services/harness-capability-reader.js";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { getTeam, getTeamMembers } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 import type { Context } from "hono";
+import {
+	type HarnessCapabilityReader,
+	harnessCapabilitiesForType,
+} from "../services/harness-capability-reader.js";
 import { computeApprovalRate } from "../services/policy-bindings.js";
 
 // @lore AU26 J4: `computeHealthSignals`, `deriveHealthLevel` and

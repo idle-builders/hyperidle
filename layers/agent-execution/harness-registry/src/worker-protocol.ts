@@ -7,8 +7,7 @@
  * Both are discriminated unions keyed on `type`.
  */
 
-import type { SessionConfig, SessionResult } from "@hyperidle/harness-protocol";
-import type { HarnessEvent } from "@hyperidle/harness-protocol";
+import type { HarnessEvent, SessionConfig, SessionResult } from "@hyperidle/harness-protocol";
 
 // ── Worker → Server ───────────────────────────────────────────────────────────
 

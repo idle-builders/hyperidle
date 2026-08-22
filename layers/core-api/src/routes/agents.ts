@@ -36,12 +36,12 @@ import {
 	MODEL_TIERS,
 } from "@hyperidle/domain-model";
 import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
-import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { getTeamMembers } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { handleAgentProfile } from "./agent-profile.js";
 import { validateAgentConfig } from "./validate-agent-config.js";
 

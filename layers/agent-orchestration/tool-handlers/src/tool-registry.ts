@@ -30,8 +30,8 @@
  */
 
 import {
-	err,
 	type ClaudeToolSpec,
+	err,
 	type RegisteredTool,
 	type ToolContext,
 	type ToolRegistry,

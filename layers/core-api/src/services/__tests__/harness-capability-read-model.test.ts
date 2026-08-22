@@ -23,13 +23,13 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/harness-protocol";
+import { AdapterPool } from "@hyperidle/harness-registry";
+import { describe, expect, it } from "vitest";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
 	harnessRegistrationMeta,
 } from "../harness-capability-reader.js";
-import { AdapterPool } from "@hyperidle/harness-registry";
-import { describe, expect, it } from "vitest";
 
 function makeAdapter(caps?: Partial<HarnessCapabilities>): HarnessAdapter {
 	const capabilities: HarnessCapabilities = {

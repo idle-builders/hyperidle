@@ -1,5 +1,8 @@
-import { MAX_FORCE_RETURNS, mcpNamespacedToolName, shouldForceReturn } from "@hyperidle/harness-protocol";
-import type { EnforcementRegistry } from "../enforcement-registry.js";
+import {
+	MAX_FORCE_RETURNS,
+	mcpNamespacedToolName,
+	shouldForceReturn,
+} from "@hyperidle/harness-protocol";
 /**
  * @lore AU26 B1a: the local `` re-implementation this file used
  * to declare (with its own `@lore` saying it existed only to avoid importing
@@ -8,6 +11,7 @@ import type { EnforcementRegistry } from "../enforcement-registry.js";
  * the reason is gone and the duplicate goes with it.
  */
 import { Hono } from "hono";
+import type { EnforcementRegistry } from "../enforcement-registry.js";
 
 interface McpSessionRegistry {
 	lookup(token: string): { readonly sessionId: string } | undefined;

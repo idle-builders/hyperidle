@@ -591,13 +591,17 @@ export async function createLocalAdapterPool(opts?: {
 
 	// 1b. cursor-agent adapter (CliHarnessAdapter, registered only if binary is on PATH)
 	if (await CliHarnessAdapter.checkAvailability(CURSOR_AGENT_CLI_CONFIG.binary)) {
-		pool.register("local-cursor-agent", new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG, { enforcement }), {
-			name: "Cursor Agent",
-			kind: "local",
-			type: "cursor-agent",
-			modelProviders: [],
-			maxConcurrent,
-		});
+		pool.register(
+			"local-cursor-agent",
+			new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG, { enforcement }),
+			{
+				name: "Cursor Agent",
+				kind: "local",
+				type: "cursor-agent",
+				modelProviders: [],
+				maxConcurrent,
+			},
+		);
 	}
 
 	// 2. X6: Built-in harness adapter — supports direct API calls to all providers

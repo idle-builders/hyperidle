@@ -1,5 +1,5 @@
-import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import type { ToolRegistry } from "@hyperidle/harness-protocol";
+import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { describe, expect, test } from "vitest";
 
 const registry: ToolRegistry = {

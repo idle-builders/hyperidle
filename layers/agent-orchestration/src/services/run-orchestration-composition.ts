@@ -28,6 +28,7 @@ import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import {
 	type RunOptions,
 	type RunResult,
@@ -50,9 +51,8 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import type { ProposedCallWorkflowPort } from "@hyperidle/tool-handlers";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
 import { buildToolDefinitions } from "./tool-handlers-bindings.js";
 

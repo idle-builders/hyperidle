@@ -1,13 +1,4 @@
 export type {
-	AnySchema,
-	ClaudeToolSpec,
-	RegisteredTool,
-	ToolContext,
-	ToolRegistry,
-	ToolResult,
-} from "./harness/tool-seam.js";
-export { err, ok } from "./harness/tool-seam.js";
-export type {
 	AdapterInfo,
 	AdapterMeta,
 	ConversationMessage,
@@ -45,3 +36,25 @@ export {
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,
 } from "./harness/return-actions.js";
+export type {
+	AnySchema,
+	ClaudeToolSpec,
+	RegisteredTool,
+	ToolContext,
+	ToolRegistry,
+	ToolResult,
+} from "./harness/tool-seam.js";
+export { err, ok } from "./harness/tool-seam.js";
+export type {
+	ServerDispatchMessage,
+	ServerRegisteredMessage,
+	ServerStopMessage,
+	ServerToWorkerMessage,
+	WorkerErrorMessage,
+	WorkerEventMessage,
+	WorkerPauseMessage,
+	WorkerRegisterMessage,
+	WorkerResumeMessage,
+	WorkerSessionResultMessage,
+	WorkerToServerMessage,
+} from "./harness/worker-protocol.js";

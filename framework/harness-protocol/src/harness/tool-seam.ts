@@ -34,7 +34,9 @@ import type { EventBus } from "@hyperidle/event-bus";
  * structural interface sidesteps the dual-version problem entirely.
  */
 export interface AnySchema {
-	safeParse(args: unknown):
+	safeParse(
+		args: unknown,
+	):
 		| { readonly success: true; readonly data: unknown }
 		| { readonly success: false; readonly error: { readonly message: string } };
 }

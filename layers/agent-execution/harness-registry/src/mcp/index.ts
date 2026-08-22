@@ -1,6 +1,6 @@
 import type { ToolRegistry } from "@hyperidle/harness-protocol";
-import type { EnforcementRegistry } from "../enforcement-registry.js";
 import type { Hono } from "hono";
+import type { EnforcementRegistry } from "../enforcement-registry.js";
 import { createMcpSession } from "./mcp-bridge.js";
 import { createMcpRouter, type McpSessionRegistry } from "./mcp-route.js";
 

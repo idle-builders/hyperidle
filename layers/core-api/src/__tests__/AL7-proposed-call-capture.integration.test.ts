@@ -40,9 +40,9 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
+import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";

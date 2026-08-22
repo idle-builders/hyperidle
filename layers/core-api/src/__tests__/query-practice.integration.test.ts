@@ -6,8 +6,8 @@ import {
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { create as createKnowledgeItem } from "@hyperidle/knowledge";
 import type { ToolContext } from "@hyperidle/harness-protocol";
+import { create as createKnowledgeItem } from "@hyperidle/knowledge";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

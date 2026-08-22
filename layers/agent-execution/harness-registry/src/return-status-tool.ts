@@ -23,15 +23,16 @@
  * passes the per-session enforcementRegistry from session-provisioning.ts.
  */
 
-import { MAX_FORCE_RETURNS, shouldForceReturn } from "@hyperidle/harness-protocol";
-import type { EnforcementRegistry } from "./enforcement-registry.js";
 import {
+	MAX_FORCE_RETURNS,
 	ok,
 	type RegisteredTool,
+	shouldForceReturn,
 	type ToolContext,
 	type ToolResult,
 } from "@hyperidle/harness-protocol";
 import z from "zod";
+import type { EnforcementRegistry } from "./enforcement-registry.js";
 
 /** Input schema: the tool accepts an empty object (no required args). */
 const inputSchema: z.ZodType = z.object({});

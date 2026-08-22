@@ -13,8 +13,8 @@
 
 import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
-import type { WorkerRegisterMessage } from "../worker-protocol.js";
 import { RemoteHarnessAdapter } from "../remote-harness-adapter.js";
+import type { WorkerRegisterMessage } from "../worker-protocol.js";
 
 // ── Mock WebSocket ─────────────────────────────────────────────────────────
 

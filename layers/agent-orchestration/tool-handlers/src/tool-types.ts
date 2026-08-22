@@ -14,8 +14,13 @@
 
 import * as crypto from "node:crypto";
 import type { Reversibility } from "@hyperidle/domain-model";
-import type { ClaudeToolSpec, RegisteredTool, ToolContext, ToolResult } from "@hyperidle/harness-protocol";
-import type { SessionWorkflow } from "@hyperidle/harness-protocol";
+import type {
+	ClaudeToolSpec,
+	RegisteredTool,
+	SessionWorkflow,
+	ToolContext,
+	ToolResult,
+} from "@hyperidle/harness-protocol";
 import z from "zod";
 
 /** A skill tool's handler function — internal alias. */

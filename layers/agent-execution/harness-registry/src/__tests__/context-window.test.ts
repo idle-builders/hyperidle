@@ -5,11 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	DEFAULT_CONTEXT_WINDOW,
-	isAboveThreshold,
-	modelContextWindow,
-} from "../context-window.js";
+import { DEFAULT_CONTEXT_WINDOW, isAboveThreshold, modelContextWindow } from "../context-window.js";
 
 // ── contextWindowForModel ────────────────────────────────────────────────────
 
@@ -39,8 +35,6 @@ describe("contextWindowForModel", () => {
 	it("returns DEFAULT_CONTEXT_WINDOW for an empty string", () => {
 		expect(modelContextWindow("")).toBe(DEFAULT_CONTEXT_WINDOW);
 	});
-
-
 });
 
 // ── isAboveThreshold ─────────────────────────────────────────────────────────

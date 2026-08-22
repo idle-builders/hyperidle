@@ -6,10 +6,10 @@ import type {
 	SessionHandle,
 	SessionResult,
 } from "@hyperidle/harness-protocol";
-import type { WorkerRegisterMessage } from "../worker-protocol.js";
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
 import { RemoteHarnessAdapter } from "../remote-harness-adapter.js";
+import type { WorkerRegisterMessage } from "../worker-protocol.js";
 
 function adapter(label: string): HarnessAdapter {
 	return {

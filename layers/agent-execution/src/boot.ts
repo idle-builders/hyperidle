@@ -36,7 +36,7 @@
  */
 
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
-import type { HarnessAdapter } from "@hyperidle/harness-protocol";
+import type { HarnessAdapter, RegisteredTool, ToolRegistry } from "@hyperidle/harness-protocol";
 import type {
 	EnforcementRegistry as BaseEnforcementRegistry,
 	WorkerRegisterMessage,
@@ -56,7 +56,6 @@ import {
 	openMcpBridgeSession,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
-import type { RegisteredTool, ToolRegistry } from "@hyperidle/harness-protocol";
 import type { Hono } from "hono";
 
 /** The concrete registry `createReturnEnforcement()` builds — never exported by name from `@hyperidle/harness-registry`, so derived from the factory's own return type instead of duplicating its shape by hand. */

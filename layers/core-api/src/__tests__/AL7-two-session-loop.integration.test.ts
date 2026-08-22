@@ -40,10 +40,10 @@ import {
 } from "@hyperidle/db";
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
-import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
+import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
+import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
+import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
