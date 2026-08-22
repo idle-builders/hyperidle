@@ -1092,7 +1092,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(row?.status).not.toBe("failed");
 
 		// No exhaustion notification — the row succeeded, it was not exhausted.
-		const notifs = (await listNotifications(db, { kind: "all" })).filter(
+		const notifs = (await listNotifications(db, { kind: "unread" })).filter(
 			(r) => r.eventType === "propagation_exhausted",
 		);
 		expect(notifs).toHaveLength(0);
@@ -1134,7 +1134,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(failedLogs[0]!.attempts).toBe(3);
 
 		// Assert: a notification queue entry was created
-		const notifs = (await listNotifications(db, { kind: "all" })).filter(
+		const notifs = (await listNotifications(db, { kind: "unread" })).filter(
 			(r) => r.eventType === "propagation_exhausted",
 		);
 		expect(notifs).toHaveLength(1);

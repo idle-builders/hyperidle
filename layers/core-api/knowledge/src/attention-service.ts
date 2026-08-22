@@ -1,21 +1,18 @@
 import { randomUUID } from "node:crypto";
 import {
 	type HyperIdleDb,
-	type NewItem,
-	type NewThread,
 	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeItems,
+	type NewItem,
+	type NewThread,
 } from "@hyperidle/db";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { and, eq, inArray } from "drizzle-orm";
 import { buildAttentionContext, scoreAttentionBatch } from "./attention-scoring.js";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
-import {
-	attentionReviewReasoningMarker,
-	createReviewItem,
-} from "./review-item-factory.js";
+import { attentionReviewReasoningMarker, createReviewItem } from "./review-item-factory.js";
 import {
 	ATTENTION_THRESHOLD,
 	type AttentionWeights,

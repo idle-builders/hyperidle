@@ -18,14 +18,7 @@
  * contract — callers of `transitionProposedCall({to:'granted',...})` must
  * supply it via `ports.intentRecorder`.
  */
-import type {
-	Bet,
-	HyperIdleDb,
-	Task,
-	Team,
-	User,
-	WriteExecutor,
-} from "@hyperidle/db";
+import type { Bet, HyperIdleDb, Task, Team, User, WriteExecutor } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,

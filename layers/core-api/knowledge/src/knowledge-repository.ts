@@ -790,10 +790,7 @@ export async function search(
 			projection: knowledgeAppProjection,
 		})
 		.from(knowledgeItems)
-		.leftJoin(
-			knowledgeAppProjection,
-			eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-		)
+		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
 		.where(whereClause)
 		.orderBy(desc(knowledgeItems.updatedAt), knowledgeItems.id)
 		.limit(limit)

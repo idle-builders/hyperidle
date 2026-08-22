@@ -37,8 +37,10 @@ const workPort = {
 		const rows = await work.list(exec, "item", { marker });
 		return rows[0] ? { id: rows[0].id } : undefined;
 	},
-	createItem: (exec: import("@hyperidle/db").WriteExecutor, values: import("@hyperidle/db").NewItem) =>
-		work.create(exec, "item", values),
+	createItem: (
+		exec: import("@hyperidle/db").WriteExecutor,
+		values: import("@hyperidle/db").NewItem,
+	) => work.create(exec, "item", values),
 };
 const conversationPort = {
 	insertThread,

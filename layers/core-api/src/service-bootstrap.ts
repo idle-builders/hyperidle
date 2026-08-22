@@ -264,16 +264,6 @@ export function registerCoreDomainServices(ctx: {
 	 * (`app.ts`'s `serviceBootstrap` invocation) — never an ambient global.
 	 */
 	readonly agentOrchestration: AgentOrchestrationPort;
-	/**
-	 * Inject alert preferences reader for the notification dispatcher.
-	 * Uses an inline structural type so `AlertPreferences` (delivery-chain
-	 * internal) stays out of the public server-factory surface.
-	 * @lore AU20 Ag6b: AlertPreferences removed from barrel; inline type here.
-	 */
-	readonly readAlertPreferences?: () => Promise<{
-		blockerAlerts: boolean;
-		reviewAlerts: boolean;
-	}>;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -452,9 +442,7 @@ export function registerCoreDomainServices(ctx: {
 	// entry and one disposer.
 	disposers.push(
 		identifyBootstrapOwner(
-			installNotifications(db, eventBus, notificationsDeps, {
-				readAlertPreferences: ctx.readAlertPreferences,
-			}),
+			installNotifications(db, eventBus, notificationsDeps),
 			"notifications installation",
 			"dispatcher/listener/drain all stop",
 			["dispatcher", "listener", "drain"],
@@ -470,7 +458,8 @@ export function registerCoreDomainServices(ctx: {
 		const nowMs = Date.now();
 		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
 		// notification_queue (owned by `notifications`)
-		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
+		// @lore AU44 batch 4: reap signature changed — deletes rows where readAt IS NOT NULL AND createdAt < cutoff
+		await reap(db, termCutoff);
 		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
 		// (Decision H1): relocated out of session-requests's reapExpired.
 		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);

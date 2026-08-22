@@ -24,10 +24,10 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import { list } from "./knowledge-repository.js";
 import { communityForRole } from "./role-community-map.js";
-import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import type { ScoringContext, ScoringWeights } from "./scoring-config.js";
-import { enforceBudget } from "./token-budget.js";
+import { DEFAULT_KNOWLEDGE_BUDGET, loadScoringWeights } from "./scoring-config.js";
 import type { ScoredItem } from "./token-budget.js";
+import { enforceBudget } from "./token-budget.js";
 import type { KnowledgeLayer } from "./types.js";
 
 // ---------------------------------------------------------------------------

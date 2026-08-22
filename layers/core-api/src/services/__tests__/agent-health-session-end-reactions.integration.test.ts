@@ -93,15 +93,23 @@ function sessionEnded(options: {
 	};
 }
 
-/** Every `agent.health.degraded` row this agent owns, whatever its status. */
+/**
+ * Every `agent.health.degraded` row this agent owns, whatever its status.
+ * @lore AU44 batch 4: kind:"all" removed; use by-event-since with an epoch
+ * `since` to retrieve all rows regardless of status (by-event-since is
+ * status-agnostic on purpose — see the AU26 lore in notification-queue.ts).
+ */
 async function degradedRows(
 	db: HyperIdleDb,
 	agentId: string,
 ): Promise<Array<{ status: string; body: string | null; readAt: string | null }>> {
-	const rows = await listNotifications(db, { kind: "all" });
-	return rows
-		.filter((r) => r.subjectId === agentId && r.eventType === AGENT_HEALTH_DEGRADED_EVENT_TYPE)
-		.map((r) => ({ status: r.status, body: r.body, readAt: r.readAt }));
+	const rows = await listNotifications(db, {
+		kind: "by-event-since",
+		eventType: AGENT_HEALTH_DEGRADED_EVENT_TYPE,
+		subjectId: agentId,
+		since: "1970-01-01T00:00:00.000Z",
+	});
+	return rows.map((r) => ({ status: r.status, body: r.body, readAt: r.readAt }));
 }
 
 describe("AU26 registerAgentHealthSessionEndReactions — the rule is a count, not a ratio", () => {

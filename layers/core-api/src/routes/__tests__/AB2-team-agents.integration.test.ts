@@ -215,6 +215,7 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 		const second = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
 		expect(second.status).toBe(200);
 
-		expect(await listNotifications(db, { kind: "all" })).toHaveLength(0);
+		// @lore AU44 batch 4: kind:"all" removed; unread covers all inbox rows (readAt IS NULL)
+		expect(await listNotifications(db, { kind: "unread" })).toHaveLength(0);
 	});
 });
