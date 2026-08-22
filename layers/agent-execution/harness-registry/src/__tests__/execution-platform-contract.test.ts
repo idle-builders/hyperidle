@@ -97,7 +97,6 @@ describe("execution platform completeness contract", () => {
 		const config: SessionConfig = {
 			sessionId: "requested-session",
 			sandboxPath: "/tmp/au20-harness-contract",
-			systemPromptPath: "",
 			assembledPrompt: "work",
 			modelTier: "fast",
 			tools: [],

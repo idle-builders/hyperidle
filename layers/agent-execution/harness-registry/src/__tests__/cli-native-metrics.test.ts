@@ -40,7 +40,6 @@ function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfi
 	return {
 		sandboxPath: "/workspace/cli-native-metrics",
 		sessionId: "cli-native-metrics-session",
-		systemPromptPath: "",
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse",
 		tools: [],

@@ -79,7 +79,6 @@ function makeSessionConfig(
 	return {
 		sandboxPath: "/workspace/reengage-test",
 		sessionId,
-		systemPromptPath: "",
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse",
 		tools: ["submit_review"],

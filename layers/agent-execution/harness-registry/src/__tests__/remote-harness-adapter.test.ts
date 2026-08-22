@@ -52,7 +52,6 @@ class MockWebSocket {
 const TEST_CONFIG: SessionConfig = {
 	sandboxPath: "/workspace/test",
 	sessionId: "test-session",
-	systemPromptPath: "/workspace/prompts/builder.md",
 	assembledPrompt: "",
 	modelTier: "workhorse",
 	tools: ["Read", "Write"],

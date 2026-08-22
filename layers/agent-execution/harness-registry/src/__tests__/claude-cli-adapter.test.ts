@@ -127,7 +127,6 @@ function makeSessionConfig() {
 	return {
 		sandboxPath: "/workspace/claude-test",
 		sessionId: "claude-cli-test-session",
-		systemPromptPath: "",
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse" as const,
 		tools: [],

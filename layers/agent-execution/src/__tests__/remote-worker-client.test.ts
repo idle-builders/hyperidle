@@ -391,7 +391,6 @@ describe("S4 AC-5 — RemoteWorkerClient dispatch", () => {
 			sessionId: "srv-session-1",
 			config: {
 				sandboxPath: "/tmp/ws",
-				systemPromptPath: "/tmp/system-prompt.md",
 				composedPrompt: "",
 				modelTier: "fast",
 				tools: [],
@@ -427,7 +426,6 @@ describe("S4 AC-5 — RemoteWorkerClient dispatch", () => {
 				sessionId: "srv-session-2",
 				config: {
 					sandboxPath: "/tmp/ws",
-					systemPromptPath: "/tmp/system-prompt.md",
 					composedPrompt: "",
 					modelTier: "fast",
 					tools: [],
@@ -461,7 +459,6 @@ describe("S4 AC-5 — RemoteWorkerClient dispatch", () => {
 				sessionId: "srv-session-3",
 				config: {
 					sandboxPath: "/tmp/ws",
-					systemPromptPath: "/tmp/system-prompt.md",
 					composedPrompt: "",
 					modelTier: "fast",
 					tools: [],
@@ -542,7 +539,6 @@ describe("S4 AC-8 — RemoteWorkerClient graceful shutdown", () => {
 				sessionId: "slow-session",
 				config: {
 					sandboxPath: "/tmp/ws",
-					systemPromptPath: "/tmp/system-prompt.md",
 					composedPrompt: "",
 					modelTier: "fast",
 					tools: [],
@@ -619,7 +615,6 @@ describe("S4 AC-8 — RemoteWorkerClient graceful shutdown", () => {
 				sessionId: "forever-session",
 				config: {
 					sandboxPath: "/tmp/ws",
-					systemPromptPath: "/tmp/system-prompt.md",
 					composedPrompt: "",
 					modelTier: "fast",
 					tools: [],

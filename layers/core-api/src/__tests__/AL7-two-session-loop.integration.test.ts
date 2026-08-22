@@ -405,7 +405,6 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 				id: "liveness-fake-agent",
 				kind: "ai",
 				name: "Liveness Fake Agent",
-				systemPromptPath: null,
 				teamId: null,
 				role: "builder",
 				skills: null,

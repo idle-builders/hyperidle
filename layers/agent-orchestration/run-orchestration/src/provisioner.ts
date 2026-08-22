@@ -1486,7 +1486,6 @@ async function runSession(
 	const sessionStartConfig = {
 		sessionId,
 		sandboxPath,
-		systemPromptPath: "", // @deprecated X3
 		assembledPrompt,
 		modelTier,
 		tools: allowedToolNames,
