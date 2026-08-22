@@ -6,13 +6,13 @@
  * Scaffolding-exclusion: CLAUDE.md/AGENTS.md excluded paths set in git info/exclude.
  */
 
+import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { execSync } from "node:child_process";
-import { createGitRunner } from "../../../src/git-runner.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createGitRunner } from "../../../src/git-runner.js";
 import { RegistryFilesystemMounter } from "../index.js";
 import type { AdapterDeps, Filesystem } from "../mounter.js";
 

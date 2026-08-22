@@ -32,8 +32,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
-import { createGitRunner } from "../../../src/git-runner.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createGitRunner } from "../../../src/git-runner.js";
 
 // ─── Lane A: Hermetic temp-repo setup ────────────────────────────────────────
 

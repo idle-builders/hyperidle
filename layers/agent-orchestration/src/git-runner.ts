@@ -204,15 +204,28 @@ async function spawnGit(
 		let stderr = "";
 		proc.stdout?.setEncoding("utf-8");
 		proc.stderr?.setEncoding("utf-8");
-		proc.stdout?.on("data", (chunk: string) => { stdout += chunk; });
-		proc.stderr?.on("data", (chunk: string) => { stderr += chunk; });
+		proc.stdout?.on("data", (chunk: string) => {
+			stdout += chunk;
+		});
+		proc.stderr?.on("data", (chunk: string) => {
+			stderr += chunk;
+		});
 		let killed = false;
 		const timer = setTimeout(() => {
 			killed = true;
 			proc.kill("SIGTERM");
-			setTimeout(() => { try { proc.kill("SIGKILL"); } catch { /* gone */ } }, 500);
+			setTimeout(() => {
+				try {
+					proc.kill("SIGKILL");
+				} catch {
+					/* gone */
+				}
+			}, 500);
 		}, timeoutMs);
-		proc.on("error", (err) => { clearTimeout(timer); resolve({ stdout, stderr: stderr + String(err), exitCode: -1 }); });
+		proc.on("error", (err) => {
+			clearTimeout(timer);
+			resolve({ stdout, stderr: stderr + String(err), exitCode: -1 });
+		});
 		proc.on("close", (code) => {
 			clearTimeout(timer);
 			const exit = typeof code === "number" ? code : killed ? -2 : -1;
@@ -227,7 +240,11 @@ export function createGitRunner(repoPath: string): GitRunner {
 	const longLocalMs = DEFAULT_WORKTREE_MS;
 	const pushMs = DEFAULT_PUSH_MS;
 
-	function run(args: readonly string[], timeoutMs: number, extraEnv?: Record<string, string>): Promise<SpawnResult> {
+	function run(
+		args: readonly string[],
+		timeoutMs: number,
+		extraEnv?: Record<string, string>,
+	): Promise<SpawnResult> {
 		return spawnGit(args, repoPath, timeoutMs, logger, extraEnv);
 	}
 
@@ -235,7 +252,9 @@ export function createGitRunner(repoPath: string): GitRunner {
 		const result = await run(args, timeoutMs);
 		if (result.exitCode !== 0) {
 			const tail = result.stderr.trim() || result.stdout.trim();
-			throw new Error(`git ${redactArgs(args).join(" ")} failed (${result.exitCode}): ${redactArg(tail)}`);
+			throw new Error(
+				`git ${redactArgs(args).join(" ")} failed (${result.exitCode}): ${redactArg(tail)}`,
+			);
 		}
 		return result;
 	}
@@ -246,7 +265,18 @@ export function createGitRunner(repoPath: string): GitRunner {
 			await runExpectOk(args, localMs);
 		},
 		async commit(message: string, authorName: string, authorEmail: string): Promise<string> {
-			await runExpectOk(["-c", `user.name=${authorName}`, "-c", `user.email=${authorEmail}`, "commit", "-m", message], localMs);
+			await runExpectOk(
+				[
+					"-c",
+					`user.name=${authorName}`,
+					"-c",
+					`user.email=${authorEmail}`,
+					"commit",
+					"-m",
+					message,
+				],
+				localMs,
+			);
 			const head = await runExpectOk(["rev-parse", "HEAD"], localMs);
 			return head.stdout.trim();
 		},
@@ -268,7 +298,10 @@ export function createGitRunner(repoPath: string): GitRunner {
 			if (r.stdout.length === 0) return [];
 			return r.stdout.split("\0").filter((p) => p.length > 0);
 		},
-		async lsRemote(url: string, opts?: { tokenConfig?: GitConfigInjection }): Promise<{ reachable: boolean; reason?: string }> {
+		async lsRemote(
+			url: string,
+			opts?: { tokenConfig?: GitConfigInjection },
+		): Promise<{ reachable: boolean; reason?: string }> {
 			const extraEnv: Record<string, string> = {};
 			if (opts?.tokenConfig) {
 				extraEnv.GIT_CONFIG_COUNT = "1";
@@ -285,7 +318,11 @@ export function createGitRunner(repoPath: string): GitRunner {
 				return { reachable: false, reason: redactArg(reason) };
 			}
 		},
-		async clone(url: string, branch: string, opts?: { depth?: number; tokenConfig?: GitConfigInjection }): Promise<void> {
+		async clone(
+			url: string,
+			branch: string,
+			opts?: { depth?: number; tokenConfig?: GitConfigInjection },
+		): Promise<void> {
 			const args: string[] = ["clone"];
 			if (opts?.depth != null) args.push("--depth", String(opts.depth));
 			args.push("--single-branch", "--branch", branch, "--", url, ".");
@@ -306,7 +343,11 @@ export function createGitRunner(repoPath: string): GitRunner {
 				throw new Error("git bundle: bundlePath and ref must not start with '-'");
 			await runExpectOk(["bundle", "create", bundlePath, ref], longLocalMs);
 		},
-		async worktreeAdd(worktreePath: string, branch: string, opts?: { createBranch?: boolean }): Promise<void> {
+		async worktreeAdd(
+			worktreePath: string,
+			branch: string,
+			opts?: { createBranch?: boolean },
+		): Promise<void> {
 			if (worktreePath.startsWith("-") || branch.startsWith("-"))
 				throw new Error("git worktree add: args must not start with '-'");
 			const args: string[] = ["worktree", "add"];
@@ -327,7 +368,8 @@ export function createGitRunner(repoPath: string): GitRunner {
 		async restoreStaged(paths: readonly string[]): Promise<void> {
 			if (paths.length === 0) return;
 			for (const p of paths) {
-				if (p.startsWith("-")) throw new Error(`git restore --staged: path must not start with '-' (got: '${p}')`);
+				if (p.startsWith("-"))
+					throw new Error(`git restore --staged: path must not start with '-' (got: '${p}')`);
 			}
 			await runExpectOk(["restore", "--staged", "--", ...paths], localMs);
 		},
@@ -345,4 +387,4 @@ export function createGitRunner(repoPath: string): GitRunner {
 	};
 }
 
-export type { GitRunner, GitConfigInjection };
+export type { GitConfigInjection, GitRunner };

@@ -52,10 +52,10 @@ interface FilesystemsServiceConnectionResolver {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
 }
 
-import { createGitRunner } from "../git-runner.js";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import { Hono } from "hono";
 import { z } from "zod";
+import { createGitRunner } from "../git-runner.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 

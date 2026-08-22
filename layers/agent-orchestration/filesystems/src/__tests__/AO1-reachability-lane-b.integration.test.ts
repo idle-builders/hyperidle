@@ -26,10 +26,10 @@ import * as crypto from "node:crypto";
 import { resolveHeldToken } from "@hyperidle/connections";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { serviceConnections, teams, users } from "@hyperidle/db";
-import { resolveFilesystemState } from "@hyperidle/filesystems";
-import { createGitRunner } from "../../../src/git-runner.js";
-import { describe, expect, it } from "vitest";
 import { test } from "@hyperidle/db/test-fixtures";
+import { resolveFilesystemState } from "@hyperidle/filesystems";
+import { describe, expect, it } from "vitest";
+import { createGitRunner } from "../../../src/git-runner.js";
 
 // ─── Skip guard ───────────────────────────────────────────────────────────────
 

@@ -149,7 +149,10 @@ function encodeToon(obj: object): string {
 function flattenToLines(value: unknown, prefix: string, lines: string[]): void {
 	// @lore I6: skip undefined values, matching JSON.stringify behavior.
 	if (value === undefined) return;
-	if (value === null) { lines.push(`${prefix}:`); return; }
+	if (value === null) {
+		lines.push(`${prefix}:`);
+		return;
+	}
 	if (Array.isArray(value)) {
 		for (let i = 0; i < value.length; i++) flattenToLines(value[i], `${prefix}[${i}]`, lines);
 		return;
@@ -160,7 +163,10 @@ function flattenToLines(value: unknown, prefix: string, lines: string[]): void {
 		return;
 	}
 	if (typeof value === "string") {
-		if (value === "") { lines.push(`${prefix}: `); return; }
+		if (value === "") {
+			lines.push(`${prefix}: `);
+			return;
+		}
 		if (value.includes("\n")) {
 			lines.push(`${prefix}: |`);
 			for (const line of value.split("\n")) lines.push(`  ${line}`);

@@ -79,7 +79,7 @@ export const ERROR_TOKEN_PATTERNS: ReadonlyArray<RegExp> = [
  * (bearer + sk-/pk- + github) missed common credential shapes that
  * agents routinely encounter in tool results.
  */
-export function scrubInlineTokens(input: string): string {
+function scrubInlineTokens(input: string): string {
 	return input
 		.replace(PEM_BLOCK_RE, "[REDACTED_PEM]")
 		.replace(JWT_RE, "[REDACTED_JWT]")

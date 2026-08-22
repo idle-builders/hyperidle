@@ -81,7 +81,7 @@
 			"reach": ["core-ui"],
 			"why": "the Part vocabulary and the adapters that derive Parts from messages and session activity. There is exactly one conversation surface. A second consumer of the Part vocabulary means a second conversation, which is a product decision, not an import."
 		},
-"framework/factory-defaults": {
+		"framework/factory-defaults": {
 			"reach": ["core-api", "agent-orchestration", "tool-handlers"],
 			"why": "the roster and the system-prompt templates a fresh installation is seeded with. It reads template files off disk, so a browser cannot run it at all."
 		},

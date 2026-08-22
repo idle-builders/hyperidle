@@ -28,8 +28,11 @@ const DEFAULTS: Record<DeploymentProfile, ProfileDefaults> = {
 
 const VALID: ReadonlySet<string> = new Set(["laptop", "vps", "cloud"]);
 
-export function resolveProfile(env: NodeJS.ProcessEnv | Record<string, string | undefined> = {}): ProfileDefaults {
+export function resolveProfile(
+	env: NodeJS.ProcessEnv | Record<string, string | undefined> = {},
+): ProfileDefaults {
 	const raw = env.HYPERIDLE_PROFILE ?? "laptop";
-	if (!VALID.has(raw)) throw new Error(`Invalid profile: "${raw}". Must be one of: laptop, vps, cloud.`);
-	return DEFAULTS[raw as DeploymentProfile]!;
+	if (!VALID.has(raw))
+		throw new Error(`Invalid profile: "${raw}". Must be one of: laptop, vps, cloud.`);
+	return DEFAULTS[raw as DeploymentProfile] as ProfileDefaults;
 }
