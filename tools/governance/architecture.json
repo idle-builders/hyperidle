@@ -28,11 +28,7 @@
 	},
 	"containment": {
 		"note": "A service lives inside exactly one layer. A layer belongs to itself. Composition roots live outside the tree and are the only actors permitted to reach across it.",
-		"compositionRootRoles": [
-			"application",
-			"tooling",
-			"deployment"
-		],
+		"compositionRootRoles": ["application", "tooling", "deployment"],
 		"repoRootIsCompositionRoot": true
 	},
 	"surfaces": {
@@ -42,12 +38,7 @@
 			"why": "the product's nouns — the closed sets, the wire shapes and the pure predicates over them. Nothing here declares a port and nothing here carries a dependency a browser cannot run. The one successor of the old substrate that keeps universal reach, for the same reason db:row-type has it: a shape is not an access path."
 		},
 		"framework/diagnostics": {
-			"reach": [
-				"core-api",
-				"agent-orchestration",
-				"service",
-				"application"
-			],
+			"reach": ["core-api", "agent-orchestration", "service", "application"],
 			"why": "the structured logger, the secret scrubber, and the observability event/adapter contract with its console sink. A log line happens where the process is and every service runs in one; every application installs a sink. `layer` is deliberately not granted, because core-ui is a layer and must not log — core-api and agent-orchestration are named individually instead, the same reason `run-orchestration-composition.ts` (AU31 §2.1(b), relocated into agent-orchestration's own boot) logs a summarized tool arg."
 		},
 		"framework/harness-capability": {
@@ -75,55 +66,31 @@
 			"why": "the recorder/reader seam a core-api route uses to write an agent work intent into a table agent-orchestration owns. A port exists to keep two named layers from naming each other, so its audience is the writing side and the owning side, and nobody else."
 		},
 		"framework/event-bus": {
-			"reach": [
-				"core-api",
-				"agent-execution",
-				"agent-orchestration",
-				"service",
-				"application"
-			],
+			"reach": ["core-api", "agent-execution", "agent-orchestration", "service", "application"],
 			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot — so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types in framework/domain-model."
 		},
 		"framework/presentation-format": {
-			"reach": [
-				"core-ui",
-				"core-api"
-			],
+			"reach": ["core-ui", "core-api"],
 			"why": "a value turned into the string a human reads. Outside the framework role, two packages format anything: the interface, and the one layer that composes a user-visible string on the server. The design system formats too, and reaches this as one framework package naming another. A future service formatting something is a prediction, not a rule about the role."
 		},
 		"framework/block-derivation": {
-			"reach": [
-				"core-ui"
-			],
+			"reach": ["core-ui"],
 			"why": "markdown text turned into the block tree the renderer walks, and the content-addressed id that keeps a block stable across edits. Deriving blocks means running a markdown parser and a hash; the interface is the only package outside the framework role that renders block content, and this is the only manifest that carries the parser. The design system renders it too and reaches this as one framework package naming another."
 		},
 		"framework/conversation-parts": {
-			"reach": [
-				"core-ui"
-			],
+			"reach": ["core-ui"],
 			"why": "the Part vocabulary and the adapters that derive Parts from messages and session activity. There is exactly one conversation surface. A second consumer of the Part vocabulary means a second conversation, which is a product decision, not an import."
 		},
 		"framework/toon-codec": {
-			"reach": [
-				"run-orchestration"
-			],
+			"reach": ["run-orchestration"],
 			"why": "the TOON text codec and its parse error. One service encodes context bundles as TOON, and nothing else speaks the format."
 		},
 		"framework/query-escaping": {
-			"reach": [
-				"core-api",
-				"knowledge",
-				"users",
-				"work"
-			],
+			"reach": ["core-api", "knowledge", "users", "work"],
 			"why": "turning user text into a literal a query engine cannot read as syntax. The four packages that build a LIKE query. Not framework/db: the function touches no database, and a db-shaped surface here would re-create the one Ruling 12.3 deleted."
 		},
 		"framework/factory-defaults": {
-			"reach": [
-				"core-api",
-				"agent-orchestration",
-				"tool-handlers"
-			],
+			"reach": ["core-api", "agent-orchestration", "tool-handlers"],
 			"why": "the roster and the system-prompt templates a fresh installation is seeded with. It reads template files off disk, so a browser cannot run it at all."
 		},
 		"framework/host-process": {
@@ -168,15 +135,11 @@
 			"why": "the manifest-level dependency on the database package. Which surface INSIDE it you may touch is decided per surface below, so declaring the dependency is not itself a decision."
 		},
 		"framework/api-contract": {
-			"reach": [
-				"layer"
-			],
+			"reach": ["layer"],
 			"why": "the request/response shapes two layers agree on. A service talks through its own layer, so it has no business naming the contract directly."
 		},
 		"framework/design-system": {
-			"reach": [
-				"core-ui"
-			],
+			"reach": ["core-ui"],
 			"why": "there is exactly one user interface. A second consumer of the design system means a second interface, which is a product decision, not an import."
 		},
 		"db:client": {
@@ -200,11 +163,7 @@
 			"why": "development code. A production file naming it is already an error under the production-may-not-name-development clause; this entry keeps the two answers from disagreeing."
 		},
 		"core-api/credentials": {
-			"reach": [
-				"core-api",
-				"remote-server",
-				"desktop"
-			],
+			"reach": ["core-api", "remote-server", "desktop"],
 			"why": "The credential store and its AES-256-GCM cipher (moved from @hyperidle/credential-access). core-api consumes the store directly; both server Applications compose the cipher at boot to inject into agent-orchestration via bootAgentOrchestration."
 		}
 	},
@@ -225,18 +184,13 @@
 	"endpoints": {
 		"note": "A door is dialled only if the target declares it.",
 		"httpApiLayers": {
-			"layers": [
-				"core-api",
-				"agent-orchestration"
-			],
+			"layers": ["core-api", "agent-orchestration"],
 			"audience": "everyone",
 			"why": "a layer that publishes an HTTP API publishes it to the whole system. agent-execution is absent because it hosts no API."
 		},
 		"mcpRouter": {
 			"host": "agent-execution",
-			"alsoDialledBy": [
-				"harness"
-			],
+			"alsoDialledBy": ["harness"],
 			"why": "the router exists to serve the harness. Only the layer that owns the harness relationship, and the harness itself, dial it."
 		}
 	},
@@ -253,11 +207,7 @@
 	},
 	"oneDoorSurfaces": {
 		"note": "The development world relaxes every production rule EXCEPT these. Each names a surface where production has exactly one door — going around it builds a world production cannot produce, which is the one thing a test may not do.",
-		"surfaces": [
-			"db:schema-ns",
-			"db:unknown",
-			"framework/design-system"
-		],
+		"surfaces": ["db:schema-ns", "db:unknown", "framework/design-system"],
 		"rawRuntime": true,
 		"rawRuntimeNote": "Ruling 14 — this holds BOTH spellings of the one act, the SDK import and the CLI spawn, because they are one target. Going around a door production has only one of is the one thing a test may not do, and a test spawning `claude` directly is doing exactly that.",
 		"why": "a test may cross any boundary to arrange the world; it may not go around a door production has only one of",
