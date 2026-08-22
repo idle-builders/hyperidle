@@ -170,7 +170,10 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
 
-		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn, enforcement: enforcementRegistry });
+		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
+			spawnFn,
+			enforcement: enforcementRegistry,
+		});
 
 		// Register the session in the enforcement registry BEFORE streamEvents.
 		// Mirrors session-provisioning.ts:760.
@@ -231,7 +234,10 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const firstChild = makeFakeChild();
 		const { spawnFn } = makeFakeSpawnFn([firstChild]);
 
-		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn, enforcement: enforcementRegistry });
+		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
+			spawnFn,
+			enforcement: enforcementRegistry,
+		});
 
 		// gate.returned=true means agent already returned voluntarily.
 		const gate = { returned: true };
@@ -258,7 +264,10 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn } = makeFakeSpawnFn(children);
 
-		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn, enforcement: enforcementRegistry });
+		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
+			spawnFn,
+			enforcement: enforcementRegistry,
+		});
 
 		const gate = { returned: false };
 		enforcementRegistry.register(testSessionId, { gate, forceCount: 0, exempt: false });
@@ -300,7 +309,10 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
 
-		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn, enforcement: enforcementRegistry });
+		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
+			spawnFn,
+			enforcement: enforcementRegistry,
+		});
 
 		const gate = { returned: false };
 		enforcementRegistry.register(testSessionId, { gate, forceCount: 0, exempt: false });
@@ -348,7 +360,10 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
 
-		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn, enforcement: enforcementRegistry });
+		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
+			spawnFn,
+			enforcement: enforcementRegistry,
+		});
 
 		const gate = { returned: false };
 		enforcementRegistry.register(testSessionId, {
@@ -395,7 +410,10 @@ describe("CliHarnessAdapter.streamEvents process-reengage loop", () => {
 		const children = Array.from({ length: MAX_FORCE_RETURNS + 1 }, () => makeFakeChild());
 		const { spawnFn, spawnCalls } = makeFakeSpawnFn(children);
 
-		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), { spawnFn, enforcement: enforcementRegistry });
+		const adapter = new CliHarnessAdapter(makeProcessReEngageConfig(), {
+			spawnFn,
+			enforcement: enforcementRegistry,
+		});
 
 		const gate = { returned: false };
 		enforcementRegistry.register(testSessionId, { gate, forceCount: 0, exempt: false });
