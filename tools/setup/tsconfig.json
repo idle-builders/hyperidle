@@ -3,9 +3,13 @@
 	"compilerOptions": {
 		"outDir": "dist",
 		"rootDir": "src",
-		"types": ["node"]
+		"types": [
+			"node"
+		]
 	},
-	"include": ["src"],
+	"include": [
+		"src"
+	],
 	"references": [
 		{
 			"path": "../../framework/db"
@@ -18,9 +22,6 @@
 		},
 		{
 			"path": "../../framework/factory-defaults"
-		},
-		{
-			"path": "../../framework/host-process"
 		}
 	]
 }

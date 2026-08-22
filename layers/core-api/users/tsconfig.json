@@ -4,18 +4,19 @@
 		"composite": true,
 		"outDir": "dist",
 		"rootDir": "src",
-		"types": ["node"]
+		"types": [
+			"node"
+		]
 	},
-	"include": ["src"],
+	"include": [
+		"src"
+	],
 	"references": [
 		{
 			"path": "../../../framework/db"
 		},
 		{
 			"path": "../../../framework/domain-model"
-		},
-		{
-			"path": "../../../framework/query-escaping"
 		}
 	]
 }

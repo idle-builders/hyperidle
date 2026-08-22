@@ -1,110 +1,78 @@
 /**
- * Shared SSRF (Server-Side Request Forgery) defenses.
+ * SSRF (Server-Side Request Forgery) defences.
  *
- * Originally extracted from `packages/server/src/services/notifications/config.ts`
- * (H2 security review #5) so the same blocklist can guard
- * webhook adapters and any outbound HTTP that takes a
- * user-controlled URL.
+ * Moved here from the deleted `@hyperidle/host-process` package (AU44-b6).
+ * The two public exports (`resolveUrlForSSRF`, `isPrivateHostLiteral`) are
+ * the only symbols callers in this package need; the IP-level predicates
+ * stay module-private.
  *
- * `resolveUrlForSSRF` is the async DNS resolution gate, run immediately
- * before an outbound HTTP call. Returns the resolved public addresses
- * so callers can pin one for the fetch (prevents DNS rebinding — H-1).
+ * @lore H-1: `resolveUrlForSSRF` was earned from security review H-1 — the
+ * DNS resolution gate + IP-check prevents DNS rebinding between the check
+ * and the outbound connect. Never remove or stub this gate.
  */
-
 import * as dns from "node:dns";
 import * as net from "node:net";
 import { promisify } from "node:util";
 
-/**
- * Full result from `resolveUrlForSSRF` — resolved IPs for pinning.
- */
 export type ResolveResult =
 	| { ok: true; addresses: ReadonlyArray<{ address: string; family: 4 | 6 }> }
 	| { ok: false; reason: string };
 
 export interface SanitizeUrlOptions {
-	/**
-	 * If `true`, http:// is only accepted for loopback hosts. Default `true`.
-	 * Matches ntfy and similar adapters: both require https except when a test
-	 * is targeting a local HTTP fixture.
-	 */
 	readonly requireHttps?: boolean;
-	/**
-	 * Label used in error messages (e.g. "ntfy url", "webhook url").
-	 * Default "url".
-	 */
 	readonly label?: string;
-	/**
-	 * Injectable DNS resolver. Tests use this to simulate DNS rebinding
-	 * (first call returns a public IP, second call returns a private IP)
-	 * without patching the global `dns.lookup`.
-	 *
-	 * The function must return at least one `{ address, family }` record.
-	 * A rejection is treated as "could not be resolved".
-	 */
 	readonly lookup?: (host: string) => Promise<Array<{ address: string; family: 4 | 6 }>>;
 }
 
 const PRIVATE_HOSTS: ReadonlySet<string> = new Set(["localhost", "localhost.", "broadcasthost"]);
-
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
-export function isPrivateIPv4(ip: string): boolean {
+function isPrivateIPv4(ip: string): boolean {
 	const parts = ip.split(".");
 	if (parts.length !== 4) return false;
 	const nums = parts.map(Number);
 	if (nums.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return false;
-	// We checked parts.length === 4 above, so all four elements are present.
 	const a = nums[0] as number;
 	const b = nums[1] as number;
-	if (a === 10) return true; // 10.0.0.0/8
-	if (a === 127) return true; // loopback
-	if (a === 0) return true; // 0.0.0.0/8 "this network"
-	if (a === 169 && b === 254) return true; // link-local
-	if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-	if (a === 192 && b === 168) return true; // 192.168.0.0/16
-	if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
-	if (a >= 224) return true; // multicast / reserved
+	if (a === 10) return true;
+	if (a === 127) return true;
+	if (a === 0) return true;
+	if (a === 169 && b === 254) return true;
+	if (a === 172 && b >= 16 && b <= 31) return true;
+	if (a === 192 && b === 168) return true;
+	if (a === 100 && b >= 64 && b <= 127) return true;
+	if (a >= 224) return true;
 	return false;
 }
 
-export function isPrivateIPv6(ip: string): boolean {
+function isPrivateIPv6(ip: string): boolean {
 	const lower = ip.toLowerCase().replace(/^\[|\]$/g, "");
 	if (lower === "::1") return true;
 	if (lower === "::") return true;
-	// Link-local fe80::/10
 	if (/^fe[89ab][0-9a-f]?:/i.test(lower)) return true;
-	// Unique-local fc00::/7
 	if (/^f[cd][0-9a-f]{0,2}:/i.test(lower)) return true;
-	// IPv4-mapped or IPv4-compatible addresses (::ffff:a.b.c.d)
 	const embedded = lower.match(/::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/);
-	// embedded[1] is the capture group — present whenever embedded is non-null.
 	if (embedded) return isPrivateIPv4(embedded[1] ?? "");
 	return false;
+}
+
+function isLoopbackHost(hostname: string): boolean {
+	const clean = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+	return LOOPBACK_HOSTS.has(clean);
 }
 
 export function isPrivateHostLiteral(hostname: string): boolean {
 	const clean = hostname.replace(/^\[|\]$/g, "").toLowerCase();
 	if (PRIVATE_HOSTS.has(clean)) return true;
-	// mDNS `.local` — rejected regardless (prevents local-network leakage)
 	if (clean.endsWith(".local")) return true;
-	// Cloud metadata endpoints — 169.254.169.254 (AWS/GCP/Azure/DO)
 	if (clean === "metadata" || clean === "metadata.google.internal") return true;
 	if (net.isIP(clean) === 4) return isPrivateIPv4(clean);
 	if (net.isIP(clean) === 6) return isPrivateIPv6(clean);
 	return false;
 }
 
-export function isLoopbackHost(hostname: string): boolean {
-	const clean = hostname.replace(/^\[|\]$/g, "").toLowerCase();
-	return LOOPBACK_HOSTS.has(clean);
-}
-
 type ParseResult = { ok: true; url: URL } | { ok: false; reason: string };
 
-/**
- * Parse + sanity-check a URL in one shot. Internal helper for `resolveUrlForSSRF`.
- */
 function parseAndCheckUrl(input: string, opts: SanitizeUrlOptions): ParseResult {
 	const label = opts.label ?? "url";
 	const requireHttps = opts.requireHttps ?? true;
@@ -140,14 +108,6 @@ function parseAndCheckUrl(input: string, opts: SanitizeUrlOptions): ParseResult 
 
 const dnsLookup = promisify(dns.lookup);
 
-/**
- * Full SSRF gate: parse + sync pre-check + DNS resolution + private-IP
- * rejection. Returns the list of resolved public addresses so callers
- * can pin one for the subsequent fetch (prevents DNS rebinding between
- * this check and the outbound connect — security review H-1).
- *
- * @lore Callers that need the resolved IP list use this entry point directly.
- */
 export async function resolveUrlForSSRF(
 	input: string,
 	opts: SanitizeUrlOptions = {},

@@ -85,16 +85,6 @@
 			"reach": ["core-api", "agent-orchestration", "tool-handlers"],
 			"why": "the roster and the system-prompt templates a fresh installation is seeded with. It reads template files off disk, so a browser cannot run it at all."
 		},
-		"framework/host-process": {
-			"reach": [
-				"agent-orchestration",
-				"run-orchestration",
-				"notifications",
-				"remote-server",
-				"desktop"
-			],
-			"why": "the host as seen from a server process: spawning git, resolving a hostname before we fetch it, reading the environment at boot, resolving the deployment profile. Every module here names the operating system. Both server Applications open the same way (`resolveProfile`), so both compose it at boot — `desktop` (AU31 §5.3) duplicates `remote-server`'s own composition-root recipe rather than importing it (an `application → application` crossing), so it carries the same framework dependency, not a borrowed one."
-		},
 		"framework/http-middleware": {
 			"reach": [
 				"core-api",

@@ -1,7 +1,24 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type DeploymentProfile, resolveProfile } from "@hyperidle/host-process";
+// @lore AU44-b6: moved from deleted @hyperidle/host-process; only the three fields this CLI needs.
+type DeploymentProfile = "laptop" | "vps" | "cloud";
+type DbDriver = "pglite" | "postgres";
+interface ProfileDefaults {
+	readonly profile: DeploymentProfile;
+	readonly dbDriver: DbDriver;
+	readonly dbUrlDefault: string;
+}
+const PROFILE_MAP: Record<DeploymentProfile, ProfileDefaults> = {
+	laptop: { profile: "laptop", dbDriver: "pglite", dbUrlDefault: "./hyperidle-pg" },
+	vps: { profile: "vps", dbDriver: "postgres", dbUrlDefault: "postgres://hyperidle:hyperidle@postgres:5432/hyperidle" },
+	cloud: { profile: "cloud", dbDriver: "postgres", dbUrlDefault: "" },
+};
+function resolveProfile(opts: { profile?: string; env?: Record<string, string | undefined> | NodeJS.ProcessEnv } = {}): ProfileDefaults {
+	const raw = opts.profile ?? opts.env?.HYPERIDLE_PROFILE ?? "laptop";
+	if (!(raw in PROFILE_MAP)) throw new Error(`Invalid profile: "${raw}". Must be one of: laptop, vps, cloud.`);
+	return PROFILE_MAP[raw as DeploymentProfile]!;
+}
 import { seedDemoWorld } from "./demo-fixture.js";
 import { runFactoryBootstrap } from "./factory-bootstrap-runner.js";
 

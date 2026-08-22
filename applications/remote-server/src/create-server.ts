@@ -53,7 +53,7 @@ import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { resolveProfile } from "@hyperidle/host-process";
+import { resolveProfile } from "./profiles.js";
 import { composeApiApplication } from "@hyperidle/http-middleware";
 import { WebSocketServer } from "ws";
 // @lore AU26: `ws` ships NO type declarations of its own, so `@types/ws` is a
@@ -223,7 +223,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	if (deps.db) {
 		db = deps.db;
 	} else {
-		const profile = resolveProfile({ env: process.env });
+		const profile = resolveProfile(process.env);
 		const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
 		const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
 		if (profile.dbDriver === "pglite") {

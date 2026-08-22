@@ -21,7 +21,6 @@
 		"@hyperidle/factory-defaults": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-protocol": "*",
-		"@hyperidle/host-process": "*",
 		"@hyperidle/http-middleware": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",

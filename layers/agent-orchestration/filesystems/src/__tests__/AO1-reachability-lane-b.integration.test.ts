@@ -27,9 +27,9 @@ import { resolveHeldToken } from "@hyperidle/connections";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { serviceConnections, teams, users } from "@hyperidle/db";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
-import { createGitRunner } from "@hyperidle/host-process";
+import { createGitRunner } from "../../../src/git-runner.js";
 import { describe, expect, it } from "vitest";
-import { test } from "../__testing__/test-fixtures.js";
+import { test } from "@hyperidle/db/test-fixtures";
 
 // ─── Skip guard ───────────────────────────────────────────────────────────────
 

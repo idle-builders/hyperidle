@@ -24,7 +24,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { filesystemInjections, filesystems, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { createGitRunner } from "@hyperidle/host-process";
+import { createGitRunner } from "../../../src/git-runner.js";
 import { eq } from "drizzle-orm";
 import { RegistryFilesystemMounter, SANDBOX_SCAFFOLDING_PATHS } from "../index.js";
 import type { Filesystem } from "../mounter.js";

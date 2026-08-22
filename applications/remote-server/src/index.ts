@@ -18,8 +18,8 @@
  */
 
 import { createLogger } from "@hyperidle/diagnostics";
-import { validateStartupEnv } from "@hyperidle/host-process";
 import { createServer } from "./create-server.js";
+import { validateStartupEnv } from "./validate-startup-env.js";
 
 const log = createLogger({ pkg: "remote-server" });
 

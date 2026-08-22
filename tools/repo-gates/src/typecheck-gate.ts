@@ -522,7 +522,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/block-derivation",
 		"framework/conversation-parts",
 		"framework/factory-defaults",
-		"framework/host-process",
 		"framework/http-middleware",
 		"framework/harness-protocol",
 		"framework/db",
