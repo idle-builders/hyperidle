@@ -1,7 +1,7 @@
 import { bets, type HyperIdleDb, teams } from "@hyperidle/db";
 import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/domain-model";
 import { getTeam, updateTeam } from "@hyperidle/org";
-import { transitionBet, updateBetField } from "@hyperidle/work";
+import { transitionBet } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
