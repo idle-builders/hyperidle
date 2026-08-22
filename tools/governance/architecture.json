@@ -81,15 +81,7 @@
 			"reach": ["core-ui"],
 			"why": "the Part vocabulary and the adapters that derive Parts from messages and session activity. There is exactly one conversation surface. A second consumer of the Part vocabulary means a second conversation, which is a product decision, not an import."
 		},
-		"framework/toon-codec": {
-			"reach": ["run-orchestration"],
-			"why": "the TOON text codec and its parse error. One service encodes context bundles as TOON, and nothing else speaks the format."
-		},
-		"framework/query-escaping": {
-			"reach": ["core-api", "knowledge", "users", "work"],
-			"why": "turning user text into a literal a query engine cannot read as syntax. The four packages that build a LIKE query. Not framework/db: the function touches no database, and a db-shaped surface here would re-create the one Ruling 12.3 deleted."
-		},
-		"framework/factory-defaults": {
+"framework/factory-defaults": {
 			"reach": ["core-api", "agent-orchestration", "tool-handlers"],
 			"why": "the roster and the system-prompt templates a fresh installation is seeded with. It reads template files off disk, so a browser cannot run it at all."
 		},

@@ -30,7 +30,6 @@
 		"@hyperidle/org": "*",
 		"@hyperidle/policy": "*",
 		"@hyperidle/presentation-format": "*",
-		"@hyperidle/query-escaping": "*",
 		"@hyperidle/review": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",

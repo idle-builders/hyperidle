@@ -26,12 +26,6 @@
 			"path": "framework/conversation-parts"
 		},
 		{
-			"path": "framework/toon-codec"
-		},
-		{
-			"path": "framework/query-escaping"
-		},
-		{
 			"path": "framework/factory-defaults"
 		},
 		{

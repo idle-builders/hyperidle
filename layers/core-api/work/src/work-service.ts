@@ -52,7 +52,6 @@ import {
 	tasks,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 
@@ -381,7 +380,7 @@ export async function list(
 	// ── bet dispatches ───────────────────────────────────────────────────────
 	if (entity === "bet") {
 		if (f.text !== undefined) {
-			const escaped = escapeLikePattern(f.text);
+			const escaped = f.text.replace(/[\\%_]/g, "\\$&");
 			const pattern = `%${escaped}%`;
 			const rank = sql<number>`CASE WHEN ${bets.description} ILIKE ${`${escaped}%`} ESCAPE '\\' THEN 0 WHEN ${bets.description} ILIKE ${`% ${escaped}%`} ESCAPE '\\' THEN 1 ELSE 2 END`;
 			return exec
@@ -431,7 +430,7 @@ export async function list(
 						.from(tasks)
 						.where(inArray(tasks.id, [...f.ids]));
 		if (f.dependencyId !== undefined) {
-			const escaped = escapeLikePattern(f.dependencyId);
+			const escaped = f.dependencyId.replace(/[\\%_]/g, "\\$&");
 			return exec
 				.select()
 				.from(tasks)

@@ -31,7 +31,6 @@ import {
 	type SCOPE_KINDS,
 	scopeToLayer,
 } from "@hyperidle/domain-model";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import { executeTextSearch } from "./fts.js";
@@ -885,7 +884,7 @@ export async function search(
 		// ILIKE-based text search across title, body, and topic.
 		// Subsumes former searchByText (title/body/topic, LIKE) and
 		// searchVisibleByText (title/body, ILIKE + visibility).
-		const pattern = `%${escapeLikePattern(query)}%`;
+		const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
 		const authFilter =
 			visibility != null
