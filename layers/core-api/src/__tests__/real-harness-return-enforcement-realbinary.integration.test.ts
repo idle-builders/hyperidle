@@ -76,7 +76,7 @@ import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 const execFileAsync = promisify(execFile);
-const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
+const createEnforcementRegistry = () => createReturnEnforcement();
 const provisionReturnHook = (options: {
 	readonly sandboxPath: string;
 	readonly channel: Parameters<typeof provisionHarnessEnvironment>[0]["channel"];

@@ -161,9 +161,12 @@ export interface AgentExecutionBoot {
 export async function bootAgentExecution(
 	options: AgentExecutionBootOptions,
 ): Promise<AgentExecutionBoot> {
-	const pool = options.topology === "local" ? await createLocalAdapterPool() : new AdapterPool();
 	const sandbox = createSandboxAdapter(options.topology);
 	const enforcementRegistry = createReturnEnforcement();
+	const pool =
+		options.topology === "local"
+			? await createLocalAdapterPool({ enforcement: enforcementRegistry })
+			: new AdapterPool();
 	const bridge = createMcpToolBridge({ enforcement: enforcementRegistry });
 
 	const harnessRuntime: AgentExecutionHarnessRuntime = {

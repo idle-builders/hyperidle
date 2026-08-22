@@ -10,7 +10,11 @@ import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability"
 import type { AdapterInfo, AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
 import { type CliAdapterConfig, CliHarnessAdapter } from "./cli-harness-adapter.js";
-import { createCapabilityCatalog } from "./harness-capability-descriptors.js";
+import type { EnforcementRegistry } from "./enforcement-registry.js";
+import {
+	describeHarnessCapability,
+	missingHarnessCapabilities,
+} from "./harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput } from "./harness-discovery.js";
 import { discoverLocalHarnesses, type HarnessDiscoveryResult } from "./harness-discovery.js";
 
@@ -52,7 +56,6 @@ export interface AdapterFilter {
 
 /** A selected adapter entry (returned from select()). */
 export class AdapterPool {
-	private readonly catalog = createCapabilityCatalog();
 	private readonly entries = new Map<string, PoolEntry>();
 	/**
 	 * @lore AM4: `readonly` dropped to allow refreshDiscoveries() to reassign the snapshot.
@@ -230,12 +233,12 @@ export class AdapterPool {
 			if (seen.has(entry.meta.type)) continue;
 			seen.add(entry.meta.type);
 			descriptors.push(
-				this.catalog.describe(entry.meta, entry.adapter.getCapabilities(), this.discoveries),
+				describeHarnessCapability(entry.meta, entry.adapter.getCapabilities(), this.discoveries),
 			);
 		}
 
 		if (includeKnownMissing) {
-			descriptors.push(...this.catalog.missing(seen, this.discoveries));
+			descriptors.push(...missingHarnessCapabilities(seen, this.discoveries));
 		}
 
 		return descriptors;
@@ -510,13 +513,16 @@ const CURSOR_AGENT_CLI_CONFIG: CliAdapterConfig = {
  * agent's harnessType: "opencode" selection is unambiguous. A generic "cli" type
  * was considered but rejected — the founder chose a specific tool for a reason.
  */
-async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> {
+async function registerCliAdaptersIfAvailable(
+	pool: AdapterPool,
+	enforcement?: EnforcementRegistry,
+): Promise<void> {
 	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "2", 10);
 
 	for (const [name, config] of Object.entries(CLI_TOOL_CONFIGS)) {
 		const available = await CliHarnessAdapter.checkAvailability(config.binary);
 		if (available) {
-			const adapter = new CliHarnessAdapter(config);
+			const adapter = new CliHarnessAdapter(config, { enforcement });
 			pool.register(`local-cli-${name}`, adapter, {
 				name: `CLI: ${name}`,
 				kind: "local",
@@ -560,14 +566,17 @@ async function registerCliAdaptersIfAvailable(pool: AdapterPool): Promise<void> 
  * []). AdapterPool.select() reads entry.meta.modelProviders — the registration
  * info — so anthropic-provider sessions correctly select the claude adapter.
  */
-export async function createLocalAdapterPool(): Promise<AdapterPool> {
+export async function createLocalAdapterPool(opts?: {
+	enforcement?: EnforcementRegistry;
+}): Promise<AdapterPool> {
 	const discoveries = await discoverLocalHarnesses();
 	const pool = new AdapterPool(discoveries);
 	const maxConcurrent = Number.parseInt(process.env.HYPERIDLE_LOCAL_MAX_CONCURRENT ?? "4", 10);
+	const enforcement = opts?.enforcement;
 
 	// 1. claude-code adapter (CliHarnessAdapter, registered only if `claude` binary is on PATH)
 	if (await CliHarnessAdapter.checkAvailability(CLAUDE_CLI_CONFIG.binary)) {
-		pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG), {
+		pool.register("local-claude-code", new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { enforcement }), {
 			name: "Claude Code",
 			kind: "local",
 			type: "claude-code",
@@ -582,7 +591,7 @@ export async function createLocalAdapterPool(): Promise<AdapterPool> {
 
 	// 1b. cursor-agent adapter (CliHarnessAdapter, registered only if binary is on PATH)
 	if (await CliHarnessAdapter.checkAvailability(CURSOR_AGENT_CLI_CONFIG.binary)) {
-		pool.register("local-cursor-agent", new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG), {
+		pool.register("local-cursor-agent", new CliHarnessAdapter(CURSOR_AGENT_CLI_CONFIG, { enforcement }), {
 			name: "Cursor Agent",
 			kind: "local",
 			type: "cursor-agent",
@@ -602,7 +611,7 @@ export async function createLocalAdapterPool(): Promise<AdapterPool> {
 	});
 
 	// 3. CLI adapters: registered dynamically when available
-	await registerCliAdaptersIfAvailable(pool);
+	await registerCliAdaptersIfAvailable(pool, enforcement);
 
 	return pool;
 }

@@ -47,7 +47,7 @@ import z from "zod";
 import { createMcpToolBridge, type McpToolBridge } from "../mcp-tool-bridge.js";
 import { createReturnEnforcement } from "../return-enforcement.js";
 
-const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
+const createEnforcementRegistry = () => createReturnEnforcement();
 
 /**
  * Inline commit_file proof-vehicle tool.

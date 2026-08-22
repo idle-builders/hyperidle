@@ -22,7 +22,7 @@ import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { createReturnEnforcement } from "../return-enforcement.js";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 
-const enforcement = createReturnEnforcement({ isolated: true });
+const enforcement = createReturnEnforcement();
 const createReturnGate = () => enforcement.createGate();
 const evaluateReturn = (
 	gate: ReturnType<typeof createReturnGate>,

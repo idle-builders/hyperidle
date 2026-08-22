@@ -35,8 +35,13 @@ import {
 	shouldForceReturn,
 } from "@hyperidle/harness-protocol";
 import { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
-
+import type { EnforcementRegistry } from "./enforcement-registry.js";
 import { createReturnEnforcement } from "./return-enforcement.js";
+
+/** Used when no enforcement is injected (tests that don't care about the registry). */
+function createIsolatedEnforcementRegistry(): EnforcementRegistry {
+	return createReturnEnforcement();
+}
 
 /**
  * @lore claude-cli-adapter: Claude return enforcement is the `settings-claude`
@@ -190,6 +195,8 @@ interface CliAdapterConfig {
 interface CliAdapterDeps {
 	/** Defaults to node:child_process.spawn. Injected in tests. */
 	readonly spawnFn?: typeof spawn;
+	/** Return-enforcement registry. Injected so the adapter and boot share one instance. */
+	readonly enforcement?: EnforcementRegistry;
 }
 
 /** Injected dependencies for checkAvailability (for testing). */
@@ -426,11 +433,14 @@ function extractOpencodeStepMetrics(obj: Record<string, unknown>): {
 export class CliHarnessAdapter implements HarnessAdapter {
 	private readonly config: CliAdapterConfig;
 	private readonly spawnFn: typeof spawn;
+	private readonly enforcement: EnforcementRegistry;
 	private readonly sessions = new Map<string, CliSession>();
 
 	constructor(config: CliAdapterConfig, deps?: CliAdapterDeps) {
 		this.config = config;
 		this.spawnFn = deps?.spawnFn ?? spawn;
+		// Default: create an isolated registry. Production always injects the shared one.
+		this.enforcement = deps?.enforcement ?? createIsolatedEnforcementRegistry();
 	}
 
 	/**
@@ -768,8 +778,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 					// continues. This gives the outer provisioner a single continuous event stream
 					// with no visible seam between the initial run and re-engage runs.
 					if (isReEngage && !session.returnSeen && session.reEngageCount < MAX_FORCE_RETURNS) {
-						const enforcement = createReturnEnforcement();
-						const registryEntry = enforcement.get(session.configSessionId);
+						const registryEntry = adapter.enforcement.get(session.configSessionId);
 						if (registryEntry) {
 							// adjudicate from the registry's forceCount (single source).
 							// Previously used session.reEngageCount which could diverge from the registry
@@ -793,7 +802,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 
 							if (forceMsg !== null) {
 								// Increment the registry BEFORE spawning so drain-gate sees the force.
-								enforcement.incrementForce(session.configSessionId);
+								adapter.enforcement.incrementForce(session.configSessionId);
 								session.reEngageCount++;
 								session.processStarts++;
 

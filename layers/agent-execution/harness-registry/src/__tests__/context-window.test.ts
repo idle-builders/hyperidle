@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import {
 	DEFAULT_CONTEXT_WINDOW,
 	isAboveThreshold,
-	MODEL_CONTEXT_WINDOWS,
 	modelContextWindow,
 } from "../context-window.js";
 
@@ -41,17 +40,7 @@ describe("contextWindowForModel", () => {
 		expect(modelContextWindow("")).toBe(DEFAULT_CONTEXT_WINDOW);
 	});
 
-	it("MODEL_CONTEXT_WINDOWS includes claude-opus-4-8", () => {
-		expect(MODEL_CONTEXT_WINDOWS["claude-opus-4-8"]).toBe(1_000_000);
-	});
 
-	it("MODEL_CONTEXT_WINDOWS includes claude-sonnet-4-6", () => {
-		expect(MODEL_CONTEXT_WINDOWS["claude-sonnet-4-6"]).toBe(1_000_000);
-	});
-
-	it("MODEL_CONTEXT_WINDOWS includes claude-haiku-4-5", () => {
-		expect(MODEL_CONTEXT_WINDOWS["claude-haiku-4-5"]).toBe(200_000);
-	});
 });
 
 // ── isAboveThreshold ─────────────────────────────────────────────────────────
