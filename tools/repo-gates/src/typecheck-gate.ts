@@ -530,7 +530,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/http-middleware",
 		"framework/credential-access",
 		"framework/harness-protocol",
-		"framework/tool-protocol",
 		"framework/db",
 		"framework/design-system",
 		"layers/core-api",

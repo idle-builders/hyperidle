@@ -25,7 +25,6 @@ const PROJECTS = [
 	"framework/http-middleware",
 	"framework/credential-access",
 	"framework/harness-protocol",
-	"framework/tool-protocol",
 	"layers/core-ui",
 	"framework/design-system",
 	"tools/eslint-plugin-design",
