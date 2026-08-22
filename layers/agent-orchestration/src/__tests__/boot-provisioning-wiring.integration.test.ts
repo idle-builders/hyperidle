@@ -31,7 +31,7 @@
  */
 
 import { bootAgentExecution } from "@hyperidle/agent-execution";
-import { encryptCredentialValue } from "@hyperidle/credentials";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	filesystemInjections,
 	filesystems,
@@ -150,9 +150,14 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 		topology: "disabled",
 		mcpBaseUrl: "http://localhost:0",
 	});
+	// @lore AU44-b2: cipher is required by connections route since @hyperidle/credential-access was
+	// dissolved into @hyperidle/credentials. The development-world import here (agent-orchestration →
+	// core-api/credentials) is a warning-level crossing — acceptable in integration tests that need
+	// the real AES cipher to round-trip with seed data encrypted by encryptCredentialValue above.
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
+		cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 		runtime: {
 			harnessRuntime: agentExecution.adapters.harnessRuntime,
 			returnStatusTool: {
