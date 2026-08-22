@@ -50,7 +50,6 @@ import {
 	list as listKnowledgeItems,
 	recomputeAttention,
 	recordConflict as recordKnowledgeConflict,
-	search as searchKnowledge,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
@@ -300,45 +299,6 @@ const changeScopeSchema = z.object({
  */
 export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
-
-	// I2 review M-4 / HIGH-5: cap query length so an attacker cannot
-	// drive a long full-table LIKE scan with a 1 MiB query string.
-	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(500);
-
-	// GET /search — FTS search across all knowledge items
-	// Must be registered before /:id to avoid route conflict
-	router.get("/search", async (c) => {
-		const rawQuery = c.req.query("q");
-		const parsed = SEARCH_QUERY_SCHEMA.safeParse(rawQuery?.trim());
-		if (!parsed.success) {
-			const response: ApiErrorResponse = {
-				error: "Query parameter 'q' is required (1–500 chars)",
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const query = parsed.data;
-
-		// AU21 §9 Increment 2 (knowledge wave): optional `limit` query param —
-		// `query_practice`'s seam call needs `limit*5` (client-side layer filter
-		// downstream). Absent/invalid `limit` falls back to search()'s own default.
-		const rawLimit = c.req.query("limit");
-		const parsedLimit = rawLimit !== undefined ? Number.parseInt(rawLimit, 10) : undefined;
-		const limit =
-			parsedLimit !== undefined && Number.isFinite(parsedLimit) && parsedLimit > 0
-				? parsedLimit
-				: undefined;
-
-		// @lore AU20 K1-reads: searchByText() deleted; search(mode:'text') performs
-		// ILIKE on title/body/topic (same result set, case-insensitive improvement).
-		// See knowledge-repository.ts search() docblock.
-		const results = await searchKnowledge(db, query, {
-			mode: "text",
-			...(limit !== undefined ? { limit } : {}),
-		});
-
-		return c.json({ results });
-	});
 
 	// GET / — list all items with LEFT JOIN to knowledgeAppProjection for pre-computed signals.
 	// Also computes L22 signals (accessCount30d, lastActivityAt) from knowledgeAccessLog.

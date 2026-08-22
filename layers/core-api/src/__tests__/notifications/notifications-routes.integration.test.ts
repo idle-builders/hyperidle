@@ -152,8 +152,10 @@ describe("H2 /api/notifications routes", () => {
 				headers: headers(),
 				body: JSON.stringify({}),
 			});
-			// 200 = test result returned (ok or not ok — depends on SMTP config)
-			expect([200, 422]).toContain(res.status);
+			// @lore AU44 batch 4: deliver() returns "recipient not configured" when no SMTP
+			// host/from is set → route returns 400. In test environments SMTP is not
+			// configured, so 400 is the expected status. If SMTP is configured, 200.
+			expect([200, 400, 422]).toContain(res.status);
 			if (res.status === 200) {
 				const result = (await res.json()) as { ok: boolean };
 				expect(typeof result.ok).toBe("boolean");

@@ -13,7 +13,8 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 	return { "X-API-Key": TEST_API_KEY, "Content-Type": "application/json", ...extra };
 }
 
-describe("GET /api/knowledge/search LIKE-vs-FTS substring lock", () => {
+// @lore AU44 batch 4: GET /api/knowledge/search deleted; folded into GET /api/search?scope=knowledge
+describe("GET /api/search?scope=knowledge LIKE-vs-FTS substring lock", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -22,7 +23,7 @@ describe("GET /api/knowledge/search LIKE-vs-FTS substring lock", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("GET /api/knowledge/search matches a topic-only substring FTS would not find", async ({
+	test("GET /api/search?scope=knowledge matches a topic-only substring FTS would not find", async ({
 		app,
 	}) => {
 		// title/body deliberately do NOT contain the query term — only topic does.
@@ -42,7 +43,9 @@ describe("GET /api/knowledge/search LIKE-vs-FTS substring lock", () => {
 		expect(createRes.status).toBe(201);
 		const created = (await createRes.json()) as { id: string };
 
-		const res = await app.request("/api/knowledge/search?q=kubernetes", { headers: authHeaders() });
+		const res = await app.request("/api/search?q=kubernetes&scope=knowledge", {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { results: Array<{ id: string }> };
 		expect(body.results.some((r) => r.id === created.id)).toBe(true);
