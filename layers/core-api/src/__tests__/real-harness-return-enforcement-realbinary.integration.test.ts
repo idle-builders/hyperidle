@@ -68,7 +68,7 @@ import * as path from "node:path";
 import { promisify } from "node:util";
 
 import { serve } from "@hono/node-server";
-import type { EnforcementRegistry } from "@hyperidle/harness-protocol";
+import type { EnforcementRegistry } from "@hyperidle/harness-registry";
 import { createReturnEnforcement, provisionHarnessEnvironment } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
@@ -76,7 +76,7 @@ import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 const execFileAsync = promisify(execFile);
-const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
+const createEnforcementRegistry = () => createReturnEnforcement();
 const provisionReturnHook = (options: {
 	readonly sandboxPath: string;
 	readonly channel: Parameters<typeof provisionHarnessEnvironment>[0]["channel"];

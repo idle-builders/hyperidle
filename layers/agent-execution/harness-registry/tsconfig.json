@@ -19,9 +19,6 @@
 		},
 		{
 			"path": "../../../framework/http-middleware"
-		},
-		{
-			"path": "../../../framework/tool-protocol"
 		}
 	]
 }

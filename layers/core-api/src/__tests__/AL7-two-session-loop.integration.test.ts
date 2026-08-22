@@ -39,9 +39,10 @@ import {
 } from "@hyperidle/db";
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
+import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import type { BuildToolRegistryOptions, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
@@ -400,7 +401,6 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 				id: "liveness-fake-agent",
 				kind: "ai",
 				name: "Liveness Fake Agent",
-				systemPromptPath: null,
 				teamId: null,
 				role: "builder",
 				skills: null,

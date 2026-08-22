@@ -5,11 +5,11 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
-	WorkerRegisterMessage,
 } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
 import { RemoteHarnessAdapter } from "../remote-harness-adapter.js";
+import type { WorkerRegisterMessage } from "../worker-protocol.js";
 
 function adapter(label: string): HarnessAdapter {
 	return {
@@ -97,7 +97,6 @@ describe("execution platform completeness contract", () => {
 		const config: SessionConfig = {
 			sessionId: "requested-session",
 			sandboxPath: "/tmp/au20-harness-contract",
-			systemPromptPath: "",
 			assembledPrompt: "work",
 			modelTier: "fast",
 			tools: [],

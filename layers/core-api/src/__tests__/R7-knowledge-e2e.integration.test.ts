@@ -26,8 +26,8 @@ import {
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
-import type { ToolContext } from "@hyperidle/tool-protocol";
 import type { BakedContextBundle } from "@hyperidle/work-intent-port";
 import { toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
 import { eq } from "drizzle-orm";

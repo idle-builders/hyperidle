@@ -1,5 +1,5 @@
 import { MODEL_TIERS, type ModelTier } from "@hyperidle/domain-model";
-import type { HarnessEvent, HarnessEventType, TokenUsageEvent } from "./harness-events.js";
+import type { HarnessEvent, HarnessEventType, TokenUsageEvent } from "@hyperidle/harness-protocol";
 
 const EVENT_TYPES = [
 	"token_usage",

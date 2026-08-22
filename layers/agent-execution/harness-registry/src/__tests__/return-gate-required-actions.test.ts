@@ -17,7 +17,7 @@ function toolCallEvent(toolName: string): HarnessEvent {
 
 describe("createGate(requiredReturnActions) narrows the return predicate", () => {
 	it("required=['reply'] — send_message does NOT flip the gate", () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const gate = enforcement.createGate(["reply"]);
 		gate.observe(toolCallEvent("send_message"));
 		expect(gate.returned).toBe(false);
@@ -25,7 +25,7 @@ describe("createGate(requiredReturnActions) narrows the return predicate", () =>
 	});
 
 	it("required=['reply'] — reply DOES flip the gate", () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const gate = enforcement.createGate(["reply"]);
 		gate.observe(toolCallEvent("reply"));
 		expect(gate.returned).toBe(true);
@@ -33,14 +33,14 @@ describe("createGate(requiredReturnActions) narrows the return predicate", () =>
 	});
 
 	it("required=['reply'] — namespaced reply (MCP/opencode) DOES flip the gate", () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const gate = enforcement.createGate(["reply"]);
 		gate.observe(toolCallEvent("mcp__hyperidle__reply"));
 		expect(gate.returned).toBe(true);
 	});
 
 	it("required absent — any return action flips the gate (unchanged pre-Increment-3 default)", () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const gate = enforcement.createGate();
 		gate.observe(toolCallEvent("reply"));
 		expect(gate.returned).toBe(true);
@@ -51,7 +51,7 @@ describe("createGate(requiredReturnActions) narrows the return predicate", () =>
 	});
 
 	it("required with the trio — reply does NOT flip a trio-required gate (symmetric over-permission guard)", () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const gate = enforcement.createGate(["submit_review", "handoff_to", "send_message"]);
 		gate.observe(toolCallEvent("reply"));
 		expect(gate.returned).toBe(false);

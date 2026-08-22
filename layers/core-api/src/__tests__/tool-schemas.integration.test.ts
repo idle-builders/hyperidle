@@ -7,8 +7,8 @@ import {
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { buildToolRegistry } from "@hyperidle/tool-handlers";
-import { type ToolContext, toClaudeToolSpec } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
+import { buildToolRegistry, toClaudeToolSpec } from "@hyperidle/tool-handlers";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 

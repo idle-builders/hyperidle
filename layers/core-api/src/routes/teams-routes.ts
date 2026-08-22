@@ -34,7 +34,6 @@ import type {
 import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import {
 	createTeam,
@@ -51,6 +50,7 @@ import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { resolveHarnessAvailable } from "./agent-profile.js";
 
 /** Inlined from @hyperidle/presentation-format (server copy removed, row 18). */

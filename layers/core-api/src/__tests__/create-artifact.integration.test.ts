@@ -26,7 +26,7 @@ import {
 import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { ArtifactPreview } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";

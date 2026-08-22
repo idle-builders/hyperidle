@@ -10,7 +10,7 @@
  *         AC4 (explicit annotation respected), AC5b (arg-pin convenience).
  */
 
-import { classifyReversibility, identityHash } from "@hyperidle/tool-protocol";
+import { classifyReversibility, identityHash } from "@hyperidle/tool-handlers";
 import { describe, expect, it } from "vitest";
 
 // ─────────────────────────────────────────────────────────────────────────────

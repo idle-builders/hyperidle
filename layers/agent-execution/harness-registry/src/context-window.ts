@@ -2,32 +2,16 @@
  * X6: Context window size lookup and threshold checking for the built-in harness.
  */
 
-/**
- * Known context window sizes for models.
- * Conservative estimates (use effective window, not max).
- * Unknown models default to 128k.
- *
- * @lore X6: These are the *input* context windows. Output token limits
- * are separate and not tracked here — they default to 16384 per call.
- */
-const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
-	// Anthropic — AH2 catalog (current model IDs)
-	// @lore AH2: These must stay in sync with MODEL_CATALOG in @hyperidle/domain-model.
-	// Re-key both here and in COST_PER_MILLION_TOKENS in builtin-harness-adapter.ts
-	// whenever the catalog changes.
-	"claude-opus-4-8": 1_000_000,
-	"claude-sonnet-4-6": 1_000_000,
-	"claude-haiku-4-5": 200_000,
-	"claude-fable-5": 1_000_000,
-};
+import { MODEL_CATALOG } from "@hyperidle/domain-model";
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 
 /**
  * Get the context window size for a model string.
+ * Derived from MODEL_CATALOG — no duplicate map to keep in sync.
  */
 export function modelContextWindow(model: string): number {
-	return MODEL_CONTEXT_WINDOWS[model] ?? DEFAULT_CONTEXT_WINDOW;
+	return MODEL_CATALOG.find((m) => m.id === model)?.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
 }
 
 /**
@@ -49,4 +33,4 @@ function isAboveThreshold(
 	return latestInputTokens > contextWindow * threshold;
 }
 
-export { DEFAULT_CONTEXT_WINDOW, isAboveThreshold, MODEL_CONTEXT_WINDOWS };
+export { DEFAULT_CONTEXT_WINDOW, isAboveThreshold };

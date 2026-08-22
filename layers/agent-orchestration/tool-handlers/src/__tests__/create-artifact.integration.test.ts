@@ -24,7 +24,7 @@ import { artifacts, bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import type { ArtifactCreatedEvent, ArtifactPreview } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

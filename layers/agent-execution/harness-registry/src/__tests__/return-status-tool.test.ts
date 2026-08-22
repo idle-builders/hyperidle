@@ -24,7 +24,7 @@ import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { describe, expect, it } from "vitest";
 import { returnStatusTool } from "../return-status-tool.js";
 
-const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
+const createEnforcementRegistry = () => createReturnEnforcement();
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

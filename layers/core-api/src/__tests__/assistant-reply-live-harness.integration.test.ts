@@ -69,7 +69,6 @@ import {
 import {
 	createMcpToolBridge,
 	type McpToolBridge,
-	openMcpBridgeSession,
 	returnStatusTool,
 } from "@hyperidle/harness-registry/mcp";
 import {
@@ -107,12 +106,16 @@ function buildLiveHarnessRuntimeAdapter(
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
-		openMcpBridge: (session) =>
-			openMcpBridgeSession(mcpBridgeRegistry, mcpBaseUrl, {
+		openMcpBridge: async (session) => {
+			// This bridge was created before the server URL was known, so the
+			// URL is constructed here rather than at bridge-creation time.
+			const { token } = await mcpBridgeRegistry.open({
 				sessionId: session.sessionId,
 				registry: session.toolRegistry,
 				onToolCall: session.onToolCall,
-			}),
+			});
+			return { token, url: `${mcpBaseUrl}/api/mcp/${token}` };
+		},
 		closeMcpBridge: (token) => mcpBridgeRegistry.close(token),
 	};
 }

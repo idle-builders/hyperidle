@@ -18,9 +18,6 @@
 			"path": "../../../framework/event-bus"
 		},
 		{
-			"path": "../../../framework/tool-protocol"
-		},
-		{
 			"path": "../../../framework/work-intent-port"
 		}
 	]

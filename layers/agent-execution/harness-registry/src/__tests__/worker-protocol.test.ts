@@ -92,7 +92,6 @@ describe("ServerToWorkerMessage", () => {
 			config: {
 				sessionId: "sess-4",
 				sandboxPath: "/workspace/test",
-				systemPromptPath: "/workspace/prompts/builder.md",
 				assembledPrompt: "",
 				modelTier: "workhorse",
 				tools: ["Read", "Write"],
@@ -172,7 +171,6 @@ describe("ServerDispatchMessage shape", () => {
 			config: {
 				sessionId: "sess-dispatch",
 				sandboxPath: "/tmp/ws",
-				systemPromptPath: "",
 				assembledPrompt: "",
 				modelTier: "fast",
 				tools: [],

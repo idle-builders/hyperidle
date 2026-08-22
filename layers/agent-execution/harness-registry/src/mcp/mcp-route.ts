@@ -1,5 +1,4 @@
 import {
-	type EnforcementRegistry,
 	MAX_FORCE_RETURNS,
 	mcpNamespacedToolName,
 	shouldForceReturn,
@@ -12,6 +11,7 @@ import {
  * the reason is gone and the duplicate goes with it.
  */
 import { Hono } from "hono";
+import type { EnforcementRegistry } from "../enforcement-registry.js";
 
 interface McpSessionRegistry {
 	lookup(token: string): { readonly sessionId: string } | undefined;

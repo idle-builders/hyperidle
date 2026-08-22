@@ -37,7 +37,6 @@ describe("SessionConfig accepts optional mcpConnectionInfo", () => {
 		const config: SessionConfig = {
 			sandboxPath: "/workspace/test",
 			sessionId: "test-session",
-			systemPromptPath: "",
 			assembledPrompt: "Do the task.",
 			modelTier: "workhorse",
 			tools: ["Read"],
@@ -54,7 +53,6 @@ describe("SessionConfig accepts optional mcpConnectionInfo", () => {
 		const config: SessionConfig = {
 			sandboxPath: "/workspace/test",
 			sessionId: "test-session",
-			systemPromptPath: "",
 			assembledPrompt: "Do the task.",
 			modelTier: "workhorse",
 			tools: ["Read"],

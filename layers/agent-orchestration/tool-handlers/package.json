@@ -14,12 +14,11 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/factory-defaults": "*",
-		"@hyperidle/tool-protocol": "*",
+		"@hyperidle/harness-protocol": "*",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/work": "*",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"

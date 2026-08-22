@@ -28,7 +28,10 @@
  */
 
 import { isCatalogModel } from "@hyperidle/domain-model";
-import { type HarnessCapabilityReader, harnessRegistrationMeta } from "@hyperidle/harness-protocol";
+import {
+	type HarnessCapabilityReader,
+	harnessRegistrationMeta,
+} from "../services/harness-capability-reader.js";
 
 /** A rejected run-config triple: the user-facing message plus its stable error code. */
 export interface AgentConfigValidationError {

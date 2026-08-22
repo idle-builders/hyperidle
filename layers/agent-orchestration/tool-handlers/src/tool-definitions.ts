@@ -41,15 +41,10 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/domain-model";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import {
-	err,
-	ok,
-	type RegisteredTool,
-	type ToolDefinition,
-	toRegistered,
-} from "@hyperidle/tool-protocol";
+import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
+import { type ToolDefinition, toRegistered } from "./tool-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // send_message

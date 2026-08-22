@@ -28,6 +28,7 @@
  * thins to a re-export of this face (§5.3).
  */
 
+export type { WorkerRegisterMessage } from "@hyperidle/harness-registry";
 export type {
 	AgentExecutionAdapters,
 	AgentExecutionBoot,

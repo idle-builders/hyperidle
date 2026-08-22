@@ -13,8 +13,8 @@ const teamCapacity = {
 		updateTeam(db, teamId, { activeBets }),
 };
 
-// @lore AU44 B1: team_members folded into teams — one entity, one table. bets.teamId
-// references teams.id.
+// @lore U1: teams = domain entity (products); teamMembers = membership group.
+// bets.teamId references teams.id, NOT teamMembers.id.
 // Status map: shaped->draft, committed|in_progress->active, shipped->completed.
 
 function makeProduct(overrides: Partial<{ id: string; name: string }> = {}) {
@@ -40,7 +40,7 @@ function makeBet(
 ) {
 	return {
 		id: overrides.id ?? "bet-1",
-		// @lore AU44 B1: bets.teamId references teams.id.
+		// @lore U1: bets.teamId references teams.id (domain entity), NOT teamMembers.id.
 		teamId: overrides.teamId ?? "prod-1",
 		description: "Test description",
 		appetite: "2 weeks",
@@ -295,7 +295,7 @@ describe("bet-state-machine", () => {
 				// This should throw and leave activeBets unchanged
 				await expect(transitionBet(db, eventBus, teamCapacity, "bet-1", "draft")).rejects.toThrow();
 
-				// Post-condition: teams.activeBets is unchanged (still 1, not leaked)
+				// Post-condition: teamMembers.activeBets is unchanged (still 1, not leaked)
 				const [teamAfter] = await db.select().from(teams).where(eq(teams.id, "prod-1"));
 				expect(teamAfter?.activeBets).toBe(1);
 

@@ -1,4 +1,3 @@
-export type { EnforcementEntry, EnforcementRegistry } from "./harness/enforcement-registry.js";
 export type {
 	AdapterInfo,
 	AdapterMeta,
@@ -14,18 +13,6 @@ export type {
 	SessionWorkflow,
 } from "./harness/harness-adapter.js";
 export type {
-	HarnessCapabilityFilter,
-	HarnessCapabilityReader,
-} from "./harness/harness-capability-read-model.js";
-export {
-	harnessCapabilitiesForType,
-	harnessRegistrationMeta,
-} from "./harness/harness-capability-read-model.js";
-export {
-	normalizeHarnessEvent,
-	preMapClaudeEvent,
-} from "./harness/harness-event-normalization.js";
-export type {
 	CompletionEvent,
 	ErrorEvent,
 	HarnessEvent,
@@ -39,7 +26,6 @@ export type {
 	ReturnActionName,
 } from "./harness/return-actions.js";
 export {
-	buildForceReturnMessage,
 	FORCE_RETURN_MESSAGE,
 	isRequiredReturnAction,
 	isReturnAction,
@@ -50,6 +36,15 @@ export {
 	RETURN_ACTION_NAMES,
 	shouldForceReturn,
 } from "./harness/return-actions.js";
+export type {
+	AnySchema,
+	ClaudeToolSpec,
+	RegisteredTool,
+	ToolContext,
+	ToolRegistry,
+	ToolResult,
+} from "./harness/tool-seam.js";
+export { err, ok } from "./harness/tool-seam.js";
 export type {
 	ServerDispatchMessage,
 	ServerRegisteredMessage,
@@ -63,10 +58,3 @@ export type {
 	WorkerSessionResultMessage,
 	WorkerToServerMessage,
 } from "./harness/worker-protocol.js";
-export type {
-	AdmittedRun,
-	HarnessPort,
-	HarnessPortDeps,
-	HarnessRunOutput,
-	RunContextBundle,
-} from "./harness-port.js";

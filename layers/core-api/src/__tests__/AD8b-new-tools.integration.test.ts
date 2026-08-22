@@ -15,7 +15,7 @@ import {
 } from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
