@@ -22,7 +22,9 @@
  *
  * @lore AU19 Increment 1c: two conversions from the pre-migration
  * `packages/server/src/services/scaffold-agents.ts`:
- *  (1) `AgentScaffoldSpec` is the canonical declaration (duplicate in factory-defaults removed).
+ *  (1) `AgentScaffoldSpec` is declared here; `framework/factory-defaults` carries a parallel
+ *      declaration that was NOT removed (factory-defaults cannot import from a core-api service).
+ *      The two declarations are structurally compatible but not de-duped.
  *  (2) `getUserById`/`insertUser` are an injected `OrgUserDirectory` port (Mechanism C).
  */
 
@@ -54,8 +56,11 @@ type TeamHarnessDefault = {
  * Kernel (`persistScaffoldedAgents`) attaches identity + mechanism fields on
  * top.
  *
- * @lore AU44 B1: single canonical declaration — duplicate in `framework/factory-defaults`
- * removed; callers that imported from there now import from `@hyperidle/org`.
+ * @lore AU44 B1: `framework/factory-defaults` carries a parallel `AgentScaffoldSpec`
+ * declaration that was not removed — factory-defaults cannot import from a service-layer
+ * package (`@hyperidle/org` lives in core-api). The two declarations are structurally
+ * compatible; a future AU pass can place the canonical copy in the lowest shared package
+ * both can reach.
  */
 export interface AgentScaffoldSpec {
 	readonly role: string;

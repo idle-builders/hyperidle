@@ -10,8 +10,9 @@
  * `getTeamMembers`, `listTeamMembers`, `ActiveTeamMembersWithTeamName`,
  * `OrgAgentRunConfigWriter` (folded into `OrgUserDirectory`),
  * `resolveTeamAgentHarness` (inlined into `persistScaffoldedAgents`),
- * `team-default-harness.ts` (deleted). `AgentScaffoldSpec` is now the
- * canonical declaration — factory-defaults duplicate removed.
+ * `team-default-harness.ts` (deleted). `AgentScaffoldSpec` declared here;
+ * `framework/factory-defaults` retains a parallel declaration (not removed —
+ * factory-defaults cannot import from a service-layer package).
  * `CreateTeamInput` simplified (no teamMembersId/capacity/activeBets/formedAt).
  *
  * @lore AU19 Increment 1c: original cut-over — files moved here from
