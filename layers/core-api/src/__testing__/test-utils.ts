@@ -1,3 +1,4 @@
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { appendFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import {
@@ -108,7 +109,14 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	const agentOrchestration =
 		options?.agentOrchestrationBoot ??
 		(options?.db
-			? await bootAgentOrchestration({ db: options.db, eventBus, cipher: options.cipher })
+			? await bootAgentOrchestration({
+					db: options.db,
+					eventBus,
+					cipher: options.cipher ?? {
+						encrypt: encryptCredentialValue,
+						decrypt: decryptCredentialValue,
+					},
+				})
 			: undefined);
 	if (options?.db && agentOrchestration) {
 		registerFixtureOrchestrationCleanup(options.db, () => {
