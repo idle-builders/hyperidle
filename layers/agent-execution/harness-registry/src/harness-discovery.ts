@@ -358,266 +358,206 @@ async function runCommand(
 	}
 }
 
-async function probeCodexCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
-	const versionResult = await runCommand(["codex", "--version"], d);
-	if (versionResult.exitCode !== 0) {
-		return {
-			state: "missing",
-			reason: "codex CLI is not installed or not on PATH.",
-		};
-	}
-
-	const version = versionResult.stdout.trim().split("\n")[0]?.trim() ?? "";
-
-	const authResult = await runCommand(["codex", "login", "status"], d);
-	const authText = authResult.stdout.trim() || authResult.stderr.trim();
-	if (authText.startsWith("Logged in using")) {
-		return {
-			state: "ready",
-			version,
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to Codex",
-				command: ["codex", "login"],
-			},
-		};
-	}
-
-	if (authText.startsWith("Not logged in") || authResult.exitCode !== 0) {
-		return {
-			state: "unauthenticated",
-			version,
-			reason: "codex CLI is installed but not authenticated. Run `codex login`.",
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to Codex",
-				command: ["codex", "login"],
-			},
-		};
-	}
-
-	// Unknown auth output — report installed but readiness unclear.
-	return {
-		state: "installed",
-		version,
-		reason: `codex auth state could not be parsed. Observed stdout: ${authText.slice(0, 120)}`,
-		authAction: {
-			kind: "native_cli_login",
-			label: "Log in to Codex",
-			command: ["codex", "login"],
-		},
-	};
-}
-
 export type { HarnessDiscoveryInput, HarnessDiscoveryResult, HarnessSessionProbeResult };
 
-async function probeClaudeCodeCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
-	const versionResult = await runCommand(["claude", "--version"], d);
-	if (versionResult.exitCode !== 0) {
-		return {
-			state: "missing",
-			reason: "claude CLI is not installed or not on PATH.",
-		};
-	}
-
-	const version = versionResult.stdout.trim().split("\n")[0]?.trim() ?? "";
-
-	const authResult = await runCommand(["claude", "auth", "status"], d);
-	if (authResult.exitCode !== 0) {
-		return {
-			state: "installed",
-			version,
-			reason: "claude CLI is installed but `claude auth status` failed.",
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to Claude Code",
-				command: ["claude", "auth", "login"],
-			},
-		};
-	}
-
-	try {
-		const parsed = JSON.parse(authResult.stdout) as { loggedIn?: boolean };
-		if (parsed.loggedIn === true) {
-			// AV2: also run `claude models` to discover available models.
-			// ⚠️ UNVERIFIED — `claude models` exits 0 with the Markdown table shown above
-			// (captured 2026-07-06 from /opt/homebrew/bin/claude models). Fallback to []
-			// on parse failure or non-zero exit.
-			let models: readonly HarnessModelDescriptor[] = [];
-			try {
-				const modelsResult = await runCommand(["claude", "models"], d);
-				if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
-					models = parseClaudeCatalog(modelsResult.stdout);
-				}
-			} catch {
-				// degraded gracefully — models stays []
-			}
-
-			return {
-				state: "ready",
-				version,
-				models,
-				authAction: {
-					kind: "native_cli_login",
-					label: "Log in to Claude Code",
-					command: ["claude", "auth", "login"],
-				},
-			};
-		}
-		if (parsed.loggedIn === false) {
-			return {
-				state: "unauthenticated",
-				version,
-				reason: "claude CLI is installed but not authenticated. Run `claude auth login`.",
-				authAction: {
-					kind: "native_cli_login",
-					label: "Log in to Claude Code",
-					command: ["claude", "auth", "login"],
-				},
-			};
-		}
-	} catch {
-		// fall through
-	}
-
-	return {
-		state: "installed",
-		version,
-		reason: "claude auth status returned unparsable output.",
-		authAction: {
-			kind: "native_cli_login",
-			label: "Log in to Claude Code",
-			command: ["claude", "auth", "login"],
-		},
-	};
-}
-
 /**
- * Probe the OpenCode CLI for version, auth state, and available models.
+ * Per-harness config for the table-driven CLI probe.
+ * Each entry carries the auth command, login descriptor, and per-harness
+ * auth-output interpretation — the config that MUST differ per harness, not
+ * four hand-written probe function bodies.
  *
- * AV2: Exported so the integration test `AV2-opencode-models.integration.test.ts`
- * can call it directly against the real binary (requireHarness('opencode')).
- *
- * @lore AV2: `opencode models --verbose` outputs one JSON block per model
- * (real format captured 2026-07-06). We run it when providers are configured
- * (state=ready). Failure degrades to models:[] — never throws.
+ * @lore Row 9 SIMPLIFY: the four probe functions (probeCodexCli,
+ * probeClaudeCodeCli, inspectOpenCode, probeCursorAgentCli) were copy-paste
+ * variations of one pattern. The per-harness logic lives in the table; the
+ * driver (`probeCli`) is a single loop body.
  */
-async function inspectOpenCode(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
-	const versionResult = await runCommand(["opencode", "--version"], d);
-	if (versionResult.exitCode !== 0) {
-		return {
-			state: "missing",
-			reason: "opencode CLI is not installed or not on PATH.",
-		};
-	}
-
-	const version = versionResult.stdout.trim().split("\n")[0]?.trim() ?? "";
-
-	const authResult = await runCommand(["opencode", "providers", "list"], d);
-	if (authResult.exitCode !== 0) {
-		return {
-			state: "installed",
-			version,
-			reason: "opencode CLI is installed but `opencode providers list` failed.",
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to OpenCode",
-				command: ["opencode", "providers", "login"],
-			},
-		};
-	}
-
-	const hasCredentials =
-		/\d+\s+credentials/.test(authResult.stdout) ||
-		authResult.stdout.includes("environment variable");
-
-	if (hasCredentials) {
-		// AV2: run `opencode models --verbose` to discover available models.
-		// ⚠️ UNVERIFIED — format captured 2026-07-06 from `opencode models --verbose`.
-		// Degrades to models:[] on non-zero exit or parse failure.
-		let models: readonly HarnessModelDescriptor[] = [];
-		try {
-			const modelsResult = await runCommand(["opencode", "models", "--verbose"], d);
-			if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
-				models = parseOpenCodeCatalog(modelsResult.stdout);
-			}
-		} catch {
-			// degraded gracefully — models stays []
-		}
-
-		return {
-			state: "ready",
-			version,
-			models,
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to OpenCode",
-				command: ["opencode", "providers", "login"],
-			},
-		};
-	}
-
-	return {
-		state: "unauthenticated",
-		version,
-		reason:
-			"opencode CLI is installed but no providers are configured. Run `opencode providers login`.",
-		authAction: {
-			kind: "native_cli_login",
-			label: "Log in to OpenCode",
-			command: ["opencode", "providers", "login"],
-		},
-	};
+interface CliProbeConfig {
+	readonly cli: string;
+	readonly loginLabel: string;
+	readonly loginCmd: readonly string[];
+	readonly authCmd: readonly string[];
+	/** Interprets auth command output → final HarnessDiscoveryInput (version already known). */
+	readonly interpretAuth: (
+		stdout: string,
+		stderr: string,
+		exitCode: number,
+		d: HarnessProbeDeps | undefined,
+		version: string,
+		authAction: HarnessAuthActionDescriptor,
+	) => Promise<HarnessDiscoveryInput>;
 }
 
-async function probeCursorAgentCli(d?: HarnessProbeDeps): Promise<HarnessDiscoveryInput> {
-	const versionResult = await runCommand(["cursor-agent", "--version"], d);
-	if (versionResult.exitCode !== 0) {
-		return {
-			state: "missing",
-			reason: "cursor-agent CLI is not installed or not on PATH.",
-		};
-	}
-
-	const version = versionResult.stdout.trim().split("\n")[0]?.trim() ?? "";
-
-	const authResult = await runCommand(["cursor-agent", "status"], d);
-	const authText = authResult.stdout.trim() || authResult.stderr.trim();
-	if (authText.includes("Logged in")) {
-		return {
-			state: "ready",
-			version,
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to Cursor",
-				command: ["cursor-agent", "login"],
+const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfig, CliProbeConfig] =
+	[
+		{
+			cli: "codex",
+			loginLabel: "Log in to Codex",
+			loginCmd: ["codex", "login"],
+			authCmd: ["codex", "login", "status"],
+			async interpretAuth(stdout, stderr, exitCode, _d, version, authAction) {
+				const authText = stdout.trim() || stderr.trim();
+				if (authText.startsWith("Logged in using")) return { state: "ready", version, authAction };
+				if (authText.startsWith("Not logged in") || exitCode !== 0) {
+					return {
+						state: "unauthenticated",
+						version,
+						reason: "codex CLI is installed but not authenticated. Run `codex login`.",
+						authAction,
+					};
+				}
+				return {
+					state: "installed",
+					version,
+					reason: `codex auth state could not be parsed. Observed stdout: ${authText.slice(0, 120)}`,
+					authAction,
+				};
 			},
-		};
-	}
-
-	if (authResult.exitCode !== 0 || authText.includes("Not logged in")) {
-		return {
-			state: "unauthenticated",
-			version,
-			reason: "cursor-agent CLI is installed but not authenticated. Run `cursor-agent login`.",
-			authAction: {
-				kind: "native_cli_login",
-				label: "Log in to Cursor",
-				command: ["cursor-agent", "login"],
-			},
-		};
-	}
-
-	return {
-		state: "installed",
-		version,
-		reason: `cursor-agent auth state could not be parsed. Observed stdout: ${authText.slice(0, 120)}`,
-		authAction: {
-			kind: "native_cli_login",
-			label: "Log in to Cursor",
-			command: ["cursor-agent", "login"],
 		},
+		{
+			cli: "claude",
+			loginLabel: "Log in to Claude Code",
+			loginCmd: ["claude", "auth", "login"],
+			authCmd: ["claude", "auth", "status"],
+			async interpretAuth(stdout, _stderr, exitCode, d, version, authAction) {
+				if (exitCode !== 0) {
+					return {
+						state: "installed",
+						version,
+						reason: "claude CLI is installed but `claude auth status` failed.",
+						authAction,
+					};
+				}
+				try {
+					const parsed = JSON.parse(stdout) as { loggedIn?: boolean };
+					if (parsed.loggedIn === true) {
+						// AV2: run `claude models` to discover available models.
+						// ⚠️ UNVERIFIED — `claude models` exits 0 with a Markdown table
+						// (captured 2026-07-06 from /opt/homebrew/bin/claude models).
+						let models: readonly HarnessModelDescriptor[] = [];
+						try {
+							const modelsResult = await runCommand(["claude", "models"], d);
+							if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
+								models = parseClaudeCatalog(modelsResult.stdout);
+							}
+						} catch {
+							// degraded gracefully — models stays []
+						}
+						return { state: "ready", version, models, authAction };
+					}
+					if (parsed.loggedIn === false) {
+						return {
+							state: "unauthenticated",
+							version,
+							reason: "claude CLI is installed but not authenticated. Run `claude auth login`.",
+							authAction,
+						};
+					}
+				} catch {
+					// fall through
+				}
+				return {
+					state: "installed",
+					version,
+					reason: "claude auth status returned unparsable output.",
+					authAction,
+				};
+			},
+		},
+		{
+			cli: "opencode",
+			loginLabel: "Log in to OpenCode",
+			loginCmd: ["opencode", "providers", "login"],
+			authCmd: ["opencode", "providers", "list"],
+			/**
+			 * @lore AV2: `opencode models --verbose` outputs one JSON block per model
+			 * (real format captured 2026-07-06). Run when providers are configured.
+			 * Failure degrades to models:[] — never throws.
+			 */
+			async interpretAuth(stdout, _stderr, exitCode, d, version, authAction) {
+				if (exitCode !== 0) {
+					return {
+						state: "installed",
+						version,
+						reason: "opencode CLI is installed but `opencode providers list` failed.",
+						authAction,
+					};
+				}
+				const hasCredentials =
+					/\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
+				if (hasCredentials) {
+					// AV2: run `opencode models --verbose` to discover available models.
+					// ⚠️ UNVERIFIED — format captured 2026-07-06 from `opencode models --verbose`.
+					let models: readonly HarnessModelDescriptor[] = [];
+					try {
+						const modelsResult = await runCommand(["opencode", "models", "--verbose"], d);
+						if (modelsResult.exitCode === 0 && modelsResult.stdout.trim()) {
+							models = parseOpenCodeCatalog(modelsResult.stdout);
+						}
+					} catch {
+						// degraded gracefully — models stays []
+					}
+					return { state: "ready", version, models, authAction };
+				}
+				return {
+					state: "unauthenticated",
+					version,
+					reason:
+						"opencode CLI is installed but no providers are configured. Run `opencode providers login`.",
+					authAction,
+				};
+			},
+		},
+		{
+			cli: "cursor-agent",
+			loginLabel: "Log in to Cursor",
+			loginCmd: ["cursor-agent", "login"],
+			authCmd: ["cursor-agent", "status"],
+			async interpretAuth(stdout, stderr, exitCode, _d, version, authAction) {
+				const authText = stdout.trim() || stderr.trim();
+				if (authText.includes("Logged in")) return { state: "ready", version, authAction };
+				if (exitCode !== 0 || authText.includes("Not logged in")) {
+					return {
+						state: "unauthenticated",
+						version,
+						reason:
+							"cursor-agent CLI is installed but not authenticated. Run `cursor-agent login`.",
+						authAction,
+					};
+				}
+				return {
+					state: "installed",
+					version,
+					reason: `cursor-agent auth state could not be parsed. Observed stdout: ${authText.slice(0, 120)}`,
+					authAction,
+				};
+			},
+		},
+	];
+
+/** Single driver for all CLI harness probes — config table above carries per-harness logic. */
+async function probeCli(
+	config: CliProbeConfig,
+	d?: HarnessProbeDeps,
+): Promise<HarnessDiscoveryInput> {
+	const versionResult = await runCommand([config.cli, "--version"], d);
+	if (versionResult.exitCode !== 0) {
+		return { state: "missing", reason: `${config.cli} CLI is not installed or not on PATH.` };
+	}
+	const version = versionResult.stdout.trim().split("\n")[0]?.trim() ?? "";
+	const authAction: HarnessAuthActionDescriptor = {
+		kind: "native_cli_login",
+		label: config.loginLabel,
+		command: config.loginCmd,
 	};
+	const authResult = await runCommand(config.authCmd, d);
+	return config.interpretAuth(
+		authResult.stdout,
+		authResult.stderr,
+		authResult.exitCode,
+		d,
+		version,
+		authAction,
+	);
 }
 
 /**
@@ -827,10 +767,10 @@ export async function discoverLocalHarnesses(
 	// Run probes concurrently — they are independent filesystem probes.
 	const [builtin, codex, claudeCode, opencode, cursorAgent] = await Promise.all([
 		probeBuiltinGateway(d),
-		probeCodexCli(d),
-		probeClaudeCodeCli(d),
-		inspectOpenCode(d),
-		probeCursorAgentCli(d),
+		probeCli(CLI_PROBE_CONFIGS[0], d), // codex
+		probeCli(CLI_PROBE_CONFIGS[1], d), // claude-code
+		probeCli(CLI_PROBE_CONFIGS[2], d), // opencode
+		probeCli(CLI_PROBE_CONFIGS[3], d), // cursor-agent
 	]);
 
 	return {

@@ -1,12 +1,12 @@
 /**
- * AU31 §2.7/§3.1 sites 12,14 (B1): `openMcpBridgeSession`/`closeMcpBridgeSession`
- * — the session-scoped MCP dial folded in from `run-orchestration`'s
- * `provisioner.ts`. See the `@lore` at `mcp/index.ts`'s definition.
+ * AU31 §2.7/§3.1 sites 12,14 (B1): session-scoped MCP dial — `bridge.open`
+ * now returns the `/api/mcp/<token>` URL directly (Row 14 MERGE: URL folded
+ * into `McpToolBridge.open`; `openMcpBridgeSession` deleted).
  */
 
 import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
-import { createMcpToolBridge, openMcpBridgeSession } from "../mcp/index.js";
+import { createMcpToolBridge } from "../mcp/index.js";
 
 const registry: ToolRegistry = {
 	definitions: [],
@@ -14,15 +14,17 @@ const registry: ToolRegistry = {
 	toClaudeToolSpecs: () => [],
 };
 
-describe("openMcpBridgeSession", () => {
-	it("opens the bridge and spells the same /api/mcp/<token> URL every real dial used to build inline", async () => {
-		const bridge = createMcpToolBridge();
-		const { token, url } = await openMcpBridgeSession(bridge, "http://localhost:3001", {
+const BASE_URL = "http://localhost:3001";
+
+describe("bridge.open", () => {
+	it("spells the /api/mcp/<token> URL and leaves the token live on the bridge router", async () => {
+		const bridge = createMcpToolBridge({ baseUrl: BASE_URL });
+		const { token, url } = await bridge.open({
 			sessionId: "session-1",
 			registry,
 		});
 
-		expect(url).toBe(`http://localhost:3001/api/mcp/${token}`);
+		expect(url).toBe(`${BASE_URL}/api/mcp/${token}`);
 
 		// The token is live on the bridge's own router — proves this call really
 		// opened the bridge, not merely computed a token-shaped string.
@@ -35,15 +37,9 @@ describe("openMcpBridgeSession", () => {
 	});
 
 	it("gives each session its own token on the same bridge", async () => {
-		const bridge = createMcpToolBridge();
-		const first = await openMcpBridgeSession(bridge, "http://localhost:3001", {
-			sessionId: "session-2a",
-			registry,
-		});
-		const second = await openMcpBridgeSession(bridge, "http://localhost:3001", {
-			sessionId: "session-2b",
-			registry,
-		});
+		const bridge = createMcpToolBridge({ baseUrl: BASE_URL });
+		const first = await bridge.open({ sessionId: "session-2a", registry });
+		const second = await bridge.open({ sessionId: "session-2b", registry });
 
 		expect(first.token).not.toBe(second.token);
 		expect(first.url).not.toBe(second.url);
@@ -52,11 +48,8 @@ describe("openMcpBridgeSession", () => {
 
 describe("bridge.close", () => {
 	it("revokes the token on the same bridge instance", async () => {
-		const bridge = createMcpToolBridge();
-		const { token } = await openMcpBridgeSession(bridge, "http://localhost:3001", {
-			sessionId: "session-3",
-			registry,
-		});
+		const bridge = createMcpToolBridge({ baseUrl: BASE_URL });
+		const { token } = await bridge.open({ sessionId: "session-3", registry });
 
 		await bridge.close(token);
 
