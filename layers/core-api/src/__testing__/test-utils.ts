@@ -1,4 +1,3 @@
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { appendFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import {
@@ -6,6 +5,7 @@ import {
 	bootAgentOrchestration,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
