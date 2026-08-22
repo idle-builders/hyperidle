@@ -316,7 +316,14 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
 		// access-signal aggregation all moved into the repository's
 		// listVisibleWithSignals — see knowledge-repository.ts §6.
-		const items = await listKnowledgeItems(db, { visibleWithSignals: userId });
+		// @lore AU44 batch 4: L22 signals (accessCount30d, lastActivityAt etc.) removed per
+		// FULL-AUDIT.md row 13. attentionScore (PLUGIN-owned, still in schema) is parsed from
+		// the stored text to a number here — same as the detail route does for confidence.
+		const rows = await listKnowledgeItems(db, { visibleWithSignals: userId });
+		const items = rows.map((item) => ({
+			...item,
+			attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
+		}));
 
 		return c.json({ items });
 	});

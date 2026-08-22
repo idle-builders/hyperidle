@@ -194,8 +194,17 @@ function mergeWithProjection(
 	return {
 		...item,
 		layer: projection.layer,
-		scopeId: projection.scopeId,
+		// @lore AU44 batch 4: projection.scopeId is a denormalized copy that may be null
+		// (e.g. minimal test fixtures, or items created before the projection column existed).
+		// Fall back to the kernel's scopeId so resolveScopeName receives the real value.
+		scopeId: projection.scopeId ?? item.scopeId,
 		kind: projection.kind,
+		// @lore AU44 batch 4: attentionScore stays readable per the KnowledgeItemWithProjection
+		// interface lore — the PLUGIN attention service writes it, callers may read it.
+		// Removed from Create/UpdateKnowledgeItemInput (callers cannot write it).
+		attentionScore: projection.attentionScore,
+		confidence: projection.confidence,
+		meta: projection.meta,
 	};
 }
 

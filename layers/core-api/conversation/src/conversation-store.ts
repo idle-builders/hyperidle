@@ -170,7 +170,10 @@ export async function findOrCreateDirectThread(
 	now: string,
 	recipientKind: "agent" | "user" = "agent",
 ): Promise<string> {
-	const directKey = [senderId, recipientId].sort().join(":");
+	// @lore AU44 batch 4: directKey includes recipientKind so agent-kind and user-kind
+	// threads for the same participant pair are separate (test Q1 §3.1 asserts this).
+	// Still initiator-symmetric: A→B and B→A with the same kind sort to the same key.
+	const directKey = `${[senderId, recipientId].sort().join(":")}:${recipientKind}`;
 	const [existing] = await exec
 		.select({ id: threads.id })
 		.from(threads)
