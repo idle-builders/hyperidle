@@ -1,10 +1,10 @@
 /**
  * AU28 — the compact architecture model reproduces every decided verdict.
  *
- * `tools/governance/decided-rules.json` holds 191 verdicts the founder decided one at a time: every
+ * `tools/governance/decided-rules.json` holds 179 verdicts the founder decided one at a time: every
  * role pair × crossing kind, with a separate answer for the production and development worlds. They
  * are the decision artifact. `tools/governance/src/lib/governance-model.ts` is fifteen clauses that
- * must *derive* all 382 answers (191 rows × 2 worlds).
+ * must *derive* all 358 answers (179 rows × 2 worlds).
  *
  * AU44 B3 dissolved `framework/cron` into `layers/core-api/routine`. Its four decided rows (two
  * import + two manifest, across core-api and tooling) are removed.
@@ -250,15 +250,15 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 // -------------------------------------------------------------------------------------------
 
 describe("AU28 — the decided rule set is intact", () => {
-	it("holds exactly the 191 decided rows with the decided totals", () => {
-		expect(decided.rows).toHaveLength(191);
-		expect(decided.totals.rows).toBe(191);
+	it("holds exactly the 179 decided rows with the decided totals", () => {
+		expect(decided.rows).toHaveLength(179);
+		expect(decided.totals.rows).toBe(179);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
 		// These four numbers are the founder's decisions. A regeneration that moves any of them has
 		// re-derived what was decided instead of reading it — that happened once and cost hours.
-		expect(count("production", "allowed")).toBe(99);
-		expect(count("production", "forbidden")).toBe(84);
+		expect(count("production", "allowed")).toBe(97);
+		expect(count("production", "forbidden")).toBe(82);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
 		// AU32 Ruling A (ruling14narrowing) moved two more, `service -> raw runtime [capability]` and
@@ -275,8 +275,8 @@ describe("AU28 — the decided rule set is intact", () => {
 		// twelve `framework/shared` rows, every one of them allowed in both worlds: 65 - 12 = 53
 		// production allowed, 113 - 12 = 101 development allowed; neither forbidden count moves.
 		// AU44-b2 dissolved framework/credential-access + framework/filesystem-contract, removing 8 rows:
-		// prod: -4 allowed (105→101), -4 forbidden (90→86); dev: -8 allowed (183→179), 0 forbidden.
-		expect(count("development", "allowed")).toBe(175);
+		// prod: -4 allowed (105→101), -4 forbidden (90→86); dev: -8 allowed (179→179), 0 forbidden.
+		expect(count("development", "allowed")).toBe(171);
 		expect(count("development", "forbidden")).toBe(8);
 	});
 
@@ -286,7 +286,7 @@ describe("AU28 — the decided rule set is intact", () => {
 	});
 });
 
-describe("AU28 — fifteen clauses derive all 382 decided verdicts", () => {
+describe("AU28 — fifteen clauses derive all 358 decided verdicts", () => {
 	// W-TEST-2: `expect(wrong).toEqual([])` over a `.filter()` passes vacuously when `rows` is empty
 	// — a mis-parsed or emptied decided-rules.json would read as a total green. The counter is what
 	// makes the loop assert that it RAN, and it is the reason the row count is stated twice.
@@ -302,7 +302,7 @@ describe("AU28 — fifteen clauses derive all 382 decided verdicts", () => {
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(191);
+		expect(checked, "the loop must actually iterate every decided row").toBe(179);
 	});
 
 	it("reproduces every development verdict", () => {
@@ -317,7 +317,7 @@ describe("AU28 — fifteen clauses derive all 382 decided verdicts", () => {
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(191);
+		expect(checked, "the loop must actually iterate every decided row").toBe(179);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {
