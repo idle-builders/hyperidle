@@ -918,9 +918,12 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			const now = new Date().toISOString();
 
 			const teamId = `team-${randomUUID()}`;
-			const teamMembersId = `team-${randomUUID()}`;
+			// @lore AU44 B1: after the fold, teamMembers.id = teams.id — one entity, one id.
+			// Using a separate UUID here caused a FK violation: persistScaffoldedAgents sets
+			// users.teamId = teamMembersId, but only teams.id = teamId exists in `teams`.
+			const teamMembersId = teamId;
 
-			// @lore AU20 Am7: atomic createTeam (teams + teamMembers companion in one call).
+			// @lore AU20 Am7 / AU44 B1: createTeam inserts one `teams` row (team_members dissolved).
 			await ports.coreApi.createTeam(
 				{
 					id: teamId,
