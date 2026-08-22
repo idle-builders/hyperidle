@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { agentSessionRequests, bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { agentSessionRequests, bets, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -36,13 +36,6 @@ async function createRequestForTest(db: HyperIdleDb, request: AgentSessionReques
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "team-au6", name: "AU6", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: "member-au6",
-		teamId: "team-au6",
-		capacity: 3,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(users).values([
 		{
 			id: "agent-au6",
@@ -50,7 +43,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			name: "Agent",
 			role: "builder",
 			status: "active",
-			teamId: "member-au6",
+			teamId: "team-au6",
 			createdAt: now,
 		},
 		{

@@ -11,7 +11,7 @@
  * so this stays a relative, in-package import.
  */
 
-import { bets, type HyperIdleDb, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams, threads, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -29,16 +29,12 @@ async function seedMinimalWorld(
 	db: HyperIdleDb,
 ): Promise<{ teamId: string; betId: string; sessionId: string; founderId: string }> {
 	const teamId = "team-ac5-test";
-	const tmId = "tm-ac5-test";
 	const founderId = "user-ac5-founder";
 	const betId = "bet-ac5-test";
 	const sessionId = "session-ac5-test";
 	const agentId = "agent-ac5-builder";
 
 	await db.insert(teams).values({ id: teamId, name: "Acme Test", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: tmId, teamId, capacity: 5, activeBets: 1, formedAt: NOW });
 
 	// The founder human — normally created at onboarding, not bootstrap
 	await db.insert(users).values({
@@ -57,7 +53,7 @@ async function seedMinimalWorld(
 		role: "builder",
 		agentCategory: "team",
 		status: "active",
-		teamId: tmId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 

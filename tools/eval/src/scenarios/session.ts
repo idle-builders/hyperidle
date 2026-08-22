@@ -31,12 +31,12 @@ const sessLifecycleGrowthSales: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const sandboxBasePath = `/tmp/eval-workspace-sess-${Date.now()}`;
-		const { teamId, teamMembersId } = await seedTeam(ctx.db);
+		const { teamId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 		const { agentId } = await seedAgent(ctx.db, {
 			name: "Growth Agent",
 			role: "growth",
-			teamMembersId,
+			teamId,
 			systemPrompt: `You are a growth agent analyzing sales pipeline data.
 Your job is to review the sales context and document key findings in session notes.
 Write substantive session notes covering: what you analyzed, key findings, and next steps.`,
@@ -132,14 +132,14 @@ const sessModelTierBuilderDevops: EvalScenario = {
 	tags: ["quick"],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const sandboxBasePath = `/tmp/eval-workspace-tier-${Date.now()}`;
-		const { teamId, teamMembersId } = await seedTeam(ctx.db);
+		const { teamId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 
 		// Seed agent with reasoning tier preference
 		const { agentId } = await seedAgent(ctx.db, {
 			name: "DevOps Builder",
 			role: "builder",
-			teamMembersId,
+			teamId,
 			systemPrompt: "You are a DevOps builder. Complete the task and write session notes.",
 			harnessType: "builtin",
 		});
@@ -221,12 +221,12 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
 		const sandboxBasePath = `/tmp/eval-workspace-cleanup-${Date.now()}`;
-		const { teamId, teamMembersId } = await seedTeam(ctx.db);
+		const { teamId } = await seedTeam(ctx.db);
 		await seedFounder(ctx.db);
 		const { agentId } = await seedAgent(ctx.db, {
 			name: "Frontend Builder",
 			role: "builder",
-			teamMembersId,
+			teamId,
 			systemPrompt: "You are a frontend builder. Complete the task and write session notes.",
 			harnessType: "builtin",
 		});

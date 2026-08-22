@@ -168,7 +168,7 @@ function makeTeamDetailResponse() {
 			status: "healthy",
 			leadAgentId: null,
 		},
-		teamMembers: { id: "tm1", formedAt: new Date().toISOString(), dissolvedAt: null },
+		teamMembers: { id: TEAM_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
 		roster: [],
 		burn: {
 			capacity: 3,

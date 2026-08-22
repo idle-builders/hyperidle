@@ -12,7 +12,7 @@
  * to ask for it. This is that way.
  */
 
-import { bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -25,9 +25,6 @@ function authHeaders(): Record<string, string> {
 
 async function seedTasks(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "p-w4", name: "P", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-w4", teamId: "p-w4", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "bet-w4",
 		teamId: "p-w4",

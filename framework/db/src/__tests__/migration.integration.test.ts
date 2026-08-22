@@ -5,7 +5,7 @@ import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 // test that calls handle.runMigrations() — the pooled fixture does not expose
 // runMigrations(). All other tests in this file use the fixture.
 import { createTestDb } from "../__testing__/test-utils.js";
-import { teamMembers, teams } from "../schema.js";
+import { teams } from "../schema.js";
 
 // @lore Phase 2: migration.test.ts now tests PGlite migrations. SQLite migration
 // tests were removed because the schema is now PG-only. The journal timestamp
@@ -28,7 +28,7 @@ describe("A2: Migration", () => {
 		expect(tableNames).toEqual(
 			expect.arrayContaining([
 				// @lore P2: agents → users
-				// @lore U1: `products` → `teams`; old `teams` → `team_members`
+				// @lore U1: `products` → `teams`; old `team_members` dissolved into `teams` (AU44 B1)
 				// @lore: file_leases was dropped in earlier migrations
 				"users",
 				"bets",
@@ -42,7 +42,6 @@ describe("A2: Migration", () => {
 				"routines",
 				"sessions",
 				"tasks",
-				"team_members",
 				"teams",
 				"threads",
 			]),
@@ -61,28 +60,34 @@ describe("A2: Migration", () => {
 		// the repo that reads the real post-migration database and can say the drop
 		// happened.
 		expect(tableNames).not.toContain("user_skills");
-		expect(tableNames.length).toBeGreaterThanOrEqual(15);
+		// @lore AU44 B1: `team_members` dissolved into `teams` in migration 0058.
+		// Exact-absence proves the DROP TABLE in 0058 ran.
+		expect(tableNames).not.toContain("team_members");
+		expect(tableNames.length).toBeGreaterThanOrEqual(14);
 	});
 
 	test("migrated database supports CRUD with Drizzle ORM", async ({ db }) => {
 		// @lore U1: `schema.products` renamed to `schema.teams` (domain entity).
 		const now = new Date().toISOString();
-		await db
-			.insert(teams)
-			.values({ id: "test-prod", name: "Test", phase: "build", createdAt: now });
-		// The owner writes the membership row alongside the team; exercises a second migrated
-		// table for free.
-		await db.insert(teamMembers).values({
-			id: "test-prod-members",
-			teamId: "test-prod",
-			capacity: 5,
-			activeBets: 0,
+		await db.insert(teams).values({
+			id: "test-prod",
+			name: "Test",
+			phase: "build",
+			createdAt: now,
+			capacity: 7,
+			activeBets: 2,
 			formedAt: now,
 		});
 
 		const result = await db.select().from(teams);
 		expect(result).toHaveLength(1);
-		expect(result[0]).toMatchObject({ id: "test-prod", name: "Test" });
+		expect(result[0]).toMatchObject({
+			id: "test-prod",
+			name: "Test",
+			capacity: 7,
+			activeBets: 2,
+			formedAt: now,
+		});
 	});
 
 	test("migrated database has kernel and fabric knowledge indexes", async ({ db }) => {

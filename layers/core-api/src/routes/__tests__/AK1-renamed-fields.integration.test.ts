@@ -150,21 +150,13 @@ describe("AK1 — agents route uses systemPrompt (not soulPrompt)", () => {
 		app,
 	}) => {
 		// Seed prerequisite data for the agents route
-		const { teams, teamMembers } = await import("@hyperidle/db");
+		const { teams } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({
 			id: "ak1-team",
 			name: "AK1 Team",
 			phase: "build",
 			createdAt: NOW,
-		});
-
-		await db.insert(teamMembers).values({
-			id: "ak1-tm",
-			teamId: "ak1-team",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: NOW,
 		});
 
 		await seedFounder(db, "u-ak1-b1");
@@ -175,7 +167,7 @@ describe("AK1 — agents route uses systemPrompt (not soulPrompt)", () => {
 			name: "AK1 Builder Bot",
 			role: "builder",
 			status: "active",
-			teamId: "ak1-tm",
+			teamId: "ak1-team",
 			createdAt: NOW,
 		});
 		// @lore AU26 G1: the run config left `users` for `agent_run_config`.

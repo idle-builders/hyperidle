@@ -39,7 +39,7 @@ describe("A2: Seed script", () => {
 		const majorTables = [
 			"users",
 			"teams",
-			"team_members",
+			// @lore AU44 B1: team_members folded into teams — no longer a separate table
 			"knowledge_items",
 			"knowledge_app_projection",
 		];
@@ -73,11 +73,10 @@ describe("A2: Seed script", () => {
 		expect(agents[0]?.name).toBeTruthy();
 		expect(agents[0]?.role).toBeTruthy();
 
-		// @lore U1: old `teams` (agent membership) renamed to `team_members`.
-		// `capacity` column lives on `team_members`, not on the new `teams`.
+		// @lore AU44 B1: team_members folded into teams; capacity now lives on teams.
 		const teamMembers = await queryRows<{ id: string; capacity: number }>(
 			db,
-			"SELECT id, capacity FROM team_members LIMIT 1",
+			"SELECT id, capacity FROM teams LIMIT 1",
 		);
 		expect(teamMembers[0]?.id).toBeTruthy();
 		expect(teamMembers[0]?.capacity).toBeGreaterThan(0);

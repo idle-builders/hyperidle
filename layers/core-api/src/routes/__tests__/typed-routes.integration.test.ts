@@ -11,7 +11,7 @@
  * The integration tests use createTestDb/createTestApp which need a real DB.
  */
 
-import { bets, teamMembers, teams } from "@hyperidle/db";
+import { bets, teams } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -69,9 +69,6 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		await db
 			.insert(teams)
 			.values({ id: "prod-d2", name: "Product D2", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-d2", teamId: "prod-d2", capacity: 3, activeBets: 0, formedAt: now });
 		await db.insert(bets).values({
 			id: "bet-d2",
 			teamId: "prod-d2",
@@ -98,9 +95,6 @@ describe("D2. GET /api/bets returns betListResponseSchema-conforming response", 
 		await db
 			.insert(teams)
 			.values({ id: "prod-d2b", name: "Product D2b", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-d2b", teamId: "prod-d2b", capacity: 3, activeBets: 0, formedAt: now });
 
 		const res = await app.request("/api/bets", { headers: authHeaders() });
 		const body = (await res.json()) as Record<string, unknown>;
@@ -137,9 +131,6 @@ describe("D3. GET /api/bets/:id returns betDetailResponseSchema-conforming respo
 		await db
 			.insert(teams)
 			.values({ id: "prod-d3", name: "Product D3", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-d3", teamId: "prod-d3", capacity: 3, activeBets: 0, formedAt: now });
 		await db.insert(bets).values({
 			id: "bet-d3",
 			teamId: "prod-d3",

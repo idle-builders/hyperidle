@@ -11,7 +11,7 @@
  * - GET /api/teams/:id includes agentCategory in the roster assembly
  */
 
-import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -31,20 +31,14 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 	strategyAgentId: string;
 }> {
 	const teamId = "ab3-team";
-	const teamMembersId = "ab3-tm";
+	// @lore AU44 B1: teamMembersId = teamId after fold (one row, one id).
+	const teamMembersId = teamId;
 	const teamAgentId = "ab3-agent-team";
 	const strategyAgentId = "ab3-agent-strategy";
 
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "AB3 Test Team", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: teamMembersId,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 
 	// Team category agent
 	await db.insert(users).values({
@@ -53,7 +47,7 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 		name: "Team Builder",
 		role: "builder",
 		status: "active",
-		teamId: teamMembersId,
+		teamId,
 		agentCategory: "team",
 		createdAt: NOW,
 	});
@@ -70,15 +64,12 @@ async function seedTeamWithCategorizedAgents(db: HyperIdleDb): Promise<{
 		name: "Scout Agent",
 		role: "scout",
 		status: "active",
-		teamId: teamMembersId,
+		teamId,
 		agentCategory: "strategy",
 		createdAt: NOW,
 	});
 
-	await db
-		.update(teamMembers)
-		.set({ leadAgentId: teamAgentId })
-		.where(eq(teamMembers.id, teamMembersId));
+	await db.update(teams).set({ leadAgentId: teamAgentId }).where(eq(teams.id, teamId));
 
 	return { teamId, teamMembersId, teamAgentId, strategyAgentId };
 }
@@ -161,24 +152,16 @@ describe("AB3 — teams routes: agentCategory in roster", () => {
 		}) => {
 			// Seed an agent with no agentCategory set
 			const teamId = "ab3-team-null-cat";
-			const teamMembersId = "ab3-tm-null-cat";
 			await db
 				.insert(teams)
 				.values({ id: teamId, name: "Null Cat Team", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: teamMembersId,
-				teamId,
-				capacity: 3,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "ab3-agent-no-cat",
 				kind: "ai",
 				name: "No Category Agent",
 				role: "builder",
 				status: "active",
-				teamId: teamMembersId,
+				teamId,
 				// agentCategory deliberately not set
 				createdAt: NOW,
 			});

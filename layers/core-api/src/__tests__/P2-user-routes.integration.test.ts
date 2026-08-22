@@ -12,7 +12,6 @@
  */
 
 import {
-	teamMembers,
 	teams,
 	// P2: import new symbols — compile error until implementation done
 	users,
@@ -38,13 +37,6 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values([
 				{
 					id: "user-p2-1",
@@ -52,7 +44,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 					name: "Builder Bot",
 					role: "builder",
 					status: "active",
-					teamId: "team-p2",
+					teamId: "prod-p2",
 					createdAt: NOW,
 				},
 				{
@@ -61,7 +53,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 					name: "Growth Bot",
 					role: "growth",
 					status: "active",
-					teamId: "team-p2",
+					teamId: "prod-p2",
 					createdAt: NOW,
 				},
 			]);
@@ -89,20 +81,13 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "user-p2-1",
 				kind: "ai",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-p2",
+				teamId: "prod-p2",
 				createdAt: NOW,
 			});
 
@@ -119,13 +104,6 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values([
 				{
 					id: "user-p2-1",
@@ -133,7 +111,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 					name: "Builder Bot",
 					role: "builder",
 					status: "active",
-					teamId: "team-p2",
+					teamId: "prod-p2",
 					createdAt: NOW,
 				},
 				{
@@ -142,7 +120,7 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 					name: "Growth Bot",
 					role: "growth",
 					status: "active",
-					teamId: "team-p2",
+					teamId: "prod-p2",
 					createdAt: NOW,
 				},
 			]);
@@ -167,20 +145,13 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "user-p2-1",
 				kind: "ai",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-p2",
+				teamId: "prod-p2",
 				createdAt: NOW,
 			});
 			const res = await app.request("/api/users/user-p2-1", { headers: authHeaders() });
@@ -215,20 +186,13 @@ describe("P2 — /api/users endpoints (AC4, AC10)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-p2", name: "P2 Product", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "team-p2",
-				teamId: "prod-p2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "user-p2-1",
 				kind: "ai",
 				name: "Builder Bot",
 				role: "builder",
 				status: "active",
-				teamId: "team-p2",
+				teamId: "prod-p2",
 				createdAt: NOW,
 			});
 

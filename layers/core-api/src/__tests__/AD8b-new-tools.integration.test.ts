@@ -13,7 +13,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -58,13 +58,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-ad8b", name: "AD8b Team", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: "tm-ad8b",
-		teamId: "team-ad8b",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	await db.insert(users).values({
 		id: "ast-agent-1",
 		kind: "ai",

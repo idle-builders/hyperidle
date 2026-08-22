@@ -2,8 +2,8 @@
 	"tableOwners": true,
 	"note": "Every table names the ONE service that may read and write it. A table absent from this file is a build error, never a silently skipped row — completeness is the point. Owners are package names, never paths (Ruling 5).",
 	"totals": {
-		"tables": 39,
-		"owned": 39,
+		"tables": 38,
+		"owned": 38,
 		"unowned": 0
 	},
 	"owners": {
@@ -16,7 +16,6 @@
 		"tasks": "work",
 		"items": "work",
 		"artifacts": "work",
-		"teamMembers": "org",
 		"orgEdges": "org",
 		"teams": "org",
 		"users": "users",

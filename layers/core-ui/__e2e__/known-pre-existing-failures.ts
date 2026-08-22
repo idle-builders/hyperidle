@@ -185,7 +185,7 @@ export const AU21_PRE_EXISTING_E2E_FAILURES: readonly string[] = [
 	"MOCK_PRODUCTS content ('HyperIdle Core') never appears from API mocked as empty",
 	"NotFound page provides a Go home link back to the app",
 	"Notifications section renders and saves via PATCH /api/settings",
-	"Org Chart edge row target matches the created team's teamMembers id",
+	"Org Chart edge row target matches the created team's id",
 	"OrgChart section shows edge table and Add Edge button",
 	"Portfolio page renders a portfolio overview heading (I4 P1)",
 	"Portfolio page renders bet-grid container (I4 P4)",

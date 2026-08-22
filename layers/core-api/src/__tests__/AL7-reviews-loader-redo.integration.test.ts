@@ -21,7 +21,6 @@ import {
 	operationOutcomes,
 	proposedCalls,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -54,9 +53,6 @@ async function seedReviewWithProposedCall(
 	const capturedArgs = { path: "/workspace/result.txt", content: "feature done", pr: 42 };
 
 	await db.insert(teams).values({ id: teamId, name: "RL Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: `tm-${teamId}`, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

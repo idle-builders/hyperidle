@@ -113,7 +113,7 @@ const delSuccessfulDelegation: EvalScenario = {
 		await seedAgent(ctx.db, {
 			name: "Delegate Agent",
 			role: "assistant",
-			teamMembersId: world.teamMembersId,
+			teamId: world.teamId,
 			systemPrompt: "You are a delegate system agent.",
 		});
 
@@ -223,7 +223,7 @@ const delNoDelegateAvailable: EvalScenario = {
 		const { agentId: candidateId } = await seedAgent(ctx.db, {
 			name: "Candidate Agent",
 			role: "assistant",
-			teamMembersId: world.teamMembersId,
+			teamId: world.teamId,
 		});
 		const { taskId: candidateTaskId } = await seedTask(ctx.db, {
 			betId: world.betId,

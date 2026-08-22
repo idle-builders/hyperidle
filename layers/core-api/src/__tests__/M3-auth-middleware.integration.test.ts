@@ -7,7 +7,7 @@
  * The fallback to "u-founder" is preserved for unseeded DBs.
  */
 
-import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -100,14 +100,6 @@ describe("M3 — Bets routes: revision log actor comes from auth context (A5)", 
 		await db
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
 
 		// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
 		await db.insert(bets).values({

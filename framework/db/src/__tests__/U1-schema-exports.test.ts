@@ -18,7 +18,7 @@ import * as schema from "../schema.js";
 import { teams } from "../schema.js";
 
 // ---------------------------------------------------------------------------
-// AC7: TypeScript types — Team (formerly Product), TeamMember (formerly Team)
+// AC7: TypeScript types — Team (formerly Product); teamMembers dissolved (AU44)
 // ---------------------------------------------------------------------------
 
 describe("U1 AC7: TypeScript type exports updated", () => {
@@ -32,16 +32,13 @@ describe("U1 AC7: TypeScript type exports updated", () => {
 		expect(getTableName(teams)).toBe("teams");
 	});
 
-	test("schema exports teamMembers table (formerly teams)", () => {
-		expect((schema as Record<string, unknown>)["teamMembers"]).toBeDefined();
+	// @lore AU44 B1: teamMembers was dissolved into teams — capacity, activeBets,
+	// formedAt columns moved to teams; users.teamId now references teams.id directly.
+	test("schema does NOT export teamMembers table (dissolved in AU44)", () => {
+		expect((schema as Record<string, unknown>)["teamMembers"]).toBeUndefined();
 	});
 
 	test("schema does NOT export 'products' table", () => {
 		expect((schema as Record<string, unknown>)["products"]).toBeUndefined();
-	});
-
-	test("TeamMember type is exported from schema (formerly Team)", () => {
-		const teamsTable = (schema as Record<string, unknown>)["teamMembers"];
-		expect(teamsTable).toBeDefined();
 	});
 });

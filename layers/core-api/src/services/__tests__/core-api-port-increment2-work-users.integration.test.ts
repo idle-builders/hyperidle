@@ -71,7 +71,6 @@ import {
 	type HyperIdleDb,
 	items,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -161,21 +160,17 @@ interface SeamCoreApiPortIncrement2 {
 	};
 	readonly users: {
 		getUserById(id: string): Promise<SeamUserView | undefined>;
-		listUsersByTeam(teamMembersId: string): Promise<ReadonlyArray<SeamUserView>>;
+		listUsersByTeam(teamId: string): Promise<ReadonlyArray<SeamUserView>>;
 	};
 }
 
 async function seedTeamAndBet(
 	db: HyperIdleDb,
 	opts: { readonly suffix: string; readonly betStatus?: string },
-): Promise<{ readonly teamId: string; readonly teamMembersId: string; readonly betId: string }> {
+): Promise<{ readonly teamId: string; readonly betId: string }> {
 	const teamId = `team-inc2-${opts.suffix}`;
-	const teamMembersId = `tm-inc2-${opts.suffix}`;
 	const betId = `bet-inc2-${opts.suffix}`;
 	await db.insert(teams).values({ id: teamId, name: "Inc2 Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: betId,
 		teamId,
@@ -184,7 +179,7 @@ async function seedTeamAndBet(
 		status: opts.betStatus ?? "active",
 		createdAt: NOW,
 	});
-	return { teamId, teamMembersId, betId };
+	return { teamId, betId };
 }
 
 async function seedAgent(
@@ -515,14 +510,14 @@ describe("CoreApiPort.users — Increment 2 (RED)", () => {
 
 	test("listUsersByTeam reaches the real team-scoped user-listing route", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-key-listusers");
-		const { teamMembersId } = await seedTeamAndBet(db, { suffix: "roster1" });
-		await seedAgent(db, "agent-inc2-roster1", { teamId: teamMembersId });
-		await seedAgent(db, "agent-inc2-roster2", { teamId: teamMembersId });
+		const { teamId: roster1TeamId } = await seedTeamAndBet(db, { suffix: "roster1" });
+		await seedAgent(db, "agent-inc2-roster1", { teamId: roster1TeamId });
+		await seedAgent(db, "agent-inc2-roster2", { teamId: roster1TeamId });
 		// A control agent NOT on this team — must not appear in the result.
 		await seedAgent(db, "agent-inc2-roster-other");
 
 		const port = buildSeamPort("agent-inc2-roster1", app);
-		const roster = await port.users.listUsersByTeam(teamMembersId);
+		const roster = await port.users.listUsersByTeam(roster1TeamId);
 
 		const ids = roster.map((u) => u.id).sort();
 		expect(ids).toEqual(["agent-inc2-roster1", "agent-inc2-roster2"]);

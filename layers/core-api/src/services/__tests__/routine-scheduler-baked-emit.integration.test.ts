@@ -32,7 +32,6 @@ import {
 	type HyperIdleDb,
 	routineRuns,
 	routines,
-	teamMembers,
 	teams,
 	users,
 	type WriteExecutor,
@@ -129,21 +128,17 @@ async function seedManualRoutine(
 	opts: { readonly ownerStatus?: string } = {},
 ): Promise<{ readonly routineId: string; readonly teamId: string; readonly ownerAgentId: string }> {
 	const teamId = `${id}-team`;
-	const teamMembersId = `${id}-members`;
 	const ownerAgentId = `${id}-owner`;
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Baked-emit team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: ownerAgentId,
 		kind: "ai",
 		name: "Owner",
 		role: "builder",
 		status: opts.ownerStatus ?? "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({

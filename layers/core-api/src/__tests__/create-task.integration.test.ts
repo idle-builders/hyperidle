@@ -14,7 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/domain-model";
 import type { ToolContext } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
@@ -35,9 +35,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "b1",
 		teamId: "team-1",
@@ -49,7 +46,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		id: "agent-a",
 		name: "Builder Agent",
 		role: "builder",
-		teamId: "tm-1",
+		teamId: "team-1",
 		status: "active",
 		createdAt: NOW,
 	});

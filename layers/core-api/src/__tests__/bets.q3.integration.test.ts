@@ -14,7 +14,7 @@
  * pitch -> description. shaped -> draft. committed|in_progress -> active. shipped -> completed.
  */
 
-import { bets, teamMembers, teams } from "@hyperidle/db";
+import { bets, teams } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -36,13 +36,6 @@ describe("Bet Endpoints (Q3)", () => {
 				name: "Test Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
 			});
 
 			const res = await app.request("/api/bets", {
@@ -72,13 +65,6 @@ describe("Bet Endpoints (Q3)", () => {
 				phase: "build",
 				createdAt: new Date().toISOString(),
 			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
@@ -104,13 +90,6 @@ describe("Bet Endpoints (Q3)", () => {
 				phase: "build",
 				createdAt: new Date().toISOString(),
 			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
-			});
 
 			const res = await app.request("/api/bets", {
 				method: "POST",
@@ -133,13 +112,6 @@ describe("Bet Endpoints (Q3)", () => {
 				name: "Test Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
 			});
 
 			const res = await app.request("/api/bets", {
@@ -168,13 +140,6 @@ describe("Bet Endpoints (Q3)", () => {
 				name: "Test Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
 			});
 
 			const res = await app.request("/api/bets", {
@@ -213,13 +178,6 @@ describe("Bet Endpoints (Q3)", () => {
 				name: "Test Product",
 				phase: "build",
 				createdAt: new Date().toISOString(),
-			});
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 2,
-				activeBets: 0,
-				formedAt: new Date().toISOString(),
 			});
 
 			const createRes = await app.request("/api/bets", {

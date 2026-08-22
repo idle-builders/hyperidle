@@ -25,15 +25,7 @@
  * test fails before ever observing a `session_ended` emission or a
  * `routineRuns` finalize.
  */
-import {
-	type HyperIdleDb,
-	routineRuns,
-	routines,
-	sessions,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, sessions, teams, users } from "@hyperidle/db";
 import { describe, expect, test, vi } from "@hyperidle/db/test-fixtures";
 import type { SessionEndedEvent } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -62,7 +54,6 @@ async function seedStaleRoutineSession(
 	id: string,
 ): Promise<{ readonly routineId: string; readonly runId: string; readonly sessionId: string }> {
 	const teamId = `${id}-team`;
-	const tmId = `${id}-tm`;
 	const agentId = `${id}-agent`;
 	const routineId = `${id}-routine`;
 	const runId = `${id}-run`;
@@ -70,16 +61,13 @@ async function seedStaleRoutineSession(
 	const nowIso = new Date(NOW_MS).toISOString();
 
 	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: nowIso });
-	await db
-		.insert(teamMembers)
-		.values({ id: tmId, teamId, capacity: 3, activeBets: 0, formedAt: nowIso });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: tmId,
+		teamId: teamId,
 		createdAt: nowIso,
 	});
 	await db.insert(routines).values({

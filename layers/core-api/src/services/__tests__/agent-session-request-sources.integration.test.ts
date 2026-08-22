@@ -9,7 +9,6 @@ import {
 	messages,
 	routines,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -65,9 +64,6 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-au3-agent", name: "AU3 Agent", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-au3-agent", teamId: "team-au3-agent", capacity: 3, formedAt: now });
 	await db.insert(users).values([
 		{
 			id: "agent-au3-agent",
@@ -75,7 +71,7 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "tm-au3-agent",
+			teamId: "team-au3-agent",
 			createdAt: now,
 		},
 		{
@@ -210,7 +206,7 @@ describe("agent session request sources", () => {
 				kind: "ai",
 				status: "active",
 				role: "builder",
-				teamId: "tm-au3-agent",
+				teamId: "team-au3-agent",
 				systemPrompt: null,
 				modelTierPreference: null,
 				harnessType: "recording",

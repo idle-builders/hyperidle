@@ -25,7 +25,6 @@ import {
 	routines,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -52,9 +51,8 @@ export async function seedTeam(
 		teamName: string;
 		phase: string;
 	}>,
-): Promise<{ teamId: string; teamMembersId: string }> {
+): Promise<{ teamId: string }> {
 	const teamId = opts?.teamId ?? randomUUID();
-	const teamMembersId = randomUUID();
 	const now = new Date().toISOString();
 
 	await db.insert(teams).values({
@@ -64,15 +62,7 @@ export async function seedTeam(
 		createdAt: now,
 	});
 
-	await db.insert(teamMembers).values({
-		id: teamMembersId,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
-
-	return { teamId, teamMembersId };
+	return { teamId };
 }
 
 /** Create a human founder user (required for auth middleware FK constraints). */
@@ -107,7 +97,7 @@ export async function seedAgent(
 		agentId?: string;
 		name: string;
 		role: string;
-		teamMembersId: string;
+		teamId: string;
 		systemPrompt?: string;
 		harnessType?: string;
 		modelTierPreference?: ModelTier;
@@ -124,7 +114,7 @@ export async function seedAgent(
 		name: opts.name,
 		role: opts.role,
 		status: "active",
-		teamId: opts.teamMembersId,
+		teamId: opts.teamId,
 		agentCategory: opts.agentCategory ?? "team",
 		createdAt: now,
 	});
@@ -279,12 +269,12 @@ export async function seedMinimalWorld(
 ): Promise<
 	ScenarioSeedResult & {
 		founderId: string;
-		teamMembersId: string;
+		teamId: string;
 	}
 > {
 	const sandboxBasePath = `/tmp/eval-workspace-${randomUUID()}`;
 
-	const { teamId, teamMembersId } = await seedTeam(db);
+	const { teamId } = await seedTeam(db);
 	const { founderId } = await seedFounder(db);
 	const agentRole = opts?.agentRole ?? "builder";
 	// AB0: derive agentCategory from role catalog so seeded agents match production behavior.
@@ -293,7 +283,7 @@ export async function seedMinimalWorld(
 	const { agentId } = await seedAgent(db, {
 		name: "Eval Agent",
 		role: agentRole,
-		teamMembersId,
+		teamId,
 		agentCategory,
 		systemPrompt: opts?.agentSystemPrompt ?? buildDefaultSystemPrompt(agentRole),
 		harnessType: "builtin",
@@ -327,7 +317,6 @@ export async function seedMinimalWorld(
 
 	return {
 		teamId,
-		teamMembersId,
 		founderId,
 		agentId,
 		betId,
@@ -636,7 +625,7 @@ export async function seedMultiAgentWorld(
 ): Promise<
 	ScenarioSeedResult & {
 		founderId: string;
-		teamMembersId: string;
+		teamId: string;
 		secondAgentId: string;
 	}
 > {
@@ -656,7 +645,7 @@ export async function seedMultiAgentWorld(
 	const { agentId: secondAgentId } = await seedAgent(db, {
 		name: opts?.secondAgentName ?? "Eval Agent 2",
 		role: secondRole,
-		teamMembersId: base.teamMembersId,
+		teamId: base.teamId,
 		agentCategory: secondAgentCategory,
 		systemPrompt: opts?.secondAgentSystemPrompt ?? buildDefaultSystemPrompt(secondRole),
 		harnessType: "builtin",

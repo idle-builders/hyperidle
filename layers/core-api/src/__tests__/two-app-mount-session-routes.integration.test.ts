@@ -28,7 +28,7 @@
  */
 
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -49,16 +49,13 @@ const NOW = "2026-08-04T00:00:00.000Z";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Builder",
 		role: "builder",
 		status: "active",
 		kind: "ai",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({
@@ -67,7 +64,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		role: "founder",
 		status: "active",
 		kind: "human",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: NOW,
 	});
 	await db.insert(bets).values({
