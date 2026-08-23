@@ -1,5 +1,5 @@
 import type { Artifact } from "@hyperidle/domain-model";
-import { artifactDisplayTitle } from "@hyperidle/domain-model";
+import { artifactDisplayTitle } from "./artifact-display-helpers.js";
 import type { JSX } from "react";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
 import { ArtifactPreviewSurface } from "./ArtifactPreviewSurface.js";

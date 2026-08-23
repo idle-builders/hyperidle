@@ -1,5 +1,5 @@
 import type { SessionOutcome } from "@hyperidle/domain-model"
-import type { AgentOperationalStatus, BetOutcomeVerdict, BetStatus, KnowledgeStatus, RoutineState, TaskOutcomeVerdict, TaskState } from "@hyperidle/domain-model";
+import type { AgentOperationalStatus, BetOutcomeVerdict, BetStatus, KnowledgeStatus, RoutineState, TaskOutcomeVerdict, TaskState, VerdictDecision } from "@hyperidle/domain-model";
 import type { Status } from "./StatusChip";
 
 /**
@@ -154,4 +154,28 @@ export const AGENT_OPERATIONAL_STATUS_MAP: Record<AgentOperationalStatus, Status
 
 export function agentOperationalStatusToStatus(s: AgentOperationalStatus): Status {
 	return AGENT_OPERATIONAL_STATUS_MAP[s] as Status;
+}
+
+
+/**
+ * Map a verdict decision to a `Status` chip token. Pairs with
+ * `verdictDecisionLabel` — same source-of-truth concern.
+ *
+ * @lore AU44-b8: moved from framework/domain-model/src/thread.ts.
+ * Belongs in status-mapping.ts, its only consumer's file's sibling.
+ */
+export function verdictDecisionToStatus(
+	decision: VerdictDecision,
+): "done" | "blocked" | "behind" | "paused" {
+	switch (decision) {
+		case "approve":
+		case "approve-with-comments":
+			return "done";
+		case "reject":
+			return "blocked";
+		case "request-changes":
+			return "behind";
+		case "edit":
+			return "paused";
+	}
 }

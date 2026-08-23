@@ -14,7 +14,7 @@
  */
 
 import type { Message, Thread } from "@hyperidle/domain-model";
-import { promotedRichMessageId } from "@hyperidle/domain-model";
+import { promotedRichMessageId } from "../ds/thread-display.js";
 import { describe, expect, it } from "vitest";
 
 const THREAD_ID = "t-1";

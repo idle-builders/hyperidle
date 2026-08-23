@@ -32,7 +32,8 @@ import type {
 	Thread,
 	VerdictDecision,
 } from "@hyperidle/domain-model";
-import { isBlocking, isRedactedPayload, promotedRichMessageId } from "@hyperidle/domain-model";
+import { promotedRichMessageId } from "./thread-display.js"
+import { isBlocking, isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, type ReactNode, useMemo, useRef, useState } from "react";
 import { CommentRow } from "./CommentRow.js";
 import { Composer } from "./Composer.js";

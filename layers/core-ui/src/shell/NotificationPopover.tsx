@@ -32,7 +32,7 @@
  */
 
 import type { NotificationTypeKey } from "@hyperidle/domain-model";
-import { shortLabelForType } from "@hyperidle/domain-model";
+import { shortLabelForType } from "./notification-display.js";
 import { type JSX, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button, EmptyState, useDialogBehavior } from "../ds";

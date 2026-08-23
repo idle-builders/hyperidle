@@ -124,12 +124,13 @@ export {
 	SCOPE_TO_LAYER,
 	scopeToLayer,
 } from "./knowledge.js";
-export type { MentionCandidate, MentionSegment, ResolvedMention } from "./mention.js";
+// MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
+export type { MentionCandidate, ResolvedMention } from "./mention.js";
 export {
 	extractMentionCandidates,
 	MAX_MENTIONS_PER_MESSAGE,
 	resolveMentions,
-	segmentMentions,
+	// segmentMentions MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 } from "./mention.js";
 export type {
 	ModelGatewayConfig,
@@ -151,7 +152,8 @@ export {
 } from "./model-gateway.js";
 export type { NotificationType, NotificationTypeKey } from "./notifications.js";
 // NotificationUrgency unexported (SIMPLIFY): member of registry entry; no external consumer names it directly.
-export { NOTIFICATION_TYPES, shortLabelForType } from "./notifications.js";
+// shortLabelForType MERGE → core-ui/shell/notification-display.ts (AU44 batch 8)
+export { NOTIFICATION_TYPES } from "./notifications.js";
 export type { ProposedCall, ProposedCallStatus, Reversibility } from "./proposed-call.js";
 export { PROPOSED_CALL_STATUSES, REVERSIBILITY } from "./proposed-call.js";
 export type {
@@ -251,10 +253,10 @@ export {
 	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
-	promotedRichMessageId,
+	// promotedRichMessageId MERGE → core-ui/ds/thread-display.ts (AU44 batch 8)
 	VERDICT_DECISIONS,
 	verdictDecisionLabel,
-	verdictDecisionToStatus,
+	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts (AU44 batch 8)
 } from "./thread.js";
 export type {
 	TriggerEventType,
@@ -273,7 +275,7 @@ export type {
 	ArtifactPreview,
 	ArtifactQuery,
 } from "./types/artifact.js";
-export { artifactDisplayTitle, summarizePreview } from "./types/artifact.js";
+// artifactDisplayTitle, summarizePreview MERGE → core-ui/ds/artifact-display-helpers.ts (AU44 batch 8)
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
 export type {
 	AgentCategory,

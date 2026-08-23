@@ -9,7 +9,7 @@
 // the probe). A long artifact plus its discussion thread had no way to
 // reach the tail. All four branches now wrap in a scrolling PageScaffold.
 
-import { artifactDisplayTitle } from "@hyperidle/domain-model";
+import { artifactDisplayTitle } from "../ds/artifact-display-helpers.js";
 import type { JSX } from "react";
 import { Link as RRLink, useParams } from "react-router-dom";
 import {

@@ -8,13 +8,11 @@
  */
 
 import type { BlockPayload } from "../block/types.js"
-import type { InlineRef, MentionSegment, Message } from "@hyperidle/domain-model";
-import {
-	isRedactedPayload,
-	segmentMentions,
-	verdictDecisionLabel,
-	verdictDecisionToStatus,
-} from "@hyperidle/domain-model";
+import type { MentionSegment } from "./mention-segments.js"
+import type { InlineRef, Message } from "@hyperidle/domain-model";
+import { segmentMentions } from "./mention-segments.js"
+import { verdictDecisionToStatus } from "./status-mapping.js"
+import { isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
 import { derivePayloads } from "../block";
 
 function exhaustiveAssert(value: never): never {
