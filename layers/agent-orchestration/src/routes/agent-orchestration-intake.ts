@@ -152,14 +152,15 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	router.post(
 		"/runs/stop-for-tasks",
 		validateBody(
+			// @lore AU44 batch6: `reason` dropped — only "bet_killed" was legal
+			// and the function no longer accepts the param.
 			z.object({
 				taskIds: z.array(z.string().min(1)),
-				reason: z.literal("bet_killed"),
 			}),
 		),
 		async (c) => {
 			const body = c.req.valid("json");
-			const stopped = await requestRunStopForTasks(db, body.taskIds, { reason: body.reason });
+			const stopped = await requestRunStopForTasks(db, body.taskIds);
 			return c.json({ stopped });
 		},
 	);

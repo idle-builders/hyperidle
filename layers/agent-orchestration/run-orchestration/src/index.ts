@@ -33,7 +33,8 @@ export {
 	buildProvisioningPlan,
 	type HeldConnectionForProvisioning,
 	type HeldConnectionsReaderPort,
-	type ProvisioningPlan,
+	// @lore AU44 batch6: ProvisioningPlan removed from barrel — file-local per
+	// the lore in connection-provisioning.ts. No cross-package consumer.
 	type ServiceConnectionResolverPort,
 } from "./connection-provisioning.js";
 export type {

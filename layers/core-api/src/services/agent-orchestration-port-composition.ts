@@ -87,8 +87,9 @@ interface AgentOrchestrationHcClient {
 				$post(args: { readonly json: { readonly sessionId: string } }): Promise<Response>;
 			};
 			readonly "stop-for-tasks": {
+				// @lore AU44 batch6: `reason` dropped from request body.
 				$post(args: {
-					readonly json: { readonly taskIds: readonly string[]; readonly reason: "bet_killed" };
+					readonly json: { readonly taskIds: readonly string[] };
 				}): Promise<Response>;
 			};
 			readonly "end-for-handoff": {
@@ -238,10 +239,9 @@ export function buildAgentOrchestrationPort(
 		runs: {
 			async stopForTasks(
 				taskIds: readonly string[],
-				reason: "bet_killed",
 			): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>> {
 				const res = await client["agent-orchestration"].runs["stop-for-tasks"].$post({
-					json: { taskIds, reason },
+					json: { taskIds },
 				});
 				if (!res.ok) return throwSeamError("runs.stopForTasks", res);
 				const body = (await res.json()) as {

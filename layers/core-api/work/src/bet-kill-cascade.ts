@@ -18,7 +18,6 @@ export interface BetKillCascadeDeps extends TaskStateMachineDeps {
 		requestRunStopForTasks(
 			exec: WriteExecutor,
 			taskIds: readonly string[],
-			opts: { reason: "bet_killed" },
 		): Promise<readonly { readonly taskId: string; readonly sessionId: string }[]>;
 	};
 }
@@ -73,7 +72,6 @@ export async function cascadeBetKill(
 	const stoppedRuns = await deps.runOrchestration.requestRunStopForTasks(
 		db,
 		nonTerminalTasks.map((t) => t.id),
-		{ reason: "bet_killed" },
 	);
 
 	for (const task of nonTerminalTasks) {

@@ -60,9 +60,7 @@ describe("requestRunStopForTasks", () => {
 		await seedRun(db, "run-a", "task-a", "active");
 		await seedRun(db, "run-b", "task-b", "active");
 
-		const stopped = await requestRunStopForTasks(db, ["task-a", "task-b"], {
-			reason: "bet_killed",
-		});
+		const stopped = await requestRunStopForTasks(db, ["task-a", "task-b"]);
 
 		expect([...stopped].sort((x, y) => x.sessionId.localeCompare(y.sessionId))).toEqual([
 			{ taskId: "task-a", sessionId: "run-a" },
@@ -82,7 +80,7 @@ describe("requestRunStopForTasks", () => {
 		await seedRun(db, "run-a", "task-a", "active");
 		await seedRun(db, "run-other", "task-untouched", "active");
 
-		const stopped = await requestRunStopForTasks(db, ["task-a"], { reason: "bet_killed" });
+		const stopped = await requestRunStopForTasks(db, ["task-a"]);
 
 		expect(stopped).toEqual([{ taskId: "task-a", sessionId: "run-a" }]);
 		const [other] = await db.select().from(sessions).where(eq(sessions.id, "run-other"));
@@ -93,11 +91,11 @@ describe("requestRunStopForTasks", () => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
 
-		const first = await requestRunStopForTasks(db, ["task-a"], { reason: "bet_killed" });
+		const first = await requestRunStopForTasks(db, ["task-a"]);
 		expect(first).toHaveLength(1);
 
 		// The 0-row CAS: a re-kill of an already-stopped run returns empty.
-		const second = await requestRunStopForTasks(db, ["task-a"], { reason: "bet_killed" });
+		const second = await requestRunStopForTasks(db, ["task-a"]);
 		expect(second).toHaveLength(0);
 	});
 
@@ -105,7 +103,7 @@ describe("requestRunStopForTasks", () => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
 
-		expect(await requestRunStopForTasks(db, [], { reason: "bet_killed" })).toEqual([]);
+		expect(await requestRunStopForTasks(db, [])).toEqual([]);
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, "run-a"));
 		expect(row?.state).toBe("active");
 	});

@@ -41,7 +41,6 @@ function requestAgentTermination(
 	input: { requestId: string; reason: AgentTerminationReason; requestedBy?: string },
 	ports: TransitionPorts,
 ): Promise<"accepted" | "idempotent" | "conflict" | "terminal"> {
-	void ports;
 	return ports.sessionRequests.transitionSessionRequest(db, {
 		to: "termination-requested",
 		requestId: input.requestId,
@@ -63,7 +62,6 @@ async function transitionAgentRunLifecycle(
 	},
 	ports: TransitionPorts,
 ): Promise<void> {
-	void ports;
 	const row = await db.transaction(async (tx) => {
 		const txDb = tx as HyperIdleDb;
 		const current = await ports.sessionRequests.findSessionRequest(txDb, {
