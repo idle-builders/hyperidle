@@ -1,5 +1,5 @@
-import { Button } from "@hyperidle/design-system";
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Button } from "../ds";
 
 /**
  * @lore I4 E1: ErrorBoundary is a utility class component that catches

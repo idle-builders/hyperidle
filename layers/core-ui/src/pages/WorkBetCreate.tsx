@@ -15,21 +15,14 @@
  * retrofit KnowledgeCreate (out of scope).
  */
 
-// hearth-internal-padding
-import {
-	BodyEditor,
-	Breadcrumb,
-	Button,
-	PageHeader,
-	PageScaffold,
-	Select,
-} from "@hyperidle/design-system";
-import { deriveTitle } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
+// hearth-internal-padding
+import { BodyEditor, Breadcrumb, Button, PageHeader, PageScaffold, Select } from "../ds";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { deriveTitle } from "../utils/bet-title.js";
 
 export function WorkBetCreate(): JSX.Element {
 	const navigate = useNavigate();

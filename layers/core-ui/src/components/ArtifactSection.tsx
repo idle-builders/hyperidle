@@ -27,6 +27,9 @@
  * items.length >= 1 is guaranteed.
  */
 
+import type { ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/domain-model";
+import type { JSX } from "react";
+import { useNavigate } from "react-router-dom";
 import {
 	ArtifactGalleryCard,
 	ArtifactPreview,
@@ -35,10 +38,7 @@ import {
 	ErrorState,
 	SkeletonCard,
 	SkeletonList,
-} from "@hyperidle/design-system";
-import type { ArtifactFilterAxis, ArtifactQuery } from "@hyperidle/domain-model";
-import type { JSX } from "react";
-import { useNavigate } from "react-router-dom";
+} from "../ds";
 import { useArtifacts } from "../hooks/useArtifacts.js";
 import { sanitizeHtml } from "../utils/sanitize-html.js";
 

@@ -15,7 +15,7 @@
  * matching the mockup discussion-message pattern.
  */
 
-import { CommentRow } from "@hyperidle/design-system";
+import { CommentRow } from "../ds";
 
 export default { title: "HostThreadSection", tier: "3" as const };
 

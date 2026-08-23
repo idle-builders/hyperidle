@@ -21,9 +21,9 @@
  * changing this component.
  */
 
-import { ErrorState, SkeletonList, Toggle } from "@hyperidle/design-system";
 import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import type { JSX } from "react";
+import { ErrorState, SkeletonList, Toggle } from "../ds";
 import { useNotificationMute } from "../hooks/useNotificationMute.js";
 
 export function SettingsNotifications(): JSX.Element {

@@ -13,10 +13,10 @@
  * from the initial empty state. Authoring surface — guards on dismissal when dirty.
  */
 
-// hearth-internal-padding
-import { Button, Dialog, Input, KeyValue, Select } from "@hyperidle/design-system";
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+// hearth-internal-padding
+import { Button, Dialog, Input, KeyValue, Select } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 

@@ -18,10 +18,10 @@
  * (green-phase tasks 5-6).
  */
 
-import type { Embed, Part } from "@hyperidle/conversation-parts";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PartList } from "../components/PartList";
+import type { Embed, Part } from "../components/parts";
 
 // ── Part fixtures (constructed directly — renderer is source-agnostic) ──
 

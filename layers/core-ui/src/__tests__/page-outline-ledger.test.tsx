@@ -18,8 +18,8 @@ vi.mock("../hooks/useFetch.js", () => ({
 vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: () => new Promise<Response>(() => undefined),
 }));
-vi.mock("@hyperidle/design-system", async (importOriginal) => ({
-	...(await importOriginal<typeof import("@hyperidle/design-system")>()),
+vi.mock("../ds", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../ds")>()),
 	BodyEditor: () => <div data-testid="body-editor" />,
 }));
 

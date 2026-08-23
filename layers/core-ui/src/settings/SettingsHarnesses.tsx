@@ -20,7 +20,10 @@
 
 // hearth-internal-padding
 
-import type { FoldMode } from "@hyperidle/design-system";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import { type JSX, useCallback, useEffect, useState } from "react";
+import { CredentialsTab } from "../components/CredentialsTab.js";
+import type { FoldMode } from "../ds";
 import {
 	Button,
 	EmptyState,
@@ -31,10 +34,7 @@ import {
 	SkeletonList,
 	SplitView,
 	StatusChip,
-} from "@hyperidle/design-system";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import { type JSX, useCallback, useEffect, useState } from "react";
-import { CredentialsTab } from "../components/CredentialsTab.js";
+} from "../ds";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";

@@ -44,9 +44,6 @@
 		"framework/harness-capability": {},
 		"framework/work-intent-port": {},
 		"framework/event-bus": {},
-		"framework/presentation-format": {},
-		"framework/block-derivation": {},
-		"framework/conversation-parts": {},
 		"framework/factory-defaults": {},
 		"framework/http-middleware": {},
 		"framework/harness-protocol": {},
@@ -61,9 +58,6 @@
 			"ignoreBinaries": ["vitest"]
 		},
 		"framework/api-contract": {},
-		"framework/design-system": {
-			"entry": ["src/**/*.stories.tsx", "__scripts__/*.ts!"]
-		},
 		"layers/core-ui": {
 			"entry": [
 				"__scripts__/*.ts!",

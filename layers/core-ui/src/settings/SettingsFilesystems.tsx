@@ -9,10 +9,10 @@
  * Per-bot injection lives on the agent's config panel in SettingsAgents.
  */
 
-// hearth-internal-padding
-import { Button, type Status, StatusChip, Tag } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { useCallback, useEffect, useState } from "react";
+// hearth-internal-padding
+import { Button, type Status, StatusChip, Tag } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 
 // ---------------------------------------------------------------------------

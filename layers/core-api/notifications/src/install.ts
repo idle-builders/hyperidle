@@ -547,7 +547,7 @@ export async function deliver(
 ): Promise<DeliveryResult> {
 	const configDeps = toConfigDeps(deps);
 	const cfg = await readNotificationConfig(db, configDeps);
-	if (!cfg.smtp.host || !cfg.smtp.from) {
+	if (!(cfg.smtp.host && cfg.smtp.from)) {
 		return {
 			kind: "test",
 			ok: false,

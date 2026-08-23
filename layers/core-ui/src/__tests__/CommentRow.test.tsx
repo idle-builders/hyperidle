@@ -6,10 +6,10 @@
  * grouped vs ungrouped variants.
  */
 
-import { CommentRow } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { CommentRow } from "../ds";
 
 const sender = {
 	id: "u-founder",

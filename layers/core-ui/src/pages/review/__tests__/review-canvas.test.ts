@@ -1,5 +1,5 @@
-import { blockId, deriveBlocks, normalisedPayload } from "@hyperidle/block-derivation";
 import { describe, expect, it } from "vitest";
+import { blockId, deriveBlocks, normalisedPayload } from "../../../block/index.js";
 import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture.js";
 import type { CodeDiffPayload, ReviewArtifact } from "../review-artifact.js";
 import { deriveProseBlocks, lineBlockId } from "../review-canvas.js";

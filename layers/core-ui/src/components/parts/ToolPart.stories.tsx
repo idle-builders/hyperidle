@@ -5,8 +5,8 @@
  * Populates real states only (no loading/error variants — see approved.md).
  */
 
-import type { Part, PartAuthor } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
+import type { Part, PartAuthor } from ".";
 import { ToolPart } from "./ToolPart.js";
 
 export default { title: "ToolPart", group: "Conversations" as const };

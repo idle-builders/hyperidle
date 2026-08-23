@@ -9,6 +9,9 @@
 // the probe). A long artifact plus its discussion thread had no way to
 // reach the tail. All four branches now wrap in a scrolling PageScaffold.
 
+import { artifactDisplayTitle } from "@hyperidle/domain-model";
+import type { JSX } from "react";
+import { Link as RRLink, useParams } from "react-router-dom";
 import {
 	ArtifactPreview,
 	Breadcrumb,
@@ -17,10 +20,7 @@ import {
 	headingIdentityMatches,
 	PageHeader,
 	PageScaffold,
-} from "@hyperidle/design-system";
-import { artifactDisplayTitle } from "@hyperidle/domain-model";
-import type { JSX } from "react";
-import { Link as RRLink, useParams } from "react-router-dom";
+} from "../ds";
 import { useArtifact } from "../hooks/useArtifacts.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { sanitizeHtml } from "../utils/sanitize-html.js";

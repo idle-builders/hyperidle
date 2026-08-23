@@ -30,7 +30,7 @@ ruleTester.run("radius-token-only", radiusTokenOnly, {
 		// AQ-011 form-control exemption: Checkbox.tsx may use an off-scale,
 		// non-token radius on its own box — the rule is fully off for this file.
 		{
-			filename: "framework/design-system/src/Checkbox.tsx",
+			filename: "layers/core-ui/src/ds/Checkbox.tsx",
 			code: 'const J = <div className="rounded-[6px]" />;',
 		},
 		// @lore AZ7 review-round-2 NEW-1: the deliberately conservative boundary of

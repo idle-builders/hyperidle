@@ -12,10 +12,10 @@
 // 2. The barrel no longer exports getRenderer / *Renderer (AC-COLLAPSE negative-existence).
 // 3. The gate (ArtifactPreviewSurface) returns NoPreviewText for null preview (K0b).
 
-import * as DesignSystem from "@hyperidle/design-system";
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import * as DesignSystem from "../ds";
 
 afterEach(cleanup);
 

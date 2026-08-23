@@ -23,8 +23,8 @@
  * the subpage).
  */
 
-import { ItemList, Row, SearchField } from "@hyperidle/design-system";
 import { type JSX, useState } from "react";
+import { ItemList, Row, SearchField } from "../ds";
 import type { ViewId } from "./shell-types";
 import { VIEW_ICONS, VIEW_IDS } from "./shell-types";
 

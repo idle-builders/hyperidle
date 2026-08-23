@@ -41,12 +41,12 @@
  * affordances are visible but inert).
  */
 
-import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
-import type { ComposerSubmitInput } from "@hyperidle/design-system";
-import { Composer as DSComposer, PageHeader } from "@hyperidle/design-system";
 import { type JSX, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import type { ComposerSubmitInput } from "../ds";
+import { Composer as DSComposer, PageHeader } from "../ds";
 import { PartList } from "./PartList.js";
+import type { OpenHandler, Part } from "./parts";
 
 export interface ConversationSurfaceParticipant {
 	readonly id: string;

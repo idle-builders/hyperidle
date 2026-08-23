@@ -9,9 +9,9 @@
  * stay green. These tests cover only the compact branch.
  */
 
-import { EmptyState } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { EmptyState } from "../ds";
 
 describe("EmptyState — compact", () => {
 	it("uses 18px padding instead of 36px", () => {

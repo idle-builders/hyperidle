@@ -9,8 +9,8 @@
  * AC-25: Profile edits do NOT silently revert (dirty tracking)
  */
 
-import { Button, ErrorState, Input, SkeletonList } from "@hyperidle/design-system";
 import { type ChangeEvent, type JSX, useCallback, useEffect, useState } from "react";
+import { Button, ErrorState, Input, SkeletonList } from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";

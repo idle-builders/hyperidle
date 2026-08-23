@@ -134,13 +134,18 @@ export const configs: { hearth: Linter.Config[] } = {
 	hearth: [
 		{
 			files: ["layers/core-ui/src/**/*.tsx"],
-			ignores: ["layers/core-ui/src/**/*.stories.tsx"],
+			ignores: [
+				"layers/core-ui/src/**/*.stories.tsx",
+				// ds/ is the design-system implementation layer — it uses designSystem rules from the block below,
+				// not coreUi rules. coreUi rules apply to code that USES the design system, not to the system itself.
+				"layers/core-ui/src/ds/**/*.tsx",
+			],
 			plugins: { design: designPlugin },
 			rules: pickRules("coreUi"),
 		},
 		{
-			files: ["framework/design-system/src/**/*.tsx"],
-			ignores: ["framework/design-system/src/**/*.stories.tsx"],
+			files: ["layers/core-ui/src/ds/**/*.tsx"],
+			ignores: ["layers/core-ui/src/ds/**/*.stories.tsx"],
 			plugins: { design: designPlugin },
 			rules: pickRules("designSystem"),
 		},
@@ -160,7 +165,7 @@ export const configs: { hearth: Linter.Config[] } = {
 			rules: { "design/no-local-status-builder": "error" },
 		},
 		{
-			files: ["layers/core-ui/src/**/*.{ts,tsx}", "framework/design-system/src/**/*.{ts,tsx}"],
+			files: ["layers/core-ui/src/**/*.{ts,tsx}", "layers/core-ui/src/ds/**/*.{ts,tsx}"],
 			ignores: ["**/*.stories.tsx", "**/__tests__/**", "**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
 			plugins: { design: designPlugin },
 			rules: {

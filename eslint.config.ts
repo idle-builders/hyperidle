@@ -603,17 +603,14 @@ export default [
 	// share the same AST. The ban covers only what is architecturally distinguishable:
 	// toLocale* rendering on a Date receiver. See plans/AI3/architecture.md §"AC-2/AC-5 static gate (split)".
 	{
-		files: ["layers/core-ui/src/**/*.{ts,tsx}", "framework/design-system/src/**/*.{ts,tsx}"],
+		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
 		ignores: [
 			// The one module permitted to call toLocale* for formatting
-			"framework/presentation-format/src/format/time.ts",
+			"layers/core-ui/src/utils/time.ts",
 			// Stories and tests are exempt from the display-formatting gate
 			"layers/core-ui/src/**/*.stories.tsx",
 			"layers/core-ui/src/**/__tests__/**",
 			"layers/core-ui/src/**/*.test.{ts,tsx}",
-			"framework/design-system/src/**/*.stories.tsx",
-			"framework/design-system/src/**/__tests__/**",
-			"framework/design-system/src/**/*.test.{ts,tsx}",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -698,36 +695,6 @@ export default [
 	// silently stranded them — a restricted-import group that matches nothing
 	// reads as passing forever. Anchored on `layers/core-ui` now so the guard
 	// survives the next move by failing loudly rather than matching zero.
-	{
-		files: ["framework/design-system/src/**/*.{ts,tsx}"],
-		languageOptions: {
-			parser: tsParser,
-			parserOptions: {
-				ecmaFeatures: { jsx: true },
-			},
-		},
-		rules: {
-			"no-restricted-imports": [
-				"error",
-				{
-					paths: [
-						{
-							name: "@hyperidle/core-ui",
-							message:
-								"AJ6 AC8: design-system/src must not import @hyperidle/core-ui. An import here creates an import cycle: core-ui → design-system → core-ui.",
-						},
-					],
-					patterns: [
-						{
-							group: ["**/layers/core-ui/**", "../../../layers/core-ui/**", "**/core-ui/src/**"],
-							message:
-								"AJ6 AC8: design-system/src must not import core-ui source files. This creates an import cycle: core-ui → design-system → core-ui.",
-						},
-					],
-				},
-			],
-		},
-	},
 
 	// AJ3: the isolation harness (layers/core-ui/src/__preview__/**) is a dev/story/test
 	// surface. It must NEVER reach a backend — importing @hyperidle/core-api or
@@ -843,6 +810,11 @@ export default [
 		files: [
 			"layers/core-ui/src/components/PartList.tsx",
 			"layers/core-ui/src/components/parts/**/*.{ts,tsx}",
+		],
+		ignores: [
+			// part.ts is the adapter that legitimately imports Message/EntityRef — not the renderer
+			"layers/core-ui/src/components/parts/part.ts",
+			"layers/core-ui/src/components/parts/index.ts",
 		],
 		languageOptions: {
 			parser: tsParser,

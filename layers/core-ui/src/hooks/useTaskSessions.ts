@@ -18,9 +18,9 @@
  */
 
 import type { AgentRunSummary } from "@hyperidle/domain-model";
-import { absoluteDate } from "@hyperidle/presentation-format";
 import { useEffect, useState } from "react";
 import { fetchRunsByTaskId } from "../services/agent-runs.js";
+import { absoluteDate } from "../utils/time.js";
 import type { FetchState } from "./useFetch.js";
 
 export interface TaskSession {

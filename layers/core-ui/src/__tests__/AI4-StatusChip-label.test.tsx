@@ -15,9 +15,9 @@
  * JSX renders `{label ? label : safeStatus.toUpperCase()}`.
  */
 
-import { StatusChip } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { StatusChip } from "../ds";
 
 describe("StatusChip label prop (AI4 Decision 1)", () => {
 	describe("default path (no label) — unchanged existing behavior", () => {

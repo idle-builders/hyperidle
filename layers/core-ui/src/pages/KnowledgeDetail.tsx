@@ -1,18 +1,3 @@
-import type { MenuItem } from "@hyperidle/design-system";
-import {
-	BlockActionsPopover,
-	BodyEditor,
-	Breadcrumb,
-	Button,
-	EmptyState,
-	knowledgeStatusToStatus,
-	Menu,
-	PageHeader,
-	PageScaffold,
-	SectionLabel,
-	SkeletonCard,
-	StatusChip,
-} from "@hyperidle/design-system";
 /**
  * Knowledge/Detail page (J7) — metadata bar, markdown body, observation log,
  * related-items sidebar. Edit mode is a React state toggle, NOT a route.
@@ -62,10 +47,24 @@ import {
 	type KnowledgeStatus,
 	SCOPE_KINDS,
 } from "@hyperidle/domain-model";
-import { absoluteDateTime, scopeKindToLabel } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";
+import type { MenuItem } from "../ds";
+import {
+	BlockActionsPopover,
+	BodyEditor,
+	Breadcrumb,
+	Button,
+	EmptyState,
+	knowledgeStatusToStatus,
+	Menu,
+	PageHeader,
+	PageScaffold,
+	SectionLabel,
+	SkeletonCard,
+	StatusChip,
+} from "../ds";
 // eslint-disable-next-line design/no-mock-data-import -- tracked in #93
 import { knowledgeItems, type MockKnowledgeItem } from "../fixtures/knowledge-data";
 import { useAutoSave } from "../hooks/useAutoSave.js";
@@ -77,6 +76,8 @@ import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
+import { scopeKindToLabel } from "../utils/scope-labels.js";
+import { absoluteDateTime } from "../utils/time.js";
 
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
 import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";

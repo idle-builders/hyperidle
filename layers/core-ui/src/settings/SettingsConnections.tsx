@@ -20,6 +20,12 @@
  * design system. The component composes only catalogued primitives otherwise.
  */
 
+import type {
+	ConnectionAuthSource,
+	ConnectionHealth,
+	ServiceConnectionView,
+} from "@hyperidle/domain-model";
+import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import {
 	Button,
@@ -34,13 +40,7 @@ import {
 	SkeletonList,
 	type Status,
 	StatusChip,
-} from "@hyperidle/design-system";
-import type {
-	ConnectionAuthSource,
-	ConnectionHealth,
-	ServiceConnectionView,
-} from "@hyperidle/domain-model";
-import { type JSX, useCallback, useEffect, useState } from "react";
+} from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 
 // ---------------------------------------------------------------------------

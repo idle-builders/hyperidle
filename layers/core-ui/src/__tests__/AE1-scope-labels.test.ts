@@ -8,9 +8,8 @@
  * These tests verify the AE1 implementation is correct.
  */
 
-import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { describe, expect, it } from "vitest";
-import { SCOPE_PILL_OPTIONS } from "../utils/scope-labels";
+import { SCOPE_PILL_OPTIONS, scopeKindToLabel } from "../utils/scope-labels.js";
 
 // ---------------------------------------------------------------------------
 // AC3 + AC4: scopeKindToLabel — "product" maps to "Team"

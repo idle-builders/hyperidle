@@ -10,10 +10,10 @@
  * stay green. These tests cover only the compact branch.
  */
 
-import { ErrorState } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { ErrorState } from "../ds";
 
 describe("ErrorState — compact", () => {
 	it("uses 18px padding instead of 36px", () => {

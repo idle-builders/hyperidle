@@ -29,8 +29,8 @@ import type { EventBus } from "@hyperidle/event-bus";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
-import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";
+import { deriveTitle } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 

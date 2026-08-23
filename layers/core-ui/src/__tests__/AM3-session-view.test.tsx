@@ -9,11 +9,11 @@
  * renderer, no fixture fork (AM3 hard-rule: one message renderer).
  */
 
-import type { OpenHandler, Part, PartAuthor } from "@hyperidle/conversation-parts";
-import { derivePartsFromSession } from "@hyperidle/conversation-parts";
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { OpenHandler, Part, PartAuthor } from "../components/parts";
+import { derivePartsFromSession } from "../components/parts";
 import { ReasoningPart } from "../components/parts/ReasoningPart.js";
 import { ToolPart } from "../components/parts/ToolPart.js";
 import type { SessionViewIdentity } from "../components/SessionView.js";

@@ -28,6 +28,9 @@
  * onNewBet callbacks; the wrapper supplies navigate().
  */
 
+import type { TeamListItem } from "@hyperidle/domain-model";
+import type { JSX } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 import {
 	Button,
 	EmptyState,
@@ -38,10 +41,7 @@ import {
 	Row,
 	SkeletonList,
 	StatusChip,
-} from "@hyperidle/design-system";
-import type { TeamListItem } from "@hyperidle/domain-model";
-import type { JSX } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+} from "../ds";
 import { useTeams } from "../hooks/useTeams.js";
 import { sortTeamsByAttention } from "./work/sortTeamsByAttention.js";
 

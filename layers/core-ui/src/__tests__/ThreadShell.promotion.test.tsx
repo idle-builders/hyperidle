@@ -16,10 +16,10 @@
  * not exist. Both are addressed by plan T6.
  */
 
-import { ThreadShell } from "@hyperidle/design-system";
 import type { Message, Thread } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { ThreadShell } from "../ds";
 
 const baseThread: Thread = {
 	id: "t-1",

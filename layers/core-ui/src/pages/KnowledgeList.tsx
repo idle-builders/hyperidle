@@ -31,6 +31,14 @@
  * segmented pill tab control, outlined scope pills, plain-text sort bar,
  * inline KnowledgeListRow replacing KnowledgeRow primitive.
  */
+
+import type {
+	KnowledgeScope,
+	KnowledgeSortOption,
+	KnowledgeStatus,
+	KnowledgeTopicHealth,
+} from "@hyperidle/domain-model";
+import { KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
 import {
 	Button,
 	EmptyState,
@@ -43,21 +51,13 @@ import {
 	ScopePicker,
 	SkeletonList,
 	StatusChip,
-} from "@hyperidle/design-system";
-import type {
-	KnowledgeScope,
-	KnowledgeSortOption,
-	KnowledgeStatus,
-	KnowledgeTopicHealth,
-} from "@hyperidle/domain-model";
-import { KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
+} from "../ds";
 
 // @lore AU44 batch 4: signals (accessCount30d, relevanceScore, etc.) removed per FULL-AUDIT.md row 13.
 // Only the recency pill survives. KNOWLEDGE_SORT_OPTIONS (includes frequency/relevance) is no longer
 // iterated for rendering — use this local constant so the UI never shows dead sort options.
 const VISIBLE_SORT_OPTIONS = ["recency"] as const;
 
-import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
@@ -67,6 +67,8 @@ import type { AppShellOutletContext } from "../layouts/AppShell.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { clipExcerpt } from "../utils/clip-excerpt.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
+import { stripMarkdown } from "../utils/strip-markdown.js";
+import { relativeShort } from "../utils/time.js";
 
 type KnowledgeTab = "triage" | "curated";
 

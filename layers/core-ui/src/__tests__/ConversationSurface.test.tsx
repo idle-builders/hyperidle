@@ -7,7 +7,6 @@
  * the message column (rendered via PartList), and the functional send path.
  */
 
-import type { Part } from "@hyperidle/conversation-parts";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -16,6 +15,7 @@ import ConversationSurface, {
 	type ConversationSurfaceHeader,
 	type ConversationSurfaceParticipant,
 } from "../components/ConversationSurface";
+import type { Part } from "../components/parts";
 
 const PARTS: Part[] = [
 	{

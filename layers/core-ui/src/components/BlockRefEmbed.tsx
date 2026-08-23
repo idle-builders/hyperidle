@@ -15,9 +15,9 @@
  * point is ThreadShell's renderRefEmbeds render prop which calls into this component.
  */
 
-import { ErrorState, renderPayload, Skeleton } from "@hyperidle/design-system";
 import type { BlockHostKind } from "@hyperidle/domain-model";
 import type { JSX } from "react";
+import { ErrorState, renderPayload, Skeleton } from "../ds";
 import { useBlockResolution } from "../hooks/useBlockResolution.js";
 
 export interface BlockRefEmbedProps {

@@ -11,11 +11,11 @@
  * A parallel copy that drifts is a CRITICAL review finding.
  */
 
-// hearth-internal-padding
-import { Avatar, Button, Input, PageHeader, PageScaffold, Select } from "@hyperidle/design-system";
 import type { RosterMember } from "@hyperidle/domain-model";
 import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+// hearth-internal-padding
+import { Avatar, Button, Input, PageHeader, PageScaffold, Select } from "../../ds";
 import { apiFetch } from "../../services/api-fetch.js";
 import type { AgentConfig } from "../../settings/settings-types.js";
 import { useToast } from "../../shell/ToastRegion.js";

@@ -8,10 +8,10 @@
  *   - Composer (always; pinned at floor)
  */
 
-import { computeSenderGrouping, ThreadShell } from "@hyperidle/design-system";
 import type { AgentSessionStateSnapshot, Message, Thread } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { computeSenderGrouping, ThreadShell } from "../ds";
 
 const baseThread: Thread = {
 	id: "t-1",

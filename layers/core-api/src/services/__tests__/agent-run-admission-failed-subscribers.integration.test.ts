@@ -80,18 +80,18 @@ import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fi
  * must be explicitly dropped after each test that installs it — via afterEach —
  * or it leaks into subsequent test files running on the same worker.
  */
-let _triggerDb: HyperIdleDb | null = null;
+let TriggerDb: HyperIdleDb | null = null;
 afterEach(async () => {
-	if (_triggerDb) {
-		await _triggerDb.execute(
+	if (TriggerDb) {
+		await TriggerDb.execute(
 			sql`drop trigger if exists au44_reject_session_request_write_sub on agent_session_requests`,
 		);
-		_triggerDb = null;
+		TriggerDb = null;
 	}
 });
 
 async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
-	_triggerDb = db;
+	TriggerDb = db;
 	await db.execute(
 		sql`drop trigger if exists au44_reject_session_request_write_sub on agent_session_requests`,
 	);

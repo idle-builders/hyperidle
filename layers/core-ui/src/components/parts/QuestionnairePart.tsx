@@ -14,8 +14,8 @@
  * onClick handler exists; buttons here always have a real onClick → onAnswer(option).
  */
 
-import type { Part } from "@hyperidle/conversation-parts";
 import { type JSX, useState } from "react";
+import type { Part } from ".";
 
 type QuestionnairePartValue = Extract<Part, { kind: "questionnaire" }>;
 

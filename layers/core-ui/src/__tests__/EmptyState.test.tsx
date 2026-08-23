@@ -1,6 +1,6 @@
-import { EmptyState } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { EmptyState } from "../ds";
 
 describe("EmptyState", () => {
 	it("renders title and description as meaningful message", () => {

@@ -1,6 +1,6 @@
-import type { Part } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
 import { PartList } from "./PartList.js";
+import type { Part } from "./parts";
 
 export default {
 	title: "PartList",

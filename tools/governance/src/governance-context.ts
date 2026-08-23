@@ -100,11 +100,11 @@ export const readRepoFile = (rel: string): string =>
 // a floor at the edge is one removed crossing from red. Only these two were touched; every other
 // floor stayed inside its band, and one going red is a finding rather than a bump.
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
-	{ kind: "import", min: 3000, floorKind: "magnitude" },
-	// Floor lowered from 220 → 217 after dissolving @hyperidle/credential-access and
-	// @hyperidle/filesystem-contract (both deleted; their manifest crossings are gone).
-	{ kind: "manifest", min: 171, floorKind: "magnitude" },
-	{ kind: "di", min: 167, floorKind: "magnitude" },
+	{ kind: "import", min: 2818, floorKind: "magnitude" },
+	// Floor re-measured after AU44 B7: four UI substrate packages dissolved into core-ui.
+	// Import crossings fell as dissolved aliases are removed. Live: 3132, suggested: 2818.
+	{ kind: "manifest", min: 160, floorKind: "magnitude" },
+	{ kind: "di", min: 165, floorKind: "magnitude" },
 	{ kind: "api", min: 167, floorKind: "magnitude" },
 	{ kind: "mcp", min: 29, floorKind: "magnitude" },
 	{ kind: "event", min: 192, floorKind: "magnitude" },
@@ -113,13 +113,10 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// its band: the band's `max(…, 5)` term puts the midpoint BELOW where this already sits, and a
 	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
 	{ kind: "capability", min: 10, floorKind: "magnitude" },
-	// Floor re-measured after AU43 stage 3 dropped five tables (agent_lifecycle_inbox,
-	// trigger_resolution_history, filesystem_captures, task_planning_signals,
-	// team_run_config_defaults). Live count fell from ~1183 to 1178; suggestedFloor(1178) = 1060.
+	// Floor re-measured after AU44 B7: four dissolved packages; live table:read fell.
+	// Live: 1047, suggested: 942.
 	{ kind: "table:read", min: 942, floorKind: "magnitude" },
-	// Floor re-measured after AU44 B1: team_members table dissolved into teams.
-	// teamMembers writes eliminated; live fell from 1796+ to 1729;
-	// suggestedFloor(1729) = 1556.
+	// Floor re-measured after AU44 B7. Live: 1712, suggested: 1540.
 	{ kind: "table:write", min: 1540, floorKind: "magnitude" },
 ];
 

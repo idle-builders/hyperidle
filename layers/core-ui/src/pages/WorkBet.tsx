@@ -16,8 +16,28 @@
  * a shared fetch surface requires a global cache layer (out of scope).
  */
 
-import { deriveBlocks } from "@hyperidle/block-derivation";
-import type { MenuItem } from "@hyperidle/design-system";
+import type {
+	BetOutcomeVerdict,
+	BetStatus,
+	Message,
+	SessionOutcome,
+} from "@hyperidle/domain-model";
+import {
+	BET_OUTCOME_VERDICT_LABEL,
+	BET_OUTCOME_VERDICTS,
+	BET_STATUS_LABEL,
+	isRedactedPayload,
+	TASK_OUTCOME_VERDICT_LABEL,
+	TASK_STATE_LABEL,
+} from "@hyperidle/domain-model";
+import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
+import { deriveBlocks } from "../block/index.js";
+import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
+import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
+import { AssistantAttachButton } from "../components/AssistantAttachButton";
+import { AssistantContext } from "../contexts/AssistantContext.js";
+import type { MenuItem } from "../ds";
 import {
 	Avatar,
 	Block,
@@ -43,28 +63,7 @@ import {
 	StatusChip,
 	taskOutcomeVerdictToStatus,
 	taskStateToStatus,
-} from "@hyperidle/design-system";
-import type {
-	BetOutcomeVerdict,
-	BetStatus,
-	Message,
-	SessionOutcome,
-} from "@hyperidle/domain-model";
-import {
-	BET_OUTCOME_VERDICT_LABEL,
-	BET_OUTCOME_VERDICTS,
-	BET_STATUS_LABEL,
-	isRedactedPayload,
-	TASK_OUTCOME_VERDICT_LABEL,
-	TASK_STATE_LABEL,
-} from "@hyperidle/domain-model";
-import { relativeLong } from "@hyperidle/presentation-format";
-import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
-import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
-import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
-import { AssistantAttachButton } from "../components/AssistantAttachButton";
-import { AssistantContext } from "../contexts/AssistantContext.js";
+} from "../ds";
 import { useLatestRunOutcomes } from "../hooks/useAgentRunState.js";
 import { useBet } from "../hooks/useBet";
 import { useBetDescriptionSave } from "../hooks/useBetDescriptionSave.js";
@@ -76,6 +75,7 @@ import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import type { BetDetail } from "../types/bet";
 import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
 import { deriveInitials } from "../utils/initials.js";
+import { relativeLong } from "../utils/time.js";
 import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
 // L19: "outcome" column added for latest session outcome sort.

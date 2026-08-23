@@ -15,8 +15,8 @@ import { KnowledgeDetail } from "../pages/KnowledgeDetail.js";
 
 // ── Shared mocks ─────────────────────────────────────────────────────────────
 
-vi.mock("@hyperidle/design-system", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/design-system")>();
+vi.mock("../ds", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../ds")>();
 	return {
 		...original,
 		BodyEditor: ({ initialContent }: { initialContent: string }) => (
