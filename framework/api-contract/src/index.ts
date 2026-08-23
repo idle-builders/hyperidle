@@ -7,17 +7,11 @@
  */
 
 export type {
-	AgentOrchestrationFilesystemInjectionView,
-	AgentOrchestrationFilesystemsPort,
-	AgentOrchestrationIntentsPort,
-	AgentOrchestrationPersistInjectionResult,
+	// Sub-port interfaces reachable as AgentOrchestrationPort["<member>"] —
+	// not named-imported by anyone; removed from barrel, kept in source.
 	AgentOrchestrationPort,
-	AgentOrchestrationRequestsPort,
 	AgentOrchestrationRunConfigPatch,
-	AgentOrchestrationRunConfigPort,
 	AgentOrchestrationRunConfigView,
-	AgentOrchestrationRunsPort,
-	AgentOrchestrationSessionsPort,
 	AgentOrchestrationSessionWireRow,
 	AgentOrchestrationStoppedRun,
 	AgentOrchestrationTransport,
@@ -31,16 +25,14 @@ export type {
 	CaptureProposedCallResponse,
 	ConsumeTailoredGrantRequest,
 	ConsumeTailoredGrantResponse,
-	ConversationInboxMessageView,
+	// ConversationInboxMessageView: field of ConversationInboxRowView — reachable, no name-importers
 	ConversationInboxRowView,
 	ConversationMessageType,
 	ConversationThreadView,
 	CoreApiConversationPort,
-	CoreApiKnowledgePort,
+	// CoreApiKnowledgePort / CoreApiReviewPort / CoreApiRoutinePort: reachable as CoreApiPort["<member>"]
 	CoreApiOrgPort,
 	CoreApiPort,
-	CoreApiReviewPort,
-	CoreApiRoutinePort,
 	CoreApiTransport,
 	CoreApiUsersPort,
 	CoreApiWorkPort,
@@ -76,7 +68,7 @@ export type {
 	PromoteKnowledgeItemResult,
 	ProposedCallOutcomeResult,
 	ProvisionTeamRoutinesRequest,
-	ReviewRecipientsQuery,
+	// ReviewRecipientsQuery: param of resolveReviewRecipientsForItem — no name-importers
 	RoutineView,
 	TaskView,
 	UpdateBetRequest,

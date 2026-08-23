@@ -14,9 +14,8 @@
  * structural rather than a comment someone must keep honouring.
  *
  * @lore AU26 H2: the return value is the set of runs ACTUALLY stopped, not a
- * count. `work` writes one `propagation_log` hop per stopped run, and a 0-row
- * CAS — an already-stopped run on a re-kill — must write no phantom row. A
- * count could not tell the caller which runs to log.
+ * count. A 0-row CAS — an already-stopped run on a re-kill — stops nothing.
+ * A count could not tell the caller which runs were affected.
  */
 
 import { sessions, type WriteExecutor } from "@hyperidle/db";

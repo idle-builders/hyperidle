@@ -32,12 +32,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
-import {
-	enqueue,
-	installNotifications,
-	type NotificationsDeps,
-	reap,
-} from "@hyperidle/notifications";
+import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/notifications";
 import { getTeam, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
@@ -230,11 +225,6 @@ const policyDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	notifications: {
-		insert: async (db, row) => {
-			await enqueue(db, row);
-		},
-	},
 };
 
 /**

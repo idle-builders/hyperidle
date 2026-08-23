@@ -1,6 +1,6 @@
-/** Reactive lifecycle propagation with durable retry logging. */
+/** Reactive lifecycle propagation. */
 
-import { type HyperIdleDb, type NewPropagationLogRow, propagationLog } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	type BetStateChangedEvent,
 	type BetStatus,
@@ -15,13 +15,9 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { and, eq } from "drizzle-orm";
 import type { PolicyDeps } from "./ports.js";
 
-type LifecyclePropagationDeps = Pick<
-	PolicyDeps,
-	"work" | "conversation" | "users" | "notifications"
->;
+type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "conversation" | "users">;
 
 interface RevisionLogEntry {
 	timestamp: string;
@@ -173,64 +169,13 @@ async function transitionBetToCompletedAsync(
 	});
 }
 
-/** Maximum retry attempts before a propagation is marked failed. */
-const MAX_RETRY_ATTEMPTS = 3;
-
 /** ID of the system agent that authors propagation review threads. */
 const SYSTEM_PROPAGATION_AGENT_ID = "system:propagation";
 
 /** Terminal task states — tasks in these states are "done" for bet completion purposes. */
 const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
 
-// ─── propagation_log accessors ───────────────────────────────────────────────
-
-interface LogPropagationEntry {
-	sourceLevel: string;
-	sourceId: string;
-	sourceEvent: string;
-	targetLevel: string;
-	targetId: string;
-	targetTransition: string | null;
-	status: string;
-	failureReason?: string;
-	attempts?: number;
-}
-
-/**
- * Write one propagation hop. `policy` owns `propagation_log`, so this is the
- * only door onto it — for this module's own hops and for the bet-kill cascade,
- * which reaches it through a port.
- *
- * @lore The cascade used to hand-maintain its own row builder and say so: its
- * comment read "mirrors fabric's `logPropagation` field-for-field". A duplicate
- * that has to be kept identical by reading is a duplicate that drifts, and the
- * two only agreed because the cascade's inputs happened to hit the same
- * branches. There is one builder now.
- */
-async function recordPropagationHop(db: HyperIdleDb, entry: LogPropagationEntry): Promise<void> {
-	const now = new Date().toISOString();
-	const row: NewPropagationLogRow = {
-		id: crypto.randomUUID(),
-		sourceLevel: entry.sourceLevel,
-		sourceId: entry.sourceId,
-		sourceEvent: entry.sourceEvent,
-		targetLevel: entry.targetLevel,
-		targetId: entry.targetId,
-		targetTransition: entry.targetTransition ?? null,
-		status: entry.status,
-		failureReason: entry.failureReason ?? null,
-		attempts: entry.attempts ?? 1,
-		createdAt: now,
-		appliedAt: entry.status === "applied" ? now : null,
-	};
-	await db.insert(propagationLog).values(row);
-}
-
 // ─── Session -> Task propagation ─────────────────────────────────────────────
-
-type PropagationStatus = "applied" | "skipped" | "pending_retry";
-
-type LogSink = (status: PropagationStatus, reason?: string) => Promise<void>;
 
 async function propagateSessionToTask(
 	db: HyperIdleDb,
@@ -239,57 +184,14 @@ async function propagateSessionToTask(
 	taskId: string,
 	outcome: string,
 	deps: LifecyclePropagationDeps,
-	onResolve?: LogSink,
 ): Promise<void> {
-	const log = async (entry: {
-		status: PropagationStatus;
-		targetTransition: string | null;
-		failureReason?: string;
-	}): Promise<void> => {
-		if (onResolve) {
-			await onResolve(entry.status, entry.failureReason);
-			return;
-		}
-		await recordPropagationHop(db, {
-			sourceLevel: "session",
-			sourceId: sessionId,
-			sourceEvent: "session_ended",
-			targetLevel: "task",
-			targetId: taskId,
-			targetTransition: entry.targetTransition,
-			status: entry.status,
-			failureReason: entry.failureReason,
-		});
-	};
 	// F2: Only propagate on completed outcome. crashed and stopped do not trigger transitions.
-	if (outcome !== "completed") {
-		await log({
-			status: "skipped",
-			targetTransition: null,
-			failureReason: `outcome=${outcome} does not trigger propagation`,
-		});
-		return;
-	}
+	if (outcome !== "completed") return;
 
 	// Check task exists and is in_progress
 	const task = await deps.work.getTaskById(db, taskId);
-	if (!task) {
-		await log({
-			status: "skipped",
-			targetTransition: null,
-			failureReason: `task ${taskId} not found`,
-		});
-		return;
-	}
-
-	if (task.state !== "in_progress") {
-		await log({
-			status: "skipped",
-			targetTransition: null,
-			failureReason: `task state is '${task.state}', not 'in_progress'`,
-		});
-		return;
-	}
+	if (!task) return;
+	if (task.state !== "in_progress") return;
 
 	// @lore AU26 J2: the "is another run still active on this task" guard is
 	// DELETED, and with it core-api's last policy-side read of `sessions` (an
@@ -329,10 +231,6 @@ async function propagateSessionToTask(
 	// Transition task to review
 	try {
 		await transitionTask(db, eventBus, taskId, "review", deps);
-		await log({
-			status: "applied",
-			targetTransition: "in_progress -> review",
-		});
 
 		// Emit propagation_applied event
 		const appliedEvent: PropagationAppliedEvent = {
@@ -347,21 +245,24 @@ async function propagateSessionToTask(
 		};
 		eventBus.emit(appliedEvent);
 	} catch (err) {
-		// F1: InvalidTransitionError from a race condition is logged as skipped, not failed.
-		if (isInvalidTransitionError(err)) {
-			await log({
-				status: "skipped",
-				targetTransition: null,
-				failureReason: `InvalidTransitionError (race): ${err.message}`,
-			});
-			return;
-		}
-		// Unexpected error — log as pending_retry for the heartbeat to handle
-		await log({
-			status: "pending_retry",
-			targetTransition: null,
+		// F1: InvalidTransitionError from a race condition — silently skip.
+		if (isInvalidTransitionError(err)) return;
+		// Unexpected error — emit propagation_failed for extension subscribers.
+		// @lore AU44 batch6: the retry/log apparatus is gone (propagation_log
+		// drop, Ruling 2). A failed hop is announced on the bus and stops; the
+		// `propagation_failed` event is the extension point for any team that
+		// wants a notification or retry.
+		const failedEvent: PropagationFailedEvent = {
+			type: "propagation_failed",
+			streamId: taskId,
+			sourceLevel: "session" as PropagationLevel,
+			sourceId: sessionId,
+			targetLevel: "task" as PropagationLevel,
+			targetId: taskId,
 			failureReason: err instanceof Error ? err.message : String(err),
-		});
+			timestamp: Date.now(),
+		};
+		eventBus.emit(failedEvent);
 	}
 }
 
@@ -377,31 +278,7 @@ async function propagateTaskToBet(
 	eventBus: EventBus,
 	taskId: string,
 	deps: LifecyclePropagationDeps,
-	onResolve?: LogSink,
 ): Promise<void> {
-	// AF7 §7: on the retry path, resolve the original row in place (no new row).
-	const log = async (entry: {
-		status: PropagationStatus;
-		targetId: string;
-		targetTransition: string | null;
-		failureReason?: string;
-	}): Promise<void> => {
-		if (onResolve) {
-			await onResolve(entry.status, entry.failureReason);
-			return;
-		}
-		await recordPropagationHop(db, {
-			sourceLevel: "task",
-			sourceId: taskId,
-			sourceEvent: "task_state_changed",
-			targetLevel: "bet",
-			targetId: entry.targetId,
-			targetTransition: entry.targetTransition,
-			status: entry.status,
-			failureReason: entry.failureReason,
-		});
-	};
-
 	// Look up the task to get its betId
 	const task = await deps.work.getTaskById(db, taskId);
 	if (!task) return;
@@ -414,67 +291,43 @@ async function propagateTaskToBet(
 
 	// @lore U1: statuses simplified: "shipped" → "completed", "review" dropped.
 	const TERMINAL_BET_STATES = new Set(["completed", "killed"]);
-	if (TERMINAL_BET_STATES.has(bet.status)) {
-		// Bet is already terminal or in review — nothing to do
-		await log({
-			status: "skipped",
-			targetId: betId,
-			targetTransition: null,
-			failureReason: `bet status is '${bet.status}', not propagatable`,
-		});
-		return;
-	}
+	if (TERMINAL_BET_STATES.has(bet.status)) return;
 
 	// Query all tasks on this bet
 	const allBetTasks = await deps.work.listTasks(db, { betId });
-
 	if (allBetTasks.length === 0) return;
 
 	// Check: are ALL tasks in terminal state?
 	const allTerminal = allBetTasks.every((t) => TERMINAL_TASK_STATES.has(t.state));
-	if (!allTerminal) {
-		// Some tasks still open — no bet transition. Log skipped for observability and test synchronization.
-		await log({
-			status: "skipped",
-			targetId: betId,
-			targetTransition: null,
-			failureReason: "Not all tasks are terminal",
-		});
-		return;
-	}
+	if (!allTerminal) return;
 
-	// All tasks are terminal — transition bet to review.
+	// All tasks are terminal — transition bet to completed.
 	const fromStatus = bet.status;
 
 	try {
 		// @lore U1: `active` → `completed` (formerly active → review).
 		await transitionBetToCompletedAsync(db, eventBus, betId, deps);
 
-		await log({
-			status: "applied",
-			targetId: betId,
-			targetTransition: `${fromStatus} -> completed`,
-		});
-
 		// Create ship-confirmation review thread
 		await createShipConfirmationThread(db, eventBus, betId, allBetTasks, deps);
 	} catch (err) {
 		if (isInvalidTransitionError(err)) {
-			// F4: Race condition — bet was already moved by human. Log as skipped.
-			await log({
-				status: "skipped",
-				targetId: betId,
-				targetTransition: null,
-				failureReason: `InvalidTransitionError (race): ${err instanceof Error ? err.message : String(err)}`,
-			});
+			// F4: Race condition — bet was already moved by human. Silently skip.
 			return;
 		}
-		await log({
-			status: "pending_retry",
+		// Unexpected error — emit propagation_failed for extension subscribers.
+		const failedEvent: PropagationFailedEvent = {
+			type: "propagation_failed",
+			streamId: betId,
+			sourceLevel: "task" as PropagationLevel,
+			sourceId: taskId,
+			targetLevel: "bet" as PropagationLevel,
 			targetId: betId,
-			targetTransition: null,
 			failureReason: err instanceof Error ? err.message : String(err),
-		});
+			timestamp: Date.now(),
+		};
+		eventBus.emit(failedEvent);
+		void fromStatus; // suppress unused-var on the now-dead log path
 	}
 }
 
@@ -542,7 +395,7 @@ async function createShipConfirmationThread(
  * @lore U1: Renamed from logBetToProductPropagation. `"product"` level → `"team"`.
  * `bet.productId` → `bet.teamId`. Team status is derived on read — no write needed.
  */
-async function logBetToTeamPropagation(
+async function emitBetToTeamPropagation(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	betId: string,
@@ -555,17 +408,7 @@ async function logBetToTeamPropagation(
 	const teamId = bet?.teamId ?? betId; // fallback to betId if bet not found (shouldn't happen)
 
 	// Team status is derived on read — no write-time propagation needed.
-	// We log the event for audit and emit propagation_applied.
-	await recordPropagationHop(db, {
-		sourceLevel: "bet",
-		sourceId: betId,
-		sourceEvent: "bet_state_changed",
-		targetLevel: "team",
-		targetId: teamId,
-		targetTransition: null, // team status is derived, no explicit transition
-		status: "applied",
-	});
-
+	// Emit propagation_applied for observability.
 	const appliedEvent: PropagationAppliedEvent = {
 		type: "propagation_applied",
 		streamId: teamId,
@@ -579,130 +422,18 @@ async function logBetToTeamPropagation(
 	eventBus.emit(appliedEvent);
 }
 
-// ─── Retry mechanism ──────────────────────────────────────────────────────────
-
-/**
- * Process pending_retry rows from propagation_log. Called periodically by
- * the heartbeat interval set up in registerLifecyclePropagation.
- *
- * For each pending retry, re-executes the propagation. On exhaustion
- * (attempts >= MAX_RETRY_ATTEMPTS), marks the row failed and creates a
- * notification queue entry.
- */
-async function retryFailedPropagations(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	deps: LifecyclePropagationDeps,
-): Promise<void> {
-	const pendingRows = await db
-		.select()
-		.from(propagationLog)
-		.where(eq(propagationLog.status, "pending_retry"));
-
-	for (const row of pendingRows) {
-		if (row.attempts >= MAX_RETRY_ATTEMPTS) {
-			// AF7 §7: CAS-guarded terminal fail. Mark failed ONLY when the row is
-			// still pending_retry — so a row a prior/concurrent pass already resolved
-			// to applied is NEVER flipped to failed (the "succeeded-retry-marked-
-			// failed" bug). Gate the notification + propagation_failed event on the
-			// CAS actually affecting a row, preventing a double-notify.
-			const failedRows = await db
-				.update(propagationLog)
-				.set({ status: "failed", failureReason: "Max retries exceeded" })
-				.where(and(eq(propagationLog.id, row.id), eq(propagationLog.status, "pending_retry")))
-				.returning({ id: propagationLog.id });
-
-			if (failedRows.length === 0) {
-				// Already resolved by another pass — no notify, no event.
-				continue;
-			}
-
-			// Create notification queue entry
-			const now = new Date().toISOString();
-			await deps.notifications.insert(db, {
-				id: crypto.randomUUID(),
-				eventType: "propagation_exhausted",
-				subjectId: row.id,
-				severity: "warning",
-				title: `Propagation failed after ${MAX_RETRY_ATTEMPTS} attempts`,
-				body: `Source: ${row.sourceLevel}/${row.sourceId} -> ${row.targetLevel}/${row.targetId}. Reason: ${row.failureReason ?? "unknown"}`,
-				reason: "lifecycle-propagation",
-				status: "pending",
-				createdAt: now,
-			});
-
-			// Emit propagation_failed event
-			const failedEvent: PropagationFailedEvent = {
-				type: "propagation_failed",
-				streamId: row.targetId,
-				sourceLevel: row.sourceLevel as PropagationLevel,
-				sourceId: row.sourceId,
-				targetLevel: row.targetLevel as PropagationLevel,
-				targetId: row.targetId,
-				failureReason: row.failureReason ?? "Max retries exceeded",
-				attempts: row.attempts,
-				timestamp: Date.now(),
-			};
-			eventBus.emit(failedEvent);
-			continue;
-		}
-
-		// Increment attempts and retry
-		await db
-			.update(propagationLog)
-			.set({ attempts: row.attempts + 1 })
-			.where(eq(propagationLog.id, row.id));
-
-		// AF7 §7: resolve the ORIGINAL row in place by the retry outcome — never
-		// append a parallel row (no double-log). applied/skipped → close the queue
-		// entry; still-failing → keep pending_retry (attempts already bumped) so the
-		// next heartbeat retries. This is the only way the heartbeat can ever drain.
-		const resolveInPlace: LogSink = async (status, reason) => {
-			if (status === "pending_retry") {
-				// Keep the row pending; just refresh the failure reason for visibility.
-				await db
-					.update(propagationLog)
-					.set({ failureReason: reason ?? row.failureReason ?? null })
-					.where(eq(propagationLog.id, row.id));
-				return;
-			}
-			await db
-				.update(propagationLog)
-				.set({
-					status,
-					failureReason: reason ?? null,
-					appliedAt: status === "applied" ? new Date().toISOString() : null,
-				})
-				.where(eq(propagationLog.id, row.id));
-		};
-
-		// Re-execute the propagation based on source level, resolving in place.
-		if (row.sourceLevel === "session" && row.sourceEvent === "session_ended") {
-			await propagateSessionToTask(
-				db,
-				eventBus,
-				row.sourceId,
-				row.targetId,
-				"completed",
-				deps,
-				resolveInPlace,
-			);
-		} else if (row.sourceLevel === "task" && row.sourceEvent === "task_state_changed") {
-			await propagateTaskToBet(db, eventBus, row.sourceId, deps, resolveInPlace);
-		} else if (row.sourceLevel === "bet" && row.sourceEvent === "bet_state_changed") {
-			await logBetToTeamPropagation(db, eventBus, row.sourceId, "completed", deps);
-			await resolveInPlace("applied");
-		}
-	}
-}
-
 // ─── Public registration function ─────────────────────────────────────────────
 
 /**
  * Register lifecycle propagation event handlers on the EventBus.
  *
- * Returns an unsubscribe function that tears down all subscriptions and
- * the retry heartbeat interval.
+ * Returns an unsubscribe function that tears down all subscriptions.
+ *
+ * @lore AU44 batch6: propagation_log table dropped (AU20 Ruling 2 affirmed
+ * by founder). The retry heartbeat, `recordPropagationHop`, `retryFailedPropagations`,
+ * and `LogSink` are all deleted. A failed hop emits `propagation_failed` on the
+ * bus (the extension surface for plugins) and stops; manual repair is one legal
+ * click.
  */
 function registerLifecyclePropagation(
 	db: HyperIdleDb,
@@ -724,18 +455,7 @@ function registerLifecyclePropagation(
 				event.outcome,
 				deps,
 			);
-		})().catch(async (error: unknown) => {
-			await recordPropagationHop(db, {
-				sourceLevel: "session",
-				sourceId: event.sessionId,
-				sourceEvent: "session_ended",
-				targetLevel: "task",
-				targetId: event.taskId ?? "unknown",
-				targetTransition: null,
-				status: "pending_retry",
-				failureReason: error instanceof Error ? error.message : String(error),
-			});
-		});
+		})();
 	});
 
 	// Handler 2: task_state_changed -> evaluate bet transition
@@ -743,57 +463,23 @@ function registerLifecyclePropagation(
 		if (event.toState === "done" || event.toState === "killed") {
 			void (async () => {
 				await propagateTaskToBet(db, eventBus, event.taskId, deps);
-			})().catch(async (error: unknown) => {
-				await recordPropagationHop(db, {
-					sourceLevel: "task",
-					sourceId: event.taskId,
-					sourceEvent: "task_state_changed",
-					targetLevel: "bet",
-					targetId: "unknown",
-					targetTransition: null,
-					status: "pending_retry",
-					failureReason: error instanceof Error ? error.message : String(error),
-				});
-			});
+			})();
 		}
 	});
 
-	// Handler 3: bet_state_changed -> log bet->team propagation (derived on read)
-	// @lore U1: "shipped" → "completed"; logBetToProductPropagation → logBetToTeamPropagation.
+	// Handler 3: bet_state_changed -> emit bet->team propagation (derived on read)
+	// @lore U1: "shipped" → "completed"; logBetToProductPropagation → emitBetToTeamPropagation.
 	const unsubBetChanged = eventBus.on("bet_state_changed", (event: BetStateChangedEvent) => {
 		if (event.toState === "completed" || event.toState === "killed") {
-			void logBetToTeamPropagation(db, eventBus, event.betId, event.toState, deps).catch(
-				async (error: unknown) => {
-					await recordPropagationHop(db, {
-						sourceLevel: "bet",
-						sourceId: event.betId,
-						sourceEvent: "bet_state_changed",
-						targetLevel: "team",
-						targetId: event.streamId,
-						targetTransition: null,
-						status: "pending_retry",
-						failureReason: error instanceof Error ? error.message : String(error),
-					});
-				},
-			);
+			void emitBetToTeamPropagation(db, eventBus, event.betId, event.toState, deps);
 		}
 	});
-
-	// Heartbeat: retry failed propagations every 30 seconds
-	const retryInterval = setInterval(() => {
-		void (async () => {
-			await retryFailedPropagations(db, eventBus, deps);
-		})().catch(() => {
-			// Failed retry rows remain eligible for the next heartbeat.
-		});
-	}, 30_000);
 
 	return () => {
 		unsubSessionEnded();
 		unsubTaskChanged();
 		unsubBetChanged();
-		clearInterval(retryInterval);
 	};
 }
 
-export { registerLifecyclePropagation, retryFailedPropagations };
+export { registerLifecyclePropagation };

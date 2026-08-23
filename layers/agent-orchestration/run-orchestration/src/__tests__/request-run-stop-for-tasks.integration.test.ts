@@ -6,10 +6,9 @@
  * `session_ended`. Killing a bet must stop its runs — that is a genuine core
  * need — but the write is `run-orchestration`'s, so it comes down here.
  *
- * The returned set is load-bearing, not a convenience: `work` writes one
- * `propagation_log` hop per run it actually stopped, and a 0-row CAS (an
- * already-stopped run) must write NO phantom row. A count would not tell the
- * caller WHICH runs to log.
+ * The returned set is load-bearing, not a convenience: a 0-row CAS (an
+ * already-stopped run) must return an empty set. A count would not tell the
+ * caller WHICH runs were actually affected.
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
@@ -97,8 +96,7 @@ describe("requestRunStopForTasks", () => {
 		const first = await requestRunStopForTasks(db, ["task-a"], { reason: "bet_killed" });
 		expect(first).toHaveLength(1);
 
-		// The 0-row CAS: `work` must be able to see that nothing changed, so it
-		// writes no phantom `propagation_log` row on a second kill.
+		// The 0-row CAS: a re-kill of an already-stopped run returns empty.
 		const second = await requestRunStopForTasks(db, ["task-a"], { reason: "bet_killed" });
 		expect(second).toHaveLength(0);
 	});
