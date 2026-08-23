@@ -5,12 +5,7 @@ import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
 import { BET_OUTCOME_VERDICTS, InvalidTransitionError } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
-import {
-	create as createKnowledgeItem,
-	get as getKnowledgeItem,
-	list as listKnowledgeItems,
-	update as updateKnowledgeItem,
-} from "@hyperidle/knowledge";
+import { get as getKnowledgeItem } from "@hyperidle/knowledge";
 import { getTeam, updateTeam } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";

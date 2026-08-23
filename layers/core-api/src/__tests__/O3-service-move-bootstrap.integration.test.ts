@@ -304,9 +304,14 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// removed from this owner's unsubscribe list — both events are
 				// HARD-DELETED along with the rest of the cost feature, no
 				// replacement subscription.
+				// @lore AU44 batch 4: notifications simplified — dispatcher, drain,
+				// alert-routing (item_created), daily-digest worker (routine_fired),
+				// and adapter abstraction all removed per FULL-AUDIT.md rows 5452-5453.
+				// installNotifications now registers only the inbox-enqueue listener
+				// (one "notification" subscription, no background interval).
 				{
-					unsubscribedEvents: ["notification", "item_created", "routine_fired"],
-					clearedIntervals: 1,
+					unsubscribedEvents: ["notification"],
+					clearedIntervals: 0,
 				},
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
 				// @lore AU21 §9 Increment 4: `bet_state_changed` (builtin routine

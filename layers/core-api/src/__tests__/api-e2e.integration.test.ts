@@ -578,30 +578,36 @@ describe("E2E API Integration (I5)", () => {
 		// GET /api/notifications root (door #129) deleted. Test removed with the route.
 
 		test("GET /api/notifications/config returns notification config", async ({ db, app }) => {
+			// @lore AU44 batch 4: config is now SMTP-only — primaryChannel and other
+			// channel-union fields removed. SafeNotificationConfig has { enabled, smtp }.
 			await seedBase(db);
 			const res = await app.request("/api/notifications/config", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { enabled: boolean; primaryChannel: string };
+			const body = (await res.json()) as { enabled: boolean; smtp: { host: string | null } };
 			expect(typeof body.enabled).toBe("boolean");
-			expect(typeof body.primaryChannel).toBe("string");
+			expect(typeof body.smtp).toBe("object");
 		});
 
 		// GET /api/notifications/queue (door #133) deleted. Tests removed with the route.
 
-		test("POST /api/notifications/test sends a test notification via console adapter", async ({
+		test("POST /api/notifications/test returns 400 when SMTP not configured", async ({
 			db,
 			app,
 		}) => {
+			// @lore AU44 batch 4: console adapter removed (FULL-AUDIT.md §5418).
+			// POST /test is now the settings-UI SMTP verify button. Without SMTP
+			// configured (host/from null), deliver() returns ok:false with "recipient
+			// not configured" and the route returns 400 VALIDATION_ERROR.
 			await seedBase(db);
 			const res = await app.request("/api/notifications/test", {
 				method: "POST",
 				headers: auth(),
 				body: JSON.stringify({}),
 			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { ok: boolean; channel: string };
-			expect(body.ok).toBe(true);
-			expect(body.channel).toBe("console");
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { error: string; code: string };
+			expect(body.code).toBe("VALIDATION_ERROR");
+			expect(body.error).toMatch(/recipient not configured/i);
 		});
 	});
 

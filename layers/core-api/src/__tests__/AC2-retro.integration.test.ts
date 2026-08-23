@@ -1,27 +1,20 @@
 /**
  * AC2 RED — Bet retro endpoint integration tests.
  *
- * AC2-1:  POST /api/bets/:id/retro writes bet outcome AND creates knowledge item atomically
- * AC2-2:  Knowledge item body has ## Reality and ## Learnings; fabric meta has betId, hypothesis, verdict
- * AC2-3:  Re-validation upserts (no duplicate), version incremented
- * AC2-4:  Hypothesis snapshot is immutable (from creation time)
+ * AC2-1:  POST /api/bets/:id/retro writes bet outcome fields on the bet row
  * AC2-5:  POST /api/bets/:id/retro/draft returns { verdict, summary, learnings }
  * AC2-6:  Draft endpoint rejects non-completed/killed bets
- * AC2-10: Fabric row kind='reflection'
- * AC2-11: Knowledge item status='active'
  * AC2-14: Retro endpoint rejects non-completed/killed bets with 400
- * AC2-15: Knowledge item title = "Retro: {bet title}"
+ *
+ * @lore AU44 batch 4: Knowledge-item creation (reflection upsert, fabric meta,
+ * retroKnowledgeItemId) removed from the core retro route per FULL-AUDIT.md
+ * §5129-5130. The bet-retro ceremony (creating a reflection knowledge item) is a
+ * Ruling-3 ritual that belongs in the knowledge-ceremony plugin. The core retro
+ * route now writes only the bet outcome fields and returns the updated bet row.
+ * Tests AC2-2/3/4/10/11/15 (knowledge item assertions) were removed with the code.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	knowledgeAppProjection,
-	knowledgeItems,
-	tasks,
-	teams,
-} from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -77,11 +70,8 @@ async function seedRetroBase(db: HyperIdleDb): Promise<void> {
 }
 
 describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
-	// AC2-1: Happy path — writes bet outcome AND creates knowledge item atomically
-	test("AC2-1: writes bet outcome fields and creates retro knowledge item atomically", async ({
-		db,
-		app,
-	}) => {
+	// AC2-1: Happy path — writes bet outcome fields
+	test("AC2-1: writes bet outcome fields on completed bet", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedRetroBase(db);
 
@@ -98,236 +88,29 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 
 		const body = (await res.json()) as Record<string, unknown>;
 
-		// Bet outcome fields must be set
+		// Bet outcome fields must be set on the returned bet row
 		expect(body.outcomeVerdict).toBe("validated");
 		expect(body.outcomeSummary).toBe("Users completed onboarding in 4.5 minutes on average.");
 		expect(body.outcomeRecordedAt).toBeTruthy();
-
-		// Must return retroKnowledgeItemId
-		expect(body.retroKnowledgeItemId).toBeTruthy();
-		expect(typeof body.retroKnowledgeItemId).toBe("string");
-
-		// Use the returned id to verify the knowledge item exists in DB
-		const retroId = body.retroKnowledgeItemId as string;
-		const allKi = await db.select().from(knowledgeItems);
-		const retroKi = allKi.find((k) => k.id === retroId);
-		expect(retroKi).toBeDefined();
-		expect(retroKi?.scopeKind).toBe("bet");
-		expect(retroKi?.scopeId).toBe("bet-completed");
 		vi.unstubAllEnvs();
 	});
 
-	// AC2-2: Knowledge item body has ## Reality and ## Learnings sections
-	test("AC2-2: knowledge item body contains ## Reality and ## Learnings sections", async ({
-		db,
-		app,
-	}) => {
+	// AC2-1: Killed bet also accepts retro
+	test("AC2-1: records retro on killed bet", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 		await seedRetroBase(db);
 
-		const res = await app.request("/api/bets/bet-completed/retro", {
+		const res = await app.request("/api/bets/bet-killed/retro", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				verdict: "refuted",
-				summary: "Users took 12 minutes on average.",
-				learnings: "Wizard was too long; reduce steps.",
+				summary: "Bet was killed before conclusion.",
 			}),
 		});
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
-		const retroId = body.retroKnowledgeItemId as string;
-
-		const allKi = await db.select().from(knowledgeItems);
-		const ki = allKi.find((k) => k.id === retroId);
-		expect(ki).toBeDefined();
-
-		// Body must contain the two required markdown sections
-		expect(ki?.body).toContain("## Reality");
-		expect(ki?.body).toContain("## Learnings");
-
-		// Body must contain the summary and learnings text
-		expect(ki?.body).toContain("Users took 12 minutes on average.");
-		expect(ki?.body).toContain("Wizard was too long; reduce steps.");
-		vi.unstubAllEnvs();
-	});
-
-	// AC2-2: Fabric meta has betId, hypothesis, verdict
-	test("AC2-2: fabric row meta contains betId, hypothesis snapshot, and verdict", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		const res = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "partial",
-				summary: "Mixed results.",
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		const retroId = body.retroKnowledgeItemId as string;
-
-		const allFabric = await db.select().from(knowledgeAppProjection);
-		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
-		expect(fabricRow).toBeDefined();
-
-		const meta = JSON.parse(fabricRow?.meta ?? "{}") as Record<string, unknown>;
-		expect(meta.betId).toBe("bet-completed");
-		expect(meta.hypothesis).toBe("Users will complete onboarding in under 5 minutes.");
-		expect(meta.verdict).toBe("partial");
-		expect(meta.validatedAt).toBeTruthy();
-		vi.unstubAllEnvs();
-	});
-
-	// AC2-3: Re-validation upserts (no duplicate), version incremented
-	test("AC2-3: second retro call upserts (no duplicate), version incremented", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		// First retro
-		const res1 = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "validated",
-				summary: "First assessment.",
-			}),
-		});
-		expect(res1.status).toBe(200);
-		const body1 = (await res1.json()) as Record<string, unknown>;
-		const retroId1 = body1.retroKnowledgeItemId as string;
-
-		// Second retro
-		const res2 = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "refuted",
-				summary: "Revised assessment after more data.",
-			}),
-		});
-		expect(res2.status).toBe(200);
-		const body2 = (await res2.json()) as Record<string, unknown>;
-		const retroId2 = body2.retroKnowledgeItemId as string;
-
-		// Must return the same knowledge item id (upsert, not insert)
-		expect(retroId2).toBe(retroId1);
-
-		// Only one knowledge item for this bet
-		const allKi = await db.select().from(knowledgeItems);
-		const retroItems = allKi.filter((k) => k.scopeKind === "bet" && k.scopeId === "bet-completed");
-		expect(retroItems).toHaveLength(1);
-
-		// Version must be incremented
-		expect(retroItems[0]?.version).toBe(2);
-		vi.unstubAllEnvs();
-	});
-
-	// AC2-4: Hypothesis snapshot is immutable
-	test("AC2-4: hypothesis snapshot in retro body is taken at creation time, immutable to later changes", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		// Record retro with original hypothesis
-		const res1 = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "validated",
-				summary: "Original assessment.",
-			}),
-		});
-		expect(res1.status).toBe(200);
-		const body1 = (await res1.json()) as Record<string, unknown>;
-		const retroId = body1.retroKnowledgeItemId as string;
-
-		// Verify the hypothesis in the retro fabric meta matches the original
-		const allFabric = await db.select().from(knowledgeAppProjection);
-		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
-		const metaBefore = JSON.parse(fabricRow?.meta ?? "{}") as Record<string, unknown>;
-		expect(metaBefore.hypothesis).toBe("Users will complete onboarding in under 5 minutes.");
-
-		// Now update the bet's hypothesis in the DB (simulating a field edit)
-		// NOTE: We update directly in DB since the hypothesis PATCH endpoint is separate
-		await db
-			.update(bets)
-			.set({ hypothesis: "UPDATED HYPOTHESIS — should not appear in retro" })
-			.where(eq(bets.id, "bet-completed"));
-
-		// Do a second retro — it must preserve the ORIGINAL hypothesis snapshot, not the new one
-		const res2 = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "refuted",
-				summary: "Revised assessment.",
-			}),
-		});
-		expect(res2.status).toBe(200);
-
-		// Check that the fabric meta still has the original hypothesis from first retro
-		const allFabricAfter = await db.select().from(knowledgeAppProjection);
-		const fabricRowAfter = allFabricAfter.find((f) => f.knowledgeItemId === retroId);
-		const metaAfter = JSON.parse(fabricRowAfter?.meta ?? "{}") as Record<string, unknown>;
-		expect(metaAfter.hypothesis).toBe("Users will complete onboarding in under 5 minutes.");
-		vi.unstubAllEnvs();
-	});
-
-	// AC2-10: Fabric row kind='reflection'
-	test("AC2-10: fabric row has kind='reflection'", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		const res = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "validated",
-				summary: "Hypothesis confirmed.",
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		const retroId = body.retroKnowledgeItemId as string;
-
-		const allFabric = await db.select().from(knowledgeAppProjection);
-		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
-		expect(fabricRow).toBeDefined();
-		expect(fabricRow?.kind).toBe("reflection");
-		vi.unstubAllEnvs();
-	});
-
-	// AC2-11: Knowledge item status='active'
-	test("AC2-11: retro knowledge item has status='active'", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		const res = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "inconclusive",
-				summary: "Could not determine.",
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		const retroId = body.retroKnowledgeItemId as string;
-
-		const allKi = await db.select().from(knowledgeItems);
-		const ki = allKi.find((k) => k.id === retroId);
-		expect(ki?.status).toBe("active");
+		expect(body.outcomeVerdict).toBe("refuted");
 		vi.unstubAllEnvs();
 	});
 
@@ -366,101 +149,6 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 			body: JSON.stringify({ verdict: "validated", summary: "Does not exist." }),
 		});
 		expect(res.status).toBe(404);
-		vi.unstubAllEnvs();
-	});
-
-	// AC2-15: Knowledge item title = "Retro: {bet title}"
-	test("AC2-15: knowledge item title follows 'Retro: {bet title}' format", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		const res = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "validated",
-				summary: "Confirmed.",
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		const retroId = body.retroKnowledgeItemId as string;
-
-		const allKi = await db.select().from(knowledgeItems);
-		const ki = allKi.find((k) => k.id === retroId);
-		expect(ki?.title).toMatch(/^Retro:/);
-		// The title must include the bet description (used as title by deriveTitle)
-		expect(ki?.title).toContain("Validate the onboarding hypothesis");
-		vi.unstubAllEnvs();
-	});
-
-	// Happy path on killed bet
-	test("AC2-1: records retro on killed bet", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		const res = await app.request("/api/bets/bet-killed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "refuted",
-				summary: "Bet was killed before conclusion.",
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.outcomeVerdict).toBe("refuted");
-		expect(body.retroKnowledgeItemId).toBeTruthy();
-		vi.unstubAllEnvs();
-	});
-
-	// No hypothesis case — body frontmatter should note it
-	test("AC2-2: body indicates no hypothesis when bet has no hypothesis", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		const res = await app.request("/api/bets/bet-completed-no-hyp/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "inconclusive",
-				summary: "No hypothesis to evaluate.",
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		const retroId = body.retroKnowledgeItemId as string;
-
-		const allFabric = await db.select().from(knowledgeAppProjection);
-		const fabricRow = allFabric.find((f) => f.knowledgeItemId === retroId);
-		const meta = JSON.parse(fabricRow?.meta ?? "{}") as Record<string, unknown>;
-		// Hypothesis in meta must indicate no hypothesis
-		expect(meta.hypothesis).toMatch(/no hypothesis/i);
-		vi.unstubAllEnvs();
-	});
-
-	// Learnings empty — body should have placeholder
-	test("AC2-2: body has learnings placeholder when learnings not provided", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedRetroBase(db);
-
-		const res = await app.request("/api/bets/bet-completed/retro", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				verdict: "validated",
-				summary: "It worked.",
-				// learnings omitted
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		const retroId = body.retroKnowledgeItemId as string;
-
-		const allKi = await db.select().from(knowledgeItems);
-		const ki = allKi.find((k) => k.id === retroId);
-		// Should have some content in Learnings section, not empty
-		expect(ki?.body).toContain("## Learnings");
 		vi.unstubAllEnvs();
 	});
 
