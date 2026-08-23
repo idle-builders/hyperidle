@@ -7,15 +7,15 @@
 // @lore L3 / L11 / L12: delete this file once production mounts ship and
 // the AC-10 e2e suite has been re-pointed at the real surfaces.
 
+import type { Artifact } from "@hyperidle/domain-model";
+import type { JSX } from "react";
 import {
 	ArtifactGalleryCard,
 	ArtifactPreview,
 	ArtifactStackItem,
 	EmptyState,
 	ErrorState,
-} from "@hyperidle/design-system";
-import type { Artifact } from "@hyperidle/domain-model";
-import type { JSX } from "react";
+} from "../../ds";
 import { useArtifacts } from "../../hooks/useArtifacts.js";
 import { sanitizeHtml } from "../../utils/sanitize-html.js";
 

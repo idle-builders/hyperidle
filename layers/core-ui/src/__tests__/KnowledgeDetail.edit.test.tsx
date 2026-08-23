@@ -23,8 +23,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
 
 // Mock BodyEditor — TipTap does not work in JSDOM
-vi.mock("@hyperidle/design-system", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/design-system")>();
+vi.mock("../ds", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../ds")>();
 	return {
 		...original,
 		BodyEditor: ({

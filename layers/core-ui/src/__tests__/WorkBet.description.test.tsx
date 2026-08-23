@@ -21,8 +21,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BetDetail } from "../types/bet";
 
 // Mock BodyEditor — TipTap cannot run in JSDOM
-vi.mock("@hyperidle/design-system", async () => {
-	const actual = await vi.importActual("@hyperidle/design-system");
+vi.mock("../ds", async () => {
+	const actual = await vi.importActual("../ds");
 	return {
 		...(actual as Record<string, unknown>),
 		BodyEditor: ({

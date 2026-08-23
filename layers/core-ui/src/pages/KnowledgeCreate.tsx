@@ -17,6 +17,9 @@
  * - No Discussion section (new item has no thread)
  */
 
+import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
+import { type JSX, useState } from "react";
+import { Link as RRLink, useNavigate } from "react-router-dom";
 // hearth-internal-padding
 import {
 	BodyEditor,
@@ -27,10 +30,7 @@ import {
 	PageScaffold,
 	pageTitleClassName,
 	ScopePicker,
-} from "@hyperidle/design-system";
-import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
-import { type JSX, useState } from "react";
-import { Link as RRLink, useNavigate } from "react-router-dom";
+} from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { SCOPE_CREATE_OPTIONS, type ScopeCreateOption } from "../utils/scope-labels.js";

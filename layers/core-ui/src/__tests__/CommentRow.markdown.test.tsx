@@ -12,10 +12,10 @@
  * the ThreadShell wiring (that is covered by ThreadShell.test.tsx).
  */
 
-import { CommentRow } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { CommentRow } from "../ds";
 
 // ---------------------------------------------------------------------------
 // Fixtures

@@ -1,4 +1,3 @@
-import { ErrorState, PageHeader, PageScaffold } from "@hyperidle/design-system";
 import type {
 	AnchorRef,
 	BlockId,
@@ -11,6 +10,7 @@ import { isRedactedPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { ErrorState, PageHeader, PageScaffold } from "../../ds";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import type { HostThreadIdentity } from "../../hooks/useHostThread.js";
 import { useHostThread } from "../../hooks/useHostThread.js";

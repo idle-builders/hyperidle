@@ -1,17 +1,10 @@
 import {
-	Breadcrumb,
-	Button,
-	Composer,
-	PageHeader,
-	PageScaffold,
-	SplitView,
-} from "@hyperidle/design-system";
-import {
 	type AnchorRef,
 	type VerdictDecision,
 	verdictDecisionLabel,
 } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+import { Breadcrumb, Button, Composer, PageHeader, PageScaffold, SplitView } from "../../ds";
 import { useUiPreference } from "../../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../../hooks/useViewportBreakpoint.js";
 import { getReviewCanvas } from "./canvas-registry.js";

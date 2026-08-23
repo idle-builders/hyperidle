@@ -46,7 +46,7 @@ describe("normalisedPayload()", () => {
 		// A divider's normalisedPayload is "" (empty). Two dividers under different
 		// headings must therefore receive different ids — proving that the BlockId
 		// hash mixes (kind, outlinePath, normalisedPayload), not normalisedPayload alone.
-		const { deriveBlocks } = await import("@hyperidle/block-derivation");
+		const { deriveBlocks } = await import("..");
 		const md = "# A\n\n---\n\n# B\n\n---\n";
 		const { blocks } = deriveBlocks(md, { kind: "bet", id: "x" });
 		const dividers = blocks.filter((b) => b.kind === "divider");

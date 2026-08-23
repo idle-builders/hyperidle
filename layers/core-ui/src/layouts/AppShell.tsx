@@ -6,7 +6,6 @@
  * or the selected domain's navigator. Mobile exposes the same shell in a 300px drawer.
  */
 
-import { ensureOverlayRoot, useDialogBehavior } from "@hyperidle/design-system";
 import type { TeamListItem } from "@hyperidle/domain-model";
 import FocusTrap from "focus-trap-react";
 import type { JSX } from "react";
@@ -18,6 +17,7 @@ import { GlobalSearchPanel } from "../components/GlobalSearchPanel";
 import { RecipientPicker } from "../components/RecipientPicker";
 import type { ConversationsFilter } from "../components/ThreadSections";
 import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
+import { ensureOverlayRoot, useDialogBehavior } from "../ds";
 import { useCommandK } from "../hooks/useCommandK";
 import { useConversationsThreads } from "../hooks/useConversationsThreads";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";

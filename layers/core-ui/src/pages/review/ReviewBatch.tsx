@@ -19,8 +19,8 @@
 // the 4 red rows pinned above the routine collapse. Resolved is out of scope; the
 // review frame owns the final verdict.
 
-import { Button, StatusChip } from "@hyperidle/design-system";
 import { type JSX, useState } from "react";
+import { Button, StatusChip } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isNumber, isPlainObject } from "./payload-guard";
 import type { BatchPayload, ReviewCanvasProps } from "./review-artifact";

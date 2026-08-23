@@ -29,7 +29,6 @@
 		"@hyperidle/notifications": "*",
 		"@hyperidle/org": "*",
 		"@hyperidle/policy": "*",
-		"@hyperidle/query-escaping": "*",
 		"@hyperidle/review": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",

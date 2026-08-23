@@ -2,10 +2,10 @@
 // Also tests the negative existence of getRenderer/kind renderers (AC-COLLAPSE).
 // RED phase — these fail until composeArtifactBody is created and kind layer removed.
 
-import * as DesignSystem from "@hyperidle/design-system";
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import * as DesignSystem from "..";
 
 // This import will fail until composeArtifactBody is created
 import { composeArtifactBody } from "../kinds/compose-artifact-body.js";

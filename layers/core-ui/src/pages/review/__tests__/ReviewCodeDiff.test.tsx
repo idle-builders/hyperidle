@@ -1,6 +1,6 @@
-import { CodeDeltaRenderer } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { CodeDeltaRenderer } from "../../../ds";
 import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture";
 import { getReviewCanvas } from "../canvas-registry";
 import type { CodeDiffPayload, ReviewArtifact } from "../review-artifact";

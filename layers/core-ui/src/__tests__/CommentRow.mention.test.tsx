@@ -5,10 +5,10 @@
  * has MentionRef entries in refs[]. Messages without mentions render unchanged.
  */
 
-import { CommentRow } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { CommentRow } from "../ds";
 
 const baseSender = { id: "u-founder", name: "Founder", role: "founder" };
 const agentSender = { id: "u-agent", name: "Aria", role: "builder", isAgent: true };

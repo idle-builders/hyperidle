@@ -1,6 +1,6 @@
-import { KnowledgeRow } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { KnowledgeRow } from "../ds";
 
 describe("KnowledgeRow — J7 factory mode", () => {
 	const defaultProps = {

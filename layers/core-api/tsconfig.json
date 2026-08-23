@@ -36,9 +36,6 @@
 			"path": "../../framework/http-middleware"
 		},
 		{
-			"path": "../../framework/query-escaping"
-		},
-		{
 			"path": "../../framework/work-intent-port"
 		},
 		{

@@ -15,8 +15,8 @@
  * to verify its imports.
  */
 
-import { Button, Input, StatusChip, Toggle } from "@hyperidle/design-system";
 import { type JSX, useEffect, useState } from "react";
+import { Button, Input, StatusChip, Toggle } from "../ds";
 
 interface WorkerStatus {
 	enabled: boolean;

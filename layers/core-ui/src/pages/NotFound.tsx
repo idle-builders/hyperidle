@@ -1,6 +1,6 @@
-import { Button, ErrorState, PageHeader, PageScaffold } from "@hyperidle/design-system";
 import { type JSX, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button, ErrorState, PageHeader, PageScaffold } from "../ds";
 
 /**
  * @lore I4 E2: NotFound page is the catch-all `*` route fallback so unknown

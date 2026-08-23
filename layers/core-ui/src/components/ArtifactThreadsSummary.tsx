@@ -16,9 +16,9 @@
  * summary components in the shell layer.
  */
 
-import { EmptyState, ErrorState, Skeleton } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
+import { EmptyState, ErrorState, Skeleton } from "../ds";
 import { useArtifactThreadSummary } from "../hooks/useArtifactThreadSummary.js";
 import { relativeShort } from "../utils/time.js";
 

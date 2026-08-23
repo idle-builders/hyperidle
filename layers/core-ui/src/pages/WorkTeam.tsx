@@ -21,6 +21,17 @@
  * useParams now reads `teamId` directly (no more productId alias).
  */
 
+// @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
+import type { BetCardSummary, TeamDetail } from "@hyperidle/domain-model";
+import {
+	AGENT_OPERATIONAL_STATUS_LABEL,
+	BET_STATUS_LABEL,
+	findRoleCatalogEntry,
+} from "@hyperidle/domain-model";
+import type { JSX } from "react";
+import { useMemo, useState } from "react";
+import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import {
 	Avatar,
 	agentOperationalStatusToStatus,
@@ -41,18 +52,7 @@ import {
 	SplitView,
 	StatusChip,
 	Tag,
-} from "@hyperidle/design-system";
-// @lore U1: `ProductDetail` → `TeamDetail`, `BetCardSummary.pitchTitle` → `descriptionTitle`.
-import type { BetCardSummary, TeamDetail } from "@hyperidle/domain-model";
-import {
-	AGENT_OPERATIONAL_STATUS_LABEL,
-	BET_STATUS_LABEL,
-	findRoleCatalogEntry,
-} from "@hyperidle/domain-model";
-import type { JSX } from "react";
-import { useMemo, useState } from "react";
-import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
+} from "../ds";
 import { DEFAULT_ROSTER_RUN_STATE, useRosterRunState } from "../hooks/useAgentRunState.js";
 import { useTeam } from "../hooks/useTeam";
 import { useTeamAgents } from "../hooks/useTeamAgents.js";

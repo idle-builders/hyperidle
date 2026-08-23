@@ -23,10 +23,10 @@
  * no other consumers).
  */
 
-import type { PartAuthor } from "@hyperidle/conversation-parts";
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useState } from "react";
+import type { PartAuthor } from "./parts";
 import type { SessionViewIdentity } from "./SessionView.js";
 import { SessionView } from "./SessionView.js";
 

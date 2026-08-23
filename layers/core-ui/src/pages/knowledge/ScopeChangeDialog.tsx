@@ -18,9 +18,9 @@
  * isDirty = reason entered or scope changed from current. Authoring surface — guards.
  */
 
-import { Button, Dialog, Input, ScopePicker } from "@hyperidle/design-system";
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
+import { Button, Dialog, Input, ScopePicker } from "../../ds";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import { apiFetch } from "../../services/api-fetch.js";
 import {

@@ -25,6 +25,14 @@
  * - A2: Operational status derived on frontend, not from DB status column
  */
 
+import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
+import {
+	AGENT_OPERATIONAL_STATUS_LABEL,
+	findRoleCatalogEntry,
+	roleLabel,
+} from "@hyperidle/domain-model";
+import type { JSX } from "react";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import {
 	Avatar,
 	agentOperationalStatusToStatus,
@@ -40,15 +48,7 @@ import {
 	StatusChip,
 	sessionOutcomeToStatus,
 	Tag,
-} from "@hyperidle/design-system";
-import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
-import {
-	AGENT_OPERATIONAL_STATUS_LABEL,
-	findRoleCatalogEntry,
-	roleLabel,
-} from "@hyperidle/domain-model";
-import type { JSX } from "react";
-import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
+} from "../ds";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
 import { type AgentRunState, useAgentRunState } from "../hooks/useAgentRunState.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";

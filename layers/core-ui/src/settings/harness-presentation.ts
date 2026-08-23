@@ -14,8 +14,8 @@
  * allows the single "builtin" literal and bans the rest (codex, claude-code, etc.).
  */
 
-import type { Status } from "@hyperidle/design-system";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import type { Status } from "../ds";
 
 // Extended discovery type — AM4 additive field (disabled? is optional in HarnessDiscoveryStatus)
 type DiscoveryWithDisabled = HarnessCapabilityDescriptor["discovery"] & { disabled?: boolean };

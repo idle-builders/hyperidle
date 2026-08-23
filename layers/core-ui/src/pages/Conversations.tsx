@@ -28,8 +28,17 @@
  * ConversationSurface on the left, SessionActivityPanel on the right.
  */
 
-import type { PartAuthor } from "@hyperidle/conversation-parts";
-import { derivePartsFromMessages } from "@hyperidle/conversation-parts";
+import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import ConversationSurface, {
+	type ConversationSurfaceParticipant,
+} from "../components/ConversationSurface";
+import type { PartAuthor } from "../components/parts";
+import { derivePartsFromMessages } from "../components/parts";
+import { SessionActivityPanel } from "../components/SessionActivityPanel";
+import { SessionView } from "../components/SessionView";
+import type { ConversationsFilter } from "../components/ThreadSections";
+import { ThreadSections } from "../components/ThreadSections";
 import {
 	Breadcrumb,
 	Button,
@@ -39,16 +48,7 @@ import {
 	PageScaffold,
 	SkeletonList,
 	SplitView,
-} from "@hyperidle/design-system";
-import { type JSX, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
-import ConversationSurface, {
-	type ConversationSurfaceParticipant,
-} from "../components/ConversationSurface";
-import { SessionActivityPanel } from "../components/SessionActivityPanel";
-import { SessionView } from "../components/SessionView";
-import type { ConversationsFilter } from "../components/ThreadSections";
-import { ThreadSections } from "../components/ThreadSections";
+} from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useSessionActivity } from "../hooks/useSessionActivity";
 import type { ThreadDetail } from "../hooks/useThreadDetail";
@@ -183,7 +183,7 @@ interface SessionViewPanelProps {
 	viewerId: string;
 	viewerName: string;
 	onClose: () => void;
-	onOpen: import("@hyperidle/conversation-parts").OpenHandler;
+	onOpen: import("../components/parts").OpenHandler;
 }
 
 function SessionViewPanel({
@@ -199,13 +199,13 @@ function SessionViewPanel({
 }: SessionViewPanelProps): JSX.Element {
 	const { entries, status } = useSessionActivity(sessionId);
 
-	const agent: import("@hyperidle/conversation-parts").PartAuthor = {
+	const agent: import("../components/parts").PartAuthor = {
 		id: agentId,
 		name: agentName,
 		isAgent: true,
 		isMe: false,
 	};
-	const viewer: import("@hyperidle/conversation-parts").PartAuthor = {
+	const viewer: import("../components/parts").PartAuthor = {
 		id: viewerId,
 		name: viewerName,
 		isAgent: false,

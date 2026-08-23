@@ -1,12 +1,6 @@
-import {
-	EmptyState,
-	ErrorState,
-	SkeletonList,
-	type Status,
-	ThreadRow,
-} from "@hyperidle/design-system";
 import type { HostKind } from "@hyperidle/domain-model";
 import type { CSSProperties, JSX } from "react";
+import { EmptyState, ErrorState, SkeletonList, type Status, ThreadRow } from "../ds";
 
 /**
  * @lore L1a (T17) / L8 §3.2: ThreadItem carries `hostKind` + the derived
@@ -265,7 +259,7 @@ export function ThreadSections({
 							<ThreadRow
 								key={t.id}
 								avatarUrl={t.avatarUrl}
-								avatars={t.avatars as import("@hyperidle/design-system").ThreadRowProps["avatars"]}
+								avatars={t.avatars as import("../ds").ThreadRowProps["avatars"]}
 								title={t.title}
 								snippet={t.snippet}
 								timestamp={t.timestamp}
@@ -402,9 +396,7 @@ export function ThreadSections({
 									<li key={t.id} className={section.id === "resolved" ? "opacity-70" : undefined}>
 										<ThreadRow
 											avatarUrl={t.avatarUrl}
-											avatars={
-												t.avatars as import("@hyperidle/design-system").ThreadRowProps["avatars"]
-											}
+											avatars={t.avatars as import("../ds").ThreadRowProps["avatars"]}
 											title={t.title}
 											snippet={t.snippet}
 											timestamp={t.timestamp}

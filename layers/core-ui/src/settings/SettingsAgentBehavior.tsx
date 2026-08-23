@@ -1,3 +1,10 @@
+import type {
+	AgentBehaviorConfigListResponse,
+	AgentBehaviorConfigPatchResponse,
+	AgentBehaviorConfigView,
+	AgentBehaviorEditableField,
+} from "@hyperidle/domain-model";
+import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
 import {
 	Button,
 	EmptyState,
@@ -13,14 +20,7 @@ import {
 	StatusChip,
 	Tag,
 	Toggle,
-} from "@hyperidle/design-system";
-import type {
-	AgentBehaviorConfigListResponse,
-	AgentBehaviorConfigPatchResponse,
-	AgentBehaviorConfigView,
-	AgentBehaviorEditableField,
-} from "@hyperidle/domain-model";
-import { type JSX, useCallback, useEffect, useMemo, useState } from "react";
+} from "../ds";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";

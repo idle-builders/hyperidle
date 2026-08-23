@@ -22,8 +22,6 @@
 			"@hyperidle/harness-capability": ["./framework/harness-capability/src"],
 			"@hyperidle/work-intent-port": ["./framework/work-intent-port/src"],
 			"@hyperidle/event-bus": ["./framework/event-bus/src"],
-			"@hyperidle/toon-codec": ["./framework/toon-codec/src"],
-			"@hyperidle/query-escaping": ["./framework/query-escaping/src"],
 			"@hyperidle/factory-defaults": ["./framework/factory-defaults/src"],
 			"@hyperidle/host-process": ["./framework/host-process/src"],
 			"@hyperidle/http-middleware": ["./framework/http-middleware/src"],

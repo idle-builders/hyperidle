@@ -5,8 +5,8 @@
  * review" → onOpen(reviewTarget).
  */
 
-import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
+import type { OpenHandler, Part } from ".";
 
 type ResolvedPartValue = Extract<Part, { kind: "resolved" }>;
 

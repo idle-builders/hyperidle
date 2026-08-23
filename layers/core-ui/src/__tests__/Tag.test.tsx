@@ -1,6 +1,6 @@
-import { Tag } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { Tag } from "../ds";
 
 describe("Tag", () => {
 	it("renders label text", () => {

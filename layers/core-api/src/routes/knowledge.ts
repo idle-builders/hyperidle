@@ -54,7 +54,6 @@ import {
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
-import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -83,6 +82,15 @@ const KNOWLEDGE_ITEM_KINDS = [
 // O2: status simplified to draft | active | archived
 // Y4: needs_human added for triage escalation
 const KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_human"] as const;
+
+// @lore AV3: Inlined from @hyperidle/presentation-format (server copy). The presentation-format
+// package dissolved into layers/core-ui (frontend-only). Server and web copies must stay in sync.
+// Web SSOT: layers/core-ui/src/utils/scope-labels.ts
+function scopeKindToLabel(scopeKind: string): string {
+	if (scopeKind === "user") return "Private";
+	if (scopeKind === "team" || scopeKind === "product") return "Team";
+	return "Shared";
+}
 
 /**
  * Resolve a knowledge item's scopeId to a human-readable scope name.

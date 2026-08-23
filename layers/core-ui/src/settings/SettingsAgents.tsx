@@ -25,7 +25,10 @@
 
 // hearth-internal-padding
 
-import type { FoldMode } from "@hyperidle/design-system";
+import { roleLabel } from "@hyperidle/domain-model";
+import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
+import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import type { FoldMode } from "../ds";
 import {
 	Button,
 	EmptyState,
@@ -35,10 +38,7 @@ import {
 	Row,
 	SkeletonList,
 	SplitView,
-} from "@hyperidle/design-system";
-import { roleLabel } from "@hyperidle/domain-model";
-import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+} from "../ds";
 import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { fetchActiveRunCounts } from "../services/agent-runs.js";

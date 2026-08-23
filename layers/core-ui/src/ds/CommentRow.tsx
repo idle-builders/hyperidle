@@ -7,7 +7,6 @@
  * (greyed body, "Redacted by X — reason"), grouped vs ungrouped variant.
  */
 
-import { derivePayloads } from "@hyperidle/block-derivation";
 import type { BlockPayload, InlineRef, MentionSegment, Message } from "@hyperidle/domain-model";
 import {
 	isRedactedPayload,
@@ -15,6 +14,7 @@ import {
 	verdictDecisionLabel,
 	verdictDecisionToStatus,
 } from "@hyperidle/domain-model";
+import { derivePayloads } from "../block";
 
 function exhaustiveAssert(value: never): never {
 	throw new Error(`Unhandled message type: ${String(value)}`);

@@ -16,7 +16,6 @@ const PROJECTS = [
 	"framework/diagnostics",
 	"framework/harness-capability",
 	"framework/event-bus",
-	"framework/toon-codec",
 	"framework/factory-defaults",
 	"framework/host-process",
 	"framework/http-middleware",

@@ -4,9 +4,9 @@
  * Verifies the RoutineState -> Status mapping function added for AA1.
  */
 
-import { routineStateToStatus } from "@hyperidle/design-system";
 import type { RoutineState } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
+import { routineStateToStatus } from "..";
 
 describe("routineStateToStatus (AA1)", () => {
 	it('maps "active" to "healthy"', () => {

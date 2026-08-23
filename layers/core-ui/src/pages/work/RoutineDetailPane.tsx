@@ -31,6 +31,10 @@
  * outcomes and the per-run `cost` column are deleted with it.
  */
 
+import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/domain-model";
+import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
+import { type JSX, useCallback, useContext, useState } from "react";
+import { useNavigate } from "react-router-dom";
 // hearth-internal-padding
 import {
 	Button,
@@ -49,11 +53,7 @@ import {
 	Select,
 	SkeletonCard,
 	StatusChip,
-} from "@hyperidle/design-system";
-import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/domain-model";
-import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
-import { type JSX, useCallback, useContext, useState } from "react";
-import { useNavigate } from "react-router-dom";
+} from "../../ds";
 import { useRoutine } from "../../hooks/useRoutine.js";
 import { apiFetch } from "../../services/api-fetch.js";
 import { ToastContext } from "../../shell/ToastRegion.js";

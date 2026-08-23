@@ -18,6 +18,10 @@
  * external date library is needed.
  */
 
+import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
+import type { JSX } from "react";
+import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
+import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import {
 	Breadcrumb,
 	ErrorState,
@@ -27,11 +31,7 @@ import {
 	SectionLabel,
 	StatusChip,
 	taskStateToStatus,
-} from "@hyperidle/design-system";
-import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
-import type { JSX } from "react";
-import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
-import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
+} from "../ds";
 import { useBet } from "../hooks/useBet.js";
 import { useTaskSessions } from "../hooks/useTaskSessions.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";

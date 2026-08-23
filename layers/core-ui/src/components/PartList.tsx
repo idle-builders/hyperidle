@@ -14,10 +14,10 @@
  * `assertNeverPart` gives compile-time exhaustiveness AND a runtime UnknownPart.
  */
 
-import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
-import { groupParts } from "@hyperidle/conversation-parts";
 import { Fragment, type JSX } from "react";
 import { absoluteDate, clockTime } from "../utils/time.js";
+import type { OpenHandler, Part } from "./parts";
+import { groupParts } from "./parts";
 import { ProsePart } from "./parts/ProsePart.js";
 import { QuestionnairePart } from "./parts/QuestionnairePart.js";
 import { ReasoningPart } from "./parts/ReasoningPart.js";

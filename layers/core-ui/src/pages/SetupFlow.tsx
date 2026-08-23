@@ -31,7 +31,6 @@
  * every CLI harness carries its own login — and it spans all three ModelProviders.
  */
 
-import { Button, Input, PageHeader, PageScaffold, Select } from "@hyperidle/design-system";
 import type { ModelProvider } from "@hyperidle/domain-model";
 import {
 	AGENT_ROLE_CATALOG,
@@ -53,6 +52,7 @@ import {
 	useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button, Input, PageHeader, PageScaffold, Select } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 
 /**

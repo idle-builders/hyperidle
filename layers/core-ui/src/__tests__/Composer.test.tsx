@@ -5,10 +5,10 @@
  * `Cmd/Ctrl+Enter` submits.
  */
 
-import { Composer } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { Composer } from "../ds";
 
 describe("Composer (approved.md §2.5)", () => {
 	it("renders a textarea with the 'Reply to thread…' placeholder", () => {

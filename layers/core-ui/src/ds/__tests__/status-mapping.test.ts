@@ -4,9 +4,9 @@
  * L19: Extends with SessionOutcome → Status mapping coverage.
  */
 
-import { type Status, sessionOutcomeToStatus } from "@hyperidle/design-system";
 import type { SessionOutcome } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
+import { type Status, sessionOutcomeToStatus } from "..";
 
 /** All legal presentation Status values. */
 const VALID_STATUSES: readonly Status[] = [

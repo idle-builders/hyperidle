@@ -54,7 +54,6 @@ import {
 	list as listKnowledgeItems,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";

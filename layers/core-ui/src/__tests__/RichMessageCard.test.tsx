@@ -9,10 +9,10 @@
  * fails with "Module not found". This is the desired red-phase failure.
  */
 
-import { RichMessageCard } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/domain-model";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { RichMessageCard } from "../ds";
 
 const sender = {
 	id: "agent-1",

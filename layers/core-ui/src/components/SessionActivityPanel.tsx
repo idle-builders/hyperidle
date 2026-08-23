@@ -23,8 +23,8 @@
  * no replacement.
  */
 
-import { Button, EmptyState, TabBar } from "@hyperidle/design-system";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { Button, EmptyState, TabBar } from "../ds";
 import type { ActivityEntry } from "../hooks/useSessionActivity.js";
 import { useSessionActivity } from "../hooks/useSessionActivity.js";
 import { clockTime } from "../utils/time.js";
