@@ -350,7 +350,7 @@ export function buildSeamBackedWorkIntentRecorder(
  * AU31 §2.2/§3 clause 2 — the seam-backed `OrgAgentRunConfigWriter` factory:
  * the composition-root adapter that lets `@hyperidle/org`'s
  * `persistScaffoldedAgents` (org.ts, teams-routes.ts, users.ts's setup route)
- * go through the port instead of importing `@hyperidle/agent-run-config`
+ * go through the port instead of importing `@hyperidle/run-orchestration`
  * directly. Same shape as `buildSeamBackedWorkIntentRecorder` above:
  * `writeAgentRunConfig` deliberately IGNORES the executor it is handed — a
  * seam call is an HTTP round trip through the composed app's own connection,

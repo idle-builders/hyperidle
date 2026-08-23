@@ -2,10 +2,7 @@ export {
 	createPgliteDb,
 	createPostgresDb,
 	type DbHandle,
-	DEFAULT_PG_POOL_SIZE,
 	type HyperIdleDb,
-	PG_POOL_SIZE_ENV,
-	parsePgPoolSize,
 } from "./connection.js";
 export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export * as schema from "./schema.js";

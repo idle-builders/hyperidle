@@ -80,11 +80,11 @@ const patchAgentSchema = z.object({
 type PatchAgentData = z.infer<typeof patchAgentSchema>;
 
 /**
- * Mirrors `@hyperidle/agent-run-config`'s `DEFAULT_AGENT_RUN_CONFIG` — a
+ * Mirrors `@hyperidle/run-orchestration`'s `DEFAULT_AGENT_RUN_CONFIG` — a
  * defensive fallback for a `readBatch` entry, even though
  * `AgentOrchestrationPort.runConfig.readBatch` (like the direct function it
  * backs) already fills every requested id. AU31 §2.2: this route no longer
- * imports `@hyperidle/agent-run-config` directly, so the value is a local
+ * imports `@hyperidle/run-orchestration` directly, so the value is a local
  * mirror, not an import.
  */
 const EMPTY_RUN_CONFIG_VIEW = {

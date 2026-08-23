@@ -22,8 +22,8 @@
  * bake NO LONGER carries `systemPrompt`, pinning AU26's "do not re-bake it".
  */
 
-import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import { agentRunConfig, agentWorkIntents, type HyperIdleDb, threads, users } from "@hyperidle/db";
+import { readAgentRunConfig } from "@hyperidle/run-orchestration";
 import type { BakedAgentRunnableConfig } from "@hyperidle/work-intent-port";
 import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";

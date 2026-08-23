@@ -43,7 +43,6 @@
 		"@hono/node-server": "^2.0.6",
 		"@hyperidle/agent-execution": "*",
 		"@hyperidle/agent-orchestration": "*",
-		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/block-derivation": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/filesystems": "*",

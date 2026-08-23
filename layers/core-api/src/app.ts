@@ -62,7 +62,7 @@ interface AppOptions {
 	 * there is no ambient/module-level transport to fall back on. Required
 	 * whenever `db` is provided: every route and reaction that used to reach
 	 * `@hyperidle/session-requests`/`@hyperidle/run-orchestration`/
-	 * `@hyperidle/agent-run-config`/`@hyperidle/filesystems` directly now goes
+	 * `@hyperidle/run-orchestration`/`@hyperidle/filesystems` directly now goes
 	 * through this door. `createCoreApiApp` throws a named error at
 	 * construction if `db` is present and this is not.
 	 */

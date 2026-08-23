@@ -18,6 +18,16 @@
 // shape and same reasoning. NOTHING about connections or filesystems rides an
 // emitted request any more.
 
+export type {
+	AgentRunConfig,
+	AgentRunConfigPatch,
+} from "./agent-run-config-store.js";
+export {
+	DEFAULT_AGENT_RUN_CONFIG,
+	readAgentRunConfig,
+	readAgentRunConfigs,
+	writeAgentRunConfig,
+} from "./agent-run-config-store.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,

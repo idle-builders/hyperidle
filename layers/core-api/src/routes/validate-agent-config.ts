@@ -2,7 +2,7 @@
  * AH2 — validate the (harnessType, modelProvider, modelId) triple an agent's
  * run config carries, against the adapter pool + the model catalog.
  *
- * @lore AU31 §2.8: moved here from `@hyperidle/agent-run-config` (which itself
+ * @lore AU31 §2.8: moved here from `@hyperidle/run-orchestration` (which itself
  * had it via AU26 G1, "moved with the columns it validates"). That rationale
  * held only while a same-layer import was free; under AU31's boundary rule a
  * `layer → service (other layer) [import]` crossing costs something and buys

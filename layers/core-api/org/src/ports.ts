@@ -15,7 +15,7 @@
  * is the single writer of agent user rows, and it stamps the Kernel-owned mechanism
  * fields (`harnessType`/`modelId`/`modelProvider`/`maxConcurrentSessions`). Those
  * fields left `users` for `agent_run_config`, so the writer now makes two writes.
- * It cannot import `@hyperidle/agent-run-config` directly —
+ * It cannot import `@hyperidle/run-orchestration` directly —
  * `composition-boundary-guard` forbids a Service package depending on another Service
  * — so the Layer wires this port, exactly as it already wires `orgUsers`.
  */

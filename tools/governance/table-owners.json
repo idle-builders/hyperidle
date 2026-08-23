@@ -41,7 +41,7 @@
 		"filesystems": "filesystems",
 		"filesystemInjections": "filesystems",
 		"hintProgress": "users",
-		"agentRunConfig": "agent-run-config",
+		"agentRunConfig": "run-orchestration",
 		"taskDispatchAttempts": "work",
 		"propagationLog": "policy",
 		"sessions": "run-orchestration"
