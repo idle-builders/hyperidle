@@ -48,7 +48,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";

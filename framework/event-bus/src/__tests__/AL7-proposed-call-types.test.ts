@@ -12,13 +12,8 @@
  *         AC13 (verdict grammar unchanged — existing DomainEvent switch still compiles).
  */
 
-import type {
-	DomainEvent,
-	ProposedCall,
-	ProposedCallGrantedEvent,
-	ProposedCallStatus,
-	Reversibility,
-} from "@hyperidle/domain-model";
+import type { DomainEvent, ProposedCallGrantedEvent } from "@hyperidle/event-bus"
+import type { ProposedCall, ProposedCallStatus, Reversibility } from "@hyperidle/domain-model";
 import type { SessionWorkflow } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { EventBus } from "../event-bus.js";

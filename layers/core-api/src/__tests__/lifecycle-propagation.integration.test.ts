@@ -30,7 +30,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/domain-model";
+import type { PropagationAppliedEvent, PropagationFailedEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";

@@ -9,14 +9,8 @@
  * from here. The hook imports it from here. All non-fixture imports are clean.
  */
 
-import type {
-	BetOutcomeVerdict,
-	BetStatus,
-	SessionOutcome,
-	TaskOutcomeVerdict,
-	TaskState,
-	TokenUsage,
-} from "@hyperidle/domain-model";
+import type { SessionOutcome } from "@hyperidle/domain-model"
+import type { BetOutcomeVerdict, BetStatus, TaskOutcomeVerdict, TaskState, TokenUsage } from "@hyperidle/domain-model";
 
 /**
  * @lore AU21 Increment 14a: `costAppetite`/`costActual` (bet-level, WireMoney|null)

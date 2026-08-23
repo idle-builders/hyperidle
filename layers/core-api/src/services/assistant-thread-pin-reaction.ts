@@ -12,7 +12,7 @@
 import { findThread, updateThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { ThreadMessageAppendedEvent } from "@hyperidle/domain-model";
+import type { ThreadMessageAppendedEvent } from "@hyperidle/event-bus";
 import type { EventBus } from "@hyperidle/event-bus";
 import { findUser } from "@hyperidle/users";
 

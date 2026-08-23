@@ -41,7 +41,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/domain-model";
+import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/event-bus";
 import type { EventBus } from "@hyperidle/event-bus";
 import * as routineService from "@hyperidle/routine";
 

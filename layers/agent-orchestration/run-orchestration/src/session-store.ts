@@ -16,7 +16,8 @@
  */
 
 import { type HyperIdleDb, type Session, sessions } from "@hyperidle/db";
-import type { SessionEndedEvent, SessionOutcome } from "@hyperidle/domain-model";
+import type { SessionOutcome } from "@hyperidle/domain-model";
+import type {SessionEndedEvent} from "@hyperidle/event-bus";
 import type { EventBus } from "@hyperidle/event-bus";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 

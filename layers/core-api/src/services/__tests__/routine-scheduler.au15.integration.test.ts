@@ -26,7 +26,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { AgentRunLifecycleChangedEvent } from "@hyperidle/domain-model";
+import type { AgentRunLifecycleChangedEvent } from "@hyperidle/event-bus";
 import * as routineService from "@hyperidle/routine";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";

@@ -25,21 +25,8 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { Message as DbMessage, Thread as DbThread, HyperIdleDb } from "@hyperidle/db";
-import type {
-	ApiErrorResponse,
-	EventType,
-	HostKind,
-	Message,
-	MessageType,
-	PlainPayload,
-	ProposedCallGrantedEvent,
-	RedactedPayload,
-	Thread,
-	ThreadCreatedEvent,
-	ThreadMessageAppendedEvent,
-	ThreadReopenedEvent,
-	ThreadResolvedEvent,
-} from "@hyperidle/domain-model";
+import type { EventType, ProposedCallGrantedEvent, ThreadCreatedEvent, ThreadMessageAppendedEvent, ThreadReopenedEvent, ThreadResolvedEvent } from "@hyperidle/event-bus"
+import type { ApiErrorResponse, HostKind, Message, MessageType, PlainPayload, RedactedPayload, Thread } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
 	extractMentionCandidates,

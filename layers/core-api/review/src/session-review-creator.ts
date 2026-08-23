@@ -1,5 +1,5 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ReviewPorts } from "./ports.js";
 import { handleUnconsumedGrantOnSessionEnd } from "./proposed-call-workflow.js";

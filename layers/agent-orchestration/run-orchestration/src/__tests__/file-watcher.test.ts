@@ -15,7 +15,7 @@ import { EventEmitter } from "node:events";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { DomainEvent } from "@hyperidle/domain-model";
+import type { DomainEvent } from "@hyperidle/event-bus";
 import type { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, expect, type Mock, test, vi } from "vitest";
 import { createContextAssembler } from "../context.js";

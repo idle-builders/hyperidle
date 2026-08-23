@@ -1,19 +1,8 @@
 /** Reactive lifecycle propagation. */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	type BetStateChangedEvent,
-	type BetStatus,
-	canTransitionTaskState,
-	type PropagationAppliedEvent,
-	type PropagationFailedEvent,
-	type PropagationLevel,
-	type SessionEndedEvent,
-	InvalidTransitionError as SharedInvalidTransitionError,
-	TaskInvalidTransitionError,
-	type TaskState,
-	type TaskStateChangedEvent,
-} from "@hyperidle/domain-model";
+import type { BetStateChangedEvent, PropagationAppliedEvent, PropagationFailedEvent, SessionEndedEvent, TaskStateChangedEvent } from "@hyperidle/event-bus"
+import { type BetStatus, canTransitionTaskState, type PropagationLevel, InvalidTransitionError as SharedInvalidTransitionError, TaskInvalidTransitionError, type TaskState } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { PolicyDeps } from "./ports.js";
 

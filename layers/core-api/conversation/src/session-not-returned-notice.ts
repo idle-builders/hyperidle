@@ -26,7 +26,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { SessionNotReturnedEvent } from "@hyperidle/domain-model";
+import type { SessionNotReturnedEvent } from "@hyperidle/event-bus";
 import type { EventBus } from "@hyperidle/event-bus";
 import { insertMessage } from "./conversation-store.js";
 

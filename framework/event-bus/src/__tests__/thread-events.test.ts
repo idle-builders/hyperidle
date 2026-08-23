@@ -6,14 +6,7 @@
  * = `threadId` so per-thread events arrive in order.
  */
 
-import type {
-	DomainEvent,
-	ThreadArchivedEvent,
-	ThreadCreatedEvent,
-	ThreadMessageAppendedEvent,
-	ThreadReopenedEvent,
-	ThreadResolvedEvent,
-} from "@hyperidle/domain-model";
+import type { DomainEvent, ThreadArchivedEvent, ThreadCreatedEvent, ThreadMessageAppendedEvent, ThreadReopenedEvent, ThreadResolvedEvent } from "@hyperidle/event-bus";
 import { describe, expect, it } from "vitest";
 import { EventBus } from "../event-bus.js";
 

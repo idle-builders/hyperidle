@@ -44,7 +44,7 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import type { AgentRunAdmissionFailedEvent } from "@hyperidle/domain-model";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/event-bus";
 import type { EventBus } from "@hyperidle/event-bus";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";

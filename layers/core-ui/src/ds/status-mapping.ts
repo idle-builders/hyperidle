@@ -1,13 +1,5 @@
-import type {
-	AgentOperationalStatus,
-	BetOutcomeVerdict,
-	BetStatus,
-	KnowledgeStatus,
-	RoutineState,
-	SessionOutcome,
-	TaskOutcomeVerdict,
-	TaskState,
-} from "@hyperidle/domain-model";
+import type { SessionOutcome } from "@hyperidle/domain-model"
+import type { AgentOperationalStatus, BetOutcomeVerdict, BetStatus, KnowledgeStatus, RoutineState, TaskOutcomeVerdict, TaskState } from "@hyperidle/domain-model";
 import type { Status } from "./StatusChip";
 
 /**

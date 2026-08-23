@@ -5,7 +5,7 @@ import type {
 	EventHandler,
 	EventType,
 	WildcardHandler,
-} from "@hyperidle/domain-model";
+} from "./events.js";
 
 /**
  * Module-scoped logger used to surface handler failures. Captured via

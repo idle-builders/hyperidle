@@ -4,13 +4,9 @@ import type {
 	ExplicitSessionStart,
 	HyperIdleDb,
 } from "@hyperidle/db";
-import type {
-	AgentSessionSourceCorrelation,
-	AgentSessionSourceKind,
-	ModelTier,
-	ResolvedModel,
-	SessionOutcome,
-} from "@hyperidle/domain-model";
+import type { SessionOutcome } from "@hyperidle/domain-model";
+import type {} from "@hyperidle/event-bus"
+import type { AgentSessionSourceCorrelation, AgentSessionSourceKind, ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ConversationMessage, SessionMetrics } from "@hyperidle/harness-protocol";
 import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";

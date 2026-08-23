@@ -94,54 +94,10 @@ export {
 	NoEligibleHarnessError,
 	TargetAgentNotRunnableError,
 } from "./errors.js";
-export type {
-	AgentAddedEvent,
-	AgentRunAdmissionFailedEvent,
-	AgentRunAdmissionFailureCode,
-	AgentRunLifecycleChangedEvent,
-	AgentWorkIntentEvent,
-	AgentWorkIntentKind,
-	AgentWorkIntentSourceKind,
-	ArtifactCreatedEvent,
-	BetRevisedEvent,
-	BetStateChangedEvent,
-	DependencyMetEvent,
-	DomainEvent,
-	EventByType,
-	EventHandler,
-	EventType,
-	ItemCreatedEvent,
-	KnowledgeAccessedEvent,
-	KnowledgeArchivedEvent,
-	KnowledgeCreatedEvent,
-	KnowledgeUpdatedEvent,
-	NotificationEvent,
-	PropagationAppliedEvent,
-	PropagationFailedEvent,
-	ProposedCallExecutedEvent,
-	ProposedCallGrantedEvent,
-	RoutineFiredEvent,
-	SandboxWritebackChange,
-	SandboxWritebackChangesDetectedEvent,
-	SessionEndedEvent,
-	SessionHandoffCompletedEvent,
-	SessionNotReturnedEvent,
-	SessionOutcome,
-	SessionStartedEvent,
-	TaskStateChangedEvent,
-	TeamCreatedEvent,
-	ThreadArchivedEvent,
-	ThreadCreatedEvent,
-	ThreadMessageAppendedEvent,
-	ThreadReopenedEvent,
-	ThreadResolvedEvent,
-	ToolCallRecordedEvent,
-	UserCreatedEvent,
-	WildcardHandler,
-	WildcardType,
-	WorkSelectionRequestedEvent,
-} from "./events.js";
-export { AGENT_WORK_INTENT_KINDS } from "./events.js";
+// Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
+// Callers import event types from @hyperidle/event-bus.
+// SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
+export type { SessionOutcome } from "./events.js";
 export type { HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";

@@ -3,18 +3,9 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
-import {
-	type AgentSessionSourceCorrelation,
-	type AgentSessionSourceKind,
-	ConcurrencyLimitError,
-	MissingCredentialError,
-	MODEL_TIERS,
-	type ModelTier,
-	NoEligibleHarnessError,
-	type ResolvedModel,
-	type SessionOutcome,
-	TargetAgentNotRunnableError,
-} from "@hyperidle/domain-model";
+import type { SessionOutcome } from "@hyperidle/domain-model";
+import type {} from "@hyperidle/event-bus"
+import { type AgentSessionSourceCorrelation, type AgentSessionSourceKind, ConcurrencyLimitError, MissingCredentialError, MODEL_TIERS, type ModelTier, NoEligibleHarnessError, type ResolvedModel, TargetAgentNotRunnableError } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {

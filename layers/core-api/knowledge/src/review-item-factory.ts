@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb, NewItem, NewThread } from "@hyperidle/db";
-import type { ItemCreatedEvent } from "@hyperidle/domain-model";
+import type { ItemCreatedEvent } from "@hyperidle/event-bus";
 import type { EventBus } from "@hyperidle/event-bus";
 
 /**

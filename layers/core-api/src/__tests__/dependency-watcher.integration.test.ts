@@ -1,5 +1,6 @@
 import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
-import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/domain-model";
+import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus"
+import type { TaskState } from "@hyperidle/domain-model";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";

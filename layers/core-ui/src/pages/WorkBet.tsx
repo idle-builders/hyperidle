@@ -16,12 +16,8 @@
  * a shared fetch surface requires a global cache layer (out of scope).
  */
 
-import type {
-	BetOutcomeVerdict,
-	BetStatus,
-	Message,
-	SessionOutcome,
-} from "@hyperidle/domain-model";
+import type { SessionOutcome } from "@hyperidle/domain-model"
+import type { BetOutcomeVerdict, BetStatus, Message } from "@hyperidle/domain-model";
 import {
 	BET_OUTCOME_VERDICT_LABEL,
 	BET_OUTCOME_VERDICTS,

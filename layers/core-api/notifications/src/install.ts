@@ -22,10 +22,8 @@
 import * as crypto from "node:crypto";
 import type { HyperIdleDb, NewNotificationQueueRow } from "@hyperidle/db";
 import { ERROR_TOKEN_PATTERNS, REDACTED_TAG } from "@hyperidle/diagnostics";
-import type {
-	NotificationEvent,
-	NotificationTypeKey,
-} from "@hyperidle/domain-model";
+import type { NotificationEvent } from "@hyperidle/event-bus"
+import type { NotificationTypeKey } from "@hyperidle/domain-model";
 // @lore AU44-b8: NotificationUrgency SIMPLIFY'd from domain-model public API (element type
 // of NotificationType.defaultUrgency; no external consumer names it directly). Inlined here.
 type NotificationUrgency = "immediate" | "ambient";

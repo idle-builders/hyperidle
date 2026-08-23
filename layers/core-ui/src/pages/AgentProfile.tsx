@@ -25,7 +25,8 @@
  * - A2: Operational status derived on frontend, not from DB status column
  */
 
-import type { AgentProfileResponse, SessionOutcome } from "@hyperidle/domain-model";
+import type { SessionOutcome } from "@hyperidle/domain-model"
+import type { AgentProfileResponse } from "@hyperidle/domain-model";
 import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	findRoleCatalogEntry,

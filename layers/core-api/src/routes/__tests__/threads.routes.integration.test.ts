@@ -14,7 +14,8 @@
  */
 
 import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { type DomainEvent, HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/domain-model";
+import type { DomainEvent } from "@hyperidle/event-bus"
+import { HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
