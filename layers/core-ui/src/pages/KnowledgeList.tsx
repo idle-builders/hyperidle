@@ -8,8 +8,9 @@
  * AC explicitly forbids localStorage persistence here.
  *
  * @lore L22: Triage view fetches from /api/knowledge (the general list
- * endpoint). Sort controls use URL state (?sort=recency|frequency).
- * Default (no param) = relevance sort.
+ * endpoint). Sort controls use URL state (?sort=recency). Default = recency.
+ * @lore AU44 batch 4: signals removed (FULL-AUDIT.md row 13). frequency/relevance pills
+ * removed. attentionScore triage sort removed. Plain recency list throughout.
  *
  * @lore N5: Replaced all fixture imports with real API calls. Both Triage and
  * Curated tabs now read from /api/knowledge. The real schema has no layer/kind
@@ -49,7 +50,12 @@ import type {
 	KnowledgeStatus,
 	KnowledgeTopicHealth,
 } from "@hyperidle/domain-model";
-import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
+import { KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
+
+// @lore AU44 batch 4: signals (accessCount30d, relevanceScore, etc.) removed per FULL-AUDIT.md row 13.
+// Only the recency pill survives. KNOWLEDGE_SORT_OPTIONS (includes frequency/relevance) is no longer
+// iterated for rendering — use this local constant so the UI never shows dead sort options.
+const VISIBLE_SORT_OPTIONS = ["recency"] as const;
 import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
@@ -88,45 +94,20 @@ const KNOWLEDGE_KINDS = new Set(["pattern", "decision", "failure"]);
  * Returns a new array — does NOT mutate the input.
  *
  * recency:   updatedAt desc, tie-break title asc
- * frequency: accessCount30d desc null-last, tie-break updatedAt desc
- * relevance: relevanceScore desc null-last, tie-break updatedAt desc
+ * recency: updatedAt desc, tie-break title asc
  *
  * @lore AF13: Previously sort pills only changed the URL param but the item list
  * was never reordered. This function is applied both within topic groups (curated)
  * and to the flat triage list so sort pills actually do something.
+ * @lore AU44 batch 4: frequency and relevance branches removed (FULL-AUDIT.md row 13 —
+ * signals die). Only recency survives. Non-recency values fall through to recency behavior.
  */
 export function sortItems(items: ApiKnowledgeItem[], by: KnowledgeSortOption): ApiKnowledgeItem[] {
 	return [...items].sort((a, b) => {
-		if (by === "recency") {
-			const cmp = b.updatedAt.localeCompare(a.updatedAt);
-			if (cmp !== 0) return cmp;
-			// tie-break: title asc
-			return a.title.localeCompare(b.title);
-		}
-		if (by === "frequency") {
-			const aScore = a.signals?.accessCount30d ?? null;
-			const bScore = b.signals?.accessCount30d ?? null;
-			if (aScore === null && bScore === null) {
-				// both null: fall back to updatedAt desc
-				return b.updatedAt.localeCompare(a.updatedAt);
-			}
-			if (aScore === null) return 1; // null-last
-			if (bScore === null) return -1; // null-last
-			const cmp = bScore - aScore;
-			if (cmp !== 0) return cmp;
-			return b.updatedAt.localeCompare(a.updatedAt);
-		}
-		// relevance
-		const aRel = a.signals?.relevanceScore ?? null;
-		const bRel = b.signals?.relevanceScore ?? null;
-		if (aRel === null && bRel === null) {
-			return b.updatedAt.localeCompare(a.updatedAt);
-		}
-		if (aRel === null) return 1;
-		if (bRel === null) return -1;
-		const cmp = bRel - aRel;
+		// recency (and any future unrecognised value): updatedAt desc, tie-break title asc
+		const cmp = b.updatedAt.localeCompare(a.updatedAt);
 		if (cmp !== 0) return cmp;
-		return b.updatedAt.localeCompare(a.updatedAt);
+		return a.title.localeCompare(b.title);
 	});
 }
 
@@ -145,10 +126,14 @@ function isKnowledgeSortOption(value: string | null): value is KnowledgeSortOpti
 
 function deriveSort(searchParams: URLSearchParams): KnowledgeSortOption {
 	const raw = searchParams.get("sort");
-	return isKnowledgeSortOption(raw) ? raw : "relevance";
+	return isKnowledgeSortOption(raw) ? raw : "recency";
 }
 
-/** Shape of an item returned by GET /api/knowledge */
+/**
+ * Shape of an item returned by GET /api/knowledge.
+ * @lore AU44 batch 4: signals wrapper removed (FULL-AUDIT.md row 13). attentionScore is now
+ * a flat field written by the PLUGIN attention service and returned top-level by the list route.
+ */
 interface ApiKnowledgeItem {
 	id: string;
 	topic: string | null;
@@ -162,13 +147,7 @@ interface ApiKnowledgeItem {
 	scopeId?: string | null;
 	createdAt: string;
 	updatedAt: string;
-	signals?: {
-		lastActivityAt?: string | null;
-		accessCount30d?: number | null;
-		citationCount?: number | null;
-		relevanceScore?: number | null;
-		attentionScore?: number | null;
-	} | null;
+	attentionScore?: number | null;
 }
 
 interface ApiKnowledgeListResponse {
@@ -485,7 +464,7 @@ function KnowledgeListContent({
 				className="flex items-center gap-[9px] py-[9px]"
 			>
 				<span className="type-metadata  text-[var(--text-tertiary)]">Sort:</span>
-				{KNOWLEDGE_SORT_OPTIONS.map((option) => {
+				{VISIBLE_SORT_OPTIONS.map((option) => {
 					const isActive = sort === option;
 					return (
 						<button
@@ -884,23 +863,14 @@ export function KnowledgeList({
 		return withOverrides.filter((i) => i.scopeKind !== undefined && allowed.has(i.scopeKind));
 	}, [allItems, selectedScopePill, optimisticStatuses]);
 
-	// Y4: triage includes both draft and needs_human items, sorted by attentionScore descending
-	// AF13 §3: sortItems applied after triage filter to honour sort pill selection.
+	// Y4: triage includes both draft and needs_human items.
+	// @lore AU44 batch 4: attentionScore sort removed (FULL-AUDIT.md row 13 — attention sort dies
+	// with signals). Triage is now a plain recency list; the sort pill applies if selected.
 	const triageItems = useMemo<ApiKnowledgeItem[]>(() => {
 		const raw = scopeFilteredItems.filter(
 			(i) => i.status === "draft" || i.status === "needs_human",
 		);
-		// Sort by attentionScore descending — items with no score go last; then apply sort pill
-		const byAttention = raw.slice().sort((a, b) => {
-			const aScore = a.signals?.attentionScore ?? null;
-			const bScore = b.signals?.attentionScore ?? null;
-			if (aScore === null && bScore === null) return 0;
-			if (aScore === null) return 1;
-			if (bScore === null) return -1;
-			return bScore - aScore;
-		});
-		// AF13 §3: apply sort pill on top of attentionScore ordering
-		return sort === "relevance" ? byAttention : sortItems(byAttention, sort);
+		return sortItems(raw, sort);
 	}, [scopeFilteredItems, sort]);
 
 	const curatedItems = useMemo<ApiKnowledgeItem[]>(
@@ -908,12 +878,12 @@ export function KnowledgeList({
 		[scopeFilteredItems],
 	);
 
-	// AF13 §3: Apply sortItems within each topic group so sort pills reorder curated view.
+	// AF13 §3: Apply sortItems within each topic group so the recency pill reorders curated view.
 	const grouped = useMemo(
 		() =>
 			groupByTopic(curatedItems).map((g) => ({
 				...g,
-				items: sort === "relevance" ? g.items : sortItems(g.items, sort),
+				items: sortItems(g.items, sort),
 			})),
 		[curatedItems, sort],
 	);
@@ -974,11 +944,7 @@ export function KnowledgeList({
 
 	function handleSortChange(newSort: KnowledgeSortOption): void {
 		const next = new URLSearchParams(searchParams);
-		if (newSort === "relevance") {
-			next.delete("sort");
-		} else {
-			next.set("sort", newSort);
-		}
+		next.set("sort", newSort);
 		setSearchParams(next, { replace: true });
 	}
 

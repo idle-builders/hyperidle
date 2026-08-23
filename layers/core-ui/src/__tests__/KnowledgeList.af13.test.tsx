@@ -1,8 +1,9 @@
 /**
- * AF13 — KnowledgeList component tests (red phase).
+ * AF13 — KnowledgeList component tests.
  *
  * Covers:
- * - §3: sort pills actually reorder (recency + frequency, both tabs)
+ * - §3: recency sort pill reorders (both tabs)
+ *   @lore AU44 batch 4: frequency pill removed (FULL-AUDIT.md row 13 — signals gone).
  * - §6 / Task 6: triage validate → item leaves triage AND enters curated
  *   (optimistic status override, not removal — "verdict moves the item")
  */
@@ -53,8 +54,6 @@ function makeItem(
 		updatedAt?: string;
 		title?: string;
 		topic?: string;
-		relevanceScore?: number | null;
-		accessCount30d?: number | null;
 	} = {},
 ): Record<string, unknown> {
 	return {
@@ -69,13 +68,7 @@ function makeItem(
 		scopeKind: "factory",
 		createdAt: "2024-01-01T00:00:00Z",
 		updatedAt: opts.updatedAt ?? "2024-01-02T00:00:00Z",
-		signals: {
-			lastActivityAt: null,
-			accessCount30d: opts.accessCount30d ?? null,
-			citationCount: null,
-			relevanceScore: opts.relevanceScore ?? null,
-			attentionScore: null,
-		},
+		attentionScore: null,
 	};
 }
 
@@ -122,7 +115,7 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 
 		const user = userEvent.setup();
 		// Render on Curated tab (no triage items)
-		renderAt("/knowledge?sort=relevance");
+		renderAt("/knowledge");
 
 		// Switch to Curated tab
 		await user.click(screen.getByRole("tab", { name: /curated/i }));
@@ -148,55 +141,6 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 		});
 	});
 
-	it("Frequency pill reorders curated items by accessCount30d desc null-last", async () => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					makeItem("low-freq", "active", {
-						accessCount30d: 2,
-						title: "Low Frequency",
-						topic: "Topic",
-					}),
-					makeItem("high-freq", "active", {
-						accessCount30d: 20,
-						title: "High Frequency",
-						topic: "Topic",
-					}),
-					makeItem("no-freq", "active", {
-						accessCount30d: null,
-						title: "No Frequency",
-						topic: "Topic",
-					}),
-				],
-			},
-			error: null,
-			isLoading: false,
-		});
-
-		const user = userEvent.setup();
-		renderAt("/knowledge");
-		await user.click(screen.getByRole("tab", { name: /curated/i }));
-
-		// Click Frequency sort pill — scoped to sort bar to avoid matching item titles
-		// ("High Frequency", "Low Frequency", "No Frequency" are in the curated list)
-		const sortBar = screen.getByTestId("knowledge-sort-bar");
-		const freqPill = within(sortBar).getByRole("button", { name: /frequency/i });
-		await user.click(freqPill);
-
-		// After sort: High (20) → Low (2) → No (null)
-		await waitFor(() => {
-			const curatedView = screen.getByTestId("knowledge-curated-view");
-			const rows = within(curatedView).getAllByRole("listitem");
-			const texts = rows.map((r) => r.textContent ?? "");
-
-			const highIdx = texts.findIndex((t) => t.includes("High Frequency"));
-			const lowIdx = texts.findIndex((t) => t.includes("Low Frequency"));
-			const noIdx = texts.findIndex((t) => t.includes("No Frequency"));
-
-			expect(highIdx).toBeLessThan(lowIdx);
-			expect(lowIdx).toBeLessThan(noIdx);
-		});
-	});
 });
 
 // ---------------------------------------------------------------------------
