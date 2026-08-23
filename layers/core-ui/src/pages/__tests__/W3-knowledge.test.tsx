@@ -199,19 +199,9 @@ describe("W3 AC-34 — Sort controls always visible", () => {
 		expect(sortBar).not.toBeNull();
 	});
 
-	it("renders Relevance sort option", () => {
-		renderKnowledgeList();
-		expect(screen.getByText(/relevance/i)).toBeInTheDocument();
-	});
-
 	it("renders Recency sort option", () => {
 		renderKnowledgeList();
 		expect(screen.getByText(/recency/i)).toBeInTheDocument();
-	});
-
-	it("renders Frequency sort option", () => {
-		renderKnowledgeList();
-		expect(screen.getByText(/frequency/i)).toBeInTheDocument();
 	});
 
 	it("sort controls are visible in Curated tab", async () => {

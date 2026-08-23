@@ -140,7 +140,6 @@ describe("AF13 §3 — Sort pills actually reorder the curated tab", () => {
 			expect(middleIdx).toBeLessThan(oldestIdx);
 		});
 	});
-
 });
 
 // ---------------------------------------------------------------------------

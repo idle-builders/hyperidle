@@ -521,167 +521,165 @@ function KnowledgeListContent({
 							/>
 						</div>
 					) : (
-						<>
-							<ItemList variant="flush" as="ul" isEmpty={filteredTriageItems.length === 0}>
-								{filteredTriageItems.map((item, index) => {
-									const isPrivate = item.scopeKind === "user";
-									// AG6/AD6: kind-badge only renders for explicit knowledge-kind values.
-									// "factory","product","practice","team","user" are scope values — no badge.
-									// @lore AG6: AD6 AC-4 (kind badge removed from rows) coexists with AG6
-									// protected kind-badge testid because real scopeKind values are scope
-									// identifiers; only "pattern"/"decision"/"failure" render a kind badge.
-									const itemKind =
-										item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
-											? item.scopeKind
-											: undefined;
-									const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
-									const itemStatus = toKnowledgeStatus(item.status);
-									return (
-										<Row
-											key={item.id}
-											as="li"
-											data-testid="knowledge-row"
-											data-focused={focusedIndex === index ? "true" : undefined}
-											title={item.title}
-											subtitle={
-												item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
-											}
-											cells={[
-												...(isPrivate
-													? [
-															{
-																content: (
-																	<span
-																		className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
-																		style={{
-																			background: "var(--surface-container)",
-																			color: "var(--text-secondary)",
-																		}}
-																		title="Private — only visible to you"
-																	>
-																		Private
-																	</span>
-																),
-																"data-testid": "private-badge" as const,
-															},
-														]
-													: []),
-												...(itemKind && kStyle
-													? [
-															{
-																content: (
-																	<span
-																		className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
-																		style={kStyle}
-																	>
-																		{itemKind}
-																	</span>
-																),
-																"data-testid": "kind-badge" as const,
-															},
-														]
-													: []),
-												...(itemStatus === "active" || itemStatus === "archived"
-													? [
-															{
-																content: (
-																	<span data-testid="status-badge">
-																		<StatusChip
-																			status={knowledgeStatusToStatus(itemStatus)}
-																			label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
-																		/>
-																	</span>
-																),
-															},
-														]
-													: []),
-												{
-													content: relativeShort(item.updatedAt),
-													"data-testid": "knowledge-time" as const,
-												},
-											]}
-											actions={
-												<div className="flex items-center gap-[3px]">
-													<button
-														type="button"
-														aria-label="Validate"
-														title="Validate"
-														onClick={(e) => {
-															e.stopPropagation();
-															onTriageAction(item.id, "active");
-														}}
-														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+						<ItemList variant="flush" as="ul" isEmpty={filteredTriageItems.length === 0}>
+							{filteredTriageItems.map((item, index) => {
+								const isPrivate = item.scopeKind === "user";
+								// AG6/AD6: kind-badge only renders for explicit knowledge-kind values.
+								// "factory","product","practice","team","user" are scope values — no badge.
+								// @lore AG6: AD6 AC-4 (kind badge removed from rows) coexists with AG6
+								// protected kind-badge testid because real scopeKind values are scope
+								// identifiers; only "pattern"/"decision"/"failure" render a kind badge.
+								const itemKind =
+									item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
+										? item.scopeKind
+										: undefined;
+								const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
+								const itemStatus = toKnowledgeStatus(item.status);
+								return (
+									<Row
+										key={item.id}
+										as="li"
+										data-testid="knowledge-row"
+										data-focused={focusedIndex === index ? "true" : undefined}
+										title={item.title}
+										subtitle={
+											item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
+										}
+										cells={[
+											...(isPrivate
+												? [
+														{
+															content: (
+																<span
+																	className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
+																	style={{
+																		background: "var(--surface-container)",
+																		color: "var(--text-secondary)",
+																	}}
+																	title="Private — only visible to you"
+																>
+																	Private
+																</span>
+															),
+															"data-testid": "private-badge" as const,
+														},
+													]
+												: []),
+											...(itemKind && kStyle
+												? [
+														{
+															content: (
+																<span
+																	className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
+																	style={kStyle}
+																>
+																	{itemKind}
+																</span>
+															),
+															"data-testid": "kind-badge" as const,
+														},
+													]
+												: []),
+											...(itemStatus === "active" || itemStatus === "archived"
+												? [
+														{
+															content: (
+																<span data-testid="status-badge">
+																	<StatusChip
+																		status={knowledgeStatusToStatus(itemStatus)}
+																		label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
+																	/>
+																</span>
+															),
+														},
+													]
+												: []),
+											{
+												content: relativeShort(item.updatedAt),
+												"data-testid": "knowledge-time" as const,
+											},
+										]}
+										actions={
+											<div className="flex items-center gap-[3px]">
+												<button
+													type="button"
+													aria-label="Validate"
+													title="Validate"
+													onClick={(e) => {
+														e.stopPropagation();
+														onTriageAction(item.id, "active");
+													}}
+													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+												>
+													<svg
+														width="14"
+														height="14"
+														viewBox="0 0 16 16"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="2"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														aria-hidden="true"
 													>
-														<svg
-															width="14"
-															height="14"
-															viewBox="0 0 16 16"
-															fill="none"
-															stroke="currentColor"
-															strokeWidth="2"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															aria-hidden="true"
-														>
-															<path d="M2 8l4 4 8-8" />
-														</svg>
-													</button>
-													<button
-														type="button"
-														aria-label="Reject"
-														title="Reject"
-														onClick={(e) => {
-															e.stopPropagation();
-															onTriageAction(item.id, "archived");
-														}}
-														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+														<path d="M2 8l4 4 8-8" />
+													</svg>
+												</button>
+												<button
+													type="button"
+													aria-label="Reject"
+													title="Reject"
+													onClick={(e) => {
+														e.stopPropagation();
+														onTriageAction(item.id, "archived");
+													}}
+													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+												>
+													<svg
+														width="14"
+														height="14"
+														viewBox="0 0 16 16"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="2"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														aria-hidden="true"
 													>
-														<svg
-															width="14"
-															height="14"
-															viewBox="0 0 16 16"
-															fill="none"
-															stroke="currentColor"
-															strokeWidth="2"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															aria-hidden="true"
-														>
-															<path d="M2 2l12 12M14 2L2 14" />
-														</svg>
-													</button>
-													<button
-														type="button"
-														aria-label="Open"
-														title="Open"
-														onClick={(e) => {
-															e.stopPropagation();
-															onNavigate(item.id);
-														}}
-														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+														<path d="M2 2l12 12M14 2L2 14" />
+													</svg>
+												</button>
+												<button
+													type="button"
+													aria-label="Open"
+													title="Open"
+													onClick={(e) => {
+														e.stopPropagation();
+														onNavigate(item.id);
+													}}
+													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+												>
+													<svg
+														width="14"
+														height="14"
+														viewBox="0 0 16 16"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="2"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														aria-hidden="true"
 													>
-														<svg
-															width="14"
-															height="14"
-															viewBox="0 0 16 16"
-															fill="none"
-															stroke="currentColor"
-															strokeWidth="2"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															aria-hidden="true"
-														>
-															<path d="M3 8h10M8 3l5 5-5 5" />
-														</svg>
-													</button>
-												</div>
-											}
-											onClick={() => onNavigate(item.id)}
-										/>
-									);
-								})}
-							</ItemList>
-						</>
+														<path d="M3 8h10M8 3l5 5-5 5" />
+													</svg>
+												</button>
+											</div>
+										}
+										onClick={() => onNavigate(item.id)}
+									/>
+								);
+							})}
+						</ItemList>
 					)}
 				</div>
 			) : (
@@ -872,7 +870,7 @@ export function KnowledgeList({
 			(i) => i.status === "draft" || i.status === "needs_human",
 		);
 		return sortItems(raw);
-	}, [scopeFilteredItems, sort]);
+	}, [scopeFilteredItems]);
 
 	const curatedItems = useMemo<ApiKnowledgeItem[]>(
 		() => scopeFilteredItems.filter((i) => i.status === "active"),
@@ -886,7 +884,7 @@ export function KnowledgeList({
 				...g,
 				items: sortItems(g.items),
 			})),
-		[curatedItems, sort],
+		[curatedItems],
 	);
 
 	const prevScopeRef = useRef(scope);
