@@ -17,8 +17,6 @@
 			"path": "framework/factory-defaults"
 		},
 		{
-		},
-		{
 			"path": "framework/harness-protocol"
 		},
 		{
@@ -64,9 +62,6 @@
 			"path": "applications/remote-worker"
 		}
 	],
-	"exclude": [
-		"node_modules",
-		"dist"
-	],
+	"exclude": ["node_modules", "dist"],
 	"include": []
 }

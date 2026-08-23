@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -10,7 +11,6 @@ import {
 	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import type { ConversationMessage } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type {

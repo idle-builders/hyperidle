@@ -50,8 +50,8 @@
  */
 
 import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
-import type { SessionStartedEvent } from "@hyperidle/event-bus"
 import type { TaskState } from "@hyperidle/domain-model";
+import type { SessionStartedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.

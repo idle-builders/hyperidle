@@ -264,9 +264,8 @@ describe("atomic production handoffs", () => {
 		// checkAndUnblockDependents always bakes before calling the recorder.
 		// @lore AU44: AgentWorkIntentRecorderInput still declares bakedRequest? for back-compat.
 		// Cast via unknown avoids the contravariance mismatch — safe since production always bakes.
-		const workIntentsImpl: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn = (
-			input,
-		) => enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]);
+		const workIntentsImpl: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn = (input) =>
+			enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]);
 		const localDeps = {
 			workIntents: workIntentsImpl,
 			taskRunResolver: { requireRunnableAgent },

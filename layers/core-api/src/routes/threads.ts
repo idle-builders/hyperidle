@@ -25,16 +25,32 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { Message as DbMessage, Thread as DbThread, HyperIdleDb } from "@hyperidle/db";
-import type { EventType, ProposedCallGrantedEvent, ThreadCreatedEvent, ThreadMessageAppendedEvent, ThreadReopenedEvent, ThreadResolvedEvent } from "@hyperidle/event-bus"
-import type { ApiErrorResponse, HostKind, Message, MessageType, PlainPayload, RedactedPayload, Thread } from "@hyperidle/domain-model";
+import type {
+	AgentWorkIntentRecorderFn,
+	ApiErrorResponse,
+	HostKind,
+	HyperIdleEnv,
+	Message,
+	MessageType,
+	PlainPayload,
+	RedactedPayload,
+	Thread,
+} from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
 	extractMentionCandidates,
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
-import type { HyperIdleEnv } from "@hyperidle/domain-model";
+import type {
+	EventBus,
+	EventType,
+	ProposedCallGrantedEvent,
+	ThreadCreatedEvent,
+	ThreadMessageAppendedEvent,
+	ThreadReopenedEvent,
+	ThreadResolvedEvent,
+} from "@hyperidle/event-bus";
 import {
 	assembleSessionKnowledge,
 	get as getKnowledgeItem,
@@ -46,7 +62,6 @@ import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { deriveTitle } from "@hyperidle/work";
-import type { AgentWorkIntentRecorderFn } from "@hyperidle/domain-model";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";
 import { z as zod } from "zod";

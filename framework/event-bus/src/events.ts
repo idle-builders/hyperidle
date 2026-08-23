@@ -2,11 +2,17 @@
 // The event vocabulary exists to type the bus's API; it lives where the bus lives.
 // Under Ruling 2 (extension surface), all events survive — only the location changes.
 // Callers that imported from @hyperidle/domain-model now import from @hyperidle/event-bus.
-import type { AgentSessionSourceCorrelation, AgentSessionSourceKind } from "@hyperidle/domain-model";
-import type { HostKind, MessageType } from "@hyperidle/domain-model";
-import type { BetStatus, ModelTier, TaskState } from "@hyperidle/domain-model";
 // SessionOutcome stays in domain-model (core-ui needs it; core-ui cannot reach event-bus).
-import type { SessionOutcome } from "@hyperidle/domain-model";
+import type {
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
+	BetStatus,
+	HostKind,
+	MessageType,
+	ModelTier,
+	SessionOutcome,
+	TaskState,
+} from "@hyperidle/domain-model";
 
 /**
  * The canonical runtime-checkable list `AgentWorkIntentKind` is built from —

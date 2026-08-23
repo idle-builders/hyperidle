@@ -17,8 +17,7 @@
 
 import { type HyperIdleDb, type Session, sessions } from "@hyperidle/db";
 import type { SessionOutcome } from "@hyperidle/domain-model";
-import type {SessionEndedEvent} from "@hyperidle/event-bus";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 
 /** Full row by id; `undefined` on a miss. */

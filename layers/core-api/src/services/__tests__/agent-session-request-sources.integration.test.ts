@@ -13,8 +13,8 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { DomainEvent } from "@hyperidle/event-bus"
 import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
+import type { DomainEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import type {
 	HarnessAdapter,

@@ -49,8 +49,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findMessage, resolveAssistantTurnRequest } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { ThreadMessageAppendedEvent } from "@hyperidle/event-bus";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { EventBus, ThreadMessageAppendedEvent } from "@hyperidle/event-bus";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
 

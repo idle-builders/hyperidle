@@ -28,11 +28,7 @@
 	},
 	"containment": {
 		"note": "A service lives inside exactly one layer. A layer belongs to itself. Composition roots live outside the tree and are the only actors permitted to reach across it.",
-		"compositionRootRoles": [
-			"application",
-			"tooling",
-			"deployment"
-		],
+		"compositionRootRoles": ["application", "tooling", "deployment"],
 		"repoRootIsCompositionRoot": true
 	},
 	"surfaces": {
@@ -42,12 +38,7 @@
 			"why": "the product's nouns \u2014 the closed sets, the wire shapes and the pure predicates over them. Nothing here declares a port and nothing here carries a dependency a browser cannot run. The one successor of the old substrate that keeps universal reach, for the same reason db:row-type has it: a shape is not an access path."
 		},
 		"framework/diagnostics": {
-			"reach": [
-				"core-api",
-				"agent-orchestration",
-				"service",
-				"application"
-			],
+			"reach": ["core-api", "agent-orchestration", "service", "application"],
 			"why": "the structured logger, the secret scrubber, and the observability event/adapter contract with its console sink. A log line happens where the process is and every service runs in one; every application installs a sink. `layer` is deliberately not granted, because core-ui is a layer and must not log \u2014 core-api and agent-orchestration are named individually instead, the same reason `run-orchestration-composition.ts` (AU31 \u00a72.1(b), relocated into agent-orchestration's own boot) logs a summarized tool arg."
 		},
 		"framework/harness-capability": {
@@ -62,21 +53,11 @@
 			"why": "what an installed harness IS \u2014 its readiness, the models it offers, the tools it already has, the auth action it needs, and how its return enforcement is provisioned. A screen renders this; run-orchestration provisions the enforcement channel; agent-execution's own boot (AU31 \u00a76) types the `ReturnEnforcementChannel` its `returnStatusTool` adapter carries out to the layer that consumes it. Separating it from the protocol is what lets the protocol say no to the interface."
 		},
 		"framework/event-bus": {
-			"reach": [
-				"core-api",
-				"agent-execution",
-				"agent-orchestration",
-				"service",
-				"application"
-			],
+			"reach": ["core-api", "agent-execution", "agent-orchestration", "service", "application"],
 			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot \u2014 so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types in framework/domain-model."
 		},
 		"framework/factory-defaults": {
-			"reach": [
-				"core-api",
-				"agent-orchestration",
-				"tool-handlers"
-			],
+			"reach": ["core-api", "agent-orchestration", "tool-handlers"],
 			"why": "the roster and the system-prompt templates a fresh installation is seeded with. It reads template files off disk, so a browser cannot run it at all."
 		},
 		"framework/harness-protocol": {
@@ -99,9 +80,7 @@
 			"why": "the manifest-level dependency on the database package. Which surface INSIDE it you may touch is decided per surface below, so declaring the dependency is not itself a decision."
 		},
 		"framework/api-contract": {
-			"reach": [
-				"layer"
-			],
+			"reach": ["layer"],
 			"why": "the request/response shapes two layers agree on. A service talks through its own layer, so it has no business naming the contract directly."
 		},
 		"db:client": {
@@ -125,11 +104,7 @@
 			"why": "development code. A production file naming it is already an error under the production-may-not-name-development clause; this entry keeps the two answers from disagreeing."
 		},
 		"core-api/credentials": {
-			"reach": [
-				"core-api",
-				"remote-server",
-				"desktop"
-			],
+			"reach": ["core-api", "remote-server", "desktop"],
 			"why": "The credential store and its AES-256-GCM cipher (moved from @hyperidle/credential-access). core-api consumes the store directly; both server Applications compose the cipher at boot to inject into agent-orchestration via bootAgentOrchestration."
 		}
 	},
@@ -150,18 +125,13 @@
 	"endpoints": {
 		"note": "A door is dialled only if the target declares it.",
 		"httpApiLayers": {
-			"layers": [
-				"core-api",
-				"agent-orchestration"
-			],
+			"layers": ["core-api", "agent-orchestration"],
 			"audience": "everyone",
 			"why": "a layer that publishes an HTTP API publishes it to the whole system. agent-execution is absent because it hosts no API."
 		},
 		"mcpRouter": {
 			"host": "agent-execution",
-			"alsoDialledBy": [
-				"harness"
-			],
+			"alsoDialledBy": ["harness"],
 			"why": "the router exists to serve the harness. Only the layer that owns the harness relationship, and the harness itself, dial it."
 		}
 	},
@@ -178,10 +148,7 @@
 	},
 	"oneDoorSurfaces": {
 		"note": "The development world relaxes every production rule EXCEPT these. Each names a surface where production has exactly one door \u2014 going around it builds a world production cannot produce, which is the one thing a test may not do.",
-		"surfaces": [
-			"db:schema-ns",
-			"db:unknown"
-		],
+		"surfaces": ["db:schema-ns", "db:unknown"],
 		"rawRuntime": true,
 		"rawRuntimeNote": "Ruling 14 \u2014 this holds BOTH spellings of the one act, the SDK import and the CLI spawn, because they are one target. Going around a door production has only one of is the one thing a test may not do, and a test spawning `claude` directly is doing exactly that.",
 		"why": "a test may cross any boundary to arrange the world; it may not go around a door production has only one of",

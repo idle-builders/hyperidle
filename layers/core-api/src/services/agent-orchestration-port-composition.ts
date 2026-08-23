@@ -41,11 +41,11 @@ import type {
 	AgentOrchestrationWorkIntentReceipt,
 } from "@hyperidle/api-contract";
 import type { WriteExecutor } from "@hyperidle/db";
-import type { OrgUserDirectory } from "@hyperidle/org";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 } from "@hyperidle/domain-model";
+import type { OrgUserDirectory } from "@hyperidle/org";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";

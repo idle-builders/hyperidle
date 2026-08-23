@@ -32,7 +32,6 @@ import type {
 	Thread,
 	VerdictDecision,
 } from "@hyperidle/domain-model";
-import { promotedRichMessageId } from "./thread-display.js"
 import { isBlocking, isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, type ReactNode, useMemo, useRef, useState } from "react";
 import { CommentRow } from "./CommentRow.js";
@@ -42,6 +41,7 @@ import { ErrorState } from "./ErrorState.js";
 import { RichMessageCard, type RichMessageCardAction } from "./RichMessageCard.js";
 import { SkeletonList } from "./Skeleton.js";
 import { ThreadHostBanner } from "./ThreadHostBanner.js";
+import { promotedRichMessageId } from "./thread-display.js";
 
 const SENDER_GROUP_WINDOW_MS = 5 * 60 * 1000; // approved.md §2.4 — 5 minutes
 

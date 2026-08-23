@@ -4,8 +4,8 @@
  * All consumers are UI-world. Audit rows 39 & 40: MERGE → design-system (=core-ui).
  */
 
-import { getKindDefinition } from "@hyperidle/domain-model";
 import type { Artifact } from "@hyperidle/domain-model";
+import { getKindDefinition } from "@hyperidle/domain-model";
 
 /**
  * Single-line summary of a preview. Delegates to the Kind Definition registry.

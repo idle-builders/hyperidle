@@ -26,8 +26,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { SessionNotReturnedEvent } from "@hyperidle/event-bus";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { EventBus, SessionNotReturnedEvent } from "@hyperidle/event-bus";
 import { insertMessage } from "./conversation-store.js";
 
 const logger = createLogger({ pkg: "core-api.session-not-returned-notice" });

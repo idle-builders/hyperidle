@@ -10,8 +10,8 @@
  * purged (AD8a AC-10). All symbols and file references updated atomically.
  */
 
-import type { BlockHostKind } from "../block/types.js";
 import { createContext } from "react";
+import type { BlockHostKind } from "../block/types.js";
 
 /**
  * A context reference with a display label for the chip (label is NOT

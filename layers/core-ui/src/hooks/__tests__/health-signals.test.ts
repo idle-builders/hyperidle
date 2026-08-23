@@ -11,7 +11,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "../agent-run-view.js";
+import { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "../agent-health.js";
 
 // ---------------------------------------------------------------------------
 // computeHealthSignals unit tests

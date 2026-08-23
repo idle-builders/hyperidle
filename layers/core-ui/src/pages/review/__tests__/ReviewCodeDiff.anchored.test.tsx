@@ -1,9 +1,9 @@
-import type { BlockId } from "../../../block/types.js"
 import type { AnchorRef } from "@hyperidle/domain-model";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Mock } from "vitest";
 import { describe, expect, it, vi as vitest } from "vitest";
+import type { BlockId } from "../../../block/types.js";
 import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture.js";
 import { getReviewCanvas } from "../canvas-registry.js";
 import type { CodeDiffPayload, ReviewArtifact } from "../review-artifact.js";

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
+import type { BakedWorkIntentRequest } from "@hyperidle/domain-model";
 import {
 	canTransitionTaskState,
 	TASK_STATE_TRANSITIONS,
@@ -7,7 +8,6 @@ import {
 	type TaskState,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { BakedWorkIntentRequest } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import type { AgentWorkIntentRecorder } from "./ports.js";
 import type { TaskRunResolverDeps } from "./task-run-resolver.js";

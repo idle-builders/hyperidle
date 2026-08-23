@@ -1,7 +1,8 @@
 // AM5 — base-primitive foundation story: Quote (pure content).
 // Thin wrapper over block/QuotePayload (children = nested BlockPayload[]).
-import type { BlockPayload } from "../block/types.js";
+
 import type { JSX } from "react";
+import type { BlockPayload } from "../block/types.js";
 import { QuotePayload } from "./block/QuotePayload.js";
 
 export default { title: "Quote", group: "Blocks" as const };

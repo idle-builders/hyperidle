@@ -1,5 +1,5 @@
-import type { BlockPayload } from "../../block/types.js";
 import type { JSX } from "react";
+import type { BlockPayload } from "../../block/types.js";
 
 import { CodePayload } from "./CodePayload.js";
 import { DividerPayload } from "./DividerPayload.js";

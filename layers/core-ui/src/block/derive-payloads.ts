@@ -14,11 +14,11 @@
  * This is defense-in-depth against tracking pixels and hostile image URLs.
  */
 
-import type { BlockPayload, InlineNode, ListItem } from "./types.js"
-import { LINK_URL_SAFE_SCHEMES, MAX_BODY_BYTES } from "./types.js";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
+import type { BlockPayload, InlineNode, ListItem } from "./types.js";
+import { LINK_URL_SAFE_SCHEMES, MAX_BODY_BYTES } from "./types.js";
 
 const enc = new TextEncoder();
 

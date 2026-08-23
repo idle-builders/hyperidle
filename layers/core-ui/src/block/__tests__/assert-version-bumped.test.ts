@@ -6,9 +6,9 @@
  * unambiguous to a future agent.
  */
 
-import { BLOCK_ID_VERSION } from "../types.js";
 import { describe, expect, it } from "vitest";
 import { blockId } from "../block-id.js";
+import { BLOCK_ID_VERSION } from "../types.js";
 
 describe("BLOCK_ID_VERSION participates in the hash", () => {
 	it("BLOCK_ID_VERSION is the current 'blk:v1'", () => {

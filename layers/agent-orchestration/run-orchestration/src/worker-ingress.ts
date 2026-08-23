@@ -6,8 +6,9 @@
  * which both apps may import — so the second hand-rolled copy is deleted, not
  * kept in sync.
  */
-import type { HarnessAdapter } from "@hyperidle/harness-protocol";
+
 import { constantTimeStringEqual } from "@hyperidle/domain-model";
+import type { HarnessAdapter } from "@hyperidle/harness-protocol";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import { z } from "zod";

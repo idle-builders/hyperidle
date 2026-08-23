@@ -8,9 +8,9 @@
  *  - postPlainHostMessage works without blockId (plain message)
  */
 
-import type { BlockId } from "../../block/types.js"
 import type { AnchorRef } from "@hyperidle/domain-model";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { BlockId } from "../../block/types.js";
 import {
 	postPlainHostMessage,
 	postVerdictHostMessage,

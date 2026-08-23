@@ -38,7 +38,7 @@
 
 import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import type { SessionOutcome } from "@hyperidle/domain-model";
-import type {SessionEndedEvent} from "@hyperidle/event-bus";
+import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 

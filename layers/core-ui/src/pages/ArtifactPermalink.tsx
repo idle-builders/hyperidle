@@ -9,7 +9,6 @@
 // the probe). A long artifact plus its discussion thread had no way to
 // reach the tail. All four branches now wrap in a scrolling PageScaffold.
 
-import { artifactDisplayTitle } from "../ds/artifact-display-helpers.js";
 import type { JSX } from "react";
 import { Link as RRLink, useParams } from "react-router-dom";
 import {
@@ -21,6 +20,7 @@ import {
 	PageHeader,
 	PageScaffold,
 } from "../ds";
+import { artifactDisplayTitle } from "../ds/artifact-display-helpers.js";
 import { useArtifact } from "../hooks/useArtifacts.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { sanitizeHtml } from "../utils/sanitize-html.js";

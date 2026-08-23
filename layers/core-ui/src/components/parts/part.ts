@@ -24,11 +24,18 @@
  * exhaustive across all 5 members via `exhaustiveAssert`.
  */
 
+import type {
+	ActivityEntry,
+	ArtifactRef,
+	EntityRef,
+	InlineRef,
+	Message,
+	VerdictPayload,
+} from "@hyperidle/domain-model";
+import { isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
 // AM3: session-activity type (NORMALIZED union — no harness-type param in adapter).
 // The adapter body (and ONLY the adapter body) imports the source types.
-import type { BlockHostKind } from "../../block/types.js"
-import type { ActivityEntry, ArtifactRef, EntityRef, InlineRef, Message, VerdictPayload } from "@hyperidle/domain-model";
-import { isRedactedPayload, verdictDecisionLabel } from "@hyperidle/domain-model";
+import type { BlockHostKind } from "../../block/types.js";
 
 function exhaustiveAssert(value: never): never {
 	throw new Error(`Unhandled: ${String(value)}`);

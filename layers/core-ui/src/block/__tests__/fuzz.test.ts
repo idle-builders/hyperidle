@@ -3,9 +3,9 @@
  * is a member of the closed BlockKind set.
  */
 
-import { BLOCK_KINDS } from "../types.js";
 import { describe, expect, it } from "vitest";
 import { deriveBlocks } from "../derive-blocks.js";
+import { BLOCK_KINDS } from "../types.js";
 
 const HOST = { kind: "agent" as const, id: "fuzz" };
 

@@ -34,8 +34,10 @@ import {
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
+// @lore AU44-b6: desktop is always laptop/pglite — resolveProfile removed with host-process.
 import {
 	buildAgentOrchestrationPort,
+	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
 	DEFAULT_REAPER_STALE_AFTER_MS,
 	health,
@@ -46,8 +48,6 @@ import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
 import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-// @lore AU44-b6: desktop is always laptop/pglite — resolveProfile removed with host-process.
-import { composeApiApplication } from "@hyperidle/core-api";
 import { WebSocketServer } from "ws";
 // @lore AU26: `ws` ships NO type declarations of its own — see
 // `applications/remote-server/src/create-server.ts`'s twin `@lore` for the

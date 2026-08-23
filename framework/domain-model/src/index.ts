@@ -15,14 +15,12 @@ export type {
 	AgentBehaviorValueSource,
 } from "./agent-behavior-config.js";
 export { AGENT_BEHAVIOR_CONFIG_KINDS, isAgentBehaviorConfigKind } from "./agent-behavior-config.js";
+// AgentActiveSession, AgentSessionSummary, AgentPerformanceStats, AgentHealthSignals
+// moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
-	AgentActiveSession,
 	AgentHarnessCapabilities,
-	AgentHealthSignals,
-	AgentPerformanceStats,
 	AgentProfileResponse,
 	AgentReviewTrackRecord,
-	AgentSessionSummary,
 	AgentVerdictEntry,
 } from "./agent-profile.js";
 export type { AgentRoleCatalogEntry } from "./agent-roles.js";
@@ -34,14 +32,14 @@ export {
 	roleLabel,
 	TEAM_FUNCTIONS,
 } from "./agent-roles.js";
+// HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
+// moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
 	AgentRunActiveCountsResponse,
 	AgentRunLatestOutcomesResponse,
 	AgentRunSummary,
 	AgentRunsResponse,
-	HealthSignalInput,
 } from "./agent-run-view.js";
-export { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "./agent-run-view.js";
 export { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./agent-work-intent-kinds.js";
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
@@ -100,6 +98,8 @@ export {
 export type { SessionOutcome } from "./events.js";
 export type { HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
+export type { HyperIdleEnv, ValidatedJson } from "./http.js";
+export { constantTimeStringEqual, validateBody } from "./http.js";
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
 // unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
@@ -216,14 +216,14 @@ export type {
 	AgentSessionStateSnapshot,
 	AnchorRef,
 	ArtifactRef,
-	// BlockId + BlockHostKind: wire types embedded in AnchorRef/BlockRef; inlined in
-	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
-	BlockHostKind,
-	BlockId,
 	ArtifactThreadSummary,
 	ArtifactThreadSummaryResponse,
 	ArtifactViewShape,
 	AssistantNotice,
+	// BlockId + BlockHostKind: wire types embedded in AnchorRef/BlockRef; inlined in
+	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
+	BlockHostKind,
+	BlockId,
 	BlockRef,
 	EntityRef,
 	HeadCollapseResult,
@@ -322,5 +322,3 @@ export type {
 	SessionKnowledgeItemLike,
 } from "./work-intent.js";
 export { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "./work-intent.js";
-export type { HyperIdleEnv, ValidatedJson } from "./http.js";
-export { constantTimeStringEqual, validateBody } from "./http.js";

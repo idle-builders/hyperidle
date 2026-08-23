@@ -3,8 +3,8 @@
  * Only NotificationPopover uses it. Audit row 27: MERGE → design-system (=core-ui).
  */
 
-import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import type { NotificationTypeKey } from "@hyperidle/domain-model";
+import { NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 
 export function shortLabelForType(key: NotificationTypeKey): string {
 	const entry = NOTIFICATION_TYPES.find((t) => t.key === key);

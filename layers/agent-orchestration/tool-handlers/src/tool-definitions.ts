@@ -23,8 +23,22 @@
 import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ArtifactCreatedEvent, TaskStateChangedEvent } from "@hyperidle/event-bus"
-import { ARTIFACT_KINDS, ARTIFACT_VIEW_SHAPES, artifactPreviewSchema, KERNEL_KNOWLEDGE_STATUSES, type KernelKnowledgeStatus, KNOWLEDGE_LAYERS, KNOWLEDGE_STATUSES, type KnowledgeLayer, type KnowledgeStatus, type ReviewPayload, SCOPE_KINDS, SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
+import {
+	ARTIFACT_KINDS,
+	ARTIFACT_VIEW_SHAPES,
+	artifactPreviewSchema,
+	KERNEL_KNOWLEDGE_STATUSES,
+	type KernelKnowledgeStatus,
+	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_STATUSES,
+	type KnowledgeLayer,
+	type KnowledgeStatus,
+	type ReviewPayload,
+	SCOPE_KINDS,
+	SCOPES_REQUIRING_ID,
+	type ScopeKind,
+} from "@hyperidle/domain-model";
+import type { ArtifactCreatedEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";

@@ -30,7 +30,12 @@ vi.mock("@hyperidle/diagnostics", () => ({
 	})),
 }));
 
-import type { BetStateChangedEvent, DomainEvent, NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import type {
+	BetStateChangedEvent,
+	DomainEvent,
+	NotificationEvent,
+	TaskStateChangedEvent,
+} from "@hyperidle/event-bus";
 import { EventBus } from "../event-bus.js";
 
 function makeTaskEvent(taskId: string, seq: number): TaskStateChangedEvent {

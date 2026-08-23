@@ -26,6 +26,7 @@ import type {
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import {
 	AGENT_CATEGORIES,
 	catalogEntry,
@@ -36,7 +37,6 @@ import {
 	MODEL_TIERS,
 } from "@hyperidle/domain-model";
 import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
-import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { getTeam } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";

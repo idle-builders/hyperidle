@@ -7,8 +7,8 @@ import {
 	test as dbTest,
 	registerFixtureOrchestrationCleanup,
 } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
 import type { HyperIdleEnv } from "@hyperidle/domain-model";
+import { EventBus } from "@hyperidle/event-bus";
 import type { Hono } from "hono";
 import { disposeApp } from "../app.js";
 import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";

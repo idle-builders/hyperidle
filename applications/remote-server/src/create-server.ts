@@ -43,6 +43,7 @@ import {
 } from "@hyperidle/agent-orchestration";
 import {
 	buildAgentOrchestrationPort,
+	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
 	DEFAULT_REAPER_STALE_AFTER_MS,
 	health,
@@ -53,7 +54,6 @@ import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
 import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { composeApiApplication } from "@hyperidle/core-api";
 import { WebSocketServer } from "ws";
 import { resolveProfile } from "./profiles.js";
 // @lore AU26: `ws` ships NO type declarations of its own, so `@types/ws` is a

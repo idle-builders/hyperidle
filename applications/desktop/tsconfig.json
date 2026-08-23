@@ -21,8 +21,6 @@
 			"path": "../../framework/event-bus"
 		},
 		{
-		},
-		{
 			"path": "../../layers/agent-execution"
 		},
 		{

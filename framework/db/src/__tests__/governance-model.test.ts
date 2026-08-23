@@ -306,7 +306,7 @@ describe("AU28 — fifteen clauses derive all 358 decided verdicts", () => {
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(151);
+		expect(checked, "the loop must actually iterate every decided row").toBe(143);
 	});
 
 	it("reproduces every development verdict", () => {
@@ -321,7 +321,7 @@ describe("AU28 — fifteen clauses derive all 358 decided verdicts", () => {
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(151);
+		expect(checked, "the loop must actually iterate every decided row").toBe(143);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {

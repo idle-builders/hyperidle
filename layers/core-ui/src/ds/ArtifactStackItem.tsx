@@ -1,8 +1,8 @@
 import type { Artifact } from "@hyperidle/domain-model";
-import { artifactDisplayTitle } from "./artifact-display-helpers.js";
 import type { JSX } from "react";
 import { ArtifactKindBadge } from "./ArtifactKindBadge.js";
 import { ArtifactTimestamp } from "./ArtifactTimestamp.js";
+import { artifactDisplayTitle } from "./artifact-display-helpers.js";
 import { dsProps } from "./ds-attrs.js";
 
 export interface ArtifactStackItemProps {

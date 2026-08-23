@@ -37,8 +37,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { SessionEndedEvent } from "@hyperidle/event-bus";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";

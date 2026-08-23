@@ -20,8 +20,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { isHintId } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model";
+import { isHintId } from "@hyperidle/domain-model";
 import { dismissHint, listDismissedHints } from "@hyperidle/users";
 import { Hono } from "hono";
 

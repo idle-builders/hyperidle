@@ -1,10 +1,10 @@
-import type { BlockId, BlockPayload } from "../block/types.js";
 import {
 	type JSX,
 	type KeyboardEvent as ReactKeyboardEvent,
 	type ReactNode,
 	useCallback,
 } from "react";
+import type { BlockId, BlockPayload } from "../block/types.js";
 import type { AuthoredOutlineContext } from "./block/HeadingPayload.js";
 import { renderPayload } from "./block/render-payload.js";
 

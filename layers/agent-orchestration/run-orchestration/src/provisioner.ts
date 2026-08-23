@@ -3,9 +3,22 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
-import type { SessionOutcome } from "@hyperidle/domain-model";
-import type {} from "@hyperidle/event-bus"
-import { type AgentSessionSourceCorrelation, type AgentSessionSourceKind, ConcurrencyLimitError, MissingCredentialError, MODEL_TIERS, type ModelTier, NoEligibleHarnessError, type ResolvedModel, TargetAgentNotRunnableError } from "@hyperidle/domain-model";
+import type {
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	SessionOutcome,
+} from "@hyperidle/domain-model";
+import {
+	type AgentSessionSourceCorrelation,
+	type AgentSessionSourceKind,
+	ConcurrencyLimitError,
+	MissingCredentialError,
+	MODEL_TIERS,
+	type ModelTier,
+	NoEligibleHarnessError,
+	type ResolvedModel,
+	TargetAgentNotRunnableError,
+} from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
@@ -20,7 +33,6 @@ import {
 	type SessionResult,
 	type SessionWorkflow,
 } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
 import {

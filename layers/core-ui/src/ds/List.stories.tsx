@@ -1,8 +1,9 @@
 // AM5 — base-primitive foundation story: List (pure content).
 // Thin wrapper over block/ListPayload. Items hold nested BlockPayload children
 // (paragraphs), matching the shipped recursion.
-import type { BlockPayload } from "../block/types.js";
+
 import type { JSX } from "react";
+import type { BlockPayload } from "../block/types.js";
 import { ListPayload } from "./block/ListPayload.js";
 
 export default { title: "List", group: "Blocks" as const };

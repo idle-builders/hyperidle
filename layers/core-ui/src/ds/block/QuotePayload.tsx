@@ -1,6 +1,7 @@
 // design-lint-disable require-stories-sibling
-import type { BlockPayload } from "../../block/types.js";
+
 import type { JSX } from "react";
+import type { BlockPayload } from "../../block/types.js";
 
 import { renderPayload } from "./render-payload.js";
 

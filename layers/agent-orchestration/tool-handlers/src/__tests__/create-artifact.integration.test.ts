@@ -22,8 +22,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { artifacts, bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
-import type { ArtifactCreatedEvent } from "@hyperidle/event-bus"
 import type { ArtifactPreview } from "@hyperidle/domain-model";
+import type { ArtifactCreatedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import * as work from "@hyperidle/work";

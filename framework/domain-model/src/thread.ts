@@ -16,13 +16,7 @@
 // into layers/core-ui (batch 8). These two are wire types embedded in BlockRef/AnchorRef — domain-model
 // cannot import from layers/core-ui, so they are inlined here.
 export type BlockId = string & { readonly __brand: "BlockId" };
-export type BlockHostKind =
-	| "bet"
-	| "task"
-	| "knowledge_item"
-	| "artifact"
-	| "agent"
-	| "user";
+export type BlockHostKind = "bet" | "task" | "knowledge_item" | "artifact" | "agent" | "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 

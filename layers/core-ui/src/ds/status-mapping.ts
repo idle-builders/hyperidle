@@ -1,5 +1,14 @@
-import type { SessionOutcome } from "@hyperidle/domain-model"
-import type { AgentOperationalStatus, BetOutcomeVerdict, BetStatus, KnowledgeStatus, RoutineState, TaskOutcomeVerdict, TaskState, VerdictDecision } from "@hyperidle/domain-model";
+import type {
+	AgentOperationalStatus,
+	BetOutcomeVerdict,
+	BetStatus,
+	KnowledgeStatus,
+	RoutineState,
+	SessionOutcome,
+	TaskOutcomeVerdict,
+	TaskState,
+	VerdictDecision,
+} from "@hyperidle/domain-model";
 import type { Status } from "./StatusChip";
 
 /**
@@ -155,7 +164,6 @@ export const AGENT_OPERATIONAL_STATUS_MAP: Record<AgentOperationalStatus, Status
 export function agentOperationalStatusToStatus(s: AgentOperationalStatus): Status {
 	return AGENT_OPERATIONAL_STATUS_MAP[s] as Status;
 }
-
 
 /**
  * Map a verdict decision to a `Status` chip token. Pairs with
