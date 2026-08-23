@@ -42,7 +42,10 @@ export async function listSessions(
 	if (filter.state) conditions.push(eq(sessions.state, filter.state));
 
 	return conditions.length > 0
-		? await db.select().from(sessions).where(and(...conditions))
+		? await db
+				.select()
+				.from(sessions)
+				.where(and(...conditions))
 		: await db.select().from(sessions);
 }
 

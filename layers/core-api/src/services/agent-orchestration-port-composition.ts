@@ -88,9 +88,7 @@ interface AgentOrchestrationHcClient {
 			};
 			readonly "stop-for-tasks": {
 				// @lore AU44 batch6: `reason` dropped from request body.
-				$post(args: {
-					readonly json: { readonly taskIds: readonly string[] };
-				}): Promise<Response>;
+				$post(args: { readonly json: { readonly taskIds: readonly string[] } }): Promise<Response>;
 			};
 			readonly "end-for-handoff": {
 				$post(args: {

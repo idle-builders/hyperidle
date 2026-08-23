@@ -144,9 +144,7 @@ export interface AgentOrchestrationStoppedRun {
 export interface AgentOrchestrationRunsPort {
 	// @lore AU44 batch6: `reason` param dropped — STOP_DISPOSITIONS was a one-key
 	// map with only "bet_killed" as a legal value. Disposition is now hardcoded.
-	stopForTasks(
-		taskIds: readonly string[],
-	): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>>;
+	stopForTasks(taskIds: readonly string[]): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>>;
 	endForHandoff(sessionId: string, endedAt: string): Promise<void>;
 	/** In-process registry abort — never crosses the seam itself; exposed here so a caller need not reach `sessionRunRegistry` directly. */
 	abort(sessionId: string): Promise<void>;
