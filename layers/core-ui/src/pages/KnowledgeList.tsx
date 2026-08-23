@@ -56,6 +56,7 @@ import { KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
 // Only the recency pill survives. KNOWLEDGE_SORT_OPTIONS (includes frequency/relevance) is no longer
 // iterated for rendering — use this local constant so the UI never shows dead sort options.
 const VISIBLE_SORT_OPTIONS = ["recency"] as const;
+
 import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
@@ -102,7 +103,7 @@ const KNOWLEDGE_KINDS = new Set(["pattern", "decision", "failure"]);
  * @lore AU44 batch 4: frequency and relevance branches removed (FULL-AUDIT.md row 13 —
  * signals die). Only recency survives. Non-recency values fall through to recency behavior.
  */
-export function sortItems(items: ApiKnowledgeItem[], by: KnowledgeSortOption): ApiKnowledgeItem[] {
+export function sortItems(items: ApiKnowledgeItem[]): ApiKnowledgeItem[] {
 	return [...items].sort((a, b) => {
 		// recency (and any future unrecognised value): updatedAt desc, tie-break title asc
 		const cmp = b.updatedAt.localeCompare(a.updatedAt);
@@ -121,7 +122,7 @@ function deriveScope(searchParams: URLSearchParams): KnowledgeScope {
 }
 
 function isKnowledgeSortOption(value: string | null): value is KnowledgeSortOption {
-	return (KNOWLEDGE_SORT_OPTIONS as readonly string[]).includes(value ?? "");
+	return (VISIBLE_SORT_OPTIONS as readonly string[]).includes(value ?? "");
 }
 
 function deriveSort(searchParams: URLSearchParams): KnowledgeSortOption {
@@ -870,7 +871,7 @@ export function KnowledgeList({
 		const raw = scopeFilteredItems.filter(
 			(i) => i.status === "draft" || i.status === "needs_human",
 		);
-		return sortItems(raw, sort);
+		return sortItems(raw);
 	}, [scopeFilteredItems, sort]);
 
 	const curatedItems = useMemo<ApiKnowledgeItem[]>(
@@ -883,7 +884,7 @@ export function KnowledgeList({
 		() =>
 			groupByTopic(curatedItems).map((g) => ({
 				...g,
-				items: sortItems(g.items, sort),
+				items: sortItems(g.items),
 			})),
 		[curatedItems, sort],
 	);
