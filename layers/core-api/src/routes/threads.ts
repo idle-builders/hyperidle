@@ -54,12 +54,12 @@ import {
 	list as listKnowledgeItems,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
-import { deriveTitle } from "@hyperidle/presentation-format";
 import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { deriveTitle } from "@hyperidle/work";
 import type { AgentWorkIntentRecorderFn } from "@hyperidle/work-intent-port";
 import { Hono } from "hono";
 import type { ZodError, z } from "zod";

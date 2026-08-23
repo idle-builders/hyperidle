@@ -62,7 +62,6 @@ import {
 	type KnowledgeStatus,
 	SCOPE_KINDS,
 } from "@hyperidle/domain-model";
-import { absoluteDateTime, scopeKindToLabel } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AssistantContext } from "../contexts/AssistantContext.js";
@@ -77,6 +76,8 @@ import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
+import { scopeKindToLabel } from "../utils/scope-labels.js";
+import { absoluteDateTime } from "../utils/time.js";
 
 import { KnowledgeBody } from "./knowledge/KnowledgeBody";
 import { ScopeChangeDialog } from "./knowledge/ScopeChangeDialog";

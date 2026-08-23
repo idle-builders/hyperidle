@@ -518,9 +518,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/harness-capability",
 		"framework/work-intent-port",
 		"framework/event-bus",
-		"framework/presentation-format",
-		"framework/block-derivation",
-		"framework/conversation-parts",
 		"framework/toon-codec",
 		"framework/query-escaping",
 		"framework/factory-defaults",
@@ -528,7 +525,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/http-middleware",
 		"framework/harness-protocol",
 		"framework/db",
-		"framework/design-system",
 		"layers/core-api",
 		"layers/core-api/knowledge",
 		"layers/core-api/work",
@@ -687,9 +683,7 @@ async function main(): Promise<void> {
 
 	// 3.5 Build leaf declarations so reference-consumers (server/web) measure real
 	// errors instead of the dist-free `any`-cascade phantom. See @lore above (Z8-170).
-	process.stderr.write(
-		"typecheck-gate: building leaf declarations (shared, db, design-system)...\n",
-	);
+	process.stderr.write("typecheck-gate: building leaf declarations (shared, db)...\n");
 	buildLeafDeclarations(root, tscBin);
 
 	const concurrency = resolveConcurrency();

@@ -8,8 +8,15 @@
  * These tests import resolveScopeName and a stub DB — no real DB needed.
  */
 
-import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { describe, expect, it, vi } from "vitest";
+
+// scopeKindToLabel inlined (presentation-format dissolved, AU44 batch7)
+function scopeKindToLabel(scopeKind: string): string {
+	if (scopeKind === "user") return "Private";
+	if (scopeKind === "team" || scopeKind === "product") return "Team";
+	return "Shared";
+}
+
 import { resolveScopeName } from "../routes/knowledge.js";
 
 type Row = Record<string, unknown>;

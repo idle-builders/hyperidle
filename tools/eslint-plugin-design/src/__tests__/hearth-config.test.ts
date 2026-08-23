@@ -73,7 +73,7 @@ describe("hearth-config totality", () => {
 			(c.files as string[] | undefined)?.some((f) => f.includes("layers/core-ui/src")),
 		);
 		const designSystemBlock = configs.hearth.find((c) =>
-			(c.files as string[] | undefined)?.some((f) => f.includes("framework/design-system/src")),
+			(c.files as string[] | undefined)?.some((f) => f.includes("layers/core-ui/src/ds")),
 		);
 		expect(coreUiBlock).toBeDefined();
 		expect(designSystemBlock).toBeDefined();

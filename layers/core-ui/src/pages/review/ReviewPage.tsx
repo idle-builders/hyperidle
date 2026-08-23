@@ -8,7 +8,6 @@ import type {
 	VerdictDecision,
 } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
-import { relativeShort } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -21,6 +20,7 @@ import {
 	postVerdictHostMessage,
 	resolveOrCreateHostThread,
 } from "../../services/host-threads.js";
+import { relativeShort } from "../../utils/time.js";
 import { ReviewComposition } from "./ReviewComposition.js";
 import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
 

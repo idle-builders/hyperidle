@@ -17,15 +17,6 @@
 			"path": "framework/event-bus"
 		},
 		{
-			"path": "framework/presentation-format"
-		},
-		{
-			"path": "framework/block-derivation"
-		},
-		{
-			"path": "framework/conversation-parts"
-		},
-		{
 			"path": "framework/toon-codec"
 		},
 		{
@@ -45,9 +36,6 @@
 		},
 		{
 			"path": "framework/db"
-		},
-		{
-			"path": "framework/design-system"
 		},
 		{
 			"path": "tools/eslint-plugin-design"

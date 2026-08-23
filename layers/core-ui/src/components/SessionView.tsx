@@ -43,8 +43,8 @@ import {
 import { Button } from "@hyperidle/design-system";
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import { clockTime } from "@hyperidle/presentation-format";
 import { type JSX, useRef, useState } from "react";
+import { clockTime } from "../utils/time.js";
 import { initialsOf } from "./PartList.js";
 import { ProsePart } from "./parts/ProsePart.js";
 import { QuestionnairePart } from "./parts/QuestionnairePart.js";

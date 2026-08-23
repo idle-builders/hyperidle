@@ -16,8 +16,8 @@
 
 import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
 import { groupParts } from "@hyperidle/conversation-parts";
-import { absoluteDate, clockTime } from "@hyperidle/presentation-format";
 import { Fragment, type JSX } from "react";
+import { absoluteDate, clockTime } from "../utils/time.js";
 import { ProsePart } from "./parts/ProsePart.js";
 import { QuestionnairePart } from "./parts/QuestionnairePart.js";
 import { ReasoningPart } from "./parts/ReasoningPart.js";

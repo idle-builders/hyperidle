@@ -24,10 +24,10 @@
  */
 
 import { Button, EmptyState, TabBar } from "@hyperidle/design-system";
-import { clockTime } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
 import type { ActivityEntry } from "../hooks/useSessionActivity.js";
 import { useSessionActivity } from "../hooks/useSessionActivity.js";
+import { clockTime } from "../utils/time.js";
 
 export interface SessionActivityPanelProps {
 	sessionId: string;

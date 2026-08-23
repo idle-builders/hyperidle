@@ -16,7 +16,6 @@
  * a shared fetch surface requires a global cache layer (out of scope).
  */
 
-import { deriveBlocks } from "@hyperidle/block-derivation";
 import type { MenuItem } from "@hyperidle/design-system";
 import {
 	Avatar,
@@ -58,9 +57,9 @@ import {
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_STATE_LABEL,
 } from "@hyperidle/domain-model";
-import { relativeLong } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
+import { deriveBlocks } from "../block/index.js";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
 import { ArtifactThreadsSummary } from "../components/ArtifactThreadsSummary.js";
 import { AssistantAttachButton } from "../components/AssistantAttachButton";
@@ -76,6 +75,7 @@ import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import type { BetDetail } from "../types/bet";
 import { blockExcerptFromPayload } from "../utils/block-excerpt.js";
 import { deriveInitials } from "../utils/initials.js";
+import { relativeLong } from "../utils/time.js";
 import { KnowledgeCreateDialog } from "./knowledge/KnowledgeCreateDialog";
 
 // L19: "outcome" column added for latest session outcome sort.

@@ -10,13 +10,26 @@
  * displays under the Team label). "Private" maps to user scope (only visible to
  * the creator).
  *
- * @lore AV3: scopeKindToLabel lives in the substrate as SSOT. @lore AU34: this file used to
- * re-export it so web callers could keep one import path; that republication put a narrow-audience
- * name back on a wider surface, so the four callers name the substrate directly. What is left here
- * is what this file actually owns — the pill and picker option lists.
+ * @lore AV3: scopeKindToLabel lives here as SSOT (restored from @hyperidle/presentation-format,
+ * AU44 batch7). The server inlines a local copy in knowledge.ts for its fallback path.
+ *
+ * @lore AE1: "product" maps to "Team" (not "Shared") because U1 renamed Products → Teams.
  */
 
 import type { ScopeKind } from "@hyperidle/domain-model";
+
+/**
+ * Maps a raw scopeKind from the API to the user-facing bucket label.
+ * factory/practice/bet/task → "Shared"
+ * team/product → "Team"
+ * user → "Private"
+ * Anything else → "Shared" (safe fallback).
+ */
+export function scopeKindToLabel(scopeKind: string): string {
+	if (scopeKind === "user") return "Private";
+	if (scopeKind === "team" || scopeKind === "product") return "Team";
+	return "Shared";
+}
 
 /** One entry in the knowledge list filter pill row. */
 export interface ScopePillOption {

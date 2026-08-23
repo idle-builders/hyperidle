@@ -8,12 +8,12 @@ import {
 	ThreadRow,
 	useDialogBehavior,
 } from "@hyperidle/design-system";
-import { relativeShort } from "@hyperidle/presentation-format";
 import FocusTrap from "focus-trap-react";
 import { type JSX, useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useGlobalSearch } from "../hooks/useGlobalSearch";
 import { useKeyboardNavigation } from "../hooks/useKeyboardNavigation";
+import { relativeShort } from "../utils/time.js";
 
 type ResultType = "conversation" | "work" | "knowledge";
 

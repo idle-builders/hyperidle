@@ -10,7 +10,6 @@
 		"check": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@hyperidle/block-derivation": "*",
 		"@hyperidle/work-intent-port": "*",
 		"vitest": "^4.1.9"
 	},

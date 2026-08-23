@@ -5,7 +5,6 @@ import type {
 } from "@hyperidle/api-contract";
 import { findMessage } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { relativeLong } from "@hyperidle/presentation-format";
 import { findProposedCall, recordProposedCall, transitionProposedCall } from "@hyperidle/review";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -19,7 +18,7 @@ import { Hono } from "hono";
  * The loader:
  * - Queries proposed_calls LEFT JOIN operation_outcomes by reviewMessageId
  * - Nests proposedCall (with verbatim args) on the matching action_operation artifact (AC10b)
- * - Humanizes executedAt at the response boundary (never raw ISO)
+ * - Returns executedAt as raw ISO (client formats with relativeShort)
  * - Returns 404 if the review message doesn't exist
  * - Returns the stub fixture for "rev-1" (design/demo route)
  *
@@ -121,8 +120,8 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 						status: pcView.outcome.status,
 						receipt: pcView.outcome.receipt ?? undefined,
 						error: pcView.outcome.error ?? undefined,
-						// @lore AL7: executedAt is humanized here (never raw ISO in the response).
-						executedAt: relativeLong(pcView.outcome.executedAt),
+						// @lore AL7: executedAt returned as raw ISO; client formats with relativeShort.
+						executedAt: pcView.outcome.executedAt ?? undefined,
 					}
 				: undefined;
 

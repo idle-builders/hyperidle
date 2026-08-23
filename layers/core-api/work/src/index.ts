@@ -43,6 +43,8 @@ export { type BetKillCascadeDeps, cascadeBetKill } from "./bet-kill-cascade.js";
 // -- bet state machine --
 // updateBetField folded into bets.ts PATCH route (AU44 B3).
 export { transitionBet } from "./bet-state-machine.js";
+// Bet title derivation (moved from @hyperidle/presentation-format, AU44 batch7)
+export { deriveTitle } from "./bet-title.js";
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
 export { checkAndUnblockDependents } from "./dependency-watcher.js";
 // -- unified emit-time resolver (AU21 §6 Decision B; AU44 B3 merge) --

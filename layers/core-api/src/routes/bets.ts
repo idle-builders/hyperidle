@@ -12,9 +12,8 @@ import {
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
 import { getTeam, updateTeam } from "@hyperidle/org";
-import { deriveTitle } from "@hyperidle/presentation-format";
 import * as work from "@hyperidle/work";
-import { cascadeBetKill, transitionBet } from "@hyperidle/work";
+import { cascadeBetKill, deriveTitle, transitionBet } from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";

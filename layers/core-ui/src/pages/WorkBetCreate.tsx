@@ -24,12 +24,12 @@ import {
 	PageScaffold,
 	Select,
 } from "@hyperidle/design-system";
-import { deriveTitle } from "@hyperidle/presentation-format";
 import { type JSX, useEffect, useState } from "react";
 import { Link as RRLink, useNavigate, useSearchParams } from "react-router-dom";
 import { useKnowledgeItem } from "../hooks/useKnowledgeItem.js";
 import { useTeams } from "../hooks/useTeams.js";
 import { apiFetch } from "../services/api-fetch.js";
+import { deriveTitle } from "../utils/bet-title.js";
 
 export function WorkBetCreate(): JSX.Element {
 	const navigate = useNavigate();

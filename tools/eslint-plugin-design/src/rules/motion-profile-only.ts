@@ -45,7 +45,7 @@ function animationFrameIdentity(
 ): string | null {
 	const normalized = filename.replace(/\\/g, "/");
 	const source = normalizedSource(context, node);
-	if (normalized.endsWith("framework/design-system/src/RoleCombobox.tsx")) {
+	if (normalized.endsWith("layers/core-ui/src/ds/RoleCombobox.tsx")) {
 		return source === "requestAnimationFrame(()=>inputRef.current?.focus())"
 			? "role-combobox-focus"
 			: null;

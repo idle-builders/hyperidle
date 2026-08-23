@@ -49,7 +49,6 @@ import {
 	BET_STATUS_LABEL,
 	findRoleCatalogEntry,
 } from "@hyperidle/domain-model";
-import { relativeShort } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Link as RRLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -61,6 +60,7 @@ import { useUiPreference } from "../hooks/useUiPreference.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
+import { relativeShort } from "../utils/time.js";
 import { AgentAddDialog } from "./AgentAddDialog.js";
 import { AgentDetailPane } from "./work/AgentDetailPane.js";
 import { RoutineCreateDialog } from "./work/RoutineCreateDialog.js";

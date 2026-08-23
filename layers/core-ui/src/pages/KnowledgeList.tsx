@@ -50,7 +50,6 @@ import type {
 	KnowledgeTopicHealth,
 } from "@hyperidle/domain-model";
 import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
-import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
@@ -60,6 +59,8 @@ import type { AppShellOutletContext } from "../layouts/AppShell.js";
 import { apiFetch } from "../services/api-fetch.js";
 import { clipExcerpt } from "../utils/clip-excerpt.js";
 import { SCOPE_PILL_OPTIONS, type ScopePillOption } from "../utils/scope-labels";
+import { stripMarkdown } from "../utils/strip-markdown.js";
+import { relativeShort } from "../utils/time.js";
 
 type KnowledgeTab = "triage" | "curated";
 

@@ -12,9 +12,6 @@
 			"path": "../../framework/api-contract"
 		},
 		{
-			"path": "../../framework/block-derivation"
-		},
-		{
 			"path": "../../framework/db"
 		},
 		{
@@ -40,9 +37,6 @@
 		},
 		{
 			"path": "../../framework/http-middleware"
-		},
-		{
-			"path": "../../framework/presentation-format"
 		},
 		{
 			"path": "../../framework/query-escaping"

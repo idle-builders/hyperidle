@@ -119,7 +119,9 @@ function tokenFamilyFindings(source: DesignCssSource, root: postcss.Root): Desig
 export function evaluateDesignCss(sources: readonly DesignCssSource[]): DesignCssFinding[] {
 	const findings: DesignCssFinding[] = [];
 	for (const source of sources) {
-		const isRegistry = source.path.endsWith("framework/design-system/src/tokens.css");
+		const isRegistry =
+			source.path.endsWith("framework/design-system/src/tokens.css") ||
+			source.path.endsWith("layers/core-ui/src/ds/tokens.css");
 		const root = postcss.parse(source.css, { from: source.path });
 		if (isRegistry && !hasExactReducedContract(source.css)) {
 			findings.push({

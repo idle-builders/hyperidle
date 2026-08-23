@@ -29,7 +29,6 @@ import {
 	taskStateToStatus,
 } from "@hyperidle/design-system";
 import { TASK_STATE_LABEL } from "@hyperidle/domain-model";
-import { relativeLong } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { ArtifactSection, useArtifactOpen } from "../components/ArtifactSection.js";
@@ -38,6 +37,7 @@ import { useTaskSessions } from "../hooks/useTaskSessions.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { HostThreadSection } from "../shell/HostThreadSection.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
+import { relativeLong } from "../utils/time.js";
 
 /**
  * @lore AI3: relativeLong replaces local formatRelativeTime.

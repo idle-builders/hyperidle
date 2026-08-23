@@ -59,11 +59,22 @@ const DELIBERATELY_DELETED: ReadonlySet<string> = new Set([
 	"framework/design-system/src/diff/select-diff.tsx",
 ]);
 
+// AU44 batch 7: framework/design-system was dissolved into layers/core-ui/src/ds/.
+// Receipts that recorded final_path under the old location are still valid —
+// the class migration is complete, the file just relocated. Map old → new so
+// existsSync finds the file at its new home without touching the immutable TSVs.
+function resolveReceiptPath(path: string): string {
+	const OLD = "framework/design-system/src/";
+	const NEW = "layers/core-ui/src/ds/";
+	if (path.startsWith(OLD)) return NEW + path.slice(OLD.length);
+	return path;
+}
+
 const findings = validateMigrationReceipts(auditSites, receipts);
 for (const receipt of receipts) {
 	if (
 		receipt.finalPath &&
-		!existsSync(resolve(root, receipt.finalPath)) &&
+		!existsSync(resolve(root, resolveReceiptPath(receipt.finalPath))) &&
 		!DELIBERATELY_DELETED.has(receipt.finalPath)
 	) {
 		findings.push(`${receipt.auditSiteId}: final path does not exist`);

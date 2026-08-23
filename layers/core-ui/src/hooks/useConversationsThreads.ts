@@ -10,11 +10,11 @@
  * classifier already keys off `?? false` so this is forwards-compatible.
  */
 import type { HostKind } from "@hyperidle/domain-model";
-import { relativeShort } from "@hyperidle/presentation-format";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ThreadItem } from "../components/ThreadSections";
 import { apiFetch } from "../services/api-fetch.js";
 import { getWsClient } from "../services/ws-client.js";
+import { relativeShort } from "../utils/time.js";
 
 // @lore NEW-21: HOST_KIND_SNIPPET was removed. The snippet slot is intentionally
 // empty — the thread list API does not return message previews, and showing the

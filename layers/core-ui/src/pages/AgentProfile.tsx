@@ -47,7 +47,6 @@ import {
 	findRoleCatalogEntry,
 	roleLabel,
 } from "@hyperidle/domain-model";
-import { absoluteDate } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
 import { useAgentProfile } from "../hooks/useAgentProfile.js";
@@ -55,6 +54,7 @@ import { type AgentRunState, useAgentRunState } from "../hooks/useAgentRunState.
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";
 import { deriveInitials } from "../utils/initials.js";
+import { absoluteDate } from "../utils/time.js";
 
 // UI-041: static display names for known harness families. Matches
 // KNOWN_HARNESS_NAMES in harness-capability-descriptors.ts.

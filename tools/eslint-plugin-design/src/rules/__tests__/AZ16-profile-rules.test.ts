@@ -32,7 +32,7 @@ ruleTester.run("motion-profile-only", motionProfileOnly, {
 	valid: [
 		{ code: 'const view = <button className="motion-feedback hover:opacity-80" />;' },
 		{
-			filename: "framework/design-system/src/RoleCombobox.tsx",
+			filename: "layers/core-ui/src/ds/RoleCombobox.tsx",
 			code: "requestAnimationFrame(() => inputRef.current?.focus());",
 		},
 	],
@@ -55,7 +55,7 @@ ruleTester.run("motion-profile-only", motionProfileOnly, {
 			errors: [{ messageId: "forbiddenAnimationFrame" }],
 		},
 		{
-			filename: "framework/design-system/src/RoleCombobox.tsx",
+			filename: "layers/core-ui/src/ds/RoleCombobox.tsx",
 			code: "requestAnimationFrame(() => doUnrelatedWork());",
 			errors: [{ messageId: "forbiddenAnimationFrame" }],
 		},

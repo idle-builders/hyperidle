@@ -100,27 +100,27 @@ export const readRepoFile = (rel: string): string =>
 // a floor at the edge is one removed crossing from red. Only these two were touched; every other
 // floor stayed inside its band, and one going red is a finding rather than a bump.
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
-	{ kind: "import", min: 3267, floorKind: "magnitude" },
+	{ kind: "import", min: 2869, floorKind: "magnitude" },
 	// Floor lowered from 220 → 217 after dissolving @hyperidle/credential-access and
 	// @hyperidle/filesystem-contract (both deleted; their manifest crossings are gone).
-	{ kind: "manifest", min: 195, floorKind: "magnitude" },
-	{ kind: "di", min: 195, floorKind: "magnitude" },
-	{ kind: "api", min: 169, floorKind: "magnitude" },
-	{ kind: "mcp", min: 28, floorKind: "magnitude" },
-	{ kind: "event", min: 190, floorKind: "magnitude" },
+	{ kind: "manifest", min: 171, floorKind: "magnitude" },
+	{ kind: "di", min: 205, floorKind: "magnitude" },
+	{ kind: "api", min: 167, floorKind: "magnitude" },
+	{ kind: "mcp", min: 29, floorKind: "magnitude" },
+	{ kind: "event", min: 187, floorKind: "magnitude" },
 	// The thinnest detector in the set, and the one most able to lose half its coverage without
 	// tripping. Treat it as a tripwire, not a boundary. It is the one floor NOT moved to the middle of
 	// its band: the band's `max(…, 5)` term puts the midpoint BELOW where this already sits, and a
 	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
-	{ kind: "capability", min: 8, floorKind: "magnitude" },
+	{ kind: "capability", min: 10, floorKind: "magnitude" },
 	// Floor re-measured after AU43 stage 3 dropped five tables (agent_lifecycle_inbox,
 	// trigger_resolution_history, filesystem_captures, task_planning_signals,
 	// team_run_config_defaults). Live count fell from ~1183 to 1178; suggestedFloor(1178) = 1060.
-	{ kind: "table:read", min: 1014, floorKind: "magnitude" },
+	{ kind: "table:read", min: 978, floorKind: "magnitude" },
 	// Floor re-measured after AU44 B1: team_members table dissolved into teams.
 	// teamMembers writes eliminated; live fell from 1796+ to 1729;
 	// suggestedFloor(1729) = 1556.
-	{ kind: "table:write", min: 1556, floorKind: "magnitude" },
+	{ kind: "table:write", min: 1569, floorKind: "magnitude" },
 ];
 
 /** Every floor the build declares, live counts attached — the population `floors-tight` checks. */

@@ -6,14 +6,14 @@
 	"instancesNote": "The `instances` counts are a snapshot at census 4af3c0e6 and are not asserted by anything. The verdicts are.",
 	"differNote": "AU29 founder ruling: a hand-maintained `totals.differ` count is exactly the staleness trap this file's own instructions warn against \u2014 nothing derives or asserts it, so it silently drifted (recorded 44, row-level derivation gave 46) and nobody caught it until a critique counted by hand. Removed rather than re-chased; a production-vs-development split that differs is discoverable by filtering `rows` directly, and the governance lint (not this literal) is the source of truth for the live tree.",
 	"totals": {
-		"rows": 179,
+		"rows": 163,
 		"production": {
-			"allowed": 97,
-			"forbidden": 82
+			"allowed": 89,
+			"forbidden": 74
 		},
 		"development": {
-			"allowed": 171,
-			"forbidden": 8
+			"allowed": 157,
+			"forbidden": 6
 		}
 	},
 	"rows": [
@@ -278,30 +278,6 @@
 			"development": "allowed",
 			"instances": {
 				"production": 2,
-				"development": 0
-			}
-		},
-		{
-			"source": "layer",
-			"target": "framework/design-system",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "forbidden",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "layer",
-			"target": "framework/design-system",
-			"kind": "manifest",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "forbidden",
-			"instances": {
-				"production": 0,
 				"development": 0
 			}
 		},
@@ -1139,30 +1115,6 @@
 			}
 		},
 		{
-			"source": "core-ui",
-			"target": "framework/design-system",
-			"kind": "import",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 61,
-				"development": 57
-			}
-		},
-		{
-			"source": "core-ui",
-			"target": "framework/design-system",
-			"kind": "manifest",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
 			"source": "agent-execution",
 			"target": "MCP router",
 			"kind": "mcp",
@@ -1452,54 +1404,6 @@
 		},
 		{
 			"source": "core-ui",
-			"target": "framework/presentation-format",
-			"kind": "import",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 16,
-				"development": 7
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/presentation-format",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "core-ui",
-			"target": "framework/presentation-format",
-			"kind": "manifest",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/presentation-format",
-			"kind": "manifest",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "core-ui",
 			"target": "framework/harness-capability",
 			"kind": "import",
 			"scope": "named",
@@ -1640,102 +1544,6 @@
 			"instances": {
 				"production": 0,
 				"development": 1
-			}
-		},
-		{
-			"source": "core-ui",
-			"target": "framework/conversation-parts",
-			"kind": "import",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 16,
-				"development": 10
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/conversation-parts",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "core-ui",
-			"target": "framework/conversation-parts",
-			"kind": "manifest",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/conversation-parts",
-			"kind": "manifest",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "core-ui",
-			"target": "framework/block-derivation",
-			"kind": "import",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 4,
-				"development": 4
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/block-derivation",
-			"kind": "import",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
-			}
-		},
-		{
-			"source": "core-ui",
-			"target": "framework/block-derivation",
-			"kind": "manifest",
-			"scope": "named",
-			"production": "allowed",
-			"development": "allowed",
-			"instances": {
-				"production": 1,
-				"development": 0
-			}
-		},
-		{
-			"source": "tooling",
-			"target": "framework/block-derivation",
-			"kind": "manifest",
-			"scope": "general",
-			"production": "forbidden",
-			"development": "allowed",
-			"instances": {
-				"production": 0,
-				"development": 0
 			}
 		},
 		{
@@ -2173,5 +1981,6 @@
 	],
 	"ruling13": "2026-08-05 \u2014 the flat `no foreign table writes in tests` rule is replaced by the companion rule. Measured: 63% of its 2,016 sites would have routed through a function that is literally `insert(X).values(v)`; 6% had no owner at all. The 31% that mattered were owners writing two rows in one call. Development violations: 2,022 -> 125.",
 	"ruling14": "2026-08-06 \u2014 `raw runtime` and `harness` were two targets for one act: a model or agent call that does not go through agent-execution. The split was a detector detail (an import vs a process spawn) that leaked into the rule vocabulary, and it had already produced a contradiction \u2014 production forbade both under the same rationale while the development relaxation held only `raw runtime`, so a test importing the OpenAI SDK was blocked and a test spawning `claude` was waved through the same door. There was no `service -> harness` row at all, so the founder was never asked. They collapse into ONE target, `raw runtime`, forbidden in BOTH worlds outside the owner. Rows 125 -> 124: `harness-registry -> harness [capability]` and `harness-registry -> raw runtime [capability]` were the same allowed/allowed verdict and merged into one row. NO OTHER VERDICT MOVES.",
-	"ruling14narrowing": "2026-08-08 \u2014 the one-runtime-door requirement is narrowed to the production world: calls being recorded, priced, replayable and provider-agnostic are properties the shipped product must have, not development tooling. `service -> raw runtime [capability]` and `tooling -> raw runtime [capability]` flip development from forbidden to allowed; production is untouched (still forbidden, still guarded by `hold-one-runtime-door`). Row count stays 124 \u2014 no rows added, removed, or merged."
+	"ruling14narrowing": "2026-08-08 \u2014 the one-runtime-door requirement is narrowed to the production world: calls being recorded, priced, replayable and provider-agnostic are properties the shipped product must have, not development tooling. `service -> raw runtime [capability]` and `tooling -> raw runtime [capability]` flip development from forbidden to allowed; production is untouched (still forbidden, still guarded by `hold-one-runtime-door`). Row count stays 124 \u2014 no rows added, removed, or merged.",
+	"rules": []
 }

@@ -51,9 +51,7 @@ describe("AE5 — resolveHostRoute", () => {
 
 describe("AE5 — ThreadHostBanner presence dots", () => {
 	it("renders a green presence dot for active agent participant", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../../framework/design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("@hyperidle/design-system");
 
 		const participants = [
 			{
@@ -81,9 +79,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 	});
 
 	it("renders a red presence dot for agent with error status", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../../framework/design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("@hyperidle/design-system");
 
 		const participants = [
 			{
@@ -110,9 +106,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 	});
 
 	it("renders no presence dot for idle agent participant", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../../framework/design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("@hyperidle/design-system");
 
 		const participants = [
 			{
@@ -139,9 +133,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 	});
 
 	it("renders no presence dot for human participants", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../../framework/design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("@hyperidle/design-system");
 
 		const participants = [
 			{
@@ -168,9 +160,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 	});
 
 	it("renders no dots when operationalStatus is absent (backward compat)", async () => {
-		const { ThreadHostBanner } = await import(
-			"../../../../framework/design-system/src/ThreadHostBanner.js"
-		);
+		const { ThreadHostBanner } = await import("@hyperidle/design-system");
 
 		const participants = [
 			{
@@ -201,7 +191,7 @@ describe("AE5 — ThreadHostBanner presence dots", () => {
 
 describe("AE5 — ThreadRow presence dots", () => {
 	it("renders presence dot for active agent avatar", async () => {
-		const { ThreadRow } = await import("../../../../framework/design-system/src/ThreadRow.js");
+		const { ThreadRow } = await import("@hyperidle/design-system");
 
 		render(
 			<ThreadRow
@@ -225,7 +215,7 @@ describe("AE5 — ThreadRow presence dots", () => {
 	});
 
 	it("renders no presence dot for idle agent avatar", async () => {
-		const { ThreadRow } = await import("../../../../framework/design-system/src/ThreadRow.js");
+		const { ThreadRow } = await import("@hyperidle/design-system");
 
 		render(
 			<ThreadRow
@@ -246,7 +236,7 @@ describe("AE5 — ThreadRow presence dots", () => {
 	});
 
 	it("renders no presence dot when operationalStatus absent (backward compat)", async () => {
-		const { ThreadRow } = await import("../../../../framework/design-system/src/ThreadRow.js");
+		const { ThreadRow } = await import("@hyperidle/design-system");
 
 		render(
 			<ThreadRow
