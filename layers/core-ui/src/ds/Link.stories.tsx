@@ -3,7 +3,7 @@
 // is the `link` case in block/inline.tsx (rendered via renderInline). This story
 // renders the link node in isolation + in flowing prose, reusing the shipped
 // inline renderer (no duplication). Founder: Link is a foundation in its own right.
-import type { InlineNode } from "@hyperidle/domain-model";
+import type { InlineNode } from "../block/types.js";
 import type { JSX } from "react";
 import { renderInline } from "./block/inline.js";
 

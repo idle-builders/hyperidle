@@ -9,7 +9,7 @@
  * across the split as a module with no consumer outside its package.
  */
 
-import type { BlockPayload, InlineNode } from "@hyperidle/domain-model";
+import type { BlockPayload, InlineNode } from "./types.js";
 import GithubSlugger from "github-slugger";
 
 // ── the GFM heading slug, pinned to github-slugger ───────────────────────────

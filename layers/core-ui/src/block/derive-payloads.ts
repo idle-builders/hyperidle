@@ -14,13 +14,8 @@
  * This is defense-in-depth against tracking pixels and hostile image URLs.
  */
 
-import {
-	type BlockPayload,
-	type InlineNode,
-	LINK_URL_SAFE_SCHEMES,
-	type ListItem,
-	MAX_BODY_BYTES,
-} from "@hyperidle/domain-model";
+import type { BlockPayload, InlineNode, ListItem } from "./types.js"
+import { LINK_URL_SAFE_SCHEMES, MAX_BODY_BYTES } from "./types.js";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";

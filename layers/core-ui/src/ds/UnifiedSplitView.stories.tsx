@@ -31,7 +31,7 @@
 // Presentational — drag state is local UI state, callbacks are noops.
 // (states: populated real state only — empty/loading/error are representation-owned.)
 
-import type { BlockId, BlockPayload } from "@hyperidle/domain-model";
+import type { BlockId, BlockPayload } from "../block/types.js";
 import { type JSX, useState } from "react";
 import { Avatar } from "./Avatar.js";
 import { Block } from "./Block.js";

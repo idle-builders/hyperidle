@@ -6,7 +6,7 @@
  * Matches the existing design-system test pattern (raw react-dom/client + act).
  */
 
-import type { BlockId, BlockPayload } from "@hyperidle/domain-model";
+import type { BlockId, BlockPayload } from "../../block/types.js";
 import { act, createElement, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

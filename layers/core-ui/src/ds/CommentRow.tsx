@@ -7,7 +7,8 @@
  * (greyed body, "Redacted by X — reason"), grouped vs ungrouped variant.
  */
 
-import type { BlockPayload, InlineRef, MentionSegment, Message } from "@hyperidle/domain-model";
+import type { BlockPayload } from "../block/types.js"
+import type { InlineRef, MentionSegment, Message } from "@hyperidle/domain-model";
 import {
 	isRedactedPayload,
 	segmentMentions,

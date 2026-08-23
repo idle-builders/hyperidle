@@ -1,4 +1,5 @@
-import type { AnchorRef, BlockId } from "@hyperidle/domain-model";
+import type { BlockId } from "../../../block/types.js"
+import type { AnchorRef } from "@hyperidle/domain-model";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Mock } from "vitest";

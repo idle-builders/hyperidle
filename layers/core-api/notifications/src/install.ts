@@ -25,8 +25,10 @@ import { ERROR_TOKEN_PATTERNS, REDACTED_TAG } from "@hyperidle/diagnostics";
 import type {
 	NotificationEvent,
 	NotificationTypeKey,
-	NotificationUrgency,
 } from "@hyperidle/domain-model";
+// @lore AU44-b8: NotificationUrgency SIMPLIFY'd from domain-model public API (element type
+// of NotificationType.defaultUrgency; no external consumer names it directly). Inlined here.
+type NotificationUrgency = "immediate" | "ambient";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { Transporter } from "nodemailer";
 import nodemailer from "nodemailer";

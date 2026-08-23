@@ -3,7 +3,7 @@
  * is a member of the closed BlockKind set.
  */
 
-import { BLOCK_KINDS } from "@hyperidle/domain-model";
+import { BLOCK_KINDS } from "../types.js";
 import { describe, expect, it } from "vitest";
 import { deriveBlocks } from "../derive-blocks.js";
 

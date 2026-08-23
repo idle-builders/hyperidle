@@ -25,7 +25,7 @@ export type {
 	AgentSessionSummary,
 	AgentVerdictEntry,
 } from "./agent-profile.js";
-export type { AgentRoleCatalogEntry, TeamFunction } from "./agent-roles.js";
+export type { AgentRoleCatalogEntry } from "./agent-roles.js";
 export {
 	AGENT_ROLE_CATALOG,
 	communityForRole,
@@ -43,30 +43,13 @@ export type {
 } from "./agent-run-view.js";
 export { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "./agent-run-view.js";
 export { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./agent-work-intent-kinds.js";
-export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
+export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 export { artifactPreviewSchema, fallbackPreviewSchema } from "./artifact-preview.js";
 export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
-export type {
-	Block,
-	BlockAnchor,
-	BlockDerivationResult,
-	BlockHostKind,
-	BlockId,
-	BlockKind,
-	BlockPayload,
-	InlineNode,
-	ListItem,
-} from "./blocks/types.js";
-export {
-	BLOCK_HOST_KINDS,
-	BLOCK_ID_VERSION,
-	BLOCK_KINDS,
-	IMAGE_URL_SAFE_SCHEMES,
-	LINK_URL_SAFE_SCHEMES,
-	MAX_BODY_BYTES,
-} from "./blocks/types.js";
+// Block types moved to layers/core-ui/src/block/types.ts (AU44 batch8).
+// core-ui callers import from relative path; server-side uses are inlined or dropped.
 export type {
 	ConfigurationKind,
 	ConfigurationOrigin,
@@ -92,7 +75,7 @@ export {
 	CONNECTION_HEALTH,
 	HELD_AUTH_SOURCES,
 } from "./connection.js";
-export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
+export type { CredentialName, CredentialState } from "./credential.js";
 export {
 	CREDENTIAL_BY_PROVIDER,
 	CREDENTIAL_CATALOG,
@@ -159,18 +142,11 @@ export type {
 	WorkSelectionRequestedEvent,
 } from "./events.js";
 export { AGENT_WORK_INTENT_KINDS } from "./events.js";
-export type { HintCatalogEntry, HintId } from "./hint.js";
+export type { HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
-export type {
-	ArtifactKind,
-	CodePreview,
-	DataPreview,
-	HtmlPreview,
-	ImagePreview,
-	TextPreview,
-	UrlPreview,
-} from "./kinds/registry.js";
+// ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
+// unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
 export { ARTIFACT_KINDS, getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
 export type {
 	KnowledgeAccessorKind,
@@ -200,13 +176,13 @@ export {
 	segmentMentions,
 } from "./mention.js";
 export type {
-	ModelCatalogEntry,
 	ModelGatewayConfig,
 	ModelProvider,
 	ModelRequest,
 	ModelTierConfig,
 	ResolvedModel,
 } from "./model-gateway.js";
+// ModelCatalogEntry unexported (SIMPLIFY): element type of MODEL_CATALOG; no external consumer names it directly.
 export {
 	BUILT_IN_GATEWAY_CONFIG,
 	catalogEntry,
@@ -217,11 +193,8 @@ export {
 	MODEL_CATALOG,
 	MODEL_PROVIDERS,
 } from "./model-gateway.js";
-export type {
-	NotificationType,
-	NotificationTypeKey,
-	NotificationUrgency,
-} from "./notifications.js";
+export type { NotificationType, NotificationTypeKey } from "./notifications.js";
+// NotificationUrgency unexported (SIMPLIFY): member of registry entry; no external consumer names it directly.
 export { NOTIFICATION_TYPES, shortLabelForType } from "./notifications.js";
 export type { ProposedCall, ProposedCallStatus, Reversibility } from "./proposed-call.js";
 export { PROPOSED_CALL_STATUSES, REVERSIBILITY } from "./proposed-call.js";
@@ -285,6 +258,10 @@ export type {
 	AgentSessionStateSnapshot,
 	AnchorRef,
 	ArtifactRef,
+	// BlockId + BlockHostKind: wire types embedded in AnchorRef/BlockRef; inlined in
+	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
+	BlockHostKind,
+	BlockId,
 	ArtifactThreadSummary,
 	ArtifactThreadSummaryResponse,
 	ArtifactViewShape,

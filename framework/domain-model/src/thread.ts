@@ -12,7 +12,17 @@
  * `plans/L1/architecture.md` §4.
  */
 
-import type { BlockHostKind, BlockId } from "./blocks/types.js";
+// @lore AU44-b8: BlockId and BlockHostKind were in domain-model/blocks/types.ts, which dissolved
+// into layers/core-ui (batch 8). These two are wire types embedded in BlockRef/AnchorRef — domain-model
+// cannot import from layers/core-ui, so they are inlined here.
+export type BlockId = string & { readonly __brand: "BlockId" };
+export type BlockHostKind =
+	| "bet"
+	| "task"
+	| "knowledge_item"
+	| "artifact"
+	| "agent"
+	| "user";
 
 // ── Closed enums ────────────────────────────────────────────────
 

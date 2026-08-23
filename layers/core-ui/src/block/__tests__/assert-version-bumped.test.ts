@@ -6,7 +6,7 @@
  * unambiguous to a future agent.
  */
 
-import { BLOCK_ID_VERSION } from "@hyperidle/domain-model";
+import { BLOCK_ID_VERSION } from "../types.js";
 import { describe, expect, it } from "vitest";
 import { blockId } from "../block-id.js";
 

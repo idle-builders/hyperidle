@@ -1,11 +1,5 @@
-import type {
-	AnchorRef,
-	BlockId,
-	HostKind,
-	Message,
-	PlainPayload,
-	VerdictDecision,
-} from "@hyperidle/domain-model";
+import type { BlockId } from "../../block/types.js"
+import type { AnchorRef, HostKind, Message, PlainPayload, VerdictDecision } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";

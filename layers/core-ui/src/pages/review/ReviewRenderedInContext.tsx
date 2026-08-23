@@ -17,7 +17,8 @@
 // Presentational isolation component: local useState for the desktop/mobile
 // toggle + flag-panel expand; verdict callbacks are no-ops in the story.
 
-import type { AnchorRef, Block } from "@hyperidle/domain-model";
+import type { Block } from "../../block/types.js"
+import type { AnchorRef } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useMemo, useState } from "react";
 import { Button, headingIdentityMatches } from "../../ds";
