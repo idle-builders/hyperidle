@@ -23,7 +23,6 @@
 			"@hyperidle/work-intent-port": ["./framework/work-intent-port/src"],
 			"@hyperidle/event-bus": ["./framework/event-bus/src"],
 			"@hyperidle/factory-defaults": ["./framework/factory-defaults/src"],
-			"@hyperidle/host-process": ["./framework/host-process/src"],
 			"@hyperidle/http-middleware": ["./framework/http-middleware/src"],
 			"@hyperidle/harness-protocol": ["./framework/harness-protocol/src"],
 			"@hyperidle/db": ["./framework/db/src"],

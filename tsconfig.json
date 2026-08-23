@@ -20,9 +20,6 @@
 			"path": "framework/factory-defaults"
 		},
 		{
-			"path": "framework/host-process"
-		},
-		{
 			"path": "framework/http-middleware"
 		},
 		{
