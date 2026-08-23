@@ -34,7 +34,6 @@
 		"@hyperidle/settings": "*",
 		"@hyperidle/users": "*",
 		"@hyperidle/work": "*",
-		"@hyperidle/work-intent-port": "*",
 		"hono": "^4.12.27",
 		"zod": "^4.3.6"
 	},

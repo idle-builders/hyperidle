@@ -102,7 +102,7 @@ function buildHandoffDeps(port: AgentOrchestrationPort) {
 					readonly sourceId: string;
 					readonly requestedBy?: string;
 					readonly idempotencyKey: string;
-					readonly bakedRequest?: import("@hyperidle/work-intent-port").BakedWorkIntentRequest;
+					readonly bakedRequest?: import("@hyperidle/domain-model").BakedWorkIntentRequest;
 				},
 			) => port.intents.submit(input),
 			// AU31 §2.1a: `sessionRunRegistry.abort` never crosses the seam

@@ -13,7 +13,7 @@ import type {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ConversationMessage, SessionMetrics } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
 
 // ---------------------------------------------------------------------------
 // Harness port types (moved from @hyperidle/harness-protocol harness-port.ts)

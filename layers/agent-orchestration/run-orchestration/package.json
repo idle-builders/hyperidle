@@ -19,7 +19,6 @@
 		"@hyperidle/harness-capability": "*",
 		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/http-middleware": "*",
-		"@hyperidle/work-intent-port": "*",
 		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.27",
 		"zod": "^4.3.6"

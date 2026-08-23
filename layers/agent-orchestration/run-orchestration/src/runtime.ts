@@ -10,7 +10,7 @@ import {
 	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import type { ConversationMessage } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type {

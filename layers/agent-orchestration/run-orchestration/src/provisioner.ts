@@ -29,7 +29,7 @@ import {
 	type SessionResult,
 	type SessionWorkflow,
 } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
 import {

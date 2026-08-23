@@ -516,7 +516,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/domain-model",
 		"framework/diagnostics",
 		"framework/harness-capability",
-		"framework/work-intent-port",
 		"framework/event-bus",
 		"framework/toon-codec",
 		"framework/query-escaping",

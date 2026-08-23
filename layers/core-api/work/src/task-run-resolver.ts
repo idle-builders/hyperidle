@@ -26,8 +26,8 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	SessionKnowledgeItemLike,
-} from "@hyperidle/work-intent-port";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
+} from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import * as work from "./work-service.js";
 import { taskDispatchAttemptStore } from "./work-service.js";
 

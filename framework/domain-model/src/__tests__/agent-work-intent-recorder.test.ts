@@ -9,7 +9,7 @@
 // built-in bet_decomposition mechanism no longer exists, so the union shrinks
 // from seven kinds to six.
 
-import type { AgentWorkIntentRecorderInput } from "@hyperidle/work-intent-port";
+import type { AgentWorkIntentRecorderInput } from "../work-intent.js";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "../events.js";
 

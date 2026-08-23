@@ -7,7 +7,7 @@ import {
 	communityForRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { BakedContextBundle, BakedContextKnowledgeItem } from "@hyperidle/work-intent-port";
+import type { BakedContextBundle, BakedContextKnowledgeItem } from "@hyperidle/domain-model";
 
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave C — `context.ts` is now pure

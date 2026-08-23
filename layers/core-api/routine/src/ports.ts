@@ -9,7 +9,7 @@ import type {
 } from "@hyperidle/db";
 import type { ModelGatewayConfig } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/work-intent-port";
+import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/domain-model";
 
 /**
  * AU21 §9 Increment 4 — the routine scheduler (relocated from

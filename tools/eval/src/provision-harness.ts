@@ -29,7 +29,7 @@ import {
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { readServerConfig } from "@hyperidle/settings";
 import { requireRunnableAgent } from "@hyperidle/users";
-import { bakeAgentRunnableConfig } from "@hyperidle/work-intent-port";
+import { bakeAgentRunnableConfig } from "@hyperidle/domain-model";
 import { DirectHarnessAdapter } from "./direct-harness-adapter.js";
 import type { TriggerResult } from "./types.js";
 

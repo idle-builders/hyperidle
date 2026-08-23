@@ -17,19 +17,42 @@
 		"exactOptionalPropertyTypes": false,
 		"composite": true,
 		"paths": {
-			"@hyperidle/domain-model": ["./framework/domain-model/src"],
-			"@hyperidle/diagnostics": ["./framework/diagnostics/src"],
-			"@hyperidle/harness-capability": ["./framework/harness-capability/src"],
-			"@hyperidle/work-intent-port": ["./framework/work-intent-port/src"],
-			"@hyperidle/event-bus": ["./framework/event-bus/src"],
-			"@hyperidle/factory-defaults": ["./framework/factory-defaults/src"],
-			"@hyperidle/http-middleware": ["./framework/http-middleware/src"],
-			"@hyperidle/harness-protocol": ["./framework/harness-protocol/src"],
-			"@hyperidle/db": ["./framework/db/src"],
-			"@hyperidle/core-ui": ["./layers/core-ui/src"],
-			"@hyperidle/api-contract": ["./framework/api-contract/src"],
-			"@hyperidle/desktop": ["./applications/desktop/src"],
-			"@hyperidle/eval": ["./tools/eval/src"]
+			"@hyperidle/domain-model": [
+				"./framework/domain-model/src"
+			],
+			"@hyperidle/diagnostics": [
+				"./framework/diagnostics/src"
+			],
+			"@hyperidle/harness-capability": [
+				"./framework/harness-capability/src"
+			],
+			"@hyperidle/event-bus": [
+				"./framework/event-bus/src"
+			],
+			"@hyperidle/factory-defaults": [
+				"./framework/factory-defaults/src"
+			],
+			"@hyperidle/http-middleware": [
+				"./framework/http-middleware/src"
+			],
+			"@hyperidle/harness-protocol": [
+				"./framework/harness-protocol/src"
+			],
+			"@hyperidle/db": [
+				"./framework/db/src"
+			],
+			"@hyperidle/core-ui": [
+				"./layers/core-ui/src"
+			],
+			"@hyperidle/api-contract": [
+				"./framework/api-contract/src"
+			],
+			"@hyperidle/desktop": [
+				"./applications/desktop/src"
+			],
+			"@hyperidle/eval": [
+				"./tools/eval/src"
+			]
 		}
 	}
 }

@@ -45,7 +45,7 @@ import type { OrgUserDirectory } from "@hyperidle/org";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
-} from "@hyperidle/work-intent-port";
+} from "@hyperidle/domain-model";
 import type { Hono } from "hono";
 import { hc } from "hono/client";
 import type { AppType } from "../schemas/index.js";

@@ -92,7 +92,7 @@
  */
 
 import type { Team, WriteExecutor } from "@hyperidle/db";
-import type { AgentWorkIntentRecorderFn } from "@hyperidle/work-intent-port";
+import type { AgentWorkIntentRecorderFn } from "@hyperidle/domain-model";
 
 // ---------------------------------------------------------------------------
 // session-requests — workIntents (§10.3 against-grain — RULED PERMANENT, see top @lore)

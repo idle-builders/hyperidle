@@ -28,8 +28,8 @@ import {
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
-import type { BakedContextBundle } from "@hyperidle/work-intent-port";
-import { toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
+import type { BakedContextBundle } from "@hyperidle/domain-model";
+import { toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect } from "vitest";

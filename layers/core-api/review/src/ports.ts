@@ -23,7 +23,7 @@ import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
 	SessionKnowledgeItemLike,
-} from "@hyperidle/work-intent-port";
+} from "@hyperidle/domain-model";
 
 // ---------------------------------------------------------------------------
 // ReviewAgentWorkIntentInput — exported (the recorder's contract)

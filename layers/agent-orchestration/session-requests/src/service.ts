@@ -12,6 +12,7 @@ import type {
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
+	BakedContextBundle,
 } from "@hyperidle/domain-model";
 import {
 	agentSessionRequestInputSchema,
@@ -1017,13 +1018,13 @@ export type WorkIntentInput = {
 	readonly bakedRequest: BakedWorkIntentRequest;
 };
 /**
- * Local mirror of `@hyperidle/work-intent-port`'s `BakedWorkIntentRequest`.
+ * Extended baked work-intent payload for session-requests' own drain logic.
  *
- * @lore AU43 survivor — deleting this mirror forced session-requests to import
- * `@hyperidle/work-intent-port`, whose enforced audience excludes it. The
- * duplication is real but the fix is a boundary change (widening the port's
- * audience or relocating the types), not a deletion. Recorded in
- * `.pipeline/work/AU20/destroy/accepted-survivors.md`.
+ * @lore AU44-b8: `@hyperidle/work-intent-port` dissolved into `@hyperidle/domain-model`.
+ * `BakedContextBundle` and `BakedContextKnowledgeItem` are now imported from there.
+ * This type stays local because it adds `harnessDisabled` and `callingThreadId` —
+ * session-requests-specific extension fields not in domain-model's `BakedWorkIntentRequest`.
+ * It is a structural superset, not a mirror.
  */
 export type BakedWorkIntentRequest = {
 	readonly defaultAgentId: string;
@@ -1074,59 +1075,9 @@ export type BakedWorkIntentRequest = {
 	 */
 	readonly callingThreadId?: string;
 };
-/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/work-intent-port`). */
-export interface BakedContextKnowledgeItem {
-	readonly id: string;
-	readonly title: string;
-	readonly body: string;
-	readonly format: string;
-	readonly version: number;
-	readonly layer: string | null;
-}
-/** Local mirror of `@hyperidle/work-intent-port`'s `BakedContextBundle` — see there for the full `@lore`. */
-export type BakedContextBundle =
-	| {
-			readonly kind: "task";
-			readonly task: {
-				readonly id: string;
-				readonly title: string;
-				readonly description: string | null;
-				readonly state: string;
-			};
-			readonly bet: {
-				readonly id: string;
-				readonly description: string;
-				readonly appetite: string;
-				readonly doneCondition: string | null;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly team: { readonly id: string; readonly name: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  }
-	| {
-			readonly kind: "routine";
-			readonly routine: {
-				readonly id: string;
-				readonly name: string;
-				readonly description: string | null;
-				readonly lastRunSummary: string | null;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly team: { readonly id: string; readonly name: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  }
-	| {
-			readonly kind: "knowledge";
-			readonly item: {
-				readonly id: string;
-				readonly title: string;
-				readonly body: string;
-				readonly format: string;
-				readonly version: number;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  };
+// BakedContextKnowledgeItem and BakedContextBundle are now imported from @hyperidle/domain-model above.
+// The local mirrors existed because @hyperidle/work-intent-port's audience excluded session-requests;
+// work-intent-port dissolved into domain-model (reach: everyone) in AU44 batch 8.
 /**
  * @lore AU21 §9 Increment 9: the `"triggered"` kind (trigger-rule config
  * matching against `settings`'s `kind:"trigger"` entries, target-agent

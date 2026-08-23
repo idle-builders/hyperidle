@@ -22,7 +22,7 @@
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
-} from "@hyperidle/domain-model";
+} from "./session-request.js";
 
 /**
  * AU21 §6 Decision B / §10 — the emit-time-resolved request a migrated

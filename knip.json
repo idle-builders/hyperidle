@@ -42,7 +42,6 @@
 		"framework/domain-model": {},
 		"framework/diagnostics": {},
 		"framework/harness-capability": {},
-		"framework/work-intent-port": {},
 		"framework/event-bus": {},
 		"framework/factory-defaults": {},
 		"framework/http-middleware": {},

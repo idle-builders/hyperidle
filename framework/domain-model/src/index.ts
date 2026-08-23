@@ -377,3 +377,13 @@ export {
 	TASK_STATE_LABEL,
 	TASK_STATES,
 } from "./types.js";
+export type {
+	AgentWorkIntentRecorderFn,
+	AgentWorkIntentRecorderInput,
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	BakedContextKnowledgeItem,
+	BakedWorkIntentRequest,
+	SessionKnowledgeItemLike,
+} from "./work-intent.js";
+export { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "./work-intent.js";
