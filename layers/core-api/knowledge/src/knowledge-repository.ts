@@ -82,6 +82,10 @@ export interface CreateKnowledgeItemInput {
 	 */
 	status: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy: string;
+	/** @lore AU44 batch 4: meta is a PLUGIN-written field (Ruling 3) retained here so
+	 * the retro knowledge-item upsert (bets.ts POST /:id/retro) can write reflection
+	 * metadata until the BA curation plugin track provides a replacement. */
+	meta?: string | null;
 }
 
 export interface UpdateKnowledgeItemInput {
@@ -98,6 +102,9 @@ export interface UpdateKnowledgeItemInput {
 	 * statuses (e.g. "draft") that are outside the app-runtime KnowledgeStatus enum. */
 	status?: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy?: string;
+	/** @lore AU44 batch 4: retained so the retro upsert (Ruling 3 PLUGIN row) can write
+	 * reflection metadata until the BA curation plugin track provides a replacement. */
+	meta?: string | null;
 }
 
 /** Base filter for list() — filters on kernel + projection table fields. */
@@ -244,6 +251,7 @@ export async function create(
 		layer: input.layer,
 		scopeId: input.scopeId ?? null,
 		kind: input.kind ?? null,
+		meta: input.meta ?? null,
 	});
 
 	// Edit log for create
@@ -282,7 +290,7 @@ export async function create(
  */
 const KERNEL_EDITABLE_FIELDS = ["topic", "title", "body", "format", "status", "updatedBy"] as const;
 
-const PROJECTION_EDITABLE_FIELDS = ["layer", "scopeId", "kind"] as const;
+const PROJECTION_EDITABLE_FIELDS = ["layer", "scopeId", "kind", "meta"] as const;
 
 interface DiffResult {
 	readonly kernelChanges: Record<string, unknown>;
