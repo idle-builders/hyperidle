@@ -116,6 +116,7 @@ describe("resolveAssistantTurnRequest — bakes the thread's conversational tran
 
 		const baked = await resolveAssistantTurnRequest(db, "msg-transcript-bake-1c", {
 			requireRunnableAgent,
+			readServerConfig: async () => ({ harnessDisabled: [] }),
 		});
 
 		expect(baked.transcript).toEqual([
@@ -170,6 +171,7 @@ describe("resolveAssistantTurnRequest — bakes the thread's conversational tran
 
 		const baked = await resolveAssistantTurnRequest(db, "msg-transcript-bake-2-trigger", {
 			requireRunnableAgent,
+			readServerConfig: async () => ({ harnessDisabled: [] }),
 		});
 
 		expect(baked.transcript).toEqual([

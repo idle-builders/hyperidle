@@ -50,13 +50,11 @@ import {
 	list as listKnowledgeItems,
 	recomputeAttention,
 	recordConflict as recordKnowledgeConflict,
-	search as searchKnowledge,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { scopeKindToLabel } from "@hyperidle/presentation-format";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -253,10 +251,6 @@ async function recomputeAttentionScoreForKnowledgeItem(
 	eventBus: EventBus,
 	knowledgeItemId: string,
 ): Promise<{ readonly current: number }> {
-	const createReviewItemForKnowledge = createReviewItem({
-		conversation: { insertThread },
-		work: { createItem: (exec, values) => work.create(exec, "item", values) },
-	});
 	const result = await recomputeAttention(
 		{
 			db,
@@ -266,8 +260,9 @@ async function recomputeAttentionScoreForKnowledgeItem(
 					const rows = await work.list(exec, "item", { marker });
 					return rows[0] ? { id: rows[0].id } : undefined;
 				},
+				createItem: (exec, values) => work.create(exec, "item", values),
 			},
-			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+			conversation: { insertThread },
 		},
 		{ itemId: knowledgeItemId },
 	);
@@ -295,45 +290,6 @@ const changeScopeSchema = z.object({
 export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// I2 review M-4 / HIGH-5: cap query length so an attacker cannot
-	// drive a long full-table LIKE scan with a 1 MiB query string.
-	const SEARCH_QUERY_SCHEMA = z.string().min(1).max(500);
-
-	// GET /search — FTS search across all knowledge items
-	// Must be registered before /:id to avoid route conflict
-	router.get("/search", async (c) => {
-		const rawQuery = c.req.query("q");
-		const parsed = SEARCH_QUERY_SCHEMA.safeParse(rawQuery?.trim());
-		if (!parsed.success) {
-			const response: ApiErrorResponse = {
-				error: "Query parameter 'q' is required (1–500 chars)",
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		const query = parsed.data;
-
-		// AU21 §9 Increment 2 (knowledge wave): optional `limit` query param —
-		// `query_practice`'s seam call needs `limit*5` (client-side layer filter
-		// downstream). Absent/invalid `limit` falls back to search()'s own default.
-		const rawLimit = c.req.query("limit");
-		const parsedLimit = rawLimit !== undefined ? Number.parseInt(rawLimit, 10) : undefined;
-		const limit =
-			parsedLimit !== undefined && Number.isFinite(parsedLimit) && parsedLimit > 0
-				? parsedLimit
-				: undefined;
-
-		// @lore AU20 K1-reads: searchByText() deleted; search(mode:'text') performs
-		// ILIKE on title/body/topic (same result set, case-insensitive improvement).
-		// See knowledge-repository.ts search() docblock.
-		const results = await searchKnowledge(db, query, {
-			mode: "text",
-			...(limit !== undefined ? { limit } : {}),
-		});
-
-		return c.json({ results });
-	});
-
 	// GET / — list all items with LEFT JOIN to knowledgeAppProjection for pre-computed signals.
 	// Also computes L22 signals (accessCount30d, lastActivityAt) from knowledgeAccessLog.
 	// Q2: user-scoped items filtered: only visible to their author (updatedBy = userId).
@@ -350,21 +306,14 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// @lore AU14 round 2: item + projection LEFT JOIN, Q2 filter, and the L22
 		// access-signal aggregation all moved into the repository's
 		// listVisibleWithSignals — see knowledge-repository.ts §6.
+		// @lore AU44 batch 4: L22 signals (accessCount30d, lastActivityAt etc.) removed per
+		// FULL-AUDIT.md row 13. attentionScore (PLUGIN-owned, still in schema) is parsed from
+		// the stored text to a number here — same as the detail route does for confidence.
 		const rows = await listKnowledgeItems(db, { visibleWithSignals: userId });
-
-		const items = rows.map(
-			({ item, relevanceScore, attentionScore, accessCount30d, lastActivityAt }) => ({
-				...item,
-				signals: {
-					lastActivityAt,
-					accessCount30d,
-					citationCount: null, // AC-3: citation staged — always null in L22
-					relevanceScore: relevanceScore ?? null,
-					// Y4: attentionScore stored as text in DB, parse to number in API response
-					attentionScore: attentionScore ? Number.parseFloat(attentionScore) : null,
-				},
-			}),
-		);
+		const items = rows.map((item) => ({
+			...item,
+			attentionScore: item.attentionScore ? Number.parseFloat(item.attentionScore) : null,
+		}));
 
 		return c.json({ items });
 	});
@@ -388,9 +337,9 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const userId = c.get("userId");
 
-		// @lore AU14 round 2: kernel row + projection LEFT JOIN moved into the
-		// repository's findDetailById. Q2 stays a route-side 404 decision (§5).
-		const row = await getKnowledgeItem(db, id, { view: "detail" });
+		// @lore AU44 batch 4 MERGE row 9: detail→full; after score columns die, two
+		// joined views are one. KnowledgeItemWithProjection is the single joined view.
+		const row = await getKnowledgeItem(db, id, { view: "full" });
 
 		if (!row) {
 			const response: ApiErrorResponse = {
@@ -400,10 +349,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
-		const { item } = row;
-
 		// Q2: user-scoped items are private — return 404 (not 403) to avoid leaking existence.
-		if (item.scopeKind === "user" && item.updatedBy !== userId) {
+		if (row.scopeKind === "user" && row.updatedBy !== userId) {
 			const response: ApiErrorResponse = {
 				error: "Knowledge item not found",
 				code: API_ERROR_CODES.NOT_FOUND,
@@ -415,11 +362,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// null-topic → [] (no topic match means no related items).
 		// User-scope filter: exclude other users' private (user-scoped) items.
 		let relatedItems: Array<{ id: string; title: string }> = [];
-		if (item.topic !== null) {
+		if (row.topic !== null) {
 			relatedItems = await listKnowledgeItems(db, {
 				relatedByTopic: {
-					topic: item.topic,
-					excludeId: item.id,
+					topic: row.topic,
+					excludeId: row.id,
 					viewerUserId: userId,
 					limit: 10,
 				},
@@ -429,8 +376,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		// O2: emit knowledge_accessed event
 		const accessedEvent: KnowledgeAccessedEvent = {
 			type: "knowledge_accessed",
-			streamId: `knowledge:${item.id}`,
-			itemId: item.id,
+			streamId: `knowledge:${row.id}`,
+			itemId: row.id,
 			accessorKind: "human",
 			accessorId: "browser",
 			timestamp: Date.now(),
@@ -438,12 +385,10 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		eventBus.emit(accessedEvent);
 
 		// AV3: resolve scopeName — response-only derived field, never persisted.
-		const scopeName = await resolveScopeName(db, item.scopeKind, item.scopeId);
+		const scopeName = await resolveScopeName(db, row.scopeKind, row.scopeId);
 
 		return c.json({
-			...item,
-			kind: row.kind ?? undefined,
-			layer: row.layer ?? undefined,
+			...row,
 			confidence: row.confidence ? Number.parseFloat(row.confidence) : undefined,
 			relatedItems,
 			// AV3: resolved human-readable scope name (response-only, never persisted)

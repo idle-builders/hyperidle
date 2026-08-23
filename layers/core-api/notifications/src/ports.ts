@@ -24,29 +24,24 @@
  */
 
 import type { HyperIdleDb, Item, ServerCredential, WriteExecutor } from "@hyperidle/db";
-import type { NotificationChannel } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Private port interfaces (referenced by NotificationsDeps fields)
 // ---------------------------------------------------------------------------
 
+/**
+ * @lore AU44 batch 4: primaryChannel, digestChannel, recipientEmail,
+ * recipientNtfyTopic, ntfyBaseUrl, floodMaxPerMinute, floodCoalesceWindowMs,
+ * testMaxPerHour, smtpIgnoreTls, digestCron removed — only SMTP delivery config
+ * survives after dispatcher, ntfy adapter, and digest deletion.
+ */
 interface NotificationsDeliveryConfig {
 	enabled: boolean;
-	primaryChannel: NotificationChannel;
-	digestChannel: NotificationChannel | null;
-	recipientEmail: string | null;
-	recipientNtfyTopic: string | null;
-	ntfyBaseUrl: string;
 	smtpHost: string | null;
 	smtpPort: number;
 	smtpSecure: boolean;
 	smtpUsername: string | null;
 	smtpFrom: string | null;
-	floodMaxPerMinute: number;
-	floodCoalesceWindowMs: number;
-	testMaxPerHour: number;
-	smtpIgnoreTls: boolean;
-	digestCron: string;
 }
 
 interface NotificationsConfigSection {

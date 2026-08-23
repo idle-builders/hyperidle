@@ -245,8 +245,9 @@ describe("Knowledge Endpoints (E4)", () => {
 
 	// AC9 (flag) coverage moved to plugin — ritual routes left core under AU20 founder ruling; recover from git when the plugin lands.
 
-	// AC10: GET /api/knowledge/search?q=... — FTS5 search
-	describe("AC10: GET /api/knowledge/search?q=... — FTS5 search", () => {
+	// AC10: GET /api/search?scope=knowledge&q=... — FTS5 search (folded from /api/knowledge/search)
+	// @lore AU44 batch 4: GET /api/knowledge/search deleted; folded into GET /api/search?scope=knowledge
+	describe("AC10: GET /api/search?scope=knowledge&q=... — FTS5 search", () => {
 		test("returns items matching the search query", async ({ app }) => {
 			await createItem(app, "L0", {
 				title: "React Patterns",
@@ -261,7 +262,9 @@ describe("Knowledge Endpoints (E4)", () => {
 				body: "Testing React components with vitest.",
 			});
 
-			const res = await app.request("/api/knowledge/search?q=React", { headers: authHeaders() });
+			const res = await app.request("/api/search?q=React&scope=knowledge", {
+				headers: authHeaders(),
+			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
 			const results = body.results as Record<string, unknown>[];
@@ -271,7 +274,9 @@ describe("Knowledge Endpoints (E4)", () => {
 		test("returns empty results for non-matching query", async ({ app }) => {
 			await createItem(app, "L0", { title: "React Patterns", body: "Hooks" });
 
-			const res = await app.request("/api/knowledge/search?q=python", { headers: authHeaders() });
+			const res = await app.request("/api/search?q=python&scope=knowledge", {
+				headers: authHeaders(),
+			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as Record<string, unknown>;
 			const results = body.results as Record<string, unknown>[];
@@ -279,7 +284,7 @@ describe("Knowledge Endpoints (E4)", () => {
 		});
 
 		test("returns 400 when query is missing", async ({ app }) => {
-			const res = await app.request("/api/knowledge/search", { headers: authHeaders() });
+			const res = await app.request("/api/search?scope=knowledge", { headers: authHeaders() });
 			expect(res.status).toBe(400);
 		});
 	});

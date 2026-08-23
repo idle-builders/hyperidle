@@ -263,38 +263,16 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 				}
 			: undefined);
 
-	// AF6/AU1 / AU31 §5.2: the routine scheduler's notification-preferences
-	// read — built here (this Layer's own `settings`) and merged onto the
-	// ctx the caller's `serviceBootstrap` receives, so an Application can
-	// register the scheduler without importing `@hyperidle/settings` itself.
-	const serviceBootstrap = options?.serviceBootstrap;
-	const wrappedServiceBootstrap = serviceBootstrap
-		? (ctx: {
-				db: NonNullable<AppOptions["db"]>;
-				eventBus: EventBus;
-				agentOrchestration: NonNullable<AppOptions["agentOrchestration"]>;
-			}) =>
-				serviceBootstrap({
-					...ctx,
-					readAlertPreferences: async () => {
-						const cfg = await readServerConfig(ctx.db);
-						return {
-							blockerAlerts: cfg.notifications.blockerAlerts,
-							reviewAlerts: cfg.notifications.reviewAlerts,
-							quietHoursEnabled: cfg.notifications.quietHoursEnabled,
-							quietHoursStart: cfg.notifications.quietHoursStart,
-							quietHoursEnd: cfg.notifications.quietHoursEnd,
-						};
-					},
-				})
-		: undefined;
-
+	// @lore AU44 batch 4: wrappedServiceBootstrap removed — it only existed to
+	// inject readAlertPreferences (blockerAlerts/reviewAlerts/quietHours) from
+	// server_config into installNotifications via the dispatcher. The dispatcher
+	// is deleted; installNotifications no longer takes readAlertPreferences.
 	const layerOptions: CoreApiBootOptions = {
 		...options,
 		wsHub,
 		...(credentialResolver ? { credentialResolver } : {}),
 		...(registerWebSocket ? { registerWebSocket } : {}),
-		...(wrappedServiceBootstrap ? { serviceBootstrap: wrappedServiceBootstrap } : {}),
+		...(options?.serviceBootstrap ? { serviceBootstrap: options.serviceBootstrap } : {}),
 	};
 
 	// I2 review arch H-2/H-3: the store — and with it `/api/auth/ws-token` —

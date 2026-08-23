@@ -1,6 +1,5 @@
 import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
-import { registerAssistantThreadPinReaction } from "@hyperidle/conversation";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
@@ -10,11 +9,11 @@ import {
 } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
-import { findUser } from "@hyperidle/users";
 import type { Hono } from "hono";
 import { disposeApp } from "../app.js";
 import { buildAgentOrchestrationPort } from "../services/agent-orchestration-port-composition.js";
 import { registerAgentRunAdmissionReactions } from "../services/agent-run-admission-reactions.js";
+import { registerAssistantThreadPinReaction } from "../services/assistant-thread-pin-reaction.js";
 import { registerAssistantTurnCoherenceTrigger } from "../services/assistant-turn-coherence-trigger.js";
 import { registerTestRoutes } from "./test-routes.js";
 import { createTestApp } from "./test-utils.js";
@@ -145,9 +144,7 @@ export const test = dbTest.extend<Omit<IntegrationFixtures, keyof DbFixtures>>({
 			createFixtureAgentOrchestrationTransport(orchestrationBoot.app),
 		);
 		const unregister = registerAgentRunAdmissionReactions(db, eventBus, agentOrchestration);
-		const unregisterPin = registerAssistantThreadPinReaction(db, eventBus, {
-			findUserById: (execDb: HyperIdleDb, id: string) => findUser(execDb, { id }),
-		});
+		const unregisterPin = registerAssistantThreadPinReaction(db, eventBus);
 		const unregisterCoherence = registerAssistantTurnCoherenceTrigger(
 			db,
 			eventBus,

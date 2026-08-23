@@ -73,7 +73,11 @@ export interface PolicyDeps {
 				readonly resolvedAt?: string;
 			},
 		): Promise<void>;
-		updateMessage(db: WriteExecutor, id: string, patch: Partial<Message>): Promise<void>;
+		resolveMessageIfUnresolved(
+			db: WriteExecutor,
+			id: string,
+			resolvedAt: string,
+		): Promise<{ id: string }[]>;
 		listMessagesByThread(
 			db: WriteExecutor,
 			threadId: string,

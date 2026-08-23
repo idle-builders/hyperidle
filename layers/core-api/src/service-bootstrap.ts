@@ -11,13 +11,11 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import {
-	findThread,
 	insertMessage,
 	insertThread,
 	listMessages,
-	registerAssistantThreadPinReaction,
 	registerSessionNotReturnedNotice,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
 import {
@@ -48,6 +46,7 @@ import * as work from "@hyperidle/work";
 import { registerAgentHealthSessionEndReactions } from "./services/agent-health-session-end-reactions.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
+import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
 import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
@@ -216,7 +215,7 @@ const policyDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		insertThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
@@ -265,16 +264,6 @@ export function registerCoreDomainServices(ctx: {
 	 * (`app.ts`'s `serviceBootstrap` invocation) — never an ambient global.
 	 */
 	readonly agentOrchestration: AgentOrchestrationPort;
-	/**
-	 * Inject alert preferences reader for the notification dispatcher.
-	 * Uses an inline structural type so `AlertPreferences` (delivery-chain
-	 * internal) stays out of the public server-factory surface.
-	 * @lore AU20 Ag6b: AlertPreferences removed from barrel; inline type here.
-	 */
-	readonly readAlertPreferences?: () => Promise<{
-		blockerAlerts: boolean;
-		reviewAlerts: boolean;
-	}>;
 	/** AF6 §1: routine scheduler poll cadence (ms). Optional; defaults to 30s. */
 	readonly routinePollIntervalMs?: number;
 	/** AF6 scope (iii): when true, generic (taskId) routines auto-fire. */
@@ -353,13 +342,11 @@ export function registerCoreDomainServices(ctx: {
 	);
 
 	// AU21 §9 Increment 11 (Decision H2/F4): "pin the assistant thread after
-	// its first AI reply" — a `@hyperidle/conversation`-owned reaction to its
-	// OWN `thread_message_appended` event.
+	// its first AI reply" — Layer-owned since it directly imports both
+	// @hyperidle/conversation and @hyperidle/users (no DI port needed).
 	disposers.push(
 		identifyBootstrapOwner(
-			registerAssistantThreadPinReaction(db, eventBus, {
-				findUserById: (execDb: HyperIdleDb, id: string) => findUser(execDb, { id }),
-			}),
+			registerAssistantThreadPinReaction(db, eventBus),
 			"assistant thread pin reaction",
 			"unsubscribe",
 			["thread_message_appended subscription"],
@@ -402,18 +389,6 @@ export function registerCoreDomainServices(ctx: {
 			registerReviewSubscriptions(db, eventBus, {
 				work: {
 					getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
-					updateTaskById: (exec: WriteExecutor, id: string, patch) =>
-						work.update(exec, "task", id, patch),
-					createItem: (exec: WriteExecutor, values) => work.create(exec, "item", values),
-				},
-				conversation: {
-					insertThread,
-					getThreadById: (db, id) => findThread(db, { id }),
-					updateThread,
-				},
-				users: {
-					getUserById: (db, id) => findUser(db, { id }),
-					listUsersByKind: (db, kind) => listUsers(db, { kind }),
 				},
 				org: {
 					resolveReviewRecipients: (db2, ctx) =>
@@ -462,9 +437,7 @@ export function registerCoreDomainServices(ctx: {
 	// entry and one disposer.
 	disposers.push(
 		identifyBootstrapOwner(
-			installNotifications(db, eventBus, notificationsDeps, {
-				readAlertPreferences: ctx.readAlertPreferences,
-			}),
+			installNotifications(db, eventBus, notificationsDeps),
 			"notifications installation",
 			"dispatcher/listener/drain all stop",
 			["dispatcher", "listener", "drain"],
@@ -480,7 +453,8 @@ export function registerCoreDomainServices(ctx: {
 		const nowMs = Date.now();
 		const termCutoff = new Date(nowMs - TERMINAL_LOG_TTL_MS).toISOString();
 		// notification_queue (owned by `notifications`)
-		await reap(db, termCutoff, ["sent", "failed", "dropped"]);
+		// @lore AU44 batch 4: reap signature changed — deletes rows where readAt IS NOT NULL AND createdAt < cutoff
+		await reap(db, termCutoff);
 		// task_dispatch_attempts (owned by `work`) — AU21 §9 Increment 10
 		// (Decision H1): relocated out of session-requests's reapExpired.
 		await reapTerminalTaskDispatchAttempts(db, termCutoff, TASK_DISPATCH_ATTEMPT_REAP_BATCH_SIZE);

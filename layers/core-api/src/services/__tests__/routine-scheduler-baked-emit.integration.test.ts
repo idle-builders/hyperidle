@@ -38,7 +38,6 @@ import {
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -86,10 +85,6 @@ function makePorts(): RoutineSchedulerPorts & {
 				eventBus: EventBus,
 				candidateIds: readonly string[],
 			) => {
-				const createReviewItemForKnowledge = createReviewItem({
-					conversation: { insertThread },
-					work: { createItem: (exec, values) => work.create(exec, "item", values) },
-				});
 				const result = await recomputeAttention(
 					{
 						db,
@@ -99,8 +94,9 @@ function makePorts(): RoutineSchedulerPorts & {
 								const rows = await work.list(exec, "item", { marker });
 								return rows[0] ? { id: rows[0].id } : undefined;
 							},
+							createItem: (exec, values) => work.create(exec, "item", values),
 						},
-						review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+						conversation: { insertThread },
 					},
 					{ filter: { ids: candidateIds as string[] } },
 				);

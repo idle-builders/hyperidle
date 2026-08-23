@@ -14,7 +14,7 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
 import {
@@ -82,7 +82,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),

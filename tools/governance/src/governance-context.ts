@@ -104,7 +104,11 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// Floor lowered from 220 → 217 after dissolving @hyperidle/credential-access and
 	// @hyperidle/filesystem-contract (both deleted; their manifest crossings are gone).
 	{ kind: "manifest", min: 195, floorKind: "magnitude" },
-	{ kind: "di", min: 195, floorKind: "magnitude" },
+	// @lore AU44 batch 4: Floor lowered from 195 → 169 (suggested mid-band value) after deleting
+	// layers/core-api/notifications/src/types.ts, layers/core-api/knowledge/src/fts.ts, and
+	// layers/core-api/knowledge/src/relevance-scoring.ts — their removal eliminated 7 DI crossings.
+	// Live count: 186. suggestedFloor(186) = 186 - ceil(ceil(186*0.2)/2) = 167; floor set to 169.
+	{ kind: "di", min: 169, floorKind: "magnitude" },
 	{ kind: "api", min: 169, floorKind: "magnitude" },
 	{ kind: "mcp", min: 28, floorKind: "magnitude" },
 	{ kind: "event", min: 190, floorKind: "magnitude" },

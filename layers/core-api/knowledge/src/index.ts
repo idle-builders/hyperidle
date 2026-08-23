@@ -69,7 +69,11 @@ export {
 	update,
 } from "./knowledge-repository.js";
 export { sweep } from "./promotion-pipeline.js";
-export { rank } from "./relevance-scoring.js";
+// -- review-item factory (moved from @hyperidle/review, AU44 batch 4 rows 9/10 MERGE) --
+// The LIKE-probe idempotency contract belongs to knowledge; both callers live here.
+// Kills the KnowledgeReviewWriter DI port and the currying factory shape in review.
+export type { CreateReviewItemInput, CreateReviewItemResult } from "./review-item-factory.js";
+export { attentionReviewReasoningMarker, createReviewItem } from "./review-item-factory.js";
 // -- session context assembly (AU21 §9 Increment 12, Decision H3 — the
 // requireRunnableAgent-precedent shared assembler; per-kind resolvers call
 // this intra-layer instead of run-orchestration reading knowledge back) --

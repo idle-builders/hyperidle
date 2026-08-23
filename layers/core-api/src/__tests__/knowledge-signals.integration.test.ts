@@ -14,9 +14,6 @@ function authHeaders(): Record<string, string> {
 }
 
 const NOW_ISO = new Date().toISOString();
-function daysAgo(n: number): string {
-	return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
-}
 
 describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 	beforeEach(() => {
@@ -57,151 +54,10 @@ describe("GET /api/knowledge/:layer — signals in response (L22 AC-5)", () => {
 		expect((body.items as unknown[]).length).toBeGreaterThan(0);
 	});
 
-	// Signals contain the expected fields
-	test("signals field contains lastActivityAt, accessCount30d, citationCount, relevanceScore", async ({
-		db,
-		app,
-	}) => {
-		await seedKnowledgeItem(db, {
-			id: "item-l22-2",
-			topic: "testing",
-			title: "Item item-l22-2",
-			body: "Test body",
-			status: "active",
-			updatedBy: "human",
-			createdAt: NOW_ISO,
-			updatedAt: NOW_ISO,
-		});
-
-		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId: "item-l22-2",
-			accessorKind: "human",
-			accessorId: "user-1",
-			accessedAt: daysAgo(1),
-		});
-
-		const res = await app.request("/api/knowledge", { headers: authHeaders() });
-		const body = (await res.json()) as {
-			items: Array<{ id: string; signals: Record<string, unknown> }>;
-		};
-
-		const item = body.items.find((i) => i.id === "item-l22-2");
-		expect(item).toBeDefined();
-		if (!item) return;
-		expect(item.signals).toBeDefined();
-
-		const { signals } = item;
-		// Must have these 4 keys (values may be null)
-		expect("lastActivityAt" in signals).toBe(true);
-		expect("accessCount30d" in signals).toBe(true);
-		expect("citationCount" in signals).toBe(true);
-		expect("relevanceScore" in signals).toBe(true);
-	});
-
-	// Items with no access data have null signals (not fake zeros)
-	test("items with no access data have null signals — never fake zeros (AC-8)", async ({
-		db,
-		app,
-	}) => {
-		await seedKnowledgeItem(db, {
-			id: "item-l22-3",
-			topic: "testing",
-			title: "Item item-l22-3",
-			body: "Test body",
-			status: "active",
-			updatedBy: "human",
-			createdAt: NOW_ISO,
-			updatedAt: NOW_ISO,
-		});
-		// No access log for this item
-
-		const res = await app.request("/api/knowledge", { headers: authHeaders() });
-		const body = (await res.json()) as {
-			items: Array<{ id: string; signals: Record<string, unknown> }>;
-		};
-
-		const item = body.items.find((i) => i.id === "item-l22-3");
-		expect(item).toBeDefined();
-		if (!item) return;
-		const { signals } = item;
-
-		expect(signals.accessCount30d).toBeNull();
-		expect(signals.lastActivityAt).toBeNull();
-		expect(signals.citationCount).toBeNull();
-		// relevanceScore is null when no data to compute from
-		expect(signals.relevanceScore).toBeNull();
-	});
-
-	// citationCount is always null in L22 (staged) — AC-3
-	test("citationCount is always null on signals (citation staged — AC-3)", async ({ db, app }) => {
-		await seedKnowledgeItem(db, {
-			id: "item-l22-4",
-			topic: "testing",
-			title: "Item item-l22-4",
-			body: "Test body",
-			status: "active",
-			updatedBy: "human",
-			createdAt: NOW_ISO,
-			updatedAt: NOW_ISO,
-		});
-
-		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId: "item-l22-4",
-			accessorKind: "human",
-			accessorId: "user-1",
-			accessedAt: daysAgo(1),
-		});
-
-		const res = await app.request("/api/knowledge", { headers: authHeaders() });
-		const body = (await res.json()) as {
-			items: Array<{ id: string; signals: Record<string, unknown> }>;
-		};
-
-		const item = body.items.find((i) => i.id === "item-l22-4");
-		expect(item?.signals.citationCount).toBeNull();
-	});
-
-	// Items with access data have non-null accessCount30d
-	test("items with access data have non-null accessCount30d", async ({ db, app }) => {
-		await seedKnowledgeItem(db, {
-			id: "item-l22-5",
-			topic: "testing",
-			title: "Item item-l22-5",
-			body: "Test body",
-			status: "active",
-			updatedBy: "human",
-			createdAt: NOW_ISO,
-			updatedAt: NOW_ISO,
-		});
-
-		const { knowledgeAccessLog } = await import("@hyperidle/db");
-		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId: "item-l22-5",
-			accessorKind: "human",
-			accessorId: "user-1",
-			accessedAt: daysAgo(1),
-		});
-		await db.insert(knowledgeAccessLog).values({
-			id: crypto.randomUUID(),
-			itemId: "item-l22-5",
-			accessorKind: "human",
-			accessorId: "user-1",
-			accessedAt: daysAgo(2),
-		});
-
-		const res = await app.request("/api/knowledge", { headers: authHeaders() });
-		const body = (await res.json()) as {
-			items: Array<{ id: string; signals: Record<string, unknown> }>;
-		};
-
-		const item = body.items.find((i) => i.id === "item-l22-5");
-		expect(item?.signals.accessCount30d).toBe(2);
-	});
+	// @lore AU44 batch 4 row 13 SIMPLIFY: signals (lastActivityAt, accessCount30d,
+	// citationCount, relevanceScore) were removed from the list response per FULL-AUDIT.md
+	// row 13: "signals die with telemetry/scores — becomes a plain visible-items list."
+	// The 4 former signal tests are deleted; only the structural tests remain.
 
 	// Empty DB returns empty items array
 	test("empty layer returns empty items array with signals field present", async ({ app }) => {

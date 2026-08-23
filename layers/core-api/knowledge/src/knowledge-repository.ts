@@ -19,7 +19,6 @@
 import {
 	type HyperIdleDb,
 	type KnowledgeItem,
-	knowledgeAccessLog,
 	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeEditLog,
@@ -34,7 +33,6 @@ import {
 import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
-import { executeTextSearch } from "./fts.js";
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -84,8 +82,9 @@ export interface CreateKnowledgeItemInput {
 	 */
 	status: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy: string;
-	attentionScore?: number | null;
-	confidence?: number | null;
+	/** @lore AU44 batch 4: meta is a PLUGIN-written field (Ruling 3) retained here so
+	 * the retro knowledge-item upsert (bets.ts POST /:id/retro) can write reflection
+	 * metadata until the BA curation plugin track provides a replacement. */
 	meta?: string | null;
 }
 
@@ -103,8 +102,8 @@ export interface UpdateKnowledgeItemInput {
 	 * statuses (e.g. "draft") that are outside the app-runtime KnowledgeStatus enum. */
 	status?: KnowledgeStatus | KernelKnowledgeStatus;
 	updatedBy?: string;
-	attentionScore?: number | null;
-	confidence?: number | null;
+	/** @lore AU44 batch 4: retained so the retro upsert (Ruling 3 PLUGIN row) can write
+	 * reflection metadata until the BA curation plugin track provides a replacement. */
 	meta?: string | null;
 }
 
@@ -113,14 +112,12 @@ export interface ListFilters {
 	layer?: KnowledgeLayer;
 	/** Matches scope stored on either the canonical row or its app projection. */
 	scopeId?: string | null;
-	kind?: KnowledgeKind;
-	topic?: string;
 	limit?: number;
 	offset?: number;
 }
 
 /** Discriminant for get() — selects which projection view to return. */
-export type KnowledgeItemView = "summary" | "detail" | "full";
+export type KnowledgeItemView = "summary" | "full";
 
 /**
  * Augments the kernel KnowledgeItem with app-runtime fields from the
@@ -136,6 +133,10 @@ export interface KnowledgeItemWithProjection extends KnowledgeItem {
 	attentionScore?: string | null;
 	confidence?: string | null;
 	meta?: string | null;
+	// @lore AU44: attentionScore/confidence/meta are intentionally retained in this
+	// interface. The PLUGIN attention service writes them via transition({recomputeAttention}).
+	// They are removed from CreateKnowledgeItemInput/UpdateKnowledgeItemInput (callers
+	// cannot write them) but stay readable here so the PLUGIN can read + return them.
 }
 
 // ---------------------------------------------------------------------------
@@ -143,25 +144,6 @@ export interface KnowledgeItemWithProjection extends KnowledgeItem {
 // These replaced the former exported row types (KnowledgeListRow,
 // KnowledgeDetailRow, etc.) deleted in AU20 K1-reads.
 // ---------------------------------------------------------------------------
-
-/** Row shape for list({visibleWithSignals}) — replaces exported KnowledgeListRow. */
-type ListRow = {
-	item: KnowledgeItem;
-	relevanceScore: string | null;
-	attentionScore: string | null;
-	accessCount30d: number | null;
-	lastActivityAt: string | null;
-};
-
-/** Row shape for get({view:'detail'}) — replaces exported KnowledgeDetailRow. */
-type DetailRow = {
-	item: KnowledgeItem;
-	kind: string | null;
-	layer: string | null;
-	confidence: string | null;
-	relevanceScore: string | null;
-	attentionScore: string | null;
-};
 
 /** Row shape for list({retroForBet}) — replaces exported RetroExistingKnowledgeItemRow. */
 type RetroRow = {
@@ -219,8 +201,14 @@ function mergeWithProjection(
 	return {
 		...item,
 		layer: projection.layer,
-		scopeId: projection.scopeId,
+		// @lore AU44 batch 4: projection.scopeId is a denormalized copy that may be null
+		// (e.g. minimal test fixtures, or items created before the projection column existed).
+		// Fall back to the kernel's scopeId so resolveScopeName receives the real value.
+		scopeId: projection.scopeId ?? item.scopeId,
 		kind: projection.kind,
+		// @lore AU44 batch 4: attentionScore stays readable per the KnowledgeItemWithProjection
+		// interface lore — the PLUGIN attention service writes it, callers may read it.
+		// Removed from Create/UpdateKnowledgeItemInput (callers cannot write it).
 		attentionScore: projection.attentionScore,
 		confidence: projection.confidence,
 		meta: projection.meta,
@@ -263,8 +251,6 @@ export async function create(
 		layer: input.layer,
 		scopeId: input.scopeId ?? null,
 		kind: input.kind ?? null,
-		attentionScore: input.attentionScore != null ? String(input.attentionScore) : null,
-		confidence: input.confidence != null ? String(input.confidence) : null,
 		meta: input.meta ?? null,
 	});
 
@@ -304,14 +290,7 @@ export async function create(
  */
 const KERNEL_EDITABLE_FIELDS = ["topic", "title", "body", "format", "status", "updatedBy"] as const;
 
-const PROJECTION_EDITABLE_FIELDS = [
-	"layer",
-	"scopeId",
-	"kind",
-	"attentionScore",
-	"confidence",
-	"meta",
-] as const;
+const PROJECTION_EDITABLE_FIELDS = ["layer", "scopeId", "kind", "meta"] as const;
 
 interface DiffResult {
 	readonly kernelChanges: Record<string, unknown>;
@@ -352,13 +331,7 @@ function buildDiff(
 		if (!(field in changes) || changes[field] === undefined) continue;
 		const oldVal = existing[field];
 		const newVal = changes[field];
-		// Store numeric fields as strings in the extension table
-		projectionChanges[field] =
-			field === "attentionScore" || field === "confidence"
-				? newVal != null
-					? String(newVal)
-					: null
-				: newVal;
+		projectionChanges[field] = newVal;
 		if (oldVal === newVal) continue;
 		editLogEntries.push({
 			id: generateId(),
@@ -495,23 +468,18 @@ async function listBase(
 	db: HyperIdleDb,
 	filters: ListFilters = {},
 ): Promise<KnowledgeItemWithProjection[]> {
-	const hasProjectionFilter =
-		filters.layer !== undefined || filters.scopeId !== undefined || filters.kind !== undefined;
+	const hasProjectionFilter = filters.layer !== undefined || filters.scopeId !== undefined;
 
 	const limit = filters.limit ?? 50;
 	const offset = filters.offset ?? 0;
 
 	if (!hasProjectionFilter) {
-		const kernelConditions = [];
-		if (filters.topic !== undefined) {
-			kernelConditions.push(eq(knowledgeItems.topic, filters.topic));
-		}
-
-		let query = db.select().from(knowledgeItems).$dynamic();
-		if (kernelConditions.length > 0) {
-			query = query.where(and(...kernelConditions));
-		}
-		const rows = await query.orderBy(knowledgeItems.id).limit(limit).offset(offset);
+		const rows = await db
+			.select()
+			.from(knowledgeItems)
+			.orderBy(knowledgeItems.id)
+			.limit(limit)
+			.offset(offset);
 
 		const result: KnowledgeItemWithProjection[] = [];
 		for (const item of rows) {
@@ -525,9 +493,6 @@ async function listBase(
 	// @lore O2: projection filter queries must JOIN with knowledgeAppProjection.
 	const conditions: SQL[] = [];
 
-	if (filters.topic !== undefined) {
-		conditions.push(eq(knowledgeItems.topic, filters.topic));
-	}
 	if (filters.layer !== undefined) {
 		conditions.push(eq(knowledgeAppProjection.layer, filters.layer));
 	}
@@ -541,10 +506,6 @@ async function listBase(
 					);
 		if (scopeCondition) conditions.push(scopeCondition);
 	}
-	if (filters.kind !== undefined) {
-		conditions.push(eq(knowledgeAppProjection.kind, filters.kind));
-	}
-
 	const rows = await db
 		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
 		.from(knowledgeItems)
@@ -581,18 +542,13 @@ export function get(
 export function get(
 	db: HyperIdleDb,
 	id: string,
-	opts: { view: "detail" },
-): Promise<DetailRow | null>;
-export function get(
-	db: HyperIdleDb,
-	id: string,
 	opts?: { view?: "summary" },
 ): Promise<KnowledgeItem | null>;
 export async function get(
 	db: HyperIdleDb,
 	id: string,
 	opts?: { view?: KnowledgeItemView },
-): Promise<KnowledgeItem | DetailRow | null> {
+): Promise<KnowledgeItem | null> {
 	switch (opts?.view) {
 		case "full": {
 			const [item] = await db
@@ -602,26 +558,6 @@ export async function get(
 				.limit(1);
 			if (!item) return null;
 			return mergeWithProjection(item, await getProjectionRow(db, id));
-		}
-		case "detail": {
-			// Inlined from former findDetailById.
-			const [row] = await db
-				.select({
-					item: knowledgeItems,
-					kind: knowledgeAppProjection.kind,
-					layer: knowledgeAppProjection.layer,
-					confidence: knowledgeAppProjection.confidence,
-					relevanceScore: knowledgeAppProjection.relevanceScore,
-					attentionScore: knowledgeAppProjection.attentionScore,
-				})
-				.from(knowledgeItems)
-				.leftJoin(
-					knowledgeAppProjection,
-					eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-				)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
-			return row ?? null;
 		}
 		default: {
 			// Inlined from former findById — summary view: raw kernel row.
@@ -657,7 +593,7 @@ export async function get(
 export function list(
 	db: HyperIdleDb,
 	filter: { readonly visibleWithSignals: string },
-): Promise<ListRow[]>;
+): Promise<KnowledgeItemWithProjection[]>;
 export function list(
 	db: HyperIdleDb,
 	filter: { readonly retroForBet: string },
@@ -702,7 +638,6 @@ export async function list(
 		| ListFilters,
 ): Promise<
 	| KnowledgeItemWithProjection[]
-	| ListRow[]
 	| RetroRow
 	| null
 	| readonly { id: string; title: string }[]
@@ -711,46 +646,17 @@ export async function list(
 	if (!filter) return listBase(db);
 
 	if ("visibleWithSignals" in filter) {
-		// Inlined from former listVisibleWithSignals.
+		// Visible items: Q2 filter — include if scope_kind != 'user' OR updatedBy = viewer.
 		const viewerUserId = filter.visibleWithSignals;
-		const rawItems = await db
-			.select({
-				item: knowledgeItems,
-				relevanceScore: knowledgeAppProjection.relevanceScore,
-				attentionScore: knowledgeAppProjection.attentionScore,
-			})
+		const rows = await db
+			.select({ item: knowledgeItems, projection: knowledgeAppProjection })
 			.from(knowledgeItems)
 			.leftJoin(
 				knowledgeAppProjection,
 				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
 			.where(or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, viewerUserId)));
-
-		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-		const allAccessRows = await db
-			.select()
-			.from(knowledgeAccessLog)
-			.where(sql`${knowledgeAccessLog.accessedAt} >= ${thirtyDaysAgo}`);
-
-		const accessByItem = new Map<string, typeof allAccessRows>();
-		for (const row of allAccessRows) {
-			const existing = accessByItem.get(row.itemId) ?? [];
-			existing.push(row);
-			accessByItem.set(row.itemId, existing);
-		}
-
-		return rawItems.map(({ item, relevanceScore, attentionScore }) => {
-			const accessRows = accessByItem.get(item.id) ?? [];
-			const accessCount30d = accessRows.length > 0 ? accessRows.length : null;
-			const lastActivityAt =
-				accessRows.length > 0
-					? accessRows.reduce(
-							(latest, r) => (r.accessedAt > latest ? r.accessedAt : latest),
-							accessRows[0]?.accessedAt ?? "",
-						)
-					: null;
-			return { item, relevanceScore, attentionScore, accessCount30d, lastActivityAt };
-		});
+		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 
 	if ("retroForBet" in filter) {
@@ -852,10 +758,8 @@ export async function count(
 }
 
 /**
- * FTS or text-mode search across knowledge items.
+ * Text search across knowledge items (ILIKE on title/body/topic).
  *
- * - `{mode: 'fts'}` (default) — tsvector full-text search on title+body
- * - `{mode: 'text'}` — ILIKE substring search on title+body+topic
  * - `{visibility: viewerUserId}` — restrict to Q2 auth boundary (scope_kind != 'user' OR updatedBy = userId)
  *
  * @lore AU20 K1-reads: subsumes former searchByText (LIKE, all items) and
@@ -866,7 +770,7 @@ export async function count(
 interface SearchOptions {
 	limit?: number;
 	offset?: number;
-	/** Search mode: 'fts' (default) uses tsvector full-text; 'text' uses ILIKE on title/body/topic. */
+	/** @deprecated use text search — mode field ignored, always text */
 	mode?: "fts" | "text";
 	/** If provided, restrict to items visible to this userId (Q2 auth boundary). */
 	visibility?: string;
@@ -879,84 +783,37 @@ export async function search(
 	query: string,
 	options: SearchOptions = {},
 ): Promise<KnowledgeItemWithProjection[]> {
-	const { mode = "fts", visibility, limit = 50, offset = 0 } = options;
+	const { visibility, limit = 50, offset = 0 } = options;
 
-	if (mode === "text") {
-		// ILIKE-based text search across title, body, and topic.
-		// Subsumes former searchByText (title/body/topic, LIKE) and
-		// searchVisibleByText (title/body, ILIKE + visibility).
-		const pattern = `%${escapeLikePattern(query)}%`;
+	// ILIKE-based text search across title, body, and topic.
+	const pattern = `%${escapeLikePattern(query)}%`;
 
-		const authFilter =
-			visibility != null
-				? or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, visibility))
-				: undefined;
+	const authFilter =
+		visibility != null
+			? or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, visibility))
+			: undefined;
 
-		const textFilter = or(
-			sql`${knowledgeItems.title} ILIKE ${pattern} ESCAPE '\\'`,
-			sql`${knowledgeItems.body} ILIKE ${pattern} ESCAPE '\\'`,
-			sql`${knowledgeItems.topic} ILIKE ${pattern} ESCAPE '\\'`,
-		);
+	const textFilter = or(
+		sql`${knowledgeItems.title} ILIKE ${pattern} ESCAPE '\\'`,
+		sql`${knowledgeItems.body} ILIKE ${pattern} ESCAPE '\\'`,
+		sql`${knowledgeItems.topic} ILIKE ${pattern} ESCAPE '\\'`,
+	);
 
-		const whereClause = authFilter != null ? and(authFilter, textFilter) : textFilter;
+	const whereClause = authFilter != null ? and(authFilter, textFilter) : textFilter;
 
-		const rows = await db
-			.select({
-				item: knowledgeItems,
-				projection: knowledgeAppProjection,
-			})
-			.from(knowledgeItems)
-			.leftJoin(
-				knowledgeAppProjection,
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(whereClause)
-			.orderBy(desc(knowledgeItems.updatedAt), knowledgeItems.id)
-			.limit(limit)
-			.offset(offset);
+	const rows = await db
+		.select({
+			item: knowledgeItems,
+			projection: knowledgeAppProjection,
+		})
+		.from(knowledgeItems)
+		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
+		.where(whereClause)
+		.orderBy(desc(knowledgeItems.updatedAt), knowledgeItems.id)
+		.limit(limit)
+		.offset(offset);
 
-		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
-	}
-
-	// FTS mode (default): tsvector full-text search.
-	const ids = await executeTextSearch(db, query, { limit, offset });
-	if (ids.length === 0) {
-		return [];
-	}
-
-	if (visibility != null) {
-		// Apply Q2 auth filter after FTS ranking — not worth plumbing into ftsSearch SQL.
-		const items: KnowledgeItemWithProjection[] = [];
-		for (const id of ids) {
-			const [item] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(
-					and(
-						eq(knowledgeItems.id, id),
-						or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, visibility)),
-					),
-				)
-				.limit(1);
-			if (item) {
-				const projection = await getProjectionRow(db, id);
-				items.push(mergeWithProjection(item, projection));
-			}
-		}
-		return items;
-	}
-
-	// Fetch items in the order returned by FTS (ranked by relevance)
-	const items: KnowledgeItemWithProjection[] = [];
-	for (const id of ids) {
-		const [item] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, id)).limit(1);
-		if (item) {
-			const projection = await getProjectionRow(db, id);
-			items.push(mergeWithProjection(item, projection));
-		}
-	}
-
-	return items;
+	return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 }
 
 // ---------------------------------------------------------------------------

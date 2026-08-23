@@ -13,7 +13,7 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
@@ -86,7 +86,7 @@ const policyDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
@@ -1087,7 +1087,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(row?.status).not.toBe("failed");
 
 		// No exhaustion notification — the row succeeded, it was not exhausted.
-		const notifs = (await listNotifications(db, { kind: "all" })).filter(
+		const notifs = (await listNotifications(db, { kind: "unread" })).filter(
 			(r) => r.eventType === "propagation_exhausted",
 		);
 		expect(notifs).toHaveLength(0);
@@ -1129,7 +1129,7 @@ describe("registerLifecyclePropagation — retry mechanism", () => {
 		expect(failedLogs[0]!.attempts).toBe(3);
 
 		// Assert: a notification queue entry was created
-		const notifs = (await listNotifications(db, { kind: "all" })).filter(
+		const notifs = (await listNotifications(db, { kind: "unread" })).filter(
 			(r) => r.eventType === "propagation_exhausted",
 		);
 		expect(notifs).toHaveLength(1);

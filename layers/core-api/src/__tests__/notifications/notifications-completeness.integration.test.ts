@@ -2,32 +2,27 @@
  * AU20 STAGE 1 — Notifications service completeness contract.
  *
  * Pins every capability the notifications service must deliver via its
- * PUBLIC barrel (`@hyperidle/notifications`). All tests run against the
- * CURRENT (pre-rewrite) code. Stage 2 keeps these green on the new API,
- * proving zero capability loss.
+ * PUBLIC barrel (`@hyperidle/notifications`).
  *
- * Gaps this file fills (all missing from existing integration tests):
- *   1. enqueue: queue-cap eviction — blocking evicts oldest digest at capacity
- *   2. enqueue: queue-cap drop — digest silently dropped when queue full
- *   3. readConfig: direct function call with secret redaction
- *   4. readPreferences: direct function call (empty; after updatePreferences)
- *   5. deliver digest: direct call — sends batched notification, marks rows sent
- *   6. deliver digest: direct call — noop when no pending digest rows
- *   7. deliver test: direct call — sends through adapter, no queue write
- *   8. deliver test: direct call — ok:false when recipient not configured for channel
- *   9. updateConfig: SSRF guard rejects private-IP ntfy URL (direct call)
- *  10. deliver flush: returns disabled:true when notifications not enabled
+ * @lore AU44 batch 4: tests for flush, digest, ntfy, and dead filter variants
+ * deleted along with those features. Queue-cap eviction test updated to use
+ * direct DB query. readConfig test updated to remove ntfy/recipient fields.
+ * SSRF tests for ntfy URL removed (ntfy feature deleted). deliver{kind:"test"}
+ * updated to match new API (no channel field, no adapterOverride).
  *
- * @lore AU20 Stage 2: flush/runDigest/sendTest removed from public surface.
- * Tests migrated to deliver({kind:"flush"|"digest"|"test"}) with discriminated
- * DeliveryResult — result.kind narrows access to kind-specific fields.
+ * Surviving tests:
+ *   1. enqueue: queue-cap eviction — oldest pending row evicted at capacity
+ *   2. readConfig: direct function call with SMTP password secret redaction
+ *   3. readPreferences: direct function call (empty; after updatePreferences)
+ *   4. deliver test: direct call — returns a DeliveryResult shape
+ *   5. updateConfig: validation rejects SMTP injection
  */
 
 import type { NewNotificationQueueRow } from "@hyperidle/db";
+import { type HyperIdleDb, notificationQueue } from "@hyperidle/db";
 import {
 	deliver,
 	enqueue,
-	listNotifications,
 	readConfig,
 	readPreferences,
 	updateConfig,
@@ -50,8 +45,8 @@ function pendingRow(
 		severity: "digest",
 		title: overrides.id,
 		body: "body",
-		reason: "digest",
-		channel: "console",
+		reason: "notification_event",
+		channel: null,
 		status: "pending",
 		attempts: 0,
 		createdAt: "2026-07-01T00:00:00.000Z",
@@ -59,62 +54,51 @@ function pendingRow(
 	};
 }
 
-interface AdapterCall {
-	recipient: { channelId: string };
-	notification: { title: string; severity: string };
-}
-
-function createFakeAdapter(channel: "console" | "ntfy" | "smtp" = "console") {
-	const calls: AdapterCall[] = [];
-	return {
-		name: channel,
-		calls,
-		async send(
-			recipient: { channelId: string },
-			notification: { title: string; severity: string },
-		) {
-			calls.push({ recipient, notification });
-			return { ok: true as const, channel, sentAt: new Date().toISOString() };
-		},
-	};
+async function allRows(db: HyperIdleDb) {
+	return db.select().from(notificationQueue);
 }
 
 // ---------------------------------------------------------------------------
-// 1. enqueue — queue-cap eviction (blocking evicts oldest digest)
+// 1. enqueue — queue-cap eviction (validates the cap logic survives)
 // ---------------------------------------------------------------------------
 
 describe("enqueue — queue-cap eviction", () => {
-	test("blocking row at cap evicts the oldest digest row", async ({ db }) => {
-		await enqueue(
-			db,
-			pendingRow({ id: "d-oldest", severity: "digest", createdAt: "2026-07-01T00:00:00.000Z" }),
-		);
-		await enqueue(
-			db,
-			pendingRow({ id: "d-newer", severity: "digest", createdAt: "2026-07-01T00:01:00.000Z" }),
-		);
-		await enqueue(
-			db,
-			pendingRow({ id: "b-existing", severity: "blocking", createdAt: "2026-07-01T00:02:00.000Z" }),
-		);
+	test("two pending rows are inserted and both survive without eviction", async ({ db }) => {
+		await enqueue(db, pendingRow({ id: "e-a", createdAt: "2026-07-01T00:00:00.000Z" }));
+		await enqueue(db, pendingRow({ id: "e-b", createdAt: "2026-07-01T00:01:00.000Z" }));
 
-		const digestRows = await listNotifications(db, { kind: "pending-digest" });
-		expect(digestRows.map((r) => r.id)).toEqual(["d-oldest", "d-newer"]);
-
-		const allPending = await listNotifications(db, { kind: "pending" });
-		expect(allPending.map((r) => r.id)).toEqual(["d-oldest", "d-newer", "b-existing"]);
+		const rows = await allRows(db);
+		expect(rows.map((r) => r.id).sort()).toEqual(["e-a", "e-b"]);
 	});
 
-	test("digest row is silently dropped when queue is at cap (no blocking/digest eviction of blocking rows)", async ({
+	test("ten thousand pending rows trigger eviction of the oldest on the next insert", async ({
 		db,
 	}) => {
-		await enqueue(db, pendingRow({ id: "b-only", severity: "blocking" }));
+		// Insert a sentinel row that should be evicted (oldest createdAt)
+		const oldTs = "2026-01-01T00:00:00.000Z";
+		await enqueue(db, pendingRow({ id: "oldest", createdAt: oldTs }));
 
-		const digestRows = await listNotifications(db, { kind: "pending-digest" });
-		expect(digestRows).toHaveLength(0);
+		// Fill the rest of the cap with newer rows
+		const cap = 10_000;
+		for (let i = 0; i < cap - 1; i++) {
+			await enqueue(
+				db,
+				pendingRow({ id: `fill-${i}`, createdAt: new Date(Date.now() + i).toISOString() }),
+			);
+		}
+		// Queue is now exactly at cap. One more insert should evict "oldest".
+		await enqueue(
+			db,
+			pendingRow({ id: "newcomer", createdAt: new Date(Date.now() + cap).toISOString() }),
+		);
 
-		const allPending = await listNotifications(db, { kind: "pending" });
-		expect(allPending.map((r) => r.id)).toEqual(["b-only"]);
+		const ids = (await allRows(db)).map((r) => r.id);
+		// "oldest" changed to "dropped" status; it is still present in the table
+		// but NOT pending anymore — the cap predicate only counts pending rows.
+		const oldestRow = (await allRows(db)).find((r) => r.id === "oldest");
+		expect(oldestRow?.status).toBe("dropped");
+		// newcomer was inserted successfully
+		expect(ids).toContain("newcomer");
 	});
 });
 
@@ -130,17 +114,13 @@ describe("readConfig — direct call", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("returns SafeNotificationConfig with SMTP password and ntfy token redacted", async ({
-		db,
-	}) => {
+	test("returns SafeNotificationConfig with SMTP password redacted", async ({ db }) => {
 		await updateConfig(
 			db,
 			{
 				enabled: true,
-				primaryChannel: "console",
 				smtpHost: "smtp.example.com",
 				smtpPassword: "super-secret",
-				ntfyAuthToken: "tk_verysecret",
 				smtpFrom: "ops@example.com",
 			},
 			notificationsDeps,
@@ -151,12 +131,9 @@ describe("readConfig — direct call", () => {
 		expect(cfg.enabled).toBe(true);
 		expect(cfg.smtp.passwordSet).toBe(true);
 		expect(cfg.smtp.password).toBe("***");
-		expect(cfg.ntfy.authTokenSet).toBe(true);
-		expect(cfg.ntfy.authToken).toBe("***");
 
 		const serialized = JSON.stringify(cfg as unknown);
 		expect(serialized).not.toContain("super-secret");
-		expect(serialized).not.toContain("tk_verysecret");
 	});
 
 	test("returns disabled config before any config write", async ({ db }) => {
@@ -207,149 +184,30 @@ describe("readPreferences — direct call", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 5–6. deliver digest — direct function call
-// ---------------------------------------------------------------------------
-
-describe("deliver digest — direct call", () => {
-	test("sends a batched notification for pending digest rows and marks them sent", async ({
-		db,
-	}) => {
-		await updateConfig(
-			db,
-			{
-				enabled: true,
-				primaryChannel: "console",
-				digestChannel: "console",
-			},
-			notificationsDeps,
-		);
-
-		const now = "2026-07-01T08:00:00.000Z";
-		for (const id of ["dg-a", "dg-b", "dg-c"]) {
-			await enqueue(
-				db,
-				pendingRow({
-					id,
-					severity: "digest",
-					reason: "digest",
-					channel: "console",
-					createdAt: now,
-				}),
-			);
-		}
-
-		const adapter = createFakeAdapter();
-		const result = await deliver(db, { kind: "digest" }, notificationsDeps, {
-			adapterOverride: adapter,
-		});
-
-		expect(result.kind).toBe("digest");
-		if (result.kind !== "digest") throw new Error("unexpected kind");
-		expect(result.status).toBe("sent");
-		expect(result.notificationsIncluded).toBe(3);
-		expect(adapter.calls).toHaveLength(1);
-
-		const rows = await listNotifications(db, { kind: "all" });
-		expect(rows.every((r) => r.status === "sent")).toBe(true);
-	});
-
-	test("returns noop when no pending digest rows exist", async ({ db }) => {
-		await updateConfig(
-			db,
-			{ enabled: true, primaryChannel: "console", digestChannel: "console" },
-			notificationsDeps,
-		);
-
-		const adapter = createFakeAdapter();
-		const result = await deliver(db, { kind: "digest" }, notificationsDeps, {
-			adapterOverride: adapter,
-		});
-
-		expect(result.kind).toBe("digest");
-		if (result.kind !== "digest") throw new Error("unexpected kind");
-		expect(result.status).toBe("noop");
-		expect(result.notificationsIncluded).toBe(0);
-		expect(adapter.calls).toHaveLength(0);
-	});
-});
-
-// ---------------------------------------------------------------------------
-// 7–8. deliver test — direct function call
+// 5. deliver test — direct function call
 // ---------------------------------------------------------------------------
 
 describe("deliver test — direct call", () => {
-	test("sends through the adapter and does NOT write to the notification queue", async ({ db }) => {
-		await updateConfig(db, { enabled: true, primaryChannel: "console" }, notificationsDeps);
-
-		const adapter = createFakeAdapter();
-		const result = await deliver(db, { kind: "test", channel: "console" }, notificationsDeps, {
-			adapterOverride: adapter,
-		});
+	test("returns a DeliveryResult with kind=test when SMTP is not configured", async ({ db }) => {
+		const result = await deliver(db, { kind: "test" }, notificationsDeps);
 
 		expect(result.kind).toBe("test");
-		if (result.kind !== "test") throw new Error("unexpected kind");
-		expect(result.ok).toBe(true);
-		expect(result.channel).toBe("console");
-		expect(adapter.calls).toHaveLength(1);
-		expect(adapter.calls[0]!.notification.title).toContain("test");
-
-		const rows = await listNotifications(db, { kind: "all" });
-		expect(rows).toHaveLength(0);
-	});
-
-	test("returns ok:false when the recipient is not configured for the requested channel", async ({
-		db,
-	}) => {
-		await updateConfig(db, { enabled: true, primaryChannel: "console" }, notificationsDeps);
-
-		const result = await deliver(db, { kind: "test", channel: "ntfy" }, notificationsDeps);
-
-		expect(result.kind).toBe("test");
-		if (result.kind !== "test") throw new Error("unexpected kind");
-		expect(result.ok).toBe(false);
-		expect(result.channel).toBe("ntfy");
-		expect(result.error).toContain("recipient not configured");
-	});
-
-	test("defaults to primary channel when channel is omitted from spec", async ({ db }) => {
-		await updateConfig(db, { enabled: true, primaryChannel: "console" }, notificationsDeps);
-
-		const adapter = createFakeAdapter();
-		const result = await deliver(db, { kind: "test" }, notificationsDeps, {
-			adapterOverride: adapter,
-		});
-
-		expect(result.kind).toBe("test");
-		if (result.kind !== "test") throw new Error("unexpected kind");
-		expect(result.ok).toBe(true);
-		expect(result.channel).toBe("console");
+		// With no SMTP config, ok will be false and error will describe the missing config
+		expect(typeof result.ok).toBe("boolean");
+		if (!result.ok) {
+			expect(typeof result.error).toBe("string");
+		}
+		// test deliver does NOT write to the notification queue
+		expect(await allRows(db)).toHaveLength(0);
 	});
 });
 
 // ---------------------------------------------------------------------------
-// 9. updateConfig — SSRF guard, direct function call
+// 6. updateConfig — validation
 // ---------------------------------------------------------------------------
 
 describe("updateConfig — validation (direct call)", () => {
-	test("throws NOTIFICATIONS_VALIDATION_ERROR for a private-IP ntfy URL", async ({ db }) => {
-		await expect(
-			updateConfig(db, { ntfyBaseUrl: "https://169.254.169.254/" }, notificationsDeps),
-		).rejects.toMatchObject({ code: "NOTIFICATIONS_VALIDATION_ERROR" });
-	});
-
-	test("throws NOTIFICATIONS_VALIDATION_ERROR for a private-range IP ntfy URL", async ({ db }) => {
-		await expect(
-			updateConfig(db, { ntfyBaseUrl: "https://10.0.0.5/" }, notificationsDeps),
-		).rejects.toMatchObject({ code: "NOTIFICATIONS_VALIDATION_ERROR" });
-	});
-
-	test("throws NOTIFICATIONS_VALIDATION_ERROR for a malformed email", async ({ db }) => {
-		await expect(
-			updateConfig(db, { recipientEmail: "not-an-email" }, notificationsDeps),
-		).rejects.toMatchObject({ code: "NOTIFICATIONS_VALIDATION_ERROR" });
-	});
-
-	test("throws NOTIFICATIONS_VALIDATION_ERROR for an SMTP credential with CR/LF injection", async ({
+	test("throws NOTIFICATIONS_VALIDATION_ERROR for SMTP username with CR/LF injection", async ({
 		db,
 	}) => {
 		await expect(
@@ -364,50 +222,14 @@ describe("updateConfig — validation (direct call)", () => {
 			db,
 			{
 				enabled: true,
-				recipientEmail: "ops@example.com",
-				recipientNtfyTopic: "factory-alerts",
+				smtpHost: "smtp.example.com",
+				smtpFrom: "ops@example.com",
 			},
 			notificationsDeps,
 		);
 
 		expect(cfg.enabled).toBe(true);
-		expect(cfg.recipient.email).toBe("ops@example.com");
-		expect(cfg.recipient.ntfyTopic).toBe("factory-alerts");
-	});
-});
-
-// ---------------------------------------------------------------------------
-// 10. deliver flush — disabled path
-// ---------------------------------------------------------------------------
-
-describe("deliver flush — disabled path", () => {
-	test("returns disabled:true when notifications are not enabled", async ({ db }) => {
-		const adapter = createFakeAdapter();
-		const result = await deliver(db, { kind: "flush" }, notificationsDeps, {
-			adapterOverride: adapter,
-		});
-
-		expect(result.kind).toBe("flush");
-		if (result.kind !== "flush") throw new Error("unexpected kind");
-		expect(result.disabled).toBe(true);
-		expect(result.flushed).toBe(0);
-		expect(result.failed).toBe(0);
-		expect(result.deferred).toBe(0);
-		expect(adapter.calls).toHaveLength(0);
-	});
-
-	test("returns disabled:true after explicitly disabling notifications", async ({ db }) => {
-		await updateConfig(db, { enabled: true, primaryChannel: "console" }, notificationsDeps);
-		await updateConfig(db, { enabled: false }, notificationsDeps);
-
-		const adapter = createFakeAdapter();
-		const result = await deliver(db, { kind: "flush" }, notificationsDeps, {
-			adapterOverride: adapter,
-		});
-
-		expect(result.kind).toBe("flush");
-		if (result.kind !== "flush") throw new Error("unexpected kind");
-		expect(result.disabled).toBe(true);
-		expect(adapter.calls).toHaveLength(0);
+		expect(cfg.smtp.host).toBe("smtp.example.com");
+		expect(cfg.smtp.from).toBe("ops@example.com");
 	});
 });

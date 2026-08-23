@@ -96,6 +96,25 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 
 		const query = parsed.data;
 
+		// @lore AU44 batch 4: scope=knowledge folds GET /api/knowledge/search into
+		// GET /api/search — returns { results: [...] } matching the old dedicated route.
+		// No visibility filter (preserving original knowledge search behaviour).
+		// Max query length is now 200 chars (was 500 on the old route — behaviour change).
+		const scope = c.req.query("scope");
+		if (scope === "knowledge") {
+			const rawLimit = c.req.query("limit");
+			const parsedLimit = rawLimit !== undefined ? Number.parseInt(rawLimit, 10) : undefined;
+			const limit =
+				parsedLimit !== undefined && Number.isFinite(parsedLimit) && parsedLimit > 0
+					? parsedLimit
+					: undefined;
+			const results = await searchKnowledge(db, query, {
+				mode: "text",
+				...(limit !== undefined ? { limit } : {}),
+			});
+			return c.json({ results });
+		}
+
 		// I2 V4: escape LIKE wildcards so user's literal chars do not become SQL operators.
 		const pattern = `%${escapeLikePattern(query)}%`;
 

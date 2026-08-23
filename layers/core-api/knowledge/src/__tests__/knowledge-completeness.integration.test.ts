@@ -160,25 +160,18 @@ describe("get: summary view returns kernel row or null", () => {
 });
 
 // ===========================================================================
-// D. get (detail view) — items detail read
+// D. get (full view) — items detail read
 // ===========================================================================
 
-describe("get(id, {view:'detail'}): returns kernel item + projection fields", () => {
-	test("returns item with confidence and relevanceScore from projection table", async ({ db }) => {
+describe("get(id, {view:'full'}): returns kernel item merged with projection fields", () => {
+	test("returns item with layer and kind from projection table", async ({ db }) => {
 		const seeded = await seedItem(db, { layer: "L1", kind: "reflection" });
 
-		// Manually set a relevanceScore on the projection row.
-		await db
-			.update(knowledgeAppProjection)
-			.set({ relevanceScore: "0.75", confidence: "0.9" })
-			.where(eq(knowledgeAppProjection.knowledgeItemId, seeded.id));
-
-		const detail = await get(db, seeded.id, { view: "detail" });
-		expect(detail).not.toBeNull();
-		expect(detail?.item.id).toBe(seeded.id);
-		expect(detail?.layer).toBe("L1");
-		expect(detail?.confidence).toBe("0.9");
-		expect(detail?.relevanceScore).toBe("0.75");
+		const full = await get(db, seeded.id, { view: "full" });
+		expect(full).not.toBeNull();
+		expect(full?.id).toBe(seeded.id);
+		expect(full?.layer).toBe("L1");
+		expect(full?.kind).toBe("reflection");
 	});
 });
 
@@ -551,62 +544,20 @@ describe("runStaleSweep: marks active items older than threshold as stale (CAS)"
 });
 
 // ===========================================================================
-// M. attentionScore via update() — tool-handlers (replaces upsertKnowledgeAppProjectionAttentionScore)
+// M. attentionScore via transition({recomputeAttention})
 // ===========================================================================
 
-describe("update({attentionScore}): write attention score to projection row (upsert-on-absent)", () => {
-	test("creates a projection row when none exists and writes attentionScore", async ({ db }) => {
-		// Create item without a projection layer (raw insert so no projection row exists).
-		// @lore AU20 K2-writes: old upsertKnowledgeAppProjectionAttentionScore did an
-		// INSERT OR UPDATE on the projection table; update() handles the same path via
-		// the "no existing projection → insert" branch in the transaction.
-		const id = crypto.randomUUID();
-		const ts = new Date().toISOString();
-		await db.insert(knowledgeItems).values({
-			id,
-			scopeKind: "factory",
-			title: "Attention test",
-			body: "body",
-			format: "markdown",
-			status: "active",
-			version: 1,
-			updatedBy: "u-1",
-			createdAt: ts,
-			updatedAt: ts,
-		});
-		// No projection row initially.
-		const [before] = await db
-			.select()
-			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(before).toBeUndefined();
+describe("transition({recomputeAttention}): writes attention score to projection row", () => {
+	test("sets attentionScore on existing projection row", async ({ db }) => {
+		const item = await seedItem(db, { layer: "L2" });
 
-		await update(db, id, { attentionScore: 0.85 }, 1);
+		await transition(db, item.id, { target: "recomputeAttention", attentionScore: 0.85 });
 
 		const [after] = await db
 			.select()
 			.from(knowledgeAppProjection)
-			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		expect(after?.attentionScore).toBe("0.85");
-	});
-
-	test("updates existing projection row's attentionScore without creating a duplicate", async ({
-		db,
-	}) => {
-		const item = await seedItem(db, { layer: "L2" });
-
-		await update(db, item.id, { attentionScore: 0.55 }, 1);
-		// Re-fetch version after first update (version increments on each write).
-		const refreshed = await get(db, item.id);
-		await update(db, item.id, { attentionScore: 0.92 }, refreshed!.version);
-
-		const rows = await db
-			.select()
-			.from(knowledgeAppProjection)
 			.where(eq(knowledgeAppProjection.knowledgeItemId, item.id));
-		// Exactly one projection row (no duplicate created by double write).
-		expect(rows).toHaveLength(1);
-		expect(rows[0]?.attentionScore).toBe("0.92");
+		expect(after?.attentionScore).toBe("0.85");
 	});
 });
 
@@ -707,7 +658,7 @@ describe("listVisibleWithSignals auth boundary and access signal aggregation", (
 
 		const rows = await list(db, { visibleWithSignals: "u-viewer" });
 
-		const titles = rows.map((r) => r.item.title);
+		const titles = rows.map((r) => r.title);
 		expect(titles).toContain("Factory item");
 		expect(titles).toContain("My item");
 		expect(titles).not.toContain("Hidden item");

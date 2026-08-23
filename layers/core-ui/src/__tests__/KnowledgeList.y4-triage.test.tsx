@@ -1,15 +1,15 @@
 /**
- * Y4 — Knowledge Triage Improvements: KnowledgeList frontend tests (red phase).
+ * Y4 — Knowledge Triage Improvements: KnowledgeList frontend tests.
  *
  * Covers:
  * - Triage tab includes both draft and needs_human items
- * - Triage items are sorted by attention score descending
  * - Auto-tab default logic checks needs_human (not just draft)
  * - Keyboard navigation: j/k moves focus, v validates, x rejects, Enter opens
  * - After validation/rejection, next item is immediately visible (auto-advance)
  * - Optimistic removal: item disappears from triage list immediately
  *
- * All tests in this file should FAIL until implementation is complete.
+ * @lore AU44 batch 4: "sorted by attention score" removed (FULL-AUDIT.md row 13).
+ * Triage is now a plain recency list; attentionScore field kept flat (PLUGIN-owned).
  */
 
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -48,7 +48,7 @@ function renderAt(path = "/knowledge"): ReturnType<typeof render> {
 function makeItem(
 	id: string,
 	status: string,
-	attentionScore: number | null = null,
+	_attentionScore: number | null = null,
 	title?: string,
 ): Record<string, unknown> {
 	return {
@@ -63,13 +63,8 @@ function makeItem(
 		scopeKind: "factory",
 		createdAt: "2024-01-01T00:00:00Z",
 		updatedAt: "2024-01-02T00:00:00Z",
-		signals: {
-			lastActivityAt: null,
-			accessCount30d: null,
-			citationCount: null,
-			relevanceScore: null,
-			attentionScore,
-		},
+		// @lore AU44 batch 4: attentionScore now flat (PLUGIN-owned); signals wrapper gone.
+		attentionScore: _attentionScore,
 	};
 }
 
@@ -207,118 +202,6 @@ describe("Y4 — Auto-tab default checks needs_human (not only draft)", () => {
 				"true",
 			);
 		});
-	});
-});
-
-// ---------------------------------------------------------------------------
-// Triage sort: items sorted by attention score descending
-// ---------------------------------------------------------------------------
-
-describe("Y4 — Triage items sorted by attention score descending", () => {
-	beforeEach(() => {
-		vi.stubGlobal("fetch", mockFetch);
-		mockFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
-	});
-
-	afterEach(() => {
-		vi.unstubAllGlobals();
-		vi.clearAllMocks();
-	});
-
-	it("renders triage items with highest attention score first", async () => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					makeItem("k-low", "draft", 0.3, "Low priority item"),
-					makeItem("k-high", "draft", 0.9, "High priority item"),
-					makeItem("k-mid", "draft", 0.6, "Mid priority item"),
-				],
-			},
-			error: null,
-			isLoading: false,
-		});
-
-		renderAt();
-
-		const user = userEvent.setup();
-		await user.click(screen.getByRole("tab", { name: /triage/i }));
-
-		const triageView = await screen.findByTestId("knowledge-triage-view");
-
-		// Get all item rows in order of DOM rendering
-		const rows = within(triageView).getAllByRole("listitem");
-		const rowTexts = rows.map((r) => r.textContent ?? "");
-
-		// High (0.9) must come before Mid (0.6) which must come before Low (0.3)
-		const highIdx = rowTexts.findIndex((t) => t.includes("High priority item"));
-		const midIdx = rowTexts.findIndex((t) => t.includes("Mid priority item"));
-		const lowIdx = rowTexts.findIndex((t) => t.includes("Low priority item"));
-
-		expect(highIdx).toBeLessThan(midIdx);
-		expect(midIdx).toBeLessThan(lowIdx);
-	});
-
-	it("renders items with null attention score after items with scores", async () => {
-		mockUseFetch.mockReturnValue({
-			data: {
-				items: [
-					makeItem("k-null", "draft", null, "No score item"),
-					makeItem("k-scored", "draft", 0.7, "Scored item"),
-				],
-			},
-			error: null,
-			isLoading: false,
-		});
-
-		renderAt();
-
-		const user = userEvent.setup();
-		await user.click(screen.getByRole("tab", { name: /triage/i }));
-
-		const triageView = await screen.findByTestId("knowledge-triage-view");
-		const rows = within(triageView).getAllByRole("listitem");
-		const rowTexts = rows.map((r) => r.textContent ?? "");
-
-		const scoredIdx = rowTexts.findIndex((t) => t.includes("Scored item"));
-		const nullIdx = rowTexts.findIndex((t) => t.includes("No score item"));
-
-		expect(scoredIdx).toBeLessThan(nullIdx);
-	});
-
-	it("10 items with varying scores renders highest first", async () => {
-		const items = [
-			makeItem("k-01", "draft", 0.1, "Score 0.1"),
-			makeItem("k-09", "draft", 0.9, "Score 0.9"),
-			makeItem("k-05", "draft", 0.5, "Score 0.5"),
-			makeItem("k-07", "draft", 0.7, "Score 0.7"),
-			makeItem("k-03", "draft", 0.3, "Score 0.3"),
-			makeItem("k-08", "draft", 0.8, "Score 0.8"),
-			makeItem("k-02", "draft", 0.2, "Score 0.2"),
-			makeItem("k-06", "draft", 0.6, "Score 0.6"),
-			makeItem("k-04", "draft", 0.4, "Score 0.4"),
-			makeItem("k-00", "draft", null, "Score null"),
-		];
-
-		mockUseFetch.mockReturnValue({
-			data: { items },
-			error: null,
-			isLoading: false,
-		});
-
-		renderAt();
-
-		const user = userEvent.setup();
-		await user.click(screen.getByRole("tab", { name: /triage/i }));
-
-		const triageView = await screen.findByTestId("knowledge-triage-view");
-		const rows = within(triageView).getAllByRole("listitem");
-		const firstRowText = rows[0]?.textContent ?? "";
-		const lastRowText = rows[rows.length - 1]?.textContent ?? "";
-
-		// Highest score (0.9) should be first
-		expect(firstRowText).toContain("Score 0.9");
-		// Null score should be last
-		expect(lastRowText).toContain("Score null");
 	});
 });
 
