@@ -606,8 +606,7 @@ export function createBetRoutes(
 			// downward call, not a Port method"; the port is now core's one
 			// door, both directions.
 			runOrchestration: {
-				requestRunStopForTasks: (_exec, taskIds, opts) =>
-					agentOrchestration.runs.stopForTasks(taskIds, opts.reason),
+				requestRunStopForTasks: (_exec, taskIds) => agentOrchestration.runs.stopForTasks(taskIds),
 			},
 		});
 		const updated = await work.get(db, "bet", betId);

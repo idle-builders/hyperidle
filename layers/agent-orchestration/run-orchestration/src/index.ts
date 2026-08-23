@@ -18,12 +18,23 @@
 // shape and same reasoning. NOTHING about connections or filesystems rides an
 // emitted request any more.
 
+export type {
+	AgentRunConfig,
+	AgentRunConfigPatch,
+} from "./agent-run-config-store.js";
+export {
+	DEFAULT_AGENT_RUN_CONFIG,
+	readAgentRunConfig,
+	readAgentRunConfigs,
+	writeAgentRunConfig,
+} from "./agent-run-config-store.js";
 export {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
 	type HeldConnectionForProvisioning,
 	type HeldConnectionsReaderPort,
-	type ProvisioningPlan,
+	// @lore AU44 batch6: ProvisioningPlan removed from barrel — file-local per
+	// the lore in connection-provisioning.ts. No cross-package consumer.
 	type ServiceConnectionResolverPort,
 } from "./connection-provisioning.js";
 export type {

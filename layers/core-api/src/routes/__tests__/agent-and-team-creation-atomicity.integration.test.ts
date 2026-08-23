@@ -29,9 +29,9 @@ vi.hoisted(() => vi.resetModules());
 
 const AGENT_NAME = "W10 Atomicity Agent";
 
-vi.mock("@hyperidle/agent-run-config", async () => {
-	const actual = await vi.importActual<typeof import("@hyperidle/agent-run-config")>(
-		"@hyperidle/agent-run-config",
+vi.mock("@hyperidle/run-orchestration", async () => {
+	const actual = await vi.importActual<typeof import("@hyperidle/run-orchestration")>(
+		"@hyperidle/run-orchestration",
 	);
 	return {
 		...actual,
@@ -42,7 +42,7 @@ vi.mock("@hyperidle/agent-run-config", async () => {
 });
 
 afterAll(() => {
-	vi.doUnmock("@hyperidle/agent-run-config");
+	vi.doUnmock("@hyperidle/run-orchestration");
 	vi.resetModules();
 });
 

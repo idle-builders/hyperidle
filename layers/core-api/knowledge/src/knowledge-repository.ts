@@ -30,7 +30,6 @@ import {
 	type SCOPE_KINDS,
 	scopeToLayer,
 } from "@hyperidle/domain-model";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { and, desc, eq, gte, inArray, isNull, ne, or, type SQL, sql } from "drizzle-orm";
 import { ItemDeletedError, VersionConflictError } from "./errors.js";
 import type { KnowledgeKind, KnowledgeLayer, KnowledgeStatus } from "./types.js";
@@ -786,7 +785,9 @@ export async function search(
 	const { visibility, limit = 50, offset = 0 } = options;
 
 	// ILIKE-based text search across title, body, and topic.
-	const pattern = `%${escapeLikePattern(query)}%`;
+	// @lore AU44: the mode branch died with the FTS path (every production caller passed
+	// "text"); the LIKE escape is inlined here because query-escaping was dissolved.
+	const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
 	const authFilter =
 		visibility != null

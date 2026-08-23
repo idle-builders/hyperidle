@@ -36,16 +36,10 @@
 			"path": "../../framework/harness-protocol"
 		},
 		{
-			"path": "../../framework/host-process"
-		},
-		{
 			"path": "../../framework/http-middleware"
 		},
 		{
 			"path": "../../framework/presentation-format"
-		},
-		{
-			"path": "../../framework/query-escaping"
 		},
 		{
 			"path": "../../framework/work-intent-port"

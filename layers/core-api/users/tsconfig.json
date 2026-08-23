@@ -13,9 +13,6 @@
 		},
 		{
 			"path": "../../../framework/domain-model"
-		},
-		{
-			"path": "../../../framework/query-escaping"
 		}
 	]
 }

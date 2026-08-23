@@ -12,7 +12,6 @@
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/factory-defaults": "*",
-		"@hyperidle/host-process": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

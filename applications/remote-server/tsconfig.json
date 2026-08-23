@@ -11,13 +11,26 @@
 	},
 	"include": ["src"],
 	"references": [
-		{ "path": "../../framework/db" },
-		{ "path": "../../framework/diagnostics" },
-		{ "path": "../../framework/event-bus" },
-		{ "path": "../../framework/host-process" },
-		{ "path": "../../framework/http-middleware" },
-		{ "path": "../../layers/agent-execution" },
-		{ "path": "../../layers/agent-orchestration" },
-		{ "path": "../../layers/core-api" }
+		{
+			"path": "../../framework/db"
+		},
+		{
+			"path": "../../framework/diagnostics"
+		},
+		{
+			"path": "../../framework/event-bus"
+		},
+		{
+			"path": "../../framework/http-middleware"
+		},
+		{
+			"path": "../../layers/agent-execution"
+		},
+		{
+			"path": "../../layers/agent-orchestration"
+		},
+		{
+			"path": "../../layers/core-api"
+		}
 	]
 }

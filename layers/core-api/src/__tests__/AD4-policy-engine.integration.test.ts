@@ -77,7 +77,6 @@ const policyEngineDeps: PolicyDeps = {
 		// lifecycle stub (never called in engine tests):
 		getFirstUserByKind: () => Promise.resolve(undefined),
 	},
-	notifications: { insert: () => Promise.resolve() },
 };
 
 const NOW = new Date().toISOString();

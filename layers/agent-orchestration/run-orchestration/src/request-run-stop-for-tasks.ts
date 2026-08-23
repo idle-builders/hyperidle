@@ -14,18 +14,16 @@
  * structural rather than a comment someone must keep honouring.
  *
  * @lore AU26 H2: the return value is the set of runs ACTUALLY stopped, not a
- * count. `work` writes one `propagation_log` hop per stopped run, and a 0-row
- * CAS — an already-stopped run on a re-kill — must write no phantom row. A
- * count could not tell the caller which runs to log.
+ * count. A 0-row CAS — an already-stopped run on a re-kill — stops nothing.
+ * A count could not tell the caller which runs were affected.
  */
 
 import { sessions, type WriteExecutor } from "@hyperidle/db";
 import { and, eq, inArray } from "drizzle-orm";
 
-/** The terminal disposition each stop reason writes. */
-const STOP_DISPOSITIONS = {
-	bet_killed: { state: "stopped", outcome: "stopped" },
-} as const;
+// @lore AU44 batch6: STOP_DISPOSITIONS was a one-key map behind a one-legal-value
+// `reason` param. The map and param are gone; disposition is hardcoded.
+const STOP_DISPOSITION = { state: "stopped", outcome: "stopped" } as const;
 
 export interface StoppedRun {
 	readonly taskId: string;
@@ -35,10 +33,9 @@ export interface StoppedRun {
 export async function requestRunStopForTasks(
 	exec: WriteExecutor,
 	taskIds: readonly string[],
-	opts: { reason: keyof typeof STOP_DISPOSITIONS },
 ): Promise<readonly StoppedRun[]> {
 	if (taskIds.length === 0) return [];
-	const disposition = STOP_DISPOSITIONS[opts.reason];
+	const disposition = STOP_DISPOSITION;
 
 	const active = await exec
 		.select({ id: sessions.id, taskId: sessions.taskId })

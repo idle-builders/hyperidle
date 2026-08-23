@@ -21,9 +21,6 @@
 			"path": "../../../framework/event-bus"
 		},
 		{
-			"path": "../../../framework/query-escaping"
-		},
-		{
 			"path": "../../../framework/work-intent-port"
 		}
 	]

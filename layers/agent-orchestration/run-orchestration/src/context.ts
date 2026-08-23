@@ -7,7 +7,6 @@ import {
 	communityForRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { encodeTyped } from "@hyperidle/toon-codec";
 import type { BakedContextBundle, BakedContextKnowledgeItem } from "@hyperidle/work-intent-port";
 
 /**
@@ -136,9 +135,52 @@ function routineSessionContextDataFromBundle(
 	};
 }
 
+/**
+ * Encode an object into TOON format (flat key-path lines).
+ * Inlined from the deleted @hyperidle/toon-codec package — encode-only,
+ * no decoder exists or is needed (the LLM is the decoder).
+ */
+function encodeToon(obj: object): string {
+	const lines: string[] = [];
+	flattenToLines(obj, "", lines);
+	return lines.join("\n");
+}
+
+function flattenToLines(value: unknown, prefix: string, lines: string[]): void {
+	// @lore I6: skip undefined values, matching JSON.stringify behavior.
+	if (value === undefined) return;
+	if (value === null) {
+		lines.push(`${prefix}:`);
+		return;
+	}
+	if (Array.isArray(value)) {
+		for (let i = 0; i < value.length; i++) flattenToLines(value[i], `${prefix}[${i}]`, lines);
+		return;
+	}
+	if (typeof value === "object") {
+		for (const [k, v] of Object.entries(value as Record<string, unknown>))
+			flattenToLines(v, prefix ? `${prefix}.${k}` : k, lines);
+		return;
+	}
+	if (typeof value === "string") {
+		if (value === "") {
+			lines.push(`${prefix}: `);
+			return;
+		}
+		if (value.includes("\n")) {
+			lines.push(`${prefix}: |`);
+			for (const line of value.split("\n")) lines.push(`  ${line}`);
+			return;
+		}
+		lines.push(`${prefix}: ${value}`);
+		return;
+	}
+	lines.push(`${prefix}: ${String(value)}`);
+}
+
 /** Build session.toon content from a task-or-routine session's derived context data. */
 function buildSessionContextToon(data: SessionContextData | RoutineSessionContextData): string {
-	return encodeTyped(data);
+	return encodeToon(data);
 }
 
 // ---- context-assembly-prompt ----

@@ -30,7 +30,6 @@ import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
@@ -116,7 +115,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		}
 
 		// I2 V4: escape LIKE wildcards so user's literal chars do not become SQL operators.
-		const pattern = `%${escapeLikePattern(query)}%`;
+		const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
 		// ── 1. Conversations (threads) ──────────────────────────────────────────
 		//
@@ -133,7 +132,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// A LIKE probe `%"<userId>"%` is correct for a JSON array of quoted strings.
 		// JS verification after fetch eliminates false positives from substrings.
 
-		const participantPattern = `%"${escapeLikePattern(userId)}"%`;
+		const participantPattern = `%"${userId.replace(/[\\%_]/g, "\\$&")}"%`;
 
 		// Find all threads where the current user might be a participant and
 		// at least one message matches the query.

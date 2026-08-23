@@ -24,7 +24,6 @@
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/host-process": "*",
 		"@hyperidle/http-middleware": "*",
 		"@types/ws": "^8.18.1",
 		"electron": "43.1.1",

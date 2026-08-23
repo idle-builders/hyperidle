@@ -4,7 +4,6 @@ import type {
 	Message,
 	NewBet,
 	NewItem,
-	NewNotificationQueueRow,
 	NewTask,
 	NewThread,
 	Task,
@@ -127,9 +126,6 @@ export interface PolicyDeps {
 	};
 	readonly org?: {
 		getByTeamId(db: WriteExecutor, teamId: string): Promise<Team | undefined>;
-	};
-	readonly notifications: {
-		insert(db: WriteExecutor, row: NewNotificationQueueRow): Promise<void>;
 	};
 	readonly sessionRequests?: {
 		record(

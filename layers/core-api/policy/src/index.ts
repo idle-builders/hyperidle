@@ -7,9 +7,9 @@
  * bundled into ONE `PolicyDeps` injection type wired at the composition
  * root; the internal sub-types remain in `ports.ts` but are not re-exported.
  * The two `register*` functions are unified under `registerPolicy` (one boot
- * call, one disposer). `retryFailedPropagations` is INTERNAL — integration
- * tests that need it import it directly from `lifecycle-propagation.ts` via
- * a relative path. `InvalidTransitionError`/`VALID_TRANSITIONS` (local
+ * call, one disposer). The propagation_log table and its retry machinery
+ * (`retryFailedPropagations`, `recordPropagationHop`) are deleted (AU20
+ * Ruling 2 / AU44 batch6). `InvalidTransitionError`/`VALID_TRANSITIONS` (local
  * task-state-machine mirror used only by `handoff-protocol.ts` and
  * `lifecycle-propagation.ts`) are internal; `PolicySessionContext` stays
  * public because it appears as a field type on the exported `HandoffParams`.

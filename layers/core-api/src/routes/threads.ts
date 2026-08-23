@@ -55,7 +55,6 @@ import {
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { deriveTitle } from "@hyperidle/presentation-format";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { findProposedCall, transitionProposedCall } from "@hyperidle/review";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
@@ -806,7 +805,7 @@ export function createThreadRoutes(
 			// L1 step5 (W6): participant_id scope — pre-filter in SQL with LIKE probe,
 			// then re-verify membership in JS.
 			const participantId = q.participant_id ?? "";
-			const probe = `%${escapeLikePattern(JSON.stringify(participantId))}%`;
+			const probe = `%${JSON.stringify(participantId).replace(/[\\%_]/g, "\\$&")}%`;
 			const rawRows = await listThreads(db, {
 				participantProbe: probe,
 				order: "lastActive",

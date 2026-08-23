@@ -3,10 +3,12 @@
  *
  * Laptop/dev profile auto-defaults to a well-known dev key.
  * VPS/cloud profiles fail fast when the key is unset.
+ *
+ * Moved here from layers/core-api/src/__tests__/ when validateStartupEnv
+ * moved from @hyperidle/host-process to this application (AU44-b6).
  */
-
-import { validateStartupEnv } from "@hyperidle/host-process";
-import { afterEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import { validateStartupEnv } from "../validate-startup-env.js";
 
 describe("I2 A6 — validateStartupEnv", () => {
 	afterEach(() => {

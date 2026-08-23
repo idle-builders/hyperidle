@@ -463,7 +463,13 @@ export interface PropagationAppliedEvent {
 	timestamp: number;
 }
 
-/** L20: Emitted when lifecycle propagation fails after exhausting retries. */
+/**
+ * L20: Emitted when lifecycle propagation fails.
+ *
+ * @lore AU44 batch6: `attempts` field dropped (AU20 Ruling 2). The retry
+ * apparatus and propagation_log table are gone; this event is emitted on
+ * first failure and is the extension surface for plugins.
+ */
 export interface PropagationFailedEvent {
 	type: "propagation_failed";
 	/** streamId = targetId so per-entity streams receive the event. */
@@ -473,7 +479,6 @@ export interface PropagationFailedEvent {
 	targetLevel: PropagationLevelLiteral;
 	targetId: string;
 	failureReason: string;
-	attempts: number;
 	timestamp: number;
 }
 

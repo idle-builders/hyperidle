@@ -42,25 +42,19 @@ export function createOrchestrationSessionRoutes(
 ): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
-	// GET / — List sessions with optional filtering by task_id, agent_id, state.
+	// GET / — List sessions with optional filtering by task_id, state.
 	// @lore I6: replaces the bounded resource descriptor with actual filtering.
+	// @lore AU44 batch6: agentId filter and limit/offset paging dropped — no
+	// production caller uses them. The Conversations page queries task_id+state.
 	router.get("/", async (c) => {
 		const taskId = c.req.query("task_id");
-		const agentId = c.req.query("agent_id");
 		const state = c.req.query("state");
-		const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "50", 10) || 50, 200);
-		const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
 
 		return c.json(
-			await listSessions(
-				db,
-				{
-					...(taskId ? { taskId } : {}),
-					...(agentId ? { agentId } : {}),
-					...(state ? { state } : {}),
-				},
-				{ limit, offset },
-			),
+			await listSessions(db, {
+				...(taskId ? { taskId } : {}),
+				...(state ? { state } : {}),
+			}),
 		);
 	});
 

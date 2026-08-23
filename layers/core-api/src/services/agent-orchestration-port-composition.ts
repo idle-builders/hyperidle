@@ -87,9 +87,8 @@ interface AgentOrchestrationHcClient {
 				$post(args: { readonly json: { readonly sessionId: string } }): Promise<Response>;
 			};
 			readonly "stop-for-tasks": {
-				$post(args: {
-					readonly json: { readonly taskIds: readonly string[]; readonly reason: "bet_killed" };
-				}): Promise<Response>;
+				// @lore AU44 batch6: `reason` dropped from request body.
+				$post(args: { readonly json: { readonly taskIds: readonly string[] } }): Promise<Response>;
 			};
 			readonly "end-for-handoff": {
 				$post(args: {
@@ -238,10 +237,9 @@ export function buildAgentOrchestrationPort(
 		runs: {
 			async stopForTasks(
 				taskIds: readonly string[],
-				reason: "bet_killed",
 			): Promise<ReadonlyArray<AgentOrchestrationStoppedRun>> {
 				const res = await client["agent-orchestration"].runs["stop-for-tasks"].$post({
-					json: { taskIds, reason },
+					json: { taskIds },
 				});
 				if (!res.ok) return throwSeamError("runs.stopForTasks", res);
 				const body = (await res.json()) as {
@@ -350,7 +348,7 @@ export function buildSeamBackedWorkIntentRecorder(
  * AU31 §2.2/§3 clause 2 — the seam-backed `OrgAgentRunConfigWriter` factory:
  * the composition-root adapter that lets `@hyperidle/org`'s
  * `persistScaffoldedAgents` (org.ts, teams-routes.ts, users.ts's setup route)
- * go through the port instead of importing `@hyperidle/agent-run-config`
+ * go through the port instead of importing `@hyperidle/run-orchestration`
  * directly. Same shape as `buildSeamBackedWorkIntentRecorder` above:
  * `writeAgentRunConfig` deliberately IGNORES the executor it is handed — a
  * seam call is an HTTP round trip through the composed app's own connection,

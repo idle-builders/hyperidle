@@ -75,7 +75,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { HELD_AUTH_SOURCES, type HeldAuthSource } from "@hyperidle/domain-model";
-import { resolveUrlForSSRF } from "@hyperidle/host-process";
+import { resolveUrlForSSRF } from "./ssrf.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

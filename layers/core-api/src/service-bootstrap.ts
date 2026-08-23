@@ -30,12 +30,7 @@ import { createLogger } from "@hyperidle/diagnostics";
 import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
-import {
-	enqueue,
-	installNotifications,
-	type NotificationsDeps,
-	reap,
-} from "@hyperidle/notifications";
+import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/notifications";
 import { getTeam, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
 import { registerPolicy } from "@hyperidle/policy";
@@ -229,11 +224,6 @@ const policyDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	notifications: {
-		insert: async (db, row) => {
-			await enqueue(db, row);
-		},
-	},
 };
 
 /**
@@ -428,7 +418,9 @@ export function registerCoreDomainServices(ctx: {
 			registerPolicy(db, eventBus, policyDeps),
 			"policy registration",
 			"unsubscribe",
-			["policy engine", "lifecycle propagation", "retry interval"],
+			// @lore AU44 batch6: "retry interval" removed — the 30s heartbeat
+			// (retryFailedPropagations) is deleted with propagation_log (AU20 Ruling 2).
+			["policy engine", "lifecycle propagation"],
 		),
 	);
 	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener

@@ -22,7 +22,6 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/host-process": "*",
 		"@hyperidle/http-middleware": "*",
 		"hono": "^4.12.27",
 		"ws": "^8.20.0"

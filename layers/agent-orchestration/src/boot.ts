@@ -52,7 +52,6 @@ import { HELD_AUTH_SOURCES, type ModelTier, type ResolvedModel } from "@hyperidl
 import type { EventBus } from "@hyperidle/event-bus";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import type { HarnessAdapter, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
-import { createGitRunner } from "@hyperidle/host-process";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import type {
 	HeldConnectionsReaderPort,
@@ -66,6 +65,7 @@ import { RegistryFilesystemMounter } from "@hyperidle/run-orchestration";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
 import { createAgentOrchestrationApp } from "./app.js";
+import { createGitRunner } from "./git-runner.js";
 import {
 	registerSessionStreamRoute,
 	type SessionStreamTokenStore,

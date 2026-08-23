@@ -11,9 +11,9 @@
  * both creates the roster users and returns the `rosterAgents` this needs.
  */
 
-import { writeAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
+import { writeAgentRunConfig } from "@hyperidle/run-orchestration";
 
 const AH2_DEFAULTS = {
 	harnessType: "builtin",
