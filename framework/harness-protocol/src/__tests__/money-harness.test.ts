@@ -28,7 +28,6 @@ describe("SessionResult (AC9)", () => {
 		const handle = await adapter.startSession({
 			sessionId: "test-session",
 			sandboxPath: "/tmp/ws",
-			systemPromptPath: "/tmp/system-prompt.md",
 			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],
@@ -46,7 +45,6 @@ describe("SessionResult (AC9)", () => {
 		const handle = await adapter.startSession({
 			sessionId: "test-session",
 			sandboxPath: "/tmp/ws",
-			systemPromptPath: "/tmp/system-prompt.md",
 			assembledPrompt: "",
 			modelTier: "workhorse",
 			tools: [],

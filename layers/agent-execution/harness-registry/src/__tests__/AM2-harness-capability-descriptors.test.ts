@@ -1,6 +1,9 @@
 import type { AdapterMeta, HarnessCapabilities } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
-import { createCapabilityCatalog } from "../harness-capability-descriptors.js";
+import {
+	describeHarnessCapability,
+	missingHarnessCapabilities,
+} from "../harness-capability-descriptors.js";
 import type { HarnessDiscoveryInput } from "../harness-discovery.js";
 
 const BUILTIN_META: AdapterMeta = {
@@ -18,7 +21,7 @@ const BASE_CAPS: HarnessCapabilities = {
 	mcpSupport: false,
 	returnEnforcement: "none",
 };
-const catalog = createCapabilityCatalog();
+const catalog = { describe: describeHarnessCapability, missing: missingHarnessCapabilities };
 
 describe("AM2 harness capability descriptor builders", () => {
 	it("describes builtin as API-gateway/direct-key access with model descriptors", () => {

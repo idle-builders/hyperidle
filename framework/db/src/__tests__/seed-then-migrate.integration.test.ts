@@ -9,8 +9,7 @@
  *
  * @lore U1: Updated to use new schema:
  * - `teams` (formerly `products`) for the domain entity
- * - `teamMembers` (formerly `teams`) for agent-membership group
- * - `bets.description` (formerly `bets.pitch`)
+ *  * - `bets.description` (formerly `bets.pitch`)
  * - `bets.teamId` references `teams.id` (no more `bets.productId`)
  * - `tasks.teamId` references `teams.id` (no more `tasks.productId`)
  * - `sessions.cost` was dropped in O2 migration
@@ -38,9 +37,6 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 			await db
 				.insert(schema.teams)
 				.values({ id: "p1", name: "P1", phase: "build", createdAt: NOW });
-			await db
-				.insert(schema.teamMembers)
-				.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 			// @lore P2: agents → users table. kind: "ai" required.
 			await db.insert(schema.users).values({
 				id: "a1",
@@ -83,8 +79,6 @@ describe("I3 review C3: migration idempotency on a populated PGlite DB", () => {
 			// @lore U1: `schema.teams` is the domain entity (formerly `products`).
 			const teamRows = await db.select().from(schema.teams);
 			expect(teamRows).toHaveLength(1);
-			const memberRows = await db.select().from(schema.teamMembers);
-			expect(memberRows).toHaveLength(1);
 			const userRows = await db.select().from(schema.users);
 			expect(userRows).toHaveLength(1);
 			const betRows = await db.select().from(schema.bets);

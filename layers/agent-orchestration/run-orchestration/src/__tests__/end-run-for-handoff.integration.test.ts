@@ -20,7 +20,7 @@
  *     handoff via `review/session-review-creator.ts`).
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { endRunForHandoff } from "../end-run-for-handoff.js";
@@ -30,9 +30,6 @@ const ENDED_AT = "2026-08-04T11:00:00.000Z";
 
 async function seedRun(db: HyperIdleDb, state: string): Promise<void> {
 	await db.insert(teams).values({ id: "team-1", name: "T", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "A",

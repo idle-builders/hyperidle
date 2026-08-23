@@ -22,13 +22,12 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
-import type { ToolContext } from "@hyperidle/tool-protocol";
 import type { BakedContextBundle } from "@hyperidle/work-intent-port";
 import { toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
 import { eq } from "drizzle-orm";
@@ -62,9 +61,6 @@ const AGENT_ID = "agent-r7";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: TEAM_ID, name: "R7 Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-r7", teamId: TEAM_ID, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: AGENT_ID,
 		name: "Builder Agent",

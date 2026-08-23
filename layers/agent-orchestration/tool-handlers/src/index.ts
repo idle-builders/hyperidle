@@ -31,3 +31,13 @@ export { buildToolDefinitions } from "./tool-definitions.js";
  * definitions it dispatches, not the layer that owns harness adapters.
  */
 export { buildToolRegistry } from "./tool-registry.js";
+export type {
+	BuildToolRegistryOptions,
+	ProposedCallWorkflowPort,
+} from "./tool-types.js";
+export {
+	classifyReversibility,
+	identityHash,
+	toClaudeToolSpec,
+	toRegistered,
+} from "./tool-types.js";

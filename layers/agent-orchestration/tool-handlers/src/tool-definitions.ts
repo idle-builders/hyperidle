@@ -41,15 +41,10 @@ import {
 	type TaskStateChangedEvent,
 } from "@hyperidle/domain-model";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import {
-	err,
-	ok,
-	type RegisteredTool,
-	type ToolDefinition,
-	toRegistered,
-} from "@hyperidle/tool-protocol";
+import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
+import { type ToolDefinition, toRegistered } from "./tool-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // send_message
@@ -922,9 +917,12 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			const now = new Date().toISOString();
 
 			const teamId = `team-${randomUUID()}`;
-			const teamMembersId = `team-${randomUUID()}`;
+			// @lore AU44 B1: after the fold, teamMembers.id = teams.id — one entity, one id.
+			// Using a separate UUID here caused a FK violation: persistScaffoldedAgents sets
+			// users.teamId = teamMembersId, but only teams.id = teamId exists in `teams`.
+			const teamMembersId = teamId;
 
-			// @lore AU20 Am7: atomic createTeam (teams + teamMembers companion in one call).
+			// @lore AU20 Am7 / AU44 B1: createTeam inserts one `teams` row (team_members dissolved).
 			await ports.coreApi.createTeam(
 				{
 					id: teamId,

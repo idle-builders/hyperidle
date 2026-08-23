@@ -1,13 +1,5 @@
-import {
-	type EnforcementEntry,
-	type EnforcementRegistry,
-	type HarnessEvent,
-	isRequiredReturnAction,
-} from "@hyperidle/harness-protocol";
-
-interface ReturnEnforcementSpec {
-	readonly isolated?: boolean;
-}
+import { type HarnessEvent, isRequiredReturnAction } from "@hyperidle/harness-protocol";
+import type { EnforcementEntry, EnforcementRegistry } from "./enforcement-registry.js";
 
 interface ReturnGate {
 	observe(event: HarnessEvent): void;
@@ -29,7 +21,7 @@ interface ReturnEnforcement extends EnforcementRegistry {
 	): "returned" | "not_returned";
 }
 
-function buildReturnEnforcement(): ReturnEnforcement {
+export function createReturnEnforcement(): ReturnEnforcement {
 	const entries = new Map<string, EnforcementEntry>();
 	return {
 		register(sessionId, entry) {
@@ -68,10 +60,4 @@ function buildReturnEnforcement(): ReturnEnforcement {
 			return endReason !== "completed" || gate.returned ? "returned" : "not_returned";
 		},
 	};
-}
-
-const sharedEnforcement = buildReturnEnforcement();
-
-export function createReturnEnforcement(spec: ReturnEnforcementSpec = {}): ReturnEnforcement {
-	return spec.isolated ? buildReturnEnforcement() : sharedEnforcement;
 }

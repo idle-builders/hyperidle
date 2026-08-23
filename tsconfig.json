@@ -44,9 +44,6 @@
 			"path": "framework/harness-protocol"
 		},
 		{
-			"path": "framework/tool-protocol"
-		},
-		{
 			"path": "framework/db"
 		},
 		{

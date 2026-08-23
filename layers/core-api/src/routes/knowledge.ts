@@ -53,7 +53,7 @@ import {
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
-import { getTeam, getTeamMembers } from "@hyperidle/org";
+import { getTeam } from "@hyperidle/org";
 import { scopeKindToLabel } from "@hyperidle/presentation-format";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -142,19 +142,9 @@ export async function resolveScopeName(
 	}
 
 	if (scopeKind === "team") {
-		// @lore AV3 U1: scopeId may be teams.id or team_members.id.
-		// Try teams first (direct id). On miss, try team_members then teams.
+		// @lore AU44 B1: after team_members fold, scopeId IS teams.id directly (no two-hop).
 		const teamRow = await getTeam(db, { id: scopeId });
-		if (teamRow?.name) return teamRow.name;
-
-		// Two-hop: scopeId is a team_members.id — find the teamId, then look up teams.name.
-		const memberRow = await getTeamMembers(db, { id: scopeId });
-		if (memberRow?.teamId) {
-			const teamFromMember = await getTeam(db, { id: memberRow.teamId });
-			if (teamFromMember?.name) return teamFromMember.name;
-		}
-
-		return scopeKindToLabel("team");
+		return teamRow?.name ?? scopeKindToLabel("team");
 	}
 
 	if (scopeKind === "bet") {

@@ -12,7 +12,7 @@
  * and always creates exactly one default team.
  */
 
-import { teamMembers, teams, users } from "@hyperidle/db";
+import { teams, users } from "@hyperidle/db";
 import { count, eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -72,7 +72,7 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("no duplicate teamMembers rows after two POST calls", async ({ app, db }) => {
+	test("only one teams row after two POST calls", async ({ app, db }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await app.request("/api/teams", {
@@ -86,8 +86,8 @@ describe("AF15 AC-4 — POST /api/teams idempotency guard", () => {
 			body: JSON.stringify(teamBody),
 		});
 
-		const [tmCount] = await db.select({ count: count() }).from(teamMembers);
-		expect(tmCount?.count).toBe(1);
+		const [teamCount] = await db.select({ count: count() }).from(teams);
+		expect(teamCount?.count).toBe(1);
 		vi.unstubAllEnvs();
 	});
 

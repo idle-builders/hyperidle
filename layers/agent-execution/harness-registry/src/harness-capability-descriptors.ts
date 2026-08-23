@@ -181,6 +181,4 @@ function missing(
 	});
 }
 
-export function createCapabilityCatalog() {
-	return { describe, missing };
-}
+export { describe as describeHarnessCapability, missing as missingHarnessCapabilities };

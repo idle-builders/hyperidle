@@ -527,7 +527,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/host-process",
 		"framework/http-middleware",
 		"framework/harness-protocol",
-		"framework/tool-protocol",
 		"framework/db",
 		"framework/design-system",
 		"layers/core-api",

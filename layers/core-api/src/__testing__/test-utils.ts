@@ -5,6 +5,7 @@ import {
 	bootAgentOrchestration,
 } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationTransport } from "@hyperidle/api-contract";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import { registerFixtureOrchestrationCleanup } from "@hyperidle/db/test-fixtures";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
@@ -34,10 +35,9 @@ export interface TestAppOptions extends AppOptions {
 	 */
 	agentOrchestrationBoot?: AgentOrchestrationBoot;
 	/**
-	 * AES-256-GCM cipher injected into the agent-orchestration Layer for connection
-	 * token encrypt/decrypt. Required since @hyperidle/credential-access was dissolved
-	 * into @hyperidle/credentials (AU44-b2). Falls back to a throw-on-encrypt no-op
-	 * when absent — pass this in any test that uses the /api/connections routes.
+	 * AU44 batch2: AES-256-GCM cipher injected into the agent-orchestration Layer
+	 * for connection token encrypt/decrypt. Sourced from `@hyperidle/credentials`
+	 * at the Application layer; absent → connections route rejects token writes.
 	 */
 	cipher?: {
 		readonly encrypt: (plaintext: string) => string;
@@ -109,7 +109,14 @@ export async function createTestApp(options?: TestAppOptions): Promise<Hono> {
 	const agentOrchestration =
 		options?.agentOrchestrationBoot ??
 		(options?.db
-			? await bootAgentOrchestration({ db: options.db, eventBus, cipher: options.cipher })
+			? await bootAgentOrchestration({
+					db: options.db,
+					eventBus,
+					cipher: options.cipher ?? {
+						encrypt: encryptCredentialValue,
+						decrypt: decryptCredentialValue,
+					},
+				})
 			: undefined);
 	if (options?.db && agentOrchestration) {
 		registerFixtureOrchestrationCleanup(options.db, () => {

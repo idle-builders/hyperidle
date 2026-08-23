@@ -15,18 +15,17 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-// @lore U1: `products` renamed to `teams`; old `teams` (membership) renamed to `teamMembers`.
+// @lore U1: `products` renamed to `teams`; `teamMembers` dissolved into `teams` (AU44 B1).
 import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
-	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 
 export const NOW = "2026-04-18T00:00:00.000Z";
 
@@ -67,9 +66,6 @@ export function makeContext(
 export async function seedBase(db: HyperIdleDb): Promise<void> {
 	// @lore U1: teams is the domain entity (formerly products); teamMembers is the membership group.
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
 	await db.insert(users).values({
@@ -109,13 +105,16 @@ export interface SeedTeamOptions {
  * `createTeam` (`layers/core-api/org/src/team-lookup.ts:230-259`), which always inserts both rows
  * together. Defaults match the owner's own: capacity 5, activeBets 0, formedAt = createdAt.
  */
+/**
+ * @lore AU44 B1: team_members dissolved into teams. teamMembersId is now
+ * always equal to id (the team's own id). Returned for caller backward compat.
+ */
 export async function seedTeam(
 	db: HyperIdleDb,
 	options: SeedTeamOptions = {},
 ): Promise<{ id: string; teamMembersId: string }> {
 	const id = options.id ?? "p1";
 	const createdAt = options.createdAt ?? NOW;
-	const teamMembersId = options.teamMembersId ?? `${id}-members`;
 	await db.insert(teams).values({
 		id,
 		name: options.name ?? "Test",
@@ -123,15 +122,12 @@ export async function seedTeam(
 		functions: options.functions,
 		factoryDbPath: options.factoryDbPath,
 		createdAt,
-	});
-	await db.insert(teamMembers).values({
-		id: teamMembersId,
-		teamId: id,
 		capacity: options.capacity ?? 5,
 		activeBets: options.activeBets ?? 0,
 		formedAt: options.formedAt ?? createdAt,
 	});
-	return { id, teamMembersId };
+	// teamMembersId = id after the fold — kept in return for caller backward compat.
+	return { id, teamMembersId: id };
 }
 
 export interface SeedKnowledgeItemOptions {

@@ -26,7 +26,6 @@ import {
 	messages,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -49,9 +48,6 @@ function authHeaders(): Record<string, string> {
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 1, formedAt: now });
 	await db.insert(users).values([
 		{
 			id: "agent-1",
@@ -59,7 +55,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			kind: "ai",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: now,
 		},
 		{
@@ -68,7 +64,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			kind: "human",
 			role: "founder",
 			status: "active",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: now,
 		},
 	]);

@@ -1,5 +1,5 @@
 /** AU20 Stage 1: consumer-demand completeness contract for the work service. */
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { create, get, list } from "../work-service.js";
 
@@ -14,14 +14,6 @@ async function seedWork(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Team ${suffix}`, phase: "build", createdAt: now });
-	// The owner writes the membership row alongside the team.
-	await db.insert(teamMembers).values({
-		id: `${teamId}-members`,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(bets).values({
 		id: betId,
 		teamId,

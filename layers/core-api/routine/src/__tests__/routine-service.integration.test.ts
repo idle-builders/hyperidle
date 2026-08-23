@@ -30,7 +30,7 @@
  * `getRoutineRun`). AU21 Increment 14a: `sumRunCost` deleted along with the
  * rest of the cost feature.
  */
-import { type HyperIdleDb, routineRuns, routines, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
@@ -45,13 +45,6 @@ async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 		createdAt,
 	});
 	// The owner writes the membership row alongside the team.
-	await db.insert(teamMembers).values({
-		id: "team-1-members",
-		teamId: "team-1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: createdAt,
-	});
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Agent One",
@@ -351,13 +344,6 @@ describe("routine-service", () => {
 				createdAt: team2CreatedAt,
 			});
 			// The owner writes the membership row alongside the team.
-			await db.insert(teamMembers).values({
-				id: "team-2-members",
-				teamId: "team-2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: team2CreatedAt,
-			});
 			await routine.insertRoutine(db, {
 				id: "routine-b",
 				name: "B",

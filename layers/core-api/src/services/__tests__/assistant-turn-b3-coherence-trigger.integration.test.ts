@@ -78,7 +78,6 @@ import {
 	filesystemInjections,
 	filesystems,
 	serviceConnections,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -168,13 +167,6 @@ describe("assistant_turn B‴ coherence trigger — a thread reply re-bakes a pe
 			.insert(teams)
 			.values({ id: "team-inc11-b3-coherence", name: "Team", phase: "build", createdAt: NOW });
 		// The owner writes the membership row alongside the team.
-		await db.insert(teamMembers).values({
-			id: "team-inc11-b3-coherence-members",
-			teamId: "team-inc11-b3-coherence",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
 		await db.insert(filesystems).values({
 			id: "fs-inc11-b3-coherence",
 			teamId: "team-inc11-b3-coherence",

@@ -23,9 +23,9 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { enqueue } from "@hyperidle/notifications";
-import { getTeamMembers, updateTeam } from "@hyperidle/org";
+import { getTeam, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -93,7 +93,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
 const teamCapacity = {
-	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
 	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
 		updateTeam(db, teamId, { activeBets }),
 };
@@ -108,9 +108,6 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 async function seedBaseData(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "team-r7", name: "R7 Team", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-r7", teamId: "team-r7", capacity: 5, activeBets: 0, formedAt: now });
 
 	// F6: seed system propagation agent (required for review threads)
 	await db.insert(users).values({
@@ -412,7 +409,7 @@ describe("R7 AC-4: Completed bets appear in WorkPortfolio with correct shipRate"
 			},
 		]);
 		// Update activeBets counter
-		await db.update(teamMembers).set({ activeBets: 1 }).where(eq(teamMembers.id, "tm-r7"));
+		await db.update(teams).set({ activeBets: 1 }).where(eq(teams.id, "team-r7"));
 
 		const res = await app.request("/api/teams", { headers: authHeaders() });
 		expect(res.status).toBe(200);

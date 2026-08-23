@@ -24,7 +24,7 @@ import { describe, expect, it } from "vitest";
 // FAILS red: module does not exist yet (green phase Task 2)
 import { createReturnEnforcement } from "../return-enforcement.js";
 
-const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
+const createEnforcementRegistry = () => createReturnEnforcement();
 
 describe("return-enforcement-registry", () => {
 	// ── Lifecycle: register / get / unregister ────────────────────────────

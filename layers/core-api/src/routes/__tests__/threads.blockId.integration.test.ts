@@ -11,7 +11,7 @@
  * dual-write logic.
  */
 
-import { type HyperIdleDb, messages, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -30,13 +30,6 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1-t5", name: "T5Team", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: "tm-t5",
-		teamId: "p1-t5",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(users).values({
 		id: "u-t5-founder",
 		kind: "human",

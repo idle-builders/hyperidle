@@ -36,12 +36,12 @@ import {
 	MODEL_TIERS,
 } from "@hyperidle/domain-model";
 import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import type { HyperIdleEnv } from "@hyperidle/http-middleware";
-import { getTeamMembers } from "@hyperidle/org";
+import { getTeam } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { handleAgentProfile } from "./agent-profile.js";
 import { validateAgentConfig } from "./validate-agent-config.js";
 
@@ -259,7 +259,7 @@ export function createAgentRoutes(
 		// AH4: FK 422 — reject unknown teamId before the INSERT to surface a clear 422
 		// rather than a FK constraint 500. teamId references team_members.id.
 		if (data.teamId) {
-			const tmRow = await getTeamMembers(db, { id: data.teamId });
+			const tmRow = await getTeam(db, { id: data.teamId });
 			if (!tmRow) {
 				return c.json({ error: `teamId not found: ${data.teamId}`, code: "VALIDATION_ERROR" }, 422);
 			}

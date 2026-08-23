@@ -41,7 +41,7 @@ import {
 	tailoredGrants,
 	type User,
 } from "@hyperidle/db";
-import type { ToolResult } from "@hyperidle/tool-protocol";
+import type { ToolResult } from "@hyperidle/harness-protocol";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,

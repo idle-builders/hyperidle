@@ -9,7 +9,7 @@
  * W1: resolveFounderId path 1 (auth context) wins over body userId (anti-spoof).
  */
 
-import { orgEdges, teamMembers, teams, users } from "@hyperidle/db";
+import { orgEdges, teams, users } from "@hyperidle/db";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -116,13 +116,6 @@ describe("AH4 — Org edge wiring", () => {
 				phase: "build",
 				createdAt: NOW,
 			});
-			await db.insert(teamMembers).values({
-				id: "ah4-tm-agent",
-				teamId: "ah4-team-agent",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 
 			const res = await app.request("/api/agents", {
 				method: "POST",
@@ -130,7 +123,7 @@ describe("AH4 — Org edge wiring", () => {
 				body: JSON.stringify({
 					name: "AH4 Builder",
 					role: "builder",
-					teamId: "ah4-tm-agent",
+					teamId: "ah4-team-agent",
 				}),
 			});
 
@@ -139,7 +132,7 @@ describe("AH4 — Org edge wiring", () => {
 
 			// Verify users.teamId is set in the DB
 			const [row] = await db.select().from(users).where(eq(users.id, created.id)).limit(1);
-			expect(row?.teamId).toBe("ah4-tm-agent");
+			expect(row?.teamId).toBe("ah4-team-agent");
 		});
 	});
 
@@ -309,13 +302,6 @@ describe("AH4 — Org edge wiring", () => {
 				phase: "build",
 				createdAt: NOW,
 			});
-			await db.insert(teamMembers).values({
-				id: "ah4-tm-upsert",
-				teamId: "ah4-team-upsert",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: NOW,
-			});
 			await db.insert(users).values({
 				id: "ah4-human-upsert",
 				kind: "human",
@@ -332,7 +318,7 @@ describe("AH4 — Org edge wiring", () => {
 				body: JSON.stringify({
 					fromUserId: "ah4-human-upsert",
 					mechanism: "team",
-					target: "ah4-tm-upsert",
+					target: "ah4-team-upsert",
 				}),
 			});
 			expect(first.status).toBe(201);
@@ -345,7 +331,7 @@ describe("AH4 — Org edge wiring", () => {
 				body: JSON.stringify({
 					fromUserId: "ah4-human-upsert",
 					mechanism: "team",
-					target: "ah4-tm-upsert",
+					target: "ah4-team-upsert",
 				}),
 			});
 			expect(second.status).toBe(200);

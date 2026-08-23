@@ -24,7 +24,6 @@ import {
 	propagationLog,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -111,10 +110,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
 
 	await db.insert(bets).values({
 		id: "bet-1",
@@ -630,7 +625,7 @@ describe("registerLifecyclePropagation — task -> bet", () => {
 
 		// Also decrement activeBets on teamMembers (simulate full kill)
 		// @lore U1: activeBets is on teamMembers (membership group), not teams (domain entity)
-		await db.update(teamMembers).set({ activeBets: 0 }).where(eq(teamMembers.id, "team-1"));
+		await db.update(teams).set({ activeBets: 0 }).where(eq(teams.id, "team-1"));
 
 		// Move task-2 to done and fire event (propagation will try review but bet is killed)
 		await db

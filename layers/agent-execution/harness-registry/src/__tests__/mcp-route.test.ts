@@ -1,4 +1,4 @@
-import type { ToolRegistry } from "@hyperidle/tool-protocol";
+import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { createMcpToolBridge } from "../mcp-tool-bridge.js";
 import { createReturnEnforcement } from "../return-enforcement.js";
@@ -34,7 +34,7 @@ describe("MCP public route", () => {
 	});
 
 	it("requires an exact bearer credential for return-status", async () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const bridge = createMcpToolBridge({ enforcement });
 		const { token } = await bridge.open({ sessionId: "auth-session", registry });
 
@@ -56,7 +56,7 @@ describe("MCP public route", () => {
 
 	it("rejects an unknown return-status token even when bearer and URL match", async () => {
 		const bridge = createMcpToolBridge({
-			enforcement: createReturnEnforcement({ isolated: true }),
+			enforcement: createReturnEnforcement(),
 		});
 		const token = "unknown-token";
 		const response = await bridge.router.request(`/mcp/${token}/return-status`, {
@@ -68,7 +68,7 @@ describe("MCP public route", () => {
 	});
 
 	it("revokes return-status authorization before idempotent close completes", async () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const bridge = createMcpToolBridge({ enforcement });
 		const { token } = await bridge.open({ sessionId: "lifecycle-session", registry });
 
@@ -85,7 +85,7 @@ describe("MCP public route", () => {
 	// ── AU27 Increment 3 (Decision 3): requiredReturnActions-aware return-status ──
 
 	it("forceMessage names 'reply' (not the trio) when the session's registered entry requires ['reply']", async () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const bridge = createMcpToolBridge({ enforcement });
 		const { token } = await bridge.open({ sessionId: "required-reply-session", registry });
 		enforcement.register("required-reply-session", {

@@ -25,7 +25,7 @@
 import * as crypto from "node:crypto";
 import { resolveHeldToken } from "@hyperidle/connections";
 import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
-import { serviceConnections, teamMembers, teams, users } from "@hyperidle/db";
+import { serviceConnections, teams, users } from "@hyperidle/db";
 import { resolveFilesystemState } from "@hyperidle/filesystems";
 import { createGitRunner } from "@hyperidle/host-process";
 import { describe, expect, it } from "vitest";
@@ -124,20 +124,16 @@ describe("AO1 Lane B: real GitHub PAT → real git ls-remote (local-only, networ
 			// Seed a minimal user + team so service_connections FK is satisfied.
 			const teamId = `lb-team-${crypto.randomUUID().slice(0, 8)}`;
 			const userId = `lb-user-${crypto.randomUUID().slice(0, 8)}`;
-			const tmId = `lb-tm-${crypto.randomUUID().slice(0, 8)}`;
 			await db
 				.insert(teams)
 				.values({ id: teamId, name: "LaneB Team", phase: "build", createdAt: NOW });
-			await db
-				.insert(teamMembers)
-				.values({ id: tmId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 			await db.insert(users).values({
 				id: userId,
 				kind: "human",
 				name: "Lane B User",
 				role: "builder",
 				status: "active",
-				teamId: tmId,
+				teamId: teamId,
 				createdAt: NOW,
 			});
 

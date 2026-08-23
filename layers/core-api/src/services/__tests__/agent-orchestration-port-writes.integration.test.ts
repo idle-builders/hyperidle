@@ -16,7 +16,6 @@ import {
 	type HyperIdleDb,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -33,13 +32,6 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: `${prefix}-team-parent`, name: prefix, phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: `${prefix}-team`,
-		teamId: `${prefix}-team-parent`,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	await db.insert(users).values([
 		{
 			id: `${prefix}-human`,
@@ -55,7 +47,8 @@ async function seedTeamAndTask(db: HyperIdleDb, prefix: string): Promise<void> {
 			name: "Agent",
 			role: "builder",
 			status: "idle",
-			teamId: `${prefix}-team`,
+			// @lore AU44 B1: users.teamId references teams.id directly (no teamMembers hop).
+			teamId: `${prefix}-team-parent`,
 			createdAt: NOW,
 		},
 	]);

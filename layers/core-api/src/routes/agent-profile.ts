@@ -42,14 +42,14 @@ import type {
 	AgentReviewTrackRecord,
 } from "@hyperidle/domain-model";
 import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
+import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import { getTeam } from "@hyperidle/org";
+import { findUser } from "@hyperidle/users";
+import type { Context } from "hono";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
-} from "@hyperidle/harness-protocol";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
-import { getTeam, getTeamMembers } from "@hyperidle/org";
-import { findUser } from "@hyperidle/users";
-import type { Context } from "hono";
+} from "../services/harness-capability-reader.js";
 import { computeApprovalRate } from "../services/policy-bindings.js";
 
 // @lore AU26 J4: `computeHealthSignals`, `deriveHealthLevel` and
@@ -100,8 +100,8 @@ export async function handleAgentProfile(
 	let teamName: string | null = null;
 	let resolvedTeamId: string | null = null;
 	if (agent.teamId) {
-		const teamMembersRow = await getTeamMembers(db, { id: agent.teamId });
-		const team = teamMembersRow ? await getTeam(db, { id: teamMembersRow.teamId }) : undefined;
+		// @lore AU44 B1: agent.teamId now references teams.id directly (no two-hop).
+		const team = agent.teamId ? await getTeam(db, { id: agent.teamId }) : undefined;
 		teamName = team?.name ?? null;
 		resolvedTeamId = team?.id ?? null;
 	}

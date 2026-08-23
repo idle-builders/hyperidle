@@ -8,7 +8,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { routines, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { routines, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -23,29 +23,20 @@ function buildCreateRoutineTool(app: Hono): ReturnType<typeof buildToolDefinitio
 
 async function seedTeamAndAgent(db: Parameters<typeof makeContext>[0]): Promise<{
 	teamId: string;
-	teamMembersId: string;
 	agentId: string;
 }> {
 	const teamId = `team-${Date.now()}`;
-	const teamMembersId = `tm-${Date.now()}`;
 	const agentId = `agent-${Date.now()}`;
 	await db.insert(teams).values({ id: teamId, name: "Test Team", phase: "build", createdAt: NOW });
-	await db.insert(teamMembers).values({
-		id: teamMembersId,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	await db.insert(users).values({
 		id: agentId,
 		name: "Test Agent",
 		role: "builder",
 		status: "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
-	return { teamId, teamMembersId, agentId };
+	return { teamId, agentId };
 }
 
 describe("create_routine tool", () => {

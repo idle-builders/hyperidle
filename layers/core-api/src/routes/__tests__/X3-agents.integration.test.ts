@@ -15,7 +15,7 @@
  *  - framework/db/src/seed.ts inserts system_template:* factorySettings rows
  */
 
-import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -32,14 +32,6 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "x3-team", name: "X3 Test Product", phase: "build", createdAt: NOW });
-
-	await db.insert(teamMembers).values({
-		id: "x3-tm",
-		teamId: "x3-team",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 
 	// Seed the human founder (required for auth middleware)
 	await db.insert(users).values({
@@ -64,7 +56,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "X3 Builder Bot",
 		role: "builder",
 		status: "active",
-		teamId: "x3-tm",
+		teamId: "x3-team",
 		createdAt: NOW,
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.

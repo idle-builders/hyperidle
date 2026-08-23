@@ -68,10 +68,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
-import { type EnforcementRegistry, normalizeHarnessEvent } from "@hyperidle/harness-protocol";
-import { createReturnEnforcement, provisionHarnessEnvironment } from "@hyperidle/harness-registry";
-import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
-import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
 import {
 	err,
 	ok,
@@ -79,14 +75,21 @@ import {
 	type ToolContext,
 	type ToolRegistry,
 	type ToolResult,
-	toClaudeToolSpec,
-	toRegistered,
-} from "@hyperidle/tool-protocol";
+} from "@hyperidle/harness-protocol";
+import type { EnforcementRegistry } from "@hyperidle/harness-registry";
+import {
+	createReturnEnforcement,
+	normalizeHarnessEvent,
+	provisionHarnessEnvironment,
+} from "@hyperidle/harness-registry";
+import { createMcpToolBridge, type McpToolBridge } from "@hyperidle/harness-registry/mcp";
+import { harnessTestResolvedModel, requireHarness } from "@hyperidle/harness-registry/test-utils";
+import { toClaudeToolSpec, toRegistered } from "@hyperidle/tool-handlers";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import z from "zod";
 
-const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
+const createEnforcementRegistry = () => createReturnEnforcement();
 
 /**
  * Inline commit_file proof-vehicle tool.

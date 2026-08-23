@@ -16,7 +16,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
@@ -143,9 +143,6 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const teamId = `${taskId}-team`;
 		const betId = `${taskId}-bet`;
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: now });
 		await db.insert(bets).values({
 			id: betId,
 			teamId,

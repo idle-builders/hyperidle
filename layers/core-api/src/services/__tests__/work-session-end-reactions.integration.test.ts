@@ -66,7 +66,6 @@ import {
 	sessions,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -88,9 +87,6 @@ async function seedTaskAndAgent(
 	const taskId = `${id}-task`;
 	const agentId = `${id}-agent`;
 	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: `${id}-tm`, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

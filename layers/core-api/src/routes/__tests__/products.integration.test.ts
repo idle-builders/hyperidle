@@ -10,7 +10,7 @@
  * 6. GET /api/teams/:id returns activeBets: [] for a product whose bets are all shipped.
  */
 
-import { bets, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, tasks, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -55,10 +55,6 @@ describe("GET /api/teams", () => {
 		await db
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
-
-		await db
-			.insert(teamMembers)
-			.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 
 		await db.insert(bets).values({
 			id: "b1",
@@ -123,23 +119,16 @@ describe("GET /api/teams/:id", () => {
 		expect(res.status).toBe(404);
 	});
 
-	test("returns 500 with code 'team_missing' when the team for a product is absent", async ({
-		db,
-		app,
-	}) => {
-		await db
-			.insert(teams)
-			.values({ id: "p-no-team", name: "Orphan Product", phase: "build", createdAt: NOW });
-
-		const res = await app.request("/api/teams/p-no-team", {
+	test("returns 404 when team id does not exist", async ({ app }) => {
+		const res = await app.request("/api/teams/nonexistent-team-id", {
 			method: "GET",
 			headers: authHeaders(),
 		});
 
-		expect(res.status).toBe(500);
+		expect(res.status).toBe(404);
 		const body = (await res.json()) as { code?: string };
-		// @lore U1: error code renamed from "team_missing" to "team_members_missing"
-		expect(body.code).toBe("team_members_missing");
+		// @lore AU44 B1: team_members folded into teams; only not_found remains
+		expect(body.code).toBe("not_found");
 	});
 
 	test("returns populated ProductDetail for a seeded product+team+roster+bets", async ({
@@ -150,20 +139,12 @@ describe("GET /api/teams/:id", () => {
 			.insert(teams)
 			.values({ id: "p1", name: "HyperIdle Core", phase: "build", createdAt: NOW });
 
-		await db.insert(teamMembers).values({
-			id: "t1",
-			teamId: "p1",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: NOW,
-		});
-
 		await db.insert(users).values({
 			id: "agent-lead",
 			name: "Lead Agent",
 			role: "lead",
 			status: "active",
-			teamId: "t1",
+			teamId: "p1",
 			createdAt: NOW,
 		});
 
@@ -172,7 +153,7 @@ describe("GET /api/teams/:id", () => {
 			name: "Alice Agent",
 			role: "member",
 			status: "active",
-			teamId: "t1",
+			teamId: "p1",
 			createdAt: NOW,
 		});
 
@@ -256,7 +237,7 @@ describe("GET /api/teams/:id", () => {
 		expect(body.team.name).toBe("HyperIdle Core");
 
 		// TeamMembers (formerly Team)
-		expect(body.teamMembers.id).toBe("t1");
+		expect(body.teamMembers.id).toBe("p1"); // @lore AU44 B1: teamMembers.id = teams.id
 
 		// Roster — 2 members
 		expect(body.roster).toHaveLength(2);
@@ -279,10 +260,6 @@ describe("GET /api/teams/:id", () => {
 		await db
 			.insert(teams)
 			.values({ id: "p2", name: "Shipped Product", phase: "cool-down", createdAt: NOW });
-
-		await db
-			.insert(teamMembers)
-			.values({ id: "t2", teamId: "p2", capacity: 3, activeBets: 0, formedAt: NOW });
 
 		await db.insert(bets).values({
 			id: "b-s1",

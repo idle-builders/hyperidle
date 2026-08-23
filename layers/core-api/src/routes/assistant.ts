@@ -32,7 +32,6 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
 // now call app scaffolding + persistScaffoldedAgents, identical
@@ -43,6 +42,7 @@ import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 import { validateAgentConfig } from "./validate-agent-config.js";
 

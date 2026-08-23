@@ -8,7 +8,7 @@ import type {
 	NewTask,
 	NewThread,
 	Task,
-	TeamMember,
+	Team,
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
@@ -126,7 +126,7 @@ export interface PolicyDeps {
 		): Promise<User | undefined>;
 	};
 	readonly org?: {
-		getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
+		getByTeamId(db: WriteExecutor, teamId: string): Promise<Team | undefined>;
 	};
 	readonly notifications: {
 		insert(db: WriteExecutor, row: NewNotificationQueueRow): Promise<void>;

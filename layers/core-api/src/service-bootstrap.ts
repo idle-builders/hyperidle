@@ -391,17 +391,12 @@ export function registerCoreDomainServices(ctx: {
 					getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 				},
 				org: {
-					// @lore AU20 ruling 1: `resolveReviewRecipients` no longer uses the
-					// caller-supplied `users` argument (which carried `listUsersByKind` in
-					// the old edge-matrix approach). We inject `listHumans` directly so
-					// the function reaches the right query. The `_u` parameter is accepted
-					// for interface compatibility but intentionally unused.
-					resolveReviewRecipients: (db2, ctx, _u) =>
+					resolveReviewRecipients: (db2, ctx) =>
 						resolveReviewRecipients(db2, ctx, {
-							listHumans: (db3, teamMembersId?) =>
+							listHumans: (db3, teamId) =>
 								listUsers(db3, {
 									kind: "human",
-									...(teamMembersId !== undefined ? { teamIds: [teamMembersId] } : {}),
+									...(teamId !== undefined ? { teamIds: [teamId] } : {}),
 								}),
 						}),
 				},

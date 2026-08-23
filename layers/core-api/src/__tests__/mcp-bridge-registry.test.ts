@@ -3,10 +3,10 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
 import { buildToolRegistry } from "@hyperidle/tool-handlers";
-import type { ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 
 const registry: ToolRegistry = {
@@ -59,7 +59,7 @@ describe("X2 MCP session custody", () => {
 
 	test("tokens are isolated and closing one immediately revokes only that token", async () => {
 		const bridge = createMcpToolBridge({
-			enforcement: createReturnEnforcement({ isolated: true }),
+			enforcement: createReturnEnforcement(),
 		});
 		const first = await bridge.open({ sessionId: "first", registry });
 		const second = await bridge.open({ sessionId: "second", registry });
@@ -75,7 +75,7 @@ describe("X2 MCP session custody", () => {
 	});
 
 	test("close is idempotent and an expired token cannot reach return-status state", async () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const bridge = createMcpToolBridge({ enforcement });
 		const sessionId = "expired-session";
 		const { token } = await bridge.open({ sessionId, registry });

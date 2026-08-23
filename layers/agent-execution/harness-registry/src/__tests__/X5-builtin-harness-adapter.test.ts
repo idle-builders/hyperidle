@@ -17,7 +17,6 @@ function makeSessionConfig() {
 	return {
 		sandboxPath: "/workspace/test",
 		sessionId: "test-session",
-		systemPromptPath: "",
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse" as const,
 		tools: ["Read"],

@@ -214,7 +214,6 @@ describe("claude-code CLI adapter (real binary, production CliHarnessAdapter pat
 			const config: SessionConfig = {
 				sessionId: `cli-adapter-real-${Math.random().toString(36).slice(2, 10)}`,
 				sandboxPath,
-				systemPromptPath: "",
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],
@@ -385,7 +384,6 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 		const config: SessionConfig = {
 			sessionId: `cli-adapter-codex-${Math.random().toString(36).slice(2, 10)}`,
 			sandboxPath,
-			systemPromptPath: "",
 			assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 			modelTier: "workhorse" as const,
 			tools: [],
@@ -524,7 +522,6 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 			const config: SessionConfig = {
 				sessionId: `cli-adapter-opencode-${Math.random().toString(36).slice(2, 10)}`,
 				sandboxPath,
-				systemPromptPath: "",
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],
@@ -581,7 +578,6 @@ describe("cursor-agent CLI adapter (real binary, production CliHarnessAdapter pa
 			const config: SessionConfig = {
 				sessionId: `cli-adapter-cursor-${Math.random().toString(36).slice(2, 10)}`,
 				sandboxPath,
-				systemPromptPath: "",
 				assembledPrompt: "Reply with exactly the token ADAPTER_OK and nothing else.",
 				modelTier: "workhorse" as const,
 				tools: [],

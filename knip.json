@@ -53,7 +53,6 @@
 		"framework/host-process": {},
 		"framework/http-middleware": {},
 		"framework/harness-protocol": {},
-		"framework/tool-protocol": {},
 		"framework/db": {
 			"entry": [
 				"src/migrate-pg.ts!",

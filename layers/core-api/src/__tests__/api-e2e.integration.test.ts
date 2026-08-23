@@ -4,7 +4,6 @@ import {
 	items,
 	routines,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -26,14 +25,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: new Date().toISOString(),
 	});
 
-	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: new Date().toISOString(),
-	});
-
 	await db.insert(users).values([
 		{
 			id: "agent-1",
@@ -44,7 +35,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			name: "Test Agent",
 			role: "builder",
 			status: "active",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: new Date().toISOString(),
 		},
 		// L1a: synthetic sender for verdict-typed messages emitted by
@@ -327,9 +318,6 @@ describe("E2E API Integration (I5)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-1", name: "E2E Product", phase: "build", createdAt: now });
-			await db
-				.insert(teamMembers)
-				.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
 			await db.insert(bets).values({
 				id: "bet-1",
 				teamId: "prod-1",

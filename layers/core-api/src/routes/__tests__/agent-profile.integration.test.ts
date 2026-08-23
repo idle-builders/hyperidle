@@ -32,7 +32,6 @@ import {
 	items,
 	messages,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -58,14 +57,6 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		.insert(teams)
 		.values({ id: "ab1-team", name: "AB1 Test Team", phase: "build", createdAt: NOW });
 
-	await db.insert(teamMembers).values({
-		id: "ab1-tm",
-		teamId: "ab1-team",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
-
 	// Seed the human founder (required for auth middleware)
 	await db.insert(users).values({
 		id: "u-founder-ab1",
@@ -89,7 +80,7 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		name: "AB1 Builder Bot",
 		role: "builder",
 		status: "active",
-		teamId: "ab1-tm",
+		teamId: "ab1-team",
 		createdAt: NOW,
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.

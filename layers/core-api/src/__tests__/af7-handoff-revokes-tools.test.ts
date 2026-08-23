@@ -77,7 +77,6 @@ function makeConfig(sessionId: string): SessionConfig {
 	return {
 		sessionId,
 		sandboxPath: `/workspace/${sessionId}`,
-		systemPromptPath: "",
 		assembledPrompt: "You are a helpful assistant.",
 		modelTier: "workhorse",
 		tools: ["first_tool", "second_tool"],

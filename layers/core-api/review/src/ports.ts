@@ -84,7 +84,7 @@ export interface ReviewPorts {
 			db: HyperIdleDb,
 			context: ReviewRoutingContext,
 			users: {
-				listHumans(db: HyperIdleDb, teamMembersId?: string): Promise<Array<{ id: string }>>;
+				listHumans(db: HyperIdleDb, teamId?: string): Promise<Array<{ id: string }>>;
 			},
 		): Promise<string[]>;
 	};

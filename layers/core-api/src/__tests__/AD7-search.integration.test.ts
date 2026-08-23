@@ -28,7 +28,6 @@ import {
 	knowledgeAppProjection,
 	knowledgeItems,
 	messages,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -112,13 +111,6 @@ async function seedTeam(db: HyperIdleDb, teamId: string, teamName: string): Prom
 		name: teamName,
 		phase: "build",
 		createdAt: NOW,
-	});
-	await db.insert(teamMembers).values({
-		id: `tm-${teamId}`,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
 	});
 }
 

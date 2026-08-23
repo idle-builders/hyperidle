@@ -12,8 +12,6 @@ import {
 	sessions,
 	tasks,
 	// @lore U1: `teams` is the domain entity (formerly `products`).
-	// `teamMembers` is the agent-membership group (formerly `teams`).
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -49,7 +47,6 @@ describe("A2: Database Schema", () => {
 					"routines",
 					"sessions",
 					"tasks",
-					"team_members",
 					"teams",
 					"threads",
 				]),
@@ -77,12 +74,8 @@ describe("A2: Database Schema", () => {
 				name: "Acme",
 				phase: "build",
 				createdAt: now,
-			});
-			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
+				capacity: 7,
+				activeBets: 2,
 				formedAt: now,
 			});
 
@@ -92,6 +85,9 @@ describe("A2: Database Schema", () => {
 				id: "prod-1",
 				name: "Acme",
 				phase: "build",
+				capacity: 7,
+				activeBets: 2,
+				formedAt: now,
 			});
 		});
 
@@ -117,39 +113,10 @@ describe("A2: Database Schema", () => {
 			});
 		});
 
-		// @lore U1: old `teams` (agent membership) renamed to `teamMembers`.
-		test("inserts and reads teamMembers (formerly teams)", async ({ db }) => {
-			const now = new Date().toISOString();
-			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(teamMembers).values({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
-
-			const result = await db.select().from(teamMembers).where(eq(teamMembers.id, "team-1"));
-
-			expect(result[0]).toMatchObject({
-				id: "team-1",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-			});
-		});
-
 		// @lore U1: bets.productId/pitch/status simplified; teamId now refs `teams` (formerly products).
 		test("inserts and reads bets", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
 			await db.insert(bets).values({
 				id: "bet-1",
 				teamId: "prod-1",
@@ -173,13 +140,6 @@ describe("A2: Database Schema", () => {
 		test("inserts and reads tasks", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
 			await db.insert(bets).values({
 				id: "bet-1",
 				teamId: "prod-1",
@@ -211,13 +171,6 @@ describe("A2: Database Schema", () => {
 		test("updates tasks correctly", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
 			await db.insert(bets).values({
 				id: "bet-1",
 				teamId: "prod-1",
@@ -249,13 +202,6 @@ describe("A2: Database Schema", () => {
 		test("inserts and reads sessions", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
 			await db.insert(users).values({
 				id: "agent-1",
 				kind: "ai",
@@ -303,13 +249,6 @@ describe("A2: Database Schema", () => {
 		test("inserts and reads routines", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: now });
-			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
 			await db.insert(users).values({
 				id: "agent-1",
 				kind: "ai",
@@ -597,13 +536,6 @@ describe("A2: Database Schema", () => {
 		test("rejects task with invalid bet_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
-			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
 
 			await expect(
 				db.insert(tasks).values({
@@ -622,13 +554,6 @@ describe("A2: Database Schema", () => {
 		test("rejects session with invalid agent_id", async ({ db }) => {
 			const now = new Date().toISOString();
 			await db.insert(teams).values({ id: "prod-1", name: "P", phase: "build", createdAt: now });
-			await db.insert(teamMembers).values({
-				id: "prod-1-members",
-				teamId: "prod-1",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: now,
-			});
 			await db.insert(bets).values({
 				id: "bet-1",
 				teamId: "prod-1",

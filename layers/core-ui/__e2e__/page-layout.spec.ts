@@ -128,7 +128,7 @@ async function mockTeamRoutine(page: Page): Promise<void> {
 				status: "healthy",
 				leadAgentId: null,
 			},
-			teamMembers: { id: "members-layout", formedAt: NOW, dissolvedAt: null },
+			teamMembers: { id: "team-layout", formedAt: NOW, dissolvedAt: null },
 			roster: [],
 			burn: { capacity: 4, activeBets: 0 },
 			activeBets: [],

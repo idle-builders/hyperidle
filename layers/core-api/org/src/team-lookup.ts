@@ -1,50 +1,24 @@
 /**
- * L13 — Team lookup service: application-layer enforcement of the 1:1
- * Team = TeamMembers invariant.
+ * L13 — Team lookup service.
  *
- * @lore L13: The schema allows multiple team_members per team (no UNIQUE index on
- * team_members.team_id). The application contract is: exactly one active TeamMember per
- * Team. getTeamMembers with `require:true` throws 500 (not 404) when the invariant is
- * broken because a missing team_members row is a programming bug, not a user error.
+ * @lore AU44 B1: `team_members` dissolved into `teams`. The 500-throwing
+ * invariant police in `getTeamMembers` existed only because one entity was
+ * split across two tables. After the fold, `getTeamMembers` collapses into
+ * `getTeam`, `listTeamMembers` into `listTeams`, and `createTeam` / `updateTeam`
+ * each write one table instead of two. See migration 0058.
  *
- * @lore U1: Renamed from product-team.ts. `loadTeamMembers` renamed to `getTeamMembers`.
- * Queries `teamMembers` table (formerly `teams`). Returns `TeamMember` (formerly `Team`).
+ * @lore U1: Renamed from product-team.ts. Migration 0021 renamed both tables.
  *
- * @lore AU20 Am7: collapsed 22 per-call-site exports into 8 parameterized interfaces.
- * Old per-WHERE functions (getTeamById/getTeamByName/getTeamMembersById/
- * getTeamMembersByTeamId/loadTeamMembers/listTeamsByIds/listAllTeams/listAllTeamMembers/
- * listActiveTeamMembersWithTeamNames) → query-keyed getTeam/listTeams/getTeamMembers/
- * listTeamMembers. Mutators (updateTeamPhase/setTeamMembersActiveBets/setTeamMembersLeadAgent)
- * → patch-param updateTeam(teamId, patch). AU21 Increment 14a: the cost verbs
- * (incrementTeamMembersCost/resetTeamMembersCost/resetAllTeamMembersCost →
- * applyTeamCost(target, change)) are deleted along with the rest of the cost
- * feature — no replacement. Create/
- * delete pairs (createTeam+createTeamMembersGroup, deleteTeamById+deleteTeamMembersGroupById)
- * → atomic createTeam (1:1 invariant makes both rows one operation) + deleteTeam (cascades).
- *
- * @lore AU20 R-org: ApiError is NOT exported from this file (no `export class`). It is used
- * only within team-lookup.ts to enforce the 1:1 TeamMembers invariant. No consumer outside
- * this module imports or catches ApiError by instanceof — confirmed by census audit. Keeping
- * it unexported removes it from the public API surface without any capability loss.
+ * @lore AU20 Am7: collapsed 22 per-call-site exports into parameterized interfaces.
+ * AU21 Increment 14a: cost verbs deleted with the cost feature.
  */
 
-import type { Team, TeamMember, WriteExecutor } from "@hyperidle/db";
-import { type HyperIdleDb, teamMembers, teams } from "@hyperidle/db";
-import { eq, inArray, isNull } from "drizzle-orm";
-
-class ApiError extends Error {
-	constructor(
-		public readonly status: number,
-		public readonly code: string,
-		message: string,
-	) {
-		super(message);
-		this.name = "ApiError";
-	}
-}
+import type { Team, WriteExecutor } from "@hyperidle/db";
+import { type HyperIdleDb, teams } from "@hyperidle/db";
+import { eq, inArray } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
-// Team reads (collapse 4 → 2)
+// Team reads
 // ---------------------------------------------------------------------------
 
 /**
@@ -88,206 +62,70 @@ export async function listTeams(
 }
 
 // ---------------------------------------------------------------------------
-// TeamMembers reads (collapse 5 → 2, fixes the getTeamMembersById/getTeamMembersByTeamId duplicate)
+// Team writes
 // ---------------------------------------------------------------------------
 
 /**
- * Read the single `teamMembers` row keyed by `{ id }` (teamMembers.id) or
- * `{ teamId }` (teamMembers.teamId), or `undefined` if none exists.
+ * Input for {@link createTeam}.
  *
- * With `opts.require = true` enforces the 1:1 invariant: throws
- * `ApiError(500, 'team_members_missing')` when no row exists and
- * `ApiError(500, 'invariant_broken')` when more than one exists.
- *
- * Accepts `WriteExecutor` so callers can pass a `tx` handle from inside their
- * own `db.transaction(...)` — `transitionBet`'s capacity re-check runs inside
- * its own tx to serialize concurrent commits.
- */
-export function getTeamMembers(
-	db: WriteExecutor,
-	query: { id: string } | { teamId: string },
-	opts: { require: true },
-): Promise<TeamMember>;
-export function getTeamMembers(
-	db: WriteExecutor,
-	query: { id: string } | { teamId: string },
-	opts?: { require?: false },
-): Promise<TeamMember | undefined>;
-export async function getTeamMembers(
-	db: WriteExecutor,
-	query: { id: string } | { teamId: string },
-	opts?: { require?: boolean },
-): Promise<TeamMember | undefined> {
-	const rows =
-		"id" in query
-			? await db.select().from(teamMembers).where(eq(teamMembers.id, query.id)).limit(2)
-			: await db.select().from(teamMembers).where(eq(teamMembers.teamId, query.teamId)).limit(2);
-
-	if (!opts?.require) {
-		return rows[0];
-	}
-
-	// require:true — enforce the 1:1 invariant
-	const keyLabel = "id" in query ? `id=${query.id}` : `teamId=${query.teamId}`;
-	if (rows.length === 0) {
-		throw new ApiError(500, "team_members_missing", `TeamMembers row for ${keyLabel} not found`);
-	}
-	if (rows.length > 1) {
-		throw new ApiError(
-			500,
-			"invariant_broken",
-			`TeamMembers for ${keyLabel} has ${rows.length} rows — invariant broken`,
-		);
-	}
-	const [row] = rows;
-	if (!row) {
-		throw new ApiError(500, "team_members_missing", `TeamMembers row for ${keyLabel} not found`);
-	}
-	return row;
-}
-
-/**
-/** Row shape for {@link listTeamMembers} with `withTeamName: true`. */
-export interface ActiveTeamMembersWithTeamName {
-	readonly id: string;
-	readonly name: string;
-	readonly teamActualId: string;
-}
-
-/**
- * List `teamMembers` rows, optionally filtered by active status and/or
- * joined to the team name.
- *
- * With `withTeamName: true` returns `ActiveTeamMembersWithTeamName[]`
- * (id, teams.name, teams.id as teamActualId). The join is ACL-private to
- * this package; callers receive the projected shape.
- *
- * With `active: true` filters to rows where `dissolvedAt IS NULL`.
- *
- * @example listTeamMembers(db)                                   — all rows, full TeamMember
- * @example listTeamMembers(db, { active: true, withTeamName: true })  — org-chart shape
- */
-export function listTeamMembers(
-	db: HyperIdleDb,
-	filter: { active?: boolean; withTeamName: true },
-): Promise<ActiveTeamMembersWithTeamName[]>;
-export function listTeamMembers(
-	db: HyperIdleDb,
-	filter?: { active?: boolean; withTeamName?: false },
-): Promise<TeamMember[]>;
-export async function listTeamMembers(
-	db: HyperIdleDb,
-	filter?: { active?: boolean; withTeamName?: boolean },
-): Promise<TeamMember[] | ActiveTeamMembersWithTeamName[]> {
-	if (filter?.withTeamName) {
-		const q = db
-			.select({ id: teamMembers.id, name: teams.name, teamActualId: teams.id })
-			.from(teamMembers)
-			.innerJoin(teams, eq(teams.id, teamMembers.teamId));
-		if (filter.active) return q.where(isNull(teamMembers.dissolvedAt));
-		return q;
-	}
-	if (filter?.active) {
-		return db.select().from(teamMembers).where(isNull(teamMembers.dissolvedAt));
-	}
-	return db.select().from(teamMembers);
-}
-
-// ---------------------------------------------------------------------------
-// Team + TeamMembers writes (collapse 7 → 3)
-// ---------------------------------------------------------------------------
-
-/**
- * Input for the atomic {@link createTeam} operation (inserts both `teams` and
- * `teamMembers` rows in one call — 1:1 invariant makes them one operation).
- *
- * @lore AU20 Am7: `teamMembersId` is the new field that replaces the old
- * separate `CreateTeamMembersGroupInput.id`. `capacity`/`activeBets`/`formedAt`
- * default to 5/0/createdAt when omitted so callers that only care about the
- * team domain fields aren't forced to supply membership-group bookkeeping.
+ * @lore AU44 B1: `teamMembersId`/`capacity`/`activeBets`/`formedAt` removed —
+ * these formerly seeded the companion `team_members` row; after the fold they
+ * live on `teams` with schema defaults (capacity=5, activeBets=0, formedAt=createdAt).
  */
 export interface CreateTeamInput {
-	// teams row
 	readonly id: string;
 	readonly name: string;
 	readonly phase: string;
 	readonly functions: string | null;
 	readonly factoryDbPath: string | null;
 	readonly createdAt: string;
-	// teamMembers companion (1:1)
-	readonly teamMembersId: string;
-	readonly capacity?: number;
-	readonly activeBets?: number;
-	readonly formedAt?: string;
 }
 
 /**
- * Atomically insert a `teams` row and its `teamMembers` companion.
+ * Insert a `teams` row.
  *
- * The 1:1 invariant makes a team without a membership group invalid, so both
- * rows are inserted in one call. Callers that previously called `createTeam` +
- * `createTeamMembersGroup` separately should migrate to this single call.
+ * @lore AU44 B1: formerly inserted both `teams` and `team_members` companion.
+ * After the fold, a single insert suffices; defaults (capacity=5, activeBets=0)
+ * live in the schema.
  */
 export async function createTeam(db: WriteExecutor, input: CreateTeamInput): Promise<void> {
-	const {
-		teamMembersId,
-		capacity = 5,
-		activeBets = 0,
-		formedAt,
-		// teams-only fields
-		id,
-		name,
-		phase,
-		functions,
-		factoryDbPath,
-		createdAt,
-	} = input;
-
 	await db.insert(teams).values({
-		id,
-		name,
-		phase,
-		functions,
-		factoryDbPath,
-		createdAt,
-	});
-	await db.insert(teamMembers).values({
-		id: teamMembersId,
-		teamId: id,
-		capacity,
-		activeBets,
-		formedAt: formedAt ?? createdAt,
+		id: input.id,
+		name: input.name,
+		phase: input.phase,
+		functions: input.functions,
+		factoryDbPath: input.factoryDbPath,
+		createdAt: input.createdAt,
+		capacity: 5,
+		activeBets: 0,
+		formedAt: input.createdAt,
 	});
 }
 
 /**
- * Update team-owned columns on either the `teams` row (phase) or its
- * `teamMembers` companion (activeBets, leadAgentId).
- *
- * The 1:1 invariant lets membership-group fields be addressed via `teamId`
- * (WHERE teamMembers.teamId = teamId) — no pre-lookup needed.
+ * Update team-owned columns on the `teams` row.
  *
  * Accepts `WriteExecutor` so callers can pass a `tx` handle (bet-state-machine
  * updates `activeBets` inside its own transaction).
  *
  * @example updateTeam(db, teamId, { phase: "archive" })
- * @example updateTeam(tx, teamId, { activeBets: newCount })
+ * @example updateTeam(db, teamId, { activeBets: newCount })
  * @example updateTeam(db, teamId, { leadAgentId: agentId })
+ *
+ * @lore AU44 B1: formerly split between `teams` (phase) and `team_members`
+ * (activeBets, leadAgentId). After the fold all three columns are on `teams`.
  */
 export async function updateTeam(
 	db: WriteExecutor,
 	teamId: string,
 	patch: { phase?: string; activeBets?: number; leadAgentId?: string },
 ): Promise<void> {
-	if (patch.phase !== undefined) {
-		await db.update(teams).set({ phase: patch.phase }).where(eq(teams.id, teamId));
-	}
-	const membersPatch: { activeBets?: number; leadAgentId?: string } = {};
-	if (patch.activeBets !== undefined) membersPatch.activeBets = patch.activeBets;
-	if (patch.leadAgentId !== undefined) membersPatch.leadAgentId = patch.leadAgentId;
-	if (Object.keys(membersPatch).length > 0) {
-		await db.update(teamMembers).set(membersPatch).where(eq(teamMembers.teamId, teamId));
-	}
+	const set: { phase?: string; activeBets?: number; leadAgentId?: string } = {};
+	if (patch.phase !== undefined) set.phase = patch.phase;
+	if (patch.activeBets !== undefined) set.activeBets = patch.activeBets;
+	if (patch.leadAgentId !== undefined) set.leadAgentId = patch.leadAgentId;
+	if (Object.keys(set).length === 0) return;
+	await db.update(teams).set(set).where(eq(teams.id, teamId));
 }
 
 // @lore AU21 Increment 14a: `applyTeamCost` (the `teamMembers.costActual`

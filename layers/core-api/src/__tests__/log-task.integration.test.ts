@@ -4,9 +4,9 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -21,9 +21,6 @@ function buildLogTaskTool(app: Hono): ReturnType<typeof buildToolDefinitions>[nu
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(bets).values({
 		id: "b1",
@@ -38,7 +35,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		id: "agent-a",
 		name: "A",
 		role: "builder",
-		teamId: "t1",
+		teamId: "p1",
 		status: "active",
 		createdAt: now,
 	});

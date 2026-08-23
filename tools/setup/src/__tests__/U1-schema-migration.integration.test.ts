@@ -80,7 +80,8 @@ async function indexNamesForTable(db: HyperIdleDb, table: string): Promise<strin
 // AC1 + AC2: Table renames — products -> teams, teams -> team_members
 // ---------------------------------------------------------------------------
 
-describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members", () => {
+// @lore AU44 B1: U1 AC2 tests (teams→team_members) removed — team_members dissolved back into teams
+describe("U1 AC1: Table renames — products→teams", () => {
 	test("AC1: `products` table no longer exists after migration", async ({ db }) => {
 		expect(await tableExists(db, "products")).toBe(false);
 	});
@@ -95,22 +96,20 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 		expect(cols).toContain("created_at");
 	});
 
-	test("AC2: old `teams` (agent membership) table is now called `team_members`", async ({ db }) => {
-		expect(await tableExists(db, "team_members")).toBe(true);
+	// @lore AU44 B1: team_members no longer exists (dissolved into teams); capacity/formed_at now on teams
+	test("AC1: `team_members` table does not exist after AU44 B1", async ({ db }) => {
+		expect(await tableExists(db, "team_members")).toBe(false);
 	});
 
-	test("AC2: `team_members` has capacity, formed_at, team_id columns (formerly product_id)", async ({
+	test("AC1: `teams` table has capacity and formed_at columns (folded from team_members)", async ({
 		db,
 	}) => {
-		const cols = await columnNamesOf(db, "team_members");
+		const cols = await columnNamesOf(db, "teams");
 		expect(cols).toContain("capacity");
 		expect(cols).toContain("formed_at");
-		// After U1 migration: product_id renamed to team_id
-		expect(cols).toContain("team_id");
-		expect(cols).not.toContain("product_id");
 	});
 
-	test("AC1+AC2: seed data round-trips — `teams` table holds the demo team row", async ({ db }) => {
+	test("AC1: seed data round-trips — `teams` table holds the demo team row", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
@@ -121,13 +120,6 @@ describe("U1 AC1+AC2: Table renames — products→teams, teams→team_members",
 		const teamRows = (teamResult as { rows: Array<{ id: string; name: string }> }).rows;
 		expect(teamRows.length).toBe(1);
 		expect(teamRows[0]?.name).toBe("Acme");
-
-		// And the old team membership group lives in team_members
-		const memberResult = await db.execute(
-			sql.raw(`SELECT id FROM team_members WHERE id = 'demo-team-members-acme'`),
-		);
-		const memberRows = (memberResult as { rows: Array<{ id: string }> }).rows;
-		expect(memberRows.length).toBe(1);
 	});
 });
 
@@ -389,14 +381,7 @@ describe("U1 AC8: Seed data uses new table/column names", () => {
 		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(1);
 	});
 
-	test("after seeding, team_members table has at least 1 row (formerly teams)", async ({ db }) => {
-		await runFactoryBootstrap(db);
-		await seedDemoWorld(db);
-
-		const result = await db.execute(sql.raw(`SELECT COUNT(*) as count FROM team_members`));
-		const rows = (result as { rows: Array<{ count: string }> }).rows;
-		expect(Number(rows[0]?.count)).toBeGreaterThanOrEqual(1);
-	});
+	// @lore AU44 B1: team_members dissolved into teams — test removed
 
 	test("after seeding, bet uses 'description' column (not pitch)", async ({ db }) => {
 		await runFactoryBootstrap(db);
@@ -522,11 +507,7 @@ describe("U1: Full table schema shape assertions", () => {
 		expect(cols).toEqual(expect.arrayContaining(["id", "name", "phase", "created_at"]));
 	});
 
-	test("team_members table schema has team_id (not product_id)", async ({ db }) => {
-		const cols = await columnNamesOf(db, "team_members");
-		expect(cols).toContain("team_id");
-		expect(cols).not.toContain("product_id");
-	});
+	// @lore AU44 B1: team_members dissolved into teams — test removed
 
 	test("bets table schema has all expected new columns", async ({ db }) => {
 		const cols = await columnNamesOf(db, "bets");

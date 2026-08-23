@@ -20,11 +20,11 @@
 
 import * as os from "node:os";
 import * as path from "node:path";
-import { artifacts, bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { artifacts, bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import type { ArtifactCreatedEvent, ArtifactPreview } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -78,9 +78,6 @@ const createArtifactTool = buildToolDefinitions(ports).find((t) => t.name === "c
 
 async function seed(db: HyperIdleDb): Promise<{ taskId: string; betId: string }> {
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(bets).values({
 		id: "bet-1",
 		teamId: "p1",

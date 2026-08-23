@@ -588,15 +588,20 @@ export const ATTACKS: readonly Attack[] = [
 			groupKey: KEY.serviceForeignWrite,
 		},
 	},
+	// --- Ruling 13 companion rule — surviving pair after AU44 B1 removed teamMembers --------
+	// knowledgeItems and knowledgeAppProjection are both owned by @hyperidle/knowledge and
+	// are unconditionally inserted together in its exported `create` function — the
+	// companion group that replaced the old teams/teamMembers pair.
 	{
 		id: "missing-companion",
-		detail: "a test creating a team with no membership row — Ruling 13's companion rule",
+		detail:
+			"a test inserting knowledgeItems without its companion knowledgeAppProjection — Ruling 13's companion rule",
 		rules: ["crossing-table-write"],
 		overlay: {
 			[`${a.developmentDir}/attack-missing-companion.test.ts`]:
-				`import { teams } from "@hyperidle/db";\n` +
+				`import { knowledgeItems } from "@hyperidle/db";\n` +
 				`export const seed = (db: { insert: (x: unknown) => { values: (v: unknown) => unknown } }) =>\n` +
-				`\tdb.insert(teams).values({});\n`,
+				`\tdb.insert(knowledgeItems).values({});\n`,
 		},
 		expect: {
 			sort: "violation",
@@ -606,18 +611,20 @@ export const ATTACKS: readonly Attack[] = [
 	},
 	{
 		id: "missing-companion-control",
-		detail: "the same fixture writing BOTH rows, one of them under an alias, is credited and clean",
+		detail:
+			"the same fixture writing BOTH knowledgeItems AND knowledgeAppProjection (under an alias) is credited and clean",
 		rules: ["crossing-table-write"],
 		overlay: {
 			[`${a.developmentDir}/attack-companion-supplied.test.ts`]:
-				`import { teams, teamMembers as members } from "@hyperidle/db";\n` +
+				`import { knowledgeItems, knowledgeAppProjection as proj } from "@hyperidle/db";\n` +
 				`export const seed = (db: { insert: (x: unknown) => { values: (v: unknown) => unknown } }) => {\n` +
-				`\tdb.insert(teams).values({});\n` +
-				`\treturn db.insert(members).values({});\n` +
+				`\tdb.insert(knowledgeItems).values({});\n` +
+				`\treturn db.insert(proj).values({});\n` +
 				`};\n`,
 		},
 		expect: { sort: "clean", file: `${a.developmentDir}/attack-companion-supplied.test.ts` },
 	},
+
 	{
 		id: "cross-layer-di",
 		detail:

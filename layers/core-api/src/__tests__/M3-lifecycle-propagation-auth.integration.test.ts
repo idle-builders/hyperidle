@@ -14,7 +14,7 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { enqueue } from "@hyperidle/notifications";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
@@ -100,10 +100,6 @@ async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<
 	await db
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
 
 	// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
 	await db.insert(bets).values({

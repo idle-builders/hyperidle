@@ -4,10 +4,10 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { type HyperIdleDb, items, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, items, teams, threads, users } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -22,15 +22,12 @@ function buildCreateItemTool(app: Hono): ReturnType<typeof buildToolDefinitions>
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 
 	await db.insert(users).values({
 		id: "agent-a",
 		name: "A",
 		role: "builder",
-		teamId: "t1",
+		teamId: "p1",
 		status: "active",
 		createdAt: now,
 	});

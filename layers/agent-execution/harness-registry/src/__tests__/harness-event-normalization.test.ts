@@ -92,7 +92,7 @@ describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
 		};
 		const result = normalizeHarnessEvent(input);
 		expect(result.type).toBe("completion");
-		expect((result as import("../harness-events.js").CompletionEvent).text).toBe(
+		expect((result as import("@hyperidle/harness-protocol").CompletionEvent).text).toBe(
 			'[{"title":"Task 1"}]',
 		);
 	});
@@ -102,7 +102,7 @@ describe("normalizeHarnessEvent — opencode pre-map (AL7 W3)", () => {
 		const input = { type: "text", content: "hello" };
 		const result = normalizeHarnessEvent(input);
 		expect(result.type).toBe("completion");
-		expect((result as import("../harness-events.js").CompletionEvent).text).toBe("");
+		expect((result as import("@hyperidle/harness-protocol").CompletionEvent).text).toBe("");
 	});
 
 	it("tool_use → tool_call (actual opencode --format json event shape, AR2 fix)", () => {

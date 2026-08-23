@@ -14,15 +14,7 @@
  * `server-factory.ts` so the predicate is directly testable without waiting
  * on the real 6h `setInterval`.
  */
-import {
-	bets,
-	type HyperIdleDb,
-	taskDispatchAttempts,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, taskDispatchAttempts, tasks, teams, users } from "@hyperidle/db";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
@@ -47,13 +39,7 @@ async function seedTaskDispatchAttempt(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Team", phase: "build", createdAt: now.toISOString() });
-	await db.insert(teamMembers).values({
-		id: `${options.id}-tm`,
-		teamId,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: now.toISOString(),
-	});
+
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

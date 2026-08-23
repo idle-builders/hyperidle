@@ -54,7 +54,6 @@
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",
 		"@hyperidle/tool-handlers": "*",
-		"@hyperidle/tool-protocol": "*",
 		"@types/node": "^24",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"

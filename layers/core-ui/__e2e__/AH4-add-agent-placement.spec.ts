@@ -25,14 +25,13 @@ import * as path from "node:path";
 import { expect, test } from "./fixtures";
 
 const TEAM_ID = "team-ah4-agents";
-const TEAM_MEMBERS_ID = "tm-ah4-agents";
 const TEAM_NAME = "Placement Test Team";
 
 function makeOrgResponse() {
 	return {
 		edges: [],
 		users: [],
-		teams: [{ id: TEAM_MEMBERS_ID, name: TEAM_NAME }],
+		teams: [{ id: TEAM_ID, name: TEAM_NAME }],
 	};
 }
 
@@ -62,7 +61,7 @@ function makeHarnessesResponse() {
 function makeTeamDetailResponse() {
 	return {
 		team: { id: TEAM_ID, name: TEAM_NAME, phase: "build", status: "healthy", leadAgentId: null },
-		teamMembers: { id: TEAM_MEMBERS_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
+		teamMembers: { id: TEAM_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
 		roster: [],
 		burn: {
 			capacity: 5,

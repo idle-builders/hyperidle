@@ -6,7 +6,7 @@
  * DELETE /api/org/edges/:id   — delete an edge
  */
 
-import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -23,9 +23,6 @@ async function seedUsers(
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 5, activeBets: 0, formedAt: now });
 	await db.insert(users).values({
 		id: "human-1",
 		kind: "human",
@@ -40,7 +37,7 @@ async function seedUsers(
 		name: "Target Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-1",
+		teamId: "team-1",
 		createdAt: now,
 	});
 	return { fromUserId: "human-1", targetUserId: "agent-1", teamMembersId: "tm-1" };

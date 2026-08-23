@@ -23,12 +23,11 @@ import {
 	propagationLog,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { enqueue } from "@hyperidle/notifications";
-import { getTeamMembers, updateTeam } from "@hyperidle/org";
+import { getTeam, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
@@ -117,7 +116,7 @@ const testDeps: BetKillCascadeDeps = {
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
 const teamCapacity = {
-	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
 	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
 		updateTeam(db, teamId, { activeBets }),
 };
@@ -125,15 +124,12 @@ const teamCapacity = {
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 1, formedAt: now });
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Builder Bot",
 		role: "builder",
 		status: "idle",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: now,
 	});
 	await db.insert(bets).values({
@@ -235,15 +231,12 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 		// must label the real target — `completed` — not the dead `review` state.
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 1, formedAt: now });
 		await db.insert(users).values({
 			id: "agent-1",
 			name: "Builder Bot",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: now,
 		});
 		// Seed the system propagation agent so the ship-confirmation thread can insert.

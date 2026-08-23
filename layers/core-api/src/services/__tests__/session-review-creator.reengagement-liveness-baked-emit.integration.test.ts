@@ -44,7 +44,6 @@ import {
 	proposedCalls,
 	tailoredGrants,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -76,9 +75,6 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 		const pcId = `${idPrefix}-pc`;
 
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 		await db.insert(users).values({
 			id: agentId,
 			kind: "ai",
