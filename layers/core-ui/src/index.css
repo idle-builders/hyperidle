@@ -1,4 +1,4 @@
-@import "@hyperidle/design-system/tokens.css";
+@import "./ds/tokens.css";
 @import "tailwindcss";
 @plugin "daisyui";
 
