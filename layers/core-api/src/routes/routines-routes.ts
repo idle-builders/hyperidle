@@ -9,7 +9,7 @@ import {
 	type RoutineRunSummary,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { validateBody } from "@hyperidle/http-middleware";
+import { validateBody } from "@hyperidle/domain-model";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";

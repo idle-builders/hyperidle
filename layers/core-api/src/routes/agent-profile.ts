@@ -42,7 +42,7 @@ import type {
 	AgentReviewTrackRecord,
 } from "@hyperidle/domain-model";
 import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { getTeam } from "@hyperidle/org";
 import { findUser } from "@hyperidle/users";
 import type { Context } from "hono";

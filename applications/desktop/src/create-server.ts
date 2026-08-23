@@ -47,7 +47,7 @@ import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
 import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 // @lore AU44-b6: desktop is always laptop/pglite — resolveProfile removed with host-process.
-import { composeApiApplication } from "@hyperidle/http-middleware";
+import { composeApiApplication } from "@hyperidle/core-api";
 import { WebSocketServer } from "ws";
 // @lore AU26: `ws` ships NO type declarations of its own — see
 // `applications/remote-server/src/create-server.ts`'s twin `@lore` for the

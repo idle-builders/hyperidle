@@ -4,7 +4,7 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
 import { BET_OUTCOME_VERDICTS, InvalidTransitionError } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,

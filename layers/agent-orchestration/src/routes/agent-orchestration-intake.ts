@@ -26,7 +26,7 @@ import type {
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
 import {
 	type DEFAULT_AGENT_RUN_CONFIG,
 	endRunForHandoff,

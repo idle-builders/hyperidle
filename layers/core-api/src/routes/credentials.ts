@@ -19,7 +19,7 @@ import {
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { z } from "zod";

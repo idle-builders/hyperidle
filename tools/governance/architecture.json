@@ -79,17 +79,6 @@
 			],
 			"why": "the roster and the system-prompt templates a fresh installation is seeded with. It reads template files off disk, so a browser cannot run it at all."
 		},
-		"framework/http-middleware": {
-			"reach": [
-				"core-api",
-				"agent-orchestration",
-				"harness-registry",
-				"run-orchestration",
-				"remote-server",
-				"desktop"
-			],
-			"why": "the primitives a route file on either application's Hono app needs. Only the two layers that publish an HTTP API and the two services that mount a route or compare a key. This is the package that carries hono, and the reason thirty other manifests stop carrying it. `composeApiApplication` (AU31 \u00a75.3, relocated here from the deleted `@hyperidle/shared`) is the layer-blind Hono mount recipe both Applications build their one composed app from \u2014 `remote-server` and `desktop` name it directly rather than each other, closing the `application \u2192 application` crossing AU31 found."
-		},
 		"framework/harness-protocol": {
 			"reach": [
 				"harness-registry",

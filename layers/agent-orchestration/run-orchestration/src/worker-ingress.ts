@@ -2,12 +2,12 @@
 /**
  * @lore AU26 B1a: the local `constantTimeStringEqual` this file used to declare
  * existed only because `run-orchestration` could not import core-api's copy.
- * A1 removed that reason — the primitive now lives in `@hyperidle/http-middleware`,
+ * A1 removed that reason — the primitive now lives in `@hyperidle/domain-model`,
  * which both apps may import — so the second hand-rolled copy is deleted, not
  * kept in sync.
  */
 import type { HarnessAdapter } from "@hyperidle/harness-protocol";
-import { constantTimeStringEqual } from "@hyperidle/http-middleware";
+import { constantTimeStringEqual } from "@hyperidle/domain-model";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";
 import { z } from "zod";

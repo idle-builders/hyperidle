@@ -18,7 +18,6 @@ const PROJECTS = [
 	"framework/event-bus",
 	"framework/factory-defaults",
 	"framework/host-process",
-	"framework/http-middleware",
 	"framework/harness-protocol",
 	"layers/core-ui",
 	"tools/eslint-plugin-design",

@@ -47,7 +47,7 @@ import {
 	resolveMentions,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import {
 	assembleSessionKnowledge,
 	get as getKnowledgeItem,

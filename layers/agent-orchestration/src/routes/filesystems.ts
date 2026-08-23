@@ -52,7 +52,7 @@ interface FilesystemsServiceConnectionResolver {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
 }
 
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createGitRunner } from "../git-runner.js";

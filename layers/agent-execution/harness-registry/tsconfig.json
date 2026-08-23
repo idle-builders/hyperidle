@@ -18,7 +18,6 @@
 			"path": "../../../framework/harness-protocol"
 		},
 		{
-			"path": "../../../framework/http-middleware"
 		}
 	]
 }

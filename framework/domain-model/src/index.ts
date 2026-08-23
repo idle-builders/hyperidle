@@ -387,3 +387,5 @@ export type {
 	SessionKnowledgeItemLike,
 } from "./work-intent.js";
 export { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "./work-intent.js";
+export type { HyperIdleEnv, ValidatedJson } from "./http.js";
+export { constantTimeStringEqual, validateBody } from "./http.js";

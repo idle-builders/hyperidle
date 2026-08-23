@@ -28,7 +28,7 @@ import type {
 	Thread,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";

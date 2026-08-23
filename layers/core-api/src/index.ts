@@ -52,3 +52,8 @@ export {
 // a tooling composition root, and `tooling → service [import]` is allowed in
 // its own (development) world, so it imports `@hyperidle/routine` directly.
 export { fireRoutine } from "./services/routine-scheduler-bindings.js";
+// AU44 batch 8: moved from @hyperidle/http-middleware (dissolved)
+export {
+	composeApiApplication,
+} from "./compose-api-application.js";
+export type { ComposeApiApplicationOptions, ComposedApiMiddleware } from "./compose-api-application.js";

@@ -32,9 +32,6 @@
 			"@hyperidle/factory-defaults": [
 				"./framework/factory-defaults/src"
 			],
-			"@hyperidle/http-middleware": [
-				"./framework/http-middleware/src"
-			],
 			"@hyperidle/harness-protocol": [
 				"./framework/harness-protocol/src"
 			],

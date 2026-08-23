@@ -34,7 +34,7 @@ import type {
 import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import {
 	createTeam,
 	getTeam,

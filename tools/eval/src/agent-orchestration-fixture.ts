@@ -19,7 +19,7 @@ import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyper
 import { buildAgentOrchestrationPort } from "@hyperidle/core-api";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import type { Hono } from "hono";
 
 function createEvalAgentOrchestrationTransport(

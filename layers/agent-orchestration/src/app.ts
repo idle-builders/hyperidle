@@ -24,7 +24,7 @@
 import { type InheritedReach, resolveHeldToken } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ActivityEntry } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { Hono } from "hono";
 import { createAgentOrchestrationIntakeRoutes } from "./routes/agent-orchestration-intake.js";
 import { createAgentOrchestrationSessionsRoutes } from "./routes/agent-orchestration-sessions.js";

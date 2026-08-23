@@ -14,7 +14,7 @@ import {
 	OLD_KIND_MAP,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { validateBody } from "@hyperidle/http-middleware";
+import { validateBody } from "@hyperidle/domain-model";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";

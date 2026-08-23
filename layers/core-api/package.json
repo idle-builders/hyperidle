@@ -24,7 +24,6 @@
 		"@hyperidle/factory-defaults": "*",
 		"@hyperidle/harness-capability": "*",
 		"@hyperidle/harness-protocol": "*",
-		"@hyperidle/http-middleware": "*",
 		"@hyperidle/knowledge": "*",
 		"@hyperidle/notifications": "*",
 		"@hyperidle/org": "*",

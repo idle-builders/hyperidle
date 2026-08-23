@@ -21,7 +21,6 @@
 			"path": "../../framework/event-bus"
 		},
 		{
-			"path": "../../framework/http-middleware"
 		},
 		{
 			"path": "../../layers/agent-execution"

@@ -1,5 +1,5 @@
 import type { HealthResponse } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { Hono } from "hono";
 
 const health = new Hono();

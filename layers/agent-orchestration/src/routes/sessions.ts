@@ -26,7 +26,7 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { type ActivityEntry, API_ERROR_CODES } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { findSessionById, listSessions } from "@hyperidle/run-orchestration";
 import { Hono } from "hono";
 

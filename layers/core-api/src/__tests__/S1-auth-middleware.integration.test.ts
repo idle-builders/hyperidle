@@ -14,7 +14,7 @@
  */
 
 import { type HyperIdleDb, users } from "@hyperidle/db";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { createLoginSession, revokeLoginSession } from "@hyperidle/users";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";

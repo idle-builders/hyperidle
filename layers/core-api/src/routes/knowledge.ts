@@ -38,7 +38,7 @@ import {
 	scopeToLayer,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
 import {
 	remove as archiveKnowledgeItem,
 	count as countKnowledgeItems,

@@ -52,7 +52,7 @@ import { HELD_AUTH_SOURCES, type ModelTier, type ResolvedModel } from "@hyperidl
 import type { EventBus } from "@hyperidle/event-bus";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import type { HarnessAdapter, WorkerRegisterMessage } from "@hyperidle/harness-protocol";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import type {
 	HeldConnectionsReaderPort,
 	InjectedFilesystemsReaderPort,

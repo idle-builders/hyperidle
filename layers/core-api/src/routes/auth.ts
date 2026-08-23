@@ -39,7 +39,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import { findUser, type UpgradeTokenStore } from "@hyperidle/users";
 import { Hono } from "hono";
 
