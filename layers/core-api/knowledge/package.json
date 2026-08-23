@@ -14,7 +14,6 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/query-escaping": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

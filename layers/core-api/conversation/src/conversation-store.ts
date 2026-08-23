@@ -61,10 +61,9 @@ export interface ThreadFilter {
 	readonly participantProbe?: string;
 	/** Filter by a set of thread ids (inArray). */
 	readonly ids?: string[];
-	/** `'lastActive'` → `desc(lastActiveAt), desc(id)`. `'created'` → `desc(createdAt)`. */
-	readonly order?: "lastActive" | "created";
+	/** `'lastActive'` → `desc(lastActiveAt), desc(id)`. */
+	readonly order?: "lastActive";
 	readonly limit?: number;
-	readonly offset?: number;
 }
 
 /**
@@ -106,16 +105,12 @@ export interface MessageFilter {
 }
 
 /**
- * Predicate bag for `listInbox`. Exactly one of `excludeSenderId` /
- * `participantProbe` should be set (XOR) to select the inbox variant.
+ * Predicate bag for `listInbox`. `excludeSenderId` selects the inbox variant.
  */
 export interface InboxFilter {
 	/** Exclude messages sent by this id (sender-exclusion inbox). */
 	readonly excludeSenderId?: string;
-	/** SQL LIKE probe against `threads.participants` (participant-probe inbox). */
-	readonly participantProbe?: string;
 	readonly limit?: number;
-	readonly offset?: number;
 }
 
 // =============================================================================
@@ -136,14 +131,6 @@ export async function updateThread(
 
 export async function insertMessage(exec: HyperIdleDb, values: NewMessage): Promise<void> {
 	await exec.insert(messages).values(values);
-}
-
-export async function updateMessage(
-	exec: HyperIdleDb,
-	id: string,
-	patch: Partial<NewMessage>,
-): Promise<void> {
-	await exec.update(messages).set(patch).where(eq(messages.id, id));
 }
 
 /**
@@ -183,21 +170,20 @@ export async function findOrCreateDirectThread(
 	now: string,
 	recipientKind: "agent" | "user" = "agent",
 ): Promise<string> {
-	const directThreads = await exec
-		.select()
+	// @lore AU44 batch 4: directKey includes recipientKind so agent-kind and user-kind
+	// threads for the same participant pair are separate (test Q1 §3.1 asserts this).
+	// Still initiator-symmetric: A→B and B→A with the same kind sort to the same key.
+	const directKey = `${[senderId, recipientId].sort().join(":")}:${recipientKind}`;
+	const [existing] = await exec
+		.select({ id: threads.id })
 		.from(threads)
-		.where(and(eq(threads.hostKind, recipientKind), eq(threads.hostId, recipientId)));
-	for (const thread of directThreads) {
-		const parsed = JSON.parse(thread.participants);
-		if (!Array.isArray(parsed)) continue;
-		const parts = parsed.filter((p): p is string => typeof p === "string");
-		if (parts.length === 2 && parts.includes(senderId) && parts.includes(recipientId)) {
-			return thread.id;
-		}
-	}
+		.where(eq(threads.directKey, directKey))
+		.limit(1);
+	if (existing) return existing.id;
 	const threadId = crypto.randomUUID();
 	await insertThread(exec, {
 		id: threadId,
+		directKey,
 		hostKind: recipientKind,
 		hostId: recipientId,
 		initiatorId: senderId,
@@ -265,9 +251,7 @@ export function listThreads(exec: HyperIdleDb, f: ThreadFilter): Promise<Thread[
 	let q = exec.select().from(threads).$dynamic();
 	if (w !== undefined) q = q.where(w);
 	if (f.order === "lastActive") q = q.orderBy(desc(threads.lastActiveAt), desc(threads.id));
-	else if (f.order === "created") q = q.orderBy(desc(threads.createdAt));
 	if (f.limit !== undefined) q = q.limit(f.limit);
-	if (f.offset !== undefined) q = q.offset(f.offset);
 	return q;
 }
 
@@ -382,28 +366,13 @@ export interface InboxRow {
  */
 export async function listInbox(exec: HyperIdleDb, f: InboxFilter): Promise<InboxRow[]> {
 	const limit = f.limit ?? 50;
-	if (f.excludeSenderId !== undefined) {
-		const rows = await exec
-			.select()
-			.from(messages)
-			.innerJoin(threads, eq(messages.threadId, threads.id))
-			.where(ne(messages.senderId, f.excludeSenderId))
-			.orderBy(desc(messages.createdAt))
-			.limit(limit);
-		return rows.map((r) => ({ message: r.messages, participants: r.threads.participants }));
-	}
-	// participantProbe path
-	const probe = f.participantProbe ?? "%%";
-	let q = exec
+	const rows = await exec
 		.select()
 		.from(messages)
 		.innerJoin(threads, eq(messages.threadId, threads.id))
-		.where(sql`${threads.participants} LIKE ${probe} ESCAPE '\\'`)
+		.where(f.excludeSenderId !== undefined ? ne(messages.senderId, f.excludeSenderId) : undefined)
 		.orderBy(desc(messages.createdAt))
-		.limit(limit)
-		.$dynamic();
-	if (f.offset !== undefined) q = q.offset(f.offset);
-	const rows = await q;
+		.limit(limit);
 	return rows.map((r) => ({ message: r.messages, participants: r.threads.participants }));
 }
 

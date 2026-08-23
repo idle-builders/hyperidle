@@ -33,9 +33,6 @@
 			"path": "../../framework/harness-protocol"
 		},
 		{
-			"path": "../../framework/host-process"
-		},
-		{
 			"path": "../../framework/http-middleware"
 		},
 		{

@@ -14,8 +14,7 @@
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/work-intent-port": "*",
-		"drizzle-orm": "^0.45.2"
+		"@hyperidle/work-intent-port": "*"
 	},
 	"devDependencies": {
 		"vitest": "^4.1.9"

@@ -6,20 +6,23 @@
  * Scaffolding-exclusion: CLAUDE.md/AGENTS.md excluded paths set in git info/exclude.
  */
 
+import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createGitRunner } from "@hyperidle/host-process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createGitRunner } from "../../../src/git-runner.js";
 import { RegistryFilesystemMounter } from "../index.js";
 import type { AdapterDeps, Filesystem } from "../mounter.js";
 
 async function createSourceRepo(parentDir: string): Promise<string> {
 	const repoDir = path.join(parentDir, "source-repo");
 	fs.mkdirSync(repoDir, { recursive: true });
+	execSync("git init -b main", { cwd: repoDir });
+	execSync('git config user.email "test@test.com"', { cwd: repoDir });
+	execSync('git config user.name "Test"', { cwd: repoDir });
 	const runner = createGitRunner(repoDir);
-	await runner.init("main");
 	// Create files including AGENTS.md + CLAUDE.md (self-host case).
 	fs.writeFileSync(path.join(repoDir, "README.md"), "# Source Repo\n");
 	fs.writeFileSync(path.join(repoDir, "AGENTS.md"), "# AGENTS\n");

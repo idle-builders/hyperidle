@@ -260,7 +260,7 @@ describe("AgentOrchestrationPort — write side (§3, §11 contract-test harness
 		});
 		const port = buildAgentOrchestrationPort(createInProcessAgentOrchestrationTransport(app));
 
-		const stopped = await port.runs.stopForTasks(["aopw-stop-task"], "bet_killed");
+		const stopped = await port.runs.stopForTasks(["aopw-stop-task"]);
 		expect(stopped).toEqual([{ taskId: "aopw-stop-task", sessionId: "aopw-stop-session" }]);
 
 		const [row] = await db

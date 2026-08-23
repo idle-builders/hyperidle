@@ -4,10 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // must wrap each handler invocation in try/catch and log via `createLogger`
 // — this mock lets us assert the error surfaced without relying on
 // console.error (which other tests may also hit).
-const errorMock = vi.fn();
-const warnMock = vi.fn();
-const infoMock = vi.fn();
-const debugMock = vi.fn();
+//
+// @lore AU44-b6: vi.mock is hoisted above ALL top-level declarations, so
+// plain `const errorMock = vi.fn()` is undefined when the factory runs.
+// vi.hoisted() runs inside the hoisting zone, so its return value is
+// available to the factory. See https://vitest.dev/api/vi#vi-hoisted
+const { errorMock, warnMock, infoMock, debugMock } = vi.hoisted(() => ({
+	errorMock: vi.fn(),
+	warnMock: vi.fn(),
+	infoMock: vi.fn(),
+	debugMock: vi.fn(),
+}));
 
 // @lore AU34: the specifier is the PACKAGE, not a relative path. `logger.ts` left this package for
 // `@hyperidle/diagnostics`, and a `vi.mock` of a path that no longer resolves is silently a no-op —

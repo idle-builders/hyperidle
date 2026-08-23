@@ -81,19 +81,6 @@ function buildHarnessPorts(captured: {
 			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
 			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
 		},
-		agentRunConfig: {
-			// AU26 G1: `admitSession` reads the six run-config fields live from
-			// `agent_run_config` instead of the emit-time bake. This fixture
-			// returns the all-null default; tests that care override it.
-			readAgentRunConfig: async () => ({
-				systemPrompt: null,
-				harnessType: null,
-				modelTierPreference: null,
-				modelId: null,
-				modelProvider: null,
-				maxConcurrentSessions: 1,
-			}),
-		},
 		toolProvider: {
 			buildToolRegistry: (ctx) => {
 				captured.toolContext = ctx;

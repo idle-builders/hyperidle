@@ -1,7 +1,11 @@
-// @lore: laptop/dev profile uses a well-known default key so `npm run dev`
-// works without env setup. The key only protects localhost from localhost —
-// not meaningful security. VPS/cloud require an explicit key since the API
-// is network-exposed.
+/**
+ * Startup environment validation for the remote-server application.
+ *
+ * Moved here from the deleted `@hyperidle/host-process` package (AU44-b6).
+ *
+ * @lore laptop/dev profile sets a default key so `npm run dev` works without
+ * env setup. VPS/cloud are network-exposed and require an explicit key.
+ */
 export function validateStartupEnv(env: Record<string, string | undefined>): string | null {
 	if (!env.HYPERIDLE_API_KEY) {
 		const profile = env.HYPERIDLE_PROFILE ?? "laptop";

@@ -62,27 +62,20 @@ interface AppOptions {
 	 * there is no ambient/module-level transport to fall back on. Required
 	 * whenever `db` is provided: every route and reaction that used to reach
 	 * `@hyperidle/session-requests`/`@hyperidle/run-orchestration`/
-	 * `@hyperidle/agent-run-config`/`@hyperidle/filesystems` directly now goes
+	 * `@hyperidle/run-orchestration`/`@hyperidle/filesystems` directly now goes
 	 * through this door. `createCoreApiApp` throws a named error at
 	 * construction if `db` is present and this is not.
 	 */
 	agentOrchestration?: AgentOrchestrationPort;
+	/**
+	 * @lore AU44 batch 4: readAlertPreferences removed from ctx — the dispatcher
+	 * that consumed it is deleted. serviceBootstrap ctx now only carries the 3
+	 * primitives needed by the routine scheduler and agent orchestration.
+	 */
 	serviceBootstrap?: (ctx: {
 		db: HyperIdleDb;
 		eventBus: EventBus;
 		agentOrchestration: AgentOrchestrationPort;
-		/**
-		 * AU31 §5.2: built by `bootCoreApi` from this Layer's own `settings`
-		 * service and merged onto `ctx` before the caller's `serviceBootstrap`
-		 * runs — the Application used to build this closure itself
-		 * (`create-server.ts`'s deleted `readAlertPreferences`), which meant
-		 * importing `@hyperidle/settings` directly. Optional so a caller that
-		 * doesn't register the routine scheduler (most tests) can ignore it.
-		 */
-		readAlertPreferences?: () => Promise<{
-			readonly blockerAlerts: boolean;
-			readonly reviewAlerts: boolean;
-		}>;
 	}) => Array<() => void>;
 	/**
 	/**

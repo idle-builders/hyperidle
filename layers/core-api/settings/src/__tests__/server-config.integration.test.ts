@@ -10,6 +10,10 @@
  *  - updateServerConfig deep-merges nested objects
  *  - updateServerConfig returns the new config
  *
+ * @lore AU44 batch 4: reviewAlerts, blockerAlerts, quietHoursStart, quietHoursEnd,
+ * mutedTeams removed from NotificationsSchema. Tests updated to cover surviving
+ * fields: mutedTypes, delivery (enabled/smtpHost/smtpPort/smtpSecure/smtpUsername/smtpFrom).
+ *
  * @lore AU19 Increment 1f: moved from `packages/server/src/services/
  * __tests__/server-config.integration.test.ts` — only needs `{ db }` (no
  * `{ app }`), so it moves into the owning package's own `src/__tests__/` and
@@ -28,65 +32,69 @@ describe("server config read/write", () => {
 
 			expect(config).toBeDefined();
 			expect(config.notifications).toBeDefined();
-			expect(config.notifications.reviewAlerts).toBe(true);
-			expect(config.notifications.blockerAlerts).toBe(true);
-			expect(config.notifications.quietHoursStart).toBe("22:00");
-			expect(config.notifications.quietHoursEnd).toBe("08:00");
-			expect(config.notifications.mutedTeams).toEqual([]);
+			expect(config.notifications.mutedTypes).toEqual([]);
+			expect(config.notifications.delivery.enabled).toBe(false);
+			expect(config.notifications.delivery.smtpPort).toBe(587);
+			expect(config.notifications.delivery.smtpSecure).toBe(false);
+			expect(config.notifications.delivery.smtpHost).toBeNull();
 		});
 
 		test("returns correct notification defaults shape", async ({ db }) => {
 			const config = await readServerConfig(db);
 
-			expect(typeof config.notifications.reviewAlerts).toBe("boolean");
-			expect(typeof config.notifications.blockerAlerts).toBe("boolean");
-			expect(typeof config.notifications.quietHoursStart).toBe("string");
-			expect(typeof config.notifications.quietHoursEnd).toBe("string");
-			expect(Array.isArray(config.notifications.mutedTeams)).toBe(true);
+			expect(Array.isArray(config.notifications.mutedTypes)).toBe(true);
+			expect(typeof config.notifications.delivery.enabled).toBe("boolean");
+			expect(typeof config.notifications.delivery.smtpPort).toBe("number");
 		});
 	});
 
 	describe("updateServerConfig", () => {
 		test("merges partial notification updates without losing other keys", async ({ db }) => {
 			await updateServerConfig(db, {
-				notifications: { reviewAlerts: false },
+				notifications: { mutedTypes: ["review_request"] },
 			});
 
 			const config = await readServerConfig(db);
-			expect(config.notifications.reviewAlerts).toBe(false);
-			// Other keys preserved
-			expect(config.notifications.blockerAlerts).toBe(true);
+			expect(config.notifications.mutedTypes).toContain("review_request");
+			// Delivery defaults preserved
+			expect(config.notifications.delivery.enabled).toBe(false);
 		});
 
 		test("returns the updated config", async ({ db }) => {
 			const result = await updateServerConfig(db, {
-				notifications: { blockerAlerts: false },
+				notifications: { delivery: { enabled: true } },
 			});
 
-			expect(result.notifications.blockerAlerts).toBe(false);
+			expect(result.notifications.delivery.enabled).toBe(true);
 		});
 
-		test("can update quietHoursStart", async ({ db }) => {
-			await updateServerConfig(db, { notifications: { quietHoursStart: "23:00" } });
+		test("can update SMTP host", async ({ db }) => {
+			await updateServerConfig(db, {
+				notifications: { delivery: { smtpHost: "mail.example.com" } },
+			});
 
 			const config = await readServerConfig(db);
-			expect(config.notifications.quietHoursStart).toBe("23:00");
+			expect(config.notifications.delivery.smtpHost).toBe("mail.example.com");
 		});
 
-		test("can update mutedTeams", async ({ db }) => {
-			await updateServerConfig(db, { notifications: { mutedTeams: ["prod-1", "prod-2"] } });
+		test("can update mutedTypes", async ({ db }) => {
+			await updateServerConfig(db, { notifications: { mutedTypes: ["prod-alert"] } });
 
 			const config = await readServerConfig(db);
-			expect(config.notifications.mutedTeams).toEqual(["prod-1", "prod-2"]);
+			expect(config.notifications.mutedTypes).toEqual(["prod-alert"]);
 		});
 
 		test("successive updates are cumulative", async ({ db }) => {
-			await updateServerConfig(db, { notifications: { reviewAlerts: false } });
-			await updateServerConfig(db, { notifications: { blockerAlerts: false } });
+			await updateServerConfig(db, {
+				notifications: { mutedTypes: ["review_request"] },
+			});
+			await updateServerConfig(db, {
+				notifications: { delivery: { enabled: true } },
+			});
 
 			const config = await readServerConfig(db);
-			expect(config.notifications.reviewAlerts).toBe(false);
-			expect(config.notifications.blockerAlerts).toBe(false);
+			expect(config.notifications.mutedTypes).toContain("review_request");
+			expect(config.notifications.delivery.enabled).toBe(true);
 		});
 
 		test("concurrent disjoint patches are both preserved", async ({ db }) => {
@@ -96,12 +104,14 @@ describe("server config read/write", () => {
 			const firstHandle = new Proxy(db, {});
 			const secondHandle = new Proxy(db, {});
 			await Promise.all([
-				updateServerConfig(firstHandle, { notifications: { reviewAlerts: false } }),
+				updateServerConfig(firstHandle, {
+					notifications: { mutedTypes: ["blocker_alert"] },
+				}),
 				updateServerConfig(secondHandle, { harnessDisabled: ["codex"] }),
 			]);
 
 			const config = await readServerConfig(db);
-			expect(config.notifications.reviewAlerts).toBe(false);
+			expect(config.notifications.mutedTypes).toContain("blocker_alert");
 			expect(config.harnessDisabled).toEqual(["codex"]);
 		});
 	});
@@ -116,7 +126,8 @@ describe("server config read/write", () => {
 
 			const config = await readServerConfig(db);
 			// Should fall back to defaults without throwing
-			expect(config.notifications.reviewAlerts).toBe(true);
+			expect(config.notifications.delivery.enabled).toBe(false);
+			expect(Array.isArray(config.notifications.mutedTypes)).toBe(true);
 		});
 	});
 });

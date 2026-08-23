@@ -11,7 +11,6 @@
  * they survive barrel reorganization during Stage 2.
  */
 import { describe, expect, test } from "vitest";
-import { FTS_MAX_QUERY_CHARS, FTS_MAX_TOKENS, sanitizeFtsQuery } from "../fts.js";
 import type { KnowledgeItemWithProjection } from "../knowledge-repository.js";
 import { countTokens, enforceBudget } from "../token-budget.js";
 
@@ -46,66 +45,6 @@ function makeItem(
 	};
 }
 
-// ===========================================================================
-// sanitizeFtsQuery
-// ===========================================================================
-
-describe("sanitizeFtsQuery: FTS injection prevention + token normalization", () => {
-	test("returns empty string for empty/whitespace input", () => {
-		expect(sanitizeFtsQuery("")).toBe("");
-		expect(sanitizeFtsQuery("   ")).toBe("");
-	});
-
-	test("joins valid word tokens with &", () => {
-		expect(sanitizeFtsQuery("foo bar baz")).toBe("foo & bar & baz");
-	});
-
-	test("strips SQL/tsquery injection characters", () => {
-		// Raw tsquery operators must be stripped so injection is impossible.
-		const result = sanitizeFtsQuery("foo | bar");
-		expect(result).not.toContain("|");
-		// 'foo' and 'bar' survive as tokens joined by &.
-		expect(result).toContain("foo");
-		expect(result).toContain("bar");
-	});
-
-	test("preserves trailing * as prefix-match operator", () => {
-		const result = sanitizeFtsQuery("deploy*");
-		expect(result).toBe("deploy:*");
-	});
-
-	test("strips * when it is the entire token (single-char)", () => {
-		// A bare '*' stripped of its prefix role has no surviving chars.
-		const result = sanitizeFtsQuery("*");
-		expect(result).toBe("");
-	});
-
-	test("strips leading/trailing hyphens from tokens", () => {
-		const result = sanitizeFtsQuery("-foo- bar");
-		// '-foo-' → 'foo', 'bar' stays.
-		expect(result).toContain("foo");
-		expect(result).not.toContain("-foo-");
-	});
-
-	test("preserves internal hyphens (identifiers like react-router)", () => {
-		const result = sanitizeFtsQuery("react-router");
-		expect(result).toContain("react-router");
-	});
-
-	test("truncates input at FTS_MAX_QUERY_CHARS", () => {
-		const long = "a".repeat(FTS_MAX_QUERY_CHARS + 100);
-		const result = sanitizeFtsQuery(long);
-		// Should produce a single token 'a...a' truncated to FTS_MAX_QUERY_CHARS chars.
-		expect(result.length).toBeLessThanOrEqual(FTS_MAX_QUERY_CHARS + 10); // with & separators
-	});
-
-	test("truncates token list at FTS_MAX_TOKENS", () => {
-		const manyWords = Array.from({ length: FTS_MAX_TOKENS + 20 }, (_, i) => `word${i}`).join(" ");
-		const result = sanitizeFtsQuery(manyWords);
-		const tokenCount = result.split(" & ").length;
-		expect(tokenCount).toBeLessThanOrEqual(FTS_MAX_TOKENS);
-	});
-});
 // ===========================================================================
 // countTokens
 // ===========================================================================

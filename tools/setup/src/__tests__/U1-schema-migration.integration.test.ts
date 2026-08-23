@@ -543,18 +543,5 @@ describe("U1: Full table schema shape assertions", () => {
 	});
 });
 
-// ---------------------------------------------------------------------------
-// propagation_log: target_level 'product' -> 'team'
-// ---------------------------------------------------------------------------
-
-describe("U1: propagation_log target_level rename", () => {
-	test("no propagation_log rows with target_level='product' remain after migration", async ({
-		db,
-	}) => {
-		const result = await db.execute(
-			sql.raw(`SELECT COUNT(*) as count FROM propagation_log WHERE target_level='product'`),
-		);
-		const rows = (result as { rows: Array<{ count: string }> }).rows;
-		expect(Number(rows[0]?.count)).toBe(0);
-	});
-});
+// propagation_log: table dropped in AU44 batch6 (AU20 Ruling 2).
+// The test for 'target_level rename' is deleted — the table is gone.

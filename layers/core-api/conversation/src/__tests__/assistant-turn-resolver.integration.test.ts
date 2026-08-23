@@ -123,6 +123,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 
 		const baked = await resolveAssistantTurnRequest(db, "message-resolver-1", {
 			requireRunnableAgent,
+			readServerConfig: async () => ({ harnessDisabled: [] }),
 		});
 
 		expect(baked).toMatchObject({
@@ -147,63 +148,16 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 	test("rejects a source message that does not exist", async ({ db }) => {
 		const { resolveAssistantTurnRequest } = await import("../assistant-turn-resolver.js");
 		await expect(
-			resolveAssistantTurnRequest(db, "message-does-not-exist", { requireRunnableAgent }),
+			resolveAssistantTurnRequest(db, "message-does-not-exist", {
+				requireRunnableAgent,
+				readServerConfig: async () => ({ harnessDisabled: [] }),
+			}),
 		).rejects.toThrow();
 	});
 
-	test("rejects a deleted message", async ({ db }) => {
-		const { resolveAssistantTurnRequest } = await import("../assistant-turn-resolver.js");
-		await seedThread(db, {
-			threadId: "thread-resolver-deleted",
-			senderId: "user-resolver-deleted",
-			assistantId: "ast-user-resolver-deleted",
-		});
-		await db.insert(users).values({
-			id: "ast-user-resolver-deleted",
-			kind: "ai",
-			name: "Assistant",
-			role: "assistant",
-			status: "active",
-			createdAt: new Date().toISOString(),
-		});
-		await seedMessage(db, {
-			messageId: "message-resolver-deleted",
-			threadId: "thread-resolver-deleted",
-			senderId: "user-resolver-deleted",
-			deletedAt: new Date().toISOString(),
-		});
-
-		await expect(
-			resolveAssistantTurnRequest(db, "message-resolver-deleted", { requireRunnableAgent }),
-		).rejects.toThrow();
-	});
-
-	test("rejects a redacted message", async ({ db }) => {
-		const { resolveAssistantTurnRequest } = await import("../assistant-turn-resolver.js");
-		await seedThread(db, {
-			threadId: "thread-resolver-redacted",
-			senderId: "user-resolver-redacted",
-			assistantId: "ast-user-resolver-redacted",
-		});
-		await db.insert(users).values({
-			id: "ast-user-resolver-redacted",
-			kind: "ai",
-			name: "Assistant",
-			role: "assistant",
-			status: "active",
-			createdAt: new Date().toISOString(),
-		});
-		await seedMessage(db, {
-			messageId: "message-resolver-redacted",
-			threadId: "thread-resolver-redacted",
-			senderId: "user-resolver-redacted",
-			redactedAt: new Date().toISOString(),
-		});
-
-		await expect(
-			resolveAssistantTurnRequest(db, "message-resolver-redacted", { requireRunnableAgent }),
-		).rejects.toThrow();
-	});
+	// @lore AU44 batch 4 FULL-AUDIT.md row 2 / ruling 4: deleted-at + redacted-at read guards
+	// removed — no production code sets messages.deletedAt or messages.redactedAt. The resolver
+	// now only rejects on a missing message. These two tests are deleted with the guards.
 
 	test("rejects when the resolved assistant agent is not a runnable AI agent (never trusts the human sender)", async ({
 		db,
@@ -224,7 +178,10 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 		});
 
 		await expect(
-			resolveAssistantTurnRequest(db, "message-resolver-unrunnable", { requireRunnableAgent }),
+			resolveAssistantTurnRequest(db, "message-resolver-unrunnable", {
+				requireRunnableAgent,
+				readServerConfig: async () => ({ harnessDisabled: [] }),
+			}),
 		).rejects.toThrow();
 	});
 });

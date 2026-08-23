@@ -73,7 +73,6 @@ import {
 	directThreadBodySchema,
 	inboxQuerySchema,
 	type inlineRefSchema,
-	insertThreadBodySchema,
 	listThreadsQuerySchema,
 	messageInputSchema,
 	messageRowSchema,
@@ -684,61 +683,6 @@ export function createThreadRoutes(
 	// order — the first match wins.
 	router.route("/coach", createCoachRoutes(db, eventBus));
 
-	// --- POST /api/threads/scaffold ------------------------------------------
-	// AU21 §9 Increment 2: bare thread creation (no initial message) — the
-	// `CoreApiConversationPort.insertThread` seam door for tool-handlers'/
-	// dispatch's `insertThread` capability. No existing route creates a bare
-	// thread — `POST /api/threads` always requires an `initialMessage`.
-	// @lore mounted BEFORE /:id so "scaffold" is not swallowed as a thread id.
-	router.post("/scaffold", async (c) => {
-		let body: unknown;
-		try {
-			body = await c.req.json();
-		} catch {
-			const e = err("validation_error", "Invalid JSON", 400);
-			return c.json(e.body, e.status);
-		}
-		const parsed = insertThreadBodySchema.safeParse(body);
-		if (!parsed.success) {
-			const e = err("validation_error", "Validation error", 400);
-			return c.json(e.body, e.status);
-		}
-		const input = parsed.data;
-		const initiatorId = c.get("userId");
-		const now = new Date().toISOString();
-		const threadId = crypto.randomUUID();
-		await insertThread(db, {
-			id: threadId,
-			hostKind: input.hostKind,
-			hostId: input.hostId,
-			initiatorId,
-			participants: JSON.stringify(input.participants),
-			pinned: input.pinned ?? false,
-			lastActiveAt: now,
-			createdAt: now,
-		});
-		const createdEvent: ThreadCreatedEvent = {
-			type: "thread_created",
-			streamId: threadId,
-			threadId,
-			hostKind: input.hostKind,
-			hostId: input.hostId,
-			initiatorId,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(createdEvent);
-		const scaffoldedRow = await findThread(db, { id: threadId });
-		if (scaffoldedRow) {
-			pushUpdate(
-				wsHub,
-				"conversations",
-				"thread_created",
-				await buildThreadListRowForPush(db, scaffoldedRow, initiatorId),
-			);
-		}
-		return c.json({ id: threadId }, 201);
-	});
-
 	// --- POST /api/threads/direct ---------------------------------------------
 	// AU21 §9 Increment 2: DM find-or-create composite — the
 	// `CoreApiConversationPort.findOrCreateDirectThread` seam door. The sender
@@ -862,7 +806,7 @@ export function createThreadRoutes(
 			// L1 step5 (W6): participant_id scope — pre-filter in SQL with LIKE probe,
 			// then re-verify membership in JS.
 			const participantId = q.participant_id ?? "";
-			const probe = `%${escapeLikePattern(JSON.stringify(participantId))}%`;
+			const probe = `%${JSON.stringify(participantId).replace(/[\\%_]/g, "\\$&")}%`;
 			const rawRows = await listThreads(db, {
 				participantProbe: probe,
 				order: "lastActive",
@@ -992,12 +936,50 @@ export function createThreadRoutes(
 			return c.json(zodErrorToBody(parsed.error), 400);
 		}
 		const input = parsed.data;
-		const senderId = await readInitialSenderId(
-			c,
-			db,
-			input.participants,
-			input.initialMessage.type,
-		);
+
+		// @lore AU44 batch 4: bare thread creation — POST /threads/scaffold folded
+		// into POST /threads/. When initialMessage is absent, create the thread
+		// and return { id } without inserting a message.
+		if (!input.initialMessage) {
+			const initiatorId = c.get("userId");
+			const now = new Date().toISOString();
+			const threadId = crypto.randomUUID();
+			await insertThread(db, {
+				id: threadId,
+				hostKind: input.hostKind,
+				hostId: input.hostId,
+				initiatorId,
+				participants: JSON.stringify([...input.participants].sort()),
+				pinned: input.pinned ?? false,
+				lastActiveAt: now,
+				createdAt: now,
+			});
+			const createdEvent: ThreadCreatedEvent = {
+				type: "thread_created",
+				streamId: threadId,
+				threadId,
+				hostKind: input.hostKind,
+				hostId: input.hostId,
+				initiatorId,
+				timestamp: Date.now(),
+			};
+			eventBus.emit(createdEvent);
+			const scaffoldedRow = await findThread(db, { id: threadId });
+			if (scaffoldedRow) {
+				pushUpdate(
+					wsHub,
+					"conversations",
+					"thread_created",
+					await buildThreadListRowForPush(db, scaffoldedRow, initiatorId),
+				);
+			}
+			return c.json({ id: threadId }, 201);
+		}
+
+		// Extract to local to preserve narrowing across async closures below.
+		const initialMessage = input.initialMessage;
+
+		const senderId = await readInitialSenderId(c, db, input.participants, initialMessage.type);
 
 		const participants = input.participants.includes(senderId)
 			? input.participants
@@ -1005,7 +987,7 @@ export function createThreadRoutes(
 		const sortedParticipants = [...participants].sort();
 
 		// Verdict cannot be the initial message.
-		if (input.initialMessage.type === "verdict") {
+		if (initialMessage.type === "verdict") {
 			const e = err("validation_error", "Initial message cannot be verdict", 400);
 			return c.json(e.body, e.status);
 		}
@@ -1032,7 +1014,7 @@ export function createThreadRoutes(
 				const reuseMessageId = crypto.randomUUID();
 
 				// Resolve @mentions for the initial message before appending.
-				let reusePayload = input.initialMessage.payload;
+				let reusePayload = initialMessage.payload;
 				const reuseParticipants = (() => {
 					try {
 						return threadParticipantsSchema.parse(JSON.parse(existing.participants)) as string[];
@@ -1041,27 +1023,25 @@ export function createThreadRoutes(
 					}
 				})();
 
-				if (input.initialMessage.type === "plain") {
+				if (initialMessage.type === "plain") {
 					const { refs: enrichedRefs } = await resolveMentionsForMessage(
 						db,
-						input.initialMessage.payload.text,
-						input.initialMessage.payload.refs ?? [],
+						initialMessage.payload.text,
+						initialMessage.payload.refs ?? [],
 						reuseParticipants,
 						senderId,
 					);
 					if (enrichedRefs.length > 0) {
 						reusePayload = {
-							...input.initialMessage.payload,
-							refs: enrichedRefs as typeof input.initialMessage.payload.refs,
+							...initialMessage.payload,
+							refs: enrichedRefs as typeof initialMessage.payload.refs,
 						};
 					}
 					reusePayload = sanitizeNoticeForSender(senderId, reusePayload);
 				}
 
 				const reuseBlockId =
-					input.initialMessage.type === "plain"
-						? (input.initialMessage.payload.blockId ?? null)
-						: null;
+					initialMessage.type === "plain" ? (initialMessage.payload.blockId ?? null) : null;
 
 				try {
 					await db.transaction(async (tx) => {
@@ -1069,9 +1049,9 @@ export function createThreadRoutes(
 							id: reuseMessageId,
 							senderId,
 							threadId: existing.id,
-							type: input.initialMessage.type,
+							type: initialMessage.type,
 							payload: JSON.stringify(reusePayload),
-							clientKey: input.initialMessage.clientKey,
+							clientKey: initialMessage.clientKey,
 							blockId: reuseBlockId,
 							createdAt: nowReuse,
 						});
@@ -1094,7 +1074,7 @@ export function createThreadRoutes(
 					streamId: existing.id,
 					threadId: existing.id,
 					messageId: reuseMessageId,
-					messageType: input.initialMessage.type,
+					messageType: initialMessage.type,
 					senderId,
 					timestamp: Date.now(),
 				};
@@ -1122,20 +1102,20 @@ export function createThreadRoutes(
 		const messageId = crypto.randomUUID();
 
 		// AE5: Resolve @mentions in the initial message before the transaction.
-		let initEnrichedPayload = input.initialMessage.payload;
+		let initEnrichedPayload = initialMessage.payload;
 		let initParticipants = sortedParticipants;
-		if (input.initialMessage.type === "plain") {
+		if (initialMessage.type === "plain") {
 			const { refs: enrichedRefs, newParticipantIds } = await resolveMentionsForMessage(
 				db,
-				input.initialMessage.payload.text,
-				input.initialMessage.payload.refs ?? [],
+				initialMessage.payload.text,
+				initialMessage.payload.refs ?? [],
 				participants,
 				senderId,
 			);
 			if (enrichedRefs.length > 0 || newParticipantIds.length > 0) {
 				initEnrichedPayload = {
-					...input.initialMessage.payload,
-					refs: enrichedRefs as typeof input.initialMessage.payload.refs,
+					...initialMessage.payload,
+					refs: enrichedRefs as typeof initialMessage.payload.refs,
 				};
 				// Add newly-mentioned participants (atomic with thread creation).
 				const participantSet = new Set(sortedParticipants);
@@ -1166,17 +1146,15 @@ export function createThreadRoutes(
 				});
 				// T5: dual-write blockId to the structured column (safe narrowing — no `as` cast).
 				const initBlockId =
-					input.initialMessage.type === "plain"
-						? (input.initialMessage.payload.blockId ?? null)
-						: null;
+					initialMessage.type === "plain" ? (initialMessage.payload.blockId ?? null) : null;
 				await insertMessage(tx as HyperIdleDb, {
 					id: messageId,
 					senderId,
 					threadId,
-					type: input.initialMessage.type,
+					type: initialMessage.type,
 					// AE5: store enriched payload (with MentionRef entries in refs[]).
 					payload: JSON.stringify(initEnrichedPayload),
-					clientKey: input.initialMessage.clientKey,
+					clientKey: initialMessage.clientKey,
 					blockId: initBlockId,
 					createdAt: now,
 				});
@@ -1203,18 +1181,16 @@ export function createThreadRoutes(
 					const nowRace = new Date().toISOString();
 					const raceMsgId = crypto.randomUUID();
 					const raceBlockId =
-						input.initialMessage.type === "plain"
-							? (input.initialMessage.payload.blockId ?? null)
-							: null;
+						initialMessage.type === "plain" ? (initialMessage.payload.blockId ?? null) : null;
 					try {
 						await db.transaction(async (tx) => {
 							await insertMessage(tx as HyperIdleDb, {
 								id: raceMsgId,
 								senderId,
 								threadId: winner.id,
-								type: input.initialMessage.type,
+								type: initialMessage.type,
 								payload: JSON.stringify(initEnrichedPayload),
-								clientKey: input.initialMessage.clientKey,
+								clientKey: initialMessage.clientKey,
 								blockId: raceBlockId,
 								createdAt: nowRace,
 							});
@@ -1228,7 +1204,7 @@ export function createThreadRoutes(
 						streamId: winner.id,
 						threadId: winner.id,
 						messageId: raceMsgId,
-						messageType: input.initialMessage.type,
+						messageType: initialMessage.type,
 						senderId,
 						timestamp: Date.now(),
 					};
@@ -1269,7 +1245,7 @@ export function createThreadRoutes(
 			streamId: threadId,
 			threadId,
 			messageId,
-			messageType: input.initialMessage.type,
+			messageType: initialMessage.type,
 			senderId,
 			timestamp: Date.now(),
 		};

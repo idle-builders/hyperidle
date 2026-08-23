@@ -34,7 +34,6 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
 import { and, eq, inArray, ne, type SQL, sql } from "drizzle-orm";
 
 /** Per-column patch that also admits SQL expressions (e.g. cost coalesce). */
@@ -81,7 +80,7 @@ function buildWhere(filter: UserFilter): SQL | undefined {
 	if (filter.role !== undefined) preds.push(eq(users.role, filter.role));
 	if (filter.status !== undefined) preds.push(eq(users.status, filter.status));
 	if (filter.nameContains !== undefined) {
-		const pattern = `%${escapeLikePattern(filter.nameContains.toLowerCase())}%`;
+		const pattern = `%${filter.nameContains.toLowerCase().replace(/[\\%_]/g, "\\$&")}%`;
 		preds.push(sql`LOWER(${users.name}) LIKE ${pattern} ESCAPE '\\'`);
 	}
 	if (filter.excludeId !== undefined) preds.push(ne(users.id, filter.excludeId));

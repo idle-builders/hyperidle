@@ -2,7 +2,7 @@
  * agent-orchestration's composition root for the `run-orchestration` Service.
  *
  * @lore AU31 §2.1(b)/§2.3/§2.4/§5/§6: relocated from `layers/core-api/src/
- * services/run-orchestration-composition.ts`. `@hyperidle/agent-run-config`/
+ * services/run-orchestration-composition.ts`. `@hyperidle/run-orchestration`/
  * `@hyperidle/run-orchestration`/`@hyperidle/session-requests` are this
  * Layer's own Services now, so those three imports are in-layer, not
  * crossings. The `@hyperidle/harness-registry`/`@hyperidle/harness-registry/
@@ -23,7 +23,6 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { readAgentRunConfig } from "@hyperidle/agent-run-config";
 import type { CoreApiTransport } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { summarizeToolArgs } from "@hyperidle/diagnostics";
@@ -383,9 +382,6 @@ function buildSessionLifecyclePorts(
 		observability: observabilityAccessor,
 		harnessRuntime: buildHarnessRuntime(harnessRuntimeAdapter),
 		toolProvider: buildToolProvider(coreApiTransport, returnStatusToolAdapter),
-		// AU26 G1 (§D-L): the live `agent_run_config` read `admitSession` uses
-		// instead of the emit-time bake. Mechanism C — the Layer wires the Service.
-		agentRunConfig: { readAgentRunConfig },
 	};
 }
 

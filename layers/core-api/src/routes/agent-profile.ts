@@ -90,7 +90,7 @@ export async function handleAgentProfile(
 	// Existence is still a `users` question — an agent with no `agent_run_config`
 	// row renders the defaults, it does not 404.
 	// @lore AU31 §2.2: the read crosses the seam (AgentOrchestrationPort.runConfig.read)
-	// instead of importing `@hyperidle/agent-run-config` directly — this route stays
+	// instead of importing `@hyperidle/run-orchestration` directly — this route stays
 	// core-hosted (it gates on `users`), only the persistence spelling changed.
 	const runConfig = await agentOrchestration.runConfig.read(agentId);
 

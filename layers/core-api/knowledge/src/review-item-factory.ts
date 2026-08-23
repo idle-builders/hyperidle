@@ -1,19 +1,21 @@
 import { randomUUID } from "node:crypto";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, NewItem, NewThread } from "@hyperidle/db";
 import type { ItemCreatedEvent } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { ReviewPorts } from "./ports.js";
 
 /**
  * Stable marker recorded in `items.reasoning` for attention-engine reviews.
- * @lore G2 idempotency: the `reasoning` column stores JSON. We use a
- * `LIKE %...%` search on the column instead of an FK because review items
- * already speak JSON for the `reasoning` blob and adding a new column for
- * a single consumer was judged heavier than the LIKE probe.
  *
- * @lore AU20 Am9: `ATTENTION_REVIEW_SOURCE` constant internalized — only
- * `attentionReviewReasoningMarker` is exported (the idempotency contract the
- * attention engine LIKE-probes).
+ * Moved from `@hyperidle/review` to `@hyperidle/knowledge` (AU44 batch 4 —
+ * rows 9/10 MERGE). The LIKE-probe idempotency contract belongs to knowledge,
+ * not review: both callers (`attention-service.ts` and the composition sites)
+ * live in or alongside this package. Moving here kills the `KnowledgeReviewWriter`
+ * DI port and the currying factory that existed only to satisfy its 3-arg shape.
+ *
+ * @lore G2 idempotency: the `reasoning` column stores JSON. We use a
+ * `LIKE %...%` search instead of an FK because review items already speak JSON
+ * for the `reasoning` blob and adding a new column for a single consumer was
+ * judged heavier than the LIKE probe.
  */
 const ATTENTION_REVIEW_SOURCE = "attention_engine";
 
@@ -46,30 +48,30 @@ export interface CreateReviewItemResult {
 }
 
 /**
- * Factory: build a `createReviewItemForKnowledge` function bound to the
- * injected `conversation`/`work` ports. The returned function's 3-arg shape
- * `(db, eventBus, input)` is fixed by `@hyperidle/knowledge`'s
- * `KnowledgeReviewWriter` port.
- *
- * Renamed from `buildCreateReviewItemForKnowledge` (AU20 Am9 — same factory
- * pattern, shorter name, deps now drawn from `ReviewPorts` fields).
- *
- * @lore AU19 Increment 1j: the 3-arg shape is fixed by `@hyperidle/knowledge`'s
- * `KnowledgeReviewWriter` port (Increment 1a) — a factory that CURRIES the DI
- * deps preserves that external 3-arg shape while still achieving Mechanism C
- * internally.
- */
-/**
- * Minimal deps shape — only the two methods actually called.
- * @lore AU20 Am9 reviewer: `Pick<ReviewPorts,"conversation"|"work">` leaked the
- * entire port surface to every caller. Narrowed to a structural type containing
- * only `insertThread` + `createItem` so callers pass exactly what the body uses.
+ * Minimal deps shape — only the two methods the factory body calls.
+ * Both are cross-service calls (Mechanism C): knowledge cannot import
+ * `@hyperidle/conversation` or `@hyperidle/work` directly.
  */
 type CreateReviewItemDeps = {
-	conversation: Pick<ReviewPorts["conversation"], "insertThread">;
-	work: Pick<ReviewPorts["work"], "createItem">;
+	conversation: {
+		insertThread(db: HyperIdleDb, values: NewThread): Promise<void>;
+	};
+	work: {
+		createItem(db: HyperIdleDb, values: NewItem): Promise<void>;
+	};
 };
 
+/**
+ * Factory: build a `createReviewItemForKnowledge` function bound to the
+ * injected `conversation`/`work` ports. The returned function's 3-arg shape
+ * `(db, eventBus, input)` is what the composition sites at the core-api root
+ * pass into `recomputeAttention`.
+ *
+ * @lore AU44 batch 4: moved from `@hyperidle/review`. The currying pattern
+ * is retained for the external composition sites; `attention-service.ts` now
+ * calls this directly from the same package (no more `KnowledgeReviewWriter`
+ * DI port needed there).
+ */
 export function createReviewItem(
 	deps: CreateReviewItemDeps,
 ): (
@@ -81,8 +83,6 @@ export function createReviewItem(
 		const threadId = randomUUID();
 		const isoNow = new Date(input.nowMs).toISOString();
 
-		// L1a: thread carries host_kind/host_id; for knowledge-review the
-		// host is the knowledge item being reviewed.
 		await deps.conversation.insertThread(db, {
 			id: threadId,
 			hostKind: "knowledge_item",

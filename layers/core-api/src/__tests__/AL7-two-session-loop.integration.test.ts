@@ -378,15 +378,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 		return {
 			work: {
 				getTaskById: async () => undefined,
-				updateTaskById: async () => {},
-				createItem: async () => {},
 			},
-			conversation: {
-				insertThread: async () => {},
-				updateThread: async () => {},
-				getThreadById: async () => undefined,
-			},
-			users: { getUserById: async () => undefined, listUsersByKind: async () => [] },
 			org: { resolveReviewRecipients: async () => [] },
 			intentRecorder,
 			// AU21 §6 Decision B: bake-deps stub — the liveness net's bake attempt

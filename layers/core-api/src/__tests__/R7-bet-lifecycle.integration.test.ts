@@ -19,12 +19,11 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
 import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
-import { enqueue } from "@hyperidle/notifications";
 import { getTeam, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
@@ -75,7 +74,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
@@ -83,11 +82,6 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	notifications: {
-		insert: async (db, row) => {
-			await enqueue(db, row);
-		},
-	},
 };
 
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired

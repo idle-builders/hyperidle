@@ -44,9 +44,9 @@ import {
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
 import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
-import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
+import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { resolveProfile } from "@hyperidle/host-process";
+// @lore AU44-b6: desktop is always laptop/pglite — resolveProfile removed with host-process.
 import { composeApiApplication } from "@hyperidle/http-middleware";
 import { WebSocketServer } from "ws";
 // @lore AU26: `ws` ships NO type declarations of its own — see
@@ -149,14 +149,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	if (deps.db) {
 		db = deps.db;
 	} else {
-		const profile = resolveProfile({ env: process.env });
-		const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
-		const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
-		if (profile.dbDriver === "pglite") {
-			dbHandle = await createPgliteDb(dbUrl);
-		} else {
-			dbHandle = createPostgresDb(dbUrl);
-		}
+		// Desktop is always laptop/pglite — profile resolution not needed.
+		const rawDbUrl = process.env.DATABASE_URL ?? "./hyperidle-pg";
+		const dbUrl = resolvePglitePath(rawDbUrl);
+		dbHandle = await createPgliteDb(dbUrl);
 		db = dbHandle.db;
 	}
 	const eventBus = new EventBus();

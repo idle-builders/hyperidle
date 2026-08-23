@@ -274,7 +274,7 @@ export function createOrgRoutes(
 				getUserById: (db2, id) => findUser(db2, { id }),
 				insertUser,
 				// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
-				// @hyperidle/agent-run-config import (crossing-di) — now the
+				// @hyperidle/run-orchestration import (crossing-di) — now the
 				// seam-backed adapter.
 				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
 			},

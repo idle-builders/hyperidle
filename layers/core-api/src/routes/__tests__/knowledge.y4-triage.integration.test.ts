@@ -98,6 +98,9 @@ describe("Y4 — KERNEL_KNOWLEDGE_STATUSES includes needs_human", () => {
 // GET /api/knowledge — attentionScore in signals
 // ---------------------------------------------------------------------------
 
+// @lore AU44 batch 4 row 13 SIMPLIFY: the `signals` wrapper object was removed per
+// FULL-AUDIT.md row 13. attentionScore is now a flat field on each item (parsed from
+// the stored text to a JS number in the list route, matching the detail route's behaviour).
 describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
@@ -119,13 +122,13 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
-			items: Array<{ id: string; signals: { attentionScore: number | null } }>;
+			items: Array<{ id: string; attentionScore: number | null }>;
 		};
 		const item = body.items.find((i) => i.id === "ki-1");
 		expect(item).toBeDefined();
-		expect(item?.signals).toHaveProperty("attentionScore");
-		expect(typeof item?.signals.attentionScore).toBe("number");
-		expect(item?.signals.attentionScore).toBeCloseTo(0.85);
+		expect(item).toHaveProperty("attentionScore");
+		expect(typeof item?.attentionScore).toBe("number");
+		expect(item?.attentionScore).toBeCloseTo(0.85);
 	});
 
 	test("returns attentionScore as null when fabric row has no attentionScore", async ({
@@ -141,11 +144,11 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
-			items: Array<{ id: string; signals: { attentionScore: number | null } }>;
+			items: Array<{ id: string; attentionScore: number | null }>;
 		};
 		const item = body.items.find((i) => i.id === "ki-2");
 		expect(item).toBeDefined();
-		expect(item?.signals.attentionScore).toBeNull();
+		expect(item?.attentionScore).toBeNull();
 	});
 
 	test("returns attentionScore as null when no fabric row exists for item", async ({ db, app }) => {
@@ -157,11 +160,11 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
-			items: Array<{ id: string; signals: { attentionScore: number | null } }>;
+			items: Array<{ id: string; attentionScore: number | null }>;
 		};
 		const item = body.items.find((i) => i.id === "ki-3");
 		expect(item).toBeDefined();
-		expect(item?.signals.attentionScore).toBeNull();
+		expect(item?.attentionScore).toBeNull();
 	});
 
 	test("parses attentionScore from string to number (stored as text in DB)", async ({
@@ -176,12 +179,12 @@ describe("Y4 — GET /api/knowledge returns attentionScore in signals", () => {
 		expect(res.status).toBe(200);
 
 		const body = (await res.json()) as {
-			items: Array<{ id: string; signals: { attentionScore: number | null } }>;
+			items: Array<{ id: string; attentionScore: number | null }>;
 		};
 		const item = body.items.find((i) => i.id === "ki-4");
 		expect(item).toBeDefined();
 		// Must be a JS number, not the string "0.72"
-		expect(item?.signals.attentionScore).toBe(0.72);
+		expect(item?.attentionScore).toBe(0.72);
 	});
 });
 

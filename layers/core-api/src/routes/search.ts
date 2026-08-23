@@ -96,8 +96,27 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 
 		const query = parsed.data;
 
+		// @lore AU44 batch 4: scope=knowledge folds GET /api/knowledge/search into
+		// GET /api/search — returns { results: [...] } matching the old dedicated route.
+		// No visibility filter (preserving original knowledge search behaviour).
+		// Max query length is now 200 chars (was 500 on the old route — behaviour change).
+		const scope = c.req.query("scope");
+		if (scope === "knowledge") {
+			const rawLimit = c.req.query("limit");
+			const parsedLimit = rawLimit !== undefined ? Number.parseInt(rawLimit, 10) : undefined;
+			const limit =
+				parsedLimit !== undefined && Number.isFinite(parsedLimit) && parsedLimit > 0
+					? parsedLimit
+					: undefined;
+			const results = await searchKnowledge(db, query, {
+				mode: "text",
+				...(limit !== undefined ? { limit } : {}),
+			});
+			return c.json({ results });
+		}
+
 		// I2 V4: escape LIKE wildcards so user's literal chars do not become SQL operators.
-		const pattern = `%${escapeLikePattern(query)}%`;
+		const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
 		// ── 1. Conversations (threads) ──────────────────────────────────────────
 		//
@@ -114,7 +133,7 @@ export function createSearchRoutes(db: HyperIdleDb, _eventBus: EventBus): Hono<H
 		// A LIKE probe `%"<userId>"%` is correct for a JSON array of quoted strings.
 		// JS verification after fetch eliminates false positives from substrings.
 
-		const participantPattern = `%"${escapeLikePattern(userId)}"%`;
+		const participantPattern = `%"${userId.replace(/[\\%_]/g, "\\$&")}"%`;
 
 		// Find all threads where the current user might be a participant and
 		// at least one message matches the query.

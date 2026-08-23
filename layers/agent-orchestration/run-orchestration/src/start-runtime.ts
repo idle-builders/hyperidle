@@ -2,6 +2,7 @@ import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { ModelTier } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
+import { readAgentRunConfig } from "./agent-run-config-store.js";
 import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
 import { createProvisioner } from "./provisioner.js";
@@ -137,10 +138,7 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// `modelId` is null, exactly as the absent-bake case did. Net effect
 			// for a founder: an override edited between emit and drain applies
 			// to that turn instead of being one turn stale.
-			const runConfig = await deps.composition.provisioner.agentRunConfig.readAgentRunConfig(
-				deps.db,
-				request.agentId,
-			);
+			const runConfig = await readAgentRunConfig(deps.db, request.agentId);
 			// `resolvedModel` is consumed ONLY by the builtin (api-gateway) adapter,
 			// which makes direct provider API calls. A subscription-CLI (claude-code,
 			// cursor-agent) or external harness authenticates itself and needs no

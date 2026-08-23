@@ -120,7 +120,7 @@ export function createTeamRoutes(
 	// the real `user-store.ts` function references unchanged (no behavior change).
 	// AU26 G1 (§D-L) / AU31 §2.2: `persistScaffoldedAgents` also stamps the run
 	// config, reached through the seam (`buildSeamBackedAgentRunConfigWriter`)
-	// instead of a direct `@hyperidle/agent-run-config` import.
+	// instead of a direct `@hyperidle/run-orchestration` import.
 	const orgUsers = {
 		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
 		insertUser,

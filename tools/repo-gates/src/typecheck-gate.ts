@@ -521,7 +521,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/toon-codec",
 		"framework/query-escaping",
 		"framework/factory-defaults",
-		"framework/host-process",
 		"framework/http-middleware",
 		"framework/harness-protocol",
 		"framework/db",

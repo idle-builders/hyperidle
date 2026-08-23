@@ -47,7 +47,6 @@
 		"@hyperidle/connections": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/host-process": "*",
 		"@hyperidle/remote-server": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",

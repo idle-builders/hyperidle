@@ -5,12 +5,13 @@
  * AC2: captureBack is a declared no-op (AU43 stage 2 — write code removed).
  */
 
+import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { createGitRunner } from "@hyperidle/host-process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createGitRunner } from "../../../src/git-runner.js";
 import { RegistryFilesystemMounter } from "../index.js";
 import type { AdapterDeps, Filesystem } from "../mounter.js";
 
@@ -18,8 +19,10 @@ import type { AdapterDeps, Filesystem } from "../mounter.js";
 async function createSourceRepo(parentDir: string): Promise<string> {
 	const repoDir = path.join(parentDir, "source-repo");
 	fs.mkdirSync(repoDir, { recursive: true });
+	execSync("git init -b main", { cwd: repoDir });
+	execSync('git config user.email "test@test.com"', { cwd: repoDir });
+	execSync('git config user.name "Test"', { cwd: repoDir });
 	const runner = createGitRunner(repoDir);
-	await runner.init("main");
 	fs.writeFileSync(path.join(repoDir, "README.md"), "# Source\n");
 	await runner.add([]);
 	await runner.commit("initial", "test", "test@test.com");

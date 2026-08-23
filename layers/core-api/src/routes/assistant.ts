@@ -277,7 +277,7 @@ export function createAssistantSoulRoutes(
 	// AU26 G1 (§D-L) / AU31 §2.2: `persistScaffoldedAgents` also stamps the run
 	// config, which left `users` for `agent_run_config` — now reached through
 	// the seam (`buildSeamBackedAgentRunConfigWriter`) instead of a direct
-	// `@hyperidle/agent-run-config` import.
+	// `@hyperidle/run-orchestration` import.
 	const orgUsers = {
 		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
 		insertUser,

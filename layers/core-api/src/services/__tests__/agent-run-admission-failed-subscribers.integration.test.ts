@@ -60,7 +60,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import { attentionReviewReasoningMarker } from "@hyperidle/review";
+import { attentionReviewReasoningMarker } from "@hyperidle/knowledge";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { and, eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";

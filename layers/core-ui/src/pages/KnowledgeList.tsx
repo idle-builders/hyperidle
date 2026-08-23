@@ -8,8 +8,9 @@
  * AC explicitly forbids localStorage persistence here.
  *
  * @lore L22: Triage view fetches from /api/knowledge (the general list
- * endpoint). Sort controls use URL state (?sort=recency|frequency).
- * Default (no param) = relevance sort.
+ * endpoint). Sort controls use URL state (?sort=recency). Default = recency.
+ * @lore AU44 batch 4: signals removed (FULL-AUDIT.md row 13). frequency/relevance pills
+ * removed. attentionScore triage sort removed. Plain recency list throughout.
  *
  * @lore N5: Replaced all fixture imports with real API calls. Both Triage and
  * Curated tabs now read from /api/knowledge. The real schema has no layer/kind
@@ -49,7 +50,14 @@ import type {
 	KnowledgeStatus,
 	KnowledgeTopicHealth,
 } from "@hyperidle/domain-model";
-import { KNOWLEDGE_SORT_OPTIONS, KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
+import { KNOWLEDGE_STATUS_LABEL } from "@hyperidle/domain-model";
+
+// @lore AU44 batch 4: signals (accessCount30d, relevanceScore, etc.) removed per FULL-AUDIT.md row 13.
+// Only the recency pill survives. KNOWLEDGE_SORT_OPTIONS (includes frequency/relevance) is no longer
+// iterated for rendering — use this local constant so the UI never shows dead sort options.
+const VISIBLE_SORT_OPTIONS = ["recency"] as const;
+
+import { relativeShort, stripMarkdown } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { KnowledgeTopicGroup } from "../components/KnowledgeTopicGroup";
@@ -89,45 +97,20 @@ const KNOWLEDGE_KINDS = new Set(["pattern", "decision", "failure"]);
  * Returns a new array — does NOT mutate the input.
  *
  * recency:   updatedAt desc, tie-break title asc
- * frequency: accessCount30d desc null-last, tie-break updatedAt desc
- * relevance: relevanceScore desc null-last, tie-break updatedAt desc
+ * recency: updatedAt desc, tie-break title asc
  *
  * @lore AF13: Previously sort pills only changed the URL param but the item list
  * was never reordered. This function is applied both within topic groups (curated)
  * and to the flat triage list so sort pills actually do something.
+ * @lore AU44 batch 4: frequency and relevance branches removed (FULL-AUDIT.md row 13 —
+ * signals die). Only recency survives. Non-recency values fall through to recency behavior.
  */
-export function sortItems(items: ApiKnowledgeItem[], by: KnowledgeSortOption): ApiKnowledgeItem[] {
+export function sortItems(items: ApiKnowledgeItem[]): ApiKnowledgeItem[] {
 	return [...items].sort((a, b) => {
-		if (by === "recency") {
-			const cmp = b.updatedAt.localeCompare(a.updatedAt);
-			if (cmp !== 0) return cmp;
-			// tie-break: title asc
-			return a.title.localeCompare(b.title);
-		}
-		if (by === "frequency") {
-			const aScore = a.signals?.accessCount30d ?? null;
-			const bScore = b.signals?.accessCount30d ?? null;
-			if (aScore === null && bScore === null) {
-				// both null: fall back to updatedAt desc
-				return b.updatedAt.localeCompare(a.updatedAt);
-			}
-			if (aScore === null) return 1; // null-last
-			if (bScore === null) return -1; // null-last
-			const cmp = bScore - aScore;
-			if (cmp !== 0) return cmp;
-			return b.updatedAt.localeCompare(a.updatedAt);
-		}
-		// relevance
-		const aRel = a.signals?.relevanceScore ?? null;
-		const bRel = b.signals?.relevanceScore ?? null;
-		if (aRel === null && bRel === null) {
-			return b.updatedAt.localeCompare(a.updatedAt);
-		}
-		if (aRel === null) return 1;
-		if (bRel === null) return -1;
-		const cmp = bRel - aRel;
+		// recency (and any future unrecognised value): updatedAt desc, tie-break title asc
+		const cmp = b.updatedAt.localeCompare(a.updatedAt);
 		if (cmp !== 0) return cmp;
-		return b.updatedAt.localeCompare(a.updatedAt);
+		return a.title.localeCompare(b.title);
 	});
 }
 
@@ -141,15 +124,19 @@ function deriveScope(searchParams: URLSearchParams): KnowledgeScope {
 }
 
 function isKnowledgeSortOption(value: string | null): value is KnowledgeSortOption {
-	return (KNOWLEDGE_SORT_OPTIONS as readonly string[]).includes(value ?? "");
+	return (VISIBLE_SORT_OPTIONS as readonly string[]).includes(value ?? "");
 }
 
 function deriveSort(searchParams: URLSearchParams): KnowledgeSortOption {
 	const raw = searchParams.get("sort");
-	return isKnowledgeSortOption(raw) ? raw : "relevance";
+	return isKnowledgeSortOption(raw) ? raw : "recency";
 }
 
-/** Shape of an item returned by GET /api/knowledge */
+/**
+ * Shape of an item returned by GET /api/knowledge.
+ * @lore AU44 batch 4: signals wrapper removed (FULL-AUDIT.md row 13). attentionScore is now
+ * a flat field written by the PLUGIN attention service and returned top-level by the list route.
+ */
 interface ApiKnowledgeItem {
 	id: string;
 	topic: string | null;
@@ -163,13 +150,7 @@ interface ApiKnowledgeItem {
 	scopeId?: string | null;
 	createdAt: string;
 	updatedAt: string;
-	signals?: {
-		lastActivityAt?: string | null;
-		accessCount30d?: number | null;
-		citationCount?: number | null;
-		relevanceScore?: number | null;
-		attentionScore?: number | null;
-	} | null;
+	attentionScore?: number | null;
 }
 
 interface ApiKnowledgeListResponse {
@@ -486,7 +467,7 @@ function KnowledgeListContent({
 				className="flex items-center gap-[9px] py-[9px]"
 			>
 				<span className="type-metadata  text-[var(--text-tertiary)]">Sort:</span>
-				{KNOWLEDGE_SORT_OPTIONS.map((option) => {
+				{VISIBLE_SORT_OPTIONS.map((option) => {
 					const isActive = sort === option;
 					return (
 						<button
@@ -542,167 +523,165 @@ function KnowledgeListContent({
 							/>
 						</div>
 					) : (
-						<>
-							<ItemList variant="flush" as="ul" isEmpty={filteredTriageItems.length === 0}>
-								{filteredTriageItems.map((item, index) => {
-									const isPrivate = item.scopeKind === "user";
-									// AG6/AD6: kind-badge only renders for explicit knowledge-kind values.
-									// "factory","product","practice","team","user" are scope values — no badge.
-									// @lore AG6: AD6 AC-4 (kind badge removed from rows) coexists with AG6
-									// protected kind-badge testid because real scopeKind values are scope
-									// identifiers; only "pattern"/"decision"/"failure" render a kind badge.
-									const itemKind =
-										item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
-											? item.scopeKind
-											: undefined;
-									const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
-									const itemStatus = toKnowledgeStatus(item.status);
-									return (
-										<Row
-											key={item.id}
-											as="li"
-											data-testid="knowledge-row"
-											data-focused={focusedIndex === index ? "true" : undefined}
-											title={item.title}
-											subtitle={
-												item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
-											}
-											cells={[
-												...(isPrivate
-													? [
-															{
-																content: (
-																	<span
-																		className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
-																		style={{
-																			background: "var(--surface-container)",
-																			color: "var(--text-secondary)",
-																		}}
-																		title="Private — only visible to you"
-																	>
-																		Private
-																	</span>
-																),
-																"data-testid": "private-badge" as const,
-															},
-														]
-													: []),
-												...(itemKind && kStyle
-													? [
-															{
-																content: (
-																	<span
-																		className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
-																		style={kStyle}
-																	>
-																		{itemKind}
-																	</span>
-																),
-																"data-testid": "kind-badge" as const,
-															},
-														]
-													: []),
-												...(itemStatus === "active" || itemStatus === "archived"
-													? [
-															{
-																content: (
-																	<span data-testid="status-badge">
-																		<StatusChip
-																			status={knowledgeStatusToStatus(itemStatus)}
-																			label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
-																		/>
-																	</span>
-																),
-															},
-														]
-													: []),
-												{
-													content: relativeShort(item.updatedAt),
-													"data-testid": "knowledge-time" as const,
-												},
-											]}
-											actions={
-												<div className="flex items-center gap-[3px]">
-													<button
-														type="button"
-														aria-label="Validate"
-														title="Validate"
-														onClick={(e) => {
-															e.stopPropagation();
-															onTriageAction(item.id, "active");
-														}}
-														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+						<ItemList variant="flush" as="ul" isEmpty={filteredTriageItems.length === 0}>
+							{filteredTriageItems.map((item, index) => {
+								const isPrivate = item.scopeKind === "user";
+								// AG6/AD6: kind-badge only renders for explicit knowledge-kind values.
+								// "factory","product","practice","team","user" are scope values — no badge.
+								// @lore AG6: AD6 AC-4 (kind badge removed from rows) coexists with AG6
+								// protected kind-badge testid because real scopeKind values are scope
+								// identifiers; only "pattern"/"decision"/"failure" render a kind badge.
+								const itemKind =
+									item.scopeKind && KNOWLEDGE_KINDS.has(item.scopeKind)
+										? item.scopeKind
+										: undefined;
+								const kStyle = itemKind ? kindBadgeStyle(itemKind) : null;
+								const itemStatus = toKnowledgeStatus(item.status);
+								return (
+									<Row
+										key={item.id}
+										as="li"
+										data-testid="knowledge-row"
+										data-focused={focusedIndex === index ? "true" : undefined}
+										title={item.title}
+										subtitle={
+											item.body ? clipExcerpt(stripMarkdown(item.body)) || undefined : undefined
+										}
+										cells={[
+											...(isPrivate
+												? [
+														{
+															content: (
+																<span
+																	className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
+																	style={{
+																		background: "var(--surface-container)",
+																		color: "var(--text-secondary)",
+																	}}
+																	title="Private — only visible to you"
+																>
+																	Private
+																</span>
+															),
+															"data-testid": "private-badge" as const,
+														},
+													]
+												: []),
+											...(itemKind && kStyle
+												? [
+														{
+															content: (
+																<span
+																	className="type-metadata inline-flex items-center px-[9px] py-[3px] rounded-[var(--r-pill)]   whitespace-nowrap"
+																	style={kStyle}
+																>
+																	{itemKind}
+																</span>
+															),
+															"data-testid": "kind-badge" as const,
+														},
+													]
+												: []),
+											...(itemStatus === "active" || itemStatus === "archived"
+												? [
+														{
+															content: (
+																<span data-testid="status-badge">
+																	<StatusChip
+																		status={knowledgeStatusToStatus(itemStatus)}
+																		label={KNOWLEDGE_STATUS_LABEL[itemStatus]}
+																	/>
+																</span>
+															),
+														},
+													]
+												: []),
+											{
+												content: relativeShort(item.updatedAt),
+												"data-testid": "knowledge-time" as const,
+											},
+										]}
+										actions={
+											<div className="flex items-center gap-[3px]">
+												<button
+													type="button"
+													aria-label="Validate"
+													title="Validate"
+													onClick={(e) => {
+														e.stopPropagation();
+														onTriageAction(item.id, "active");
+													}}
+													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+												>
+													<svg
+														width="14"
+														height="14"
+														viewBox="0 0 16 16"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="2"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														aria-hidden="true"
 													>
-														<svg
-															width="14"
-															height="14"
-															viewBox="0 0 16 16"
-															fill="none"
-															stroke="currentColor"
-															strokeWidth="2"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															aria-hidden="true"
-														>
-															<path d="M2 8l4 4 8-8" />
-														</svg>
-													</button>
-													<button
-														type="button"
-														aria-label="Reject"
-														title="Reject"
-														onClick={(e) => {
-															e.stopPropagation();
-															onTriageAction(item.id, "archived");
-														}}
-														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+														<path d="M2 8l4 4 8-8" />
+													</svg>
+												</button>
+												<button
+													type="button"
+													aria-label="Reject"
+													title="Reject"
+													onClick={(e) => {
+														e.stopPropagation();
+														onTriageAction(item.id, "archived");
+													}}
+													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+												>
+													<svg
+														width="14"
+														height="14"
+														viewBox="0 0 16 16"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="2"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														aria-hidden="true"
 													>
-														<svg
-															width="14"
-															height="14"
-															viewBox="0 0 16 16"
-															fill="none"
-															stroke="currentColor"
-															strokeWidth="2"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															aria-hidden="true"
-														>
-															<path d="M2 2l12 12M14 2L2 14" />
-														</svg>
-													</button>
-													<button
-														type="button"
-														aria-label="Open"
-														title="Open"
-														onClick={(e) => {
-															e.stopPropagation();
-															onNavigate(item.id);
-														}}
-														className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+														<path d="M2 2l12 12M14 2L2 14" />
+													</svg>
+												</button>
+												<button
+													type="button"
+													aria-label="Open"
+													title="Open"
+													onClick={(e) => {
+														e.stopPropagation();
+														onNavigate(item.id);
+													}}
+													className="w-[24px] h-[24px] flex items-center justify-center rounded-[var(--r-subtle)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[color-mix(in_oklab,var(--accent-primary)_6%,transparent)] border-none bg-transparent cursor-pointer"
+												>
+													<svg
+														width="14"
+														height="14"
+														viewBox="0 0 16 16"
+														fill="none"
+														stroke="currentColor"
+														strokeWidth="2"
+														strokeLinecap="round"
+														strokeLinejoin="round"
+														aria-hidden="true"
 													>
-														<svg
-															width="14"
-															height="14"
-															viewBox="0 0 16 16"
-															fill="none"
-															stroke="currentColor"
-															strokeWidth="2"
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															aria-hidden="true"
-														>
-															<path d="M3 8h10M8 3l5 5-5 5" />
-														</svg>
-													</button>
-												</div>
-											}
-											onClick={() => onNavigate(item.id)}
-										/>
-									);
-								})}
-							</ItemList>
-						</>
+														<path d="M3 8h10M8 3l5 5-5 5" />
+													</svg>
+												</button>
+											</div>
+										}
+										onClick={() => onNavigate(item.id)}
+									/>
+								);
+							})}
+						</ItemList>
 					)}
 				</div>
 			) : (
@@ -885,38 +864,29 @@ export function KnowledgeList({
 		return withOverrides.filter((i) => i.scopeKind !== undefined && allowed.has(i.scopeKind));
 	}, [allItems, selectedScopePill, optimisticStatuses]);
 
-	// Y4: triage includes both draft and needs_human items, sorted by attentionScore descending
-	// AF13 §3: sortItems applied after triage filter to honour sort pill selection.
+	// Y4: triage includes both draft and needs_human items.
+	// @lore AU44 batch 4: attentionScore sort removed (FULL-AUDIT.md row 13 — attention sort dies
+	// with signals). Triage is now a plain recency list; the sort pill applies if selected.
 	const triageItems = useMemo<ApiKnowledgeItem[]>(() => {
 		const raw = scopeFilteredItems.filter(
 			(i) => i.status === "draft" || i.status === "needs_human",
 		);
-		// Sort by attentionScore descending — items with no score go last; then apply sort pill
-		const byAttention = raw.slice().sort((a, b) => {
-			const aScore = a.signals?.attentionScore ?? null;
-			const bScore = b.signals?.attentionScore ?? null;
-			if (aScore === null && bScore === null) return 0;
-			if (aScore === null) return 1;
-			if (bScore === null) return -1;
-			return bScore - aScore;
-		});
-		// AF13 §3: apply sort pill on top of attentionScore ordering
-		return sort === "relevance" ? byAttention : sortItems(byAttention, sort);
-	}, [scopeFilteredItems, sort]);
+		return sortItems(raw);
+	}, [scopeFilteredItems]);
 
 	const curatedItems = useMemo<ApiKnowledgeItem[]>(
 		() => scopeFilteredItems.filter((i) => i.status === "active"),
 		[scopeFilteredItems],
 	);
 
-	// AF13 §3: Apply sortItems within each topic group so sort pills reorder curated view.
+	// AF13 §3: Apply sortItems within each topic group so the recency pill reorders curated view.
 	const grouped = useMemo(
 		() =>
 			groupByTopic(curatedItems).map((g) => ({
 				...g,
-				items: sort === "relevance" ? g.items : sortItems(g.items, sort),
+				items: sortItems(g.items),
 			})),
-		[curatedItems, sort],
+		[curatedItems],
 	);
 
 	const prevScopeRef = useRef(scope);
@@ -975,11 +945,7 @@ export function KnowledgeList({
 
 	function handleSortChange(newSort: KnowledgeSortOption): void {
 		const next = new URLSearchParams(searchParams);
-		if (newSort === "relevance") {
-			next.delete("sort");
-		} else {
-			next.set("sort", newSort);
-		}
+		next.set("sort", newSort);
 		setSearchParams(next, { replace: true });
 	}
 

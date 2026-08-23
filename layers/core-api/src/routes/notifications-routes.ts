@@ -19,36 +19,25 @@ import {
 import { Hono } from "hono";
 import z from "zod";
 
-const channelEnum = z.enum(["console", "ntfy", "smtp"]);
-
+/**
+ * @lore AU44 batch 4: channelEnum, primaryChannel, digestChannel,
+ * recipientEmail, recipientNtfyTopic, ntfyBaseUrl, ntfyAuthToken,
+ * floodMaxPerMinute, floodCoalesceWindowMs, testMaxPerHour, smtpIgnoreTls,
+ * digestCron removed from patchConfigSchema. Only SMTP fields survive.
+ */
 const patchConfigSchema = z
 	.object({
 		enabled: z.boolean().optional(),
-		primaryChannel: channelEnum.optional(),
-		digestChannel: channelEnum.optional(),
-		recipientEmail: z.union([z.string().max(254), z.null()]).optional(),
-		recipientNtfyTopic: z.union([z.string().max(64), z.null()]).optional(),
-		ntfyBaseUrl: z.string().min(1).max(2048).optional(),
-		ntfyAuthToken: z.union([z.string().max(2048), z.null()]).optional(),
 		smtpHost: z.union([z.string().max(253), z.null()]).optional(),
 		smtpPort: z.number().int().min(1).max(65535).optional(),
 		smtpSecure: z.boolean().optional(),
 		smtpUsername: z.union([z.string().max(256), z.null()]).optional(),
 		smtpPassword: z.union([z.string().max(1024), z.null()]).optional(),
 		smtpFrom: z.union([z.string().max(254), z.null()]).optional(),
-		floodMaxPerMinute: z.number().int().min(0).max(1000).optional(),
-		floodCoalesceWindowMs: z.number().int().min(0).max(3_600_000).optional(),
-		testMaxPerHour: z.number().int().min(0).max(1000).optional(),
-		smtpIgnoreTls: z.boolean().optional(),
-		digestCron: z.string().min(1).max(128).optional(),
 	})
 	.strict();
 
-const testBodySchema = z
-	.object({
-		channel: channelEnum.optional(),
-	})
-	.strict();
+const testBodySchema = z.object({}).strict();
 
 /**
  * Sanitize a config patch for the audit log — booleans / enums kept,
@@ -58,7 +47,6 @@ const testBodySchema = z
 function auditDiff(body: NotificationConfigPatch): Record<string, unknown> {
 	const SECRET_FIELDS: ReadonlyArray<keyof NotificationConfigPatch> = [
 		"smtpPassword",
-		"ntfyAuthToken",
 		"smtpUsername",
 	];
 	const out: Record<string, unknown> = {};
@@ -92,50 +80,6 @@ export interface CreateNotificationRoutesOptions {
 	logger?: Logger;
 }
 
-/**
- * @lore Per-process token bucket for `POST /test`. Refill = `maxPerHour`
- * tokens per 3600s sliding window. Defaults to 5/hour (security review
- * H2 #7). Bucket is in-memory — single-node assumption matches the rest
- * of the notification system. Distributed enforcement is tracked as a
- * follow-up.
- */
-interface TestBucket {
-	tokens: number;
-	lastRefill: number;
-	capacity: number;
-}
-
-function createTestBucket(capacity: number, now: number): TestBucket {
-	return { tokens: capacity, lastRefill: now, capacity };
-}
-
-function takeTestToken(bucket: TestBucket, capacity: number, now: number): boolean {
-	// Lazy refill on every attempt.
-	if (bucket.capacity !== capacity) {
-		bucket.capacity = capacity;
-		bucket.tokens = Math.min(bucket.tokens, capacity);
-	}
-	const windowMs = 3_600_000;
-	const elapsed = now - bucket.lastRefill;
-	if (elapsed > 0 && capacity > 0) {
-		const refill = (elapsed / windowMs) * capacity;
-		bucket.tokens = Math.min(capacity, bucket.tokens + refill);
-		bucket.lastRefill = now;
-	}
-	if (bucket.tokens < 1) return false;
-	bucket.tokens -= 1;
-	return true;
-}
-
-/** Compute the delay until at least one token is available (seconds). */
-function retryAfterSeconds(bucket: TestBucket, capacity: number): number {
-	if (capacity <= 0) return 3600;
-	const deficit = 1 - bucket.tokens;
-	if (deficit <= 0) return 0;
-	const windowMs = 3_600_000;
-	return Math.max(1, Math.ceil((deficit * windowMs) / capacity / 1000));
-}
-
 export function createNotificationRoutes(
 	db: HyperIdleDb,
 	opts: CreateNotificationRoutesOptions,
@@ -143,7 +87,6 @@ export function createNotificationRoutes(
 	const router = new Hono();
 	const nowFn = opts.now ?? ((): Date => new Date());
 	const auditLogger: Logger = opts.logger ?? createLogger({ pkg: "notifications.audit" });
-	const testBucket = createTestBucket(5, nowFn().getTime());
 
 	router.get("/config", async (c) => {
 		const cfg = await readConfig(db, opts.deps);
@@ -182,28 +125,13 @@ export function createNotificationRoutes(
 		return c.json(updated);
 	});
 
+	/**
+	 * @lore AU44 batch 4: rate limiter (testMaxPerHour bucket), channel
+	 * parameter, and cfg.testMaxPerHour read removed. deliver() is now
+	 * always SMTP — no channel selection, no adapter abstraction.
+	 */
 	router.post("/test", validateBody(testBodySchema), async (c) => {
-		const body = c.req.valid("json");
-		// Rate-limit check uses the public readConfig (redacted is enough for testMaxPerHour).
-		const cfg = await readConfig(db, opts.deps);
-		const capacity = Math.max(0, cfg.testMaxPerHour);
-		const took = takeTestToken(testBucket, capacity, nowFn().getTime());
-		if (!took) {
-			const wait = retryAfterSeconds(testBucket, capacity);
-			c.header("Retry-After", String(wait));
-			const response: ApiErrorResponse = {
-				error: `rate limit exceeded: max ${capacity} test sends per hour`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 429);
-		}
-		const channel = body.channel as "console" | "ntfy" | "smtp" | undefined;
-		const raw = await deliver(
-			db,
-			{ kind: "test", ...(channel !== undefined ? { channel } : {}) },
-			opts.deps,
-		);
-		if (raw.kind !== "test") return c.json({ error: "unexpected deliver kind" }, 500);
+		const raw = await deliver(db, { kind: "test" }, opts.deps);
 		if (!raw.ok && raw.error?.startsWith("recipient not configured")) {
 			const response: ApiErrorResponse = {
 				error: raw.error,
@@ -213,7 +141,6 @@ export function createNotificationRoutes(
 		}
 		return c.json({
 			ok: raw.ok,
-			channel: raw.channel,
 			sentAt: raw.sentAt,
 			error: raw.error,
 			retriable: raw.retriable,

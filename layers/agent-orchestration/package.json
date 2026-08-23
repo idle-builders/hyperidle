@@ -11,7 +11,6 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/connections": "*",
 		"@hyperidle/db": "*",
@@ -21,7 +20,6 @@
 		"@hyperidle/factory-defaults": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-protocol": "*",
-		"@hyperidle/host-process": "*",
 		"@hyperidle/http-middleware": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",

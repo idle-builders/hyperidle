@@ -214,7 +214,17 @@ interface CoreApiHcClient {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 		};
 	};
+	readonly search: {
+		$get(args: {
+			readonly query: {
+				readonly q: string;
+				readonly scope?: string;
+				readonly limit?: string;
+			};
+		}): Promise<Response>;
+	};
 	readonly threads: {
+		$post(args: { readonly json: InsertThreadRequest }): Promise<Response>;
 		$get(args: {
 			readonly query: {
 				readonly host_kind?: string;
@@ -222,9 +232,6 @@ interface CoreApiHcClient {
 				readonly limit?: string;
 			};
 		}): Promise<Response>;
-		readonly scaffold: {
-			$post(args: { readonly json: InsertThreadRequest }): Promise<Response>;
-		};
 		readonly direct: {
 			$post(args: { readonly json: { readonly recipientId: string } }): Promise<Response>;
 		};
@@ -250,11 +257,6 @@ interface CoreApiHcClient {
 		};
 	};
 	readonly knowledge: {
-		readonly search: {
-			$get(args: {
-				readonly query: { readonly q: string; readonly limit?: string };
-			}): Promise<Response>;
-		};
 		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
@@ -537,7 +539,7 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 			},
 
 			async insertThread(input: InsertThreadRequest): Promise<InsertThreadResponse> {
-				const res = await client.threads.scaffold.$post({ json: input });
+				const res = await client.threads.$post({ json: input });
 				if (!res.ok) return throwSeamError("conversation.insertThread", res);
 				return (await res.json()) as InsertThreadResponse;
 			},
@@ -669,8 +671,8 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				query: string,
 				opts: { readonly limit: number },
 			): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>> {
-				const res = await client.knowledge.search.$get({
-					query: { q: query, limit: String(opts.limit) },
+				const res = await client.search.$get({
+					query: { q: query, scope: "knowledge", limit: String(opts.limit) },
 				});
 				if (!res.ok) return throwSeamError("knowledge.search", res);
 				const body = (await res.json()) as {
