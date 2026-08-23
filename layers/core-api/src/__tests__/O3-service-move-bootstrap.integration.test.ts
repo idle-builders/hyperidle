@@ -145,7 +145,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			{
 				owner: "policy registration",
 				cleanupEffect: "unsubscribe",
-				constituents: ["policy engine", "lifecycle propagation", "retry interval"],
+				// @lore AU44 batch6: "retry interval" removed — 30s heartbeat deleted with propagation_log.
+				constituents: ["policy engine", "lifecycle propagation"],
 			},
 			{
 				owner: "notifications installation",
@@ -289,13 +290,15 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// tier, so it always returned early). The liveness subscriber beside it stays.
 				{ unsubscribedEvents: ["session_ended"], clearedIntervals: 0 },
 				{
+					// @lore AU44 batch6: clearedIntervals 1→0 — the 30s retry
+					// heartbeat (retryFailedPropagations) is deleted with propagation_log.
 					unsubscribedEvents: [
 						"item_created",
 						"session_ended",
 						"task_state_changed",
 						"bet_state_changed",
 					],
-					clearedIntervals: 1,
+					clearedIntervals: 0,
 				},
 				// @lore AU26 C1: the "git-export handler" owner (its one
 				// `knowledge_updated` subscription) is HARD-DELETED along with the

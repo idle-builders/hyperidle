@@ -188,11 +188,6 @@ async function propagateSessionToTask(
 	// F2: Only propagate on completed outcome. crashed and stopped do not trigger transitions.
 	if (outcome !== "completed") return;
 
-	// Check task exists and is in_progress
-	const task = await deps.work.getTaskById(db, taskId);
-	if (!task) return;
-	if (task.state !== "in_progress") return;
-
 	// @lore AU26 J2: the "is another run still active on this task" guard is
 	// DELETED, and with it core-api's last policy-side read of `sessions` (an
 	// `agent-orchestration` table).
@@ -228,8 +223,14 @@ async function propagateSessionToTask(
 	// reaches is not worth a cross-Layer read. Founder-ruled. No replacement
 	// event, no counter, no downward call.
 
-	// Transition task to review
+	// DB reads and transition inside the catch so any read error is reported via
+	// propagation_failed (not an unhandled rejection).
 	try {
+		// Check task exists and is in_progress
+		const task = await deps.work.getTaskById(db, taskId);
+		if (!task) return;
+		if (task.state !== "in_progress") return;
+
 		await transitionTask(db, eventBus, taskId, "review", deps);
 
 		// Emit propagation_applied event
@@ -279,37 +280,51 @@ async function propagateTaskToBet(
 	taskId: string,
 	deps: LifecyclePropagationDeps,
 ): Promise<void> {
-	// Look up the task to get its betId
-	const task = await deps.work.getTaskById(db, taskId);
-	if (!task) return;
-
-	const betId = task.betId;
-
-	// Look up the bet — only propagate if bet is in an active state
-	const bet = await deps.work.getBetById(db, betId);
-	if (!bet) return;
-
-	// @lore U1: statuses simplified: "shipped" → "completed", "review" dropped.
-	const TERMINAL_BET_STATES = new Set(["completed", "killed"]);
-	if (TERMINAL_BET_STATES.has(bet.status)) return;
-
-	// Query all tasks on this bet
-	const allBetTasks = await deps.work.listTasks(db, { betId });
-	if (allBetTasks.length === 0) return;
-
-	// Check: are ALL tasks in terminal state?
-	const allTerminal = allBetTasks.every((t) => TERMINAL_TASK_STATES.has(t.state));
-	if (!allTerminal) return;
-
-	// All tasks are terminal — transition bet to completed.
-	const fromStatus = bet.status;
-
+	// All DB reads and the transition are inside the try so that read failures
+	// are reported via propagation_failed (not left as unhandled rejections).
+	let betId: string | undefined;
 	try {
+		// Look up the task to get its betId
+		const task = await deps.work.getTaskById(db, taskId);
+		if (!task) return;
+
+		betId = task.betId;
+
+		// Look up the bet — only propagate if bet is in an active state
+		const bet = await deps.work.getBetById(db, betId);
+		if (!bet) return;
+
+		// @lore U1: statuses simplified: "shipped" → "completed", "review" dropped.
+		const TERMINAL_BET_STATES = new Set(["completed", "killed"]);
+		if (TERMINAL_BET_STATES.has(bet.status)) return;
+
+		// Query all tasks on this bet
+		const allBetTasks = await deps.work.listTasks(db, { betId });
+		if (allBetTasks.length === 0) return;
+
+		// Check: are ALL tasks in terminal state?
+		const allTerminal = allBetTasks.every((t) => TERMINAL_TASK_STATES.has(t.state));
+		if (!allTerminal) return;
+
 		// @lore U1: `active` → `completed` (formerly active → review).
+		const fromStatus = bet.status;
 		await transitionBetToCompletedAsync(db, eventBus, betId, deps);
 
 		// Create ship-confirmation review thread
 		await createShipConfirmationThread(db, eventBus, betId, allBetTasks, deps);
+
+		// Emit propagation_applied for the task -> bet hop (observability).
+		const appliedEvent: PropagationAppliedEvent = {
+			type: "propagation_applied",
+			streamId: betId,
+			sourceLevel: "task" as PropagationLevel,
+			sourceId: taskId,
+			targetLevel: "bet" as PropagationLevel,
+			targetId: betId,
+			targetTransition: `${fromStatus} -> completed`,
+			timestamp: Date.now(),
+		};
+		eventBus.emit(appliedEvent);
 	} catch (err) {
 		if (isInvalidTransitionError(err)) {
 			// F4: Race condition — bet was already moved by human. Silently skip.
@@ -318,16 +333,15 @@ async function propagateTaskToBet(
 		// Unexpected error — emit propagation_failed for extension subscribers.
 		const failedEvent: PropagationFailedEvent = {
 			type: "propagation_failed",
-			streamId: betId,
+			streamId: betId ?? taskId,
 			sourceLevel: "task" as PropagationLevel,
 			sourceId: taskId,
 			targetLevel: "bet" as PropagationLevel,
-			targetId: betId,
+			targetId: betId ?? taskId,
 			failureReason: err instanceof Error ? err.message : String(err),
 			timestamp: Date.now(),
 		};
 		eventBus.emit(failedEvent);
-		void fromStatus; // suppress unused-var on the now-dead log path
 	}
 }
 
@@ -402,24 +416,39 @@ async function emitBetToTeamPropagation(
 	newStatus: string,
 	deps: LifecyclePropagationDeps,
 ): Promise<void> {
-	// Look up the bet to find its teamId
-	const bet = await deps.work.getBetById(db, betId);
-	// @lore U1: `teamId` replaces `productId`.
-	const teamId = bet?.teamId ?? betId; // fallback to betId if bet not found (shouldn't happen)
+	// DB read inside try so a read failure is reported via propagation_failed.
+	try {
+		// Look up the bet to find its teamId
+		const bet = await deps.work.getBetById(db, betId);
+		// @lore U1: `teamId` replaces `productId`.
+		const teamId = bet?.teamId ?? betId; // fallback to betId if bet not found (shouldn't happen)
 
-	// Team status is derived on read — no write-time propagation needed.
-	// Emit propagation_applied for observability.
-	const appliedEvent: PropagationAppliedEvent = {
-		type: "propagation_applied",
-		streamId: teamId,
-		sourceLevel: "bet" as PropagationLevel,
-		sourceId: betId,
-		targetLevel: "team" as PropagationLevel,
-		targetId: teamId,
-		targetTransition: `bet -> ${newStatus}`,
-		timestamp: Date.now(),
-	};
-	eventBus.emit(appliedEvent);
+		// Team status is derived on read — no write-time propagation needed.
+		// Emit propagation_applied for observability.
+		const appliedEvent: PropagationAppliedEvent = {
+			type: "propagation_applied",
+			streamId: teamId,
+			sourceLevel: "bet" as PropagationLevel,
+			sourceId: betId,
+			targetLevel: "team" as PropagationLevel,
+			targetId: teamId,
+			targetTransition: `bet -> ${newStatus}`,
+			timestamp: Date.now(),
+		};
+		eventBus.emit(appliedEvent);
+	} catch (err) {
+		const failedEvent: PropagationFailedEvent = {
+			type: "propagation_failed",
+			streamId: betId,
+			sourceLevel: "bet" as PropagationLevel,
+			sourceId: betId,
+			targetLevel: "team" as PropagationLevel,
+			targetId: betId,
+			failureReason: err instanceof Error ? err.message : String(err),
+			timestamp: Date.now(),
+		};
+		eventBus.emit(failedEvent);
+	}
 }
 
 // ─── Public registration function ─────────────────────────────────────────────

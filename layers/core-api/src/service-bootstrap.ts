@@ -443,7 +443,9 @@ export function registerCoreDomainServices(ctx: {
 			registerPolicy(db, eventBus, policyDeps),
 			"policy registration",
 			"unsubscribe",
-			["policy engine", "lifecycle propagation", "retry interval"],
+			// @lore AU44 batch6: "retry interval" removed — the 30s heartbeat
+			// (retryFailedPropagations) is deleted with propagation_log (AU20 Ruling 2).
+			["policy engine", "lifecycle propagation"],
 		),
 	);
 	// @lore AU20 Ag6b: three separate worker registrations (dispatcher + listener
