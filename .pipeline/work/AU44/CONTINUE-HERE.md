@@ -1,109 +1,93 @@
-# AU44 — where this stands, and how to pick it up
+# AU44 — done
 
-Written when the pass was interrupted mid-flight. Everything below is verified against the worktrees,
-not read off an agent report. **Read this before touching anything.**
+All nine batches merged, plus two follow-ups. The branch is `pipeline/AU44-consolidate`
+([PR #507](https://github.com/ambrovia/hyperidle/pull/507)).
 
-## The one-line state
+## Result
 
-Three of nine batches are merged and the consolidation branch is green. Batches 1, 4 and 5 have real
-work committed on their own branches and are unfinished. Nothing is uncommitted anywhere; every branch
-is pushed.
+**The framework went from 21 packages to 7**: `api-contract`, `db`, `diagnostics`, `domain-model`,
+`event-bus`, `harness-capability`, `harness-protocol`. The typecheck gate went from 55 packages to 39.
 
-## Branches
+Fourteen packages dissolved into the code that actually used them. Three verdicted to stay shared did.
+Three carry a `SPLIT` verdict and correctly survive as a slimmed core. One — `harness-capability` —
+stays separate against its own audit's advice, because two other audits and the surviving adapter
+contract show `core-ui` imports it in seven files and must not see `SessionConfig`.
 
-| Branch | State |
+## Where the audit lives now
+
+Off this branch, as agreed. It is on branch **`pipeline/AU44`** under `.pipeline/work/AU20/destroy/`
+(110 files) and reachable from the tag `au20-audit-evidence`. The branch is the copy to work from.
+Track BA needs it for the FINISH and PLUGIN rows.
+
+## Verification at close
+
+| gate | result |
 |---|---|
-| `pipeline/AU44-consolidate` | The PR branch — [PR #507](https://github.com/ambrovia/hyperidle/pull/507) against `main`. Batches 0, 3 and 2 merged. Green: check 0, lint 0, knip 0, knip:production 0, integration 0 (292 files), test:full at the 2-file baseline. |
-| `pipeline/AU44` | Carries the audit evidence. Not for merging. Also present on the consolidation branch until the pass ends. |
-| `merge/AU44-batch1` | Org and identity. 9 commits, the last a WIP snapshot taken at the interrupt — **it may not typecheck**. |
-| `merge/AU44-batch4` | Review/knowledge/conversation/notifications. 5 commits, last a WIP snapshot — **may not typecheck**. |
-| `merge/AU44-batch5` | Harness seam. 2 commits, clean tree, no WIP commit. |
+| check | 0 — 39 packages |
+| lint | 0 |
+| knip / knip:production | 0 / 0 |
+| deps:check | 0 |
+| test:full | 0 failures — 536 files, 5731 tests |
+| test:integration:service | 0 failures — 288 files, 2333 tests |
+| test:e2e:full | 34 failed / 275 passed |
 
-The two WIP commits are snapshots taken to avoid losing work, not finished states. Inspect before
-building on them.
+The e2e number is better than `origin/main`, measured the same day on the same machine: main is
+**62 failed / 247 passed**. Zero spec files fail here that do not also fail on main, and three that
+fail on main pass here. Do not compare against the "19 failures" figure quoted earlier in this work —
+it was stale, and re-running both sides is what showed the branch was ahead, not behind.
 
-## Batches: done
+## What this pass changed that a reader should know
 
-- **0 — Close the delete list.** 10 symbols deleted, 22 recorded as surviving with reasons, 32
-  convictions confirmed already satisfied by unexporting, 3 notification adapter rows moved to batch 4.
-- **3 — Work, routine, session requests.** `framework/cron` dissolved into `routine`; the session-start
-  and task-run resolvers collapsed into one discriminated resolver; `updateBetField` folded into the
-  bets route. Reviewed.
-- **2 — Filesystems, mounting, connections, credentials, settings.** Three packages dissolved:
-  `filesystem-contract` into `filesystems` with its types inlined rather than relocated,
-  `credential-access` into `credentials`, `filesystem-mounting` into `run-orchestration`. Reviewed.
+Behaviour changes, all deliberate: patching a non-active bet returns 400 rather than 500;
+`WorkIntentInput.bakedRequest` is required; direct-message threads key on recipient kind so agent- and
+user-kind threads stop colliding; the knowledge list is a plain recency list without frequency and
+relevance pills; notification config is SMTP-only and `POST /test` returns 400 when unconfigured;
+`GET /sessions` no longer takes `agentId`, `limit` or `offset`. Two schema migrations: `team_members`
+folded into `teams` (0058), `propagation_log` dropped (0059).
 
-## Batches: in flight
+**One audience widened.** `tool-handlers`, `review` and `settings` reached `tool-protocol` and now reach
+`harness-protocol`. The audit said the two audiences were identical; they were identical only in having
+no UI consumers.
 
-- **1 — Org, identity, the teams table.** The `team_members` → `teams` fold is done, migration proven
-  both ways, replacement governance companion attacks written and passing. Two things were outstanding
-  when it stopped: the dead `MEMBERS_ID` export in `tools/setup/src/demo-world/ids.ts` (knip exits 1
-  on it), and **eleven e2e specs still seed the dropped `teamMembers` table** — AG1, AG2, AG6, AH4×2,
-  AI4, AZ2, R9, navigation, page-layout, known-pre-existing-failures. Its last message claimed all six
-  gates green and it was about to run e2e; that claim is unverified. The WIP commit likely holds
-  partial e2e seed fixes.
-- **4 — Review, knowledge, conversation, notifications.** Review-item creation moved into `knowledge`,
-  and the knowledge and conversation rows are committed. Notifications rows and the two door folds
-  (`GET /api/knowledge/search` into `GET /api/search`; `POST /api/threads/scaffold` into
-  `POST /api/threads/`) were not reached. It has already merged the current consolidation into itself.
-- **5 — The harness seam.** `tool-protocol` dissolved and `harness-protocol` shed five modules. The
-  `harness-registry` rows, the `HarnessCapabilities`/`HarnessRuntimeCapabilities` de-duplication and
-  the `event-bus` devDependency respell were not reached. No gates run yet.
+**Deliberate duplication in three places.** Governance forbids service-to-service imports, so a symbol
+two services need has no legal shared home once `domain-model` stops being one: `isAgentWorkIntentKind`,
+the transition error classes, and the system-prompt template reader each exist twice, documented with
+`@lore`. This is the pass's one honest regression against its own goal and is open for a founder call.
 
-## Batches not started
+## Bugs this found
 
-6 — host and run substrate. 7 — the UI substrate. 8 — the shared type spine.
-Their scope is in `batch-plan.md` alongside this file.
+None were on the audit's list. They surfaced because removing code forces what remains to prove itself.
 
-## Things a new session must know
+- `seedAnthropicKeyFromEnv` wrote the env key under `anthropic` while every resolver reads
+  `anthropic_api_key` — a fresh boot with the env var set died at the first agent run.
+- The `create_team` agent tool minted a second id matching no row; after the teams fold that is a
+  foreign-key violation on every agent-initiated team creation. Now covered by an integration test.
+- Four propagation calls sat outside their try/catch, so failures escaped as unhandled rejections.
+- `mergeWithProjection` overwrote a real `scopeId` with null.
+- The knowledge list read a wire shape the server had stopped sending, so its sort controls were inert.
+- `node:crypto` reached the browser bundle through `domain-model`'s barrel and the app would not load.
 
-**Merge conflicts are guaranteed and always resolve the same way.** Every batch that deletes a package
-edits the same registry files: `tsconfig.json`, `tsconfig.base.json`, `knip.json`,
-`tools/governance/decided-rules.json`, `tools/governance/architecture.json`,
-`tools/repo-gates/src/typecheck-gate.ts`, `framework/db/src/__tests__/governance-model.test.ts`, and
-`package-lock.json`. The resolution is always the **union of the deletions** — never either side alone.
-`decided-rules.json` totals and the `governance-model.test.ts` counts must be **recomputed from the
-surviving rows**, not carried across. The set currently holds **183 rows: production 99 allowed / 84
-forbidden, development 175 allowed / 8 forbidden.** Regenerate `package-lock.json` with `npm install`
-rather than merging it by hand.
+## Two rows left for track BA, deliberately not touched
 
-**Node 24 is required.** `export PATH=/opt/homebrew/opt/node@24/bin:$PATH`. The default shell node is
-v22 and writes a lockfile full of phantom errors.
+The bet-retro knowledge upsert and the facilitator roster seeding. Both were deleted during this pass
+and both were restored: the audit describes them leaving core as part of the practice-communities
+plugin, and that plugin does not exist yet. Deleting the core half early destroys the capability rather
+than relocating it. **When a row's write-up names a plugin, trigger or routine as its replacement, it
+belongs to track BA.**
 
-**Read the failed FILE count, not the failed test count.** A file that fails to load runs zero tests, so
-a broken build reports the same "2 failures" as a healthy branch. One batch shipped thirteen non-loading
-files behind a clean-looking test count. Baseline on the consolidation branch is **2 files / 2 tests**
-(`file-watcher.test.ts`, `filesystem-provisioning.test.ts`), both failing identically on untouched
-`main`.
+## The traps this pass paid for, for whoever cleans up next
 
-**Six gates, not four.** check, lint, test:full, test:integration:service, knip, knip:production. knip
-was added mid-pass after two batches deleted packages and left dangling workspace entries that every
-other gate passed over.
-
-**Deleting a package means deleting every mention of it** — imports, the root `tsconfig.json`
-`references` array, `tsconfig.base.json` path aliases, `knip.json` workspace entries, dependency
-manifests, and the lockfile. One batch broke every desktop test by leaving a single dangling
-`references` entry: `applications/desktop/tsconfig.json` extends the root, so the root failing to load
-killed the whole desktop suite.
-
-**No gate in the set runs e2e**, and e2e has no CI job by design. A branch can be fully green with the
-e2e lane broken — which is exactly batch 1's situation. Use `npm run test:e2e:full`; `npm run test:e2e`
-runs an affected slice and can exit 0 having executed nothing.
-
-**Verify every builder report against the worktree.** On this pass, builder reports were wrong more
-often than they were right: a migration that could not run, a package duplicated instead of dissolved,
-four false green gate claims, a relocation described as a dissolution, and one agent that reported seven
-areas of completed work with zero commits. Run `git log --oneline pipeline/AU44-consolidate..HEAD` and
-the gates yourself before acting on anything.
-
-## Declared behaviour changes so far
-
-- Patching a non-active bet returns **400** instead of 500 — the old 500 was an invariant throw escaping
-  as a server error.
-- `WorkIntentInput.bakedRequest` is now required; callers must supply it.
-
-## One production bug this pass found and fixed
-
-`seedAnthropicKeyFromEnv` wrote the env-seeded key under the credential name `anthropic` while every
-resolver reads `anthropic_api_key` — a fresh boot with the env var set would have failed at the first
-agent run. All six gates passed over it; the reviewer caught it. There is now a test on that path.
+- **Ask git, not the filesystem.** A deleted package's directory usually survives holding untracked
+  `dist/` and `tsbuildinfo`, so `Path.exists()` lies. This cost four separate detours, including a wrong
+  "no dangling references" verdict of mine. Use `git ls-files`.
+- **A dissolution must be removed from every registry**: the directory, root `tsconfig.json`
+  `references`, `tsconfig.base.json` paths, `knip.json`, the typecheck gate list, `vitest.config.ts`
+  projects, dependency manifests, `decided-rules.json`, `architecture.json`, and the lockfile. Missing the
+  root tsconfig reference happened three times; its symptom is that unrelated packages' tests fail with
+  "Tsconfig not found" and report **zero** failed tests.
+- **Read the failed FILE count, not the failed test count.** A file that fails to load runs no tests.
+- **Deleting packages drops the governance crossing counts below their floors**, which aborts the scan and
+  takes the whole attack lane down — 80 of 92 "failures" from one number. `governance:floors` runs that
+  same scan, so the floor blocks its own re-measurement. Zero every `min:`, run the tool, restore.
+- **`verify` runs eight gates, not six.** `deps:check` and `mock-inventory:check` sat outside the set used
+  for most of this pass; `deps:check` was red on the branch and green on main until it was fixed.
