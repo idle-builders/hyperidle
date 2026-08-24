@@ -130,6 +130,22 @@ limiter died with the global rate limiter, which was convicted fairly — pre-au
 behind a proxy it collapsed a whole team into one bucket. The two uses were different in kind. If
 redetect becomes a problem, that is the learning that earns a narrow, route-scoped guard back.
 
+## The list is not closed
+
+Checked after the fact with the pass's own accounting tool — built to gate this work and never run at
+ship. It exits non-zero while work remains, and nobody read the exit code.
+
+As re-measured on 2026-08-24 against `main` at `23c160242` (after AU44's batch 0 closed part of it):
+**40 convicted symbols are still declared in the package that convicted them**, and a further 75 DELETE
+rows sit in packages AU44 dissolved, which the checker skips rather than checks. Nine of the 40 are KEEP
+routes this pass restored on purpose and never added to the survivor list; eleven are the invite and
+login-session substrate, whose standing changed with the OIDC ruling; twenty have no explanation on file
+and need their rows re-read.
+
+Nothing in this set is a regression — the shipped product is fine. It is an accounting failure: the
+acceptance criterion above was reported met and is not. Full breakdown in `UNFINISHED.md` beside this
+file.
+
 ## Where the evidence lives
 
 The full audit — 1,681 verdict rows, per-package verdicts, the revised verdicts after the founder

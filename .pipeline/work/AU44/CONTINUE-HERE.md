@@ -1,7 +1,8 @@
 # AU44 — done
 
-All nine batches merged, plus two follow-ups. The branch is `pipeline/AU44-consolidate`
-([PR #507](https://github.com/ambrovia/hyperidle/pull/507)).
+All nine batches merged, plus two follow-ups. Shipped as
+[PR #507](https://github.com/ambrovia/hyperidle/pull/507), squash-merged to `main` as `23c160242`
+on 2026-08-24.
 
 ## Result
 

@@ -1,5 +1,22 @@
 # The delete pass did not finish its own list
 
+> **Re-measured 2026-08-24 against `main` at `23c160242`, after AU44 merged.** AU44's batch 0 closed part
+> of this. The scoped checker now reports **40 still declared in the package that convicted them**, not 64:
+> 322 convicted symbol rows, 199 gone, 8 accepted survivors, 40 alive. Of the 40, nine are the deliberate
+> KEEP restorations described below, eleven are the invite / login-session substrate, and **twenty have no
+> explanation on file**: the twelve `redact.ts` token regexes in `framework/diagnostics`, `KernelEvent` and
+> `StrategyEvent` in `framework/domain-model`, `AgentTerminationReason` / `FileWatcher` / `FileWatcherConfig`
+> in `run-orchestration`, `scrubErrorMessage` and `classifySmtpRetriable` in `notifications`, and
+> `PostBetRetroArgs` in `routine`.
+>
+> **A second gap opened underneath the first.** AU44 dissolved fifteen of the packages these verdicts are
+> filed under, and the scoped checker resolves a verdict file to a directory by name — so it now skips
+> **75 DELETE rows** as "no resolvable dir" instead of checking them, and says so only in a one-line
+> footnote. Re-checked repo-wide by name, 62 of those are gone from production and 13 are still declared
+> somewhere, most of them legitimately relocated (the design-token sets now live in `tools/repo-gates`, the
+> conversation part kinds in `core-ui`). The checker needs a package-to-new-home mapping before it can be
+> trusted as a gate again. The numbers below are the 2026-08-19 measurement, kept as the original record.
+
 Found on 2026-08-19, after the pass had shipped, by running the pass's own accounting tool
 (`destroy/tools/check-deletions.ts`) against merged `main`. It was never run at ship. It exits
 non-zero while work remains, so it was built to gate the pass and then not used as one.
