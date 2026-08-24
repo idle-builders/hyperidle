@@ -1,4 +1,4 @@
-import type { BlockId } from "@hyperidle/domain-model";
+import type { BlockId } from "../../../block/types.js";
 import type { ReviewArtifact } from "../review-artifact.js";
 import type { ComposedReviewSubject } from "../review-composition.js";
 import { AL2_REVIEW_SUBJECT } from "./review-subject.js";

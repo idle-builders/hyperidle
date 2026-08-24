@@ -250,15 +250,15 @@ const label = (row: DecidedRow): string => `${row.source} → ${row.target} [${r
 // -------------------------------------------------------------------------------------------
 
 describe("AU28 — the decided rule set is intact", () => {
-	it("holds exactly the 151 decided rows with the decided totals", () => {
-		expect(decided.rows).toHaveLength(151);
-		expect(decided.totals.rows).toBe(151);
+	it("holds exactly the 143 decided rows with the decided totals", () => {
+		expect(decided.rows).toHaveLength(143);
+		expect(decided.totals.rows).toBe(143);
 		const count = (world: "production" | "development", verdict: string): number =>
 			decided.rows.filter((r) => r[world] === verdict).length;
 		// These four numbers are the founder's decisions. A regeneration that moves any of them has
 		// re-derived what was decided instead of reading it — that happened once and cost hours.
-		expect(count("production", "allowed")).toBe(83);
-		expect(count("production", "forbidden")).toBe(68);
+		expect(count("production", "allowed")).toBe(79);
+		expect(count("production", "forbidden")).toBe(64);
 		// Ruling 13 moved the two `db:table (other) [table:write]` rows from forbidden to allowed:
 		// the flat rule is replaced by the companion clause, which no row can express.
 		// AU32 Ruling A (ruling14narrowing) moved two more, `service -> raw runtime [capability]` and
@@ -276,7 +276,11 @@ describe("AU28 — the decided rule set is intact", () => {
 		// production allowed, 113 - 12 = 101 development allowed; neither forbidden count moves.
 		// AU44-b2 dissolved framework/credential-access + framework/filesystem-contract, removing 8 rows:
 		// prod: -4 allowed (105→101), -4 forbidden (90→86); dev: -8 allowed (179→179), 0 forbidden.
-		expect(count("development", "allowed")).toBe(145);
+		// AU44-b8 dissolved framework/work-intent-port, removing 4 rows:
+		// prod: -2 allowed (83→81), -2 forbidden (68→66); dev: -4 allowed (145→141), 0 forbidden.
+		// AU44-b8 dissolved framework/http-middleware, removing 4 more rows:
+		// prod: -2 allowed (81→79), -2 forbidden (66→64); dev: -4 allowed (141→137), 0 forbidden.
+		expect(count("development", "allowed")).toBe(137);
 		expect(count("development", "forbidden")).toBe(6);
 	});
 
@@ -302,7 +306,7 @@ describe("AU28 — fifteen clauses derive all 358 decided verdicts", () => {
 				return `${label(row)} — decided ${row.production}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(151);
+		expect(checked, "the loop must actually iterate every decided row").toBe(143);
 	});
 
 	it("reproduces every development verdict", () => {
@@ -317,7 +321,7 @@ describe("AU28 — fifteen clauses derive all 358 decided verdicts", () => {
 				return `${label(row)} — decided ${row.development}, model says ${got.verdict} via ${got.clause}`;
 			});
 		expect(wrong).toEqual([]);
-		expect(checked, "the loop must actually iterate every decided row").toBe(151);
+		expect(checked, "the loop must actually iterate every decided row").toBe(143);
 	});
 
 	it("names a clause and a reason for every decision — no unexplained verdict", () => {

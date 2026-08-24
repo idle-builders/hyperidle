@@ -7,13 +7,14 @@ import type {
 import type {
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
 	ModelTier,
 	ResolvedModel,
 	SessionOutcome,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ConversationMessage, SessionMetrics } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
 
 // ---------------------------------------------------------------------------
 // Harness port types (moved from @hyperidle/harness-protocol harness-port.ts)

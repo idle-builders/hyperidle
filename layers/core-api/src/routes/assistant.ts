@@ -21,6 +21,11 @@ import type {
 } from "@hyperidle/api-contract";
 import { findThread, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
+// AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
+// The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
+// now call app scaffolding + persistScaffoldedAgents, identical
+// to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
+import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
 	type HostKind,
@@ -32,11 +37,6 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-// AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
-// The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
-// now call app scaffolding + persistScaffoldedAgents, identical
-// to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
 import { persistScaffoldedAgents } from "@hyperidle/org";
 import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";

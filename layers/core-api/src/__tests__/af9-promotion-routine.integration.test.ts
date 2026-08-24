@@ -23,7 +23,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { KnowledgeUpdatedEvent } from "@hyperidle/domain-model";
+import type { KnowledgeUpdatedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js";

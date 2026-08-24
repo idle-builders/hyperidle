@@ -27,18 +27,21 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
+	type HyperIdleEnv,
 	KNOWLEDGE_LAYERS,
-	type KnowledgeAccessedEvent,
-	type KnowledgeArchivedEvent,
-	type KnowledgeCreatedEvent,
-	type KnowledgeUpdatedEvent,
 	roleLabel,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	scopeToLayer,
+	validateBody,
 } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import type {
+	EventBus,
+	KnowledgeAccessedEvent,
+	KnowledgeArchivedEvent,
+	KnowledgeCreatedEvent,
+	KnowledgeUpdatedEvent,
+} from "@hyperidle/event-bus";
 import {
 	remove as archiveKnowledgeItem,
 	count as countKnowledgeItems,

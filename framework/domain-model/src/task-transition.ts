@@ -15,14 +15,3 @@ export const TASK_STATE_TRANSITIONS: Record<TaskState, readonly TaskState[]> = {
 export function canTransitionTaskState(from: TaskState, to: TaskState): boolean {
 	return TASK_STATE_TRANSITIONS[from].includes(to);
 }
-
-export class TaskInvalidTransitionError extends Error {
-	constructor(
-		public readonly taskId: string,
-		public readonly fromState: TaskState,
-		public readonly toState: TaskState,
-	) {
-		super(`Invalid transition for task ${taskId}: ${fromState} -> ${toState}`);
-		this.name = "InvalidTransitionError";
-	}
-}

@@ -1,9 +1,8 @@
 /**
- * AH2 RED — NoEligibleHarnessError unit tests
+ * AH2 — NoEligibleHarnessError unit tests.
  *
- * These tests FAIL until:
- *  - framework/domain-model/src/errors.ts adds NoEligibleHarnessError
- *  - framework/domain-model/src/index.ts exports NoEligibleHarnessError
+ * @lore AU44-b8: moved from framework/domain-model/src/__tests__/AH2-errors.test.ts
+ * when NoEligibleHarnessError moved to layers/agent-orchestration/run-orchestration/src/errors.ts.
  */
 
 import { describe, expect, it } from "vitest";

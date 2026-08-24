@@ -26,7 +26,7 @@
 
 import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { endSessionByCas } from "../session-store.js";

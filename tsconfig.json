@@ -11,16 +11,10 @@
 			"path": "framework/harness-capability"
 		},
 		{
-			"path": "framework/work-intent-port"
-		},
-		{
 			"path": "framework/event-bus"
 		},
 		{
 			"path": "framework/factory-defaults"
-		},
-		{
-			"path": "framework/http-middleware"
 		},
 		{
 			"path": "framework/harness-protocol"

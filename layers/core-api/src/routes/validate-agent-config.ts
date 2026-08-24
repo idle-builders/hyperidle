@@ -27,7 +27,7 @@
  *  4. INCOMPATIBLE_HARNESS_MODEL — provider must be in harness's modelProviders list
  */
 
-import { isCatalogModel } from "@hyperidle/domain-model";
+import { isCatalogModel } from "../model-utils.js";
 import {
 	type HarnessCapabilityReader,
 	harnessRegistrationMeta,

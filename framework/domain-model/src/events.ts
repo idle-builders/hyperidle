@@ -645,18 +645,3 @@ type StrategyEvent =
 
 /** Discriminated union of all domain events. */
 export type DomainEvent = KernelEvent | StrategyEvent;
-
-/** All valid event type strings. */
-export type EventType = DomainEvent["type"];
-
-/** Wildcard subscription type. */
-export type WildcardType = "*";
-
-/** Extract the event interface for a given event type string. */
-export type EventByType<T extends EventType> = Extract<DomainEvent, { type: T }>;
-
-/** Handler function for a specific event type. */
-export type EventHandler<T extends EventType> = (event: EventByType<T>) => void;
-
-/** Handler function for wildcard subscriptions. */
-export type WildcardHandler = (event: DomainEvent) => void;

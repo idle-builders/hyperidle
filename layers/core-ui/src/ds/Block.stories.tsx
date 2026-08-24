@@ -1,4 +1,4 @@
-import type { BlockId, BlockPayload } from "@hyperidle/domain-model";
+import type { BlockId, BlockPayload } from "../block/types.js";
 import { Block } from "./Block.js";
 
 export default {

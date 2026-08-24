@@ -169,7 +169,7 @@ interface AppOptions {
 	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
 	 * tests may override for isolation.
 	 */
-	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorderFn;
+	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
 }
 
 /**

@@ -14,7 +14,8 @@
  * ownership, not behavior.
  */
 
-import type { ActivityEntry, ToolCallRecordedEvent } from "@hyperidle/domain-model";
+import type { ActivityEntry } from "@hyperidle/domain-model";
+import type { ToolCallRecordedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.

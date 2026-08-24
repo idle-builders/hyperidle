@@ -1,7 +1,8 @@
-import type { AnchorRef, Block, BlockId, Message } from "@hyperidle/domain-model";
+import type { AnchorRef, Message } from "@hyperidle/domain-model";
 import type { ComponentType, JSX, ReactNode } from "react";
 import { createContext, useCallback, useContext, useState } from "react";
 import { blockId, deriveBlocks, normalisedPayload } from "../../block/index.js";
+import type { Block, BlockId } from "../../block/types.js";
 import { CommentRow, Composer } from "../../ds";
 import type { ReviewComment } from "./review-composition.js";
 

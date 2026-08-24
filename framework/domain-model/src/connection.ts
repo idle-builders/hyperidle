@@ -23,6 +23,11 @@ export type ConnectionHealth = (typeof CONNECTION_HEALTH)[number];
 /**
  * Held auth sources only — what a user can create.
  * (inherited is never created by a user — it is reflected from the harness/environment.)
+ *
+ * @lore AU44-b8: survivor in domain-model. Callers include run-orchestration
+ * (a service) and boot.ts (composition root). Moving to @hyperidle/connections
+ * would require run-orchestration to cross-import connections (service→service),
+ * which governance forbids. Domain-model (framework) is the only legal shared location.
  */
 export const HELD_AUTH_SOURCES = ["token", "mcp"] as const;
 export type HeldAuthSource = (typeof HELD_AUTH_SOURCES)[number];
@@ -50,30 +55,4 @@ export interface ServiceConnectionView {
 	removable: boolean;
 }
 
-/**
- * AU36 — one inherited-reach fact: a service the machine already holds auth
- * for, found by a connections-domain probe (harness MCP configs, logged-in
- * CLIs). The connections domain owns the probe, the cache and the projection
- * of these facts — the harness capability descriptor carries NO reach field.
- *
- * Identity only (AN1 hard-rule 4, re-pinned in this home): name, kind,
- * provenance, health — no secret, token, env, or command field may ever
- * appear here. Adding one requires editing this type — a visible, reviewable
- * act.
- *
- * @lore AU36 (D2): `source` is the renamed `InheritedToolDescriptor.harness`
- * field — a plain provenance string ("which config the auth was found in"),
- * NOT a dependency on the harness model. The VALUES are unchanged
- * ("claude-code" | "codex" | "opencode" | "environment") because the view
- * `id`/`via` are built from them and the Connections view must stay
- * byte-identical.
- */
-export interface InheritedConnectionFact {
-	/** Server/CLI identity, e.g. "github", "linear", "gh". */
-	readonly name: string;
-	readonly kind: "mcp-server" | "cli";
-	/** Provenance: "claude-code" | "codex" | "opencode" | "environment". */
-	readonly source: string;
-	/** evidence-first; "unknown" when not provable from probe output. */
-	readonly health: ConnectionHealth | "unknown";
-}
+// InheritedConnectionFact moved to @hyperidle/connections (AU44-b8).

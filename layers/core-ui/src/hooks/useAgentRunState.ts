@@ -24,22 +24,20 @@
  */
 
 import type {
-	AgentActiveSession,
 	AgentHealthLevel,
-	AgentHealthSignals,
 	AgentOperationalStatus,
-	AgentPerformanceStats,
 	AgentRunSummary,
-	AgentSessionSummary,
-} from "@hyperidle/domain-model";
-import {
-	computeHealthSignals,
-	deriveHealthDetail,
-	deriveHealthLevel,
 } from "@hyperidle/domain-model";
 import { useEffect, useMemo, useState } from "react";
 import { fetchLatestRunOutcomes, fetchRunsByAgentIds } from "../services/agent-runs.js";
 import { apiFetch } from "../services/api-fetch.js";
+import type {
+	AgentActiveSession,
+	AgentHealthSignals,
+	AgentPerformanceStats,
+	AgentSessionSummary,
+} from "./agent-health.js";
+import { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "./agent-health.js";
 
 /**
  * Where a screen's run state is in its fetch.

@@ -6,14 +6,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-	extractMentionCandidates,
-	type MentionCandidate,
-	type MentionSegment,
-	resolveMentions,
-	segmentMentions,
-} from "../mention.js";
-import type { InlineRef } from "../thread.js";
+import { extractMentionCandidates, type MentionCandidate, resolveMentions } from "../mention.js";
+
+// MentionSegment + segmentMentions moved to layers/core-ui/src/ds/mention-segments.ts (AU44-b8).
+// Tests for those live in core-ui.
+// InlineRef import removed — segmentMentions (which used it) moved to core-ui (AU44-b8).
 
 // ── extractMentionCandidates ─────────────────────────────────────────────────
 
@@ -169,97 +166,5 @@ describe("AE5 — resolveMentions", () => {
 	it("returns empty array when candidates is empty", () => {
 		const result = resolveMentions([], nameMap, "u-sender");
 		expect(result).toHaveLength(0);
-	});
-});
-
-// ── segmentMentions ──────────────────────────────────────────────────────────
-
-describe("AE5 — segmentMentions", () => {
-	const buildMentionRef = (
-		identityId: string,
-		displayName: string,
-		sourceText: string,
-	): InlineRef => ({
-		kind: "mention" as const,
-		identityId,
-		displayName,
-		sourceText,
-	});
-
-	it("returns a single text segment when there are no MentionRef entries", () => {
-		const refs: InlineRef[] = [{ kind: "task", id: "t-1" }];
-		const result = segmentMentions("Hello world", refs);
-		expect(result).toHaveLength(1);
-		expect(result[0]?.type).toBe("text");
-		expect(result[0]?.content).toBe("Hello world");
-	});
-
-	it("splits text into text + mention segments", () => {
-		const refs: InlineRef[] = [buildMentionRef("u-1", "Aria", "@Aria")];
-		const result = segmentMentions("Hello @Aria please review", refs);
-
-		const types = result.map((s) => s.type);
-		expect(types).toContain("text");
-		expect(types).toContain("mention");
-
-		const mention = result.find((s) => s.type === "mention");
-		expect(mention?.mentionRef?.displayName).toBe("Aria");
-		expect(mention?.mentionRef?.identityId).toBe("u-1");
-	});
-
-	it("returns text segment for @Aria before mention and after it", () => {
-		const refs: InlineRef[] = [buildMentionRef("u-1", "Aria", "@Aria")];
-		const result = segmentMentions("Hello @Aria!", refs);
-
-		// Should have: "Hello " (text), "@Aria" (mention), "!" (text)
-		expect(result.length).toBeGreaterThanOrEqual(2);
-		const mentionSeg = result.find((s) => s.type === "mention");
-		expect(mentionSeg).toBeDefined();
-	});
-
-	it("handles text with no matching mention ref (unknown @name stays as plain text)", () => {
-		const refs: InlineRef[] = [buildMentionRef("u-1", "Aria", "@Aria")];
-		const result = segmentMentions("Hello @Unknown check this", refs);
-		// No segment of type mention since @Unknown doesn't match
-		const mentions = result.filter((s) => s.type === "mention");
-		expect(mentions).toHaveLength(0);
-	});
-
-	it("handles multiple mentions in a single message", () => {
-		const refs: InlineRef[] = [
-			buildMentionRef("u-1", "Aria", "@Aria"),
-			buildMentionRef("u-2", "Bob", "@Bob"),
-		];
-		const result = segmentMentions("Hey @Aria and @Bob please help", refs);
-		const mentions = result.filter((s) => s.type === "mention");
-		expect(mentions).toHaveLength(2);
-	});
-
-	it("returns single text segment for empty text", () => {
-		const refs: InlineRef[] = [buildMentionRef("u-1", "Aria", "@Aria")];
-		const result = segmentMentions("", refs);
-		// Empty text: either one empty text segment or zero segments
-		const textSegments = result.filter((s) => s.type === "text");
-		expect(textSegments.length).toBeGreaterThanOrEqual(0);
-	});
-
-	it("ignores non-MentionRef entries in refs array", () => {
-		const refs: InlineRef[] = [
-			{ kind: "task", id: "t-1" },
-			buildMentionRef("u-1", "Aria", "@Aria"),
-			{ kind: "block", blockId: "blk-1", hostKind: "bet", hostId: "b-1" },
-		];
-		const result = segmentMentions("Hello @Aria", refs);
-		const mentions = result.filter((s) => s.type === "mention");
-		expect(mentions).toHaveLength(1);
-		expect(mentions[0]?.mentionRef?.displayName).toBe("Aria");
-	});
-
-	it("mention segment has mentionRef property set", () => {
-		const refs: InlineRef[] = [buildMentionRef("agent-1", "Aria", "@Aria")];
-		const result = segmentMentions("@Aria do this", refs);
-		const mentionSeg = result.find((s) => s.type === "mention") as MentionSegment | undefined;
-		expect(mentionSeg?.mentionRef).toBeDefined();
-		expect(mentionSeg?.mentionRef?.kind).toBe("mention");
 	});
 });

@@ -16,9 +16,6 @@
 		},
 		{
 			"path": "../../../framework/event-bus"
-		},
-		{
-			"path": "../../../framework/work-intent-port"
 		}
 	]
 }

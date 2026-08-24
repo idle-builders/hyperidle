@@ -18,7 +18,7 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
-import type { PropagationAppliedEvent } from "@hyperidle/domain-model";
+import type { PropagationAppliedEvent } from "@hyperidle/event-bus";
 import { getTeam, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { requestRunStopForTasks } from "@hyperidle/run-orchestration";

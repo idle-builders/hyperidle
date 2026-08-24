@@ -41,8 +41,11 @@
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import type {
+	AgentRunLifecycleChangedEvent,
+	EventBus,
+	SessionEndedEvent,
+} from "@hyperidle/event-bus";
 import * as routineService from "@hyperidle/routine";
 
 const logger = createLogger({ pkg: "core-api.routine-run-session-end-reactions" });

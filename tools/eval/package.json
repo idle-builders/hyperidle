@@ -1,35 +1,33 @@
 {
-  "name": "@hyperidle/eval",
-  "version": "0.0.1",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/types.ts",
-    "./smoke": "./src/smoke/index.ts"
-  },
-  "scripts": {
-    "eval": "tsx src/cli.ts"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.112.1",
-    "@hyperidle/agent-orchestration": "*",
-    "@hyperidle/api-contract": "*",
-    "@hyperidle/core-api": "*",
-    "@hyperidle/db": "*",
-    "@hyperidle/domain-model": "*",
-    "@hyperidle/event-bus": "*",
-    "@hyperidle/harness-protocol": "*",
-    "@hyperidle/harness-registry": "*",
-    "@hyperidle/http-middleware": "*",
-    "@hyperidle/routine": "*",
-    "@hyperidle/settings": "*",
-    "@hyperidle/users": "*",
-    "@hyperidle/work-intent-port": "*",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.27"
-  },
-  "devDependencies": {
-    "tsx": "^4.22.4",
-    "vitest": "^4.1.9"
-  }
+	"name": "@hyperidle/eval",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/types.ts",
+		"./smoke": "./src/smoke/index.ts"
+	},
+	"scripts": {
+		"eval": "tsx src/cli.ts"
+	},
+	"dependencies": {
+		"@anthropic-ai/sdk": "^0.112.1",
+		"@hyperidle/agent-orchestration": "*",
+		"@hyperidle/api-contract": "*",
+		"@hyperidle/core-api": "*",
+		"@hyperidle/db": "*",
+		"@hyperidle/domain-model": "*",
+		"@hyperidle/event-bus": "*",
+		"@hyperidle/harness-protocol": "*",
+		"@hyperidle/harness-registry": "*",
+		"@hyperidle/routine": "*",
+		"@hyperidle/settings": "*",
+		"@hyperidle/users": "*",
+		"drizzle-orm": "^0.45.2",
+		"hono": "^4.12.27"
+	},
+	"devDependencies": {
+		"tsx": "^4.22.4",
+		"vitest": "^4.1.9"
+	}
 }

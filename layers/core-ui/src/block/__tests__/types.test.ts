@@ -1,5 +1,8 @@
 /**
- * L2 AC-4, AC-5: types and runtime constants for the Block primitive.
+ * AC-4, AC-5: types and runtime constants for the Block primitive.
+ *
+ * @lore AU44-b8: moved from framework/domain-model/src/__tests__/blocks/types.test.ts
+ * when blocks/types.ts dissolved into core-ui.
  *
  * Closed enums: BLOCK_KINDS (10) and BLOCK_HOST_KINDS (6). The exported
  * names match docs/blocks/canonical-shapes.md.
@@ -18,7 +21,7 @@ import {
 	type BlockKind,
 	type BlockPayload,
 	MAX_BODY_BYTES,
-} from "../../blocks/types.js";
+} from "../types.js";
 
 describe("BLOCK_KINDS", () => {
 	it("is a closed 10-entry array in canonical order", () => {
@@ -88,8 +91,6 @@ describe("Type exports", () => {
 	});
 
 	it("BlockPayload is a discriminated union over kind", () => {
-		// payload itself carries the discriminator; there is no separate `kind` prop
-		// in BlockProps (see L2-plan § 4.5).
 		const heading: BlockPayload = {
 			kind: "heading",
 			level: 2,

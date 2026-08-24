@@ -7,8 +7,7 @@ import {
 	type NewItem,
 	type NewThread,
 } from "@hyperidle/db";
-import type { KnowledgeUpdatedEvent } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/event-bus";
 import { and, eq, inArray } from "drizzle-orm";
 import { buildAttentionContext, scoreAttentionBatch } from "./attention-scoring.js";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";

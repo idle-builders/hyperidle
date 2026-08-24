@@ -40,7 +40,14 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
-import { DEFAULT_AGENT_HARNESS, isCatalogModel } from "@hyperidle/domain-model";
+// @lore AU44-b8: isCatalogModel moved to core-api (layers); framework/db can't import layers.
+// Inline the catalog check using MODEL_CATALOG directly.
+import { DEFAULT_AGENT_HARNESS, MODEL_CATALOG } from "@hyperidle/domain-model";
+
+function isCatalogModel(id: string): boolean {
+	return MODEL_CATALOG.some((m) => m.id === id);
+}
+
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

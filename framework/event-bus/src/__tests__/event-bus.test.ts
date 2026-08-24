@@ -35,7 +35,7 @@ import type {
 	DomainEvent,
 	NotificationEvent,
 	TaskStateChangedEvent,
-} from "@hyperidle/domain-model";
+} from "@hyperidle/event-bus";
 import { EventBus } from "../event-bus.js";
 
 function makeTaskEvent(taskId: string, seq: number): TaskStateChangedEvent {

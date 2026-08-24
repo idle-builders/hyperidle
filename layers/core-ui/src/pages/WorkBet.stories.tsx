@@ -1,4 +1,4 @@
-import { MAX_BODY_BYTES } from "@hyperidle/domain-model";
+import { MAX_BODY_BYTES } from "../block/types.js";
 import type { BetDetail } from "../types/bet";
 import { FALLBACK_BET, MOCK_BETS } from "./__fixtures__/work-bet-fixtures";
 import { WorkBet } from "./WorkBet";

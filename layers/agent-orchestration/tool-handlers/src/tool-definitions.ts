@@ -26,7 +26,6 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	ARTIFACT_VIEW_SHAPES,
-	type ArtifactCreatedEvent,
 	artifactPreviewSchema,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
@@ -38,8 +37,8 @@ import {
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
-	type TaskStateChangedEvent,
 } from "@hyperidle/domain-model";
+import type { ArtifactCreatedEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";

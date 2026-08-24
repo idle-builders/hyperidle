@@ -13,17 +13,6 @@
  * Pure: no I/O, no clock, no DB.
  */
 
-import {
-	type Block,
-	type BlockDerivationResult,
-	type BlockHostKind,
-	type BlockPayload,
-	IMAGE_URL_SAFE_SCHEMES,
-	type InlineNode,
-	LINK_URL_SAFE_SCHEMES,
-	type ListItem,
-	MAX_BODY_BYTES,
-} from "@hyperidle/domain-model";
 import { blake2s } from "@noble/hashes/blake2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import remarkGfm from "remark-gfm";
@@ -31,6 +20,15 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { blockId } from "./block-id.js";
 import { normalisedPayload, ROOT_OUTLINE_SENTINEL, slug } from "./normalise.js";
+import type {
+	Block,
+	BlockDerivationResult,
+	BlockHostKind,
+	BlockPayload,
+	InlineNode,
+	ListItem,
+} from "./types.js";
+import { IMAGE_URL_SAFE_SCHEMES, LINK_URL_SAFE_SCHEMES, MAX_BODY_BYTES } from "./types.js";
 
 const enc = new TextEncoder();
 

@@ -15,7 +15,7 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
-import type { TaskStateChangedEvent } from "@hyperidle/domain-model";
+import type { TaskStateChangedEvent } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";

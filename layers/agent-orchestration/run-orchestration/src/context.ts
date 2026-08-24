@@ -1,13 +1,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createLogger } from "@hyperidle/diagnostics";
+import type { BakedContextBundle, BakedContextKnowledgeItem } from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	communityForRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { BakedContextBundle, BakedContextKnowledgeItem } from "@hyperidle/work-intent-port";
 
 /**
  * AU21 §9 Increment 12 (Decision H3), Wave C — `context.ts` is now pure

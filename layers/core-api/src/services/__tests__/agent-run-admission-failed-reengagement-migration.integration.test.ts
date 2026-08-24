@@ -44,7 +44,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { AgentRunAdmissionFailedEvent } from "@hyperidle/domain-model";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/event-bus";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";

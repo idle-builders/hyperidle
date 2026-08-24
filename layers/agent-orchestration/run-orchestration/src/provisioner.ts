@@ -3,17 +3,18 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import type {
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	SessionOutcome,
+} from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
-	ConcurrencyLimitError,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
-	NoEligibleHarnessError,
 	type ResolvedModel,
-	type SessionOutcome,
-	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
@@ -29,7 +30,6 @@ import {
 	type SessionResult,
 	type SessionWorkflow,
 } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
 import {
@@ -38,6 +38,11 @@ import {
 	type HeldConnectionsReaderPort,
 } from "./connection-provisioning.js";
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
+import {
+	ConcurrencyLimitError,
+	NoEligibleHarnessError,
+	TargetAgentNotRunnableError,
+} from "./errors.js";
 import {
 	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,

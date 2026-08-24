@@ -12,6 +12,9 @@
 		},
 		{
 			"path": "../../framework/domain-model"
+		},
+		{
+			"path": "../../framework/event-bus"
 		}
 	]
 }

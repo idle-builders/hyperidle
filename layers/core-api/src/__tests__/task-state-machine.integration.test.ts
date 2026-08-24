@@ -1,5 +1,6 @@
 import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
-import type { NotificationEvent, TaskState, TaskStateChangedEvent } from "@hyperidle/domain-model";
+import type { TaskState } from "@hyperidle/domain-model";
+import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, InvalidTransitionError, transitionTask } from "@hyperidle/work";

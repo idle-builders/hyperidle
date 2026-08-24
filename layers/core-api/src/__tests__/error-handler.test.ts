@@ -1,4 +1,4 @@
-import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/domain-model";
+import { CapacityExceededError, InvalidTransitionError } from "@hyperidle/work";
 
 // VersionConflictError was removed from domain-model (never instantiated in production;
 // the error-handler detects it via err.name, not instanceof). Inlined here to keep

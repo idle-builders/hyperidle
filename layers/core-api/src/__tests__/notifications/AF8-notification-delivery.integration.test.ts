@@ -13,7 +13,7 @@
  */
 
 import { type HyperIdleDb, items as itemsTable, notificationQueue, threads } from "@hyperidle/db";
-import type { NotificationEvent } from "@hyperidle/domain-model";
+import type { NotificationEvent } from "@hyperidle/event-bus";
 import { enqueue, installNotifications, updatePreferences } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../../__testing__/test-fixtures.js";

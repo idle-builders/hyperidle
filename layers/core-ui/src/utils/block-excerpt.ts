@@ -9,7 +9,7 @@
  * compact in the overlay composer area.
  */
 
-import type { BlockPayload, InlineNode } from "@hyperidle/domain-model";
+import type { BlockPayload, InlineNode } from "../block/types.js";
 
 const EXCERPT_MAX_LENGTH = 60;
 

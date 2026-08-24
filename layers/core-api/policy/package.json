@@ -13,8 +13,7 @@
 	"dependencies": {
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
-		"@hyperidle/event-bus": "*",
-		"@hyperidle/work-intent-port": "*"
+		"@hyperidle/event-bus": "*"
 	},
 	"devDependencies": {
 		"vitest": "^4.1.9"

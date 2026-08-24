@@ -10,7 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import type { SessionNotReturnedEvent } from "@hyperidle/domain-model";
+import type { SessionNotReturnedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, vi } from "vitest";
 import { createProvisioner } from "../provisioner.js";

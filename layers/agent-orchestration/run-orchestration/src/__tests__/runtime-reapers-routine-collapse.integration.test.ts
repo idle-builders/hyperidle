@@ -27,7 +27,7 @@
  */
 import { type HyperIdleDb, routineRuns, routines, sessions, teams, users } from "@hyperidle/db";
 import { describe, expect, test, vi } from "@hyperidle/db/test-fixtures";
-import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { createRuntimeReapers } from "../runtime-reapers.js";

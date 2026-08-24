@@ -1,6 +1,7 @@
 // design-lint-disable require-stories-sibling
-import { IMAGE_URL_SAFE_SCHEMES } from "@hyperidle/domain-model";
+
 import type { JSX } from "react";
+import { IMAGE_URL_SAFE_SCHEMES } from "../../block/types.js";
 
 import { UnknownPayload } from "./UnknownPayload.js";
 

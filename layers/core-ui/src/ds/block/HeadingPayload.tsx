@@ -1,8 +1,8 @@
 // design-lint-disable require-stories-sibling
 
-import type { InlineNode } from "@hyperidle/domain-model";
 import { createElement, type JSX } from "react";
 import { EMPTY_SLUG_SENTINEL, slug } from "../../block/index.js";
+import type { InlineNode } from "../../block/types.js";
 
 import { renderInline } from "./inline.js";
 

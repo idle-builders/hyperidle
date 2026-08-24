@@ -1,9 +1,8 @@
 import { findThread } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse, ItemCreatedEvent } from "@hyperidle/domain-model";
-import { API_ERROR_CODES } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
+import { API_ERROR_CODES, type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
+import type { EventBus, ItemCreatedEvent } from "@hyperidle/event-bus";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";

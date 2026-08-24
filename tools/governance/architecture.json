@@ -52,19 +52,6 @@
 			],
 			"why": "what an installed harness IS \u2014 its readiness, the models it offers, the tools it already has, the auth action it needs, and how its return enforcement is provisioned. A screen renders this; run-orchestration provisions the enforcement channel; agent-execution's own boot (AU31 \u00a76) types the `ReturnEnforcementChannel` its `returnStatusTool` adapter carries out to the layer that consumes it. Separating it from the protocol is what lets the protocol say no to the interface."
 		},
-		"framework/work-intent-port": {
-			"reach": [
-				"core-api",
-				"conversation",
-				"knowledge",
-				"policy",
-				"review",
-				"routine",
-				"work",
-				"run-orchestration"
-			],
-			"why": "the recorder/reader seam a core-api route uses to write an agent work intent into a table agent-orchestration owns. A port exists to keep two named layers from naming each other, so its audience is the writing side and the owning side, and nobody else."
-		},
 		"framework/event-bus": {
 			"reach": ["core-api", "agent-execution", "agent-orchestration", "service", "application"],
 			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot \u2014 so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types in framework/domain-model."
@@ -72,17 +59,6 @@
 		"framework/factory-defaults": {
 			"reach": ["core-api", "agent-orchestration", "tool-handlers"],
 			"why": "the roster and the system-prompt templates a fresh installation is seeded with. It reads template files off disk, so a browser cannot run it at all."
-		},
-		"framework/http-middleware": {
-			"reach": [
-				"core-api",
-				"agent-orchestration",
-				"harness-registry",
-				"run-orchestration",
-				"remote-server",
-				"desktop"
-			],
-			"why": "the primitives a route file on either application's Hono app needs. Only the two layers that publish an HTTP API and the two services that mount a route or compare a key. This is the package that carries hono, and the reason thirty other manifests stop carrying it. `composeApiApplication` (AU31 \u00a75.3, relocated here from the deleted `@hyperidle/shared`) is the layer-blind Hono mount recipe both Applications build their one composed app from \u2014 `remote-server` and `desktop` name it directly rather than each other, closing the `application \u2192 application` crossing AU31 found."
 		},
 		"framework/harness-protocol": {
 			"reach": [

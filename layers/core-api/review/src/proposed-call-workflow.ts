@@ -41,13 +41,13 @@ import {
 	tailoredGrants,
 	type User,
 } from "@hyperidle/db";
-import type { ToolResult } from "@hyperidle/harness-protocol";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	SessionKnowledgeItemLike,
-} from "@hyperidle/work-intent-port";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
+} from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
+import type { ToolResult } from "@hyperidle/harness-protocol";
 import { and, eq } from "drizzle-orm";
 import type { ReviewAgentWorkIntentInput, ReviewPorts } from "./ports.js";
 

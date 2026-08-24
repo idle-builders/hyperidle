@@ -2,9 +2,8 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
-import { BET_OUTCOME_VERDICTS, InvalidTransitionError } from "@hyperidle/domain-model";
+import { BET_OUTCOME_VERDICTS, type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
@@ -13,7 +12,12 @@ import {
 } from "@hyperidle/knowledge";
 import { getTeam, updateTeam } from "@hyperidle/org";
 import * as work from "@hyperidle/work";
-import { cascadeBetKill, deriveTitle, transitionBet } from "@hyperidle/work";
+import {
+	cascadeBetKill,
+	deriveTitle,
+	InvalidTransitionError,
+	transitionBet,
+} from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";

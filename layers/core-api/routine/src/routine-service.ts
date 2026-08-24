@@ -50,8 +50,8 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	SessionKnowledgeItemLike,
-} from "@hyperidle/work-intent-port";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
+} from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { nextCronMatch, parseCron } from "./cron.js";
 

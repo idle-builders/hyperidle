@@ -25,8 +25,8 @@ import {
 	MODEL_PROVIDERS,
 	type ModelGatewayConfig,
 	type ModelTierConfig,
+	validateBody,
 } from "@hyperidle/domain-model";
-import { validateBody } from "@hyperidle/http-middleware";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { z } from "zod";

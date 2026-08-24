@@ -17,7 +17,6 @@ const PROJECTS = [
 	"framework/harness-capability",
 	"framework/event-bus",
 	"framework/factory-defaults",
-	"framework/http-middleware",
 	"framework/harness-protocol",
 	"layers/core-ui",
 	"tools/eslint-plugin-design",

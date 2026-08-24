@@ -33,12 +33,6 @@
 			"path": "../../framework/harness-protocol"
 		},
 		{
-			"path": "../../framework/http-middleware"
-		},
-		{
-			"path": "../../framework/work-intent-port"
-		},
-		{
 			"path": "../agent-execution/harness-registry"
 		},
 		{

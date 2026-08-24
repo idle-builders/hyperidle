@@ -9,10 +9,9 @@
  * fragility (the `notFound` trap, the pre-auth/auth ordering) meant a drifted
  * copy would silently reopen a closed bug. This module names no Layer — every
  * parameter is a plain Hono value, a middleware handler, or a registrar
- * callback — so it can live in `@hyperidle/http-middleware` (AU34 split
- * `@hyperidle/shared` into eighteen audience-scoped packages; this file
- * followed the rest of `shared/src/http/*` here) without becoming a third
- * composition package (AU26 ruling, upheld: no package that imports layers).
+ * callback — so it lives in `core-api` whose callers are the two composition
+ * roots already importing this package. Moved from `@hyperidle/http-middleware`
+ * (AU44 batch 8).
  *
  * @lore AU26 B1b (AC9/AC10, the Hono `notFound` trap): Hono applies a
  * mounted sub-app's parent middleware, context vars and `onError`, but NOT
@@ -23,19 +22,15 @@
  *
  * @lore AU31 §5.3 (governance `crossing-di`): the backward-compat `/health`
  * root mount is NOT a parameter here, on purpose. Threading a Layer-owned
- * value (`@hyperidle/core-api/routes/health`'s `health`) through a named
- * option on a FRAMEWORK function is exactly the DI shape the governance
- * census flags (`framework → layer [di]` — this package has no Layer
- * identity to legally receive one). Calling `.route("/", health)` on the
- * returned root app is ordinary same-package Hono usage the census does not
- * track as DI, so each composition root mounts its own root-level routes
- * itself, after this function returns.
+ * value through a named option on a function is exactly the DI shape the
+ * governance census flags. Calling `.route("/", health)` on the returned root
+ * app is ordinary same-package Hono usage the census does not track as DI, so
+ * each composition root mounts its own root-level routes itself, after this
+ * function returns.
  *
  * @lore AU31 §9 / M3 A3 / AF11: registration order is what puts a route in
  * front of or behind the auth middleware — `createAuthMiddleware` has no
- * path allow-list. `preAuthRegistrars` (which includes a Layer's own pre-auth
- * routes AND a pre-auth mount like the MCP bridge router — both share the
- * exact `(api: Hono) => void` shape) run strictly before `middleware.auth`
+ * path allow-list. `preAuthRegistrars` run strictly before `middleware.auth`
  * is applied; `apps` mount strictly after.
  */
 
@@ -43,7 +38,7 @@ import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { ErrorHandler, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 
-/** The `/api` middleware stack a composition root applies — same field shapes as `core-api`'s own `ApiMiddlewareStack`, spelled here without importing it (this module stays layer-blind). */
+/** The `/api` middleware stack a composition root applies. */
 export interface ComposedApiMiddleware {
 	readonly cors: MiddlewareHandler;
 	readonly errorHandler: ErrorHandler;
@@ -58,9 +53,9 @@ export interface ComposeApiApplicationOptions {
 	 * pre-auth router mount (the MCP bridge, which authenticates via a token in
 	 * the URL) share this exact shape, so both ride the same list.
 	 */
-	// biome-ignore lint/suspicious/noExplicitAny: layer-blind by design — a Layer's own `Env` (e.g. `HyperIdleEnv`) is opaque here, and Hono's own `.route()` accepts any sub-app env.
+	// biome-ignore lint/suspicious/noExplicitAny: layer-blind by design — a Layer's own `Env` is opaque here, and Hono's own `.route()` accepts any sub-app env.
 	readonly preAuthRegistrars: ReadonlyArray<(api: Hono<any>) => void>;
-	/** Layer apps mounted at `/` on the `/api` sub-router, AFTER `middleware.auth` — every path string keeps its byte-identical public URL. */
+	/** Layer apps mounted at `/` on the `/api` sub-router, AFTER `middleware.auth`. */
 	// biome-ignore lint/suspicious/noExplicitAny: see `preAuthRegistrars` above
 	readonly apps: ReadonlyArray<Hono<any>>;
 }
@@ -83,7 +78,7 @@ export function composeApiApplication(options: ComposeApiApplicationOptions): Ho
 		register(api);
 	}
 
-	// M3 A3: auth. Everything mounted after this line is authenticated — including every mounted app.
+	// M3 A3: auth. Everything mounted after this line is authenticated.
 	api.use("*", middleware.auth);
 
 	for (const mounted of options.apps) {

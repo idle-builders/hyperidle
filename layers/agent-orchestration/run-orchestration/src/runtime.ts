@@ -1,16 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
-	ConcurrencyLimitError,
-	isAgentWorkIntentKind,
-	isAgentWorkIntentSourceKind,
-	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import type { ConversationMessage } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
 import { eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type {
@@ -22,6 +18,12 @@ import type {
 	RuntimeDeps,
 	RuntimePorts,
 } from "./contracts.js";
+import {
+	ConcurrencyLimitError,
+	isAgentWorkIntentKind,
+	isAgentWorkIntentSourceKind,
+	TargetAgentNotRunnableError,
+} from "./errors.js";
 import { createProvisioner } from "./provisioner.js";
 
 type RuntimeProvisionDeps = HarnessPortDeps<HyperIdleDb>;

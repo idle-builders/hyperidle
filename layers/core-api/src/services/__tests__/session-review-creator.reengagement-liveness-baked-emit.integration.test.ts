@@ -48,7 +48,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -169,7 +169,7 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 			// @lore AU44: AgentWorkIntentRecorderInput still declares bakedRequest? for back-compat.
 			// Cast via unknown avoids the contravariance mismatch — safe since liveness always bakes.
 			intentRecorder: (
-				input: Parameters<import("@hyperidle/work-intent-port").AgentWorkIntentRecorderFn>[0],
+				input: Parameters<import("@hyperidle/domain-model").AgentWorkIntentRecorderFn>[0],
 			) => enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]),
 			// See top-of-file `@lore forward-compat`.
 			requireRunnableAgent,

@@ -34,12 +34,8 @@
  * suite.
  */
 
-import type {
-	ActivityEntry,
-	SessionEndedEvent,
-	ToolCallRecordedEvent,
-} from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { ActivityEntry } from "@hyperidle/domain-model";
+import type { EventBus, SessionEndedEvent, ToolCallRecordedEvent } from "@hyperidle/event-bus";
 
 const MAX_PER_SESSION = 100;
 

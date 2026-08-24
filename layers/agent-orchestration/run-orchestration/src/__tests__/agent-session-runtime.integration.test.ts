@@ -8,14 +8,12 @@ import {
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import {
-	type AgentRunAdmissionFailedEvent,
-	type AgentSessionRequestInput,
-	TargetAgentNotRunnableError,
-} from "@hyperidle/domain-model";
+import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
+import { TargetAgentNotRunnableError } from "../errors.js";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 

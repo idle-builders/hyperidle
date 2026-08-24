@@ -19,6 +19,12 @@
 // tools/setup) call this + agent-orchestration's applyFactoryRunConfigDefaults,
 // in that order, instead of a database package writing service-owned tables.
 export { applyFactoryCoreState } from "./bootstrap/factory-state.js";
+export type {
+	ComposeApiApplicationOptions,
+	ComposedApiMiddleware,
+} from "./compose-api-application.js";
+// AU44 batch 8: moved from @hyperidle/http-middleware (dissolved)
+export { composeApiApplication } from "./compose-api-application.js";
 // AU31 §7.1: `./routes/health` is deleted as an entry — `health` is the one
 // symbol a composition root mounts outside `/api` for backward compatibility
 // (`authHealth` stays internal to `app.ts`, core-api's own auth-gated variant).

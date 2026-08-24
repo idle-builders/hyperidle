@@ -26,8 +26,8 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig } from "@hyperidle/work-intent-port";
-import { bakeAgentRunnableConfig } from "@hyperidle/work-intent-port";
+import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig } from "@hyperidle/domain-model";
 import { findMessage, listMessages } from "./conversation-store.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
