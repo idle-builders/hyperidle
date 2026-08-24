@@ -347,7 +347,6 @@ export function verdictDecisionLabel(decision: VerdictDecision): string {
 	}
 }
 
-
 // ── Zod schemas (boundary validation) ───────────────────────────
 
 // The Zod schemas live in `packages/server/src/routes/threads-schema.ts`.

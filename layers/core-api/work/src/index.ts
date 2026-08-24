@@ -47,6 +47,11 @@ export { transitionBet } from "./bet-state-machine.js";
 export { deriveTitle } from "./bet-title.js";
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
 export { checkAndUnblockDependents } from "./dependency-watcher.js";
+export {
+	CapacityExceededError,
+	InvalidTransitionError,
+	TaskInvalidTransitionError,
+} from "./errors.js";
 // -- unified emit-time resolver (AU21 §6 Decision B; AU44 B3 merge) --
 // resolveSessionStartRequest (session_start) merged into resolveTaskRunRequest
 // as the `{ kind: "session_start" }` discriminated path. SessionStartResolverDeps
@@ -60,7 +65,7 @@ export type {
 export { resolveTaskRunRequest } from "./task-run-resolver.js";
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
-export { InvalidTransitionError, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
+export { transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
 // -- work-service (bets/tasks/items repository — the sole table path) --
 // AU20 Ag5b: old read exports collapsed into get()/list() general primitives.
 // AU20 Ag5c: old write exports (createBet/createTask/createItem/appendTaskNote/

@@ -5,10 +5,6 @@ import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
 	agentSessionRequestInputSchema,
-	ConcurrencyLimitError,
-	isAgentWorkIntentKind,
-	isAgentWorkIntentSourceKind,
-	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import type { ConversationMessage } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
@@ -22,6 +18,12 @@ import type {
 	RuntimeDeps,
 	RuntimePorts,
 } from "./contracts.js";
+import {
+	ConcurrencyLimitError,
+	isAgentWorkIntentKind,
+	isAgentWorkIntentSourceKind,
+	TargetAgentNotRunnableError,
+} from "./errors.js";
 import { createProvisioner } from "./provisioner.js";
 
 type RuntimeProvisionDeps = HarnessPortDeps<HyperIdleDb>;

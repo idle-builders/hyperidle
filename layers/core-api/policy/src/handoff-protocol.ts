@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	canTransitionTaskState,
-	TaskInvalidTransitionError,
-	type TaskState,
-} from "@hyperidle/domain-model";
+import { canTransitionTaskState, type TaskState } from "@hyperidle/domain-model";
 import type { DomainEvent, EventBus, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import { TaskInvalidTransitionError } from "./errors.js";
 import type { PolicyDeps, PolicySessionContext } from "./ports.js";
 
 type HandoffDeps = {

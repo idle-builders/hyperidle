@@ -8,7 +8,9 @@
  *   AC5: per-user isolation reflected in type (no cross-user field)
  *   Concept Phase 4: closed sets enforced at runtime via type guards
  *
- * FAILS until framework/domain-model/src/connection.ts is created.
+ * @lore AU44-b8: HELD_AUTH_SOURCES and isHeldAuthSource tests removed —
+ * HELD_AUTH_SOURCES moved to @hyperidle/connections; framework cannot import layers.
+ * InheritedConnectionFact tests also moved (see AU36-inherited-connection-fact.test.ts deleted).
  */
 
 import { describe, expect, it } from "vitest";
@@ -17,17 +19,13 @@ import {
 	CONNECTION_HEALTH,
 	type ConnectionAuthSource,
 	type ConnectionHealth,
-	HELD_AUTH_SOURCES,
 	type ServiceConnectionView,
 } from "../connection.js";
 
-// Guards inlined — isConnectionAuthSource / isHeldAuthSource removed from domain-model
-// (TEST-ONLY callers; each guard is a trivial array lookup).
+// Guard inlined — isConnectionAuthSource removed from domain-model
+// (TEST-ONLY caller; trivial array lookup).
 function isConnectionAuthSource(v: string): v is ConnectionAuthSource {
 	return (CONNECTION_AUTH_SOURCES as readonly string[]).includes(v);
-}
-function isHeldAuthSource(v: string): boolean {
-	return (HELD_AUTH_SOURCES as readonly string[]).includes(v);
 }
 
 describe("AN1 — Connection shared types", () => {
@@ -68,18 +66,6 @@ describe("AN1 — Connection shared types", () => {
 		});
 	});
 
-	// HELD_AUTH_SOURCES — token/mcp only (inherited never created by user)
-	describe("HELD_AUTH_SOURCES — token and mcp only", () => {
-		it("contains exactly token and mcp", () => {
-			const sorted = [...HELD_AUTH_SOURCES].sort();
-			expect(sorted).toEqual(["mcp", "token"]);
-		});
-
-		it("does not contain inherited (inherited is never created)", () => {
-			expect((HELD_AUTH_SOURCES as readonly string[]).includes("inherited")).toBe(false);
-		});
-	});
-
 	// Type guards
 	describe("isConnectionAuthSource", () => {
 		it("returns true for token", () => {
@@ -100,20 +86,6 @@ describe("AN1 — Connection shared types", () => {
 
 		it("returns false for empty string", () => {
 			expect(isConnectionAuthSource("")).toBe(false);
-		});
-	});
-
-	describe("isHeldAuthSource", () => {
-		it("returns true for token", () => {
-			expect(isHeldAuthSource("token")).toBe(true);
-		});
-
-		it("returns true for mcp", () => {
-			expect(isHeldAuthSource("mcp")).toBe(true);
-		});
-
-		it("returns false for inherited", () => {
-			expect(isHeldAuthSource("inherited")).toBe(false);
 		});
 	});
 
@@ -183,13 +155,6 @@ describe("AN1 — Connection shared types", () => {
 
 			expect(inherited.authSource).toBe("inherited");
 			expect(inherited.removable).toBe(false);
-		});
-
-		it("HeldAuthSource is a subset of ConnectionAuthSource", () => {
-			// All held sources must be valid connection auth sources
-			for (const s of HELD_AUTH_SOURCES) {
-				expect(isConnectionAuthSource(s)).toBe(true);
-			}
 		});
 	});
 });

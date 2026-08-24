@@ -29,7 +29,6 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import {
 	AGENT_CATEGORIES,
-	catalogEntry,
 	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
@@ -41,6 +40,7 @@ import { getTeam } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
+import { catalogEntry } from "../model-utils.js";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { handleAgentProfile } from "./agent-profile.js";
 import { validateAgentConfig } from "./validate-agent-config.js";

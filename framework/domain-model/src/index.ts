@@ -40,7 +40,7 @@ export type {
 	AgentRunSummary,
 	AgentRunsResponse,
 } from "./agent-run-view.js";
-export { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./agent-work-intent-kinds.js";
+// isAgentWorkIntentKind, isAgentWorkIntentSourceKind moved to agent-orchestration (AU44-b8)
 export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 export { artifactPreviewSchema, fallbackPreviewSchema } from "./artifact-preview.js";
@@ -65,9 +65,10 @@ export type {
 	ConnectionAuthSource,
 	ConnectionHealth,
 	HeldAuthSource,
-	InheritedConnectionFact,
 	ServiceConnectionView,
 } from "./connection.js";
+// InheritedConnectionFact moved to @hyperidle/connections (AU44-b8).
+// HeldAuthSource/HELD_AUTH_SOURCES: survivor in domain-model (run-orchestration service cannot cross to connections service).
 export {
 	CONNECTION_AUTH_SOURCES,
 	CONNECTION_HEALTH,
@@ -82,16 +83,7 @@ export {
 	credentialNameForProvider,
 	isCredentialName,
 } from "./credential.js";
-export {
-	ASSISTANT_TURN_TIMEOUT_MS,
-	CapacityExceededError,
-	ConcurrencyLimitError,
-	HttpError,
-	InvalidTransitionError,
-	MissingCredentialError,
-	NoEligibleHarnessError,
-	TargetAgentNotRunnableError,
-} from "./errors.js";
+export { ASSISTANT_TURN_TIMEOUT_MS, HttpError, MissingCredentialError } from "./errors.js";
 // Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
 // Callers import event types from @hyperidle/event-bus.
 // SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
@@ -140,13 +132,12 @@ export type {
 	ResolvedModel,
 } from "./model-gateway.js";
 // ModelCatalogEntry unexported (SIMPLIFY): element type of MODEL_CATALOG; no external consumer names it directly.
+// catalogEntry, isCatalogModel moved to layers/core-api/src/model-utils.ts (AU44-b8).
 export {
 	BUILT_IN_GATEWAY_CONFIG,
-	catalogEntry,
 	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
-	isCatalogModel,
 	MODEL_CATALOG,
 	MODEL_PROVIDERS,
 } from "./model-gateway.js";
@@ -192,11 +183,7 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-export {
-	canTransitionTaskState,
-	TASK_STATE_TRANSITIONS,
-	TaskInvalidTransitionError,
-} from "./task-transition.js";
+export { canTransitionTaskState, TASK_STATE_TRANSITIONS } from "./task-transition.js";
 export type {
 	AgentHealthLevel,
 	AgentOperationalStatus,

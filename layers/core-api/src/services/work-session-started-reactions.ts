@@ -48,9 +48,12 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import { TaskInvalidTransitionError } from "@hyperidle/domain-model";
 import type { EventBus, SessionStartedEvent } from "@hyperidle/event-bus";
-import { type TaskStateMachineDeps, transitionTask } from "@hyperidle/work";
+import {
+	TaskInvalidTransitionError,
+	type TaskStateMachineDeps,
+	transitionTask,
+} from "@hyperidle/work";
 import { buildSeamBackedWorkIntentRecorder } from "./agent-orchestration-port-composition.js";
 import { taskRunResolverDeps } from "./task-run-resolver-bindings.js";
 

@@ -5,8 +5,6 @@ import {
 	type BetStatus,
 	canTransitionTaskState,
 	type PropagationLevel,
-	InvalidTransitionError as SharedInvalidTransitionError,
-	TaskInvalidTransitionError,
 	type TaskState,
 } from "@hyperidle/domain-model";
 import type {
@@ -17,6 +15,10 @@ import type {
 	SessionEndedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/event-bus";
+import {
+	InvalidTransitionError as SharedInvalidTransitionError,
+	TaskInvalidTransitionError,
+} from "./errors.js";
 import type { PolicyDeps } from "./ports.js";
 
 type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "conversation" | "users">;

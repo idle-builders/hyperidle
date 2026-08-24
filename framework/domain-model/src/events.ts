@@ -645,6 +645,3 @@ type StrategyEvent =
 
 /** Discriminated union of all domain events. */
 export type DomainEvent = KernelEvent | StrategyEvent;
-
-
-

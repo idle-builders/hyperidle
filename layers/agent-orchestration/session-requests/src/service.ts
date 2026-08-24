@@ -13,13 +13,10 @@ import type {
 	AgentSessionSourceKind,
 	BakedContextBundle,
 } from "@hyperidle/domain-model";
-import {
-	agentSessionRequestInputSchema,
-	isAgentWorkIntentKind,
-	isAgentWorkIntentSourceKind,
-} from "@hyperidle/domain-model";
+import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
 import type { AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
 import { and, asc, eq, gt, inArray, lt, lte, or, sql } from "drizzle-orm";
+import { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./guards.js";
 
 type IntentOptions = {
 	readonly now?: () => Date;

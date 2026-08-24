@@ -19,6 +19,10 @@
  * listHeldConnectionsForProvisioning deleted; callers use listConnections directly.
  */
 
+// -- Connection vocabulary (AU44-b8): InheritedConnectionFact moved from domain-model --
+// @lore AU44-b8: HeldAuthSource/HELD_AUTH_SOURCES survivor in domain-model (service→service crossing).
+export type { InheritedConnectionFact } from "./types.js";
+
 // -- Provisioning read — callers use listConnections({ userId, authSource }) directly --
 // (listHeldConnectionsForProvisioning deleted; @lore AU44 batch2)
 
