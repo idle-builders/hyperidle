@@ -48,8 +48,9 @@ import {
 	resolveHeldToken,
 } from "@hyperidle/connections";
 import type { HyperIdleDb, ServiceConnectionRow } from "@hyperidle/db";
-import type { HyperIdleEnv, ModelTier, ResolvedModel } from "@hyperidle/domain-model";
+import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import { HELD_AUTH_SOURCES } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
 import type { HarnessAdapter, WorkerRegisterMessage } from "@hyperidle/harness-protocol";

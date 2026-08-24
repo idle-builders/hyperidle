@@ -21,13 +21,13 @@ import { findThread, insertThread, listMessages } from "@hyperidle/conversation"
 import type { HyperIdleDb } from "@hyperidle/db";
 import type {
 	HostKind,
-	HyperIdleEnv,
 	Message,
 	MessageType,
 	PlainPayload,
 	RedactedPayload,
 	Thread,
 } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";

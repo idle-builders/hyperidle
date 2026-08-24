@@ -12,8 +12,8 @@ import {
 	fallbackPreviewSchema,
 	isRegisteredKind,
 	OLD_KIND_MAP,
-	validateBody,
 } from "@hyperidle/domain-model";
+import { validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";

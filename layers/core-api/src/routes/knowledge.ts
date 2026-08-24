@@ -27,14 +27,13 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
-	type HyperIdleEnv,
 	KNOWLEDGE_LAYERS,
 	roleLabel,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	scopeToLayer,
-	validateBody,
 } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type {
 	EventBus,
 	KnowledgeAccessedEvent,

@@ -29,7 +29,6 @@ import type {
 	AgentWorkIntentRecorderFn,
 	ApiErrorResponse,
 	HostKind,
-	HyperIdleEnv,
 	Message,
 	MessageType,
 	PlainPayload,
@@ -42,6 +41,7 @@ import {
 	headCollapsePredicate,
 	resolveMentions,
 } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type {
 	EventBus,
 	EventType,

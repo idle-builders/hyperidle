@@ -24,7 +24,8 @@ import type {
 	AgentOrchestrationWorkIntentKind,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES, type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
+import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
 import {
 	type DEFAULT_AGENT_RUN_CONFIG,

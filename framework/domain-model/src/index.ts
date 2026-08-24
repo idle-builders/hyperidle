@@ -90,8 +90,8 @@ export { ASSISTANT_TURN_TIMEOUT_MS, HttpError, MissingCredentialError } from "./
 export type { SessionOutcome } from "./events.js";
 export type { HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
-export type { HyperIdleEnv, ValidatedJson } from "./http.js";
-export { constantTimeStringEqual, validateBody } from "./http.js";
+// HyperIdleEnv, ValidatedJson, constantTimeStringEqual, validateBody: server-only (node:crypto).
+// Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
 // ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
 // unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.

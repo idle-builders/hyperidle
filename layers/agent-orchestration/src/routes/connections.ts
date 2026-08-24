@@ -45,11 +45,8 @@ import {
 	updateConnection,
 } from "@hyperidle/connections";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type {
-	ConnectionHealth,
-	HyperIdleEnv,
-	ServiceConnectionView,
-} from "@hyperidle/domain-model";
+import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { Hono } from "hono";
 import { z } from "zod";
 import { isPrivateHostLiteral, resolveUrlForSSRF } from "../ssrf.js";
