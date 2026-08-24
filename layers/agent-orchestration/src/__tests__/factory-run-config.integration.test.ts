@@ -1,26 +1,28 @@
 /**
  * AU29 §2.5.3 — the agent-orchestration first-boot face.
  *
- * Covers the real `agent_run_config` patch shapes the AU29 feasibility probe proved
- * the owning-service writer reproduces: AH2 fields written for a fresh roster agent,
- * and an upgrade over a pre-existing operator-configured row (AH2 fields overwritten,
- * `modelTierPreference` left alone).
+ * RED PHASE: fails until `applyFactoryRunConfigDefaults` exists at
+ * `layers/agent-orchestration/src/factory-run-config.ts` (architecture.md §2.5.3). Covers the real
+ * `agent_run_config` patch shapes the AU29 feasibility probe proved the owning-service writer
+ * reproduces (`.pipeline/work/AU29/probes/run-config-equivalence.ts`, `feasibility.md` §2): a fresh
+ * roster agent, and an upgrade over a pre-existing operator-configured row (AH2 fields overwritten,
+ * `modelTierPreference` left alone). It also covers a behavioural contract the probe does not touch
+ * and today's `factory-bootstrap.ts` has no test for: the `content !== null` skip
+ * (architecture.md §2.5.3 step 2) — a missing template read must preserve the agent's existing
+ * `systemPrompt` rather than nulling it.
  *
- * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved. The `readSystemPromptTemplateForRole`
- * mock is removed — the template backfill loop in `applyFactoryRunConfigDefaults` was dead
- * code (the only core roster agent has role "assistant" which is not in the template map by
- * design, so the loop always skipped). The "content !== null skip" test is removed for the
- * same reason: it tested a code path that no longer exists.
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved; template reader inlined into
+ * factory-run-config.ts (can't cross layer boundary to @hyperidle/org). The "null read" test
+ * uses the optional `readTemplate` parameter instead of a module mock — cleaner, no hoisting.
  */
 
 import { agentRunConfig, users } from "@hyperidle/db";
-import { afterAll, describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { afterEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { applyFactoryRunConfigDefaults } from "../factory-run-config.js";
-
-afterAll(() => {
-	// nothing to clean up
-});
+import {
+	applyFactoryRunConfigDefaults,
+	readSystemPromptTemplateForRole,
+} from "../factory-run-config.js";
 
 const AH2 = {
 	harnessType: "builtin",
@@ -28,6 +30,21 @@ const AH2 = {
 	modelProvider: "anthropic",
 	maxConcurrentSessions: 1,
 } as const;
+
+/**
+ * Role that forces `readTemplate` to return null in the "missing template" test.
+ * Reset after every test.
+ */
+let nullTemplateRole: string | null = null;
+
+afterEach(() => {
+	nullTemplateRole = null;
+});
+
+function controlledReader(role: string): string | null {
+	if (role === nullTemplateRole) return null;
+	return readSystemPromptTemplateForRole(role);
+}
 
 async function seedUser(
 	db: Parameters<typeof applyFactoryRunConfigDefaults>[0],
@@ -45,27 +62,30 @@ async function seedUser(
 }
 
 describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC 7)", () => {
-	test("fresh roster agent gets AH2 runnable defaults", async ({ db }) => {
-		await seedUser(db, "agent-fresh", "assistant");
+	test("fresh roster agent gets AH2 runnable defaults and its role's template as systemPrompt", async ({
+		db,
+	}) => {
+		await seedUser(db, "agent-fresh-facilitator", "facilitator");
 
-		await applyFactoryRunConfigDefaults(db, [{ id: "agent-fresh", role: "assistant" }]);
+		await applyFactoryRunConfigDefaults(db, [
+			{ id: "agent-fresh-facilitator", role: "facilitator" },
+		]);
 
 		const [row] = await db
 			.select()
 			.from(agentRunConfig)
-			.where(eq(agentRunConfig.agentUserId, "agent-fresh"));
+			.where(eq(agentRunConfig.agentUserId, "agent-fresh-facilitator"));
 		expect(row?.harnessType).toBe(AH2.harnessType);
 		expect(row?.modelId).toBe(AH2.modelId);
 		expect(row?.modelProvider).toBe(AH2.modelProvider);
 		expect(row?.maxConcurrentSessions).toBe(AH2.maxConcurrentSessions);
-		// @lore AU44 AU20-fd: assistant has no template; systemPrompt not written by bootstrap.
-		expect(row?.systemPrompt).toBeNull();
+		expect(row?.systemPrompt).toContain("You are a Facilitator");
 	});
 
-	test("upgrade over an operator-configured row: AH2 fields overwritten, modelTierPreference untouched", async ({
+	test("upgrade over an operator-configured row: AH2 fields + prompt overwritten, modelTierPreference untouched", async ({
 		db,
 	}) => {
-		await seedUser(db, "agent-upgrade", "assistant");
+		await seedUser(db, "agent-upgrade", "facilitator");
 		await db.insert(agentRunConfig).values({
 			agentUserId: "agent-upgrade",
 			systemPrompt: "operator-set prompt",
@@ -76,7 +96,7 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 			maxConcurrentSessions: 3,
 		});
 
-		await applyFactoryRunConfigDefaults(db, [{ id: "agent-upgrade", role: "assistant" }]);
+		await applyFactoryRunConfigDefaults(db, [{ id: "agent-upgrade", role: "facilitator" }]);
 
 		const [row] = await db
 			.select()
@@ -87,7 +107,32 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 		expect(row?.modelProvider).toBe(AH2.modelProvider);
 		expect(row?.maxConcurrentSessions).toBe(AH2.maxConcurrentSessions);
 		expect(row?.modelTierPreference).toBe("workhorse");
-		// @lore AU44 AU20-fd: no template backfill for assistant — pre-existing prompt preserved.
-		expect(row?.systemPrompt).toBe("operator-set prompt");
+		expect(row?.systemPrompt).toContain("You are a Facilitator");
+	});
+
+	test("a missing template read preserves the agent's existing systemPrompt instead of nulling it", async ({
+		db,
+	}) => {
+		nullTemplateRole = "facilitator";
+		await seedUser(db, "agent-missing-template", "facilitator");
+		await db.insert(agentRunConfig).values({
+			agentUserId: "agent-missing-template",
+			systemPrompt: "pre-existing prompt that must survive",
+		});
+
+		await applyFactoryRunConfigDefaults(
+			db,
+			[{ id: "agent-missing-template", role: "facilitator" }],
+			controlledReader,
+		);
+
+		const [row] = await db
+			.select()
+			.from(agentRunConfig)
+			.where(eq(agentRunConfig.agentUserId, "agent-missing-template"));
+		// Step 1 (AH2 defaults) still runs unconditionally...
+		expect(row?.harnessType).toBe(AH2.harnessType);
+		// ...but step 2 (prompt backfill) must skip this role, leaving the prompt as it was.
+		expect(row?.systemPrompt).toBe("pre-existing prompt that must survive");
 	});
 });

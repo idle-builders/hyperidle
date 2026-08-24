@@ -18,11 +18,11 @@ export const DESIGNER_ID = "demo-agent-designer";
 export const QA_ID = "demo-agent-qa";
 export const GROWTH_ID = "demo-agent-growth";
 /**
- * Demo facilitator agent, seeded by seedDemoWorld.
- * @lore AU44 AU20-fd: factory-defaults dissolved; facilitators moved to plugin (AU20 Ruling 3).
- * The demo world now seeds its own facilitator rather than relying on the factory bootstrap.
+ * The facilitation-community facilitator, seeded by the factory bootstrap (factory-state.ts).
+ * @lore AU44 AU20-fd: factory-defaults dissolved; facilitator seeding stays in core (factory-state.ts)
+ * until the plugin-track (AU20 Ruling 3) takes over. FACILITATOR_ID points at the factory seed.
  */
-export const FACILITATOR_ID = "demo-agent-facilitator";
+export const FACILITATOR_ID = "seed-agent-pf-facilitation";
 export const PROPAGATION_ID = "system:propagation";
 
 // ── Bets ────────────────────────────────────────────────────────────────────

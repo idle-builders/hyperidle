@@ -14,23 +14,47 @@
  * helper — tooling naming a layer face is `reach-across-only-from-a-
  * composition-root`, same as an application naming one.
  *
- * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved. Facilitator seeding
- * removed from core — the five facilitator agents move to a "practice-communities"
- * plugin (AU20 Ruling 3; plugin WP not yet written). Core seeds only the system
- * assistant singleton. `defaultFactoryRoster` / `COMMUNITY_DISPLAY_NAMES` imports
- * gone; assistant seed inlined.
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved into @hyperidle/org.
+ * `defaultFactoryRoster` / `COMMUNITY_DISPLAY_NAMES` were imported from factory-defaults;
+ * those values are inlined here now that factory-defaults no longer exists. The facilitator
+ * loop is preserved — those five agents still seed from core (the plugin that takes them
+ * over in AU20 Ruling 3 does not exist yet; removing them now would be a silent capability
+ * loss on fresh installs).
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/users";
 
-/** The single load-bearing core agent id: coach.ts:43, knowledge factory-seed:31, portfolio-retro. */
-const SYSTEM_ASSISTANT_ID = "seed-agent-cos";
+// ── Inlined from framework/factory-defaults/src/factory-roster.ts ──────────────
+// @lore AU44 AU20-fd: factory-defaults dissolved; these literals were COMMUNITY_DISPLAY_NAMES
+// and defaultFactoryRoster. The facilitator-plugin track (AU20 Ruling 3) will supersede
+// them when the plugin is built; until then, core continues to seed them.
+
+const COMMUNITY_DISPLAY_NAMES: Record<string, string> = {
+	build: "Build",
+	product: "Product",
+	growth: "Growth",
+	ops: "Ops",
+	facilitation: "Facilitation",
+};
+
+const FACILITATORS = [
+	{ community: "build", role: "facilitator", idHint: "seed-agent-pf-build" },
+	{ community: "product", role: "facilitator", idHint: "seed-agent-pf-product" },
+	{ community: "growth", role: "facilitator", idHint: "seed-agent-pf-growth" },
+	{ community: "ops", role: "facilitator", idHint: "seed-agent-pf-ops" },
+	{ community: "facilitation", role: "facilitator", idHint: "seed-agent-pf-facilitation" },
+] as const;
+
+const SYSTEM_ASSISTANT = { role: "assistant", idHint: "seed-agent-cos" } as const;
+
+// ────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Apply core-api's half of the factory bootstrap: the propagation user and the
- * system assistant singleton. Idempotent — safe on every launch. Returns the
- * roster agents' `{id, role}` for the agent-orchestration face's run-config backfill.
+ * Apply core-api's half of the factory bootstrap: the propagation user, the
+ * roster users, the agentCategory backfill, and the factory knowledge seed.
+ * Idempotent — safe on every launch. Returns the roster agents' `{id, role}`
+ * for the agent-orchestration face's run-config backfill.
  */
 export async function applyFactoryCoreState(
 	db: HyperIdleDb,
@@ -51,12 +75,11 @@ export async function applyFactoryCoreState(
 		createdAt: now,
 	});
 
-	// ── System Agent singleton (seed-agent-cos) ──
+	// ── System Agent singleton — inlined from defaultFactoryRoster.systemAssistant ──
 	// @lore AD8a: seed-agent-cos renamed from "Chief of Staff" to "System Agent".
 	// @lore AD8b: chief_of_staff role renamed to assistant; agentCategory: individual.
-	// @lore AU44 AU20-fd: inlined from defaultFactoryRoster.systemAssistant.
 	await insertUserIfAbsent(db, {
-		id: SYSTEM_ASSISTANT_ID,
+		id: SYSTEM_ASSISTANT.idHint,
 		kind: "ai",
 		name: "System Agent",
 		role: "assistant",
@@ -65,8 +88,35 @@ export async function applyFactoryCoreState(
 		createdAt: now,
 	});
 
+	// ── Facilitator agents — inlined from defaultFactoryRoster.facilitators ──
+	// @lore AD8c: renamed from "Practice Facilitator" (role: practice_facilitator) to
+	// "Facilitator" (role: facilitator). System prompt file: facilitator.md.
+	// Factory agents: agentCategory="strategy", team_id=null.
+	// @lore AU44 AU20-fd: AU20 Ruling 3 says facilitators leave core and are re-provided
+	// as a plugin. Until that plugin is built, these stay here — removing them now would
+	// silently break fresh installs (no plugin to take over). Track BA owns the removal.
+	for (const f of FACILITATORS) {
+		const displayName = COMMUNITY_DISPLAY_NAMES[f.community] ?? f.community;
+		await insertUserIfAbsent(db, {
+			id: f.idHint,
+			kind: "ai",
+			name: `${displayName} Facilitator`,
+			role: f.role,
+			agentCategory: "strategy",
+			teamId: null,
+			status: "active",
+			createdAt: now,
+		});
+	}
+
 	// ── Resolve and return the roster agents: {id, role}, from the queried rows ──
-	// Returning the QUERIED row (not the literal) preserves upgrade-path semantics:
-	// an existing row's actual role decides which template it gets.
-	return listFactoryAgents(db, [SYSTEM_ASSISTANT_ID]);
+	// Scoped to the roster's own agent ids (system:propagation is infra — not
+	// roster-driven). Returning the QUERIED rows (not the roster constant)
+	// preserves the upgrade-path semantics: an existing row's actual role
+	// decides which template it gets.
+	const rosterAgentIds: string[] = [SYSTEM_ASSISTANT.idHint];
+	for (const f of FACILITATORS) {
+		rosterAgentIds.push(f.idHint);
+	}
+	return listFactoryAgents(db, rosterAgentIds);
 }
