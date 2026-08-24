@@ -1,5 +1,12 @@
 # BA1 — A trigger someone configures actually starts the agent they chose
 
+> **Refined 2026-08-24/25 — read `requirements.md` beside this file first.** The refinement reversed the
+> shape of this work. This plan describes building the missing read path for the trigger-rule entity;
+> the decision is that **the entity retires and routines absorb it**. There is one primitive — a routine,
+> firing on a clock or on an event — carrying a prompt instead of a skill, and taking its scope from its
+> owning agent rather than declaring one. Three of the five acceptance criteria below are then satisfied
+> by the merge itself. The text below is kept as the original framing.
+
 ## Work package
 
 **Outcome.** When someone writes a trigger — "when this happens, run that agent with this prompt" —

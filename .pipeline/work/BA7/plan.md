@@ -22,6 +22,13 @@ function exists and is the right shape for provisioning a person on first sign-i
 **Missing delta.** Sign-in through an identity provider, an acting human derived from it, and the
 scoping consequences that follow.
 
+**Shared ground with BA1 (added 2026-08-25).** BA1's refinement decided that an agent belongs to a team,
+to a person, or to neither, as a real field on the agent row. That field is the one this package needs to
+answer "which agents are this human's". It does not exist today: every human gets their own assistant at
+registration, but the only thing tying that agent to that human is the id string `ast-<user-id>` — a
+naming convention doing a foreign key's job. Whichever package lands first should add the field; the other
+should use it rather than adding a second one.
+
 **Depends on.** None. This work package removes the invite and login-session machinery as part of
 replacing it; that machinery must not be deleted separately beforehand, or there is no access mechanism
 in the interval.

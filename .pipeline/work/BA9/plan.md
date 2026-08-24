@@ -61,7 +61,13 @@ on a clock or on an event.
   travels: the contradiction detector inside the promotion sweep is provably dead logic, and per-team
   firing of global sweeps is a defect, not a behaviour to preserve.
 - What happens to the "App-managed" edit-lock that the `strategy` value currently drives (below).
-- Whether the six-name trigger vocabulary converges onto the 33-event union in this package or in BA1.
+- ~~Whether the six-name trigger vocabulary converges onto the 33-event union in this package or in BA1.~~
+  **Answered by BA1's refinement (2026-08-25): in BA1.** The trigger-rule entity retires and routines
+  absorb it, so the six-name list dies with the thing it validated. A plugin contributes **routines** —
+  `CONFIGURATION_KINDS` already carries a `routine` kind — and those routines name any of the 33 event
+  types. Two consequences for this package: its plugin ships routines rather than triggers, and the
+  per-team duplication of global sweeps is fixed at its cause in BA1 (a routine takes its scope from its
+  owning agent, so a global routine runs once) rather than worked around here.
 
 **Design:** light. Two panes change when the category goes, and the plugin's install surface is new. No
 new view; confirm against the design system rather than exploring variants.
