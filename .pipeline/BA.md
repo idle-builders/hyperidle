@@ -1,0 +1,64 @@
+# Track BA: Finish What's Worth Finishing
+
+This track holds features that are **valuable and should work**, but today do not. They are the
+opposite of the cleanup work: nothing here is a deletion, and nothing here is optional ceremony. Each
+package takes a capability the product already claims — in its code, its data model, or its interface
+— and makes it real.
+
+**Where these came from.** The AU20 destroyer audit traced every method, export and entry door in the
+repository to a real door and gave each a verdict. Most of what it found was rubble. A minority was
+something else: machinery built on both ends with the middle missing, features gated behind a flag
+nothing sets, control surfaces that save settings nothing reads. The founder ruled those `FINISH`
+(complete it) or `PLUGIN` (move it out of core and re-provide it), rather than `DELETE`. This track
+owns them. Evidence: `work/AU20/destroy/FULL-AUDIT.md` and `work/AU20/destroy/FOUNDER-RULINGS.md`.
+
+**Ownership rule — this is what makes the split work.** Every package here owns the code its feature
+touches. In the AU20 audit that code is held out of the mechanical cleanup passes, so track AU will
+not delete, merge or simplify it out from under this track. In exchange, **each package here is
+responsible for cleaning up its own feature properly**: the dead variants, the unread fields, the
+duplicated types and the abandoned half-implementations that the audit found alongside the working
+part are this track's job to remove as it finishes the work. Finishing a feature and leaving its
+rubble behind fails the package.
+
+**The three rulings that shaped these packages** (full text in
+`work/AU20/destroy/FOUNDER-RULINGS.md`):
+
+1. This product runs as a **shared backend** for a team and an organisation of teams. Identity comes
+   from an OIDC provider, not invitations. Nothing here may be judged as if the product had one user.
+2. **Events are an extension surface.** Everything that happens emits an event; plugins and people
+   attach triggers. Who listens is not knowable from this repository.
+3. **Knowledge-management ritual leaves core and becomes a plugin.** The test is whether something is
+   the machinery of working, or a ritual *about* the work.
+
+---
+
+## Work package registry
+
+| ID | Title | Type | Complexity | Depends | Status |
+|---|---|---|---|---|---|
+| BA1 | A trigger someone configures actually starts the agent they chose | backend | M | — | **planned — registered 2026-08-17.** The Triggers tab saves and displays rules that no code reads. A comment left by an earlier work package records the finding after git archaeology and a full call-site search: the trigger config entity has had **no code path anywhere that reads it to affect real agent selection**, pre-dating that work package; its only consumer was removed as test-only-reachable. Agent selection always falls back to the default eligible agent. **Substrate for BA9 and for AY2** — both re-provide behaviour as triggers and neither can work until this does. Refinement then architecture required. See `work/BA1/plan.md`. |
+| BA2 | A human approves an agent's risky action and the agent can then take it | backend | L | — | **planned — registered 2026-08-17 (ruling A1).** The loop exists on both sides and the middle is missing: the review screen approves through the general message endpoint, whose handler discards the decision, so the one-time permission is never minted. An independent re-audit found nine disconnected pieces — the object routing an irreversible call into review is never constructed (such calls execute directly today), the approved-call value is never constructed, the anchor identifiers are demanded at provisioning but only exist mid-session, and both bake failures are swallowed. **Precondition in scope:** the path hardcodes every call irreversible and defaults unsignalled tools to irreversible — the gate-by-default classifier ETHOS forbids. Inverting that default ships with this, not after. Architecture required. See `work/BA2/plan.md`. |
+| BA3 | How an agent's model runs is part of configuring that agent | backend | M | — | **planned — registered 2026-08-17 (ruling A3).** Per-model options are valuable as agent configuration, not as per-message composer pills. No production code has ever declared an option — every construction writes an empty list, so the pill row filters a permanently empty array and has never appeared. Agent run configuration already stores harness, model, provider and tier with working read and write paths; the missing connection is the harness adapter contract, which has no options input. **Constraint:** the pass-through ships with the first real declaration, or this rebuilds written-never-consumed machinery one layer lower. Light design. See `work/BA3/plan.md`. |
+| BA4 | Watch an agent work, live | frontend | L | — | **planned — registered 2026-08-17 (ruling A4).** The renderers already exist for a richer session than the system emits. The session view is mounted but unreachable — its only openers are production-dead paths, no route exists, its send handler is a stub — and a second component renders the same feed. Producer work is tiered: completion text already arrives from all four harnesses and is **silently dropped**; reasoning and tool results arrive on the raw wire and die in one mapping step; tool status and output need an identifier the canonical event lacks; diffs and sub-agent ids are on no wire. Design required. See `work/BA4/plan.md`. |
+| BA5 | An agent can work in a filesystem that needs credentials | backend | M | — | **planned — registered 2026-08-17 (ruling A5).** The authenticated-filesystem contract is fully modelled and entirely inert: the auth value is never constructed (both resolvers return nothing) and never read (the single production mount passes none); the resolver interface has four members of which one is alive. Connections already hold encrypted credentials and a validate action exists with no caller. Architecture required — where the credential resolves is a boundary decision. See `work/BA5/plan.md`. |
+| BA6 | Tasks wait for the tasks they depend on, then start themselves | backend | M | — | **planned — registered 2026-08-17 (ruling A6).** Bet decomposition was the wrong shape, but tasks should carry a dependency tree. The column and the watcher exist; nothing has written dependencies since decomposition was removed, and accepting a task dispatches with no dependency check. There is no direct waiting→in-progress edge: the existing chain moves waiting→accepted, dispatch prepares the run, and a reaction moves agent-owned tasks to in-progress, correctly leaving unowned tasks for a human. Cycle rejection required — an accepted cycle parks its members forever. See `work/BA6/plan.md`. |
+| BA7 | Several people sign in to one shared backend | backend | L | — | **planned — registered 2026-08-17 (ruling A7 / Ruling 1).** The shared deployment surface exists; the identity underneath it does not — there is **zero identity-provider code in the repository**. Access arrives via OIDC, so the invite/claim/login-session machinery is replaced rather than merely deleted, and must not be deleted separately first or there is no access mechanism in the interval. Two defects already traced to the missing acting human: the unscoped conversation list returns every human's direct-message threads to any caller, and ship confirmations address a hardcoded first-human-by-insertion-order. Refinement required — "who can see what" across several teams is the unresolved question. Not permissions infrastructure. See `work/BA7/plan.md`. |
+| BA8 | Things that happen announce themselves | backend | M | BA2, BA6 | **planned — registered 2026-08-17 (Ruling 2).** Five event types are defined and dispatcher-cased with no emitter anywhere: dependency met, bet revised, thread archived, work selection requested, proposed call executed. Four describe facts that already occur and go unannounced; **thread archiving does not exist at all** (no column, no route), so that one needs the operation built. **Constraint:** emit where the fact becomes true — a false emission already exists in the code, firing with a fabricated identifier for a row that does not exist. See `work/BA8/plan.md`. |
+| BA9 | Reflection rituals ship as a plugin, not as core machinery | backend | L | BA1 | **planned — registered 2026-08-17 (Ruling 3).** Retros, practice communities and the knowledge sweeps serving them leave core and are re-provided as ordinary agents, skills, routines and triggers. Two independent audits converged on the same unit: five hardcoded facilitator personas seeded for communities that appear nowhere in the product, plus the two sweeps they own, running through a builtin path that bypasses the agent-run architecture and seeded per team so global sweeps fire once per team. **Blocks the 21 plugin-marked deletions in the AU20 audit** — until this exists, removing them from core loses the capability. Nothing convicted as broken travels: the contradiction detector inside the promotion sweep is dead logic, and per-team firing of global sweeps is a defect. Refinement required. See `work/BA9/plan.md`. |
+
+## Dependency graph
+
+- `BA8` → `BA2`: the proposed-call-executed fact only occurs once the approval loop actually runs; emitting it is part of wiring that loop, not separable from it.
+- `BA8` → `BA6`: the dependency-met fact only occurs once dependencies have a writer and the watcher matches real rows; today it matches none.
+- `BA9` → `BA1`: the plugin re-provides rituals as triggers and routines. Built against a substrate that runs nothing, it would install and never fire.
+- `BA9` blocks the 21 `PLUGIN`-marked rows in the AU20 destroyer audit. Those rows relocate a capability; executing them before the plugin exists deletes it instead. This is a dependency *on* BA9, not of it.
+- `AY2` (re-provide auto-decompose as a default trigger, track AY) → `BA1`: it was registered against the same trigger substrate and flagged the same risk — "no code path reads it to affect real agent selection" — as a risk to confirm rather than assume. BA1 is that confirmation, and the fix.
+- `AU42` (targeted foreign-row correctness tests, track AU) conflicts with `BA7`: it instructs tests to encode single-human actor resolution as the production shape. Ruling 1 voids that premise and BA7 replaces the behaviour. Re-scope AU42 before building it.
+- `BA1`, `BA2`, `BA3`, `BA4`, `BA5`, `BA6`, `BA7` have no dependencies on each other and may run in any order.
+
+## Relationship to track AU
+
+AU owns the cleanup that follows the same audit — one pass that deletes, then one that merges and
+simplifies. The two tracks partition the audit's rows: AU acts on `DELETE`, `MERGE` and `SIMPLIFY`;
+BA owns everything marked `FINISH` or `PLUGIN`, and that code is held out of AU's passes. Neither
+track may act on the other's rows.
