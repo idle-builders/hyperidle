@@ -1,5 +1,13 @@
 # AU35 — Delete `strategy` as an agent category
 
+> **FOLDED INTO BA9 — do not build this as its own work package.** Refined 2026-08-24 with the founder
+> and absorbed into `.pipeline/work/BA9/plan.md`. `strategy` is carried by exactly one kind of agent — the
+> five facilitators seeded on first boot — and those facilitators leave core for the knowledge-management
+> plugin. The purge and the move are one job. Two things this spec did not know, now recorded in BA9: the
+> value also drives a live edit-lock in the interface ("App-managed", greyed-out harness and model
+> fields), and three of its four catalog roles (`scout`, `infra`, `platform`) are never instantiated by
+> anything. Kept below as the original record.
+
 ## Work package
 
 **Work package.** As a maintainer, I want the `strategy` agent category gone from the schema, the code and the product — so that the taxonomy a user sees and an agent is filed under contains only categories that mean something. An agent is `team`, `strategy` or `individual` today, and `strategy` names a concept the founder confirmed dead: *"strategy was completely killed a long time ago and shouldn't exist."* Four factory roles are still created carrying it, the enum still offers it, the column still stores it, and the interface still branches on it. When this ships, the category is `team` or `individual`, the existing rows carrying `strategy` have been migrated to whatever they should have been, and nothing in the tree offers the value.
