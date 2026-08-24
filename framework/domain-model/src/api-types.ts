@@ -25,4 +25,4 @@ export const API_ERROR_CODES = {
 	INVITE_EXPIRED: "INVITE_EXPIRED",
 } as const;
 
-export type ApiErrorCode = (typeof API_ERROR_CODES)[keyof typeof API_ERROR_CODES];
+

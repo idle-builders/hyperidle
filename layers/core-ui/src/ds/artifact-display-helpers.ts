@@ -1,28 +1,12 @@
 /**
- * @lore AU44-b8: artifactDisplayTitle + summarizePreview moved from
+ * @lore AU44-b8: artifactDisplayTitle moved from
  * framework/domain-model/src/types/artifact.ts to core-ui.
- * All consumers are UI-world. Audit rows 39 & 40: MERGE → design-system (=core-ui).
+ * All consumers are UI-world. Audit row 39: MERGE → design-system (=core-ui).
+ * summarizePreview (row 40) had no UI caller; domain-model copy survives for its own test.
  */
 
 import type { Artifact } from "@hyperidle/domain-model";
 import { getKindDefinition } from "@hyperidle/domain-model";
-
-/**
- * Single-line summary of a preview. Delegates to the Kind Definition registry.
- * Returns null when the artifact has no preview or the kind is unregistered with no useful data.
- *
- * @lore AE6: summarizePreview now delegates to Kind Definition registry instead of
- * a closed switch statement. Unregistered kinds return the kind string as fallback.
- */
-export function summarizePreview(preview: unknown): string | null {
-	if (!preview || typeof preview !== "object") return null;
-	if (!("kind" in preview)) return null;
-	const kind = (preview as { kind: string }).kind;
-	const def = getKindDefinition(kind);
-	if (def) return def.summarize(preview);
-	// Fallback: return the kind string for unregistered kinds
-	return kind;
-}
 
 /**
  * Display title for an artifact: pulled from the kind-specific preview field
