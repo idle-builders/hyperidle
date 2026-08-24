@@ -18,15 +18,16 @@
  * in a Map and is concurrent-safe.
  */
 
-import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 import type {
+	HarnessAdapter,
 	ServerDispatchMessage,
 	ServerStopMessage,
 	ServerToWorkerMessage,
+	SessionHandle,
 	WorkerErrorMessage,
 	WorkerEventMessage,
 	WorkerSessionResultMessage,
-} from "@hyperidle/harness-registry";
+} from "@hyperidle/harness-protocol";
 
 export interface RemoteWorkerClientOptions {
 	serverUrl: string;

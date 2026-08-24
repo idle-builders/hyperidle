@@ -11,10 +11,14 @@
  * These fail (red phase) until `remote-harness-adapter.ts` is created.
  */
 
-import type { HarnessAdapter, HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
+import type {
+	HarnessAdapter,
+	HarnessEvent,
+	SessionConfig,
+	WorkerRegisterMessage,
+} from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { RemoteHarnessAdapter } from "../remote-harness-adapter.js";
-import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 
 // ── Mock WebSocket ─────────────────────────────────────────────────────────
 

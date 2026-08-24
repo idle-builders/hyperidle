@@ -18,6 +18,7 @@
  */
 
 import type { ScopeKind } from "@hyperidle/domain-model";
+
 export { scopeKindToLabel } from "@hyperidle/domain-model";
 
 /** One entry in the knowledge list filter pill row. */

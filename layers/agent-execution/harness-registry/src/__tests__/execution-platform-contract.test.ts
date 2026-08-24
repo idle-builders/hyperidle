@@ -5,11 +5,11 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
+	WorkerRegisterMessage,
 } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import { AdapterPool } from "../adapter-pool.js";
 import { RemoteHarnessAdapter } from "../remote-harness-adapter.js";
-import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 
 function adapter(label: string): HarnessAdapter {
 	return {

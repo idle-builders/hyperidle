@@ -6,13 +6,13 @@
  * until `framework/harness-protocol/src/harness/worker-protocol.ts` is created.
  */
 
-import { describe, expect, it } from "vitest";
 import type {
 	ServerDispatchMessage,
 	ServerToWorkerMessage,
 	WorkerRegisterMessage,
 	WorkerToServerMessage,
 } from "@hyperidle/harness-protocol";
+import { describe, expect, it } from "vitest";
 
 // ── WorkerToServerMessage narrowing ────────────────────────────────────────
 

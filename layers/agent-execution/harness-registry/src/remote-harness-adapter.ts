@@ -16,8 +16,8 @@ import type {
 	SessionConfig,
 	SessionHandle,
 	SessionResult,
+	WorkerRegisterMessage,
 } from "@hyperidle/harness-protocol";
-import type { WorkerRegisterMessage } from "@hyperidle/harness-protocol";
 
 /**
  * Inbound messages from a remote worker over the WS transport. All carry a
