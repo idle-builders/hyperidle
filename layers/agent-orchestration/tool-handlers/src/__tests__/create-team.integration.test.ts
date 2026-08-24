@@ -72,66 +72,51 @@ const ports: ToolHandlersPorts = {
 		},
 
 		/**
-		 * Insert agent users with `teamId = teamMembersId` — mirrors what
-		 * org's persistScaffoldedAgents does (simplified: no idHint collision
-		 * check, no harness resolution, fixed builtin harness).
+		 * Stub for the widened seam: resolve-then-persist, all driven by the
+		 * request. Inserts one agent with teamId = teamMembersId to prove FK
+		 * correctness (the actual implementation resolves specs in core-api).
 		 *
 		 * @lore AU44 B1: This is the seam that catches the FK bug. Before the
 		 * fix, `teamMembersId` was a different UUID from `teamId`, causing every
 		 * insert here to violate `users.teamId → teams.id ON DELETE RESTRICT`.
+		 * @lore AU44 AU20-fd: renamed from persistScaffoldedAgents; stub now
+		 * accepts the full request shape (no pre-resolved specs).
 		 */
-		persistScaffoldedAgents: async (teamMembersId, specs) => {
+		scaffoldFromRequest: async (teamMembersId, _trigger, _teamName, _functions, role, name) => {
 			const now = new Date().toISOString();
-			const agentIds: string[] = [];
-			let leadAgentId: string | null = null;
+			const agentId = `agent-${crypto.randomUUID()}`;
 
-			// specs is typed as Record<string,unknown>[] at the port seam — cast each field.
-			for (const rawSpec of specs) {
-				const spec = rawSpec as {
-					name: string;
-					role: string;
-					systemPrompt: string | null | undefined;
-				};
-				const agentId = `agent-${crypto.randomUUID()}`;
-				agentIds.push(agentId);
+			const userRow: NewUser = {
+				id: agentId,
+				kind: "ai",
+				name: name ?? "Test Agent",
+				role: role ?? "assistant",
+				// @lore AU44 B1: this is what proves FK correctness — teamMembersId
+				// must equal the teams.id inserted by createTeam above.
+				teamId: teamMembersId,
+				status: "active",
+				createdAt: now,
+			};
+			await sharedDb.insert(users).values(userRow);
 
-				const userRow: NewUser = {
-					id: agentId,
-					kind: "ai",
-					name: spec.name,
-					role: spec.role,
-					// @lore AU44 B1: this is what proves FK correctness — teamMembersId
-					// must equal the teams.id inserted by createTeam above.
-					teamId: teamMembersId,
-					status: "active",
-					createdAt: now,
-				};
-				await sharedDb.insert(users).values(userRow);
+			const configRow: NewAgentRunConfigRow = {
+				agentUserId: agentId,
+				systemPrompt: null,
+				harnessType: "builtin",
+				modelId: "claude-sonnet-4-6",
+				modelProvider: "anthropic",
+				maxConcurrentSessions: 1,
+				modelTierPreference: null,
+			};
+			await sharedDb
+				.insert(agentRunConfig)
+				.values(configRow)
+				.onConflictDoUpdate({
+					target: agentRunConfig.agentUserId,
+					set: { harnessType: "builtin" },
+				});
 
-				const configRow: NewAgentRunConfigRow = {
-					agentUserId: agentId,
-					systemPrompt: spec.systemPrompt ?? null,
-					harnessType: "builtin",
-					modelId: "claude-sonnet-4-6",
-					modelProvider: "anthropic",
-					maxConcurrentSessions: 1,
-					modelTierPreference: null,
-				};
-				await sharedDb
-					.insert(agentRunConfig)
-					.values(configRow)
-					.onConflictDoUpdate({
-						target: agentRunConfig.agentUserId,
-						set: { harnessType: "builtin" },
-					});
-
-				if (leadAgentId === null && spec.role === "lead") {
-					leadAgentId = agentId;
-				}
-			}
-
-			if (leadAgentId === null) leadAgentId = agentIds[0] ?? null;
-			return { agentIds, leadAgentId };
+			return { agentIds: [agentId], leadAgentId: agentId };
 		},
 
 		/** Query users by teamId — mirrors the real listUsersByTeam behaviour. */

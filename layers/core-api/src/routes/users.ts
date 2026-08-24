@@ -2,8 +2,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import { persistScaffoldedAgents } from "@hyperidle/org";
+import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
 import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.

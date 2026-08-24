@@ -42,7 +42,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
+import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { and, eq, inArray } from "drizzle-orm";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";

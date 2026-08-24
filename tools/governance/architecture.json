@@ -56,10 +56,6 @@
 			"reach": ["core-api", "agent-execution", "agent-orchestration", "service", "application"],
 			"why": "the in-process publish/subscribe object. Every server layer publishes on it, any service may publish, and an application composes it at boot \u2014 so those are granted by role. A browser has no in-process bus; it has HTTP and SSE, and it reaches the event types in framework/domain-model."
 		},
-		"framework/factory-defaults": {
-			"reach": ["core-api", "agent-orchestration", "tool-handlers"],
-			"why": "the roster and the system-prompt templates a fresh installation is seeded with. It reads template files off disk, so a browser cannot run it at all."
-		},
 		"framework/harness-protocol": {
 			"reach": [
 				"harness-registry",

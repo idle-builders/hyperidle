@@ -39,7 +39,6 @@ import {
 	type ScopeKind,
 } from "@hyperidle/domain-model";
 import type { ArtifactCreatedEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
-import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
@@ -938,24 +937,18 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 				ctx.agentId,
 			);
 
-			// AU21 §6 Decision F1: `resolveAgentScaffoldSpecs` returns concrete
-			// `AgentScaffoldSpec[]` fields; `persistScaffoldedAgents` (Mechanism C
-			// seam) declares its `specs` param as opaque `Record<string, unknown>[]`
-			// — the `.map((s) => ({ ...s }))` widens each spec to a fresh object
-			// literal, same idiom the retired `agent-selection` binding used.
-			const specs = resolveAgentScaffoldSpecs({
-				trigger: "team_scaffold",
-				teamName: input.name,
-				functions: input.functions,
-				role: null,
-				name: null,
-				ownerUserId: null,
-				ownerUserName: null,
-			}).map((spec) => ({ ...spec }));
-
-			const { agentIds, leadAgentId } = await ports.coreApi.persistScaffoldedAgents(
+			// @lore AU44 AU20-fd: scaffold request passes through the seam unchanged;
+			// core-api resolves specs internally via `resolveAgentScaffoldSpecs`.
+			const { agentIds, leadAgentId } = await ports.coreApi.scaffoldFromRequest(
 				teamMembersId,
-				specs,
+				"team_scaffold",
+				input.name,
+				input.functions,
+				null,
+				null,
+				null,
+				null,
+				undefined,
 				ctx.agentId,
 			);
 
@@ -1036,26 +1029,19 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgen
 			if (!memberGroup)
 				return err("NOT_FOUND", `Team membership group not found for team ${input.teamId}`);
 
-			// AU21 §6 Decision F1: see the `create_team` tool's own note above on
-			// why the `.map((s) => ({ ...s }))` widening is needed here.
-			const specs = resolveAgentScaffoldSpecs({
-				trigger: "agent_added",
-				teamName: team.name,
-				functions: null,
-				role: input.role,
-				name: input.name,
-				ownerUserId: null,
-				ownerUserName: null,
-			}).map((spec) => ({ ...spec }));
-
-			const finalSpecs =
-				input.systemPrompt !== undefined
-					? specs.map((s) => ({ ...s, systemPrompt: input.systemPrompt ?? null }))
-					: specs;
-
-			const { agentIds } = await ports.coreApi.persistScaffoldedAgents(
+			// @lore AU44 AU20-fd: scaffold request passes through the seam unchanged;
+			// core-api resolves specs internally. systemPromptOverride passes through
+			// when the caller supplied a custom prompt.
+			const { agentIds } = await ports.coreApi.scaffoldFromRequest(
 				memberGroup.id,
-				finalSpecs,
+				"agent_added",
+				team.name,
+				null,
+				input.role,
+				input.name,
+				null,
+				null,
+				input.systemPrompt,
 				ctx.agentId,
 			);
 			const agentId = agentIds[0];

@@ -39,7 +39,7 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		createTeam: notImplemented,
 		updateTeam: notImplemented,
 		resolveReviewRecipientsForItem: notImplemented,
-		persistScaffoldedAgents: notImplemented,
+		scaffoldFromRequest: notImplemented,
 		insertRoutine: notImplemented,
 		getRoutineById: notImplemented,
 		updateRoutineById: notImplemented,

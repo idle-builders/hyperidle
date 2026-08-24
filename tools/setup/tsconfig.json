@@ -15,9 +15,6 @@
 		},
 		{
 			"path": "../../framework/domain-model"
-		},
-		{
-			"path": "../../framework/factory-defaults"
 		}
 	]
 }

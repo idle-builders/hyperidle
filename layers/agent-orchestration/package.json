@@ -17,7 +17,6 @@
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/factory-defaults": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/run-orchestration": "*",

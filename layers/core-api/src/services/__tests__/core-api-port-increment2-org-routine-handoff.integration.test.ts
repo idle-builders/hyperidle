@@ -136,10 +136,21 @@ interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
 			readonly agentRole: string | undefined;
 			readonly teamId: string | undefined;
 		}): Promise<readonly string[]>;
-		persistScaffoldedAgents(
-			teamMembersId: string | null,
-			specs: readonly Record<string, unknown>[],
-		): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
+		/**
+		 * @lore AU44 AU20-fd: renamed from persistScaffoldedAgents; the new seam
+		 * resolves specs inside core-api, orchestration passes a request only.
+		 */
+		scaffoldFromRequest(input: {
+			readonly teamMembersId: string | null;
+			readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
+			readonly teamName: string | null;
+			readonly functions: readonly string[] | null;
+			readonly role: string | null;
+			readonly name: string | null;
+			readonly ownerUserId: string | null;
+			readonly ownerUserName: string | null;
+			readonly systemPromptOverride?: string;
+		}): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
 		provisionTeamRoutines(input: {
 			readonly teamId: string;
 			readonly ownerByRole: Readonly<Record<string, string | undefined>>;
@@ -319,7 +330,7 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 		expect(recipients).toContain("human-org-reviewer");
 	});
 
-	test("persistScaffoldedAgents reaches the real scaffold-persist route (real user rows land in the DB)", async ({
+	test("scaffoldFromRequest reaches the real scaffold-request route (real user rows land in the DB)", async ({
 		db,
 		app,
 	}) => {
@@ -327,15 +338,19 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 		const { teamMembersId } = await seedTeam(db, { suffix: "scaffold1" });
 		await seedAgent(db, "agent-org-scaffold-caller");
 
+		// @lore AU44 AU20-fd: replaced persistScaffoldedAgents (pass pre-resolved specs) with
+		// scaffoldFromRequest (pass a request; core-api resolves specs internally).
 		const port = buildSeamPort("agent-org-scaffold-caller", app);
-		const result = await port.org.persistScaffoldedAgents(teamMembersId, [
-			{
-				role: "product_manager",
-				name: "Scaffolded PM",
-				agentCategory: "team",
-				systemPrompt: null,
-			},
-		]);
+		const result = await port.org.scaffoldFromRequest({
+			teamMembersId,
+			trigger: "agent_added",
+			teamName: "Test Team",
+			functions: null,
+			role: "product_manager",
+			name: "Scaffolded PM",
+			ownerUserId: null,
+			ownerUserName: null,
+		});
 
 		expect(result.agentIds).toHaveLength(1);
 		expect(result.leadAgentId).toBe(result.agentIds[0]);
@@ -345,7 +360,7 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 			.from(users)
 			.where(eq(users.id, result.agentIds[0] ?? "no-such-id"))
 			.limit(1);
-		expect(row?.name).toBe("Scaffolded PM");
+		expect(row?.role).toBe("product_manager");
 		expect(row?.teamId).toBe(teamMembersId);
 	});
 
@@ -388,9 +403,16 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 		) as unknown as SeamCoreApiPortIncrement2OrgRoutineHandoff;
 
 		await expect(
-			port.org.persistScaffoldedAgents(teamMembersId, [
-				{ role: "builder", name: "Should never land", agentCategory: "team", systemPrompt: null },
-			]),
+			port.org.scaffoldFromRequest({
+				teamMembersId,
+				trigger: "agent_added",
+				teamName: null,
+				functions: null,
+				role: "builder",
+				name: "Should never land",
+				ownerUserId: null,
+				ownerUserName: null,
+			}),
 		).rejects.toThrow();
 	});
 });

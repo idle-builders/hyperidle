@@ -36,8 +36,7 @@ import {
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import { persistScaffoldedAgents } from "@hyperidle/org";
+import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
 import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

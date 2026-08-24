@@ -8,6 +8,10 @@
  * new `FactoryAgentRef[]` return contract — nothing tested this before the bootstrap split existed.
  * `agent_run_config` is deliberately out of scope here — that is the agent-orchestration face's
  * contract, covered by `layers/agent-orchestration/src/__tests__/factory-run-config.integration.test.ts`.
+ *
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved; roster literals inlined into
+ * factory-state.ts directly. Facilitators still seeded from core until the plugin-track (AU20 Ruling
+ * 3) builds the replacement — removing them early would silently break fresh installs.
  */
 
 import { users } from "@hyperidle/db";

@@ -35,8 +35,7 @@ import {
 	MODEL_TIERS,
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
-import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
-import { getTeam } from "@hyperidle/org";
+import { getTeam, readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";

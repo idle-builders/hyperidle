@@ -80,6 +80,7 @@ import {
 	type ProposedCallOutcomeResult,
 	type ProvisionTeamRoutinesRequest,
 	type RoutineView,
+	type ScaffoldFromRequestInput,
 	type TaskView,
 	type UpdateBetRequest,
 	type UpdateItemRequest,
@@ -185,6 +186,9 @@ interface CoreApiHcClient {
 					readonly specs: readonly Record<string, unknown>[];
 				};
 			}): Promise<Response>;
+		};
+		readonly "scaffold-request": {
+			$post(args: { readonly json: ScaffoldFromRequestInput }): Promise<Response>;
 		};
 		readonly "team-routines": {
 			$post(args: { readonly json: ProvisionTeamRoutinesRequest }): Promise<Response>;
@@ -631,14 +635,11 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return body.recipients;
 			},
 
-			async persistScaffoldedAgents(
-				teamMembersId: string | null,
-				specs: readonly Record<string, unknown>[],
+			async scaffoldFromRequest(
+				input: ScaffoldFromRequestInput,
 			): Promise<PersistScaffoldedAgentsResponse> {
-				const res = await client.org["scaffolded-agents"].$post({
-					json: { teamMembersId, specs },
-				});
-				if (!res.ok) return throwSeamError("org.persistScaffoldedAgents", res);
+				const res = await client.org["scaffold-request"].$post({ json: input });
+				if (!res.ok) return throwSeamError("org.scaffoldFromRequest", res);
 				return (await res.json()) as PersistScaffoldedAgentsResponse;
 			},
 

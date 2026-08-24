@@ -14,9 +14,6 @@
 			"path": "framework/event-bus"
 		},
 		{
-			"path": "framework/factory-defaults"
-		},
-		{
 			"path": "framework/harness-protocol"
 		},
 		{

@@ -43,7 +43,6 @@
 		"framework/diagnostics": {},
 		"framework/harness-capability": {},
 		"framework/event-bus": {},
-		"framework/factory-defaults": {},
 		"framework/harness-protocol": {},
 		"framework/db": {
 			"entry": [

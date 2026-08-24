@@ -21,7 +21,6 @@
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/factory-defaults": "*",
 		"@hyperidle/harness-capability": "*",
 		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/knowledge": "*",

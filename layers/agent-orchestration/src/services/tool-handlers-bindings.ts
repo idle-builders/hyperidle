@@ -171,8 +171,29 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 				seamPortForActor(actorId).org.updateTeam(teamId, patch),
 			resolveReviewRecipientsForItem: (ctx, actorId) =>
 				seamPortForActor(actorId).org.resolveReviewRecipientsForItem(ctx),
-			persistScaffoldedAgents: (teamMembersId, specs, actorId) =>
-				seamPortForActor(actorId).org.persistScaffoldedAgents(teamMembersId, specs),
+			scaffoldFromRequest: (
+				teamMembersId,
+				trigger,
+				teamName,
+				functions,
+				role,
+				name,
+				ownerUserId,
+				ownerUserName,
+				systemPromptOverride,
+				actorId,
+			) =>
+				seamPortForActor(actorId).org.scaffoldFromRequest({
+					teamMembersId,
+					trigger,
+					teamName,
+					functions: functions as string[] | null,
+					role,
+					name,
+					ownerUserId,
+					ownerUserName,
+					systemPromptOverride,
+				}),
 			// AU21 §9 Increment 9 (forensic-triage wave, second pass): was an opaque
 			// same-process `ToolHandlersRoutineAccessor`/`dispatch` pass-through —
 			// now routes through the seam like every other `create_team` step

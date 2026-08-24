@@ -10,11 +10,15 @@
  * @lore AU29: relocated verbatim from `framework/db/src/__tests__/` (task D)
  * — `applyFactoryBootstrap` dissolved into the two layer faces, and the
  * composed sequence now lives in this package's `factory-bootstrap-runner.ts`.
+ *
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved into @hyperidle/org.
+ * `readSystemPromptTemplateForRole` import changed from @hyperidle/factory-defaults to
+ * @hyperidle/org — same function, moved to the owning service package.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
+import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { sql } from "drizzle-orm";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 

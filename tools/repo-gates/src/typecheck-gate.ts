@@ -519,7 +519,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/event-bus",
 		"framework/toon-codec",
 		"framework/query-escaping",
-		"framework/factory-defaults",
 		"framework/harness-protocol",
 		"framework/db",
 		"layers/core-api",
