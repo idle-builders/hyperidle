@@ -589,26 +589,7 @@ describe("E2E API Integration (I5)", () => {
 		});
 
 		// GET /api/notifications/queue (door #133) deleted. Tests removed with the route.
-
-		test("POST /api/notifications/test returns 400 when SMTP not configured", async ({
-			db,
-			app,
-		}) => {
-			// @lore AU44 batch 4: console adapter removed (FULL-AUDIT.md §5418).
-			// POST /test is now the settings-UI SMTP verify button. Without SMTP
-			// configured (host/from null), deliver() returns ok:false with "recipient
-			// not configured" and the route returns 400 VALIDATION_ERROR.
-			await seedBase(db);
-			const res = await app.request("/api/notifications/test", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({}),
-			});
-			expect(res.status).toBe(400);
-			const body = (await res.json()) as { error: string; code: string };
-			expect(body.code).toBe("VALIDATION_ERROR");
-			expect(body.error).toMatch(/recipient not configured/i);
-		});
+		// POST /api/notifications/test deleted — founder decision: if SMTP is broken you notice. Tests removed with the route.
 	});
 
 	// -------------------------------------------------------
