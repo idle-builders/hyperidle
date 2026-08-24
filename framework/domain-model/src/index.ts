@@ -83,7 +83,14 @@ export {
 	credentialNameForProvider,
 	isCredentialName,
 } from "./credential.js";
-export { ASSISTANT_TURN_TIMEOUT_MS, HttpError, MissingCredentialError } from "./errors.js";
+export {
+	ASSISTANT_TURN_TIMEOUT_MS,
+	CapacityExceededError,
+	HttpError,
+	InvalidTransitionError,
+	MissingCredentialError,
+	TaskInvalidTransitionError,
+} from "./errors.js";
 // Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
 // Callers import event types from @hyperidle/event-bus.
 // SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.

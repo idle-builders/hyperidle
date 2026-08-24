@@ -1,11 +1,16 @@
 /**
  * Work-owned error class tests.
  *
- * @lore AU44-b8: InvalidTransitionError, CapacityExceededError, TaskInvalidTransitionError
- * moved from framework/domain-model/src/errors.ts (and task-transition.ts) to
- * layers/core-api/work/src/errors.ts.
+ * @lore AU44: InvalidTransitionError, CapacityExceededError, TaskInvalidTransitionError
+ * moved to framework/domain-model/src/errors.ts and re-exported from
+ * layers/core-api/work/src/errors.ts. The cross-boundary instanceof test below
+ * proves that an error constructed via the work re-export is the same class as
+ * the one exported directly from @hyperidle/domain-model — which is the property
+ * that makes the error-handler's `instanceof` check work for errors thrown by
+ * either the work or the policy service.
  */
 
+import { InvalidTransitionError as DomainModelError } from "@hyperidle/domain-model";
 import { describe, expect, it } from "vitest";
 import {
 	CapacityExceededError,
@@ -42,5 +47,20 @@ describe("TaskInvalidTransitionError", () => {
 			fromState: "done",
 			toState: "accepted",
 		});
+	});
+});
+
+describe("cross-boundary instanceof", () => {
+	it("work re-export is the same class reference as @hyperidle/domain-model export", () => {
+		// Both work and policy import from domain-model, so any error thrown by
+		// either service is catchable via instanceof on the other side.
+		const err = new InvalidTransitionError("proposed", "done");
+		expect(err).toBeInstanceOf(DomainModelError);
+	});
+
+	it("TaskInvalidTransitionError is instanceof InvalidTransitionError (inheritance preserved)", () => {
+		const err = new TaskInvalidTransitionError("task-1", "accepted", "done");
+		expect(err).toBeInstanceOf(InvalidTransitionError);
+		expect(err).toBeInstanceOf(DomainModelError);
 	});
 });
