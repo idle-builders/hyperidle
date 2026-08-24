@@ -683,19 +683,6 @@ export default [
 		},
 	},
 
-	// AJ6 AC8 — No import cycle: @hyperidle/design-system (src/**) must NEVER
-	// import @hyperidle/core-ui or any layers/core-ui/** path. A violation is an
-	// import cycle (core-ui → design-system → core-ui) that breaks the acyclic
-	// dependency direction the monorepo depends on. design-system/src/ never
-	// imports @hyperidle/core-ui.
-	//
-	// @lore AU28: the relative-path patterns must track the real on-disk layout.
-	// They were written as `../../web/**` when both packages sat under
-	// `packages/`; the step-2 role-folder move (`packages/web` → `layers/web`)
-	// silently stranded them — a restricted-import group that matches nothing
-	// reads as passing forever. Anchored on `layers/core-ui` now so the guard
-	// survives the next move by failing loudly rather than matching zero.
-
 	// AJ3: the isolation harness (layers/core-ui/src/__preview__/**) is a dev/story/test
 	// surface. It must NEVER reach a backend — importing @hyperidle/core-api or
 	// @hyperidle/db would defeat the no-backend contract that lets a design mount
@@ -795,12 +782,12 @@ export default [
 
 	// AM1 W1 — the source-agnostic Part renderer boundary (AC5).
 	// PartList.tsx + parts/** render ONLY the source-agnostic `Part`/`Embed`/
-	// `OpenTarget` vocabulary (@hyperidle/conversation-parts). They must NEVER import a
-	// SOURCE type — `Message`/`InlineRef`/`thread*` or any `harness` path — so a
-	// second adapter (AM3's session adapter) can feed the SAME renderer with zero
+	// `OpenTarget` Part vocabulary. They must NEVER import a SOURCE type —
+	// `Message`/`InlineRef`/`thread*` or any `harness` path — so a second
+	// adapter (AM3's session adapter) can feed the SAME renderer with zero
 	// change. A static "must not import X" property is a lint rule, not a test
-	// (CLAUDE.md). The adapter (`framework/conversation-parts/src/part.ts`) is the ONLY place
-	// permitted to import `Message`/`InlineRef`.
+	// (CLAUDE.md). The adapter (`layers/core-ui/src/components/parts/part.ts`)
+	// is the ONLY place permitted to import `Message`/`InlineRef`.
 	//
 	// @lore AM1: placed LAST so this block is authoritative for these paths —
 	// ESLint flat config REPLACES (does not merge) `no-restricted-imports` when a

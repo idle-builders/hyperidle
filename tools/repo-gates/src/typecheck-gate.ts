@@ -517,8 +517,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/diagnostics",
 		"framework/harness-capability",
 		"framework/event-bus",
-		"framework/toon-codec",
-		"framework/query-escaping",
 		"framework/harness-protocol",
 		"framework/db",
 		"layers/core-api",
@@ -533,7 +531,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"layers/core-api/routine",
 		"layers/core-api/review",
 		"layers/core-api/policy",
-		"layers/core-api/realtime",
 		// @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
 		// (users/knowledge/notifications) + propagation_log reaper co-located at composition root.
 		// @lore AU20 B1b: agent-orchestration/trigger-resolution folded into session-requests.
@@ -555,7 +552,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		// @lore AU20 B2a: agent-orchestration/context-assembly folded into run-orchestration.
 		"layers/agent-execution/harness-registry",
 		// @lore AU20 B3b: agent-execution/mcp-provider folded into harness-registry.
-		"layers/agent-execution/tool-provider",
 		"layers/agent-orchestration/tool-handlers",
 		// @lore AU31 §2.7/[P9]: the Layer barrel itself now has a real consumer —
 		// `RemoteWorkerClient` relocated here, and `applications/desktop`/

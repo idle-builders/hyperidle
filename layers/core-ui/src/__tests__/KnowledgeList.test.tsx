@@ -25,7 +25,6 @@ const MOCK_API_ITEMS = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 	{
@@ -43,7 +42,6 @@ const MOCK_API_ITEMS = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 	{
@@ -61,7 +59,6 @@ const MOCK_API_ITEMS = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 	{
@@ -79,7 +76,6 @@ const MOCK_API_ITEMS = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 	{
@@ -97,7 +93,6 @@ const MOCK_API_ITEMS = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 ];
