@@ -1,37 +1,14 @@
 /**
- * Policy-local error classes.
+ * Policy-service transition error classes — re-exported from @hyperidle/domain-model.
  *
- * @lore AU44-b8: InvalidTransitionError and TaskInvalidTransitionError are also
- * defined in @hyperidle/work (the work sub-service). policy cannot import from
- * work (service→service crossing forbidden by governance). These classes are
- * deliberately duplicated with the same `.name` so the composition root's
- * error-handler catches them by name ("InvalidTransitionError") when it cannot
- * catch them by instanceof (different class reference).
+ * @lore AU44: Previously copied from the work service (service→service import
+ * is forbidden by governance). The copy had the same `.name` so the error-
+ * handler's name-matching fallback worked, but `instanceof` silently returned
+ * false when a policy error was caught by work's class reference. Now both
+ * services import from @hyperidle/domain-model — one class, one reference,
+ * instanceof works across the boundary.
  */
-import type { TaskState } from "@hyperidle/domain-model";
-
-export class InvalidTransitionError extends Error {
-	constructor(
-		public readonly from: string,
-		public readonly to: string,
-	) {
-		super(`Invalid transition from '${from}' to '${to}'`);
-		this.name = "InvalidTransitionError";
-	}
-}
-
-/**
- * Extends InvalidTransitionError so the error-handler's instanceof check
- * catches both the bet and task transition errors uniformly.
- */
-export class TaskInvalidTransitionError extends InvalidTransitionError {
-	constructor(
-		public readonly taskId: string,
-		public readonly fromState: TaskState,
-		public readonly toState: TaskState,
-	) {
-		super(fromState, toState);
-		this.message = `Invalid transition for task ${taskId}: ${fromState} -> ${toState}`;
-		this.name = "InvalidTransitionError";
-	}
-}
+export {
+	InvalidTransitionError,
+	TaskInvalidTransitionError,
+} from "@hyperidle/domain-model";

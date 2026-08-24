@@ -5,7 +5,6 @@ import type { ApiErrorResponse, NotificationTypeKey } from "@hyperidle/domain-mo
 import { API_ERROR_CODES, NOTIFICATION_TYPES } from "@hyperidle/domain-model";
 import { validateBody } from "@hyperidle/domain-model/http";
 import {
-	deliver,
 	listNotifications,
 	markNotifications,
 	type NotificationConfigPatch,
@@ -36,8 +35,6 @@ const patchConfigSchema = z
 		smtpFrom: z.union([z.string().max(254), z.null()]).optional(),
 	})
 	.strict();
-
-const testBodySchema = z.object({}).strict();
 
 /**
  * Sanitize a config patch for the audit log — booleans / enums kept,
@@ -123,28 +120,6 @@ export function createNotificationRoutes(
 			timestamp: nowFn().toISOString(),
 		});
 		return c.json(updated);
-	});
-
-	/**
-	 * @lore AU44 batch 4: rate limiter (testMaxPerHour bucket), channel
-	 * parameter, and cfg.testMaxPerHour read removed. deliver() is now
-	 * always SMTP — no channel selection, no adapter abstraction.
-	 */
-	router.post("/test", validateBody(testBodySchema), async (c) => {
-		const raw = await deliver(db, { kind: "test" }, opts.deps);
-		if (!raw.ok && raw.error?.startsWith("recipient not configured")) {
-			const response: ApiErrorResponse = {
-				error: raw.error,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-		return c.json({
-			ok: raw.ok,
-			sentAt: raw.sentAt,
-			error: raw.error,
-			retriable: raw.retriable,
-		});
 	});
 
 	// ──────────────────────────────────────────────────────────────────────────

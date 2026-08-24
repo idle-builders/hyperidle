@@ -1,3 +1,5 @@
+import type { TaskState } from "./types.js";
+
 export class MissingCredentialError extends Error {
 	constructor(public readonly credential: string) {
 		super(`Missing credential: '${credential}'`);
@@ -38,5 +40,61 @@ export class HttpError extends Error {
 	) {
 		super(message);
 		this.name = "HttpError";
+	}
+}
+
+/**
+ * Thrown when a state-machine transition is not permitted by the grammar.
+ *
+ * @lore AU44: moved to @hyperidle/domain-model so both the work service and
+ * the policy service share one class reference. Two classes with the same name
+ * are still two different classes — `instanceof` returns false across the
+ * boundary unless both sides use the same declaration. The error-handler's
+ * name-matching fallback (`err.name === "InvalidTransitionError"`) was luck of
+ * style; this makes it construction.
+ */
+export class InvalidTransitionError extends Error {
+	constructor(
+		public readonly from: string,
+		public readonly to: string,
+	) {
+		super(`Invalid transition from '${from}' to '${to}'`);
+		this.name = "InvalidTransitionError";
+	}
+}
+
+/**
+ * Thrown when a team's active-bet capacity is exceeded on activation.
+ *
+ * @lore AU44: co-located with InvalidTransitionError in @hyperidle/domain-model
+ * so the error-handler's instanceof check covers errors thrown by either service.
+ */
+export class CapacityExceededError extends Error {
+	constructor(
+		public readonly teamId: string,
+		public readonly capacity: number,
+	) {
+		super(`Team '${teamId}' is at capacity (${capacity})`);
+		this.name = "CapacityExceededError";
+	}
+}
+
+/**
+ * Extends InvalidTransitionError so `instanceof InvalidTransitionError` holds
+ * for both bet and task transition errors. The error-handler and any caller
+ * that catches InvalidTransitionError will naturally catch this too.
+ *
+ * @lore AU44: moved to @hyperidle/domain-model alongside InvalidTransitionError
+ * so the inheritance chain is unbroken across the work / policy service boundary.
+ */
+export class TaskInvalidTransitionError extends InvalidTransitionError {
+	constructor(
+		public readonly taskId: string,
+		public readonly fromState: TaskState,
+		public readonly toState: TaskState,
+	) {
+		super(fromState, toState);
+		this.message = `Invalid transition for task ${taskId}: ${fromState} -> ${toState}`;
+		this.name = "InvalidTransitionError";
 	}
 }

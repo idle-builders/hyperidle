@@ -1,46 +1,17 @@
 /**
- * Work-service-owned error classes.
+ * Work-service transition error classes — re-exported from @hyperidle/domain-model.
  *
- * @lore AU44-b8: moved from framework/domain-model/src/errors.ts and
- * framework/domain-model/src/task-transition.ts.
- * All three classes are thrown and caught within the core-api track (work, policy, core-api).
+ * @lore AU44: These three classes are a contract between thrower and catcher —
+ * `instanceof` is identity, so both sides must share the same class reference.
+ * policy and work both throw them; the composition root's error-handler catches
+ * them by instanceof. One declaration in @hyperidle/domain-model; both services
+ * re-export from there. The old per-service copies had the same `.name` so the
+ * name-matching fallback in error-handler.ts worked, but `instanceof` would
+ * silently return false for errors thrown by the other service. Now it is
+ * construction, not luck.
  */
-
-import type { TaskState } from "@hyperidle/domain-model";
-
-export class InvalidTransitionError extends Error {
-	constructor(
-		public readonly from: string,
-		public readonly to: string,
-	) {
-		super(`Invalid transition from '${from}' to '${to}'`);
-		this.name = "InvalidTransitionError";
-	}
-}
-
-export class CapacityExceededError extends Error {
-	constructor(
-		public readonly teamId: string,
-		public readonly capacity: number,
-	) {
-		super(`Team '${teamId}' is at capacity (${capacity})`);
-		this.name = "CapacityExceededError";
-	}
-}
-
-/**
- * Extends InvalidTransitionError so `instanceof InvalidTransitionError` holds
- * for both bet and task transition errors. The error-handler and any caller
- * that catches InvalidTransitionError will naturally catch this too.
- */
-export class TaskInvalidTransitionError extends InvalidTransitionError {
-	constructor(
-		public readonly taskId: string,
-		public readonly fromState: TaskState,
-		public readonly toState: TaskState,
-	) {
-		super(fromState, toState);
-		this.message = `Invalid transition for task ${taskId}: ${fromState} -> ${toState}`;
-		this.name = "InvalidTransitionError";
-	}
-}
+export {
+	CapacityExceededError,
+	InvalidTransitionError,
+	TaskInvalidTransitionError,
+} from "@hyperidle/domain-model";

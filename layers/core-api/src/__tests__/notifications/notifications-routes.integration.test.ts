@@ -6,7 +6,6 @@
  *  - GET /config: SMTP password redacted to "***"
  *  - PATCH /config: validation rejects SMTP injection
  *  - PATCH /config: accepts valid SMTP partial patch
- *  - POST /test: returns DeliveryResult shape, does NOT write to queue
  *  - PATCH /config emits a config_changed audit log with secrets redacted
  *
  * @lore AU44 batch 4: ntfy routes, primaryChannel, digestChannel, recipientEmail,
@@ -136,30 +135,6 @@ describe("H2 /api/notifications routes", () => {
 			expect(body.enabled).toBe(true);
 			expect(body.smtp.host).toBe("mail.example.com");
 			expect(body.smtp.from).toBe("noreply@example.com");
-		} finally {
-			disposeApp(app);
-		}
-	});
-
-	test("POST /test returns a DeliveryResult shape and does NOT write to the notification queue", async ({
-		db,
-		eventBus,
-	}) => {
-		const app = await createTestApp({ db, eventBus });
-		try {
-			const res = await app.request("/api/notifications/test", {
-				method: "POST",
-				headers: headers(),
-				body: JSON.stringify({}),
-			});
-			// @lore AU44 batch 4: deliver() returns "recipient not configured" when no SMTP
-			// host/from is set → route returns 400. In test environments SMTP is not
-			// configured, so 400 is the expected status. If SMTP is configured, 200.
-			expect([200, 400, 422]).toContain(res.status);
-			if (res.status === 200) {
-				const result = (await res.json()) as { ok: boolean };
-				expect(typeof result.ok).toBe("boolean");
-			}
 		} finally {
 			disposeApp(app);
 		}
