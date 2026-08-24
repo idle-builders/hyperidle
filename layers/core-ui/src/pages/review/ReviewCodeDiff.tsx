@@ -12,11 +12,11 @@
 // callback is a no-op. No router/context. The story renders L1+L2 with the top file
 // expanded to L3 so the full drill-down is visible in a single screenshot.
 
-import type { CodeDelta, DiffLineRef } from "@hyperidle/design-system";
-import { CodeDeltaRenderer } from "@hyperidle/design-system";
 import type { AnchorRef } from "@hyperidle/domain-model";
 import type { JSX, ReactNode } from "react";
 import { Fragment, useMemo, useState } from "react";
+import type { CodeDelta, DiffLineRef } from "../../ds";
+import { CodeDeltaRenderer } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
 import type { CodeDiffPayload, ReviewCanvasProps } from "./review-artifact";

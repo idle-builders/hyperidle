@@ -50,7 +50,7 @@ function makePopulatedTeam() {
 			leadAgentId: "agent-h",
 		},
 		teamMembers: {
-			id: "tm-ag1",
+			id: TEAM_ID,
 			formedAt: new Date().toISOString(),
 			dissolvedAt: null,
 		},
@@ -121,7 +121,7 @@ function makeEmptyTeam() {
 			leadAgentId: null,
 		},
 		teamMembers: {
-			id: "tm-ag1-empty",
+			id: TEAM_ID,
 			formedAt: new Date().toISOString(),
 			dissolvedAt: null,
 		},

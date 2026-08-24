@@ -9,9 +9,9 @@
  * via data-block-id attributes emitted by Block.tsx:108).
  */
 
-import { deriveBlocks } from "@hyperidle/block-derivation";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { deriveBlocks } from "../../../block/index.js";
 import { KnowledgeBody } from "../KnowledgeBody";
 
 // ── T6 — Block-id stability: editing one section does not shift other ids ──

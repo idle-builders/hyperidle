@@ -15,21 +15,19 @@
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/core-api": "*",
-		"@hyperidle/credential-access": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
 		"@hyperidle/harness-protocol": "*",
 		"@hyperidle/harness-registry": "*",
-		"@hyperidle/http-middleware": "*",
 		"@hyperidle/routine": "*",
 		"@hyperidle/settings": "*",
 		"@hyperidle/users": "*",
-		"@hyperidle/work-intent-port": "*",
 		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.27"
 	},
 	"devDependencies": {
+		"@hyperidle/credentials": "*",
 		"tsx": "^4.22.4",
 		"vitest": "^4.1.9"
 	}

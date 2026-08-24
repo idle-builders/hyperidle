@@ -145,7 +145,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			{
 				owner: "policy registration",
 				cleanupEffect: "unsubscribe",
-				constituents: ["policy engine", "lifecycle propagation", "retry interval"],
+				// @lore AU44 batch6: "retry interval" removed — 30s heartbeat deleted with propagation_log.
+				constituents: ["policy engine", "lifecycle propagation"],
 			},
 			{
 				owner: "notifications installation",
@@ -289,13 +290,15 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// tier, so it always returned early). The liveness subscriber beside it stays.
 				{ unsubscribedEvents: ["session_ended"], clearedIntervals: 0 },
 				{
+					// @lore AU44 batch6: clearedIntervals 1→0 — the 30s retry
+					// heartbeat (retryFailedPropagations) is deleted with propagation_log.
 					unsubscribedEvents: [
 						"item_created",
 						"session_ended",
 						"task_state_changed",
 						"bet_state_changed",
 					],
-					clearedIntervals: 1,
+					clearedIntervals: 0,
 				},
 				// @lore AU26 C1: the "git-export handler" owner (its one
 				// `knowledge_updated` subscription) is HARD-DELETED along with the
@@ -304,9 +307,14 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// removed from this owner's unsubscribe list — both events are
 				// HARD-DELETED along with the rest of the cost feature, no
 				// replacement subscription.
+				// @lore AU44 batch 4: notifications simplified — dispatcher, drain,
+				// alert-routing (item_created), daily-digest worker (routine_fired),
+				// and adapter abstraction all removed per FULL-AUDIT.md rows 5452-5453.
+				// installNotifications now registers only the inbox-enqueue listener
+				// (one "notification" subscription, no background interval).
 				{
-					unsubscribedEvents: ["notification", "item_created", "routine_fired"],
-					clearedIntervals: 1,
+					unsubscribedEvents: ["notification"],
+					clearedIntervals: 0,
 				},
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
 				// @lore AU21 §9 Increment 4: `bet_state_changed` (builtin routine

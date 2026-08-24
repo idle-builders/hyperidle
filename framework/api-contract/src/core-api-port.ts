@@ -163,7 +163,7 @@ export interface CreateArtifactResponse {
 /**
  * Mirrors `GET /users/:id` / `GET /users` — only the fields a `CoreApiPort`
  * consumer relies on. `teamId` is `users.teamId` — per the AK4 two-hop
- * lore, this actually stores `teamMembers.id`, not `teams.id`.
+ * lore AU44 B1: after the fold, this stores `teams.id` directly.
  */
 export interface UserView {
 	readonly id: string;
@@ -400,6 +400,26 @@ export interface PersistScaffoldedAgentsResponse {
 }
 
 /**
+ * Mirrors `POST /org/scaffold-request`'s validated request body.
+ *
+ * @lore AU44 AU20-fd: widens the scaffold seam so agent-orchestration hands
+ * over a request instead of pre-resolved specs. `resolveAgentScaffoldSpecs`
+ * now runs inside core-api, keeping agent-identity logic in the owning service.
+ * `systemPromptOverride` absent = use role default; string = override all specs.
+ */
+export interface ScaffoldFromRequestInput {
+	readonly teamMembersId: string | null;
+	readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
+	readonly teamName: string | null;
+	readonly functions: readonly string[] | null;
+	readonly role: string | null;
+	readonly name: string | null;
+	readonly ownerUserId: string | null;
+	readonly ownerUserName: string | null;
+	readonly systemPromptOverride?: string;
+}
+
+/**
  * Mirrors `POST /org/team-routines`'s validated request body — seeds the
  * four builtin-routine definitions for a team (`@hyperidle/routine`'s
  * `provisionTeamRoutines`). No 1:1 UI route (same shape as
@@ -440,10 +460,8 @@ export interface CoreApiOrgPort {
 	createTeam(input: CreateOrgTeamRequest): Promise<void>;
 	updateTeam(teamId: string, patch: UpdateOrgTeamRequest): Promise<void>;
 	resolveReviewRecipientsForItem(ctx: ReviewRecipientsQuery): Promise<readonly string[]>;
-	persistScaffoldedAgents(
-		teamMembersId: string | null,
-		specs: readonly Record<string, unknown>[],
-	): Promise<PersistScaffoldedAgentsResponse>;
+	/** @lore AU44 AU20-fd: replaces `persistScaffoldedAgents` — seam now accepts the request; core-api resolves internally. */
+	scaffoldFromRequest(input: ScaffoldFromRequestInput): Promise<PersistScaffoldedAgentsResponse>;
 	provisionTeamRoutines(input: ProvisionTeamRoutinesRequest): Promise<void>;
 }
 
@@ -495,7 +513,8 @@ export interface UpdateRoutineRequest {
  * insertRoutine, updateRoutine}` row.
  */
 export interface CoreApiRoutinePort {
-	insertRoutine(input: InsertRoutineRequest): Promise<void>;
+	/** Returns the owner-computed nextRunAt (AU44 B3: computation moved into service). */
+	insertRoutine(input: InsertRoutineRequest): Promise<string | null>;
 	getRoutineById(id: string): Promise<RoutineView | undefined>;
 	updateRoutineById(id: string, updates: UpdateRoutineRequest): Promise<void>;
 }

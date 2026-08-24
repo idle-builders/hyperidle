@@ -6,11 +6,15 @@
 
 import {
 	ARTIFACT_VIEW_SHAPES,
-	BLOCK_HOST_KINDS,
 	HOST_KINDS,
 	type MESSAGE_TYPES,
 	VERDICT_DECISIONS,
 } from "@hyperidle/domain-model";
+
+// @lore AU44-b8: BLOCK_HOST_KINDS moved to core-ui (blocks/types.ts).
+// Inlined here since core-api cannot import core-ui (cross-layer governance rule).
+const BLOCK_HOST_KINDS = ["bet", "task", "knowledge_item", "artifact", "agent", "user"] as const;
+
 import z from "zod";
 
 // `clientKey` URL-safe regex: [A-Za-z0-9_\-:.], length 8-128 chars (plan
@@ -228,24 +232,18 @@ export const messageRowSchema = z.discriminatedUnion("type", [
 /** Validates the JSON-encoded `participants` column on the threads row. */
 export const threadParticipantsSchema = z.array(z.string().min(1));
 
+/**
+ * @lore AU44 batch 4: initialMessage is optional — POST /threads now handles
+ * both bare-thread creation (no initialMessage, equivalent to old
+ * POST /threads/scaffold) and full creation (with initialMessage). The
+ * insertThreadBodySchema and POST /threads/scaffold route are deleted.
+ */
 export const createThreadBodySchema = z.object({
 	hostKind: z.enum(HOST_KINDS),
 	hostId: z.string().min(1),
 	participants: z.array(z.string().min(1)).min(1),
 	pinned: z.boolean().optional(),
-	initialMessage: messageInputSchema,
-});
-
-/**
- * AU21 §9 Increment 2: `POST /threads/scaffold`'s validated request body — a
- * bare thread with no initial message (see `CoreApiConversationPort.insertThread`'s
- * doc comment in `@hyperidle/api-contract`).
- */
-export const insertThreadBodySchema = z.object({
-	hostKind: z.enum(HOST_KINDS),
-	hostId: z.string().min(1),
-	participants: z.array(z.string().min(1)).min(1),
-	pinned: z.boolean().optional(),
+	initialMessage: messageInputSchema.optional(),
 });
 
 /**

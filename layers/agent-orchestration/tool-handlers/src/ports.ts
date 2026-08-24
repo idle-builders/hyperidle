@@ -324,10 +324,21 @@ interface ToolHandlersCoreApiAccessor {
 		},
 		actorId: string,
 	): Promise<readonly string[]>;
-	/** Collapses `persistScaffoldedAgents(db, {getUserById,insertUser}, teamMembersId, specs)` — see this file's top `@lore`. */
-	persistScaffoldedAgents(
+	/**
+	 * @lore AU44 AU20-fd: replaces `persistScaffoldedAgents` — seam now accepts the scaffold
+	 * request; core-api resolves via `resolveAgentScaffoldSpecs` then persists.
+	 * Mirrors `POST /org/scaffold-request`.
+	 */
+	scaffoldFromRequest(
 		teamMembersId: string | null,
-		specs: readonly Record<string, unknown>[],
+		trigger: "team_scaffold" | "agent_added" | "user_assistant",
+		teamName: string | null,
+		functions: readonly string[] | null,
+		role: string | null,
+		name: string | null,
+		ownerUserId: string | null,
+		ownerUserName: string | null,
+		systemPromptOverride: string | undefined,
 		actorId: string,
 	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
 	/**
@@ -345,7 +356,7 @@ interface ToolHandlersCoreApiAccessor {
 		},
 		actorId: string,
 	): Promise<void>;
-	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<void>;
+	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<string | null>;
 	getRoutineById(
 		id: string,
 		actorId: string,

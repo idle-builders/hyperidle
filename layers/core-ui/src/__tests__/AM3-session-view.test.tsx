@@ -9,11 +9,11 @@
  * renderer, no fixture fork (AM3 hard-rule: one message renderer).
  */
 
-import type { OpenHandler, Part, PartAuthor } from "@hyperidle/conversation-parts";
-import { derivePartsFromSession } from "@hyperidle/conversation-parts";
 import type { ActivityEntry } from "@hyperidle/domain-model";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { OpenHandler, Part, PartAuthor } from "../components/parts";
+import { derivePartsFromSession } from "../components/parts";
 import { ReasoningPart } from "../components/parts/ReasoningPart.js";
 import { ToolPart } from "../components/parts/ToolPart.js";
 import type { SessionViewIdentity } from "../components/SessionView.js";
@@ -346,57 +346,8 @@ describe("SessionView — ChangedFilesPanel", () => {
 // ── Composer pills ────────────────────────────────────────────────────────
 
 describe("SessionView — composer pills", () => {
-	it("renders effort pill when descriptor has effort option", () => {
-		const descriptor: import("@hyperidle/harness-capability").HarnessCapabilityDescriptor = {
-			type: "claude-code",
-			name: "Claude Code",
-			kind: "local",
-			authAction: { kind: "native_cli_login", label: "Logged in" },
-			discovery: { state: "ready", version: "1.4.2" },
-			modelProviders: ["anthropic"],
-			models: [
-				{
-					id: "claude-sonnet-4-6",
-					label: "Sonnet 4.6",
-					provider: "anthropic",
-					contextWindow: 1_000_000,
-					selectable: true,
-					inheritedFromGateway: false,
-					options: [
-						{
-							key: "effort",
-							label: "Effort",
-							control: {
-								kind: "select",
-								choices: [
-									{ value: "low", label: "Low" },
-									{ value: "medium", label: "Medium" },
-								],
-							},
-							required: false,
-							scope: "launch",
-							defaultValue: "medium",
-						},
-					],
-				},
-			],
-		};
-
-		render(
-			<SessionView
-				entries={[]}
-				identity={IDENTITY}
-				descriptor={descriptor}
-				status="ended"
-				onOpen={NO_OP_OPEN}
-				onSend={vi.fn()}
-			/>,
-		);
-
-		// Composer pill renders the CURRENT value label (first choice = "Low"), not the
-		// option key. The pill is a select-cycle button that starts at choices[0].
-		expect(screen.getByRole("button", { name: /low/i })).toBeInTheDocument();
-	});
+	// @lore AU44 B0: deriveComposerPills deleted; per-option pill rendering removed from SessionView.
+	// The test for "renders effort pill when descriptor has effort option" was deleted with the feature.
 
 	it("renders no pills when no descriptor is provided", () => {
 		render(

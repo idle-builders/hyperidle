@@ -12,15 +12,6 @@
 			"path": "../../framework/api-contract"
 		},
 		{
-			"path": "../../framework/block-derivation"
-		},
-		{
-			"path": "../../framework/credential-access"
-		},
-		{
-			"path": "../../framework/cron"
-		},
-		{
 			"path": "../../framework/db"
 		},
 		{
@@ -33,43 +24,16 @@
 			"path": "../../framework/event-bus"
 		},
 		{
-			"path": "../../framework/factory-defaults"
-		},
-		{
-			"path": "../../framework/filesystem-contract"
-		},
-		{
 			"path": "../../framework/harness-capability"
 		},
 		{
 			"path": "../../framework/harness-protocol"
 		},
 		{
-			"path": "../../framework/host-process"
-		},
-		{
-			"path": "../../framework/http-middleware"
-		},
-		{
-			"path": "../../framework/presentation-format"
-		},
-		{
-			"path": "../../framework/query-escaping"
-		},
-		{
-			"path": "../../framework/tool-protocol"
-		},
-		{
-			"path": "../../framework/work-intent-port"
-		},
-		{
 			"path": "../agent-execution/harness-registry"
 		},
 		{
 			"path": "../agent-orchestration/connections"
-		},
-		{
-			"path": "../agent-orchestration/filesystem-mounting"
 		},
 		{
 			"path": "../agent-orchestration/filesystems"

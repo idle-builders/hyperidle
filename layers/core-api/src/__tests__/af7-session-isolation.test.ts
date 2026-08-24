@@ -102,7 +102,6 @@ function makeConfig(sessionId: string): SessionConfig {
 	return {
 		sessionId,
 		sandboxPath: `/workspace/${sessionId}`,
-		systemPromptPath: "",
 		// Marker lets the shared callLlm mock answer per-session deterministically.
 		assembledPrompt: `You are a helpful assistant. session:${sessionId}`,
 		modelTier: "workhorse",

@@ -4,17 +4,18 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts"
+		".": "./src/index.ts",
+		"./http": "./src/http.ts"
 	},
 	"scripts": {
 		"check": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@hyperidle/block-derivation": "*",
-		"@hyperidle/work-intent-port": "*",
 		"vitest": "^4.1.9"
 	},
 	"dependencies": {
+		"@hono/zod-validator": "^0.9.0",
+		"hono": "^4.12.27",
 		"zod": "^4.3.6"
 	}
 }

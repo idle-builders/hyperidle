@@ -1,3 +1,9 @@
+/**
+ * @lore AU44 batch 4: deliveryConfig() updated to remove dead fields
+ * (primaryChannel, digestChannel, recipientEmail, recipientNtfyTopic,
+ * ntfyBaseUrl, floodMaxPerMinute, floodCoalesceWindowMs, testMaxPerHour,
+ * smtpIgnoreTls, digestCron). silence section removed from mock return.
+ */
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test, vi } from "vitest";
 import { updateConfig } from "../install.js";
@@ -8,21 +14,11 @@ const db = {} as HyperIdleDb;
 function deliveryConfig() {
 	return {
 		enabled: false,
-		primaryChannel: "console" as const,
-		digestChannel: null,
-		recipientEmail: null,
-		recipientNtfyTopic: null,
-		ntfyBaseUrl: "https://ntfy.sh",
 		smtpHost: null,
 		smtpPort: 587,
 		smtpSecure: false,
 		smtpUsername: null,
 		smtpFrom: null,
-		floodMaxPerMinute: 10,
-		floodCoalesceWindowMs: 60_000,
-		testMaxPerHour: 10,
-		smtpIgnoreTls: false,
-		digestCron: "0 9 * * *",
 	};
 }
 
@@ -35,12 +31,6 @@ function makeDeps(
 			notifications: {
 				delivery: deliveryConfig(),
 				mutedTypes: [],
-				silence: {
-					mode: false,
-					silencedTeamIds: [],
-					windowStart: null,
-					windowEnd: null,
-				},
 			},
 		})),
 		update: vi.fn(async () => undefined),

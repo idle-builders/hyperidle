@@ -11,12 +11,12 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/credential-access": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/domain-model": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {
+		"@hyperidle/credentials": "*",
 		"vitest": "^4.1.9"
 	}
 }

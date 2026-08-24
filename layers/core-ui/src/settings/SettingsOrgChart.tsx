@@ -31,6 +31,7 @@
  * function mechanism and Setup, which are real affordances.
  */
 
+import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import {
 	Button,
@@ -42,8 +43,7 @@ import {
 	Row,
 	Select,
 	SkeletonList,
-} from "@hyperidle/design-system";
-import { type JSX, useCallback, useEffect, useState } from "react";
+} from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 import { useToast } from "../shell/ToastRegion.js";
 

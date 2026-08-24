@@ -8,9 +8,9 @@
  * test surfaces the error.
  */
 
-import { ThreadHostBanner } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { ThreadHostBanner } from "../ds";
 
 const baseProps = {
 	hostKind: "bet" as const,

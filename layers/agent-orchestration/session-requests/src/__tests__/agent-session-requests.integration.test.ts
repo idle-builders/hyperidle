@@ -23,11 +23,11 @@ import {
 	type HyperIdleDb,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
+import { EventBus } from "@hyperidle/event-bus";
 import type { HarnessAdapter, SessionHandle } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
@@ -99,13 +99,6 @@ describe("agent session request repository", () => {
 	test("claimNextAgentSessionRequest claims exactly one pending request", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "team-3", name: "Team", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "members-3",
-			teamId: "team-3",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
 		await db.insert(users).values([
 			{
 				id: "agent-3",
@@ -274,8 +267,22 @@ describe("agent session request repository", () => {
 			sourceId: "review-intent-lease",
 			requestedBy: "agent-intent-lease",
 			idempotencyKey: "reengagement:intent-lease",
+			// AU44: bakedRequest now required; provide minimal valid payload.
+			// The drain will fail (no real FKs) — that's fine, test only proves
+			// claim-exclusivity (one attempt despite two concurrent drains).
+			bakedRequest: {
+				defaultAgentId: "agent-intent-lease",
+				sourceKind: "proposed_call",
+				sourceId: "review-intent-lease",
+				streamId: "proposed_call:review-intent-lease",
+				sourceCorrelation: {
+					taskId: "t",
+					proposedCallId: "review-intent-lease",
+					grantedAgentId: "a",
+				},
+			},
 		});
-		const deps = { db };
+		const deps = { db, eventBus: new EventBus() };
 		await Promise.all([
 			drainIntents(deps, { maxAttempts: 1 }),
 			drainIntents(deps, { maxAttempts: 1 }),
@@ -304,12 +311,21 @@ describe("agent session request repository", () => {
 	test("enqueueWorkIntent is idempotent on (kind, sourceId, idempotencyKey)", async ({ db }) => {
 		const runId = "au15-routine-idem-run";
 		const ownerAgentId = "au15-owner";
+		// AU44: bakedRequest required; drain is never called in this test so content is irrelevant.
+		const idemBaked = {
+			defaultAgentId: ownerAgentId,
+			sourceKind: "routine" as const,
+			sourceId: runId,
+			streamId: `routine:${runId}`,
+			sourceCorrelation: { routineId: "r", routineRunId: runId, teamId: "t" },
+		};
 		const first = await enqueueWorkIntent(db, {
 			kind: "routine_run",
 			sourceKind: "routine_run",
 			sourceId: runId,
 			requestedBy: ownerAgentId,
 			idempotencyKey: `routine:${runId}`,
+			bakedRequest: idemBaked,
 		});
 		const second = await enqueueWorkIntent(db, {
 			kind: "routine_run",
@@ -317,6 +333,7 @@ describe("agent session request repository", () => {
 			sourceId: runId,
 			requestedBy: ownerAgentId,
 			idempotencyKey: `routine:${runId}`,
+			bakedRequest: idemBaked,
 		});
 		expect(second.id).toBe(first.id);
 		const rows = await db
@@ -363,13 +380,6 @@ describe("agent session request repository", () => {
 		await db
 			.insert(teams)
 			.values({ id: "explicit-team", name: "Team", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "explicit-members",
-			teamId: "explicit-team",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
 		await db.insert(users).values([
 			{
 				id: "explicit-agent",

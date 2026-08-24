@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	canTransitionTaskState,
-	TASK_STATE_TRANSITIONS,
-	TASK_STATES,
-	TaskInvalidTransitionError,
-} from "../index.js";
+import { canTransitionTaskState, TASK_STATE_TRANSITIONS, TASK_STATES } from "../index.js";
 
 describe("task transition contract", () => {
 	it("represents every task state in the canonical grammar", () => {
@@ -18,14 +13,5 @@ describe("task transition contract", () => {
 		expect(canTransitionTaskState("done", "accepted")).toBe(false);
 		expect(canTransitionTaskState("killed", "proposed")).toBe(false);
 	});
-
-	it("preserves task-specific conflict context", () => {
-		const error = new TaskInvalidTransitionError("task-1", "done", "accepted");
-		expect(error).toMatchObject({
-			name: "InvalidTransitionError",
-			taskId: "task-1",
-			fromState: "done",
-			toState: "accepted",
-		});
-	});
 });
+// TaskInvalidTransitionError is tested in @hyperidle/work (layers/core-api/work/src/__tests__/errors.test.ts)

@@ -1,14 +1,12 @@
 import type { HyperIdleDb } from "@hyperidle/db";
-import { getTeamMembers } from "./team-lookup.js";
 
 /**
  * Resolve which human users should receive a review/escalation.
  *
  * Resolution algorithm:
- *  1. If teamId is provided, find the teamMembers row for that team.
- *  2. Query humans whose users.teamId matches that teamMembers.id.
- *  3. If any humans found on the team, return them.
- *  4. Otherwise fall back to ALL human users so every review still reaches someone.
+ *  1. If teamId is provided, query humans whose users.teamId matches teams.id.
+ *  2. If any humans found on the team, return them.
+ *  3. Otherwise fall back to ALL human users so every review still reaches someone.
  *
  * @lore AU20 destroy pass + founder ruling 1: the old org-edges matrix
  * (direct/function/team edges configuring named reviewers per agent/role/team)
@@ -18,24 +16,27 @@ import { getTeamMembers } from "./team-lookup.js";
  * "which humans review this agent's work" = "the humans on this agent's team".
  * The fallback (team has no humans → all humans) ensures no review is silently
  * lost on a mixed-team org where a team has only agents right now.
+ *
+ * @lore AU44 B1: `getTeamMembers` two-hop removed — `users.teamId` now references
+ * `teams.id` directly. The `listUsers` call moves to the DI port `listHumans`;
+ * `@hyperidle/users` stays out of this module (governance: org is not a composition
+ * root). `userId` and `agentRole` fields removed from context — they were the
+ * direct/function edge mechanisms wearing a type; they die with the edges.
  */
 export async function resolveReviewRecipients(
 	db: HyperIdleDb,
-	context: { userId?: string; agentRole?: string; teamId?: string },
-	users: { listHumans(db: HyperIdleDb, teamMembersId?: string): Promise<Array<{ id: string }>> },
+	context: { teamId?: string },
+	usersPort: { listHumans(db: HyperIdleDb, teamId?: string): Promise<Array<{ id: string }>> },
 ): Promise<string[]> {
 	// Team-scoped: find humans on the agent's own team.
 	if (context.teamId) {
-		const memberGroup = await getTeamMembers(db, { teamId: context.teamId });
-		if (memberGroup) {
-			const teamHumans = await users.listHumans(db, memberGroup.id);
-			if (teamHumans.length > 0) {
-				return teamHumans.map((u) => u.id);
-			}
+		const teamHumans = await usersPort.listHumans(db, context.teamId);
+		if (teamHumans.length > 0) {
+			return teamHumans.map((u) => u.id);
 		}
 	}
 
 	// Fallback: all humans — every review reaches someone.
-	const allHumans = await users.listHumans(db, undefined);
+	const allHumans = await usersPort.listHumans(db, undefined);
 	return allHumans.map((u) => u.id);
 }

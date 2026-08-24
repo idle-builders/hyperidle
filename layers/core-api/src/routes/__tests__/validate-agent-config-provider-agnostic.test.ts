@@ -10,7 +10,7 @@
  * — no compatibility check". Use registration meta (not live capabilities) because
  * select() already uses meta.modelProviders and that is the authoritative source.
  *
- * @lore AU31 §2.8: this file moved from `@hyperidle/agent-run-config`'s
+ * @lore AU31 §2.8: this file moved from `@hyperidle/run-orchestration`'s
  * `__tests__/` (itself moved there from `layers/core-api/src/__tests__/` under
  * AU26 G1) back into core-api with `validateAgentConfig` itself — see that
  * function's own `@lore` for why the crossing it existed to avoid was never
@@ -22,8 +22,11 @@
  */
 
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import type { HarnessCapabilityFilter, HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
+import type {
+	HarnessCapabilityFilter,
+	HarnessCapabilityReader,
+} from "../../services/harness-capability-reader.js";
 import { validateAgentConfig } from "../validate-agent-config.js";
 
 // ---------------------------------------------------------------------------

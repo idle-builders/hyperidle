@@ -46,7 +46,6 @@ function makeSessionConfig(overrides: Partial<SessionConfig> = {}): SessionConfi
 	return {
 		sandboxPath: "/workspace/test",
 		sessionId: "test-session",
-		systemPromptPath: "/workspace/prompts/builder.md",
 		assembledPrompt: "You are a helpful assistant.",
 		modelTier: "workhorse",
 		tools: ["write_session_notes"],

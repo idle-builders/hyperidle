@@ -6,13 +6,12 @@
  * `session_ended`. Killing a bet must stop its runs — that is a genuine core
  * need — but the write is `run-orchestration`'s, so it comes down here.
  *
- * The returned set is load-bearing, not a convenience: `work` writes one
- * `propagation_log` hop per run it actually stopped, and a 0-row CAS (an
- * already-stopped run) must write NO phantom row. A count would not tell the
- * caller WHICH runs to log.
+ * The returned set is load-bearing, not a convenience: a 0-row CAS (an
+ * already-stopped run) must return an empty set. A count would not tell the
+ * caller WHICH runs were actually affected.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { requestRunStopForTasks } from "../request-run-stop-for-tasks.js";
@@ -21,9 +20,6 @@ const NOW = "2026-08-04T10:00:00.000Z";
 
 async function seed(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "team-1", name: "T", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-1", teamId: "team-1", capacity: 3, activeBets: 0, formedAt: NOW });
 	await db
 		.insert(users)
 		.values({ id: "agent-1", name: "A", role: "builder", status: "active", createdAt: NOW });
@@ -64,9 +60,7 @@ describe("requestRunStopForTasks", () => {
 		await seedRun(db, "run-a", "task-a", "active");
 		await seedRun(db, "run-b", "task-b", "active");
 
-		const stopped = await requestRunStopForTasks(db, ["task-a", "task-b"], {
-			reason: "bet_killed",
-		});
+		const stopped = await requestRunStopForTasks(db, ["task-a", "task-b"]);
 
 		expect([...stopped].sort((x, y) => x.sessionId.localeCompare(y.sessionId))).toEqual([
 			{ taskId: "task-a", sessionId: "run-a" },
@@ -86,7 +80,7 @@ describe("requestRunStopForTasks", () => {
 		await seedRun(db, "run-a", "task-a", "active");
 		await seedRun(db, "run-other", "task-untouched", "active");
 
-		const stopped = await requestRunStopForTasks(db, ["task-a"], { reason: "bet_killed" });
+		const stopped = await requestRunStopForTasks(db, ["task-a"]);
 
 		expect(stopped).toEqual([{ taskId: "task-a", sessionId: "run-a" }]);
 		const [other] = await db.select().from(sessions).where(eq(sessions.id, "run-other"));
@@ -97,12 +91,11 @@ describe("requestRunStopForTasks", () => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
 
-		const first = await requestRunStopForTasks(db, ["task-a"], { reason: "bet_killed" });
+		const first = await requestRunStopForTasks(db, ["task-a"]);
 		expect(first).toHaveLength(1);
 
-		// The 0-row CAS: `work` must be able to see that nothing changed, so it
-		// writes no phantom `propagation_log` row on a second kill.
-		const second = await requestRunStopForTasks(db, ["task-a"], { reason: "bet_killed" });
+		// The 0-row CAS: a re-kill of an already-stopped run returns empty.
+		const second = await requestRunStopForTasks(db, ["task-a"]);
 		expect(second).toHaveLength(0);
 	});
 
@@ -110,7 +103,7 @@ describe("requestRunStopForTasks", () => {
 		await seed(db);
 		await seedRun(db, "run-a", "task-a", "active");
 
-		expect(await requestRunStopForTasks(db, [], { reason: "bet_killed" })).toEqual([]);
+		expect(await requestRunStopForTasks(db, [])).toEqual([]);
 		const [row] = await db.select().from(sessions).where(eq(sessions.id, "run-a"));
 		expect(row?.state).toBe("active");
 	});

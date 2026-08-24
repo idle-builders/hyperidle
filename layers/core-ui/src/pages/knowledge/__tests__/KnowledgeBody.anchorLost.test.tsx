@@ -11,10 +11,10 @@
  * `AnchoredMessages` inside KnowledgeBody.tsx.
  */
 
-import { deriveBlocks } from "@hyperidle/block-derivation";
 import type { Message, PlainPayload } from "@hyperidle/domain-model";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { deriveBlocks } from "../../../block/index.js";
 import { KnowledgeBody } from "../KnowledgeBody";
 
 // ── Fixtures ──

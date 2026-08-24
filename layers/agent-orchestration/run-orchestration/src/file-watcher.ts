@@ -12,10 +12,10 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { SandboxWritebackChange } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { EventBus, SandboxWritebackChange } from "@hyperidle/event-bus";
 
-export interface FileWatcherConfig {
+// @lore AU44 batch6: FileWatcherConfig made file-local — no cross-package consumer.
+interface FileWatcherConfig {
 	sandboxPath: string;
 	sessionId: string;
 	manifestPath: string;
@@ -24,7 +24,8 @@ export interface FileWatcherConfig {
 	onError(error: Error): void;
 }
 
-export interface FileWatcher {
+// @lore AU44 batch6: FileWatcher made file-local — no cross-package consumer.
+interface FileWatcher {
 	stop(): void;
 }
 

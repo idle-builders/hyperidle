@@ -516,23 +516,9 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"framework/domain-model",
 		"framework/diagnostics",
 		"framework/harness-capability",
-		"framework/work-intent-port",
 		"framework/event-bus",
-		"framework/presentation-format",
-		"framework/block-derivation",
-		"framework/conversation-parts",
-		"framework/filesystem-contract",
-		"framework/cron",
-		"framework/toon-codec",
-		"framework/query-escaping",
-		"framework/factory-defaults",
-		"framework/host-process",
-		"framework/http-middleware",
-		"framework/credential-access",
 		"framework/harness-protocol",
-		"framework/tool-protocol",
 		"framework/db",
-		"framework/design-system",
 		"layers/core-api",
 		"layers/core-api/knowledge",
 		"layers/core-api/work",
@@ -545,7 +531,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"layers/core-api/routine",
 		"layers/core-api/review",
 		"layers/core-api/policy",
-		"layers/core-api/realtime",
 		// @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
 		// (users/knowledge/notifications) + propagation_log reaper co-located at composition root.
 		// @lore AU20 B1b: agent-orchestration/trigger-resolution folded into session-requests.
@@ -567,7 +552,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		// @lore AU20 B2a: agent-orchestration/context-assembly folded into run-orchestration.
 		"layers/agent-execution/harness-registry",
 		// @lore AU20 B3b: agent-execution/mcp-provider folded into harness-registry.
-		"layers/agent-execution/tool-provider",
 		"layers/agent-orchestration/tool-handlers",
 		// @lore AU31 §2.7/[P9]: the Layer barrel itself now has a real consumer —
 		// `RemoteWorkerClient` relocated here, and `applications/desktop`/
@@ -691,9 +675,7 @@ async function main(): Promise<void> {
 
 	// 3.5 Build leaf declarations so reference-consumers (server/web) measure real
 	// errors instead of the dist-free `any`-cascade phantom. See @lore above (Z8-170).
-	process.stderr.write(
-		"typecheck-gate: building leaf declarations (shared, db, design-system)...\n",
-	);
+	process.stderr.write("typecheck-gate: building leaf declarations (shared, db)...\n");
 	buildLeafDeclarations(root, tscBin);
 
 	const concurrency = resolveConcurrency();

@@ -19,8 +19,8 @@
  * rule does not flag it because it does not use DaisyUI control classes.
  */
 
-import { Avatar, Button, Input, SearchField, StatusChip, Tag } from "@hyperidle/design-system";
 import { type JSX, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { Avatar, Button, Input, SearchField, StatusChip, Tag } from "../ds";
 import type { Recipient } from "../hooks/useRecipients.js";
 import { useRecipients } from "../hooks/useRecipients.js";
 import { apiFetch } from "../services/api-fetch.js";

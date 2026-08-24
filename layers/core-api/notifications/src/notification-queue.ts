@@ -39,39 +39,12 @@ async function queueCountByStatus(db: HyperIdleDb, status: string): Promise<numb
 	return row?.count ?? 0;
 }
 
-/** `routes/notifications-routes.ts` GET /queue — newest first, optional row cap. */
-async function listByStatus(
-	db: HyperIdleDb,
-	status: string,
-	limit?: number,
-): Promise<NotificationQueueRow[]> {
-	const query = db
-		.select()
-		.from(notificationQueue)
-		.where(eq(notificationQueue.status, status))
-		.orderBy(desc(notificationQueue.createdAt));
-	return await (limit === undefined ? query : query.limit(limit));
-}
-
-/** dispatcher.ts flushQueue + digest.ts runDailyDigest — oldest first. */
+/** enqueue cap eviction — oldest first. */
 async function listPending(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
 	return await db
 		.select()
 		.from(notificationQueue)
 		.where(eq(notificationQueue.status, "pending"))
-		.orderBy(asc(notificationQueue.createdAt));
-}
-
-/**
- * dispatcher.ts's `enqueueNotification` flood-cap eviction — the oldest
- * pending digest row is evicted first so blocking rows always
- * have room. Caller takes `[0]` (matches the original `.limit(1)` query).
- */
-async function listPendingDigest(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
-	return await db
-		.select()
-		.from(notificationQueue)
-		.where(and(eq(notificationQueue.status, "pending"), eq(notificationQueue.severity, "digest")))
 		.orderBy(asc(notificationQueue.createdAt));
 }
 
@@ -83,46 +56,6 @@ async function listUnread(db: HyperIdleDb, limit?: number): Promise<Notification
 		.where(isNull(notificationQueue.readAt))
 		.orderBy(desc(notificationQueue.createdAt));
 	return await (limit === undefined ? query : query.limit(limit));
-}
-
-/** dispatcher.ts's `recoverStuckLeases` — rows whose `sending` lease expired. */
-async function listStuckLeases(db: HyperIdleDb, cutoff: string): Promise<NotificationQueueRow[]> {
-	return await db
-		.select()
-		.from(notificationQueue)
-		.where(and(eq(notificationQueue.status, "sending"), lt(notificationQueue.claimedAt, cutoff)));
-}
-
-/** digest.ts's post-claim read — the batch of ids just claimed as `sending`. */
-async function listByIdsWithStatus(
-	db: HyperIdleDb,
-	ids: readonly string[],
-	status: string,
-): Promise<NotificationQueueRow[]> {
-	return await db
-		.select()
-		.from(notificationQueue)
-		.where(and(inArray(notificationQueue.id, ids), eq(notificationQueue.status, status)));
-}
-
-/** `routes/teams-routes.ts`'s dedup/throttle check (AB2). */
-async function findPendingByEventSubject(
-	db: HyperIdleDb,
-	eventType: string,
-	subjectId: string,
-): Promise<{ id: string } | undefined> {
-	const [row] = await db
-		.select({ id: notificationQueue.id })
-		.from(notificationQueue)
-		.where(
-			and(
-				eq(notificationQueue.eventType, eventType),
-				eq(notificationQueue.subjectId, subjectId),
-				eq(notificationQueue.status, "pending"),
-			),
-		)
-		.limit(1);
-	return row;
 }
 
 /**
@@ -148,21 +81,6 @@ async function listByEventSubjectSince(
 			),
 		)
 		.orderBy(desc(notificationQueue.createdAt));
-}
-
-/** Single-row lookup by id. Test-support read (no single narrower shape fits every call site). */
-async function findById(db: HyperIdleDb, id: string): Promise<NotificationQueueRow | undefined> {
-	const [row] = await db
-		.select()
-		.from(notificationQueue)
-		.where(eq(notificationQueue.id, id))
-		.limit(1);
-	return row;
-}
-
-/** Every row, unfiltered. Test-support read for full-table assertions. */
-async function listAll(db: HyperIdleDb): Promise<NotificationQueueRow[]> {
-	return await db.select().from(notificationQueue);
 }
 
 // ─── Writes ─────────────────────────────────────────────────────────────
@@ -191,16 +109,19 @@ async function updateStatus(
 	await db.update(notificationQueue).set(patch).where(eq(notificationQueue.id, id));
 }
 
-/** `services/retention-reaper.ts` — age-based, terminal-status-only GC. Returns deleted ids. */
-async function deleteReaped(
-	db: HyperIdleDb,
-	cutoff: string,
-	statuses: readonly string[],
-): Promise<string[]> {
+/**
+ * `services/retention-reaper.ts` — age-based GC of rows the user has already read.
+ *
+ * @lore AU44 batch 4: signature changed from `(db, cutoff, statuses[])` to
+ * `(db, cutoff)`. Predicate changed from `status IN (sent, failed, dropped)`
+ * to `readAt IS NOT NULL AND createdAt < cutoff` — the dispatcher that produced
+ * sent/failed/dropped rows is deleted; the surviving inbox only marks read/seen.
+ */
+async function deleteReaped(db: HyperIdleDb, cutoff: string): Promise<string[]> {
 	const deleted = await db
 		.delete(notificationQueue)
 		.where(
-			and(lt(notificationQueue.createdAt, cutoff), inArray(notificationQueue.status, statuses)),
+			and(lt(notificationQueue.createdAt, cutoff), sql`${notificationQueue.readAt} IS NOT NULL`),
 		)
 		.returning({ id: notificationQueue.id });
 	return deleted.map((r) => r.id);
@@ -226,18 +147,17 @@ async function deleteReaped(
 const NOTIFICATION_QUEUE_CAP = 10_000;
 
 /**
- * Discriminated filter for `listNotifications`. Each variant maps to one or
- * more of the old per-caller list functions; the `kind` field selects the
- * query shape with no any-bag optional fields.
+ * Discriminated filter for `listNotifications`.
+ *
+ * @lore AU44 batch 4: reduced from 10 variants to 3. Removed: all, by-status,
+ * pending, pending-digest, by-ids, stuck, by-id. These were only used by the
+ * dispatcher, drain, and digest — all deleted. Surviving callers:
+ *   - unread: notifications-routes.ts GET /inbox
+ *   - by-event-since: agent-health-session-end-reactions.ts windowed failure count
+ *   - pending-by-event: agent-health-session-end-reactions.ts dedup check
  */
 export type NotificationFilter =
-	| { kind: "all" }
-	| { kind: "by-status"; status: string; limit?: number }
 	| { kind: "unread"; limit?: number }
-	| { kind: "pending" }
-	| { kind: "pending-digest" }
-	| { kind: "by-ids"; ids: readonly string[]; status?: string }
-	| { kind: "stuck"; stuckBefore: string }
 	| { kind: "pending-by-event"; eventType: string; subjectId: string }
 	/**
 	 * AU26 — every row this subject has for `eventType` whose `createdAt` is at
@@ -246,89 +166,48 @@ export type NotificationFilter =
 	 * 7 days" is answered from `notification_queue` alone, so the degraded-agent
 	 * rule needs no second table and no tally state. Callers take `.length`.
 	 */
-	| { kind: "by-event-since"; eventType: string; subjectId: string; since: string }
-	| { kind: "by-id"; id: string };
+	| { kind: "by-event-since"; eventType: string; subjectId: string; since: string };
 
 /**
  * Discriminated selector for `markNotifications`.
- * `kind: "ids"` targets specific rows (optionally guarded by current status);
- * `kind: "all"` targets every row (used for bulk transitions like mark-seen-all).
+ * `kind: "ids"` targets specific rows; `kind: "all"` targets every row
+ * (used for bulk transitions like mark-seen-all).
+ *
+ * @lore AU44 batch 4: onlyIfStatus removed from the "ids" variant — it was
+ * only used by the dispatcher for optimistic row-claiming (now deleted).
  */
-export type NotificationSelector =
-	| { kind: "ids"; ids: readonly string[]; onlyIfStatus?: string }
-	| { kind: "all" };
+export type NotificationSelector = { kind: "ids"; ids: readonly string[] } | { kind: "all" };
 
 /**
  * Semantic patch for `markNotifications`.
- * `read` and `seen` are boolean flags resolved to ISO timestamps at write time;
- * remaining fields are passed through directly to the DB update.
+ * `read` and `seen` are boolean flags resolved to ISO timestamps at write time.
+ *
+ * @lore AU44 batch 4: status, attempts, sentAt, lastError, claimedAt removed —
+ * these were only used by the dispatcher for delivery state transitions (now
+ * deleted). The surviving callers only need read/seen flags.
  */
 export interface NotificationPatch {
 	/** If true, sets `readAt` to `now` (unconditional). */
 	readonly read?: boolean;
 	/** If true, sets `seenAt` to `now` only on rows where `seenAt IS NULL`. */
 	readonly seen?: boolean;
-	readonly status?: string;
-	readonly attempts?: number;
-	readonly sentAt?: string | null;
-	readonly lastError?: string | null;
-	readonly claimedAt?: string | null;
-}
-
-/** Options for the `enqueue` function. */
-interface EnqueueOptions {
-	/**
-	 * When set, checks for an existing `pending` row with matching
-	 * `eventType` + `subjectId` before inserting. If one exists, returns
-	 * its `id` without a second insert (dedup / throttle guard).
-	 */
-	readonly dedupeBy?: { readonly eventType: string; readonly subjectId: string };
 }
 
 /**
  * Insert a notification row and return its `id`.
  *
- * If `opts.dedupeBy` is provided and a pending row already exists with the
- * same `eventType` + `subjectId`, the existing id is returned without
- * inserting a duplicate.
- *
  * Enforces NOTIFICATION_QUEUE_CAP (10 000) before inserting: evicts the
- * oldest digest row first so blocking rows always have room.
- * Incoming digest rows are silently dropped (id returned, row not inserted)
- * when the queue is at capacity. If no digest row can be evicted, drops the
- * oldest pending row of any severity to hold the ceiling. This matches the
- * identical cap loop in the package-internal `enqueueNotification`.
+ * oldest pending row to hold the ceiling.
  *
- * Replaces: `insertNotification`, `findPendingByEventSubject` (via dedupeBy),
- * `enqueueNotification` (cap behavior now included).
+ * @lore AU44 batch 4: dedupeBy option removed — it was only used by the
+ * dispatcher's enqueueNotification helper (now deleted).
  */
-export async function enqueue(
-	db: HyperIdleDb,
-	input: NewNotificationQueueRow,
-	opts?: EnqueueOptions,
-): Promise<string> {
-	if (opts?.dedupeBy !== undefined) {
-		const existing = await findPendingByEventSubject(
-			db,
-			opts.dedupeBy.eventType,
-			opts.dedupeBy.subjectId,
-		);
-		if (existing !== undefined) return existing.id;
-	}
-	// Defense-in-depth queue cap. Digest rows are silently dropped when the
-	// queue is full so blocking rows always have room. If no
-	// digest row can be evicted, drop the oldest pending row of any severity
-	// rather than exceed the cap.
+export async function enqueue(db: HyperIdleDb, input: NewNotificationQueueRow): Promise<string> {
+	// Defense-in-depth queue cap: drop the oldest pending row if at capacity.
 	while ((await queueCountByStatus(db, "pending")) >= NOTIFICATION_QUEUE_CAP) {
-		if (input.severity === "digest") return input.id;
-		const [oldestDigest] = await listPendingDigest(db);
-		if (!oldestDigest) {
-			const [oldest] = await listPending(db);
-			if (!oldest) break; // queue unexpectedly empty — insert safely
-			await updateStatus(db, oldest.id, { status: "dropped" });
-			continue;
-		}
-		await updateStatus(db, oldestDigest.id, { status: "dropped" });
+		const [oldest] = await listPending(db);
+		if (!oldest) break; // queue unexpectedly empty — insert safely
+		await updateStatus(db, oldest.id, { status: "dropped" });
 	}
 	await insertNotification(db, input);
 	return input.id;
@@ -337,38 +216,15 @@ export async function enqueue(
 /**
  * Parameterised read over `notificationQueue`.
  *
- * Returns the matched rows for all filter variants. For `by-id` and
- * `pending-by-event`, the result is 0 or 1 elements.
- *
- * Replaces: `listAll`, `listByStatus`, `listUnread`, `listPending`,
- * `listPendingDigest`, `listByIdsWithStatus`, `listStuckLeases`,
- * `findPendingByEventSubject`, `findById`, `queueCountByStatus` (via
- * `.length` on `by-status`/`all`).
+ * @lore AU44 batch 4: reduced from 10 filter variants to 3. See NotificationFilter.
  */
 export async function listNotifications(
 	db: HyperIdleDb,
 	filter: NotificationFilter,
 ): Promise<NotificationQueueRow[]> {
 	switch (filter.kind) {
-		case "all":
-			return listAll(db);
-		case "by-status":
-			return listByStatus(db, filter.status, filter.limit);
 		case "unread":
 			return listUnread(db, filter.limit);
-		case "pending":
-			return listPending(db);
-		case "pending-digest":
-			return listPendingDigest(db);
-		case "by-ids": {
-			if (filter.status !== undefined) {
-				return listByIdsWithStatus(db, filter.ids, filter.status);
-			}
-			// No status filter: return all rows matching the id set.
-			return db.select().from(notificationQueue).where(inArray(notificationQueue.id, filter.ids));
-		}
-		case "stuck":
-			return listStuckLeases(db, filter.stuckBefore);
 		case "pending-by-event":
 			// Single-row dedup check; returns 0 or 1 full rows.
 			return db
@@ -384,10 +240,6 @@ export async function listNotifications(
 				.limit(1);
 		case "by-event-since":
 			return listByEventSubjectSince(db, filter.eventType, filter.subjectId, filter.since);
-		case "by-id": {
-			const row = await findById(db, filter.id);
-			return row !== undefined ? [row] : [];
-		}
 	}
 }
 
@@ -399,8 +251,9 @@ export async function listNotifications(
  * keep their original timestamp (idempotent mark-seen-all behaviour).
  * `patch.read = true` sets `readAt` unconditionally.
  *
- * Replaces: `markRead`, `markSeenAll`, `updateStatus`, `updateManyByIds`,
- * `requeueLease`, `claimForSend` (via `onlyIfStatus`).
+ * @lore AU44 batch 4: status/attempts/sentAt/lastError/claimedAt patch fields
+ * removed (only used by the deleted dispatcher). onlyIfStatus removed from
+ * selector (only used by dispatcher for optimistic row-claiming).
  */
 export async function markNotifications(
 	db: HyperIdleDb,
@@ -414,11 +267,6 @@ export async function markNotifications(
 	const dbPatch: Record<string, unknown> = {};
 	if (patch.read === true) dbPatch.readAt = nowStr;
 	if (patch.seen === true) dbPatch.seenAt = nowStr;
-	if (patch.status !== undefined) dbPatch.status = patch.status;
-	if (patch.attempts !== undefined) dbPatch.attempts = patch.attempts;
-	if ("sentAt" in patch) dbPatch.sentAt = patch.sentAt ?? null;
-	if ("lastError" in patch) dbPatch.lastError = patch.lastError ?? null;
-	if ("claimedAt" in patch) dbPatch.claimedAt = patch.claimedAt ?? null;
 
 	// Build WHERE clause from selector + optional seen-guard.
 	const seenGuard = patch.seen === true ? isNull(notificationQueue.seenAt) : undefined;
@@ -428,11 +276,7 @@ export async function markNotifications(
 		where = seenGuard;
 	} else {
 		const idCond = inArray(notificationQueue.id, selector.ids);
-		const statusCond =
-			selector.onlyIfStatus !== undefined
-				? eq(notificationQueue.status, selector.onlyIfStatus)
-				: undefined;
-		where = and(idCond, statusCond, seenGuard);
+		where = and(idCond, seenGuard);
 	}
 
 	const updated = await db
@@ -444,15 +288,12 @@ export async function markNotifications(
 }
 
 /**
- * Delete notification rows older than `cutoff` whose status is in `statuses`.
+ * Delete read notification rows older than `cutoff`.
  * Returns the ids of deleted rows.
  *
- * Replaces: `deleteReaped`.
+ * @lore AU44 batch 4: statuses parameter removed — now deletes rows where
+ * `readAt IS NOT NULL AND createdAt < cutoff` instead of by status.
  */
-export function reap(
-	db: HyperIdleDb,
-	cutoff: string,
-	statuses: readonly string[],
-): Promise<string[]> {
-	return deleteReaped(db, cutoff, statuses);
+export function reap(db: HyperIdleDb, cutoff: string): Promise<string[]> {
+	return deleteReaped(db, cutoff);
 }

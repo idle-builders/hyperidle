@@ -1,11 +1,6 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import {
-	readSystemPromptTemplateForRole,
-	SYSTEM_PROMPT_TEMPLATE_FILES,
-} from "@hyperidle/factory-defaults";
+import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
@@ -18,12 +13,6 @@ import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 // chief_of_staff → assistant (AD8b), practice_facilitator → facilitator (AD8c).
 // Only roles that still have system prompt files after AD8a and AD8c
 const SYSTEM_PROMPT_FILE_ROLES = ["facilitator", "product_manager"] as const;
-
-/** Resolve the repo root from this test file's location. */
-function repoRoot(): string {
-	// __dirname at runtime = framework/db/src/__tests__ (after build relative to src)
-	return path.resolve(__dirname, "..", "..", "..", "..");
-}
 
 // Convenience: execute a raw query returning rows
 async function queryRows<T extends Record<string, unknown>>(
@@ -50,7 +39,7 @@ describe("A2: Seed script", () => {
 		const majorTables = [
 			"users",
 			"teams",
-			"team_members",
+			// @lore AU44 B1: team_members folded into teams — no longer a separate table
 			"knowledge_items",
 			"knowledge_app_projection",
 		];
@@ -84,11 +73,10 @@ describe("A2: Seed script", () => {
 		expect(agents[0]?.name).toBeTruthy();
 		expect(agents[0]?.role).toBeTruthy();
 
-		// @lore U1: old `teams` (agent membership) renamed to `team_members`.
-		// `capacity` column lives on `team_members`, not on the new `teams`.
+		// @lore AU44 B1: team_members folded into teams; capacity now lives on teams.
 		const teamMembers = await queryRows<{ id: string; capacity: number }>(
 			db,
-			"SELECT id, capacity FROM team_members LIMIT 1",
+			"SELECT id, capacity FROM teams LIMIT 1",
 		);
 		expect(teamMembers[0]?.id).toBeTruthy();
 		expect(teamMembers[0]?.capacity).toBeGreaterThan(0);
@@ -185,18 +173,17 @@ describe("A2: Seed script", () => {
 
 	// @lore AD8a: chief_of_staff excluded — its system prompt file was deleted.
 	// @lore AD8c: facilitator.md replaces practice-facilitator.md.
+	// @lore AU44 B0: SYSTEM_PROMPT_TEMPLATE_FILES export removed (map is module-internal).
+	// Assertion rewritten to use readSystemPromptTemplateForRole which reads the docs file
+	// directly — a non-null return proves the docs file exists and is readable.
 	test("the docs file backing each seeded role's system prompt exists on disk", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
-		const root = repoRoot();
 		for (const role of SYSTEM_PROMPT_FILE_ROLES) {
-			const file = SYSTEM_PROMPT_TEMPLATE_FILES[role];
-			expect(file, `${role} must have a system prompt file mapping`).toBeTruthy();
-			const resolved = path.resolve(root, "docs", "system-prompts", file ?? "");
-			expect(fs.existsSync(resolved), `${role} system prompt file must exist: ${resolved}`).toBe(
-				true,
-			);
+			const content = readSystemPromptTemplateForRole(role);
+			expect(content, `${role} system prompt file must exist and be readable`).toBeTruthy();
+			expect((content ?? "").length).toBeGreaterThan(50);
 		}
 	});
 

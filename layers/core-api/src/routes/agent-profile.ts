@@ -41,15 +41,15 @@ import type {
 	AgentProfileResponse,
 	AgentReviewTrackRecord,
 } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { HarnessCapabilities } from "@hyperidle/harness-protocol";
+import { getTeam } from "@hyperidle/org";
+import { findUser } from "@hyperidle/users";
+import type { Context } from "hono";
 import {
 	type HarnessCapabilityReader,
 	harnessCapabilitiesForType,
-} from "@hyperidle/harness-protocol";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
-import { getTeam, getTeamMembers } from "@hyperidle/org";
-import { findUser } from "@hyperidle/users";
-import type { Context } from "hono";
+} from "../services/harness-capability-reader.js";
 import { computeApprovalRate } from "../services/policy-bindings.js";
 
 // @lore AU26 J4: `computeHealthSignals`, `deriveHealthLevel` and
@@ -90,7 +90,7 @@ export async function handleAgentProfile(
 	// Existence is still a `users` question — an agent with no `agent_run_config`
 	// row renders the defaults, it does not 404.
 	// @lore AU31 §2.2: the read crosses the seam (AgentOrchestrationPort.runConfig.read)
-	// instead of importing `@hyperidle/agent-run-config` directly — this route stays
+	// instead of importing `@hyperidle/run-orchestration` directly — this route stays
 	// core-hosted (it gates on `users`), only the persistence spelling changed.
 	const runConfig = await agentOrchestration.runConfig.read(agentId);
 
@@ -100,8 +100,8 @@ export async function handleAgentProfile(
 	let teamName: string | null = null;
 	let resolvedTeamId: string | null = null;
 	if (agent.teamId) {
-		const teamMembersRow = await getTeamMembers(db, { id: agent.teamId });
-		const team = teamMembersRow ? await getTeam(db, { id: teamMembersRow.teamId }) : undefined;
+		// @lore AU44 B1: agent.teamId now references teams.id directly (no two-hop).
+		const team = agent.teamId ? await getTeam(db, { id: agent.teamId }) : undefined;
 		teamName = team?.name ?? null;
 		resolvedTeamId = team?.id ?? null;
 	}

@@ -14,28 +14,19 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
-import {
-	bets,
-	type HyperIdleDb,
-	propagationLog,
-	sessions,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import { enqueue } from "@hyperidle/notifications";
-import { getTeamMembers, updateTeam } from "@hyperidle/org";
+import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import type { PropagationAppliedEvent } from "@hyperidle/event-bus";
+import { getTeam, updateTeam } from "@hyperidle/org";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { requestRunStopForTasks } from "@hyperidle/run-orchestration";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import type { BetKillCascadeDeps } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
 import { cascadeBetKill, transitionBet } from "@hyperidle/work";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -83,7 +74,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
@@ -91,11 +82,6 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	notifications: {
-		insert: async (db, row) => {
-			await enqueue(db, row);
-		},
-	},
 };
 
 /**
@@ -117,7 +103,7 @@ const testDeps: BetKillCascadeDeps = {
 // AU19 Increment 1c: `work`'s `TeamCapacityReader` port (Mechanism C), wired
 // to the real migrated `org` Service.
 const teamCapacity = {
-	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeamMembers(db, { teamId }),
+	getByTeamId: (db: HyperIdleDb, teamId: string) => getTeam(db, { id: teamId }),
 	setActiveBets: (db: HyperIdleDb, teamId: string, activeBets: number) =>
 		updateTeam(db, teamId, { activeBets }),
 };
@@ -125,15 +111,12 @@ const teamCapacity = {
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 1, formedAt: now });
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Builder Bot",
 		role: "builder",
 		status: "idle",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: now,
 	});
 	await db.insert(bets).values({
@@ -235,15 +218,12 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 		// must label the real target — `completed` — not the dead `review` state.
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "prod-1", name: "Test", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 1, formedAt: now });
 		await db.insert(users).values({
 			id: "agent-1",
 			name: "Builder Bot",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: now,
 		});
 		// Seed the system propagation agent so the ship-confirmation thread can insert.
@@ -271,7 +251,9 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 			updatedAt: now,
 		});
 
+		const appliedEvents: PropagationAppliedEvent[] = [];
 		const unsub = registerPolicy(db, eventBus, lifecyclePropagationDeps);
+		eventBus.on("propagation_applied", (e) => appliedEvents.push(e));
 		try {
 			eventBus.emit({
 				type: "task_state_changed",
@@ -282,20 +264,15 @@ describe("AF12 AC6 — task->bet propagation label honesty (fix '-> review' bug)
 				timestamp: Date.now(),
 			});
 
-			await vi.waitFor(async () => {
-				const rows = await db
-					.select()
-					.from(propagationLog)
-					.where(
-						and(
-							eq(propagationLog.sourceLevel, "task"),
-							eq(propagationLog.targetLevel, "bet"),
-							eq(propagationLog.status, "applied"),
-						),
-					);
-				expect(rows.length).toBeGreaterThanOrEqual(1);
-				expect(rows[0]?.targetTransition).toBe("active -> completed");
-				expect(rows[0]?.targetTransition).not.toContain("review");
+			// AC6: task->bet hop emits propagation_applied with targetTransition 'active -> completed'
+			// (not '-> review' — the dead state that was removed in U1).
+			await vi.waitFor(() => {
+				const taskBetHop = appliedEvents.find(
+					(e) => e.sourceLevel === "task" && e.targetLevel === "bet",
+				);
+				expect(taskBetHop).toBeDefined();
+				expect(taskBetHop!.targetTransition).toBe("active -> completed");
+				expect(taskBetHop!.targetTransition).not.toContain("review");
 			});
 		} finally {
 			unsub();

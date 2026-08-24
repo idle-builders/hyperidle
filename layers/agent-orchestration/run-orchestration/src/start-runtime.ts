@@ -2,6 +2,7 @@ import { type HyperIdleDb, sessions } from "@hyperidle/db";
 import type { ModelTier } from "@hyperidle/domain-model";
 import { EventBus } from "@hyperidle/event-bus";
 import { and, eq } from "drizzle-orm";
+import { readAgentRunConfig } from "./agent-run-config-store.js";
 import { createContextAssembler } from "./context.js";
 import type { RuntimeDeps, RuntimeHandle, RuntimePorts } from "./contracts.js";
 import { createProvisioner } from "./provisioner.js";
@@ -137,10 +138,7 @@ async function drainAgentSessionRequests(deps: RuntimeDeps): Promise<number> {
 			// `modelId` is null, exactly as the absent-bake case did. Net effect
 			// for a founder: an override edited between emit and drain applies
 			// to that turn instead of being one turn stale.
-			const runConfig = await deps.composition.provisioner.agentRunConfig.readAgentRunConfig(
-				deps.db,
-				request.agentId,
-			);
+			const runConfig = await readAgentRunConfig(deps.db, request.agentId);
 			// `resolvedModel` is consumed ONLY by the builtin (api-gateway) adapter,
 			// which makes direct provider API calls. A subscription-CLI (claude-code,
 			// cursor-agent) or external harness authenticates itself and needs no
@@ -297,7 +295,7 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	const eventBus = resolveEventBus(deps);
 	await recoverRunningRequests(deps.db, eventBus, deps.ports);
 	await deps.ports.sessionLifecycle.recoverRequestedTerminations(deps.db, eventBus);
-	await deps.ports.sessionRequests.reapExpired(deps.durableQueue);
+	await deps.ports.sessionRequests.reapExpired(deps.db);
 	// @lore The service lane reuses a fixture DB after RuntimeHandle.dispose().
 	// Stop timer/event triggers synchronously, then let the already-async dispose
 	// path join the observed wake before that DB can be checked in and truncated.
@@ -329,7 +327,7 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	const unsubscribe = deps.eventBus?.on("*", () => void wake());
 	const timer = setInterval(() => void wake(), 1_000);
 	const reapTimer = setInterval(
-		() => void deps.ports.sessionRequests.reapExpired(deps.durableQueue),
+		() => void deps.ports.sessionRequests.reapExpired(deps.db),
 		AGENT_LAYER_REAP_INTERVAL_MS,
 	);
 	reapTimer.unref();

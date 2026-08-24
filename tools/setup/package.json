@@ -11,13 +11,12 @@
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/factory-defaults": "*",
-		"@hyperidle/host-process": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {
 		"@electric-sql/pglite": "^0.5.4",
 		"@hyperidle/domain-model": "*",
+		"@hyperidle/org": "*",
 		"@types/node": "^24",
 		"vitest": "^4.1.9"
 	}

@@ -14,14 +14,14 @@
 
 // hearth-internal-padding
 
-import type { Status } from "@hyperidle/design-system";
-import { Button, Input, ItemList, Row, StatusChip } from "@hyperidle/design-system";
 import {
 	CREDENTIAL_CATALOG,
 	type CredentialName,
 	type CredentialState,
 } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
+import type { Status } from "../ds";
+import { Button, Input, ItemList, Row, StatusChip } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 
 // ---------------------------------------------------------------------------

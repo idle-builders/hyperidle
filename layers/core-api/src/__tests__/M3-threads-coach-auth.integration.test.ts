@@ -6,7 +6,7 @@
  * Tests seed a human user row to drive identity resolution.
  */
 
-import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -81,13 +81,6 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		await db
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
 		// Note: "test-founder-1" is already seeded by seedFounderUser above — no duplicate insert.
 
 		const res = await app.request("/api/threads", {
@@ -130,13 +123,6 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 		await db
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: now,
-		});
 
 		// C3: readInitialSenderId (line 79 in threads.ts) must use c.get("userId") not DEFAULT_FOUNDER_ID
 		// A review-type message triggers the readInitialSenderId code path.

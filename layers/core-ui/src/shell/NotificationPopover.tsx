@@ -31,14 +31,14 @@
  * defense-in-depth against future agent-authored content reaching this path.
  */
 
-import { Button, EmptyState, useDialogBehavior } from "@hyperidle/design-system";
 import type { NotificationTypeKey } from "@hyperidle/domain-model";
-import { shortLabelForType } from "@hyperidle/domain-model";
-import { relativeShort } from "@hyperidle/presentation-format";
 import { type JSX, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { Button, EmptyState, useDialogBehavior } from "../ds";
 import type { NotificationRow, UseNotificationsResult } from "../hooks/useNotifications.js";
 import { useNotifications } from "../hooks/useNotifications.js";
+import { relativeShort } from "../utils/time.js";
+import { shortLabelForType } from "./notification-display.js";
 
 // Re-export for consumers
 export type { NotificationRow };

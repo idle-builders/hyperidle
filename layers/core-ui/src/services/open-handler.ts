@@ -30,8 +30,8 @@
  * source-agnostic; betId resolution lives entirely at this page/handler seam.
  */
 
-import type { OpenHandler, OpenTarget } from "@hyperidle/conversation-parts";
 import type { HostKind } from "@hyperidle/domain-model";
+import type { OpenHandler, OpenTarget } from "../components/parts";
 import { resolveHostRoute } from "./host-route.js";
 import { type ProductObjectKind, presentationFor } from "./object-presentation.js";
 

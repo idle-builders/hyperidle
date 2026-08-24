@@ -44,13 +44,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	agentRunConfig,
 	applyMigrations,
 	createPgliteDb,
 	serverCredentials,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -102,41 +101,27 @@ const { db, close: closeDb } = await createPgliteDb(dataDir);
 
 // ---------------------------------------------------------------------------
 // 2. Seed team + user required for create_bet tool (S2 scenario).
-//    resolveDraftTeamId requires: user row with teamId → team_members row → teams row.
 //    The auth middleware (local mode) returns the first human user's id or "u-founder"
 //    — so we seed id="u-founder" to guarantee a stable, predictable userId.
 // ---------------------------------------------------------------------------
 const now = new Date().toISOString();
 const AH6_TEAM_ID = "ah6-e2e-team";
-const AH6_TEAM_MEMBERS_ID = "ah6-e2e-team-members";
 const AH6_USER_ID = "u-founder"; // must match auth middleware fallback
 
-// Seed team
+// Seed team (AU44 B1: team_members dissolved — capacity/formedAt now on teams)
 await db
 	.insert(teams)
 	.values({
 		id: AH6_TEAM_ID,
 		name: "AH6 Test Team",
 		phase: "build",
+		capacity: 1,
+		formedAt: now,
 		createdAt: now,
 	})
 	.onConflictDoNothing();
 
-// Seed team_members (the agent membership group)
-await db
-	.insert(teamMembers)
-	.values({
-		id: AH6_TEAM_MEMBERS_ID,
-		teamId: AH6_TEAM_ID,
-		capacity: 1,
-		formedAt: now,
-	})
-	.onConflictDoNothing();
-
-// Seed human founder user with teamId → team_members.id
-// @lore AH6: users.teamId references team_members.id (U1 schema lore).
-// resolveDraftTeamId does: users.teamId → teamMembers.id → teamMembers.teamId
-// which returns AH6_TEAM_ID (the teams.id that create_bet requires).
+// Seed human founder user — teamId references teams.id directly (AU44 B1: two-hop removed).
 await db
 	.insert(users)
 	.values({
@@ -145,15 +130,13 @@ await db
 		name: "AH6 Test Founder",
 		role: "founder",
 		status: "active",
-		teamId: AH6_TEAM_MEMBERS_ID, // → team_members.id (two-hop team resolution)
+		teamId: AH6_TEAM_ID,
 		maxConcurrentSessions: 1,
 		createdAt: now,
 	})
 	.onConflictDoNothing();
 
-process.stdout.write(
-	`[ah6-test-server] Seeded: team=${AH6_TEAM_ID}, teamMembers=${AH6_TEAM_MEMBERS_ID}, user=${AH6_USER_ID}\n`,
-);
+process.stdout.write(`[ah6-test-server] Seeded: team=${AH6_TEAM_ID}, user=${AH6_USER_ID}\n`);
 
 // ---------------------------------------------------------------------------
 // 3. RECORD MODE: Seed OpenRouter API key (encrypted) + assistant agent.

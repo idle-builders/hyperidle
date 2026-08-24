@@ -35,6 +35,7 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 				expect.arrayContaining([
 					// @lore P2: agents → users
 					// @lore U1: `products` → `teams`; old `teams` → `team_members`
+					// @lore AU44 B1: `team_members` dissolved back into `teams`
 					// @lore: `file_leases` was dropped in older migrations
 					"users",
 					"bets",
@@ -50,7 +51,6 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 					"server_credentials",
 					"sessions",
 					"tasks",
-					"team_members",
 					"teams",
 					"threads",
 				]),
@@ -64,7 +64,9 @@ describe("H4 AC3: PG migrations apply to a fresh pglite DB", () => {
 			// list above is `arrayContaining` and tolerates extras — see the longer
 			// note in migration.integration.test.ts.
 			expect(tableNames).not.toContain("user_skills");
-			expect(tableNames.length).toBeGreaterThanOrEqual(19);
+			// @lore AU44 B1: team_members dissolved — must not reappear.
+			expect(tableNames).not.toContain("team_members");
+			expect(tableNames.length).toBeGreaterThanOrEqual(18);
 		} finally {
 			await close();
 		}

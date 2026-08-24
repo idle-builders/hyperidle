@@ -19,9 +19,6 @@
 		},
 		{
 			"path": "../../../framework/event-bus"
-		},
-		{
-			"path": "../../../framework/host-process"
 		}
 	]
 }

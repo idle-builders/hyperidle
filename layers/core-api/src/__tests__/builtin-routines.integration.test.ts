@@ -8,11 +8,10 @@ import {
 	routineRuns,
 	routines,
 	sessions,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { BetStateChangedEvent, DomainEvent } from "@hyperidle/domain-model";
+import type { BetStateChangedEvent, DomainEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { registerBuiltinRoutineReactions } from "../services/routine-scheduler-bindings.js";
@@ -47,14 +46,6 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		.insert(teams)
 		.values({ id: TEST_TEAM_ID, name: "Acme", phase: "build", createdAt: NOW_ISO });
 
-	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: TEST_TEAM_ID,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW_ISO,
-	});
-
 	await db.insert(users).values({
 		id: "seed-agent-cos",
 		name: "System Agent",
@@ -77,7 +68,7 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "Acme Product Manager",
 		role: "product_manager",
 		status: "active",
-		teamId: "team-1",
+		teamId: TEST_TEAM_ID,
 		createdAt: NOW_ISO,
 	});
 }

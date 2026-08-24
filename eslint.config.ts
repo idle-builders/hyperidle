@@ -559,10 +559,10 @@ export default [
 				{
 					paths: [
 						{
-							name: "@hyperidle/factory-defaults",
+							name: "@hyperidle/domain-model",
 							importNames: ["defaultRoster"],
 							message:
-								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/factory-defaults/src/agent-scaffold.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster().",
+								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (layers/core-api/org/src/resolve-scaffold-specs.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster(). AU44: this rule named @hyperidle/factory-defaults until that package was dissolved; defaultRoster now lives in domain-model, which these surfaces already import, so the old spelling banned nothing.",
 						},
 					],
 				},
@@ -603,17 +603,14 @@ export default [
 	// share the same AST. The ban covers only what is architecturally distinguishable:
 	// toLocale* rendering on a Date receiver. See plans/AI3/architecture.md §"AC-2/AC-5 static gate (split)".
 	{
-		files: ["layers/core-ui/src/**/*.{ts,tsx}", "framework/design-system/src/**/*.{ts,tsx}"],
+		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
 		ignores: [
 			// The one module permitted to call toLocale* for formatting
-			"framework/presentation-format/src/format/time.ts",
+			"layers/core-ui/src/utils/time.ts",
 			// Stories and tests are exempt from the display-formatting gate
 			"layers/core-ui/src/**/*.stories.tsx",
 			"layers/core-ui/src/**/__tests__/**",
 			"layers/core-ui/src/**/*.test.{ts,tsx}",
-			"framework/design-system/src/**/*.stories.tsx",
-			"framework/design-system/src/**/__tests__/**",
-			"framework/design-system/src/**/*.test.{ts,tsx}",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -683,49 +680,6 @@ export default [
 		plugins: { design },
 		rules: {
 			"design/no-unknown-cast": "error",
-		},
-	},
-
-	// AJ6 AC8 — No import cycle: @hyperidle/design-system (src/**) must NEVER
-	// import @hyperidle/core-ui or any layers/core-ui/** path. A violation is an
-	// import cycle (core-ui → design-system → core-ui) that breaks the acyclic
-	// dependency direction the monorepo depends on. design-system/src/ never
-	// imports @hyperidle/core-ui.
-	//
-	// @lore AU28: the relative-path patterns must track the real on-disk layout.
-	// They were written as `../../web/**` when both packages sat under
-	// `packages/`; the step-2 role-folder move (`packages/web` → `layers/web`)
-	// silently stranded them — a restricted-import group that matches nothing
-	// reads as passing forever. Anchored on `layers/core-ui` now so the guard
-	// survives the next move by failing loudly rather than matching zero.
-	{
-		files: ["framework/design-system/src/**/*.{ts,tsx}"],
-		languageOptions: {
-			parser: tsParser,
-			parserOptions: {
-				ecmaFeatures: { jsx: true },
-			},
-		},
-		rules: {
-			"no-restricted-imports": [
-				"error",
-				{
-					paths: [
-						{
-							name: "@hyperidle/core-ui",
-							message:
-								"AJ6 AC8: design-system/src must not import @hyperidle/core-ui. An import here creates an import cycle: core-ui → design-system → core-ui.",
-						},
-					],
-					patterns: [
-						{
-							group: ["**/layers/core-ui/**", "../../../layers/core-ui/**", "**/core-ui/src/**"],
-							message:
-								"AJ6 AC8: design-system/src must not import core-ui source files. This creates an import cycle: core-ui → design-system → core-ui.",
-						},
-					],
-				},
-			],
 		},
 	},
 
@@ -828,12 +782,12 @@ export default [
 
 	// AM1 W1 — the source-agnostic Part renderer boundary (AC5).
 	// PartList.tsx + parts/** render ONLY the source-agnostic `Part`/`Embed`/
-	// `OpenTarget` vocabulary (@hyperidle/conversation-parts). They must NEVER import a
-	// SOURCE type — `Message`/`InlineRef`/`thread*` or any `harness` path — so a
-	// second adapter (AM3's session adapter) can feed the SAME renderer with zero
+	// `OpenTarget` Part vocabulary. They must NEVER import a SOURCE type —
+	// `Message`/`InlineRef`/`thread*` or any `harness` path — so a second
+	// adapter (AM3's session adapter) can feed the SAME renderer with zero
 	// change. A static "must not import X" property is a lint rule, not a test
-	// (CLAUDE.md). The adapter (`framework/conversation-parts/src/part.ts`) is the ONLY place
-	// permitted to import `Message`/`InlineRef`.
+	// (CLAUDE.md). The adapter (`layers/core-ui/src/components/parts/part.ts`)
+	// is the ONLY place permitted to import `Message`/`InlineRef`.
 	//
 	// @lore AM1: placed LAST so this block is authoritative for these paths —
 	// ESLint flat config REPLACES (does not merge) `no-restricted-imports` when a
@@ -843,6 +797,11 @@ export default [
 		files: [
 			"layers/core-ui/src/components/PartList.tsx",
 			"layers/core-ui/src/components/parts/**/*.{ts,tsx}",
+		],
+		ignores: [
+			// part.ts is the adapter that legitimately imports Message/EntityRef — not the renderer
+			"layers/core-ui/src/components/parts/part.ts",
+			"layers/core-ui/src/components/parts/index.ts",
 		],
 		languageOptions: {
 			parser: tsParser,
@@ -1038,6 +997,42 @@ export default [
 							group: ["**/governance-lint*"],
 							message:
 								"AU28: a rule may not reach back into the runner. Dependencies point rule -> lib only.",
+						},
+					],
+				},
+			],
+		},
+	},
+	// The browser bundle must never reach a Node builtin. `domain-model/http` carries
+	// `node:crypto`; it is kept off domain-model's barrel so Vite cannot follow it, but a
+	// direct import would re-break the app the same way — the page goes blank and every
+	// e2e test times out while check, lint and both unit lanes stay green. That cost 297
+	// e2e failures once. This rule is the guard the barrel comment alone was not.
+	{
+		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
+		ignores: [
+			"layers/core-ui/src/**/__tests__/**",
+			"layers/core-ui/src/**/*.test.{ts,tsx}",
+			"layers/core-ui/src/**/*.stories.tsx",
+			"layers/core-ui/src/**/__testing__/**",
+		],
+		languageOptions: { parser: tsParser },
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "@hyperidle/domain-model/http",
+							message:
+								"Server-only: this module imports node:crypto, which Vite externalizes and the browser cannot resolve. Importing it here makes the whole app fail to load.",
+						},
+					],
+					patterns: [
+						{
+							group: ["node:*"],
+							message:
+								"Node builtins do not exist in the browser. Use a browser-safe equivalent — block derivation uses @noble/hashes in place of node:crypto.",
 						},
 					],
 				},

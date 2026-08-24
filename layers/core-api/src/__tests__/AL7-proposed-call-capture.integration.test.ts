@@ -34,14 +34,14 @@ import {
 	proposedCalls,
 	tailoredGrants,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
+import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import type { BuildToolRegistryOptions, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
@@ -95,9 +95,6 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 	const artifactId = `art-cap-${crypto.randomUUID()}`;
 
 	await db.insert(teams).values({ id: teamId, name: "Cap Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: `tm-${teamId}`, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

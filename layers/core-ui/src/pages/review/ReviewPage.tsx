@@ -1,17 +1,16 @@
-import { ErrorState, PageHeader, PageScaffold } from "@hyperidle/design-system";
 import type {
 	AnchorRef,
-	BlockId,
 	HostKind,
 	Message,
 	PlainPayload,
 	VerdictDecision,
 } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
-import { relativeShort } from "@hyperidle/presentation-format";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import type { BlockId } from "../../block/types.js";
+import { ErrorState, PageHeader, PageScaffold } from "../../ds";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 import type { HostThreadIdentity } from "../../hooks/useHostThread.js";
 import { useHostThread } from "../../hooks/useHostThread.js";
@@ -21,6 +20,7 @@ import {
 	postVerdictHostMessage,
 	resolveOrCreateHostThread,
 } from "../../services/host-threads.js";
+import { relativeShort } from "../../utils/time.js";
 import { ReviewComposition } from "./ReviewComposition.js";
 import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
 

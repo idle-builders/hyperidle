@@ -1,75 +1,9 @@
-export class InvalidTransitionError extends Error {
-	constructor(
-		public readonly from: string,
-		public readonly to: string,
-	) {
-		super(`Invalid transition from '${from}' to '${to}'`);
-		this.name = "InvalidTransitionError";
-	}
-}
-
-export class CapacityExceededError extends Error {
-	constructor(
-		public readonly teamId: string,
-		public readonly capacity: number,
-	) {
-		super(`Team '${teamId}' is at capacity (${capacity})`);
-		this.name = "CapacityExceededError";
-	}
-}
-
-export class ConcurrencyLimitError extends Error {
-	constructor(
-		public readonly agentId: string,
-		public readonly limit: number,
-	) {
-		super(`Agent '${agentId}' concurrency limit reached (${limit})`);
-		this.name = "ConcurrencyLimitError";
-	}
-}
+import type { TaskState } from "./types.js";
 
 export class MissingCredentialError extends Error {
 	constructor(public readonly credential: string) {
 		super(`Missing credential: '${credential}'`);
 		this.name = "MissingCredentialError";
-	}
-}
-
-/**
- * @lore AU21 §12 — the emit→deactivate→drain race, RESOLVED (founder,
- * 2026-07-27): if the agent resolved at emit is deactivated by the time
- * orchestration goes to provision the session, that is a provisioning
- * failure like any other — reported via the pre-handoff
- * `agent_run_admission_failed` channel with `failureCode:
- * "TARGET_AGENT_NOT_RUNNABLE"`, no bespoke race-handling. Thrown by
- * `provisioner.ts`'s `admitSession` Phase 1 (the real point where a
- * deactivated agent currently sails through unchecked — traced, not
- * guessed — `getUserById` loads the row but never re-validated `status`
- * before this fix).
- */
-export class TargetAgentNotRunnableError extends Error {
-	constructor(public readonly agentId: string) {
-		super(`Agent '${agentId}' is not a runnable AI agent (deactivated after admission was baked)`);
-		this.name = "TargetAgentNotRunnableError";
-	}
-}
-
-/**
- * AH2: Thrown by session provisioning when no registered adapter matches the
- * agent's harnessType. The agent's harness must be registered in the adapter
- * pool before sessions can be created.
- *
- * @lore AH2: Distinct from MissingCredentialError — this is a configuration
- * problem (no adapter registered for that type), not a credential problem.
- * The message points to Settings → Agents so the user knows where to fix it.
- */
-export class NoEligibleHarnessError extends Error {
-	constructor(public readonly harnessType: string) {
-		super(
-			`No registered adapter matches harness type '${harnessType}'. ` +
-				`Check Settings → Agents or ensure the harness is registered at startup.`,
-		);
-		this.name = "NoEligibleHarnessError";
 	}
 }
 
@@ -95,8 +29,7 @@ export const ASSISTANT_TURN_TIMEOUT_MS = 120_000;
  * llm-client.ts` to `@hyperidle/domain-model` — `dispatch`'s error-mapping needs
  * `instanceof HttpError` across the agent-orchestration → agent-execution
  * seam, and Mechanism C forbids a Service importing another Service's class
- * (even for `instanceof`). Same treatment as `MissingCredentialError`/
- * `NoEligibleHarnessError`/`ProviderTimeoutError` above — a cross-cutting
+ * (even for `instanceof`). Same treatment as `MissingCredentialError` — a cross-cutting
  * error taxonomy lives in `shared`, not in the Service that happens to throw
  * it first.
  */
@@ -107,5 +40,61 @@ export class HttpError extends Error {
 	) {
 		super(message);
 		this.name = "HttpError";
+	}
+}
+
+/**
+ * Thrown when a state-machine transition is not permitted by the grammar.
+ *
+ * @lore AU44: moved to @hyperidle/domain-model so both the work service and
+ * the policy service share one class reference. Two classes with the same name
+ * are still two different classes — `instanceof` returns false across the
+ * boundary unless both sides use the same declaration. The error-handler's
+ * name-matching fallback (`err.name === "InvalidTransitionError"`) was luck of
+ * style; this makes it construction.
+ */
+export class InvalidTransitionError extends Error {
+	constructor(
+		public readonly from: string,
+		public readonly to: string,
+	) {
+		super(`Invalid transition from '${from}' to '${to}'`);
+		this.name = "InvalidTransitionError";
+	}
+}
+
+/**
+ * Thrown when a team's active-bet capacity is exceeded on activation.
+ *
+ * @lore AU44: co-located with InvalidTransitionError in @hyperidle/domain-model
+ * so the error-handler's instanceof check covers errors thrown by either service.
+ */
+export class CapacityExceededError extends Error {
+	constructor(
+		public readonly teamId: string,
+		public readonly capacity: number,
+	) {
+		super(`Team '${teamId}' is at capacity (${capacity})`);
+		this.name = "CapacityExceededError";
+	}
+}
+
+/**
+ * Extends InvalidTransitionError so `instanceof InvalidTransitionError` holds
+ * for both bet and task transition errors. The error-handler and any caller
+ * that catches InvalidTransitionError will naturally catch this too.
+ *
+ * @lore AU44: moved to @hyperidle/domain-model alongside InvalidTransitionError
+ * so the inheritance chain is unbroken across the work / policy service boundary.
+ */
+export class TaskInvalidTransitionError extends InvalidTransitionError {
+	constructor(
+		public readonly taskId: string,
+		public readonly fromState: TaskState,
+		public readonly toState: TaskState,
+	) {
+		super(fromState, toState);
+		this.message = `Invalid transition for task ${taskId}: ${fromState} -> ${toState}`;
+		this.name = "InvalidTransitionError";
 	}
 }

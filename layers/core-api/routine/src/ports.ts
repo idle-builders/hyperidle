@@ -7,9 +7,12 @@ import type {
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type { ModelGatewayConfig } from "@hyperidle/domain-model";
+import type {
+	BakedWorkIntentRequest,
+	ModelGatewayConfig,
+	SessionKnowledgeItemLike,
+} from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { BakedWorkIntentRequest, SessionKnowledgeItemLike } from "@hyperidle/work-intent-port";
 
 /**
  * AU21 §9 Increment 4 — the routine scheduler (relocated from
@@ -115,8 +118,8 @@ export interface RoutineSchedulerPorts {
 				readonly sourceId: string;
 				readonly requestedBy?: string;
 				readonly idempotencyKey: string;
-				/** See `BakedWorkIntentRequest`. Populated at emit time by `routine-service.ts`'s `resolveRoutineRunRequest` (AU21 Increment 4). */
-				readonly bakedRequest?: BakedWorkIntentRequest;
+				/** See `BakedWorkIntentRequest`. Required since AU44 — all routine_run intents bake at emit. */
+				readonly bakedRequest: BakedWorkIntentRequest;
 			},
 		): Promise<{ readonly id: string; readonly idempotencyKey: string }>;
 	};

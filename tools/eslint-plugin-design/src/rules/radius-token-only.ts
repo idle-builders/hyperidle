@@ -66,8 +66,8 @@ import {
 // chrome — path-keyed (not basename-keyed) so a same-named file elsewhere in
 // the repo is never accidentally exempt.
 const FORM_CONTROL_PATHS: ReadonlySet<string> = new Set([
-	"framework/design-system/src/Checkbox.tsx",
-	"framework/design-system/src/Toggle.tsx",
+	"layers/core-ui/src/ds/Checkbox.tsx",
+	"layers/core-ui/src/ds/Toggle.tsx",
 ]);
 
 function isFormControlFile(filename: string): boolean {

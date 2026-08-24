@@ -15,7 +15,6 @@ import {
 	messages,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -76,20 +75,13 @@ async function seedTaskRequest(
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: `${id}-team`, name: id, phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: `${id}-member`,
-		teamId: `${id}-team`,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(users).values({
 		id: `${id}-agent`,
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: `${id}-member`,
+		teamId: `${id}-team`,
 		createdAt: now,
 	});
 	await db.insert(bets).values({

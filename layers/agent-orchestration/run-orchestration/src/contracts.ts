@@ -4,20 +4,97 @@ import type {
 	ExplicitSessionStart,
 	HyperIdleDb,
 } from "@hyperidle/db";
-import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
+import type {
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	ModelTier,
+	ResolvedModel,
+	SessionOutcome,
+} from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { HarnessPort, HarnessRunOutput, RunContextBundle } from "@hyperidle/harness-protocol";
+import type { ConversationMessage, SessionMetrics } from "@hyperidle/harness-protocol";
+
+// ---------------------------------------------------------------------------
+// Harness port types (moved from @hyperidle/harness-protocol harness-port.ts)
+// ---------------------------------------------------------------------------
+
+/** Deps `HarnessPort`'s two methods need. `TDb` is the composition root's real DB type. */
+export interface HarnessPortDeps<TDb = unknown> {
+	readonly db: TDb;
+	readonly eventBus: EventBus;
+	readonly onHarnessStarted?: () => void;
+}
+
+/**
+ * Narrow mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionParams`
+ * — every field `run-orchestration` constructs when dispatching a run.
+ */
+export interface RunContextBundle {
+	readonly taskId: string | null;
+	readonly agentId: string;
+	readonly productId: string;
+	readonly sandboxBasePath: string;
+	readonly modelTier?: ModelTier;
+	readonly resolvedModel?: ResolvedModel;
+	readonly routineId?: string;
+	readonly requestContext?: {
+		readonly requestId: string;
+		readonly sourceKind: AgentSessionSourceKind;
+		readonly sourceId: string;
+		readonly sourceCorrelation: AgentSessionSourceCorrelation;
+		readonly triggerPromptOverride?: string;
+	};
+	/** Opaque pass-through — `session-lifecycle`-owned `RegistrySessionWorkflow`. Never inspected here. */
+	readonly sessionWorkflow?: unknown;
+	readonly contextBundle?: BakedContextBundle;
+	readonly agentConfig?: BakedAgentRunnableConfig;
+	readonly harnessDisabled?: readonly string[];
+	readonly callingThreadId?: string;
+	readonly transcript?: readonly ConversationMessage[];
+}
+
+/** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession`. */
+export interface AdmittedRun {
+	readonly sessionId: string;
+	readonly sessionContext: { readonly taskId: string | null };
+}
+
+/** Full mirror of `@hyperidle/session-lifecycle`'s `ProvisionSessionResult`. */
+export interface HarnessRunOutput {
+	readonly sessionId: string;
+	readonly outcome: SessionOutcome;
+	readonly taskId: string | null;
+	readonly returnVerdict?: "returned" | "not_returned";
+	readonly forceReturnCount: number;
+	readonly metrics?: SessionMetrics;
+}
+
+/** Application-injected port for "dispatch a run to some execution" (§7.4). */
+export interface HarnessPort<TDb = unknown> {
+	admitSession(
+		deps: HarnessPortDeps<TDb>,
+		bundle: RunContextBundle,
+		enforceResolvedModelGuard?: boolean,
+	): Promise<AdmittedRun>;
+	runSession(
+		deps: HarnessPortDeps<TDb>,
+		bundle: RunContextBundle,
+		admitted: AdmittedRun,
+		onHarnessStarted?: () => void,
+	): Promise<HarnessRunOutput>;
+}
 
 interface DurableQueueDeps {
 	readonly db: HyperIdleDb;
 	/**
 	 * @lore AU21 §6 Decision B4: mirrors the private `DurableQueueDeps.eventBus`
 	 * in `@hyperidle/session-requests` (Mechanism C — this Service declares its
-	 * own structural copy rather than importing that type directly). Optional
-	 * for the same back-compat reason: existing `durableQueue` overrides that
-	 * never wired one keep compiling.
+	 * own structural copy rather than importing that type directly). Required
+	 * since AU44 — an admission failure that emits nowhere is a silent black hole.
 	 */
-	readonly eventBus?: EventBus;
+	readonly eventBus: EventBus;
 }
 
 type RunOrchestrationTerminationReason = "user_done" | "user_crashed" | "handoff" | "shutdown";
@@ -147,7 +224,7 @@ export interface RuntimePorts {
 			options?: { now?: () => Date; leaseMs?: number; maxAttempts?: number },
 		): Promise<void>;
 		reapExpired(
-			deps: DurableQueueDeps,
+			db: HyperIdleDb,
 			options?: { now?: Date; retentionDays?: number; batchSize?: number },
 		): Promise<{ intents: number; explicitStarts: number }>;
 	};

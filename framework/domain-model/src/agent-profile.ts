@@ -17,77 +17,10 @@
  * not operational status (reviewer finding A2).
  */
 
-/**
- * Active session info, derived by the profile page from the runs it fetches
- * from `agent-orchestration` (AU26 J4). No longer served by core-api.
- */
-export interface AgentActiveSession {
-	readonly sessionId: string;
-	readonly taskId: string;
-	/**
-	 * The betId of the task associated with this session.
-	 * Required to construct a valid /work/bet/:betId/task/:taskId link.
-	 * @lore AB1 M1: betId added per reviewer finding — the bet route expects betId, not taskId.
-	 */
-	readonly betId: string;
-	readonly startedAt: string;
-}
-
-/**
- * One entry in the agent's recent run history, as the profile page assembles it
- * (AU26 J4: run rows from `agent-orchestration`, task titles from core-api).
- */
-export interface AgentSessionSummary {
-	readonly sessionId: string;
-	readonly taskId: string;
-	readonly taskTitle: string;
-	readonly outcome: string | null;
-	readonly startedAt: string;
-	readonly endedAt: string | null;
-}
-
-/**
- * Aggregate performance statistics across all runs for this agent, derived by
- * the profile page (AU26 J4).
- */
-export interface AgentPerformanceStats {
-	readonly totalSessions: number;
-	readonly successCount: number;
-	/** 0–1 ratio. 0 when no sessions exist. */
-	readonly successRate: number;
-}
-
-/**
- * Health signals computed on-demand from the agent's session history
- * and pool availability.
- *
- * @lore AB1: Computed per-request, not cached. Health is a live view.
- * @lore AB1 F3/A3: idleDurationMs added per reviewer finding.
- */
-export interface AgentHealthSignals {
-	/** Fraction of sessions in the last 7 days that crashed. 0 when no sessions. */
-	readonly failureRate7d: number;
-	/** True when the most recent completed session outcome is "crashed". */
-	readonly lastSessionCrashed: boolean;
-	/**
-	 * True when the agent has no harnessType preference (any adapter works)
-	 * OR when an adapter matching the agent's harnessType is registered in the pool.
-	 * False (degraded) when the required harness type is not available.
-	 */
-	readonly harnessAvailable: boolean;
-	/**
-	 * Milliseconds since the most recent session ended.
-	 * null when no sessions exist or the most recent session is still active.
-	 */
-	readonly idleDurationMs: number | null;
-	/**
-	 * True when any of the following hold:
-	 *   - failureRate7d > 0.5
-	 *   - lastSessionCrashed = true
-	 *   - harnessAvailable = false
-	 */
-	readonly degraded: boolean;
-}
+// @lore AU44-b8: AgentActiveSession, AgentSessionSummary, AgentPerformanceStats,
+// and AgentHealthSignals moved to layers/core-ui/src/hooks/agent-health.ts.
+// The browser is the sole consumer (AU26 J4). computeHealthSignals/deriveHealthLevel/
+// deriveHealthDetail moved with them.
 
 /**
  * Harness capability flags derived from the adapter's getCapabilities() call.

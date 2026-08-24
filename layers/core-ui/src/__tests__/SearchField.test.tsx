@@ -1,7 +1,7 @@
-import { SearchField } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { SearchField } from "../ds";
 
 describe("SearchField", () => {
 	it("renders an input with placeholder", () => {

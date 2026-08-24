@@ -4,7 +4,6 @@ import {
 	items,
 	routines,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -26,14 +25,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: new Date().toISOString(),
 	});
 
-	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: new Date().toISOString(),
-	});
-
 	await db.insert(users).values([
 		{
 			id: "agent-1",
@@ -44,7 +35,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			name: "Test Agent",
 			role: "builder",
 			status: "active",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: new Date().toISOString(),
 		},
 		// L1a: synthetic sender for verdict-typed messages emitted by
@@ -327,9 +318,6 @@ describe("E2E API Integration (I5)", () => {
 			await db
 				.insert(teams)
 				.values({ id: "prod-1", name: "E2E Product", phase: "build", createdAt: now });
-			await db
-				.insert(teamMembers)
-				.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 0, formedAt: now });
 			await db.insert(bets).values({
 				id: "bet-1",
 				teamId: "prod-1",
@@ -411,7 +399,7 @@ describe("E2E API Integration (I5)", () => {
 	// -------------------------------------------------------
 	// @lore O2: Knowledge routes rewritten. Layer-based URL prefix removed.
 	// New URL shape: POST /api/knowledge (create), GET /api/knowledge (list),
-	// GET /api/knowledge/:id (get), GET /api/knowledge/search?q=... (search).
+	// GET /api/knowledge/:id (get). Search: GET /api/search?scope=knowledge&q=... (AU44 fold).
 	describe("Knowledge", () => {
 		test("GET /api/knowledge returns items list", async ({ db, app }) => {
 			await seedBase(db);
@@ -465,7 +453,8 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.title).toBe("Get-by-id test");
 		});
 
-		test("GET /api/knowledge/search?q=test returns search results", async ({ db, app }) => {
+		// @lore AU44 batch 4: GET /api/knowledge/search folded into GET /api/search?scope=knowledge
+		test("GET /api/search?scope=knowledge&q=test returns search results", async ({ db, app }) => {
 			await seedBase(db);
 			// First create a knowledge item so search has something to find
 			await app.request("/api/knowledge", {
@@ -480,7 +469,9 @@ describe("E2E API Integration (I5)", () => {
 				}),
 			});
 
-			const res = await app.request("/api/knowledge/search?q=Searchable", { headers: auth() });
+			const res = await app.request("/api/search?q=Searchable&scope=knowledge", {
+				headers: auth(),
+			});
 			expect(res.status).toBe(200);
 			const body = (await res.json()) as { results: Array<{ title: string }> };
 			expect(Array.isArray(body.results)).toBe(true);
@@ -488,9 +479,9 @@ describe("E2E API Integration (I5)", () => {
 			expect(body.results.some((r) => r.title === "Searchable decision")).toBe(true);
 		});
 
-		test("GET /api/knowledge/search requires query param q", async ({ db, app }) => {
+		test("GET /api/search?scope=knowledge requires query param q", async ({ db, app }) => {
 			await seedBase(db);
-			const res = await app.request("/api/knowledge/search", { headers: auth() });
+			const res = await app.request("/api/search?scope=knowledge", { headers: auth() });
 			expect(res.status).toBe(400);
 			const body = (await res.json()) as { code: string };
 			expect(body.code).toBe("VALIDATION_ERROR");
@@ -587,31 +578,18 @@ describe("E2E API Integration (I5)", () => {
 		// GET /api/notifications root (door #129) deleted. Test removed with the route.
 
 		test("GET /api/notifications/config returns notification config", async ({ db, app }) => {
+			// @lore AU44 batch 4: config is now SMTP-only — primaryChannel and other
+			// channel-union fields removed. SafeNotificationConfig has { enabled, smtp }.
 			await seedBase(db);
 			const res = await app.request("/api/notifications/config", { headers: auth() });
 			expect(res.status).toBe(200);
-			const body = (await res.json()) as { enabled: boolean; primaryChannel: string };
+			const body = (await res.json()) as { enabled: boolean; smtp: { host: string | null } };
 			expect(typeof body.enabled).toBe("boolean");
-			expect(typeof body.primaryChannel).toBe("string");
+			expect(typeof body.smtp).toBe("object");
 		});
 
 		// GET /api/notifications/queue (door #133) deleted. Tests removed with the route.
-
-		test("POST /api/notifications/test sends a test notification via console adapter", async ({
-			db,
-			app,
-		}) => {
-			await seedBase(db);
-			const res = await app.request("/api/notifications/test", {
-				method: "POST",
-				headers: auth(),
-				body: JSON.stringify({}),
-			});
-			expect(res.status).toBe(200);
-			const body = (await res.json()) as { ok: boolean; channel: string };
-			expect(body.ok).toBe(true);
-			expect(body.channel).toBe("console");
-		});
+		// POST /api/notifications/test deleted — founder decision: if SMTP is broken you notice. Tests removed with the route.
 	});
 
 	// -------------------------------------------------------

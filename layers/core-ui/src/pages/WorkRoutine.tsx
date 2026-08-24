@@ -15,17 +15,10 @@
  * WorkRoutineLoaded, BudgetSection, RunRow removed — all logic now in RoutineDetailPane.
  */
 
-import {
-	Breadcrumb,
-	EmptyState,
-	ErrorState,
-	PageHeader,
-	PageScaffold,
-	SkeletonCard,
-} from "@hyperidle/design-system";
 import type { RoutineDetail } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { Link as RRLink, useNavigate, useParams } from "react-router-dom";
+import { Breadcrumb, EmptyState, ErrorState, PageHeader, PageScaffold, SkeletonCard } from "../ds";
 import { useRoutine } from "../hooks/useRoutine.js";
 import { useViewportBreakpoint } from "../hooks/useViewportBreakpoint.js";
 import { NavHistoryCluster } from "../shell/NavHistoryCluster.js";

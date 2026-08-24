@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
+import type { BakedWorkIntentRequest } from "@hyperidle/domain-model";
 import {
 	canTransitionTaskState,
 	TASK_STATE_TRANSITIONS,
-	TaskInvalidTransitionError,
 	type TaskState,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { BakedWorkIntentRequest } from "@hyperidle/work-intent-port";
 import { eq } from "drizzle-orm";
+import { TaskInvalidTransitionError } from "./errors.js";
 import type { AgentWorkIntentRecorder } from "./ports.js";
 import type { TaskRunResolverDeps } from "./task-run-resolver.js";
 import { resolveTaskRunRequest } from "./task-run-resolver.js";
@@ -140,7 +140,7 @@ export async function transitionTask(
 				// in the SAME transaction, so this read sees it.
 				const bakedRequest = await resolveTaskRunRequest(
 					tx as HyperIdleDb,
-					attemptId,
+					{ kind: "task_run", attemptId },
 					deps.taskRunResolver,
 				);
 				// AU31 §3.1 site 6: the bake reads the dispatch-attempt row just

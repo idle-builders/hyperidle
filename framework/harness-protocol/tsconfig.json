@@ -15,9 +15,6 @@
 		},
 		{
 			"path": "../../framework/harness-capability"
-		},
-		{
-			"path": "../../framework/work-intent-port"
 		}
 	]
 }

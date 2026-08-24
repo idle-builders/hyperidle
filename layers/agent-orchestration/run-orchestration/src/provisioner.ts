@@ -3,20 +3,20 @@ import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import type {
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	SessionOutcome,
+} from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
-	ConcurrencyLimitError,
 	MissingCredentialError,
 	MODEL_TIERS,
 	type ModelTier,
-	NoEligibleHarnessError,
 	type ResolvedModel,
-	type SessionOutcome,
-	TargetAgentNotRunnableError,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { Filesystem } from "@hyperidle/filesystem-contract";
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import {
 	type ConversationMessage,
@@ -30,8 +30,8 @@ import {
 	type SessionResult,
 	type SessionWorkflow,
 } from "@hyperidle/harness-protocol";
-import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/work-intent-port";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
+import { readAgentRunConfig } from "./agent-run-config-store.js";
 import {
 	applyProvisioningPlan,
 	buildProvisioningPlan,
@@ -39,10 +39,18 @@ import {
 } from "./connection-provisioning.js";
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
+	ConcurrencyLimitError,
+	NoEligibleHarnessError,
+	TargetAgentNotRunnableError,
+} from "./errors.js";
+import {
 	type FilesystemMounterPort,
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
+// Filesystem: local to this package — sibling service boundary (Mechanism C).
+// @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
+import type { Filesystem } from "./mounter.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -466,39 +474,6 @@ interface SessionLifecyclePorts {
 	readonly harnessRuntime: SessionLifecycleHarnessRuntime;
 	readonly toolProvider: SessionLifecycleToolProvider;
 	readonly contextAssembly: SessionLifecycleContextAssembly;
-	/**
-	 * AU26 G1 (architecture §D-L) — the target agent's run config, read LIVE at
-	 * drain from `agent_run_config`.
-	 *
-	 * @lore AU26 G1: `admitSession` used to take all six of these fields off
-	 * `params.agentConfig`, the emit-time bake AU21 Increment 12 introduced.
-	 * That bake existed because the columns lived on `users` — CORE state, which
-	 * orchestration may not read (the founder's "orchestration is a blind
-	 * executor" ruling). AU26 moved them into `agent_run_config`, a table
-	 * agent-orchestration OWNS, so reading them here crosses no boundary and
-	 * needs no snapshot. `params.agentConfig` still carries `kind`/`status`/
-	 * `role`/`teamId`, which are genuinely core's and stay baked.
-	 *
-	 * Wired through this ports bag rather than a direct
-	 * `@hyperidle/agent-run-config` import because Mechanism C forbids a Service
-	 * package depending on another Service (`composition-boundary-guard`).
-	 *
-	 * Returns the effective config; an agent with no row resolves the all-null
-	 * default (`maxConcurrentSessions` 1), never `undefined`.
-	 */
-	readonly agentRunConfig: {
-		readAgentRunConfig(
-			exec: HyperIdleDb,
-			agentUserId: string,
-		): Promise<{
-			readonly systemPrompt: string | null;
-			readonly harnessType: string | null;
-			readonly modelTierPreference: string | null;
-			readonly modelId: string | null;
-			readonly modelProvider: string | null;
-			readonly maxConcurrentSessions: number;
-		}>;
-	};
 }
 
 /**
@@ -916,7 +891,7 @@ async function admitSession(
 	// `agent_run_config` — orchestration's OWN table — instead of coming off the
 	// emit-time bake. An agent with no row resolves the all-null default, which
 	// is exactly what an all-null `users` row resolved before the move.
-	const runConfig = await ports.agentRunConfig.readAgentRunConfig(db, params.agentId);
+	const runConfig = await readAgentRunConfig(db, params.agentId);
 
 	// X3: system prompt from the agent's run config. No file read required.
 	const systemPromptText = runConfig.systemPrompt ?? "";
@@ -1486,7 +1461,6 @@ async function runSession(
 	const sessionStartConfig = {
 		sessionId,
 		sandboxPath,
-		systemPromptPath: "", // @deprecated X3
 		assembledPrompt,
 		modelTier,
 		tools: allowedToolNames,

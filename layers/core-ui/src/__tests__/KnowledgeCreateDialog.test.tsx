@@ -15,8 +15,8 @@ import { describe, expect, it, vi } from "vitest";
 import { KnowledgeCreateDialog } from "../pages/knowledge/KnowledgeCreateDialog";
 
 // Mock BodyEditor
-vi.mock("@hyperidle/design-system", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/design-system")>();
+vi.mock("../ds", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../ds")>();
 	return {
 		...original,
 		BodyEditor: ({

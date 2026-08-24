@@ -19,9 +19,6 @@ import type {
 	WorkerRegisterMessage,
 } from "@hyperidle/harness-protocol";
 
-// Re-export so tests can import WorkerRegisterMessage from this module
-export type { WorkerRegisterMessage };
-
 /**
  * Inbound messages from a remote worker over the WS transport. All carry a
  * `sessionId` to route to the originating session.

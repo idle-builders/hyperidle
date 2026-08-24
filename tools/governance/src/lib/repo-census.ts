@@ -143,7 +143,7 @@ const NAME_DECLARED_SUFFIXES: readonly {
 		clause: "spec-suffix",
 		suffixes: [".spec.ts", ".spec.tsx"],
 		description: "a `.spec.ts(x)` file is a Playwright end-to-end spec",
-		minFiles: 78,
+		minFiles: 84,
 	},
 ];
 
@@ -221,7 +221,7 @@ export const CLASSIFICATION_PATTERNS: readonly ClassificationPattern[] = [
 		clause: "dunder-segment",
 		kind: "development",
 		description: "any path segment starting with `__` marks the file development",
-		minFiles: 137,
+		minFiles: 54,
 		floorKind: "magnitude",
 		matches: hasDunderSegment,
 	},

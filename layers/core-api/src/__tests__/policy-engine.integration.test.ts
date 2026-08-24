@@ -2,21 +2,12 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
-import {
-	type HyperIdleDb,
-	items,
-	messages,
-	propagationLog,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
-import type { NotificationEvent } from "@hyperidle/domain-model";
+import { type HyperIdleDb, items, messages, teams, threads, users } from "@hyperidle/db";
+import type { NotificationEvent } from "@hyperidle/event-bus";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -46,7 +37,7 @@ const policyEngineDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
@@ -59,7 +50,6 @@ const policyEngineDeps: PolicyDeps = {
 		// lifecycle stub (never called in engine tests):
 		getFirstUserByKind: () => Promise.resolve(undefined),
 	},
-	notifications: { insert: () => Promise.resolve() },
 };
 
 // L1a: legacy `responses` table dropped (plan §5.2). Verdicts now project as
@@ -95,7 +85,14 @@ describe("Policy Engine (E7)", () => {
 	let unsubscribe: (() => void) | undefined;
 	const now = new Date().toISOString();
 
-	test("persists an evaluation failure", async ({ db, eventBus }) => {
+	test("evaluation failure is swallowed silently — no unhandled rejection", async ({
+		db,
+		eventBus,
+	}) => {
+		// @lore AU44 batch6: policy engine failures are NOT lifecycle-propagation
+		// hops — propagation_failed is for session/task/bet/team levels. Errors
+		// are swallowed; the handler must never throw/reject from a fire-and-forget
+		// subscription path. The test proves it does not rethrow.
 		const failingDeps: PolicyDeps = {
 			...policyEngineDeps,
 			work: {
@@ -104,6 +101,12 @@ describe("Policy Engine (E7)", () => {
 			},
 		};
 		unsubscribe = registerPolicy(db, eventBus, failingDeps);
+		// Capture any unhandled rejections on this promise chain.
+		const unhandled: Error[] = [];
+		const onUnhandled = (e: PromiseRejectionEvent) => unhandled.push(e.reason as Error);
+		// biome-ignore lint/suspicious/noExplicitAny: test env handler
+		(globalThis as any).addEventListener?.("unhandledrejection", onUnhandled);
+
 		eventBus.emit({
 			type: "item_created",
 			streamId: "item-failure",
@@ -112,22 +115,18 @@ describe("Policy Engine (E7)", () => {
 			kind: "review",
 			timestamp: Date.now(),
 		});
-		await vi.waitFor(async () => {
-			const [row] = await db
-				.select()
-				.from(propagationLog)
-				.where(eq(propagationLog.sourceId, "item-failure"));
-			expect(row).toMatchObject({ status: "failed", failureReason: "item read unavailable" });
-		});
+
+		// Wait a tick, then assert no unhandled rejection propagated.
+		await new Promise((r) => setTimeout(r, 80));
+		// biome-ignore lint/suspicious/noExplicitAny: test env handler
+		(globalThis as any).removeEventListener?.("unhandledrejection", onUnhandled);
+		expect(unhandled).toHaveLength(0);
 	});
 
 	async function seedBase(db: HyperIdleDb): Promise<void> {
 		await db
 			.insert(teams)
 			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: now });
 		await db.insert(users).values([
 			{
 				id: "agent-1",
@@ -135,7 +134,7 @@ describe("Policy Engine (E7)", () => {
 				name: "Builder",
 				role: "builder",
 				status: "idle",
-				teamId: "team-1",
+				teamId: "prod-1",
 				createdAt: now,
 			},
 			{

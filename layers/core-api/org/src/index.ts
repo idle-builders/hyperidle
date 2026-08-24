@@ -2,31 +2,32 @@
  * Barrel for @hyperidle/org (core-api Layer, SQL-owning Service).
  *
  * Typed functions only. This barrel MUST NOT re-export the raw
- * `teams`/`teamMembers`/`orgEdges` pgTable objects — that would let a consumer
+ * `teams`/`orgEdges` pgTable objects — that would let a consumer
  * obtain a table transitively and defeat Table ACL (Mechanism A). Consumers
  * get typed functions; the tables stay private to this Service.
  *
- * @lore AU19 Increment 1c: original cut-over — `org-edges.ts`/`org-routing.ts`/
- * `team-lookup.ts`/`team-default-harness.ts`/`scaffold-agents.ts` moved here
- * from `packages/server/src/services/` unchanged (behavior-preserving move).
+ * @lore AU44 B1: `team_members` dissolved into `teams`. Removed exports:
+ * `getTeamMembers`, `listTeamMembers`, `ActiveTeamMembersWithTeamName`,
+ * `OrgAgentRunConfigWriter` (folded into `OrgUserDirectory`),
+ * `resolveTeamAgentHarness` (inlined into `persistScaffoldedAgents`),
+ * `team-default-harness.ts` (deleted). `AgentScaffoldSpec` declared here;
+ * the duplicate in `framework/factory-defaults` is deleted (AU44 AU20-fd).
+ * `CreateTeamInput` simplified (no teamMembersId/capacity/activeBets/formedAt).
  *
- * @lore AU20 Am7: collapsed 36 → 20 exports. Per-call-site accessors replaced
- * by parameterized interfaces (getTeam/listTeams, getTeamMembers/listTeamMembers,
- * updateTeam, createTeam+deleteTeam atomic 1:1 ops, listOrgEdges
- * with filter). `resolveTeamAgentHarness` folded into `persistScaffoldedAgents`.
- * @lore AU21 Increment 14a: `applyTeamCost` deleted along with the rest of
- * the cost feature — no replacement.
- * `PrimaryHarnessConfig` re-export dropped (callers import from @hyperidle/domain-model).
- * `CreateTeamMembersGroupInput` dropped (merged into `CreateTeamInput`).
- * `deleteOrgEdgeById` renamed to `deleteOrgEdge`. `getOrgEdgeById` folded into
- * `listOrgEdges(filter)`.
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved into this package.
+ * `resolveAgentScaffoldSpecs` + `readSystemPromptTemplateForRole` land here so
+ * core-api routes import from `@hyperidle/org` and the scaffold-request seam
+ * can resolve internally (no framework→layer import needed).
  *
- * @lore AU20 R-org: `ApiError` removed from this barrel (was exported but no
- * consumer outside @hyperidle/org imported it — confirmed by census audit).
- * The class is now private to team-lookup.ts where it is defined and used.
+ * @lore AU19 Increment 1c: original cut-over — files moved here from
+ * `packages/server/src/services/` unchanged (behavior-preserving move).
+ *
+ * @lore AU20 Am7: collapsed 36 → 20 exports, then AU44 B1 further to ~12.
+ * @lore AU21 Increment 14a: `applyTeamCost` deleted.
+ * @lore AU20 R-org: `ApiError` removed (internal to team-lookup.ts).
  */
 
-// -- org edges (P2 — org chart edge CRUD) --
+// -- org edges (P2 — org chart edge CRUD, survivor from batch 0) --
 export type { UpsertOrgEdgeInput } from "./org-edges.js";
 export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 
@@ -34,19 +35,21 @@ export { deleteOrgEdge, listOrgEdges, upsertOrgEdge } from "./org-edges.js";
 export { resolveReviewRecipients } from "./org-routing.js";
 
 // -- ports (Mechanism C — DI-injected outbound edges) --
-export type { OrgAgentRunConfigWriter, OrgUserDirectory } from "./ports.js";
-
+export type { OrgUserDirectory } from "./ports.js";
+// -- scaffold spec resolution (AU44 AU20-fd — moved from framework/factory-defaults) --
+export { resolveAgentScaffoldSpecs } from "./resolve-scaffold-specs.js";
 // -- scaffold agents (AK6 — single writer of agent user rows) --
 export type { AgentScaffoldSpec, ScaffoldResult } from "./scaffold-agents.js";
 export { persistScaffoldedAgents } from "./scaffold-agents.js";
 
-// -- team lookup (L13 — 1:1 Team=TeamMembers invariant, AU20 Am7 collapse) --
-export type { ActiveTeamMembersWithTeamName, CreateTeamInput } from "./team-lookup.js";
+// -- system prompt templates (AU44 AU20-fd — moved from framework/factory-defaults) --
+export { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
+
+// -- team lookup (AU20 Am7 / AU44 B1 — team_members dissolved) --
+export type { CreateTeamInput } from "./team-lookup.js";
 export {
 	createTeam,
 	getTeam,
-	getTeamMembers,
-	listTeamMembers,
 	listTeams,
 	updateTeam,
 } from "./team-lookup.js";

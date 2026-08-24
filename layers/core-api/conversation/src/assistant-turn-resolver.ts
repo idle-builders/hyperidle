@@ -26,22 +26,19 @@
  */
 
 import type { HyperIdleDb, User } from "@hyperidle/db";
-import type { BakedAgentRunnableConfig } from "@hyperidle/work-intent-port";
-import { bakeAgentRunnableConfig } from "@hyperidle/work-intent-port";
+import type { BakedAgentRunnableConfig } from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig } from "@hyperidle/domain-model";
 import { findMessage, listMessages } from "./conversation-store.js";
 
 /** Injected dependency — see the Mechanism C `@lore` above. */
 export interface AssistantTurnResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — optional: `@hyperidle/settings`'s
-	 * `readServerConfig`, injected (Mechanism C — `@hyperidle/conversation`
-	 * cannot import `@hyperidle/settings` directly) for the `harnessDisabled`
-	 * bake. Absent at a call site not yet wired — the resolver bakes no
-	 * `harnessDisabled` (matches `admitSession`'s "absent = nothing disabled"
-	 * degrade).
+	 * `@hyperidle/settings`'s `readServerConfig`, injected (Mechanism C —
+	 * `@hyperidle/conversation` cannot import `@hyperidle/settings` directly)
+	 * for the `harnessDisabled` bake.
 	 */
-	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+	readServerConfig(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
 }
 
 /** One raw transcript row. */
@@ -95,12 +92,8 @@ export interface BakedAssistantTurnRequest {
 	 * -validated `agent: User` row.
 	 */
 	readonly agentConfig: BakedAgentRunnableConfig;
-	/**
-	 * AU21 §9 Increment 12 (Decision H3), Wave E — the server's
-	 * disabled-harness-types list. Present only when `deps.readServerConfig`
-	 * was supplied.
-	 */
-	readonly harnessDisabled?: readonly string[];
+	/** The server's disabled-harness-types list. */
+	readonly harnessDisabled: readonly string[];
 }
 
 function resolveAssistantAgentIdForSender(senderId: string): string {
@@ -109,7 +102,7 @@ function resolveAssistantAgentIdForSender(senderId: string): string {
 
 /**
  * Resolve + validate an `assistant_turn` run at emit time: load the message,
- * reject if unavailable (missing/deleted/redacted), resolve the target
+ * reject if unavailable (missing), resolve the target
  * `ast-<senderId>` assistant agent, and validate its runnability (never the
  * human sender) via the shared core-api invariant.
  */
@@ -119,7 +112,7 @@ export async function resolveAssistantTurnRequest(
 	deps: AssistantTurnResolverDeps,
 ): Promise<BakedAssistantTurnRequest> {
 	const message = await findMessage(db, { id: messageId });
-	if (!message || message.deletedAt || message.redactedAt) {
+	if (!message) {
 		throw new Error("Assistant source message is unavailable");
 	}
 	const targetAgentId = resolveAssistantAgentIdForSender(message.senderId);
@@ -134,9 +127,7 @@ export async function resolveAssistantTurnRequest(
 		payload: row.payload,
 		type: row.type,
 	}));
-	const harnessDisabled = deps.readServerConfig
-		? (await deps.readServerConfig(db)).harnessDisabled
-		: undefined;
+	const { harnessDisabled } = await deps.readServerConfig(db);
 	return {
 		defaultAgentId: targetAgentId,
 		sourceKind: "assistant",
@@ -152,6 +143,6 @@ export async function resolveAssistantTurnRequest(
 		transcript,
 		callingThreadId: message.threadId,
 		agentConfig: bakeAgentRunnableConfig(agent),
-		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
+		harnessDisabled,
 	};
 }

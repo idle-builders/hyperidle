@@ -80,6 +80,7 @@ import {
 	type ProposedCallOutcomeResult,
 	type ProvisionTeamRoutinesRequest,
 	type RoutineView,
+	type ScaffoldFromRequestInput,
 	type TaskView,
 	type UpdateBetRequest,
 	type UpdateItemRequest,
@@ -186,6 +187,9 @@ interface CoreApiHcClient {
 				};
 			}): Promise<Response>;
 		};
+		readonly "scaffold-request": {
+			$post(args: { readonly json: ScaffoldFromRequestInput }): Promise<Response>;
+		};
 		readonly "team-routines": {
 			$post(args: { readonly json: ProvisionTeamRoutinesRequest }): Promise<Response>;
 		};
@@ -214,7 +218,17 @@ interface CoreApiHcClient {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 		};
 	};
+	readonly search: {
+		$get(args: {
+			readonly query: {
+				readonly q: string;
+				readonly scope?: string;
+				readonly limit?: string;
+			};
+		}): Promise<Response>;
+	};
 	readonly threads: {
+		$post(args: { readonly json: InsertThreadRequest }): Promise<Response>;
 		$get(args: {
 			readonly query: {
 				readonly host_kind?: string;
@@ -222,9 +236,6 @@ interface CoreApiHcClient {
 				readonly limit?: string;
 			};
 		}): Promise<Response>;
-		readonly scaffold: {
-			$post(args: { readonly json: InsertThreadRequest }): Promise<Response>;
-		};
 		readonly direct: {
 			$post(args: { readonly json: { readonly recipientId: string } }): Promise<Response>;
 		};
@@ -250,11 +261,6 @@ interface CoreApiHcClient {
 		};
 	};
 	readonly knowledge: {
-		readonly search: {
-			$get(args: {
-				readonly query: { readonly q: string; readonly limit?: string };
-			}): Promise<Response>;
-		};
 		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
@@ -537,7 +543,7 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 			},
 
 			async insertThread(input: InsertThreadRequest): Promise<InsertThreadResponse> {
-				const res = await client.threads.scaffold.$post({ json: input });
+				const res = await client.threads.$post({ json: input });
 				if (!res.ok) return throwSeamError("conversation.insertThread", res);
 				return (await res.json()) as InsertThreadResponse;
 			},
@@ -629,14 +635,11 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				return body.recipients;
 			},
 
-			async persistScaffoldedAgents(
-				teamMembersId: string | null,
-				specs: readonly Record<string, unknown>[],
+			async scaffoldFromRequest(
+				input: ScaffoldFromRequestInput,
 			): Promise<PersistScaffoldedAgentsResponse> {
-				const res = await client.org["scaffolded-agents"].$post({
-					json: { teamMembersId, specs },
-				});
-				if (!res.ok) return throwSeamError("org.persistScaffoldedAgents", res);
+				const res = await client.org["scaffold-request"].$post({ json: input });
+				if (!res.ok) return throwSeamError("org.scaffoldFromRequest", res);
 				return (await res.json()) as PersistScaffoldedAgentsResponse;
 			},
 
@@ -646,9 +649,12 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 			},
 		},
 		routine: {
-			async insertRoutine(input: InsertRoutineRequest): Promise<void> {
+			async insertRoutine(input: InsertRoutineRequest): Promise<string | null> {
 				const res = await client.routines.$post({ json: input });
 				if (!res.ok) return throwSeamError("routine.insertRoutine", res);
+				// Route returns the created routine; extract owner-computed nextRunAt.
+				const body = (await res.json()) as { readonly nextRunAt?: string | null } | null;
+				return body?.nextRunAt ?? null;
 			},
 
 			async getRoutineById(id: string): Promise<RoutineView | undefined> {
@@ -666,8 +672,8 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				query: string,
 				opts: { readonly limit: number },
 			): Promise<ReadonlyArray<Record<string, unknown> & { readonly layer?: string | null }>> {
-				const res = await client.knowledge.search.$get({
-					query: { q: query, limit: String(opts.limit) },
+				const res = await client.search.$get({
+					query: { q: query, scope: "knowledge", limit: String(opts.limit) },
 				});
 				if (!res.ok) return throwSeamError("knowledge.search", res);
 				const body = (await res.json()) as {

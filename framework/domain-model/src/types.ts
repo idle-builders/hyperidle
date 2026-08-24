@@ -181,6 +181,24 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
 ]);
 
 /**
+ * Maps a raw scopeKind from the API to the user-facing bucket label.
+ * factory/practice/bet/task → "Shared"
+ * team/product → "Team"
+ * user → "Private"
+ * Anything else → "Shared" (safe fallback).
+ *
+ * @lore AV3: SSOT for scope label mapping — lives beside ScopeKind so the
+ * server (core-api) and the web (core-ui) import the same function rather than
+ * inlining copies that can drift. Moved from @hyperidle/presentation-format
+ * (dissolved) and core-ui/scope-labels.ts in AU44 review.
+ */
+export function scopeKindToLabel(scopeKind: string): string {
+	if (scopeKind === "user") return "Private";
+	if (scopeKind === "team" || scopeKind === "product") return "Team";
+	return "Shared";
+}
+
+/**
  * AC1: Closed enum of bet outcome verdicts.
  * Adding a fifth value requires updating plans/AC1/concept.md first.
  *

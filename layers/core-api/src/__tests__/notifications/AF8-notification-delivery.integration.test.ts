@@ -1,137 +1,28 @@
 /**
  * AF8 — Notification delivery integration tests
  *
+ * @lore AU44 batch 4: AC1 (drain loop), AC5 (stuck lease recovery) deleted
+ * along with the dispatcher, drain, and lease machinery. FakeAdapter removed
+ * (adapter abstraction deleted). AC2, AC3, AC9, AC10 updated.
+ *
  * Covers:
- *   AC1  — drain loop delivers pending row automatically (no manual flush)
  *   AC2  — notification event → queued row with typeKey, urgency, thread-keyed sourceLink
  *   AC3  — dep-watcher auto_unblock event does NOT create a notification row
- *   AC4  — quiet-hours defers blocking row; after silence cleared, delivers
- *   AC5  — stuck/expired sending lease recovered by drain tick
  *   AC9  — muting a type suppresses enqueue
  *   AC10 — popover API: GET /notifications/inbox, POST /seen, POST /:id/read
- *
- * @lore AU21 Increment 14a: AC6 (cost sentinel / recordFactoryCost) and AC12
- * (cost_breach silence split) are HARD-DELETED along with the rest of the
- * cost-cap/accounting feature — no replacement.
- *
- * @lore AU20 Ag6b: migrated from internal delivery-chain imports
- * (`flushQueue`, `loadNotificationConfig`, `recoverStuckLeases`,
- * `registerNotificationListener`, `defaultMutePreferenceReader/Writer`,
- * `startNotificationDrain`, `updateNotificationConfig`) to the public wrappers
- * `flush`, `installNotifications`, `updateConfig`, `updatePreferences`; and
- * from three separate dep exports to `notificationsDeps`.
  */
 
-import { type HyperIdleDb, items as itemsTable, threads } from "@hyperidle/db";
-import type { NotificationEvent } from "@hyperidle/domain-model";
-import {
-	deliver,
-	enqueue,
-	installNotifications,
-	listNotifications,
-	updateConfig,
-	updatePreferences,
-} from "@hyperidle/notifications";
+import { type HyperIdleDb, items as itemsTable, notificationQueue, threads } from "@hyperidle/db";
+import type { NotificationEvent } from "@hyperidle/event-bus";
+import { enqueue, installNotifications, updatePreferences } from "@hyperidle/notifications";
 import { afterEach, beforeEach, describe, vi } from "vitest";
 import { expect, test } from "../../__testing__/test-fixtures.js";
 import { notificationsDeps } from "../notifications-test-deps.js";
 
-// --- helpers ---
-
-interface AdapterCall {
-	recipient: { channelId: string; label?: string };
-	notification: { severity: string };
+// Helper: all rows for test assertions (bypasses the reduced public filter set)
+async function allRows(db: HyperIdleDb) {
+	return db.select().from(notificationQueue);
 }
-
-function createFakeAdapter() {
-	const calls: AdapterCall[] = [];
-	return {
-		name: "console" as const,
-		calls,
-		async send(
-			recipient: { channelId: string; label?: string },
-			notification: { severity: string },
-		) {
-			calls.push({ recipient, notification });
-			return { ok: true as const, channel: "console" as const, sentAt: new Date().toISOString() };
-		},
-	};
-}
-
-// @lore AU18: seeds via updateConfig (server_config-backed) instead
-// of raw factorySettings KV rows — same observable outcome, new storage.
-async function enableNotifications(db: HyperIdleDb): Promise<void> {
-	await updateConfig(
-		db,
-		{
-			enabled: true,
-			primaryChannel: "console",
-			digestChannel: "console",
-			floodMaxPerMinute: 100,
-			floodCoalesceWindowMs: 60_000,
-		},
-		notificationsDeps,
-	);
-}
-
-async function insertPendingRow(
-	db: HyperIdleDb,
-	id: string,
-	severity: "blocking" | "digest",
-): Promise<void> {
-	const now = new Date().toISOString();
-	await enqueue(db, {
-		id,
-		eventType: "test_event",
-		subjectId: null,
-		severity,
-		title: `Test ${severity}`,
-		body: "body",
-		reason: "silence",
-		channel: "console",
-		status: "pending",
-		attempts: 0,
-		createdAt: now,
-	});
-}
-
-// --- AC1: Drain loop delivers pending row ---
-
-describe("AF8 AC1 — drain loop delivers pending row without manual flush", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "test-key-AF8");
-	});
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("flush delivers pending rows and marks them sent", async ({ db }) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-		await insertPendingRow(db, "drain-row-1", "blocking");
-
-		// deliver({kind:"flush"}) wraps loadNotificationConfig + recoverStuckLeases + flushQueue
-		await deliver(db, { kind: "flush" }, notificationsDeps, { adapterOverride: adapter });
-
-		const rows = (await listNotifications(db, { kind: "all" })).filter(
-			(r) => r.id === "drain-row-1",
-		);
-		// After flush: status = sent OR the adapter was called
-		expect(adapter.calls.length + rows.filter((r) => r.status === "sent").length).toBeGreaterThan(
-			0,
-		);
-	});
-
-	test("installNotifications returns a disposer that stops the interval", async ({
-		db,
-		eventBus,
-	}) => {
-		// installNotifications replaces startNotificationDrain (Ag6b)
-		const dispose = installNotifications(db, eventBus, notificationsDeps);
-		expect(typeof dispose).toBe("function");
-		dispose(); // should not throw
-	});
-});
 
 // --- AC2: notification event → queued row with typeKey, urgency, thread-keyed sourceLink ---
 
@@ -171,10 +62,8 @@ describe("AF8 AC2 — notification event produces typed, source-linked row", () 
 			createdAt: "2026-06-11T00:00:00.000Z",
 		});
 
-		// installNotifications sets up the listener (and dispatcher + drain)
 		const dispose = installNotifications(db, eventBus, notificationsDeps);
 
-		// Emit policy-engine push notification (kind="attention")
 		const event: NotificationEvent = {
 			type: "notification",
 			streamId: "s1",
@@ -185,21 +74,20 @@ describe("AF8 AC2 — notification event produces typed, source-linked row", () 
 		};
 		eventBus.emit(event);
 
-		// Wait for listener to process
 		await vi.waitFor(async () => {
-			const rows = await listNotifications(db, { kind: "all" });
+			const rows = await allRows(db);
 			expect(rows.length).toBeGreaterThan(0);
 		});
 
 		dispose();
 
-		const rows = await listNotifications(db, { kind: "all" });
+		const rows = await allRows(db);
 		expect(rows.length).toBeGreaterThan(0);
 		const row = rows[0]!;
 
 		// AC2: typeKey must be review_request
 		expect(row.typeKey).toBe("review_request");
-		// AC2: sourceLink must be /conversations/<threadId> — NOT /conversations/item/<id>
+		// AC2: sourceLink must be /conversations/<threadId>
 		expect(row.sourceLink).toBe(`/conversations/${threadId}`);
 		// urgency must be set
 		expect(["immediate", "ambient"]).toContain(row.urgency);
@@ -222,7 +110,6 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 	}) => {
 		const dispose = installNotifications(db, eventBus, notificationsDeps);
 
-		// Emit auto-unblock notification (dep-watcher kind)
 		const event: NotificationEvent = {
 			type: "notification",
 			streamId: "s2",
@@ -233,64 +120,13 @@ describe("AF8 AC3 — auto_unblock event is filtered out (ambient, not a notific
 		};
 		eventBus.emit(event);
 
-		// Wait briefly to ensure no async processing creates a row
 		await new Promise<void>((resolve) => setTimeout(resolve, 100));
 		dispose();
 
-		const rows = await listNotifications(db, { kind: "all" });
-		// Filter must work on kind ONLY — no message text matching
+		const rows = await allRows(db);
 		expect(rows).toHaveLength(0);
 	});
 });
-
-// @lore AU43 repair: AC4 "quiet-hours deferral" describe block deleted — the silence/quiet-hours
-// feature was deleted by AU43 (deferred hardcoded to 0 in install.ts). No replacement.
-
-// --- AC5: stuck sending lease recovered by drain ---
-
-describe("AF8 AC5 — stuck/expired sending lease recovery", () => {
-	test("flush recovers stuck sending rows and delivers them", async ({ db }) => {
-		const adapter = createFakeAdapter();
-		await enableNotifications(db);
-
-		// Insert a row that appears stuck in 'sending' for 6 minutes
-		const stuckClaimedAt = new Date(Date.now() - 6 * 60 * 1000 - 1000).toISOString();
-		await enqueue(db, {
-			id: "stuck-lease-1",
-			eventType: "test_event",
-			subjectId: null,
-			severity: "blocking",
-			title: "Stuck notification",
-			body: "body",
-			reason: "retry",
-			channel: "console",
-			status: "sending",
-			attempts: 1,
-			claimedAt: stuckClaimedAt,
-			createdAt: stuckClaimedAt,
-		});
-
-		// deliver({kind:"flush"}) calls recoverStuckLeases then flushes pending rows
-		// @lore AU20 Ag6b: recoverStuckLeases removed from public API; behavior
-		// verified through deliver flush: stuck → recovered → sent.
-		const raw = await deliver(db, { kind: "flush" }, notificationsDeps, {
-			adapterOverride: adapter,
-		});
-		if (raw.kind !== "flush") throw new Error("unexpected kind");
-		expect(raw.flushed).toBeGreaterThan(0);
-
-		const rows = await listNotifications(db, { kind: "all" });
-		const row = rows.find((r) => r.id === "stuck-lease-1");
-		expect(row).toBeDefined();
-		expect(row!.status).toBe("sent");
-	});
-});
-
-// --- AC6: cost sentinel fires off a real written value ---
-
-// @lore AU21 Increment 14a: "AF8 AC6 — cost sentinel reacts to real written
-// value" is deleted along with the rest of the cost feature — no
-// replacement.
 
 // --- AC9: muting a type suppresses enqueue ---
 
@@ -322,7 +158,6 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 			createdAt: "2026-06-11T00:00:00.000Z",
 		});
 
-		// Set mute for review_request via public updatePreferences
 		await updatePreferences(db, "review_request", true, notificationsDeps);
 
 		const dispose = installNotifications(db, eventBus, notificationsDeps);
@@ -340,14 +175,10 @@ describe("AF8 AC9 — muting a type suppresses notification enqueue", () => {
 		await new Promise<void>((resolve) => setTimeout(resolve, 100));
 		dispose();
 
-		const rows = await listNotifications(db, { kind: "all" });
+		const rows = await allRows(db);
 		expect(rows).toHaveLength(0);
 	});
 });
-
-// @lore AU21 Increment 14a: "AF8 AC12 — cost_breach silence split" is
-// deleted along with the rest of the cost feature — the `cost_breach`
-// severity + its bypass-silence special case are gone, no replacement.
 
 // --- AC10: Popover API ---
 
@@ -370,7 +201,6 @@ describe("AF8 AC10 — popover API routes", () => {
 	});
 
 	test("POST /notifications/seen marks all unseen rows as seen", async ({ db, app }) => {
-		// Insert an unseen notification row
 		const nowIso = new Date().toISOString();
 		await enqueue(db, {
 			id: "notif-seen-1",
@@ -379,12 +209,11 @@ describe("AF8 AC10 — popover API routes", () => {
 			severity: "blocking",
 			title: "Test",
 			body: "body",
-			reason: "silence",
-			channel: "console",
-			status: "sent",
-			attempts: 1,
+			reason: "notification_event",
+			channel: null,
+			status: "pending",
+			attempts: 0,
 			createdAt: nowIso,
-			// seenAt: null (unseen)
 		});
 
 		const res = await app.request("/api/notifications/seen", {
@@ -392,17 +221,15 @@ describe("AF8 AC10 — popover API routes", () => {
 			headers: { "X-API-Key": "test-key-AF8" },
 		});
 		expect(res.status).toBe(200);
-		// W3: response is now { ok: true } after bulk UPDATE simplification
 		const body = (await res.json()) as { ok: boolean };
 		expect(body.ok).toBe(true);
-		// Verify the row was actually marked seen
-		const seen = (await listNotifications(db, { kind: "all" })).find((r) => r.seenAt !== null);
+
+		const rows = await allRows(db);
+		const seen = rows.find((r) => r.seenAt !== null);
 		expect(seen?.seenAt).toBeTruthy();
 	});
 
 	test("POST /notifications/:id/read marks a row as read", async ({ db, app }) => {
-		// Valid UUID v4 — zod v4 z.string().uuid() requires version nibble [1-8] per RFC
-		// (00000000-0000-0000-0000-000000000001 fails zod v4 strict UUID pattern)
 		const notifId = "a1b2c3d4-e5f6-4789-abcd-ef0123456789";
 		const nowIso = new Date().toISOString();
 		await enqueue(db, {
@@ -412,10 +239,10 @@ describe("AF8 AC10 — popover API routes", () => {
 			severity: "blocking",
 			title: "Test",
 			body: "body",
-			reason: "silence",
-			channel: "console",
-			status: "sent",
-			attempts: 1,
+			reason: "notification_event",
+			channel: null,
+			status: "pending",
+			attempts: 0,
 			createdAt: nowIso,
 		});
 
@@ -461,5 +288,14 @@ describe("AF8 AC10 — popover API routes", () => {
 			body: JSON.stringify({ muted: true }),
 		});
 		expect(res.status).toBe(400);
+	});
+
+	test("installNotifications returns a disposer that stops the listener", async ({
+		db,
+		eventBus,
+	}) => {
+		const dispose = installNotifications(db, eventBus, notificationsDeps);
+		expect(typeof dispose).toBe("function");
+		dispose(); // should not throw
 	});
 });

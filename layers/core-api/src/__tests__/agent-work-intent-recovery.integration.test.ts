@@ -11,7 +11,6 @@ import {
 	bets,
 	explicitSessionStarts,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -27,20 +26,13 @@ async function seedExplicitStartIntent(
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: `${id}-team`, name: id, phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: `${id}-member`,
-		teamId: `${id}-team`,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(users).values({
 		id: `${id}-agent`,
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: `${id}-member`,
+		teamId: `${id}-team`,
 		createdAt: now,
 	});
 	await db.insert(bets).values({
@@ -119,9 +111,13 @@ async function seedExplicitStartIntent(
 describe("intent recovery drives the real drain", () => {
 	test("two concurrent drains create exactly one request and hand off exactly one intent", async ({
 		db,
+		eventBus,
 	}) => {
 		await seedExplicitStartIntent(db, "pending-race");
-		await Promise.all([drainIntents(queueDeps(db)), drainIntents(queueDeps(db))]);
+		await Promise.all([
+			drainIntents({ ...queueDeps(db), eventBus }),
+			drainIntents({ ...queueDeps(db), eventBus }),
+		]);
 		const requests = await db
 			.select()
 			.from(agentSessionRequests)
@@ -136,9 +132,13 @@ describe("intent recovery drives the real drain", () => {
 
 	test("an expired claim is reclaimed exactly once even under two concurrent drains", async ({
 		db,
+		eventBus,
 	}) => {
 		await seedExplicitStartIntent(db, "expired-race", { claimed: true, expired: true });
-		await Promise.all([drainIntents(queueDeps(db)), drainIntents(queueDeps(db))]);
+		await Promise.all([
+			drainIntents({ ...queueDeps(db), eventBus }),
+			drainIntents({ ...queueDeps(db), eventBus }),
+		]);
 		const requests = await db
 			.select()
 			.from(agentSessionRequests)
@@ -150,28 +150,7 @@ describe("intent recovery drives the real drain", () => {
 			.where(eq(agentWorkIntents.id, "expired-race"));
 		expect(intent).toMatchObject({ status: "handed_off", requestId: requests[0]?.id });
 	});
-
-	test("an invalid source is a terminal failure with a stable code, not a retry loop", async ({
-		db,
-	}) => {
-		const now = new Date().toISOString();
-		await db.insert(agentWorkIntents).values({
-			id: "invalid-source",
-			kind: "assistant_turn",
-			sourceKind: "thread_message",
-			sourceId: "message-does-not-exist",
-			idempotencyKey: "assistant:message-does-not-exist",
-			status: "pending",
-			attempts: 4,
-			createdAt: now,
-			updatedAt: now,
-		});
-		await drainIntents(queueDeps(db));
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.id, "invalid-source"));
-		expect(intent).toMatchObject({ status: "failed", lastErrorCode: "INVALID_WORK_SOURCE" });
-		expect(intent?.lastError).toBeTruthy();
-	});
+	// The "invalid source is terminal failure" test is deleted: unbaked intent
+	// rows are production-unreachable since AU44 (bakedRequest is required on
+	// WorkIntentInput; the unbaked else branch in the drain is removed).
 });

@@ -27,8 +27,7 @@
 // Application-applied to that shared router and reaches this module unchanged.
 
 import type { FilesystemRow, HyperIdleDb } from "@hyperidle/db";
-import type { Filesystem } from "@hyperidle/filesystem-contract";
-import { FILESYSTEM_KINDS, WRITEBACK_MODES } from "@hyperidle/filesystem-contract";
+import type { Filesystem } from "@hyperidle/filesystems";
 import {
 	deleteFilesystem,
 	deleteInjection,
@@ -36,9 +35,8 @@ import {
 	getFilesystem,
 	inspectLocalPath,
 	listFilesystems,
-	resolveFilesystemState,
+	refreshFilesystemState,
 	saveFilesystem,
-	updateFilesystemState,
 } from "@hyperidle/filesystems";
 
 /**
@@ -54,10 +52,10 @@ interface FilesystemsServiceConnectionResolver {
 	resolve(userId: string, connectionId: string): Promise<string | null>;
 }
 
-import { createGitRunner } from "@hyperidle/host-process";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { Hono } from "hono";
 import { z } from "zod";
+import { createGitRunner } from "../git-runner.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
@@ -72,11 +70,13 @@ const resourceRefSchema = z.discriminatedUnion("kind", [codeRefSchema, docSetRef
 /** Register body: `source` is NOT client-supplied — derived from the Connection (or 'local'). */
 const registerFilesystemSchema = z.object({
 	teamId: z.string().min(1),
-	// Kind constrained to FILESYSTEM_KINDS at create time (SoRs rejected here).
-	kind: z.enum(FILESYSTEM_KINDS),
+	// Kind constrained to committed kinds at create time (SoRs rejected here).
+	// @lore AU44 b2: inlined from FILESYSTEM_KINDS constant (dissolved with filesystem-contract).
+	kind: z.enum(["code", "doc_set"]),
 	connectionId: z.string().nullable().optional(),
 	resourceRef: resourceRefSchema,
-	writeback: z.enum(WRITEBACK_MODES),
+	// @lore AU44 b2: inlined from WRITEBACK_MODES constant (dissolved with filesystem-contract).
+	writeback: z.enum(["git", "file", "none"]),
 	// Optional hint: when the NoopAuthResolver can't derive source, the caller may supply it.
 	// The route trusts it only when the resolver yields null (architecture §3, open Q7).
 	sourceHint: z.string().optional(),
@@ -137,31 +137,19 @@ function buildAuthResolver(
 // ─── Reachability helper (mutates stored state) ───────────────────────────────
 
 /**
- * Run a live reachability probe and persist any state transition.
- * Only call this on single-row paths (GET /:id, POST register).
- * The LIST route MUST NOT call this — use stored state only (perf constraint:
- * one ls-remote per list row makes team-list latency-bound on the forge).
- *
  * @lore AO1 v2: list = cached state; inspect/register = live probe.
+ * Delegates to refreshFilesystemState (probe + persist in one call).
  */
 async function checkAndPersistState(
 	db: HyperIdleDb,
 	row: FilesystemRow,
 	authResolver: FilesystemTokenResolver,
 ): Promise<FilesystemRow> {
-	const newState = await resolveFilesystemState(row, {
+	return refreshFilesystemState(db, row, {
 		authResolver,
-		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`; the
-		// `git-export` package it used to live in is deleted. Closes `filesystems`' Increment 2b
-		// `FilesystemsGitRunnerFactory` forward-reference. See
-		// `@hyperidle/filesystems`' `ports.ts` top `@lore`.
+		// AU26 A2/C1: `createGitRunner` comes from `@hyperidle/host-process`.
 		gitRunnerFactory: createGitRunner,
 	});
-	if (newState !== row.state) {
-		await updateFilesystemState(db, row.id, newState);
-		return { ...row, state: newState };
-	}
-	return row;
 }
 
 // ─── createFilesystemRoutes ───────────────────────────────────────────────────

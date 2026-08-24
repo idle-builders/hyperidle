@@ -1,4 +1,4 @@
-import { bets, teamMembers, teams } from "@hyperidle/db";
+import { bets, teams } from "@hyperidle/db";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 // @lore U1: teams = domain entity (formerly products); teamMembers = membership group.
@@ -22,13 +22,6 @@ describe("Bet Endpoints (E3)", () => {
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
 		});
 
 		async function createBet(
@@ -85,13 +78,6 @@ describe("Bet Endpoints (E3)", () => {
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
@@ -141,13 +127,6 @@ describe("Bet Endpoints (E3)", () => {
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
 
 		const res = await app.request("/api/bets", {
 			method: "POST",
@@ -178,13 +157,6 @@ describe("Bet Endpoints (E3)", () => {
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
 
 		const res = await app.request("/api/bets", {
 			method: "POST",
@@ -203,13 +175,6 @@ describe("Bet Endpoints (E3)", () => {
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
 		});
 
 		const createRes = await app.request("/api/bets", {
@@ -249,7 +214,7 @@ describe("Bet Endpoints (E3)", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("AC4: returns 500 for non-active bet", async ({ db, app }) => {
+	test("AC4: returns 400 for non-active bet", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		await db.insert(teams).values({
@@ -257,13 +222,6 @@ describe("Bet Endpoints (E3)", () => {
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
 		});
 
 		const createRes = await app.request("/api/bets", {
@@ -285,7 +243,9 @@ describe("Bet Endpoints (E3)", () => {
 				reason: "Change",
 			}),
 		});
-		expect(res.status).toBe(500);
+		// AU44 B3: updateBetField folded into route. Now returns 400 (not 500
+		// from an uncaught exception) for a non-active bet patch.
+		expect(res.status).toBe(400);
 		vi.unstubAllEnvs();
 	});
 
@@ -297,13 +257,6 @@ describe("Bet Endpoints (E3)", () => {
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
 		});
 
 		const createRes = await app.request("/api/bets", {
@@ -336,13 +289,6 @@ describe("Bet Endpoints (E3)", () => {
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
 
 		const events: unknown[] = [];
 		eventBus.on("bet_state_changed", (e: unknown) => events.push(e));
@@ -372,14 +318,9 @@ describe("Bet Endpoints (E3)", () => {
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
 			capacity: 2,
 			activeBets: 0,
-			formedAt: new Date().toISOString(),
+			createdAt: new Date().toISOString(),
 		});
 
 		async function createBet(desc: string): Promise<Record<string, unknown>> {
@@ -422,13 +363,6 @@ describe("Bet Endpoints (E3)", () => {
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
@@ -461,13 +395,6 @@ describe("Bet Endpoints (E3)", () => {
 			phase: "build",
 			createdAt: new Date().toISOString(),
 		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
-		});
 
 		const createRes = await app.request("/api/bets", {
 			method: "POST",
@@ -497,13 +424,6 @@ describe("Bet Endpoints (E3)", () => {
 			name: "Test Product",
 			phase: "build",
 			createdAt: new Date().toISOString(),
-		});
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
-			capacity: 2,
-			activeBets: 0,
-			formedAt: new Date().toISOString(),
 		});
 
 		const createRes = await app.request("/api/bets", {
@@ -535,16 +455,11 @@ describe("Bet Endpoints (E3)", () => {
 			id: "prod-1",
 			name: "Test Product",
 			phase: "build",
-			createdAt: new Date().toISOString(),
-		});
-		// @lore U1: capacity is on teamMembers, not teams (domain entity)
-		await db.insert(teamMembers).values({
-			id: "team-1",
-			teamId: "prod-1",
 			capacity: 1,
 			activeBets: 0,
-			formedAt: new Date().toISOString(),
+			createdAt: new Date().toISOString(),
 		});
+		// @lore AU44 B1: capacity is now on teams (folded from team_members)
 
 		async function createBet(desc: string): Promise<Record<string, unknown>> {
 			const res = await app.request("/api/bets", {

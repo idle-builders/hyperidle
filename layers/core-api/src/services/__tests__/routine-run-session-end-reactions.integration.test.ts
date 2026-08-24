@@ -36,16 +36,8 @@
  *     for a routine session that never reached `session_ended` at all (a
  *     pre-session-launch provisioning failure).
  */
-import {
-	type HyperIdleDb,
-	routineRuns,
-	routines,
-	sessions,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
-import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/domain-model";
+import { type HyperIdleDb, routineRuns, routines, sessions, teams, users } from "@hyperidle/db";
+import type { AgentRunLifecycleChangedEvent, SessionEndedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED signal.
@@ -58,19 +50,15 @@ async function seedRunningRoutine(
 	id: string,
 ): Promise<{ readonly routineId: string; readonly runId: string; readonly agentId: string }> {
 	const teamId = `${id}-team`;
-	const tmId = `${id}-tm`;
 	const agentId = `${id}-agent`;
 	await db.insert(teams).values({ id: teamId, name: "Team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: tmId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
 		name: "Agent",
 		role: "builder",
 		status: "active",
-		teamId: tmId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({

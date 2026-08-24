@@ -11,25 +11,10 @@
 	"include": ["src"],
 	"references": [
 		{
-			"path": "../../framework/block-derivation"
-		},
-		{
-			"path": "../../framework/conversation-parts"
-		},
-		{
-			"path": "../../framework/credential-access"
-		},
-		{
-			"path": "../../framework/design-system"
-		},
-		{
 			"path": "../../framework/domain-model"
 		},
 		{
 			"path": "../../framework/harness-capability"
-		},
-		{
-			"path": "../../framework/presentation-format"
 		}
 	]
 }

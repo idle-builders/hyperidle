@@ -8,7 +8,7 @@
  * These tests import resolveScopeName and a stub DB — no real DB needed.
  */
 
-import { scopeKindToLabel } from "@hyperidle/presentation-format";
+import { scopeKindToLabel } from "@hyperidle/domain-model";
 import { describe, expect, it, vi } from "vitest";
 import { resolveScopeName } from "../routes/knowledge.js";
 

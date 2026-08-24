@@ -10,16 +10,7 @@
  * - AC-6: Work portfolio shows routine count per team alongside bet count
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	routineRuns,
-	routines,
-	tasks,
-	teamMembers,
-	teams,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, routineRuns, routines, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -39,20 +30,12 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 
-	await db.insert(teamMembers).values({
-		id: "tm-aa1",
-		teamId: "team-aa1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
-
 	await db.insert(users).values({
 		id: "agent-aa1",
 		name: "AA1 Agent",
 		role: "builder",
 		status: "active",
-		teamId: "tm-aa1",
+		teamId: "team-aa1",
 		createdAt: now,
 	});
 }

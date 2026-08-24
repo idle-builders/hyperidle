@@ -17,9 +17,9 @@
  * is an IA decision deferred to the next work package.
  */
 
-import { PageHeader, PageScaffold } from "@hyperidle/design-system";
 import type { JSX } from "react";
 import { CredentialsTab } from "../components/CredentialsTab.js";
+import { PageHeader, PageScaffold } from "../ds";
 import { SettingsAgentBehavior } from "../settings/SettingsAgentBehavior.js";
 import { SettingsAgents } from "../settings/SettingsAgents.js";
 import { SettingsAppearance } from "../settings/SettingsAppearance.js";

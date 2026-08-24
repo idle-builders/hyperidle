@@ -6,8 +6,9 @@ import {
 } from "@hyperidle/agent-orchestration";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
+import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
+import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
-import type { BuildToolRegistryOptions, ToolContext, ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect } from "vitest";
 import { test as baseTest } from "../__testing__/test-fixtures.js";
 

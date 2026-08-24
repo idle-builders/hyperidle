@@ -28,11 +28,11 @@
  * convergence is a follow-up per architecture.md line 160).
  */
 
-import type { CommentRowSender, ComposerSubmitInput } from "@hyperidle/design-system";
-import { CommentRow, Composer, ErrorState, SkeletonList } from "@hyperidle/design-system";
 import type { HostKind, Message, PlainPayload } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import type { CommentRowSender, ComposerSubmitInput } from "../ds";
+import { CommentRow, Composer, ErrorState, SkeletonList } from "../ds";
 import { useCurrentUser } from "../hooks/useCurrentUser.js";
 import { type HostThreadIdentity, useHostThread } from "../hooks/useHostThread.js";
 import { postPlainHostMessage, resolveOrCreateHostThread } from "../services/host-threads.js";

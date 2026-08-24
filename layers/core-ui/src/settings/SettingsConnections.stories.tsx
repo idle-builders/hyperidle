@@ -20,6 +20,7 @@
  * StatusChip, Button, Menu, Dialog, Input, Select) — zero new shapes.
  */
 
+import { type JSX, useState } from "react";
 import {
 	Button,
 	Dialog,
@@ -32,8 +33,7 @@ import {
 	Select,
 	type Status,
 	StatusChip,
-} from "@hyperidle/design-system";
-import { type JSX, useState } from "react";
+} from "../ds";
 
 // ---------------------------------------------------------------------------
 // Fixture shape — the per-(user × service) ServiceConnection as the UI sees it.

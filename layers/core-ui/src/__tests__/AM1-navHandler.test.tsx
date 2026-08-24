@@ -17,8 +17,8 @@
  * RED until `../services/open-handler` exists (green-phase task 8).
  */
 
-import type { OpenHandler, OpenTarget } from "@hyperidle/conversation-parts";
 import { describe, expect, it, vi } from "vitest";
+import type { OpenHandler, OpenTarget } from "../components/parts";
 import { createOpenHandler } from "../services/open-handler";
 
 describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {

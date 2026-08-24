@@ -11,13 +11,12 @@ import {
 	items,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -32,9 +31,6 @@ function buildHandoffToTool(app: Hono): ReturnType<typeof buildToolDefinitions>[
 async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "t1", teamId: "p1", capacity: 5, activeBets: 0, formedAt: now });
 	await db.insert(bets).values({
 		id: "b1",
 		teamId: "p1",
@@ -48,7 +44,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			id: "agent-a",
 			name: "A",
 			role: "builder",
-			teamId: "t1",
+			teamId: "p1",
 			status: "active",
 			createdAt: now,
 		},
@@ -56,7 +52,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			id: "agent-b",
 			name: "B",
 			role: "builder",
-			teamId: "t1",
+			teamId: "p1",
 			status: "active",
 			createdAt: now,
 		},

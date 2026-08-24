@@ -12,7 +12,6 @@ import {
 	sessions,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
@@ -36,13 +35,6 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 	await db
 		.insert(teams)
 		.values({ id: "au9-production-team", name: "AU9", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: "au9-production-membership",
-		teamId: "au9-production-team",
-		capacity: 2,
-		activeBets: 0,
-		formedAt: now,
-	});
 	await db.insert(users).values([
 		{
 			id: "au9-production-human",
@@ -58,7 +50,7 @@ async function seedExplicitSessionAuthority(db: HyperIdleDb) {
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "au9-production-membership",
+			teamId: "au9-production-team",
 			createdAt: now,
 		},
 	]);
@@ -266,8 +258,16 @@ describe("atomic production handoffs", () => {
 
 		// AgentWorkIntentRecorderFn is a plain function — capture db in a closure so the
 		// intent is written to the real DB (tx was ignored by the sole production impl).
+		// @lore AU44: AgentWorkIntentRecorderInput still declares bakedRequest? for back-compat
+		// with the proposed-call liveness path; production always provides it.
+		// Cast via unknown avoids the contravariance mismatch — safe since
+		// checkAndUnblockDependents always bakes before calling the recorder.
+		// @lore AU44: AgentWorkIntentRecorderInput still declares bakedRequest? for back-compat.
+		// Cast via unknown avoids the contravariance mismatch — safe since production always bakes.
+		const workIntentsImpl: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn = (input) =>
+			enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]);
 		const localDeps = {
-			workIntents: (input: Parameters<typeof enqueueWorkIntent>[1]) => enqueueWorkIntent(db, input),
+			workIntents: workIntentsImpl,
 			taskRunResolver: { requireRunnableAgent },
 		};
 		await checkAndUnblockDependents(db, eventBus, "au9-production-task", localDeps);
@@ -386,7 +386,7 @@ describe("atomic production handoffs", () => {
 			name: "Source",
 			role: "product_manager",
 			status: "active",
-			teamId: "au9-production-membership",
+			teamId: "au9-production-team",
 			createdAt: now,
 		});
 		await db.insert(threads).values({
@@ -474,8 +474,10 @@ describe("atomic production handoffs", () => {
 				approvedArgs: { path: "result.txt" },
 			},
 			{
-				intentRecorder: (input: Parameters<typeof enqueueWorkIntent>[1]) =>
-					enqueueWorkIntent(db, input),
+				// @lore AU44: same cast pattern as workIntentsImpl above.
+				intentRecorder: (
+					input: Parameters<import("@hyperidle/domain-model").AgentWorkIntentRecorderFn>[0],
+				) => enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]),
 			},
 		);
 		const intents = await db

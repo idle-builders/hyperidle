@@ -10,12 +10,11 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
-import { enqueue } from "@hyperidle/notifications";
+import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -64,7 +63,7 @@ const lifecyclePropagationDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
@@ -72,11 +71,6 @@ const lifecyclePropagationDeps: PolicyDeps = {
 			listMessages(db, { legacyItemIds: itemIds, types: ["verdict"], since: windowStart }),
 	},
 	users: { getFirstUserByKind: (db, kind) => findUser(db, { kind }) },
-	notifications: {
-		insert: async (db, row) => {
-			await enqueue(db, row);
-		},
-	},
 };
 
 const SYSTEM_PROPAGATION_ID = "system:propagation";
@@ -100,10 +94,6 @@ async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<
 	await db
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 5, activeBets: 1, formedAt: now });
 
 	// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
 	await db.insert(bets).values({

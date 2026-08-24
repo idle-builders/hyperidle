@@ -52,7 +52,6 @@ import {
 	tasks,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import { escapeLikePattern } from "@hyperidle/query-escaping";
 import type { SQL } from "drizzle-orm";
 import { and, desc, eq, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 
@@ -184,12 +183,7 @@ const NOTE_SEPARATOR = "\n\n---\n\n";
 // AU20 change), so get/list can call them with the same exec they receive.
 // ---------------------------------------------------------------------------
 
-import type {
-	ArtifactRow,
-	ArtifactTaskSummaryRow,
-	ArtifactWithTaskTitle,
-	CreateArtifactInput,
-} from "./artifact-store.js";
+import type { ArtifactRow, ArtifactWithTaskTitle, CreateArtifactInput } from "./artifact-store.js";
 
 /** Discriminant union of all work-owned entity kinds. */
 export type WorkEntity = "bet" | "task" | "item" | "artifact";
@@ -218,14 +212,13 @@ interface WorkEntityRowMap {
  *   - `threadIds+bodyMarker` → findRetroItemByThreadIds (take [0] for {id})
  *   - `sourceAgentId`  → items filtered by sourceAgentId (map to .id for old string[])
  *   - `taskIds+include:"taskTitle"` → listArtifactsPage
- *   - `taskIds+include:"taskSummary"` → listArtifactSummariesByTaskIds
  */
 export interface WorkFilter {
 	ids?: readonly string[];
 	limit?: number;
 	offset?: number;
 	count?: true;
-	include?: "taskTitle" | "taskSummary";
+	include?: "taskTitle";
 	// bet-specific
 	teamId?: string;
 	status?: string;
@@ -312,12 +305,6 @@ export function list(
 	entity: "artifact",
 	filter: WorkFilter & { include: "taskTitle" },
 ): Promise<ArtifactWithTaskTitle[]>;
-/** Artifact + task-title summary projection (ArtifactTaskSummaryRow shape). */
-export function list(
-	exec: WriteExecutor,
-	entity: "artifact",
-	filter: WorkFilter & { include: "taskSummary" },
-): Promise<ArtifactTaskSummaryRow[]>;
 /** Plain entity list — return type discriminated by entity literal. */
 export function list<E extends WorkEntity>(
 	exec: WriteExecutor,
@@ -390,24 +377,10 @@ export async function list(
 					.limit(f.limit ?? 50)
 			: query.orderBy(desc(artifacts.createdAt), desc(artifacts.id)).limit(f.limit ?? 50);
 	}
-	if (entity === "artifact" && f.include === "taskSummary") {
-		if (!f.taskIds || f.taskIds.length === 0) return [];
-		return exec
-			.select({
-				artifactId: artifacts.id,
-				artifactKind: artifacts.kind,
-				artifactPreviewJson: artifacts.previewJson,
-				taskTitle: tasks.title,
-			})
-			.from(artifacts)
-			.innerJoin(tasks, eq(tasks.id, artifacts.producingTaskId))
-			.where(inArray(artifacts.producingTaskId, [...f.taskIds]));
-	}
-
 	// ── bet dispatches ───────────────────────────────────────────────────────
 	if (entity === "bet") {
 		if (f.text !== undefined) {
-			const escaped = escapeLikePattern(f.text);
+			const escaped = f.text.replace(/[\\%_]/g, "\\$&");
 			const pattern = `%${escaped}%`;
 			const rank = sql<number>`CASE WHEN ${bets.description} ILIKE ${`${escaped}%`} ESCAPE '\\' THEN 0 WHEN ${bets.description} ILIKE ${`% ${escaped}%`} ESCAPE '\\' THEN 1 ELSE 2 END`;
 			return exec
@@ -457,7 +430,7 @@ export async function list(
 						.from(tasks)
 						.where(inArray(tasks.id, [...f.ids]));
 		if (f.dependencyId !== undefined) {
-			const escaped = escapeLikePattern(f.dependencyId);
+			const escaped = f.dependencyId.replace(/[\\%_]/g, "\\$&");
 			return exec
 				.select()
 				.from(tasks)

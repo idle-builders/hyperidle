@@ -49,7 +49,7 @@ function makeTeamFixture() {
 			leadAgentId: "agent-lead",
 		},
 		teamMembers: {
-			id: "tm-ag6",
+			id: TEAM_ID,
 			formedAt: "2026-01-01T00:00:00.000Z",
 			dissolvedAt: null,
 		},

@@ -31,14 +31,12 @@
  */
 
 import { bootAgentExecution } from "@hyperidle/agent-execution";
-import { ServiceConnectionResolver } from "@hyperidle/connections";
-import { encryptCredentialValue } from "@hyperidle/credential-access";
+import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credentials";
 import {
 	filesystemInjections,
 	filesystems,
 	type HyperIdleDb,
 	serviceConnections,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -57,7 +55,6 @@ const OWNER_ID = "u-au26-c1-owner";
 const OTHER_HUMAN_ID = "u-au26-c1-other";
 const AGENT_ID = "agent-au26-c1-target";
 const TEAM_ID = "team-au26-c1";
-const TEAM_MEMBERS_ID = "tm-au26-c1";
 const OWNER_CREATED_AT = "2026-08-01T00:00:00.000Z";
 const OTHER_CREATED_AT = "2026-08-02T00:00:00.000Z";
 
@@ -72,13 +69,6 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: TEAM_ID, name: "AU26 C1", phase: "build", createdAt: OWNER_CREATED_AT });
-	await db.insert(teamMembers).values({
-		id: TEAM_MEMBERS_ID,
-		teamId: TEAM_ID,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: OWNER_CREATED_AT,
-	});
 	await db.insert(users).values([
 		{
 			id: OWNER_ID,
@@ -86,7 +76,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Owner",
 			role: "founder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: OWNER_CREATED_AT,
 		},
 		{
@@ -95,7 +85,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Other Human",
 			role: "member",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: OTHER_CREATED_AT,
 		},
 		{
@@ -104,7 +94,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Target Agent",
 			role: "builder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: OWNER_CREATED_AT,
 		},
 	]);
@@ -160,9 +150,14 @@ async function bootOrchestrationWithProvisioning(db: HyperIdleDb) {
 		topology: "disabled",
 		mcpBaseUrl: "http://localhost:0",
 	});
+	// @lore AU44-b2: cipher is required by connections route since @hyperidle/credential-access was
+	// dissolved into @hyperidle/credentials. The development-world import here (agent-orchestration →
+	// core-api/credentials) is a warning-level crossing — acceptable in integration tests that need
+	// the real AES cipher to round-trip with seed data encrypted by encryptCredentialValue above.
 	const agentOrchestration = await bootAgentOrchestration({
 		db,
 		eventBus,
+		cipher: { encrypt: encryptCredentialValue, decrypt: decryptCredentialValue },
 		runtime: {
 			harnessRuntime: agentExecution.adapters.harnessRuntime,
 			returnStatusTool: {
@@ -203,9 +198,9 @@ describe("bootAgentOrchestration wires the real session-provisioning ports", () 
 		await seed(db);
 		const { agentOrchestration, agentExecution } = await bootOrchestrationWithProvisioning(db);
 		try {
-			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeInstanceOf(
-				ServiceConnectionResolver,
-			);
+			// @lore AU44 batch2: instanceof check removed (ServiceConnectionResolver class deleted).
+			// replaced by resolveHeldToken function. Functional check below proves the same contract.
+			expect(agentOrchestration.provisioning?.serviceConnectionResolver).toBeDefined();
 			// The two-argument call the provisioner makes. This is the exact
 			// call that silently returned null in production.
 			expect(

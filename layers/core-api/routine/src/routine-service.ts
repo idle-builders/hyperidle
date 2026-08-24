@@ -29,6 +29,12 @@
  * patch types is intentionally kept — `updateRoutine` is still the general
  * setter and the widening does no harm (harmless type flexibility, not tied
  * to any specific caller need anymore).
+ *
+ * @lore AU44 B3: `insertRoutine` now computes `nextRunAt` owner-side from
+ * `triggerType`/`triggerConfig`, using the cron utilities private to this
+ * package. Non-owner callers (routines-routes.ts, create_routine tool) drop
+ * their cron imports entirely — a bad cron expression throws here and is
+ * caught by the caller as a 400 / INVALID_INPUT.
  */
 import {
 	type HyperIdleDb,
@@ -44,33 +50,73 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	SessionKnowledgeItemLike,
-} from "@hyperidle/work-intent-port";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
-import type { SQL } from "drizzle-orm";
+} from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { nextCronMatch, parseCron } from "./cron.js";
 
 export type Routine = typeof routines.$inferSelect;
 export type RoutineRun = typeof routineRuns.$inferSelect;
 
-/** `NewRoutine` widened so a patch field may carry a raw `SQL` fragment. */
-export type RoutinePatch = { [K in keyof NewRoutine]?: NewRoutine[K] | SQL };
-/** `NewRoutineRun` widened so a patch field may carry a raw `SQL` fragment. */
-export type RoutineRunPatch = { [K in keyof NewRoutineRun]?: NewRoutineRun[K] | SQL };
+/** Patch type for `updateRoutine`. */
+export type RoutinePatch = Partial<NewRoutine>;
+/** Patch type for `updateRoutineRun`. */
+export type RoutineRunPatch = Partial<NewRoutineRun>;
 
 // ---------------------------------------------------------------------------
 // routines — writes
 // ---------------------------------------------------------------------------
 
+/**
+ * Compute nextRunAt from triggerType/triggerConfig — the owner-side
+ * calculation. Calendar routines parse the cron expression (throws on
+ * invalid input); heartbeat/continuous use intervalSeconds; event/unknown
+ * return null.
+ *
+ * @throws if triggerType is "calendar" and the cron expression is invalid
+ */
+export function computeRoutineNextRunAt(
+	triggerType: string,
+	triggerConfig: string | null,
+	now: Date,
+): string | null {
+	let config: { intervalSeconds?: number; cron?: string } = {};
+	try {
+		config = JSON.parse(triggerConfig ?? "{}") as {
+			intervalSeconds?: number;
+			cron?: string;
+		};
+	} catch {
+		// malformed JSON — treat as no config
+	}
+	if (triggerType === "heartbeat" || triggerType === "continuous") {
+		const intervalMs = (config.intervalSeconds ?? 60) * 1000;
+		return new Date(now.getTime() + intervalMs).toISOString();
+	}
+	if (triggerType === "calendar" && config.cron) {
+		return nextCronMatch(parseCron(config.cron), now).toISOString();
+	}
+	return null;
+}
+
 export async function insertRoutine(
 	exec: WriteExecutor,
 	values: NewRoutine,
 	opts?: { readonly onConflictDoNothing?: boolean },
-): Promise<void> {
+): Promise<string | null> {
+	// Owner-side nextRunAt computation: override whatever the caller passed.
+	const nextRunAt = computeRoutineNextRunAt(
+		values.triggerType,
+		values.triggerConfig ?? null,
+		new Date(),
+	);
+	const row = { ...values, nextRunAt };
 	if (opts?.onConflictDoNothing) {
-		await exec.insert(routines).values(values).onConflictDoNothing();
-		return;
+		await exec.insert(routines).values(row).onConflictDoNothing();
+	} else {
+		await exec.insert(routines).values(row);
 	}
-	await exec.insert(routines).values(values);
+	return nextRunAt;
 }
 
 /** Rename for old callers: keep identical semantics. */
@@ -187,7 +233,7 @@ export async function getRoutineRun(
 /**
  * Parameterized list. `filter.routineId` scopes to a routine; `filter.running`
  * true filters for `outcome = 'running'`; `filter.limit` caps result count;
- * `filter.order` is `'asc'`/`'desc'` by `startedAt` (default `desc`).
+ * Always orders by `startedAt` descending.
  *
  * The "find the running run" pattern is `listRoutineRuns({routineId, running:true, limit:1})[0]`.
  *
@@ -200,11 +246,9 @@ export async function listRoutineRuns(
 		routineId?: string;
 		running?: boolean;
 		limit?: number;
-		order?: "asc" | "desc";
 	},
 ): Promise<RoutineRun[]> {
-	const orderExpr =
-		filter?.order === "asc" ? asc(routineRuns.startedAt) : desc(routineRuns.startedAt);
+	const orderExpr = desc(routineRuns.startedAt);
 
 	const q = exec
 		.select()
@@ -228,7 +272,9 @@ export async function listRoutineRuns(
 // the routine_run emit-time resolver
 // ---------------------------------------------------------------------------
 
-/** Thrown when the routine run or its owning routine is not eligible to fire. */
+/** Thrown when the routine run or its owning routine is not eligible to fire.
+ * @lore AU44 B3: unexported from package index (private to routine package).
+ */
 export class RoutineRunSourceUnavailableError extends Error {}
 
 /**

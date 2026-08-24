@@ -26,8 +26,8 @@ import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
 	SessionKnowledgeItemLike,
-} from "@hyperidle/work-intent-port";
-import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/work-intent-port";
+} from "@hyperidle/domain-model";
+import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
 import * as work from "./work-service.js";
 import { taskDispatchAttemptStore } from "./work-service.js";
 
@@ -166,18 +166,69 @@ const AGENT_WORK_ELIGIBLE_TASK_STATES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Resolve + validate a `task_run` run at emit time: load the dispatch
- * attempt (rejecting if missing or no longer `"requested"`), load its task
- * (rejecting if missing / not agent-work-eligible / reassigned to a
- * different owner since the attempt was created), validate the attempt's
- * agent's runnability, and bake the full request.
+ * Discriminated input for the unified resolver.
+ *
+ * AU44 B3: `resolveSessionStartRequest` (session_start resolver, a strict
+ * subset of the task_run resolver) merged here. The `session_start` path
+ * takes the taskId/agentId directly — the route has them in hand from the
+ * just-inserted explicitSessionStarts row and does not re-read it.
+ *
+ * `SessionStartResolverDeps` and `BakedSessionStartRequest` are folded into
+ * `TaskRunResolverDeps` / `BakedTaskRunRequest`; the session_start path
+ * simply skips the attempt lookup and contextBundle baking.
+ */
+export type ResolveInput =
+	| { readonly kind: "task_run"; readonly attemptId: string }
+	| { readonly kind: "session_start"; readonly taskId: string; readonly requestedAgentId: string };
+
+/**
+ * Resolve + validate a run at emit time.
+ *
+ * `task_run`: load the dispatch attempt (rejecting if missing or no longer
+ * `"requested"`), load its task (rejecting if missing / not
+ * agent-work-eligible / reassigned), validate runnability, bake the full
+ * request including contextBundle.
+ *
+ * `session_start`: validate the requested agent's runnability and the task's
+ * existence, bake the request WITHOUT contextBundle (the route already
+ * validated the task by the time it calls this, so no attempt lookup is
+ * needed and no context baking is performed for the explicit-start path).
  */
 export async function resolveTaskRunRequest(
 	db: HyperIdleDb,
-	attemptId: string,
+	input: ResolveInput,
 	deps: TaskRunResolverDeps,
 ): Promise<BakedTaskRunRequest> {
-	const attempt = await taskDispatchAttemptStore.get(db, attemptId);
+	if (input.kind === "session_start") {
+		// --- session_start path (was resolveSessionStartRequest) ---
+		const agent = await deps.requireRunnableAgent(db, input.requestedAgentId);
+		const task = await work.get(db, "task", input.taskId);
+		if (!task) {
+			throw new Error("Explicit session task is unavailable");
+		}
+		const { readServerConfig, resolveOrCreateCallingThread } = deps;
+		const harnessDisabled = readServerConfig
+			? (await readServerConfig(db)).harnessDisabled
+			: undefined;
+		const callingThreadId = resolveOrCreateCallingThread
+			? await resolveOrCreateCallingThread(db, task.id, input.requestedAgentId)
+			: undefined;
+		return {
+			defaultAgentId: input.requestedAgentId,
+			sourceKind: "task",
+			sourceId: task.id,
+			streamId: `task:${task.id}`,
+			taskId: task.id,
+			teamId: task.teamId,
+			sourceCorrelation: { taskId: task.id, teamId: task.teamId },
+			agentConfig: bakeAgentRunnableConfig(agent),
+			...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
+			...(callingThreadId !== undefined ? { callingThreadId } : {}),
+		};
+	}
+
+	// --- task_run path ---
+	const attempt = await taskDispatchAttemptStore.get(db, input.attemptId);
 	if (attempt?.status !== "requested") {
 		throw new Error("Task dispatch attempt is unavailable");
 	}

@@ -13,9 +13,12 @@ import {
 
 // --- Core tables ---
 
-// @lore U1: `teams` is the domain entity (formerly `products`). The old agent-membership
-// table (formerly `teams`) is now `teamMembers`. Migration 0021_U1_schema_migration.sql
-// renames both tables. See architecture U1 §2.3 for the 1:1 Product=Team invariant.
+// @lore U1: `teams` is the domain entity (formerly `products`). Migration 0021 renamed both
+// tables; the companion `team_members` table (formerly `teams`) folded back in per AU44 batch 1.
+// @lore AU44 B1: `team_members` is dissolved back into `teams`. The 1:1 invariant enforced by
+// app-level 500s was the schema confessing two tables were one entity. Columns `leadAgentId`,
+// `capacity`, `activeBets`, `formedAt` move here; `dissolvedAt` is dropped (teams.phase =
+// "archive" carries that signal). `users.teamId` now references `teams.id` directly.
 export const teams = pgTable("teams", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
@@ -33,6 +36,11 @@ export const teams = pgTable("teams", {
 	 * design, marketing, sales, operations, support, research.
 	 */
 	functions: text("functions"),
+	// AU44 B1: folded from team_members
+	leadAgentId: text("lead_agent_id"),
+	capacity: integer("capacity").notNull().default(5),
+	activeBets: integer("active_bets").notNull().default(0),
+	formedAt: text("formed_at"),
 });
 
 export const users = pgTable("users", {
@@ -40,11 +48,9 @@ export const users = pgTable("users", {
 	/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
 	kind: text("kind").notNull().default("ai"),
 	name: text("name").notNull(),
-	// @lore U1: users.team_id still references team_members.id (agent membership group).
-	// The column name stays `team_id` to avoid a blast-radius rename of every
-	// users.teamId reference across the codebase. The FK target table was renamed
-	// from `teams` to `team_members` by migration 0021_U1_schema_migration.sql.
-	teamId: text("team_id").references(() => teamMembers.id, { onDelete: "restrict" }),
+	// @lore AU44 B1: users.team_id now references teams.id directly (team_members dissolved).
+	// Before AU44: referenced team_members.id; the migration updated all values to teams.id.
+	teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
 	role: text("role").notNull(),
 	status: text("status").notNull(),
 	/** P2: human-specific nullable columns. Null for AI users. */
@@ -95,22 +101,6 @@ export const agentRunConfig = pgTable("agent_run_config", {
 	modelId: text("model_id"),
 	modelProvider: text("model_provider"),
 	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
-});
-
-// @lore U1: `teamMembers` is the agent-membership group (formerly `teams`).
-// The 1:1 Product=Team invariant means one teamMembers row per teams row.
-// See architecture U1 §2.3.
-export const teamMembers = pgTable("team_members", {
-	id: text("id").primaryKey(),
-	teamId: text("team_id")
-		.notNull()
-		.references(() => teams.id, { onDelete: "restrict" }),
-	members: text("members"),
-	leadAgentId: text("lead_agent_id"),
-	capacity: integer("capacity").notNull(),
-	activeBets: integer("active_bets").notNull().default(0),
-	formedAt: text("formed_at").notNull(),
-	dissolvedAt: text("dissolved_at"),
 });
 
 // --- Process primitives ---
@@ -981,51 +971,6 @@ export const notificationQueue = pgTable(
 	],
 );
 
-// --- Propagation log (L20) ---
-
-/**
- * Audit and retry log for lifecycle propagation events.
- *
- * Every propagation attempt — whether applied, skipped, or failed — gets a
- * row here. The `status` and `attempts` columns drive the retry mechanism.
- *
- * @lore L20: This table has NO retention policy. Every propagation attempt
- * accumulates indefinitely. A follow-up story should add a TTL sweep or
- * archival job (e.g., delete rows older than 90 days with status=applied|skipped).
- * At current expected volumes (~10 propagations/day) a year's worth is ~3,650
- * rows — negligible. Revisit if bet/task throughput increases 100x.
- */
-export const propagationLog = pgTable(
-	"propagation_log",
-	{
-		id: text("id").primaryKey(),
-		/** "session" | "task" | "bet" */
-		sourceLevel: text("source_level").notNull(),
-		/** ID of the entity whose transition triggered propagation */
-		sourceId: text("source_id").notNull(),
-		/** e.g. "session_ended", "task_state_changed" */
-		sourceEvent: text("source_event").notNull(),
-		/** "task" | "bet" | "team" */
-		targetLevel: text("target_level").notNull(),
-		/** ID of the entity that should be affected */
-		targetId: text("target_id").notNull(),
-		/** e.g. "active -> completed" (null if no transition was needed) */
-		targetTransition: text("target_transition"),
-		/** "applied" | "skipped" | "failed" | "pending_retry" */
-		status: text("status").notNull(),
-		/** Error message if status=failed or pending_retry */
-		failureReason: text("failure_reason"),
-		attempts: integer("attempts").notNull().default(1),
-		createdAt: text("created_at").notNull(),
-		appliedAt: text("applied_at"),
-	},
-	(table) => [
-		index("propagation_log_source_idx").on(table.sourceLevel, table.sourceId),
-		index("propagation_log_status_idx").on(table.status),
-		index("propagation_log_created_at_idx").on(table.createdAt),
-	],
-);
-
 // --- Artifacts (L3) ---
 
 // @lore L3 — `kind` is stored as text but normalised to ARTIFACT_KINDS at the
@@ -1127,7 +1072,7 @@ export const filesystemInjections = pgTable(
 export type FilesystemRow = typeof filesystems.$inferSelect; // DB row (resourceRef: string). NOT named `Filesystem`.
 export type NewFilesystem = typeof filesystems.$inferInsert;
 export type NewFilesystemInjection = typeof filesystemInjections.$inferInsert;
-// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/filesystem-contract — see §1.
+// The wire types `Filesystem`/`FilesystemInjection` (parsed) live in @hyperidle/domain-model — see §1.
 
 // --- P3: Server-side credential storage (shared mode) ---
 
@@ -1425,8 +1370,7 @@ export const operationOutcomes = pgTable("operation_outcomes", {
 
 // --- Inferred types ---
 
-// @lore U1: Team (formerly Product) is the domain entity. TeamMember (formerly Team)
-// is the agent-membership group. See architecture U1 §4.2.
+// @lore U1 / AU44 B1: Team is the single domain entity — team_members dissolved into it.
 export type Team = typeof teams.$inferSelect;
 
 export type User = typeof users.$inferSelect;
@@ -1436,8 +1380,6 @@ export type NewUser = typeof users.$inferInsert;
 // table row (carries `agentUserId`); `@hyperidle/agent-run-config`'s
 // `AgentRunConfig` is the keyless value object callers actually consume.
 export type NewAgentRunConfigRow = typeof agentRunConfig.$inferInsert;
-
-export type TeamMember = typeof teamMembers.$inferSelect;
 
 export type Bet = typeof bets.$inferSelect;
 export type NewBet = typeof bets.$inferInsert;
@@ -1472,8 +1414,6 @@ export type NewNotificationQueueRow = typeof notificationQueue.$inferInsert;
 
 export type ArtifactRow = typeof artifacts.$inferSelect;
 
-export type NewPropagationLogRow = typeof propagationLog.$inferInsert;
-
 export type ServerCredential = typeof serverCredentials.$inferSelect;
 
 export type PluginRow = typeof plugins.$inferSelect;
@@ -1481,7 +1421,6 @@ export type PluginRow = typeof plugins.$inferSelect;
 export type PluginConfigurationDefaultRow = typeof pluginConfigurationDefaults.$inferSelect;
 
 export type ConfigurationOverrideRow = typeof configurationOverrides.$inferSelect;
-export type NewConfigurationOverrideRow = typeof configurationOverrides.$inferInsert;
 
 export type LoginSession = typeof loginSessions.$inferSelect;
 export type NewLoginSession = typeof loginSessions.$inferInsert;
@@ -1490,10 +1429,8 @@ export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
 
 export type ProposedCall = typeof proposedCalls.$inferSelect;
-export type NewProposedCall = typeof proposedCalls.$inferInsert;
 
 export type TailoredGrant = typeof tailoredGrants.$inferSelect;
-export type NewTailoredGrant = typeof tailoredGrants.$inferInsert;
 
 export type OperationOutcome = typeof operationOutcomes.$inferSelect;
 

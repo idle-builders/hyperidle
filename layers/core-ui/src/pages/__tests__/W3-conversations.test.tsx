@@ -10,12 +10,12 @@
  * AC-9, AC-10, AC-11 are covered by E2E tests (require real render context).
  */
 
-import { Composer, ThreadRow } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { ThreadItem } from "../../components/ThreadSections";
 import { ThreadSections } from "../../components/ThreadSections";
+import { Composer, ThreadRow } from "../../ds";
 import { Conversations } from "../../pages/Conversations";
 
 // Mock API hooks used by Conversations page

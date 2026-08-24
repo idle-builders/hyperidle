@@ -1,5 +1,4 @@
 export type {
-	AgentBehaviorConfigErrorResponse,
 	AgentBehaviorConfigKind,
 	AgentBehaviorConfigLink,
 	AgentBehaviorConfigListResponse,
@@ -16,17 +15,15 @@ export type {
 	AgentBehaviorValueSource,
 } from "./agent-behavior-config.js";
 export { AGENT_BEHAVIOR_CONFIG_KINDS, isAgentBehaviorConfigKind } from "./agent-behavior-config.js";
+// AgentActiveSession, AgentSessionSummary, AgentPerformanceStats, AgentHealthSignals
+// moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
-	AgentActiveSession,
 	AgentHarnessCapabilities,
-	AgentHealthSignals,
-	AgentPerformanceStats,
 	AgentProfileResponse,
 	AgentReviewTrackRecord,
-	AgentSessionSummary,
 	AgentVerdictEntry,
 } from "./agent-profile.js";
-export type { AgentRoleCatalogEntry, TeamFunction } from "./agent-roles.js";
+export type { AgentRoleCatalogEntry } from "./agent-roles.js";
 export {
 	AGENT_ROLE_CATALOG,
 	communityForRole,
@@ -35,39 +32,22 @@ export {
 	roleLabel,
 	TEAM_FUNCTIONS,
 } from "./agent-roles.js";
+// HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
+// moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
 	AgentRunActiveCountsResponse,
 	AgentRunLatestOutcomesResponse,
 	AgentRunSummary,
 	AgentRunsResponse,
-	HealthSignalInput,
 } from "./agent-run-view.js";
-export { computeHealthSignals, deriveHealthDetail, deriveHealthLevel } from "./agent-run-view.js";
-export { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./agent-work-intent-kinds.js";
-export type { ApiErrorCode, ApiErrorResponse } from "./api-types.js";
+// isAgentWorkIntentKind, isAgentWorkIntentSourceKind moved to agent-orchestration (AU44-b8)
+export type { ApiErrorResponse } from "./api-types.js";
 export { API_ERROR_CODES } from "./api-types.js";
 export { artifactPreviewSchema, fallbackPreviewSchema } from "./artifact-preview.js";
 export type { InviteRole } from "./auth.js";
 export { INVITE_CODE_TTL_MS, INVITE_ROLES, LOGIN_SESSION_TTL_MS } from "./auth.js";
-export type {
-	Block,
-	BlockAnchor,
-	BlockDerivationResult,
-	BlockHostKind,
-	BlockId,
-	BlockKind,
-	BlockPayload,
-	InlineNode,
-	ListItem,
-} from "./blocks/types.js";
-export {
-	BLOCK_HOST_KINDS,
-	BLOCK_ID_VERSION,
-	BLOCK_KINDS,
-	IMAGE_URL_SAFE_SCHEMES,
-	LINK_URL_SAFE_SCHEMES,
-	MAX_BODY_BYTES,
-} from "./blocks/types.js";
+// Block types moved to layers/core-ui/src/block/types.ts (AU44 batch8).
+// core-ui callers import from relative path; server-side uses are inlined or dropped.
 export type {
 	ConfigurationKind,
 	ConfigurationOrigin,
@@ -85,15 +65,16 @@ export type {
 	ConnectionAuthSource,
 	ConnectionHealth,
 	HeldAuthSource,
-	InheritedConnectionFact,
 	ServiceConnectionView,
 } from "./connection.js";
+// InheritedConnectionFact moved to @hyperidle/connections (AU44-b8).
+// HeldAuthSource/HELD_AUTH_SOURCES: survivor in domain-model (run-orchestration service cannot cross to connections service).
 export {
 	CONNECTION_AUTH_SOURCES,
 	CONNECTION_HEALTH,
 	HELD_AUTH_SOURCES,
 } from "./connection.js";
-export type { CredentialCatalogEntry, CredentialName, CredentialState } from "./credential.js";
+export type { CredentialName, CredentialState } from "./credential.js";
 export {
 	CREDENTIAL_BY_PROVIDER,
 	CREDENTIAL_CATALOG,
@@ -105,73 +86,22 @@ export {
 export {
 	ASSISTANT_TURN_TIMEOUT_MS,
 	CapacityExceededError,
-	ConcurrencyLimitError,
 	HttpError,
 	InvalidTransitionError,
 	MissingCredentialError,
-	NoEligibleHarnessError,
-	TargetAgentNotRunnableError,
+	TaskInvalidTransitionError,
 } from "./errors.js";
-export type {
-	AgentAddedEvent,
-	AgentRunAdmissionFailedEvent,
-	AgentRunAdmissionFailureCode,
-	AgentRunLifecycleChangedEvent,
-	AgentWorkIntentEvent,
-	AgentWorkIntentKind,
-	AgentWorkIntentSourceKind,
-	ArtifactCreatedEvent,
-	BetRevisedEvent,
-	BetStateChangedEvent,
-	DependencyMetEvent,
-	DomainEvent,
-	EventByType,
-	EventHandler,
-	EventType,
-	ItemCreatedEvent,
-	KnowledgeAccessedEvent,
-	KnowledgeArchivedEvent,
-	KnowledgeCreatedEvent,
-	KnowledgeUpdatedEvent,
-	NotificationEvent,
-	PropagationAppliedEvent,
-	PropagationFailedEvent,
-	ProposedCallExecutedEvent,
-	ProposedCallGrantedEvent,
-	RoutineFiredEvent,
-	SandboxWritebackChange,
-	SandboxWritebackChangesDetectedEvent,
-	SessionEndedEvent,
-	SessionHandoffCompletedEvent,
-	SessionNotReturnedEvent,
-	SessionOutcome,
-	SessionStartedEvent,
-	TaskStateChangedEvent,
-	TeamCreatedEvent,
-	ThreadArchivedEvent,
-	ThreadCreatedEvent,
-	ThreadMessageAppendedEvent,
-	ThreadReopenedEvent,
-	ThreadResolvedEvent,
-	ToolCallRecordedEvent,
-	UserCreatedEvent,
-	WildcardHandler,
-	WildcardType,
-	WorkSelectionRequestedEvent,
-} from "./events.js";
-export { AGENT_WORK_INTENT_KINDS } from "./events.js";
-export type { HintCatalogEntry, HintId } from "./hint.js";
+// Event vocabulary dissolved to framework/event-bus (AU44 batch 8).
+// Callers import event types from @hyperidle/event-bus.
+// SessionOutcome is the one exception: core-ui uses it and cannot reach event-bus.
+export type { SessionOutcome } from "./events.js";
+export type { HintId } from "./hint.js";
 export { HINT_CATALOG, HINT_IDS, isHintId } from "./hint.js";
+// HyperIdleEnv, ValidatedJson, constantTimeStringEqual, validateBody: server-only (node:crypto).
+// Import from "@hyperidle/domain-model/http" — never via the barrel (Vite bundles barrel into core-ui).
 export { OLD_KIND_MAP } from "./kinds/old-kind-map.js";
-export type {
-	ArtifactKind,
-	CodePreview,
-	DataPreview,
-	HtmlPreview,
-	ImagePreview,
-	TextPreview,
-	UrlPreview,
-} from "./kinds/registry.js";
+// ArtifactKind, TextPreview, CodePreview, ImagePreview, DataPreview, HtmlPreview, UrlPreview
+// unexported (SIMPLIFY): derived from closed sets; no external consumer names them directly.
 export { ARTIFACT_KINDS, getKindDefinition, isRegisteredKind } from "./kinds/registry.js";
 export type {
 	KnowledgeAccessorKind,
@@ -193,37 +123,35 @@ export {
 	SCOPE_TO_LAYER,
 	scopeToLayer,
 } from "./knowledge.js";
-export type { MentionCandidate, MentionSegment, ResolvedMention } from "./mention.js";
+// MentionSegment MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
+export type { MentionCandidate, ResolvedMention } from "./mention.js";
 export {
 	extractMentionCandidates,
 	MAX_MENTIONS_PER_MESSAGE,
 	resolveMentions,
-	segmentMentions,
+	// segmentMentions MERGE → core-ui/ds/mention-segments.ts (AU44 batch 8)
 } from "./mention.js";
 export type {
-	ModelCatalogEntry,
 	ModelGatewayConfig,
 	ModelProvider,
 	ModelRequest,
 	ModelTierConfig,
 	ResolvedModel,
 } from "./model-gateway.js";
+// ModelCatalogEntry unexported (SIMPLIFY): element type of MODEL_CATALOG; no external consumer names it directly.
+// catalogEntry, isCatalogModel moved to layers/core-api/src/model-utils.ts (AU44-b8).
 export {
 	BUILT_IN_GATEWAY_CONFIG,
-	catalogEntry,
 	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
-	isCatalogModel,
 	MODEL_CATALOG,
 	MODEL_PROVIDERS,
 } from "./model-gateway.js";
-export type {
-	NotificationType,
-	NotificationTypeKey,
-	NotificationUrgency,
-} from "./notifications.js";
-export { NOTIFICATION_TYPES, shortLabelForType } from "./notifications.js";
+export type { NotificationType, NotificationTypeKey } from "./notifications.js";
+// NotificationUrgency unexported (SIMPLIFY): member of registry entry; no external consumer names it directly.
+// shortLabelForType MERGE → core-ui/shell/notification-display.ts (AU44 batch 8)
+export { NOTIFICATION_TYPES } from "./notifications.js";
 export type { ProposedCall, ProposedCallStatus, Reversibility } from "./proposed-call.js";
 export { PROPOSED_CALL_STATUSES, REVERSIBILITY } from "./proposed-call.js";
 export type {
@@ -262,11 +190,7 @@ export {
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";
-export {
-	canTransitionTaskState,
-	TASK_STATE_TRANSITIONS,
-	TaskInvalidTransitionError,
-} from "./task-transition.js";
+export { canTransitionTaskState, TASK_STATE_TRANSITIONS } from "./task-transition.js";
 export type {
 	AgentHealthLevel,
 	AgentOperationalStatus,
@@ -290,6 +214,10 @@ export type {
 	ArtifactThreadSummaryResponse,
 	ArtifactViewShape,
 	AssistantNotice,
+	// BlockId + BlockHostKind: wire types embedded in AnchorRef/BlockRef; inlined in
+	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
+	BlockHostKind,
+	BlockId,
 	BlockRef,
 	EntityRef,
 	HeadCollapseResult,
@@ -319,10 +247,10 @@ export {
 	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
-	promotedRichMessageId,
+	// promotedRichMessageId MERGE → core-ui/ds/thread-display.ts (AU44 batch 8)
 	VERDICT_DECISIONS,
 	verdictDecisionLabel,
-	verdictDecisionToStatus,
+	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts (AU44 batch 8)
 } from "./thread.js";
 export type {
 	TriggerEventType,
@@ -330,7 +258,6 @@ export type {
 	TriggerRuleValue,
 } from "./trigger.js";
 export {
-	isTriggerEventType,
 	TRIGGER_EVENT_TYPES,
 	TRIGGER_RESULT_STATES,
 	TriggerRuleValueSchema,
@@ -342,7 +269,7 @@ export type {
 	ArtifactPreview,
 	ArtifactQuery,
 } from "./types/artifact.js";
-export { artifactDisplayTitle, summarizePreview } from "./types/artifact.js";
+// artifactDisplayTitle, summarizePreview MERGE → core-ui/ds/artifact-display-helpers.ts (AU44 batch 8)
 export type { TierTokenCount, TokenUsage } from "./types/money.js";
 export type {
 	AgentCategory,
@@ -374,8 +301,19 @@ export {
 	ORG_EDGE_MECHANISMS,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
+	scopeKindToLabel,
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_OUTCOME_VERDICTS,
 	TASK_STATE_LABEL,
 	TASK_STATES,
 } from "./types.js";
+export type {
+	AgentWorkIntentRecorderFn,
+	AgentWorkIntentRecorderInput,
+	BakedAgentRunnableConfig,
+	BakedContextBundle,
+	BakedContextKnowledgeItem,
+	BakedWorkIntentRequest,
+	SessionKnowledgeItemLike,
+} from "./work-intent.js";
+export { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "./work-intent.js";

@@ -15,12 +15,6 @@
 		},
 		{
 			"path": "../../framework/domain-model"
-		},
-		{
-			"path": "../../framework/factory-defaults"
-		},
-		{
-			"path": "../../framework/host-process"
 		}
 	]
 }

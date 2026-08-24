@@ -1,7 +1,7 @@
+import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import { MAX_FORCE_RETURNS } from "@hyperidle/harness-protocol";
 import { createReturnEnforcement } from "@hyperidle/harness-registry";
 import { createMcpToolBridge } from "@hyperidle/harness-registry/mcp";
-import type { ToolRegistry } from "@hyperidle/tool-protocol";
 import { describe, expect, test } from "vitest";
 
 const registry: ToolRegistry = {
@@ -12,7 +12,7 @@ const registry: ToolRegistry = {
 
 describe("return-status adjudication", () => {
 	test("the bridge and return tool mutate the same enforcement resource", async () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const bridge = createMcpToolBridge({ enforcement });
 		const sessionId = "return-status-session";
 		const opened = await bridge.open({ sessionId, registry });
@@ -29,7 +29,7 @@ describe("return-status adjudication", () => {
 	});
 
 	test("returned, exempt, exhausted, and unknown sessions are allowed without mutation", async () => {
-		const enforcement = createReturnEnforcement({ isolated: true });
+		const enforcement = createReturnEnforcement();
 		const bridge = createMcpToolBridge({ enforcement });
 		const cases = [
 			{ sessionId: "returned", gate: { returned: true }, forceCount: 0, exempt: false },
@@ -71,7 +71,7 @@ describe("return-status adjudication", () => {
 
 	test("rejects missing, malformed, and mismatched bearer credentials", async () => {
 		const bridge = createMcpToolBridge({
-			enforcement: createReturnEnforcement({ isolated: true }),
+			enforcement: createReturnEnforcement(),
 		});
 		const { token } = await bridge.open({ sessionId: "auth", registry });
 		for (const authorization of [undefined, token, `Basic ${token}`, `Bearer wrong-${token}`]) {

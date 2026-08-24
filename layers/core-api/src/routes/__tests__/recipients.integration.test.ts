@@ -5,7 +5,7 @@
  * for the recipient picker. Supports ?q=<search> and ?kind=agent|user filters.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -22,10 +22,6 @@ async function seedRecipients(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: NOW });
-
-	await db
-		.insert(teamMembers)
-		.values({ id: "team-1", teamId: "prod-1", capacity: 3, activeBets: 0, formedAt: NOW });
 
 	await db.insert(bets).values({
 		id: "bet-1",
@@ -53,7 +49,7 @@ async function seedRecipients(db: HyperIdleDb): Promise<void> {
 		role: "builder",
 		status: "active",
 		kind: "ai",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: NOW,
 	});
 	await db.insert(users).values({

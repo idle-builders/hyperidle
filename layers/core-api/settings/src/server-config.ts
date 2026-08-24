@@ -7,47 +7,25 @@
  * Corrupt JSON in the DB falls back to defaults — the app always boots.
  */
 
-import {
-	type HyperIdleDb,
-	type ServerCredential,
-	serverConfig,
-	type WriteExecutor,
-} from "@hyperidle/db";
+import { type HyperIdleDb, serverConfig, type WriteExecutor } from "@hyperidle/db";
 import type { ModelGatewayConfig, ModelTierConfig } from "@hyperidle/domain-model";
 import { BUILT_IN_GATEWAY_CONFIG, MODEL_PROVIDERS } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-/** Secret transformation dependency for the one-shot credential migration. */
-interface CredentialCipher {
-	encryptCredentialValue(plaintext: string): string;
-	decryptCredentialValue(encrypted: string): string | null;
-}
-
+/**
+ * @lore AU44 batch 4: primaryChannel, digestChannel, recipientEmail,
+ * recipientNtfyTopic, ntfyBaseUrl, floodMaxPerMinute, floodCoalesceWindowMs,
+ * testMaxPerHour, smtpIgnoreTls, digestCron removed — dispatcher, ntfy adapter,
+ * flood cap, and digest all deleted. Only SMTP delivery config survives.
+ */
 const NotificationsDeliverySchema = z.object({
 	enabled: z.boolean().default(false),
-	primaryChannel: z.enum(["console", "ntfy", "smtp"]).default("console"),
-	digestChannel: z.enum(["console", "ntfy", "smtp"]).nullable().default(null),
-	recipientEmail: z.string().nullable().default(null),
-	recipientNtfyTopic: z.string().nullable().default(null),
-	ntfyBaseUrl: z.string().default("https://ntfy.sh"),
 	smtpHost: z.string().nullable().default(null),
 	smtpPort: z.number().default(587),
 	smtpSecure: z.boolean().default(false),
 	smtpUsername: z.string().nullable().default(null),
 	smtpFrom: z.string().nullable().default(null),
-	floodMaxPerMinute: z.number().default(6),
-	floodCoalesceWindowMs: z.number().default(60_000),
-	testMaxPerHour: z.number().default(5),
-	smtpIgnoreTls: z.boolean().default(false),
-	digestCron: z.string().default("0 8 * * *"),
-});
-
-const NotificationsSilenceSchema = z.object({
-	mode: z.boolean().default(false),
-	silencedTeamIds: z.array(z.string()).default([]),
-	windowStart: z.string().nullable().default(null),
-	windowEnd: z.string().nullable().default(null),
 });
 
 /**
@@ -56,29 +34,17 @@ const NotificationsSilenceSchema = z.object({
  * ServerConfigSchema.parse({}) does NOT recursively apply nested .default()
  * values for nested object schemas with a .default({}) — the {} literal is
  * used as-is without re-parsing through the nested schema. This means inner
- * defaults (reviewAlerts: true, etc.) would not be applied. The fix is to
- * explicitly construct DEFAULTS by parsing each nested schema separately.
+ * defaults would not be applied. The fix is to explicitly construct DEFAULTS
+ * by parsing each nested schema separately.
+ *
+ * @lore AU44 batch 4: reviewAlerts, blockerAlerts, quietHoursEnabled,
+ * quietHoursStart, quietHoursEnd, mutedTeams, silence removed — alert prefs
+ * and silence policy deleted along with the dispatcher.
  */
 const NotificationsSchema = z.object({
-	reviewAlerts: z.boolean().default(true),
-	blockerAlerts: z.boolean().default(true),
-	quietHoursEnabled: z.boolean().default(false),
-	quietHoursStart: z
-		.string()
-		.regex(/^\d{2}:\d{2}$/)
-		.default("22:00"),
-	quietHoursEnd: z
-		.string()
-		.regex(/^\d{2}:\d{2}$/)
-		.default("08:00"),
-	// @lore U1: renamed from mutedProducts. Old stored JSON with mutedProducts key
-	// gracefully degrades to empty array via .default([]).
-	mutedTeams: z.array(z.string()).default([]),
 	/** AU18: per-notification-type mute keys (notifications/mute.ts), migrated off factorySettings. */
 	mutedTypes: z.array(z.string()).default([]),
 	delivery: NotificationsDeliverySchema.optional(),
-	/** AU18: silence-policy config (silence-policy.ts), migrated off factorySettings. */
-	silence: NotificationsSilenceSchema.optional(),
 });
 
 const ModelTierConfigSchema = z.object({
@@ -114,7 +80,6 @@ type RawServerConfig = z.infer<typeof ServerConfigSchema>;
 export type ServerConfig = {
 	notifications: z.infer<typeof NotificationsSchema> & {
 		delivery: z.infer<typeof NotificationsDeliverySchema>;
-		silence: z.infer<typeof NotificationsSilenceSchema>;
 	};
 	/** X4: Fully-typed model gateway config (always present, defaults applied). */
 	modelGateway: ModelGatewayConfig;
@@ -124,18 +89,9 @@ export type ServerConfig = {
 
 /** Deep partial type for use in updateServerConfig patches. */
 type DeepPartialNotifications = {
-	reviewAlerts?: boolean;
-	blockerAlerts?: boolean;
-	quietHoursEnabled?: boolean;
-	quietHoursStart?: string;
-	quietHoursEnd?: string;
-	// @lore U1: renamed from mutedProducts.
-	mutedTeams?: string[];
 	/** AU18: per-type mute keys. */
 	mutedTypes?: string[];
-	/** AU18: deep-partial — a delivery-only patch preserves silence, and vice versa. */
 	delivery?: Partial<z.infer<typeof NotificationsDeliverySchema>>;
-	silence?: Partial<z.infer<typeof NotificationsSilenceSchema>>;
 };
 
 type DeepPartialModelTier = {
@@ -168,11 +124,11 @@ export type ServerConfigPatch = {
 };
 
 /**
- * Apply NotificationsSchema defaults, INCLUDING its own nested `delivery`/
- * `silence` sub-schemas. Same Zod v4 nested-default gotcha as the top-level
- * ServerConfigSchema: `delivery`/`silence` are `.optional()` (not
- * `.default()`) on NotificationsSchema, so NotificationsSchema.parse({})
- * alone leaves them `undefined` — they must be explicitly re-parsed.
+ * Apply NotificationsSchema defaults, INCLUDING its own nested `delivery`
+ * sub-schema. Same Zod v4 nested-default gotcha as the top-level
+ * ServerConfigSchema: `delivery` is `.optional()` (not `.default()`) on
+ * NotificationsSchema, so NotificationsSchema.parse({}) alone leaves it
+ * `undefined` — it must be explicitly re-parsed.
  */
 function applyNotificationsDefaults(
 	raw: RawServerConfig["notifications"],
@@ -181,7 +137,6 @@ function applyNotificationsDefaults(
 	return {
 		...parsed,
 		delivery: NotificationsDeliverySchema.parse(parsed.delivery ?? {}),
-		silence: NotificationsSilenceSchema.parse(parsed.silence ?? {}),
 	};
 }
 
@@ -300,19 +255,14 @@ async function patchServerConfig(
 				? {
 						...current.notifications,
 						...patch.notifications,
-						// AU18 §5 merge-hazard fix: `delivery`/`silence` are nested sub-objects — a
-						// shallow `...patch.notifications` spread would let a delivery-only patch
-						// silently replace the whole `silence` object (and vice versa) if the
-						// patch shape ever carried both keys. Merge each nested section
-						// independently so a partial patch to one never touches the other.
+						// AU18 §5 merge-hazard fix: `delivery` is a nested sub-object — a
+						// shallow `...patch.notifications` spread would silently replace the
+						// whole `delivery` object. Merge it independently so a partial patch
+						// only touches the fields supplied.
 						delivery:
 							patch.notifications.delivery !== undefined
 								? { ...current.notifications.delivery, ...patch.notifications.delivery }
 								: current.notifications.delivery,
-						silence:
-							patch.notifications.silence !== undefined
-								? { ...current.notifications.silence, ...patch.notifications.silence }
-								: current.notifications.silence,
 					}
 				: current.notifications,
 		// Per-tier merge preserves adjacent tier configuration when patch omits it.
@@ -341,129 +291,3 @@ async function patchServerConfig(
 // @lore AU20 Am6: ServerConfigSchema / NotificationsSchema / ModelGatewayConfigSchema /
 // ModelTierConfigSchema are validation internals — zero census demand from callers;
 // dropped from the public barrel. Not re-exported here.
-
-// ---------------------------------------------------------------------------
-// AH1 §4: One-shot boot migration — relocate legacy openai-compatible key +
-//          seed anthropic key from env. Replaces migrateServerConfigEncryption.
-// ---------------------------------------------------------------------------
-
-/** Relocate legacy inline keys before stripping them; idempotent and absent-only. */
-export async function migrateCredentialsToStore(
-	db: HyperIdleDb,
-	cipher: CredentialCipher,
-	credentialStore: {
-		findByName(db: HyperIdleDb, name: string): Promise<ServerCredential | undefined>;
-		insert(
-			db: HyperIdleDb,
-			values: {
-				readonly name: string;
-				readonly encryptedValue: string;
-				readonly validationState: string;
-				readonly lastValidatedAt: string | null;
-				readonly updatedAt: string;
-			},
-		): Promise<void>;
-	},
-): Promise<void> {
-	// @lore AU20 Am4: cipher.getServerSecret() is gone; cipher.encryptCredentialValue
-	// throws MISSING_ROOT_SECRET when no secret is configured. We probe availability
-	// lazily — the first encrypt call will throw and we return early.
-
-	const now = new Date().toISOString();
-
-	// Step 1: Read the existing server_config blob and strip legacy apiKey fields.
-	const [configRow] = await db
-		.select()
-		.from(serverConfig)
-		.where(eq(serverConfig.id, "default"))
-		.limit(1);
-
-	if (configRow) {
-		let rawJson: unknown;
-		try {
-			rawJson = JSON.parse(configRow.config);
-		} catch {
-			rawJson = null;
-		}
-
-		if (rawJson && typeof rawJson === "object") {
-			// Look for legacy tier blobs with apiKey — not typed since ModelTierConfig
-			// no longer has apiKey, but the raw DB JSON may still carry it.
-			const raw = rawJson as Record<string, unknown>;
-			const gateway = raw.modelGateway as Record<string, Record<string, unknown>> | undefined;
-			let needsRewrite = false;
-			let legacyApiKey: string | null = null;
-
-			if (gateway && typeof gateway === "object") {
-				for (const [_tierName, tier] of Object.entries(gateway)) {
-					if (tier && typeof tier === "object" && "apiKey" in tier) {
-						const rawKey = tier.apiKey;
-						if (typeof rawKey === "string" && rawKey !== "") {
-							// Decrypt-or-take-as-is: if it's our ciphertext, decrypt (null = no secret
-							// or tampered); else treat as legacy plaintext.
-							const decrypted = cipher.decryptCredentialValue(rawKey);
-							const plaintext = decrypted !== null ? decrypted : rawKey;
-							if (plaintext !== "" && legacyApiKey === null) {
-								legacyApiKey = plaintext;
-							}
-						}
-						// Strip the apiKey from the tier blob.
-						delete tier.apiKey;
-						needsRewrite = true;
-					}
-				}
-			}
-
-			// Persist a non-empty key before stripping it from the legacy blob. A failed
-			// encryption/store write leaves the only durable copy untouched for retry.
-			if (legacyApiKey !== null) {
-				const existing = await credentialStore.findByName(db, "openai_compatible_api_key");
-				if (!existing) {
-					let encryptedValue: string;
-					try {
-						encryptedValue = cipher.encryptCredentialValue(legacyApiKey);
-					} catch {
-						// No root secret — cannot encrypt; skip migration (boot warning already logged).
-						return;
-					}
-					await credentialStore.insert(db, {
-						name: "openai_compatible_api_key",
-						encryptedValue,
-						validationState: "present_untested",
-						lastValidatedAt: null,
-						updatedAt: now,
-					});
-				}
-			}
-
-			if (needsRewrite) {
-				await db
-					.update(serverConfig)
-					.set({ config: JSON.stringify(raw), updatedAt: now })
-					.where(eq(serverConfig.id, "default"));
-			}
-		}
-	}
-
-	// Step 2: Seed anthropic_api_key from env (desktop safeStorage one-time bridge).
-	const envAnthropicKey = process.env.ANTHROPIC_API_KEY;
-	if (envAnthropicKey && envAnthropicKey !== "") {
-		const existing = await credentialStore.findByName(db, "anthropic_api_key");
-		if (!existing) {
-			let encryptedValue: string;
-			try {
-				encryptedValue = cipher.encryptCredentialValue(envAnthropicKey);
-			} catch {
-				// No root secret — skip (same no-op as when getServerSecret() returned null).
-				return;
-			}
-			await credentialStore.insert(db, {
-				name: "anthropic_api_key",
-				encryptedValue,
-				validationState: "present_untested",
-				lastValidatedAt: null,
-				updatedAt: now,
-			});
-		}
-	}
-}

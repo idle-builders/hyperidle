@@ -23,9 +23,10 @@
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
-import type { Filesystem } from "@hyperidle/filesystem-contract";
 import { describe, vi } from "vitest";
 import type { FilesystemMounterPort } from "../filesystem-provisioning.js";
+// Filesystem is a local type in mounter.ts (AU44 b2: dissolved from domain-model).
+import type { Filesystem } from "../mounter.js";
 import { createProvisioner } from "../provisioner.js";
 
 type CreateProvisioner = typeof createProvisioner;
@@ -104,19 +105,6 @@ function buildHarnessPorts(overrides: Partial<SessionLifecyclePorts>): SessionLi
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
 			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
 			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		agentRunConfig: {
-			// AU26 G1: `admitSession` reads the six run-config fields live from
-			// `agent_run_config` instead of the emit-time bake. This fixture
-			// returns the all-null default; tests that care override it.
-			readAgentRunConfig: async () => ({
-				systemPrompt: null,
-				harnessType: null,
-				modelTierPreference: null,
-				modelId: null,
-				modelProvider: null,
-				maxConcurrentSessions: 1,
-			}),
 		},
 		toolProvider: {
 			buildToolRegistry: neverCalled("toolProvider.buildToolRegistry"),

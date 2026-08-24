@@ -9,9 +9,6 @@
 	],
 	"references": [
 		{
-			"path": "../../framework/credential-access"
-		},
-		{
 			"path": "../../framework/db"
 		},
 		{
@@ -19,9 +16,6 @@
 		},
 		{
 			"path": "../../framework/event-bus"
-		},
-		{
-			"path": "../../framework/work-intent-port"
 		},
 		{
 			"path": "../../layers/agent-execution/harness-registry"

@@ -117,7 +117,6 @@ async function tryModelCall(
 		const handle = await adapter.startSession({
 			sessionId,
 			sandboxPath: "/tmp/am2-probe",
-			systemPromptPath: "/tmp/am2-probe/AGENTS.md",
 			assembledPrompt: "You are a test assistant. Answer with one word only.",
 			modelTier: "workhorse",
 			tools: [],

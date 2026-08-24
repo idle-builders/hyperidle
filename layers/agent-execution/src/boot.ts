@@ -37,10 +37,12 @@
 
 import type { ReturnEnforcementChannel } from "@hyperidle/harness-capability";
 import type {
-	EnforcementRegistry as BaseEnforcementRegistry,
 	HarnessAdapter,
+	RegisteredTool,
+	ToolRegistry,
 	WorkerRegisterMessage,
 } from "@hyperidle/harness-protocol";
+import type { EnforcementRegistry as BaseEnforcementRegistry } from "@hyperidle/harness-registry";
 import {
 	AdapterPool,
 	createLocalAdapterPool,
@@ -51,12 +53,7 @@ import {
 	type SandboxAdapter,
 	type WsLike,
 } from "@hyperidle/harness-registry";
-import {
-	createMcpToolBridge,
-	openMcpBridgeSession,
-	returnStatusTool,
-} from "@hyperidle/harness-registry/mcp";
-import type { RegisteredTool, ToolRegistry } from "@hyperidle/tool-protocol";
+import { createMcpToolBridge, returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import type { Hono } from "hono";
 
 /** The concrete registry `createReturnEnforcement()` builds — never exported by name from `@hyperidle/harness-registry`, so derived from the factory's own return type instead of duplicating its shape by hand. */
@@ -161,10 +158,16 @@ export interface AgentExecutionBoot {
 export async function bootAgentExecution(
 	options: AgentExecutionBootOptions,
 ): Promise<AgentExecutionBoot> {
-	const pool = options.topology === "local" ? await createLocalAdapterPool() : new AdapterPool();
 	const sandbox = createSandboxAdapter(options.topology);
 	const enforcementRegistry = createReturnEnforcement();
-	const bridge = createMcpToolBridge({ enforcement: enforcementRegistry });
+	const pool =
+		options.topology === "local"
+			? await createLocalAdapterPool({ enforcement: enforcementRegistry })
+			: new AdapterPool();
+	const bridge = createMcpToolBridge({
+		enforcement: enforcementRegistry,
+		baseUrl: options.mcpBaseUrl,
+	});
 
 	const harnessRuntime: AgentExecutionHarnessRuntime = {
 		enforcementRegistry,
@@ -176,7 +179,7 @@ export async function bootAgentExecution(
 		},
 		writeCliMcpConfig: (configOptions) => provisionHarnessEnvironment(configOptions),
 		openMcpBridge: (session) =>
-			openMcpBridgeSession(bridge, options.mcpBaseUrl, {
+			bridge.open({
 				sessionId: session.sessionId,
 				registry: session.toolRegistry,
 				onToolCall: session.onToolCall,

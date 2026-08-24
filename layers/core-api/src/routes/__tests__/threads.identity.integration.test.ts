@@ -17,16 +17,7 @@
  *   - AI agent identity has correct name and role.
  */
 
-import {
-	bets,
-	type HyperIdleDb,
-	messages,
-	tasks,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
+import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -44,13 +35,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 
 	await db.insert(teams).values({ id: "p1", name: "P", phase: "build", createdAt: now });
-	await db.insert(teamMembers).values({
-		id: "t1",
-		teamId: "p1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: now,
-	});
 
 	// Human founder user
 	await db.insert(users).values({

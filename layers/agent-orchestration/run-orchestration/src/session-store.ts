@@ -16,8 +16,8 @@
  */
 
 import { type HyperIdleDb, type Session, sessions } from "@hyperidle/db";
-import type { SessionEndedEvent, SessionOutcome } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { SessionOutcome } from "@hyperidle/domain-model";
+import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 
 /** Full row by id; `undefined` on a miss. */
@@ -30,14 +30,15 @@ export async function findSessionById(
 }
 
 /** Full rows, filtered by whichever of the three fields the caller supplies. */
+// @lore AU44 batch6: agentId filter and limit/offset paging dropped — the
+// Conversations page queries task_id+state=active only; no caller uses agentId
+// or paging. The function is a simple filtered select.
 export async function listSessions(
 	db: HyperIdleDb,
-	filter: { readonly taskId?: string; readonly agentId?: string; readonly state?: string },
-	page: { readonly limit: number; readonly offset: number },
+	filter: { readonly taskId?: string; readonly state?: string },
 ): Promise<Session[]> {
 	const conditions = [];
 	if (filter.taskId) conditions.push(eq(sessions.taskId, filter.taskId));
-	if (filter.agentId) conditions.push(eq(sessions.agentId, filter.agentId));
 	if (filter.state) conditions.push(eq(sessions.state, filter.state));
 
 	return conditions.length > 0
@@ -45,9 +46,7 @@ export async function listSessions(
 				.select()
 				.from(sessions)
 				.where(and(...conditions))
-				.limit(page.limit)
-				.offset(page.offset)
-		: await db.select().from(sessions).limit(page.limit).offset(page.offset);
+		: await db.select().from(sessions);
 }
 
 /**

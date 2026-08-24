@@ -38,8 +38,8 @@ export {
 	reengageOnAdmissionFailure,
 	transitionProposedCall,
 } from "./proposed-call-workflow.js";
-// -- review-item creator (attention-engine knowledge-review items) --
-export type { CreateReviewItemInput, CreateReviewItemResult } from "./review-item-factory.js";
-export { attentionReviewReasoningMarker, createReviewItem } from "./review-item-factory.js";
+// -- review-item creator moved to @hyperidle/knowledge (AU44 batch 4 rows 9/10 MERGE) --
+// createReviewItem / attentionReviewReasoningMarker / CreateReviewItemInput / CreateReviewItemResult
+// now live in @hyperidle/knowledge beside attention-service.ts, their only real consumer.
 // -- subscription registrar (session_ended → review item + liveness net) --
 export { registerReviewSubscriptions } from "./session-review-creator.js";

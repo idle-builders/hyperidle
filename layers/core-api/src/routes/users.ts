@@ -2,14 +2,13 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import { persistScaffoldedAgents } from "@hyperidle/org";
+import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
 // persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
 
-import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/http-middleware";
+import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
@@ -63,7 +62,7 @@ export function createUserSetupRoute(
 	// the real `user-store.ts` function references unchanged (no behavior change).
 	// AU26 G1 (§D-L) / AU31 §2.2: `persistScaffoldedAgents` also stamps the run
 	// config, reached through the seam (`buildSeamBackedAgentRunConfigWriter`)
-	// instead of a direct `@hyperidle/agent-run-config` import.
+	// instead of a direct `@hyperidle/run-orchestration` import.
 	const orgUsers = {
 		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
 		insertUser,

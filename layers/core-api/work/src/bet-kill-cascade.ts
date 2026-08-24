@@ -18,7 +18,6 @@ export interface BetKillCascadeDeps extends TaskStateMachineDeps {
 		requestRunStopForTasks(
 			exec: WriteExecutor,
 			taskIds: readonly string[],
-			opts: { reason: "bet_killed" },
 		): Promise<readonly { readonly taskId: string; readonly sessionId: string }[]>;
 	};
 }
@@ -36,26 +35,18 @@ const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
  * - Active runs on those tasks → stopped via `run-orchestration`'s
  *   `requestRunStopForTasks`, which owns the CAS and the `session_ended`
  *   suppression.
- * - Each cascade hop writes a synchronous `propagation_log` row with
- *   `sourceEvent:'bet_killed'`, `status:'applied'`, labelled to the real target.
- *
  * @lore AF12 cascade: stops active sessions WITHOUT emitting `session_ended` to
  * avoid re-entrant upward propagation (the engine ignores non-'completed'
  * outcomes anyway, but emitting could trip unrelated handlers). AU26 H2 moved
- * both the CAS write and that suppression down into `run-orchestration`; what
- * stays here is the `propagation_log` hop, which is core's own row.
+ * both the CAS write and that suppression down into `run-orchestration`.
  *
- * @lore AF12 propagation_log: there is no longer a second writer. The cascade's
- * downward rows and the engine's upward rows go through the same builder in
- * `policy`, which owns the table; the cascade reaches it through the injected
- * port rather than importing a sibling Service. Cascade rows carry
- * `sourceEvent:'bet_killed'`; the async upward skip rows carry
- * `sourceEvent:'task_state_changed'` — disambiguated so AC6 can query deterministically.
+ * @lore AU44 batch6: `propagation_log` table dropped (AU20 Ruling 2). The
+ * cascade no longer writes log rows. Failed hops emit `propagation_failed` on
+ * the event bus — the extension surface for plugins.
  *
- * @lore AF12 idempotency: all writes are CAS / `NOT IN terminal`-guarded. A 0-row
- * CAS-stop on an already-stopped session does NOT write a phantom propagation_log
- * row — which is exactly why `requestRunStopForTasks` returns the runs it
- * actually stopped rather than a count.
+ * @lore AF12 idempotency: all writes are CAS / `NOT IN terminal`-guarded.
+ * `requestRunStopForTasks` returns the runs it actually stopped so callers know
+ * which sessions were affected.
  */
 export async function cascadeBetKill(
 	db: HyperIdleDb,
@@ -77,12 +68,10 @@ export async function cascadeBetKill(
 
 	// 2. Stop the active runs on those tasks. `run-orchestration` owns the
 	// select, the CAS and the `session_ended` suppression; it returns only the
-	// runs it actually stopped, so an already-stopped run writes no phantom
-	// `propagation_log` row below.
+	// runs it actually stopped.
 	const stoppedRuns = await deps.runOrchestration.requestRunStopForTasks(
 		db,
 		nonTerminalTasks.map((t) => t.id),
-		{ reason: "bet_killed" },
 	);
 
 	for (const task of nonTerminalTasks) {

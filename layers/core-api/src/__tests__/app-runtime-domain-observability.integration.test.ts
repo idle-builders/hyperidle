@@ -4,11 +4,10 @@ import {
 	knowledgeAppProjection,
 	users,
 } from "@hyperidle/db";
-import { deliver, enqueue, listNotifications, updateConfig } from "@hyperidle/notifications";
+import { enqueue, listNotifications } from "@hyperidle/notifications";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test as fixtureTest } from "../__testing__/test-fixtures.js";
-import { notificationsDeps } from "./notifications-test-deps.js";
 
 const TEST_API_KEY = "test-key-au3-domain";
 
@@ -81,40 +80,26 @@ describe("app runtime domain observability", () => {
 			const detail = (await detailRes.json()) as { layer?: string; kind?: string };
 			expect(detail).toMatchObject({ layer: "L4", kind: "decision" });
 
-			// @lore AU20 Ag6b: `enqueueNotification` removed from public API; use `enqueue`
-			// with explicit id/status/attempts/createdAt fields. `flush` wraps
-			// loadNotificationConfig+flushQueue internally; no inline config needed.
+			// @lore AU20 Ag6b: `enqueueNotification` removed from public API; use `enqueue`.
+			// @lore AU44 batch 4: flush/deliver deleted — dispatcher abstraction removed.
+			// Notification observability is verified by the row persisting in the inbox
+			// (unread filter) rather than transitioning to "sent" via a flush.
+			const notifId = crypto.randomUUID();
 			await enqueue(db, {
-				id: crypto.randomUUID(),
+				id: notifId,
 				eventType: "au3.domain",
 				subjectId: created.id,
 				severity: "digest",
 				title: "AU3 notification",
-				body: "Notification path still drains.",
-				reason: "digest",
+				body: "Notification path still persists.",
+				reason: "notification_event",
 				channel: null,
 				status: "pending",
 				attempts: 0,
 				createdAt: new Date().toISOString(),
 			});
-			const queued = await listNotifications(db, { kind: "all" });
-			expect(queued).toHaveLength(1);
-
-			// Enable notifications so flush actually delivers (default config has enabled=false)
-			await updateConfig(
-				db,
-				{
-					enabled: true,
-					primaryChannel: "console",
-					digestChannel: "console",
-					floodMaxPerMinute: 100,
-					floodCoalesceWindowMs: 60_000,
-				},
-				notificationsDeps,
-			);
-
-			await deliver(db, { kind: "flush" }, notificationsDeps);
-			// GET /api/notifications/queue (door #133) deleted — status check removed.
+			const queued = await listNotifications(db, { kind: "unread" });
+			expect(queued.some((r) => r.eventType === "au3.domain")).toBe(true);
 
 			const routinesRes = await app.request("/api/routines", {
 				method: "GET",
@@ -125,10 +110,10 @@ describe("app runtime domain observability", () => {
 			const requests = await db.select().from(agentSessionRequests);
 			expect(Array.isArray(requests)).toBe(true);
 
-			const sent = (await listNotifications(db, { kind: "all" })).find(
-				(r) => r.eventType === "au3.domain",
-			);
-			expect(sent?.status).toBe("sent");
+			// Verify the notification row is still in the inbox (inbox is the surviving delivery path)
+			const inbox = await listNotifications(db, { kind: "unread" });
+			const found = inbox.find((r) => r.eventType === "au3.domain");
+			expect(found?.status).toBe("pending");
 		},
 	);
 });

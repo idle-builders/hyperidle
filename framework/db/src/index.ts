@@ -2,10 +2,7 @@ export {
 	createPgliteDb,
 	createPostgresDb,
 	type DbHandle,
-	DEFAULT_PG_POOL_SIZE,
 	type HyperIdleDb,
-	PG_POOL_SIZE_ENV,
-	parsePgPoolSize,
 } from "./connection.js";
 export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export * as schema from "./schema.js";
@@ -43,7 +40,6 @@ export {
 	messages,
 	type NewAgentRunConfigRow,
 	type NewBet,
-	type NewConfigurationOverrideRow,
 	type NewFilesystem,
 	type NewFilesystemInjection,
 	type NewInviteCode,
@@ -51,12 +47,9 @@ export {
 	type NewLoginSession,
 	type NewMessage,
 	type NewNotificationQueueRow,
-	type NewPropagationLogRow,
-	type NewProposedCall,
 	type NewRoutine,
 	type NewRoutineRun,
 	type NewServiceConnectionRow,
-	type NewTailoredGrant,
 	type NewTask,
 	type NewThread,
 	type NewUser,
@@ -70,7 +63,6 @@ export {
 	type ProposedCall,
 	pluginConfigurationDefaults,
 	plugins,
-	propagationLog,
 	proposedCalls,
 	type Routine,
 	routineRuns,
@@ -84,16 +76,12 @@ export {
 	sessions,
 	type TailoredGrant,
 	type Task,
-	// @lore U1: Team (formerly Product) is the domain entity select type.
+	// @lore U1 / AU44 B1: Team is the single domain entity (team_members dissolved in).
 	type Team,
-	// @lore U1: TeamMember (formerly Team) is the agent-membership select type.
-	type TeamMember,
 	type Thread,
 	tailoredGrants,
 	taskDispatchAttempts,
 	tasks,
-	// @lore U1: teamMembers table (formerly teams agent-membership table).
-	teamMembers,
 	// @lore U1: teams table (formerly products table).
 	teams,
 	threads,

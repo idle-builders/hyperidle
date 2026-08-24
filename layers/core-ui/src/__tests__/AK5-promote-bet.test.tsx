@@ -28,8 +28,8 @@ import type { BetDetail } from "../types/bet";
 // ─── Module-level mocks ─────────────────────────────────────────────────────
 
 // Mock BodyEditor — TipTap cannot run in JSDOM
-vi.mock("@hyperidle/design-system", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/design-system")>();
+vi.mock("../ds", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../ds")>();
 	return {
 		...original,
 		BodyEditor: ({

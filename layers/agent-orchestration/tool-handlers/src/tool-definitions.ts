@@ -11,18 +11,21 @@
  * tests to drive `buildToolDefinitions`, completing the collapse.
  *
  * @lore AU20 Stage 2: `parseCron`/`nextCronMatch` removed from the dispatch
- * port — they are pure utilities now in `@hyperidle/cron`; `create_routine`
- * imports them directly, no dispatch back-edge needed.
+ * port — they were pure utilities now in `@hyperidle/cron`; `create_routine`
+ * imported them directly, no dispatch back-edge needed.
+ *
+ * @lore AU44 B3: `@hyperidle/cron` dissolved into `@hyperidle/routine`.
+ * `create_routine` no longer calls parseCron/nextCronMatch — nextRunAt
+ * computation is owner-side in insertRoutine. The port method now returns
+ * the computed nextRunAt.
  */
 
 import * as crypto from "node:crypto";
 import { randomUUID } from "node:crypto";
-import { type CronFields, nextCronMatch, parseCron } from "@hyperidle/cron";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
 	ARTIFACT_VIEW_SHAPES,
-	type ArtifactCreatedEvent,
 	artifactPreviewSchema,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
@@ -34,18 +37,12 @@ import {
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
-	type TaskStateChangedEvent,
 } from "@hyperidle/domain-model";
-import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import {
-	err,
-	ok,
-	type RegisteredTool,
-	type ToolDefinition,
-	toRegistered,
-} from "@hyperidle/tool-protocol";
+import type { ArtifactCreatedEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
+import { type ToolDefinition, toRegistered } from "./tool-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // send_message
@@ -918,9 +915,12 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			const now = new Date().toISOString();
 
 			const teamId = `team-${randomUUID()}`;
-			const teamMembersId = `team-${randomUUID()}`;
+			// @lore AU44 B1: after the fold, teamMembers.id = teams.id — one entity, one id.
+			// Using a separate UUID here caused a FK violation: persistScaffoldedAgents sets
+			// users.teamId = teamMembersId, but only teams.id = teamId exists in `teams`.
+			const teamMembersId = teamId;
 
-			// @lore AU20 Am7: atomic createTeam (teams + teamMembers companion in one call).
+			// @lore AU20 Am7 / AU44 B1: createTeam inserts one `teams` row (team_members dissolved).
 			await ports.coreApi.createTeam(
 				{
 					id: teamId,
@@ -937,24 +937,18 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 				ctx.agentId,
 			);
 
-			// AU21 §6 Decision F1: `resolveAgentScaffoldSpecs` returns concrete
-			// `AgentScaffoldSpec[]` fields; `persistScaffoldedAgents` (Mechanism C
-			// seam) declares its `specs` param as opaque `Record<string, unknown>[]`
-			// — the `.map((s) => ({ ...s }))` widens each spec to a fresh object
-			// literal, same idiom the retired `agent-selection` binding used.
-			const specs = resolveAgentScaffoldSpecs({
-				trigger: "team_scaffold",
-				teamName: input.name,
-				functions: input.functions,
-				role: null,
-				name: null,
-				ownerUserId: null,
-				ownerUserName: null,
-			}).map((spec) => ({ ...spec }));
-
-			const { agentIds, leadAgentId } = await ports.coreApi.persistScaffoldedAgents(
+			// @lore AU44 AU20-fd: scaffold request passes through the seam unchanged;
+			// core-api resolves specs internally via `resolveAgentScaffoldSpecs`.
+			const { agentIds, leadAgentId } = await ports.coreApi.scaffoldFromRequest(
 				teamMembersId,
-				specs,
+				"team_scaffold",
+				input.name,
+				input.functions,
+				null,
+				null,
+				null,
+				null,
+				undefined,
 				ctx.agentId,
 			);
 
@@ -1035,26 +1029,19 @@ function makeAddAgentTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<AddAgen
 			if (!memberGroup)
 				return err("NOT_FOUND", `Team membership group not found for team ${input.teamId}`);
 
-			// AU21 §6 Decision F1: see the `create_team` tool's own note above on
-			// why the `.map((s) => ({ ...s }))` widening is needed here.
-			const specs = resolveAgentScaffoldSpecs({
-				trigger: "agent_added",
-				teamName: team.name,
-				functions: null,
-				role: input.role,
-				name: input.name,
-				ownerUserId: null,
-				ownerUserName: null,
-			}).map((spec) => ({ ...spec }));
-
-			const finalSpecs =
-				input.systemPrompt !== undefined
-					? specs.map((s) => ({ ...s, systemPrompt: input.systemPrompt ?? null }))
-					: specs;
-
-			const { agentIds } = await ports.coreApi.persistScaffoldedAgents(
+			// @lore AU44 AU20-fd: scaffold request passes through the seam unchanged;
+			// core-api resolves specs internally. systemPromptOverride passes through
+			// when the caller supplied a custom prompt.
+			const { agentIds } = await ports.coreApi.scaffoldFromRequest(
 				memberGroup.id,
-				finalSpecs,
+				"agent_added",
+				team.name,
+				null,
+				input.role,
+				input.name,
+				null,
+				null,
+				input.systemPrompt,
 				ctx.agentId,
 			);
 			const agentId = agentIds[0];
@@ -1174,8 +1161,10 @@ function makeEditBetTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditBetI
 
 // ─────────────────────────────────────────────────────────────────────────────
 // create_routine
-// @lore AU20 Stage 2: parseCron/nextCronMatch imported from @hyperidle/cron
-// (relocated from dispatch port) — no longer a dispatch back-edge.
+// @lore AU44 B3: cron computation moved owner-side into insertRoutine
+// (routine service). The tool no longer imports @hyperidle/cron — cron
+// validation happens at the service boundary; an invalid expression returns
+// INVALID_INPUT via the port.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const createRoutineInputSchema = z.object({
@@ -1209,6 +1198,8 @@ function makeCreateRoutineTool<TDb>(
 			const agent = await ports.coreApi.getUserById(input.ownerAgentId, ctx.agentId);
 			if (!agent) return err("NOT_FOUND", `Agent not found: ${input.ownerAgentId}`);
 
+			// Validate triggerConfig JSON structure — cron expression validation
+			// is owner-side in insertRoutine (throws INVALID_INPUT on bad cron).
 			let triggerConfigParsed: { cron?: string };
 			try {
 				triggerConfigParsed = JSON.parse(input.triggerConfig) as { cron?: string };
@@ -1220,33 +1211,35 @@ function makeCreateRoutineTool<TDb>(
 				return err("INVALID_INPUT", "triggerConfig must include a cron field");
 			}
 
-			let parsedCron: CronFields;
-			try {
-				parsedCron = parseCron(triggerConfigParsed.cron);
-			} catch {
-				return err("INVALID_INPUT", `Invalid cron expression: ${triggerConfigParsed.cron}`);
-			}
-
 			const routineId = randomUUID();
 			const now = new Date().toISOString();
-			const nextRunAt = nextCronMatch(parsedCron, new Date()).toISOString();
 
-			await ports.coreApi.insertRoutine(
-				{
-					id: routineId,
-					name: input.name,
-					description: input.description ?? null,
-					teamId: input.teamId,
-					ownerAgentId: input.ownerAgentId,
-					triggerType: input.triggerType,
-					triggerConfig: input.triggerConfig,
-					state: "active",
-					active: true,
-					nextRunAt,
-					createdAt: now,
-				},
-				ctx.agentId,
-			);
+			let nextRunAt: string | null = null;
+			try {
+				nextRunAt = await ports.coreApi.insertRoutine(
+					{
+						id: routineId,
+						name: input.name,
+						description: input.description ?? null,
+						teamId: input.teamId,
+						ownerAgentId: input.ownerAgentId,
+						triggerType: input.triggerType,
+						triggerConfig: input.triggerConfig,
+						state: "active",
+						active: true,
+						createdAt: now,
+					},
+					ctx.agentId,
+				);
+			} catch (e) {
+				// Only mislabel the failure as a cron error when the thrown message is
+				// actually from parseCron — DB or network errors must propagate so the
+				// agent sees a 500, not a misleading "Invalid cron expression".
+				if (e instanceof Error && /invalid cron/i.test(e.message)) {
+					return err("INVALID_INPUT", `Invalid cron expression: ${triggerConfigParsed.cron}`);
+				}
+				throw e;
+			}
 
 			return ok({ routineId, name: input.name, nextRunAt });
 		},

@@ -12,9 +12,6 @@
 			"path": "../../framework/api-contract"
 		},
 		{
-			"path": "../../framework/credential-access"
-		},
-		{
 			"path": "../../framework/db"
 		},
 		{
@@ -24,19 +21,7 @@
 			"path": "../../framework/event-bus"
 		},
 		{
-			"path": "../../framework/factory-defaults"
-		},
-		{
-			"path": "../../framework/filesystem-contract"
-		},
-		{
 			"path": "../../framework/harness-protocol"
-		},
-		{
-			"path": "../../framework/host-process"
-		},
-		{
-			"path": "../../framework/http-middleware"
 		},
 		{
 			"path": "filesystems"

@@ -11,7 +11,6 @@ describe("credential store completeness contract", () => {
 	}) => {
 		await writeCredential(db, "anthropic_api_key", {
 			encryptedValue: "ciphertext-v1",
-			updatedAt: NOW,
 		});
 		expect(await readCredentials(db, { name: "anthropic_api_key" })).toMatchObject([
 			{
@@ -26,12 +25,10 @@ describe("credential store completeness contract", () => {
 			encryptedValue: "ciphertext-v2",
 			validationState: "valid",
 			lastValidatedAt: LATER,
-			updatedAt: LATER,
 		});
 		await writeCredential(db, "anthropic_api_key", {
 			validationState: "invalid",
 			lastValidatedAt: NOW,
-			updatedAt: LATER,
 		});
 
 		const rows = await readCredentials(db);
@@ -49,17 +46,16 @@ describe("credential store completeness contract", () => {
 	test("concurrent same-name credential upserts leave one coherent winning value", async ({
 		db,
 	}) => {
+		// updatedAt is stamped internally by writeCredential — not part of CredentialWrite.
 		const first = {
 			encryptedValue: "ciphertext-concurrent-a",
 			validationState: "valid",
 			lastValidatedAt: NOW,
-			updatedAt: NOW,
 		} as const;
 		const second = {
 			encryptedValue: "ciphertext-concurrent-b",
 			validationState: "invalid",
 			lastValidatedAt: LATER,
-			updatedAt: LATER,
 		} as const;
 
 		await Promise.all([
@@ -69,13 +65,13 @@ describe("credential store completeness contract", () => {
 
 		const rows = await readCredentials(db, { name: "concurrent_api_key" });
 		expect(rows).toHaveLength(1);
+		// One whole contender must win; mixing fields from both is forbidden.
+		// updatedAt excluded — it is stamped by writeCredential, not the caller.
 		const persisted = {
 			encryptedValue: rows[0]?.encryptedValue,
 			validationState: rows[0]?.validationState,
 			lastValidatedAt: rows[0]?.lastValidatedAt,
-			updatedAt: rows[0]?.updatedAt,
 		};
-		// One whole contender must win; mixing fields from both is forbidden.
 		expect([first, second]).toContainEqual(persisted);
 	});
 });

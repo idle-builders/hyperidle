@@ -33,7 +33,7 @@
  *
  * The middleware stack — cors, body limit, auth, fail-closed, `onError` — is
  * Application-applied to that shared router and reaches this module unchanged.
- * This file declares its own boundaries with `@hyperidle/http-middleware`'s
+ * This file declares its own boundaries with `@hyperidle/domain-model`'s
  * `` and imports nothing from core-api.
  */
 
@@ -42,16 +42,14 @@ import {
 	type InheritedReach,
 	insertConnection,
 	listConnections,
-	projectInheritedConnections,
 	updateConnection,
 } from "@hyperidle/connections";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConnectionHealth, ServiceConnectionView } from "@hyperidle/domain-model";
-import { isPrivateHostLiteral, resolveUrlForSSRF } from "@hyperidle/host-process";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { Hono } from "hono";
 import { z } from "zod";
+import { isPrivateHostLiteral, resolveUrlForSSRF } from "../ssrf.js";
 
 // ---------------------------------------------------------------------------
 // Input validation
@@ -189,7 +187,17 @@ function deriveServiceFromUrl(serverUrl: string): string {
 export function createConnectionRoutes(
 	db: HyperIdleDb,
 	inheritedReach?: InheritedReach,
+	cipher?: {
+		readonly encrypt: (plaintext: string) => string;
+		readonly decrypt: (ciphertext: string) => string | null;
+	},
 ): Hono<HyperIdleEnv> {
+	const encrypt =
+		cipher?.encrypt ??
+		(() => {
+			throw new Error("Encryption secret not configured");
+		});
+	const decrypt = cipher?.decrypt ?? (() => null);
 	const router = new Hono<HyperIdleEnv>();
 
 	// Per-router-instance rate limiters (one bucket per identity, reset per app lifecycle).
@@ -216,7 +224,8 @@ export function createConnectionRoutes(
 		const storedViews = rows.map(rowToView);
 
 		// Inherited projections from the reach cache (no spawn per request)
-		const inheritedViews = projectInheritedConnections(inheritedReach?.list() ?? []);
+		// list() now returns ServiceConnectionView[] directly (projection inlined in InheritedReach)
+		const inheritedViews = inheritedReach?.list() ?? [];
 
 		// Inherited first (the first-class signal), then held
 		return c.json([...inheritedViews, ...storedViews]);
@@ -266,7 +275,7 @@ export function createConnectionRoutes(
 			// Fail-loud on missing root secret at the write boundary
 			let encryptedToken: string;
 			try {
-				encryptedToken = encryptCredentialValue(body.token);
+				encryptedToken = encrypt(body.token);
 			} catch {
 				return c.json(
 					{ error: "Encryption secret not configured", code: "MISSING_ROOT_SECRET" },
@@ -391,8 +400,8 @@ export function createConnectionRoutes(
 			if (!row.encryptedToken) {
 				health = "needs-attention";
 			} else {
-				// decryptCredentialValue returns null when no root secret is set
-				const plaintext = decryptCredentialValue(row.encryptedToken);
+				// decrypt returns null when no root secret is set
+				const plaintext = decrypt(row.encryptedToken);
 				health = plaintext ? "working" : "needs-attention";
 			}
 		} else {

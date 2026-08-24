@@ -10,7 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import type { SessionNotReturnedEvent } from "@hyperidle/domain-model";
+import type { SessionNotReturnedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { afterEach, describe, vi } from "vitest";
 import { createProvisioner } from "../provisioner.js";
@@ -72,19 +72,6 @@ function buildHarnessPorts(): SessionLifecyclePorts {
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
 			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
 			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
-		},
-		agentRunConfig: {
-			// AU26 G1: `admitSession` reads the six run-config fields live from
-			// `agent_run_config` instead of the emit-time bake. This fixture
-			// returns the all-null default; tests that care override it.
-			readAgentRunConfig: async () => ({
-				systemPrompt: null,
-				harnessType: null,
-				modelTierPreference: null,
-				modelId: null,
-				modelProvider: null,
-				maxConcurrentSessions: 1,
-			}),
 		},
 		toolProvider: {
 			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),

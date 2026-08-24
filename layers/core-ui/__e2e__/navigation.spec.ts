@@ -38,7 +38,7 @@ function makeBetDetailResponse() {
 function makeTeamDetailResponse() {
 	return {
 		team: { id: TEAM_ID, name: "AG4 Team", phase: "build", status: "healthy", leadAgentId: null },
-		teamMembers: { id: "tm1", formedAt: new Date().toISOString(), dissolvedAt: null },
+		teamMembers: { id: TEAM_ID, formedAt: new Date().toISOString(), dissolvedAt: null },
 		roster: [],
 		burn: {
 			capacity: 3,

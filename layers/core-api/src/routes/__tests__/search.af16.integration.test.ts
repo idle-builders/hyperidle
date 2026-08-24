@@ -7,7 +7,7 @@
  * Z8-033.
  */
 
-import { bets, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -22,9 +22,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "srch-team", name: "Search Team", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "srch-tm", teamId: "srch-team", capacity: 5, activeBets: 0, formedAt: now });
 	await db.insert(users).values({
 		id: "srch-user",
 		kind: "human",

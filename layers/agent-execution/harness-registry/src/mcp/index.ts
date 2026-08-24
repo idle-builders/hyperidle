@@ -1,6 +1,6 @@
-import type { EnforcementRegistry } from "@hyperidle/harness-protocol";
-import type { ToolRegistry } from "@hyperidle/tool-protocol";
+import type { ToolRegistry } from "@hyperidle/harness-protocol";
 import type { Hono } from "hono";
+import type { EnforcementRegistry } from "../enforcement-registry.js";
 import { createMcpSession } from "./mcp-bridge.js";
 import { createMcpRouter, type McpSessionRegistry } from "./mcp-route.js";
 
@@ -8,16 +8,25 @@ export { returnStatusTool } from "../return-status-tool.js";
 
 export interface McpToolBridge {
 	readonly router: Hono;
+	/**
+	 * Open a session-scoped MCP bridge slot. Returns the auth token AND the
+	 * fully-spelled `/api/mcp/<token>` URL that CLI harnesses dial.
+	 *
+	 * @lore Row 14 MERGE: `openMcpBridgeSession` was a one-string-template
+	 * wrapper around `bridge.open`. The URL now lives inside `open` itself —
+	 * `baseUrl` is passed to `createMcpToolBridge` at boot time (the one place
+	 * that knows the origin). Callers no longer thread `baseUrl` per-call.
+	 */
 	open(session: {
 		readonly sessionId: string;
 		readonly registry: ToolRegistry;
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
-	}): Promise<{ readonly token: string }>;
+	}): Promise<{ readonly token: string; readonly url: string }>;
 	close(token: string): Promise<void>;
 }
 
 export function createMcpToolBridge(
-	options: { readonly enforcement?: EnforcementRegistry } = {},
+	options: { readonly enforcement?: EnforcementRegistry; readonly baseUrl?: string } = {},
 ): McpToolBridge {
 	const active = new Map<string, Awaited<ReturnType<typeof createMcpSession>>>();
 	const sessions: McpSessionRegistry & {
@@ -47,39 +56,17 @@ export function createMcpToolBridge(
 				: Promise.resolve(new Response("Unauthorized", { status: 401 }));
 		},
 	};
+	const { baseUrl = "" } = options;
 	return {
 		router: createMcpRouter(sessions, options.enforcement),
 		async open(session) {
 			const instance = await createMcpSession(session);
 			sessions.register(instance);
-			return { token: instance.token };
+			const token = instance.token;
+			return { token, url: `${baseUrl}/api/mcp/${token}` };
 		},
 		close(token) {
 			return sessions.unregister(token);
 		},
 	};
-}
-
-/**
- * AU31 §2.7/§3.1 sites 12,14 (B1) — the session-scoped MCP dial, folded in
- * from `run-orchestration`'s `provisioner.ts`: bridge-open, the `/api/mcp/`
- * URL spelling, and close. `harness-registry` is the one Service with an
- * allowed edge to the MCP router (`tools/governance/decided-rules.json`);
- * `provisioner.ts` calls only these two functions, through the injected
- * `SessionLifecycleHarnessRuntime` port (`openMcpBridge`/`closeMcpBridge`,
- * wired at `layers/core-api/src/services/run-orchestration-composition.ts`),
- * never touching `bridge.open`/`bridge.close` or a `/api/mcp/` literal
- * itself again.
- */
-export async function openMcpBridgeSession(
-	bridge: McpToolBridge,
-	baseUrl: string,
-	session: {
-		readonly sessionId: string;
-		readonly registry: ToolRegistry;
-		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
-	},
-): Promise<{ readonly token: string; readonly url: string }> {
-	const { token } = await bridge.open(session);
-	return { token, url: `${baseUrl}/api/mcp/${token}` };
 }

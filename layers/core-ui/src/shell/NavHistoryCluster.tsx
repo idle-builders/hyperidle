@@ -14,8 +14,8 @@
  * the space is reserved and muscle memory works for deep links).
  */
 
-import { Button } from "@hyperidle/design-system";
 import type { JSX } from "react";
+import { Button } from "../ds";
 import { useHistoryAvailability } from "../hooks/useHistoryAvailability.js";
 
 // Chevron SVG — 18px, matching AppShell mobile back button (stroke-width 2, round caps).

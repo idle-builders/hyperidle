@@ -137,16 +137,9 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 		const now = new Date().toISOString();
 
 		// Import needed tables
-		const { teams, teamMembers, bets, tasks } = await import("@hyperidle/db");
+		const { teams, bets, tasks } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({ id: "p-af11", name: "P-AF11", phase: "build", createdAt: now });
-		await db.insert(teamMembers).values({
-			id: "tm-af11",
-			teamId: "p-af11",
-			capacity: 5,
-			activeBets: 0,
-			formedAt: now,
-		});
 		await db.insert(bets).values({
 			id: "bet-af11",
 			teamId: "p-af11",
@@ -504,117 +497,6 @@ describe("AC4: openai-compatible key in server_credentials, not server_config bl
 			}
 		}
 	});
-
-	test("AH1 migration: legacy apiKey in server_config blob is relocated to server_credentials", async ({
-		db,
-	}) => {
-		const plaintextApiKey = "sk-legacy-plaintext-af11";
-		const now = new Date().toISOString();
-
-		// Seed a raw DB row with a legacy plaintext apiKey (simulating pre-AH1 data).
-		const rawBlob = JSON.stringify({
-			modelGateway: {
-				reasoning: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-					apiKey: plaintextApiKey,
-				},
-				workhorse: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-					apiKey: plaintextApiKey,
-				},
-				fast: {
-					provider: "openai-compatible",
-					model: "gpt-4",
-					baseUrl: "https://api.example.com",
-					apiKey: plaintextApiKey,
-				},
-			},
-		});
-
-		await db.insert(serverConfig).values({ id: "default", config: rawBlob, updatedAt: now });
-
-		// Run the AH1 migration — relocates blob apiKey to server_credentials.
-		const { migrateCredentialsToStore } = await import("@hyperidle/settings");
-		// @lore AU20 Am4: getServerSecret removed from barrel; cipher is now no-arg.
-		// @lore AU26 E1: the cipher itself now lives in @hyperidle/credential-access.
-		const { decryptCredentialValue: decryptCipher, encryptCredentialValue: encryptCipher } =
-			await import("@hyperidle/credential-access");
-		const cipher = {
-			encryptCredentialValue: encryptCipher,
-			decryptCredentialValue: decryptCipher,
-		};
-		const { serverCredentials } = await import("@hyperidle/db");
-		const { eq } = await import("drizzle-orm");
-		const credentialStore = {
-			async findByName(execDb: typeof db, name: string) {
-				const [row] = await execDb
-					.select()
-					.from(serverCredentials)
-					.where(eq(serverCredentials.name, name))
-					.limit(1);
-				return row;
-			},
-			async insert(
-				execDb: typeof db,
-				values: {
-					name: string;
-					encryptedValue: string;
-					validationState: string;
-					lastValidatedAt: string | null;
-					updatedAt: string;
-				},
-			) {
-				await execDb.insert(serverCredentials).values(values);
-			},
-		};
-		await migrateCredentialsToStore(db, cipher, credentialStore);
-
-		// After migration: blob has no apiKey field.
-		const rows = await db.select().from(serverConfig);
-		const blobRaw = rows[0]?.config ?? "";
-		expect(blobRaw).not.toContain(plaintextApiKey);
-		const blobParsed = JSON.parse(blobRaw) as Record<string, unknown>;
-		const gateway = blobParsed.modelGateway as Record<string, Record<string, unknown>> | undefined;
-		if (gateway) {
-			for (const [tierName, tier] of Object.entries(gateway)) {
-				expect(
-					tier,
-					`tier ${tierName} must not have apiKey in blob after migration`,
-				).not.toHaveProperty("apiKey");
-			}
-		}
-
-		// The key was relocated to server_credentials as openai_compatible_api_key.
-		const credRows = await db
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, "openai_compatible_api_key"));
-		expect(credRows).toHaveLength(1);
-
-		// The stored value must be ciphertext (not plaintext).
-		const encryptedValue = credRows[0]!.encryptedValue;
-		expect(encryptedValue).not.toBe(plaintextApiKey);
-
-		// It must decrypt back to the original plaintext.
-		const { decryptCredentialValue } = await import("@hyperidle/credential-access");
-		// @lore AU20 Am4: decryptCredentialValue is no-arg; reads HYPERIDLE_CREDENTIAL_KEY from env.
-		// TEST_SERVER_SECRET is already stubbed in beforeEach for this test suite.
-		const decrypted = decryptCredentialValue(encryptedValue);
-		expect(decrypted).toBe(plaintextApiKey);
-
-		// Run migration again — idempotent (does not overwrite the existing credential row).
-		await migrateCredentialsToStore(db, cipher, credentialStore);
-		const credRows2 = await db
-			.select()
-			.from(serverCredentials)
-			.where(eq(serverCredentials.name, "openai_compatible_api_key"));
-		expect(credRows2).toHaveLength(1);
-		expect(credRows2[0]!.encryptedValue).toBe(encryptedValue);
-	});
 });
 
 // ---------------------------------------------------------------------------
@@ -636,12 +518,9 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 	}) => {
 		const now = new Date().toISOString();
 
-		const { teams, teamMembers, bets } = await import("@hyperidle/db");
+		const { teams, bets } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({ id: "p-ac5", name: "P-AC5", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "tm-ac5", teamId: "p-ac5", capacity: 5, activeBets: 0, formedAt: now });
 		await db.insert(bets).values({
 			id: "bet-ac5",
 			teamId: "p-ac5",

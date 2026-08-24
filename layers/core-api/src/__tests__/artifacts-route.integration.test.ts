@@ -1,7 +1,7 @@
 // L3 RED — Hono route tests for /api/artifacts.
 // Source of truth: plans/L3/architecture.md §5, §12.
 
-import { artifacts, bets, type HyperIdleDb, tasks, teamMembers, teams } from "@hyperidle/db";
+import { artifacts, bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -22,15 +22,11 @@ async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 	// @lore U1: productId is actually teamId (domain entity id), not productId.
 	// Kept as "productId" in SeedScope for backward compat with test axis queries.
 	const productId = `prod${suffix}`;
-	const teamMembersId = `team${suffix}`;
 	const betId = `bet${suffix}`;
 	const taskId = `task${suffix}`;
 	// Insert domain entity (teams table, formerly products)
 	await db.insert(teams).values({ id: productId, name: "P", phase: "build", createdAt: NOW });
 	// Insert membership group (teamMembers table, formerly teams)
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId: productId, capacity: 1, activeBets: 0, formedAt: NOW });
 
 	// @lore U1: bets.teamId references teams.id (domain entity), not teamMembers.id
 	await db.insert(bets).values({

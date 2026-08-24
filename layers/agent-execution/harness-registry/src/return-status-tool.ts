@@ -24,17 +24,15 @@
  */
 
 import {
-	type EnforcementRegistry,
 	MAX_FORCE_RETURNS,
-	shouldForceReturn,
-} from "@hyperidle/harness-protocol";
-import {
 	ok,
 	type RegisteredTool,
+	shouldForceReturn,
 	type ToolContext,
 	type ToolResult,
-} from "@hyperidle/tool-protocol";
+} from "@hyperidle/harness-protocol";
 import z from "zod";
+import type { EnforcementRegistry } from "./enforcement-registry.js";
 
 /** Input schema: the tool accepts an empty object (no required args). */
 const inputSchema: z.ZodType = z.object({});

@@ -34,8 +34,10 @@ import {
 	type RunOrchestrationHarnessRuntimeAdapter,
 	type RunOrchestrationReturnStatusToolAdapter,
 } from "@hyperidle/agent-orchestration";
+// @lore AU44-b6: desktop is always laptop/pglite — resolveProfile removed with host-process.
 import {
 	buildAgentOrchestrationPort,
+	composeApiApplication,
 	createInProcessAgentOrchestrationTransport,
 	DEFAULT_REAPER_STALE_AFTER_MS,
 	health,
@@ -43,12 +45,9 @@ import {
 	registerCoreDomainServices,
 } from "@hyperidle/core-api";
 import { disposeApp, registerAppDisposers } from "@hyperidle/core-api/app";
-import { bootCoreApi } from "@hyperidle/core-api/boot";
-import type { CredentialResolver } from "@hyperidle/credential-access";
-import { createPgliteDb, createPostgresDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
+import { bootCoreApi, type CoreApiBoot } from "@hyperidle/core-api/boot";
+import { createPgliteDb, type DbHandle, type HyperIdleDb } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
-import { resolveProfile } from "@hyperidle/host-process";
-import { composeApiApplication } from "@hyperidle/http-middleware";
 import { WebSocketServer } from "ws";
 // @lore AU26: `ws` ships NO type declarations of its own — see
 // `applications/remote-server/src/create-server.ts`'s twin `@lore` for the
@@ -64,14 +63,15 @@ export interface CreateServerDeps {
 
 /**
  * @lore AH1 §3 / N1: same shape as `remote-server`'s own `ServerHandle` — see
- * that file's doc comment for why `credentialResolver` rides the handle, and
- * why its type comes from `@hyperidle/credential-access` rather than
- * `@hyperidle/credentials`.
+ * that file's doc comment for why `credentialResolver` rides the handle.
+ * @lore AU44-b2: `credentialResolver` type derived from `CoreApiBoot` so this
+ * application does not import @hyperidle/credentials (a Service) at the
+ * application layer — the layer barrel is the only boundary a composition root crosses.
  */
 export interface ServerHandle {
 	readonly httpServer: ServerType;
 	readonly dispose: () => Promise<void>;
-	readonly credentialResolver: CredentialResolver;
+	readonly credentialResolver: NonNullable<CoreApiBoot["credentialResolver"]>;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -149,14 +149,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	if (deps.db) {
 		db = deps.db;
 	} else {
-		const profile = resolveProfile({ env: process.env });
-		const rawDbUrl = process.env.DATABASE_URL ?? profile.dbUrlDefault;
-		const dbUrl = profile.dbDriver === "pglite" ? resolvePglitePath(rawDbUrl) : rawDbUrl;
-		if (profile.dbDriver === "pglite") {
-			dbHandle = await createPgliteDb(dbUrl);
-		} else {
-			dbHandle = createPostgresDb(dbUrl);
-		}
+		// Desktop is always laptop/pglite — profile resolution not needed.
+		const rawDbUrl = process.env.DATABASE_URL ?? "./hyperidle-pg";
+		const dbUrl = resolvePglitePath(rawDbUrl);
+		dbHandle = await createPgliteDb(dbUrl);
 		db = dbHandle.db;
 	}
 	const eventBus = new EventBus();
@@ -286,6 +282,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			},
 			resolveProvisioningOwnerUserId: coreApi.resolveProvisioningOwnerUserId,
 		},
+		cipher: coreApi.cipher,
 	});
 	// AU36 D5: close the deferred binding — redetect now reaches the reach cache.
 	realInheritedReachRefresh = () => agentOrchestration.inheritedReach.refresh();

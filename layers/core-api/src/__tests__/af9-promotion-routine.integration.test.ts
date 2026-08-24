@@ -20,11 +20,10 @@ import {
 	knowledgeItems,
 	routineRuns,
 	routines,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
-import type { KnowledgeUpdatedEvent } from "@hyperidle/domain-model";
+import type { KnowledgeUpdatedEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js";
@@ -41,13 +40,6 @@ const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}`;
  */
 async function seedOwners(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
-	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW_ISO,
-	});
 	await db.insert(users).values({
 		id: "seed-agent-cos",
 		name: "System Agent",
@@ -67,7 +59,7 @@ async function seedOwners(db: HyperIdleDb): Promise<void> {
 		name: "Acme PM",
 		role: "product_manager",
 		status: "active",
-		teamId: "team-1",
+		teamId: "prod-1",
 		createdAt: NOW_ISO,
 	});
 }

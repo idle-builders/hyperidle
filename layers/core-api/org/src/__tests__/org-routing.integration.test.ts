@@ -1,40 +1,31 @@
 /**
  * resolveReviewRecipients — team-scoped routing + fallback.
  *
- * @lore AU20 ruling 1: the old org-edges matrix (direct/function/team edges)
- * was an approval chart and is permanently removed. The new algorithm:
- *  1. If teamId provided, find teamMembers row for that team.
- *  2. Return humans whose users.teamId = teamMembers.id.
- *  3. If no team humans found (or no teamId), fall back to ALL humans.
- *
- * Every review still reaches someone — the fallback ensures that.
+ * @lore AU44 B1: `teamMembers` table dissolved into `teams`. Tests updated:
+ * - No more `teamMembers` inserts; capacity/activeBets/formedAt are now
+ *   columns on `teams`.
+ * - `users.teamId` now references `teams.id` directly.
+ * - `usersPort` is a test-local adapter backed by `listUsers` from
+ *   `@hyperidle/users`. The production file cannot import `@hyperidle/users`
+ *   (service cross-boundary), so the DI port is restored; this test file
+ *   is development world and may cross that boundary to wire the real impl.
+ * - `userId` / `agentRole` fields removed from context (edge-matrix remnants).
  */
 
-import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { and, eq } from "drizzle-orm";
+import { listUsers } from "@hyperidle/users";
 import { describe } from "vitest";
 import { resolveReviewRecipients } from "../org-routing.js";
 
-const NOW = new Date().toISOString();
-
-/**
- * Test port that queries users filtered by teamMembersId (when provided)
- * or returns all humans (when omitted). This is the exact shape the
- * production route injects (`listUsers(db, { kind: 'human', teamIds?: [...] })`).
- */
-const orgUsersPort = {
-	async listHumans(db2: HyperIdleDb, teamMembersId?: string) {
-		// Both branches filter on kind. The team branch used to filter on team alone,
-		// which made the stub return agents from the team and disagree with what the
-		// composition root injects — the test was measuring the stub, not the product.
-		const q = db2.select({ id: users.id }).from(users);
-		if (teamMembersId !== undefined) {
-			return q.where(and(eq(users.kind, "human"), eq(users.teamId, teamMembersId)));
-		}
-		return q.where(eq(users.kind, "human"));
-	},
+/** Adapter: injects the real listUsers as the DI port for resolveReviewRecipients. */
+const usersPort = {
+	listHumans: (db: HyperIdleDb, teamId?: string) =>
+		listUsers(db, { kind: "human", ...(teamId !== undefined ? { teamIds: [teamId] } : {}) }),
 };
+
+const NOW = new Date().toISOString();
 
 describe("resolveReviewRecipients — team-scoped routing", () => {
 	// -------------------------------------------------------------------------
@@ -42,7 +33,7 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 	// -------------------------------------------------------------------------
 	describe("no teamId → returns all human user IDs", () => {
 		test("returns empty array when no humans exist", async ({ db }) => {
-			const result = await resolveReviewRecipients(db, {}, orgUsersPort);
+			const result = await resolveReviewRecipients(db, {}, usersPort);
 			expect(result).toHaveLength(0);
 		});
 
@@ -74,32 +65,10 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				},
 			]);
 
-			const result = await resolveReviewRecipients(db, {}, orgUsersPort);
+			const result = await resolveReviewRecipients(db, {}, usersPort);
 			expect(result).toContain("u-h1");
 			expect(result).toContain("u-h2");
 			expect(result).not.toContain("u-ai1");
-		});
-
-		test("ignores userId and agentRole — they no longer drive routing", async ({ db }) => {
-			await db.insert(users).values([
-				{
-					id: "u-h1",
-					kind: "human",
-					name: "Human",
-					role: "founder",
-					status: "active",
-					createdAt: NOW,
-				},
-			]);
-
-			// Old edge-matrix context fields — now ignored; result is the same as
-			// the no-teamId fallback.
-			const result = await resolveReviewRecipients(
-				db,
-				{ userId: "some-agent", agentRole: "builder" },
-				orgUsersPort,
-			);
-			expect(result).toContain("u-h1");
 		});
 	});
 
@@ -108,16 +77,16 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 	// -------------------------------------------------------------------------
 	describe("teamId provided + humans on team → returns team humans only", () => {
 		test("returns only the humans on the given team", async ({ db }) => {
-			// Team setup
-			await db
-				.insert(teams)
-				.values({ id: "team-alpha", name: "Alpha", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "tm-alpha",
-				teamId: "team-alpha",
+			// @lore AU44 B1: teams now carry capacity/activeBets/formedAt directly.
+			// users.teamId references teams.id (no more two-hop through teamMembers).
+			await db.insert(teams).values({
+				id: "team-alpha",
+				name: "Alpha",
+				phase: "build",
 				capacity: 3,
 				activeBets: 0,
 				formedAt: NOW,
+				createdAt: NOW,
 			});
 
 			// Human ON the team
@@ -127,7 +96,7 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				name: "Team Human",
 				role: "founder",
 				status: "active",
-				teamId: "tm-alpha",
+				teamId: "team-alpha",
 				createdAt: NOW,
 			});
 
@@ -141,19 +110,22 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				createdAt: NOW,
 			});
 
-			const result = await resolveReviewRecipients(db, { teamId: "team-alpha" }, orgUsersPort);
+			const result = await resolveReviewRecipients(db, { teamId: "team-alpha" }, usersPort);
 
 			expect(result).toContain("u-team-human");
 			expect(result).not.toContain("u-other-human");
 		});
 
 		test("returns multiple humans when several are on the team", async ({ db }) => {
-			await db
-				.insert(teams)
-				.values({ id: "team-beta", name: "Beta", phase: "build", createdAt: NOW });
-			await db
-				.insert(teamMembers)
-				.values({ id: "tm-beta", teamId: "team-beta", capacity: 5, activeBets: 0, formedAt: NOW });
+			await db.insert(teams).values({
+				id: "team-beta",
+				name: "Beta",
+				phase: "build",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+				createdAt: NOW,
+			});
 
 			await db.insert(users).values([
 				{
@@ -162,7 +134,7 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 					name: "Beta H1",
 					role: "founder",
 					status: "active",
-					teamId: "tm-beta",
+					teamId: "team-beta",
 					createdAt: NOW,
 				},
 				{
@@ -171,7 +143,7 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 					name: "Beta H2",
 					role: "founder",
 					status: "active",
-					teamId: "tm-beta",
+					teamId: "team-beta",
 					createdAt: NOW,
 				},
 				{
@@ -180,12 +152,12 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 					name: "Beta AI",
 					role: "builder",
 					status: "active",
-					teamId: "tm-beta",
+					teamId: "team-beta",
 					createdAt: NOW,
 				},
 			]);
 
-			const result = await resolveReviewRecipients(db, { teamId: "team-beta" }, orgUsersPort);
+			const result = await resolveReviewRecipients(db, { teamId: "team-beta" }, usersPort);
 
 			expect(result).toContain("u-beta-h1");
 			expect(result).toContain("u-beta-h2");
@@ -198,15 +170,14 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 	// -------------------------------------------------------------------------
 	describe("teamId provided + no humans on team → fallback to all humans", () => {
 		test("falls back to all humans when the team has no human members", async ({ db }) => {
-			await db
-				.insert(teams)
-				.values({ id: "team-gamma", name: "Gamma", phase: "build", createdAt: NOW });
-			await db.insert(teamMembers).values({
-				id: "tm-gamma",
-				teamId: "team-gamma",
+			await db.insert(teams).values({
+				id: "team-gamma",
+				name: "Gamma",
+				phase: "build",
 				capacity: 2,
 				activeBets: 0,
 				formedAt: NOW,
+				createdAt: NOW,
 			});
 
 			// AI on the team — no humans
@@ -216,7 +187,7 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				name: "Gamma AI",
 				role: "builder",
 				status: "active",
-				teamId: "tm-gamma",
+				teamId: "team-gamma",
 				createdAt: NOW,
 			});
 
@@ -230,18 +201,23 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				createdAt: NOW,
 			});
 
-			const result = await resolveReviewRecipients(db, { teamId: "team-gamma" }, orgUsersPort);
+			const result = await resolveReviewRecipients(db, { teamId: "team-gamma" }, usersPort);
 
 			// Fallback: every human is returned so the review still reaches someone.
 			expect(result).toContain("u-global-human");
 			expect(result).not.toContain("u-gamma-ai");
 		});
 
-		test("falls back when teamId resolves to a team with no teamMembers row", async ({ db }) => {
-			// A team with no teamMembers companion → getTeamMembers returns undefined → fallback
-			await db
-				.insert(teams)
-				.values({ id: "team-orphan", name: "Orphan", phase: "build", createdAt: NOW });
+		test("falls back when teamId resolves to a team with no human members", async ({ db }) => {
+			await db.insert(teams).values({
+				id: "team-orphan",
+				name: "Orphan",
+				phase: "build",
+				capacity: 5,
+				activeBets: 0,
+				formedAt: NOW,
+				createdAt: NOW,
+			});
 			await db.insert(users).values({
 				id: "u-orphan-human",
 				kind: "human",
@@ -251,7 +227,7 @@ describe("resolveReviewRecipients — team-scoped routing", () => {
 				createdAt: NOW,
 			});
 
-			const result = await resolveReviewRecipients(db, { teamId: "team-orphan" }, orgUsersPort);
+			const result = await resolveReviewRecipients(db, { teamId: "team-orphan" }, usersPort);
 
 			expect(result).toContain("u-orphan-human");
 		});

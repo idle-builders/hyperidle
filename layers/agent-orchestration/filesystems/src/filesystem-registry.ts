@@ -6,12 +6,11 @@ import {
 	type NewFilesystemInjection,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export interface FilesystemFilter {
 	readonly teamId?: string;
 	readonly agentId?: string;
-	readonly ids?: readonly string[];
 }
 
 export async function saveFilesystem(exec: WriteExecutor, values: NewFilesystem): Promise<void> {
@@ -37,10 +36,6 @@ export async function listFilesystems(
 			.innerJoin(filesystems, eq(filesystemInjections.filesystemId, filesystems.id))
 			.where(eq(filesystemInjections.agentUserId, filter.agentId));
 		return joined.map((r) => r.filesystem);
-	}
-	if (filter.ids != null) {
-		if (filter.ids.length === 0) return [];
-		return exec.select().from(filesystems).where(inArray(filesystems.id, filter.ids));
 	}
 	if (filter.teamId != null) {
 		return exec.select().from(filesystems).where(eq(filesystems.teamId, filter.teamId));

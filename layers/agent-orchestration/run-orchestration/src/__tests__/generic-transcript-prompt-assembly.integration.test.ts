@@ -16,7 +16,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
@@ -84,19 +84,6 @@ function buildHarnessPorts(
 			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
 			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
 		},
-		agentRunConfig: {
-			// AU26 G1: `admitSession` reads the six run-config fields live from
-			// `agent_run_config` instead of the emit-time bake. This fixture
-			// returns the all-null default; tests that care override it.
-			readAgentRunConfig: async () => ({
-				systemPrompt: null,
-				harnessType: null,
-				modelTierPreference: null,
-				modelId: null,
-				modelProvider: null,
-				maxConcurrentSessions: 1,
-			}),
-		},
 		toolProvider: {
 			buildToolRegistry: () => ({ invoke: async () => ({ success: true, data: undefined }) }),
 			toolsForRole: () => [],
@@ -143,9 +130,6 @@ describe("generic transcript delivery (Increment 4)", () => {
 		const teamId = `${taskId}-team`;
 		const betId = `${taskId}-bet`;
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: now });
 		await db.insert(bets).values({
 			id: betId,
 			teamId,

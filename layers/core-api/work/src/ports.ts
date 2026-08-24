@@ -91,8 +91,8 @@
  * unchanged; only its permanence is now settled.
  */
 
-import type { TeamMember, WriteExecutor } from "@hyperidle/db";
-import type { AgentWorkIntentRecorderFn } from "@hyperidle/work-intent-port";
+import type { Team, WriteExecutor } from "@hyperidle/db";
+import type { AgentWorkIntentRecorderFn } from "@hyperidle/domain-model";
 
 // ---------------------------------------------------------------------------
 // session-requests — workIntents (§10.3 against-grain — RULED PERMANENT, see top @lore)
@@ -121,7 +121,7 @@ type AgentWorkIntentRecorder = AgentWorkIntentRecorderFn;
  * `freshMemberGroup.teamId` instead of `freshMemberGroup.id` unchanged in semantics.
  */
 interface TeamCapacityReader {
-	getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
+	getByTeamId(db: WriteExecutor, teamId: string): Promise<Team | undefined>;
 	setActiveBets(db: WriteExecutor, teamId: string, activeBets: number): Promise<void>;
 }
 

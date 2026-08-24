@@ -4,19 +4,16 @@ import {
 	bets,
 	type HyperIdleDb,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import {
-	type AgentRunAdmissionFailedEvent,
-	type AgentSessionRequestInput,
-	TargetAgentNotRunnableError,
-} from "@hyperidle/domain-model";
+import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, vi } from "vitest";
+import { TargetAgentNotRunnableError } from "../errors.js";
 import { runSession } from "../runtime.js";
 import { buildTestPorts } from "./test-ports.js";
 
@@ -52,9 +49,6 @@ describe("agent session runtime consumer", () => {
 	}) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "member-1", teamId: "team-1", capacity: 3, activeBets: 0, formedAt: now });
 		await db.insert(users).values({
 			id: "agent-1",
 			kind: "ai",
@@ -133,9 +127,6 @@ describe("agent session runtime consumer", () => {
 	test("request is running before harness run starts", async ({ db }) => {
 		const now = new Date().toISOString();
 		await db.insert(teams).values({ id: "team-1", name: "Team", phase: "build", createdAt: now });
-		await db
-			.insert(teamMembers)
-			.values({ id: "member-1", teamId: "team-1", capacity: 3, activeBets: 0, formedAt: now });
 		await db.insert(users).values({
 			id: "agent-1",
 			kind: "ai",
@@ -265,13 +256,6 @@ describe("agent session runtime consumer", () => {
 	}) => {
 		const createdAt = new Date().toISOString();
 		await db.insert(teams).values({ id: "team-race", name: "Team", phase: "build", createdAt });
-		await db.insert(teamMembers).values({
-			id: "member-race",
-			teamId: "team-race",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: createdAt,
-		});
 		await db.insert(users).values({
 			id: "agent-race",
 			kind: "ai",

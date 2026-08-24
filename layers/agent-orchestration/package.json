@@ -11,30 +11,23 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@hyperidle/agent-run-config": "*",
 		"@hyperidle/api-contract": "*",
 		"@hyperidle/connections": "*",
-		"@hyperidle/credential-access": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/factory-defaults": "*",
-		"@hyperidle/filesystem-contract": "*",
-		"@hyperidle/filesystem-mounting": "*",
 		"@hyperidle/filesystems": "*",
 		"@hyperidle/harness-protocol": "*",
-		"@hyperidle/host-process": "*",
-		"@hyperidle/http-middleware": "*",
 		"@hyperidle/run-orchestration": "*",
 		"@hyperidle/session-requests": "*",
 		"@hyperidle/tool-handlers": "*",
-		"@hyperidle/tool-protocol": "*",
 		"hono": "^4.12.27",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
 		"@hyperidle/agent-execution": "*",
+		"@hyperidle/credentials": "*",
 		"@types/node": "^24",
 		"drizzle-orm": "^0.45.2",
 		"vitest": "^4.1.9"

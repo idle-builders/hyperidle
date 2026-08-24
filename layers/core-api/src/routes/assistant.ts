@@ -30,19 +30,18 @@ import {
 	type RedactedPayload,
 	type Thread,
 } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
-import { resolveAgentScaffoldSpecs } from "@hyperidle/factory-defaults";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 // AK6 T8: BUILTIN_ASSISTANT_SYSTEM_PROMPT removed — persona comes from app defaults.
 // The Kernel no longer hard-codes any assistant persona constant. Lazy-create paths
 // now call app scaffolding + persistScaffoldedAgents, identical
 // to POST /api/users. DEFAULT_AGENT_MODEL_ID/PROVIDER removed (persistScaffoldedAgents owns those fields).
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
-import { persistScaffoldedAgents } from "@hyperidle/org";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
+import type { EventBus } from "@hyperidle/event-bus";
+import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
 import { findUser, insertUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { messageRowSchema, threadParticipantsSchema } from "./threads-schema.js";
 import { validateAgentConfig } from "./validate-agent-config.js";
 
@@ -277,7 +276,7 @@ export function createAssistantSoulRoutes(
 	// AU26 G1 (§D-L) / AU31 §2.2: `persistScaffoldedAgents` also stamps the run
 	// config, which left `users` for `agent_run_config` — now reached through
 	// the seam (`buildSeamBackedAgentRunConfigWriter`) instead of a direct
-	// `@hyperidle/agent-run-config` import.
+	// `@hyperidle/run-orchestration` import.
 	const orgUsers = {
 		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
 		insertUser,

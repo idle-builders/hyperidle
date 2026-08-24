@@ -40,12 +40,11 @@ import {
 	serviceConnections,
 	tailoredGrants,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { AgentRunAdmissionFailedEvent } from "@hyperidle/domain-model";
+import type { AgentRunAdmissionFailedEvent } from "@hyperidle/event-bus";
 import { drainIntents } from "@hyperidle/session-requests";
 import { eq, sql } from "drizzle-orm";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
@@ -90,9 +89,6 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 		const artifactId = `${idPrefix}-artifact`;
 
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 		await db.insert(users).values({
 			id: agentId,
 			kind: "ai",

@@ -14,8 +14,8 @@
  * (AM3 security rule).
  */
 
-import type { OpenHandler, Part } from "@hyperidle/conversation-parts";
 import { type JSX, useState } from "react";
+import type { OpenHandler, Part } from ".";
 
 type ToolPartShape = Extract<Part, { kind: "tool" }>;
 

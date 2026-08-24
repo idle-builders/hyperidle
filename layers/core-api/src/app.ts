@@ -1,11 +1,15 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import type { CredentialResolver } from "@hyperidle/credential-access";
-import { decryptCredentialValue, encryptCredentialValue } from "@hyperidle/credential-access";
-import { deleteCredential, readCredentials, writeCredential } from "@hyperidle/credentials";
+import {
+	type CredentialResolver,
+	decryptCredentialValue,
+	deleteCredential,
+	encryptCredentialValue,
+	readCredentials,
+	writeCredential,
+} from "@hyperidle/credentials";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
 import type { NotificationsDeps } from "@hyperidle/notifications";
 import { readServerConfig, updateServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, type UpgradeTokenStore } from "@hyperidle/users";
@@ -36,6 +40,7 @@ import { createTeamRoutes } from "./routes/teams-routes.js";
 import { createThreadRoutes } from "./routes/threads.js";
 import { createUserRoutes, createUserSetupRoute } from "./routes/users.js";
 import { buildSeamBackedWorkIntentRecorder } from "./services/agent-orchestration-port-composition.js";
+import type { HarnessCapabilityReader } from "./services/harness-capability-reader.js";
 import { taskRunResolverDeps } from "./services/task-run-resolver-bindings.js";
 
 /**
@@ -57,27 +62,20 @@ interface AppOptions {
 	 * there is no ambient/module-level transport to fall back on. Required
 	 * whenever `db` is provided: every route and reaction that used to reach
 	 * `@hyperidle/session-requests`/`@hyperidle/run-orchestration`/
-	 * `@hyperidle/agent-run-config`/`@hyperidle/filesystems` directly now goes
+	 * `@hyperidle/run-orchestration`/`@hyperidle/filesystems` directly now goes
 	 * through this door. `createCoreApiApp` throws a named error at
 	 * construction if `db` is present and this is not.
 	 */
 	agentOrchestration?: AgentOrchestrationPort;
+	/**
+	 * @lore AU44 batch 4: readAlertPreferences removed from ctx — the dispatcher
+	 * that consumed it is deleted. serviceBootstrap ctx now only carries the 3
+	 * primitives needed by the routine scheduler and agent orchestration.
+	 */
 	serviceBootstrap?: (ctx: {
 		db: HyperIdleDb;
 		eventBus: EventBus;
 		agentOrchestration: AgentOrchestrationPort;
-		/**
-		 * AU31 §5.2: built by `bootCoreApi` from this Layer's own `settings`
-		 * service and merged onto `ctx` before the caller's `serviceBootstrap`
-		 * runs — the Application used to build this closure itself
-		 * (`create-server.ts`'s deleted `readAlertPreferences`), which meant
-		 * importing `@hyperidle/settings` directly. Optional so a caller that
-		 * doesn't register the routine scheduler (most tests) can ignore it.
-		 */
-		readAlertPreferences?: () => Promise<{
-			readonly blockerAlerts: boolean;
-			readonly reviewAlerts: boolean;
-		}>;
 	}) => Array<() => void>;
 	/**
 	/**
@@ -171,7 +169,7 @@ interface AppOptions {
 	 * recorder built over `agentOrchestration` (`buildSeamBackedWorkIntentRecorder`);
 	 * tests may override for isolation.
 	 */
-	agentWorkIntentRecorder?: import("@hyperidle/work-intent-port").AgentWorkIntentRecorderFn;
+	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
 }
 
 /**
@@ -207,7 +205,6 @@ const notificationsDeps: NotificationsDeps = {
 				encryptedValue: values.encryptedValue,
 				validationState: values.validationState,
 				lastValidatedAt: values.lastValidatedAt,
-				updatedAt: values.updatedAt,
 			}),
 		deleteByName: (db, name) => deleteCredential(db, name),
 	},

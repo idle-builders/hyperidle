@@ -44,14 +44,12 @@ import {
 	items,
 	routineRuns,
 	routines,
-	teamMembers,
 	teams,
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireBuiltinRoutine, fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -97,10 +95,6 @@ function makePorts(): RoutineSchedulerPorts {
 				eventBus: EventBus,
 				candidateIds: readonly string[],
 			) => {
-				const createReviewItemForKnowledge = createReviewItem({
-					conversation: { insertThread },
-					work: { createItem: (exec, values) => work.create(exec, "item", values) },
-				});
 				const result = await recomputeAttention(
 					{
 						db,
@@ -110,8 +104,9 @@ function makePorts(): RoutineSchedulerPorts {
 								const rows = await work.list(exec, "item", { marker });
 								return rows[0] ? { id: rows[0].id } : undefined;
 							},
+							createItem: (exec, values) => work.create(exec, "item", values),
 						},
-						review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+						conversation: { insertThread },
 					},
 					{ filter: { ids: candidateIds as string[] } },
 				);
@@ -140,14 +135,6 @@ async function seedManualRoutine(
 	const teamId = `${id}-team`;
 	const ownerAgentId = `${id}-owner`;
 	await db.insert(teams).values({ id: teamId, name: "Inc4 team", phase: "build", createdAt: NOW });
-	// The owner writes the membership row alongside the team.
-	await db.insert(teamMembers).values({
-		id: `${teamId}-members`,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	await db.insert(users).values({
 		id: ownerAgentId,
 		kind: "ai",
@@ -177,14 +164,6 @@ async function seedBuiltinOwner(
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Inc4 builtin team", phase: "build", createdAt: NOW });
-	// The owner writes the membership row alongside the team.
-	await db.insert(teamMembers).values({
-		id: `${teamId}-members`,
-		teamId,
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",

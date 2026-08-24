@@ -43,7 +43,7 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { insertMessage, insertThread, listMessages } from "@hyperidle/conversation";
 import type { HyperIdleDb, NewItem, NewTask, WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { getTeamMembers } from "@hyperidle/org";
+import { getTeam } from "@hyperidle/org";
 import type { HandoffParams, HandoffResult } from "@hyperidle/policy";
 import { buildHandoff, computeApprovalRate as policyComputeApprovalRate } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
@@ -92,7 +92,7 @@ function buildHandoffDeps(port: AgentOrchestrationPort) {
 				excludeId: string,
 			) => findUser(db, { role, teamIds: teamMembersIds, status: "active", excludeId }),
 		},
-		org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeamMembers(db, { teamId }) },
+		org: { getByTeamId: (db: WriteExecutor, teamId: string) => getTeam(db, { id: teamId }) },
 		sessionRequests: {
 			record: (
 				_exec: WriteExecutor,
@@ -102,7 +102,7 @@ function buildHandoffDeps(port: AgentOrchestrationPort) {
 					readonly sourceId: string;
 					readonly requestedBy?: string;
 					readonly idempotencyKey: string;
-					readonly bakedRequest?: import("@hyperidle/work-intent-port").BakedWorkIntentRequest;
+					readonly bakedRequest?: import("@hyperidle/domain-model").BakedWorkIntentRequest;
 				},
 			) => port.intents.submit(input),
 			// AU31 §2.1a: `sessionRunRegistry.abort` never crosses the seam
@@ -122,7 +122,11 @@ function buildHandoffDeps(port: AgentOrchestrationPort) {
 		// the concrete resolver in.
 		taskRunResolver: {
 			resolve: (exec: WriteExecutor, attemptId: string) =>
-				resolveTaskRunRequest(exec as HyperIdleDb, attemptId, taskRunResolverDeps),
+				resolveTaskRunRequest(
+					exec as HyperIdleDb,
+					{ kind: "task_run", attemptId },
+					taskRunResolverDeps,
+				),
 		},
 		// AU31 §3.1 site 7 / §13 item 2: seam-backed, superseding AU26 H1's
 		// "a plain downward call, NOT an `AgentOrchestrationPort` method (that

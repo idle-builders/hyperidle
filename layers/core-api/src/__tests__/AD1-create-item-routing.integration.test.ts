@@ -20,10 +20,10 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, tasks, teamMembers, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { createTestDb, type TestDbHandle } from "@hyperidle/db/testing";
 import { EventBus } from "@hyperidle/event-bus";
-import type { ToolContext } from "@hyperidle/tool-protocol";
+import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -32,7 +32,6 @@ import { disposeApp } from "../app.js";
 
 const NOW = new Date().toISOString();
 const TEST_TEAM_ID = "team-ad1";
-const TEST_TEAM_MEMBERS_ID = "tm-ad1";
 
 async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({
@@ -40,13 +39,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		name: "AD1 Team",
 		phase: "build",
 		createdAt: NOW,
-	});
-	await db.insert(teamMembers).values({
-		id: TEST_TEAM_MEMBERS_ID,
-		teamId: TEST_TEAM_ID,
-		capacity: 3,
-		activeBets: 0,
-		formedAt: NOW,
 	});
 	await db.insert(bets).values({
 		id: "bet-ad1",
@@ -62,7 +54,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		name: "Builder Agent",
 		role: "builder",
 		status: "active",
-		teamId: TEST_TEAM_MEMBERS_ID,
+		teamId: TEST_TEAM_ID,
 		createdAt: NOW,
 	});
 	// Human NOT on the team by default — tests opt-in by setting teamId
@@ -144,11 +136,8 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 	// -------------------------------------------------------------------------
 	describe("AC: kind=review routes to humans on the agent's team", () => {
 		it("adds only the team's humans when the team has human members", async () => {
-			// Put founder-ad1 ON the team (teamMembersId = tm-ad1)
-			await db
-				.update(users)
-				.set({ teamId: TEST_TEAM_MEMBERS_ID })
-				.where(eq(users.id, "founder-ad1"));
+			// Put founder-ad1 ON the team (Id = tm-ad1)
+			await db.update(users).set({ teamId: TEST_TEAM_ID }).where(eq(users.id, "founder-ad1"));
 
 			// Seed a human NOT on the team
 			await db.insert(users).values({
@@ -324,7 +313,7 @@ describe("AD1 — create-item: review routing wires human participants", () => {
 				name: "Human On Team",
 				role: "founder",
 				status: "active",
-				teamId: TEST_TEAM_MEMBERS_ID,
+				teamId: TEST_TEAM_ID,
 				createdAt: NOW,
 			});
 

@@ -42,21 +42,8 @@
 		"framework/domain-model": {},
 		"framework/diagnostics": {},
 		"framework/harness-capability": {},
-		"framework/work-intent-port": {},
 		"framework/event-bus": {},
-		"framework/presentation-format": {},
-		"framework/block-derivation": {},
-		"framework/conversation-parts": {},
-		"framework/filesystem-contract": {},
-		"framework/cron": {},
-		"framework/toon-codec": {},
-		"framework/query-escaping": {},
-		"framework/factory-defaults": {},
-		"framework/host-process": {},
-		"framework/http-middleware": {},
-		"framework/credential-access": {},
 		"framework/harness-protocol": {},
-		"framework/tool-protocol": {},
 		"framework/db": {
 			"entry": [
 				"src/migrate-pg.ts!",
@@ -68,9 +55,6 @@
 			"ignoreBinaries": ["vitest"]
 		},
 		"framework/api-contract": {},
-		"framework/design-system": {
-			"entry": ["src/**/*.stories.tsx", "__scripts__/*.ts!"]
-		},
 		"layers/core-ui": {
 			"entry": [
 				"__scripts__/*.ts!",

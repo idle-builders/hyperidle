@@ -10,7 +10,7 @@
  * B1a removes that premise on both halves — this Layer has its own app, and the
  * middleware stack is applied by the **Application** to the `/api` router both
  * apps mount on, so a route here sits behind the same auth without importing
- * core-api (`HyperIdleEnv` + `` come from `@hyperidle/http-middleware`).
+ * core-api (`HyperIdleEnv` + `` come from `@hyperidle/domain-model`).
  * The "door" is now literal: the data, the query and the HTTP host are all on
  * the owning side.
  *
@@ -29,7 +29,7 @@ import {
 	type AgentRunsResponse,
 	API_ERROR_CODES,
 } from "@hyperidle/domain-model";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import {
 	countActiveRunsByAgent,
 	findSessionById,

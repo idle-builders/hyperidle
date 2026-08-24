@@ -9,10 +9,10 @@
  * until plan T5 extends `CommentRowProps`.
  */
 
-import { CommentRow } from "@hyperidle/design-system";
 import type { Message } from "@hyperidle/domain-model";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { CommentRow } from "../ds";
 
 const sender = { id: "agent-1", name: "Aria", role: "builder" };
 

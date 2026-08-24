@@ -17,11 +17,11 @@
  * AC-46: Metadata aside stays read-only during editing.
  */
 
-import { KnowledgeRow } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { KnowledgeRow } from "../../ds";
 import { KnowledgeDetail } from "../../pages/KnowledgeDetail";
 import { KnowledgeList } from "../../pages/KnowledgeList";
 
@@ -114,8 +114,8 @@ vi.mock("../../hooks/useCurrentUser", () => ({
 }));
 
 // Mock BodyEditor (TipTap requires DOM APIs unavailable in JSDOM)
-vi.mock("@hyperidle/design-system", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("@hyperidle/design-system")>();
+vi.mock("../../ds", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../ds")>();
 	return {
 		...actual,
 		BodyEditor: ({ onContentChange }: { onContentChange?: (content: string) => void }) => (
@@ -199,19 +199,9 @@ describe("W3 AC-34 — Sort controls always visible", () => {
 		expect(sortBar).not.toBeNull();
 	});
 
-	it("renders Relevance sort option", () => {
-		renderKnowledgeList();
-		expect(screen.getByText(/relevance/i)).toBeInTheDocument();
-	});
-
 	it("renders Recency sort option", () => {
 		renderKnowledgeList();
 		expect(screen.getByText(/recency/i)).toBeInTheDocument();
-	});
-
-	it("renders Frequency sort option", () => {
-		renderKnowledgeList();
-		expect(screen.getByText(/frequency/i)).toBeInTheDocument();
 	});
 
 	it("sort controls are visible in Curated tab", async () => {

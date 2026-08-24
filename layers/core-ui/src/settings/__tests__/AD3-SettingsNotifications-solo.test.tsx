@@ -25,8 +25,8 @@ vi.mock("../../hooks/useNotificationMute", () => ({
 }));
 
 // Mock Toggle to keep tests focused on which toggles render
-vi.mock("@hyperidle/design-system", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/design-system")>();
+vi.mock("../../ds", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../../ds")>();
 	return {
 		...original,
 		Toggle: ({

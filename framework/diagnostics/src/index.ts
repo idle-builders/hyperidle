@@ -3,6 +3,5 @@ export { createLogger } from "./logger.js";
 export {
 	ERROR_TOKEN_PATTERNS,
 	REDACTED_TAG,
-	scrubInlineTokens,
 	summarizeToolArgs,
 } from "./redact.js";

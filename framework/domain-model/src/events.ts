@@ -463,7 +463,13 @@ export interface PropagationAppliedEvent {
 	timestamp: number;
 }
 
-/** L20: Emitted when lifecycle propagation fails after exhausting retries. */
+/**
+ * L20: Emitted when lifecycle propagation fails.
+ *
+ * @lore AU44 batch6: `attempts` field dropped (AU20 Ruling 2). The retry
+ * apparatus and propagation_log table are gone; this event is emitted on
+ * first failure and is the extension surface for plugins.
+ */
 export interface PropagationFailedEvent {
 	type: "propagation_failed";
 	/** streamId = targetId so per-entity streams receive the event. */
@@ -473,7 +479,6 @@ export interface PropagationFailedEvent {
 	targetLevel: PropagationLevelLiteral;
 	targetId: string;
 	failureReason: string;
-	attempts: number;
 	timestamp: number;
 }
 
@@ -640,18 +645,3 @@ type StrategyEvent =
 
 /** Discriminated union of all domain events. */
 export type DomainEvent = KernelEvent | StrategyEvent;
-
-/** All valid event type strings. */
-export type EventType = DomainEvent["type"];
-
-/** Wildcard subscription type. */
-export type WildcardType = "*";
-
-/** Extract the event interface for a given event type string. */
-export type EventByType<T extends EventType> = Extract<DomainEvent, { type: T }>;
-
-/** Handler function for a specific event type. */
-export type EventHandler<T extends EventType> = (event: EventByType<T>) => void;
-
-/** Handler function for wildcard subscriptions. */
-export type WildcardHandler = (event: DomainEvent) => void;

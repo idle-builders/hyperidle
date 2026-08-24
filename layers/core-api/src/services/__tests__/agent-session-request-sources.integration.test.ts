@@ -9,12 +9,12 @@ import {
 	messages,
 	routines,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { AgentSessionRequestInput, DomainEvent } from "@hyperidle/domain-model";
+import type { AgentSessionRequestInput } from "@hyperidle/domain-model";
+import type { DomainEvent } from "@hyperidle/event-bus";
 import { EventBus } from "@hyperidle/event-bus";
 import type {
 	HarnessAdapter,
@@ -65,9 +65,6 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-au3-agent", name: "AU3 Agent", phase: "build", createdAt: now });
-	await db
-		.insert(teamMembers)
-		.values({ id: "tm-au3-agent", teamId: "team-au3-agent", capacity: 3, formedAt: now });
 	await db.insert(users).values([
 		{
 			id: "agent-au3-agent",
@@ -75,7 +72,7 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 			name: "Builder",
 			role: "builder",
 			status: "active",
-			teamId: "tm-au3-agent",
+			teamId: "team-au3-agent",
 			createdAt: now,
 		},
 		{
@@ -210,7 +207,7 @@ describe("agent session request sources", () => {
 				kind: "ai",
 				status: "active",
 				role: "builder",
-				teamId: "tm-au3-agent",
+				teamId: "team-au3-agent",
 				systemPrompt: null,
 				modelTierPreference: null,
 				harnessType: "recording",

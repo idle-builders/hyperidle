@@ -1,26 +1,18 @@
-import { createLogger, type Logger } from "@hyperidle/diagnostics";
+import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	DomainEvent,
 	EventByType,
 	EventHandler,
 	EventType,
 	WildcardHandler,
-} from "@hyperidle/domain-model";
+} from "./events.js";
 
 /**
  * Module-scoped logger used to surface handler failures. Captured via
- * `vi.mock("@hyperidle/diagnostics", ...)` in tests so the mock assertions can verify
- * that handler exceptions are observable. Instantiated lazily so that a
- * `vi.mock` factory referencing hoisted test-scoped vars (e.g. `errorMock`)
- * does not run before those vars are initialized.
+ * `vi.mock("@hyperidle/diagnostics", ...)` in tests — vitest hoists vi.mock
+ * calls before module initialization, so the mock is in place when this runs.
  */
-let logger: Logger | null = null;
-function getLogger(): Logger {
-	if (!logger) {
-		logger = createLogger({ pkg: "event-bus" });
-	}
-	return logger;
-}
+const logger = createLogger({ pkg: "event-bus" });
 
 /**
  * In-process pub/sub event bus with per-stream ordering and type-safe subscriptions.
@@ -106,7 +98,7 @@ export class EventBus {
 					// event to the stored handler's expected type — the wider direction is always safe.
 					(handler as (e: DomainEvent) => void)(event as DomainEvent);
 				} catch (err) {
-					getLogger().error("event handler threw", {
+					logger.error("event handler threw", {
 						type: event.type,
 						error: err instanceof Error ? err.message : String(err),
 					});
@@ -118,7 +110,7 @@ export class EventBus {
 			try {
 				handler(event);
 			} catch (err) {
-				getLogger().error("wildcard event handler threw", {
+				logger.error("wildcard event handler threw", {
 					type: event.type,
 					error: err instanceof Error ? err.message : String(err),
 				});

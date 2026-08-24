@@ -17,9 +17,9 @@
  * accepted by POST /api/routines, no replacement.
  */
 
-import { Button, Dialog, Input, Select } from "@hyperidle/design-system";
 import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
 import { type JSX, useEffect, useState } from "react";
+import { Button, Dialog, Input, Select } from "../../ds";
 import { apiFetch } from "../../services/api-fetch.js";
 
 export interface RoutineCreateDialogProps {

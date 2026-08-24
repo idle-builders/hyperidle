@@ -16,13 +16,8 @@
 		"@hyperidle/diagnostics": "*",
 		"@hyperidle/domain-model": "*",
 		"@hyperidle/event-bus": "*",
-		"@hyperidle/filesystem-contract": "*",
 		"@hyperidle/harness-capability": "*",
 		"@hyperidle/harness-protocol": "*",
-		"@hyperidle/host-process": "*",
-		"@hyperidle/http-middleware": "*",
-		"@hyperidle/toon-codec": "*",
-		"@hyperidle/work-intent-port": "*",
 		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.27",
 		"zod": "^4.3.6"

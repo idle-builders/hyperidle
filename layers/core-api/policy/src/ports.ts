@@ -4,15 +4,14 @@ import type {
 	Message,
 	NewBet,
 	NewItem,
-	NewNotificationQueueRow,
 	NewTask,
 	NewThread,
 	Task,
-	TeamMember,
+	Team,
 	User,
 	WriteExecutor,
 } from "@hyperidle/db";
-import type { BakedWorkIntentRequest } from "@hyperidle/work-intent-port";
+import type { BakedWorkIntentRequest } from "@hyperidle/domain-model";
 
 export interface PolicySessionContext {
 	readonly sessionId: string;
@@ -73,7 +72,11 @@ export interface PolicyDeps {
 				readonly resolvedAt?: string;
 			},
 		): Promise<void>;
-		updateMessage(db: WriteExecutor, id: string, patch: Partial<Message>): Promise<void>;
+		resolveMessageIfUnresolved(
+			db: WriteExecutor,
+			id: string,
+			resolvedAt: string,
+		): Promise<{ id: string }[]>;
 		listMessagesByThread(
 			db: WriteExecutor,
 			threadId: string,
@@ -122,10 +125,7 @@ export interface PolicyDeps {
 		): Promise<User | undefined>;
 	};
 	readonly org?: {
-		getByTeamId(db: WriteExecutor, teamId: string): Promise<TeamMember | undefined>;
-	};
-	readonly notifications: {
-		insert(db: WriteExecutor, row: NewNotificationQueueRow): Promise<void>;
+		getByTeamId(db: WriteExecutor, teamId: string): Promise<Team | undefined>;
 	};
 	readonly sessionRequests?: {
 		record(

@@ -18,12 +18,6 @@
  * layer, both directions.
  */
 
-import {
-	type DEFAULT_AGENT_RUN_CONFIG,
-	readAgentRunConfig,
-	readAgentRunConfigs,
-	writeAgentRunConfig,
-} from "@hyperidle/agent-run-config";
 import type {
 	AgentOrchestrationRunConfigPatch,
 	AgentOrchestrationWorkIntentInput,
@@ -31,9 +25,16 @@ import type {
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { getFilesystem, saveInjection as saveFilesystemInjection } from "@hyperidle/filesystems";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
-import { endRunForHandoff, requestRunStopForTasks } from "@hyperidle/run-orchestration";
+import {
+	type DEFAULT_AGENT_RUN_CONFIG,
+	endRunForHandoff,
+	readAgentRunConfig,
+	readAgentRunConfigs,
+	requestRunStopForTasks,
+	writeAgentRunConfig,
+} from "@hyperidle/run-orchestration";
 import {
 	enqueueWorkIntent,
 	listPendingIntentsByKind,
@@ -151,14 +152,15 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 	router.post(
 		"/runs/stop-for-tasks",
 		validateBody(
+			// @lore AU44 batch6: `reason` dropped — only "bet_killed" was legal
+			// and the function no longer accepts the param.
 			z.object({
 				taskIds: z.array(z.string().min(1)),
-				reason: z.literal("bet_killed"),
 			}),
 		),
 		async (c) => {
 			const body = c.req.valid("json");
-			const stopped = await requestRunStopForTasks(db, body.taskIds, { reason: body.reason });
+			const stopped = await requestRunStopForTasks(db, body.taskIds);
 			return c.json({ stopped });
 		},
 	);

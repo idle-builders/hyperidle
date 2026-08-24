@@ -5,7 +5,7 @@
  * All endpoint behaviors preserved.
  */
 
-import { type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -25,14 +25,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 	});
 
-	await db.insert(teamMembers).values({
-		id: "team-1",
-		teamId: "prod-1",
-		capacity: 3,
-		activeBets: 0,
-		formedAt: NOW,
-	});
-
 	// Seed AI users (formerly agents).
 	// AF11: agent-1 is kind='human' so auth middleware resolves it as the principal.
 	// GET /api/users/:id/inbox is principal-self only (AC5 AF11); the resolved
@@ -44,7 +36,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			name: "Builder Bot",
 			role: "builder",
 			status: "idle",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: NOW,
 		},
 		{
@@ -53,7 +45,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 			name: "Growth Bot",
 			role: "growth",
 			status: "active",
-			teamId: "team-1",
+			teamId: "prod-1",
 			createdAt: NOW,
 		},
 	]);

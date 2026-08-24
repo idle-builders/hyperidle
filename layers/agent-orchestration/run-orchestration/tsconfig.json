@@ -21,25 +21,10 @@
 			"path": "../../../framework/event-bus"
 		},
 		{
-			"path": "../../../framework/filesystem-contract"
-		},
-		{
 			"path": "../../../framework/harness-capability"
 		},
 		{
 			"path": "../../../framework/harness-protocol"
-		},
-		{
-			"path": "../../../framework/host-process"
-		},
-		{
-			"path": "../../../framework/http-middleware"
-		},
-		{
-			"path": "../../../framework/toon-codec"
-		},
-		{
-			"path": "../../../framework/work-intent-port"
 		}
 	]
 }

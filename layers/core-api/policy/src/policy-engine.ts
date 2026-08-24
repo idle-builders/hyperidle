@@ -1,6 +1,5 @@
-import { type HyperIdleDb, propagationLog } from "@hyperidle/db";
-import type { ItemCreatedEvent, NotificationEvent } from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import type { HyperIdleDb } from "@hyperidle/db";
+import type { EventBus, ItemCreatedEvent, NotificationEvent } from "@hyperidle/event-bus";
 import { computeApprovalRate } from "./approval-rate.js";
 import type { PolicyDeps } from "./ports.js";
 
@@ -32,23 +31,15 @@ function registerPolicyEngine(
 	const handler = (event: ItemCreatedEvent): void => {
 		void (async () => {
 			await evaluateItem(db, eventBus, event.itemId, deps);
-		})().catch(async (error: unknown) => {
-			const timestamp = new Date().toISOString();
-			await db.insert(propagationLog).values({
-				id: crypto.randomUUID(),
-				sourceLevel: "item",
-				sourceId: event.itemId,
-				sourceEvent: "item_created",
-				targetLevel: "policy",
-				targetId: event.itemId,
-				targetTransition: null,
-				status: "failed",
-				failureReason: error instanceof Error ? error.message : String(error),
-				attempts: 1,
-				createdAt: timestamp,
-				appliedAt: null,
-			});
-		});
+		})().catch(
+			// @lore AU44 batch6: propagation_log table dropped (AU20 Ruling 2).
+			// Policy evaluation failures are NOT lifecycle-propagation hops so
+			// propagation_failed is not appropriate (its levels are session/task/
+			// bet/team/portfolio, not "item"/"policy"). The error is intentionally
+			// swallowed here; a plugin can subscribe to "item_created" and wrap
+			// registerPolicy with its own error capture if observability is needed.
+			(_error: unknown) => {},
+		);
 	};
 
 	return eventBus.on("item_created", handler);
@@ -179,7 +170,7 @@ async function executeAction(
 				createdAt: respondedAt,
 			});
 			if (reviewMessage) {
-				await deps.conversation.updateMessage(db, reviewMessage.id, { resolvedAt: respondedAt });
+				await deps.conversation.resolveMessageIfUnresolved(db, reviewMessage.id, respondedAt);
 			}
 			await deps.conversation.updateThread(db, item.threadId, { resolvedAt: respondedAt });
 			break;

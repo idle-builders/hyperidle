@@ -18,8 +18,8 @@
 // Presentational isolation component: verdict callbacks are no-ops in the story; no
 // local state needed (the page is static — there is nothing to toggle).
 
-import { headingIdentityMatches } from "@hyperidle/design-system";
 import type { JSX } from "react";
+import { headingIdentityMatches } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
 import type { BrowserPreviewPayload, ReviewCanvasProps } from "./review-artifact";

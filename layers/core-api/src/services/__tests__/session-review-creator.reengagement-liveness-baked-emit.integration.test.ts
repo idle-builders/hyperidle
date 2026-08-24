@@ -44,12 +44,11 @@ import {
 	proposedCalls,
 	tailoredGrants,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import type { SessionEndedEvent } from "@hyperidle/domain-model";
+import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -76,9 +75,6 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 		const pcId = `${idPrefix}-pc`;
 
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
-		await db
-			.insert(teamMembers)
-			.values({ id: `${teamId}-members`, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 		await db.insert(users).values({
 			id: agentId,
 			kind: "ai",
@@ -170,8 +166,11 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 				listUsersByKind: async (): Promise<never[]> => [],
 			},
 			org: { resolveReviewRecipients: async (): Promise<never[]> => [] },
-			intentRecorder: (input: Parameters<typeof enqueueWorkIntent>[1]) =>
-				enqueueWorkIntent(db, input),
+			// @lore AU44: AgentWorkIntentRecorderInput still declares bakedRequest? for back-compat.
+			// Cast via unknown avoids the contravariance mismatch — safe since liveness always bakes.
+			intentRecorder: (
+				input: Parameters<import("@hyperidle/domain-model").AgentWorkIntentRecorderFn>[0],
+			) => enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]),
 			// See top-of-file `@lore forward-compat`.
 			requireRunnableAgent,
 		};

@@ -6,9 +6,9 @@
  * uses the shared SKELETON_BAR animation (the `--accent`-free skeleton-pulse).
  */
 
-import { Skeleton } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { Skeleton } from "../ds";
 
 describe("Skeleton (single bar)", () => {
 	it("renders a status region with the provided aria-label", () => {

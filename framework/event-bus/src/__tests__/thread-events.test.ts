@@ -13,7 +13,7 @@ import type {
 	ThreadMessageAppendedEvent,
 	ThreadReopenedEvent,
 	ThreadResolvedEvent,
-} from "@hyperidle/domain-model";
+} from "@hyperidle/event-bus";
 import { describe, expect, it } from "vitest";
 import { EventBus } from "../event-bus.js";
 

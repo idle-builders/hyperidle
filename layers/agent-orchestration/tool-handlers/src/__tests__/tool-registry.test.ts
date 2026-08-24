@@ -14,8 +14,8 @@
  */
 
 import { EventBus } from "@hyperidle/event-bus";
-import type { RegisteredTool, ToolContext } from "@hyperidle/tool-protocol";
-import { ok } from "@hyperidle/tool-protocol";
+import type { RegisteredTool, ToolContext } from "@hyperidle/harness-protocol";
+import { ok } from "@hyperidle/harness-protocol";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 import { buildToolRegistry } from "../tool-registry.js";

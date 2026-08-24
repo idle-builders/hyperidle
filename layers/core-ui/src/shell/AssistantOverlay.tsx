@@ -21,7 +21,6 @@
  * not a design-system custom component. It lives in layers/core-ui/src/shell/.
  */
 
-import { Button, ThreadShell, useDialogBehavior } from "@hyperidle/design-system";
 import type {
 	AssistantNotice,
 	BlockRef,
@@ -34,6 +33,7 @@ import { type JSX, type ReactNode, type RefObject, useCallback, useEffect } from
 import { useNavigate } from "react-router-dom";
 import { BlockRefEmbed } from "../components/BlockRefEmbed.js";
 import type { AssistantContextRef } from "../contexts/AssistantContext";
+import { Button, ThreadShell, useDialogBehavior } from "../ds";
 import { useAssistantThread } from "../hooks/useAssistantThread";
 import { apiFetch } from "../services/api-fetch.js";
 import { createOpenHandler } from "../services/open-handler.js";

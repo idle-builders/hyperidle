@@ -1,7 +1,7 @@
 [
   {
     "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
-    "line": 494,
+    "line": 365,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -10,7 +10,7 @@
   },
   {
     "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
-    "line": 496,
+    "line": 367,
     "symbol": "u-founder",
     "kind": "literal-id",
     "shape": "string",
@@ -55,7 +55,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 70,
+    "line": 69,
     "symbol": "../fixtures/knowledge-data",
     "kind": "import",
     "shape": "import",
@@ -64,7 +64,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 130,
+    "line": 131,
     "symbol": "LEGACY_DETAILS",
     "kind": "symbol",
     "shape": "object",
@@ -73,7 +73,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 208,
+    "line": 209,
     "symbol": "LEGACY_SOURCES",
     "kind": "symbol",
     "shape": "object",
@@ -82,7 +82,7 @@
   },
   {
     "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
-    "line": 214,
+    "line": 215,
     "symbol": "FALLBACK_DETAIL",
     "kind": "symbol",
     "shape": "object",

@@ -32,7 +32,6 @@ import {
 	type HyperIdleDb,
 	sessions,
 	tasks,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
@@ -54,14 +53,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "ab2-team", name: "AB2 Test Team", phase: "build", createdAt: NOW });
-
-	await db.insert(teamMembers).values({
-		id: "ab2-tm",
-		teamId: "ab2-team",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: NOW,
-	});
 
 	// Human founder — required for auth
 	await db.insert(users).values({
@@ -86,7 +77,7 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		name: "AB2 Idle Agent",
 		role: "builder",
 		status: "active",
-		teamId: "ab2-tm",
+		teamId: "ab2-team",
 		createdAt: NOW,
 	});
 	// @lore AU26 G1: the run config left `users` for `agent_run_config`.
@@ -215,6 +206,7 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 		const second = await app.request("/api/teams/ab2-team", { headers: authHeaders() });
 		expect(second.status).toBe(200);
 
-		expect(await listNotifications(db, { kind: "all" })).toHaveLength(0);
+		// @lore AU44 batch 4: kind:"all" removed; unread covers all inbox rows (readAt IS NULL)
+		expect(await listNotifications(db, { kind: "unread" })).toHaveLength(0);
 	});
 });

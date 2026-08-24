@@ -1,5 +1,5 @@
 import { threads, users } from "@hyperidle/db";
-import type { ItemCreatedEvent } from "@hyperidle/domain-model";
+import type { ItemCreatedEvent } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
 const TEST_API_KEY = "test-key-conversations";

@@ -77,8 +77,6 @@ export interface SessionConfig {
 	 * inside the sandbox is still /workspace; only this field NAME changes.
 	 */
 	readonly sandboxPath: string;
-	/** @deprecated Use assembledPrompt instead. Retained for path validation. */
-	readonly systemPromptPath: string;
 	/**
 	 * X1: Fully assembled context prompt text, written as AGENTS.md + CLAUDE.md in the sandbox.
 	 * @lore AK1: Renamed from composedPrompt (harness-vocab rename). Same content,

@@ -71,17 +71,6 @@ export interface AgentBehaviorConfigPatchResponse {
 	readonly item: AgentBehaviorConfigView;
 }
 
-export interface AgentBehaviorConfigErrorResponse {
-	readonly error: string;
-	readonly code:
-		| "INVALID_KIND"
-		| "NOT_FOUND"
-		| "UNEDITABLE_FIELD"
-		| "INVALID_VALUE"
-		| "SECRET_VALUE_REJECTED"
-		| "RATE_LIMITED";
-}
-
 export const AGENT_BEHAVIOR_CONFIG_KINDS = [
 	"agent",
 	"skill",

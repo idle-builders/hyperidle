@@ -56,36 +56,69 @@ import {
 	tailoredGrants,
 	taskDispatchAttempts,
 	tasks,
-	teamMembers,
 	teams,
 	threads,
 	users,
 } from "@hyperidle/db";
-import { attentionReviewReasoningMarker } from "@hyperidle/review";
+import { attentionReviewReasoningMarker } from "@hyperidle/knowledge";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
-import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
+
+/**
+ * @lore AU44: The original vehicle for terminal failures (unbaked intent →
+ * INVALID_WORK_SOURCE via resolveIntentInputInternal) is gone — bakedRequest is
+ * now required and the unbaked drain path was removed. Each test now uses a
+ * BAKED intent + a Postgres trigger that rejects the agent_session_requests
+ * insert, forcing a MAX_ATTEMPTS_EXCEEDED terminal failure. The subscriber
+ * reactions are unchanged — they fire on any terminal agent_run_admission_failed
+ * regardless of failureCode.
+ *
+ * @lore pool-trigger-leak: the service test pool shares one PGlite instance per
+ * worker (isolate:false). truncateAllTables clears data but not DDL. The trigger
+ * must be explicitly dropped after each test that installs it — via afterEach —
+ * or it leaks into subsequent test files running on the same worker.
+ */
+let TriggerDb: HyperIdleDb | null = null;
+afterEach(async () => {
+	if (TriggerDb) {
+		await TriggerDb.execute(
+			sql`drop trigger if exists au44_reject_session_request_write_sub on agent_session_requests`,
+		);
+		TriggerDb = null;
+	}
+});
+
+async function rejectSessionRequestWrites(db: HyperIdleDb): Promise<void> {
+	TriggerDb = db;
+	await db.execute(
+		sql`drop trigger if exists au44_reject_session_request_write_sub on agent_session_requests`,
+	);
+	await db.execute(sql`
+		create or replace function au44_reject_session_request_write_sub() returns trigger as $$
+		begin raise exception 'AU44 injected agent_session_requests write failure (subscriber vehicle)'; end;
+		$$ language plpgsql
+	`);
+	await db.execute(sql`
+		create trigger au44_reject_session_request_write_sub
+		before insert on agent_session_requests
+		for each row execute function au44_reject_session_request_write_sub()
+	`);
+}
 
 const NOW = new Date().toISOString();
 
-async function seedTeam(
-	db: HyperIdleDb,
-	id: string,
-): Promise<{ teamId: string; membersId: string }> {
+async function seedTeam(db: HyperIdleDb, id: string): Promise<{ teamId: string }> {
 	const teamId = `${id}-team`;
-	const membersId = `${id}-members`;
 	await db.insert(teams).values({ id: teamId, name: id, phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: membersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
-	return { teamId, membersId };
+	return { teamId };
 }
 
 async function seedAgent(
 	db: HyperIdleDb,
 	id: string,
-	opts: { readonly teamMembersId?: string; readonly status?: string } = {},
+	opts: { readonly teamId?: string; readonly status?: string } = {},
 ): Promise<void> {
 	await db.insert(users).values({
 		id,
@@ -93,7 +126,7 @@ async function seedAgent(
 		name: "Agent",
 		role: "builder",
 		status: opts.status ?? "active",
-		teamId: opts.teamMembersId,
+		teamId: opts.teamId,
 		createdAt: NOW,
 	});
 }
@@ -103,8 +136,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-routine");
-		await seedAgent(db, "w0-sub-routine-owner", { teamMembersId: membersId });
+		const { teamId } = await seedTeam(db, "w0-sub-routine");
+		await seedAgent(db, "w0-sub-routine-owner", { teamId });
 		await db.insert(routines).values({
 			id: "w0-sub-routine",
 			name: "Wave 0 subscriber routine",
@@ -134,13 +167,27 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		// bundle) — a stronger guarantee than the no-op override this test
 		// originally installed.
 		const deps = { ...queueDeps(db), eventBus };
+		// AU44: baked intent + trigger forces terminal failure without touching resolveIntentInputInternal.
+		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "routine_run",
 			sourceKind: "routine_run",
 			sourceId: run?.id ?? "",
 			idempotencyKey: "w0-sub-routine-run",
+			bakedRequest: {
+				defaultAgentId: "w0-sub-routine-owner",
+				sourceKind: "routine",
+				sourceId: run?.id ?? "",
+				streamId: `routine:${run?.id}`,
+				teamId: "w0-sub-routine-team",
+				sourceCorrelation: {
+					routineId: "w0-sub-routine",
+					routineRunId: run?.id ?? "",
+					teamId: "w0-sub-routine-team",
+				},
+			},
 		});
-		await drainIntents(deps);
+		await drainIntents(deps, { maxAttempts: 1 });
 
 		await vi.waitFor(async () => {
 			const [finalized] = await db
@@ -153,10 +200,10 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	});
 
 	test("task_run: marks the taskDispatchAttempts row failed", async ({ db, eventBus }) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-task");
+		const { teamId } = await seedTeam(db, "w0-sub-task");
 		// The dispatch attempt's agent is not runnable (paused) — forces
 		// requireRunnableActor's InvalidAgentWorkSourceError at drain.
-		await seedAgent(db, "w0-sub-task-agent", { teamMembersId: membersId, status: "paused" });
+		await seedAgent(db, "w0-sub-task-agent", { teamId, status: "paused" });
 		await db.insert(bets).values({
 			id: "w0-sub-task-bet",
 			teamId,
@@ -188,13 +235,24 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			.returning();
 
 		const deps = { ...queueDeps(db), eventBus };
+		// AU44: baked intent + trigger forces terminal failure.
+		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "task_run",
 			sourceKind: "task_dispatch_attempt",
 			sourceId: attempt?.id ?? "",
 			idempotencyKey: "w0-sub-task-run",
+			bakedRequest: {
+				defaultAgentId: "w0-sub-task-agent",
+				sourceKind: "task",
+				sourceId: "w0-sub-task",
+				streamId: "task:w0-sub-task",
+				taskId: "w0-sub-task",
+				teamId: "w0-sub-task-team",
+				sourceCorrelation: { taskId: "w0-sub-task", teamId: "w0-sub-task-team" },
+			},
 		});
-		await drainIntents(deps);
+		await drainIntents(deps, { maxAttempts: 1 });
 
 		await vi.waitFor(async () => {
 			const [finalized] = await db
@@ -209,9 +267,9 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-start");
+		const { teamId } = await seedTeam(db, "w0-sub-start");
 		// The requested agent is not runnable — forces InvalidAgentWorkSourceError.
-		await seedAgent(db, "w0-sub-start-agent", { teamMembersId: membersId, status: "retired" });
+		await seedAgent(db, "w0-sub-start-agent", { teamId, status: "retired" });
 		await db.insert(bets).values({
 			id: "w0-sub-start-bet",
 			teamId,
@@ -244,13 +302,24 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 			.returning();
 
 		const deps = { ...queueDeps(db), eventBus };
+		// AU44: baked intent + trigger forces terminal failure.
+		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "session_start",
 			sourceKind: "explicit_session_start",
 			sourceId: start?.id ?? "",
 			idempotencyKey: "w0-sub-start-intent",
+			bakedRequest: {
+				defaultAgentId: "w0-sub-start-agent",
+				sourceKind: "task",
+				sourceId: "w0-sub-start-task",
+				streamId: "task:w0-sub-start-task",
+				taskId: "w0-sub-start-task",
+				teamId: "w0-sub-start-team",
+				sourceCorrelation: { taskId: "w0-sub-start-task", teamId: "w0-sub-start-team" },
+			},
 		});
-		await drainIntents(deps);
+		await drainIntents(deps, { maxAttempts: 1 });
 
 		await vi.waitFor(async () => {
 			const [finalized] = await db
@@ -289,13 +358,22 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 
 		const deps = { ...queueDeps(db), eventBus };
+		// AU44: baked intent + trigger forces terminal failure.
+		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "knowledge_action",
 			sourceKind: "knowledge_action",
 			sourceId: `knowledge:${item?.id}`,
 			idempotencyKey: "w0-sub-knowledge-action",
+			bakedRequest: {
+				defaultAgentId: "w0-sub-knowledge-agent",
+				sourceKind: "knowledge",
+				sourceId: "w0-sub-knowledge-item",
+				streamId: "knowledge:w0-sub-knowledge-item",
+				sourceCorrelation: { knowledgeItemId: "w0-sub-knowledge-item", action: "review" },
+			},
 		});
-		await drainIntents(deps);
+		await drainIntents(deps, { maxAttempts: 1 });
 
 		await vi.waitFor(async () => {
 			const reviewItems = await db.select().from(items);
@@ -316,8 +394,8 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		db,
 		eventBus,
 	}) => {
-		const { teamId, membersId } = await seedTeam(db, "w0-sub-reengage");
-		await seedAgent(db, "w0-sub-reengage-agent", { teamMembersId: membersId });
+		const { teamId } = await seedTeam(db, "w0-sub-reengage");
+		await seedAgent(db, "w0-sub-reengage-agent", { teamId });
 		await db.insert(bets).values({
 			id: "w0-sub-reengage-bet",
 			teamId,
@@ -384,13 +462,29 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		});
 
 		const deps = { ...queueDeps(db), eventBus };
+		// AU44: baked intent + trigger forces terminal failure.
+		// The liveness retry subscriber still fires, increments retryCount,
+		// and records a fresh reengagement intent via the seam.
+		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "reengagement",
 			sourceKind: "proposed_call",
 			sourceId: "w0-sub-reengage-call",
 			idempotencyKey: "w0-sub-reengage-intent",
+			bakedRequest: {
+				defaultAgentId: "w0-sub-reengage-agent",
+				sourceKind: "proposed_call",
+				sourceId: "w0-sub-reengage-call",
+				streamId: "proposed_call:w0-sub-reengage-call",
+				taskId: "w0-sub-reengage-task",
+				sourceCorrelation: {
+					taskId: "w0-sub-reengage-task",
+					proposedCallId: "w0-sub-reengage-call",
+					grantedAgentId: "w0-sub-reengage-agent",
+				},
+			},
 		});
-		await drainIntents(deps);
+		await drainIntents(deps, { maxAttempts: 1 });
 
 		await vi.waitFor(async () => {
 			const [grant] = await db
@@ -461,13 +555,28 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		eventBus.on("agent_run_admission_failed", (event) => {
 			emitted.push(event as { readonly kind?: string; readonly terminal?: boolean });
 		});
+		// AU44: baked intent + trigger forces terminal failure.
+		await rejectSessionRequestWrites(db);
 		await enqueueWorkIntent(db, {
 			kind: "assistant_turn",
 			sourceKind: "thread_message",
 			sourceId: "w0-sub-assistant-message",
 			idempotencyKey: "w0-sub-assistant-intent",
+			bakedRequest: {
+				defaultAgentId: "ast-w0-sub-assistant-human",
+				sourceKind: "assistant",
+				sourceId: "w0-sub-assistant-message",
+				streamId: "assistant:w0-sub-assistant-message",
+				userId: "w0-sub-assistant-human",
+				sourceCorrelation: {
+					threadId: "w0-sub-assistant-thread",
+					messageId: "w0-sub-assistant-message",
+					userId: "w0-sub-assistant-human",
+					assistantAgentId: "ast-w0-sub-assistant-human",
+				},
+			},
 		});
-		await expect(drainIntents(deps)).resolves.not.toThrow();
+		await expect(drainIntents(deps, { maxAttempts: 1 })).resolves.not.toThrow();
 
 		// The reaction itself is a no-op (lowest-stakes family, informational
 		// only per §10's table) — what's provably NEW is that the event still

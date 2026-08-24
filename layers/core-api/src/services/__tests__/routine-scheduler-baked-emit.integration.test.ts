@@ -32,14 +32,12 @@ import {
 	type HyperIdleDb,
 	routineRuns,
 	routines,
-	teamMembers,
 	teams,
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -87,10 +85,6 @@ function makePorts(): RoutineSchedulerPorts & {
 				eventBus: EventBus,
 				candidateIds: readonly string[],
 			) => {
-				const createReviewItemForKnowledge = createReviewItem({
-					conversation: { insertThread },
-					work: { createItem: (exec, values) => work.create(exec, "item", values) },
-				});
 				const result = await recomputeAttention(
 					{
 						db,
@@ -100,8 +94,9 @@ function makePorts(): RoutineSchedulerPorts & {
 								const rows = await work.list(exec, "item", { marker });
 								return rows[0] ? { id: rows[0].id } : undefined;
 							},
+							createItem: (exec, values) => work.create(exec, "item", values),
 						},
-						review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+						conversation: { insertThread },
 					},
 					{ filter: { ids: candidateIds as string[] } },
 				);
@@ -129,21 +124,17 @@ async function seedManualRoutine(
 	opts: { readonly ownerStatus?: string } = {},
 ): Promise<{ readonly routineId: string; readonly teamId: string; readonly ownerAgentId: string }> {
 	const teamId = `${id}-team`;
-	const teamMembersId = `${id}-members`;
 	const ownerAgentId = `${id}-owner`;
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: "Baked-emit team", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 5, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: ownerAgentId,
 		kind: "ai",
 		name: "Owner",
 		role: "builder",
 		status: opts.ownerStatus ?? "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({
@@ -220,37 +211,6 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 			.from(agentSessionRequests)
 			.where(eq(agentSessionRequests.id, intent?.requestId ?? ""));
 		expect(request).toMatchObject({ agentId: `${routineId}-owner` });
-	});
-
-	test("a manually-enqueued unbaked routine_run intent no longer reaches resolveIntentInputInternal's per-kind reads (case deleted)", async ({
-		db,
-		eventBus,
-	}) => {
-		// No routineRuns/routines rows seeded at all — if the drain ever fell
-		// through to the old per-kind resolution it would have called
-		// `deps.routine.getRoutineRunById`/`getRoutineById`; AU21 §9 Increment 9
-		// deleted that field from `DurableAgentQueueDeps` entirely (confirmed
-		// zero real call sites anywhere in `@hyperidle/session-requests` — same
-		// verification bar as the Decision F1 `agentSelection` removal noted
-		// below) — there is no domain-read surface left to reach at all.
-		// @lore AU21 §6 Decision F1: `DurableAgentQueueDeps.agentSelection` was
-		// REMOVED as dead weight — see the sibling test's own `@lore` above.
-		const deps = { ...queueDeps(db), eventBus };
-
-		await enqueueWorkIntent(db, {
-			kind: "routine_run",
-			sourceKind: "routine_run",
-			sourceId: "inc4b-unbaked-run-does-not-exist",
-			idempotencyKey: "inc4b-unbaked-key",
-		});
-		await drainIntents(deps);
-
-		const [intent] = await db
-			.select()
-			.from(agentWorkIntents)
-			.where(eq(agentWorkIntents.sourceId, "inc4b-unbaked-run-does-not-exist"));
-		// Terminal (no baked payload => drain fails without ever reading domain state).
-		expect(intent?.status).toBe("failed");
 	});
 
 	test("does not persist a run or an intent when the resolved target agent is not runnable", async ({

@@ -8,18 +8,15 @@ import type {
 } from "@hyperidle/db";
 import { agentSessionRequests, agentWorkIntents, explicitSessionStarts } from "@hyperidle/db";
 import type {
-	AgentRunAdmissionFailureCode,
 	AgentSessionRequestInput,
 	AgentSessionSourceCorrelation,
 	AgentSessionSourceKind,
+	BakedContextBundle,
 } from "@hyperidle/domain-model";
-import {
-	agentSessionRequestInputSchema,
-	isAgentWorkIntentKind,
-	isAgentWorkIntentSourceKind,
-} from "@hyperidle/domain-model";
-import type { EventBus } from "@hyperidle/event-bus";
+import { agentSessionRequestInputSchema } from "@hyperidle/domain-model";
+import type { AgentRunAdmissionFailureCode, EventBus } from "@hyperidle/event-bus";
 import { and, asc, eq, gt, inArray, lt, lte, or, sql } from "drizzle-orm";
+import { isAgentWorkIntentKind, isAgentWorkIntentSourceKind } from "./guards.js";
 
 type IntentOptions = {
 	readonly now?: () => Date;
@@ -672,21 +669,20 @@ async function processIntentsInternal(
 		}
 
 		try {
+			// AU21 §6 Decision B / §9 Increment 4: every intent kind now bakes at
+			// emit time; an unbaked intent row is production-unreachable. bakedRequest
+			// is required on WorkIntentInput since AU44.
+			// @lore AU44: unbaked intents are production-unreachable (bakedRequest is
+			// required at emit time), but legacy rows with bakedRequestJson=null must
+			// fail cleanly via INVALID_WORK_SOURCE rather than being stuck claimed.
 			const baked = parseBakedRequest(intent);
 			if (baked) {
 				await handOffInternal(db, intent, claimToken, now, (tx) =>
 					createFromBakedRequestInternal(tx, intent, baked),
 				);
 			} else {
-				// AU21 §6 Decision B / §9 Increment 4: every one of the seven
-				// intent kinds now resolves + bakes its request at EMIT time
-				// (`resolveIntentInputInternal`'s per-kind drain-time resolution —
-				// the last surviving case, `routine_run` — is deleted). An intent
-				// reaching the drain with no baked payload is not a kind to resolve
-				// here; it is an invalid work source (the same terminal-failure
-				// shape a truly invalid source always produced).
 				throw new InvalidAgentWorkSourceError(
-					`Intent ${intent.id} (kind ${intent.kind}) carries no baked request`,
+					`Intent ${intent.id} (kind: ${intent.kind}) has no bakedRequestJson — unbaked intents are production-unreachable since AU44`,
 				);
 			}
 		} catch (error) {
@@ -721,7 +717,7 @@ async function insertIntentInternal(db: WriteExecutor, input: WorkIntentInput) {
 			requestedBy: input.requestedBy ?? null,
 			idempotencyKey: input.idempotencyKey,
 			status: "pending",
-			bakedRequestJson: input.bakedRequest ? JSON.stringify(input.bakedRequest) : null,
+			bakedRequestJson: JSON.stringify(input.bakedRequest),
 			createdAt: timestamp,
 			updatedAt: timestamp,
 		})
@@ -938,14 +934,6 @@ function mutateRequestInternal(
 	options: { readonly now?: Date; readonly existingTransaction?: boolean } = {},
 ) {
 	if ("target" in spec) {
-		if ("requestId" in spec && spec.to !== "admitted") {
-			return projectStartInternal(db, {
-				requestId: spec.requestId,
-				state: spec.to,
-				sessionId: spec.sessionId,
-				failureCode: spec.failureCode,
-			});
-		}
 		if (spec.to === "admitted") {
 			return admitStartInternal(db, {
 				id: spec.startId,
@@ -1023,17 +1011,16 @@ export type WorkIntentInput = {
 	readonly sourceId: string;
 	readonly requestedBy?: string;
 	readonly idempotencyKey: string;
-	/** See `BakedWorkIntentRequest`. Absent for a not-yet-migrated kind (`routine_run` only, by the end of Increment 3). */
-	readonly bakedRequest?: BakedWorkIntentRequest;
+	readonly bakedRequest: BakedWorkIntentRequest;
 };
 /**
- * Local mirror of `@hyperidle/work-intent-port`'s `BakedWorkIntentRequest`.
+ * Extended baked work-intent payload for session-requests' own drain logic.
  *
- * @lore AU43 survivor — deleting this mirror forced session-requests to import
- * `@hyperidle/work-intent-port`, whose enforced audience excludes it. The
- * duplication is real but the fix is a boundary change (widening the port's
- * audience or relocating the types), not a deletion. Recorded in
- * `.pipeline/work/AU20/destroy/accepted-survivors.md`.
+ * @lore AU44-b8: `@hyperidle/work-intent-port` dissolved into `@hyperidle/domain-model`.
+ * `BakedContextBundle` and `BakedContextKnowledgeItem` are now imported from there.
+ * This type stays local because it adds `harnessDisabled` and `callingThreadId` —
+ * session-requests-specific extension fields not in domain-model's `BakedWorkIntentRequest`.
+ * It is a structural superset, not a mirror.
  */
 export type BakedWorkIntentRequest = {
 	readonly defaultAgentId: string;
@@ -1084,59 +1071,9 @@ export type BakedWorkIntentRequest = {
 	 */
 	readonly callingThreadId?: string;
 };
-/** One ranked+budgeted knowledge item as baked onto a `BakedContextBundle` (local mirror — see `@hyperidle/work-intent-port`). */
-export interface BakedContextKnowledgeItem {
-	readonly id: string;
-	readonly title: string;
-	readonly body: string;
-	readonly format: string;
-	readonly version: number;
-	readonly layer: string | null;
-}
-/** Local mirror of `@hyperidle/work-intent-port`'s `BakedContextBundle` — see there for the full `@lore`. */
-export type BakedContextBundle =
-	| {
-			readonly kind: "task";
-			readonly task: {
-				readonly id: string;
-				readonly title: string;
-				readonly description: string | null;
-				readonly state: string;
-			};
-			readonly bet: {
-				readonly id: string;
-				readonly description: string;
-				readonly appetite: string;
-				readonly doneCondition: string | null;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly team: { readonly id: string; readonly name: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  }
-	| {
-			readonly kind: "routine";
-			readonly routine: {
-				readonly id: string;
-				readonly name: string;
-				readonly description: string | null;
-				readonly lastRunSummary: string | null;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly team: { readonly id: string; readonly name: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  }
-	| {
-			readonly kind: "knowledge";
-			readonly item: {
-				readonly id: string;
-				readonly title: string;
-				readonly body: string;
-				readonly format: string;
-				readonly version: number;
-			};
-			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly knowledge: readonly BakedContextKnowledgeItem[];
-	  };
+// BakedContextKnowledgeItem and BakedContextBundle are now imported from @hyperidle/domain-model above.
+// The local mirrors existed because @hyperidle/work-intent-port's audience excluded session-requests;
+// work-intent-port dissolved into domain-model (reach: everyone) in AU44 batch 8.
 /**
  * @lore AU21 §9 Increment 9: the `"triggered"` kind (trigger-rule config
  * matching against `settings`'s `kind:"trigger"` entries, target-agent
@@ -1229,13 +1166,6 @@ type TransitionSpec =
 			readonly to: "failed";
 			readonly startId: string;
 			readonly failureCode: string;
-	  }
-	| {
-			readonly target: "explicitStart";
-			readonly to: "completed" | "failed" | "cancelled";
-			readonly requestId: string;
-			readonly sessionId: string | null;
-			readonly failureCode: string | null;
 	  };
 export type SessionRequestTransition = TransitionSpec & {
 	readonly transaction?: "existing";
@@ -1247,7 +1177,7 @@ export interface ClaimOptions {
 }
 type DurableQueueDeps = {
 	readonly db: HyperIdleDb;
-	readonly eventBus?: EventBus;
+	readonly eventBus: EventBus;
 };
 
 export function enqueueWorkIntent(exec: WriteExecutor, input: WorkIntentInput) {
@@ -1377,8 +1307,8 @@ export function drainIntents(
 	return processIntentsInternal(deps.db, deps.eventBus, options);
 }
 export function reapExpired(
-	deps: DurableQueueDeps,
+	db: HyperIdleDb,
 	options?: { readonly now?: Date; readonly retentionDays?: number; readonly batchSize?: number },
 ) {
-	return reapIntentsInternal(deps.db, options);
+	return reapIntentsInternal(db, options);
 }

@@ -2,19 +2,23 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
-import { BET_OUTCOME_VERDICTS, InvalidTransitionError } from "@hyperidle/domain-model";
+import { BET_OUTCOME_VERDICTS } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
-import { getTeam, getTeamMembers, updateTeam } from "@hyperidle/org";
-import { deriveTitle } from "@hyperidle/presentation-format";
+import { getTeam, updateTeam } from "@hyperidle/org";
 import * as work from "@hyperidle/work";
-import { cascadeBetKill, transitionBet, updateBetField } from "@hyperidle/work";
+import {
+	cascadeBetKill,
+	deriveTitle,
+	InvalidTransitionError,
+	transitionBet,
+} from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
 import { enumValues } from "../schemas/common.schema.js";
@@ -28,7 +32,7 @@ const SUMMARY_CAP = 10;
 // @lore AU20 Am7: adapters bridge TeamCapacityReader to the new parameterized API.
 const teamCapacity = {
 	getByTeamId: (db: import("@hyperidle/db").WriteExecutor, teamId: string) =>
-		getTeamMembers(db, { teamId }),
+		getTeam(db, { id: teamId }),
 	setActiveBets: (db: import("@hyperidle/db").WriteExecutor, teamId: string, activeBets: number) =>
 		updateTeam(db, teamId, { activeBets }),
 };
@@ -492,7 +496,23 @@ export function createBetRoutes(
 			return c.json(result.row);
 		}
 
-		await updateBetField(db, eventBus, betId, body.field, body.value, body.reason, c.get("userId"));
+		// @lore AU44 B3: updateBetField folded here (done_condition / hypothesis).
+		// The false `item_created` emit for done_condition_change is deleted —
+		// no items row exists for the fabricated id, making it a lying announce.
+		const bet = await work.get(db, "bet", betId);
+		if (!bet) return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		if (bet.status !== "active") {
+			return c.json({ error: "Can only update fields on active bets", code: "INVALID_STATE" }, 400);
+		}
+		const columnMap: Record<string, string> = {
+			done_condition: "doneCondition",
+			hypothesis: "hypothesis",
+		};
+		const columnKey = columnMap[body.field];
+		if (!columnKey) {
+			return c.json({ error: `Unknown field: ${body.field}`, code: "INVALID_INPUT" }, 400);
+		}
+		await work.update(db, "bet", betId, { [columnKey]: body.value } as work.BetUpdatePatch);
 
 		const updated = await work.get(db, "bet", betId);
 		return c.json(updated);
@@ -526,17 +546,11 @@ export function createBetRoutes(
 			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
 		}
 
-		try {
-			await getTeamMembers(db, { teamId: bet.teamId }, { require: true });
-		} catch (err) {
-			// @lore AU20 R-org: ApiError is unexported from @hyperidle/org (it is an
-			// internal invariant-enforcement class). Duck-type on err.name to surface
-			// the status/code without an instanceof import.
-			if (err instanceof Error && err.name === "ApiError" && "status" in err && "code" in err) {
-				const apiErr = err as Error & { status: number; code: string };
-				return c.json({ error: apiErr.message, code: apiErr.code }, apiErr.status as 500);
-			}
-			throw err;
+		// @lore AU44 B1: after team_members fold, team IS the capacity entity.
+		// `getTeam` returns undefined instead of throwing like the old `getTeamMembers({ require: true })`.
+		const teamCheck = await getTeam(db, { id: bet.teamId });
+		if (!teamCheck) {
+			return c.json({ error: "Team not found", code: "TEAM_NOT_FOUND" }, 500);
 		}
 
 		// @lore U2: catch InvalidTransitionError here (not global handler) so bets return 400.
@@ -596,8 +610,7 @@ export function createBetRoutes(
 			// downward call, not a Port method"; the port is now core's one
 			// door, both directions.
 			runOrchestration: {
-				requestRunStopForTasks: (_exec, taskIds, opts) =>
-					agentOrchestration.runs.stopForTasks(taskIds, opts.reason),
+				requestRunStopForTasks: (_exec, taskIds) => agentOrchestration.runs.stopForTasks(taskIds),
 			},
 		});
 		const updated = await work.get(db, "bet", betId);
@@ -854,21 +867,23 @@ export function createBetRoutes(
 		//    conversation summaries from conversation-store (threads+messages only,
 		//    keyed by artifactId) and merge per-artifact in JS — AU12 decomposition
 		//    keeps neither side crossing the ownership boundary.
-		const artifactRows = await work.list(db, "artifact", { taskIds, include: "taskSummary" });
+		// @lore AU44 B3: taskSummary overload folded into taskTitle include; caller
+		// projects its four fields from ArtifactWithTaskTitle.
+		const artifactRows = await work.list(db, "artifact", { taskIds, include: "taskTitle" });
 		const summaryByArtifact = new Map(
 			(
 				await getArtifactThreadSummaries(
 					db,
-					artifactRows.map((a) => a.artifactId),
+					artifactRows.map((a) => a.artifact.id),
 				)
 			).map((s) => [s.artifactId, s]),
 		);
 		const rows = artifactRows.map((a) => {
-			const s = summaryByArtifact.get(a.artifactId);
+			const s = summaryByArtifact.get(a.artifact.id);
 			return {
-				artifactId: a.artifactId,
-				artifactKind: a.artifactKind,
-				artifactPreviewJson: a.artifactPreviewJson,
+				artifactId: a.artifact.id,
+				artifactKind: a.artifact.kind,
+				artifactPreviewJson: a.artifact.previewJson,
 				taskTitle: a.taskTitle,
 				threadId: s?.threadId ?? null,
 				messageCount: s?.messageCount ?? 0,

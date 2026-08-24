@@ -36,8 +36,9 @@
  *   - Rows older than the window do not count.
  */
 
-import { agentRunConfig, type HyperIdleDb, teamMembers, teams, users } from "@hyperidle/db";
-import type { SessionEndedEvent, SessionOutcome } from "@hyperidle/domain-model";
+import { agentRunConfig, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import type { SessionOutcome } from "@hyperidle/domain-model";
+import type { SessionEndedEvent } from "@hyperidle/event-bus";
 import { enqueue, listNotifications } from "@hyperidle/notifications";
 import { describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
@@ -56,21 +57,17 @@ async function seedAgent(
 	id: string,
 ): Promise<{ readonly agentId: string; readonly agentName: string; readonly teamName: string }> {
 	const teamId = `${id}-team`;
-	const teamMembersId = `${id}-tm`;
 	const agentId = `${id}-agent`;
 	const teamName = `Team ${id}`;
 	const agentName = `Agent ${id}`;
 	await db.insert(teams).values({ id: teamId, name: teamName, phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: teamMembersId, teamId, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values({
 		id: agentId,
 		kind: "ai",
 		name: agentName,
 		role: "builder",
 		status: "active",
-		teamId: teamMembersId,
+		teamId: teamId,
 		createdAt: NOW,
 	});
 	await db.insert(agentRunConfig).values({ agentUserId: agentId, maxConcurrentSessions: 2 });
@@ -93,15 +90,23 @@ function sessionEnded(options: {
 	};
 }
 
-/** Every `agent.health.degraded` row this agent owns, whatever its status. */
+/**
+ * Every `agent.health.degraded` row this agent owns, whatever its status.
+ * @lore AU44 batch 4: kind:"all" removed; use by-event-since with an epoch
+ * `since` to retrieve all rows regardless of status (by-event-since is
+ * status-agnostic on purpose — see the AU26 lore in notification-queue.ts).
+ */
 async function degradedRows(
 	db: HyperIdleDb,
 	agentId: string,
 ): Promise<Array<{ status: string; body: string | null; readAt: string | null }>> {
-	const rows = await listNotifications(db, { kind: "all" });
-	return rows
-		.filter((r) => r.subjectId === agentId && r.eventType === AGENT_HEALTH_DEGRADED_EVENT_TYPE)
-		.map((r) => ({ status: r.status, body: r.body, readAt: r.readAt }));
+	const rows = await listNotifications(db, {
+		kind: "by-event-since",
+		eventType: AGENT_HEALTH_DEGRADED_EVENT_TYPE,
+		subjectId: agentId,
+		since: "1970-01-01T00:00:00.000Z",
+	});
+	return rows.map((r) => ({ status: r.status, body: r.body, readAt: r.readAt }));
 }
 
 describe("AU26 registerAgentHealthSessionEndReactions — the rule is a count, not a ratio", () => {

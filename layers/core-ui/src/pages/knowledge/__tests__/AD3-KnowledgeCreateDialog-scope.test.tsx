@@ -11,8 +11,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@hyperidle/design-system", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/design-system")>();
+vi.mock("../../../ds", async (importOriginal) => {
+	const original = await importOriginal<typeof import("../../../ds")>();
 	return {
 		...original,
 		BodyEditor: ({

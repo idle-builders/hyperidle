@@ -43,8 +43,8 @@
 
 // hearth-internal-padding
 
-import { Button, KeyValue, type Status, StatusChip, Tag } from "@hyperidle/design-system";
 import { type JSX, useState } from "react";
+import { Button, KeyValue, type Status, StatusChip, Tag } from "../ds";
 
 // ---------------------------------------------------------------------------
 // Fixture shape — the registered Filesystem as the UI sees it (mirrors the

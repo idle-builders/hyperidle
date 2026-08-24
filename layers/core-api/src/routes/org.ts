@@ -15,15 +15,15 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES, ORG_EDGE_MECHANISMS } from "@hyperidle/domain-model";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/http-middleware";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import {
 	createTeam,
 	deleteOrgEdge,
 	getTeam,
-	getTeamMembers,
 	listOrgEdges,
-	listTeamMembers,
+	listTeams,
 	persistScaffoldedAgents,
+	resolveAgentScaffoldSpecs,
 	resolveReviewRecipients,
 	upsertOrgEdge,
 } from "@hyperidle/org";
@@ -85,6 +85,23 @@ const persistScaffoldedAgentsSchema = z.object({
  * `POST /teams`'s heavier UI flow (`teams-routes.ts`), not itself a route;
  * this is a new, narrowly-scoped route built specifically for the seam.
  */
+/**
+ * @lore AU44 AU20-fd: backs `CoreApiOrgPort.scaffoldFromRequest` — widens the
+ * scaffold seam so agent-orchestration passes the request instead of pre-resolved
+ * specs. Core-api resolves via `resolveAgentScaffoldSpecs` then persists.
+ */
+const scaffoldFromRequestSchema = z.object({
+	teamMembersId: z.string().nullable(),
+	trigger: z.enum(["team_scaffold", "agent_added", "user_assistant"]),
+	teamName: z.string().nullable(),
+	functions: z.array(z.string()).nullable(),
+	role: z.string().nullable(),
+	name: z.string().nullable(),
+	ownerUserId: z.string().nullable(),
+	ownerUserName: z.string().nullable(),
+	systemPromptOverride: z.string().optional(),
+});
+
 const provisionTeamRoutinesSchema = z.object({
 	teamId: z.string().min(1),
 	ownerByRole: z.record(z.string(), z.string().optional()),
@@ -106,7 +123,12 @@ export function createOrgRoutes(
 	router.get("/", async (c) => {
 		const edges = await listOrgEdges(db);
 		const allUsers = await listUsers(db);
-		const teamRows = await listTeamMembers(db, { active: true, withTeamName: true });
+		// @lore AU44 B1: listTeamMembers folded into listTeams; id = teamActualId after fold.
+		// Org chart shows only active teams (not archived/dissolved).
+		const allTeams = await listTeams(db);
+		const teamRows = allTeams
+			.filter((t) => t.phase !== "archived")
+			.map((t) => ({ id: t.id, name: t.name, teamActualId: t.id }));
 
 		// @lore AU20/Am11: project only {id,kind,name,role} — must not leak email/
 		// systemPrompt/model columns on a public-data endpoint.
@@ -162,7 +184,7 @@ export function createOrgRoutes(
 				);
 			}
 		} else if (mechanism === "team") {
-			const targetTeam = await getTeamMembers(db, { id: target });
+			const targetTeam = await getTeam(db, { id: target });
 			if (!targetTeam) {
 				return c.json(
 					{ error: `target teamId not found: ${target}`, code: "VALIDATION_ERROR" },
@@ -195,18 +217,14 @@ export function createOrgRoutes(
 	// so every review still reaches someone on a single-team or cross-team org.
 	router.get("/review-recipients", async (c) => {
 		const teamId = c.req.query("teamId") ?? undefined;
-		const userId = c.req.query("userId") ?? undefined;
-		const agentRole = c.req.query("agentRole") ?? undefined;
+		// userId and agentRole accepted for backward-compat but not used (AU44 B1 simplification).
 
 		const recipients = await resolveReviewRecipients(
 			db,
-			{ teamId, userId, agentRole },
+			{ teamId },
 			{
-				listHumans: (db2, teamMembersId?) =>
-					listUsers(db2, {
-						kind: "human",
-						...(teamMembersId !== undefined ? { teamIds: [teamMembersId] } : {}),
-					}),
+				listHumans: (db2, tid) =>
+					listUsers(db2, { kind: "human", ...(tid !== undefined ? { teamIds: [tid] } : {}) }),
 			},
 		);
 		return c.json({ recipients });
@@ -224,31 +242,31 @@ export function createOrgRoutes(
 		return c.json({ id: team.id, name: team.name });
 	});
 
-	// GET /teams/:teamId/membership — the `teamMembers` row keyed by `teams.id`.
+	// GET /teams/:teamId/membership — after AU44 B1 fold, teamId IS the membership id.
 	router.get("/teams/:teamId/membership", async (c) => {
 		const teamId = c.req.param("teamId");
-		const memberGroup = await getTeamMembers(db, { teamId });
-		if (!memberGroup) {
+		const team = await getTeam(db, { id: teamId });
+		if (!team) {
 			return c.json(
 				{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
 				404,
 			);
 		}
-		return c.json({ id: memberGroup.id });
+		return c.json({ id: team.id });
 	});
 
-	// GET /team-members/:teamMembersId — the AK4 two-hop resolution's second hop
-	// (`teamMembers.id` -> `teamId`, i.e. `teams.id`).
+	// GET /team-members/:teamMembersId — AU44 B1: teamMembersId IS teams.id after fold.
 	router.get("/team-members/:teamMembersId", async (c) => {
 		const teamMembersId = c.req.param("teamMembersId");
-		const memberGroup = await getTeamMembers(db, { id: teamMembersId });
-		if (!memberGroup) {
+		const team = await getTeam(db, { id: teamMembersId });
+		if (!team) {
 			return c.json(
 				{ error: "Team membership group not found", code: API_ERROR_CODES.NOT_FOUND },
 				404,
 			);
 		}
-		return c.json({ teamId: memberGroup.teamId });
+		// After fold, teamMembersId = teams.id — return the same id as teamId for backward compat.
+		return c.json({ teamId: team.id });
 	});
 
 	// POST /teams — the atomic `teams`+`teamMembers` insert ONLY (never the
@@ -274,12 +292,47 @@ export function createOrgRoutes(
 				getUserById: (db2, id) => findUser(db2, { id }),
 				insertUser,
 				// AU31 §2.2/§3 clause 2: the injected writer used to be a direct
-				// @hyperidle/agent-run-config import (crossing-di) — now the
+				// @hyperidle/run-orchestration import (crossing-di) — now the
 				// seam-backed adapter.
 				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
 			},
 			body.teamMembersId,
 			body.specs,
+		);
+		return c.json(result, 201);
+	});
+
+	// POST /scaffold-request — resolve-then-persist seam for agent-orchestration.
+	// Accepts a scaffold request (trigger + params), resolves specs via
+	// `resolveAgentScaffoldSpecs`, and persists via `persistScaffoldedAgents`.
+	// Replaces the old two-step (orchestration resolves specs, then calls
+	// /scaffolded-agents) so resolution stays in the owning service.
+	// @lore AU44 AU20-fd: `framework/factory-defaults` dissolution — the seam
+	// is widened here instead of exposing resolve to orchestration.
+	router.post("/scaffold-request", validateBody(scaffoldFromRequestSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof scaffoldFromRequestSchema>;
+		const resolved = resolveAgentScaffoldSpecs({
+			trigger: body.trigger,
+			teamName: body.teamName,
+			functions: body.functions,
+			role: body.role,
+			name: body.name,
+			ownerUserId: body.ownerUserId,
+			ownerUserName: body.ownerUserName,
+		});
+		const specs =
+			body.systemPromptOverride !== undefined
+				? resolved.map((s) => ({ ...s, systemPrompt: body.systemPromptOverride ?? null }))
+				: resolved;
+		const result = await persistScaffoldedAgents(
+			db,
+			{
+				getUserById: (db2, id) => findUser(db2, { id }),
+				insertUser,
+				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+			},
+			body.teamMembersId,
+			specs,
 		);
 		return c.json(result, 201);
 	});

@@ -33,9 +33,9 @@ import {
 	sweep,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
-import { attentionReviewReasoningMarker, createReviewItem } from "@hyperidle/review";
 import {
 	extractBuiltinKind,
+	type FireResult,
 	fireBuiltinRoutine,
 	fireGenericRoutine,
 	type RoutineSchedulerConfig,
@@ -58,10 +58,6 @@ async function recomputeAttentionForCandidates(
 	eventBus: EventBus,
 	candidateIds: readonly string[],
 ) {
-	const createReviewItemForKnowledge = createReviewItem({
-		conversation: { insertThread },
-		work: { createItem: (exec, values) => work.create(exec, "item", values) },
-	});
 	const result = await recomputeAttention(
 		{
 			db,
@@ -71,8 +67,9 @@ async function recomputeAttentionForCandidates(
 					const rows = await work.list(exec, "item", { marker });
 					return rows[0] ? { id: rows[0].id } : undefined;
 				},
+				createItem: (exec, values) => work.create(exec, "item", values),
 			},
-			review: { createReviewItemForKnowledge, attentionReviewReasoningMarker },
+			conversation: { insertThread },
 		},
 		{ filter: { ids: candidateIds as string[] } },
 	);
@@ -160,15 +157,6 @@ export function registerBuiltinRoutineReactions(
 	);
 }
 
-export interface FireRoutineResult {
-	fired: boolean;
-	reason?: string;
-	runId?: string;
-	sessionId?: string;
-	emitted?: readonly string[];
-	extra?: Record<string, unknown>;
-}
-
 /**
  * Bound routine-firing dispatcher — builtin vs generic, same decision
  * `dispatchOps.fireRoutine` used to make (relocated verbatim, now core-api-
@@ -181,6 +169,10 @@ export interface FireRoutineResult {
  * `fireBuiltinRoutine`, which runs the in-process handler and writes the
  * terminal `routine_runs` row itself. Generic routines continue through
  * `fireGenericRoutine`, which enqueues a work intent for agent dispatch.
+ *
+ * @lore AU44 B3: `FireRoutineResult` was a dead duplicate of `FireResult`
+ * (identical fields, never-set sessionId/emitted/extra already gone from
+ * `FireResult`). Replaced with `FireResult` from @hyperidle/routine.
  */
 export function fireRoutine(
 	db: HyperIdleDb,
@@ -191,7 +183,7 @@ export function fireRoutine(
 		readonly args?: { readonly betId: string };
 		readonly recordSkippedRun?: boolean;
 	},
-): Promise<FireRoutineResult> {
+): Promise<FireResult> {
 	const ports = buildRoutineSchedulerPorts(agentOrchestration);
 	const builtinKind = extractBuiltinKind(routine.id);
 	if (builtinKind) {

@@ -21,9 +21,9 @@
  * old font-heading + text-sm h2 is removed (fixes off-scale 14px heading).
  */
 
-import { BodyEditor, Button, Dialog, Input, ScopePicker } from "@hyperidle/design-system";
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
+import { BodyEditor, Button, Dialog, Input, ScopePicker } from "../../ds";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
 
 import { apiFetch } from "../../services/api-fetch.js";

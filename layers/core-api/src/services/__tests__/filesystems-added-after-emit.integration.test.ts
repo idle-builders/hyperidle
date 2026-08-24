@@ -31,14 +31,12 @@ import {
 	filesystemInjections,
 	filesystems,
 	type HyperIdleDb,
-	teamMembers,
 	teams,
 	users,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { RegistryFilesystemMounter } from "@hyperidle/filesystem-mounting";
 import { listInjectedFilesystemsForProvisioning } from "@hyperidle/filesystems";
-import { mountFilesystemsForAgent } from "@hyperidle/run-orchestration";
+import { mountFilesystemsForAgent, RegistryFilesystemMounter } from "@hyperidle/run-orchestration";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";
 import { eq } from "drizzle-orm";
 import { queueDeps } from "../../__testing__/durable-agent-queue-test-deps.js";
@@ -48,7 +46,6 @@ const NOW = "2026-08-04T00:00:00.000Z";
 const HUMAN_ID = "u-au26-f2-owner";
 const AGENT_ID = "agent-au26-f2-target";
 const TEAM_ID = "team-au26-f2";
-const TEAM_MEMBERS_ID = "tm-au26-f2";
 
 let tmpDir: string;
 let sandboxPath: string;
@@ -69,9 +66,6 @@ afterEach(() => {
 
 async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: TEAM_ID, name: "AU26 F2", phase: "build", createdAt: NOW });
-	await db
-		.insert(teamMembers)
-		.values({ id: TEAM_MEMBERS_ID, teamId: TEAM_ID, capacity: 3, activeBets: 0, formedAt: NOW });
 	await db.insert(users).values([
 		{
 			id: HUMAN_ID,
@@ -79,7 +73,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Owner",
 			role: "founder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: NOW,
 		},
 		{
@@ -88,7 +82,7 @@ async function seedPrincipals(db: HyperIdleDb): Promise<void> {
 			name: "AU26 Target Agent",
 			role: "builder",
 			status: "active",
-			teamId: TEAM_MEMBERS_ID,
+			teamId: TEAM_ID,
 			createdAt: NOW,
 		},
 	]);

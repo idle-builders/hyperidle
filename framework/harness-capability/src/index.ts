@@ -8,7 +8,6 @@ export type {
 	HarnessModelOptionControl,
 	HarnessModelOptionDescriptor,
 	HarnessOptionChoice,
-	HarnessOptionControlKind,
 	HarnessReadinessState,
 	ReturnEnforcementChannel,
 } from "./harness/harness-capability-descriptor.js";

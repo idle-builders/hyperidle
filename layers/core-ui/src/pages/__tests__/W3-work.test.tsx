@@ -14,11 +14,11 @@
  * AC-25: Bet detail content max-width 800px, centered.
  */
 
-import { BetCard } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import { BetCard } from "../../ds";
 import { MOCK_BETS } from "../../pages/__fixtures__/work-bet-fixtures";
 import { WorkBet } from "../../pages/WorkBet";
 import type { BetDetail } from "../../types/bet";

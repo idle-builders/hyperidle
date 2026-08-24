@@ -35,11 +35,4 @@ export interface ArtifactWithTaskTitle {
 	readonly taskTitle: string;
 }
 
-export interface ArtifactTaskSummaryRow {
-	readonly artifactId: string;
-	readonly artifactKind: string;
-	readonly artifactPreviewJson: string | null;
-	readonly taskTitle: string;
-}
-
 export type { CreateArtifactInput };

@@ -30,7 +30,7 @@
  * `getRoutineRun`). AU21 Increment 14a: `sumRunCost` deleted along with the
  * rest of the cost feature.
  */
-import { type HyperIdleDb, routineRuns, routines, teamMembers, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
 import { describe } from "vitest";
@@ -45,13 +45,6 @@ async function seedTeamAndAgent(db: HyperIdleDb): Promise<void> {
 		createdAt,
 	});
 	// The owner writes the membership row alongside the team.
-	await db.insert(teamMembers).values({
-		id: "team-1-members",
-		teamId: "team-1",
-		capacity: 5,
-		activeBets: 0,
-		formedAt: createdAt,
-	});
 	await db.insert(users).values({
 		id: "agent-1",
 		name: "Agent One",
@@ -351,13 +344,6 @@ describe("routine-service", () => {
 				createdAt: team2CreatedAt,
 			});
 			// The owner writes the membership row alongside the team.
-			await db.insert(teamMembers).values({
-				id: "team-2-members",
-				teamId: "team-2",
-				capacity: 5,
-				activeBets: 0,
-				formedAt: team2CreatedAt,
-			});
 			await routine.insertRoutine(db, {
 				id: "routine-b",
 				name: "B",
@@ -452,14 +438,17 @@ describe("routine-service", () => {
 				triggerType: "calendar",
 				active: true,
 			});
+			// AU44 B3: insertRoutine now computes nextRunAt owner-side.
+			// Use heartbeat (intervalSeconds triggers a non-null nextRunAt)
+			// so this routine is excluded from the missingNextRunAt filter.
 			await routine.insertRoutine(db, {
 				id: "routine-has-next",
 				name: "HasNext",
 				teamId: "team-1",
 				ownerAgentId: "agent-1",
-				triggerType: "calendar",
+				triggerType: "heartbeat",
+				triggerConfig: JSON.stringify({ intervalSeconds: 3600 }),
 				active: true,
-				nextRunAt: "2026-01-01T00:00:00.000Z",
 			});
 			await routine.insertRoutine(db, {
 				id: "routine-event-type",
@@ -593,8 +582,8 @@ describe("routine-service", () => {
 		});
 	});
 
-	describe("listRoutineRuns / limit + order", () => {
-		test("limit + order:desc returns the most recent runs first", async ({ db }) => {
+	describe("listRoutineRuns / limit (always desc)", () => {
+		test("limit:1 returns the most recent run first", async ({ db }) => {
 			await seedTeamAndAgent(db);
 			await routine.insertRoutine(db, {
 				id: "routine-1",
@@ -619,16 +608,14 @@ describe("routine-service", () => {
 			const latest1 = await routine.listRoutineRuns(db, {
 				routineId: "routine-1",
 				limit: 1,
-				order: "desc",
 			});
 			expect(latest1.map((r) => r.id)).toEqual(["run-2"]);
 
-			const desc20 = await routine.listRoutineRuns(db, {
+			const all = await routine.listRoutineRuns(db, {
 				routineId: "routine-1",
 				limit: 20,
-				order: "desc",
 			});
-			expect(desc20.map((r) => r.id)).toEqual(["run-2", "run-1"]);
+			expect(all.map((r) => r.id)).toEqual(["run-2", "run-1"]);
 		});
 	});
 });

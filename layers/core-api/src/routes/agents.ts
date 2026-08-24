@@ -28,20 +28,19 @@ import type {
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	AGENT_CATEGORIES,
-	catalogEntry,
 	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
 	findRoleCatalogEntry,
 	MODEL_TIERS,
 } from "@hyperidle/domain-model";
-import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
-import type { HarnessCapabilityReader } from "@hyperidle/harness-protocol";
-import type { HyperIdleEnv } from "@hyperidle/http-middleware";
-import { getTeamMembers } from "@hyperidle/org";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
+import { getTeam, readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
+import { catalogEntry } from "../model-utils.js";
+import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 import { handleAgentProfile } from "./agent-profile.js";
 import { validateAgentConfig } from "./validate-agent-config.js";
 
@@ -80,11 +79,11 @@ const patchAgentSchema = z.object({
 type PatchAgentData = z.infer<typeof patchAgentSchema>;
 
 /**
- * Mirrors `@hyperidle/agent-run-config`'s `DEFAULT_AGENT_RUN_CONFIG` — a
+ * Mirrors `@hyperidle/run-orchestration`'s `DEFAULT_AGENT_RUN_CONFIG` — a
  * defensive fallback for a `readBatch` entry, even though
  * `AgentOrchestrationPort.runConfig.readBatch` (like the direct function it
  * backs) already fills every requested id. AU31 §2.2: this route no longer
- * imports `@hyperidle/agent-run-config` directly, so the value is a local
+ * imports `@hyperidle/run-orchestration` directly, so the value is a local
  * mirror, not an import.
  */
 const EMPTY_RUN_CONFIG_VIEW = {
@@ -259,7 +258,7 @@ export function createAgentRoutes(
 		// AH4: FK 422 — reject unknown teamId before the INSERT to surface a clear 422
 		// rather than a FK constraint 500. teamId references team_members.id.
 		if (data.teamId) {
-			const tmRow = await getTeamMembers(db, { id: data.teamId });
+			const tmRow = await getTeam(db, { id: data.teamId });
 			if (!tmRow) {
 				return c.json({ error: `teamId not found: ${data.teamId}`, code: "VALIDATION_ERROR" }, 422);
 			}

@@ -1,6 +1,6 @@
-import { KeyValue } from "@hyperidle/design-system";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { KeyValue } from "../ds";
 
 /**
  * @lore J1: KeyValue font-size tests.

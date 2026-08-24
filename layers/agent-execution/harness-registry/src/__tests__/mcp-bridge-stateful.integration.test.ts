@@ -31,24 +31,18 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serve } from "@hono/node-server";
-import type { EnforcementRegistry } from "@hyperidle/harness-protocol";
-import {
-	err,
-	ok,
-	type RegisteredTool,
-	type ToolRegistry,
-	toClaudeToolSpec,
-	toRegistered,
-} from "@hyperidle/tool-protocol";
+import { err, ok, type RegisteredTool, type ToolRegistry } from "@hyperidle/harness-protocol";
+import { toClaudeToolSpec, toRegistered } from "@hyperidle/tool-handlers";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import z from "zod";
+import type { EnforcementRegistry } from "../enforcement-registry.js";
 import { createMcpToolBridge, type McpToolBridge } from "../mcp-tool-bridge.js";
 import { createReturnEnforcement } from "../return-enforcement.js";
 
-const createEnforcementRegistry = () => createReturnEnforcement({ isolated: true });
+const createEnforcementRegistry = () => createReturnEnforcement();
 
 /**
  * Inline commit_file proof-vehicle tool.

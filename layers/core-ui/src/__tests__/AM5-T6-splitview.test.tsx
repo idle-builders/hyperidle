@@ -10,7 +10,7 @@ afterEach(cleanup);
 // ── 1. SplitViewProps.surfaceKey ─────────────────────────────────────────────────
 describe("SplitView: surfaceKey prop", () => {
 	it("SplitViewProps accepts surfaceKey (TypeScript structural test)", async () => {
-		const { SplitView } = await import("@hyperidle/design-system");
+		const { SplitView } = await import("../ds");
 		// If this renders without error, surfaceKey is accepted
 		const { container } = render(
 			<SplitView
@@ -96,7 +96,7 @@ describe("useUiPreference", () => {
 // ── 3. SplitView modes ───────────────────────────────────────────────────────────
 describe("SplitView: modes", () => {
 	it("uses a destination-only compact fallback with a labelled return", async () => {
-		const { SplitView } = await import("@hyperidle/design-system");
+		const { SplitView } = await import("../ds");
 		const onModeChange = vi.fn();
 		const { getByRole, getByTestId, queryByRole } = render(
 			<SplitView
@@ -120,7 +120,7 @@ describe("SplitView: modes", () => {
 	});
 
 	it("fold-back: hides destination", async () => {
-		const { SplitView } = await import("@hyperidle/design-system");
+		const { SplitView } = await import("../ds");
 		const { container } = render(
 			<SplitView
 				origin={<div data-testid="origin-content">origin</div>}
@@ -135,7 +135,7 @@ describe("SplitView: modes", () => {
 	});
 
 	it("full: hides origin", async () => {
-		const { SplitView } = await import("@hyperidle/design-system");
+		const { SplitView } = await import("../ds");
 		const { container } = render(
 			<SplitView
 				origin={<div data-testid="origin-content">origin</div>}
@@ -150,7 +150,7 @@ describe("SplitView: modes", () => {
 	});
 
 	it("split: shows both origin and destination", async () => {
-		const { SplitView } = await import("@hyperidle/design-system");
+		const { SplitView } = await import("../ds");
 		const { container } = render(
 			<SplitView
 				origin={<div data-testid="origin-content">origin</div>}

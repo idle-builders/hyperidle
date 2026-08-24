@@ -11,47 +11,18 @@
  * (architecture.md §2.5.3 step 2) — a missing template read must preserve the agent's existing
  * `systemPrompt` rather than nulling it.
  *
- * The `@hyperidle/factory-defaults` mock below stubs only the pure template-file reader for one test, not the
- * database — the integration point under test throughout is the real `agent_run_config` write,
- * exercised via the `@hyperidle/db` fixture db (this layer's own fixtures carry no `db`; per its
- * `__testing__/test-fixtures.ts` lore, a test needing a real db uses `@hyperidle/db/test-fixtures`
- * directly).
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved; template reader inlined into
+ * factory-run-config.ts (can't cross layer boundary to @hyperidle/org). The "null read" test
+ * uses the optional `readTemplate` parameter instead of a module mock — cleaner, no hoisting.
  */
-import { vi } from "vitest";
-
-// @lore shared-integration-workers: the mocked factory-defaults module may
-// already be evaluated by an earlier file. Reset it before this file's hoisted mock.
-vi.hoisted(() => vi.resetModules());
-
-/**
- * Set by the "content !== null skip" test to force `readSystemPromptTemplateForRole` to return
- * null for one role, deterministically — every real template file in this repo exists, so the
- * missing-file branch cannot be reached without controlling the reader. Reset after every test.
- */
-let nullTemplateRole: string | null = null;
-
-vi.mock("@hyperidle/factory-defaults", async (importOriginal) => {
-	const original = await importOriginal<typeof import("@hyperidle/factory-defaults")>();
-	return {
-		...original,
-		readSystemPromptTemplateForRole: (role: string) =>
-			role === nullTemplateRole ? null : original.readSystemPromptTemplateForRole(role),
-	};
-});
 
 import { agentRunConfig, users } from "@hyperidle/db";
-import { afterAll, afterEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { afterEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import { applyFactoryRunConfigDefaults } from "../factory-run-config.js";
-
-afterEach(() => {
-	nullTemplateRole = null;
-});
-
-afterAll(() => {
-	vi.doUnmock("@hyperidle/factory-defaults");
-	vi.resetModules();
-});
+import {
+	applyFactoryRunConfigDefaults,
+	readSystemPromptTemplateForRole,
+} from "../factory-run-config.js";
 
 const AH2 = {
 	harnessType: "builtin",
@@ -59,6 +30,21 @@ const AH2 = {
 	modelProvider: "anthropic",
 	maxConcurrentSessions: 1,
 } as const;
+
+/**
+ * Role that forces `readTemplate` to return null in the "missing template" test.
+ * Reset after every test.
+ */
+let nullTemplateRole: string | null = null;
+
+afterEach(() => {
+	nullTemplateRole = null;
+});
+
+function controlledReader(role: string): string | null {
+	if (role === nullTemplateRole) return null;
+	return readSystemPromptTemplateForRole(role);
+}
 
 async function seedUser(
 	db: Parameters<typeof applyFactoryRunConfigDefaults>[0],
@@ -134,9 +120,11 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 			systemPrompt: "pre-existing prompt that must survive",
 		});
 
-		await applyFactoryRunConfigDefaults(db, [
-			{ id: "agent-missing-template", role: "facilitator" },
-		]);
+		await applyFactoryRunConfigDefaults(
+			db,
+			[{ id: "agent-missing-template", role: "facilitator" }],
+			controlledReader,
+		);
 
 		const [row] = await db
 			.select()

@@ -13,8 +13,8 @@ import {
 	isRegisteredKind,
 	OLD_KIND_MAP,
 } from "@hyperidle/domain-model";
+import { validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
-import { validateBody } from "@hyperidle/http-middleware";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";

@@ -28,20 +28,12 @@ import {
 	insertMessage,
 	insertThread,
 	listMessages,
-	updateMessage,
+	resolveMessageIfUnresolved,
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
-import {
-	type HyperIdleDb,
-	items,
-	messages,
-	teamMembers,
-	teams,
-	threads,
-	users,
-} from "@hyperidle/db";
-import type { NotificationEvent } from "@hyperidle/domain-model";
+import { type HyperIdleDb, items, messages, teams, threads, users } from "@hyperidle/db";
+import type { NotificationEvent } from "@hyperidle/event-bus";
 import { computeApprovalRate, type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import * as work from "@hyperidle/work";
 import { and, eq } from "drizzle-orm";
@@ -73,7 +65,7 @@ const policyEngineDeps: PolicyDeps = {
 				dir: opts?.dir,
 				limit: opts?.limit,
 			}),
-		updateMessage,
+		resolveMessageIfUnresolved,
 		updateThread,
 		listInitiatedVerdictMessages: (db, initiatorId, windowStart) =>
 			listMessages(db, { threadInitiatorId: initiatorId, types: ["verdict"], since: windowStart }),
@@ -85,7 +77,6 @@ const policyEngineDeps: PolicyDeps = {
 		// lifecycle stub (never called in engine tests):
 		getFirstUserByKind: () => Promise.resolve(undefined),
 	},
-	notifications: { insert: () => Promise.resolve() },
 };
 
 const NOW = new Date().toISOString();
@@ -121,13 +112,6 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 			phase: "build",
 			createdAt: NOW,
 		});
-		await db.insert(teamMembers).values({
-			id: "ad4-tm-1",
-			teamId: "ad4-team-1",
-			capacity: 3,
-			activeBets: 0,
-			formedAt: NOW,
-		});
 		await db.insert(users).values([
 			{
 				id: "ad4-agent-1",
@@ -135,7 +119,7 @@ describe("AD4 Policy Engine — approval-rate-based trust", () => {
 				name: "Builder Agent",
 				role: "builder",
 				status: "idle",
-				teamId: "ad4-tm-1",
+				teamId: "ad4-team-1",
 				createdAt: NOW,
 			},
 			{

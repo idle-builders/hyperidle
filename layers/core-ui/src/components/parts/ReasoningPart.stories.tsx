@@ -4,8 +4,8 @@
  * Collapsed by default to "Thought for Ns". Expand to see quiet prose.
  */
 
-import type { Part, PartAuthor } from "@hyperidle/conversation-parts";
 import type { JSX } from "react";
+import type { Part, PartAuthor } from ".";
 import { ReasoningPart } from "./ReasoningPart.js";
 
 export default { title: "ReasoningPart", group: "Conversations" as const };
