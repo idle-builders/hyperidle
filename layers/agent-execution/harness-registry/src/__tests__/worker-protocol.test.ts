@@ -12,7 +12,7 @@ import type {
 	ServerToWorkerMessage,
 	WorkerRegisterMessage,
 	WorkerToServerMessage,
-} from "../worker-protocol.js";
+} from "@hyperidle/harness-protocol";
 
 // ── WorkerToServerMessage narrowing ────────────────────────────────────────
 

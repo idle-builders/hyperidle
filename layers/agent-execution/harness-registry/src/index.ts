@@ -50,4 +50,4 @@ export type {
 	WorkerResumeMessage,
 	WorkerSessionResultMessage,
 	WorkerToServerMessage,
-} from "./worker-protocol.js";
+} from "@hyperidle/harness-protocol";
