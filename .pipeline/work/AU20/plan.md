@@ -133,5 +133,13 @@ acting on the remaining rows must read **both** sides for a feature before touch
 ## Where the evidence lives
 
 The full audit, the per-package verdicts, the revised verdicts, the census and the tooling were committed
-during the pass and removed at ship. Recover them from git history at `aafa592d1`, under
-`.pipeline/work/AU20/destroy/`.
+during the pass and removed at ship, because they are working material rather than product. Both cleanup
+passes were squash-merged, so that commit is **not reachable from `main`**. They are carried on branch
+`pipeline/AU44` under `.pipeline/work/AU20/destroy/` (110 files) and are also reachable from the tag
+`au20-audit-evidence`. The branch is the copy to work from; the tag is the backstop. Nothing in this
+track should assume `main` carries them.
+
+One caveat for anyone re-running the tooling: `check-deletions-scoped.ts` resolves each verdict file to a
+package directory by name, and AU44 dissolved fifteen of those packages. It now silently skips 75 DELETE
+rows as "no resolvable dir" rather than checking them. Give it a package-to-new-home mapping before
+trusting its number as a gate.
