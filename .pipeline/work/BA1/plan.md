@@ -24,6 +24,26 @@ agent.
 **Missing delta.** The read path: matching a configured trigger against something that happened, and
 selecting the agent and prompt it names.
 
+**Measured 2026-08-24 (BA9 refinement), for the question this package says is load-bearing.** "What a
+trigger can match on" now has numbers, and there is a second matcher nobody listed:
+
+- A trigger rule may name **6** event types — `task.accepted`, `assistant.message`, `routine.fire`,
+  `work.decompose_requested`, `knowledge.action`, `proposed_call.granted`
+  (`TRIGGER_EVENT_TYPES`, `framework/domain-model/src/trigger.ts`). The bus carries **33**. So even once
+  the read path exists, a trigger cannot name most of what happens.
+- **A second matching mechanism already works.** `registerEventTriggers`
+  (`layers/core-api/routine/src/routine-scheduler.ts`) subscribes a non-builtin routine to **any**
+  `EventType` named in its trigger config, and fires it. So the product has one narrow trigger
+  vocabulary that nothing reads, and one broad one that works — reached through a routine rather than
+  through the Triggers tab. Decide which survives before building a third path.
+- Those subscriptions are registered **once, at startup**, from the routines then in the database. A rule
+  or plugin added while the app runs is not matched until a restart.
+
+**Naming ruling (founder, 2026-08-24).** A **routine** is the umbrella noun, and a routine fires either
+on a clock or on an event. What the code calls a separate "trigger" primitive is the event-fired case of
+a routine. Converge the two vocabularies on that rather than keeping a parallel six-name list beside the
+real event union.
+
 **Depends on.** None.
 
 **Complexity.** M

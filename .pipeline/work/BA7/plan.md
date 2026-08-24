@@ -26,6 +26,14 @@ scoping consequences that follow.
 replacing it; that machinery must not be deleted separately beforehand, or there is no access mechanism
 in the interval.
 
+**Confirmed still standing (2026-08-24).** The cleanup passes honoured that constraint. Eleven symbols
+convicted for deletion are deliberately still on the tree and are this package's to remove once the
+provider replaces them: `createInvite`, `claimInvite`, `InviteRole`, `INVITE_ROLES`, `INVITE_CODE_TTL_MS`
+and `NewInviteCode` (the invite half, which the OIDC ruling kills outright), and `createLoginSession`,
+`validateBearerToken`, `revokeLoginSession`, `LOGIN_SESSION_TTL_MS` and `NewLoginSession` (the session
+half, which a shared backend still needs in some form). Splitting those two halves is this package's
+call, not a mechanical deletion — see `work/AU43/UNFINISHED.md`.
+
 **Complexity.** L
 
 **Engineering tier.** mvp

@@ -20,7 +20,25 @@ promotion pipeline. They run through a builtin-routine path that bypasses the no
 architecture, are seeded per team so global sweeps fire once per team, and are anchored by a route whose
 only purpose is creating them. Twenty-one rows across the audit are marked as belonging here.
 
-**Missing delta.** A plugin that provides these rituals, and their removal from core once it does.
+**Missing delta.** A plugin that provides these rituals, and their removal from core once it does —
+**plus the mechanism by which a plugin is installed at all, which does not exist.** See "What
+refinement found" below; this is the single largest correction to this work package's original size.
+
+**Absorbs AU35 and AU39 (2026-08-24, founder decision).** Both were registered in track AU as separate
+purges and both were refined into this row, because neither can be finished on its own:
+
+- **AU35 — delete `strategy` as an agent category.** The value is carried by exactly one kind of agent:
+  the five facilitators seeded on first boot. They are the agents leaving core here. Deleting the value
+  first strands them; moving them into the plugin deletes the value as a side effect.
+- **AU39 — remove the built-in routine feature and redesign wildcard event subscription.** The four
+  built-in routines *are* the two sweeps and the two retros this work package relocates. Removing the
+  built-in mechanism is the same act as re-providing them as ordinary plugin routines.
+
+The founder's bar for the combined work is end-to-end: *"the concept of strategy is completely purged
+and the plugins are proven to be working — and to end that means installing a plugin and seeing the
+agents work."* Iterations are fine; the verification is not. *"Things should happen in iterations but
+still it has to be planned and verified in the end as one, since only full verification guarantees all
+parts are done and work."*
 
 **Depends on.** BA1 — the plugin re-provides these rituals as triggers and routines, and the trigger
 substrate currently runs nothing. Built first, this would ship a plugin that installs and never fires.
@@ -31,10 +49,25 @@ removing them from core loses the capability rather than relocating it.
 
 **Engineering tier.** mvp
 
-**Pre-build.** Refinement required — which rituals are worth re-providing at all, versus simply dropped,
-is not settled. Some of this machinery is convicted on its own merits and should not be carried into a
-plugin: the contradiction detector inside the promotion sweep is provably dead logic, and per-team
-firing of global sweeps is a defect, not a behaviour to preserve.
+**Pre-build.** Refinement ran on 2026-08-24 (see "What refinement found" below). **Settled there:** all
+four built-in routines travel — the founder ruled retros are knowledge management too, *"the purpose of
+retros is to improve the process and setup"*; the facilitators become part of this
+knowledge-management plugin; the work is planned and verified as one even if it is built in iterations;
+restarting between install and proof is acceptable; and a **routine** is the umbrella noun, firing either
+on a clock or on an event.
+
+**Still open, and needed before build:**
+- Which rituals are worth re-providing at all versus simply dropped. Nothing convicted on its own merits
+  travels: the contradiction detector inside the promotion sweep is provably dead logic, and per-team
+  firing of global sweeps is a defect, not a behaviour to preserve.
+- What happens to the "App-managed" edit-lock that the `strategy` value currently drives (below).
+- Whether the six-name trigger vocabulary converges onto the 33-event union in this package or in BA1.
+
+**Design:** light. Two panes change when the category goes, and the plugin's install surface is new. No
+new view; confirm against the design system rather than exploring variants.
+
+**Human review gate:** yes, and load-bearing. This migrates live rows, changes a taxonomy a user sees, and
+decides whether app-provisioned agents can be edited.
 
 **Constraints.**
 - Nothing may be carried into the plugin that is already convicted as broken or dead. This is a
@@ -46,7 +79,10 @@ firing of global sweeps is a defect, not a behaviour to preserve.
   the rituals used to be.
 
 **Out of scope.** Building a plugin marketplace or distribution mechanism. Reworking the knowledge store
-itself. Deciding whether teams should hold retros.
+itself. Deciding whether teams should hold retros. The `knowledge_strategy_fabric` and
+`task_strategy_fabric` tables and their `@lore O2` columns — a third, unrelated sense of the word
+`strategy`, which this package must not touch. The kernel-versus-strategy package split, already purged.
+Emitting the five events that have no emitter — that is BA8.
 
 **Re-provide what the cleanup removed.** The delete pass removed the knowledge merge and split
 operations from core, including their routes. Two destroyers reached that outcome by different
@@ -55,7 +91,113 @@ as leaving core for this plugin — and both measured zero callers, so nothing r
 Re-providing merge, split and flag-for-review is this package's obligation, not a regression to
 investigate. Recover the deleted implementations from git history rather than rewriting them blind.
 
+## What refinement found (2026-08-24)
+
+Read this before sizing the work. Every claim below was checked against `main` at `827adbb24`.
+
+### There is no way to install a plugin
+
+The plugin *configuration* half is real and works: three tables (`plugins`,
+`plugin_configuration_defaults`, `configuration_overrides`) and a resolution engine in
+`layers/core-api/settings/src/plugin-configuration.ts` where a plugin default loses to a user override
+and the origin of each value is tracked.
+
+The other half was never built. **Nothing anywhere writes a `plugins` row.** There is no plugin format,
+no loader, no install route, no CLI. The `plugins` table is read-only in practice — the join in
+`plugin-configuration.ts` is its only use. `docs/architecture/runtime-simplification.md` describes the
+concept ("plugins are preconfiguration bundles... once installed, those contributions appear as editable
+app configuration") and no code implements the "once installed" part.
+
+So "ship the rituals as a plugin" is not a relocation onto an existing substrate. The substrate is a
+config resolver with no intake. Building the intake is inside this work package.
+
+### The trigger vocabulary is a sixth the size of the event vocabulary
+
+The bus carries **33 event types** (28 entity-lifecycle events — bet state changed, task state changed,
+thread created, knowledge created / updated / archived / accessed, artifact created, team created, agent
+added, session started / ended, and so on — plus 5 more). A trigger rule may name **6**: `task.accepted`,
+`assistant.message`, `routine.fire`, `work.decompose_requested`, `knowledge.action`,
+`proposed_call.granted` (`framework/domain-model/src/trigger.ts`).
+
+Two vocabularies for one idea, and the small one is the one a person or a plugin can attach to. Combined
+with BA1 — the saved trigger rules are read by no code at all — the honest answer to "what do our plugins
+attach to?" is: nothing, and there are no plugins.
+
+**Naming ruling (founder, 2026-08-24).** A **routine** is the umbrella noun, and a routine fires either
+on a clock or on an event. What the code calls a "trigger" on a routine is the event-fired case of a
+routine, not a separate primitive. Converge the two vocabularies on that, rather than keeping a parallel
+six-name list beside the real event union.
+
+### Event-fired routines already work generically — only the hardcoding has to go
+
+`registerEventTriggers` (`layers/core-api/routine/src/routine-scheduler.ts`) already subscribes a
+non-builtin routine to **any** `EventType` named in its trigger config. So a plugin-supplied retro can
+fire on a bet closing today with no new mechanism. What disappears when the built-ins go is the
+in-process coded handler: `fireBuiltinRoutine` runs the work itself, while a generic routine enqueues a
+work intent for an agent to do it. That difference is the point — it is the plugin model.
+
+**One real gap:** those subscriptions are registered once, at startup, from the routines present in the
+database. A plugin installed while the app runs registers nothing until a restart. The founder accepted
+restarts as part of the proof — *"do whatever it takes to prove this, and if that means multiple times
+installing and starting"* — so a live-install path is not required, but the restart must be a named,
+deliberate step rather than an undocumented surprise.
+
+### `strategy` is doing a second job nobody recorded
+
+The category is not only a dead label. In the interface it renders as the tag **"App-managed"**, shows a
+note saying operational configuration may refresh when defaults change, and **disables the harness-type
+and model-tier fields** (`layers/core-ui/src/pages/work/AgentDetailPane.tsx`, five uses of `isStrategy`;
+`layers/core-ui/src/pages/AgentProfile.tsx`). Deleting the value without deciding what happens to that
+lock silently makes app-provisioned agents freely editable, while app defaults keep overwriting them and
+nothing says so.
+
+**This is an open decision for this work package**, not something refinement settled. Three live options:
+drop the lock and trust the human (matches the ethos, smallest change); keep the behaviour but move it
+onto its own explicit "provisioned by a plugin" flag; or keep a third category under an honest name. Note
+that `docs/agent-layer/agent-model.md` states category must never be a permission check — which the
+current lock arguably already is.
+
+Two further corrections to AU35's original text: it says four *factory roles* carry the category —
+it is four **catalog** roles (`facilitator`, `scout`, `infra`, `platform`) and **five seeded agent rows**,
+all of role `facilitator` (build, product, growth, ops, facilitation). And `scout`, `infra` and `platform`
+are never instantiated by anything — they exist only in the catalog and in Storybook stories. Also live:
+`POST /agents` derives the category from the catalog, so creating an agent with one of those four role
+names still mints a `strategy` agent today.
+
+### The bus change is now one caller, not three
+
+AU39 was written when three places subscribed to every event. Two are already gone. The only one left is
+the runtime wake-up hint (`layers/agent-orchestration/run-orchestration/src/start-runtime.ts`), and it is
+a latency shortcut, not a dependency: the runtime drains its queue on a one-second timer, and the
+subscription only makes it drain immediately. The code says so — *"EventBus is a latency hint only;
+polling remains the process-death recovery path."* It needs to know that something may have been queued,
+not what happened, so a named signal or an explicit infrastructure-only hook replaces it without changing
+behaviour beyond up to a second of latency.
+
+### Three convicted symbols travel with this work
+
+From the AU43 delete list, still standing and still unexplained: `StrategyEvent` and `KernelEvent`
+(`framework/domain-model/src/events.ts`) and `PostBetRetroArgs`
+(`layers/core-api/routine/src/routine-scheduler.ts`). `StrategyEvent` is the same dead word; the other two
+belong to the built-in retro path. Delete them here rather than in a separate accounting pass.
+
+### What AU44 deliberately left standing for this package
+
+Two things were deleted during the consolidation pass and put back on purpose, because this plugin does
+not exist yet: the bet-retro knowledge upsert, and the facilitator roster seeding in
+`layers/core-api/src/bootstrap/factory-state.ts` (which carries a `@lore` note saying exactly that). Both
+are this package's to remove, once the plugin takes over.
+
 ## Acceptance criteria
+
+**The plugin substrate**
+
+- A plugin can actually be installed: there is a plugin format, an intake that writes the `plugins` and
+  `plugin_configuration_defaults` rows, and a way to disable and remove one again.
+- An installed plugin's contributions — agents, skills, routines, triggers — appear as editable app
+  configuration, and a user's edit still wins over the plugin's default.
+
+**The rituals as a plugin**
 
 - The rituals are available as a plugin a team can install.
 - A team that installs it gets working retros and the knowledge upkeep that supports them, driven by
@@ -64,6 +206,28 @@ investigate. Recover the deleted implementations from git history rather than re
 - Core no longer contains the ritual machinery, its dedicated tables, routes and scheduled jobs.
 - Global upkeep runs once, not once per team.
 
+**The purge (absorbed from AU35 and AU39)**
+
+- No agent can be created, stored, sent over the wire or displayed in a `strategy` category. The value is
+  gone from the type, the schema, the wire contract and the interface, and every row that carried it
+  holds a category that exists.
+- Whatever the "App-managed" edit-lock becomes, it is a decided, named thing — not a side effect of a
+  category value. An agent provisioned by a plugin either is editable, or says why it is not.
+- The routine scheduler dispatches no hardcoded built-in routine. `BUILTIN_ROUTINE_IDS`,
+  `fireBuiltinRoutine`, the builtin specs and their seed rows are gone.
+- Knowledge decay and promotion still happen — fired by the plugin's routines, not by core.
+- A normal caller cannot subscribe to every event. The runtime wake-up hint uses an explicit
+  infrastructure-only capability, or named events, and the runtime still drains promptly.
+- Nothing in code or docs offers `strategy` as an agent category, and `StrategyEvent`, `KernelEvent` and
+  `PostBetRetroArgs` are gone. The unrelated `knowledge_strategy_fabric` / `task_strategy_fabric` tables
+  and their `@lore O2` columns are untouched — different concept, same word.
+
+**The proof**
+
+- The whole thing is verified once, end to end, as one: install the plugin into a running install, watch
+  the agents it provides actually do the work, and see the same install without it stay coherent.
+  Restarting between install and proof is allowed and expected — say so as a step rather than hiding it.
+
 ## Validation scenarios
 
 - Given a team that has installed the plugin, when a bet finishes, then a retro happens as it does today.
@@ -71,3 +235,14 @@ investigate. Recover the deleted implementations from git history rather than re
   or practice communities.
 - Given several teams on one backend with the plugin installed, when the knowledge upkeep runs, then it
   runs once rather than once per team.
+- Given a running install with no plugins, when the knowledge-management plugin is installed and the app
+  is restarted, then its agents, skills and routines are present as editable configuration and its
+  routines fire on their events and schedules — watched happening, not inferred from a table.
+- Given the plugin is disabled or removed, when the same events occur, then nothing fires and the product
+  still holds together.
+- Given a client sends `agentCategory: "strategy"` to the org endpoint, when the request is validated,
+  then it is rejected — the value is not in the contract.
+- Given a database seeded by an older first-boot routine, when it is upgraded, then no row holds
+  `strategy`, no agent is stranded without a category, and the row count is unchanged.
+- Given the repo is searched for `strategy` as an agent category afterwards, when the results are read,
+  then every remaining hit is the unrelated knowledge/task fabric sense.

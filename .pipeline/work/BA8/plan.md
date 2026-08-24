@@ -20,6 +20,13 @@ archive column and no route — so that event describes an operation that was ty
 **Missing delta.** Emit the four facts that already happen at the points where they happen, and build
 thread archiving so the fifth has a fact to announce.
 
+**Cross-reference (measured 2026-08-24, BA9 refinement).** Emitting is necessary and not sufficient. A
+trigger rule may name only **6** event types (`TRIGGER_EVENT_TYPES`, `framework/domain-model/src/trigger.ts`)
+against the bus's **33**, and of this package's five, only `proposed_call.granted` is adjacent to that
+list — the other four cannot be named by a trigger even after they fire. The vocabulary is BA1's to
+settle; note it here so this package does not ship five announcements nobody can attach to and call the
+extension surface kept.
+
 **Depends on.**
 - BA2 — the proposed-call-executed fact only occurs once the approval loop runs; emitting it is part of
   wiring that loop.

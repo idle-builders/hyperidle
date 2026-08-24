@@ -1,5 +1,13 @@
 # AU39 — Remove the built-in routine feature; redesign wildcard event subscription
 
+> **FOLDED INTO BA9 — do not build this as its own work package.** Refined 2026-08-24 with the founder
+> and absorbed into `.pipeline/work/BA9/plan.md`. The four built-in routines are the two knowledge sweeps
+> and the two retros, and the founder ruled retros are knowledge management too — so all four leave core
+> with the facilitators that own them, which is BA9. Two corrections to the text below: only **one**
+> production subscriber still listens to every event (the runtime wake-up hint), not three — the other two
+> died in the cleanup passes; and event-fired routines already work generically, so no new mechanism is
+> needed, only the removal of the hardcoded handlers. Kept below as the original record.
+
 ## Work package
 
 **Outcome.** Two runtime-hygiene defects surfaced by the AU22-prep feature tracer are closed: the routine scheduler no longer dispatches hardcoded built-in routines, and the event bus no longer offers "listen to everything" as a capability any caller can take. Anyone reasoning about what the routine service or the event bus does gets an honest surface.
