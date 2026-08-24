@@ -11,9 +11,13 @@
  * `OrgAgentRunConfigWriter` (folded into `OrgUserDirectory`),
  * `resolveTeamAgentHarness` (inlined into `persistScaffoldedAgents`),
  * `team-default-harness.ts` (deleted). `AgentScaffoldSpec` declared here;
- * `framework/factory-defaults` retains a parallel declaration (not removed —
- * factory-defaults cannot import from a service-layer package).
+ * the duplicate in `framework/factory-defaults` is deleted (AU44 AU20-fd).
  * `CreateTeamInput` simplified (no teamMembersId/capacity/activeBets/formedAt).
+ *
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved into this package.
+ * `resolveAgentScaffoldSpecs` + `readSystemPromptTemplateForRole` land here so
+ * core-api routes import from `@hyperidle/org` and the scaffold-request seam
+ * can resolve internally (no framework→layer import needed).
  *
  * @lore AU19 Increment 1c: original cut-over — files moved here from
  * `packages/server/src/services/` unchanged (behavior-preserving move).
@@ -32,10 +36,14 @@ export { resolveReviewRecipients } from "./org-routing.js";
 
 // -- ports (Mechanism C — DI-injected outbound edges) --
 export type { OrgUserDirectory } from "./ports.js";
-
+// -- scaffold spec resolution (AU44 AU20-fd — moved from framework/factory-defaults) --
+export { resolveAgentScaffoldSpecs } from "./resolve-scaffold-specs.js";
 // -- scaffold agents (AK6 — single writer of agent user rows) --
 export type { AgentScaffoldSpec, ScaffoldResult } from "./scaffold-agents.js";
 export { persistScaffoldedAgents } from "./scaffold-agents.js";
+
+// -- system prompt templates (AU44 AU20-fd — moved from framework/factory-defaults) --
+export { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
 
 // -- team lookup (AU20 Am7 / AU44 B1 — team_members dissolved) --
 export type { CreateTeamInput } from "./team-lookup.js";

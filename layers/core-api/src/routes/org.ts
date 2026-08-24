@@ -27,6 +27,7 @@ import {
 	listOrgEdges,
 	listTeams,
 	persistScaffoldedAgents,
+	resolveAgentScaffoldSpecs,
 	resolveReviewRecipients,
 	upsertOrgEdge,
 } from "@hyperidle/org";
@@ -88,6 +89,23 @@ const persistScaffoldedAgentsSchema = z.object({
  * `POST /teams`'s heavier UI flow (`teams-routes.ts`), not itself a route;
  * this is a new, narrowly-scoped route built specifically for the seam.
  */
+/**
+ * @lore AU44 AU20-fd: backs `CoreApiOrgPort.scaffoldFromRequest` — widens the
+ * scaffold seam so agent-orchestration passes the request instead of pre-resolved
+ * specs. Core-api resolves via `resolveAgentScaffoldSpecs` then persists.
+ */
+const scaffoldFromRequestSchema = z.object({
+	teamMembersId: z.string().nullable(),
+	trigger: z.enum(["team_scaffold", "agent_added", "user_assistant"]),
+	teamName: z.string().nullable(),
+	functions: z.array(z.string()).nullable(),
+	role: z.string().nullable(),
+	name: z.string().nullable(),
+	ownerUserId: z.string().nullable(),
+	ownerUserName: z.string().nullable(),
+	systemPromptOverride: z.string().optional(),
+});
+
 const provisionTeamRoutinesSchema = z.object({
 	teamId: z.string().min(1),
 	ownerByRole: z.record(z.string(), z.string().optional()),
@@ -284,6 +302,41 @@ export function createOrgRoutes(
 			},
 			body.teamMembersId,
 			body.specs,
+		);
+		return c.json(result, 201);
+	});
+
+	// POST /scaffold-request — resolve-then-persist seam for agent-orchestration.
+	// Accepts a scaffold request (trigger + params), resolves specs via
+	// `resolveAgentScaffoldSpecs`, and persists via `persistScaffoldedAgents`.
+	// Replaces the old two-step (orchestration resolves specs, then calls
+	// /scaffolded-agents) so resolution stays in the owning service.
+	// @lore AU44 AU20-fd: `framework/factory-defaults` dissolution — the seam
+	// is widened here instead of exposing resolve to orchestration.
+	router.post("/scaffold-request", validateBody(scaffoldFromRequestSchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof scaffoldFromRequestSchema>;
+		const resolved = resolveAgentScaffoldSpecs({
+			trigger: body.trigger,
+			teamName: body.teamName,
+			functions: body.functions,
+			role: body.role,
+			name: body.name,
+			ownerUserId: body.ownerUserId,
+			ownerUserName: body.ownerUserName,
+		});
+		const specs =
+			body.systemPromptOverride !== undefined
+				? resolved.map((s) => ({ ...s, systemPrompt: body.systemPromptOverride ?? null }))
+				: resolved;
+		const result = await persistScaffoldedAgents(
+			db,
+			{
+				getUserById: (db2, id) => findUser(db2, { id }),
+				insertUser,
+				...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+			},
+			body.teamMembersId,
+			specs,
 		);
 		return c.json(result, 201);
 	});

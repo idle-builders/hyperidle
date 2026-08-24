@@ -11,7 +11,6 @@
 		"@hyperidle/agent-orchestration": "*",
 		"@hyperidle/core-api": "*",
 		"@hyperidle/db": "*",
-		"@hyperidle/factory-defaults": "*",
 		"drizzle-orm": "^0.45.2"
 	},
 	"devDependencies": {

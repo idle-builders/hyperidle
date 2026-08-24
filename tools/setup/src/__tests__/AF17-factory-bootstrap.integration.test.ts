@@ -1,7 +1,7 @@
 /**
  * AF17 — AC1 + AC2: Factory Bootstrap
  *
- * AC1: Fresh environment has complete factory layer (system identities, facilitators,
+ * AC1: Fresh environment has complete factory layer (system identities,
  *      system prompt templates, factory principle) without manual step.
  *
  * AC2: Re-applying factory bootstrap is idempotent — row counts and values are
@@ -10,11 +10,16 @@
  * @lore AU29: relocated verbatim from `framework/db/src/__tests__/` (task D)
  * — `applyFactoryBootstrap` dissolved into the two layer faces, and the
  * composed sequence now lives in this package's `factory-bootstrap-runner.ts`.
+ *
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved. Facilitator assertions
+ * removed — the five facilitator agents move to the practice-communities plugin
+ * (AU20 Ruling 3). Core now seeds only system:propagation + seed-agent-cos.
+ * `readSystemPromptTemplateForRole` imported from `@hyperidle/org` (new home).
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
+import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { sql } from "drizzle-orm";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
@@ -54,18 +59,17 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(rows[0]?.agent_category).toBe("individual");
 	});
 
-	test("one facilitator agent per community of practice (5 communities)", async ({ db }) => {
+	// @lore AU44 AU20-fd: facilitators removed from core seed — moved to plugin. Zero expected.
+	test("no facilitator agents seeded by bootstrap (moved to plugin, AU20 Ruling 3)", async ({
+		db,
+	}) => {
 		await runFactoryBootstrap(db);
 
-		const rows = await queryRows<{ id: string; role: string }>(
+		const rows = await queryRows<{ count: string }>(
 			db,
-			"SELECT id, role FROM users WHERE id LIKE 'seed-agent-pf-%' ORDER BY id",
+			"SELECT COUNT(*) AS count FROM users WHERE role = 'facilitator'",
 		);
-		// 5 communities: build, product, growth, ops, facilitation
-		expect(rows.length).toBeGreaterThanOrEqual(5);
-		for (const row of rows) {
-			expect(row.role).toBe("facilitator");
-		}
+		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
 	// @lore AU18: previously asserted a `factory_settings.system_template:<role>`
@@ -90,9 +94,6 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 	});
 
 	// @lore AU18: `cost_cap`/`cost_cycle` factory_settings seeds are retired.
-	// cost_cap now lives as server_config.cost.capMinor with a schema default
-	// (20000) — bootstrap relies on the default rather than seeding it
-	// explicitly. cost_cycle had zero readers and was dropped entirely.
 	test("bootstrap writes no server_config row (cost_cap default now lives server-side)", async ({
 		db,
 	}) => {
@@ -102,17 +103,12 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(rows).toHaveLength(0);
 	});
 
-	// @lore AU43 repair: seed-ki-1 tests removed — ensureFactoryKnowledgeSeed deleted by AU43 bundle-4.
-	// Bootstrap no longer seeds knowledge items or the strategy fabric projection row.
-
 	test("no teams row is created by bootstrap (team_id null constraint)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ count: string }>(db, "SELECT COUNT(*) AS count FROM teams");
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
-
-	// @lore AU44 B1: team_members table dissolved into teams — test removed
 
 	test("no routines row is created by bootstrap (routines require a team)", async ({ db }) => {
 		await runFactoryBootstrap(db);
@@ -129,19 +125,6 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 			"SELECT COUNT(*) AS count FROM users WHERE kind = 'human'",
 		);
 		expect(Number(rows[0]?.count)).toBe(0);
-	});
-
-	test("facilitator agents have null team_id (factory-scoped, not team-scoped)", async ({ db }) => {
-		await runFactoryBootstrap(db);
-
-		const rows = await queryRows<{ id: string; team_id: string | null }>(
-			db,
-			"SELECT id, team_id FROM users WHERE id LIKE 'seed-agent-pf-%'",
-		);
-		expect(rows.length).toBeGreaterThanOrEqual(1);
-		for (const row of rows) {
-			expect(row.team_id).toBeNull();
-		}
 	});
 });
 
@@ -163,11 +146,6 @@ describe("AF17 AC2: runFactoryBootstrap is idempotent", () => {
 	});
 
 	// @lore AU18: `factory_settings` count no longer applies (table retired).
-	// server_config is the successor — bootstrap still writes zero rows to it
-	// (see AC1's "bootstrap writes no server_config row" test), so idempotency
-	// there is trivial. This test now asserts idempotency on the docs-backed
-	// template resolver instead (calling bootstrap twice must not change what
-	// it resolves).
 	test("running bootstrap twice produces identical resolved templates", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		const first = readSystemPromptTemplateForRole("product_manager");

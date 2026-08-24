@@ -13,22 +13,28 @@
  * directly, and the `tools/setup` CLIs through the shared `runFactoryBootstrap`
  * helper — tooling naming a layer face is `reach-across-only-from-a-
  * composition-root`, same as an application naming one.
+ *
+ * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved. Facilitator seeding
+ * removed from core — the five facilitator agents move to a "practice-communities"
+ * plugin (AU20 Ruling 3; plugin WP not yet written). Core seeds only the system
+ * assistant singleton. `defaultFactoryRoster` / `COMMUNITY_DISPLAY_NAMES` imports
+ * gone; assistant seed inlined.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { COMMUNITY_DISPLAY_NAMES, defaultFactoryRoster } from "@hyperidle/factory-defaults";
 import { insertUserIfAbsent, listFactoryAgents } from "@hyperidle/users";
 
+/** The single load-bearing core agent id: coach.ts:43, knowledge factory-seed:31, portfolio-retro. */
+const SYSTEM_ASSISTANT_ID = "seed-agent-cos";
+
 /**
- * Apply core-api's half of the factory bootstrap: the propagation user, the
- * roster users, the agentCategory backfill, and the factory knowledge seed.
- * Idempotent — safe on every launch. Returns the roster agents' `{id, role}`
- * for the agent-orchestration face's run-config backfill.
+ * Apply core-api's half of the factory bootstrap: the propagation user and the
+ * system assistant singleton. Idempotent — safe on every launch. Returns the
+ * roster agents' `{id, role}` for the agent-orchestration face's run-config backfill.
  */
 export async function applyFactoryCoreState(
 	db: HyperIdleDb,
 ): Promise<ReadonlyArray<{ readonly id: string; readonly role: string }>> {
-	const roster = defaultFactoryRoster;
 	const now = new Date().toISOString();
 
 	// ── system:propagation — DB infra, ALWAYS written unconditionally ──
@@ -45,52 +51,22 @@ export async function applyFactoryCoreState(
 		createdAt: now,
 	});
 
-	// ── System Agent singleton — ROSTER-DRIVEN (iff roster.systemAssistant non-null) ──
+	// ── System Agent singleton (seed-agent-cos) ──
 	// @lore AD8a: seed-agent-cos renamed from "Chief of Staff" to "System Agent".
 	// @lore AD8b: chief_of_staff role renamed to assistant; agentCategory: individual.
-	if (roster.systemAssistant !== null) {
-		await insertUserIfAbsent(db, {
-			id: roster.systemAssistant.idHint,
-			kind: "ai",
-			name: "System Agent",
-			role: "assistant",
-			agentCategory: "individual",
-			status: "active",
-			createdAt: now,
-		});
-	}
-
-	// ── Facilitator agents — ROSTER-DRIVEN (one per roster.facilitators entry) ──
-	// @lore AD8c: renamed from "Practice Facilitator" (role: practice_facilitator) to
-	// "Facilitator" (role: facilitator). System prompt file: facilitator.md.
-	// Factory agents: agentCategory="strategy", team_id=null.
-	for (const f of roster.facilitators) {
-		const displayName =
-			COMMUNITY_DISPLAY_NAMES[f.community as keyof typeof COMMUNITY_DISPLAY_NAMES] ?? f.community;
-		await insertUserIfAbsent(db, {
-			id: f.idHint,
-			kind: "ai",
-			name: `${displayName} Facilitator`,
-			role: f.role,
-			agentCategory: "strategy",
-			teamId: null,
-			status: "active",
-			createdAt: now,
-		});
-	}
+	// @lore AU44 AU20-fd: inlined from defaultFactoryRoster.systemAssistant.
+	await insertUserIfAbsent(db, {
+		id: SYSTEM_ASSISTANT_ID,
+		kind: "ai",
+		name: "System Agent",
+		role: "assistant",
+		agentCategory: "individual",
+		status: "active",
+		createdAt: now,
+	});
 
 	// ── Resolve and return the roster agents: {id, role}, from the queried rows ──
-	// Scoped to the roster's own agent ids (system:propagation is infra — not
-	// roster-driven). Returning the QUERIED rows (not the roster constant)
-	// preserves the upgrade-path semantics: an existing row's actual role
-	// decides which template it gets.
-	const rosterAgentIds: string[] = [];
-	if (roster.systemAssistant !== null) {
-		rosterAgentIds.push(roster.systemAssistant.idHint);
-	}
-	for (const f of roster.facilitators) {
-		rosterAgentIds.push(f.idHint);
-	}
-	if (rosterAgentIds.length === 0) return [];
-	return listFactoryAgents(db, rosterAgentIds);
+	// Returning the QUERIED row (not the literal) preserves upgrade-path semantics:
+	// an existing row's actual role decides which template it gets.
+	return listFactoryAgents(db, [SYSTEM_ASSISTANT_ID]);
 }

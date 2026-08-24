@@ -17,8 +17,12 @@ export const PM_ID = "demo-agent-pm";
 export const DESIGNER_ID = "demo-agent-designer";
 export const QA_ID = "demo-agent-qa";
 export const GROWTH_ID = "demo-agent-growth";
-/** Factory facilitator for the facilitation community (factory bootstrap). */
-export const FACILITATOR_ID = "seed-agent-pf-facilitation";
+/**
+ * Demo facilitator agent, seeded by seedDemoWorld.
+ * @lore AU44 AU20-fd: factory-defaults dissolved; facilitators moved to plugin (AU20 Ruling 3).
+ * The demo world now seeds its own facilitator rather than relying on the factory bootstrap.
+ */
+export const FACILITATOR_ID = "demo-agent-facilitator";
 export const PROPAGATION_ID = "system:propagation";
 
 // ── Bets ────────────────────────────────────────────────────────────────────

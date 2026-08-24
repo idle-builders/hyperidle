@@ -100,11 +100,11 @@ export const readRepoFile = (rel: string): string =>
 // a floor at the edge is one removed crossing from red. Only these two were touched; every other
 // floor stayed inside its band, and one going red is a finding rather than a bump.
 export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
-	{ kind: "import", min: 2818, floorKind: "magnitude" },
-	// Floor re-measured after AU44 B7: four UI substrate packages dissolved into core-ui.
-	// Import crossings fell as dissolved aliases are removed. Live: 3132, suggested: 2818.
-	{ kind: "manifest", min: 160, floorKind: "magnitude" },
-	{ kind: "di", min: 165, floorKind: "magnitude" },
+	{ kind: "import", min: 2754, floorKind: "magnitude" },
+	// Floor re-measured after AU44 B7+fd: factory-defaults dissolved. Live: 3060, suggested: 2754.
+	{ kind: "manifest", min: 141, floorKind: "magnitude" },
+	// Floor re-measured after AU44 fd: factory-defaults dissolved. Live: 157, suggested: 141.
+	{ kind: "di", min: 166, floorKind: "magnitude" },
 	{ kind: "api", min: 167, floorKind: "magnitude" },
 	{ kind: "mcp", min: 29, floorKind: "magnitude" },
 	{ kind: "event", min: 192, floorKind: "magnitude" },
@@ -113,11 +113,10 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// its band: the band's `max(…, 5)` term puts the midpoint BELOW where this already sits, and a
 	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
 	{ kind: "capability", min: 10, floorKind: "magnitude" },
-	// Floor re-measured after AU44 B7: four dissolved packages; live table:read fell.
-	// Live: 1047, suggested: 942.
-	{ kind: "table:read", min: 942, floorKind: "magnitude" },
-	// Floor re-measured after AU44 B7. Live: 1712, suggested: 1540.
-	{ kind: "table:write", min: 1540, floorKind: "magnitude" },
+	// Floor re-measured after AU44 B7+fd: factory-defaults dissolved. Live: 1046, suggested: 941.
+	{ kind: "table:read", min: 941, floorKind: "magnitude" },
+	// Floor re-measured after AU44 B7+fd. Live: 1711, suggested: 1539.
+	{ kind: "table:write", min: 1539, floorKind: "magnitude" },
 ];
 
 /** Every floor the build declares, live counts attached — the population `floors-tight` checks. */

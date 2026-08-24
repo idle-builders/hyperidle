@@ -70,6 +70,7 @@ export type {
 	ProvisionTeamRoutinesRequest,
 	// ReviewRecipientsQuery: param of resolveReviewRecipientsForItem — no name-importers
 	RoutineView,
+	ScaffoldFromRequestInput,
 	TaskView,
 	UpdateBetRequest,
 	UpdateItemRequest,

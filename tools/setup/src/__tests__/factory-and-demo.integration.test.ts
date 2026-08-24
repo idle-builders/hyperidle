@@ -1,6 +1,6 @@
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
+import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
@@ -8,10 +8,8 @@ import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 // @lore AD8a: chief_of_staff system prompt file deleted (docs/system-prompts/chief-of-staff.md removed).
 // @lore AD8b: chief_of_staff role renamed to assistant.
 // @lore AD8c: practice_facilitator role renamed to facilitator.
-// AC2 tests only check facilitator and product_manager.
-// @lore AD8b/AD8c: The 3-role set was ["assistant", "facilitator", "product_manager"].
-// chief_of_staff → assistant (AD8b), practice_facilitator → facilitator (AD8c).
-// Only roles that still have system prompt files after AD8a and AD8c
+// @lore AU44 AU20-fd: `framework/factory-defaults` dissolved; facilitators removed from core seed.
+// Docs file check still covers facilitator.md (it exists on disk, just not seeded by bootstrap).
 const SYSTEM_PROMPT_FILE_ROLES = ["facilitator", "product_manager"] as const;
 
 // Convenience: execute a raw query returning rows
@@ -32,8 +30,7 @@ describe("A2: Seed script", () => {
 		// @lore U1: `products` renamed to `teams`; old `teams` renamed to `team_members`.
 		// @lore P2: agents → users table
 		// @lore AF17: seed() now calls runFactoryBootstrap + seedDemoWorld.
-		// factory_bootstrap inserts users/knowledge_items/knowledge_app_projection;
-		// demo_fixture inserts teams/team_members.
+		// factory_bootstrap inserts users; demo_fixture inserts teams.
 		// @lore AU18: `factory_settings` dropped from this list — factory-bootstrap no
 		// longer writes to it (cost_cap/cost_cycle/system_template rows retired).
 		const majorTables = [
@@ -104,11 +101,12 @@ describe("A2: Seed script", () => {
 		await expect(runFactoryBootstrap(db).then(() => seedDemoWorld(db))).resolves.not.toThrow();
 	});
 
-	// --- G1 AC1: facilitator agent archetypes are seeded ---
+	// --- G1 AC1: agent archetypes are seeded ---
 	// @lore AD8a: System Agent is the display name for the chief_of_staff role seed.
 	// @lore AD8b: chief_of_staff role renamed to assistant.
 	// @lore AD8c: practice_facilitator role renamed to facilitator.
-	test("seeds one System Agent (assistant), ≥5 Facilitators, ≥1 Product Manager (AC1)", async ({
+	// @lore AU44 AU20-fd: facilitators removed from core seed (moved to plugin, AU20 Ruling 3).
+	test("seeds one System Agent (assistant role) + demo agents including product_manager (AC1)", async ({
 		db,
 	}) => {
 		await runFactoryBootstrap(db);
@@ -122,12 +120,14 @@ describe("A2: Seed script", () => {
 		);
 		expect(Number(cosRows[0]?.count)).toBeGreaterThanOrEqual(1);
 
-		// @lore AD8c: role string renamed from practice_facilitator to facilitator
+		// @lore AU44 AU20-fd: facilitators no longer seeded by core bootstrap.
+		// seedDemoWorld seeds one demo facilitator (demo-agent-facilitator), so we
+		// filter by the factory id prefix to assert no factory-seeded facilitators.
 		const pfRows = await queryRows<{ count: string }>(
 			db,
-			"SELECT COUNT(*) AS count FROM users WHERE role = 'facilitator'",
+			"SELECT COUNT(*) AS count FROM users WHERE role = 'facilitator' AND id NOT LIKE 'demo-%'",
 		);
-		expect(Number(pfRows[0]?.count)).toBe(5);
+		expect(Number(pfRows[0]?.count)).toBe(0);
 
 		// @lore AD8c: no agents must remain with the old practice_facilitator role
 		const oldPfRows = await queryRows<{ count: string }>(
@@ -143,28 +143,19 @@ describe("A2: Seed script", () => {
 		expect(Number(pmRows[0]?.count)).toBeGreaterThanOrEqual(1);
 	});
 
-	// --- G1 AC2: every seeded facilitator / product_manager carries a working system prompt ---
-	// @lore AD8a: chief_of_staff excluded — docs/system-prompts/chief-of-staff.md deleted.
-	// @lore AD8c: practice_facilitator renamed to facilitator; file renamed to facilitator.md.
-	// @lore AU26 G1 (architecture §D-L): these two tests asserted `users.system_prompt_path`
-	// — a column DROPPED, not relocated, because it had zero production readers repo-wide
-	// (X3 replaced the path indirection with inline content years ago; only this seeder ever
-	// wrote it). What AC2 actually protects is that a seeded agent of these roles ends up
-	// with a usable system prompt, and that the docs file backing it exists on disk. Both
-	// facts survive: the content now lives in `agent_run_config.system_prompt`, and the
-	// on-disk file is asserted through the role→template resolver that produced it.
-	test("seeded facilitator and product_manager carry a non-empty system prompt", async ({ db }) => {
+	// --- G1 AC2: seeded product_manager carries a working system prompt ---
+	// @lore AU44 AU20-fd: facilitators removed from core seed; only demo PM checked here.
+	test("seeded product_manager carries a non-empty system prompt", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
-		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
 		const rows = await queryRows<{ id: string; role: string; system_prompt: string | null }>(
 			db,
 			`SELECT u.id, u.role, c.system_prompt FROM users u
 			   JOIN agent_run_config c ON c.agent_user_id = u.id
-			  WHERE u.role IN (${rolesList})`,
+			  WHERE u.role = 'product_manager'`,
 		);
-		expect(rows.length).toBeGreaterThanOrEqual(2);
+		expect(rows.length).toBeGreaterThanOrEqual(1);
 		for (const row of rows) {
 			expect(row.system_prompt, `${row.id} system_prompt must be set`).toBeTruthy();
 			expect((row.system_prompt ?? "").length).toBeGreaterThan(50);
@@ -176,7 +167,8 @@ describe("A2: Seed script", () => {
 	// @lore AU44 B0: SYSTEM_PROMPT_TEMPLATE_FILES export removed (map is module-internal).
 	// Assertion rewritten to use readSystemPromptTemplateForRole which reads the docs file
 	// directly — a non-null return proves the docs file exists and is readable.
-	test("the docs file backing each seeded role's system prompt exists on disk", async ({ db }) => {
+	// @lore AU44 AU20-fd: facilitator docs file still exists on disk (used by plugin).
+	test("the docs file backing each role's system prompt exists on disk", async ({ db }) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 

@@ -42,7 +42,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { readSystemPromptTemplateForRole } from "@hyperidle/factory-defaults";
+import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { and, eq, inArray } from "drizzle-orm";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
@@ -168,6 +168,24 @@ export async function seedDemoWorld(
 		})
 		.onConflictDoNothing();
 	await upsertDemoRunConfig(db, "demo-agent-pm", { maxConcurrentSessions: 1 });
+
+	// Demo facilitator agent — owns knowledge-decay and knowledge-promotion routines.
+	// @lore AU44 AU20-fd: factory-defaults dissolved; facilitators moved to plugin (AU20 Ruling 3).
+	// The demo world seeds its own facilitator so demo data stays coherent without the plugin.
+	await db
+		.insert(users)
+		.values({
+			id: "demo-agent-facilitator",
+			kind: "ai",
+			name: "Acme Facilitator",
+			role: "facilitator",
+			agentCategory: "team",
+			teamId: teamId,
+			status: "active",
+			createdAt: clock.daysAgo(43),
+		})
+		.onConflictDoNothing();
+	await upsertDemoRunConfig(db, "demo-agent-facilitator", { maxConcurrentSessions: 1 });
 
 	// Set team lead to demo builder
 	await db.update(teams).set({ leadAgentId: "demo-agent-builder" }).where(eq(teams.id, teamId));
