@@ -45,6 +45,7 @@
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.12.1",
+		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/eval": "*",
 		"@hyperidle/harness-registry": "*",
