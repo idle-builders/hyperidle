@@ -559,10 +559,10 @@ export default [
 				{
 					paths: [
 						{
-							name: "@hyperidle/factory-defaults",
+							name: "@hyperidle/domain-model",
 							importNames: ["defaultRoster"],
 							message:
-								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (framework/factory-defaults/src/agent-scaffold.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster().",
+								"A route or tool handler must not compose a roster. Roster composition belongs to the agent-scaffolding path (layers/core-api/org/src/resolve-scaffold-specs.ts) and to team setup (layers/core-ui/src/pages/SetupFlow.tsx) — the two legitimate callers of defaultRoster(). AU44: this rule named @hyperidle/factory-defaults until that package was dissolved; defaultRoster now lives in domain-model, which these surfaces already import, so the old spelling banned nothing.",
 						},
 					],
 				},
@@ -1010,6 +1010,42 @@ export default [
 							group: ["**/governance-lint*"],
 							message:
 								"AU28: a rule may not reach back into the runner. Dependencies point rule -> lib only.",
+						},
+					],
+				},
+			],
+		},
+	},
+	// The browser bundle must never reach a Node builtin. `domain-model/http` carries
+	// `node:crypto`; it is kept off domain-model's barrel so Vite cannot follow it, but a
+	// direct import would re-break the app the same way — the page goes blank and every
+	// e2e test times out while check, lint and both unit lanes stay green. That cost 297
+	// e2e failures once. This rule is the guard the barrel comment alone was not.
+	{
+		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
+		ignores: [
+			"layers/core-ui/src/**/__tests__/**",
+			"layers/core-ui/src/**/*.test.{ts,tsx}",
+			"layers/core-ui/src/**/*.stories.tsx",
+			"layers/core-ui/src/**/__testing__/**",
+		],
+		languageOptions: { parser: tsParser },
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "@hyperidle/domain-model/http",
+							message:
+								"Server-only: this module imports node:crypto, which Vite externalizes and the browser cannot resolve. Importing it here makes the whole app fail to load.",
+						},
+					],
+					patterns: [
+						{
+							group: ["node:*"],
+							message:
+								"Node builtins do not exist in the browser. Use a browser-safe equivalent — block derivation uses @noble/hashes in place of node:crypto.",
 						},
 					],
 				},
