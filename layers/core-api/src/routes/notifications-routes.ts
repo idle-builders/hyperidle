@@ -2,7 +2,8 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { Logger } from "@hyperidle/diagnostics";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ApiErrorResponse, NotificationTypeKey } from "@hyperidle/domain-model";
-import { API_ERROR_CODES, NOTIFICATION_TYPES, validateBody } from "@hyperidle/domain-model";
+import { API_ERROR_CODES, NOTIFICATION_TYPES } from "@hyperidle/domain-model";
+import { validateBody } from "@hyperidle/domain-model/http";
 import {
 	deliver,
 	listNotifications,

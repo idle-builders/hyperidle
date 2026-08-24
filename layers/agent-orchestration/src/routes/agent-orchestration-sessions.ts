@@ -23,13 +23,13 @@
 
 import type { AgentOrchestrationSessionWireRow } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { HyperIdleEnv } from "@hyperidle/domain-model";
 import {
 	type AgentRunActiveCountsResponse,
 	type AgentRunLatestOutcomesResponse,
 	type AgentRunsResponse,
 	API_ERROR_CODES,
 } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import {
 	countActiveRunsByAgent,
 	findSessionById,

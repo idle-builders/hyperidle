@@ -18,7 +18,7 @@ import { bootAgentOrchestration } from "@hyperidle/agent-orchestration";
 import type { AgentOrchestrationPort, AgentOrchestrationTransport } from "@hyperidle/api-contract";
 import { buildAgentOrchestrationPort } from "@hyperidle/core-api";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { HyperIdleEnv } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { Hono } from "hono";
 

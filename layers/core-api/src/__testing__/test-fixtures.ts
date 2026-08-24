@@ -7,7 +7,7 @@ import {
 	test as dbTest,
 	registerFixtureOrchestrationCleanup,
 } from "@hyperidle/db/test-fixtures";
-import type { HyperIdleEnv } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { EventBus } from "@hyperidle/event-bus";
 import type { Hono } from "hono";
 import { disposeApp } from "../app.js";

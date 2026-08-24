@@ -1,4 +1,4 @@
-import { validateBody } from "@hyperidle/domain-model";
+import { validateBody } from "@hyperidle/domain-model/http";
 import type { Hono } from "hono";
 import z from "zod";
 

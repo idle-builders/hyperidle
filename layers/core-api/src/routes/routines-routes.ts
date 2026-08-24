@@ -7,8 +7,8 @@ import {
 	type RoutineInfo,
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
-	validateBody,
 } from "@hyperidle/domain-model";
+import { validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";

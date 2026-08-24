@@ -12,7 +12,7 @@ authorizeRead/Write enforces the policy against the loaded resource inside
  * already loaded the resource to build its response.
  */
 
-import type { HyperIdleEnv } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { Context } from "hono";
 import { type AuthorizableResource, canRead, canWrite } from "./access-boundary.js";
 

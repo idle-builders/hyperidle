@@ -7,7 +7,7 @@
  * kept in sync.
  */
 
-import { constantTimeStringEqual } from "@hyperidle/domain-model";
+import { constantTimeStringEqual } from "@hyperidle/domain-model/http";
 import type { HarnessAdapter } from "@hyperidle/harness-protocol";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket, WSContext } from "hono/ws";

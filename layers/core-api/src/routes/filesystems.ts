@@ -39,7 +39,7 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";

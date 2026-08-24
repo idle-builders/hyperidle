@@ -2,7 +2,8 @@ import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { getArtifactThreadSummaries } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ArtifactThreadSummary } from "@hyperidle/domain-model";
-import { BET_OUTCOME_VERDICTS, type HyperIdleEnv, validateBody } from "@hyperidle/domain-model";
+import { BET_OUTCOME_VERDICTS } from "@hyperidle/domain-model";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,

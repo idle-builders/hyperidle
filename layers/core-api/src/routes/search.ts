@@ -23,8 +23,9 @@
 
 import { listMessages, listThreads, searchConversations } from "@hyperidle/conversation";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { ApiErrorResponse, HyperIdleEnv } from "@hyperidle/domain-model";
+import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { search as searchKnowledge } from "@hyperidle/knowledge";
 import { listTeams } from "@hyperidle/org";

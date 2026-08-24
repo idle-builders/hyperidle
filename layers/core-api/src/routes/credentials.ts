@@ -17,8 +17,9 @@ import {
 	writeCredential,
 } from "@hyperidle/credentials";
 import type { HyperIdleDb } from "@hyperidle/db";
-import type { CredentialName, CredentialState, HyperIdleEnv } from "@hyperidle/domain-model";
+import type { CredentialName, CredentialState } from "@hyperidle/domain-model";
 import { CREDENTIAL_CATALOG, CREDENTIAL_STATES, isCredentialName } from "@hyperidle/domain-model";
+import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { readServerConfig } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { z } from "zod";
