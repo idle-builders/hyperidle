@@ -13,6 +13,13 @@
  * `@hyperidle/harness-protocol`/`@hyperidle/harness-capability`/
  * `@hyperidle/tool-protocol` directly, so the re-export is dropped rather
  * than repointed.
+ *
+ * @lore AU44-review: the worker-protocol.ts copy is deleted; the wire
+ * protocol types live in @hyperidle/harness-protocol only. Consumers that
+ * previously imported them through this package (agent-execution, core-api
+ * tests) were moved to import from @hyperidle/harness-protocol directly —
+ * re-exporting is blocked by no-laundered-re-exports because harness-protocol
+ * is a named-audience package.
  */
 
 export {
@@ -38,16 +45,3 @@ export {
 	type SandboxAdapter,
 	type SandboxHandle,
 } from "./sandbox-adapter.js";
-export type {
-	ServerDispatchMessage,
-	ServerRegisteredMessage,
-	ServerStopMessage,
-	ServerToWorkerMessage,
-	WorkerErrorMessage,
-	WorkerEventMessage,
-	WorkerPauseMessage,
-	WorkerRegisterMessage,
-	WorkerResumeMessage,
-	WorkerSessionResultMessage,
-	WorkerToServerMessage,
-} from "./worker-protocol.js";

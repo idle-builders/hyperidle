@@ -29,7 +29,6 @@ const ITEMS_WITH_DRAFT = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 	{
@@ -47,7 +46,6 @@ const ITEMS_WITH_DRAFT = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 	{
@@ -65,7 +63,6 @@ const ITEMS_WITH_DRAFT = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 ];
@@ -87,7 +84,6 @@ const ITEMS_NO_DRAFT = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 	{
@@ -105,7 +101,6 @@ const ITEMS_NO_DRAFT = [
 			lastActivityAt: null,
 			accessCount30d: null,
 			citationCount: null,
-			relevanceScore: null,
 		},
 	},
 ];
