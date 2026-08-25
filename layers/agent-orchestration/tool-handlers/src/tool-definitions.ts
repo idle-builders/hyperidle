@@ -1193,7 +1193,7 @@ function makeCreateRoutineTool<TDb>(
 	return {
 		name: "create_routine",
 		description:
-			"Create a new routine (recurring automated task) for a team agent. Requires a calendar trigger with a cron expression.",
+			"Create a new routine (recurring automated task) for any agent. Fires on a calendar schedule (a cron expression) or on an event (one of the platform's event types) — pick triggerType accordingly.",
 		inputSchema: createRoutineInputSchema,
 		roles: ["assistant"],
 		handler: async (args, ctx) => {
