@@ -12,6 +12,8 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 1. **Never Stop until you reached a validated output** Only once the acceptance criteria are proven to be done and correct can you stop or if something is genuinly blocked. Never stop otherwise, not after a plan, not after anything else.
 
+2. **Migrations are always full and destructive.** Move every caller and all data to the new shape in the same change, then delete the old one — no compat layer, alias, shim, dual-write or dead code left behind; if a bridge is truly unavoidable, say so to the user.
+
 ---
 
 ## Communication Style
