@@ -359,6 +359,85 @@ describe("editable schedule saves triggerConfig via PATCH", () => {
 	});
 });
 
+// ---------------------------------------------------------------------------
+// BA1 review N7: an event routine shows the Event control, not Schedule, and
+// saves eventType, never a trigger_config cron it never had.
+// ---------------------------------------------------------------------------
+
+const EVENT_ROUTINE_DETAIL: RoutineDetail = {
+	...ROUTINE_DETAIL,
+	routine: {
+		...ROUTINE_DETAIL.routine,
+		triggerType: "event",
+		triggerConfig: null,
+		eventType: "bet_state_changed",
+		scheduleLabel: "On bet state changed",
+	},
+};
+
+describe("an event routine shows the Event control and saves eventType via PATCH (N7)", () => {
+	it("renders the Event select, pre-populated, instead of the Schedule select", async () => {
+		mockApiFetch.mockImplementation((url: string) => {
+			if (url === "/api/routines/event-types") {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({ eventTypes: ["bet_state_changed", "task_state_changed"] }),
+						{ status: 200 },
+					),
+				);
+			}
+			return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+		});
+		await renderPane("r1", EVENT_ROUTINE_DETAIL);
+		await enterRoutineEdit();
+
+		await waitFor(() => {
+			const eventSelect = screen.getByRole("combobox", { name: /event/i });
+			expect((eventSelect as HTMLSelectElement).value).toBe("bet_state_changed");
+		});
+		expect(screen.queryByRole("combobox", { name: /schedule/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("textbox", { name: /custom cron/i })).not.toBeInTheDocument();
+	});
+
+	it("picking a different event and saving sends eventType, never triggerConfig, in the PATCH body", async () => {
+		mockApiFetch.mockImplementation((url: string, init?: RequestInit) => {
+			if (url === "/api/routines/event-types") {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({ eventTypes: ["bet_state_changed", "task_state_changed"] }),
+						{ status: 200 },
+					),
+				);
+			}
+			void init;
+			return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+		});
+		const user = userEvent.setup();
+		await renderPane("r1", EVENT_ROUTINE_DETAIL);
+		await enterRoutineEdit();
+
+		const eventSelect = await waitFor(() => screen.getByRole("combobox", { name: /event/i }));
+		await user.selectOptions(eventSelect, "task_state_changed");
+
+		const saveBtn = screen.getByRole("button", { name: /save/i });
+		await user.click(saveBtn);
+
+		await waitFor(() => {
+			const patchCall = mockApiFetch.mock.calls.find(
+				(call) => (call[1] as RequestInit)?.method === "PATCH",
+			);
+			expect(patchCall).toBeDefined();
+			if (!patchCall) return;
+			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
+				string,
+				unknown
+			>;
+			expect(body.eventType).toBe("task_state_changed");
+			expect(body.triggerConfig).toBeUndefined();
+		});
+	});
+});
+
 // @lore AU21 Increment 14a: "editable cost caps send minor-unit values via
 // PATCH" describe block is HARD-DELETED — the cost-cap feature (per-run/
 // monthly cap inputs, costCapPerRunMinor/costCapMonthlyMinor PATCH fields) no

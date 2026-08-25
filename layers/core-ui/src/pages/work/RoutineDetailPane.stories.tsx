@@ -100,6 +100,18 @@ const EMPTY_RUNS: RoutineDetail = {
 	runs: [],
 };
 
+/** BA1 D2/D8/N7 — an event routine: no cron, fires off the platform's event bus. */
+const EVENT_TRIGGERED: RoutineDetail = {
+	...ROUTINE_DETAIL,
+	routine: {
+		...ROUTINE_DETAIL.routine,
+		triggerType: "event",
+		triggerConfig: null,
+		eventType: "bet_state_changed",
+		scheduleLabel: "On bet state changed",
+	},
+};
+
 export default { title: "Page: Work/RoutineDetailPane" };
 
 /** Populated state — active routine with runs. */
@@ -125,6 +137,19 @@ export const NoRuns = (): JSX.Element => (
 	<Wrapper>
 		<div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
 			<RoutineDetailPane routineId="routine-story-1" overrideData={EMPTY_RUNS} onClose={noop} />
+		</div>
+	</Wrapper>
+);
+
+/** Event routine — fires on a platform event, not a schedule. */
+export const EventTriggered = (): JSX.Element => (
+	<Wrapper>
+		<div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+			<RoutineDetailPane
+				routineId="routine-story-1"
+				overrideData={EVENT_TRIGGERED}
+				onClose={noop}
+			/>
 		</div>
 	</Wrapper>
 );

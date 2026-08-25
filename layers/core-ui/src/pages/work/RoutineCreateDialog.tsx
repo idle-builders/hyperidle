@@ -23,6 +23,18 @@
  * (schedule / event). Event names come from `GET /api/routines/event-types`
  * — `core-ui` cannot import `@hyperidle/event-bus` directly
  * (`architecture.json` excludes it), so this is the one live source.
+ *
+ * @lore BA1 review (decision recorded, not fixed here): this dialog is
+ * reachable only from `WorkTeam.tsx`'s `createRoutineOpen` mount and its
+ * `agents` prop is that ONE team's roster, so an individual or team-less
+ * agent — belonging D5/D6 explicitly make legal, the exact case the
+ * nullable-`team_id` work exists for — has no UI path to author a routine
+ * for itself at all; only `create_routine` (the agent tool) can. Widening
+ * this to a global entry point needs a new mount (it is not just a wider
+ * `agents` prop — WorkTeam has no reason to list every agent in the
+ * product), which is a scoped feature on its own, not a review-fix-sized
+ * change to an existing dialog. Left unmounted-elsewhere deliberately;
+ * flagged for a future work package rather than widened here.
  */
 
 import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
