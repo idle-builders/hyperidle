@@ -178,6 +178,9 @@ function setupFetch(): void {
 			if (urlStr.includes("/api/connections")) {
 				return Promise.resolve({ ok: true, status: 200, json: async () => [] });
 			}
+			if (urlStr.includes("/api/plugins")) {
+				return Promise.resolve({ ok: true, status: 200, json: async () => ({ plugins: [] }) });
+			}
 			if (urlStr.includes("/api/notifications")) {
 				return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
 			}

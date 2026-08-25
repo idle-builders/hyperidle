@@ -193,6 +193,13 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 		}
 	}
 
+	// version — optional, but must be a string when present (wrong type is fatal per spec)
+	if ("version" in obj && typeof obj.version !== "string") {
+		return {
+			ok: false,
+			reason: `plugin.json "version" must be a string (got: ${JSON.stringify(obj.version)})`,
+		};
+	}
 	const version = typeof obj.version === "string" ? obj.version : "0";
 	const description = typeof obj.description === "string" ? obj.description : null;
 

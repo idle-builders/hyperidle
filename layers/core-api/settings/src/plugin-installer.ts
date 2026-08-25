@@ -13,6 +13,16 @@
  * defaultId=null on any overrides), then set plugins.state='removed'. The
  * onDelete:restrict constraint on pluginConfigurationDefaults.pluginId is
  * satisfied because defaults are gone before we touch the plugin row.
+ *
+ * @lore BA9a scope-deferral: Scope (factory | team) is stored on the plugin
+ * row but the resolver (listConfiguration) does not yet filter by it — it has
+ * no team context and returns all enabled plugin contributions globally. The
+ * biting point is session materialisation in BA9b/c: when the run-orchestration
+ * layer assembles an agent session it will query plugins WHERE scope_kind =
+ * 'factory' OR (scope_kind = 'team' AND scope_team_id = currentTeamId). That
+ * query lives in layers/agent-orchestration/ and is owned by BA9b. Scope is
+ * stored now so BA9b has the data; the UI shows it today so operators can see
+ * how each plugin is scoped.
  */
 
 import { createHash } from "node:crypto";
@@ -178,9 +188,10 @@ async function removeStaleDefaults(
 	pluginId: string,
 	currentKeys: string[],
 ): Promise<void> {
-	// Delete defaults for this plugin whose keys are no longer in the manifest.
-	// Only called during reinstall; currentKeys is the set of namespaced keys
-	// that should remain.
+	// Removes defaults for this plugin whose keys are no longer in the manifest.
+	// Called on every install (including first-time) to keep defaults in sync
+	// with the current manifest contributions; currentKeys is the full set of
+	// namespaced keys that should remain after this operation.
 	if (currentKeys.length === 0) {
 		// Remove all defaults
 		await db

@@ -19,8 +19,6 @@
 
 // -- plugin configuration (resolution engine, agent-behavior UI) --
 export { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
-// -- plugin path containment (BA9a, reused in BA9b) --
-export { isPathContained, isPluginRelativePath } from "./plugin-containment.js";
 // -- plugin install / manage (BA9a) --
 export type {
 	InstalledPlugin,

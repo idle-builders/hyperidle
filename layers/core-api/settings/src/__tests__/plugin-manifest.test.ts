@@ -106,6 +106,21 @@ describe("parsePluginManifest", () => {
 				expect(result.reason).toMatch(/reserved/i);
 			}
 		});
+
+		it("rejects when version is a number, not a string", () => {
+			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin", version: 123 });
+			const result = parsePluginManifest(tempDir);
+			expect(result.ok).toBe(false);
+			if (!result.ok) {
+				expect(result.reason).toMatch(/version.*string/i);
+			}
+		});
+
+		it("rejects when version is a boolean", () => {
+			writeManifest({ $schema: VALID_SCHEMA, name: "my-plugin", version: true });
+			const result = parsePluginManifest(tempDir);
+			expect(result.ok).toBe(false);
+		});
 	});
 
 	describe("AC3 — non-fatal (warning, install continues)", () => {

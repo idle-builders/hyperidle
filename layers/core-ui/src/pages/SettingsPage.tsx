@@ -29,6 +29,7 @@ import { SettingsFilesystems } from "../settings/SettingsFilesystems.js";
 import { SettingsHarnesses } from "../settings/SettingsHarnesses.js";
 import { SettingsNotifications } from "../settings/SettingsNotifications.js";
 import { SettingsOrgChart } from "../settings/SettingsOrgChart.js";
+import { SettingsPlugins } from "../settings/SettingsPlugins.js";
 import { SettingsProfile } from "../settings/SettingsProfile.js";
 import { SettingsWorker } from "../settings/SettingsWorker.js";
 
@@ -94,6 +95,15 @@ export function SettingsPage(): JSX.Element {
 					>
 						<SectionTitle>Agent behavior</SectionTitle>
 						<SettingsAgentBehavior />
+					</section>
+
+					<section
+						id="settings-section-plugins"
+						data-testid="settings-section-plugins"
+						className="flex flex-col gap-[9px]"
+					>
+						<SectionTitle>Plugins</SectionTitle>
+						<SettingsPlugins />
 					</section>
 
 					<section
