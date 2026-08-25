@@ -36,7 +36,8 @@ trigger can match on" now has numbers, and there is a second matcher nobody list
 
 - A trigger rule may name **6** event types — `task.accepted`, `assistant.message`, `routine.fire`,
   `work.decompose_requested`, `knowledge.action`, `proposed_call.granted`
-  (`TRIGGER_EVENT_TYPES`, `framework/domain-model/src/trigger.ts`). The bus carries **33**. So even once
+  (`TRIGGER_EVENT_TYPES`, `framework/domain-model/src/trigger.ts`). The bus carries **34** (recounted during
+  BA1's architecture pass; the earlier figure of 33 was one short). So even once
   the read path exists, a trigger cannot name most of what happens.
 - **A second matching mechanism already works.** `registerEventTriggers`
   (`layers/core-api/routine/src/routine-scheduler.ts`) subscribes a non-builtin routine to **any**

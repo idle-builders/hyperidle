@@ -22,7 +22,7 @@ surface that does nothing, so someone configures a trigger and waits for an agen
 The product has two ways to say the same sentence. One is the trigger rule: a Settings tab, a validated
 entity, six event names — and no reader anywhere, confirmed by git archaeology recorded in
 `layers/agent-orchestration/session-requests/src/service.ts:1094`. The other is a routine with an event
-trigger, which subscribes to any of the 33 event types and actually fires.
+trigger, which subscribes to any of the 34 event types and actually fires.
 
 Rather than build a read path for the dead one, the live one absorbs it. Founder ruling: *"a routine is
 the umbrella noun, and a routine fires either on a clock or on an event"* and, on the choice between
@@ -33,7 +33,7 @@ easier — since in both cases you have a trigger (time or event) + agent + prom
 
 | | Routine — works today | Trigger rule — no reader |
 |---|---|---|
-| Fires on | a clock, or any of the **33** event types | one of **6** event names |
+| Fires on | a clock, or any of the **34** event types | one of **6** event names |
 | Which agent | `ownerAgentId` | `agentId` |
 | What to do | `skillId` + `doneCondition` | free-text `prompt` (≤12k) |
 | Scope | one team, required | optional team / user / source |
@@ -134,12 +134,21 @@ vocabulary survives is answered here: the six-name list dies with the entity it 
    overrides of kind `trigger` are dropped along with the entity, and the `trigger` member of
    `CONFIGURATION_KINDS` and its check constraint go with them.
 
-2. **A routine added while the app is running.** *Answered: a restart is fine for now.* At boot the app
-   reads the routines in the database and subscribes each event-fired one to its event; that list is built
-   once. A routine added afterwards — by a person, or by installing a plugin — does not listen until the
-   next start. Founder: *"yeah for now that's fine."* This is a **known, accepted limitation**, not an
-   oversight: state it wherever a plugin is installed, so nobody waits for a routine that is not yet
-   listening. Making it live is a later work package, not this one.
+2. **A routine added while the app is running.** *Answered twice — the second answer stands: no restart,
+   and no caching.* The first answer accepted a restart. On seeing what the mechanism actually is, the
+   founder overturned it: *"that makes little sense somehow — routines should always be loaded from
+   database when needed, not cached for the entire run duration."*
+
+   So the startup subscription list is not a limitation to document, it is a **defect to remove**. Today
+   the app reads the routines at boot and subscribes each event-fired one, then never looks again, so the
+   database stops being the source of truth the moment anything changes. The routines that match an event
+   are to be read when that event happens. A routine created, edited, paused or installed takes effect
+   immediately, with no restart anywhere.
+
+   Consequences to design for, not around: an event that fires often must not become a hot query — read
+   what is needed, not the whole table, and index it; and pausing or deleting a routine must take effect
+   on the very next event, which a cached subscription cannot do today. This also removes the restart step
+   from BA9's proof, so installing a plugin makes its routines live at once.
 
 3. **Which agents belong to nobody.** *Answered: not ours to decide.* Founder: *"no clue which global
    agents exist, but that's something that users and plugins will define for themselves."* So "belongs to

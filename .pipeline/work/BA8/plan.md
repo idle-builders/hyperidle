@@ -21,7 +21,7 @@ archive column and no route — so that event describes an operation that was ty
 thread archiving so the fifth has a fact to announce.
 
 **Cross-reference — resolved 2026-08-25 by BA1's refinement.** Emitting is necessary and not sufficient:
-something has to be able to name the event. Today a trigger rule may name only **6** of the bus's **33**
+something has to be able to name the event. Today a trigger rule may name only **6** of the bus's **34**
 types, and four of this package's five are not among them. BA1 settles it by retiring the trigger-rule
 entity — a routine fires on a clock or on an event and can name any event type — so once BA1 lands, all
 five of these are attachable the moment they are emitted. **Sequencing note:** this package is not blocked
