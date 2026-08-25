@@ -127,17 +127,25 @@ the `trigger` kind retires with the entity. BA9's knowledge-management plugin th
 against the real event union rather than against a six-name list, and BA9's open question about which
 vocabulary survives is answered here: the six-name list dies with the entity it validated.
 
-## Open questions this refinement did not settle
+## Questions raised, and the founder's answers (2026-08-25)
 
-1. **Existing saved trigger rules.** They are stored as configuration overrides of kind `trigger`. Whether
-   any real install holds one, and whether they are migrated into routines or simply dropped with a notice,
-   is unanswered. Check a real database before deciding.
-2. **When a routine's event fires while the app is running.** Event subscriptions are registered once, at
-   startup, from the routines then in the database. A routine created or installed afterwards does not fire
-   until a restart. BA9 accepted restarts for its proof; this package should decide whether that is the
-   permanent answer or a known limitation with an owner.
-3. **What happens to an agent that belongs to nobody.** "Neither" is a valid belonging, but which agents
-   legitimately have it after the facilitators are gone is a question for BA9's outcome, not this one.
+1. **Existing saved trigger rules.** *Answered: delete them.* Founder: *"we can delete all trigger data, no
+   relevant instances exist."* So no migration path, no notice, no compatibility window — the configuration
+   overrides of kind `trigger` are dropped along with the entity, and the `trigger` member of
+   `CONFIGURATION_KINDS` and its check constraint go with them.
+
+2. **A routine added while the app is running.** *Answered: a restart is fine for now.* At boot the app
+   reads the routines in the database and subscribes each event-fired one to its event; that list is built
+   once. A routine added afterwards — by a person, or by installing a plugin — does not listen until the
+   next start. Founder: *"yeah for now that's fine."* This is a **known, accepted limitation**, not an
+   oversight: state it wherever a plugin is installed, so nobody waits for a routine that is not yet
+   listening. Making it live is a later work package, not this one.
+
+3. **Which agents belong to nobody.** *Answered: not ours to decide.* Founder: *"no clue which global
+   agents exist, but that's something that users and plugins will define for themselves."* So "belongs to
+   neither" is a supported value that this work package must allow and must not populate. Do not seed a
+   global agent, and do not reason from the facilitators — they are a bug in their own existence and BA9
+   removes them.
 
 ## Proposed plan amendment
 
