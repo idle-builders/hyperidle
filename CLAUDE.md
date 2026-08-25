@@ -12,6 +12,12 @@ HyperIdle is an agentic operating system for AI-first companies. Flat teams of h
 
 1. **Never Stop until you reached a validated output** Only once the acceptance criteria are proven to be done and correct can you stop or if something is genuinly blocked. Never stop otherwise, not after a plan, not after anything else.
 
+2. **Migrations are always full and destructive.** When you change a shape — a schema, a file layout, an API, a config, a name, a pattern — you move every caller and every piece of data to the new shape in the same change, then delete the old one. No legacy compatibility layer, no dual-write, no "old path still works", no deprecated alias, no re-export shim, no `v1`/`v2` living side by side, no dead code left "just in case", no feature flag to keep both alive. Clean up means the old thing is gone from the repo — git history is the backup.
+
+   The only excuse is that a full migration is genuinely impossible right now (external consumers you do not control, data you cannot rewrite in one step). Then: say so out loud to the user, keep the bridge as small as possible, and write down in the work package what deletes it and when. An excuse you did not state is not an excuse.
+
+   A migration you leave half-done is worse than not starting: the next agent now has two truths to read and picks the wrong one.
+
 ---
 
 ## Communication Style
