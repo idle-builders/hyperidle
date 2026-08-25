@@ -6,14 +6,26 @@
  * `run-config-relocation-migration.integration.test.ts` replays the REAL
  * migration SQL file against a real PGlite instance holding real
  * pre-migration rows — it does not re-declare the SQL, and neither does this
- * file. `readMigrationByPrefix` locates the file by its numeric prefix so a
- * rename of the suffix cannot silently skip the test.
+ * file.
  *
- * RED, and expected to stay red until T1/T2 write the two migrations:
- * neither `framework/db/drizzle/0059_BA1_*.sql` nor `0060_BA1_*.sql` exists
- * yet, so every `it` below fails at `readMigrationByPrefix` with a clear
- * "not found" error — the honest failure for a migration that has not been
- * written, not a re-declared copy standing in for it.
+ * @lore BA1 review B1: the pre-migration shape is now obtained by migrating
+ * a REAL PGlite instance through every real journalled migration file up to
+ * (but not including) `0059_BA1_agent_belonging`, then replaying the real
+ * `0059`/`0060` files forward from there. The earlier version of this file
+ * hand-reconstructed the pre-migration shape with a literal `ALTER TABLE`
+ * script (`PRE_BA1_SHAPE`) that declared `routines.team_id` nullable — the
+ * real column, added in `0023_AA1_routine_visibility.sql`, is `NOT NULL`.
+ * Every other column the hand-written script restored happened to match; the
+ * one that didn't was the one `0060` depends on, and the mismatch hid a real
+ * NOT-NULL violation in `0060`'s step-3 builtin-dedupe INSERT (only found by
+ * code review, not by this test). A hand-written stand-in for the schema
+ * under test can always drift from it again; migrating through the real
+ * files cannot, because it IS the schema those files produce.
+ * `buildMigrationsFolderUpTo` builds a throwaway migrations folder (a
+ * filtered `meta/_journal.json` plus the `.sql` files it still references)
+ * so `drizzle-orm/pglite/migrator`'s `migrate()` — the same runtime function
+ * every real deployment calls — is what produces the pre-BA1 database, not a
+ * second, hand-maintained copy of what BA1 changes.
  *
  * @lore BA1 §9: this file allocates its own PGlite instance instead of the
  * `@hyperidle/db/test-fixtures` pool, for the same reason the precedent
@@ -22,7 +34,8 @@
  * mutation here would poison every later test sharing the same instance.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
@@ -34,6 +47,20 @@ import * as schema from "../schema.js";
 
 const DIRNAME = fileURLToPath(new URL(".", import.meta.url));
 const DRIZZLE_DIR = resolve(DIRNAME, "../../drizzle");
+
+interface JournalEntry {
+	readonly idx: number;
+	readonly version: string;
+	readonly when: number;
+	readonly tag: string;
+	readonly breakpoints: boolean;
+}
+
+interface Journal {
+	readonly version: string;
+	readonly dialect: string;
+	readonly entries: readonly JournalEntry[];
+}
 
 /** Locate a migration file by its numeric prefix — throws if BA1 hasn't written it yet. */
 function readMigrationByPrefix(prefix: string): string {
@@ -47,41 +74,39 @@ function readMigrationByPrefix(prefix: string): string {
 }
 
 /**
- * Put the schema back into its pre-0059/0060 shape — mirroring
- * `run-config-relocation-migration.integration.test.ts`'s `PRE_0055_SHAPE`.
- * `beforeEach`'s `migrate()` call applies EVERY journalled migration,
- * including these two once they exist, so by the time it returns the schema
- * is already in its POST-migration shape. Reversing it here is what lets
- * each `it` seed genuinely pre-migration rows and then replay the real
- * migration SQL by hand — exactly the precedent's own two-phase shape.
- *
- * @lore BA1 §9: added during the green phase — the committed red-phase file
- * omitted this reversal, which is why it is not present in the original
- * diff. Without it, every seed insert below would fail ("column does not
- * exist") the moment 0059/0060 land, and the hand-replay of those files
- * would fail too ("column/constraint already exists") — the precedent this
- * file's own docstring names already solves both problems this way.
+ * Build a throwaway migrations folder holding only the real journal entries
+ * BEFORE the first one whose tag starts with `beforeTagPrefix`, plus the
+ * `.sql` files those entries reference. `drizzle-orm/pglite/migrator`'s
+ * `migrate()` only ever reads `meta/_journal.json` + the `.sql` files it
+ * names (never the `*_snapshot.json` files, which are a `drizzle-kit
+ * generate`-time artifact) — see `readMigrationFiles` — so this is enough to
+ * get the exact real pre-BA1 shape, not a hand-reconstruction of it.
  */
-const PRE_BA1_SHAPE = `
-ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_belonging_ck";
-ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_owner_user_id_users_id_fk";
-ALTER TABLE "users" DROP COLUMN IF EXISTS "owner_user_id";
-DROP INDEX IF EXISTS "routines_event_type_idx";
-ALTER TABLE "routines" RENAME COLUMN "prompt" TO "description";
-ALTER TABLE "routines" DROP COLUMN IF EXISTS "event_type";
-ALTER TABLE "routines" ADD COLUMN "team_id" text;
-ALTER TABLE "routines" ADD CONSTRAINT "routines_team_id_teams_id_fk"
-  FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE RESTRICT;
-ALTER TABLE "routines" ADD COLUMN "skill_id" text;
-ALTER TABLE "routines" ADD COLUMN "done_condition" text;
-ALTER TABLE "routines" ADD COLUMN "delegation_allowed" boolean DEFAULT false;
-ALTER TABLE "plugin_configuration_defaults" DROP CONSTRAINT "plugin_configuration_defaults_kind_ck";
-ALTER TABLE "plugin_configuration_defaults" ADD CONSTRAINT "plugin_configuration_defaults_kind_ck"
-  CHECK ("kind" IN ('agent', 'skill', 'routine', 'trigger', 'tool', 'mcp_server', 'harness_descriptor'));
-ALTER TABLE "configuration_overrides" DROP CONSTRAINT "configuration_overrides_kind_ck";
-ALTER TABLE "configuration_overrides" ADD CONSTRAINT "configuration_overrides_kind_ck"
-  CHECK ("kind" IN ('agent', 'skill', 'routine', 'trigger', 'tool', 'mcp_server', 'harness_descriptor'));
-`;
+function buildMigrationsFolderUpTo(beforeTagPrefix: string): string {
+	const journal = JSON.parse(
+		readFileSync(resolve(DRIZZLE_DIR, "meta/_journal.json"), "utf8"),
+	) as Journal;
+	const cutIdx = journal.entries.findIndex((entry) => entry.tag.startsWith(beforeTagPrefix));
+	if (cutIdx === -1) {
+		throw new Error(`no journal entry tagged ${beforeTagPrefix}* found in meta/_journal.json`);
+	}
+	const priorEntries = journal.entries.slice(0, cutIdx);
+
+	const dir = mkdtempSync(resolve(tmpdir(), "ba1-pre-migrate-"));
+	const metaDir = resolve(dir, "meta");
+	mkdirSync(metaDir, { recursive: true });
+	writeFileSync(
+		resolve(metaDir, "_journal.json"),
+		JSON.stringify({ ...journal, entries: priorEntries }),
+	);
+	for (const entry of priorEntries) {
+		writeFileSync(
+			resolve(dir, `${entry.tag}.sql`),
+			readFileSync(resolve(DRIZZLE_DIR, `${entry.tag}.sql`), "utf8"),
+		);
+	}
+	return dir;
+}
 
 interface Harness {
 	readonly client: PGlite;
@@ -89,31 +114,46 @@ interface Harness {
 }
 
 let harness: Harness | undefined;
+let preBA1MigrationsFolder: string | undefined;
 
 async function query(client: PGlite, text: string): Promise<readonly Record<string, unknown>[]> {
 	const result = await client.query<Record<string, unknown>>(text);
 	return result.rows;
 }
 
+/**
+ * Split ONLY on the literal `--> statement-breakpoint` marker — the same
+ * boundary `drizzle-orm`'s own migrator splits on (`readMigrationFiles`,
+ * `migrator.js`: `query.split("--> statement-breakpoint")`). The marker
+ * itself is not valid SQL, so it has to go; a chunk between two markers may
+ * legitimately contain more than one real statement (e.g. a `DO $$ ... $$`
+ * block with a semicolon inside it), and PGlite's `exec` runs a
+ * multi-statement string in one call, so there is nothing left to split
+ * further.
+ */
 async function exec(client: PGlite, script: string): Promise<void> {
-	for (const statement of script.split(/;\s*\n|--> statement-breakpoint/)) {
-		const trimmed = statement.trim().replace(/;$/, "");
+	for (const statement of script.split("--> statement-breakpoint")) {
+		const trimmed = statement.trim();
 		if (trimmed.length === 0) continue;
 		await client.exec(trimmed);
 	}
 }
 
 beforeEach(async () => {
+	preBA1MigrationsFolder = buildMigrationsFolderUpTo("0059_BA1_");
 	const client = new PGlite();
 	const db = drizzle(client, { schema }) as unknown as HyperIdleDb;
-	await migrate(db as never, { migrationsFolder: DRIZZLE_DIR });
-	await exec(client, PRE_BA1_SHAPE);
+	await migrate(db as never, { migrationsFolder: preBA1MigrationsFolder });
 	harness = { client, db };
 });
 
 afterEach(async () => {
 	await harness?.client.close();
 	harness = undefined;
+	if (preBA1MigrationsFolder) {
+		rmSync(preBA1MigrationsFolder, { recursive: true, force: true });
+		preBA1MigrationsFolder = undefined;
+	}
 });
 
 function requireHarness(): Harness {
@@ -128,6 +168,7 @@ describe("0060_BA1_one_routine_primitive — replayed against pre-migration rows
 		timeout: 120_000,
 	}, async () => {
 		const { client } = requireHarness();
+		await exec(client, readMigrationByPrefix("0059_BA1_"));
 		await client.exec(`
 				INSERT INTO "teams" (id, name, phase, created_at)
 				VALUES ('ba1-mig-team', 'BA1 mig team', 'build', '${NOW}');
@@ -148,10 +189,11 @@ describe("0060_BA1_one_routine_primitive — replayed against pre-migration rows
 		]);
 	});
 
-	it("collapses a global builtin's per-team rows to exactly one, re-pointing every run first", {
+	it("collapses a global builtin's per-team rows to exactly one, re-pointing every run first — with real, NOT-NULL team_id rows", {
 		timeout: 120_000,
 	}, async () => {
 		const { client } = requireHarness();
+		await exec(client, readMigrationByPrefix("0059_BA1_"));
 		await client.exec(`
 				INSERT INTO "teams" (id, name, phase, created_at) VALUES
 					('ba1-mig-t1', 'Team 1', 'build', '${NOW}'), ('ba1-mig-t2', 'Team 2', 'build', '${NOW}');
@@ -168,6 +210,9 @@ describe("0060_BA1_one_routine_primitive — replayed against pre-migration rows
 					('ba1-mig-run-t2-b', 'builtin:knowledge-decay:ba1-mig-t2', '${NOW}', 'success');
 			`);
 
+		// This is the exact scenario B1 flagged: routines.team_id is NOT NULL
+		// on the real pre-BA1 schema (unlike the deleted hand-written stand-in),
+		// and step 3's builtin-dedupe INSERT must survive it.
 		await exec(client, readMigrationByPrefix("0060_"));
 
 		const survivors = await query(
@@ -188,6 +233,7 @@ describe("0060_BA1_one_routine_primitive — replayed against pre-migration rows
 		timeout: 120_000,
 	}, async () => {
 		const { client } = requireHarness();
+		await exec(client, readMigrationByPrefix("0059_BA1_"));
 		await client.exec(`
 				INSERT INTO "teams" (id, name, phase, created_at) VALUES ('ba1-mig-rename-team', 'Rename team', 'build', '${NOW}');
 				INSERT INTO "users" (id, kind, name, role, status, created_at, team_id)
@@ -213,6 +259,7 @@ describe("0060_BA1_one_routine_primitive — replayed against pre-migration rows
 		timeout: 120_000,
 	}, async () => {
 		const { client } = requireHarness();
+		await exec(client, readMigrationByPrefix("0059_BA1_"));
 		await client.exec(`
 				INSERT INTO "configuration_overrides" (id, kind, key, user_value_json, state, created_at, updated_at) VALUES
 					('ba1-mig-cfg-trigger', 'trigger', 'ba1-trigger-key', '{}', 'active', '${NOW}', '${NOW}'),
