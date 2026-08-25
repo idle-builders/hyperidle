@@ -20,8 +20,23 @@
 import type { HyperIdleDb, User } from "@hyperidle/db";
 import { findUser } from "./user-store.js";
 
-/** Thrown when the resolved user is not a runnable AI agent. */
-export class AgentNotRunnableError extends Error {}
+/**
+ * Thrown when the resolved user is not a runnable AI agent.
+ *
+ * @lore BA1 review N4: `.name` is set explicitly (not left as the inherited
+ * `"Error"`) so a caller across a Mechanism C boundary — `@hyperidle/routine`
+ * cannot import this class, only the `requireRunnableAgent` function
+ * signature — can still tell "the resolved agent genuinely is not runnable"
+ * apart from any other failure (e.g. a DB connection blip inside `findUser`)
+ * by checking `error.name`, the same idiom the DOM's `AbortError` uses for
+ * cross-boundary error identification without a class reference.
+ */
+export class AgentNotRunnableError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "AgentNotRunnableError";
+	}
+}
 
 const RUNNABLE_STATUSES: ReadonlySet<string> = new Set(["active", "idle"]);
 

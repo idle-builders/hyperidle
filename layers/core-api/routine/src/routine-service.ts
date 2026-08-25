@@ -445,10 +445,21 @@ export async function resolveRoutineRunRequest(
 		// "rolls back its run when the intent write fails" pair, which requires
 		// exactly that distinction. BA1 D9: this is the ONE cause AC4 is about,
 		// so it gets the discriminator's other value.
-		throw new RoutineRunSourceUnavailableError(
-			error instanceof Error ? error.message : "Resolved agent is not runnable",
-			"agent_not_runnable",
-		);
+		//
+		// @lore BA1 review N4: only the genuine "resolved agent is not
+		// runnable" case gets normalized, checked by `.name` (set explicitly
+		// on `AgentNotRunnableError` for exactly this cross-boundary check —
+		// see its own `@lore`). `requireRunnableAgent` starts with a database
+		// read; before this narrowing, ANY failure there — including a
+		// transient connection error — was normalized the same way, and
+		// `fireGenericRoutine`'s catch permanently sets the routine to
+		// `state:"error", active:false` for it. A connection blip is not a
+		// verdict on the agent; it must propagate and let the next tick retry,
+		// same as every other unexpected failure in this resolver.
+		if (error instanceof Error && error.name === "AgentNotRunnableError") {
+			throw new RoutineRunSourceUnavailableError(error.message, "agent_not_runnable");
+		}
+		throw error;
 	}
 
 	// BA1 D5: scope comes from the owner agent, read off the row already
