@@ -12,6 +12,9 @@ export type ConfigurationKind = (typeof CONFIGURATION_KINDS)[number];
 export const PLUGIN_STATES = ["enabled", "disabled", "removed"] as const;
 export type PluginState = "enabled" | "disabled" | "removed";
 
+export const PLUGIN_SCOPE_KINDS = ["factory", "team"] as const;
+export type PluginScopeKind = (typeof PLUGIN_SCOPE_KINDS)[number];
+
 export type ConfigurationOriginType = "builtin" | "plugin" | "user";
 export type ConfigurationValueSource = "default" | "user_override" | "user_owned";
 

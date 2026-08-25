@@ -51,12 +51,14 @@ export type {
 	ConfigurationOrigin,
 	ConfigurationOriginType,
 	ConfigurationValueSource,
+	PluginScopeKind,
 	PluginState,
 	ResolvedConfigurationItem,
 } from "./configuration.js";
 export {
 	BUILTIN_PLUGIN_ID,
 	CONFIGURATION_KINDS,
+	PLUGIN_SCOPE_KINDS,
 	PLUGIN_STATES,
 } from "./configuration.js";
 export type {

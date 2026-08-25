@@ -1145,12 +1145,17 @@ export const plugins = pgTable(
 		name: text("name").notNull(),
 		version: text("version").notNull(),
 		state: text("state").$type<PluginState>().notNull(),
+		scopeKind: text("scope_kind").$type<"factory" | "team">().notNull().default("factory"),
+		scopeTeamId: text("scope_team_id"),
 		installedAt: text("installed_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 		disabledAt: text("disabled_at"),
 		removedAt: text("removed_at"),
 	},
-	(table) => [check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`)],
+	(table) => [
+		check("plugins_state_ck", sql`${table.state} IN ('enabled', 'disabled', 'removed')`),
+		check("plugins_scope_kind_ck", sql`${table.scopeKind} IN ('factory', 'team')`),
+	],
 );
 
 export const pluginConfigurationDefaults = pgTable(

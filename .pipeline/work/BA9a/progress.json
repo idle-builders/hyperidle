@@ -1,0 +1,43 @@
+{
+  "id": "BA9a",
+  "title": "A plugin can be installed",
+  "phase": "proven",
+  "status": "done-pending-ship",
+  "branch": "claude/pipeline-ba9-70ec81",
+  "commits": [
+    "ce68c6a18",
+    "c8d159e04",
+    "5a09e0211",
+    "4824db72d"
+  ],
+  "artifacts": {
+    "plan": ".pipeline/work/BA9a/plan.md",
+    "design-notes": ".pipeline/work/BA9a/design-notes.md",
+    "review": ".pipeline/work/BA9a/review.md",
+    "proof": ".pipeline/work/BA9a/proof.md",
+    "migration-defect": ".pipeline/work/BA9a/migration-0058-defect.md"
+  },
+  "gates": {
+    "check": "PASS",
+    "lint": "PASS",
+    "knip:production": "PASS",
+    "unit": "38 passed",
+    "integration": "2381 passed (service lane)"
+  },
+  "evaluations": [
+    {
+      "phase": "review",
+      "attempt": 1,
+      "verdict": "DONE on written ACs; orchestrator returned R1/R2/R3"
+    },
+    {
+      "phase": "live-proof",
+      "result": "install from folder + git, contributions as editable config, disable, remove \u2014 all proven in the running app"
+    }
+  ],
+  "outstanding": [],
+  "findings_for_founder": [
+    "migration 0058 aborts on any populated database (pre-existing on main) \u2014 decision needed",
+    "plugin_configuration_defaults carries orphan builtin rows on existing installs; the writer was deleted in 3efc6c573"
+  ]
+}

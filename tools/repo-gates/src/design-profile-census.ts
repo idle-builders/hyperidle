@@ -10,15 +10,16 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 // pane consolidation) combines equivalent sites, so the approved receipt
 // expansion is the measured final source-profile population.
 // Deletion pass: -1 thin, from select-diff.tsx.
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 206, default: 17, strong: 11 } as const;
+// +1 BA9a: SettingsPlugins contribution list left border.
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 207, default: 17, strong: 11 } as const;
 
 const EXPECTED = {
 	typography: {
-		label: 116, // -1: read-mode ConversationHeader strip removed (was FR-3 +1); +1: BA1 review N7 RoutineDetailPane "Event" field label (event routines show an Event select instead of Schedule)
+		label: 117, // -1: read-mode ConversationHeader strip removed (was FR-3 +1); +1: BA1 review N7 RoutineDetailPane "Event" field label (event routines show an Event select instead of Schedule); +1: BA9a SettingsPlugins contribution key label
 		metadata: 232, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1)
-		small: 225, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx
+		small: 227, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
 		copy: 45,
-		control: 96, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView
+		control: 97, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
 		input: 10,
 		"avatar-initial": 14,
 		subheading: 9,

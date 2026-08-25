@@ -30,6 +30,7 @@ import { createKnowledgeRoutes } from "./routes/knowledge.js";
 import { createModelGatewayRoutes } from "./routes/model-gateway.js";
 import { createNotificationRoutes } from "./routes/notifications-routes.js";
 import { createOrgRoutes } from "./routes/org.js";
+import { createPluginRoutes } from "./routes/plugins.js";
 import { createRecipientRoutes } from "./routes/recipients.js";
 import { createReviewRoutes } from "./routes/reviews.js";
 import { createRoutineRoutes } from "./routes/routines-routes.js";
@@ -390,6 +391,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
+		api.route("/plugins", createPluginRoutes(options.db));
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 
 		const db = options.db;

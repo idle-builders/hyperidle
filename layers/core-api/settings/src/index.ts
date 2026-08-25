@@ -19,6 +19,32 @@
 
 // -- plugin configuration (resolution engine, agent-behavior UI) --
 export { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
+// -- plugin install / manage (BA9a) --
+export type {
+	InstalledPlugin,
+	InstallPluginInput,
+	InstallPluginResult,
+	PluginScope,
+	PluginSource,
+} from "./plugin-installer.js";
+export {
+	disablePlugin,
+	enablePlugin,
+	getInstalledPlugin,
+	installPlugin,
+	listInstalledPlugins,
+	pluginContributionKey,
+	removePlugin,
+	restorePluginContribution,
+} from "./plugin-installer.js";
+// -- plugin manifest parsing (BA9a) --
+export type {
+	ManifestParseResult,
+	ManifestWarning,
+	ParsedContribution,
+	PluginManifest,
+} from "./plugin-manifest.js";
+export { parsePluginManifest } from "./plugin-manifest.js";
 
 // -- server config (P3 — server_config single-row table read/write) --
 export type { ServerConfig, ServerConfigPatch } from "./server-config.js";

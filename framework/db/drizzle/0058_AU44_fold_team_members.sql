@@ -12,11 +12,15 @@
 --    schema definition and any pre-migration team row immediately has a value.
 -- 2. Migrate data: copy column values from team_members to teams
 --    (overrides the defaults for teams that had a companion row).
--- 3. Re-point users.team_id from team_members.id to teams.id.
--- 4. Drop the old FK from users.team_id → team_members dynamically.
+-- 3. Drop the old FK from users.team_id → team_members dynamically.
 --    The constraint name varies by database history: it is
 --    "agents_team_id_teams_id_fk" when the tables were named agents/teams
 --    before the U1 rename, but must not be hardcoded.
+--    @lore migration-defect-fix: step 3 (FK drop) must run BEFORE step 4
+--    (re-point users.team_id). The old order (3 then 4) wrote a teams.id into
+--    a column still constrained to hold a team_members.id, violating the FK
+--    and aborting the migration on every populated database. Detected BA9a.
+-- 4. Re-point users.team_id from team_members.id to teams.id.
 -- 5. Add the new FK from users.team_id → teams.id.
 -- 6. Drop team_members.
 
@@ -36,15 +40,7 @@ SET
   "active_bets"   = COALESCE((SELECT tm."active_bets" FROM "team_members" tm WHERE tm."team_id" = t."id" LIMIT 1), 0),
   "formed_at"     = (SELECT tm."formed_at"     FROM "team_members" tm WHERE tm."team_id" = t."id" LIMIT 1);--> statement-breakpoint
 
--- Step 3: re-point users.team_id from team_members.id to teams.id.
--- For each user whose team_id currently points at a team_members row,
--- replace it with the corresponding teams.id.
-UPDATE "users" u
-SET "team_id" = (SELECT tm."team_id" FROM "team_members" tm WHERE tm."id" = u."team_id")
-WHERE u."team_id" IS NOT NULL
-  AND EXISTS (SELECT 1 FROM "team_members" tm WHERE tm."id" = u."team_id");--> statement-breakpoint
-
--- Step 4: Drop old FK constraint users.team_id → team_members.
+-- Step 3: Drop old FK constraint users.team_id → team_members BEFORE re-pointing.
 -- The constraint name varies by database history (e.g. "agents_team_id_teams_id_fk"
 -- when the tables were named agents/teams before U1 renamed them). Query the
 -- catalog for the FK whose referencing table is "users" and referenced table
@@ -66,9 +62,18 @@ BEGIN
     END IF;
 END $$;--> statement-breakpoint
 
+-- Step 4: re-point users.team_id from team_members.id to teams.id.
+-- For each user whose team_id currently points at a team_members row,
+-- replace it with the corresponding teams.id.
+-- Safe to run now: the FK to team_members was dropped in step 3.
+UPDATE "users" u
+SET "team_id" = (SELECT tm."team_id" FROM "team_members" tm WHERE tm."id" = u."team_id")
+WHERE u."team_id" IS NOT NULL
+  AND EXISTS (SELECT 1 FROM "team_members" tm WHERE tm."id" = u."team_id");--> statement-breakpoint
+
 -- Step 5: Add new FK users.team_id → teams.id
 ALTER TABLE "users" ADD CONSTRAINT "users_team_id_teams_id_fk"
   FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE RESTRICT;--> statement-breakpoint
 
--- Step 6: Drop team_members (no surviving constraint references it after step 4)
+-- Step 6: Drop team_members (no surviving constraint references it after step 3)
 DROP TABLE "team_members";

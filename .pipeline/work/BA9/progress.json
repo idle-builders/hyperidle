@@ -1,0 +1,63 @@
+{
+  "id": "BA9",
+  "title": "Reflection rituals ship as a plugin, not as core machinery",
+  "phase": "refine",
+  "status": "awaiting-human-review",
+  "branch": "claude/pipeline-ba9-70ec81",
+  "base": "origin/main",
+  "sessions": [
+    {
+      "started": "2026-08-25",
+      "phase": "preflight+refine"
+    }
+  ],
+  "dependencies": {
+    "BA1": "satisfied (merged PR #510)"
+  },
+  "artifacts": {
+    "requirements": ".pipeline/work/BA9/requirements.md",
+    "refine-critique": ".pipeline/work/BA9/refine-critique.md"
+  },
+  "evaluations": [
+    {
+      "phase": "refine-critique",
+      "attempt": 1,
+      "result": "7 blocking findings, all addressed in revision 2",
+      "date": "2026-08-25"
+    }
+  ],
+  "approvals": [],
+  "verdicts": [],
+  "open_decisions": [
+    {
+      "n": 1,
+      "q": "Merge, split, flag-for-review \u2014 do they come back?",
+      "recommendation": "rebuild merge+split (the ledger says this track owes them); drop flag",
+      "status": "pending"
+    },
+    {
+      "n": 2,
+      "q": "What does the App-managed edit lock become?",
+      "recommendation": "delete it \u2014 never enforced, warning is backwards",
+      "status": "asked-awaiting-founder"
+    },
+    {
+      "n": 3,
+      "q": "How is the automatic post-bet retro re-provided?",
+      "recommendation": "deliver the triggering event to the routine run",
+      "status": "pending"
+    },
+    {
+      "n": 4,
+      "q": "Accept the retro firing on every bet state change?",
+      "recommendation": "only if 3 delivers the event",
+      "status": "pending"
+    },
+    {
+      "n": 5,
+      "q": "Does Draft with AI stay on the bet retro pane?",
+      "recommendation": "delete the stub, but it is a product call outside the plan",
+      "status": "pending"
+    }
+  ]
+}
