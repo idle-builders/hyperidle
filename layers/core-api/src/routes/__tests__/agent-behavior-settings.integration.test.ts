@@ -1,8 +1,17 @@
+/**
+ * BA1 D10: the trigger-rule entity retires. This file's seed data and
+ * assertions were entirely trigger-kind-shaped in three of its four kinds'
+ * coverage (`trigger.task-accepted`, `trigger.daily-product-scan`,
+ * `trigger.growth-digest`, `trigger:fallback.default`); all four are
+ * deleted here, not carried forward under a different kind. The
+ * plugin-disabled-state coverage `trigger.growth-digest` used to provide is
+ * preserved by moving `plugin.growth`'s seeded default to a `tool` kind
+ * instead, so "PATCH origin removed/disabled" behaviour is still exercised.
+ */
 import { createHash } from "node:crypto";
 import { type HyperIdleDb, pluginConfigurationDefaults, plugins } from "@hyperidle/db";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { BUILTIN_PLUGIN_ID } from "@hyperidle/domain-model";
-import { writeConfigurationOverride } from "@hyperidle/settings";
 import { Hono } from "hono";
 import { afterEach, describe, expect, test, vi } from "../../__testing__/test-fixtures.js";
 
@@ -127,38 +136,16 @@ async function seedAgentBehaviorConfig(db: HyperIdleDb) {
 				health: "working",
 			},
 		},
-		{
-			pluginId: BUILTIN_PLUGIN_ID,
-			kind: "trigger",
-			key: "trigger.task-accepted",
-			value: {
-				eventType: "task.accepted",
-				sourceKind: "task",
-				agentId: "ast-founder",
-			},
-		},
-		{
-			pluginId: "plugin.product-os",
-			kind: "trigger",
-			key: "trigger.daily-product-scan",
-			value: {
-				eventType: "routine.fire",
-				sourceKind: "routine",
-				scope: { sourceId: "daily-product-scan", teamId: "team-product" },
-				agentId: "agent-product-manager",
-				prompt: "Summarize customer signals and propose tasks.",
-			},
-		},
+		// Preserves the "plugin disabled" state-label coverage the deleted
+		// `trigger.growth-digest` default used to provide, now under `tool`.
 		{
 			pluginId: "plugin.growth",
-			kind: "trigger",
-			key: "trigger.growth-digest",
+			kind: "tool",
+			key: "tool.growth_digest",
 			value: {
-				eventType: "routine.fire",
-				sourceKind: "routine",
-				scope: { sourceId: "growth-digest" },
-				agentId: "agent-growth",
-				prompt: "Inspect growth metrics.",
+				name: "growth_digest",
+				description: "Summarize growth metrics.",
+				enabled: true,
 			},
 		},
 		{
@@ -186,20 +173,6 @@ async function seedAgentBehaviorConfig(db: HyperIdleDb) {
 			updatedAt: now,
 		});
 	}
-
-	// Write user override for the product-os trigger
-	await writeConfigurationOverride(db, {
-		kind: "trigger",
-		key: "trigger.daily-product-scan",
-		value: {
-			eventType: "routine.fire",
-			sourceKind: "routine",
-			scope: { sourceId: "daily-product-scan", teamId: "team-product" },
-			agentId: "agent-product-lead",
-			prompt: "Summarize customer signals, then propose the next task.",
-		},
-		now: "2026-07-09T12:06:00Z",
-	});
 }
 
 async function createAgentBehaviorTestApp(db: HyperIdleDb): Promise<Hono> {
@@ -214,7 +187,9 @@ async function createAgentBehaviorTestApp(db: HyperIdleDb): Promise<Hono> {
 }
 
 describe("agent behavior settings API", () => {
-	test("GET projects all six user-facing kinds with provenance and no Fabric/Strategy vocabulary", async ({
+	// BA1 D10: five user-facing kinds now — agent, skill, routine, tool, mcp.
+	// `trigger` is gone (no allow-list left to name it, no fallback row).
+	test("GET projects all five user-facing kinds with provenance and no Fabric/Strategy vocabulary", async ({
 		db,
 		eventBus,
 	}) => {
@@ -230,65 +205,13 @@ describe("agent behavior settings API", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { items: Array<Record<string, unknown>> };
 		const kinds = new Set(body.items.map((item) => item.kind));
-		expect(kinds).toEqual(new Set(["agent", "skill", "routine", "trigger", "tool", "mcp"]));
-		expect(JSON.stringify(body)).not.toMatch(/Fabric|Strategy/i);
+		expect(kinds).toEqual(new Set(["agent", "skill", "routine", "tool", "mcp"]));
+		expect(JSON.stringify(body)).not.toMatch(/Fabric|Strategy|trigger/i);
 
-		const productTrigger = body.items.find(
-			(item) => item.id === "trigger:trigger.daily-product-scan",
-		);
-		expect(productTrigger).toMatchObject({
-			kind: "trigger",
-			name: "Daily product scan",
-			valueSource: "user_override",
-			activeSummary: expect.stringContaining("agent-product-lead"),
-			trigger: {
-				occasionKind: "routine.fire",
-				sourceId: "daily-product-scan",
-				selectedAgentLabel: "agent-product-lead",
-				promptSource: "trigger",
-				ownershipLabel: "User override active",
-			},
-		});
-		expect(productTrigger?.origin).toMatchObject({
-			type: "plugin",
-			label: "Product OS plugin",
-			state: "enabled",
-		});
-
-		const builtinTrigger = body.items.find((item) => item.id === "trigger:trigger.task-accepted");
-		expect(builtinTrigger).toMatchObject({
-			kind: "trigger",
+		const disabledTool = body.items.find((item) => item.id === "tool:tool.growth_digest");
+		expect(disabledTool).toMatchObject({
+			kind: "tool",
 			valueSource: "default",
-			activeSummary: "ast-founder · no event-specific prompt",
-			trigger: {
-				occasionKind: "task.accepted",
-				selectedAgentLabel: "ast-founder",
-				promptSource: "none",
-				ownershipLabel: "Built-in default",
-			},
-		});
-
-		const fallbackTrigger = body.items.find((item) => item.id === "trigger:fallback.default");
-		expect(fallbackTrigger).toMatchObject({
-			kind: "trigger",
-			name: "No matching trigger",
-			valueSource: "fallback",
-			active: true,
-			activeSummary: "Default eligible agent · no event-specific prompt",
-			statusLabel: "Fallback",
-			trigger: {
-				occasionKind: "fallback.no_match",
-				selectedAgentLabel: "Default eligible agent",
-				promptSource: "none",
-				ownershipLabel: "Fallback",
-			},
-		});
-
-		const disabledTrigger = body.items.find((item) => item.id === "trigger:trigger.growth-digest");
-		expect(disabledTrigger).toMatchObject({
-			kind: "trigger",
-			valueSource: "default",
-			active: false,
 			statusLabel: "Inactive: plugin disabled",
 			origin: { label: "Growth plugin", state: "disabled" },
 		});
@@ -310,7 +233,7 @@ describe("agent behavior settings API", () => {
 		});
 	});
 
-	test("PATCH saves supported agent, trigger, and tool edits as active user overrides", async ({
+	test("PATCH saves supported agent and tool edits as active user overrides", async ({
 		db,
 		eventBus,
 	}) => {
@@ -321,10 +244,6 @@ describe("agent behavior settings API", () => {
 
 		for (const [id, fields] of [
 			["agent:agent.ast-founder", { name: "Founder Assistant" }],
-			[
-				"trigger:trigger.daily-product-scan",
-				{ agentId: "agent-ops-lead", prompt: "Escalate blockers and propose one task." },
-			],
 			["tool:tool.create_task", { enabled: false }],
 		] as const) {
 			const res = await app.request(
@@ -348,19 +267,13 @@ describe("agent behavior settings API", () => {
 			activeSummary: expect.stringContaining("Founder Assistant"),
 			valueSource: "user_override",
 		});
-		expect(
-			body.items.find((item) => item.id === "trigger:trigger.daily-product-scan"),
-		).toMatchObject({
-			activeSummary: expect.stringContaining("agent-ops-lead"),
-			valueSource: "user_override",
-		});
 		expect(body.items.find((item) => item.id === "tool:tool.create_task")).toMatchObject({
 			activeSummary: "Create a task from agent output.",
 			valueSource: "user_override",
 		});
 	});
 
-	test("PATCH rejects unknown fields, invalid values, secret-bearing values, and MCP URL edits", async ({
+	test("PATCH rejects unknown fields, invalid values, and MCP URL edits", async ({
 		db,
 		eventBus,
 	}) => {
@@ -371,13 +284,6 @@ describe("agent behavior settings API", () => {
 
 		for (const [id, fields, status, code] of [
 			["agent:agent.ast-founder", { role: "owner" }, 400, "UNEDITABLE_FIELD"],
-			["trigger:trigger.daily-product-scan", { agentId: null }, 422, "INVALID_VALUE"],
-			[
-				"trigger:trigger.daily-product-scan",
-				{ prompt: { token: "secret-token" } },
-				422,
-				"SECRET_VALUE_REJECTED",
-			],
 			[
 				"mcp:mcp_server.figma",
 				{ serverUrl: "https://mcp.figma.example/realtime" },

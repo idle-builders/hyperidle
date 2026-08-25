@@ -704,7 +704,6 @@ function WorkTeamLoaded({
 						refetchTeam?.();
 						setCreateRoutineOpen(false);
 					}}
-					teams={[{ id: team.id, name: team.name }]}
 					agents={roster
 						.filter((m) => m.role !== "human")
 						.map((m) => ({ id: m.agentId, name: m.name }))}

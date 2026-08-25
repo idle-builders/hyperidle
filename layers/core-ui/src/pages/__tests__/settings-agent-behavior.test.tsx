@@ -1,3 +1,12 @@
+/**
+ * BA1 D10: the trigger-rule entity retires. This file's fixtures and
+ * assertions were built entirely around three `kind:"trigger"` items
+ * (`trigger.daily-product-scan`, `trigger.growth-digest`,
+ * `fallback.default`); all three are deleted here, not carried forward
+ * under a different kind. The "plugin disabled" state-label coverage
+ * `trigger.growth-digest` used to provide is preserved by adding a `tool`
+ * item owned by the same disabled plugin instead.
+ */
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -36,81 +45,6 @@ vi.mock("../../shell/ToastRegion", () => ({
 
 const AGENT_BEHAVIOR_ITEMS = [
 	{
-		id: "trigger:trigger.daily-product-scan",
-		kind: "trigger",
-		name: "Daily product scan",
-		description: "This rule matches one routine-fired event.",
-		origin: { type: "plugin", label: "Product OS plugin", state: "enabled" },
-		valueSource: "user_override",
-		active: true,
-		activeSummary: "Product Manager · prompt from user override",
-		defaultSummary: "Product Manager · prompt from Product OS plugin",
-		statusLabel: "User override active",
-		editableFields: [
-			{
-				id: "agentId",
-				label: "Agent",
-				kind: "select",
-				value: "agent-product-manager",
-				options: [
-					{ value: "agent-product-manager", label: "Product Manager" },
-					{ value: "agent-ops-lead", label: "Ops Lead" },
-				],
-			},
-			{
-				id: "prompt",
-				label: "Prompt source",
-				kind: "textarea",
-				value: "Summarize customer signals and propose tasks.",
-				maxLength: 12_000,
-			},
-		],
-		links: [{ target: "trigger-history", label: "View history", href: "#trigger-history" }],
-		trigger: {
-			occasionKind: "routine.fire",
-			sourceId: "daily-product-scan",
-			selectedAgentLabel: "Product Manager",
-			promptSource: "trigger",
-			ownershipLabel: "User override active",
-		},
-	},
-	{
-		id: "trigger:trigger.growth-digest",
-		kind: "trigger",
-		name: "Growth digest",
-		origin: { type: "plugin", label: "Growth plugin", state: "disabled" },
-		valueSource: "default",
-		active: false,
-		activeSummary: "Not matching: plugin disabled and no user override.",
-		statusLabel: "Inactive: plugin disabled",
-		editableFields: [],
-		trigger: {
-			occasionKind: "routine.fire",
-			sourceId: "growth-digest",
-			selectedAgentLabel: "Growth",
-			promptSource: "trigger",
-			ownershipLabel: "Plugin default",
-		},
-	},
-	{
-		id: "trigger:fallback.default",
-		kind: "trigger",
-		name: "No matching trigger",
-		description: "When no trigger rule matches, HyperIdle uses the default eligible agent.",
-		origin: { type: "builtin", label: "Built-in HyperIdle", state: "enabled" },
-		valueSource: "fallback",
-		active: true,
-		activeSummary: "Default eligible agent · no event-specific prompt",
-		statusLabel: "Fallback",
-		editableFields: [],
-		trigger: {
-			occasionKind: "fallback.no_match",
-			selectedAgentLabel: "Default eligible agent",
-			promptSource: "none",
-			ownershipLabel: "Fallback",
-		},
-	},
-	{
 		id: "tool:tool.legacy_report",
 		kind: "tool",
 		name: "Legacy report",
@@ -120,6 +54,19 @@ const AGENT_BEHAVIOR_ITEMS = [
 		activeSummary: "Default no longer applies.",
 		statusLabel: "Needs attention: origin removed",
 		editableFields: [],
+	},
+	// Preserves the "plugin disabled" state-label coverage the deleted
+	// `trigger.growth-digest` fixture used to provide.
+	{
+		id: "tool:tool.growth_digest",
+		kind: "tool",
+		name: "Growth digest",
+		origin: { type: "plugin", label: "Growth plugin", state: "disabled" },
+		valueSource: "default",
+		active: false,
+		activeSummary: "Summarize growth metrics.",
+		statusLabel: "Inactive: plugin disabled",
+		editableFields: [{ id: "enabled", label: "Enabled", kind: "toggle", value: true }],
 	},
 	{
 		id: "agent:agent.ast-founder",
@@ -194,9 +141,10 @@ function setupFetch(): void {
 						status: 200,
 						json: async () => ({
 							item: {
-								...AGENT_BEHAVIOR_ITEMS[0],
+								...AGENT_BEHAVIOR_ITEMS[2],
+								name: "Founder Assistant",
+								activeSummary: "Founder Assistant · builtin harness",
 								valueSource: "user_override",
-								activeSummary: "Ops Lead · prompt from user override",
 							},
 						}),
 					});
@@ -253,7 +201,9 @@ describe("Settings Agent behavior surface", () => {
 	beforeEach(() => setupFetch());
 	afterEach(() => vi.restoreAllMocks());
 
-	it("renders one Settings area for agents, skills, routines, triggers, tools, and MCP without Fabric/Strategy labels", async () => {
+	// BA1 D10: "Triggers" category is gone — five kinds now (agents, skills,
+	// routines, tools, MCP).
+	it("renders one Settings area for agents, skills, routines, tools, and MCP without Fabric/Strategy/trigger labels", async () => {
 		renderSettingsPage();
 
 		const section = await screen.findByTestId("settings-section-agent-behavior");
@@ -264,46 +214,37 @@ describe("Settings Agent behavior surface", () => {
 			"settings-agent-behavior",
 		);
 		expect(section.querySelector('[data-ds-component="split-view"]')).toBeInTheDocument();
-		for (const label of ["Agents", "Skills", "Routines", "Triggers", "Tools", "MCP"]) {
+		for (const label of ["Agents", "Skills", "Routines", "Tools", "MCP"]) {
 			expect(within(section).getByText(label)).toBeInTheDocument();
 		}
-		expect(section.textContent ?? "").not.toMatch(/Fabric|Strategy/i);
+		expect(section.textContent ?? "").not.toMatch(/Fabric|Strategy|trigger/i);
 	});
 
-	it("shows trigger event, attached agent, prompt source, origin, active value, and disabled/removed origin states", async () => {
-		const user = userEvent.setup();
+	it("shows disabled and removed plugin origin states for tool items", async () => {
 		renderSettingsPage();
 
 		const section = await screen.findByTestId("settings-section-agent-behavior");
-		expect(await within(section).findByText("Routine fired")).toBeInTheDocument();
-		expect(within(section).getByText("Daily product scan")).toBeInTheDocument();
+		expect(await within(section).findByText("Legacy report")).toBeInTheDocument();
 		const initialText = section.textContent ?? "";
-		expect(initialText).toContain("Product Manager · prompt from user override");
-		expect(initialText).toContain("User override active");
 		expect(initialText).toContain("Inactive: plugin disabled");
 		expect(initialText).toContain("Needs attention: origin removed");
-		expect(within(section).getAllByText("No matching trigger").length).toBeGreaterThan(0);
-		expect(initialText).toContain("Default eligible agent · no event-specific prompt");
-		await user.click(within(section).getByText("Daily product scan"));
-		expect(within(section).getByText("Product OS plugin")).toBeInTheDocument();
 	});
 
-	it("saves a supported trigger edit, keeps existing Settings links reachable, and reloads active override state", async () => {
+	it("saves a supported agent edit, keeps existing Settings links reachable, and reloads active override state", async () => {
 		const user = userEvent.setup();
 		renderSettingsPage();
 
 		const section = await screen.findByTestId("settings-section-agent-behavior");
-		await user.click(within(section).getByText("Daily product scan"));
-		expect(within(section).queryByLabelText("Agent")).toBeNull();
+		await user.click(within(section).getByText("Assistant"));
+		expect(within(section).queryByLabelText("Name")).toBeNull();
 		await user.click(within(section).getByRole("button", { name: "Edit agent behavior" }));
-		await user.selectOptions(within(section).getByLabelText("Agent"), "agent-ops-lead");
-		await user.clear(within(section).getByLabelText("Prompt source"));
-		await user.type(within(section).getByLabelText("Prompt source"), "Escalate blockers.");
+		await user.clear(within(section).getByLabelText("Name"));
+		await user.type(within(section).getByLabelText("Name"), "Founder Assistant");
 		await user.click(within(section).getByRole("button", { name: /save/i }));
 
 		await waitFor(() => {
 			expect(
-				within(section).getAllByText("Ops Lead · prompt from user override").length,
+				within(section).getAllByText("Founder Assistant · builtin harness").length,
 			).toBeGreaterThan(0);
 		});
 		expect(screen.getByTestId("settings-section-agents")).toBeInTheDocument();
@@ -315,14 +256,15 @@ describe("Settings Agent behavior surface", () => {
 		const user = userEvent.setup();
 		renderSettingsPage();
 		const section = await screen.findByTestId("settings-section-agent-behavior");
-		await user.click(within(section).getByText("Daily product scan"));
+		await user.click(within(section).getByText("Assistant"));
 		await user.click(within(section).getByRole("button", { name: "Edit agent behavior" }));
-		await user.selectOptions(within(section).getByLabelText("Agent"), "agent-ops-lead");
+		await user.clear(within(section).getByLabelText("Name"));
+		await user.type(within(section).getByLabelText("Name"), "Should Not Save");
 		await user.click(
 			within(section).getByRole("button", { name: "Cancel agent behavior editing" }),
 		);
-		expect(within(section).queryByLabelText("Agent")).toBeNull();
-		expect(within(section).getAllByText(/Product Manager/).length).toBeGreaterThan(0);
+		expect(within(section).queryByLabelText("Name")).toBeNull();
+		expect(within(section).getAllByText(/assistant · builtin harness/i).length).toBeGreaterThan(0);
 	});
 
 	it("keeps MCP URL changes read-only in Agent behavior and routes to Connections", async () => {

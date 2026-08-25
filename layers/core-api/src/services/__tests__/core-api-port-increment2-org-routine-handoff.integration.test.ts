@@ -385,7 +385,10 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 			leadAgentId: "agent-org-provision-lead",
 		});
 
-		const rows = await db.select().from(routines).where(eq(routines.teamId, teamId));
+		const rows = await db
+			.select()
+			.from(routines)
+			.where(eq(routines.ownerAgentId, "agent-org-provision-lead"));
 		expect(rows.length).toBe(4);
 		expect(rows.every((r) => r.ownerAgentId === "agent-org-provision-lead")).toBe(true);
 	});
@@ -423,22 +426,17 @@ describe("CoreApiPort.routine — Increment 2 org/routine/handoff wave (RED)", (
 		app,
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-routine-key-insert");
-		const { teamId } = await seedTeam(db, { suffix: "routine1" });
+		await seedTeam(db, { suffix: "routine1" });
 		await seedAgent(db, "agent-routine-owner1");
 
 		const port = buildSeamPort("agent-routine-owner1", app);
 		await port.routine.insertRoutine({
 			id: "routine-inc2-1",
 			name: "Daily standup",
-			description: null,
-			teamId,
+			prompt: null,
 			ownerAgentId: "agent-routine-owner1",
 			triggerType: "calendar",
 			triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),
-			state: "active",
-			active: true,
-			nextRunAt: NOW,
-			createdAt: NOW,
 		});
 
 		const [row] = await db
@@ -453,11 +451,10 @@ describe("CoreApiPort.routine — Increment 2 org/routine/handoff wave (RED)", (
 	test("getRoutineById reaches the real routine-detail route", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-routine-key-get");
 		const { teamId } = await seedTeam(db, { suffix: "routine2" });
-		await seedAgent(db, "agent-routine-owner2");
+		await seedAgent(db, "agent-routine-owner2", { teamId });
 		await db.insert(routines).values({
 			id: "routine-inc2-2",
 			name: "Weekly retro",
-			teamId,
 			ownerAgentId: "agent-routine-owner2",
 			triggerType: "calendar",
 			triggerConfig: JSON.stringify({ cron: "0 9 * * MON" }),
@@ -488,11 +485,10 @@ describe("CoreApiPort.routine — Increment 2 org/routine/handoff wave (RED)", (
 	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-routine-key-update");
 		const { teamId } = await seedTeam(db, { suffix: "routine3" });
-		await seedAgent(db, "agent-routine-owner3");
+		await seedAgent(db, "agent-routine-owner3", { teamId });
 		await db.insert(routines).values({
 			id: "routine-inc2-3",
 			name: "Old name",
-			teamId,
 			ownerAgentId: "agent-routine-owner3",
 			triggerType: "calendar",
 			triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),

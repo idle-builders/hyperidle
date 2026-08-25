@@ -99,7 +99,6 @@ async function seedRoutineWorld(
 	await db.insert(routines).values({
 		id,
 		name: "AU15 sched routine",
-		teamId,
 		state: "active",
 		ownerAgentId,
 		triggerType: "manual",

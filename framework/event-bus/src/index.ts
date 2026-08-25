@@ -48,4 +48,4 @@ export type {
 	WildcardType,
 	WorkSelectionRequestedEvent,
 } from "./events.js";
-export { AGENT_WORK_INTENT_KINDS } from "./events.js";
+export { AGENT_WORK_INTENT_KINDS, EVENT_TYPES } from "./events.js";

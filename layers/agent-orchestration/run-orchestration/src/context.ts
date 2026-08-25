@@ -110,7 +110,8 @@ interface RoutineSessionContextData {
 	routine: {
 		id: string;
 		name: string;
-		description: string | null;
+		/** BA1 D3: one column, one field — replaces `description`. */
+		prompt: string | null;
 		lastRunSummary: string | null;
 	};
 	agent: {
@@ -118,10 +119,11 @@ interface RoutineSessionContextData {
 		name: string;
 		role: string;
 	};
+	/** BA1 D4: nullable — the owner agent may belong to no team. */
 	team: {
 		id: string;
 		name: string;
-	};
+	} | null;
 }
 
 /** Map a `kind:"routine"` baked `contextBundle` onto `RoutineSessionContextData` — a pure passthrough. */
@@ -447,8 +449,8 @@ interface RoutinePromptCompositionInput {
 function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 	const parts: string[] = ["## Routine", "", `**Name:** ${context.routine.name}`];
 
-	if (context.routine.description) {
-		parts.push(`**Purpose:** ${context.routine.description}`);
+	if (context.routine.prompt) {
+		parts.push("", "### Instruction", "", context.routine.prompt);
 	}
 
 	parts.push("");
@@ -483,9 +485,12 @@ function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptComp
 	let personaSection = "";
 	if (systemPromptText.length > 0) {
 		const stripped = stripFrontmatter(systemPromptText);
-		// For routine sessions, use team name as the product variable
+		// For routine sessions, use team name as the product variable. BA1 D4:
+		// the owner agent may belong to no team — `substituteTemplateVars`
+		// leaves `{{product}}` literal when a variable is absent, so the
+		// empty string is the right fallback rather than a visible defect.
 		const vars: Record<string, string> = {
-			product: context.team.name,
+			product: context.team?.name ?? "",
 			community: communityForRole(context.agent.role),
 		};
 		personaSection = substituteTemplateVars(stripped, vars);

@@ -28,11 +28,12 @@ const ROUTINE_DETAIL: RoutineDetail = {
 	routine: {
 		id: "routine-story-1",
 		name: "Daily Digest",
-		description:
+		prompt:
 			"Send a daily digest of all team activity to each member. Include bets in progress, completed tasks, and any blockers flagged in the last 24 hours.",
 		state: "active",
 		triggerType: "calendar",
 		triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
+		eventType: null,
 		scheduleLabel: "Every day at 8:00 AM",
 		ownerAgentId: "agent-1",
 		agentName: "Atlas Builder",
@@ -41,7 +42,6 @@ const ROUTINE_DETAIL: RoutineDetail = {
 		teamName: "Build Team",
 		autonomyLevel: 2,
 		humanReview: false,
-		delegationAllowed: false,
 		lastRunAt: "2026-01-05T08:00:00.000Z",
 		lastRunOutcome: "success",
 		nextRunAt: "2026-01-06T08:00:00.000Z",

@@ -21,10 +21,13 @@ describe("humanizeSchedule (AA1)", () => {
 		expect(result).toBe("Every 15 minutes");
 	});
 
-	// event trigger
-	it('maps event + bet_state_changed to "On bet completion"', () => {
-		const result = humanizeSchedule("event", JSON.stringify({ eventType: "bet_state_changed" }));
-		expect(result).toBe("On bet completion");
+	// BA1 D2/D8: the event name lives in its own `eventType` column/param now
+	// — not `triggerConfig` — and the label is DERIVED from the name, not
+	// mapped through a closed four-name table (§2.6: the old table would
+	// have rendered "On event" for 30 of the 34 authorable events).
+	it('maps event + bet_state_changed to "On bet state changed"', () => {
+		const result = humanizeSchedule("event", null, "bet_state_changed");
+		expect(result).toBe("On bet state changed");
 	});
 
 	// calendar with null config — graceful fallback
@@ -63,9 +66,16 @@ describe("humanizeSchedule (AA1)", () => {
 		expect(result).toBe("Calendar");
 	});
 
-	// event + unknown eventType — generic fallback
-	it("returns 'On event' for unknown eventType", () => {
-		const result = humanizeSchedule("event", JSON.stringify({ eventType: "unknown_type" }));
+	// event + no eventType — generic fallback (a real event routine always has one; this is defensive)
+	it("returns 'On event' when no eventType is given", () => {
+		const result = humanizeSchedule("event", null, null);
 		expect(result).toBe("On event");
+	});
+
+	// BA1 D8: every one of the 34 authorable events derives a label — no
+	// closed four-name table left to fall through.
+	it('derives a label for an event outside the old four-name table, e.g. "On item created"', () => {
+		const result = humanizeSchedule("event", null, "item_created");
+		expect(result).toBe("On item created");
 	});
 });

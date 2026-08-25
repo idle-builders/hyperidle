@@ -49,10 +49,11 @@ const ROUTINE_DETAIL: RoutineDetail = {
 	routine: {
 		id: "r1",
 		name: "Daily Digest",
-		description: "Send the daily digest to the team.",
+		prompt: "Send the daily digest to the team.",
 		state: "active",
 		triggerType: "calendar",
 		triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),
+		eventType: null,
 		scheduleLabel: "Every day at 9am",
 		ownerAgentId: "agent-1",
 		agentName: "Atlas Builder",
@@ -61,7 +62,6 @@ const ROUTINE_DETAIL: RoutineDetail = {
 		teamName: "AV4 Team",
 		autonomyLevel: 3,
 		humanReview: false,
-		delegationAllowed: true,
 		lastRunAt: "2026-01-01T09:00:00.000Z",
 		lastRunOutcome: "success",
 		nextRunAt: "2026-01-02T09:00:00.000Z",
@@ -84,7 +84,7 @@ const ROUTINE_DETAIL: RoutineDetail = {
 			endedAt: "2025-12-31T09:01:00.000Z",
 			durationSeconds: 60,
 			outcome: "error",
-			errorMessage: null,
+			errorMessage: "Owner agent is not runnable",
 		},
 	],
 };
@@ -140,7 +140,7 @@ describe("editable prompt saves via PATCH and refetches the routine", () => {
 		);
 	});
 
-	it("[RED] editing prompt and clicking Save calls apiFetch PATCH on the routine endpoint with updated description", async () => {
+	it("editing prompt and clicking Save calls apiFetch PATCH on the routine endpoint with updated prompt", async () => {
 		const user = userEvent.setup();
 		await renderPane();
 		await user.click(screen.getByRole("button", { name: "Edit routine" }));
@@ -163,7 +163,7 @@ describe("editable prompt saves via PATCH and refetches the routine", () => {
 				string,
 				unknown
 			>;
-			expect(body.description).toBe("Updated prompt text.");
+			expect(body.prompt).toBe("Updated prompt text.");
 		});
 	});
 
@@ -242,6 +242,17 @@ describe("de-greyed sections render without surface-container background; run ro
 		await waitFor(() => {
 			const rows = screen.getAllByTestId("routine-run-row");
 			expect(rows.length).toBe(2);
+		});
+	});
+
+	// BA1 D9 half two: a run's errorMessage reaches the DOM as the row's
+	// subtitle — the truthful basis for AC4 ("fails visibly to whoever
+	// configured it"). A red dot with no reason is not visible failure.
+	it("renders a run's errorMessage as the row's subtitle", async () => {
+		await renderPane();
+
+		await waitFor(() => {
+			expect(screen.getByText("Owner agent is not runnable")).toBeInTheDocument();
 		});
 	});
 

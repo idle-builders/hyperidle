@@ -36,7 +36,12 @@ import {
 	users,
 	type WriteExecutor,
 } from "@hyperidle/db";
-import type { EventBus, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import type {
+	AgentRunLifecycleChangedEvent,
+	EventBus,
+	ItemCreatedEvent,
+	TaskStateChangedEvent,
+} from "@hyperidle/event-bus";
 import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
@@ -142,7 +147,6 @@ async function seedManualRoutine(
 	await db.insert(routines).values({
 		id,
 		name: "Baked-emit manual routine",
-		teamId,
 		state: "active",
 		ownerAgentId,
 		triggerType: "manual",
@@ -215,7 +219,12 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 		expect(request).toMatchObject({ agentId: `${routineId}-owner` });
 	});
 
-	test("does not persist a run or an intent when the resolved target agent is not runnable", async ({
+	// BA1 D9: superseded assertion — the emit TRANSACTION still persists
+	// nothing (no work intent), but `fireGenericRoutine`'s catch now records
+	// a terminal error run OUTSIDE that transaction, which is the AC4 fix
+	// this same wave's D9 test (below) exists to prove. Kept as the narrower
+	// "no work intent is ever enqueued for an unrunnable target" guard.
+	test("does not enqueue a work intent when the resolved target agent is not runnable", async ({
 		db,
 		eventBus,
 	}) => {
@@ -227,8 +236,6 @@ describe("fireGenericRoutine — emit-time resolve-at-emit + collapse the drain 
 		const result = await fireGenericRoutine(db, eventBus, routine!, makePorts());
 
 		expect(result.fired).toBe(false);
-		const runs = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
-		expect(runs).toHaveLength(0);
 		const intents = await db
 			.select()
 			.from(agentWorkIntents)
@@ -278,20 +285,20 @@ describe("BA1 D2 — event matching reads the database when the event happens", 
 	}) => {
 		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
 			pollIntervalMs: 999_999,
+			canProvision: true,
 		});
 		try {
-			const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba1-e2e");
+			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-e2e");
 			const configuredPrompt = "Say hello to the team, BA1 style.";
 			const routineId = "ba1-e2e-routine";
 			await db.insert(routines).values({
 				id: routineId,
 				name: "BA1 e2e routine",
-				description: configuredPrompt,
-				teamId,
+				prompt: configuredPrompt,
 				state: "active",
 				ownerAgentId,
 				triggerType: "event",
-				triggerConfig: JSON.stringify({ eventType: "task_state_changed" }),
+				eventType: "task_state_changed",
 				active: true,
 			});
 
@@ -346,18 +353,18 @@ describe("BA1 — immediate stop takes effect on the very next event, with no re
 	}) => {
 		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
 			pollIntervalMs: 999_999,
+			canProvision: true,
 		});
 		try {
-			const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba1-stop-pause");
+			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-stop-pause");
 			const routineId = "ba1-stop-pause-routine";
 			await db.insert(routines).values({
 				id: routineId,
 				name: "BA1 immediate-stop routine",
-				teamId,
 				state: "active",
 				ownerAgentId,
 				triggerType: "event",
-				triggerConfig: JSON.stringify({ eventType: "task_state_changed" }),
+				eventType: "task_state_changed",
 				active: true,
 			});
 
@@ -415,18 +422,18 @@ describe("BA1 — immediate stop takes effect on the very next event, with no re
 	}) => {
 		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
 			pollIntervalMs: 999_999,
+			canProvision: true,
 		});
 		try {
-			const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba1-stop-delete");
+			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-stop-delete");
 			const routineId = "ba1-stop-delete-routine";
 			await db.insert(routines).values({
 				id: routineId,
 				name: "BA1 immediate-stop (delete) routine",
-				teamId,
 				state: "active",
 				ownerAgentId,
 				triggerType: "event",
-				triggerConfig: JSON.stringify({ eventType: "task_state_changed" }),
+				eventType: "task_state_changed",
 				active: true,
 			});
 
@@ -487,20 +494,20 @@ describe("BA1 D9 — a routine that cannot run says so, and a paused one is not 
 	}) => {
 		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
 			pollIntervalMs: 999_999,
+			canProvision: true,
 		});
 		try {
-			const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba1-d9-unrunnable", {
+			const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-d9-unrunnable", {
 				ownerStatus: "retired",
 			});
 			const routineId = "ba1-d9-unrunnable-routine";
 			await db.insert(routines).values({
 				id: routineId,
 				name: "BA1 D9 unrunnable-owner routine",
-				teamId,
 				state: "active",
 				ownerAgentId,
 				triggerType: "event",
-				triggerConfig: JSON.stringify({ eventType: "task_state_changed" }),
+				eventType: "task_state_changed",
 				active: true,
 			});
 
@@ -548,12 +555,11 @@ describe("BA1 D9 — a routine that cannot run says so, and a paused one is not 
 		db,
 		eventBus,
 	}) => {
-		const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba1-d9-paused");
+		const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-d9-paused");
 		const routineId = "ba1-d9-paused-routine";
 		await db.insert(routines).values({
 			id: routineId,
 			name: "BA1 D9 paused routine",
-			teamId,
 			state: "paused",
 			ownerAgentId,
 			triggerType: "manual",
@@ -608,16 +614,15 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 		// (covered by its own tests above). Both R and S must already be in
 		// `registerEventTriggers`' one-time snapshot for either to be able to
 		// react to the event at all under today's code.
-		const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba1-cut3-r");
+		const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-cut3-r");
 		const routineId = "ba1-cut3-r-routine";
 		await db.insert(routines).values({
 			id: routineId,
 			name: "BA1 cut3 self-trigger routine",
-			teamId,
 			state: "active",
 			ownerAgentId,
 			triggerType: "event",
-			triggerConfig: JSON.stringify({ eventType: "agent_run_admission_failed" }),
+			eventType: "agent_run_admission_failed",
 			active: true,
 		});
 		// A DIFFERENT routine on the SAME event — documents the cut's
@@ -628,16 +633,16 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 		await db.insert(routines).values({
 			id: otherRoutineId,
 			name: "BA1 cut3 different-routine control",
-			teamId,
 			state: "active",
 			ownerAgentId: sOwnerId,
 			triggerType: "event",
-			triggerConfig: JSON.stringify({ eventType: "agent_run_admission_failed" }),
+			eventType: "agent_run_admission_failed",
 			active: true,
 		});
 
 		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
 			pollIntervalMs: 999_999,
+			canProvision: true,
 		});
 		try {
 			const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
@@ -647,19 +652,24 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			await rejectSessionRequestWrites(db);
 			await drainIntents({ ...queueDeps(db), eventBus }, { maxAttempts: 1 });
 
-			// The bug reproduces: R's OWN admission failure re-fires R.
+			// Wait for the admission-failure event's re-entrant cycle to be
+			// fully processed by the matcher — proven by S (the narrowness
+			// control, on the SAME event) getting its run, not by R's own run
+			// count. Waiting on R's count here would be self-defeating: cut 3
+			// EXISTS to keep that count at 1, so a checkpoint that requires it
+			// to reach 2 first can never observe a correctly-cut system pass.
 			await vi.waitFor(
 				async () => {
-					const runs = await db
+					const otherRuns = await db
 						.select()
 						.from(routineRuns)
-						.where(eq(routineRuns.routineId, routineId));
-					expect(runs.length).toBeGreaterThanOrEqual(2);
+						.where(eq(routineRuns.routineId, otherRoutineId));
+					expect(otherRuns.length).toBeGreaterThanOrEqual(1);
 				},
 				{ timeout: 1000 },
 			);
 
-			// Cut 3's requirement: R may not re-trigger itself. RED today.
+			// Cut 3's requirement: R may not re-trigger itself.
 			const finalRuns = await db
 				.select()
 				.from(routineRuns)
@@ -676,6 +686,144 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 
 			await db.execute(
 				sql`drop trigger if exists ba1_reject_session_request_write on agent_session_requests`,
+			);
+		} finally {
+			scheduler.stop();
+		}
+	});
+
+	/**
+	 * BA1 §9 — the cut-3 case the RED phase deferred because it would not
+	 * have been red: origin resolved through a RUN ID (`originRoutineId`'s
+	 * step 3, `getRoutineRun(sourceId).routineId`), not a direct field —
+	 * `agent_run_lifecycle_changed` is spelled `"routine"` in
+	 * `AgentSessionSourceKind`, so NB1's predicate bug never touched it.
+	 * Testing only the `"routine"` spelling elsewhere would leave step 3
+	 * itself unexercised — this is that case.
+	 */
+	test("cut 3 resolves origin through a run id for agent_run_lifecycle_changed, not just a direct field", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-cut3-lifecycle-r");
+		const routineId = "ba1-cut3-lifecycle-r-routine";
+		await db.insert(routines).values({
+			id: routineId,
+			name: "BA1 cut3 lifecycle self-trigger routine",
+			state: "active",
+			ownerAgentId,
+			triggerType: "event",
+			eventType: "agent_run_lifecycle_changed",
+			active: true,
+		});
+		const { ownerAgentId: sOwnerId } = await seedTeamAndOwner(db, "ba1-cut3-lifecycle-s");
+		const otherRoutineId = "ba1-cut3-lifecycle-s-routine";
+		await db.insert(routines).values({
+			id: otherRoutineId,
+			name: "BA1 cut3 lifecycle different-routine control",
+			state: "active",
+			ownerAgentId: sOwnerId,
+			triggerType: "event",
+			eventType: "agent_run_lifecycle_changed",
+			active: true,
+		});
+
+		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
+			pollIntervalMs: 999_999,
+			canProvision: true,
+		});
+		try {
+			const [routine] = await db.select().from(routines).where(eq(routines.id, routineId));
+			const first = await fireGenericRoutine(db, eventBus, routine!, makePorts());
+			expect(first.fired).toBe(true);
+			const runId = first.runId;
+			if (!runId) throw new Error("expected a runId");
+
+			// The run's OWN lifecycle event, carrying its OWN run id — the case
+			// that only resolves through `getRoutineRun(sourceId)`, not a field
+			// already on the event.
+			const lifecycleEvent: AgentRunLifecycleChangedEvent = {
+				type: "agent_run_lifecycle_changed",
+				streamId: `session:${runId}`,
+				requestId: `req-${runId}`,
+				sourceKind: "routine",
+				sourceId: runId,
+				state: "completed",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(lifecycleEvent);
+
+			await vi.waitFor(
+				async () => {
+					const otherRuns = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, otherRoutineId));
+					expect(otherRuns.length).toBeGreaterThanOrEqual(1);
+				},
+				{ timeout: 1000 },
+			);
+
+			const finalRuns = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.routineId, routineId));
+			expect(finalRuns).toHaveLength(1);
+		} finally {
+			scheduler.stop();
+		}
+	});
+
+	/**
+	 * BA1 §9 — the other case the RED phase deferred: an event whose origin
+	 * cannot be resolved (`originRoutineId` returns `null`) must suppress
+	 * NOTHING. This is the direction that would quietly break the whole
+	 * feature if `originRoutineId` had a bug that returned a wrong id — a
+	 * routine authored on a plain `item_created` (no `sourceKind`/
+	 * `sourceCorrelation` at all) must still fire.
+	 */
+	test("an event whose origin cannot be resolved still fires the routines that match it", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const { ownerAgentId } = await seedTeamAndOwner(db, "ba1-cut3-unknown-origin");
+		const routineId = "ba1-cut3-unknown-origin-routine";
+		await db.insert(routines).values({
+			id: routineId,
+			name: "BA1 cut3 unknown-origin routine",
+			state: "active",
+			ownerAgentId,
+			triggerType: "event",
+			eventType: "item_created",
+			active: true,
+		});
+
+		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
+			pollIntervalMs: 999_999,
+			canProvision: true,
+		});
+		try {
+			const evt: ItemCreatedEvent = {
+				type: "item_created",
+				streamId: "ba1-cut3-unknown-origin-item",
+				itemId: "ba1-cut3-unknown-origin-item",
+				conversationId: "ba1-cut3-unknown-origin-thread",
+				kind: "review",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(evt);
+
+			await vi.waitFor(
+				async () => {
+					const runs = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, routineId));
+					expect(runs).toHaveLength(1);
+				},
+				{ timeout: 1000 },
 			);
 		} finally {
 			scheduler.stop();

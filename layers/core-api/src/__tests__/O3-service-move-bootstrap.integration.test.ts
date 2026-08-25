@@ -320,7 +320,52 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// @lore AU21 §9 Increment 4: `bet_state_changed` (builtin routine
 				// reaction) and the scheduler interval dispose separately.
 				{ unsubscribedEvents: ["bet_state_changed"], clearedIntervals: 0 },
-				{ unsubscribedEvents: [], clearedIntervals: 1 },
+				// @lore BA1 D2: `registerRoutineEventMatcher` replaces
+				// `registerEventTriggers` — one `eventBus.on` per EVENT_TYPES
+				// member (34, always, regardless of what is in `routines`), not
+				// one per seeded routine (zero, on this fresh test DB, under the
+				// old code — hence the previously-empty list here). `unwind()`
+				// unsubscribes in REVERSE registration order, so this is
+				// `EVENT_TYPES` reversed.
+				{
+					unsubscribedEvents: [
+						"tool_call_recorded",
+						"routine_fired",
+						"propagation_failed",
+						"propagation_applied",
+						"notification",
+						"proposed_call_granted",
+						"proposed_call_executed",
+						"work_selection_requested",
+						"user_created",
+						"agent_added",
+						"team_created",
+						"artifact_created",
+						"knowledge_accessed",
+						"knowledge_archived",
+						"knowledge_updated",
+						"knowledge_created",
+						"sandbox_writeback_changes_detected",
+						"dependency_met",
+						"item_created",
+						"thread_archived",
+						"thread_reopened",
+						"thread_resolved",
+						"thread_message_appended",
+						"thread_created",
+						"session_not_returned",
+						"session_handoff_completed",
+						"session_ended",
+						"session_started",
+						"bet_revised",
+						"bet_state_changed",
+						"task_state_changed",
+						"agent_run_lifecycle_changed",
+						"agent_run_admission_failed",
+						"agent_work_intent_recorded",
+					],
+					clearedIntervals: 1,
+				},
 				// @lore AU21 Increment 14a: the "cost sentinel" owner (previously
 				// here, ["session_ended", "session_handoff_completed"] unsubscribe +
 				// 1 cleared interval) is HARD-DELETED along with the rest of the

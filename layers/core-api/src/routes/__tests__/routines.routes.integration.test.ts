@@ -28,7 +28,6 @@ async function seedBuiltinRoutine(db: HyperIdleDb): Promise<string> {
 	await db.insert(routines).values({
 		id: "builtin:knowledge-decay",
 		name: "Knowledge decay",
-		teamId: "team-1",
 		state: "active",
 		ownerAgentId: "agent-1",
 		triggerType: "calendar",
@@ -79,7 +78,6 @@ async function seedRoutine(db: HyperIdleDb): Promise<{ routineId: string; taskId
 	await db.insert(routines).values({
 		id: "routine-1",
 		name: "Test routine",
-		teamId: "team-1",
 		state: "active",
 		ownerAgentId: "agent-1",
 		triggerType: "cron",

@@ -23,13 +23,16 @@ const DOW_NAMES: Record<string, string> = {
 	SAT: "Saturday",
 };
 
-/** Known event type → readable description. */
-const EVENT_LABELS: Record<string, string> = {
-	bet_state_changed: "On bet completion",
-	task_state_changed: "On task state change",
-	session_started: "On session start",
-	session_ended: "On session end",
-};
+/**
+ * BA1 D8/§2.6: the label is DERIVED from the event name, not mapped — the
+ * four-name `EVENT_LABELS` table this replaced would have rendered the bare
+ * string "On event" for the other 30 of the 34 events D2 makes authorable.
+ * `bet_state_changed` → "On bet state changed". One line, correct for every
+ * event, and no label map left to drift.
+ */
+function humanizeEventType(eventType: string): string {
+	return `On ${eventType.replace(/_/g, " ")}`;
+}
 
 /**
  * Formats a UTC hour (0-23) into a 12-hour clock label, e.g. 14 → "2:00 PM".
@@ -107,9 +110,22 @@ function humanizeCron(cron: string): string | null {
  *
  * @param triggerType - The routine's trigger type ("heartbeat" | "calendar" | "event").
  * @param triggerConfigJson - The JSON string from routines.trigger_config, or null.
+ * @param eventType - BA1 D2/D8: the routine's `event_type` column, for `triggerType:"event"`.
  * @returns A human-readable label. Falls back to the capitalised trigger type on parse failure.
  */
-export function humanizeSchedule(triggerType: string, triggerConfigJson: string | null): string {
+export function humanizeSchedule(
+	triggerType: string,
+	triggerConfigJson: string | null,
+	eventType: string | null = null,
+): string {
+	// BA1 D2: an event routine's name lives in the `event_type` column, not
+	// `trigger_config` (which is no longer read for events at all) — checked
+	// first, ahead of the `!config` early return, since an event routine
+	// carries no `trigger_config`.
+	if (triggerType === "event") {
+		return eventType ? humanizeEventType(eventType) : "On event";
+	}
+
 	let config: Record<string, unknown> | null = null;
 
 	if (triggerConfigJson) {
@@ -144,14 +160,6 @@ export function humanizeSchedule(triggerType: string, triggerConfigJson: string 
 			if (label) return label;
 		}
 		return capitalise(triggerType);
-	}
-
-	if (triggerType === "event") {
-		const eventType = config.eventType;
-		if (typeof eventType === "string" && eventType in EVENT_LABELS) {
-			return EVENT_LABELS[eventType] as string;
-		}
-		return "On event";
 	}
 
 	return capitalise(triggerType);

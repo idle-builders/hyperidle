@@ -38,10 +38,13 @@ const BID = {
 	// for the "still doesn't fire" regression test below (a routine row that
 	// genuinely does not exist).
 	practiceMeeting: `builtin:practice-meeting:${TEST_TEAM_ID}`,
+	// BA1 D7: only post-bet-retro stays per-team; the other three are seeded
+	// ONCE, globally, with a bare id — the first team's seeding call is what
+	// creates them (this suite always seeds exactly one team).
 	postBetRetro: `builtin:post-bet-retro:${TEST_TEAM_ID}`,
-	portfolioRetro: `builtin:portfolio-retro:${TEST_TEAM_ID}`,
-	knowledgeDecay: `builtin:knowledge-decay:${TEST_TEAM_ID}`,
-	knowledgePromotion: `builtin:knowledge-promotion:${TEST_TEAM_ID}`,
+	portfolioRetro: "builtin:portfolio-retro",
+	knowledgeDecay: "builtin:knowledge-decay",
+	knowledgePromotion: "builtin:knowledge-promotion",
 } as const;
 
 /** Seed the owner agents and provision built-in routines for the test team. */

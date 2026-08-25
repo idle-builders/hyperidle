@@ -132,12 +132,9 @@ const delSuccessfulDelegation: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
-			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 900, taskId: routineTaskId },
-			skillId: "portfolio_review",
-			delegationAllowed: true,
 			active: true,
 		});
 		delSuccessRoutineId = routineId;
@@ -243,12 +240,9 @@ const delNoDelegateAvailable: EvalScenario = {
 			title: "Deferred routine task",
 		});
 		const { routineId } = await seedRoutine(ctx.db, {
-			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 900, taskId: routineTaskId },
-			skillId: "analytics",
-			delegationAllowed: true,
 			active: true,
 		});
 		delNoDelegateRoutineId = routineId;
@@ -306,85 +300,16 @@ const delNoDelegateAvailable: EvalScenario = {
 };
 
 // ---------------------------------------------------------------------------
-// del-delegation-not-allowed-defers
+// del-delegation-not-allowed-defers — RETIRED (BA1 D11)
+//
+// `routines.delegation_allowed` is dropped: it was written by
+// `provisionTeamRoutines`, rendered nowhere, read by no scheduler branch, and
+// its only documented mechanism (skill-based delegation) never existed —
+// the skill column is what D1 removes. This scenario's own label was
+// "Routine Fires Regardless of delegationAllowed (fire-time no longer reads
+// it)" — an eval asserting the flag is inert corroborates deleting it rather
+// than opposing it.
 // ---------------------------------------------------------------------------
-
-let delNotAllowedRoutineId = "";
-
-const delDelegationNotAllowed: EvalScenario = {
-	id: "del-delegation-not-allowed-defers",
-	description:
-		"AU15 skip→defer semantic change: owner at WIP limit with delegationAllowed=false no longer skips the occurrence at fire-time — it fires and records a run (fire-time no longer evaluates delegation at all).",
-	feature: "delegation",
-	tags: [],
-	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
-		const world = await seedMinimalWorld(ctx.db, {
-			agentRole: "facilitator", // @lore AD8c: renamed from practice_facilitator
-			taskTitle: "Delegation disabled task",
-		});
-		const { taskId: blockingTaskId } = await seedTask(ctx.db, {
-			betId: world.betId,
-			teamId: world.teamId,
-			ownerAgentId: world.agentId,
-			title: "Blocking task",
-		});
-		// Owner at WIP limit
-		await seedActiveSession(ctx.db, { taskId: blockingTaskId, agentId: world.agentId });
-
-		const { taskId: routineTaskId } = await seedTask(ctx.db, {
-			betId: world.betId,
-			teamId: world.teamId,
-			ownerAgentId: world.agentId,
-			title: "Delegation-disabled routine task",
-		});
-		const { routineId } = await seedRoutine(ctx.db, {
-			teamId: world.teamId,
-			ownerAgentId: world.agentId,
-			triggerType: "heartbeat",
-			triggerConfig: { intervalSeconds: 900, taskId: routineTaskId },
-			skillId: "facilitation",
-			delegationAllowed: false, // delegation disabled
-			active: true,
-		});
-		delNotAllowedRoutineId = routineId;
-		return world;
-	},
-	trigger: async (ctx: TriggerContext): Promise<TriggerResult> => {
-		const startMs = Date.now();
-		const eventBus = new EventBus();
-		const [routine] = await ctx.db
-			.select()
-			.from(routines)
-			.where(eq(routines.id, delNotAllowedRoutineId))
-			.limit(1);
-		if (!routine) return makeSyntheticResult(startMs, false);
-		const agentOrchestration = await buildEvalAgentOrchestrationPort(ctx.db, eventBus);
-		const result = await fireRoutine(ctx.db, eventBus, agentOrchestration, routine);
-		return makeSyntheticResult(startMs, result.fired);
-	},
-	rubric: {
-		dimensions: [
-			{
-				id: "routine_fires_regardless_of_delegation_flag",
-				label: "Routine Fires Regardless of delegationAllowed (fire-time no longer reads it)",
-				judge: async (ctx: JudgeContext): Promise<DimensionScore> => {
-					const [routine] = await ctx.db
-						.select({ lastRunAt: routines.lastRunAt })
-						.from(routines)
-						.where(eq(routines.id, delNotAllowedRoutineId))
-						.limit(1);
-					const fired = routine?.lastRunAt !== null && routine?.lastRunAt !== undefined;
-					return {
-						score: fired ? 1.0 : 0.0,
-						note: fired
-							? undefined
-							: "Routine did not fire (expected fire — delegationAllowed is no longer read anywhere)",
-					};
-				},
-			},
-		],
-	},
-};
 
 // ---------------------------------------------------------------------------
 // Export
@@ -393,5 +318,4 @@ const delDelegationNotAllowed: EvalScenario = {
 export const delegationScenarios: EvalScenario[] = [
 	delSuccessfulDelegation,
 	delNoDelegateAvailable,
-	delDelegationNotAllowed,
 ];

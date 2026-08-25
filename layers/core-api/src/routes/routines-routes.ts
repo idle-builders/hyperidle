@@ -9,7 +9,7 @@ import {
 	type RoutineRunSummary,
 } from "@hyperidle/domain-model";
 import { validateBody } from "@hyperidle/domain-model/http";
-import type { EventBus } from "@hyperidle/event-bus";
+import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule } from "@hyperidle/routine";
@@ -26,6 +26,13 @@ function deriveInitials(name: string): string {
 }
 
 const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
+/**
+ * BA1 D8 — the one list. Every event routine is validated against this SAME
+ * compile-time constant, on create, on patch, and via `GET
+ * /api/routines/event-types` (`core-ui` cannot reach `@hyperidle/event-bus`
+ * directly — `architecture.json` excludes it, per P8).
+ */
+const EVENT_TYPE_VALUES = EVENT_TYPES as readonly [string, ...string[]];
 
 /**
  * AA2: Schema for POST /api/routines (create routine).
@@ -37,27 +44,49 @@ const ROUTINE_STATE_VALUES = ROUTINE_STATES as readonly [string, ...string[]];
  * returns) and must round-trip the SAME id through the route. The real UI
  * caller (`RoutineCreateDialog.tsx`) never supplies one, so the default
  * server-generated-id behavior is unchanged for that path.
+ *
+ * @lore BA1 D5/NB2: `teamId` is REMOVED, not made optional — a routine has
+ * no team, it belongs to its owner agent. `.strict()` is load-bearing: a
+ * plain `z.object` on zod 4 strips unrecognized keys rather than rejecting
+ * them, so without it a stale `teamId` would be silently accepted and
+ * discarded — the exact inert outcome this decision exists to prevent.
  */
-const createRoutineSchema = z.object({
-	id: z.string().min(1).optional(),
-	name: z.string().min(1).max(200),
-	description: z.string().max(2000).nullish(),
-	teamId: z.string().min(1),
-	ownerAgentId: z.string().min(1),
-	triggerType: z.literal("calendar"),
-	triggerConfig: z.string().min(1),
-});
+const createRoutineSchema = z
+	.object({
+		id: z.string().min(1).optional(),
+		name: z.string().min(1).max(200),
+		/** BA1 D1: renamed from `description` — the 12 000-char limit is the retiring trigger entity's, not the old 2 000. */
+		prompt: z.string().max(12_000).nullish(),
+		ownerAgentId: z.string().min(1),
+		triggerType: z.enum(["calendar", "event"]),
+		/** Required (and validated) for `triggerType:"calendar"` only — see the handler. */
+		triggerConfig: z.string().min(1).optional(),
+		/** BA1 D8: required (and validated against `EVENT_TYPES`) for `triggerType:"event"` only. */
+		eventType: z.enum(EVENT_TYPE_VALUES).optional(),
+	})
+	.strict();
 
-const updateRoutineSchema = z.object({
-	active: z.boolean().optional(),
-	triggerConfig: z.string().optional(),
-	autonomyLevel: z.number().int().min(1).max(4).optional(),
-	silent: z.boolean().optional(),
-	// AA1: new fields
-	state: z.enum(ROUTINE_STATE_VALUES as [string, ...string[]]).optional(),
-	name: z.string().min(1).optional(),
-	description: z.string().optional(),
-});
+const updateRoutineSchema = z
+	.object({
+		active: z.boolean().optional(),
+		triggerConfig: z.string().optional(),
+		/** BA1 D8: an event routine cannot be edited into an unmatchable one. */
+		eventType: z.enum(EVENT_TYPE_VALUES).optional(),
+		autonomyLevel: z.number().int().min(1).max(4).optional(),
+		silent: z.boolean().optional(),
+		// AA1: new fields
+		state: z.enum(ROUTINE_STATE_VALUES as [string, ...string[]]).optional(),
+		name: z.string().min(1).optional(),
+		/**
+		 * BA1 D1 + critique §D optional pickup: `.nullish()`, not
+		 * `.optional()` — `RoutineDetailPane` sends `description: description
+		 * || null` to clear the prompt, and D1's own decision is that
+		 * `prompt` stays nullable. A plain `.optional()` rejects `null` and
+		 * 400s on every clear.
+		 */
+		prompt: z.string().max(12_000).nullish(),
+	})
+	.strict();
 
 /**
  * Map routine state string to `active` boolean for backward compat.
@@ -89,15 +118,15 @@ export function createRoutineRoutes(
 ): Hono {
 	const router = new Hono();
 
+	// GET /event-types — BA1 D8: the one list `RoutineCreateDialog` fills its
+	// event `Select` from. Reads no row, reveals no tenant data.
+	router.get("/event-types", (c) => {
+		return c.json({ eventTypes: EVENT_TYPES });
+	});
+
 	// POST / — Create routine (AA2 AC-1)
 	router.post("/", validateBody(createRoutineSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createRoutineSchema>;
-
-		// Verify teamId exists
-		const team = await getTeam(db, { id: body.teamId });
-		if (!team) {
-			return c.json({ error: "Team not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
-		}
 
 		// Verify ownerAgentId exists
 		const agent = await findUser(db, { id: body.ownerAgentId });
@@ -105,29 +134,57 @@ export function createRoutineRoutes(
 			return c.json({ error: "Agent not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		// Validate triggerConfig JSON structure (cron expression validation is
-		// owner-side in insertRoutine — invalid cron throws, caught below).
-		let triggerConfigParsed: { cron?: string };
-		try {
-			triggerConfigParsed = JSON.parse(body.triggerConfig) as { cron?: string };
-		} catch {
-			return c.json(
-				{
-					error: "Invalid triggerConfig: must be valid JSON",
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				},
-				400,
-			);
-		}
+		let triggerConfig: string | undefined;
+		let eventType: string | undefined;
 
-		if (!triggerConfigParsed.cron) {
-			return c.json(
-				{
-					error: "Invalid triggerConfig: cron field required",
-					code: API_ERROR_CODES.VALIDATION_ERROR,
-				},
-				400,
-			);
+		if (body.triggerType === "calendar") {
+			if (!body.triggerConfig) {
+				return c.json(
+					{
+						error: "Invalid triggerConfig: cron field required",
+						code: API_ERROR_CODES.VALIDATION_ERROR,
+					},
+					400,
+				);
+			}
+			// Validate triggerConfig JSON structure (cron expression validation is
+			// owner-side in insertRoutine — invalid cron throws, caught below).
+			let triggerConfigParsed: { cron?: string };
+			try {
+				triggerConfigParsed = JSON.parse(body.triggerConfig) as { cron?: string };
+			} catch {
+				return c.json(
+					{
+						error: "Invalid triggerConfig: must be valid JSON",
+						code: API_ERROR_CODES.VALIDATION_ERROR,
+					},
+					400,
+				);
+			}
+			if (!triggerConfigParsed.cron) {
+				return c.json(
+					{
+						error: "Invalid triggerConfig: cron field required",
+						code: API_ERROR_CODES.VALIDATION_ERROR,
+					},
+					400,
+				);
+			}
+			triggerConfig = body.triggerConfig;
+		} else {
+			// BA1 D8: `triggerType:"event"` requires a top-level `eventType`,
+			// already validated against `EVENT_TYPES` by the schema — a miss
+			// (unknown name) 400s there. This just requires PRESENCE.
+			if (!body.eventType) {
+				return c.json(
+					{
+						error: 'eventType is required for triggerType:"event"',
+						code: API_ERROR_CODES.VALIDATION_ERROR,
+					},
+					400,
+				);
+			}
+			eventType = body.eventType;
 		}
 
 		const routineId = body.id ?? crypto.randomUUID();
@@ -137,11 +194,11 @@ export function createRoutineRoutes(
 			await routineService.insertRoutine(db, {
 				id: routineId,
 				name: body.name,
-				description: body.description ?? null,
-				teamId: body.teamId,
+				prompt: body.prompt ?? null,
 				ownerAgentId: body.ownerAgentId,
 				triggerType: body.triggerType,
-				triggerConfig: body.triggerConfig,
+				...(triggerConfig !== undefined ? { triggerConfig } : {}),
+				...(eventType !== undefined ? { eventType } : {}),
 				state: "active",
 				active: true,
 				createdAt: now,
@@ -191,13 +248,14 @@ export function createRoutineRoutes(
 			return c.json({ error: "Routine not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		// Resolve agent name
+		// Resolve agent name + BA1 D5: scope comes from the owner agent.
 		const ownerUser = await findUser(db, { id: routine.ownerAgentId });
 		const agentName = ownerUser?.name ?? routine.ownerAgentId;
+		const teamId = ownerUser?.teamId ?? null;
 
 		// Resolve team name
-		const teamRow = await getTeam(db, { id: routine.teamId });
-		const teamName = teamRow?.name ?? routine.teamId;
+		const teamRow = teamId ? await getTeam(db, { id: teamId }) : undefined;
+		const teamName = teamRow?.name ?? teamId;
 
 		// Fetch up to 20 runs (newest first). allRuns[0] is the latest run — no
 		// separate latestRun query needed.
@@ -230,19 +288,23 @@ export function createRoutineRoutes(
 		const routineInfo: RoutineInfo = {
 			id: routine.id,
 			name: routine.name,
-			description: routine.description ?? null,
+			prompt: routine.prompt ?? null,
 			state: (routine.state ?? "active") as RoutineInfo["state"],
 			triggerType: routine.triggerType,
 			triggerConfig: routine.triggerConfig ?? null,
-			scheduleLabel: humanizeSchedule(routine.triggerType, routine.triggerConfig ?? null),
+			eventType: routine.eventType ?? null,
+			scheduleLabel: humanizeSchedule(
+				routine.triggerType,
+				routine.triggerConfig ?? null,
+				routine.eventType ?? null,
+			),
 			ownerAgentId: routine.ownerAgentId,
 			agentName,
 			agentInitials: deriveInitials(agentName),
-			teamId: routine.teamId,
+			teamId,
 			teamName,
 			autonomyLevel: routine.autonomyLevel ?? null,
 			humanReview: routine.humanReview ?? false,
-			delegationAllowed: routine.delegationAllowed ?? false,
 			lastRunAt: routine.lastRunAt ?? null,
 			lastRunOutcome: (allRuns[0]?.outcome ?? null) as RoutineRunOutcome | null,
 			nextRunAt: routine.nextRunAt ?? null,
@@ -287,11 +349,12 @@ export function createRoutineRoutes(
 		const updates: routineService.RoutinePatch = {};
 		if (body.active !== undefined) updates.active = body.active;
 		if (body.triggerConfig !== undefined) updates.triggerConfig = body.triggerConfig;
+		if (body.eventType !== undefined) updates.eventType = body.eventType;
 		if (body.autonomyLevel !== undefined) updates.autonomyLevel = body.autonomyLevel;
 		if (body.silent !== undefined) updates.silent = body.silent;
 		// AA1: extended fields
 		if (body.name !== undefined) updates.name = body.name;
-		if (body.description !== undefined) updates.description = body.description;
+		if (body.prompt !== undefined) updates.prompt = body.prompt;
 		if (body.state !== undefined) {
 			updates.state = body.state;
 			// Sync active boolean with state for backward compat

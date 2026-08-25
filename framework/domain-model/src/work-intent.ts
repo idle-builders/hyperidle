@@ -247,11 +247,13 @@ export type BakedContextBundle =
 			readonly routine: {
 				readonly id: string;
 				readonly name: string;
-				readonly description: string | null;
+				/** BA1 D3: one column, one field — replaces `description`. */
+				readonly prompt: string | null;
 				readonly lastRunSummary: string | null;
 			};
 			readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-			readonly team: { readonly id: string; readonly name: string };
+			/** BA1 D4: nullable — the owner agent may belong to no team. */
+			readonly team: { readonly id: string; readonly name: string } | null;
 			readonly knowledge: readonly BakedContextKnowledgeItem[];
 	  }
 	| {

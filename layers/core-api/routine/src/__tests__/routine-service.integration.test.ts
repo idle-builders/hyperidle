@@ -61,7 +61,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "Test routine",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -79,7 +78,6 @@ describe("routine-service", () => {
 				{
 					id: "routine-1",
 					name: "First",
-					teamId: "team-1",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 				},
@@ -91,7 +89,6 @@ describe("routine-service", () => {
 				{
 					id: "routine-1",
 					name: "Second",
-					teamId: "team-1",
 					ownerAgentId: "agent-1",
 					triggerType: "heartbeat",
 				},
@@ -110,14 +107,12 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
 			await routine.insertRoutine(db, {
 				id: "routine-2",
 				name: "R2",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -141,7 +136,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -162,7 +156,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -205,7 +198,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -235,7 +227,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -272,7 +263,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -293,14 +283,12 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "Active",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
 			await routine.insertRoutine(db, {
 				id: "routine-2",
 				name: "Deleted",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				deletedAt: new Date().toISOString(),
@@ -315,14 +303,12 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "Active",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
 			await routine.insertRoutine(db, {
 				id: "routine-2",
 				name: "Deleted",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				deletedAt: new Date().toISOString(),
@@ -333,49 +319,60 @@ describe("routine-service", () => {
 		});
 	});
 
-	describe("listRoutines / teamId filter", () => {
-		test("scopes to team, excludes soft-deleted, orders by id", async ({ db }) => {
+	// BA1 D5: a routine has no team_id — scope comes from the owner agent.
+	describe("listRoutines / ownerAgentIds filter", () => {
+		test("scopes to the given owner agent ids, excludes soft-deleted, orders by id", async ({
+			db,
+		}) => {
 			await seedTeamAndAgent(db);
-			const team2CreatedAt = new Date().toISOString();
-			await db.insert(teams).values({
-				id: "team-2",
-				name: "Other Team",
-				phase: "build",
-				createdAt: team2CreatedAt,
+			await db.insert(users).values({
+				id: "agent-2",
+				name: "Agent Two",
+				role: "builder",
+				status: "idle",
+				createdAt: new Date().toISOString(),
 			});
-			// The owner writes the membership row alongside the team.
 			await routine.insertRoutine(db, {
 				id: "routine-b",
 				name: "B",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
 			await routine.insertRoutine(db, {
 				id: "routine-a",
 				name: "A",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
 			await routine.insertRoutine(db, {
 				id: "routine-c",
 				name: "Deleted",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				deletedAt: new Date().toISOString(),
 			});
 			await routine.insertRoutine(db, {
-				id: "routine-other-team",
+				id: "routine-other-agent",
 				name: "Other",
-				teamId: "team-2",
+				ownerAgentId: "agent-2",
+				triggerType: "heartbeat",
+			});
+
+			const rows = await routine.listRoutines(db, { ownerAgentIds: ["agent-1"] });
+			expect(rows.map((r) => r.id)).toEqual(["routine-a", "routine-b"]);
+		});
+
+		test("an empty ownerAgentIds array matches nothing", async ({ db }) => {
+			await seedTeamAndAgent(db);
+			await routine.insertRoutine(db, {
+				id: "routine-1",
+				name: "R1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
 
-			const rows = await routine.listRoutines(db, { teamId: "team-1" });
-			expect(rows.map((r) => r.id)).toEqual(["routine-a", "routine-b"]);
+			const rows = await routine.listRoutines(db, { ownerAgentIds: [] });
+			expect(rows).toEqual([]);
 		});
 	});
 
@@ -385,7 +382,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				active: true,
@@ -393,7 +389,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-2",
 				name: "R2",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				active: false,
@@ -408,7 +403,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-event",
 				name: "Event",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "event",
 				active: true,
@@ -416,7 +410,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-heartbeat",
 				name: "Heartbeat",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				active: true,
@@ -433,7 +426,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-missing",
 				name: "Missing",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "calendar",
 				active: true,
@@ -444,7 +436,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-has-next",
 				name: "HasNext",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 3600 }),
@@ -453,7 +444,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-event-type",
 				name: "EventType",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "event",
 				active: true,
@@ -470,20 +460,18 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
 			await routine.insertRoutine(db, {
 				id: "routine-2",
 				name: "R2 deleted",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 				deletedAt: new Date().toISOString(),
 			});
 
-			const count = (await routine.listRoutines(db, { teamId: "team-1" })).length;
+			const count = (await routine.listRoutines(db, { ownerAgentIds: ["agent-1"] })).length;
 			expect(count).toBe(1);
 		});
 	});
@@ -494,7 +482,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -516,7 +503,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -556,7 +542,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});
@@ -588,7 +573,6 @@ describe("routine-service", () => {
 			await routine.insertRoutine(db, {
 				id: "routine-1",
 				name: "R1",
-				teamId: "team-1",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",
 			});

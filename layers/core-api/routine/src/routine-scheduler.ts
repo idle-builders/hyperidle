@@ -52,17 +52,21 @@
 import * as crypto from "node:crypto";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type {
-	BetStateChangedEvent,
-	EventBus,
-	EventType,
-	ItemCreatedEvent,
+import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
+import {
+	type AgentWorkIntentSourceKind,
+	type BetStateChangedEvent,
+	type DomainEvent,
+	EVENT_TYPES,
+	type EventBus,
+	type ItemCreatedEvent,
 } from "@hyperidle/event-bus";
 import type { RoutineSchedulerPorts } from "./ports.js";
 import {
 	type BakedRoutineRunRequest,
 	computeRoutineNextRunAt,
 	getRoutine,
+	getRoutineRun,
 	insertRoutine,
 	insertRoutineRun,
 	listRoutineRuns,
@@ -116,10 +120,15 @@ interface BuiltinRoutineSpec {
 	readonly ownerRole: string;
 	readonly triggerType: "heartbeat" | "calendar" | "event";
 	readonly triggerConfig: Record<string, unknown>;
-	readonly skillId: string;
-	readonly doneCondition: string;
 	readonly humanReview: boolean;
 	readonly silent: boolean;
+	/**
+	 * BA1 D7: `"team"` seeds once per team (unchanged, per-team id);
+	 * `"once"` seeds a single global row, derived from what each builtin's
+	 * own body reads — post-bet-retro reads the shipping bet's team, the
+	 * other three read nothing team-scoped.
+	 */
+	readonly scope: "team" | "once";
 }
 
 const BUILTIN_SPECS: readonly BuiltinRoutineSpec[] = [
@@ -129,10 +138,9 @@ const BUILTIN_SPECS: readonly BuiltinRoutineSpec[] = [
 		ownerRole: "product_manager",
 		triggerType: "event",
 		triggerConfig: { eventType: "bet_state_changed" },
-		skillId: "bet_retro",
-		doneCondition: "Review item comparing hypothesis vs reality written",
 		humanReview: true,
 		silent: false,
+		scope: "team",
 	},
 	{
 		id: "builtin:portfolio-retro",
@@ -140,10 +148,9 @@ const BUILTIN_SPECS: readonly BuiltinRoutineSpec[] = [
 		ownerRole: "assistant",
 		triggerType: "calendar",
 		triggerConfig: { cron: PORTFOLIO_RETRO_CRON },
-		skillId: "portfolio_retro",
-		doneCondition: "Cross-product portfolio review item written",
 		humanReview: true,
 		silent: false,
+		scope: "once",
 	},
 	{
 		id: "builtin:knowledge-decay",
@@ -151,10 +158,9 @@ const BUILTIN_SPECS: readonly BuiltinRoutineSpec[] = [
 		ownerRole: "facilitator",
 		triggerType: "calendar",
 		triggerConfig: { cron: KNOWLEDGE_DECAY_CRON },
-		skillId: "knowledge_decay",
-		doneCondition: "Stale knowledge items transitioned",
 		humanReview: false,
 		silent: true,
+		scope: "once",
 	},
 	{
 		id: "builtin:knowledge-promotion",
@@ -162,10 +168,9 @@ const BUILTIN_SPECS: readonly BuiltinRoutineSpec[] = [
 		ownerRole: "facilitator",
 		triggerType: "calendar",
 		triggerConfig: { cron: KNOWLEDGE_PROMOTION_CRON },
-		skillId: "knowledge_promotion",
-		doneCondition: "Provisional items meeting repetition threshold promoted",
 		humanReview: false,
 		silent: false,
+		scope: "once",
 	},
 ];
 
@@ -173,6 +178,11 @@ const BUILTIN_SPECS: readonly BuiltinRoutineSpec[] = [
  * Seed the four builtin-routine definitions for a newly-created team.
  * Deterministic, idempotent (`onConflictDoNothing`) — a one-time definition
  * write, not a live agent-run-path read/write.
+ *
+ * BA1 D7: a `"once"`-scoped spec seeds the bare id (no `:${teamId}` suffix),
+ * so the second and every later team's attempt is a no-op under the same
+ * `onConflictDoNothing`. `extractBuiltinKind` already accepts both the bare
+ * and the suffixed form.
  */
 export async function provisionTeamRoutines(
 	db: HyperIdleDb,
@@ -184,7 +194,7 @@ export async function provisionTeamRoutines(
 ): Promise<void> {
 	const { teamId, ownerByRole, leadAgentId } = opts;
 	for (const spec of BUILTIN_SPECS) {
-		const routineId = `${spec.id}:${teamId}`;
+		const routineId = spec.scope === "once" ? spec.id : `${spec.id}:${teamId}`;
 		const ownerAgentId = ownerByRole[spec.ownerRole] ?? leadAgentId;
 
 		// nextRunAt is computed owner-side by insertRoutine — no caller-side
@@ -195,14 +205,10 @@ export async function provisionTeamRoutines(
 			{
 				id: routineId,
 				name: spec.name,
-				teamId,
 				state: "active",
 				ownerAgentId,
 				triggerType: spec.triggerType,
 				triggerConfig: JSON.stringify(spec.triggerConfig),
-				skillId: spec.skillId,
-				doneCondition: spec.doneCondition,
-				delegationAllowed: false,
 				humanReview: spec.humanReview,
 				silent: spec.silent,
 				active: true,
@@ -625,6 +631,26 @@ export async function fireGenericRoutine(
 		// SAME transaction's write (`insertRoutineRun`) must propagate, exactly
 		// like every other failure in this transaction always has.
 		if (error instanceof RoutineRunSourceUnavailableError) {
+			// BA1 D9: a paused/deleted/deactivated routine (`not_eligible`) is
+			// today's behaviour, unchanged — nothing is wrong, someone paused
+			// it. An unrunnable owner (`agent_not_runnable`) is the AC4 case:
+			// the transaction above rolled back and persisted nothing, so this
+			// records a terminal run OUTSIDE any transaction, then errors the
+			// routine so it stops re-attempting — under D2 that matters more,
+			// not less, since a broken routine on a busy event would otherwise
+			// fail once per emission.
+			if (error.reason === "agent_not_runnable") {
+				const failedAt = new Date().toISOString();
+				await insertRoutineRun(db, {
+					id: crypto.randomUUID(),
+					routineId: routine.id,
+					startedAt: failedAt,
+					endedAt: failedAt,
+					outcome: "error",
+					errorMessage: error.message,
+				});
+				await updateRoutine(db, routine.id, { state: "error", active: false });
+			}
 			return { fired: false, reason: error.message };
 		}
 		throw error;
@@ -681,59 +707,98 @@ export async function fireGenericRoutine(
 	return { fired: true, runId };
 }
 
-interface TriggerConfig {
-	intervalSeconds?: number;
-	cron?: string;
-	eventType?: string;
-	taskId?: string;
+/**
+ * BA1 §3.1.1 — the two routine source-kind spellings, pinned. The bus
+ * carries two source-kind vocabularies and a routine is spelled differently
+ * in each: `AgentSessionSourceKind` (resolved sessions) says `"routine"`;
+ * `AgentWorkIntentSourceKind` (the pre-resolution intent vocabulary
+ * `agent_run_admission_failed` carries verbatim) says `"routine_run"`. A
+ * rename in either union fails `npm run check` here rather than silently
+ * reopening the hole a bare string comparison would.
+ */
+const SESSION_SPELLING: AgentSessionSourceKind = "routine";
+const INTENT_SPELLING: AgentWorkIntentSourceKind = "routine_run";
+
+function isRoutineSourceKind(k: string | undefined): boolean {
+	return k === SESSION_SPELLING || k === INTENT_SPELLING;
 }
 
 /**
- * Registers event-triggered GENERIC (non-builtin) routines — relocated
- * verbatim from `registerEventTriggersInternal`.
+ * BA1 §3.1.1 — resolve the routine whose run produced `event`, in three
+ * steps, giving up (`null`) rather than guessing. This is coverage, not
+ * completeness: an event an agent's own actions caused (e.g. a routine's
+ * agent edits a bet, emitting `bet_state_changed`) carries no trace of the
+ * routine at all, and this function correctly returns `null` for it — the
+ * founder's loop ruling (§3.1) accepts that case rather than plumbing new
+ * origin-tracking through every event contract.
  */
-async function registerEventTriggers(
+async function originRoutineId(db: HyperIdleDb, event: DomainEvent): Promise<string | null> {
+	if (event.type === "routine_fired") return event.routineId;
+
+	const sourceKind = "sourceKind" in event ? event.sourceKind : undefined;
+	if (!isRoutineSourceKind(sourceKind)) return null;
+
+	if ("sourceCorrelation" in event && event.sourceCorrelation) {
+		const correlation = event.sourceCorrelation;
+		if ("routineId" in correlation && typeof correlation.routineId === "string") {
+			return correlation.routineId;
+		}
+	}
+
+	if ("sourceId" in event && event.sourceId) {
+		const run = await getRoutineRun(db, event.sourceId);
+		if (run) return run.routineId;
+	}
+
+	return null;
+}
+
+/**
+ * BA1 D2 — replaces `registerEventTriggers`. One `eventBus.on` per member of
+ * `EVENT_TYPES` (a compile-time constant — D8), not one per routine read
+ * once at boot: the subscription set cannot go stale because it is not
+ * derived from anything mutable. On delivery: bail immediately when the
+ * process cannot provision agent runs (`canProvision`, matching the clock
+ * path's own gate); otherwise query the routines that name this event,
+ * drop any id `extractBuiltinKind` recognizes (a builtin's event condition
+ * is code, not configuration — §2.5), drop cut 3's suppressed origin from
+ * the match set (never the subscription set — §3.1's ruling accepts every
+ * other loop shape), then fire the rest. Order matters for cost: the match
+ * set is resolved FIRST, and the origin is computed only when that set is
+ * non-empty.
+ */
+function registerRoutineEventMatcher(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	ports: RoutineSchedulerPorts,
-): Promise<() => void> {
-	const eventRoutines = await listRoutines(db, { active: true, triggerType: "event" });
-
+	config: { readonly canProvision: boolean },
+): () => void {
 	const unsubscribers: Array<() => void> = [];
-	const unwind = (): void => {
-		for (const unsubscribe of unsubscribers.reverse()) {
-			try {
-				unsubscribe();
-			} catch {
-				// Continue removing every subscription after a faulty disposer.
-			}
-		}
-	};
-
-	try {
-		for (const routine of eventRoutines) {
-			const config = JSON.parse(routine.triggerConfig ?? "{}") as TriggerConfig;
-			if (!config.eventType) continue;
-
-			const eventType = config.eventType as EventType;
-			const unsub = eventBus.on(eventType, () => {
-				void (async () => {
-					const current = await getRoutine(db, routine.id);
-					if (current?.active) {
-						fireGenericRoutine(db, eventBus, current, ports).catch(() => {
-							/* fire-and-forget: generic firing is resilient internally */
-						});
-					}
-				})();
-			});
-			unsubscribers.push(unsub);
-		}
-	} catch (error) {
-		unwind();
-		throw error;
+	for (const eventType of EVENT_TYPES) {
+		const unsub = eventBus.on(eventType, (event) => {
+			if (!config.canProvision) return;
+			void (async () => {
+				const matches = await listRoutines(db, {
+					triggerType: "event",
+					eventType,
+					active: true,
+				});
+				const candidates = matches.filter((routine) => extractBuiltinKind(routine.id) === null);
+				if (candidates.length === 0) return;
+				const origin = await originRoutineId(db, event);
+				const toFire = origin ? candidates.filter((routine) => routine.id !== origin) : candidates;
+				for (const routine of toFire) {
+					fireGenericRoutine(db, eventBus, routine, ports).catch(() => {
+						/* fire-and-forget: generic firing is resilient internally */
+					});
+				}
+			})();
+		});
+		unsubscribers.push(unsub);
 	}
-
-	return unwind;
+	return (): void => {
+		for (const unsubscribe of unsubscribers.reverse()) unsubscribe();
+	};
 }
 
 /**
@@ -788,7 +853,10 @@ export async function startRoutineScheduler(
 	let lastReapedAt = 0;
 	let tickRunning = false;
 	await backfillMissingNextRunAt(db);
-	const unsubEvents = await registerEventTriggers(db, eventBus, ports);
+	// BA1 D2: registration is synchronous now — there is no boot-time read to
+	// await. The disposer shape (`unwind`, returned into `stop()`) is
+	// unchanged.
+	const unsubEvents = registerRoutineEventMatcher(db, eventBus, ports, { canProvision });
 
 	let intervalId: ReturnType<typeof setInterval>;
 	try {

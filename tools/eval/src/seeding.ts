@@ -543,13 +543,11 @@ export async function seedRoutine(
 	db: HyperIdleDb,
 	opts: {
 		routineId?: string;
-		teamId: string;
 		ownerAgentId: string;
 		triggerType: "heartbeat" | "calendar" | "event" | "continuous";
 		triggerConfig?: Record<string, unknown>;
-		skillId?: string;
-		doneCondition?: string;
-		delegationAllowed?: boolean;
+		/** BA1 D2/D8: `triggerType:"event"`'s event name — a real column, not part of `triggerConfig`. */
+		eventType?: string;
 		humanReview?: boolean;
 		autonomyLevel?: number;
 		silent?: boolean;
@@ -562,13 +560,10 @@ export async function seedRoutine(
 
 	await db.insert(routines).values({
 		id: routineId,
-		teamId: opts.teamId,
 		ownerAgentId: opts.ownerAgentId,
 		triggerType: opts.triggerType,
 		triggerConfig: opts.triggerConfig ? JSON.stringify(opts.triggerConfig) : null,
-		skillId: opts.skillId ?? null,
-		doneCondition: opts.doneCondition ?? null,
-		delegationAllowed: opts.delegationAllowed ?? false,
+		eventType: opts.eventType ?? null,
 		humanReview: opts.humanReview ?? false,
 		autonomyLevel: opts.autonomyLevel ?? null,
 		silent: opts.silent ?? false,

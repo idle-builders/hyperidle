@@ -1,7 +1,7 @@
 /**
  * AA2 — RoutineCreateDialog component tests.
  *
- * AC-1: Dialog renders all fields (name, description, schedule, agent).
+ * AC-1: Dialog renders all fields (name, prompt, schedule, agent).
  *       Create button disabled when required fields empty.
  *       Create button enabled when required fields filled.
  *       Submit calls API with correct payload.
@@ -9,6 +9,12 @@
  *       Error state shows error message.
  *       Schedule picker shows presets.
  *       Custom schedule input appears when "Custom..." selected.
+ *
+ * @lore BA1 D5/D8: `teams` prop removed (a routine has no team); the dialog
+ * now fetches `GET /api/routines/event-types` on mount for the "When: event"
+ * branch, so every test's `apiFetch` mock must answer that GET too — a
+ * single dispatching implementation, not a queue of `mockResolvedValueOnce`
+ * calls that the extra GET would consume out of order.
  */
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -21,18 +27,21 @@ vi.mock("../services/api-fetch.js", () => ({
 	apiFetch: vi.fn(),
 }));
 
-const MOCK_TEAMS = [{ id: "team-1", name: "Build Team" }];
 const MOCK_AGENTS = [
 	{ id: "agent-1", name: "Digest Agent" },
 	{ id: "agent-2", name: "Review Agent" },
 ];
+
+const EVENT_TYPES_RESPONSE = {
+	ok: true,
+	json: vi.fn().mockResolvedValue({ eventTypes: ["bet_state_changed", "task_state_changed"] }),
+} as unknown as Response;
 
 function renderDialog(overrides: Partial<Parameters<typeof RoutineCreateDialog>[0]> = {}): void {
 	const defaultProps = {
 		open: true,
 		onClose: vi.fn(),
 		onCreated: vi.fn(),
-		teams: MOCK_TEAMS,
 		agents: MOCK_AGENTS,
 		...overrides,
 	};
@@ -45,6 +54,12 @@ describe("RoutineCreateDialog", () => {
 
 	beforeEach(() => {
 		mockApiFetch.mockReset();
+		// Every render fires the mount-time GET /api/routines/event-types —
+		// answer it here so submit tests only need to special-case the POST.
+		mockApiFetch.mockImplementation(async (input) => {
+			if (input === "/api/routines/event-types") return EVENT_TYPES_RESPONSE;
+			return { ok: true, json: vi.fn().mockResolvedValue({}) } as unknown as Response;
+		});
 	});
 
 	afterEach(() => {
@@ -56,10 +71,9 @@ describe("RoutineCreateDialog", () => {
 		expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
 	});
 
-	it("renders description field", () => {
+	it("renders prompt field", () => {
 		renderDialog();
-		// Description can be a textarea or labeled input
-		expect(screen.getByPlaceholderText(/description/i)).toBeInTheDocument();
+		expect(screen.getByPlaceholderText(/instruction for the agent/i)).toBeInTheDocument();
 	});
 
 	it("renders agent select with provided agents", () => {
@@ -107,10 +121,13 @@ describe("RoutineCreateDialog", () => {
 		const onCreated = vi.fn();
 		const onClose = vi.fn();
 
-		mockApiFetch.mockResolvedValueOnce({
-			ok: true,
-			json: vi.fn().mockResolvedValue({ id: "new-routine", name: "Test Routine" }),
-		} as unknown as Response);
+		mockApiFetch.mockImplementation(async (input) => {
+			if (input === "/api/routines/event-types") return EVENT_TYPES_RESPONSE;
+			return {
+				ok: true,
+				json: vi.fn().mockResolvedValue({ id: "new-routine", name: "Test Routine" }),
+			} as unknown as Response;
+		});
 
 		renderDialog({ onCreated, onClose });
 
@@ -136,11 +153,14 @@ describe("RoutineCreateDialog", () => {
 	});
 
 	it("shows error message when API call fails", async () => {
-		mockApiFetch.mockResolvedValueOnce({
-			ok: false,
-			status: 400,
-			json: vi.fn().mockResolvedValue({ error: "Invalid cron expression" }),
-		} as unknown as Response);
+		mockApiFetch.mockImplementation(async (input) => {
+			if (input === "/api/routines/event-types") return EVENT_TYPES_RESPONSE;
+			return {
+				ok: false,
+				status: 400,
+				json: vi.fn().mockResolvedValue({ error: "Invalid cron expression" }),
+			} as unknown as Response;
+		});
 
 		renderDialog();
 
@@ -178,6 +198,16 @@ describe("RoutineCreateDialog", () => {
 		// Then select a preset
 		fireEvent.change(scheduleSelect, { target: { value: "0 * * * *" } });
 		expect(screen.queryByPlaceholderText(/cron/i)).not.toBeInTheDocument();
+	});
+
+	it("switches to the event select and hides the schedule picker when 'On an event' is chosen", () => {
+		renderDialog();
+
+		const whenSelect = screen.getByLabelText(/when/i);
+		fireEvent.change(whenSelect, { target: { value: "event" } });
+
+		expect(screen.queryByLabelText(/schedule/i)).not.toBeInTheDocument();
+		expect(screen.getByLabelText(/event/i)).toBeInTheDocument();
 	});
 
 	it("does not render when open is false", () => {

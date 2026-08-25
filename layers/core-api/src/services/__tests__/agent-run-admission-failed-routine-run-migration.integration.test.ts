@@ -162,7 +162,6 @@ describe("agent_run_admission_failed — routine_run reaction fires for a REAL m
 		await db.insert(routines).values({
 			id: "routine-au21-rrun-mig",
 			name: "routine_run migration proof routine",
-			teamId,
 			state: "active",
 			ownerAgentId,
 			triggerType: "manual",

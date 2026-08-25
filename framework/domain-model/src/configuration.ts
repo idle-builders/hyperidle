@@ -2,7 +2,6 @@ export const CONFIGURATION_KINDS = [
 	"agent",
 	"skill",
 	"routine",
-	"trigger",
 	"tool",
 	"mcp_server",
 	"harness_descriptor",

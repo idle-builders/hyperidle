@@ -2,22 +2,25 @@
  * AU21 §9 Increment 4 — disposal-safety guarantees for the relocated routine
  * scheduler (`startRoutineScheduler`, moved from
  * `layers/agent-orchestration/dispatch/src/service.ts`'s
- * `startRoutineTriggerInternal`). Ports two of the four scheduler-mechanics
- * tests that used to live in
- * `layers/agent-orchestration/dispatch/src/__tests__/dispatch-completeness-contract.test.ts`
- * against the relocated code, using REAL seeded routines — `registerEventTriggers`/
- * `backfillMissingNextRunAt`/the tick loop's `listRoutines` read are now
- * ordinary intra-package DB calls (`routine-service.ts`), not mockable
- * `DispatchPorts` methods, so this file is `*.integration.test.ts` (real
- * `{ db }` fixture) rather than a mocked unit test.
+ * `startRoutineTriggerInternal`).
+ *
+ * @lore BA1 D2: `registerEventTriggers` (one `eventBus.on` per ROUTINE, read
+ * once at boot, `trigger_config` JSON-parsed at registration time) is
+ * replaced by `registerRoutineEventMatcher` (one `eventBus.on` per member of
+ * the compile-time `EVENT_TYPES` constant — 34 subscriptions, always,
+ * regardless of what is in the `routines` table). That retires this file's
+ * original "partial event-trigger registration unwinds earlier subscriptions"
+ * test outright, per architecture.md §6's own failure-behaviour table: a
+ * malformed `trigger_config` used to throw inside registration, unwinding
+ * every subscription at boot; under D2 it is never parsed at registration
+ * time at all — the event name is a real column, read only at MATCH time,
+ * long after every subscription already exists. There is no longer a
+ * registration-time failure mode a bad row can trigger, so the scenario that
+ * test encoded cannot happen — it is replaced below by the positive
+ * assertion (malformed data present, scheduler starts anyway) rather than
+ * quietly deleted.
  *
  * NOT ported (flagged, not silently dropped):
- *   - "scheduler startup failure removes prior subscriptions" (the OLD test
- *     forced the routine READ ITSELF to throw via a mocked port) — with a
- *     real DB there is no honest, non-invasive way to make ONE specific
- *     `listRoutines` call fail without mocking the DB driver. The malformed-
- *     JSON test below exercises the same unwind code path via a real
- *     mid-loop failure instead.
  *   - "scheduler does not overlap asynchronous ticks" — the original forced
  *     `listActiveRoutines` itself to return a slow-resolving promise; every
  *     other async step inside a tick body is fire-and-forget
@@ -30,7 +33,7 @@
  */
 import { type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
-import { EventBus } from "@hyperidle/event-bus";
+import { EVENT_TYPES, EventBus } from "@hyperidle/event-bus";
 import { describe, vi } from "vitest";
 import type { RoutineSchedulerPorts } from "../ports.js";
 import { startRoutineScheduler } from "../routine-scheduler.js";
@@ -45,8 +48,8 @@ function unreachable(label: string): () => never {
 }
 
 /**
- * Neither test seeds a due generic (non-builtin, non-event) routine or fires
- * a builtin routine — only the event-trigger registration + tick-loop
+ * Neither test fires a due generic (non-builtin, non-event) routine or a
+ * builtin routine — only the event-matcher registration + tick-loop
  * scaffolding is exercised — so every port here is a throwing stub.
  */
 function inertPorts(): RoutineSchedulerPorts {
@@ -84,12 +87,12 @@ async function seedEventRoutine(db: HyperIdleDb, id: string, triggerConfig: stri
 		name: "Owner",
 		role: "builder",
 		status: "active",
+		teamId,
 		createdAt: NOW,
 	});
 	await db.insert(routines).values({
 		id,
 		name: "Completeness event routine",
-		teamId,
 		state: "active",
 		ownerAgentId,
 		triggerType: "event",
@@ -99,38 +102,47 @@ async function seedEventRoutine(db: HyperIdleDb, id: string, triggerConfig: stri
 }
 
 describe("relocated routine scheduler — disposal safety", () => {
-	test("partial event-trigger registration unwinds earlier subscriptions and creates no interval", async ({
+	// BA1 D2: replaces the retired "partial event-trigger registration
+	// unwinds" test — the matcher subscribes to EVERY member of EVENT_TYPES
+	// unconditionally, never reading `routines` (let alone parsing
+	// `trigger_config`) at registration time, so a malformed row present in
+	// the table cannot fail startup.
+	test("starts successfully with a malformed trigger_config row already in the table", async ({
 		db,
 	}) => {
-		vi.useFakeTimers();
+		await seedEventRoutine(db, "sched-malformed", "{");
+
+		const eventBus = new EventBus();
+		const scheduler = await startRoutineScheduler(db, eventBus, inertPorts(), {
+			pollIntervalMs: 999_999,
+		});
 		try {
-			const eventBus = new EventBus();
-			const subscriptions: Array<ReturnType<typeof vi.fn<() => void>>> = [];
-			const originalOn = eventBus.on.bind(eventBus);
-			vi.spyOn(eventBus, "on").mockImplementation(((type: string, handler: never) => {
-				const unsubscribe = vi.fn(originalOn(type as never, handler));
-				subscriptions.push(unsubscribe);
-				return unsubscribe;
-			}) as typeof eventBus.on);
-
-			// `listRoutines` orders by `id` ASC (`routine-service.ts`) — the ids
-			// below are deliberately chosen so the valid routine sorts BEFORE the
-			// malformed one, guaranteeing its subscription succeeds before the
-			// mid-loop `JSON.parse` failure below.
-			await seedEventRoutine(db, "sched-partial-1-ok", '{"eventType":"task_state_changed"}');
-			// Malformed JSON — `JSON.parse` throws mid-loop, after the first
-			// routine's subscription already succeeded.
-			await seedEventRoutine(db, "sched-partial-2-bad", "{");
-
-			await expect(
-				startRoutineScheduler(db, eventBus, inertPorts(), { pollIntervalMs: 999_999 }),
-			).rejects.toThrow();
-
-			expect(subscriptions.length).toBeGreaterThanOrEqual(1);
-			expect(subscriptions.every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
-			expect(vi.getTimerCount()).toBe(0);
+			expect(scheduler).toBeDefined();
 		} finally {
-			vi.useRealTimers();
+			scheduler.stop();
+		}
+	});
+
+	test("registers exactly one subscription per EVENT_TYPES member", async ({ db }) => {
+		const eventBus = new EventBus();
+		const subscriptions: Array<ReturnType<typeof vi.fn<() => void>>> = [];
+		const originalOn = eventBus.on.bind(eventBus);
+		vi.spyOn(eventBus, "on").mockImplementation(((type: string, handler: never) => {
+			const unsubscribe = vi.fn(originalOn(type as never, handler));
+			subscriptions.push(unsubscribe);
+			return unsubscribe;
+		}) as typeof eventBus.on);
+
+		try {
+			const scheduler = await startRoutineScheduler(db, eventBus, inertPorts(), {
+				pollIntervalMs: 999_999,
+			});
+			try {
+				expect(subscriptions.length).toBe(EVENT_TYPES.length);
+			} finally {
+				scheduler.stop();
+			}
+		} finally {
 			vi.restoreAllMocks();
 		}
 	});
@@ -157,7 +169,7 @@ describe("relocated routine scheduler — disposal safety", () => {
 				startRoutineScheduler(db, eventBus, inertPorts(), { pollIntervalMs: 10 }),
 			).rejects.toThrow("timer unavailable");
 
-			expect(subscriptions.length).toBeGreaterThanOrEqual(1);
+			expect(subscriptions.length).toBe(EVENT_TYPES.length);
 			expect(subscriptions.every((unsubscribe) => unsubscribe.mock.calls.length === 1)).toBe(true);
 			expect(vi.getTimerCount()).toBe(0);
 		} finally {

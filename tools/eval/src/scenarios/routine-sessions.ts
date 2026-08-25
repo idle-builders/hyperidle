@@ -58,12 +58,10 @@ const rsHeartbeatFire: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
-			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			// CRITICAL-1: must include taskId
 			triggerConfig: { intervalSeconds: 900, taskId: world.taskId },
-			skillId: "monitoring",
 			active: true,
 		});
 		heartbeatRoutineId = routineId;
@@ -169,12 +167,10 @@ const rsCalendarFire: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
-			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "calendar",
 			// Cron for every minute — always past due to fire immediately
 			triggerConfig: { cron: "* * * * *", taskId: world.taskId },
-			skillId: "practice_meeting",
 			active: true,
 		});
 		calendarRoutineId = routineId;
@@ -253,11 +249,9 @@ const rsHumanReviewFlag: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
-			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 3600, taskId: world.taskId },
-			skillId: "review_monitoring",
 			humanReview: true,
 			active: true,
 		});
@@ -345,11 +339,9 @@ const rsSilentNoReviewItem: EvalScenario = {
 		});
 
 		const { routineId } = await seedRoutine(ctx.db, {
-			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			triggerType: "heartbeat",
 			triggerConfig: { intervalSeconds: 3600, taskId: world.taskId },
-			skillId: "portfolio_analysis",
 			humanReview: false,
 			silent: true,
 			active: true,

@@ -7,7 +7,7 @@
  *
  * Editable fields via PATCH /api/routines/:id:
  *  - name (input)
- *  - description / "Prompt" (textarea)
+ *  - prompt (textarea) — BA1 D1: routines.prompt is its own column now.
  *  - autonomyLevel (Select)
  *  - schedule / triggerConfig (SCHEDULE_PRESETS Select + custom cron input)
  *  - silent (checkbox toggle)
@@ -15,8 +15,8 @@
  * De-grey: Configuration/LastRunSummary sections render on page surface via
  * Row/KeyValue/ItemList flush — no bg-[var(--surface-container)] wrappers.
  *
- * @lore AV4: The "prompt" IS routine.description — ground truth from
- * fabric/src/session-context.ts buildRoutineSessionContextData. No new column needed.
+ * @lore BA1 D1: the prompt now lives in its own `routines.prompt` column
+ * (renamed from `description`, which never had any other use).
  *
  * @lore AV4: overrideData prop follows the WorkRoutine/WorkTeam established pattern
  * for injecting fixture data in stories and tests without a real fetch.
@@ -183,7 +183,7 @@ function RoutineDetailPaneLoaded({
 
 	// Editable form state
 	const [name, setName] = useState(routine.name);
-	const [description, setDescription] = useState(routine.description ?? "");
+	const [prompt, setPrompt] = useState(routine.prompt ?? "");
 	const [autonomyLevel, setAutonomyLevel] = useState(String(routine.autonomyLevel ?? ""));
 	// Schedule picker — "custom" is the sentinel value
 	const [scheduleValue, setScheduleValue] = useState<string>(initialScheduleValue);
@@ -213,7 +213,7 @@ function RoutineDetailPaneLoaded({
 
 	const cancelEditing = useCallback((): void => {
 		setName(routine.name);
-		setDescription(routine.description ?? "");
+		setPrompt(routine.prompt ?? "");
 		setAutonomyLevel(String(routine.autonomyLevel ?? ""));
 		setScheduleValue(initialScheduleValue);
 		setCustomCron(initialCustomCron);
@@ -226,7 +226,7 @@ function RoutineDetailPaneLoaded({
 		try {
 			const body: Record<string, unknown> = {
 				name,
-				description: description || null,
+				prompt: prompt || null,
 				silent,
 			};
 			if (autonomyLevel) {
@@ -251,7 +251,7 @@ function RoutineDetailPaneLoaded({
 		} finally {
 			setSaving(false);
 		}
-	}, [name, description, autonomyLevel, resolvedCron, silent, routineId, refetch, showToast]);
+	}, [name, prompt, autonomyLevel, resolvedCron, silent, routineId, refetch, showToast]);
 
 	async function handleTogglePause(): Promise<void> {
 		if (actionPending) return;
@@ -395,8 +395,8 @@ function RoutineDetailPaneLoaded({
 									id="routine-prompt-textarea"
 									aria-label="Prompt"
 									rows={6}
-									value={description}
-									onChange={(e) => setDescription(e.target.value)}
+									value={prompt}
+									onChange={(e) => setPrompt(e.target.value)}
 									disabled={saving}
 									placeholder="Describe what this routine should do each run…"
 								/>
@@ -478,7 +478,7 @@ function RoutineDetailPaneLoaded({
 						</>
 					) : (
 						<div className="flex flex-col gap-[9px] max-w-[320px]">
-							<KeyValue label="Prompt" value={routine.description || "—"} layout="stacked" />
+							<KeyValue label="Prompt" value={routine.prompt || "—"} layout="stacked" />
 							<KeyValue label="Autonomy" value={autonomyLabel} />
 							<KeyValue label="Silent" value={routine.silent ? "On" : "Off"} />
 						</div>
@@ -598,6 +598,7 @@ function RoutineDetailPaneLoaded({
 									<RowDot tone={outcomeTone(run.outcome)} label={run.outcome} title={run.outcome} />
 								}
 								title={absoluteDateTime(run.startedAt)}
+								subtitle={run.errorMessage ?? undefined}
 								cells={[
 									{
 										content: run.durationSeconds !== null ? `${run.durationSeconds}s` : "—",

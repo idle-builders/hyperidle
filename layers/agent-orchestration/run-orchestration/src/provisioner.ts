@@ -361,11 +361,13 @@ interface SessionLifecycleRoutineSessionContextData {
 	readonly routine: {
 		readonly id: string;
 		readonly name: string;
-		readonly description: string | null;
+		/** BA1 D3: one column, one field — replaces `description`. */
+		readonly prompt: string | null;
 		readonly lastRunSummary: string | null;
 	};
 	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
-	readonly team: { readonly id: string; readonly name: string };
+	/** BA1 D4: nullable — the owner agent may belong to no team. */
+	readonly team: { readonly id: string; readonly name: string } | null;
 }
 
 interface SessionLifecycleToolSummary {
@@ -704,7 +706,6 @@ interface ProvisionSessionParams {
 		readonly sourceKind: AgentSessionSourceKind;
 		readonly sourceId: string;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation;
-		readonly triggerPromptOverride?: string;
 	};
 	/**
 	 * AA2: When set, this session is a routine session. The provisioning orchestrator
@@ -1229,9 +1230,6 @@ async function runSession(
 	/** Messages for the builtin chat path (`runChatTurn`) — set when `params.transcript` is present. */
 	let chatMessages: ConversationMessage[] | undefined;
 
-	const effectiveSystemPromptText =
-		params.requestContext?.triggerPromptOverride ?? systemPromptText;
-
 	let assembledPrompt: string;
 	if (params.routineId && params.contextBundle?.kind === "routine") {
 		// AU21 §9 Increment 12 (Decision H3): routine session — derive
@@ -1240,7 +1238,7 @@ async function runSession(
 		// `buildRoutineSessionContextData` are gone).
 		const routineContextData = routineSessionContextDataFromBundle(params.contextBundle);
 		({ assembledPrompt } = await ports.contextAssembly.assembleRoutinePrompt({
-			systemPromptText: effectiveSystemPromptText,
+			systemPromptText,
 			context: routineContextData,
 			tools: toolSummaries,
 			sandboxPath,
@@ -1258,7 +1256,7 @@ async function runSession(
 		// gone).
 		const sessionContextData = sessionContextDataFromBundle(params.contextBundle);
 		({ assembledPrompt } = await ports.contextAssembly.assemblePrompt({
-			systemPromptText: effectiveSystemPromptText,
+			systemPromptText,
 			context: sessionContextData,
 			tools: toolSummaries,
 			sandboxPath,
@@ -1275,7 +1273,7 @@ async function runSession(
 		assembledPrompt = await assembleTaskFreePrompt(
 			db,
 			params,
-			effectiveSystemPromptText,
+			systemPromptText,
 			toolSummaries,
 			ports,
 			selectedAdapter.meta.type,

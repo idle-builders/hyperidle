@@ -15,7 +15,6 @@ import {
 	type ConfigurationOrigin,
 	type PluginState,
 	type ResolvedConfigurationItem,
-	TriggerRuleValueSchema,
 } from "@hyperidle/domain-model";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -133,7 +132,6 @@ const ConfigurationValueSchemas = {
 	agent: ConfigurationObjectSchema,
 	skill: ConfigurationObjectSchema,
 	routine: ConfigurationObjectSchema,
-	trigger: TriggerRuleValueSchema,
 	tool: ConfigurationObjectSchema,
 	mcp_server: McpServerConfigurationSchema,
 	harness_descriptor: ConfigurationObjectSchema,

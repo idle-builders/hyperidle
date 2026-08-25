@@ -9,17 +9,17 @@ For the Routine primitive's place among the five, see [The five primitives](./th
 
 ## 1. Trigger shapes
 
-The scheduler handles four `triggerType` values (`routine-scheduler.ts`):
+The scheduler handles two `triggerType` families, plus the older heartbeat/continuous interval loops:
 
 - **Calendar** — cron expressions, parsed by the in-house matcher (`parseCron` / `nextCronMatch`). Note the matcher uses AND semantics when both day-of-month and day-of-week are restricted — deliberately non-POSIX, load-bearing for the first-Monday portfolio retro cron (`0 10 1-7 * MON`).
-- **Event** — fires when a matching event type is emitted, e.g. `bet_state_changed` triggers the post-bet retro.
+- **Event** — a routine can be authored against any of the full event vocabulary (`EVENT_TYPES`, `framework/event-bus/src/events.ts`) — 34 event types, none excluded. The matching routines are read from the database at the moment the event happens: a routine created, paused, edited, or deleted takes effect on the very next matching event, with no restart. `event_type` is its own indexed column (`schema.ts`), not part of `trigger_config`.
 - **Heartbeat** / **continuous** — low-frequency interval loops; the scheduler treats the two values identically.
+
+Loops are possible and are not prevented: an agent's own actions (editing a bet, posting a message) can produce the very event its routine listens for, and nothing stops that agent-mediated cycle — the founder's ruling is that this is an accepted property of a system with an agent in the loop, not a defect. The one narrow exception: a routine's own run may not directly re-trigger that same routine (a machinery-level self-loop, not an agent-action loop). The control that exists is visibility and a working stop, not a gate: every firing is recorded on the routine's own page, and pausing or deleting a routine takes effect on the very next event.
 
 ## 2. Ownership, memory, delegation
 
-Every routine has a NOT-NULL owner agent and a NOT-NULL team (`schema.ts`) — routines are always team-scoped. The owner holds the routine's thread of memory via `stateKey` (`schema.ts`): what it noticed last run, what it's watching.
-
-`delegationAllowed` (default false, `schema.ts`) governs whether a run can flex to another agent: when the owner is at its WIP limit, the scheduler looks for a delegate with the routine's skill (`routine-scheduler.ts`); if delegation is off or no delegate exists, the run is deferred. All builtins seed `delegationAllowed: false`.
+A routine has a NOT-NULL owner agent (`schema.ts`); it has no team of its own — its scope is wherever its owner agent belongs. It shows up on a team's page exactly when its owner agent belongs to that team, and moves if the owner does. The owner holds the routine's thread of memory via `stateKey` (`schema.ts`): what it noticed last run, what it's watching.
 
 ## 3. Silent runs
 
@@ -35,14 +35,14 @@ Routines surface in the **Work view** (`layers/core-ui/src/pages/WorkRoutine.tsx
 
 ## 5. The four builtins
 
-Seeded per team through `provisionTeamRoutines` (idempotent `onConflictDoNothing`; owners resolved from the team's roster by role, AF17), against the builtin defaults. IDs carry the reserved `builtin:` prefix — load-bearing for the manual-trigger API.
+Seeded through `provisionTeamRoutines` (idempotent `onConflictDoNothing`; owners resolved from a team's roster by role, AF17), against the builtin defaults. IDs carry the reserved `builtin:` prefix — load-bearing for the manual-trigger API. Only `post-bet-retro` is seeded per team (its own reaction filters on the shipping bet's team); the other three are seeded **once**, globally, with a bare id — the second and every later team's provisioning call is a no-op for them.
 
-| Routine | Owner role | Trigger | humanReview | silent | Done condition |
+| Routine | Owner role | Trigger | humanReview | silent | Scope |
 |---|---|---|---|---|---|
-| `builtin:post-bet-retro` | product_manager | event `bet_state_changed` | **yes** | no | Review item comparing hypothesis vs reality written |
-| `builtin:portfolio-retro` | assistant | cron `0 10 1-7 * MON` (first Monday, 10:00 UTC) | **yes** | no | Cross-product portfolio review item written |
-| `builtin:knowledge-decay` | facilitator | cron `0 2 * * *` (daily 02:00 UTC) | no | **yes** | Stale knowledge items transitioned |
-| `builtin:knowledge-promotion` | facilitator | cron `0 3 * * *` (daily 03:00 UTC, offset from decay) | no | no | Provisional items meeting repetition threshold promoted |
+| `builtin:post-bet-retro` | product_manager | event `bet_state_changed` | **yes** | no | per team (`builtin:post-bet-retro:<teamId>`) |
+| `builtin:portfolio-retro` | assistant | cron `0 10 1-7 * MON` (first Monday, 10:00 UTC) | **yes** | no | global (bare id) |
+| `builtin:knowledge-decay` | facilitator | cron `0 2 * * *` (daily 02:00 UTC) | no | **yes** | global (bare id) |
+| `builtin:knowledge-promotion` | facilitator | cron `0 3 * * *` (daily 03:00 UTC, offset from decay) | no | no | global (bare id) |
 
 ## 6. Retros: learning flows back up
 

@@ -1,7 +1,10 @@
 /**
  * AE3 — create_routine tool integration tests.
  *
- * RED phase: these tests will fail until create-routine.ts is implemented.
+ * @lore BA1 D5/D8: `teamId` is dropped from the tool's input — a routine has
+ * no team, it belongs to its owner agent. `triggerType` widens to
+ * `"calendar" | "event"`; an event routine takes a top-level `eventType`
+ * instead of `triggerConfig`.
  */
 
 import {
@@ -40,14 +43,16 @@ async function seedTeamAndAgent(db: Parameters<typeof makeContext>[0]): Promise<
 }
 
 describe("create_routine tool", () => {
-	test("inserts a task-free routines row", async ({ db, app }) => {
+	test("inserts a task-free routines row, owned by the agent, with no team", async ({
+		db,
+		app,
+	}) => {
 		const createRoutineTool = buildCreateRoutineTool(app);
-		const { teamId, agentId } = await seedTeamAndAgent(db);
+		const { agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
 			{
 				name: "Daily standup",
-				teamId,
 				ownerAgentId: agentId,
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 9 * * 1-5" }),
@@ -66,7 +71,6 @@ describe("create_routine tool", () => {
 		expect(routineRows).toHaveLength(1);
 		const routine = routineRows[0];
 		expect(routine!.name).toBe("Daily standup");
-		expect(routine!.teamId).toBe(teamId);
 		expect(routine!.ownerAgentId).toBe(agentId);
 		expect(routine!.triggerConfig).toBe(JSON.stringify({ cron: "0 9 * * 1-5" }));
 		expect(routine!.stubTaskId).toBeNull();
@@ -75,12 +79,11 @@ describe("create_routine tool", () => {
 
 	test("returns ok({ routineId, name, nextRunAt })", async ({ db, app }) => {
 		const createRoutineTool = buildCreateRoutineTool(app);
-		const { teamId, agentId } = await seedTeamAndAgent(db);
+		const { agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
 			{
 				name: "Weekly sync",
-				teamId,
 				ownerAgentId: agentId,
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 10 * * 1" }),
@@ -97,33 +100,76 @@ describe("create_routine tool", () => {
 		expect(data).not.toHaveProperty("stubTaskId");
 	});
 
-	test("NOT_FOUND for nonexistent teamId", async ({ db, app }) => {
+	// BA1 D8: an event routine is created against a top-level `eventType`,
+	// validated against EVENT_TYPES, with no `triggerConfig`.
+	test("creates an event routine with eventType, no triggerConfig required", async ({
+		db,
+		app,
+	}) => {
 		const createRoutineTool = buildCreateRoutineTool(app);
 		const { agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
 			{
-				name: "Daily standup",
-				teamId: "team-does-not-exist",
+				name: "On bet completion",
 				ownerAgentId: agentId,
-				triggerType: "calendar",
-				triggerConfig: JSON.stringify({ cron: "0 9 * * 1-5" }),
+				triggerType: "event",
+				eventType: "bet_state_changed",
+			},
+			makeContext(db),
+		);
+		expect(result.success).toBe(true);
+		if (!result.success) return;
+
+		const data = result.data as { routineId: string };
+		const routineRows = await db.select().from(routines).where(eq(routines.id, data.routineId));
+		expect(routineRows[0]?.triggerType).toBe("event");
+		expect(routineRows[0]?.eventType).toBe("bet_state_changed");
+		expect(routineRows[0]?.triggerConfig).toBeNull();
+	});
+
+	test("INVALID_INPUT for an event routine missing eventType", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
+		const { agentId } = await seedTeamAndAgent(db);
+
+		const result = await createRoutineTool.handler(
+			{
+				name: "Missing eventType",
+				ownerAgentId: agentId,
+				triggerType: "event",
 			},
 			makeContext(db),
 		);
 		expect(result.success).toBe(false);
 		if (result.success) return;
-		expect(result.code).toBe("NOT_FOUND");
+		expect(result.code).toBe("INVALID_INPUT");
+	});
+
+	test("INVALID_INPUT for an unrecognized eventType", async ({ db, app }) => {
+		const createRoutineTool = buildCreateRoutineTool(app);
+		const { agentId } = await seedTeamAndAgent(db);
+
+		const result = await createRoutineTool.handler(
+			{
+				name: "Bad event",
+				ownerAgentId: agentId,
+				triggerType: "event",
+				eventType: "not_a_real_event",
+			},
+			makeContext(db),
+		);
+		expect(result.success).toBe(false);
+		if (result.success) return;
+		expect(result.code).toBe("INVALID_INPUT");
 	});
 
 	test("NOT_FOUND for nonexistent ownerAgentId", async ({ db, app }) => {
 		const createRoutineTool = buildCreateRoutineTool(app);
-		const { teamId } = await seedTeamAndAgent(db);
+		await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
 			{
 				name: "Daily standup",
-				teamId,
 				ownerAgentId: "agent-does-not-exist",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 9 * * 1-5" }),
@@ -137,12 +183,11 @@ describe("create_routine tool", () => {
 
 	test("INVALID_INPUT for invalid cron expression", async ({ db, app }) => {
 		const createRoutineTool = buildCreateRoutineTool(app);
-		const { teamId, agentId } = await seedTeamAndAgent(db);
+		const { agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
 			{
 				name: "Bad cron",
-				teamId,
 				ownerAgentId: agentId,
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "not-a-cron" }),
@@ -156,12 +201,11 @@ describe("create_routine tool", () => {
 
 	test("INVALID_INPUT for invalid JSON in triggerConfig", async ({ db, app }) => {
 		const createRoutineTool = buildCreateRoutineTool(app);
-		const { teamId, agentId } = await seedTeamAndAgent(db);
+		const { agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
 			{
 				name: "Bad JSON",
-				teamId,
 				ownerAgentId: agentId,
 				triggerType: "calendar",
 				triggerConfig: "not-json",
@@ -175,12 +219,11 @@ describe("create_routine tool", () => {
 
 	test("INVALID_INPUT for valid JSON but missing cron field", async ({ db, app }) => {
 		const createRoutineTool = buildCreateRoutineTool(app);
-		const { teamId, agentId } = await seedTeamAndAgent(db);
+		const { agentId } = await seedTeamAndAgent(db);
 
 		const result = await createRoutineTool.handler(
 			{
 				name: "No cron field",
-				teamId,
 				ownerAgentId: agentId,
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ interval: "1h" }),

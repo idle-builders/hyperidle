@@ -53,7 +53,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		{
 			id: "routine-1",
 			name: "Test routine 1",
-			teamId: "prod-1",
 			state: "active",
 			ownerAgentId: "agent-1",
 			triggerType: "heartbeat",
@@ -63,7 +62,6 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		{
 			id: "routine-2",
 			name: "Test routine 2",
-			teamId: "prod-1",
 			state: "active",
 			ownerAgentId: "agent-1",
 			triggerType: "calendar",
@@ -218,7 +216,6 @@ describe("Routine Endpoints (E6)", () => {
 			await db.insert(routines).values({
 				id: "builtin:knowledge-decay",
 				name: "Knowledge decay",
-				teamId: "prod-1",
 				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "calendar",

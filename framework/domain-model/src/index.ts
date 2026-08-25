@@ -10,8 +10,6 @@ export type {
 	AgentBehaviorOriginState,
 	AgentBehaviorOriginType,
 	AgentBehaviorOriginView,
-	AgentBehaviorPromptSource,
-	AgentBehaviorTriggerSummary,
 	AgentBehaviorValueSource,
 } from "./agent-behavior-config.js";
 export { AGENT_BEHAVIOR_CONFIG_KINDS, isAgentBehaviorConfigKind } from "./agent-behavior-config.js";
@@ -252,16 +250,6 @@ export {
 	verdictDecisionLabel,
 	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts (AU44 batch 8)
 } from "./thread.js";
-export type {
-	TriggerEventType,
-	TriggerResultState,
-	TriggerRuleValue,
-} from "./trigger.js";
-export {
-	TRIGGER_EVENT_TYPES,
-	TRIGGER_RESULT_STATES,
-	TriggerRuleValueSchema,
-} from "./trigger.js";
 export type {
 	Artifact,
 	ArtifactFilterAxis,

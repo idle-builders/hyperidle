@@ -181,7 +181,6 @@ async function seedRoutineAuthority(db: HyperIdleDb) {
 	await db.insert(routines).values({
 		id: "au9-production-routine",
 		name: "Production command",
-		teamId: "au9-production-team",
 		ownerAgentId: "au9-production-agent",
 		triggerType: "cron",
 		triggerConfig: "0 * * * *",

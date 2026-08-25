@@ -112,7 +112,6 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		id: "routine-au3-agent",
 		name: "AU3 routine",
 		ownerAgentId: "agent-au3-agent",
-		teamId: "team-au3-agent",
 		triggerType: "manual",
 		createdAt: now,
 	});

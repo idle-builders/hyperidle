@@ -46,6 +46,43 @@ function readMigrationByPrefix(prefix: string): string {
 	return readFileSync(resolve(DRIZZLE_DIR, file), "utf8");
 }
 
+/**
+ * Put the schema back into its pre-0059/0060 shape — mirroring
+ * `run-config-relocation-migration.integration.test.ts`'s `PRE_0055_SHAPE`.
+ * `beforeEach`'s `migrate()` call applies EVERY journalled migration,
+ * including these two once they exist, so by the time it returns the schema
+ * is already in its POST-migration shape. Reversing it here is what lets
+ * each `it` seed genuinely pre-migration rows and then replay the real
+ * migration SQL by hand — exactly the precedent's own two-phase shape.
+ *
+ * @lore BA1 §9: added during the green phase — the committed red-phase file
+ * omitted this reversal, which is why it is not present in the original
+ * diff. Without it, every seed insert below would fail ("column does not
+ * exist") the moment 0059/0060 land, and the hand-replay of those files
+ * would fail too ("column/constraint already exists") — the precedent this
+ * file's own docstring names already solves both problems this way.
+ */
+const PRE_BA1_SHAPE = `
+ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_belonging_ck";
+ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_owner_user_id_users_id_fk";
+ALTER TABLE "users" DROP COLUMN IF EXISTS "owner_user_id";
+DROP INDEX IF EXISTS "routines_event_type_idx";
+ALTER TABLE "routines" RENAME COLUMN "prompt" TO "description";
+ALTER TABLE "routines" DROP COLUMN IF EXISTS "event_type";
+ALTER TABLE "routines" ADD COLUMN "team_id" text;
+ALTER TABLE "routines" ADD CONSTRAINT "routines_team_id_teams_id_fk"
+  FOREIGN KEY ("team_id") REFERENCES "teams"("id") ON DELETE RESTRICT;
+ALTER TABLE "routines" ADD COLUMN "skill_id" text;
+ALTER TABLE "routines" ADD COLUMN "done_condition" text;
+ALTER TABLE "routines" ADD COLUMN "delegation_allowed" boolean DEFAULT false;
+ALTER TABLE "plugin_configuration_defaults" DROP CONSTRAINT "plugin_configuration_defaults_kind_ck";
+ALTER TABLE "plugin_configuration_defaults" ADD CONSTRAINT "plugin_configuration_defaults_kind_ck"
+  CHECK ("kind" IN ('agent', 'skill', 'routine', 'trigger', 'tool', 'mcp_server', 'harness_descriptor'));
+ALTER TABLE "configuration_overrides" DROP CONSTRAINT "configuration_overrides_kind_ck";
+ALTER TABLE "configuration_overrides" ADD CONSTRAINT "configuration_overrides_kind_ck"
+  CHECK ("kind" IN ('agent', 'skill', 'routine', 'trigger', 'tool', 'mcp_server', 'harness_descriptor'));
+`;
+
 interface Harness {
 	readonly client: PGlite;
 	readonly db: HyperIdleDb;
@@ -70,6 +107,7 @@ beforeEach(async () => {
 	const client = new PGlite();
 	const db = drizzle(client, { schema }) as unknown as HyperIdleDb;
 	await migrate(db as never, { migrationsFolder: DRIZZLE_DIR });
+	await exec(client, PRE_BA1_SHAPE);
 	harness = { client, db };
 });
 

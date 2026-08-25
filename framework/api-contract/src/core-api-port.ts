@@ -475,11 +475,14 @@ export interface CoreApiOrgPort {
 export interface InsertRoutineRequest {
 	readonly id?: string;
 	readonly name: string;
-	readonly description?: string | null;
-	readonly teamId: string;
+	/** BA1 D1: renamed from `description`. */
+	readonly prompt?: string | null;
 	readonly ownerAgentId: string;
 	readonly triggerType: string;
-	readonly triggerConfig: string;
+	/** Required for `triggerType:"calendar"` only. */
+	readonly triggerConfig?: string;
+	/** BA1 D8: required for `triggerType:"event"` only. */
+	readonly eventType?: string;
 }
 
 /**

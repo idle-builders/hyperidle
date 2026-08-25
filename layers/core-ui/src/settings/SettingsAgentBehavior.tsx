@@ -30,25 +30,11 @@ const CATEGORY_LABELS = {
 	agent: "Agents",
 	skill: "Skills",
 	routine: "Routines",
-	trigger: "Triggers",
 	tool: "Tools",
 	mcp: "MCP",
 } as const satisfies Record<AgentBehaviorConfigView["kind"], string>;
 
-const EVENT_LABELS: Record<string, string> = {
-	"task.accepted": "Task accepted",
-	"assistant.message": "Assistant message",
-	"routine.fire": "Routine fired",
-	"knowledge.action": "Knowledge action",
-	"proposed_call.granted": "Proposed call granted",
-	"fallback.no_match": "No matching trigger",
-};
-
 type LoadState = "loading" | "ready" | "error";
-
-function eventLabel(event: string): string {
-	return EVENT_LABELS[event] ?? event;
-}
 
 function chipStatus(item: AgentBehaviorConfigView): "healthy" | "behind" | "blocked" | "unknown" {
 	if (item.statusLabel.includes("removed")) return "blocked";
@@ -60,14 +46,9 @@ function chipStatus(item: AgentBehaviorConfigView): "healthy" | "behind" | "bloc
 function kindTone(
 	kind: AgentBehaviorConfigView["kind"],
 ): "pattern" | "decision" | "failure" | undefined {
-	if (kind === "trigger") return "decision";
 	if (kind === "mcp") return "pattern";
 	if (kind === "tool") return "pattern";
 	return undefined;
-}
-
-function defaultEvent(items: readonly AgentBehaviorConfigView[]): string {
-	return items.find((item) => item.trigger)?.trigger?.occasionKind ?? "routine.fire";
 }
 
 function mergeFieldValue(
@@ -82,7 +63,6 @@ export function SettingsAgentBehavior(): JSX.Element {
 	const { showToast } = useToast();
 	const [items, setItems] = useState<AgentBehaviorConfigView[]>([]);
 	const [status, setStatus] = useState<LoadState>("loading");
-	const [selectedEvent, setSelectedEvent] = useState("routine.fire");
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [draft, setDraft] = useState<Record<string, string | boolean | null>>({});
 	const [saving, setSaving] = useState(false);
@@ -98,10 +78,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 			const res = await apiFetch("/api/settings/agent-behavior/config");
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const body = (await res.json()) as AgentBehaviorConfigListResponse;
-			const nextItems = [...body.items];
-			setItems(nextItems);
-			const nextEvent = defaultEvent(nextItems);
-			setSelectedEvent((current) => (current ? current : nextEvent));
+			setItems([...body.items]);
 			setStatus("ready");
 		} catch {
 			setStatus("error");
@@ -119,26 +96,6 @@ export function SettingsAgentBehavior(): JSX.Element {
 		}
 		return byKind;
 	}, [items]);
-
-	const events = useMemo(() => {
-		const values = new Set<string>();
-		for (const item of items) {
-			if (item.trigger) values.add(item.trigger.occasionKind);
-		}
-		return values.size > 0 ? [...values] : ["routine.fire"];
-	}, [items]);
-
-	const visibleItems = useMemo(() => {
-		const triggerItems = items.filter(
-			(item) => item.trigger?.occasionKind === selectedEvent || item.valueSource === "fallback",
-		);
-		const triggerNames = new Set(triggerItems.map((item) => item.name));
-		const nonTriggerItems = items.filter(
-			(item) =>
-				item.kind !== "trigger" && !(item.kind === "routine" && triggerNames.has(item.name)),
-		);
-		return [...triggerItems, ...nonTriggerItems];
-	}, [items, selectedEvent]);
 
 	const selected = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
 
@@ -220,7 +177,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 			<EmptyState
 				compact
 				title="No agent behavior configuration"
-				description="Defaults still attach eligible agents when no trigger matches."
+				description="Defaults still attach eligible agents when no rule matches."
 			/>
 		);
 	}
@@ -245,34 +202,16 @@ export function SettingsAgentBehavior(): JSX.Element {
 				))}
 			</div>
 
-			<fieldset className="flex flex-wrap gap-[6px]" aria-label="Agent behavior events">
-				{events.map((event) => (
-					<Button
-						key={event}
-						size="sm"
-						variant={event === selectedEvent ? "primary" : "secondary"}
-						onClick={() => {
-							setSelectedEvent(event);
-							setSelectedId(null);
-							setSplitMode("fold-back");
-						}}
-					>
-						{eventLabel(event)}
-					</Button>
-				))}
-			</fieldset>
-
 			<ItemList
 				variant="flush"
-				isEmpty={visibleItems.length === 0}
+				isEmpty={items.length === 0}
 				empty={{
-					title: "No trigger rules for this event",
-					description:
-						"The fallback still uses the default eligible agent with no event-specific prompt.",
+					title: "No agent behavior configuration",
+					description: "Defaults still attach eligible agents when no rule matches.",
 				}}
 				data-testid="agent-behavior-list"
 			>
-				{visibleItems.map((item) => (
+				{items.map((item) => (
 					<Row
 						key={item.id}
 						title={item.name}
@@ -301,16 +240,6 @@ export function SettingsAgentBehavior(): JSX.Element {
 					</div>
 
 					<div className="flex flex-col gap-[6px]">
-						{selected.trigger && (
-							<>
-								<KeyValue label="Event" value={eventLabel(selected.trigger.occasionKind)} />
-								<KeyValue
-									label="Agent"
-									value={selected.trigger.selectedAgentLabel ?? "Default eligible agent"}
-								/>
-								<KeyValue label="Prompt source" value={selected.trigger.promptSource} />
-							</>
-						)}
 						<KeyValue label="Origin" value={selected.origin.label} />
 						<KeyValue label="Active value" value={selected.activeSummary} layout="stacked" />
 						{selected.defaultSummary && (
@@ -371,7 +300,7 @@ export function SettingsAgentBehavior(): JSX.Element {
 				<EmptyState
 					compact
 					title="Select a behavior row"
-					description="Choose a trigger, agent, skill, routine, tool, or MCP row to inspect its active value."
+					description="Choose an agent, skill, routine, tool, or MCP row to inspect its active value."
 				/>
 			)}
 		</div>

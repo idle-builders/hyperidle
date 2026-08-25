@@ -15,7 +15,7 @@ const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 206, default: 17, strong: 11 }
 const EXPECTED = {
 	typography: {
 		label: 115, // -1: read-mode ConversationHeader strip removed (was FR-3 +1)
-		metadata: 231, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx
+		metadata: 232, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1)
 		small: 225, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx
 		copy: 45,
 		control: 96, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView
