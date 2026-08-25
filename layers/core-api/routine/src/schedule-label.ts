@@ -111,12 +111,17 @@ function humanizeCron(cron: string): string | null {
  * @param triggerType - The routine's trigger type ("heartbeat" | "calendar" | "event").
  * @param triggerConfigJson - The JSON string from routines.trigger_config, or null.
  * @param eventType - BA1 D2/D8: the routine's `event_type` column, for `triggerType:"event"`.
+ *   No default (review N9): a `null` default let a future non-event caller
+ *   forget the argument and silently render "On event" for everything
+ *   instead of failing to compile. Every real caller has an `eventType`
+ *   column to read (`null` for non-event routines) — passing `null`
+ *   explicitly costs nothing and keeps a forgotten argument a build error.
  * @returns A human-readable label. Falls back to the capitalised trigger type on parse failure.
  */
 export function humanizeSchedule(
 	triggerType: string,
 	triggerConfigJson: string | null,
-	eventType: string | null = null,
+	eventType: string | null,
 ): string {
 	// BA1 D2: an event routine's name lives in the `event_type` column, not
 	// `trigger_config` (which is no longer read for events at all) — checked

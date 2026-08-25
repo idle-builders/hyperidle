@@ -11,13 +11,13 @@ import { humanizeSchedule } from "../schedule-label.js";
 describe("humanizeSchedule (AA1)", () => {
 	// calendar + cron expression — weekday
 	it('maps calendar + Monday cron to "Every Monday at 10:00 AM"', () => {
-		const result = humanizeSchedule("calendar", JSON.stringify({ cron: "0 10 * * MON" }));
+		const result = humanizeSchedule("calendar", JSON.stringify({ cron: "0 10 * * MON" }), null);
 		expect(result).toBe("Every Monday at 10:00 AM");
 	});
 
 	// heartbeat + intervalSeconds
 	it('maps heartbeat + 900s to "Every 15 minutes"', () => {
-		const result = humanizeSchedule("heartbeat", JSON.stringify({ intervalSeconds: 900 }));
+		const result = humanizeSchedule("heartbeat", JSON.stringify({ intervalSeconds: 900 }), null);
 		expect(result).toBe("Every 15 minutes");
 	});
 
@@ -32,37 +32,37 @@ describe("humanizeSchedule (AA1)", () => {
 
 	// calendar with null config — graceful fallback
 	it("returns capitalised trigger type for calendar with null config", () => {
-		const result = humanizeSchedule("calendar", null);
+		const result = humanizeSchedule("calendar", null, null);
 		expect(result).toBe("Calendar");
 	});
 
 	// unknown trigger type — graceful fallback
 	it("returns capitalised trigger type for unknown type with null config", () => {
-		const result = humanizeSchedule("unknown", null);
+		const result = humanizeSchedule("unknown", null, null);
 		expect(result).toBe("Unknown");
 	});
 
 	// daily cron
 	it('maps daily cron to "Every day at 2:00 AM"', () => {
-		const result = humanizeSchedule("calendar", JSON.stringify({ cron: "0 2 * * *" }));
+		const result = humanizeSchedule("calendar", JSON.stringify({ cron: "0 2 * * *" }), null);
 		expect(result).toBe("Every day at 2:00 AM");
 	});
 
 	// heartbeat — 60 seconds
 	it('maps heartbeat + 60s to "Every 1 minute"', () => {
-		const result = humanizeSchedule("heartbeat", JSON.stringify({ intervalSeconds: 60 }));
+		const result = humanizeSchedule("heartbeat", JSON.stringify({ intervalSeconds: 60 }), null);
 		expect(result).toBe("Every 1 minute");
 	});
 
 	// heartbeat — 3600 seconds (1 hour)
 	it('maps heartbeat + 3600s to "Every 60 minutes"', () => {
-		const result = humanizeSchedule("heartbeat", JSON.stringify({ intervalSeconds: 3600 }));
+		const result = humanizeSchedule("heartbeat", JSON.stringify({ intervalSeconds: 3600 }), null);
 		expect(result).toBe("Every 60 minutes");
 	});
 
 	// unparseable JSON config — fallback
 	it("returns capitalised trigger type for unparseable config", () => {
-		const result = humanizeSchedule("calendar", "not-valid-json");
+		const result = humanizeSchedule("calendar", "not-valid-json", null);
 		expect(result).toBe("Calendar");
 	});
 

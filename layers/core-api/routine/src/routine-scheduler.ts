@@ -797,7 +797,21 @@ function registerRoutineEventMatcher(
 		unsubscribers.push(unsub);
 	}
 	return (): void => {
-		for (const unsubscribe of unsubscribers.reverse()) unsubscribe();
+		// @lore BA1 review N9: `[...unsubscribers].reverse()`, not
+		// `unsubscribers.reverse()` — `Array.prototype.reverse` mutates in
+		// place, which is harmless today (the array is local and this closure
+		// is only ever called once) but is a footgun for a future reader who
+		// reads it again after calling this. Each `unsubscribe()` is
+		// try/caught so one throwing disposer cannot strand the remaining
+		// 33 — every `eventType`'s subscription must come down on shutdown.
+		for (const unsubscribe of [...unsubscribers].reverse()) {
+			try {
+				unsubscribe();
+			} catch {
+				// A single event type's disposer throwing must not stop the rest
+				// from unsubscribing.
+			}
+		}
 	};
 }
 

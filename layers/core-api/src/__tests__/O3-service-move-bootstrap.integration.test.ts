@@ -1,3 +1,4 @@
+import { EVENT_TYPES } from "@hyperidle/event-bus";
 import { describe } from "vitest";
 import { expect, test, vi } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
@@ -328,42 +329,7 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// unsubscribes in REVERSE registration order, so this is
 				// `EVENT_TYPES` reversed.
 				{
-					unsubscribedEvents: [
-						"tool_call_recorded",
-						"routine_fired",
-						"propagation_failed",
-						"propagation_applied",
-						"notification",
-						"proposed_call_granted",
-						"proposed_call_executed",
-						"work_selection_requested",
-						"user_created",
-						"agent_added",
-						"team_created",
-						"artifact_created",
-						"knowledge_accessed",
-						"knowledge_archived",
-						"knowledge_updated",
-						"knowledge_created",
-						"sandbox_writeback_changes_detected",
-						"dependency_met",
-						"item_created",
-						"thread_archived",
-						"thread_reopened",
-						"thread_resolved",
-						"thread_message_appended",
-						"thread_created",
-						"session_not_returned",
-						"session_handoff_completed",
-						"session_ended",
-						"session_started",
-						"bet_revised",
-						"bet_state_changed",
-						"task_state_changed",
-						"agent_run_lifecycle_changed",
-						"agent_run_admission_failed",
-						"agent_work_intent_recorded",
-					],
+					unsubscribedEvents: [...EVENT_TYPES].reverse(),
 					clearedIntervals: 1,
 				},
 				// @lore AU21 Increment 14a: the "cost sentinel" owner (previously

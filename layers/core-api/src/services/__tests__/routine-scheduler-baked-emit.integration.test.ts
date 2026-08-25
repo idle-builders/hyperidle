@@ -58,6 +58,52 @@ import { startRoutineScheduler } from "../routine-scheduler-bindings.js";
 const NOW = new Date().toISOString();
 
 /**
+ * BA1 review N8: `registerRoutineEventMatcher` starts every matched
+ * routine's `fireGenericRoutine` without awaiting it, so R and S (cut 3's
+ * self-trigger routine and its narrowness control) race independently — S's
+ * run row appearing does NOT prove R's own would-be fire has also settled,
+ * only that S's has. The earlier checkpoint waited on "S has at least one
+ * run" (a first-seen row), which happens to pass reliably only because id
+ * ordering usually lands R before S in `toFire`'s iteration — a correctness
+ * argument about the test, not the production code. Polling `countFn`
+ * (summed across BOTH routines) until it stops changing is agnostic to
+ * which one's write commits first: once nothing is still landing, whatever
+ * DID land is everything that is ever going to.
+ */
+async function waitForSettledCount(
+	countFn: () => Promise<number>,
+	opts: {
+		readonly timeoutMs?: number;
+		readonly intervalMs?: number;
+		readonly stableForMs?: number;
+	} = {},
+): Promise<number> {
+	const timeoutMs = opts.timeoutMs ?? 2000;
+	const intervalMs = opts.intervalMs ?? 50;
+	// The count starts at a non-zero baseline (R's own prior run), so "two
+	// identical polls" alone can't tell "nothing has happened yet" apart from
+	// "everything already landed" — it must stay unchanged for a whole
+	// window, not just one poll interval, before it counts as settled.
+	const stableForMs = opts.stableForMs ?? 250;
+	const deadline = Date.now() + timeoutMs;
+	let previous = await countFn();
+	let stableSince = Date.now();
+	while (Date.now() < deadline) {
+		await new Promise((resolve) => setTimeout(resolve, intervalMs));
+		const current = await countFn();
+		if (current !== previous) {
+			previous = current;
+			stableSince = Date.now();
+			continue;
+		}
+		if (Date.now() - stableSince >= stableForMs) return current;
+	}
+	throw new Error(
+		`waitForSettledCount: count never held stable for ${stableForMs}ms within ${timeoutMs}ms (last observed ${previous})`,
+	);
+}
+
+/**
  * Real ports, mirroring `routine-scheduler-relocation.integration.test.ts`'s
  * own `makePorts()` (Wave A) plus the one NEW field this wave's resolver
  * needs (`requireRunnableAgent`) — not yet declared on
@@ -653,21 +699,21 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			await drainIntents({ ...queueDeps(db), eventBus }, { maxAttempts: 1 });
 
 			// Wait for the admission-failure event's re-entrant cycle to be
-			// fully processed by the matcher — proven by S (the narrowness
-			// control, on the SAME event) getting its run, not by R's own run
-			// count. Waiting on R's count here would be self-defeating: cut 3
-			// EXISTS to keep that count at 1, so a checkpoint that requires it
-			// to reach 2 first can never observe a correctly-cut system pass.
-			await vi.waitFor(
-				async () => {
-					const otherRuns = await db
-						.select()
-						.from(routineRuns)
-						.where(eq(routineRuns.routineId, otherRoutineId));
-					expect(otherRuns.length).toBeGreaterThanOrEqual(1);
-				},
-				{ timeout: 1000 },
-			);
+			// fully processed by the matcher — the SETTLED total across BOTH R
+			// and S (N8: not "S has at least one row", which does not prove R's
+			// own would-be fire has also finished — the matcher starts each fire
+			// without awaiting, so neither ordering nor timing between them is
+			// guaranteed). Waiting on R's count ALONE would be self-defeating:
+			// cut 3 EXISTS to keep that count at 1, so a checkpoint that
+			// requires it to reach 2 first can never observe a correctly-cut
+			// system pass — summing with S keeps the wait meaningful either way.
+			await waitForSettledCount(async () => {
+				const [rRuns, sRuns] = await Promise.all([
+					db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId)),
+					db.select().from(routineRuns).where(eq(routineRuns.routineId, otherRoutineId)),
+				]);
+				return rRuns.length + sRuns.length;
+			});
 
 			// Cut 3's requirement: R may not re-trigger itself.
 			const finalRuns = await db
@@ -754,16 +800,15 @@ describe("BA1 §3.1.1 cut 3 — self-trigger via the routine_run spelling (NB1)"
 			};
 			eventBus.emit(lifecycleEvent);
 
-			await vi.waitFor(
-				async () => {
-					const otherRuns = await db
-						.select()
-						.from(routineRuns)
-						.where(eq(routineRuns.routineId, otherRoutineId));
-					expect(otherRuns.length).toBeGreaterThanOrEqual(1);
-				},
-				{ timeout: 1000 },
-			);
+			// N8: settled total across BOTH routines, not "S has a first row" —
+			// see `waitForSettledCount`'s own `@lore`.
+			await waitForSettledCount(async () => {
+				const [rRuns, sRuns] = await Promise.all([
+					db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId)),
+					db.select().from(routineRuns).where(eq(routineRuns.routineId, otherRoutineId)),
+				]);
+				return rRuns.length + sRuns.length;
+			});
 
 			const finalRuns = await db
 				.select()
