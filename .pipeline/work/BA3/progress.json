@@ -1,0 +1,191 @@
+{
+  "workPackage": "BA3",
+  "status": "awaiting-human-review",
+  "phase": "concept-gate",
+  "branch": "claude/pipeline-ba3-bc1ba7",
+  "worktree": ".claude/worktrees/pipeline-au3-cb22bc",
+  "base": "origin/main",
+  "tier": "mvp",
+  "sessions": [
+    {
+      "phase": "preflight",
+      "result": "clean: registry row valid, no dependencies, plan sections present, worktree isolated at origin/main, bootstrap present"
+    },
+    {
+      "phase": "design",
+      "result": "dispatched to planner"
+    },
+    {
+      "phase": "design",
+      "result": "complete \u2014 design/approved.md written; per-message pill path confirmed already deleted (AU44 B0), so that AC already holds"
+    },
+    {
+      "phase": "architecture",
+      "result": "dispatched to planner"
+    },
+    {
+      "phase": "design-critique",
+      "result": "dispatched to fresh reviewer"
+    },
+    {
+      "phase": "design-critique",
+      "result": "complete \u2014 4 BLOCKING findings (B1 stored-default contradiction, B2 prune-on-failed-probe destroys values, B3 false lint-enforcement evidence, B4 hand-rolled DS primitive) + 10 notes; core sourcing decision survived"
+    },
+    {
+      "phase": "design-revision",
+      "result": "attempt 1 of 3 dispatched to design producer; architecture planner notified that B1/B2 storage semantics are in flux"
+    },
+    {
+      "phase": "design-revision",
+      "result": "attempt 1 complete \u2014 B1 resolved (defaults shown never stored; sparse set = explicit user choices only), B2 resolved (save-time prune deleted; editor writes only rendered keys; stale-key filter moves to run time = architecture's), B3 evidence corrected + lint coverage made an explicit deliverable, B4 uses ds/SectionLabel"
+    },
+    {
+      "phase": "design-critique",
+      "result": "second pass dispatched to same reviewer to verify the four blockers closed"
+    },
+    {
+      "phase": "design-critique",
+      "result": "pass 2 complete \u2014 all 4 blockers RESOLVED, no new blocker, citations verified; 6 non-blocking notes remain"
+    },
+    {
+      "phase": "design-polish",
+      "result": "dispatched: 2 internal contradictions a builder would implement literally (default-vs-required rule, circular boolean default) + 4 small clarifications"
+    },
+    {
+      "phase": "design-polish",
+      "result": "complete \u2014 design/approved.md revision 3; both contradictions removed, 4 clarifications landed. DESIGN CLOSED."
+    },
+    {
+      "phase": "architecture",
+      "result": "complete \u2014 architecture.md + feasibility.md written; 3 contracts (nullable sparse column, SessionConfig.modelOptions threaded unfiltered + reconciled at session start against static declaration, claude-code --effort as first real declaration); no open blockers"
+    },
+    {
+      "phase": "architecture-critique",
+      "result": "dispatched to reviewer (carries design context forward)"
+    },
+    {
+      "phase": "architecture-critique",
+      "result": "complete \u2014 1 BLOCKING (architecture silently dropped both design-mandated deliverables and re-asserted the false doc claim) + 8 notes; type coupling verified RED both directions by compilation; --effort re-verified live; storage/migration sound; reconciliation-location decision endorsed"
+    },
+    {
+      "phase": "architecture-revision",
+      "result": "attempt 1 of 3 dispatched"
+    },
+    {
+      "phase": "architecture-revision",
+      "result": "attempt 1 complete \u2014 both design deliverables carried as ordered tasks + evidence rows, \u00a79 false assertion retracted, R1 restated at crashed-session severity, green lane honestly downgraded to smoke check, tamper twin moved onto the production select branch, ownership named by world, \u00a711 added stating the select-only narrowing as a founder option"
+    },
+    {
+      "phase": "architecture-critique",
+      "result": "pass 2 dispatched \u2014 incl. independent check of the \u00a711 independence claim before it goes to the founder"
+    },
+    {
+      "phase": "architecture-critique",
+      "result": "pass 2 complete \u2014 blocker RESOLVED both limbs, no new blocker; break-test discipline verified at source; crashed-outcome verified at cli-harness-adapter.ts:1087-1094; tamper twin re-reproduced through the production select branch"
+    },
+    {
+      "phase": "architecture-polish",
+      "result": "complete \u2014 validator source stated (takes prior map as argument, no read; agent_run_config is run-orchestration's owned table), \u00a711 overstatement repaired, narrowing priced honestly"
+    },
+    {
+      "phase": "concept-gate",
+      "result": "PARKED awaiting founder \u2014 question asked and dismissed; no approval given"
+    },
+    {
+      "phase": "plan-amendment",
+      "result": "founder amended plan at concept gate 2026-08-25: every supported harness that genuinely exposes per-model options declares them in this package; codex model list brought in scope as the one narrow exception; all four control shapes built (narrowing option withdrawn). 3 acceptance criteria added to plan.md."
+    },
+    {
+      "phase": "architecture-extension",
+      "result": "dispatched \u2014 investigate all 5 harnesses against real binaries with version+date, design codex model list source honestly, extend contracts/evidence incl. equal-coverage rule"
+    },
+    {
+      "phase": "architecture-extension",
+      "result": "complete \u2014 all 5 harnesses probed live 2026-08-25: claude --effort(5), codex model_reasoning_effort, opencode --variant (per-model variants map), cursor-agent declares NOTHING (evidenced), builtin OpenRouter reasoning_effort. 3 contract changes: model-keyed walk, 3 carrier spellings, absence-never-drops rule."
+    },
+    {
+      "phase": "architecture-critique",
+      "result": "pass 3 \u2014 1 BLOCKING: codex 'no enumerable surface' negative FALSE; ~/.codex/models_cache.json is that surface. Orchestrator verified first-hand: 8 models, account-scoped etag, per-model supported_reasoning_levels that differ (gpt-5.4=4, gpt-5.6-sol=6 incl 'ultra'), predicts all 4 probe results. Flat 7-value constant would be wrong both directions. + 6 notes."
+    },
+    {
+      "phase": "architecture-revision",
+      "result": "attempt 2 dispatched \u2014 codex list decided against the file; 3 note fixes"
+    },
+    {
+      "phase": "architecture-revision",
+      "result": "attempt 2 complete \u2014 codex reversed to READ ~/.codex/models_cache.json, declaring nothing on any parse failure; constant retired on CORRECTNESS (wrong per model), not just coupling. Failed-negative root cause recorded (truncated ls read as exhaustive). 3 notes fixed."
+    },
+    {
+      "phase": "architecture-critique",
+      "result": "pass 4 dispatched \u2014 closing verification incl. degradation-rule airtightness and independent re-grep of the reclassification"
+    },
+    {
+      "phase": "architecture-critique",
+      "result": "pass 4 CLEAN \u2014 blocker resolved on merits, no open blocker, every number reproduced first-hand (20/20 OpenRouter counts, byte-identical catalogue), degradation rule airtight with no fallback, \u00a73.3e partition exact. Verdict: evidence plan would prove all 8 ACs (5 original + 3 amended)."
+    },
+    {
+      "phase": "architecture-polish",
+      "result": "complete \u2014 stale \u00a72 A3 obligation row corrected, malformed-row behaviour specified (skip the model, not the file), codex-upgrade silent-reversion route recorded. ARCHITECTURE CLOSED."
+    },
+    {
+      "phase": "concept-gate",
+      "result": "PARKED \u2014 founder chose to read the artifacts before approving. No approval given. Build has NOT started."
+    }
+  ],
+  "phasesSkipped": [
+    {
+      "phase": "refine",
+      "reason": "plan's pre-build trigger is design only; value, scope and load-bearing nouns are resolved in plan.md"
+    }
+  ],
+  "artifacts": {
+    "design": ".pipeline/work/BA3/design/approved.md",
+    "designCritique": ".pipeline/work/BA3/design-critique.md",
+    "architecture": ".pipeline/work/BA3/architecture.md",
+    "feasibility": ".pipeline/work/BA3/feasibility.md",
+    "architectureCritique": ".pipeline/work/BA3/architecture-critique.md"
+  },
+  "approvals": {},
+  "verdicts": {
+    "designCritique": "RESOLVED (pass 2) \u2014 design gate clear pending polish",
+    "design": "CLOSED at revision 3 \u2014 4 blockers resolved and independently re-verified, all notes addressed",
+    "architectureCritique": "RESOLVED (pass 2) \u2014 no open blockers",
+    "architecture": "CLOSED \u2014 zero open blockers after 4 critique passes"
+  },
+  "orchestratorVerified": [
+    "per-message option pill path already deleted (AU44 B0) \u2014 only a lore comment remains at layers/core-ui/src/__tests__/AM3-session-view.test.tsx:349",
+    "HarnessModelOptionDescriptor.scope ('launch'|'durable') read only by its own test \u2014 dead field, BA3 cleanup",
+    "pipeline.config.yml designSystem path 'framework/design-system' does not exist; live system is layers/core-ui/src/ds \u2014 NOT BA3's to fix, flag to founder",
+    "claude --help on installed 2.1.220 documents '--effort <level>' \u2014 first-real-declaration flag confirmed to exist by orchestrator",
+    "codex-cli 0.146.1 / opencode 1.18.16 / cursor-agent 2026.08.11-e8db854 versions match architect's report exactly; OPENROUTER_API_KEY genuinely absent",
+    "~/.codex/models_cache.json verified first-hand: 194063 bytes, fetched_at 2026-08-25, etag present, 8 models with divergent per-model supported_reasoning_levels",
+    "codex cache: 0 of 8 models carry base_instructions (installed 0.146.1 cannot read its own cache \u2014 the doctor complaint was accurate); selectable set under visibility==list && supported_in_api is exactly 6"
+  ],
+  "evaluationAttempts": {
+    "designCritique": 2,
+    "architectureCritique": 4
+  },
+  "decisions": {
+    "B1": "defaultValue is shown, never stored. Absence of a key means 'use the harness default'. Preserves the AC that an unconfigured agent runs exactly as today.",
+    "B2": "Editor writes only the keys it rendered; all other stored keys carried through untouched. Run-time reconciliation against the live declaration is architecture's contract."
+  },
+  "founderQuestions": [
+    "Proportionality at tier mvp: only the select control kind has a real production declaration. number/text/boolean renderers, two-zone layout, Default(...) device, Select.hint prop and both a11y fixes are reachable only from story fixtures. Narrow to select-only, or build all four?",
+    "pipeline.config.yml designSystem.path points at framework/design-system which does not exist (live: layers/core-ui/src/ds) \u2014 misdirects every design phase repo-wide. Not BA3's to fix.",
+    "Composer still cycles the MODEL per message \u2014 same per-message-run-decision shape BA3 removes, one level up. Plan puts it out of scope; BA4 owns that surface.",
+    "builtin declares 1 of ~25 OpenRouter parameters (reasoning_effort); seed/top_k/logit_bias/temperature judged tuning knobs not agent configuration. Architect flagged this line as the founder's to move."
+  ],
+  "founderDecisions": {
+    "controlShapes": "Build all four. Which settings exist is the harness's business; a harness may expose a boolean or number tomorrow and the screen must render it.",
+    "surfaceShape": "Confirmed: pick harness -> pick model from that harness's list -> that harness+model's settings appear if declared. Matches the closed design.",
+    "harnessCoverage": "Fixing this for the other harnesses is part of this package, not a later one."
+  },
+  "parkedOn": "Founder is reading design + architecture before approving the build. Nothing else is blocked. On approval: build per architecture.md's ordered steps. On changes: return to the owning phase.",
+  "readingGuide": {
+    "design": ".pipeline/work/BA3/design/approved.md (revision 3)",
+    "architecture": ".pipeline/work/BA3/architecture.md",
+    "feasibility": ".pipeline/work/BA3/feasibility.md \u2014 the per-harness evidence, versions and dates",
+    "findings": ".pipeline/work/BA3/design-critique.md (2 passes) and architecture-critique.md (4 passes)",
+    "planAmendment": ".pipeline/work/BA3/plan.md \u2014 'Amendment \u2014 2026-08-25' section"
+  }
+}
