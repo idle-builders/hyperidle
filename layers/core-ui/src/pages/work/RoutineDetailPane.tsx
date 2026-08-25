@@ -7,7 +7,7 @@
  *
  * Editable fields via PATCH /api/routines/:id:
  *  - name (input)
- *  - description / "Prompt" (textarea)
+ *  - prompt (textarea) — BA1 D1: routines.prompt is its own column now.
  *  - autonomyLevel (Select)
  *  - schedule / triggerConfig (SCHEDULE_PRESETS Select + custom cron input)
  *  - silent (checkbox toggle)
@@ -15,8 +15,8 @@
  * De-grey: Configuration/LastRunSummary sections render on page surface via
  * Row/KeyValue/ItemList flush — no bg-[var(--surface-container)] wrappers.
  *
- * @lore AV4: The "prompt" IS routine.description — ground truth from
- * fabric/src/session-context.ts buildRoutineSessionContextData. No new column needed.
+ * @lore BA1 D1: the prompt now lives in its own `routines.prompt` column
+ * (renamed from `description`, which never had any other use).
  *
  * @lore AV4: overrideData prop follows the WorkRoutine/WorkTeam established pattern
  * for injecting fixture data in stories and tests without a real fetch.
@@ -33,7 +33,7 @@
 
 import type { RoutineDetail, RoutineRunSummary } from "@hyperidle/domain-model";
 import { SCHEDULE_PRESETS } from "@hyperidle/domain-model";
-import { type JSX, useCallback, useContext, useState } from "react";
+import { type JSX, useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 // hearth-internal-padding
 import {
@@ -183,15 +183,43 @@ function RoutineDetailPaneLoaded({
 
 	// Editable form state
 	const [name, setName] = useState(routine.name);
-	const [description, setDescription] = useState(routine.description ?? "");
+	const [prompt, setPrompt] = useState(routine.prompt ?? "");
 	const [autonomyLevel, setAutonomyLevel] = useState(String(routine.autonomyLevel ?? ""));
-	// Schedule picker — "custom" is the sentinel value
+	// Schedule picker — "custom" is the sentinel value. Shown only for
+	// `triggerType:"calendar"` (N7 below) — an event routine has no cron.
 	const [scheduleValue, setScheduleValue] = useState<string>(initialScheduleValue);
 	const [customCron, setCustomCron] = useState<string>(initialCustomCron);
+	// BA1 review N7: the event picker, shown only for `triggerType:"event"`.
+	// `eventType` is the field PATCH already accepts (`updateRoutineSchema`)
+	// that no UI exposed before this — the vocabulary comes from
+	// `GET /api/routines/event-types`, the same live source
+	// `RoutineCreateDialog` already uses (`core-ui` cannot import
+	// `@hyperidle/event-bus` directly — `architecture.json` excludes it).
+	const [eventType, setEventType] = useState<string>(routine.eventType ?? "");
+	const [eventTypes, setEventTypes] = useState<readonly string[]>([]);
+	const isEventRoutine = routine.triggerType === "event";
 	// Silent toggle
 	const [silent, setSilent] = useState<boolean>(routine.silent ?? false);
 	const [saving, setSaving] = useState(false);
 	const [editing, setEditing] = useState(false);
+
+	useEffect(() => {
+		if (!isEventRoutine || !editing) return;
+		let cancelled = false;
+		void (async () => {
+			try {
+				const res = await apiFetch("/api/routines/event-types");
+				if (!res?.ok || cancelled) return;
+				const body = (await res.json()) as { eventTypes?: string[] } | null;
+				if (!cancelled && body?.eventTypes) setEventTypes(body.eventTypes);
+			} catch {
+				// The Event select still renders — an empty options list, not a crash.
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [isEventRoutine, editing]);
 
 	// Action state
 	const [currentState, setCurrentState] = useState(routine.state);
@@ -213,10 +241,11 @@ function RoutineDetailPaneLoaded({
 
 	const cancelEditing = useCallback((): void => {
 		setName(routine.name);
-		setDescription(routine.description ?? "");
+		setPrompt(routine.prompt ?? "");
 		setAutonomyLevel(String(routine.autonomyLevel ?? ""));
 		setScheduleValue(initialScheduleValue);
 		setCustomCron(initialCustomCron);
+		setEventType(routine.eventType ?? "");
 		setSilent(routine.silent ?? false);
 		setEditing(false);
 	}, [routine, initialScheduleValue, initialCustomCron]);
@@ -226,14 +255,19 @@ function RoutineDetailPaneLoaded({
 		try {
 			const body: Record<string, unknown> = {
 				name,
-				description: description || null,
+				prompt: prompt || null,
 				silent,
 			};
 			if (autonomyLevel) {
 				body.autonomyLevel = Number(autonomyLevel);
 			}
-			// Schedule: only include if we have a resolved cron
-			if (resolvedCron) {
+			// N7: the schedule/event control shown — and therefore saved — matches
+			// the routine's OWN kind, not always the schedule one. An event
+			// routine has no cron to write, and a calendar routine has no
+			// eventType to write.
+			if (isEventRoutine) {
+				if (eventType) body.eventType = eventType;
+			} else if (resolvedCron) {
 				body.triggerConfig = JSON.stringify({ cron: resolvedCron });
 			}
 
@@ -251,7 +285,18 @@ function RoutineDetailPaneLoaded({
 		} finally {
 			setSaving(false);
 		}
-	}, [name, description, autonomyLevel, resolvedCron, silent, routineId, refetch, showToast]);
+	}, [
+		name,
+		prompt,
+		autonomyLevel,
+		isEventRoutine,
+		eventType,
+		resolvedCron,
+		silent,
+		routineId,
+		refetch,
+		showToast,
+	]);
 
 	async function handleTogglePause(): Promise<void> {
 		if (actionPending) return;
@@ -395,8 +440,8 @@ function RoutineDetailPaneLoaded({
 									id="routine-prompt-textarea"
 									aria-label="Prompt"
 									rows={6}
-									value={description}
-									onChange={(e) => setDescription(e.target.value)}
+									value={prompt}
+									onChange={(e) => setPrompt(e.target.value)}
 									disabled={saving}
 									placeholder="Describe what this routine should do each run…"
 								/>
@@ -426,45 +471,72 @@ function RoutineDetailPaneLoaded({
 								/>
 							</div>
 
-							<div className="flex flex-col gap-[6px] mb-[9px]">
-								<label
-									className="type-label uppercase     text-[var(--text-tertiary)]"
-									htmlFor="routine-schedule-select"
-								>
-									Schedule
-								</label>
-								<Select
-									id="routine-schedule-select"
-									aria-label="Schedule"
-									size="sm"
-									value={scheduleValue}
-									onChange={(e) => setScheduleValue(e.target.value)}
-									disabled={saving}
-									options={[
-										...SCHEDULE_PRESETS.map((p) => ({ value: p.cron, label: p.label })),
-										{ value: "custom", label: "Custom…" },
-									]}
-								/>
-							</div>
-
-							{isCustomSchedule && (
+							{isEventRoutine ? (
+								// N7: an event routine has no cron — show the control that
+								// matches ITS kind instead of always rendering the schedule
+								// picker (which silently wrote a `trigger_config` cron on
+								// save even here).
 								<div className="flex flex-col gap-[6px] mb-[9px]">
 									<label
 										className="type-label uppercase     text-[var(--text-tertiary)]"
-										htmlFor="routine-custom-cron-input"
+										htmlFor="routine-event-select"
 									>
-										Custom cron
+										Event
 									</label>
-									<Input
-										id="routine-custom-cron-input"
-										aria-label="Custom cron expression"
-										type="text"
-										value={customCron}
-										onChange={(e) => setCustomCron(e.target.value)}
+									<Select
+										id="routine-event-select"
+										aria-label="Event"
+										size="sm"
+										value={eventType}
+										onChange={(e) => setEventType(e.target.value)}
 										disabled={saving}
-										placeholder="e.g. 30 6 * * 2"
+										placeholder="Select an event…"
+										options={eventTypes.map((e) => ({ value: e, label: e }))}
 									/>
 								</div>
+							) : (
+								<>
+									<div className="flex flex-col gap-[6px] mb-[9px]">
+										<label
+											className="type-label uppercase     text-[var(--text-tertiary)]"
+											htmlFor="routine-schedule-select"
+										>
+											Schedule
+										</label>
+										<Select
+											id="routine-schedule-select"
+											aria-label="Schedule"
+											size="sm"
+											value={scheduleValue}
+											onChange={(e) => setScheduleValue(e.target.value)}
+											disabled={saving}
+											options={[
+												...SCHEDULE_PRESETS.map((p) => ({ value: p.cron, label: p.label })),
+												{ value: "custom", label: "Custom…" },
+											]}
+										/>
+									</div>
+
+									{isCustomSchedule && (
+										<div className="flex flex-col gap-[6px] mb-[9px]">
+											<label
+												className="type-label uppercase     text-[var(--text-tertiary)]"
+												htmlFor="routine-custom-cron-input"
+											>
+												Custom cron
+											</label>
+											<Input
+												id="routine-custom-cron-input"
+												aria-label="Custom cron expression"
+												type="text"
+												value={customCron}
+												onChange={(e) => setCustomCron(e.target.value)}
+												disabled={saving}
+												placeholder="e.g. 30 6 * * 2"
+											/>
+										</div>
+									)}
+								</>
 							)}
 
 							<div className="mb-[9px]">
@@ -478,7 +550,7 @@ function RoutineDetailPaneLoaded({
 						</>
 					) : (
 						<div className="flex flex-col gap-[9px] max-w-[320px]">
-							<KeyValue label="Prompt" value={routine.description || "—"} layout="stacked" />
+							<KeyValue label="Prompt" value={routine.prompt || "—"} layout="stacked" />
 							<KeyValue label="Autonomy" value={autonomyLabel} />
 							<KeyValue label="Silent" value={routine.silent ? "On" : "Off"} />
 						</div>
@@ -598,6 +670,7 @@ function RoutineDetailPaneLoaded({
 									<RowDot tone={outcomeTone(run.outcome)} label={run.outcome} title={run.outcome} />
 								}
 								title={absoluteDateTime(run.startedAt)}
+								subtitle={run.errorMessage ?? undefined}
 								cells={[
 									{
 										content: run.durationSeconds !== null ? `${run.durationSeconds}s` : "—",

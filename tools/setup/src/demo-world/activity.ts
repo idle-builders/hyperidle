@@ -39,7 +39,6 @@ import {
 	TASK_TRIAL_FLOW,
 	TASK_TRIAL_HEURISTIC,
 	TASK_TRIAL_MEASURE,
-	TEAM_ID,
 	THREAD_PRICING_BLOCKED,
 	THREAD_PRICING_REVIEW,
 } from "./ids.js";
@@ -183,8 +182,8 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 		ownerAgentId: string;
 		triggerType: "heartbeat" | "calendar" | "event";
 		triggerConfig: Record<string, unknown>;
-		skillId: string;
-		doneCondition: string;
+		/** BA1 D2/D8: the event name, for `triggerType:"event"` only — a real column now. */
+		eventType?: string;
 		humanReview: boolean;
 		silent: boolean;
 		lastRunAt: string;
@@ -195,9 +194,8 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 			name: "Post-bet retro",
 			ownerAgentId: PM_ID,
 			triggerType: "event",
-			triggerConfig: { eventType: "bet_state_changed" },
-			skillId: "bet_retro",
-			doneCondition: "Review item comparing hypothesis vs reality written",
+			triggerConfig: {},
+			eventType: "bet_state_changed",
 			humanReview: true,
 			silent: false,
 			lastRunAt: clock.daysAgo(8),
@@ -209,8 +207,6 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 			ownerAgentId: ASSISTANT_ID,
 			triggerType: "calendar",
 			triggerConfig: { cron: "0 10 * * 1" },
-			skillId: "portfolio_retro",
-			doneCondition: "Cross-product portfolio review item written",
 			humanReview: true,
 			silent: false,
 			lastRunAt: clock.daysAgo(4),
@@ -222,8 +218,6 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 			ownerAgentId: FACILITATOR_ID,
 			triggerType: "calendar",
 			triggerConfig: { cron: "0 2 * * *" },
-			skillId: "knowledge_decay",
-			doneCondition: "Stale knowledge items transitioned",
 			humanReview: false,
 			silent: true,
 			lastRunAt: clock.hoursAgo(9),
@@ -235,8 +229,6 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 			ownerAgentId: FACILITATOR_ID,
 			triggerType: "calendar",
 			triggerConfig: { cron: "0 3 * * *" },
-			skillId: "knowledge_promotion",
-			doneCondition: "Provisional items meeting repetition threshold promoted",
 			humanReview: false,
 			silent: false,
 			lastRunAt: clock.hoursAgo(8),
@@ -250,15 +242,13 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 			.values({
 				id: routine.id,
 				name: routine.name,
-				teamId: TEAM_ID,
 				ownerAgentId: routine.ownerAgentId,
 				triggerType: routine.triggerType,
-				triggerConfig: JSON.stringify(routine.triggerConfig),
-				skillId: routine.skillId,
-				doneCondition: routine.doneCondition,
+				triggerConfig:
+					routine.triggerType === "event" ? null : JSON.stringify(routine.triggerConfig),
+				eventType: routine.eventType ?? null,
 				humanReview: routine.humanReview,
 				silent: routine.silent,
-				delegationAllowed: false,
 				active: true,
 				state: "active",
 				lastRunAt: routine.lastRunAt,

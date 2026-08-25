@@ -61,7 +61,13 @@ on a clock or on an event.
   travels: the contradiction detector inside the promotion sweep is provably dead logic, and per-team
   firing of global sweeps is a defect, not a behaviour to preserve.
 - What happens to the "App-managed" edit-lock that the `strategy` value currently drives (below).
-- Whether the six-name trigger vocabulary converges onto the 33-event union in this package or in BA1.
+- ~~Whether the six-name trigger vocabulary converges onto the event union in this package or in BA1.~~
+  **Answered by BA1's refinement (2026-08-25): in BA1.** The trigger-rule entity retires and routines
+  absorb it, so the six-name list dies with the thing it validated. A plugin contributes **routines** —
+  `CONFIGURATION_KINDS` already carries a `routine` kind — and those routines name any of the 34 event
+  types. Two consequences for this package: its plugin ships routines rather than triggers, and the
+  per-team duplication of global sweeps is fixed at its cause in BA1 (a routine takes its scope from its
+  owning agent, so a global routine runs once) rather than worked around here.
 
 **Design:** light. Two panes change when the category goes, and the plugin's install surface is new. No
 new view; confirm against the design system rather than exploring variants.
@@ -113,7 +119,7 @@ config resolver with no intake. Building the intake is inside this work package.
 
 ### The trigger vocabulary is a sixth the size of the event vocabulary
 
-The bus carries **33 event types** (28 entity-lifecycle events — bet state changed, task state changed,
+The bus carries **34 event types** (29 entity-lifecycle events — bet state changed, task state changed,
 thread created, knowledge created / updated / archived / accessed, artifact created, team created, agent
 added, session started / ended, and so on — plus 5 more). A trigger rule may name **6**: `task.accepted`,
 `assistant.message`, `routine.fire`, `work.decompose_requested`, `knowledge.action`,

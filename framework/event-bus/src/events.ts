@@ -660,6 +660,65 @@ export type DomainEvent = KernelEvent | StrategyEvent;
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];
 
+/**
+ * BA1 D8/D2 — the one compile-time-complete list of every event type. D2's
+ * routine-event matcher subscribes to every member (all 34, nothing
+ * excluded — the founder's loop ruling at §3.1 rejects a narrowed
+ * allow-list); D8's create/patch validators and `GET /api/routines/event-types`
+ * all read this SAME constant.
+ *
+ * `as const satisfies readonly EventType[]` is load-bearing, not cosmetic:
+ * `satisfies` rejects a listed name that is not an `EventType`, and the
+ * completeness assertion below rejects an `EventType` that is not listed.
+ * A plain `readonly string[]` annotation would make the assertion vacuous —
+ * `Exclude<EventType, string>` is `never` for any list, including an empty
+ * one. Demonstrated red once (delete one entry, `npm run check` fails,
+ * restore) — see the architecture's §9 required step.
+ */
+export const EVENT_TYPES = [
+	"agent_work_intent_recorded",
+	"agent_run_admission_failed",
+	"agent_run_lifecycle_changed",
+	"task_state_changed",
+	"bet_state_changed",
+	"bet_revised",
+	"session_started",
+	"session_ended",
+	"session_handoff_completed",
+	"session_not_returned",
+	"thread_created",
+	"thread_message_appended",
+	"thread_resolved",
+	"thread_reopened",
+	"thread_archived",
+	"item_created",
+	"dependency_met",
+	"sandbox_writeback_changes_detected",
+	"knowledge_created",
+	"knowledge_updated",
+	"knowledge_archived",
+	"knowledge_accessed",
+	"artifact_created",
+	"team_created",
+	"agent_added",
+	"user_created",
+	"work_selection_requested",
+	"proposed_call_executed",
+	"proposed_call_granted",
+	"notification",
+	"propagation_applied",
+	"propagation_failed",
+	"routine_fired",
+	"tool_call_recorded",
+] as const satisfies readonly EventType[];
+// completeness: a new EventType not listed above is a compile error here.
+type _EventTypesComplete =
+	Exclude<EventType, (typeof EVENT_TYPES)[number]> extends never
+		? true
+		: ["EVENT_TYPES is missing", Exclude<EventType, (typeof EVENT_TYPES)[number]>];
+const _eventTypesComplete: _EventTypesComplete = true;
+void _eventTypesComplete;
+
 /** Wildcard subscription type. */
 export type WildcardType = "*";
 

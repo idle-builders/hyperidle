@@ -18,17 +18,13 @@ import {
 	type AgentBehaviorConfigView,
 	type AgentBehaviorEditableField,
 	type AgentBehaviorOriginView,
-	type AgentBehaviorPromptSource,
-	type AgentBehaviorTriggerSummary,
 	type AgentBehaviorValueSource,
 	isAgentBehaviorConfigKind,
-	TriggerRuleValueSchema,
 } from "@hyperidle/domain-model";
 import { listConfiguration, writeConfigurationOverride } from "@hyperidle/settings";
 
 export interface ListAgentBehaviorConfigOptions {
 	readonly kind?: AgentBehaviorConfigKind;
-	readonly occasionKind?: string;
 }
 
 export interface PatchAgentBehaviorConfigInput {
@@ -58,7 +54,6 @@ const CONFIG_KIND_TO_AGENT_BEHAVIOR_KIND: Partial<
 	agent: "agent",
 	skill: "skill",
 	routine: "routine",
-	trigger: "trigger",
 	tool: "tool",
 	mcp_server: "mcp",
 };
@@ -67,7 +62,6 @@ const AGENT_BEHAVIOR_KIND_TO_CONFIG_KIND: Record<AgentBehaviorConfigKind, Config
 	agent: "agent",
 	skill: "skill",
 	routine: "routine",
-	trigger: "trigger",
 	tool: "tool",
 	mcp: "mcp_server",
 };
@@ -78,18 +72,13 @@ export async function listAgentBehaviorConfiguration(
 ): Promise<AgentBehaviorConfigView[]> {
 	const configKind = options.kind ? AGENT_BEHAVIOR_KIND_TO_CONFIG_KIND[options.kind] : undefined;
 	const resolved = await listConfiguration(db, { kind: configKind });
-	const projected = resolved
+	return resolved
 		.map(projectResolvedConfiguration)
 		.filter((item): item is AgentBehaviorConfigView => {
 			if (!item) return false;
 			if (options.kind && item.kind !== options.kind) return false;
-			if (options.occasionKind && item.trigger?.occasionKind !== options.occasionKind) return false;
 			return true;
 		});
-	if ((!options.kind || options.kind === "trigger") && !options.occasionKind) {
-		projected.push(fallbackTriggerConfiguration());
-	}
-	return projected;
 }
 
 export async function patchAgentBehaviorConfiguration(
@@ -165,7 +154,6 @@ function projectResolvedConfiguration(
 	const origin = originView(item);
 	const id = `${kind}:${item.key}`;
 	const valueSource = item.valueSource as AgentBehaviorValueSource;
-	const trigger = kind === "trigger" ? triggerSummary(value, valueSource, origin) : undefined;
 	return {
 		id,
 		kind,
@@ -173,15 +161,12 @@ function projectResolvedConfiguration(
 		description: descriptionFor(kind, value),
 		origin,
 		valueSource,
-		activeSummary: activeSummaryFor(kind, value, valueSource, origin),
-		defaultSummary: defaultValue
-			? activeSummaryFor(kind, defaultValue, "default", origin)
-			: undefined,
+		activeSummary: activeSummaryFor(kind, value),
+		defaultSummary: defaultValue ? activeSummaryFor(kind, defaultValue) : undefined,
 		statusLabel: statusLabelFor(item, valueSource),
 		active: item.active,
 		editableFields: editableFieldsFor(item),
 		links: linksFor(kind, item.key),
-		trigger,
 	};
 }
 
@@ -218,17 +203,11 @@ function descriptionFor(
 	value: Record<string, unknown>,
 ): string | undefined {
 	if (typeof value.description === "string") return value.description;
-	if (kind === "trigger") return "Agent work trigger rule.";
 	if (kind === "mcp") return "MCP server configuration.";
 	return undefined;
 }
 
-function activeSummaryFor(
-	kind: AgentBehaviorConfigKind,
-	value: Record<string, unknown>,
-	valueSource: AgentBehaviorValueSource,
-	origin: AgentBehaviorOriginView,
-): string {
+function activeSummaryFor(kind: AgentBehaviorConfigKind, value: Record<string, unknown>): string {
 	switch (kind) {
 		case "agent":
 			return [value.name, value.role, value.harnessType].filter(isNonEmptyString).join(" · ");
@@ -236,16 +215,6 @@ function activeSummaryFor(
 			return `autonomy level ${String(value.autonomyLevel ?? "default")}`;
 		case "routine":
 			return [value.triggerType, value.ownerAgentId].filter(isNonEmptyString).join(" · ");
-		case "trigger": {
-			const parsed = TriggerRuleValueSchema.safeParse(value);
-			if (!parsed.success) return "Invalid trigger rule";
-			const promptSource = parsed.data.prompt
-				? valueSource === "user_override"
-					? "prompt from user override"
-					: `prompt from ${origin.label}`
-				: "no event-specific prompt";
-			return `${parsed.data.agentId} · ${promptSource}`;
-		}
 		case "tool":
 			return typeof value.description === "string"
 				? value.description
@@ -271,59 +240,11 @@ function statusLabelFor(
 	return "Default";
 }
 
-function triggerSummary(
-	value: Record<string, unknown>,
-	valueSource: AgentBehaviorValueSource,
-	origin: AgentBehaviorOriginView,
-): AgentBehaviorTriggerSummary | undefined {
-	const parsed = TriggerRuleValueSchema.safeParse(value);
-	if (!parsed.success) return undefined;
-	return {
-		occasionKind: parsed.data.eventType,
-		sourceId: parsed.data.scope?.sourceId,
-		selectedAgentLabel: parsed.data.agentId,
-		promptSource: parsed.data.prompt ? "trigger" : "none",
-		ownershipLabel: ownershipLabelFor(valueSource, origin),
-	};
-}
-
-function ownershipLabelFor(
-	valueSource: AgentBehaviorValueSource,
-	origin: AgentBehaviorOriginView,
-): string {
-	if (valueSource === "fallback") return "Fallback";
-	if (valueSource === "user_override") return "User override active";
-	if (valueSource === "user_owned") return "User-owned";
-	if (origin.type === "builtin") return "Built-in default";
-	if (origin.type === "plugin") return "Plugin default";
-	return origin.label;
-}
-
 function editableFieldsFor(item: ResolvedConfigurationItem): AgentBehaviorEditableField[] {
 	const value = objectValue(item.activeValue);
 	switch (item.kind) {
 		case "agent":
 			return [{ id: "name", label: "Name", kind: "text", value: stringOrNull(value.name) }];
-		case "trigger": {
-			const parsed = TriggerRuleValueSchema.safeParse(value);
-			if (!parsed.success) return [];
-			return [
-				{
-					id: "agentId",
-					label: "Agent",
-					kind: "select",
-					value: parsed.data.agentId,
-					options: [{ value: parsed.data.agentId, label: parsed.data.agentId }],
-				},
-				{
-					id: "prompt",
-					label: "Prompt source",
-					kind: "textarea",
-					value: parsed.data.prompt ?? "",
-					maxLength: 12_000,
-				},
-			];
-		}
 		case "tool":
 			return [
 				{ id: "enabled", label: "Enabled", kind: "toggle", value: Boolean(value.enabled ?? true) },
@@ -331,28 +252,6 @@ function editableFieldsFor(item: ResolvedConfigurationItem): AgentBehaviorEditab
 		default:
 			return [];
 	}
-}
-
-function fallbackTriggerConfiguration(): AgentBehaviorConfigView {
-	const promptSource: AgentBehaviorPromptSource = "none";
-	return {
-		id: "trigger:fallback.default",
-		kind: "trigger",
-		name: "No matching trigger",
-		description: "When no trigger rule matches, HyperIdle uses the default eligible agent.",
-		origin: { type: "builtin", label: "Built-in HyperIdle", state: "enabled" },
-		valueSource: "fallback",
-		activeSummary: "Default eligible agent · no event-specific prompt",
-		statusLabel: "Fallback",
-		active: true,
-		editableFields: [],
-		trigger: {
-			occasionKind: "fallback.no_match",
-			selectedAgentLabel: "Default eligible agent",
-			promptSource,
-			ownershipLabel: "Fallback",
-		},
-	};
 }
 
 function linksFor(kind: AgentBehaviorConfigKind, key: string): AgentBehaviorConfigLink[] {
@@ -377,8 +276,6 @@ function linksFor(kind: AgentBehaviorConfigKind, key: string): AgentBehaviorConf
 					href: "#settings-section-connections",
 				},
 			];
-		case "trigger":
-			return [{ target: "trigger-history", label: "View history", href: "#trigger-history" }];
 		default:
 			return [];
 	}

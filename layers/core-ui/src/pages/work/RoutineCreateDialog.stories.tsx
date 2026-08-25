@@ -1,15 +1,13 @@
 /**
  * AA2 — RoutineCreateDialog stories.
  * Renders key states for visual verification.
+ *
+ * @lore BA1 D5: `teams` prop removed — a routine has no team, the agent
+ * picker is the only scope input.
  */
 
 import type { JSX } from "react";
 import { RoutineCreateDialog } from "./RoutineCreateDialog.js";
-
-const MOCK_TEAMS = [
-	{ id: "team-1", name: "Build Team" },
-	{ id: "team-2", name: "Knowledge Fabric" },
-];
 
 const MOCK_AGENTS = [
 	{ id: "agent-1", name: "Digest Agent" },
@@ -21,40 +19,17 @@ const noop = (): void => {};
 
 export default { title: "Page: Work/RoutineCreateDialog" };
 
-/** Dialog open with teams and agents loaded. */
+/** Dialog open with agents loaded. */
 export const Open = (): JSX.Element => (
-	<RoutineCreateDialog
-		open={true}
-		onClose={noop}
-		onCreated={noop}
-		teams={MOCK_TEAMS}
-		agents={MOCK_AGENTS}
-	/>
-);
-
-/** Dialog open with single team (team select hidden). */
-export const SingleTeam = (): JSX.Element => (
-	<RoutineCreateDialog
-		open={true}
-		onClose={noop}
-		onCreated={noop}
-		teams={MOCK_TEAMS[0] ? [MOCK_TEAMS[0]] : []}
-		agents={MOCK_AGENTS}
-	/>
+	<RoutineCreateDialog open={true} onClose={noop} onCreated={noop} agents={MOCK_AGENTS} />
 );
 
 /** Dialog open with no agents available. */
 export const NoAgents = (): JSX.Element => (
-	<RoutineCreateDialog open={true} onClose={noop} onCreated={noop} teams={MOCK_TEAMS} agents={[]} />
+	<RoutineCreateDialog open={true} onClose={noop} onCreated={noop} agents={[]} />
 );
 
 /** Dialog closed. */
 export const Closed = (): JSX.Element => (
-	<RoutineCreateDialog
-		open={false}
-		onClose={noop}
-		onCreated={noop}
-		teams={MOCK_TEAMS}
-		agents={MOCK_AGENTS}
-	/>
+	<RoutineCreateDialog open={false} onClose={noop} onCreated={noop} agents={MOCK_AGENTS} />
 );

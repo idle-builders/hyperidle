@@ -1,13 +1,12 @@
 /**
- * AU21 §9 Increment 4, Wave B (RED) — architecture.md §6 Decision B's
- * placement ruling: "`routine_run` → a resolver added to
+ * AU21 §9 Increment 4, Wave B — architecture.md §6 Decision B's placement
+ * ruling: "`routine_run` → a resolver added to
  * `layers/core-api/routine/src/routine-service.ts`, co-located with the
  * scheduler once Decision B′/B″ move it core-side (Increment 4) — at that
  * point the emit site and the resolver are the same package."
  *
- * This resolver must do EXACTLY what `resolveIntentInputInternal`'s
- * "routine_run" case does today (`session-requests/src/service.ts:758-795`,
- * still present as of Wave A — Increment 4's own Wave B deletes it):
+ * This resolver does what `resolveIntentInputInternal`'s "routine_run" case
+ * used to do at drain time:
  *   1. Load the routine run; reject if it does not exist or its `outcome` is
  *      not `"running"`.
  *   2. Load the routine; reject if it is soft-deleted (`deletedAt`), not
@@ -20,15 +19,10 @@
  *      routine:<routineId>`, `teamId`, `taskId: null`, `sourceCorrelation:
  *      {routineId, routineRunId, teamId}`.
  *
- * Currently RED: no `resolveRoutineRunRequest` export exists anywhere in
- * `routine-service.ts` (nor from its barrel, `@hyperidle/routine`) — this
- * dynamic import's destructure resolves to `undefined`, so calling it throws
- * `TypeError: ... is not a function` for every test below.
- *
- * @lore naming: the architecture doc does not pin an exact export name —
- * `resolveRoutineRunRequest` mirrors `resolveTaskRunRequest`/
- * `resolveBetDecompositionRequest`'s naming, flagged for reviewer
- * confirmation, same as every sibling resolver wave's RED-phase note.
+ * @lore BA1 D5: scope comes from the OWNER AGENT, not `routines.team_id`
+ * (the column is dropped). `seedRoutine` no longer takes `teamId`;
+ * `seedAgent` does, and the resolver's `teamId` bake now tracks the agent's
+ * team, not the routine's.
  */
 
 import {
@@ -48,13 +42,12 @@ import { requireRunnableAgent } from "@hyperidle/users";
 async function seedTeam(db: HyperIdleDb, teamId: string): Promise<void> {
 	const createdAt = new Date().toISOString();
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt });
-	// The owner writes the membership row alongside the team.
 }
 
 async function seedAgent(
 	db: HyperIdleDb,
 	id: string,
-	opts: { readonly status?: string; readonly kind?: string } = {},
+	opts: { readonly status?: string; readonly kind?: string; readonly teamId?: string } = {},
 ): Promise<void> {
 	await db.insert(users).values({
 		id,
@@ -62,6 +55,7 @@ async function seedAgent(
 		name: `Agent ${id}`,
 		role: "builder",
 		status: opts.status ?? "active",
+		teamId: opts.teamId ?? null,
 		createdAt: new Date().toISOString(),
 	});
 }
@@ -70,26 +64,22 @@ async function seedRoutine(
 	db: HyperIdleDb,
 	options: {
 		readonly routineId: string;
-		readonly teamId: string;
 		readonly ownerAgentId: string;
 		readonly active?: boolean;
 		readonly state?: string;
 		readonly deletedAt?: string | null;
-		readonly delegationAllowed?: boolean;
-		readonly skillId?: string | null;
+		readonly prompt?: string | null;
 	},
 ): Promise<void> {
 	await db.insert(routines).values({
 		id: options.routineId,
 		name: options.routineId,
-		teamId: options.teamId,
+		prompt: options.prompt ?? null,
 		ownerAgentId: options.ownerAgentId,
 		triggerType: "manual",
 		active: options.active ?? true,
 		state: options.state ?? "active",
 		deletedAt: options.deletedAt ?? null,
-		delegationAllowed: options.delegationAllowed ?? false,
-		skillId: options.skillId ?? null,
 	});
 }
 
@@ -125,10 +115,9 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 	}) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-1");
-		await seedAgent(db, "owner-rrun-1");
+		await seedAgent(db, "owner-rrun-1", { teamId: "team-rrun-1" });
 		await seedRoutine(db, {
 			routineId: "routine-rrun-1",
-			teamId: "team-rrun-1",
 			ownerAgentId: "owner-rrun-1",
 		});
 		await seedRun(db, { runId: "run-rrun-1", routineId: "routine-rrun-1" });
@@ -150,6 +139,24 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 		});
 	});
 
+	// BA1 D4: a team-less owner still gets the bundle baked — with no team
+	// bake needed here (no `assembleSessionKnowledge` supplied), the
+	// contract is just "teamId absent, nothing throws".
+	test("bakes teamId as undefined when the owner agent belongs to no team", async ({ db }) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
+		await seedAgent(db, "owner-rrun-noteam");
+		await seedRoutine(db, {
+			routineId: "routine-rrun-noteam",
+			ownerAgentId: "owner-rrun-noteam",
+		});
+		await seedRun(db, { runId: "run-rrun-noteam", routineId: "routine-rrun-noteam" });
+
+		const baked = await resolveRoutineRunRequest(db, "run-rrun-noteam", buildDeps());
+
+		expect(baked.teamId).toBeUndefined();
+		expect(baked.sourceCorrelation.teamId).toBeUndefined();
+	});
+
 	test("rejects when the routine run does not exist", async ({ db }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await expect(resolveRoutineRunRequest(db, "run-does-not-exist", buildDeps())).rejects.toThrow();
@@ -158,10 +165,9 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 	test("rejects when the routine run's outcome is not 'running'", async ({ db }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-2");
-		await seedAgent(db, "owner-rrun-2");
+		await seedAgent(db, "owner-rrun-2", { teamId: "team-rrun-2" });
 		await seedRoutine(db, {
 			routineId: "routine-rrun-2",
-			teamId: "team-rrun-2",
 			ownerAgentId: "owner-rrun-2",
 		});
 		await seedRun(db, { runId: "run-rrun-2", routineId: "routine-rrun-2", outcome: "success" });
@@ -172,10 +178,9 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 	test("rejects when the routine is soft-deleted", async ({ db }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-3");
-		await seedAgent(db, "owner-rrun-3");
+		await seedAgent(db, "owner-rrun-3", { teamId: "team-rrun-3" });
 		await seedRoutine(db, {
 			routineId: "routine-rrun-3",
-			teamId: "team-rrun-3",
 			ownerAgentId: "owner-rrun-3",
 			deletedAt: new Date().toISOString(),
 		});
@@ -187,10 +192,9 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 	test("rejects when the routine is inactive (active=false)", async ({ db }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-4");
-		await seedAgent(db, "owner-rrun-4");
+		await seedAgent(db, "owner-rrun-4", { teamId: "team-rrun-4" });
 		await seedRoutine(db, {
 			routineId: "routine-rrun-4",
-			teamId: "team-rrun-4",
 			ownerAgentId: "owner-rrun-4",
 			active: false,
 		});
@@ -202,10 +206,9 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 	test("rejects when the routine's state is not 'active' (e.g. 'paused')", async ({ db }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-5");
-		await seedAgent(db, "owner-rrun-5");
+		await seedAgent(db, "owner-rrun-5", { teamId: "team-rrun-5" });
 		await seedRoutine(db, {
 			routineId: "routine-rrun-5",
-			teamId: "team-rrun-5",
 			ownerAgentId: "owner-rrun-5",
 			state: "paused",
 		});
@@ -217,10 +220,9 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 	test("rejects when the resolved owner is not a runnable AI agent", async ({ db }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-11");
-		await seedAgent(db, "owner-rrun-11", { status: "retired" });
+		await seedAgent(db, "owner-rrun-11", { status: "retired", teamId: "team-rrun-11" });
 		await seedRoutine(db, {
 			routineId: "routine-rrun-11",
-			teamId: "team-rrun-11",
 			ownerAgentId: "owner-rrun-11",
 		});
 		await seedRun(db, { runId: "run-rrun-11", routineId: "routine-rrun-11" });
@@ -230,52 +232,25 @@ describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)"
 });
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave B (RED) — `routine_run` bakes a
+ * AU21 §9 Increment 12 (Decision H3), Wave B — `routine_run` bakes a
  * `contextBundle` (`kind:"routine"`) with routine/agent/team content + the
  * ranked+budgeted knowledge bundle (`@hyperidle/knowledge`'s
  * `assembleSessionKnowledge`, Wave A).
  *
- * @lore CONFUSION (flagged for reviewer — verified from source, not assumed):
- * TODAY, a routine session gets **zero** ranked L2/L3/L4 knowledge written
- * into its sandbox — `provisioner.ts`'s Phase-6 `assembleAgentContext` call
- * branches on `params.taskId` (null for every routine session —
- * `resolveRoutineRunRequest`'s own `BakedRoutineRunRequest.taskId` is
- * literally typed `null`, and `runtime.ts:317`'s `provisionParams.taskId:
- * claimedRequest.taskId` carries that `null` straight through), so it takes
- * the task-free branch (`context.ts:962-993`) — which writes only a minimal
- * manual `session.toon` (session/source/agent/team ids) and returns before
- * ever calling `assembleContext`/`rankAndBudget`. The ONLY routine-specific
- * context today is `buildRoutineSessionContextData` + `assembleRoutinePrompt`
- * (routine name/description/lastRunSummary baked into the AGENTS.md/CLAUDE.md
- * prompt TEXT, not the sandbox `context/` files) — genuinely no ranked
- * knowledge items, ever, for a routine session pre-Increment-12.
- *
- * So this test (and the `contextBundle`'s `kind:"routine"` variant's
- * `knowledge` field itself, grown onto `BakedContextBundle` in Wave A) encode
- * a **capability ADD**, not a preserve-only migration — H3's text ("Only
- * task_run/knowledge_action/routine_run/reengagement bake this
- * knowledge/entity bundle") reads as if `context.ts` "currently reads" ranked
- * knowledge for all four kinds at launch; that premise does NOT hold for
- * `routine_run` (verified above). Proceeding with the architecture's literal
- * design (routine_run gains real ranked knowledge for the first time, via the
- * same shared `assembleSessionKnowledge` mechanism) since Wave A's own
- * `BakedContextBundle` union already committed to a `kind:"routine"` variant
- * carrying a `knowledge` field — but this is a genuine premise mismatch the
- * architecture doc should reconcile, not an implementation-detail guess.
- * `taskDescription` has no routine analog; this test (and the proposed GREEN
- * shape) uses `routine.description ?? routine.name` as the scoring-context
- * proxy — best-guess, flagged for reviewer confirmation.
+ * @lore BA1 D4: the bake gate is now `assembleSessionKnowledge` alone (not
+ * "both deps AND a team row found") — a team-less owner still gets the
+ * bundle, with `team: null` and `knowledge: []`. `getTeamById` stays
+ * optional Mechanism-C plumbing, now driven by the AGENT's team.
  */
-describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
+describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B)", () => {
 	test("bakes a contextBundle (kind:'routine') with routine/agent/team content + ranked knowledge", async ({
 		db,
 	}) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedTeam(db, "team-rrun-ctx-1");
-		await seedAgent(db, "owner-rrun-ctx-1");
+		await seedAgent(db, "owner-rrun-ctx-1", { teamId: "team-rrun-ctx-1" });
 		await seedRoutine(db, {
 			routineId: "routine-rrun-ctx-1",
-			teamId: "team-rrun-ctx-1",
 			ownerAgentId: "owner-rrun-ctx-1",
 		});
 		await seedRun(db, { runId: "run-rrun-ctx-1", routineId: "routine-rrun-ctx-1" });
@@ -309,12 +284,6 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 
 		const team = await getTeam(db, { id: "team-rrun-ctx-1" });
 
-		// RED (npm run check): `RoutineRunResolverDeps` does not declare
-		// `getTeamById`/`assembleSessionKnowledge` yet (TS2353 on the call above);
-		// `BakedRoutineRunRequest` does not declare `contextBundle` yet (TS2339
-		// below). Left uncast deliberately — the compile errors ARE the RED
-		// signal. Vitest's transpile-only run still executes; `contextBundle` is
-		// `undefined` at runtime, which `toMatchObject` fails on.
 		expect(baked.contextBundle).toMatchObject({
 			kind: "routine",
 			routine: {
@@ -324,6 +293,45 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			agent: { id: "owner-rrun-ctx-1", name: "Agent owner-rrun-ctx-1", role: "builder" },
 			team: { id: "team-rrun-ctx-1", name: team?.name },
 			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-rrun-ctx-l4" })]),
+		});
+	});
+
+	// BA1 D4 — the case this wave adds: a team-less owner cannot be scored
+	// against a team, so the resolver skips knowledge assembly rather than
+	// inventing a global query, and bakes `team: null` / `knowledge: []`
+	// instead of omitting the bundle entirely (the prompt still has to
+	// reach the agent).
+	test("bakes team:null and knowledge:[] for a team-less owner, without calling assembleSessionKnowledge", async ({
+		db,
+	}) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
+		await seedAgent(db, "owner-rrun-ctx-noteam");
+		await seedRoutine(db, {
+			routineId: "routine-rrun-ctx-noteam",
+			ownerAgentId: "owner-rrun-ctx-noteam",
+			prompt: "Summarize the week.",
+		});
+		await seedRun(db, {
+			runId: "run-rrun-ctx-noteam",
+			routineId: "routine-rrun-ctx-noteam",
+		});
+
+		let assembleCalled = false;
+		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-noteam", {
+			requireRunnableAgent,
+			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
+			assembleSessionKnowledge: async () => {
+				assembleCalled = true;
+				return [];
+			},
+		});
+
+		expect(assembleCalled).toBe(false);
+		expect(baked.contextBundle).toMatchObject({
+			kind: "routine",
+			routine: { id: "routine-rrun-ctx-noteam", prompt: "Summarize the week." },
+			team: null,
+			knowledge: [],
 		});
 	});
 });

@@ -14,10 +14,11 @@ const MOCK_DETAIL: RoutineDetail = {
 	routine: {
 		id: "routine-1",
 		name: "Daily digest",
-		description: "Sends a daily summary to the team",
+		prompt: "Sends a daily summary to the team",
 		state: "active",
 		triggerType: "calendar",
 		triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
+		eventType: null,
 		scheduleLabel: "Every day at 8:00 AM",
 		ownerAgentId: "agent-1",
 		// @lore AD8a: display name changed from "Chief of Staff" to "System Agent".
@@ -27,7 +28,6 @@ const MOCK_DETAIL: RoutineDetail = {
 		teamName: "HyperIdle Core",
 		autonomyLevel: 2,
 		humanReview: false,
-		delegationAllowed: false,
 		lastRunAt: "2026-01-01T08:00:00.000Z",
 		lastRunOutcome: "success",
 		nextRunAt: "2026-01-02T08:00:00.000Z",

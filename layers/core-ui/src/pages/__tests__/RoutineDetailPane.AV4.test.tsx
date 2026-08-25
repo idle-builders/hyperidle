@@ -49,10 +49,11 @@ const ROUTINE_DETAIL: RoutineDetail = {
 	routine: {
 		id: "r1",
 		name: "Daily Digest",
-		description: "Send the daily digest to the team.",
+		prompt: "Send the daily digest to the team.",
 		state: "active",
 		triggerType: "calendar",
 		triggerConfig: JSON.stringify({ cron: "0 9 * * *" }),
+		eventType: null,
 		scheduleLabel: "Every day at 9am",
 		ownerAgentId: "agent-1",
 		agentName: "Atlas Builder",
@@ -61,7 +62,6 @@ const ROUTINE_DETAIL: RoutineDetail = {
 		teamName: "AV4 Team",
 		autonomyLevel: 3,
 		humanReview: false,
-		delegationAllowed: true,
 		lastRunAt: "2026-01-01T09:00:00.000Z",
 		lastRunOutcome: "success",
 		nextRunAt: "2026-01-02T09:00:00.000Z",
@@ -84,7 +84,7 @@ const ROUTINE_DETAIL: RoutineDetail = {
 			endedAt: "2025-12-31T09:01:00.000Z",
 			durationSeconds: 60,
 			outcome: "error",
-			errorMessage: null,
+			errorMessage: "Owner agent is not runnable",
 		},
 	],
 };
@@ -140,7 +140,7 @@ describe("editable prompt saves via PATCH and refetches the routine", () => {
 		);
 	});
 
-	it("[RED] editing prompt and clicking Save calls apiFetch PATCH on the routine endpoint with updated description", async () => {
+	it("editing prompt and clicking Save calls apiFetch PATCH on the routine endpoint with updated prompt", async () => {
 		const user = userEvent.setup();
 		await renderPane();
 		await user.click(screen.getByRole("button", { name: "Edit routine" }));
@@ -163,7 +163,7 @@ describe("editable prompt saves via PATCH and refetches the routine", () => {
 				string,
 				unknown
 			>;
-			expect(body.description).toBe("Updated prompt text.");
+			expect(body.prompt).toBe("Updated prompt text.");
 		});
 	});
 
@@ -242,6 +242,17 @@ describe("de-greyed sections render without surface-container background; run ro
 		await waitFor(() => {
 			const rows = screen.getAllByTestId("routine-run-row");
 			expect(rows.length).toBe(2);
+		});
+	});
+
+	// BA1 D9 half two: a run's errorMessage reaches the DOM as the row's
+	// subtitle — the truthful basis for AC4 ("fails visibly to whoever
+	// configured it"). A red dot with no reason is not visible failure.
+	it("renders a run's errorMessage as the row's subtitle", async () => {
+		await renderPane();
+
+		await waitFor(() => {
+			expect(screen.getByText("Owner agent is not runnable")).toBeInTheDocument();
 		});
 	});
 
@@ -344,6 +355,85 @@ describe("editable schedule saves triggerConfig via PATCH", () => {
 				unknown
 			>;
 			expect(body.triggerConfig).toBe(JSON.stringify({ cron: "30 6 * * 2" }));
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// BA1 review N7: an event routine shows the Event control, not Schedule, and
+// saves eventType, never a trigger_config cron it never had.
+// ---------------------------------------------------------------------------
+
+const EVENT_ROUTINE_DETAIL: RoutineDetail = {
+	...ROUTINE_DETAIL,
+	routine: {
+		...ROUTINE_DETAIL.routine,
+		triggerType: "event",
+		triggerConfig: null,
+		eventType: "bet_state_changed",
+		scheduleLabel: "On bet state changed",
+	},
+};
+
+describe("an event routine shows the Event control and saves eventType via PATCH (N7)", () => {
+	it("renders the Event select, pre-populated, instead of the Schedule select", async () => {
+		mockApiFetch.mockImplementation((url: string) => {
+			if (url === "/api/routines/event-types") {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({ eventTypes: ["bet_state_changed", "task_state_changed"] }),
+						{ status: 200 },
+					),
+				);
+			}
+			return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+		});
+		await renderPane("r1", EVENT_ROUTINE_DETAIL);
+		await enterRoutineEdit();
+
+		await waitFor(() => {
+			const eventSelect = screen.getByRole("combobox", { name: /event/i });
+			expect((eventSelect as HTMLSelectElement).value).toBe("bet_state_changed");
+		});
+		expect(screen.queryByRole("combobox", { name: /schedule/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("textbox", { name: /custom cron/i })).not.toBeInTheDocument();
+	});
+
+	it("picking a different event and saving sends eventType, never triggerConfig, in the PATCH body", async () => {
+		mockApiFetch.mockImplementation((url: string, init?: RequestInit) => {
+			if (url === "/api/routines/event-types") {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({ eventTypes: ["bet_state_changed", "task_state_changed"] }),
+						{ status: 200 },
+					),
+				);
+			}
+			void init;
+			return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+		});
+		const user = userEvent.setup();
+		await renderPane("r1", EVENT_ROUTINE_DETAIL);
+		await enterRoutineEdit();
+
+		const eventSelect = await waitFor(() => screen.getByRole("combobox", { name: /event/i }));
+		await user.selectOptions(eventSelect, "task_state_changed");
+
+		const saveBtn = screen.getByRole("button", { name: /save/i });
+		await user.click(saveBtn);
+
+		await waitFor(() => {
+			const patchCall = mockApiFetch.mock.calls.find(
+				(call) => (call[1] as RequestInit)?.method === "PATCH",
+			);
+			expect(patchCall).toBeDefined();
+			if (!patchCall) return;
+			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
+				string,
+				unknown
+			>;
+			expect(body.eventType).toBe("task_state_changed");
+			expect(body.triggerConfig).toBeUndefined();
 		});
 	});
 });

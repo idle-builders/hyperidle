@@ -62,7 +62,6 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 	await db.insert(routines).values({
 		id: routineId,
 		name: "Test Routine",
-		teamId,
 		ownerAgentId: agentId,
 		triggerType: "calendar",
 		triggerConfig: JSON.stringify({ cron: "0 9 * * 1-5" }),
@@ -146,7 +145,7 @@ describe("update_routine tool", () => {
 				updates: {
 					name: "Updated Name",
 					state: "paused",
-					description: "New description",
+					prompt: "New prompt",
 				},
 			},
 			makeContext(db),
@@ -156,7 +155,7 @@ describe("update_routine tool", () => {
 		const [row] = await db.select().from(routines).where(eq(routines.id, routineId)).limit(1);
 		expect(row!.name).toBe("Updated Name");
 		expect(row!.state).toBe("paused");
-		expect(row!.description).toBe("New description");
+		expect(row!.prompt).toBe("New prompt");
 	});
 
 	test("returns ok({ routineId, name, state })", async ({ db, app }) => {

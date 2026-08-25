@@ -33,6 +33,7 @@ Agents are created from an `AgentScaffoldSpec`. `persistScaffoldedAgents` is the
 | Status | `status` (text, not null) | Lifecycle state: `active` \| `paused` \| `retired` (`UserStatus`, `framework/domain-model/src/types.ts`). |
 | Category | `agent_category` (text, nullable) | `team` \| `strategy` \| `individual`. Null for humans and system rows. |
 | Team | `team_id` (text, nullable) | Single nullable FK; null means factory-wide. |
+| Owner | `owner_user_id` (text, nullable) | Single nullable FK to another `users` row — the person this agent belongs to (`individual` category). A check constraint (`users_belonging_ck`) enforces a team, a person, or neither, never two: `owner_user_id IS NULL OR (kind = 'ai' AND team_id IS NULL)`. Written once at creation (`insertUser`); no update path exists yet. |
 
 ### `agent_run_config` — run-facing fields
 
@@ -64,7 +65,7 @@ Every AI agent belongs to exactly one structural category. Category determines s
 |---|---|---|---|---|
 | **Team** | Bound to a team (`teamId` non-null) | Default roster per team function | Fully user-controlled | 11 roles: builder, designer, product_manager, qa_engineer, growth, ops, brand_voice, support, sales, content, data_analyst |
 | **Strategy** | Factory-wide (`teamId` null) | Factory bootstrap, from `defaultFactoryRoster` | System prompt editable | facilitator, scout, infra, platform |
-| **Individual** | Bound to a human user (`teamId` null) | Per-user at registration | Fully user-controlled | assistant |
+| **Individual** | Bound to a human user (`ownerUserId` non-null, `teamId` null) | Per-user at registration | Fully user-controlled | assistant |
 
 ### 3.1 Team agents
 

@@ -1,3 +1,4 @@
+import { EVENT_TYPES } from "@hyperidle/event-bus";
 import { describe } from "vitest";
 import { expect, test, vi } from "../__testing__/test-fixtures.js";
 import { createTestApp } from "../__testing__/test-utils.js";
@@ -320,7 +321,17 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 				// @lore AU21 §9 Increment 4: `bet_state_changed` (builtin routine
 				// reaction) and the scheduler interval dispose separately.
 				{ unsubscribedEvents: ["bet_state_changed"], clearedIntervals: 0 },
-				{ unsubscribedEvents: [], clearedIntervals: 1 },
+				// @lore BA1 D2: `registerRoutineEventMatcher` replaces
+				// `registerEventTriggers` — one `eventBus.on` per EVENT_TYPES
+				// member (34, always, regardless of what is in `routines`), not
+				// one per seeded routine (zero, on this fresh test DB, under the
+				// old code — hence the previously-empty list here). `unwind()`
+				// unsubscribes in REVERSE registration order, so this is
+				// `EVENT_TYPES` reversed.
+				{
+					unsubscribedEvents: [...EVENT_TYPES].reverse(),
+					clearedIntervals: 1,
+				},
 				// @lore AU21 Increment 14a: the "cost sentinel" owner (previously
 				// here, ["session_ended", "session_handoff_completed"] unsubscribe +
 				// 1 cleared interval) is HARD-DELETED along with the rest of the

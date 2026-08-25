@@ -44,7 +44,6 @@ export interface RunContextBundle {
 		readonly sourceKind: AgentSessionSourceKind;
 		readonly sourceId: string;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation;
-		readonly triggerPromptOverride?: string;
 	};
 	/** Opaque pass-through — `session-lifecycle`-owned `RegistrySessionWorkflow`. Never inspected here. */
 	readonly sessionWorkflow?: unknown;

@@ -38,7 +38,11 @@ import {
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
 } from "@hyperidle/domain-model";
-import type { ArtifactCreatedEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import {
+	type ArtifactCreatedEvent,
+	EVENT_TYPES,
+	type TaskStateChangedEvent,
+} from "@hyperidle/event-bus";
 import { err, ok, type RegisteredTool } from "@hyperidle/harness-protocol";
 import z from "zod";
 import type { ToolHandlersPorts } from "./ports.js";
@@ -1167,13 +1171,18 @@ function makeEditBetTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditBetI
 // INVALID_INPUT via the port.
 // ─────────────────────────────────────────────────────────────────────────────
 
+const EVENT_TYPE_VALUES = EVENT_TYPES as readonly [string, ...string[]];
+
 const createRoutineInputSchema = z.object({
 	name: z.string().min(1).max(200),
-	description: z.string().max(2000).optional(),
-	teamId: z.string().min(1),
+	/** BA1 D1: renamed from `description` — 12 000 chars, the retiring trigger entity's own limit. */
+	prompt: z.string().max(12_000).optional(),
 	ownerAgentId: z.string().min(1),
-	triggerType: z.literal("calendar"),
-	triggerConfig: z.string().min(1),
+	triggerType: z.enum(["calendar", "event"]),
+	/** Required for `triggerType:"calendar"` only. */
+	triggerConfig: z.string().min(1).optional(),
+	/** BA1 D8: required (and validated against `EVENT_TYPES`) for `triggerType:"event"` only. */
+	eventType: z.enum(EVENT_TYPE_VALUES).optional(),
 });
 
 type CreateRoutineInput = z.infer<typeof createRoutineInputSchema>;
@@ -1184,7 +1193,7 @@ function makeCreateRoutineTool<TDb>(
 	return {
 		name: "create_routine",
 		description:
-			"Create a new routine (recurring automated task) for a team agent. Requires a calendar trigger with a cron expression.",
+			"Create a new routine (recurring automated task) for any agent. Fires on a calendar schedule (a cron expression) or on an event (one of the platform's event types) — pick triggerType accordingly.",
 		inputSchema: createRoutineInputSchema,
 		roles: ["assistant"],
 		handler: async (args, ctx) => {
@@ -1192,42 +1201,56 @@ function makeCreateRoutineTool<TDb>(
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
 
-			const team = await ports.coreApi.getTeamById(input.teamId, ctx.agentId);
-			if (!team) return err("NOT_FOUND", `Team not found: ${input.teamId}`);
-
 			const agent = await ports.coreApi.getUserById(input.ownerAgentId, ctx.agentId);
 			if (!agent) return err("NOT_FOUND", `Agent not found: ${input.ownerAgentId}`);
 
-			// Validate triggerConfig JSON structure — cron expression validation
-			// is owner-side in insertRoutine (throws INVALID_INPUT on bad cron).
-			let triggerConfigParsed: { cron?: string };
-			try {
-				triggerConfigParsed = JSON.parse(input.triggerConfig) as { cron?: string };
-			} catch {
-				return err("INVALID_INPUT", "triggerConfig must be valid JSON");
-			}
+			let triggerConfig: string | undefined;
+			let eventType: string | undefined;
+			let cronForErrorMessage: string | undefined;
 
-			if (!triggerConfigParsed.cron) {
-				return err("INVALID_INPUT", "triggerConfig must include a cron field");
+			if (input.triggerType === "calendar") {
+				if (!input.triggerConfig) {
+					return err("INVALID_INPUT", "triggerConfig must include a cron field");
+				}
+				// Validate triggerConfig JSON structure — cron expression validation
+				// is owner-side in insertRoutine (throws INVALID_INPUT on bad cron).
+				let triggerConfigParsed: { cron?: string };
+				try {
+					triggerConfigParsed = JSON.parse(input.triggerConfig) as { cron?: string };
+				} catch {
+					return err("INVALID_INPUT", "triggerConfig must be valid JSON");
+				}
+				if (!triggerConfigParsed.cron) {
+					return err("INVALID_INPUT", "triggerConfig must include a cron field");
+				}
+				triggerConfig = input.triggerConfig;
+				cronForErrorMessage = triggerConfigParsed.cron;
+			} else {
+				// BA1 D8: `triggerType:"event"` requires `eventType`, already
+				// validated against `EVENT_TYPES` by the schema.
+				if (!input.eventType) {
+					return err("INVALID_INPUT", 'eventType is required for triggerType:"event"');
+				}
+				eventType = input.eventType;
 			}
 
 			const routineId = randomUUID();
-			const now = new Date().toISOString();
 
+			// BA1 D5/NB2: the route's create schema is `.strict()` — only send
+			// the fields it declares. `state`/`active`/`createdAt` are computed
+			// by the route itself and were never read from the body even before
+			// `.strict()`; sending them used to be silently dropped, now it 400s.
 			let nextRunAt: string | null = null;
 			try {
 				nextRunAt = await ports.coreApi.insertRoutine(
 					{
 						id: routineId,
 						name: input.name,
-						description: input.description ?? null,
-						teamId: input.teamId,
+						prompt: input.prompt ?? null,
 						ownerAgentId: input.ownerAgentId,
 						triggerType: input.triggerType,
-						triggerConfig: input.triggerConfig,
-						state: "active",
-						active: true,
-						createdAt: now,
+						...(triggerConfig !== undefined ? { triggerConfig } : {}),
+						...(eventType !== undefined ? { eventType } : {}),
 					},
 					ctx.agentId,
 				);
@@ -1236,7 +1259,7 @@ function makeCreateRoutineTool<TDb>(
 				// actually from parseCron — DB or network errors must propagate so the
 				// agent sees a 500, not a misleading "Invalid cron expression".
 				if (e instanceof Error && /invalid cron/i.test(e.message)) {
-					return err("INVALID_INPUT", `Invalid cron expression: ${triggerConfigParsed.cron}`);
+					return err("INVALID_INPUT", `Invalid cron expression: ${cronForErrorMessage}`);
 				}
 				throw e;
 			}
@@ -1254,7 +1277,8 @@ const updateRoutineInputSchema = z.object({
 	routineId: z.string().min(1),
 	updates: z.object({
 		name: z.string().min(1).max(200).optional(),
-		description: z.string().max(2000).optional(),
+		/** BA1 D1: renamed from `description`. */
+		prompt: z.string().max(12_000).optional(),
 		state: z.enum(["active", "paused"]).optional(),
 		triggerConfig: z.string().optional(),
 	}),
@@ -1284,7 +1308,7 @@ function makeUpdateRoutineTool<TDb>(
 			const updates: Record<string, unknown> = {};
 			const u = input.updates;
 			if (u.name !== undefined) updates.name = u.name;
-			if (u.description !== undefined) updates.description = u.description;
+			if (u.prompt !== undefined) updates.prompt = u.prompt;
 			if (u.triggerConfig !== undefined) updates.triggerConfig = u.triggerConfig;
 			if (u.state !== undefined) {
 				updates.state = u.state;

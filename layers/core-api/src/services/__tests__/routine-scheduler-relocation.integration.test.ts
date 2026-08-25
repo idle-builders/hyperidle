@@ -146,7 +146,6 @@ async function seedManualRoutine(
 	await db.insert(routines).values({
 		id,
 		name: "Inc4 manual routine",
-		teamId,
 		state: "active",
 		ownerAgentId,
 		triggerType: "manual",
@@ -205,7 +204,6 @@ describe("relocated fireBuiltinRoutine", () => {
 		await db.insert(routines).values({
 			id: "builtin:post-bet-retro",
 			name: "Post-bet retro",
-			teamId,
 			state: "active",
 			ownerAgentId: "inc4-pbr-owner",
 			triggerType: "event",

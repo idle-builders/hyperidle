@@ -170,9 +170,6 @@ export function createTeamRoutes(
 					false,
 				);
 
-				// AA1: routine count for this team (AA2: exclude soft-deleted)
-				const routineCount = (await routineService.listRoutines(db, { teamId: team.id })).length;
-
 				// AB2: agent summary — count AI agents.
 				//
 				// @lore AU26 J1: `activeAgentCount` and `agentHealthWarning` are
@@ -186,6 +183,17 @@ export function createTeamRoutes(
 				const teamAgentRows = await listUsers(db, { teamIds: [team.id], kind: "ai" });
 
 				const agentCount = teamAgentRows.length;
+
+				// BA1 D5: a routine has no team_id — its team is derived from its
+				// owner agent. `routine-service.ts`'s `@lore AU13 §A2/A9` forbids a
+				// foreign join inside the routine service, so this route resolves
+				// the team's agent ids first and passes them in.
+				// AA2: exclude soft-deleted (listRoutines' default).
+				const routineCount = (
+					await routineService.listRoutines(db, {
+						ownerAgentIds: teamAgentRows.map((agent) => agent.id),
+					})
+				).length;
 
 				return {
 					id: team.id,
@@ -610,8 +618,12 @@ export function createTeamRoutes(
 				return bRow.createdAt.localeCompare(aRow.createdAt);
 			});
 
+			// BA1 D5: a routine has no team_id — resolve the team's agent ids
+			// first (already loaded as the roster's `agentIds` above) and pass
+			// them in, honouring `routine-service.ts`'s `@lore AU13 §A2/A9`
+			// (the routine service imports zero foreign tables).
 			// AA1: Load routines for this team (AA2: exclude soft-deleted)
-			const routineRows = await routineService.listRoutines(db, { teamId });
+			const routineRows = await routineService.listRoutines(db, { ownerAgentIds: agentIds });
 
 			// Build agent name map for routine owners
 			const ownerIds = [
@@ -635,7 +647,11 @@ export function createTeamRoutes(
 						id: r.id,
 						name: r.name,
 						state: (r.state ?? "active") as RoutineCardSummary["state"],
-						scheduleLabel: humanizeSchedule(r.triggerType, r.triggerConfig ?? null),
+						scheduleLabel: humanizeSchedule(
+							r.triggerType,
+							r.triggerConfig ?? null,
+							r.eventType ?? null,
+						),
 						agentName,
 						agentInitials: deriveInitials(agentName),
 						lastRunAt: r.lastRunAt ?? null,

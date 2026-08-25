@@ -25,12 +25,12 @@ function sessionContext() {
 	};
 }
 
-function routineContext() {
+function routineContext(prompt: string | null = "Summarize activity") {
 	return {
 		routine: {
 			id: "r1",
 			name: "Daily digest",
-			description: "Summarize activity",
+			prompt,
 			lastRunSummary: null,
 		},
 		agent: { id: "a1", name: "Ada", role: "builder" },
@@ -123,6 +123,32 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).toContain("**Name:** Daily digest");
 		expect(result.assembledPrompt).toContain("This is the first run of this routine.");
 		expect(result.assembledPrompt).not.toContain("## Task");
+	});
+
+	// BA1 D3: one column, one rendering — `**Purpose:**` becomes `### Instruction`.
+	it("renders a non-null prompt under a `### Instruction` heading, not `**Purpose:**`", async () => {
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context: routineContext("Summarize activity"),
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Instruction");
+		expect(result.assembledPrompt).toContain("Summarize activity");
+		expect(result.assembledPrompt).not.toContain("**Purpose:**");
+	});
+
+	it("omits the Instruction block entirely when the prompt is null", async () => {
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context: routineContext(null),
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).not.toContain("### Instruction");
+		expect(result.assembledPrompt).not.toContain("**Purpose:**");
 	});
 });
 

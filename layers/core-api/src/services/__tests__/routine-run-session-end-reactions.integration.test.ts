@@ -64,7 +64,6 @@ async function seedRunningRoutine(
 	await db.insert(routines).values({
 		id,
 		name: "Routine",
-		teamId,
 		state: "active",
 		ownerAgentId: agentId,
 		triggerType: "manual",

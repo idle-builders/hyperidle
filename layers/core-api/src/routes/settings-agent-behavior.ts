@@ -31,7 +31,6 @@ export function createAgentBehaviorSettingsRoutes(db: HyperIdleDb): Hono {
 		const agentBehaviorKind = kind && isAgentBehaviorConfigKind(kind) ? kind : undefined;
 		const items = await listAgentBehaviorConfiguration(db, {
 			kind: agentBehaviorKind,
-			occasionKind: c.req.query("occasionKind"),
 		});
 		return c.json({ items } satisfies AgentBehaviorConfigListResponse);
 	});

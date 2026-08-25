@@ -55,7 +55,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-aa1-1",
 				name: "Daily digest",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
@@ -116,7 +115,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-aa1-agent",
 				name: "Test routine",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
@@ -146,7 +144,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-outcome-test",
 				name: "Outcome test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
@@ -177,7 +174,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-success-test",
 				name: "Success test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
@@ -208,7 +204,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-no-runs",
 				name: "No runs",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),
@@ -241,7 +236,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-patch-state",
 				name: "State patch test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
@@ -271,7 +265,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-patch-active",
 				name: "Activate test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "paused",
 				triggerType: "heartbeat",
 				active: false,
@@ -298,7 +291,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-patch-error",
 				name: "Error state test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
@@ -325,7 +317,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-invalid-state",
 				name: "Invalid state test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
@@ -354,7 +345,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-detail-test",
 				name: "Detail test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "calendar",
 				triggerConfig: JSON.stringify({ cron: "0 10 * * MON" }),
@@ -383,7 +373,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-with-runs",
 				name: "Runs test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 900 }),
@@ -464,7 +453,6 @@ describe("AA1: Routine Visibility API", () => {
 					id: "count-routine-1",
 					name: "Routine one",
 					ownerAgentId: "agent-aa1",
-					teamId: "team-aa1",
 					state: "active",
 					triggerType: "heartbeat",
 					active: true,
@@ -473,7 +461,6 @@ describe("AA1: Routine Visibility API", () => {
 					id: "count-routine-2",
 					name: "Routine two",
 					ownerAgentId: "agent-aa1",
-					teamId: "team-aa1",
 					state: "paused",
 					triggerType: "calendar",
 					triggerConfig: JSON.stringify({ cron: "0 8 * * *" }),
@@ -498,7 +485,8 @@ describe("AA1: Routine Visibility API", () => {
 	// ──────────────────────────────────────────────────────────────────────
 
 	describe("PATCH /api/routines/:id — extended fields", () => {
-		test("updates name and description", async ({ db, app }) => {
+		// BA1 D1: renamed from `description` to `prompt`.
+		test("updates name and prompt", async ({ db, app }) => {
 			vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 			await seedBase(db);
 
@@ -506,7 +494,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-name-update",
 				name: "Old name",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				active: true,
@@ -515,13 +502,13 @@ describe("AA1: Routine Visibility API", () => {
 			const res = await app.request("/api/routines/routine-name-update", {
 				method: "PATCH",
 				headers: authHeaders(),
-				body: JSON.stringify({ name: "New name", description: "A description" }),
+				body: JSON.stringify({ name: "New name", prompt: "A prompt" }),
 			});
 			expect(res.status).toBe(200);
 
 			const body = (await res.json()) as Record<string, unknown>;
 			expect(body.name).toBe("New name");
-			expect(body.description).toBe("A description");
+			expect(body.prompt).toBe("A prompt");
 			vi.unstubAllEnvs();
 		});
 	});
@@ -561,7 +548,6 @@ describe("AA1: Routine Visibility API", () => {
 				id: "routine-trigger-aa1",
 				name: "Trigger test",
 				ownerAgentId: "agent-aa1",
-				teamId: "team-aa1",
 				state: "active",
 				triggerType: "heartbeat",
 				triggerConfig: JSON.stringify({ intervalSeconds: 60 }),

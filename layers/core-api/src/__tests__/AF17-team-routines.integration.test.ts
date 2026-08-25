@@ -2,22 +2,31 @@
  * AF17 — AC3: Team routines provisioned at team creation.
  *
  * When a team is created (via POST /api/teams or create_team skill tool):
- *   - 4 built-in routine rows are inserted with routines.team_id = teams.id
- *   - Each routine's owner_agent_id is a member of that team's roster (users.id)
- *   - routines.team_id is NOT team_members.id (FK load-bearing: must pass FK check)
- *   - A second team gets its own 4 routines (no collision — per-team id scheme)
- *   - Owner fallback: if a team has no product_manager, routines still get a valid owner
- *
- * RED PHASE: Fails until seedTeamRoutines is wired into POST /api/teams
- * and create_team skill tool.
+ *   - 4 built-in routine rows are inserted, each owned by a member of that
+ *     team's roster (users.id) — BA1 D5 dropped `routines.team_id`; scope
+ *     comes from the owner agent now.
+ *   - A second team's provisioning does NOT re-create the three globally-
+ *     scoped builtins (BA1 D7) — only `post-bet-retro` is per-team.
+ *   - Owner fallback: if a team has no product_manager, routines still get a
+ *     valid owner.
  *
  * @lore AU21 §9 Increment 5 (AC #7): practice-meeting deleted, no
  * replacement — the builtin count per team drops from 5 to 4
  * (post-bet-retro, portfolio-retro, knowledge-decay, knowledge-promotion).
+ *
+ * @lore BA1 D7: `portfolio-retro`, `knowledge-decay`, `knowledge-promotion`
+ * are seeded ONCE, globally (bare `builtin:<kind>` id, no `:<teamId>`
+ * suffix) — the second and every later team's `provisionTeamRoutines` call
+ * is a no-op for those three (`onConflictDoNothing`). Only `post-bet-retro`
+ * stays per-team (`builtin:post-bet-retro:<teamId>`), because
+ * `registerBuiltinRoutineHandlers` reacts to `bet_state_changed` per team.
+ * This retires AF17's original "two teams each get 4 built-in routines (8
+ * total)" assertion — that premise is exactly the per-team duplication D7
+ * fixes.
  */
 
 import { routines, teams, users } from "@hyperidle/db";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 import { seedTeamRoutines } from "./dispatch-test-helpers.js";
@@ -34,11 +43,11 @@ function authHeaders(): Record<string, string> {
 // team creation resolves the real docs content.
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC3a: POST /api/teams provisions 5 built-in routines
+// AC3a: POST /api/teams provisions 4 built-in routines
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
-	test("creates exactly 4 builtin routines for the new team", async ({ db, app }) => {
+	test("creates exactly 4 builtin routines owned by the new team's roster", async ({ db, app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const res = await app.request("/api/teams", {
@@ -54,16 +63,28 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
 		const teamId = body.team.id;
 
-		// Must have exactly 4 builtin routines scoped to this team
-		const builtinRoutines = await db.select().from(routines).where(eq(routines.teamId, teamId));
+		const rosterAgents = await db
+			.select({ id: users.id })
+			.from(users)
+			.where(inArray(users.teamId, [teamId]));
+		const rosterIds = rosterAgents.map((a) => a.id);
 
-		const builtinRows = builtinRoutines.filter((r) => r.id.startsWith("builtin:"));
+		// Must have exactly 4 builtin routines owned by this team's roster.
+		const teamRoutines = await db
+			.select()
+			.from(routines)
+			.where(inArray(routines.ownerAgentId, rosterIds));
+
+		const builtinRows = teamRoutines.filter((r) => r.id.startsWith("builtin:"));
 		expect(builtinRows).toHaveLength(4);
 
 		vi.unstubAllEnvs();
 	});
 
-	test("each routine id contains the team id (per-team id scheme)", async ({ db, app }) => {
+	test("only post-bet-retro's id contains the team id — the other three are global, bare ids", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
 		const res = await app.request("/api/teams", {
@@ -76,43 +97,22 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
 		const teamId = body.team.id;
 
-		const builtinRoutines = await db.select().from(routines).where(eq(routines.teamId, teamId));
+		const rosterAgents = await db
+			.select({ id: users.id })
+			.from(users)
+			.where(inArray(users.teamId, [teamId]));
+		const rosterIds = rosterAgents.map((a) => a.id);
+		const builtinRows = (
+			await db.select().from(routines).where(inArray(routines.ownerAgentId, rosterIds))
+		).filter((r) => r.id.startsWith("builtin:"));
 
-		const builtinRows = builtinRoutines.filter((r) => r.id.startsWith("builtin:"));
-		for (const r of builtinRows) {
-			// id must contain the teamId as a suffix (builtin:<kind>:<teamId>)
-			expect(r.id).toContain(teamId);
-		}
+		const postBetRetro = builtinRows.find((r) => r.id.startsWith("builtin:post-bet-retro"));
+		expect(postBetRetro?.id).toBe(`builtin:post-bet-retro:${teamId}`);
 
-		vi.unstubAllEnvs();
-	});
-
-	test("routines.team_id equals teams.id, NOT team_members.id (FK load-bearing)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-
-		const res = await app.request("/api/teams", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({ name: "FK Check Team", functions: ["development", "product"] }),
-		});
-
-		expect(res.status).toBe(201);
-		const body = (await res.json()) as { team: { id: string }; teamMembers: { id: string } };
-		const teamsId = body.team.id;
-
-		// @lore AU44 B1: teamMembers.id = team.id after the fold — same entity, one id.
-		expect(body.teamMembers.id).toBe(teamsId);
-
-		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamsId));
-
-		expect(builtinRows.filter((r) => r.id.startsWith("builtin:")).length).toBe(4);
-
-		// Each routine references teams.id
-		for (const r of builtinRows) {
-			expect(r.teamId).toBe(teamsId);
+		const globals = builtinRows.filter((r) => !r.id.startsWith("builtin:post-bet-retro"));
+		expect(globals).toHaveLength(3);
+		for (const r of globals) {
+			expect(r.id).not.toContain(teamId);
 		}
 
 		vi.unstubAllEnvs();
@@ -138,17 +138,20 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 		const rosterAgents = await db
 			.select({ id: users.id })
 			.from(users)
-			.where(eq(users.teamId, teamId));
+			.where(inArray(users.teamId, [teamId]));
 
 		const rosterIds = new Set(rosterAgents.map((a) => a.id));
 		expect(rosterIds.size).toBeGreaterThan(0);
 
-		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamId));
+		const builtinRows = (
+			await db
+				.select()
+				.from(routines)
+				.where(inArray(routines.ownerAgentId, [...rosterIds]))
+		).filter((r) => r.id.startsWith("builtin:"));
+		expect(builtinRows.length).toBe(4);
 
-		const builtinFiltered = builtinRows.filter((r) => r.id.startsWith("builtin:"));
-		expect(builtinFiltered.length).toBe(4);
-
-		for (const r of builtinFiltered) {
+		for (const r of builtinRows) {
 			expect(
 				rosterIds.has(r.ownerAgentId!),
 				`routine ${r.id} owner ${r.ownerAgentId} must be a roster agent`,
@@ -160,30 +163,32 @@ describe("AF17 AC3: POST /api/teams provisions built-in routines", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AC3b: Per-team non-collision — second team gets its own 4 routines
+// AC3b: BA1 D7 — a second team's provisioning does not re-create the three
+// globally-scoped builtins; only post-bet-retro is per-team.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("AF17 AC3: per-team id scheme prevents collision across two teams", () => {
-	test("two teams each get 4 built-in routines (8 total, no collision)", async ({ db, app }) => {
+describe("AF17/BA1 D7: a second team's provisioning does not duplicate global builtins", () => {
+	test("team two gets its own post-bet-retro but no new copy of the three global builtins", async ({
+		db,
+		app,
+	}) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 
-		// Create first team
+		// Create first team — seeds the 3 global builtins (bare ids) + its own post-bet-retro.
 		const res1 = await app.request("/api/teams", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({ name: "Team Alpha", functions: ["development", "product"] }),
 		});
 		expect(res1.status).toBe(201);
-		const body1 = (await res1.json()) as { team: { id: string }; teamMembers: { id: string } };
 
-		// Create second team (use create_team skill path via a different route, or reset idempotency guard)
-		// Since POST /api/teams has a "first team" idempotency guard, we test via DB direct insertion
-		// followed by a call to seedTeamRoutines if available; otherwise we test via the skill tool.
-		// For the integration path, we call seedTeamRoutines directly if it exists.
-		// @lore AF17: The idempotency guard on POST /api/teams means only one team can be created via that
-		// route per DB. The second team is created via direct DB insertion + seedTeamRoutines call.
+		const globalsBefore = (await db.select().from(routines)).filter(
+			(r) => r.id.startsWith("builtin:") && !r.id.startsWith("builtin:post-bet-retro"),
+		);
+		expect(globalsBefore).toHaveLength(3);
 
-		// Insert a second team directly
+		// Second team, seeded directly (POST /api/teams has a "first team"
+		// idempotency guard unrelated to this test).
 		const team2Id = "team-af17-test-2";
 		const agent2Id = "agent-pm-af17-test-2";
 
@@ -207,25 +212,24 @@ describe("AF17 AC3: per-team id scheme prevents collision across two teams", () 
 			leadAgentId: agent2Id,
 		});
 
-		// Count all builtin routines across both teams
-		const team1Routines = await db
+		// The 3 global builtins are UNCHANGED — still exactly 3 rows, still
+		// owned by team one's roster (onConflictDoNothing made team two's
+		// attempt a no-op).
+		const globalsAfter = (await db.select().from(routines)).filter(
+			(r) => r.id.startsWith("builtin:") && !r.id.startsWith("builtin:post-bet-retro"),
+		);
+		expect(globalsAfter).toHaveLength(3);
+		const ownerById = (rows: typeof globalsAfter): Record<string, string | null> =>
+			Object.fromEntries(rows.map((r) => [r.id, r.ownerAgentId]));
+		expect(ownerById(globalsAfter)).toEqual(ownerById(globalsBefore));
+
+		// Team two DOES get its own post-bet-retro row.
+		const team2PostBetRetro = await db
 			.select()
 			.from(routines)
-			.where(eq(routines.teamId, body1.team.id));
-		const team2Routines = await db.select().from(routines).where(eq(routines.teamId, team2Id));
-
-		const t1Builtins = team1Routines.filter((r) => r.id.startsWith("builtin:"));
-		const t2Builtins = team2Routines.filter((r) => r.id.startsWith("builtin:"));
-
-		expect(t1Builtins).toHaveLength(4);
-		expect(t2Builtins).toHaveLength(4);
-
-		// ids must be disjoint
-		const t1Ids = new Set(t1Builtins.map((r) => r.id));
-		const t2Ids = new Set(t2Builtins.map((r) => r.id));
-		for (const id of t2Ids) {
-			expect(t1Ids.has(id), `team2 routine id ${id} must not collide with team1`).toBe(false);
-		}
+			.where(inArray(routines.ownerAgentId, [agent2Id]));
+		expect(team2PostBetRetro).toHaveLength(1);
+		expect(team2PostBetRetro[0]?.id).toBe(`builtin:post-bet-retro:${team2Id}`);
 
 		vi.unstubAllEnvs();
 	});
@@ -263,13 +267,16 @@ describe("AF17 AC3: owner fallback when team lacks a product_manager", () => {
 			leadAgentId: leadId,
 		});
 
-		const builtinRows = await db.select().from(routines).where(eq(routines.teamId, teamId));
-
-		const builtinFiltered = builtinRows.filter((r) => r.id.startsWith("builtin:"));
-		expect(builtinFiltered).toHaveLength(4);
+		const builtinRows = (
+			await db
+				.select()
+				.from(routines)
+				.where(inArray(routines.ownerAgentId, [leadId]))
+		).filter((r) => r.id.startsWith("builtin:"));
+		expect(builtinRows).toHaveLength(4);
 
 		// All owners must be the leadId (fallback)
-		for (const r of builtinFiltered) {
+		for (const r of builtinRows) {
 			expect(r.ownerAgentId).toBe(leadId);
 		}
 	});

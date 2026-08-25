@@ -82,19 +82,22 @@ export interface RoutineRunSummary {
 export interface RoutineInfo {
 	id: string;
 	name: string;
-	description: string | null;
+	/** BA1 D1: the instruction given to the owner agent when this routine fires. Renamed from `description`. */
+	prompt: string | null;
 	state: RoutineState;
 	triggerType: string;
 	triggerConfig: string | null;
+	/** BA1 D2/D8: the event this routine listens to, for `triggerType:"event"`. Null otherwise. */
+	eventType: string | null;
 	scheduleLabel: string;
 	ownerAgentId: string;
 	agentName: string;
 	agentInitials: string;
-	teamId: string;
-	teamName: string;
+	/** BA1 D5: scope comes from the owner agent — null when the agent belongs to no team. */
+	teamId: string | null;
+	teamName: string | null;
 	autonomyLevel: number | null;
 	humanReview: boolean;
-	delegationAllowed: boolean;
 	lastRunAt: string | null;
 	lastRunOutcome: RoutineRunOutcome | null;
 	nextRunAt: string | null;

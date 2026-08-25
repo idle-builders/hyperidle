@@ -119,11 +119,11 @@ A recurring trigger attached to a named agent, with persistent state across runs
 
 Shipped shape:
 
-- `ownerAgentId` — a named agent; `teamId` NOT NULL (every routine is team-scoped)
-- `triggerType` — **`heartbeat | calendar | event | continuous`** (`TriggerType`, `framework/domain-model/src/types.ts`) + `triggerConfig`
-- `skillId`, `doneCondition`
+- `ownerAgentId` — a named agent; a routine has no team of its own, its scope is wherever its owner agent belongs
+- `prompt` — the instruction given to the owner agent when the routine fires (nullable: no prompt runs the agent on its own persona)
+- `triggerType` — **`heartbeat | calendar | event | continuous`** + `triggerConfig` (`{cron}`/`{intervalSeconds}`) or, for `event`, an `eventType` column naming any of the full event vocabulary (`EVENT_TYPES`, `framework/event-bus/src/events.ts`) — matching routines are read from the database at the moment the event happens, so a routine created, paused, edited, or deleted takes effect on the very next matching event
 - `stateKey` — how the routine remembers what it did last time
-- `delegationAllowed`, `humanReview`, `silent` booleans
+- `humanReview`, `silent` booleans
 - `state` — `active | paused | error`
 - `stubTaskId` — legacy nullable column for older routines; new routine creation is task-free and correlates runs through `agent_session_requests`
 - `lastRunAt` / `nextRunAt`; history in the `routine_runs` audit log

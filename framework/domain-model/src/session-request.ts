@@ -74,11 +74,12 @@ export const routineSessionRequestInputSchema = baseInput.extend({
 	sourceKind: z.literal("routine"),
 	promptMode: z.literal("routine"),
 	taskId: z.string().min(1).nullable().optional(),
-	teamId: z.string().min(1),
+	// BA1 D5: scope comes from the owner agent, which may belong to no team.
+	teamId: z.string().min(1).optional(),
 	sourceCorrelation: z.object({
 		routineId: z.string().min(1),
 		routineRunId: z.string().min(1),
-		teamId: z.string().min(1),
+		teamId: z.string().min(1).optional(),
 	}),
 });
 

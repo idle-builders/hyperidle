@@ -140,8 +140,12 @@ export async function getRoutine(exec: WriteExecutor, id: string): Promise<Routi
 
 /**
  * Parameterized list — every routine read is a WHERE predicate on this table.
- * `filter.teamId` scopes to a team; `filter.active` filters by the `active`
- * flag; `filter.triggerType` filters by trigger type; `filter.missingNextRunAt`
+ * `filter.ownerAgentIds` scopes to the routines owned by any of the given
+ * agents (BA1 D5 — scope comes from the owner agent, not a `routines.team_id`
+ * column, which no longer exists); `filter.active` filters by the `active`
+ * flag; `filter.triggerType` filters by trigger type; `filter.eventType`
+ * scopes an event routine to the event it names (BA1 D2 — the matcher's
+ * per-event lookup, served by `routines_event_type_idx`); `filter.missingNextRunAt`
  * further requires the active + schedulable predicate (`calendar`/`heartbeat`/
  * `continuous` + `nextRunAt IS NULL`); `filter.includeDeleted` lifts the
  * default soft-delete exclusion. Ordered by `id` ASC for determinism.
@@ -154,24 +158,29 @@ export async function getRoutine(exec: WriteExecutor, id: string): Promise<Routi
 export async function listRoutines(
 	exec: WriteExecutor,
 	filter?: {
-		teamId?: string;
+		ownerAgentIds?: readonly string[];
 		active?: boolean;
 		triggerType?: string;
+		eventType?: string;
 		missingNextRunAt?: boolean;
 		includeDeleted?: boolean;
 	},
 ): Promise<Routine[]> {
+	if (filter?.ownerAgentIds !== undefined && filter.ownerAgentIds.length === 0) return [];
 	return exec
 		.select()
 		.from(routines)
 		.where(
 			and(
 				filter?.includeDeleted ? undefined : isNull(routines.deletedAt),
-				filter?.teamId !== undefined ? eq(routines.teamId, filter.teamId) : undefined,
+				filter?.ownerAgentIds !== undefined
+					? inArray(routines.ownerAgentId, filter.ownerAgentIds as string[])
+					: undefined,
 				filter?.active !== undefined ? eq(routines.active, filter.active) : undefined,
 				filter?.triggerType !== undefined
 					? eq(routines.triggerType, filter.triggerType)
 					: undefined,
+				filter?.eventType !== undefined ? eq(routines.eventType, filter.eventType) : undefined,
 				filter?.missingNextRunAt
 					? and(
 							inArray(routines.triggerType, ["calendar", "heartbeat", "continuous"]),
@@ -272,10 +281,34 @@ export async function listRoutineRuns(
 // the routine_run emit-time resolver
 // ---------------------------------------------------------------------------
 
+/**
+ * BA1 D9: the cause of a `RoutineRunSourceUnavailableError`.
+ *
+ * - `"not_eligible"` — the run row was missing/not-running, or the routine
+ *   was soft-deleted / inactive / not `state:"active"` between the match and
+ *   this transaction. Someone paused or deleted it; nothing is wrong.
+ * - `"agent_not_runnable"` — `requireRunnableAgent` rejected the owner. This
+ *   is the case AC4 is about: the routine says so on its own page.
+ */
+export type RoutineRunUnavailableReason = "not_eligible" | "agent_not_runnable";
+
 /** Thrown when the routine run or its owning routine is not eligible to fire.
  * @lore AU44 B3: unexported from package index (private to routine package).
+ * @lore BA1 D9: `reason` discriminates "someone paused it" (`not_eligible`,
+ * today's behaviour, unchanged) from "the owner agent cannot run"
+ * (`agent_not_runnable`, `fireGenericRoutine`'s catch records a terminal run
+ * + errors the routine). A discriminator field, not a subclass — this
+ * class's own normalization to ONE recognizable type is deliberate (see the
+ * `requireRunnableAgent` catch below); a subclass would fight that.
  */
-export class RoutineRunSourceUnavailableError extends Error {}
+export class RoutineRunSourceUnavailableError extends Error {
+	constructor(
+		message: string,
+		readonly reason: RoutineRunUnavailableReason,
+	) {
+		super(message);
+	}
+}
 
 /**
  * The baked `routine_run` request shape, matching `resolveIntentInputInternal`'s
@@ -288,12 +321,15 @@ export interface BakedRoutineRunRequest {
 	readonly sourceKind: "routine";
 	readonly sourceId: string;
 	readonly streamId: string;
-	readonly teamId: string;
+	/** BA1 D5: scope comes from the owner agent, which may belong to no team. */
+	readonly teamId?: string;
+	/** BA1 D5: records whose routine ran; no consumer branches on it today. */
+	readonly userId?: string;
 	readonly taskId: null;
 	readonly sourceCorrelation: {
 		readonly routineId: string;
 		readonly routineRunId: string;
-		readonly teamId: string;
+		readonly teamId?: string;
 	};
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the routine/agent/team content +
@@ -388,11 +424,11 @@ export async function resolveRoutineRunRequest(
 ): Promise<BakedRoutineRunRequest> {
 	const run = await getRoutineRun(db, runId);
 	if (run?.outcome !== "running") {
-		throw new RoutineRunSourceUnavailableError("Routine run is unavailable");
+		throw new RoutineRunSourceUnavailableError("Routine run is unavailable", "not_eligible");
 	}
 	const routine = await getRoutine(db, run.routineId);
 	if (!routine || routine.deletedAt || !routine.active || routine.state !== "active") {
-		throw new RoutineRunSourceUnavailableError("Routine is not eligible to run");
+		throw new RoutineRunSourceUnavailableError("Routine is not eligible to run", "not_eligible");
 	}
 	const selectedAgentId = routine.ownerAgentId;
 	let agent: User;
@@ -407,43 +443,66 @@ export async function resolveRoutineRunRequest(
 		// downstream infra failure on the SAME transaction's writes (must
 		// propagate) — see `agent-work-intent-production.integration.test.ts`'s
 		// "rolls back its run when the intent write fails" pair, which requires
-		// exactly that distinction.
-		throw new RoutineRunSourceUnavailableError(
-			error instanceof Error ? error.message : "Resolved agent is not runnable",
-		);
+		// exactly that distinction. BA1 D9: this is the ONE cause AC4 is about,
+		// so it gets the discriminator's other value.
+		//
+		// @lore BA1 review N4: only the genuine "resolved agent is not
+		// runnable" case gets normalized, checked by `.name` (set explicitly
+		// on `AgentNotRunnableError` for exactly this cross-boundary check —
+		// see its own `@lore`). `requireRunnableAgent` starts with a database
+		// read; before this narrowing, ANY failure there — including a
+		// transient connection error — was normalized the same way, and
+		// `fireGenericRoutine`'s catch permanently sets the routine to
+		// `state:"error", active:false` for it. A connection blip is not a
+		// verdict on the agent; it must propagate and let the next tick retry,
+		// same as every other unexpected failure in this resolver.
+		if (error instanceof Error && error.name === "AgentNotRunnableError") {
+			throw new RoutineRunSourceUnavailableError(error.message, "agent_not_runnable");
+		}
+		throw error;
 	}
 
-	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
-	// caller supplied both context deps (see RoutineRunResolverDeps `@lore`) —
-	// destructured into locals so TS keeps them narrowed non-optional inside
-	// the block below, no non-null assertion needed.
+	// BA1 D5: scope comes from the owner agent, read off the row already
+	// loaded and validated above — no second read, no new port.
+	const teamId = agent.teamId ?? undefined;
+	const userId = agent.ownerUserId ?? undefined;
+
+	// BA1 D4: the bundle is always baked when `assembleSessionKnowledge` is
+	// available — a team-less owner still gets its prompt delivered, just
+	// with `team: null` and `knowledge: []` (assembling knowledge needs a
+	// team; this resolver does not invent a global query). `getTeamById`
+	// stays optional Mechanism-C plumbing, now driven by the AGENT's team
+	// rather than a `routines.team_id` column that no longer exists.
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionKnowledge } = deps;
-	if (getTeamById && assembleSessionKnowledge) {
-		const team = await getTeamById(db, routine.teamId);
-		if (team) {
-			const knowledge = await assembleSessionKnowledge(db, {
-				teamId: routine.teamId,
-				agentRole: agent.role,
-				// @lore no routine analog to a task's `description` — the
-				// routine's own description (falling back to its name) stands
-				// in for the scoring-context `taskDescription`, flagged for
-				// reviewer confirmation per this file's Wave B test `@lore`.
-				taskDescription: routine.description ?? routine.name,
-			});
-			contextBundle = {
-				kind: "routine",
-				routine: {
-					id: routine.id,
-					name: routine.name,
-					description: routine.description,
-					lastRunSummary: routine.lastRunSummary,
-				},
-				agent: { id: agent.id, name: agent.name, role: agent.role },
-				team: { id: team.id, name: team.name },
-				knowledge: toBakedContextKnowledgeItems(knowledge),
-			};
+	if (assembleSessionKnowledge) {
+		let team: { readonly id: string; readonly name: string } | null = null;
+		if (teamId && getTeamById) {
+			const teamRow = await getTeamById(db, teamId);
+			if (teamRow) team = { id: teamRow.id, name: teamRow.name };
 		}
+		const knowledge = team
+			? await assembleSessionKnowledge(db, {
+					teamId: team.id,
+					agentRole: agent.role,
+					// BA1 D3: the scorer ranks knowledge against the instruction
+					// the run will actually execute, not a description of the
+					// routine.
+					taskDescription: routine.prompt ?? routine.name,
+				})
+			: [];
+		contextBundle = {
+			kind: "routine",
+			routine: {
+				id: routine.id,
+				name: routine.name,
+				prompt: routine.prompt,
+				lastRunSummary: routine.lastRunSummary,
+			},
+			agent: { id: agent.id, name: agent.name, role: agent.role },
+			team,
+			knowledge: toBakedContextKnowledgeItems(knowledge),
+		};
 	}
 	const { readServerConfig } = deps;
 	const harnessDisabled = readServerConfig
@@ -455,9 +514,14 @@ export async function resolveRoutineRunRequest(
 		sourceKind: "routine",
 		sourceId: runId,
 		streamId: `routine:${routine.id}`,
-		teamId: routine.teamId,
+		...(teamId !== undefined ? { teamId } : {}),
+		...(userId !== undefined ? { userId } : {}),
 		taskId: null,
-		sourceCorrelation: { routineId: routine.id, routineRunId: runId, teamId: routine.teamId },
+		sourceCorrelation: {
+			routineId: routine.id,
+			routineRunId: runId,
+			...(teamId !== undefined ? { teamId } : {}),
+		},
 		...(contextBundle ? { contextBundle } : {}),
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),

@@ -1,6 +1,7 @@
 import type { ConfigurationKind, PluginState } from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
+	type AnyPgColumn,
 	boolean,
 	check,
 	index,
@@ -43,28 +44,48 @@ export const teams = pgTable("teams", {
 	formedAt: text("formed_at"),
 });
 
-export const users = pgTable("users", {
-	id: text("id").primaryKey(),
-	/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
-	kind: text("kind").notNull().default("ai"),
-	name: text("name").notNull(),
-	// @lore AU44 B1: users.team_id now references teams.id directly (team_members dissolved).
-	// Before AU44: referenced team_members.id; the migration updated all values to teams.id.
-	teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
-	role: text("role").notNull(),
-	status: text("status").notNull(),
-	/** P2: human-specific nullable columns. Null for AI users. */
-	email: text("email"),
-	avatarUrl: text("avatar_url"),
-	createdAt: text("created_at").notNull(),
-	/**
-	 * AB0: Agent category — team | strategy | individual.
-	 * Null for human users and system users.
-	 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES
-	 * split which was about system layer, not agent category.
-	 */
-	agentCategory: text("agent_category"),
-});
+export const users = pgTable(
+	"users",
+	{
+		id: text("id").primaryKey(),
+		/** "human" | "ai" — P2: kind column distinguishes human founders from AI agents. */
+		kind: text("kind").notNull().default("ai"),
+		name: text("name").notNull(),
+		// @lore AU44 B1: users.team_id now references teams.id directly (team_members dissolved).
+		// Before AU44: referenced team_members.id; the migration updated all values to teams.id.
+		teamId: text("team_id").references(() => teams.id, { onDelete: "restrict" }),
+		role: text("role").notNull(),
+		status: text("status").notNull(),
+		/** P2: human-specific nullable columns. Null for AI users. */
+		email: text("email"),
+		avatarUrl: text("avatar_url"),
+		createdAt: text("created_at").notNull(),
+		/**
+		 * AB0: Agent category — team | strategy | individual.
+		 * Null for human users and system users.
+		 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES
+		 * split which was about system layer, not agent category.
+		 */
+		agentCategory: text("agent_category"),
+		/**
+		 * BA1 D6: who an agent belongs to, as a real column — a team (`teamId`),
+		 * a person (`ownerUserId`), or neither. Null for human users (the
+		 * `users_belonging_ck` check below is trivially satisfied by them).
+		 * Written only through `@hyperidle/users`' `insertUser`; `updateUser`
+		 * is deliberately not extended (BA1 has no post-creation belonging
+		 * change — see `resolve-scaffold-specs.ts`'s `user_assistant` case).
+		 */
+		ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
+			onDelete: "set null",
+		}),
+	},
+	(table) => [
+		check(
+			"users_belonging_ck",
+			sql`${table.ownerUserId} IS NULL OR (${table.kind} = 'ai' AND ${table.teamId} IS NULL)`,
+		),
+	],
+);
 
 /**
  * AU26 G1 — one agent's run configuration, keyed on its `users` row.
@@ -506,33 +527,27 @@ export const routines = pgTable(
 		id: text("id").primaryKey(),
 		/** AA1: human-readable name for the routine. */
 		name: text("name").notNull().default(""),
-		/** AA1: optional longer description. */
-		description: text("description"),
+		/**
+		 * BA1 D1: the instruction given to the owner agent when this routine
+		 * fires. Renamed from `description` — the prompt never had a home of
+		 * its own; this column IS it. Nullable: a routine with no prompt runs
+		 * the owner agent on its own persona (AC3).
+		 */
+		prompt: text("prompt"),
 		ownerAgentId: text("owner_agent_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),
-		/**
-		 * AA1: team this routine belongs to. NOT NULL — every routine is team-scoped.
-		 * FK constraint added after backfill (see migration 0022_AA1_routine_visibility.sql).
-		 *
-		 * @lore AA1: team_id is NOT NULL. factory-wide agents (COS, PF) whose routines
-		 * have no natural team are backfilled to the first team during migration.
-		 * See architecture AA1 §"Design-it-twice: Factory-wide agents".
-		 */
-		teamId: text("team_id")
-			.notNull()
-			.references(() => teams.id, { onDelete: "restrict" }),
 		triggerType: text("trigger_type").notNull(),
 		triggerConfig: text("trigger_config"),
-		skillId: text("skill_id"),
-		doneCondition: text("done_condition"),
-		stateKey: text("state_key"),
 		/**
-		 * @lore O2: `delegationAllowed` governs whether the routine can hand off
-		 * execution to a sub-agent. Kernel-only concern (identity of who executes).
-		 * Separate from strategy signals like riskTier.
+		 * BA1 D2: the event name for a `triggerType:"event"` routine, as a real
+		 * indexable column — `trigger_config` (a JSON text blob) cannot carry an
+		 * equality index. Null for non-event routines. See
+		 * `routines_event_type_idx` below — the partial index this column exists
+		 * to serve.
 		 */
-		delegationAllowed: boolean("delegation_allowed").default(false),
+		eventType: text("event_type"),
+		stateKey: text("state_key"),
 		/**
 		 * @lore O2: `humanReview` marks routines that must pause for human approval
 		 * before completing. Kernel-only: determines the execution handoff path,
@@ -571,8 +586,16 @@ export const routines = pgTable(
 		stubTaskId: text("stub_task_id").references(() => tasks.id, { onDelete: "set null" }),
 	},
 	(table) => [
-		index("routines_team_id_idx").on(table.teamId),
 		index("routines_deleted_at_idx").on(table.deletedAt),
+		/**
+		 * BA1 D2: serves the per-event matcher's lookup
+		 * (`trigger_type = 'event' AND event_type = $1`). The partial predicate
+		 * deliberately excludes `active` — pausing a routine would otherwise
+		 * churn the index on every toggle.
+		 */
+		index("routines_event_type_idx")
+			.on(table.eventType)
+			.where(sql`${table.triggerType} = 'event' AND ${table.deletedAt} IS NULL`),
 	],
 );
 
@@ -1153,7 +1176,7 @@ export const pluginConfigurationDefaults = pgTable(
 		index("plugin_config_defaults_kind_key_idx").on(table.kind, table.key),
 		check(
 			"plugin_configuration_defaults_kind_ck",
-			sql`${table.kind} IN ('agent', 'skill', 'routine', 'trigger', 'tool', 'mcp_server', 'harness_descriptor')`,
+			sql`${table.kind} IN ('agent', 'skill', 'routine', 'tool', 'mcp_server', 'harness_descriptor')`,
 		),
 	],
 );
@@ -1180,7 +1203,7 @@ export const configurationOverrides = pgTable(
 		index("configuration_overrides_default_id_idx").on(table.defaultId),
 		check(
 			"configuration_overrides_kind_ck",
-			sql`${table.kind} IN ('agent', 'skill', 'routine', 'trigger', 'tool', 'mcp_server', 'harness_descriptor')`,
+			sql`${table.kind} IN ('agent', 'skill', 'routine', 'tool', 'mcp_server', 'harness_descriptor')`,
 		),
 		check("configuration_overrides_state_ck", sql`${table.state} IN ('active', 'deleted')`),
 	],

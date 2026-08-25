@@ -31,8 +31,9 @@ import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js"
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
 
 const TEST_TEAM_ID = "prod-1";
-// @lore AF17: per-team routine id scheme — builtin:<kind>:<teamId>
-const PROMOTION_ROUTINE_ID = `builtin:knowledge-promotion:${TEST_TEAM_ID}`;
+// @lore BA1 D7: knowledge-promotion is seeded ONCE, globally — a bare id,
+// not per-team. Only post-bet-retro keeps the per-team `:<teamId>` suffix.
+const PROMOTION_ROUTINE_ID = "builtin:knowledge-promotion";
 
 async function seedOwners(db: HyperIdleDb): Promise<void> {
 	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });

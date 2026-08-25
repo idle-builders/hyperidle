@@ -260,7 +260,6 @@ describe("A2: Database Schema", () => {
 			await db.insert(routines).values({
 				id: "routine-1",
 				name: "Test routine",
-				teamId: "prod-1",
 				state: "active",
 				ownerAgentId: "agent-1",
 				triggerType: "heartbeat",

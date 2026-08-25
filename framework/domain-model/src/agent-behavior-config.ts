@@ -1,15 +1,13 @@
-export type AgentBehaviorConfigKind = "agent" | "skill" | "routine" | "trigger" | "tool" | "mcp";
+export type AgentBehaviorConfigKind = "agent" | "skill" | "routine" | "tool" | "mcp";
 export type AgentBehaviorOriginType = "builtin" | "plugin" | "user";
 export type AgentBehaviorOriginState = "enabled" | "disabled" | "removed" | "user_owned";
 export type AgentBehaviorValueSource = "default" | "user_override" | "user_owned" | "fallback";
-export type AgentBehaviorPromptSource = "none" | "trigger" | "agent_default";
 export type AgentBehaviorFieldKind = "text" | "textarea" | "select" | "toggle" | "url";
 export type AgentBehaviorLinkTarget =
 	| "settings-agents"
 	| "settings-agent-backends"
 	| "settings-connections"
-	| "routine-detail"
-	| "trigger-history";
+	| "routine-detail";
 
 export interface AgentBehaviorOriginView {
 	readonly type: AgentBehaviorOriginType;
@@ -35,14 +33,6 @@ export interface AgentBehaviorConfigLink {
 	readonly href: string;
 }
 
-export interface AgentBehaviorTriggerSummary {
-	readonly occasionKind: string;
-	readonly sourceId?: string;
-	readonly selectedAgentLabel: string | null;
-	readonly promptSource: AgentBehaviorPromptSource;
-	readonly ownershipLabel: string;
-}
-
 export interface AgentBehaviorConfigView {
 	readonly id: string;
 	readonly kind: AgentBehaviorConfigKind;
@@ -56,7 +46,6 @@ export interface AgentBehaviorConfigView {
 	readonly active: boolean;
 	readonly editableFields: readonly AgentBehaviorEditableField[];
 	readonly links?: readonly AgentBehaviorConfigLink[];
-	readonly trigger?: AgentBehaviorTriggerSummary;
 }
 
 export interface AgentBehaviorConfigListResponse {
@@ -75,7 +64,6 @@ export const AGENT_BEHAVIOR_CONFIG_KINDS = [
 	"agent",
 	"skill",
 	"routine",
-	"trigger",
 	"tool",
 	"mcp",
 ] as const satisfies readonly AgentBehaviorConfigKind[];

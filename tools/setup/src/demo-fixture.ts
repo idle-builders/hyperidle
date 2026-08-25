@@ -207,7 +207,6 @@ export async function seedDemoWorld(
 		.values({
 			id: "demo-routine-daily_digest",
 			name: "Daily digest",
-			teamId,
 			state: "active",
 			ownerAgentId: "seed-agent-cos",
 			triggerType: "calendar",
@@ -216,7 +215,6 @@ export async function seedDemoWorld(
 				taskId: "demo-task-daily-digest",
 			}),
 			active: false,
-			delegationAllowed: false,
 			humanReview: false,
 			silent: true,
 			createdAt: clock.daysAgo(19),

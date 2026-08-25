@@ -107,16 +107,6 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
 	return parsed;
 }
 
-function parseTriggerPrompt(request: AgentSessionRequest): string | null {
-	if (!request.payloadJson) return null;
-	const payload = JSON.parse(request.payloadJson) as unknown;
-	if (!payload || typeof payload !== "object" || !("trigger" in payload)) return null;
-	const trigger = (payload as { trigger?: unknown }).trigger;
-	if (!trigger || typeof trigger !== "object") return null;
-	const prompt = (trigger as { prompt?: unknown }).prompt;
-	return typeof prompt === "string" && prompt.length > 0 ? prompt : null;
-}
-
 /**
  * AU21 §9 Increment 12 (Decision H3): the `task_run`/`routine_run`/
  * `reengagement` families' baked entity+knowledge bundle, carried on
@@ -442,7 +432,6 @@ async function consumeAgentSessionRequest(
 ): Promise<RunResult> {
 	const claimedRequest = await ensureClaimedRequest(deps.db, request, options, ports);
 	const sourceCorrelation = parseCorrelation(claimedRequest);
-	const triggerPromptOverride = parseTriggerPrompt(claimedRequest);
 	const contextBundle = parseBakedContextBundle(claimedRequest);
 	const agentConfig = parseBakedAgentConfig(claimedRequest);
 	const harnessDisabled = parseBakedHarnessDisabled(claimedRequest);
@@ -472,7 +461,6 @@ async function consumeAgentSessionRequest(
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,
 			sourceId: claimedRequest.sourceId,
 			sourceCorrelation,
-			...(triggerPromptOverride ? { triggerPromptOverride } : {}),
 		},
 	};
 	return runClaimedRequest(deps, claimedRequest, provisionParams, ports, options);

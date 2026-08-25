@@ -141,7 +141,6 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		await db.insert(routines).values({
 			id: "w0-sub-routine",
 			name: "Wave 0 subscriber routine",
-			teamId,
 			ownerAgentId: "w0-sub-routine-owner",
 			triggerType: "manual",
 			state: "active",
