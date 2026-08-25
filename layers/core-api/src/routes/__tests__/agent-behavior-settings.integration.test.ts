@@ -273,7 +273,7 @@ describe("agent behavior settings API", () => {
 		});
 	});
 
-	test("PATCH rejects unknown fields, invalid values, and MCP URL edits", async ({
+	test("PATCH rejects unknown fields, secret-bearing values, and MCP URL edits", async ({
 		db,
 		eventBus,
 	}) => {
@@ -289,6 +289,18 @@ describe("agent behavior settings API", () => {
 				{ serverUrl: "https://mcp.figma.example/realtime" },
 				400,
 				"UNEDITABLE_FIELD",
+			],
+			// N1: SECRET_VALUE_REJECTED, restored under a surviving kind
+			// (`tool`, not the deleted `trigger`) — `plugin-configuration.ts`'s
+			// `validateConfigurationValue` runs for every kind's PATCH'd value,
+			// so nesting a secret-bearing key under `tool`'s only editable field
+			// (`enabled`) reaches the exact same guard the deleted trigger test
+			// exercised.
+			[
+				"tool:tool.create_task",
+				{ enabled: { token: "secret-token" } },
+				422,
+				"SECRET_VALUE_REJECTED",
 			],
 		] as const) {
 			const res = await app.request(
