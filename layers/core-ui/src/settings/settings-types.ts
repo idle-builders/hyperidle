@@ -109,4 +109,10 @@ export interface AgentConfig {
 	 * mapping). Drawn from the team registry; defaults to [] when absent.
 	 */
 	filesystemIds?: string[];
+	/**
+	 * The harness options this agent's model runs with. Sparse — only the values
+	 * moved away from the harness's own default. Absent for an agent that has
+	 * none, which is most of them.
+	 */
+	modelOptions?: Readonly<Record<string, string | number | boolean>>;
 }

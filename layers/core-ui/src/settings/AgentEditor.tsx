@@ -33,8 +33,16 @@
 import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useEffect, useRef } from "react";
-import { Button, Input, RoleCombobox, Select } from "../ds";
+import { Button, Input, RoleCombobox, SectionLabel, Select, Toggle } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
+import {
+	declaredOptionsFor,
+	defaultChoiceLabel,
+	displayedValue,
+	type ModelOptionValues,
+	reconcileForModel,
+	withOptionValue,
+} from "./agent-model-options.js";
 import { modelOptionsForHarness } from "./model-options-for-harness.js";
 import type { InjectableFilesystem } from "./settings-types.js";
 
@@ -56,6 +64,11 @@ export interface AgentEditorDraft {
 	modelProvider: string | null;
 	maxConcurrentSessions: number;
 	filesystemIds: string[];
+	/**
+	 * The options this agent's model runs with. Sparse — only what the user moved
+	 * away from the harness's own default. See `agent-model-options.ts`.
+	 */
+	modelOptions: ModelOptionValues;
 }
 
 export interface AgentEditorProps {
@@ -137,6 +150,7 @@ export function AgentEditor({
 }: AgentEditorProps): JSX.Element {
 	// Find the selected harness descriptor
 	const selectedDescriptor = harnesses.find((h) => h.type === draft.harnessType);
+	const declaredOptions = declaredOptionsFor(selectedDescriptor, draft.modelId);
 
 	// Compute model options from the discovered descriptor.models
 	const { hasModels, options: modelOptions } = selectedDescriptor
@@ -232,6 +246,9 @@ export function AgentEditor({
 								...prev,
 								harnessType: newHarness,
 								modelProvider: newModelProvider,
+								// A different harness declares different options; the old ones
+								// cannot apply, and the model is being reset with them.
+								modelOptions: {},
 								// reset modelId when switching harnesses (stale ids cause 422)
 								modelId: "",
 							}));
@@ -251,7 +268,16 @@ export function AgentEditor({
 							className="type-input "
 							value={draft.modelId}
 							onChange={(e) => {
-								onDraftChange((prev) => ({ ...prev, modelId: e.target.value }));
+								const nextModelId = e.target.value;
+								onDraftChange((prev) => ({
+									...prev,
+									modelId: nextModelId,
+									// Keep only what the new model still declares and still offers.
+									modelOptions: reconcileForModel(
+										prev.modelOptions,
+										declaredOptionsFor(selectedDescriptor, nextModelId),
+									),
+								}));
 							}}
 							aria-label="Model"
 							options={modelOptions}
@@ -287,6 +313,89 @@ export function AgentEditor({
 					</div>
 				</div>
 			</div>
+
+			{/*
+			  Model options — what the SELECTED MODEL declares, nothing else. When it
+			  declares none (most models, most harnesses) this renders nothing at
+			  all: no heading, no empty box, no "this model has no options" line.
+			*/}
+			{declaredOptions.length > 0 && (
+				<div className="flex flex-col gap-[6px]">
+					<SectionLabel label="Model options" />
+					<p className="type-metadata text-[var(--text-tertiary)]">
+						Applied to every run of this agent.
+					</p>
+					<div className="flex flex-wrap gap-[12px]">
+						{declaredOptions.map((option) => {
+							const value = displayedValue(option, draft.modelOptions);
+							const setValue = (next: string | number | boolean | undefined): void => {
+								onDraftChange((prev) => ({
+									...prev,
+									modelOptions: withOptionValue(prev.modelOptions, option, next),
+								}));
+							};
+
+							if (option.control.kind === "boolean") {
+								return (
+									<Toggle
+										key={option.key}
+										label={option.label}
+										{...(option.helpText ? { description: option.helpText } : {})}
+										on={value === true}
+										onChange={(on) => setValue(on)}
+									/>
+								);
+							}
+
+							if (option.control.kind === "select") {
+								const choices = option.control.choices.map((choice) => ({
+									value: choice.value,
+									label: choice.label,
+								}));
+								return (
+									<div key={option.key} className="flex-1 min-w-[140px]">
+										<Select
+											id={`edit-option-${option.key}-${agentId}`}
+											label={option.label}
+											size="sm"
+											className="type-input"
+											value={value === undefined ? "" : String(value)}
+											onChange={(e) => setValue(e.target.value)}
+											aria-label={option.label}
+											options={
+												option.required
+													? choices
+													: [{ value: "", label: defaultChoiceLabel(option) }, ...choices]
+											}
+										/>
+									</div>
+								);
+							}
+
+							const isNumber = option.control.kind === "number";
+							return (
+								<div key={option.key} className="flex-1 min-w-[140px]">
+									<Input
+										id={`edit-option-${option.key}-${agentId}`}
+										label={option.label}
+										type={isNumber ? "number" : "text"}
+										value={option.key in draft.modelOptions ? String(value ?? "") : ""}
+										placeholder={
+											option.defaultValue === undefined ? undefined : String(option.defaultValue)
+										}
+										onChange={(e) => {
+											const raw = e.target.value;
+											if (raw === "") return setValue(undefined);
+											return setValue(isNumber ? Number(raw) : raw);
+										}}
+										aria-label={option.label}
+									/>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			)}
 
 			{/* System prompt */}
 			<Input
