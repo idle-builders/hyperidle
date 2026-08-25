@@ -30,6 +30,7 @@ export type {
 export {
 	disablePlugin,
 	enablePlugin,
+	getInstalledPlugin,
 	installPlugin,
 	listInstalledPlugins,
 	pluginContributionKey,

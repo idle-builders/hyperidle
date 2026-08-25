@@ -222,8 +222,7 @@ function ContributionList({
 				return (
 					<li key={c.key} className="flex items-center gap-[9px]">
 						<span className="type-small text-[var(--text-secondary)] flex-1">
-							<span className="type-label text-[var(--text-primary)]">{c.manifestKey}</span>
-							 · 
+							<span className="type-label text-[var(--text-primary)]">{c.manifestKey}</span>·
 							<span className="text-[var(--text-tertiary)]">{c.kind}</span>
 						</span>
 						{c.detached && (

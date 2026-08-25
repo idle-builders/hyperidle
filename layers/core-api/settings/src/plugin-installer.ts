@@ -306,6 +306,24 @@ export async function listInstalledPlugins(db: HyperIdleDb): Promise<InstalledPl
 }
 
 /**
+ * Get a single installed plugin by ID, or null if it does not exist or is removed.
+ * Used by HTTP routes to distinguish "not found" (404) from operation errors.
+ */
+export async function getInstalledPlugin(
+	db: HyperIdleDb,
+	pluginId: string,
+): Promise<InstalledPlugin | null> {
+	if (pluginId === BUILTIN_PLUGIN_ID) return null;
+	const rows = await db
+		.select()
+		.from(plugins)
+		.where(and(eq(plugins.id, pluginId), ne(plugins.state, "removed")))
+		.limit(1);
+	const row = rows[0];
+	return row ? pluginFromRow(row) : null;
+}
+
+/**
  * Disable a plugin — its contributions stop applying (active=false for
  * non-overridden items). User-edited (detached) items remain active.
  *

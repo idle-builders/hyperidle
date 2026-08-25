@@ -13,6 +13,7 @@ import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
 	disablePlugin,
 	enablePlugin,
+	getInstalledPlugin,
 	type InstalledPlugin,
 	installPlugin,
 	listConfiguration,
@@ -195,6 +196,10 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 	// ── POST /api/plugins/:id/enable ────────────────────────────────────────
 	router.post("/:id/enable", async (c) => {
 		const id = c.req.param("id");
+		const existing = await getInstalledPlugin(db, id);
+		if (!existing) {
+			return c.json({ code: "NOT_FOUND", error: `Plugin "${id}" not found.` }, 404);
+		}
 		try {
 			await enablePlugin(db, id);
 		} catch (err) {
@@ -207,6 +212,10 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 	// ── POST /api/plugins/:id/disable ───────────────────────────────────────
 	router.post("/:id/disable", async (c) => {
 		const id = c.req.param("id");
+		const existing = await getInstalledPlugin(db, id);
+		if (!existing) {
+			return c.json({ code: "NOT_FOUND", error: `Plugin "${id}" not found.` }, 404);
+		}
 		try {
 			await disablePlugin(db, id);
 		} catch (err) {
@@ -219,6 +228,10 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 	// ── DELETE /api/plugins/:id ─────────────────────────────────────────────
 	router.delete("/:id", async (c) => {
 		const id = c.req.param("id");
+		const existing = await getInstalledPlugin(db, id);
+		if (!existing) {
+			return c.json({ code: "NOT_FOUND", error: `Plugin "${id}" not found.` }, 404);
+		}
 		try {
 			await removePlugin(db, id);
 		} catch (err) {
@@ -233,6 +246,10 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 	// clearing the user override. Body: { kind, manifestKey }
 	router.post("/:id/contributions/restore", async (c) => {
 		const pluginId = c.req.param("id");
+		const existing = await getInstalledPlugin(db, pluginId);
+		if (!existing) {
+			return c.json({ code: "NOT_FOUND", error: `Plugin "${pluginId}" not found.` }, 404);
+		}
 		const body = await c.req.json().catch(() => null);
 		if (!body || typeof body !== "object") {
 			return c.json({ code: "INVALID_BODY", error: "Expected JSON body." }, 422);
