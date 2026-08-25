@@ -428,6 +428,13 @@
 			"when": 1785650400000,
 			"tag": "0060_BA1_one_routine_primitive",
 			"breakpoints": true
+		},
+		{
+			"idx": 61,
+			"version": "7",
+			"when": 1785654000000,
+			"tag": "0061_BA9a_plugin_scope",
+			"breakpoints": true
 		}
 	]
 }
