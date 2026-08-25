@@ -1,12 +1,12 @@
 ---
 paths:
-  - "framework/design-system/src/**"
+  - "layers/core-ui/src/ds/**"
   - "layers/core-ui/src/shell/*.stories.tsx"
 ---
 
 # Design System
 
-Components live in `framework/design-system` (Foundation / Primitives / Blocks). Shell / region components stay in `layers/core-ui/src/shell/`.
+Components live in `layers/core-ui/src/ds/` (57 components today). Shell / region components stay in `layers/core-ui/src/shell/`.
 
 **Single source of truth.** Each component has exactly one `.tsx` (production, Tailwind). TSX is the design source of truth — there are no `.html` reference files; the `.tsx` story IS the design artifact. Every custom component must have a `.stories.tsx` — stories are a required deliverable, not optional documentation.
 
@@ -14,18 +14,18 @@ Components live in `framework/design-system` (Foundation / Primitives / Blocks).
 
 ## Reuse before build (CRITICAL)
 
-Before adding any component, hook, or helper, read `framework/design-system/src/index.ts` (and the `@hyperidle/domain-model` registry + `utils/`). If an existing export already does the job, **adopt or extend it — never fork a polished parallel copy.** A new thing whose job an existing design-system export, shared registry, or util already does is a CRITICAL review finding; the fix is adoption or extension, not a nicer fork. A deliberate exception needs a `@lore` comment naming the reason.
+Before adding any component, hook, or helper, read `layers/core-ui/src/ds/index.ts` (and the `@hyperidle/domain-model` registry + `utils/`). If an existing export already does the job, **adopt or extend it — never fork a polished parallel copy.** A new thing whose job an existing design-system export, shared registry, or util already does is a CRITICAL review finding; the fix is adoption or extension, not a nicer fork. A deliberate exception needs a `@lore` comment naming the reason.
 
 ## Component budget & promotion
 
-- **Budget.** Only the components catalogued in `framework/design-system/DESIGN.md`. Any addition needs a written reason.
-- **Promotion.** A component consumed by 2+ pages belongs in `framework/design-system/`, not page-local.
+- **Budget.** Only the components already exported from `layers/core-ui/src/ds/index.ts`. Any addition needs a written reason.
+- **Promotion.** A component consumed by 2+ pages belongs in `layers/core-ui/src/ds/`, not page-local.
 
 ## Tokens
 
-- **Source of truth:** `framework/design-system/DESIGN.md` + `framework/design-system/src/tokens.css`. Two theme modes (Hearth Dark + Hearth Light); Hearth is light-first, default `hearth-light`.
+- **Source of truth:** `layers/core-ui/src/ds/tokens.css`. Two theme modes (`hearth-dark` / `hearth-light`), light-first, default `hearth-light`; with no `data-theme` set, `prefers-color-scheme` decides.
 - Every `var(--…)` a component references MUST exist in `tokens.css`. A dangling token reference renders as silent breakage — CRITICAL.
-- **Design principles:** `framework/design-system/PRINCIPLES.md` — seven universals + surprise principles from world-class design systems.
+- **Design principles:** `.claude/rules/aesthetic-quality.md`.
 
 ## Visual review & annotation
 
