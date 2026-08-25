@@ -34,6 +34,7 @@ import {
 	opencodeToolName,
 	shouldForceReturn,
 } from "@hyperidle/harness-protocol";
+import { modelOptionArgv } from "./model-options.js";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
 import { createReturnEnforcement } from "./return-enforcement.js";
@@ -299,6 +300,13 @@ interface CliSession {
 	 * the need to thread SessionConfig through streamEvents.
 	 */
 	readonly reEngageResolvedModel?: string;
+	/**
+	 * The agent's configured option args, kept so a re-engage rebuilds the same
+	 * invocation. The re-engage path constructs argv from scratch rather than
+	 * reusing the start args, so without this the agent's options would silently
+	 * disappear part-way through a session.
+	 */
+	readonly reEngageOptionArgv: readonly string[];
 }
 
 /** Replace all template variables in a string. */
@@ -346,6 +354,18 @@ function deriveCliChannel(binary: string): ReturnEnforcementChannel {
 	if (binary === "claude") return "settings-claude";
 	if (binary === "cursor-agent") return "none";
 	return "none";
+}
+
+/**
+ * The harness family this CLI adapter is, derived from its binary — the same
+ * shape as {@link deriveCliChannel} right above, and for the same reason: a CLI
+ * adapter is configured by binary, not by a declared type field.
+ *
+ * Used to look up which per-model options this harness carries.
+ */
+function deriveHarnessType(binary: string): string {
+	if (binary === "claude") return "claude-code";
+	return binary;
 }
 
 function finiteNonNegative(value: unknown): number | undefined {
@@ -505,6 +525,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			resolvedArgs = filtered;
 		}
 
+		// The agent's configured options. Empty for an agent that has none, so its
+		// invocation stays character-for-character what it was before options existed.
+		const optionArgv = modelOptionArgv(deriveHarnessType(this.config.binary), config.modelOptions);
+		if (optionArgv.length > 0) resolvedArgs = [...resolvedArgs, ...optionArgv];
+
 		// Resolve envMap
 		const resolvedEnvMap: Record<string, string> = {};
 		for (const [key, value] of Object.entries(this.config.envMap)) {
@@ -610,6 +635,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			spawnEnv: sandboxedEnv,
 			// store resolved model for re-engage spawn (opencode --model flag).
 			reEngageResolvedModel: config.resolvedModel?.model,
+			reEngageOptionArgv: optionArgv,
 		};
 
 		this.sessions.set(sessionId, session);
@@ -826,6 +852,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									if (session.reEngageResolvedModel) {
 										runArgs.push("--model", session.reEngageResolvedModel);
 									}
+									runArgs.push(...session.reEngageOptionArgv);
 									finalReEngageArgs = runArgs;
 								} else {
 									// No carrier configured — use the tailored forcing message
@@ -839,7 +866,10 @@ export class CliHarnessAdapter implements HarnessAdapter {
 									const baseArgs = adapter.config.args
 										.map((arg) => arg.replace(/\{\{[a-z]+\}\}/g, ""))
 										.filter((arg) => arg.length > 0);
-									finalReEngageArgs = [...baseArgs, forceMsg];
+									// The agent's options belong on the re-engage invocation too — this
+									// branch rebuilds argv from the base template, so they are not
+									// carried over from the start args.
+									finalReEngageArgs = [...baseArgs, ...session.reEngageOptionArgv, forceMsg];
 								}
 
 								// Spawn the re-engage child process.

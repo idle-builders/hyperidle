@@ -888,7 +888,7 @@ async function admitSession(
 	const agentRole = agentConfig.role;
 	const teamId = agentConfig.teamId ?? undefined;
 
-	// AU26 G1 (§D-L): the six run-config fields are read LIVE here from
+	// AU26 G1 (§D-L): the run-config fields are read LIVE here from
 	// `agent_run_config` — orchestration's OWN table — instead of coming off the
 	// emit-time bake. An agent with no row resolves the all-null default, which
 	// is exactly what an all-null `users` row resolved before the move.
@@ -1463,6 +1463,12 @@ async function runSession(
 		modelTier,
 		tools: allowedToolNames,
 		resolvedModel: params.resolvedModel as ResolvedModel | undefined,
+		// The options this agent was configured with. Absent when the agent has
+		// none, so an unconfigured agent's invocation is byte-identical to what it
+		// was before per-agent options existed.
+		...(Object.keys(runConfig.modelOptions).length > 0
+			? { modelOptions: runConfig.modelOptions }
+			: {}),
 		mcpConnectionInfo:
 			mcpBridgeToken && mcpUrl ? { url: mcpUrl, token: mcpBridgeToken } : undefined,
 		returnHook: returnHookConfig,

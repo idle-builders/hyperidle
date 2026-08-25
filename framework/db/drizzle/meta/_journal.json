@@ -435,6 +435,13 @@
 			"when": 1785654000000,
 			"tag": "0061_BA9a_plugin_scope",
 			"breakpoints": true
+		},
+		{
+			"idx": 62,
+			"version": "7",
+			"when": 1785657600000,
+			"tag": "0062_agent_model_options",
+			"breakpoints": true
 		}
 	]
 }
