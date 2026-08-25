@@ -34,9 +34,9 @@ import {
 	opencodeToolName,
 	shouldForceReturn,
 } from "@hyperidle/harness-protocol";
-import { modelOptionArgv } from "./model-options.js";
 import type { EnforcementRegistry } from "./enforcement-registry.js";
 import { normalizeHarnessEvent, preMapClaudeEvent } from "./harness-event-normalization.js";
+import { modelOptionArgv } from "./model-options.js";
 import { createReturnEnforcement } from "./return-enforcement.js";
 
 /** Used when no enforcement is injected (tests that don't care about the registry). */

@@ -818,6 +818,12 @@ interface AdmittedSession {
 	readonly teamId: string | undefined;
 	readonly systemPromptText: string;
 	readonly modelTier: ModelTier;
+	/**
+	 * The harness options this agent was configured with, read from its run
+	 * config during admit alongside the system prompt and tier. Empty for an
+	 * agent that has none.
+	 */
+	readonly modelOptions: Readonly<Record<string, string | number | boolean>>;
 	readonly sandboxHandle: SessionLifecycleSandboxHandle;
 	readonly sandboxPath: string;
 	/** AK2: was `watcher: FileWatcher` — renamed to `ingestion: IngestionHandle` as part of Strategy port decoupling. */
@@ -1115,6 +1121,7 @@ async function admitSession(
 		teamId,
 		systemPromptText,
 		modelTier,
+		modelOptions: runConfig.modelOptions,
 		sandboxHandle,
 		sandboxPath,
 		ingestion,
@@ -1164,6 +1171,7 @@ async function runSession(
 		teamId,
 		systemPromptText,
 		modelTier,
+		modelOptions,
 		sandboxHandle,
 		sandboxPath,
 		ingestion,
@@ -1466,9 +1474,7 @@ async function runSession(
 		// The options this agent was configured with. Absent when the agent has
 		// none, so an unconfigured agent's invocation is byte-identical to what it
 		// was before per-agent options existed.
-		...(Object.keys(runConfig.modelOptions).length > 0
-			? { modelOptions: runConfig.modelOptions }
-			: {}),
+		...(Object.keys(modelOptions).length > 0 ? { modelOptions } : {}),
 		mcpConnectionInfo:
 			mcpBridgeToken && mcpUrl ? { url: mcpUrl, token: mcpBridgeToken } : undefined,
 		returnHook: returnHookConfig,

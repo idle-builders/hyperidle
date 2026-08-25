@@ -501,6 +501,22 @@ async function callLlmDirect(options: CallLlmOptions): Promise<LlmResponse> {
  */
 export { HttpError };
 
+/**
+ * Route a call to the provider that owns it.
+ *
+ * Every provider gets its own branch here, and its own place to put the
+ * parameters only it understands. Two providers may happen to share a wire
+ * format — OpenRouter serves an Anthropic-compatible endpoint, and we use it —
+ * but that is a fact about the endpoint, not a reason to share a code path.
+ * Their parameters are genuinely different, and a shared branch is how a
+ * parameter ends up sent to a provider that has no idea what it means.
+ *
+ * @lore Before this split, "anthropic" and "openrouter" fell through to one
+ * `callAnthropic` branch. That is why OpenRouter's own `reasoning` extension had
+ * nowhere to live: the only path it could have been added to was Anthropic's,
+ * which does not have it. Keep the branches separate even when their bodies look
+ * alike.
+ */
 function callLlmOnce(
 	model: ResolvedModel,
 	messages: readonly LlmMessage[],
@@ -510,14 +526,64 @@ function callLlmOnce(
 	timeoutMs: number,
 	signal?: AbortSignal,
 ): Promise<LlmResponse> {
-	if (model.provider === "openai-compatible") {
-		return callOpenAi(model, messages, tools, system, maxTokens, timeoutMs, signal);
+	switch (model.provider) {
+		case "openai-compatible":
+			return callOpenAi(model, messages, tools, system, maxTokens, timeoutMs, signal);
+		case "openrouter":
+			return callOpenRouter(model, messages, tools, system, maxTokens, timeoutMs, signal);
+		case "anthropic":
+			return callAnthropic(model, messages, tools, system, maxTokens, timeoutMs, signal);
 	}
-	// Both "anthropic" and "openrouter" use Anthropic Messages API format
-	return callAnthropic(model, messages, tools, system, maxTokens, timeoutMs, signal);
 }
 
-async function callAnthropic(
+/**
+ * OpenRouter.
+ *
+ * Talks to OpenRouter's Anthropic-compatible endpoint, which is the wire format
+ * this has always used and the one its live lane exercises. It is a separate
+ * function from {@link callAnthropic} because OpenRouter's parameters are its
+ * own — see this file's routing `@lore`.
+ *
+ * ⚠️ UNVERIFIED: whether OpenRouter's Anthropic-compatible endpoint accepts its
+ * `reasoning` extension has NOT been checked against the live API — that needs
+ * `OPENROUTER_API_KEY`, which is not present in this environment. Until it is
+ * checked, this carries no reasoning parameter, and the builtin harness declares
+ * no options. Do not add one from documentation alone.
+ */
+function callOpenRouter(
+	model: ResolvedModel,
+	messages: readonly LlmMessage[],
+	tools: readonly LlmToolDef[] | undefined,
+	system: string | undefined,
+	maxTokens: number,
+	timeoutMs: number,
+	signal?: AbortSignal,
+): Promise<LlmResponse> {
+	return callAnthropicWire(model, messages, tools, system, maxTokens, timeoutMs, signal);
+}
+
+/**
+ * Anthropic direct. Its own branch, with its own parameters — Anthropic's
+ * reasoning control is a `thinking` token budget, not an effort level.
+ */
+function callAnthropic(
+	model: ResolvedModel,
+	messages: readonly LlmMessage[],
+	tools: readonly LlmToolDef[] | undefined,
+	system: string | undefined,
+	maxTokens: number,
+	timeoutMs: number,
+	signal?: AbortSignal,
+): Promise<LlmResponse> {
+	return callAnthropicWire(model, messages, tools, system, maxTokens, timeoutMs, signal);
+}
+
+/**
+ * The Anthropic Messages wire format itself — request shaping, transport and
+ * response parsing. Shared by the providers whose endpoints speak it; the
+ * per-provider functions above own everything that differs between them.
+ */
+async function callAnthropicWire(
 	model: ResolvedModel,
 	messages: readonly LlmMessage[],
 	tools: readonly LlmToolDef[] | undefined,
