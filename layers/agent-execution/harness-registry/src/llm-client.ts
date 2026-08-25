@@ -37,6 +37,12 @@ export interface CallLlmOptions {
 	readonly maxTokens?: number;
 	readonly system?: string;
 	/**
+	 * The harness options this agent was configured with. Each provider branch
+	 * takes the ones it understands and ignores the rest — an option is only ever
+	 * declared for a provider that has it.
+	 */
+	readonly modelOptions?: Readonly<Record<string, string | number | boolean>>;
+	/**
 	 * X6 (critique WARNING-2): Per-call timeout in milliseconds.
 	 * A hung provider connection would block the session loop indefinitely.
 	 * Default: 120000ms (2 minutes).
@@ -443,7 +449,7 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
  * are unaffected by this rename.
  */
 async function callLlmDirect(options: CallLlmOptions): Promise<LlmResponse> {
-	const { model, messages, tools, system, maxTokens = DEFAULT_MAX_TOKENS } = options;
+	const { model, messages, tools, system, maxTokens = DEFAULT_MAX_TOKENS, modelOptions } = options;
 	const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
 	let lastError: Error | undefined;
@@ -459,6 +465,7 @@ async function callLlmDirect(options: CallLlmOptions): Promise<LlmResponse> {
 				maxTokens,
 				timeoutMs,
 				options.signal,
+				modelOptions,
 			);
 			return response;
 		} catch (err) {
@@ -525,30 +532,42 @@ function callLlmOnce(
 	maxTokens: number,
 	timeoutMs: number,
 	signal?: AbortSignal,
+	modelOptions?: Readonly<Record<string, string | number | boolean>>,
 ): Promise<LlmResponse> {
 	switch (model.provider) {
 		case "openai-compatible":
 			return callOpenAi(model, messages, tools, system, maxTokens, timeoutMs, signal);
 		case "openrouter":
-			return callOpenRouter(model, messages, tools, system, maxTokens, timeoutMs, signal);
+			return callOpenRouter(
+				model,
+				messages,
+				tools,
+				system,
+				maxTokens,
+				timeoutMs,
+				signal,
+				modelOptions,
+			);
 		case "anthropic":
 			return callAnthropic(model, messages, tools, system, maxTokens, timeoutMs, signal);
 	}
 }
 
 /**
- * OpenRouter.
+ * OpenRouter, on its own native endpoint.
  *
- * Talks to OpenRouter's Anthropic-compatible endpoint, which is the wire format
- * this has always used and the one its live lane exercises. It is a separate
- * function from {@link callAnthropic} because OpenRouter's parameters are its
- * own — see this file's routing `@lore`.
+ * @lore Verified live against the API on 2026-08-25, because the choice here is
+ * not cosmetic. OpenRouter serves BOTH an Anthropic-compatible `/v1/messages`
+ * and its native OpenAI-shaped `/v1/chat/completions`. This used to go to
+ * `/v1/messages`, and that endpoint **silently ignores unknown fields** — it
+ * answered HTTP 200 to a request carrying `totally_made_up_param`. So OpenRouter's
+ * own `reasoning` parameter was accepted there and quietly dropped.
  *
- * ⚠️ UNVERIFIED: whether OpenRouter's Anthropic-compatible endpoint accepts its
- * `reasoning` extension has NOT been checked against the live API — that needs
- * `OPENROUTER_API_KEY`, which is not present in this environment. Until it is
- * checked, this carries no reasoning parameter, and the builtin harness declares
- * no options. Do not add one from documentation alone.
+ * The native endpoint validates instead: a bogus effort returns HTTP 400 naming
+ * every valid option (`max|xhigh|high|medium|low|minimal|none`). That rejection
+ * is the proof the value genuinely arrives as that parameter, and it is why
+ * builtin's per-model options are only real on this endpoint. Tool calling and
+ * reasoning-token accounting were both confirmed on it before the switch.
  */
 function callOpenRouter(
 	model: ResolvedModel,
@@ -558,8 +577,24 @@ function callOpenRouter(
 	maxTokens: number,
 	timeoutMs: number,
 	signal?: AbortSignal,
+	modelOptions?: Readonly<Record<string, string | number | boolean>>,
 ): Promise<LlmResponse> {
-	return callAnthropicWire(model, messages, tools, system, maxTokens, timeoutMs, signal);
+	const extraBody: Record<string, unknown> = {};
+	const effort = modelOptions?.reasoning_effort;
+	if (typeof effort === "string") extraBody.reasoning_effort = effort;
+	// Attribution — OpenRouter shows this against the account's activity.
+	const extraHeaders = { "X-OpenRouter-Title": "HyperIdle" };
+	return callOpenAiWire(
+		model,
+		messages,
+		tools,
+		system,
+		maxTokens,
+		timeoutMs,
+		signal,
+		extraBody,
+		extraHeaders,
+	);
 }
 
 /**
@@ -600,12 +635,6 @@ async function callAnthropicWire(
 		"anthropic-version": "2023-06-01",
 	};
 
-	if (model.provider === "openrouter") {
-		headers["X-OpenRouter-Title"] = "HyperIdle";
-		// OpenRouter also accepts Authorization: Bearer
-		headers.Authorization = `Bearer ${model.apiKey}`;
-		delete headers["x-api-key"];
-	}
 
 	const anthropicMessages = toAnthropicMessages(messages);
 
@@ -643,7 +672,11 @@ async function callAnthropicWire(
 	return parseAnthropicResponse(responseBody);
 }
 
-async function callOpenAi(
+/**
+ * A plain OpenAI-compatible endpoint. Its own branch — see this file's routing
+ * `@lore` — carrying no provider-specific parameters of its own today.
+ */
+function callOpenAi(
 	model: ResolvedModel,
 	messages: readonly LlmMessage[],
 	tools: readonly LlmToolDef[] | undefined,
@@ -652,12 +685,31 @@ async function callOpenAi(
 	timeoutMs: number,
 	signal?: AbortSignal,
 ): Promise<LlmResponse> {
+	return callOpenAiWire(model, messages, tools, system, maxTokens, timeoutMs, signal, {}, {});
+}
+
+/**
+ * The OpenAI chat-completions wire format itself. `extraBody` is where a
+ * provider adds the parameters only it understands.
+ */
+async function callOpenAiWire(
+	model: ResolvedModel,
+	messages: readonly LlmMessage[],
+	tools: readonly LlmToolDef[] | undefined,
+	system: string | undefined,
+	maxTokens: number,
+	timeoutMs: number,
+	signal: AbortSignal | undefined,
+	extraBody: Readonly<Record<string, unknown>>,
+	extraHeaders: Readonly<Record<string, string>> = {},
+): Promise<LlmResponse> {
 	const url = `${model.baseUrl}/v1/chat/completions`;
 
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 		// biome-ignore lint/style/useNamingConvention: HTTP Authorization header (PascalCase is the HTTP spec)
 		Authorization: `Bearer ${model.apiKey}`,
+		...extraHeaders,
 	};
 
 	const openAiMessages: unknown[] = [];
@@ -670,6 +722,7 @@ async function callOpenAi(
 		model: model.model,
 		messages: openAiMessages,
 		max_tokens: maxTokens,
+		...extraBody,
 	};
 
 	if (tools && tools.length > 0) {

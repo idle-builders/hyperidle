@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import type {
 	HarnessAuthActionDescriptor,
 	HarnessModelDescriptor,
+	HarnessModelOptionDescriptor,
 	HarnessReadinessState,
 } from "@hyperidle/harness-capability";
 
@@ -699,6 +700,41 @@ async function fetchAnthropicModels(
 }
 
 /** AV2: Fetch OpenRouter model list via GET https://openrouter.ai/api/v1/models (no auth) */
+/**
+ * The reasoning-effort option a model declares, from OpenRouter's own catalogue.
+ *
+ * The catalogue publishes each model's `reasoning.supported_efforts` and its
+ * `reasoning.default_effort`. A model that publishes no efforts declares no
+ * option — most do not — and the editor then shows nothing for it.
+ *
+ * @lore Verified live 2026-08-25: of 418 catalogued models, 143 publish
+ * `reasoning_effort`. The value carries through to OpenRouter's native endpoint,
+ * which rejects an invalid one with HTTP 400 naming the parameter — see
+ * `builtin-model-options.integration.test.ts`.
+ */
+function openRouterModelOptions(
+	model: Record<string, unknown>,
+): readonly HarnessModelOptionDescriptor[] {
+	const reasoning = model.reasoning as Record<string, unknown> | undefined;
+	const efforts = reasoning?.supported_efforts;
+	if (!Array.isArray(efforts) || efforts.length === 0) return [];
+	const choices = efforts
+		.filter((effort): effort is string => typeof effort === "string")
+		.map((effort) => ({ value: effort, label: effort }));
+	if (choices.length === 0) return [];
+	const defaultEffort = reasoning?.default_effort;
+	return [
+		{
+			key: "reasoning_effort",
+			label: "Reasoning effort",
+			helpText: "How much the model thinks before answering.",
+			control: { kind: "select", choices },
+			required: false,
+			...(typeof defaultEffort === "string" ? { defaultValue: defaultEffort } : {}),
+		},
+	];
+}
+
 async function fetchOpenRouterModels(
 	fetchFn?: HarnessProbeDeps["fetchModels"],
 ): Promise<readonly HarnessModelDescriptor[]> {
@@ -728,7 +764,7 @@ async function fetchOpenRouterModels(
 					contextWindow,
 					selectable: true,
 					inheritedFromGateway: true,
-					options: [],
+					options: openRouterModelOptions(m),
 				} satisfies HarnessModelDescriptor,
 			];
 		});

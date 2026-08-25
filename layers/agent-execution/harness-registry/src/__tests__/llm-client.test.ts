@@ -403,12 +403,25 @@ describe("callLlm — OpenAI function_calling format (AC-6)", () => {
 	});
 });
 
-// ── AC-3: OpenRouter routing ──────────────────────────────────────────────────
+// ── OpenRouter routing ───────────────────────────────────────────────────────
 
-describe("callLlm — OpenRouter provider (AC-3)", () => {
-	it("calls POST {baseUrl}/v1/messages for OpenRouter (mirrors Anthropic API)", async () => {
+/**
+ * OpenRouter goes to its OWN native endpoint, not to Anthropic's.
+ *
+ * These tests used to pin the opposite, because OpenRouter and Anthropic shared
+ * a single call path. Verified live 2026-08-25, that sharing was hiding a real
+ * defect: OpenRouter's Anthropic-compatible `/v1/messages` silently ignores
+ * unknown fields — it answers HTTP 200 to a body carrying
+ * `totally_made_up_param` — so OpenRouter's own `reasoning_effort` was accepted
+ * there and quietly discarded. Its native `/v1/chat/completions` validates
+ * instead, rejecting a bad value with HTTP 400 that names the parameter.
+ *
+ * The real round-trip lives in `builtin-model-options.integration.test.ts`.
+ */
+describe("callLlm — OpenRouter provider", () => {
+	it("calls OpenRouter's own /v1/chat/completions, not Anthropic's /v1/messages", async () => {
 		const fetchMock = vi.mocked(fetch);
-		fetchMock.mockResolvedValueOnce(mockFetchResponse(makeAnthropicTextResponse()));
+		fetchMock.mockResolvedValueOnce(mockFetchResponse(makeOpenAiTextResponse()));
 
 		await callLlm({
 			model: OPENROUTER_MODEL,
@@ -417,14 +430,12 @@ describe("callLlm — OpenRouter provider (AC-3)", () => {
 
 		expect(fetchMock).toHaveBeenCalledOnce();
 		const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-		// OpenRouter's Anthropic-compatible endpoint is /api/v1/messages
-		// baseUrl is "https://openrouter.ai/api", so full URL is baseUrl + /v1/messages
-		expect(url).toBe("https://openrouter.ai/api/v1/messages");
+		expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
 	});
 
-	it("sets X-Title or X-OpenRouter-Title header for OpenRouter", async () => {
+	it("still identifies HyperIdle to OpenRouter", async () => {
 		const fetchMock = vi.mocked(fetch);
-		fetchMock.mockResolvedValueOnce(mockFetchResponse(makeAnthropicTextResponse()));
+		fetchMock.mockResolvedValueOnce(mockFetchResponse(makeOpenAiTextResponse()));
 
 		await callLlm({
 			model: OPENROUTER_MODEL,
@@ -433,16 +444,43 @@ describe("callLlm — OpenRouter provider (AC-3)", () => {
 
 		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 		const headers = init.headers as Record<string, string>;
-		// Architecture specifies X-OpenRouter-Title header
-		const hasOpenRouterHeader =
-			headers["X-Title"] !== undefined || headers["X-OpenRouter-Title"] !== undefined;
-		expect(hasOpenRouterHeader).toBe(true);
+		// Attribution survived the move onto the OpenAI-shaped wire.
+		expect(headers["X-OpenRouter-Title"]).toBe("HyperIdle");
 	});
 
-	it("uses Anthropic response format for OpenRouter responses", async () => {
+	it("carries a configured reasoning effort as OpenRouter's own parameter", async () => {
+		const fetchMock = vi.mocked(fetch);
+		fetchMock.mockResolvedValueOnce(mockFetchResponse(makeOpenAiTextResponse()));
+
+		await callLlm({
+			model: OPENROUTER_MODEL,
+			messages: SIMPLE_MESSAGES,
+			modelOptions: { reasoning_effort: "high" },
+		});
+
+		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+		const body = JSON.parse(init.body as string) as Record<string, unknown>;
+		expect(body.reasoning_effort).toBe("high");
+	});
+
+	it("an agent with no options sends no reasoning parameter at all", async () => {
+		const fetchMock = vi.mocked(fetch);
+		fetchMock.mockResolvedValueOnce(mockFetchResponse(makeOpenAiTextResponse()));
+
+		await callLlm({
+			model: OPENROUTER_MODEL,
+			messages: SIMPLE_MESSAGES,
+		});
+
+		const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+		const body = JSON.parse(init.body as string) as Record<string, unknown>;
+		expect("reasoning_effort" in body).toBe(false);
+	});
+
+	it("reads OpenRouter responses in the OpenAI shape", async () => {
 		const fetchMock = vi.mocked(fetch);
 		fetchMock.mockResolvedValueOnce(
-			mockFetchResponse(makeAnthropicTextResponse("OpenRouter response.")),
+			mockFetchResponse(makeOpenAiTextResponse("OpenRouter response.")),
 		);
 
 		const result = await callLlm({
@@ -450,7 +488,6 @@ describe("callLlm — OpenRouter provider (AC-3)", () => {
 			messages: SIMPLE_MESSAGES,
 		});
 
-		expect(result.stopReason).toBe("end_turn");
 		expect(result.content[0]?.type).toBe("text");
 		if (result.content[0]?.type === "text") {
 			expect(result.content[0].text).toBe("OpenRouter response.");

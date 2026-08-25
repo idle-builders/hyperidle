@@ -271,38 +271,10 @@ const DESCRIPTOR: HarnessCapabilityDescriptor = {
 			contextWindow: 1_000_000,
 			selectable: true,
 			inheritedFromGateway: false,
-			options: [
-				{
-					key: "effort",
-					label: "Effort",
-					control: {
-						kind: "select",
-						choices: [
-							{ value: "low", label: "Low" },
-							{ value: "medium", label: "Medium" },
-							{ value: "high", label: "High" },
-						],
-					},
-					required: false,
-					scope: "launch",
-					defaultValue: "medium",
-				},
-				{
-					key: "mode",
-					label: "Mode",
-					control: {
-						kind: "select",
-						choices: [
-							{ value: "interactive", label: "Interactive" },
-							{ value: "build", label: "Build" },
-							{ value: "plan", label: "Plan" },
-						],
-					},
-					required: false,
-					scope: "launch",
-					defaultValue: "build",
-				},
-			],
+			// The composer never rendered per-message option pills, and that path is
+			// gone. Options are configured on the agent now, so this fixture no
+			// longer describes anything this view shows.
+			options: [],
 		},
 		{
 			id: "claude-sonnet-4-6",
