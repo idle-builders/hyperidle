@@ -24,7 +24,7 @@ When an agent works on a task, it runs a **session** — a bounded, streaming wo
 
 **Sending mid-session.** You can type and send while the agent works. Your message queues ("Queued · sends when the agent finishes", cancellable with ✕) and is delivered at the next turn boundary — it never interrupts the agent.
 
-**Composer pills.** The Session view composer shows model and option pills derived from the harness's capability descriptor. Available options depend on the harness; undeclared options are simply absent.
+**Model options are set on the agent, not per message.** How an agent's model runs — its effort level, its variant, whatever its harness exposes — is part of configuring that agent, in Settings → Agents. Those options then apply to every run of that agent. What you can set depends on the harness and the model you picked; a model that exposes nothing simply shows no options.
 
 The session view is read-plus-queue, not a decision surface. Verdicts happen on the review page.
 
