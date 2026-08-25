@@ -635,7 +635,6 @@ async function callAnthropicWire(
 		"anthropic-version": "2023-06-01",
 	};
 
-
 	const anthropicMessages = toAnthropicMessages(messages);
 
 	const body: Record<string, unknown> = {
