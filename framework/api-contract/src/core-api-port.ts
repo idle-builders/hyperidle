@@ -500,10 +500,19 @@ export interface RoutineView {
  * Mirrors `PATCH /routines/:id`'s validated request body — the field subset
  * `update_routine` sets (the route's own `updateRoutineSchema` covers every
  * one of these already).
+ *
+ * @lore BA1 review N5: this used to declare `description`, from before D1
+ * renamed the column to `prompt` — the route's `.strict()` schema only ever
+ * knew `prompt`, so a caller following this type's declared shape got a 400,
+ * and the one real caller (`update_routine`'s tool handler) only survived
+ * because `tool-handlers-bindings.ts`'s `widenUpdateRoutineInput` is an
+ * unchecked `as UpdateRoutineRequest` cast off a `Record<string, unknown>` —
+ * `prompt` was never checked against this type at all. Renamed to match the
+ * schema field-for-field so the cast has something real to check against.
  */
 export interface UpdateRoutineRequest {
 	readonly name?: string;
-	readonly description?: string;
+	readonly prompt?: string;
 	readonly state?: string;
 	/** `update_routine`'s tool handler always sets this alongside `state` (backward-compat sync). */
 	readonly active?: boolean;
