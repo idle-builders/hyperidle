@@ -5,8 +5,6 @@ Consolidated handover — the phase artifacts (requirements, architecture, feasi
 the two reviews, the red-phase records and the live-proof notes) were folded in here and removed. Git
 history keeps them; nothing below depends on reading them.
 
-Screenshots referenced at the end live in `evidence/`.
-
 ---
 
 ## What this work package is
@@ -202,12 +200,27 @@ tests) · `npm run test:integration:service` 0 (292 files, 2 358 tests).
 | Belonging is written | a newly registered human's assistant carries `ownerUserId` |
 | **The upgrade path** | a real pre-BA1 database — every real journalled migration, seeded with two teams and their per-team builtins — upgraded cleanly: 7 routine rows to 4, globals deduped, the per-team retro keeping its team with its event name lifted out of the blob |
 
-Screenshots: `evidence/ui-routines-fired.png` (both UI-created routines fired), `evidence/routine-detail-event.png`
-(prompt label, derived event schedule, no cron picker), `evidence/work-overview.png`.
+**What the rendered output showed**, read from the live DOM rather than filed as images — no screenshots are
+committed, per the standing rule that visual evidence in this repo is text, not PNGs:
 
-**Trap for whoever screenshots this next:** the routine route is singular — `/work/routine/:routineId`. The
-plural path renders "Page not found". The first screenshot taken here was exactly that, and would have been
-filed as proof by anyone who did not look at the image.
+- The team's routine list, after both UI-created routines had fired:
+  `UI event routine · On knowledge created · just now` and `UI timer routine · Calendar · just now`,
+  against the four builtins still reading `Never`.
+- The three global builtins carry unsuffixed ids (`builtin:knowledge-decay`, `builtin:knowledge-promotion`,
+  `builtin:portfolio-retro`) while `builtin:post-bet-retro:<teamId>` stays team-suffixed — D7's
+  global-versus-per-team split, visible in the hrefs.
+- The New routine dialog renders `Name`, a **Prompt** field placeheld *"Instruction for the agent when this
+  routine fires"*, an owning-agent picker, and a **When** control offering *On a schedule* / *On an event* —
+  with no team picker. Selecting *On an event* replaces the schedule control with an event picker whose
+  option list is exactly 34 entries and includes `bet_state_changed` and `team_created`.
+- The routine detail page for an event routine renders the field as **PROMPT**, the schedule as
+  *"On bet state changed"* rather than a bare "On event", **TRIGGER TYPE** as *Event*, **NEXT RUN** as
+  *"On next event"*, and **no cron control at all**. Its owning agent is an individual, team-less assistant —
+  the nullable-team case, end to end.
+
+**Trap for whoever verifies this next:** the routine route is singular — `/work/routine/:routineId`. The
+plural path renders the "Page not found" card, and the architecture's own verification section cited the
+plural form. Anyone following it verbatim, without reading what came back, would have filed a 404 as proof.
 
 ---
 
