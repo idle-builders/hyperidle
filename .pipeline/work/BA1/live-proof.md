@@ -64,3 +64,45 @@ Architecture §9 and the review both cite the routine detail route as `/work/rou
 singular — `/work/routine/:routineId` (`layers/core-ui/src/router.tsx:85`). The plural path renders the
 "Page not found" card. Anyone following §9's screenshot step verbatim would have photographed a 404 and, if
 they did not look at the image, called it done.
+
+---
+
+## Second pass: driven through the UI, not the API (2026-08-25)
+
+The first pass used the HTTP API. Redone through the running app's own interface, because an API call is
+not the product.
+
+**Setup note.** The setup wizard requires a model credential before it will start a workspace, and no
+credential was entered. The workspace and team were seeded through the API; everything BA1 changed —
+creating routines and watching them fire — was done in the interface.
+
+**Both routines were created through the "New routine" dialog.**
+
+The dialog is the BA1 shape: a **Prompt** field labelled *"Instruction for the agent when this routine
+fires"*, an owning-agent picker, and a **When** switch offering *On a schedule* or *On an event*. There is
+no team picker — scope comes from the owning agent (D5). Choosing *On an event* swaps the schedule control
+for an event picker (N7's fix), and that picker offers **34** events, `bet_state_changed` and
+`team_created` among them.
+
+| routine | created via | fires on | result |
+|---|---|---|---|
+| UI timer routine | the dialog, custom cron `* * * * *` | the clock | fired — *just now* |
+| UI event routine | the dialog, event `knowledge_created` | creating a knowledge item in the UI | fired — *just now* |
+
+Both were created while the server was already running, and both fired without a restart. The event one
+fired seconds after a knowledge item was written through the Knowledge page.
+
+Evidence: `evidence/ui-routines-fired.png`.
+
+**Two label gaps this pass found, neither blocking:**
+
+1. `Post-bet retro` renders as **"On event"** rather than "On bet state changed". Freshly provisioned
+   builtins leave `event_type` null — the final review recorded that as untidy data on the grounds that
+   the matcher excludes builtins anyway, which is true. But the label is derived from that column, so the
+   consequence is user-visible: the one builtin that fires on an event is the one that cannot say which.
+2. A **custom cron** renders as the bare word **"Calendar"**. The presets humanise ("Every day at 2:00 AM");
+   a custom expression falls through to the trigger type.
+
+**Not tested, and not testable here: installing and removing plugins.** That is BA9, not BA1 — no install
+path exists yet, and nothing has ever written a `plugins` row. "Install a plugin and watch the agents work"
+is BA9's proof to meet, and this work package cannot stand in for it.
