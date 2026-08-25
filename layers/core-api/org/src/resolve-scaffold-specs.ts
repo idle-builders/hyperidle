@@ -73,6 +73,7 @@ export function resolveAgentScaffoldSpecs(
 					agentCategory: "individual",
 					systemPrompt: APP_ASSISTANT_SYSTEM_PROMPT,
 					idHint: request.ownerUserId ? `ast-${request.ownerUserId}` : undefined,
+					ownerUserId: request.ownerUserId ?? undefined,
 				},
 			];
 	}

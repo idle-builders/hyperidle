@@ -68,6 +68,8 @@ export interface AgentScaffoldSpec {
 	readonly agentCategory: "team" | "strategy" | "individual";
 	readonly systemPrompt: string | null;
 	readonly idHint?: string;
+	/** D6: the human this agent belongs to (`user_assistant` trigger only). */
+	readonly ownerUserId?: string;
 }
 
 /**
@@ -163,6 +165,7 @@ export async function persistScaffoldedAgents(
 			agentCategory: spec.agentCategory,
 			status: "active",
 			teamId: teamId,
+			ownerUserId: spec.ownerUserId ?? null,
 			createdAt: now,
 		});
 		await users.writeAgentRunConfig(db, agentId, {
