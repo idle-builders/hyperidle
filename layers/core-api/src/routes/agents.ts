@@ -310,6 +310,7 @@ export function createAgentRoutes(
 			modelId: effectiveModelId,
 			modelProvider: effectiveProvider,
 			maxConcurrentSessions: data.maxConcurrentSessions,
+			modelOptions: data.modelOptions ?? {},
 		});
 
 		return c.json(
@@ -323,6 +324,7 @@ export function createAgentRoutes(
 				modelTierPreference: data.modelTierPreference ?? null,
 				modelId: effectiveModelId,
 				modelProvider: effectiveProvider,
+				modelOptions: data.modelOptions ?? {},
 				maxConcurrentSessions: data.maxConcurrentSessions,
 				status: "active",
 			},
