@@ -1,4 +1,5 @@
 import {
+	agentWorkIntents,
 	bets,
 	type HyperIdleDb,
 	items,
@@ -14,7 +15,10 @@ import {
 import type { BetStateChangedEvent, DomainEvent } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { registerBuiltinRoutineReactions } from "../services/routine-scheduler-bindings.js";
+import {
+	registerBuiltinRoutineReactions,
+	startRoutineScheduler,
+} from "../services/routine-scheduler-bindings.js";
 import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js";
 
 const NOW_ISO = "2026-04-18T10:00:00.000Z";
@@ -713,5 +717,72 @@ describe("built-ins are structurally unaffected by the drain-time selection move
 		expect(runs).toHaveLength(1);
 		expect(runs[0]?.outcome).toBe("success");
 		expect(runs[0]?.endedAt).toBeTruthy();
+	});
+});
+
+/**
+ * BA1 §2.5/§9 "No double-fire" — `registerEventTriggers` (the boot-time event
+ * subscription list) selects EVERY active `triggerType:"event"` routine with
+ * NO builtin exclusion, so `builtin:post-bet-retro:<teamId>` — seeded with
+ * `triggerType:"event"` — is on that list too and gets a SECOND, independent
+ * subscription to `bet_state_changed` on top of `registerBuiltinRoutineHandlers`'s
+ * own reaction. Production wires both registrations on the same bus
+ * (`service-bootstrap.ts`), so this test wires both explicitly to reproduce
+ * exactly that composition. RED until D2's matcher excludes any id for which
+ * `extractBuiltinKind` is non-null (architecture.md §3 D2 "Builtins are
+ * excluded from the matcher").
+ */
+describe("BA1 §2.5 — the event path double-fires post-bet-retro alongside the builtin reaction", () => {
+	test("bet_state_changed(completed) runs post-bet-retro in-process exactly once, and starts no generic agent session for it", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		await seedOwners(db);
+		await seedBuiltinRoutines(db);
+		await db.insert(bets).values({
+			id: "ba1-double-fire-bet",
+			teamId: TEST_TEAM_ID,
+			description: "Ship the double-fire fix",
+			appetite: "small",
+			hypothesis: "Only one retro happens per shipped bet.",
+			status: "completed",
+			createdAt: NOW_ISO,
+			completedAt: NOW_ISO,
+		});
+
+		const unsubBuiltin = registerBuiltinRoutineReactions(db, eventBus, agentOrchestration);
+		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
+			pollIntervalMs: 999_999,
+		});
+		try {
+			const shipped: BetStateChangedEvent = {
+				type: "bet_state_changed",
+				streamId: "ba1-double-fire-bet",
+				betId: "ba1-double-fire-bet",
+				fromState: "active",
+				toState: "completed",
+				timestamp: Date.now(),
+			};
+			eventBus.emit(shipped);
+			// Both reactions are fire-and-forget async handlers on the same
+			// event — give them both room to complete before asserting.
+			await new Promise((r) => setTimeout(r, 100));
+
+			const runs = await db
+				.select()
+				.from(routineRuns)
+				.where(eq(routineRuns.routineId, BID.postBetRetro));
+			expect(runs).toHaveLength(1);
+
+			const routineRunIntents = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.sourceKind, "routine_run"));
+			expect(routineRunIntents).toHaveLength(0);
+		} finally {
+			scheduler.stop();
+			unsubBuiltin();
+		}
 	});
 });

@@ -303,4 +303,49 @@ describe("routines routes", () => {
 			expect(body.runs).toHaveLength(0);
 		});
 	});
+
+	/**
+	 * BA1 D5/NB2 — `teamId` is removed from the create contract, not merely
+	 * ignored. A plain `z.object` (today's `createRoutineSchema`, no
+	 * `.strict()`) STRIPS an unrecognized key rather than rejecting it, and
+	 * `teamId` is currently a REQUIRED, used field — so posting it today
+	 * succeeds (201), which is exactly the "accepted and discarded" outcome
+	 * D5 rules out. RED until `teamId` is dropped from the schema and
+	 * `.strict()` is added (architecture.md §9 "teamId is gone from the
+	 * create contract, not ignored").
+	 */
+	describe("BA1 D5 — POST /api/routines rejects a teamId in the body", () => {
+		test("a body carrying teamId is rejected with 400, not accepted and discarded", async ({
+			db,
+			app,
+		}) => {
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "ba1-strict-team", name: "BA1 strict team", phase: "build", createdAt: now });
+			await db.insert(users).values({
+				id: "ba1-strict-agent",
+				kind: "ai",
+				name: "Strict Agent",
+				role: "builder",
+				status: "active",
+				teamId: "ba1-strict-team",
+				createdAt: now,
+			});
+
+			const res = await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					name: "BA1 strict test routine",
+					teamId: "ba1-strict-team",
+					ownerAgentId: "ba1-strict-agent",
+					triggerType: "calendar",
+					triggerConfig: JSON.stringify({ cron: "0 9 * * 1-5" }),
+				}),
+			});
+
+			expect(res.status).toBe(400);
+		});
+	});
 });
