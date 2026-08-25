@@ -70,6 +70,38 @@ exactly `SKILL.md` that resolves to a regular file is treated as one skill."* MC
 resolve `command` as a single executable token, and default the working directory to the plugin root.
 Rules, hooks, commands and agents are **explicitly outside v1** and belong to our namespace.
 
+## Corrections from BA9a (2026-08-26) — read before building
+
+Three things learned while building and proving BA9a change what this package can assume.
+
+**1. `plugin_configuration_defaults` is NOT empty on an existing install.** Earlier refinement recorded
+that nothing writes that table. True of the code at HEAD — but a real database carries **orphan `builtin`
+rows** (33 on the dev install: agents, tools, a routine, a harness descriptor). The writer existed, added
+by AU2 (`#414`), and was deleted by the AU20 cleanup in `3efc6c573`. Nothing writes or maintains them
+now, and the settings pane on a real install is populated by them. Do not design against a blank slate,
+and decide what these rows mean once a real plugin surface exists beside them.
+
+**2. Scope enforcement is this package's, and it does not exist yet.** BA9a stores the install scope
+(`plugins.scope_kind`, `plugins.scope_team_id`) and shows it, but nothing filters by it — a `team`-scoped
+plugin's contributions currently apply everywhere. The resolver cannot do it: `listConfiguration`
+(`layers/core-api/settings/src/plugin-configuration.ts:365`) takes only `kind`/`key`, its inner query
+(`:238-258`) joins defaults→plugins→overrides with no scope predicate, and it serves an admin surface
+that is not session-specific. The filtering belongs where session assembly happens and the team is known
+— `layers/agent-orchestration/run-orchestration/` — which is exactly where this package materialises
+knowledge into the sandbox. **AC7 of this plan is where scope starts to bite.** Do not leave it silently
+global a second time.
+
+**3. `validateConfigurationValue` will block MCP contributions from being edited.**
+`layers/core-api/settings/src/plugin-configuration.ts:92` rejects values containing fields named
+`command`, `env`, `secret` and similar. It runs only on the user-edit path, not on install — so a plugin
+can contribute an `mcp_server`, but a person cannot then edit it, and a command is exactly what an MCP
+server carries. This looks like preemptive security of the kind ETHOS argues against. **Raise it with the
+founder rather than working around it.**
+
+Also worth knowing when proving anything by hand: PGlite is single-writer, so reading its data directory
+from a second process while the dev server holds it returns a stale snapshot. Verify through the app with
+a full page reload, or stop the server first.
+
 ## The four roles
 
 | Role | Materialises as |
