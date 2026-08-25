@@ -1088,12 +1088,15 @@ export type BakedWorkIntentRequest = {
  * `layers/core-api/src/__tests__/trigger-resolution.integration.test.ts`
  * (deleted alongside this) — test-only-reachable code is dead code (see
  * `.claude` rule: tests/stories never count as production reachability).
- * `settings`'s `kind:"trigger"` config entity (`SettingsAgentBehavior.tsx`'s
- * "Triggers" tab, `agent-behavior-config-impl.ts`) remains fully editable in
- * the UI but — confirmed by this same archaeology — has had NO code path
- * anywhere that reads it to affect real agent selection, pre-dating AU21.
- * That is a genuine, pre-existing, orphaned-feature product gap, out of
- * AU21's boundary-seam scope; flagged for founder attention, not fixed here.
+ * At the time, `settings`'s `kind:"trigger"` config entity
+ * (`SettingsAgentBehavior.tsx`'s "Triggers" tab, `agent-behavior-config-impl.ts`)
+ * remained fully editable in the UI with no code path reading it to affect
+ * real agent selection — a genuine, orphaned-feature product gap, out of
+ * AU21's boundary-seam scope and flagged for founder attention rather than
+ * fixed there. BA1 D10 closed the gap the other way: the trigger-rule
+ * entity itself (config kind, settings tab, and stored data) is deleted, not
+ * wired up — this comment records why the kind existed and had no reader,
+ * not a live gap to fix.
  */
 export type CreateSessionRequestInput = {
 	readonly kind: "explicitStart";
