@@ -11,6 +11,9 @@
  * the provisioning orchestrator.
  */
 
+// @lore X6: ModelTier is exported twice from @hyperidle/domain-model — once as ModelTier from types.ts
+// and once as MoneyModelTier from types/money.ts (same type, different alias). We import
+// ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
 import type { ModelTier, TierTokenCount, TokenUsage } from "@hyperidle/domain-model";
 import type {
 	ConversationMessage,
@@ -32,9 +35,6 @@ import type {
 	LlmToolResultBlock,
 	LlmToolUseBlock,
 } from "./llm-types.js";
-// @lore X6: ModelTier is exported twice from @hyperidle/domain-model — once as ModelTier from types.ts
-// and once as MoneyModelTier from types/money.ts (same type, different alias). We import
-// ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
 import { modelOptionRequestFields } from "./model-options.js";
 
 /** Configuration options for the built-in harness. */
@@ -496,7 +496,6 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		while (true) {
 			const response = await callLlm({
 				model: resolvedModel,
-				...builtinModelOptions(config),
 				...builtinModelOptions(config),
 				messages: session.messages,
 				// When registry is injected, expose its tool surface; otherwise no tools.
