@@ -112,7 +112,7 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// tripping. Treat it as a tripwire, not a boundary. It is the one floor NOT moved to the middle of
 	// its band: the band's `max(…, 5)` term puts the midpoint BELOW where this already sits, and a
 	// floor is never lowered — least of all the one with the least to lose before it stops measuring.
-	{ kind: "capability", min: 10, floorKind: "magnitude" },
+	{ kind: "capability", min: 14, floorKind: "magnitude" },
 	// Floor re-measured after AU44 B7+fd: factory-defaults dissolved. Live: 1046, suggested: 941.
 	{ kind: "table:read", min: 941, floorKind: "magnitude" },
 	// Floor re-measured after AU44 B7+fd. Live: 1711, suggested: 1539.
