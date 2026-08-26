@@ -318,9 +318,12 @@ export interface RoutineTriggerEvent {
 				/**
 				 * Generic entity carrier for non-task/bet events.
 				 * `entityKind` is a human-readable noun matching the event vocabulary
-				 * (e.g. "thread", "knowledge-item", "session", "artifact", "team",
-				 * "agent", "user", "routine"). `actorId` is the id of the person or
-				 * agent who performed the action when the event names one.
+				 * (e.g. "routine"). `actorId` is the id of the person or agent who
+				 * performed the action when the event names one.
+				 *
+				 * @lore BA9c: routineId stays generic — a routine waking about
+				 * another routine is thin by nature; there is no useful payload
+				 * beyond what the event already carries. Do not promote it.
 				 */
 				readonly kind: "generic";
 				readonly entityKind: string;
@@ -342,8 +345,11 @@ export interface RoutineTriggerEvent {
 		  }
 		| {
 				/**
-				 * BA9c: DB-loaded work item subject (item_created events —
-				 * rows from the `items` table, not knowledge_items).
+				 * BA9c: DB-loaded work-block subject (item_created events — rows from
+				 * the `items` table, the founder's "block" concept: action items, reviews,
+				 * planning blocks). This is NOT `knowledge_items` — it is the work layer's
+				 * block entity, owned by @hyperidle/work, created via work.create("item").
+				 * The two nouns name genuinely different entities with different owners.
 				 */
 				readonly kind: "item";
 				readonly item: {
@@ -357,9 +363,12 @@ export interface RoutineTriggerEvent {
 		  }
 		| {
 				/**
-				 * BA9c: DB-loaded knowledge item subject (knowledge_created /
-				 * knowledge_updated / knowledge_archived / knowledge_accessed events).
-				 * Reuses BakedContextBundle.knowledge item shape minus layer/role/agentBindingId.
+				 * BA9c: DB-loaded knowledge-base subject (knowledge_created /
+				 * knowledge_updated / knowledge_archived / knowledge_accessed events —
+				 * rows from the `knowledge_items` table). This is the knowledge layer:
+				 * captured learnings, skills, memory — owned by @hyperidle/knowledge,
+				 * written through create() which writes kernel + app-projection together.
+				 * NOT the same as `kind:"item"` (work blocks). Different table, different owner.
 				 */
 				readonly kind: "knowledge-item";
 				readonly item: {
@@ -414,6 +423,23 @@ export interface RoutineTriggerEvent {
 				 */
 				readonly kind: "agent";
 				readonly agent: {
+					readonly id: string;
+					readonly name: string;
+					readonly role: string;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded user subject (user_created events — a human joining
+				 * the workspace). Same {id, name, role} shape as kind:"agent" but the
+				 * discriminant carries information: "user" means a person joined,
+				 * "agent" means a bot was added to a team. A routine doing onboarding
+				 * acts differently on each. Loaded from the `users` table via
+				 * @hyperidle/users findUser, the same table that stores agents.
+				 */
+				readonly kind: "user";
+				readonly user: {
 					readonly id: string;
 					readonly name: string;
 					readonly role: string;

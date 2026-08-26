@@ -582,6 +582,14 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 				if (ev.subject.actorId) {
 					parts.push(`- **Actor:** ${ev.subject.actorId}`);
 				}
+			} else if (ev.subject.kind === "user") {
+				parts.push("");
+				parts.push("**User that triggered this run:**");
+				parts.push(`- **Name:** ${ev.subject.user.name}`);
+				parts.push(`- **Role:** ${ev.subject.user.role}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
 			}
 		} else {
 			parts.push("**Subject:** no identifiable entity in this event");

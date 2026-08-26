@@ -470,6 +470,35 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).toContain("**When:**");
 	});
 
+	it("renders user subject for user events", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "user_created",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "user" as const,
+					user: {
+						id: "user-ba9c-probe",
+						name: "BA9c-USER-PROBE-NAME",
+						role: "member",
+					},
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("BA9c-USER-PROBE-NAME");
+		expect(result.assembledPrompt).toContain("member");
+		expect(result.assembledPrompt).toContain("**When:**");
+	});
+
 	it("renders 'no identifiable entity' when subject is absent", async () => {
 		const context = {
 			...routineContext(),

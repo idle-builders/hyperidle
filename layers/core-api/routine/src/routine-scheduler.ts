@@ -1070,8 +1070,19 @@ async function assembleTriggerEvent(
 		});
 	}
 
-	// User events: user_created
+	// User events: user_created — a human joining the workspace.
+	// kind:"user" is the right discriminant (not "agent") so routines doing
+	// onboarding can distinguish a new person from a new bot.
 	if (typeof rec.userId === "string") {
+		if (ports.getUserById) {
+			const user = await ports.getUserById(db, rec.userId);
+			if (user) {
+				return withTransition({
+					...base,
+					subject: { kind: "user", user, actorId: actorId ?? undefined },
+				});
+			}
+		}
 		return withTransition({ ...base, subject: genericSubject("user", rec.userId) });
 	}
 

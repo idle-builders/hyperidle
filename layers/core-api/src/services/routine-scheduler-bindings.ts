@@ -145,9 +145,14 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			const row = await port.sessions.getById(id);
 			return row ?? undefined;
 		},
-		// BA9c: getAgentById — agent (user) row for agent_added events.
+		// BA9c: getAgentById — agent row for agent_added events.
 		// agentId takes priority over teamId in assembleTriggerEvent (fixes agent_added → kind:"agent").
 		getAgentById: (db: HyperIdleDb, id: string) =>
+			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
+		// BA9c: getUserById — human user row for user_created events.
+		// Same table as getAgentById (users) but the kind:"user" discriminant in the
+		// trigger event tells routines "a person joined", not "a bot was added to a team".
+		getUserById: (db: HyperIdleDb, id: string) =>
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		assembleSessionKnowledge,
 	};

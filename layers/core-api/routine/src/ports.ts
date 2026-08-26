@@ -248,10 +248,26 @@ export interface RoutineSchedulerPorts {
 		| undefined
 	>;
 	/**
-	 * BA9c: Load an agent (user) row for trigger event subject assembly.
-	 * Called for agent_added events (agentId takes priority over teamId in the new order).
+	 * BA9c: Load an agent row for trigger event subject assembly.
+	 * Called for agent_added events (agentId takes priority over teamId).
 	 */
 	getAgentById?(
+		db: HyperIdleDb,
+		id: string,
+	): Promise<
+		| {
+				readonly id: string;
+				readonly name: string;
+				readonly role: string;
+		  }
+		| undefined
+	>;
+	/**
+	 * BA9c: Load a user row for trigger event subject assembly.
+	 * Called for user_created events. Same shape as getAgentById but the
+	 * discriminant differs: "user" = human joined, "agent" = bot added to team.
+	 */
+	getUserById?(
 		db: HyperIdleDb,
 		id: string,
 	): Promise<

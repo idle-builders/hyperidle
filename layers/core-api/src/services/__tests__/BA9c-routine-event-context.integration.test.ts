@@ -48,7 +48,7 @@ import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { readServerConfig } from "@hyperidle/settings";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
@@ -126,6 +126,11 @@ function makePorts(): RoutineSchedulerPorts {
 			const [row] = await db.select().from(teams).where(eq(teams.id, id)).limit(1);
 			return row;
 		},
+		// BA9c: getAgentById/getUserById — from the users table (same table, different discriminant).
+		getAgentById: (db, id) =>
+			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
+		getUserById: (db, id) =>
+			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		assembleSessionKnowledge: async () => [],
 	};
 }
@@ -637,6 +642,71 @@ describe("BA9c — artifact_created produces kind:artifact rich subject", () => 
 			// BA9c: artifact_created → rich kind:"artifact" subject
 			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("artifact");
 			expect(baked.contextBundle.triggerEvent.subject.artifact.kind).toBe("document");
+		} finally {
+			scheduler.stop();
+		}
+	});
+});
+
+describe("BA9c — user_created produces kind:user rich subject (not generic)", () => {
+	test("user_created: bundle has triggerEvent with user subject loaded from DB", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const { ownerAgentId } = await seedTeamAndOwner(db, "ba9c-usr-1");
+		const routineId = "ba9c-usr-1-routine";
+		const newUserId = "ba9c-usr-1-new-user";
+
+		// Seed a human user (the one who just joined — the subject of user_created).
+		await db.insert(users).values({
+			id: newUserId,
+			kind: "human",
+			name: "BA9c-USER-NAME-PROBE",
+			role: "member",
+			status: "active",
+			teamId: "ba9c-usr-1-team",
+			createdAt: NOW,
+		});
+
+		await seedEventRoutine(db, routineId, ownerAgentId, "user_created");
+
+		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
+			pollIntervalMs: 999_999,
+			canProvision: true,
+		});
+		try {
+			eventBus.emit({
+				type: "user_created",
+				streamId: newUserId,
+				userId: newUserId,
+				assistantAgentId: ownerAgentId,
+				at: new Date().toISOString(),
+			});
+
+			await vi.waitFor(
+				async () => {
+					const runs = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, routineId));
+					expect(runs).toHaveLength(1);
+				},
+				{ timeout: 2000 },
+			);
+
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
+			const [intent] = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
+			const baked = JSON.parse(intent!.bakedRequestJson!);
+
+			expect(baked.contextBundle.triggerEvent.type).toBe("user_created");
+			// BA9c: user_created → rich kind:"user" subject (not generic)
+			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("user");
+			expect(baked.contextBundle.triggerEvent.subject.user.name).toBe("BA9c-USER-NAME-PROBE");
+			expect(baked.contextBundle.triggerEvent.subject.user.role).toBe("member");
 		} finally {
 			scheduler.stop();
 		}
