@@ -970,7 +970,10 @@ async function assembleTriggerEvent(
 		// Orphaned entity: fall back to generic.
 		return withTransition({
 			...base,
-			subject: genericSubject(event.type === "item_created" ? "item" : "knowledge-item", rec.itemId),
+			subject: genericSubject(
+				event.type === "item_created" ? "item" : "knowledge-item",
+				rec.itemId,
+			),
 		});
 	}
 

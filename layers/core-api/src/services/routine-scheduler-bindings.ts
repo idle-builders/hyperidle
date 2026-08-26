@@ -157,9 +157,7 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		// BA9c: getAgentById — agent (user) row for agent_added events.
 		// agentId takes priority over teamId in assembleTriggerEvent (fixes agent_added → kind:"agent").
 		getAgentById: (db: HyperIdleDb, id: string) =>
-			findUser(db, { id }).then((u) =>
-				u ? { id: u.id, name: u.name, role: u.role } : undefined,
-			),
+			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		assembleSessionKnowledge,
 	};
 }
