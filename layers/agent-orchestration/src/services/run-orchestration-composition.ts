@@ -168,6 +168,7 @@ export interface RunOrchestrationHarnessRuntimeAdapter {
 	readonly evaluateReturn: SessionLifecyclePorts["harnessRuntime"]["evaluateReturn"];
 	readonly provisionReturnHook: SessionLifecyclePorts["harnessRuntime"]["provisionReturnHook"];
 	readonly writeCliMcpConfig: SessionLifecyclePorts["harnessRuntime"]["writeCliMcpConfig"];
+	readonly writePluginStdioMcpEntries: SessionLifecyclePorts["harnessRuntime"]["writePluginStdioMcpEntries"];
 	openMcpBridge(session: {
 		readonly sessionId: string;
 		readonly toolRegistry: ToolRegistry;
@@ -192,6 +193,7 @@ function buildHarnessRuntime(
 		evaluateReturn: adapter.evaluateReturn,
 		provisionReturnHook: adapter.provisionReturnHook,
 		writeCliMcpConfig: adapter.writeCliMcpConfig,
+		writePluginStdioMcpEntries: adapter.writePluginStdioMcpEntries,
 		// The execution face already owns one bridge instance and one
 		// `mcpBaseUrl` (closed over inside `bootAgentExecution`) — the per-call
 		// `registry`/`baseUrl` this port still asks for are ignored, not

@@ -193,4 +193,138 @@ function writeCursorJson(params: {
 	return {};
 }
 
+// ── Plugin stdio MCP entries ──────────────────────────────────────────────────
+
+/**
+ * A plugin-contributed stdio MCP server, already template-expanded.
+ * Fields match the standard MCP stdio server config shape.
+ */
+export interface PluginStdioServer {
+	readonly key: string;
+	readonly config: Record<string, unknown>;
+}
+
+/**
+ * Write plugin-contributed stdio MCP server entries into the harness's dialect
+ * file. Merges with whatever the bridge writer already put there; never
+ * overwrites the bridge entry.
+ *
+ * Called from Phase 8c (mergePluginMcpContributions) after the bridge writer
+ * in Phase 8b has already run. All ${PLUGIN_ROOT}/${PLUGIN_DATA} expansion and
+ * cwd-defaulting are done by the caller before this point.
+ *
+ * @lore BA9b B2: dialect knowledge for plugin stdio servers lives here, next to
+ * the bridge's remote-server knowledge, so there is exactly one place that knows
+ * how each CLI binary's config file is shaped.
+ *
+ * codex-toml: command/args written as TOML; no bearer_token_env_var (no token —
+ *   stdio transports are local). ⚠️ UNVERIFIED: codex-cli stdio TOML shape;
+ *   verified path is the HTTP/bearer shape from codex mcp get hyperidle --json.
+ * opencode-json: type:"local" — opencode's stdio shape per opencode.ai/config.json
+ *   schema. ⚠️ UNVERIFIED: "local" type name; bridge uses "remote".
+ * cursor-json: same mcpServers JSON shape as claude's .mcp.json (.cursor/mcp.json).
+ *   Verified: AW1 lore — cursor-agent reads .cursor/mcp.json like Cursor IDE does.
+ */
+export function writePluginStdioMcpEntries(params: {
+	readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
+	readonly sandboxPath: string;
+	readonly servers: ReadonlyArray<PluginStdioServer>;
+}): void {
+	const { dialect, sandboxPath, servers } = params;
+	if (servers.length === 0) return;
+
+	switch (dialect) {
+		case "codex-toml":
+			writePluginEntriesCodexToml({ sandboxPath, servers });
+			break;
+		case "opencode-json":
+			writePluginEntriesOpencodeJson({ sandboxPath, servers });
+			break;
+		case "cursor-json":
+			writePluginEntriesCursorJson({ sandboxPath, servers });
+			break;
+	}
+}
+
+function writePluginEntriesCodexToml(params: {
+	sandboxPath: string;
+	servers: ReadonlyArray<PluginStdioServer>;
+}): void {
+	const { sandboxPath, servers } = params;
+	const codexHomeDir = path.join(sandboxPath, ".codex-home");
+	fs.mkdirSync(codexHomeDir, { recursive: true });
+	const configTomlPath = path.join(codexHomeDir, "config.toml");
+
+	for (const { key, config } of servers) {
+		let block = `\n[mcp_servers.${key}]\n`;
+		if (typeof config.command === "string") block += `command = "${config.command}"\n`;
+		if (Array.isArray(config.args)) {
+			const argsStr = (config.args as unknown[]).map((a) => `"${String(a)}"`).join(", ");
+			block += `args = [${argsStr}]\n`;
+		}
+		if (config.cwd !== undefined) block += `cwd = "${String(config.cwd)}"\n`;
+		if (config.env && typeof config.env === "object") {
+			const envEntries = Object.entries(config.env as Record<string, unknown>)
+				.map(([k, v]) => `${k} = "${String(v)}"`)
+				.join(", ");
+			if (envEntries) block += `env = { ${envEntries} }\n`;
+		}
+		// @lore BA9b stdio codex-toml: no bearer_token_env_var — stdio MCP servers
+		// communicate over stdin/stdout, not HTTP, so no auth token is needed.
+		fs.appendFileSync(configTomlPath, block, "utf-8");
+	}
+}
+
+function writePluginEntriesOpencodeJson(params: {
+	sandboxPath: string;
+	servers: ReadonlyArray<PluginStdioServer>;
+}): void {
+	const { sandboxPath, servers } = params;
+	const opencodeJsonPath = path.join(sandboxPath, "opencode.json");
+
+	type OpenCodeMcpEntry = { type: string; command?: string; args?: string[]; enabled: boolean };
+	type OpenCodeJson = { $schema?: string; mcp: Record<string, OpenCodeMcpEntry> };
+
+	let existing: OpenCodeJson = { $schema: "https://opencode.ai/config.json", mcp: {} };
+	if (fs.existsSync(opencodeJsonPath)) {
+		try {
+			existing = JSON.parse(fs.readFileSync(opencodeJsonPath, "utf-8")) as OpenCodeJson;
+			if (!existing.mcp) existing.mcp = {};
+		} catch {
+			existing = { $schema: "https://opencode.ai/config.json", mcp: {} };
+		}
+	}
+	for (const { key, config } of servers) {
+		const entry: OpenCodeMcpEntry = { type: "local", enabled: true };
+		if (typeof config.command === "string") entry.command = config.command;
+		if (Array.isArray(config.args)) entry.args = (config.args as unknown[]).map(String);
+		existing.mcp[key] = entry;
+	}
+	fs.writeFileSync(opencodeJsonPath, JSON.stringify(existing, null, 2), "utf-8");
+}
+
+function writePluginEntriesCursorJson(params: {
+	sandboxPath: string;
+	servers: ReadonlyArray<PluginStdioServer>;
+}): void {
+	const { sandboxPath, servers } = params;
+	const cursorDir = path.join(sandboxPath, ".cursor");
+	fs.mkdirSync(cursorDir, { recursive: true });
+	const cursorMcpPath = path.join(cursorDir, "mcp.json");
+
+	let existing: { mcpServers?: Record<string, unknown> } = { mcpServers: {} };
+	if (fs.existsSync(cursorMcpPath)) {
+		try {
+			existing = JSON.parse(fs.readFileSync(cursorMcpPath, "utf-8")) as typeof existing;
+		} catch {
+			// start fresh
+		}
+	}
+	const merged: Record<string, unknown> = { ...(existing.mcpServers ?? {}) };
+	for (const { key, config } of servers) {
+		merged[key] = config;
+	}
+	fs.writeFileSync(cursorMcpPath, JSON.stringify({ mcpServers: merged }, null, 2), "utf-8");
+}
+
 export { writeHarnessMcpConfig };

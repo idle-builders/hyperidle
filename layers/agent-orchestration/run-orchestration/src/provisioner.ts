@@ -1,5 +1,4 @@
 /** Consolidated private session provisioner and its DI boundary. */
-import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -239,6 +238,15 @@ interface SessionLifecycleHarnessRuntime {
 		readonly mcpUrl: string;
 		readonly token: string;
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
+	/** @lore BA9b B2: write plugin stdio MCP entries in the harness's dialect. Dialect knowledge lives in cli-mcp-config.ts. */
+	writePluginStdioMcpEntries(params: {
+		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
+		readonly sandboxPath: string;
+		readonly servers: ReadonlyArray<{
+			readonly key: string;
+			readonly config: Record<string, unknown>;
+		}>;
+	}): void;
 	/**
 	 * AU31 §2.7/§3.1 sites 12,14 (B1): the session-scoped MCP dial —
 	 * bridge-open plus the `/api/mcp/` URL spelling — folded into
@@ -576,26 +584,12 @@ interface BeforeHarnessStartContext {
 /**
  * @lore BA9b: Expand Agent Plugins 1.0.0 template variables in MCP config values.
  * ${PLUGIN_ROOT} → installPath; ${PLUGIN_DATA} → installPath/data (per-plugin persistent store).
+ * "Resolve command as a single executable token" means treat command as one atom, not shell-split —
+ * the config schema already separates command and args, so no further transformation is needed.
  */
 function expandPluginVars(value: string, pluginRoot: string): string {
 	const pluginData = path.join(pluginRoot, "data");
 	return value.replace(/\$\{PLUGIN_ROOT\}/g, pluginRoot).replace(/\$\{PLUGIN_DATA\}/g, pluginData);
-}
-
-/**
- * @lore BA9b: Resolve a bare command name to its absolute path via `which`.
- * Plugin MCP servers may specify just `"node"` — we resolve it so each
- * harness's dialect can use the absolute path without relying on PATH.
- * Falls back to the literal string if which fails (e.g. full path already given).
- */
-function resolveCommand(command: string): string {
-	if (path.isAbsolute(command)) return command;
-	// ⚠️ UNVERIFIED: assumes `which` is available (macOS/Linux); no Windows support needed.
-	const result = spawnSync("which", [command], { encoding: "utf-8", timeout: 5000 });
-	if (result.status === 0 && result.stdout.trim()) {
-		return result.stdout.trim();
-	}
-	return command;
 }
 
 function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
@@ -613,16 +607,14 @@ function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
 }
 
 /**
- * @lore BA9b: Merge plugin-contributed MCP servers into the session sandbox, in each
- * harness's own dialect. Only plugins in scope for this session contribute:
- * factory-scoped (all sessions) and team-scoped (teamId match). Servers from plugins
- * without an installPath are skipped (no ${PLUGIN_ROOT} to expand).
+ * @lore BA9b: Merge plugin-contributed MCP servers into the session sandbox.
+ * Only plugins in scope for this session contribute: factory-scoped (all sessions)
+ * and team-scoped (teamId match). Servers from plugins without an installPath are
+ * skipped (no ${PLUGIN_ROOT} to expand).
  *
- * Dialect routing:
- *   - undefined (claude-code): .mcp.json in sandbox root
- *   - codex-toml: .codex-home/config.toml (stdio entries)
- *   - opencode-json: opencode.json (type:"local" entries)
- *   - cursor-json: .cursor/mcp.json (same MCP JSON shape as claude)
+ * For no dialect (claude-code): merges into .mcp.json.
+ * For CLI dialects: calls `writeStdioEntries` (ports.harnessRuntime.writePluginStdioMcpEntries)
+ * so dialect knowledge stays in cli-mcp-config.ts — one owner for all harness file shapes.
  *
  * AC6: plugin mcp.json merged WITH the tool-bridge entry already written above.
  * AC7: scope filtering ensures team-scoped plugins only reach matching team sessions.
@@ -632,12 +624,20 @@ function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
  * directly. The data arrives through PluginMcpContributionsPort, wired by the
  * application via CoreApiBoot.pluginMcpContributions → ApplicationProvisionSessionDeps.
  */
-/** @for-testing exported so the unit test can call it directly without copy-pasting expansion helpers. */
+/** @for-testing exported so the unit test can verify expansion + routing without copy-pasting helpers. */
 export async function mergePluginMcpContributions(
 	port: PluginMcpContributionsPort | undefined,
 	sandboxPath: string,
 	teamId: string | null,
 	dialect?: "codex-toml" | "opencode-json" | "cursor-json",
+	writeStdioEntries?: (params: {
+		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
+		readonly sandboxPath: string;
+		readonly servers: ReadonlyArray<{
+			readonly key: string;
+			readonly config: Record<string, unknown>;
+		}>;
+	}) => void,
 ): Promise<void> {
 	if (!port) return;
 
@@ -647,8 +647,7 @@ export async function mergePluginMcpContributions(
 
 	// Build the list of expanded server configs. Rows with no installPath or
 	// invalid JSON are skipped; the file is still written (rows were present).
-	type ExpandedServer = { key: string; config: Record<string, unknown> };
-	const servers: ExpandedServer[] = [];
+	const servers: Array<{ key: string; config: Record<string, unknown> }> = [];
 
 	for (const row of rows) {
 		const pluginRoot = row.installPath;
@@ -659,12 +658,9 @@ export async function mergePluginMcpContributions(
 		} catch {
 			continue;
 		}
-		// Expand ${PLUGIN_ROOT} and ${PLUGIN_DATA} in all string values
+		// Expand ${PLUGIN_ROOT} and ${PLUGIN_DATA} in all string values.
+		// command is treated as a single executable token (separate from args by the schema).
 		const expanded = expandMcpConfigValue(rawConfig, pluginRoot) as Record<string, unknown>;
-		// Resolve command to absolute path (e.g. "node" → "/usr/local/bin/node")
-		if (typeof expanded.command === "string") {
-			expanded.command = resolveCommand(expanded.command);
-		}
 		// Default cwd to plugin root when not specified
 		if (!expanded.cwd) {
 			expanded.cwd = pluginRoot;
@@ -672,10 +668,9 @@ export async function mergePluginMcpContributions(
 		servers.push({ key: row.key, config: expanded });
 	}
 
-	// Write to the harness-appropriate dialect file. Always run even when
-	// servers is empty (rows were non-empty), to merge/preserve existing content.
 	if (!dialect) {
-		// claude-code: standard .mcp.json
+		// claude-code: standard .mcp.json. Always write even if servers is empty
+		// (rows were present) to preserve/merge any existing content.
 		const mcpJsonPath = path.join(sandboxPath, ".mcp.json");
 		let existing: { mcpServers?: Record<string, unknown> } = { mcpServers: {} };
 		if (fs.existsSync(mcpJsonPath)) {
@@ -690,79 +685,10 @@ export async function mergePluginMcpContributions(
 			merged[key] = config;
 		}
 		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: merged }, null, 2), "utf-8");
-	} else if (dialect === "codex-toml") {
-		// codex: append stdio entries to .codex-home/config.toml
-		// @lore BA9b B2: codex stdio MCP server format in config.toml — ⚠️ UNVERIFIED against codex-cli docs.
-		const codexHomeDir = path.join(sandboxPath, ".codex-home");
-		fs.mkdirSync(codexHomeDir, { recursive: true });
-		const configTomlPath = path.join(codexHomeDir, "config.toml");
-		for (const { key, config } of servers) {
-			let block = `\n[mcp_servers.${key}]\n`;
-			if (typeof config.command === "string") block += `command = "${config.command}"\n`;
-			if (Array.isArray(config.args)) {
-				const argsStr = config.args.map((a) => `"${String(a)}"`).join(", ");
-				block += `args = [${argsStr}]\n`;
-			}
-			if (config.cwd !== undefined) block += `cwd = "${String(config.cwd)}"\n`;
-			if (config.env && typeof config.env === "object") {
-				const envEntries = Object.entries(config.env as Record<string, unknown>)
-					.map(([k, v]) => `${k} = "${String(v)}"`)
-					.join(", ");
-				if (envEntries) block += `env = { ${envEntries} }\n`;
-			}
-			fs.appendFileSync(configTomlPath, block, "utf-8");
-		}
-	} else if (dialect === "opencode-json") {
-		// opencode: merge type:"local" stdio entries into opencode.json
-		// @lore BA9b B2: opencode local MCP server format — ⚠️ UNVERIFIED against opencode schema.
-		const opencodeJsonPath = path.join(sandboxPath, "opencode.json");
-		type OpenCodeMcpEntry = {
-			type: string;
-			command?: string;
-			args?: string[];
-			enabled: boolean;
-		};
-		type OpenCodeJson = {
-			$schema?: string;
-			mcp: Record<string, OpenCodeMcpEntry>;
-		};
-		let existing: OpenCodeJson = {
-			$schema: "https://opencode.ai/config.json",
-			mcp: {},
-		};
-		if (fs.existsSync(opencodeJsonPath)) {
-			try {
-				existing = JSON.parse(fs.readFileSync(opencodeJsonPath, "utf-8")) as OpenCodeJson;
-				if (!existing.mcp) existing.mcp = {};
-			} catch {
-				existing = { $schema: "https://opencode.ai/config.json", mcp: {} };
-			}
-		}
-		for (const { key, config } of servers) {
-			const entry: OpenCodeMcpEntry = { type: "local", enabled: true };
-			if (typeof config.command === "string") entry.command = config.command;
-			if (Array.isArray(config.args)) entry.args = config.args.map(String);
-			existing.mcp[key] = entry;
-		}
-		fs.writeFileSync(opencodeJsonPath, JSON.stringify(existing, null, 2), "utf-8");
-	} else if (dialect === "cursor-json") {
-		// cursor-agent: merge into .cursor/mcp.json (same JSON shape as claude's .mcp.json)
-		const cursorDir = path.join(sandboxPath, ".cursor");
-		fs.mkdirSync(cursorDir, { recursive: true });
-		const cursorMcpPath = path.join(cursorDir, "mcp.json");
-		let existing: { mcpServers?: Record<string, unknown> } = { mcpServers: {} };
-		if (fs.existsSync(cursorMcpPath)) {
-			try {
-				existing = JSON.parse(fs.readFileSync(cursorMcpPath, "utf-8")) as typeof existing;
-			} catch {
-				// start fresh
-			}
-		}
-		const merged: Record<string, unknown> = { ...(existing.mcpServers ?? {}) };
-		for (const { key, config } of servers) {
-			merged[key] = config;
-		}
-		fs.writeFileSync(cursorMcpPath, JSON.stringify({ mcpServers: merged }, null, 2), "utf-8");
+	} else if (writeStdioEntries && servers.length > 0) {
+		// CLI dialects: delegate to the canonical dialect writer (cli-mcp-config.ts).
+		// Dialect knowledge lives there — no per-dialect code here.
+		writeStdioEntries({ dialect, sandboxPath, servers });
 	}
 }
 
@@ -1640,10 +1566,8 @@ async function runSession(
 	// merged WITH (not replacing) the tool-bridge entry written above.
 	// Scope filter: factory-scoped plugins reach all sessions; team-scoped
 	// plugins only reach sessions whose teamId matches. ${PLUGIN_ROOT} and
-	// ${PLUGIN_DATA} are expanded; command is resolved to absolute path; cwd
-	// defaults to plugin root. Dialect determines which file is written:
-	// undefined→.mcp.json, codex-toml→.codex-home/config.toml,
-	// opencode-json→opencode.json, cursor-json→.cursor/mcp.json.
+	// ${PLUGIN_DATA} are expanded; cwd defaults to plugin root.
+	// Dialect writing is delegated to cli-mcp-config.ts via the harnessRuntime port.
 	if (selectedAdapter.meta.type !== "builtin") {
 		try {
 			await mergePluginMcpContributions(
@@ -1651,6 +1575,9 @@ async function runSession(
 				sandboxPath,
 				teamId ?? null,
 				adapterCapabilities.cliMcpDialect,
+				adapterCapabilities.cliMcpDialect
+					? (params) => ports.harnessRuntime.writePluginStdioMcpEntries(params)
+					: undefined,
 			);
 		} catch (mcpMergeErr) {
 			// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge

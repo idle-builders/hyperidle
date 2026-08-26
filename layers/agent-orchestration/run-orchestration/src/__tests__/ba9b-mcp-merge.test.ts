@@ -249,17 +249,44 @@ describe("BA9b: mergePluginMcpContributions — no dialect (claude-code)", () =>
 
 // ---------------------------------------------------------------------------
 // Dialect tests
+//
+// mergePluginMcpContributions is a routing layer for the dialect path:
+// it builds the expanded server list and delegates to the writeStdioEntries
+// callback. The actual file writes are the responsibility of cli-mcp-config.ts
+// (writePluginStdioMcpEntries). These tests verify the routing contract only:
+// correct dialect forwarded, correct expanded server data passed, .mcp.json
+// untouched, callback skipped when servers list is empty.
 // ---------------------------------------------------------------------------
 
+type WriteStdioCall = {
+	readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
+	readonly sandboxPath: string;
+	readonly servers: ReadonlyArray<{
+		readonly key: string;
+		readonly config: Record<string, unknown>;
+	}>;
+};
+
+function makeWriteSpy(): { calls: WriteStdioCall[]; spy: (params: WriteStdioCall) => void } {
+	const calls: WriteStdioCall[] = [];
+	return {
+		calls,
+		spy: (params) => {
+			calls.push(params);
+		},
+	};
+}
+
 describe("BA9b: mergePluginMcpContributions — codex-toml dialect", () => {
-	it("writes stdio entry to .codex-home/config.toml", async () => {
+	it("calls writeStdioEntries with correct dialect and expanded servers", async () => {
+		const { calls, spy } = makeWriteSpy();
 		await mergePluginMcpContributions(
 			makePort([
 				{
 					key: "my-plugin",
 					defaultValueJson: JSON.stringify({
 						command: "node",
-						args: ["/opt/plugin/dist/server.js"],
+						args: ["${PLUGIN_ROOT}/dist/server.js"],
 					}),
 					installPath: "/opt/plugin",
 				},
@@ -267,15 +294,21 @@ describe("BA9b: mergePluginMcpContributions — codex-toml dialect", () => {
 			tmpDir,
 			null,
 			"codex-toml",
+			spy,
 		);
-		const tomlPath = path.join(tmpDir, ".codex-home", "config.toml");
-		expect(fs.existsSync(tomlPath)).toBe(true);
-		const content = fs.readFileSync(tomlPath, "utf-8");
-		expect(content).toContain("[mcp_servers.my-plugin]");
-		expect(content).toContain('"/opt/plugin/dist/server.js"');
+		expect(calls).toHaveLength(1);
+		const call = calls[0]!;
+		expect(call.dialect).toBe("codex-toml");
+		expect(call.sandboxPath).toBe(tmpDir);
+		expect(call.servers).toHaveLength(1);
+		const server = call.servers[0]!;
+		expect(server.key).toBe("my-plugin");
+		// ${PLUGIN_ROOT} expansion must be applied before the callback is called
+		expect((server.config as { args: string[] }).args[0]).toBe("/opt/plugin/dist/server.js");
 	});
 
 	it("does not write .mcp.json when dialect is codex-toml", async () => {
+		const { spy } = makeWriteSpy();
 		await mergePluginMcpContributions(
 			makePort([
 				{
@@ -287,14 +320,29 @@ describe("BA9b: mergePluginMcpContributions — codex-toml dialect", () => {
 			tmpDir,
 			null,
 			"codex-toml",
+			spy,
 		);
-		// dialect file goes to .codex-home/config.toml, not .mcp.json
+		// dialect path must never touch .mcp.json (that is the no-dialect path only)
 		expect(fs.existsSync(path.join(tmpDir, ".mcp.json"))).toBe(false);
+	});
+
+	it("does not call writeStdioEntries when all rows are skipped (invalid JSON)", async () => {
+		const { calls, spy } = makeWriteSpy();
+		await mergePluginMcpContributions(
+			makePort([{ key: "bad", defaultValueJson: "not-json{{{", installPath: "/opt/plugin" }]),
+			tmpDir,
+			null,
+			"codex-toml",
+			spy,
+		);
+		// servers array is empty after filtering → callback must not be invoked
+		expect(calls).toHaveLength(0);
 	});
 });
 
 describe("BA9b: mergePluginMcpContributions — opencode-json dialect", () => {
-	it("writes type:local entry to opencode.json", async () => {
+	it("calls writeStdioEntries with opencode-json dialect and expanded servers", async () => {
+		const { calls, spy } = makeWriteSpy();
 		await mergePluginMcpContributions(
 			makePort([
 				{
@@ -309,48 +357,25 @@ describe("BA9b: mergePluginMcpContributions — opencode-json dialect", () => {
 			tmpDir,
 			null,
 			"opencode-json",
+			spy,
 		);
-		const jsonPath = path.join(tmpDir, "opencode.json");
-		expect(fs.existsSync(jsonPath)).toBe(true);
-		const content = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as {
-			mcp: Record<string, { type: string; command?: string }>;
-		};
-		expect(content.mcp["my-plugin"]).toBeDefined();
-		expect(content.mcp["my-plugin"]?.type).toBe("local");
-		expect(content.mcp["my-plugin"]?.command).toBeDefined();
+		expect(calls).toHaveLength(1);
+		const call = calls[0]!;
+		expect(call.dialect).toBe("opencode-json");
+		expect(call.servers[0]!.key).toBe("my-plugin");
 	});
 
-	it("merges with existing opencode.json content", async () => {
-		// Pre-existing entry (e.g. from the tool-bridge writer)
-		fs.writeFileSync(
-			path.join(tmpDir, "opencode.json"),
-			JSON.stringify({
-				$schema: "https://opencode.ai/config.json",
-				mcp: { hyperidle: { type: "remote", url: "http://localhost:3001/mcp", enabled: true } },
-			}),
-		);
-		await mergePluginMcpContributions(
-			makePort([
-				{
-					key: "my-plugin",
-					defaultValueJson: JSON.stringify({ command: "node" }),
-					installPath: "/opt/plugin",
-				},
-			]),
-			tmpDir,
-			null,
-			"opencode-json",
-		);
-		const content = JSON.parse(fs.readFileSync(path.join(tmpDir, "opencode.json"), "utf-8")) as {
-			mcp: Record<string, unknown>;
-		};
-		expect(content.mcp["hyperidle"]).toBeDefined();
-		expect(content.mcp["my-plugin"]).toBeDefined();
+	it("does not call writeStdioEntries when rows list is empty", async () => {
+		const { calls, spy } = makeWriteSpy();
+		await mergePluginMcpContributions(makePort([]), tmpDir, null, "opencode-json", spy);
+		// empty rows → early return → callback never invoked
+		expect(calls).toHaveLength(0);
 	});
 });
 
 describe("BA9b: mergePluginMcpContributions — cursor-json dialect", () => {
-	it("writes stdio entry to .cursor/mcp.json", async () => {
+	it("calls writeStdioEntries with cursor-json dialect and expanded servers", async () => {
+		const { calls, spy } = makeWriteSpy();
 		await mergePluginMcpContributions(
 			makePort([
 				{
@@ -365,40 +390,23 @@ describe("BA9b: mergePluginMcpContributions — cursor-json dialect", () => {
 			tmpDir,
 			null,
 			"cursor-json",
+			spy,
 		);
-		const cursorMcpPath = path.join(tmpDir, ".cursor", "mcp.json");
-		expect(fs.existsSync(cursorMcpPath)).toBe(true);
-		const content = JSON.parse(fs.readFileSync(cursorMcpPath, "utf-8")) as {
-			mcpServers: Record<string, unknown>;
-		};
-		expect(content.mcpServers["my-plugin"]).toBeDefined();
+		expect(calls).toHaveLength(1);
+		const call = calls[0]!;
+		expect(call.dialect).toBe("cursor-json");
+		expect(call.servers[0]!.key).toBe("my-plugin");
 	});
 
-	it("merges with existing .cursor/mcp.json content", async () => {
-		const cursorDir = path.join(tmpDir, ".cursor");
-		fs.mkdirSync(cursorDir, { recursive: true });
-		fs.writeFileSync(
-			path.join(cursorDir, "mcp.json"),
-			JSON.stringify({
-				mcpServers: { hyperidle: { url: "http://localhost:3001/mcp" } },
-			}),
-		);
+	it("does not call writeStdioEntries when all rows are filtered out", async () => {
+		const { calls, spy } = makeWriteSpy();
 		await mergePluginMcpContributions(
-			makePort([
-				{
-					key: "my-plugin",
-					defaultValueJson: JSON.stringify({ command: "node" }),
-					installPath: "/opt/plugin",
-				},
-			]),
+			makePort([{ key: "bad", defaultValueJson: "not-json{{{", installPath: "/opt/plugin" }]),
 			tmpDir,
 			null,
 			"cursor-json",
+			spy,
 		);
-		const content = JSON.parse(fs.readFileSync(path.join(cursorDir, "mcp.json"), "utf-8")) as {
-			mcpServers: Record<string, unknown>;
-		};
-		expect(content.mcpServers["hyperidle"]).toBeDefined();
-		expect(content.mcpServers["my-plugin"]).toBeDefined();
+		expect(calls).toHaveLength(0);
 	});
 });

@@ -52,6 +52,7 @@ import {
 	RemoteHarnessAdapter,
 	type SandboxAdapter,
 	type WsLike,
+	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { createMcpToolBridge, returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import type { Hono } from "hono";
@@ -100,6 +101,15 @@ export interface AgentExecutionHarnessRuntime {
 		readonly mcpUrl: string;
 		readonly token: string;
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
+	/** @lore BA9b B2: plugin stdio MCP entries — dialect knowledge lives in cli-mcp-config.ts. */
+	writePluginStdioMcpEntries(params: {
+		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
+		readonly sandboxPath: string;
+		readonly servers: ReadonlyArray<{
+			readonly key: string;
+			readonly config: Record<string, unknown>;
+		}>;
+	}): void;
 	/**
 	 * The session-scoped MCP dial. `registry`/`baseUrl` are no longer per-call
 	 * parameters (contrast `run-orchestration-composition.ts`'s current
@@ -178,6 +188,7 @@ export async function bootAgentExecution(
 			await provisionHarnessEnvironment({ ...hookOptions, token: hookOptions.bridgeToken });
 		},
 		writeCliMcpConfig: (configOptions) => provisionHarnessEnvironment(configOptions),
+		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: (session) =>
 			bridge.open({
 				sessionId: session.sessionId,
