@@ -1,8 +1,8 @@
 {
   "id": "BA9a",
   "title": "A plugin can be installed",
-  "phase": "proven",
-  "status": "done-pending-ship",
+  "phase": "shipped",
+  "status": "done",
   "branch": "claude/pipeline-ba9-70ec81",
   "commits": [
     "ce68c6a18",
@@ -39,5 +39,7 @@
   "findings_for_founder": [
     "migration 0058 aborts on any populated database (pre-existing on main) \u2014 decision needed",
     "plugin_configuration_defaults carries orphan builtin rows on existing installs; the writer was deleted in 3efc6c573"
-  ]
+  ],
+  "pr": "https://github.com/ambrovia/hyperidle/pull/513",
+  "merged": "2026-08-25T23:48:28Z (squash, ed59f9443)"
 }

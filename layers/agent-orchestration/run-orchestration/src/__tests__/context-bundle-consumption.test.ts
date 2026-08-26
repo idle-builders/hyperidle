@@ -97,6 +97,8 @@ const BUNDLE: BakedContextBundle = {
 			format: "markdown",
 			version: 1,
 			layer: "L4",
+			role: "ordinary",
+			agentBindingId: null,
 		},
 		{
 			id: "k-l2-i12",
@@ -105,6 +107,8 @@ const BUNDLE: BakedContextBundle = {
 			format: "markdown",
 			version: 1,
 			layer: "L2",
+			role: "ordinary",
+			agentBindingId: null,
 		},
 		{
 			id: "k-l3-i12",
@@ -113,6 +117,8 @@ const BUNDLE: BakedContextBundle = {
 			format: "markdown",
 			version: 1,
 			layer: "L3",
+			role: "ordinary",
+			agentBindingId: null,
 		},
 	],
 };

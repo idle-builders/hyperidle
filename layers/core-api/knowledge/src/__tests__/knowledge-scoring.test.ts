@@ -41,6 +41,7 @@ function makeItem(
 		attentionScore: null,
 		confidence: null,
 		meta: null,
+		role: "ordinary",
 		...overrides,
 	};
 }

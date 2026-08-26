@@ -107,6 +107,7 @@ export type {
 	KnowledgeAccessorKind,
 	KnowledgeKind,
 	KnowledgeLayer,
+	KnowledgeRole,
 	KnowledgeScope,
 	KnowledgeSortOption,
 	KnowledgeStatus,
@@ -115,6 +116,7 @@ export type {
 } from "./knowledge.js";
 export {
 	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_ROLES,
 	KNOWLEDGE_SCOPES,
 	KNOWLEDGE_SORT_OPTIONS,
 	KNOWLEDGE_STATUS_LABEL,

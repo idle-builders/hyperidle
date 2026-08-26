@@ -158,6 +158,21 @@ export interface BakedContextKnowledgeItem {
 	readonly format: string;
 	readonly version: number;
 	readonly layer: string | null;
+	/**
+	 * @lore BA9b: Role determines how context assembly materialises this item.
+	 * Defaults to 'ordinary' for all items that pre-date the role column.
+	 * - ordinary: knowledge/... files
+	 * - skill: .claude/skills/<title>/SKILL.md
+	 * - rule: knowledge/rules/<title>
+	 * - agent_file: AGENTS.md/CLAUDE.md only when scopeId === agentId
+	 */
+	readonly role: string;
+	/**
+	 * @lore BA9b: For role='agent_file', this is the agentId the file is
+	 * bound to (stored in scopeId on the knowledge_item row). Only the agent
+	 * whose session matches this id receives the file.
+	 */
+	readonly agentBindingId: string | null;
 }
 
 /**
@@ -178,6 +193,15 @@ export interface SessionKnowledgeItemLike {
 	readonly format: string;
 	readonly version: number;
 	readonly layer?: string | null;
+	/** @lore BA9b: role defaults to 'ordinary' for pre-existing callers. */
+	readonly role?: string | null;
+	/**
+	 * @lore BA9b: For role='agent_file', scopeId on the DB row IS the agentId.
+	 * toBakedContextKnowledgeItems derives agentBindingId from this field.
+	 */
+	readonly scopeId?: string | null;
+	/** @lore BA9b: agentId for agent_file binding (scopeId on the DB row). */
+	readonly agentBindingId?: string | null;
 }
 
 /**
@@ -197,6 +221,12 @@ export function toBakedContextKnowledgeItems(
 		format: item.format,
 		version: item.version,
 		layer: item.layer ?? null,
+		role: item.role ?? "ordinary",
+		// @lore BA9b: agent_file items store the agentId in scopeId on the DB row.
+		// agentBindingId can also be set explicitly (for synthetic items in tests).
+		agentBindingId:
+			item.agentBindingId ??
+			((item.role ?? "ordinary") === "agent_file" ? (item.scopeId ?? null) : null),
 	}));
 }
 

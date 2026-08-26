@@ -807,6 +807,19 @@ export const knowledgeItems = pgTable(
 		format: text("format").notNull(),
 		status: text("status").notNull(),
 		version: integer("version").notNull().default(1),
+		/**
+		 * @lore BA9b: Knowledge item role. Determines where context assembly
+		 * materialises this item in the session sandbox.
+		 *
+		 * - ordinary: knowledge/... files, exactly as before (default).
+		 * - skill: a SKILL.md in the harness skills directory (e.g. .claude/skills/<title>/SKILL.md).
+		 * - rule: knowledge/rules/ — always-present rules for the agent.
+		 * - agent_file: AGENTS.md-shaped content, only for the bound agent.
+		 *   Binding: scopeKind='user', scopeId=agentId uses the existing scope system.
+		 *
+		 * Default 'ordinary' — all existing rows keep their current behaviour.
+		 */
+		role: text("role").notNull().default("ordinary"),
 		updatedBy: text("updated_by").notNull(),
 		createdAt: text("created_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
@@ -816,6 +829,8 @@ export const knowledgeItems = pgTable(
 		index("ki_topic_idx").on(table.topic),
 		index("ki_status_idx").on(table.status),
 		index("ki_updated_desc_idx").on(table.updatedAt),
+		index("ki_role_idx").on(table.role),
+		check("ki_role_ck", sql`${table.role} IN ('ordinary', 'skill', 'rule', 'agent_file')`),
 	],
 );
 
@@ -1147,6 +1162,13 @@ export const plugins = pgTable(
 		state: text("state").$type<PluginState>().notNull(),
 		scopeKind: text("scope_kind").$type<"factory" | "team">().notNull().default("factory"),
 		scopeTeamId: text("scope_team_id"),
+		/**
+		 * @lore BA9b: Absolute path to the plugin's persistent install directory.
+		 * Null for plugins with only URL-based MCP servers (no local files needed).
+		 * When present, used to expand ${PLUGIN_ROOT} in MCP server args/env/cwd
+		 * at session materialisation time.
+		 */
+		installPath: text("install_path"),
 		installedAt: text("installed_at").notNull(),
 		updatedAt: text("updated_at").notNull(),
 		disabledAt: text("disabled_at"),

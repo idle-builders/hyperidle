@@ -2,7 +2,13 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import {
+	type AgentSessionRequest,
+	type HyperIdleDb,
+	pluginConfigurationDefaults,
+	plugins,
+	sessions,
+} from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
@@ -572,6 +578,96 @@ interface BeforeHarnessStartContext {
 	readonly adapter: SessionLifecycleSelectedEntry;
 	readonly sessionConfig: SessionConfig;
 }
+/**
+ * @lore BA9b: Expand Agent Plugins 1.0.0 template variables in MCP config values.
+ * Only ${PLUGIN_ROOT} is expanded here; ${PLUGIN_DATA} is left for future use.
+ */
+function expandPluginVars(value: string, pluginRoot: string): string {
+	return value.replace(/\$\{PLUGIN_ROOT\}/g, pluginRoot);
+}
+
+function expandMcpConfigValue(
+	val: unknown,
+	pluginRoot: string,
+): unknown {
+	if (typeof val === "string") return expandPluginVars(val, pluginRoot);
+	if (Array.isArray(val)) return val.map((v) => expandMcpConfigValue(v, pluginRoot));
+	if (val && typeof val === "object") {
+		return Object.fromEntries(
+			Object.entries(val as Record<string, unknown>).map(([k, v]) => [
+				k,
+				expandMcpConfigValue(v, pluginRoot),
+			]),
+		);
+	}
+	return val;
+}
+
+/**
+ * @lore BA9b: Merge plugin-contributed MCP servers into the session's .mcp.json.
+ * Only plugins in scope for this session contribute: factory-scoped (all sessions)
+ * and team-scoped (teamId match). Servers from plugins without an installPath are
+ * skipped (no ${PLUGIN_ROOT} to expand).
+ *
+ * AC7: scope filtering ensures team-scoped plugins only reach matching team sessions.
+ */
+async function mergePluginMcpContributions(
+	db: HyperIdleDb,
+	mcpJsonPath: string,
+	teamId: string | null,
+): Promise<void> {
+	const scopeFilter = teamId
+		? or(
+				eq(plugins.scopeKind, "factory"),
+				and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId)),
+			)
+		: eq(plugins.scopeKind, "factory");
+
+	const rows = await db
+		.select({
+			defaultValueJson: pluginConfigurationDefaults.defaultValueJson,
+			key: pluginConfigurationDefaults.key,
+			installPath: plugins.installPath,
+		})
+		.from(pluginConfigurationDefaults)
+		.innerJoin(plugins, eq(pluginConfigurationDefaults.pluginId, plugins.id))
+		.where(
+			and(
+				eq(pluginConfigurationDefaults.kind, "mcp_server"),
+				eq(plugins.state, "enabled"),
+				scopeFilter,
+			),
+		);
+
+	if (rows.length === 0) return;
+
+	let existing: { mcpServers?: Record<string, unknown> } = { mcpServers: {} };
+	if (fs.existsSync(mcpJsonPath)) {
+		try {
+			existing = JSON.parse(fs.readFileSync(mcpJsonPath, "utf-8")) as typeof existing;
+		} catch {
+			// leave existing as empty baseline
+		}
+	}
+	const merged: Record<string, unknown> = { ...(existing.mcpServers ?? {}) };
+
+	for (const row of rows) {
+		const pluginRoot = row.installPath;
+		if (!pluginRoot) continue; // no installPath → cannot expand ${PLUGIN_ROOT}
+		let serverConfig: unknown;
+		try {
+			serverConfig = JSON.parse(row.defaultValueJson);
+		} catch {
+			continue;
+		}
+		const expanded = expandMcpConfigValue(serverConfig, pluginRoot);
+		// server name is the configuration key
+		merged[row.key] = expanded;
+	}
+
+	fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: merged }, null, 2), "utf-8");
+}
+
 const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
 
 /**
@@ -1415,6 +1511,24 @@ async function runSession(
 			console.warn(
 				`[connection-provisioning] failed for session ${sessionId}; continuing without external tools:`,
 				connErr,
+			);
+		}
+	}
+
+	// ── Phase 8c: merge plugin MCP server contributions into .mcp.json.
+	// @lore BA9b: plugins that declare mcp.json servers contribute them here,
+	// merged WITH (not replacing) the tool-bridge entry written above.
+	// Scope filter: factory-scoped plugins reach all sessions; team-scoped
+	// plugins only reach sessions whose teamId matches. ${PLUGIN_ROOT} is
+	// expanded to the plugin's installPath.
+	if (selectedAdapter.meta.type !== "builtin") {
+		try {
+			await mergePluginMcpContributions(db, mcpJsonPath, teamId ?? null);
+		} catch (mcpMergeErr) {
+			// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
+			console.warn(
+				`[session-provisioning] plugin MCP merge failed for session ${sessionId}:`,
+				mcpMergeErr,
 			);
 		}
 	}

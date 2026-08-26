@@ -26,9 +26,12 @@
  */
 
 import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import {
 	type HyperIdleDb,
 	type PluginRow,
+	knowledgeItems,
 	pluginConfigurationDefaults,
 	plugins,
 } from "@hyperidle/db";
@@ -38,11 +41,11 @@ import {
 	type PluginScopeKind,
 	type PluginState,
 } from "@hyperidle/domain-model";
-import { and, asc, eq, ne, notInArray } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, notInArray } from "drizzle-orm";
 import { writeConfigurationOverride } from "./plugin-configuration.js";
 import type { PluginSource } from "./plugin-fetch.js";
 import { fetchPlugin } from "./plugin-fetch.js";
-import type { ManifestWarning, ParsedContribution } from "./plugin-manifest.js";
+import type { ManifestWarning, ParsedContribution, ParsedMcpServer, ParsedSkill } from "./plugin-manifest.js";
 import { parsePluginManifest } from "./plugin-manifest.js";
 
 // ---------------------------------------------------------------------------
@@ -61,6 +64,16 @@ export interface InstallPluginInput {
 	readonly scope: PluginScope;
 	/** Override current timestamp — for deterministic tests only. */
 	readonly now?: string;
+	/**
+	 * Base directory for persistent plugin storage.
+	 * When provided, plugin files are copied to {pluginsBaseDir}/{pluginId}/
+	 * and the path is stored for ${PLUGIN_ROOT} expansion in MCP servers.
+	 * When absent, command-based MCP servers are stored unexpanded.
+	 *
+	 * @lore BA9b: This is the userDataDir-derived plugins directory from the
+	 * desktop app. Without it, only URL-based MCP servers work fully.
+	 */
+	readonly pluginsBaseDir?: string;
 }
 
 export interface InstalledPlugin {
@@ -73,6 +86,8 @@ export interface InstalledPlugin {
 	readonly updatedAt: string;
 	readonly disabledAt: string | null;
 	readonly warnings: ManifestWarning[];
+	/** Absolute path to the plugin's persistent install directory, or null. */
+	readonly installPath: string | null;
 }
 
 export type InstallPluginResult =
@@ -134,6 +149,7 @@ function pluginFromRow(row: PluginRow, warnings: ManifestWarning[] = []): Instal
 		installedAt: row.installedAt,
 		updatedAt: row.updatedAt,
 		disabledAt: row.disabledAt ?? null,
+		installPath: row.installPath ?? null,
 		warnings,
 	};
 }
@@ -209,6 +225,131 @@ async function removeStaleDefaults(
 		);
 }
 
+/**
+ * Deterministic knowledge item ID for a plugin skill.
+ * Scoped to pluginId + skill title so reinstalls update the same row.
+ */
+function skillItemId(pluginId: string, dirName: string): string {
+	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}`).slice(0, 24)}`;
+}
+
+/**
+ * Write or update knowledge items for each skill in the plugin.
+ * Skills are stored with role='skill', scopeKind/scopeId matching the plugin scope.
+ *
+ * @lore BA9b: The SKILL.md body is the knowledge item body. At session time,
+ * context assembly writes it to .claude/skills/<title>/SKILL.md. Edits by
+ * the user update the knowledge item body (D5: your edit wins, you are told
+ * it detached from the plugin).
+ */
+async function writeSkillKnowledgeItems(
+	db: HyperIdleDb,
+	pluginId: string,
+	skills: ParsedSkill[],
+	scopeKind: string,
+	scopeTeamId: string | null,
+	ts: string,
+): Promise<void> {
+	for (const skill of skills) {
+		const id = skillItemId(pluginId, skill.dirName);
+		// topic encodes the plugin origin so it can be found for stale cleanup
+		const topic = `plugin:${pluginId}`;
+		await db
+			.insert(knowledgeItems)
+			.values({
+				id,
+				scopeKind,
+				scopeId: scopeTeamId,
+				topic,
+				title: skill.dirName,
+				body: skill.body,
+				format: "markdown",
+				status: "active",
+				version: 1,
+				role: "skill",
+				updatedBy: `plugin:${pluginId}`,
+				createdAt: ts,
+				updatedAt: ts,
+			})
+			.onConflictDoUpdate({
+				target: [knowledgeItems.id],
+				set: {
+					// Only update body and metadata if the plugin is being reinstalled.
+					// User edits have a different updatedBy — we do NOT overwrite them.
+					// D5: your edit wins — the body stays as the user left it.
+					// We only update non-body fields (scope, timestamps) here.
+					scopeKind,
+					scopeId: scopeTeamId,
+					topic,
+					updatedAt: ts,
+				},
+			});
+	}
+}
+
+/**
+ * Remove stale skill knowledge items for a plugin.
+ * Called on reinstall to remove skills that were deleted from the manifest.
+ */
+async function removeStaleSkillItems(
+	db: HyperIdleDb,
+	pluginId: string,
+	currentDirNames: string[],
+): Promise<void> {
+	const topic = `plugin:${pluginId}`;
+	// Get all skill item IDs for this plugin
+	const currentIds = currentDirNames.map((dirName) => skillItemId(pluginId, dirName));
+
+	// Fetch all skill items with this plugin's topic that are NOT in the current set
+	const allPluginSkills = await db
+		.select({ id: knowledgeItems.id })
+		.from(knowledgeItems)
+		.where(and(eq(knowledgeItems.topic, topic), eq(knowledgeItems.role, "skill")));
+
+	const staleIds = allPluginSkills
+		.map((r) => r.id)
+		.filter((id) => !currentIds.includes(id));
+
+	if (staleIds.length === 0) return;
+
+	// Hard-delete stale skill items (they have no edit log to worry about for plugin-managed items)
+	await db.delete(knowledgeItems).where(inArray(knowledgeItems.id, staleIds));
+}
+
+/**
+ * Write MCP server entries from mcp.json as plugin_configuration_defaults.
+ * Each server is stored as kind='mcp_server' with key '<pluginId>/<serverName>'.
+ */
+async function writeMcpServerDefaults(
+	db: HyperIdleDb,
+	pluginId: string,
+	mcpServers: ParsedMcpServer[],
+	ts: string,
+): Promise<ParsedContribution[]> {
+	const contributions: ParsedContribution[] = mcpServers.map((server) => ({
+		kind: "mcp_server" as const,
+		key: server.name,
+		value: server.config,
+	}));
+	await writePluginDefaults(db, pluginId, contributions, ts);
+	return contributions;
+}
+
+/**
+ * Copy plugin files to a persistent location.
+ * Returns the destination path.
+ */
+function persistPlugin(sourceDir: string, pluginsBaseDir: string, pluginId: string): string {
+	const dest = join(pluginsBaseDir, pluginId);
+	// Remove any existing install first (full reinstall)
+	if (existsSync(dest)) {
+		rmSync(dest, { recursive: true, force: true });
+	}
+	mkdirSync(dest, { recursive: true });
+	cpSync(sourceDir, dest, { recursive: true });
+	return dest;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -241,6 +382,18 @@ export async function installPlugin(
 			return { ok: false, reason: 'scope.kind is "team" but scope.teamId is missing' };
 		}
 
+		// Persist plugin files if a base directory is provided.
+		// This is required for ${PLUGIN_ROOT} expansion in command-based MCP servers.
+		let installPath: string | null = null;
+		if (input.pluginsBaseDir && (manifest.skills.length > 0 || manifest.mcpServers.length > 0)) {
+			try {
+				installPath = persistPlugin(fetched.rootDir, input.pluginsBaseDir, pluginId);
+			} catch {
+				// Non-fatal: URL-based MCP servers still work without persistent storage.
+				// Skills are stored as knowledge item bodies (no disk path needed).
+			}
+		}
+
 		// Upsert the plugins row
 		await db
 			.insert(plugins)
@@ -251,6 +404,7 @@ export async function installPlugin(
 				state: "enabled",
 				scopeKind: input.scope.kind,
 				scopeTeamId: input.scope.teamId ?? null,
+				installPath,
 				installedAt: ts,
 				updatedAt: ts,
 				disabledAt: null,
@@ -264,20 +418,40 @@ export async function installPlugin(
 					state: "enabled",
 					scopeKind: input.scope.kind,
 					scopeTeamId: input.scope.teamId ?? null,
+					installPath,
 					updatedAt: ts,
 					disabledAt: null,
 					removedAt: null,
 				},
 			});
 
-		// Compute the set of current namespaced keys
-		const currentKeys = manifest.contributions.map((c) => namespacedKey(pluginId, c.key));
+		// Compute the set of current namespaced keys from manifest contributions.
+		const manifestContribKeys = manifest.contributions.map((c) => namespacedKey(pluginId, c.key));
+		// MCP server contributions are stored alongside manifest contributions.
+		const mcpContribKeys = manifest.mcpServers.map((s) => namespacedKey(pluginId, s.name));
+		const currentKeys = [...manifestContribKeys, ...mcpContribKeys];
 
-		// Remove defaults for keys that no longer exist in the manifest
+		// Remove defaults for keys that no longer exist.
 		await removeStaleDefaults(db, pluginId, currentKeys);
 
-		// Write/update defaults for current contributions
+		// Write/update manifest contributions.
 		await writePluginDefaults(db, pluginId, manifest.contributions, ts);
+
+		// Write/update MCP server contributions from mcp.json.
+		await writeMcpServerDefaults(db, pluginId, manifest.mcpServers, ts);
+
+		// Write/update skill knowledge items.
+		await writeSkillKnowledgeItems(
+			db,
+			pluginId,
+			manifest.skills,
+			input.scope.kind,
+			input.scope.teamId ?? null,
+			ts,
+		);
+
+		// Remove stale skill items (skills removed from the plugin).
+		await removeStaleSkillItems(db, pluginId, manifest.skills.map((s) => s.dirName));
 
 		const rows = await db.select().from(plugins).where(eq(plugins.id, pluginId)).limit(1);
 		const row = rows[0];
@@ -375,7 +549,9 @@ export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 	await db
 		.delete(pluginConfigurationDefaults)
 		.where(eq(pluginConfigurationDefaults.pluginId, pluginId));
-	// Step 2: mark plugin as removed (restrict constraint now satisfied)
+	// Step 2: remove all skill knowledge items for this plugin
+	await removeStaleSkillItems(db, pluginId, []);
+	// Step 3: mark plugin as removed (restrict constraint now satisfied)
 	await db
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })

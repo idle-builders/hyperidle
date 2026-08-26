@@ -435,6 +435,20 @@
 			"when": 1785654000000,
 			"tag": "0061_BA9a_plugin_scope",
 			"breakpoints": true
+		},
+		{
+			"idx": 62,
+			"version": "7",
+			"when": 1785657600000,
+			"tag": "0062_BA9b_knowledge_role",
+			"breakpoints": true
+		},
+		{
+			"idx": 63,
+			"version": "7",
+			"when": 1785661200000,
+			"tag": "0063_BA9b_plugin_install_path",
+			"breakpoints": true
 		}
 	]
 }

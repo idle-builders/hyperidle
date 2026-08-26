@@ -1,0 +1,17 @@
+{
+  "id": "BA9b",
+  "title": "Skills, rules and agent files are knowledge",
+  "phase": "build",
+  "status": "in-progress",
+  "branch": "claude/ba9b-skills-as-knowledge",
+  "base": "origin/main (ed59f9443, includes BA9a)",
+  "dependencies": {
+    "BA9a": "satisfied (merged PR #513)"
+  },
+  "artifacts": {
+    "plan": ".pipeline/work/BA9b/plan.md"
+  },
+  "open_questions": [
+    "validateConfigurationValue field-name blocklist blocks editing an MCP contribution \u2014 with the founder"
+  ]
+}
