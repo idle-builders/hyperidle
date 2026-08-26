@@ -463,6 +463,18 @@ export async function update(
  * Internal base list query: filter by kernel + projection fields.
  * Called by the overloaded list() for the default base ListFilters case.
  */
+/**
+ * @lore BA9b-listBase: listBase has no `role` filter intentionally — the public
+ * `list()` surface is for editorial/display use (knowledge view), where all roles
+ * appear together. Capability items (role != 'ordinary') for session assembly are
+ * fetched by a separate path: `fetchCapabilityItems` in session-knowledge-assembler.ts
+ * uses a direct query with a scope+role predicate rather than going through listBase.
+ * That path justifies the deviation (listBase's layer predicate would silently drop
+ * capability items that have no layer). The two query paths do not drift because they
+ * serve different callers — one is editorial, the other is session-time materialisation.
+ * See the @lore BA9b-listBase comment in session-knowledge-assembler.ts for the full
+ * rationale.
+ */
 async function listBase(
 	db: HyperIdleDb,
 	filters: ListFilters = {},
