@@ -11,11 +11,7 @@
     "4824db72d"
   ],
   "artifacts": {
-    "plan": ".pipeline/work/BA9a/plan.md",
-    "design-notes": ".pipeline/work/BA9a/design-notes.md",
-    "review": ".pipeline/work/BA9a/review.md",
-    "proof": ".pipeline/work/BA9a/proof.md",
-    "migration-defect": ".pipeline/work/BA9a/migration-0058-defect.md"
+    "plan": ".pipeline/work/BA9a/plan.md"
   },
   "gates": {
     "check": "PASS",
@@ -41,5 +37,6 @@
     "plugin_configuration_defaults carries orphan builtin rows on existing installs; the writer was deleted in 3efc6c573"
   ],
   "pr": "https://github.com/ambrovia/hyperidle/pull/513",
-  "merged": "2026-08-25T23:48:28Z (squash, ed59f9443)"
+  "merged": "2026-08-25T23:48:28Z (squash, ed59f9443)",
+  "note": "Folder consolidated at ship: design notes, review, live proof and the migration-defect diagnosis folded into plan.md under 'As built'."
 }

@@ -589,7 +589,8 @@ const CONTEXT_ASSEMBLY_DIRS = [
  * unique probe skill in each candidate directory and running every real binary
  * non-interactively; only the directories whose probe token appeared in output
  * are listed. Full evidence in:
- *   .pipeline/work/BA9b/harness-skill-dirs-evidence.md
+ *   the "As built" section of .pipeline/work/BA9b/plan.md — including the
+ *   probe method, to re-run when a harness is added or upgraded.
  *
  *   .claude/skills  — claude:        confirmed (probe-claudedir token returned).
  *                  — cursor-agent:   ALSO reads this directory (probe-claudedir

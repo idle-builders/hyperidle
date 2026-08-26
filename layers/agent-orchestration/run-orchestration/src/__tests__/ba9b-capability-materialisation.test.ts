@@ -84,7 +84,7 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 	it("writes SKILL.md to .agents/skills/ (for codex and cursor-agent)", async () => {
 		// .agents/skills covers codex (only dir it reads) and cursor-agent.
 		// .opencode/skills is omitted — opencode also reads .claude/skills.
-		// .codex-home/skills is dead — nothing reads it (harness-skill-dirs-evidence.md).
+		// .codex-home/skills is dead — nothing reads it (see BA9b plan.md, "As built").
 		const bundle = makeBundle("agent-1", [
 			{ id: "skill-2", title: "my-skill", body: "Body.", role: "skill" },
 		]);

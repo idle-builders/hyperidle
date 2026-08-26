@@ -158,3 +158,110 @@ editing knowledge.
 - Do not bypass the existing knowledge assembly and scoring; extend it.
 - Materialising must not break the existing `knowledge/practices|decisions|failures` files or the
   AGENTS.md + CLAUDE.md dual write.
+
+
+---
+
+# As built
+
+Consolidated at ship. The harness-directory evidence and the two review rounds this section replaces
+were deleted after their content landed here.
+
+## Skills are knowledge, not a subsystem
+
+A skill is a knowledge item carrying a **role**. One column on `knowledge_items` (migration 0062,
+`NOT NULL DEFAULT 'ordinary'` plus a check constraint) and a materialiser that knows each role's
+destination. No skills table, no second store, and the dropped `skills` column on agent run config was
+not resurrected.
+
+Roles: `ordinary` (unchanged, `knowledge/...`), `skill`, `rule`, `agent_file`. An `agent_file` is bound
+to one agent and only that agent's session receives it.
+
+## Where each harness actually reads skills from — established by running the binaries
+
+This is the durable part. Four skills were planted, one per candidate directory, each with a distinct
+name, and every real binary was then asked to list the skills available to it. A harness cannot name a
+skill it never discovered.
+
+| Harness | Probe skills visible | Directories it scans |
+|---|---|---|
+| `claude` | `probe-claudedir` | `.claude/skills` |
+| `opencode` | `probe-claudedir`, `probe-opencodedir`, `probe-agentsdir` | `.claude/skills`, `.opencode/skills`, `.agents/skills` |
+| `codex` | `probe-agentsdir` | `.agents/skills` |
+| `cursor-agent` | `probe-claudedir`, `probe-agentsdir` | `.claude/skills`, `.agents/skills` |
+
+Invocations: `claude -p`, `opencode run`, `codex exec --skip-git-repo-check`, `cursor-agent -p --trust`.
+
+**`.claude/skills` plus `.agents/skills` covers all four**, and that is what `HARNESS_SKILL_DIRS` holds.
+Nothing reads `.codex-home/skills` — that is Codex's *config* directory (`adapter-pool.ts:334`), and
+`codex plugin --help` shows Codex manages plugins through `~/.codex/config.toml` and a marketplace
+cache. `.agents` had to be added to `SANDBOX_SCAFFOLDING_PATHS`.
+
+**Re-run this probe when a harness is added or upgraded.** Skill discovery is the harness's behaviour,
+not ours, and it can change under us.
+
+**OpenCode loads skills on demand.** It exposes each skill's *name and description* at startup and
+fetches the body only when the agent decides the skill is relevant. So a skill's `description` is not
+documentation — it is what decides whether the skill is ever used. Any plugin shipping skills must write
+descriptions that match the moment the skill should fire.
+
+## The MCP dialects, also established by running the binaries
+
+Plugin MCP servers route through the canonical owner, `cli-mcp-config.ts`, which already held the
+dialect knowledge for the tool bridge — one implementation per dialect, not two.
+
+Probing found a real defect the file could never have revealed: **opencode requires `command` as a
+single merged array** `[binary, ...args]`, not separate `command` and `args` fields. The separate form
+was silently rejected with *"Ignoring MCP config entry without type"*, so plugin servers would have been
+dropped on that harness with every test green. Codex's `[mcp_servers.key]` block with separate
+`command`/`args`/`cwd`/`env` fields was confirmed correct.
+
+`${PLUGIN_ROOT}` and `${PLUGIN_DATA}` both expand; `command` is forwarded as a single token rather than
+shell-split; cwd defaults to the plugin root. The spec's "resolve `command` as a single executable
+token" means do not word-split it — it does not ask for a PATH lookup, and an earlier `which`-based
+implementation was removed.
+
+## What the reviews caught, and why it matters beyond this package
+
+Three rounds of review found the same failure shape at three different levels, and it is worth
+remembering because every instance passed its tests:
+
+1. **Skill directories chosen by plausible name** — one right, one redundant, one dead — while unit
+   tests passed, because they asserted the writer matched the constant the same author had picked.
+2. **A harness test that imported no production code** and hardcoded the directories itself. Repointing
+   `HARNESS_SKILL_DIRS` at a dead path left it green, with real model calls in both runs.
+3. **A model-output assertion that could not detect a wrong path** for codex and cursor-agent, because
+   those two scan every file in the working directory and found the skill at the dead path anyway.
+   Breaking the constant *redirects* the write; it does not suppress it. The fix pairs a file-presence
+   assertion at the expected path with the model-output proof.
+
+Also fixed along the way: `agentId` was optional on `SessionKnowledgeInput` and no production caller
+passed it, so agent-file binding never ran at all and its test passed on a path production never took.
+It is now required. **An optional parameter that defaults to the feature being off is the same trap as
+a compatibility shim.**
+
+The token is now a fresh UUID per run and retries are off for that file, so a confabulated answer
+cannot turn a real failure green.
+
+**Verified three-cycle:** clean 5 passed (exit 0) → `HARNESS_SKILL_DIRS` repointed to a dead directory
+5 failed (exit 1) → restored 5 passed (exit 0), tree clean.
+
+## Scope now bites
+
+BA9a stored the install scope but nothing filtered on it. Session assembly now filters capability items
+by scope — factory reaches every session, team reaches only that team's — which is where the team is
+actually known.
+
+## Known limitations carried forward
+
+- **`agentBindingId` derivation is scopeKind-blind** (`framework/domain-model/src/work-intent.ts`): a
+  team-scoped `agent_file` yields a binding id equal to the team id, which matches no agent, so it
+  silently reaches nobody. Latent; needs a misconfigured item to trigger.
+- **No budget guard on capability items.** They are appended unranked and unbudgeted — a deliberate
+  decision under AC8, but a large plugin skill can crowd the context window with nothing to stop it.
+- **Uninstall hard-deletes a user-edited skill** (`routes/plugins.ts`), which sits awkwardly beside D5's
+  detach-and-restore. Open founder question.
+- **`validateConfigurationValue`** still blocks a person editing an MCP contribution. Open founder
+  question; a plugin contributing one is unaffected.
+- **builtin has no skill-directory concept** — skills reach it through AGENTS.md injection, so its case
+  in the materialisation test proves the files were written, not that they were used.
