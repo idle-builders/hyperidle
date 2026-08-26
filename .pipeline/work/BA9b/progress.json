@@ -13,5 +13,6 @@
   },
   "open_questions": [
     "validateConfigurationValue field-name blocklist blocks editing an MCP contribution \u2014 with the founder"
-  ]
+  ],
+  "ship_policy": "HALT at CI-green OPEN PR \u2014 founder inspects manually before any merge (instruction 2026-08-26). Applies to BA9b, BA9c, BA9d."
 }
