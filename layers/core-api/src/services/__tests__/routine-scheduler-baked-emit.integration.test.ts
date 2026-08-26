@@ -116,6 +116,7 @@ function makePorts(): RoutineSchedulerPorts & {
 	return {
 		work: {
 			getBetById: (db, id) => work.get(db, "bet", id),
+			getTaskById: (db, id) => work.get(db, "task", id),
 			createItem: (exec, values) => work.create(exec, "item", values),
 			findRetroItemByThreadIds: async (db, threadIds, marker) => {
 				const rows = await work.list(db, "item", { threadIds, bodyMarker: marker });

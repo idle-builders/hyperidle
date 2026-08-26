@@ -56,6 +56,7 @@ function inertPorts(): RoutineSchedulerPorts {
 	return {
 		work: {
 			getBetById: unreachable("work.getBetById"),
+			getTaskById: unreachable("work.getTaskById"),
 			createItem: unreachable("work.createItem"),
 			findRetroItemByThreadIds: unreachable("work.findRetroItemByThreadIds"),
 		},
