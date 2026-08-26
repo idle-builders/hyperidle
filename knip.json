@@ -55,6 +55,12 @@
 			"ignoreBinaries": ["vitest"]
 		},
 		"framework/api-contract": {},
+		// codex and opencode are real harness binaries spawned by integration tests
+		// (BA9b-plugin-mcp-dialect-real.integration.test.ts and AN2). They are not
+		// npm packages — they are installed CLIs on PATH, like `claude` and `cursor-agent`.
+		"layers/agent-execution/harness-registry": {
+			"ignoreBinaries": ["codex", "opencode"]
+		},
 		"layers/core-ui": {
 			"entry": [
 				"__scripts__/*.ts!",

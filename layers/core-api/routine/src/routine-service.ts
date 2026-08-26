@@ -392,6 +392,7 @@ export interface RoutineRunResolverDeps {
 			readonly teamId: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
+			readonly agentId: string;
 		},
 	): Promise<readonly SessionKnowledgeItemLike[]>;
 	/**
@@ -489,6 +490,7 @@ export async function resolveRoutineRunRequest(
 					// the run will actually execute, not a description of the
 					// routine.
 					taskDescription: routine.prompt ?? routine.name,
+					agentId: agent.id,
 				})
 			: [];
 		contextBundle = {

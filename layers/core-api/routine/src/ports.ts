@@ -154,6 +154,7 @@ export interface RoutineSchedulerPorts {
 			readonly teamId: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
+			readonly agentId: string;
 		},
 	): Promise<readonly SessionKnowledgeItemLike[]>;
 }

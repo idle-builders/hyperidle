@@ -238,6 +238,15 @@ interface SessionLifecycleHarnessRuntime {
 		readonly mcpUrl: string;
 		readonly token: string;
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
+	/** @lore BA9b B2: write plugin stdio MCP entries in the harness's dialect. Dialect knowledge lives in cli-mcp-config.ts. */
+	writePluginStdioMcpEntries(params: {
+		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
+		readonly sandboxPath: string;
+		readonly servers: ReadonlyArray<{
+			readonly key: string;
+			readonly config: Record<string, unknown>;
+		}>;
+	}): void;
 	/**
 	 * AU31 §2.7/§3.1 sites 12,14 (B1): the session-scoped MCP dial —
 	 * bridge-open plus the `/api/mcp/` URL spelling — folded into
@@ -572,6 +581,117 @@ interface BeforeHarnessStartContext {
 	readonly adapter: SessionLifecycleSelectedEntry;
 	readonly sessionConfig: SessionConfig;
 }
+/**
+ * @lore BA9b: Expand Agent Plugins 1.0.0 template variables in MCP config values.
+ * ${PLUGIN_ROOT} → installPath; ${PLUGIN_DATA} → installPath/data (per-plugin persistent store).
+ * "Resolve command as a single executable token" means treat command as one atom, not shell-split —
+ * the config schema already separates command and args, so no further transformation is needed.
+ */
+function expandPluginVars(value: string, pluginRoot: string): string {
+	const pluginData = path.join(pluginRoot, "data");
+	return value.replace(/\$\{PLUGIN_ROOT\}/g, pluginRoot).replace(/\$\{PLUGIN_DATA\}/g, pluginData);
+}
+
+function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
+	if (typeof val === "string") return expandPluginVars(val, pluginRoot);
+	if (Array.isArray(val)) return val.map((v) => expandMcpConfigValue(v, pluginRoot));
+	if (val && typeof val === "object") {
+		return Object.fromEntries(
+			Object.entries(val as Record<string, unknown>).map(([k, v]) => [
+				k,
+				expandMcpConfigValue(v, pluginRoot),
+			]),
+		);
+	}
+	return val;
+}
+
+/**
+ * @lore BA9b: Merge plugin-contributed MCP servers into the session sandbox.
+ * Only plugins in scope for this session contribute: factory-scoped (all sessions)
+ * and team-scoped (teamId match). Servers from plugins without an installPath are
+ * skipped (no ${PLUGIN_ROOT} to expand).
+ *
+ * For no dialect (claude-code): merges into .mcp.json.
+ * For CLI dialects: calls `writeStdioEntries` (ports.harnessRuntime.writePluginStdioMcpEntries)
+ * so dialect knowledge stays in cli-mcp-config.ts — one owner for all harness file shapes.
+ *
+ * AC6: plugin mcp.json merged WITH the tool-bridge entry already written above.
+ * AC7: scope filtering ensures team-scoped plugins only reach matching team sessions.
+ *
+ * @lore BA9b governance: plugins/pluginConfigurationDefaults are owned by settings
+ * (core-api layer). run-orchestration (agent-orchestration layer) cannot query them
+ * directly. The data arrives through PluginMcpContributionsPort, wired by the
+ * application via CoreApiBoot.pluginMcpContributions → ApplicationProvisionSessionDeps.
+ */
+/** @for-testing exported so the unit test can verify expansion + routing without copy-pasting helpers. */
+export async function mergePluginMcpContributions(
+	port: PluginMcpContributionsPort | undefined,
+	sandboxPath: string,
+	teamId: string | null,
+	dialect?: "codex-toml" | "opencode-json" | "cursor-json",
+	writeStdioEntries?: (params: {
+		readonly dialect: "codex-toml" | "opencode-json" | "cursor-json";
+		readonly sandboxPath: string;
+		readonly servers: ReadonlyArray<{
+			readonly key: string;
+			readonly config: Record<string, unknown>;
+		}>;
+	}) => void,
+): Promise<void> {
+	if (!port) return;
+
+	const rows = await port.getContributions(teamId);
+
+	if (rows.length === 0) return;
+
+	// Build the list of expanded server configs. Rows with no installPath or
+	// invalid JSON are skipped; the file is still written (rows were present).
+	const servers: Array<{ key: string; config: Record<string, unknown> }> = [];
+
+	for (const row of rows) {
+		const pluginRoot = row.installPath;
+		if (!pluginRoot) continue; // no installPath → cannot expand ${PLUGIN_ROOT}
+		let rawConfig: Record<string, unknown>;
+		try {
+			rawConfig = JSON.parse(row.defaultValueJson) as Record<string, unknown>;
+		} catch {
+			continue;
+		}
+		// Expand ${PLUGIN_ROOT} and ${PLUGIN_DATA} in all string values.
+		// command is treated as a single executable token (separate from args by the schema).
+		const expanded = expandMcpConfigValue(rawConfig, pluginRoot) as Record<string, unknown>;
+		// Default cwd to plugin root when not specified
+		if (!expanded.cwd) {
+			expanded.cwd = pluginRoot;
+		}
+		servers.push({ key: row.key, config: expanded });
+	}
+
+	if (!dialect) {
+		// claude-code: standard .mcp.json. Always write even if servers is empty
+		// (rows were present) to preserve/merge any existing content.
+		const mcpJsonPath = path.join(sandboxPath, ".mcp.json");
+		let existing: { mcpServers?: Record<string, unknown> } = { mcpServers: {} };
+		if (fs.existsSync(mcpJsonPath)) {
+			try {
+				existing = JSON.parse(fs.readFileSync(mcpJsonPath, "utf-8")) as typeof existing;
+			} catch {
+				// leave existing as empty baseline
+			}
+		}
+		const merged: Record<string, unknown> = { ...(existing.mcpServers ?? {}) };
+		for (const { key, config } of servers) {
+			merged[key] = config;
+		}
+		fs.writeFileSync(mcpJsonPath, JSON.stringify({ mcpServers: merged }, null, 2), "utf-8");
+	} else if (writeStdioEntries && servers.length > 0) {
+		// CLI dialects: delegate to the canonical dialect writer (cli-mcp-config.ts).
+		// Dialect knowledge lives there — no per-dialect code here.
+		writeStdioEntries({ dialect, sandboxPath, servers });
+	}
+}
+
 const PROVISIONER_EMITTED_FILES = [".mcp.json"] as const;
 
 /**
@@ -620,6 +740,22 @@ async function captureMountedFilesystems(
 			);
 		}
 	}
+}
+
+/**
+ * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
+ * Defined here as an opaque port — settings owns the tables, so provisioner
+ * cannot query them directly. The application composition root wires the
+ * implementation (from @hyperidle/settings via @hyperidle/core-api's boot).
+ */
+export interface PluginMcpContributionsPort {
+	getContributions(teamId: string | null): Promise<
+		readonly {
+			readonly key: string;
+			readonly defaultValueJson: string;
+			readonly installPath: string | null;
+		}[]
+	>;
 }
 
 interface ProvisionSessionDeps {
@@ -683,6 +819,12 @@ interface ProvisionSessionDeps {
 	 * each endSession/crashSession call.
 	 */
 	readonly mounter?: FilesystemMounterPort;
+	/**
+	 * BA9b: Plugin MCP server contributions for this session's team scope.
+	 * When absent, no plugin MCP servers are merged into the session config.
+	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
+	 */
+	readonly pluginMcpContributions?: PluginMcpContributionsPort;
 }
 
 interface ProvisionSessionParams {
@@ -1423,6 +1565,33 @@ async function runSession(
 			console.warn(
 				`[connection-provisioning] failed for session ${sessionId}; continuing without external tools:`,
 				connErr,
+			);
+		}
+	}
+
+	// ── Phase 8c: merge plugin MCP server contributions in the harness's dialect.
+	// @lore BA9b: plugins that declare mcp.json servers contribute them here,
+	// merged WITH (not replacing) the tool-bridge entry written above.
+	// Scope filter: factory-scoped plugins reach all sessions; team-scoped
+	// plugins only reach sessions whose teamId matches. ${PLUGIN_ROOT} and
+	// ${PLUGIN_DATA} are expanded; cwd defaults to plugin root.
+	// Dialect writing is delegated to cli-mcp-config.ts via the harnessRuntime port.
+	if (selectedAdapter.meta.type !== "builtin") {
+		try {
+			await mergePluginMcpContributions(
+				deps.pluginMcpContributions,
+				sandboxPath,
+				teamId ?? null,
+				adapterCapabilities.cliMcpDialect,
+				adapterCapabilities.cliMcpDialect
+					? (params) => ports.harnessRuntime.writePluginStdioMcpEntries(params)
+					: undefined,
+			);
+		} catch (mcpMergeErr) {
+			// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
+			console.warn(
+				`[session-provisioning] plugin MCP merge failed for session ${sessionId}:`,
+				mcpMergeErr,
 			);
 		}
 	}

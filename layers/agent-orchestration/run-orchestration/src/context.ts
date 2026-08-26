@@ -343,6 +343,7 @@ Your workspace is organized as follows:
   - \`practices/\` -- Practice knowledge.
   - \`decisions/\` -- Decision records.
   - \`failures/\` -- Failure postmortems.
+  - \`rules/\` -- Rules and guidelines that apply to your work.
 - \`work/\` -- Your working area.
   - \`artifacts/\` -- Output artifacts.
   - \`task-notes.md\` -- Your session notes (use write_session_notes tool).
@@ -577,8 +578,45 @@ const CONTEXT_ASSEMBLY_DIRS = [
 	"knowledge/practices",
 	"knowledge/decisions",
 	"knowledge/failures",
+	"knowledge/rules",
 	"work/artifacts",
 ] as const;
+
+/**
+ * @lore BA9b: Per-harness skill directories — empirically verified 2026-08-26.
+ *
+ * Two directories cover all four binary harnesses. Established by planting a
+ * unique probe skill in each candidate directory and running every real binary
+ * non-interactively; only the directories whose probe token appeared in output
+ * are listed. Full evidence in:
+ *   the "As built" section of .pipeline/work/BA9b/plan.md — including the
+ *   probe method, to re-run when a harness is added or upgraded.
+ *
+ *   .claude/skills  — claude:        confirmed (probe-claudedir token returned).
+ *                  — cursor-agent:   ALSO reads this directory (probe-claudedir
+ *                                    appeared; .cursor/rules/ was NOT used).
+ *                  — opencode:       reads .claude/skills in addition to its own
+ *                                    .opencode/skills and .agents/skills.
+ *
+ *   .agents/skills  — codex:         ONLY directory codex reads; .codex-home/skills
+ *                                    is the config dir (auth/hooks), not skills.
+ *                                    probe-agentsdir appeared, probe-codexhomedir did not.
+ *                  — cursor-agent:   also reads .agents/skills (probe-agentsdir appeared).
+ *                  — opencode:       also reads .agents/skills (probe-agentsdir appeared).
+ *
+ * .opencode/skills is redundant (opencode reads .claude/skills too) and is
+ * therefore omitted. .codex-home/skills is dead — nothing reads it.
+ *
+ * builtin: no file-based skill dirs. It is a direct LLM call through OpenRouter;
+ * skills reach it via the system prompt injected in AGENTS.md (already written
+ * by context assembly). No extra directory entry needed.
+ *
+ * Each subdir contains <skillDirName>/SKILL.md as per Agent Plugins 1.0.0.
+ *
+ * Re-run the probe (evidence file §Method) if a harness is added or upgraded;
+ * skill discovery is harness behaviour, not ours, and it can change under us.
+ */
+const HARNESS_SKILL_DIRS = [".claude/skills", ".agents/skills"] as const;
 const CONTEXT_ASSEMBLY_ROOTS = [
 	...new Set(
 		CONTEXT_ASSEMBLY_DIRS.map((directory) => {
@@ -633,18 +671,94 @@ const ZONE_BY_LAYER: Record<string, string> = {
 };
 
 /**
+ * @lore BA9b: Slugify a skill title into a safe directory name.
+ * Plugin-contributed skills store the dirName as the title; manual skills use a slug.
+ */
+function toSkillDirName(title: string): string {
+	return title
+		.replace(/[^a-zA-Z0-9._-]/g, "_")
+		.replace(/_+/g, "_")
+		.replace(/^_|_$/g, "");
+}
+
+/**
+ * @lore BA9b: Write a skill item to each known harness skill directory.
+ * Returns the first relative path written (for the manifest entry).
+ */
+function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): string {
+	const dirName = toSkillDirName(item.title);
+	let firstPath: string | undefined;
+	for (const harnessSkillDir of HARNESS_SKILL_DIRS) {
+		const skillDir = path.join(sandboxPath, harnessSkillDir, dirName);
+		fs.mkdirSync(skillDir, { recursive: true });
+		const skillPath = path.join(skillDir, "SKILL.md");
+		fs.writeFileSync(skillPath, item.body);
+		if (!firstPath) {
+			firstPath = `${harnessSkillDir}/${dirName}/SKILL.md`;
+		}
+	}
+	return firstPath ?? `${HARNESS_SKILL_DIRS[0]}/${dirName}/SKILL.md`;
+}
+
+/**
  * Write the baked+ranked knowledge bundle to its sandbox zones, building the
  * manifest entries — the pure write-side counterpart to the (deleted)
- * `fetchAllForLayer`/`rankAndBudget` DB-reading pair. Items with an
- * unrecognized/absent `layer` are skipped (defensive — `assembleSessionKnowledge`
- * only ever produces L4/L2/L3 items, so this should never trigger in practice).
+ * `fetchAllForLayer`/`rankAndBudget` DB-reading pair.
+ *
+ * @lore BA9b: capability roles (skill/rule/agent_file) are routed by role,
+ * not by layer. `agentId` is required to filter agent_file items — only the
+ * item whose agentBindingId matches receives it.
+ *
+ * Items with role='ordinary' and an unrecognized/absent layer are skipped
+ * (defensive — assembleSessionKnowledge only produces L4/L2/L3 ordinary items).
  */
 function writeBundleKnowledge(
 	sandboxPath: string,
 	knowledge: readonly BakedContextKnowledgeItem[],
+	agentId: string,
 ): Record<string, ManifestEntry> {
 	const manifestItems: Record<string, ManifestEntry> = {};
 	for (const item of knowledge) {
+		const role = item.role;
+
+		if (role === "skill") {
+			const relativePath = writeSkillItem(sandboxPath, item);
+			manifestItems[item.id] = {
+				version: item.version,
+				source_path: relativePath,
+				format: item.format,
+			};
+			continue;
+		}
+
+		if (role === "rule") {
+			const relativePath = writeItem(sandboxPath, item, "knowledge/rules");
+			manifestItems[item.id] = {
+				version: item.version,
+				source_path: relativePath,
+				format: item.format,
+			};
+			continue;
+		}
+
+		if (role === "agent_file") {
+			// Only write if this item is bound to the current agent (or unbound).
+			if (item.agentBindingId !== null && item.agentBindingId !== agentId) {
+				continue;
+			}
+			// agent_file: append to knowledge/rules so the agent reads it as a rule-like doc.
+			// @lore BA9b: agent_file content is delivered via knowledge/rules/ — the agent's
+			// AGENTS.md already contains the system prompt; agent_file supplements it.
+			const relativePath = writeItem(sandboxPath, item, "knowledge/rules");
+			manifestItems[item.id] = {
+				version: item.version,
+				source_path: relativePath,
+				format: item.format,
+			};
+			continue;
+		}
+
+		// role === 'ordinary': route by layer (existing behavior).
 		const zone = item.layer ? ZONE_BY_LAYER[item.layer] : undefined;
 		if (!zone) {
 			logger.warn("skipping baked knowledge item with unrecognized layer", {
@@ -680,6 +794,7 @@ function writeContextBundle(
 	sandboxPath: string,
 	sessionId: string,
 	bundle: Extract<BakedContextBundle, { kind: "task" | "routine" }>,
+	agentId: string,
 ): ContextAssemblyResult {
 	const start = performance.now();
 
@@ -689,7 +804,7 @@ function writeContextBundle(
 	cleanDirectory(path.join(sandboxPath, ".fabric"));
 	createDirectoryStructure(sandboxPath);
 
-	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.knowledge);
+	const manifestItems = writeBundleKnowledge(sandboxPath, bundle.knowledge, agentId);
 
 	const sessionToon =
 		bundle.kind === "task"
@@ -797,7 +912,12 @@ function assembleAgentContext(input: AssembleAgentContextInput): AgentContextAss
 		};
 	}
 
-	const result = writeContextBundle(input.sandboxPath, input.sessionId, input.contextBundle);
+	const result = writeContextBundle(
+		input.sandboxPath,
+		input.sessionId,
+		input.contextBundle,
+		input.agentId,
+	);
 	return {
 		itemCount: result.itemCount,
 		durationMs: result.durationMs,
@@ -855,6 +975,7 @@ interface ContextAssembler {
 	buildTemplateVariables(context: SessionContextData): Record<string, string>;
 	readonly emittedAgentRoots: readonly string[];
 	readonly emittedContextRoots: readonly string[];
+	readonly emittedSkillRoots: readonly string[];
 }
 
 /** Bind this Service's ports-taking functions to a single `ContextAssemblyPorts` instance. */
@@ -870,6 +991,7 @@ export function createContextAssembler(ports: ContextAssemblyPorts): ContextAsse
 		buildTemplateVariables,
 		emittedAgentRoots: EMITTED_AGENT_FILES,
 		emittedContextRoots: CONTEXT_ASSEMBLY_ROOTS,
+		emittedSkillRoots: HARNESS_SKILL_DIRS,
 	};
 }
 

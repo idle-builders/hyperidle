@@ -21,6 +21,8 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { and, eq, ne, or } from "drizzle-orm";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import { list } from "./knowledge-repository.js";
 import { communityForRole } from "./role-community-map.js";
@@ -253,6 +255,13 @@ export interface SessionKnowledgeInput {
 	readonly teamId: string;
 	readonly agentRole: string;
 	readonly taskDescription: string;
+	/**
+	 * @lore BA9b: agentId is required to fetch agent_file items bound to this agent.
+	 * Required (not optional) so no caller can accidentally omit it and silently lose
+	 * agent-bound knowledge items. All three real bundle-builders (task-run-resolver,
+	 * routine-service, proposed-call-workflow) have agent.id in scope and must pass it.
+	 */
+	readonly agentId: string;
 }
 
 const LIST_BATCH_SIZE = 500;
@@ -287,6 +296,64 @@ async function fetchAllForLayer(
 }
 
 /**
+ * @lore BA9b: Fetch active capability items (role != 'ordinary') scoped to this
+ * session. Capability items bypass ranking — plugin installation is a deliberate
+ * act, so skills/rules/agent_files are always present (AC8 stated decision).
+ *
+ * Scope filter:
+ *   - factory-scoped: reach all sessions.
+ *   - team-scoped (scopeKind='team', scopeId=teamId): reach this team's sessions.
+ *   - agent-bound (scopeKind='user', scopeId=agentId): reach only this agent's sessions.
+ *
+ * @lore BA9b: The 'team → null' SCOPE_TO_LAYER mapping is resolved here: we
+ * do NOT route capability items through the layer system. We query them
+ * directly by scope and role, and writeBundleKnowledge routes by role, not layer.
+ *
+ * @lore BA9b-listBase: This function does NOT use listBase(). listBase() filters
+ * by `knowledgeAppProjection.layer` (a projection table field). Capability items
+ * (skill/rule/agent_file) use scopeKind/scopeId from the kernel table — not layer.
+ * Going through listBase would force a layer predicate onto items that have no
+ * meaningful layer, silently dropping everything. The direct query is the correct
+ * path; there is no drift risk because the same LEFT JOIN to knowledgeAppProjection
+ * is reproduced here with the same merge logic as listBase's mergeItemWithProjection.
+ */
+async function fetchCapabilityItems(
+	db: HyperIdleDb,
+	teamId: string,
+	agentId: string | undefined,
+): Promise<KnowledgeItemWithProjection[]> {
+	const scopeFilter = agentId
+		? or(
+				eq(knowledgeItems.scopeKind, "factory"),
+				and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId)),
+				and(eq(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.scopeId, agentId)),
+			)
+		: or(
+				eq(knowledgeItems.scopeKind, "factory"),
+				and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId)),
+			);
+
+	const rows = await db
+		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
+		.from(knowledgeItems)
+		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
+		.where(
+			and(ne(knowledgeItems.role, "ordinary"), eq(knowledgeItems.status, "active"), scopeFilter),
+		)
+		.orderBy(knowledgeItems.id);
+
+	return rows.map(({ item, projection }) => ({
+		...item,
+		layer: projection?.layer ?? null,
+		kind: projection?.kind ?? null,
+		attentionScore: projection?.attentionScore ?? null,
+		confidence: projection?.confidence ?? null,
+		meta: projection?.meta ?? null,
+		scopeId: projection?.scopeId ?? item.scopeId,
+	}));
+}
+
+/**
  * Assemble the ranked + budgeted knowledge bundle a session needs at launch:
  * fetch L4 (factory-wide) + L2 (team-scoped) + L3 (practice-community-scoped)
  * items, then rank + budget them against the task's scoring context —
@@ -297,6 +364,10 @@ async function fetchAllForLayer(
  *
  * `rank()` reads scoring weights from the DB and trims to
  * `DEFAULT_KNOWLEDGE_BUDGET` tokens — this function delegates to it.
+ *
+ * @lore BA9b: capability items (role != 'ordinary') are appended AFTER the
+ * ranked ordinary items. They are not ranked/budgeted — plugin installation
+ * is a deliberate act (AC8 stated decision).
  */
 export async function assembleSessionKnowledge(
 	db: HyperIdleDb,
@@ -304,18 +375,26 @@ export async function assembleSessionKnowledge(
 ): Promise<readonly KnowledgeItemWithProjection[]> {
 	const community = communityForRole(input.agentRole);
 
-	const [l4Items, l2Items, l3Items] = await Promise.all([
+	const [l4Items, l2Items, l3Items, capabilityItems] = await Promise.all([
 		fetchAllForLayer(db, "L4"),
 		fetchAllForLayer(db, "L2", input.teamId),
 		fetchAllForLayer(db, "L3", community),
+		fetchCapabilityItems(db, input.teamId, input.agentId),
 	]);
 
 	const allItems = [...l4Items, ...l2Items, ...l3Items];
 
-	return rank(db, allItems, {
+	const rankedItems = await rank(db, allItems, {
 		taskDescription: input.taskDescription,
 		taskTags: [],
 		agentRole: input.agentRole,
 		productId: input.teamId,
 	});
+
+	// Capability items are appended after ranked ordinary items.
+	// Deduplicate: a factory-scoped skill that came through L4 would appear twice.
+	const rankedIds = new Set(rankedItems.map((i) => i.id));
+	const newCapability = capabilityItems.filter((c) => !rankedIds.has(c.id));
+
+	return [...rankedItems, ...newCapability];
 }

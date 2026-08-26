@@ -29,6 +29,7 @@ import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import {
+	type PluginMcpContributionsPort,
 	type RunOptions,
 	type RunResult,
 	type RunTransitionSpec,
@@ -83,6 +84,7 @@ type TransitionContext = Extract<RunTransitionSpec, { target: "session" }>["cont
 export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHarnessStarted"> & {
 	readonly adapterPool?: unknown;
 	readonly workspace?: unknown;
+	readonly pluginMcpContributions?: PluginMcpContributionsPort;
 };
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];
@@ -166,6 +168,7 @@ export interface RunOrchestrationHarnessRuntimeAdapter {
 	readonly evaluateReturn: SessionLifecyclePorts["harnessRuntime"]["evaluateReturn"];
 	readonly provisionReturnHook: SessionLifecyclePorts["harnessRuntime"]["provisionReturnHook"];
 	readonly writeCliMcpConfig: SessionLifecyclePorts["harnessRuntime"]["writeCliMcpConfig"];
+	readonly writePluginStdioMcpEntries: SessionLifecyclePorts["harnessRuntime"]["writePluginStdioMcpEntries"];
 	openMcpBridge(session: {
 		readonly sessionId: string;
 		readonly toolRegistry: ToolRegistry;
@@ -190,6 +193,7 @@ function buildHarnessRuntime(
 		evaluateReturn: adapter.evaluateReturn,
 		provisionReturnHook: adapter.provisionReturnHook,
 		writeCliMcpConfig: adapter.writeCliMcpConfig,
+		writePluginStdioMcpEntries: adapter.writePluginStdioMcpEntries,
 		// The execution face already owns one bridge instance and one
 		// `mcpBaseUrl` (closed over inside `bootAgentExecution`) — the per-call
 		// `registry`/`baseUrl` this port still asks for are ignored, not

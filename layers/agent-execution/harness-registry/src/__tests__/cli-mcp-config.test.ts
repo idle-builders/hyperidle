@@ -33,7 +33,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 // @lore AL7 T1 RED: This import will fail until writeCliMcpConfig is created in T4.
-import { writeHarnessMcpConfig } from "../cli-mcp-config.js";
+import { writeHarnessMcpConfig, writePluginStdioMcpEntries } from "../cli-mcp-config.js";
 
 const writeCliMcpConfig = writeHarnessMcpConfig;
 
@@ -243,6 +243,216 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 			// The url must NOT embed the token.
 			expect(parsed.mcp?.hyperidle?.url).toBe(TEST_MCP_URL);
 			expect(parsed.mcp?.hyperidle?.url).not.toContain(TEST_TOKEN);
+		});
+	});
+});
+
+// ---------------------------------------------------------------------------
+// writePluginStdioMcpEntries — dialect shape unit tests
+// ---------------------------------------------------------------------------
+
+describe("writePluginStdioMcpEntries — plugin stdio MCP entries", () => {
+	let sandboxPath: string;
+
+	beforeEach(() => {
+		sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba9b-plugin-mcp-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(sandboxPath, { recursive: true, force: true });
+	});
+
+	describe("codex-toml dialect", () => {
+		test("writes [mcp_servers.<key>] block with separate command/args TOML fields", () => {
+			writePluginStdioMcpEntries({
+				dialect: "codex-toml",
+				sandboxPath,
+				servers: [
+					{
+						key: "my-plugin",
+						config: { command: "/usr/bin/node", args: ["/opt/plugin/server.js"] },
+					},
+				],
+			});
+
+			const tomlPath = path.join(sandboxPath, ".codex-home", "config.toml");
+			expect(fs.existsSync(tomlPath)).toBe(true);
+			const content = fs.readFileSync(tomlPath, "utf-8");
+			expect(content).toContain("[mcp_servers.my-plugin]");
+			expect(content).toContain('command = "/usr/bin/node"');
+			expect(content).toContain('args = ["/opt/plugin/server.js"]');
+		});
+
+		test("writes env as TOML inline table and cwd as string", () => {
+			writePluginStdioMcpEntries({
+				dialect: "codex-toml",
+				sandboxPath,
+				servers: [
+					{
+						key: "my-plugin",
+						config: {
+							command: "/usr/bin/node",
+							args: [],
+							env: { MY_VAR: "my-value" },
+							cwd: "/opt/plugin",
+						},
+					},
+				],
+			});
+
+			const content = fs.readFileSync(
+				path.join(sandboxPath, ".codex-home", "config.toml"),
+				"utf-8",
+			);
+			expect(content).toContain('cwd = "/opt/plugin"');
+			expect(content).toContain("MY_VAR");
+			expect(content).toContain("my-value");
+		});
+
+		test("no-op when servers list is empty", () => {
+			writePluginStdioMcpEntries({ dialect: "codex-toml", sandboxPath, servers: [] });
+			expect(fs.existsSync(path.join(sandboxPath, ".codex-home", "config.toml"))).toBe(false);
+		});
+	});
+
+	describe("opencode-json dialect", () => {
+		test("writes command as a SINGLE merged array [binary, ...args]", () => {
+			// opencode requires a single command array — NOT separate command+args.
+			// Verified 2026-08-26: string command + separate args → silently rejected.
+			writePluginStdioMcpEntries({
+				dialect: "opencode-json",
+				sandboxPath,
+				servers: [
+					{
+						key: "my-plugin",
+						config: {
+							command: "/usr/bin/node",
+							args: ["/opt/plugin/server.js", "--port", "3000"],
+						},
+					},
+				],
+			});
+
+			const jsonPath = path.join(sandboxPath, "opencode.json");
+			expect(fs.existsSync(jsonPath)).toBe(true);
+			const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as {
+				mcp?: Record<string, { type: string; command?: string[]; enabled?: boolean }>;
+			};
+			const entry = parsed.mcp?.["my-plugin"];
+			// type must be "local" (verified: the opencode stdio type name).
+			expect(entry?.type).toBe("local");
+			expect(entry?.enabled).toBe(true);
+			// command must be a flat array: [binary, ...args]
+			expect(Array.isArray(entry?.command)).toBe(true);
+			expect(entry?.command).toEqual(["/usr/bin/node", "/opt/plugin/server.js", "--port", "3000"]);
+		});
+
+		test("writes env as a flat string-to-string record", () => {
+			writePluginStdioMcpEntries({
+				dialect: "opencode-json",
+				sandboxPath,
+				servers: [
+					{
+						key: "my-plugin",
+						config: {
+							command: "/usr/bin/node",
+							args: [],
+							env: { MY_VAR: "my-value", OTHER: "42" },
+						},
+					},
+				],
+			});
+
+			const parsed = JSON.parse(
+				fs.readFileSync(path.join(sandboxPath, "opencode.json"), "utf-8"),
+			) as { mcp?: Record<string, { env?: Record<string, string> }> };
+			expect(parsed.mcp?.["my-plugin"]?.env).toEqual({ MY_VAR: "my-value", OTHER: "42" });
+		});
+
+		test("writes cwd when provided", () => {
+			writePluginStdioMcpEntries({
+				dialect: "opencode-json",
+				sandboxPath,
+				servers: [
+					{
+						key: "my-plugin",
+						config: { command: "/usr/bin/node", args: [], cwd: "/opt/plugin" },
+					},
+				],
+			});
+
+			const parsed = JSON.parse(
+				fs.readFileSync(path.join(sandboxPath, "opencode.json"), "utf-8"),
+			) as { mcp?: Record<string, { cwd?: string }> };
+			expect(parsed.mcp?.["my-plugin"]?.cwd).toBe("/opt/plugin");
+		});
+
+		test("merges with existing opencode.json without overwriting bridge entry", () => {
+			// Pre-write a bridge (hyperidle remote) entry.
+			const jsonPath = path.join(sandboxPath, "opencode.json");
+			fs.writeFileSync(
+				jsonPath,
+				JSON.stringify({
+					$schema: "https://opencode.ai/config.json",
+					mcp: {
+						hyperidle: {
+							type: "remote",
+							url: "http://localhost/api/mcp/tok",
+							headers: { Authorization: "Bearer tok" },
+							enabled: true,
+						},
+					},
+				}),
+			);
+
+			writePluginStdioMcpEntries({
+				dialect: "opencode-json",
+				sandboxPath,
+				servers: [{ key: "my-plugin", config: { command: "/usr/bin/node", args: [] } }],
+			});
+
+			const parsed = JSON.parse(fs.readFileSync(jsonPath, "utf-8")) as {
+				mcp?: Record<string, { type: string }>;
+			};
+			// Bridge entry must survive.
+			expect(parsed.mcp?.["hyperidle"]?.type).toBe("remote");
+			// Plugin entry must be added.
+			expect(parsed.mcp?.["my-plugin"]?.type).toBe("local");
+		});
+
+		test("no-op when servers list is empty", () => {
+			writePluginStdioMcpEntries({ dialect: "opencode-json", sandboxPath, servers: [] });
+			expect(fs.existsSync(path.join(sandboxPath, "opencode.json"))).toBe(false);
+		});
+	});
+
+	describe("cursor-json dialect", () => {
+		test("writes .cursor/mcp.json with mcpServers object keyed by server key", () => {
+			writePluginStdioMcpEntries({
+				dialect: "cursor-json",
+				sandboxPath,
+				servers: [
+					{
+						key: "my-plugin",
+						config: { command: "/usr/bin/node", args: ["/opt/plugin/server.js"] },
+					},
+				],
+			});
+
+			const mcpPath = path.join(sandboxPath, ".cursor", "mcp.json");
+			expect(fs.existsSync(mcpPath)).toBe(true);
+			const parsed = JSON.parse(fs.readFileSync(mcpPath, "utf-8")) as {
+				mcpServers?: Record<string, unknown>;
+			};
+			const entry = parsed.mcpServers?.["my-plugin"];
+			expect(entry).toBeDefined();
+			// cursor passes through the full config object.
+			expect((entry as Record<string, unknown>)["command"]).toBe("/usr/bin/node");
+		});
+
+		test("no-op when servers list is empty", () => {
+			writePluginStdioMcpEntries({ dialect: "cursor-json", sandboxPath, servers: [] });
+			expect(fs.existsSync(path.join(sandboxPath, ".cursor", "mcp.json"))).toBe(false);
 		});
 	});
 });

@@ -199,6 +199,7 @@ export interface ReengagementResolverDeps {
 			readonly teamId: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
+			readonly agentId: string;
 		},
 	): Promise<readonly SessionKnowledgeItemLike[]>;
 	/**
@@ -334,6 +335,7 @@ export async function resolveReengagementRequest(
 				teamId: task.teamId,
 				agentRole: agent.role,
 				taskDescription: task.description ?? task.title,
+				agentId: agent.id,
 			});
 			contextBundle = {
 				kind: "task",

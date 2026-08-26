@@ -26,6 +26,8 @@
  */
 
 import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import {
 	type HyperIdleDb,
 	type PluginRow,
@@ -38,11 +40,16 @@ import {
 	type PluginScopeKind,
 	type PluginState,
 } from "@hyperidle/domain-model";
-import { and, asc, eq, ne, notInArray } from "drizzle-orm";
+import { and, asc, eq, ne, notInArray, or } from "drizzle-orm";
 import { writeConfigurationOverride } from "./plugin-configuration.js";
 import type { PluginSource } from "./plugin-fetch.js";
 import { fetchPlugin } from "./plugin-fetch.js";
-import type { ManifestWarning, ParsedContribution } from "./plugin-manifest.js";
+import type {
+	ManifestWarning,
+	ParsedContribution,
+	ParsedMcpServer,
+	ParsedSkill,
+} from "./plugin-manifest.js";
 import { parsePluginManifest } from "./plugin-manifest.js";
 
 // ---------------------------------------------------------------------------
@@ -61,6 +68,16 @@ export interface InstallPluginInput {
 	readonly scope: PluginScope;
 	/** Override current timestamp — for deterministic tests only. */
 	readonly now?: string;
+	/**
+	 * Base directory for persistent plugin storage.
+	 * When provided, plugin files are copied to {pluginsBaseDir}/{pluginId}/
+	 * and the path is stored for ${PLUGIN_ROOT} expansion in MCP servers.
+	 * When absent, command-based MCP servers are stored unexpanded.
+	 *
+	 * @lore BA9b: This is the userDataDir-derived plugins directory from the
+	 * desktop app. Without it, only URL-based MCP servers work fully.
+	 */
+	readonly pluginsBaseDir?: string;
 }
 
 export interface InstalledPlugin {
@@ -73,10 +90,25 @@ export interface InstalledPlugin {
 	readonly updatedAt: string;
 	readonly disabledAt: string | null;
 	readonly warnings: ManifestWarning[];
+	/** Absolute path to the plugin's persistent install directory, or null. */
+	readonly installPath: string | null;
 }
 
 export type InstallPluginResult =
-	| { ok: true; plugin: InstalledPlugin }
+	| {
+			ok: true;
+			plugin: InstalledPlugin;
+			/**
+			 * Parsed skills from the manifest, needed by the core-api layer to sync
+			 * skill knowledge items through the knowledge service after install.
+			 * @lore BA9b: settings cannot write knowledgeItems (owned by knowledge).
+			 * The layer's route handler picks these up and calls knowledge.upsertPluginSkill.
+			 */
+			skills: readonly ParsedSkill[];
+			scopeKind: string;
+			scopeId: string | null;
+			installTs: string;
+	  }
 	| { ok: false; reason: string };
 
 // ---------------------------------------------------------------------------
@@ -134,6 +166,7 @@ function pluginFromRow(row: PluginRow, warnings: ManifestWarning[] = []): Instal
 		installedAt: row.installedAt,
 		updatedAt: row.updatedAt,
 		disabledAt: row.disabledAt ?? null,
+		installPath: row.installPath ?? null,
 		warnings,
 	};
 }
@@ -209,6 +242,126 @@ async function removeStaleDefaults(
 		);
 }
 
+/**
+ * Deterministic knowledge item ID for a plugin skill.
+ * Scoped to pluginId + skill title so reinstalls update the same row.
+ * Exported so the core-api layer's route handlers can compute the same IDs
+ * when syncing skills through the knowledge service (governance boundary).
+ */
+export function skillItemId(pluginId: string, dirName: string): string {
+	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}`).slice(0, 24)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Cross-layer read: plugin MCP contributions for session provisioning
+// ---------------------------------------------------------------------------
+
+export interface PluginMcpContributionRow {
+	key: string;
+	defaultValueJson: string;
+	installPath: string | null;
+}
+
+/**
+ * Return MCP server contributions for all plugins in scope for the given team.
+ *
+ * @lore BA9b: The provisioner (run-orchestration, a different layer) cannot
+ * query plugins/pluginConfigurationDefaults directly — those tables are owned
+ * by settings. This function is the settings-service door: exposed from
+ * @hyperidle/settings, imported by @hyperidle/core-api (the layer), which
+ * wraps it in a CoreApiBoot capability the application hands to bootAgentOrchestration.
+ */
+export async function getPluginMcpContributions(
+	db: HyperIdleDb,
+	teamId: string | null,
+): Promise<readonly PluginMcpContributionRow[]> {
+	const scopeFilter = teamId
+		? or(
+				and(eq(plugins.scopeKind, "factory")),
+				and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId)),
+			)
+		: eq(plugins.scopeKind, "factory");
+
+	return db
+		.select({
+			defaultValueJson: pluginConfigurationDefaults.defaultValueJson,
+			key: pluginConfigurationDefaults.key,
+			installPath: plugins.installPath,
+		})
+		.from(pluginConfigurationDefaults)
+		.innerJoin(plugins, eq(pluginConfigurationDefaults.pluginId, plugins.id))
+		.where(
+			and(
+				eq(pluginConfigurationDefaults.kind, "mcp_server"),
+				eq(plugins.state, "enabled"),
+				scopeFilter,
+			),
+		);
+}
+
+/**
+ * Write MCP server entries from mcp.json as plugin_configuration_defaults.
+ * Each server is stored as kind='mcp_server' with key '<pluginId>/<serverName>'.
+ *
+ * Written directly (not through writePluginDefaults) so the namespaced key is
+ * explicit at this call site rather than being derived inside writePluginDefaults.
+ * Two plugins with the same server name get distinct keys: pluginA/bridge vs
+ * pluginB/bridge — no collision on the mcp_server (kind, key) unique constraint.
+ */
+async function writeMcpServerDefaults(
+	db: HyperIdleDb,
+	pluginId: string,
+	mcpServers: ParsedMcpServer[],
+	ts: string,
+): Promise<void> {
+	if (mcpServers.length === 0) return;
+	for (const server of mcpServers) {
+		const key = namespacedKey(pluginId, server.name);
+		const valueJson = stableJson(server.config);
+		const versionHash = sha256(valueJson);
+		const id = defaultId(pluginId, "mcp_server", key);
+		await db
+			.insert(pluginConfigurationDefaults)
+			.values({
+				id,
+				pluginId,
+				kind: "mcp_server",
+				key,
+				defaultValueJson: valueJson,
+				defaultVersionHash: versionHash,
+				createdAt: ts,
+				updatedAt: ts,
+			})
+			.onConflictDoUpdate({
+				target: [
+					pluginConfigurationDefaults.pluginId,
+					pluginConfigurationDefaults.kind,
+					pluginConfigurationDefaults.key,
+				],
+				set: {
+					defaultValueJson: valueJson,
+					defaultVersionHash: versionHash,
+					updatedAt: ts,
+				},
+			});
+	}
+}
+
+/**
+ * Copy plugin files to a persistent location.
+ * Returns the destination path.
+ */
+function persistPlugin(sourceDir: string, pluginsBaseDir: string, pluginId: string): string {
+	const dest = join(pluginsBaseDir, pluginId);
+	// Remove any existing install first (full reinstall)
+	if (existsSync(dest)) {
+		rmSync(dest, { recursive: true, force: true });
+	}
+	mkdirSync(dest, { recursive: true });
+	cpSync(sourceDir, dest, { recursive: true });
+	return dest;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -241,6 +394,18 @@ export async function installPlugin(
 			return { ok: false, reason: 'scope.kind is "team" but scope.teamId is missing' };
 		}
 
+		// Persist plugin files if a base directory is provided.
+		// This is required for ${PLUGIN_ROOT} expansion in command-based MCP servers.
+		let installPath: string | null = null;
+		if (input.pluginsBaseDir && (manifest.skills.length > 0 || manifest.mcpServers.length > 0)) {
+			try {
+				installPath = persistPlugin(fetched.rootDir, input.pluginsBaseDir, pluginId);
+			} catch {
+				// Non-fatal: URL-based MCP servers still work without persistent storage.
+				// Skills are stored as knowledge item bodies (no disk path needed).
+			}
+		}
+
 		// Upsert the plugins row
 		await db
 			.insert(plugins)
@@ -251,6 +416,7 @@ export async function installPlugin(
 				state: "enabled",
 				scopeKind: input.scope.kind,
 				scopeTeamId: input.scope.teamId ?? null,
+				installPath,
 				installedAt: ts,
 				updatedAt: ts,
 				disabledAt: null,
@@ -264,20 +430,31 @@ export async function installPlugin(
 					state: "enabled",
 					scopeKind: input.scope.kind,
 					scopeTeamId: input.scope.teamId ?? null,
+					installPath,
 					updatedAt: ts,
 					disabledAt: null,
 					removedAt: null,
 				},
 			});
 
-		// Compute the set of current namespaced keys
-		const currentKeys = manifest.contributions.map((c) => namespacedKey(pluginId, c.key));
+		// Compute the set of current namespaced keys from manifest contributions.
+		const manifestContribKeys = manifest.contributions.map((c) => namespacedKey(pluginId, c.key));
+		// MCP server contributions are stored alongside manifest contributions.
+		const mcpContribKeys = manifest.mcpServers.map((s) => namespacedKey(pluginId, s.name));
+		const currentKeys = [...manifestContribKeys, ...mcpContribKeys];
 
-		// Remove defaults for keys that no longer exist in the manifest
+		// Remove defaults for keys that no longer exist.
 		await removeStaleDefaults(db, pluginId, currentKeys);
 
-		// Write/update defaults for current contributions
+		// Write/update manifest contributions.
 		await writePluginDefaults(db, pluginId, manifest.contributions, ts);
+
+		// Write/update MCP server contributions from mcp.json.
+		await writeMcpServerDefaults(db, pluginId, manifest.mcpServers, ts);
+
+		// Skill knowledge items are synced by the core-api layer's route handler
+		// after installPlugin returns, using the knowledge service (governance boundary:
+		// settings cannot write to knowledgeItems — owned by knowledge).
 
 		const rows = await db.select().from(plugins).where(eq(plugins.id, pluginId)).limit(1);
 		const row = rows[0];
@@ -285,7 +462,14 @@ export async function installPlugin(
 			return { ok: false, reason: `Plugin row not found after insert: ${pluginId}` };
 		}
 
-		return { ok: true, plugin: pluginFromRow(row, manifest.warnings) };
+		return {
+			ok: true,
+			plugin: pluginFromRow(row, manifest.warnings),
+			skills: manifest.skills,
+			scopeKind: input.scope.kind,
+			scopeId: input.scope.teamId ?? null,
+			installTs: ts,
+		};
 	} finally {
 		fetched.cleanup();
 	}
@@ -376,6 +560,8 @@ export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 		.delete(pluginConfigurationDefaults)
 		.where(eq(pluginConfigurationDefaults.pluginId, pluginId));
 	// Step 2: mark plugin as removed (restrict constraint now satisfied)
+	// @lore BA9b: skill knowledge item cleanup happens in the route handler
+	// (core-api layer), not here — settings cannot write to knowledge's table.
 	await db
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })

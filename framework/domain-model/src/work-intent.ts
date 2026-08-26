@@ -158,6 +158,21 @@ export interface BakedContextKnowledgeItem {
 	readonly format: string;
 	readonly version: number;
 	readonly layer: string | null;
+	/**
+	 * @lore BA9b: Role determines how context assembly materialises this item.
+	 * Defaults to 'ordinary' for all items that pre-date the role column.
+	 * - ordinary: knowledge/... files
+	 * - skill: .claude/skills/<title>/SKILL.md
+	 * - rule: knowledge/rules/<title>
+	 * - agent_file: AGENTS.md/CLAUDE.md only when scopeId === agentId
+	 */
+	readonly role: string;
+	/**
+	 * @lore BA9b: For role='agent_file', this is the agentId the file is
+	 * bound to (stored in scopeId on the knowledge_item row). Only the agent
+	 * whose session matches this id receives the file.
+	 */
+	readonly agentBindingId: string | null;
 }
 
 /**
@@ -170,6 +185,10 @@ export interface BakedContextKnowledgeItem {
  * `layer` stays optional (matching `KnowledgeItemWithProjection`'s own
  * optional `layer?: string | null`) — `toBakedContextKnowledgeItems` below
  * normalizes it to the required-but-nullable `BakedContextKnowledgeItem.layer`.
+ * `role` and `scopeId` are required: both come from the kernel `knowledgeItems`
+ * table which is always present in a DB row. role is NOT NULL DEFAULT 'ordinary';
+ * scopeId is nullable but always present. No compat shim — callers provide the
+ * real DB values.
  */
 export interface SessionKnowledgeItemLike {
 	readonly id: string;
@@ -178,6 +197,17 @@ export interface SessionKnowledgeItemLike {
 	readonly format: string;
 	readonly version: number;
 	readonly layer?: string | null;
+	/**
+	 * @lore BA9b: Kernel table column, NOT NULL DEFAULT 'ordinary'. Required.
+	 * Every DB row carries a non-null role after migration 0062.
+	 */
+	readonly role: string;
+	/**
+	 * @lore BA9b: Kernel table column. Required, nullable.
+	 * For agent_file items: contains the agentId the item is bound to.
+	 * toBakedContextKnowledgeItems derives agentBindingId from this field.
+	 */
+	readonly scopeId: string | null;
 }
 
 /**
@@ -197,6 +227,10 @@ export function toBakedContextKnowledgeItems(
 		format: item.format,
 		version: item.version,
 		layer: item.layer ?? null,
+		role: item.role,
+		// @lore BA9b: agent_file items store the agentId in scopeId on the DB row.
+		// agentBindingId is always derived — never set explicitly (no shim path).
+		agentBindingId: item.role === "agent_file" ? (item.scopeId ?? null) : null,
 	}));
 }
 

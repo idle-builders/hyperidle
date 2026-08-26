@@ -137,3 +137,95 @@ allowed if the intake needs it, and if so it must be a named step, not a surpris
   and go through the existing resolver.
 - Security is not preemptive (ETHOS). Package containment is in the spec and stays; do not invent a
   permission model, a sandbox, a signature check or an allowlist on top of it.
+
+
+---
+
+# As built
+
+Consolidated at ship. The phase artifacts this section replaces — the design notes, the review, the
+live proof, and the migration-defect diagnosis — were deleted after their content landed here.
+
+**Shipped:** PR #513, squash-merged 2026-08-25 as `ed59f9443`.
+
+## Where the code lives and why
+
+All new code sits in `layers/core-api/settings/`. That service already owns `plugins`,
+`plugin_configuration_defaults` and `configuration_overrides` per `tools/governance/table-owners.json`,
+and any other service writing to them would violate table ownership. No new package was needed.
+
+## The decisions that shaped it
+
+**Contribution keys are namespaced by plugin id.** `configuration_overrides` is unique on `(kind, key)`
+**globally**, while `plugin_configuration_defaults` is unique on `(pluginId, kind, key)`. So two plugins
+can each declare the same kind and key and both get a defaults row, but only one override row exists for
+that pair. A contribution with manifest key `K` in plugin `P` is therefore stored as `P/K`. Plugin ids
+cannot contain `/` (enforced by the name format), so the pair is unique by construction. Proven live:
+two plugins each declaring `agent`/`librarian` coexist as `knowledge-upkeep/librarian` and
+`retro-rituals/librarian`.
+
+**All three sources reduce to a local plugin root**, then take the same reading path: a folder path is
+resolved in place; a git URL is `git clone --depth 1` into a temp dir; a zip is extracted with `unzip`
+and must carry `plugin.json` at its root. Temp dirs are cleaned up on success and failure alike.
+
+**Removal works around the restrict constraint** by hard-deleting the plugin's defaults first — which
+sets `defaultId` to null on any overrides — and only then marking the plugin row removed. A person's
+edit survives as `user_owned` and reconnects to the plugin on reinstall through `(kind, key)`.
+
+**Detached is not a new flag.** The existing resolver's `valueSource: 'user_override'` already means
+exactly "the person changed this"; restore writes the plugin's stored default back over it. The
+original is retained by construction in `defaultValueJson` plus `defaultVersionHash`.
+
+**`builtin` is a reserved id.** Migration `0044_AU2_plugin_configuration.sql:36-38` seeds a `plugins`
+row with that id on every install and the resolver branches on it. It can never be installed and is
+never listed as an installed plugin.
+
+## Proven in the running app
+
+A real Agent Plugins 1.0.0 plugin was installed through the settings screen — deliberately carrying an
+unknown top-level field and a foreign tool's namespace, both of which the spec requires a client to
+tolerate.
+
+- Installed from a **folder**: contributions appeared as editable configuration, and the agent-behavior
+  pane moved from `Agents 9 / Routines 1` to `Agents 10 / Routines 3` — exactly the one agent and two
+  routines declared.
+- Installed a second plugin from a **git URL**; it survived a full page reload, so it came from the
+  server rather than optimistic UI state.
+- **Disable** marks the contribution `Inactive: plugin disabled` — it stops applying and says why
+  instead of silently vanishing. **Remove** takes it away entirely and the counts return.
+
+Not proven live, and covered by the integration lane plus the reviewer's sanity-breaks instead: detach
+and restore, the zip source, and reinstall-updates-defaults.
+
+## Durable learnings
+
+**PGlite is single-writer.** Reading its data directory from a second process while the dev server holds
+it returns a stale snapshot. During this run it twice made a successful install look broken. Verify
+through the app with a full page reload, or stop the server first.
+
+**Migration `0058_AU44_fold_team_members.sql` aborted on every populated database, and was fixed here.**
+It re-pointed `users.team_id` to a `teams` id *before* dropping the foreign key that still required a
+`team_members` id, so it only succeeded where no user belonged to a team — which is what its own test
+had. The steps are now reordered and an integration test seeds a database to the shape a real install
+has. Editing an already-applied migration was settled empirically rather than assumed: drizzle compares
+the journal's `folderMillis` timestamp, never the file hash, so a database that already applied it will
+not re-run it. This was the second occurrence of that shape; BA1 caught the first.
+
+**`plugin_configuration_defaults` is not empty on an existing install.** Refinement recorded that
+nothing writes it — true of the code, but real databases carry orphan `builtin` rows (33 on the dev
+install). The writer was added by AU2 (`#414`) and deleted by the AU20 cleanup in `3efc6c573`. Nothing
+maintains them. Do not assume a blank slate.
+
+## Known limitations carried forward
+
+- **Install scope is stored and shown but does not filter.** A `team`-scoped plugin's contributions
+  currently apply everywhere. The resolver structurally cannot fix this — `listConfiguration` takes only
+  kind and key and serves an admin surface with no session or team context. Enforcement belongs where
+  session assembly knows the team, and is **owned by BA9b**.
+- **`validateConfigurationValue`** (`layers/core-api/settings/src/plugin-configuration.ts:92`) rejects
+  values containing fields named `command`, `env`, `secret` and similar. It runs only on the user-edit
+  path, so it does not block a plugin *contributing* an MCP server, but it does block a person editing
+  one. Open founder question.
+- Manifest type-checking is stricter than at first — a non-string `version` is now fatal — but the
+  optional metadata fields (`author`, `homepage`, `repository`, `license`, `keywords`) are still not
+  type-checked. Permissive rather than corrupting.

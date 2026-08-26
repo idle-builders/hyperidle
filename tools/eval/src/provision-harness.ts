@@ -26,6 +26,7 @@ import {
 	createReturnEnforcement,
 	createSandboxAdapter,
 	provisionHarnessEnvironment,
+	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { readServerConfig } from "@hyperidle/settings";
@@ -59,6 +60,7 @@ function buildEvalHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntimeAdapter
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
+		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: () => {
 			throw new Error("eval sessions never supply an MCP bridge — this should be unreachable.");
 		},

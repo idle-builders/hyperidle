@@ -492,6 +492,7 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 			teamId: TEAM_ID,
 			agentRole: agentRow.role,
 			taskDescription: taskRow.description ?? taskRow.title,
+			agentId: AGENT_ID,
 		});
 		const contextBundle: BakedContextBundle = {
 			kind: "task",

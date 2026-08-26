@@ -65,6 +65,7 @@ import {
 	createReturnEnforcement,
 	createSandboxAdapter,
 	provisionHarnessEnvironment,
+	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import {
 	createMcpToolBridge,
@@ -106,6 +107,7 @@ function buildLiveHarnessRuntimeAdapter(
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
+		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: async (session) => {
 			// This bridge was created before the server URL was known, so the
 			// URL is constructed here rather than at bridge-creation time.

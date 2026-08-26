@@ -12,6 +12,7 @@ import {
 	provisionHarnessEnvironment,
 	RemoteHarnessAdapter,
 	type WsLike,
+	writePluginStdioMcpEntries,
 } from "@hyperidle/harness-registry";
 import { returnStatusTool } from "@hyperidle/harness-registry/mcp";
 import { create, recordConflict, update } from "@hyperidle/knowledge";
@@ -39,6 +40,7 @@ export function buildTestHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntime
 			await provisionHarnessEnvironment({ ...options, token: options.bridgeToken });
 		},
 		writeCliMcpConfig: (options) => provisionHarnessEnvironment(options),
+		writePluginStdioMcpEntries: (params) => writePluginStdioMcpEntries(params),
 		openMcpBridge: () => {
 			throw new Error(
 				"startTestRuntime never supplies an MCP bridge — this should be unreachable.",

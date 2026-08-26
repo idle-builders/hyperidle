@@ -57,7 +57,7 @@ import {
 
 import type { ModelTier, ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { readServerConfig } from "@hyperidle/settings";
+import { getPluginMcpContributions, readServerConfig } from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
@@ -153,6 +153,26 @@ export interface CoreApiBoot {
 	readonly cipher: {
 		readonly encrypt: (v: string) => string;
 		readonly decrypt: (v: string) => string | null;
+	};
+	/**
+	 * BA9b: plugin MCP contributions port — exposes the per-team merged
+	 * plugin MCP configuration to the provisioner without a direct settings →
+	 * run-orchestration import. The Application threads this into
+	 * `runtimeSessionDeps.pluginMcpContributions`. Present whenever `db` is
+	 * provided.
+	 *
+	 * @lore BA9b: typed inline (not importing from @hyperidle/run-orchestration)
+	 * so core-api's boot stays boundary-clean. Structural compatibility with
+	 * PluginMcpContributionsPort is checked at the assignment site in create-server.ts.
+	 */
+	readonly pluginMcpContributions?: {
+		getContributions(teamId: string | null): Promise<
+			readonly {
+				readonly key: string;
+				readonly defaultValueJson: string;
+				readonly installPath: string | null;
+			}[]
+		>;
 	};
 }
 
@@ -315,6 +335,13 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 			? { resolveModel: buildResolveModel(db, credentialResolver) }
 			: {}),
 		...(db ? { resolveProvisioningOwnerUserId: resolveProvisioningOwnerUserIdFor(db) } : {}),
+		...(db
+			? {
+					pluginMcpContributions: {
+						getContributions: (teamId: string | null) => getPluginMcpContributions(db, teamId),
+					},
+				}
+			: {}),
 		...(credentialResolver ? { credentialResolver } : {}),
 		// @lore AU44-b2: cipher exposed here so composition roots can inject it into
 		// agent-orchestration without importing directly from @hyperidle/credentials (a Service).

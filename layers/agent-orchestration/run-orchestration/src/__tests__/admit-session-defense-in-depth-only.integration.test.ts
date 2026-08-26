@@ -117,6 +117,7 @@ function buildDefenseInDepthOnlyPorts(
 			evaluateReturn: neverCalled("harnessRuntime.evaluateReturn"),
 			provisionReturnHook: neverCalled("harnessRuntime.provisionReturnHook"),
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
+			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
 			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),
 			closeMcpBridge: neverCalled("harnessRuntime.closeMcpBridge"),
 		},

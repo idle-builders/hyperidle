@@ -60,3 +60,15 @@ export const KNOWLEDGE_SORT_OPTIONS = ["relevance", "recency", "frequency"] as c
 export type KnowledgeSortOption = (typeof KNOWLEDGE_SORT_OPTIONS)[number];
 
 export type PropagationLevel = "session" | "task" | "bet" | "team" | "portfolio";
+
+/**
+ * @lore BA9b: Role of a knowledge item — determines how context assembly
+ * materialises it into the session sandbox.
+ *
+ * - ordinary: knowledge/... files (default, backward-compatible)
+ * - skill: a SKILL.md in the harness's skills directory
+ * - rule: knowledge/rules/ — always present, plain text for the agent
+ * - agent_file: AGENTS.md-shaped content written only when scopeId === agentId
+ */
+export const KNOWLEDGE_ROLES = ["ordinary", "skill", "rule", "agent_file"] as const;
+export type KnowledgeRole = (typeof KNOWLEDGE_ROLES)[number];

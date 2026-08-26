@@ -11,6 +11,11 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
+	removeByPluginTopic,
+	type UpsertPluginSkillInput,
+	upsertPluginSkill,
+} from "@hyperidle/knowledge";
+import {
 	disablePlugin,
 	enablePlugin,
 	getInstalledPlugin,
@@ -23,6 +28,7 @@ import {
 	pluginContributionKey,
 	removePlugin,
 	restorePluginContribution,
+	skillItemId,
 } from "@hyperidle/settings";
 import { Hono } from "hono";
 
@@ -190,7 +196,38 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 		if (!result.ok) {
 			return c.json({ code: "INSTALL_FAILED", error: result.reason }, 422);
 		}
-		return c.json({ plugin: result.plugin }, 201);
+
+		// BA9b: sync plugin skills into knowledge items. The installer (settings
+		// layer) cannot write knowledge (it doesn't own that table); the layer
+		// package routes are the correct cross-service bridge.
+		//
+		// Wrapped in a transaction so a partial failure (e.g. an upsert succeeds
+		// but the stale-removal fails) rolls back all skill writes atomically —
+		// no orphan knowledge items. installPlugin's file I/O runs before this
+		// block so the transaction holds only the DB leg of the sync.
+		const { plugin, skills, scopeKind, scopeId, installTs } = result;
+		await db.transaction(async (tx) => {
+			const keepIds: string[] = [];
+			for (const skill of skills) {
+				const id = skillItemId(plugin.id, skill.dirName);
+				keepIds.push(id);
+				const input: UpsertPluginSkillInput = {
+					id,
+					pluginId: plugin.id,
+					dirName: skill.dirName,
+					body: skill.body,
+					scopeKind,
+					scopeId,
+					topic: `plugin:${plugin.id}`,
+					ts: installTs,
+				};
+				await upsertPluginSkill(tx, input);
+			}
+			// Remove any stale skill items for this plugin (e.g., renamed skill dirs).
+			await removeByPluginTopic(tx, `plugin:${plugin.id}`, keepIds);
+		});
+
+		return c.json({ plugin }, 201);
 	});
 
 	// ── POST /api/plugins/:id/enable ────────────────────────────────────────
@@ -238,6 +275,8 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
+		// BA9b: remove all skill knowledge items for this plugin.
+		await removeByPluginTopic(db, `plugin:${id}`, []);
 		return c.json({ ok: true });
 	});
 

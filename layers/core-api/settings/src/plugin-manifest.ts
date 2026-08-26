@@ -10,8 +10,8 @@
  * extensions["io.hyperidle"].contributions[].
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { BUILTIN_PLUGIN_ID, CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 
@@ -79,12 +79,41 @@ export interface ParsedContribution {
 	readonly value: Record<string, unknown>;
 }
 
+/**
+ * A skill discovered from the plugin's skills/ directory.
+ * The dirName is the immediate child directory name (used as title/key).
+ * The body is the full content of SKILL.md.
+ *
+ * @lore BA9b: Path containment is enforced before reading SKILL.md —
+ * the resolved path must stay inside the plugin root to prevent traversal.
+ */
+export interface ParsedSkill {
+	readonly dirName: string;
+	readonly body: string;
+}
+
+/**
+ * An MCP server parsed from the plugin's mcp.json.
+ * The name is the server key, the config is the server object.
+ *
+ * @lore BA9b: Per Agent Plugins 1.0.0 spec, ${PLUGIN_ROOT} and ${PLUGIN_DATA}
+ * must be expanded by the client (at session materialisation time).
+ */
+export interface ParsedMcpServer {
+	readonly name: string;
+	readonly config: Record<string, unknown>;
+}
+
 export interface PluginManifest {
 	readonly name: string;
 	readonly version: string;
 	readonly description: string | null;
 	readonly contributions: ParsedContribution[];
 	readonly warnings: ManifestWarning[];
+	/** Skills discovered from the plugin's skills/ directory. */
+	readonly skills: ParsedSkill[];
+	/** MCP servers from the plugin's mcp.json. */
+	readonly mcpServers: ParsedMcpServer[];
 }
 
 export type ManifestParseResult =
@@ -203,10 +232,116 @@ export function parsePluginManifest(pluginRoot: string): ManifestParseResult {
 	const version = typeof obj.version === "string" ? obj.version : "0";
 	const description = typeof obj.description === "string" ? obj.description : null;
 
+	const skills = scanSkills(pluginRoot, warnings);
+	const mcpServers = parseMcpJson(pluginRoot, warnings);
+
 	return {
 		ok: true,
-		manifest: { name, version, description, contributions, warnings },
+		manifest: { name, version, description, contributions, warnings, skills, mcpServers },
 	};
+}
+
+/**
+ * Returns true iff `filePath` resolves to a path strictly inside `root`.
+ * Prevents path traversal (e.g., skills/../../etc/passwd).
+ *
+ * @lore BA9b: BA9a deleted a containment helper because nothing used it.
+ * This is the package that reads skill files — containment lives here.
+ */
+export function isContainedWithin(filePath: string, root: string): boolean {
+	const resolvedRoot = resolve(root);
+	const resolvedFile = resolve(filePath);
+	return resolvedFile.startsWith(`${resolvedRoot}/`) || resolvedFile === resolvedRoot;
+}
+
+/**
+ * Scan the plugin's skills/ directory for immediate child dirs with SKILL.md.
+ * Reads and returns each skill's content. Silently skips unparseable entries.
+ */
+function scanSkills(pluginRoot: string, warnings: ManifestWarning[]): ParsedSkill[] {
+	const skillsDir = join(pluginRoot, "skills");
+	if (!existsSync(skillsDir)) return [];
+
+	let entries: string[];
+	try {
+		entries = readdirSync(skillsDir);
+	} catch {
+		return [];
+	}
+
+	const skills: ParsedSkill[] = [];
+	for (const dirName of entries) {
+		const skillDir = join(skillsDir, dirName);
+		try {
+			const stat = statSync(skillDir);
+			if (!stat.isDirectory()) continue;
+		} catch {
+			continue;
+		}
+
+		const skillMdPath = join(skillDir, "SKILL.md");
+		if (!isContainedWithin(skillMdPath, pluginRoot)) {
+			warnings.push({
+				code: "UNKNOWN_TOP_LEVEL_FIELD",
+				message: `Skill "${dirName}" has a SKILL.md path outside the plugin root — skipped`,
+			});
+			continue;
+		}
+
+		if (!existsSync(skillMdPath)) continue;
+
+		let body: string;
+		try {
+			body = readFileSync(skillMdPath, "utf8");
+		} catch {
+			continue;
+		}
+
+		skills.push({ dirName, body });
+	}
+	return skills;
+}
+
+/**
+ * Parse the plugin's mcp.json file.
+ * Returns an empty array if the file is absent or invalid.
+ * Per spec, the top-level object has server names as keys.
+ */
+function parseMcpJson(pluginRoot: string, warnings: ManifestWarning[]): ParsedMcpServer[] {
+	const mcpPath = join(pluginRoot, "mcp.json");
+	if (!existsSync(mcpPath)) return [];
+
+	let raw: unknown;
+	try {
+		raw = JSON.parse(readFileSync(mcpPath, "utf8"));
+	} catch {
+		warnings.push({
+			code: "UNKNOWN_TOP_LEVEL_FIELD",
+			message: "mcp.json is not valid JSON — ignored",
+		});
+		return [];
+	}
+
+	if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+		warnings.push({
+			code: "UNKNOWN_TOP_LEVEL_FIELD",
+			message: "mcp.json must be a JSON object — ignored",
+		});
+		return [];
+	}
+
+	const servers: ParsedMcpServer[] = [];
+	for (const [name, config] of Object.entries(raw as Record<string, unknown>)) {
+		if (typeof config !== "object" || config === null || Array.isArray(config)) {
+			warnings.push({
+				code: "UNKNOWN_TOP_LEVEL_FIELD",
+				message: `mcp.json server "${name}" is not an object — skipped`,
+			});
+			continue;
+		}
+		servers.push({ name, config: config as Record<string, unknown> });
+	}
+	return servers;
 }
 
 function parseContribution(item: unknown, warnings: ManifestWarning[]): ParsedContribution | null {
