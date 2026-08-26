@@ -119,6 +119,40 @@ underneath.
 
 ---
 
+## D7 — Core entities get rich event subjects, not just an id (2026-08-27)
+
+Founder, on BA9c: *"why do only task and bet get a canonically rich shape. even though thread and block
+are next to task the core objects in our system. Also the others there artifact, team, ... a lot of those
+are valuable insights that should have rich shape."*
+
+So a `generic` subject carrying only entity kind and id is the floor, not the goal. Every core entity an
+event names should arrive assembled — thread, item/block, artifact, team, session, agent — reusing the
+canonical assembly where one already exists. Note the bundle union already carries a
+`kind: "knowledge"` variant that a knowledge event should be using.
+
+## D8 — A retro runs at the end of something, most typically a task (2026-08-27)
+
+Founder: *"retro runs at the end of something, most typically I would say a task."*
+
+So the answer to "may the retro fire on every bet state change" is **no** — it fires at completion. And
+the primary subject is a **task** finishing, not only a bet. BA9d must decide how the routine only wakes
+at the end: the prompt can read the transition BA9c now delivers and stop early, but that still starts a
+session per transition, which is real spend on a shared backend. Filtering at the routine is the
+alternative and is new machinery. **Bring this to the founder when BA9d starts.**
+
+## D9 — Merge and split come back; flag-for-review does not (2026-08-27)
+
+Founder approved the recommendation. Rebuild knowledge merge and split as agent-reachable doors,
+recovered from history at `3efc6c573^` — the AU44 ledger records their deletion as a scope breach and
+says this track must rebuild them. Drop flag-for-review: both audit rows that examined its
+implementation reached DELETE.
+
+## D10 — Delete the "Draft with AI" stub (2026-08-27)
+
+Founder: *"yeah if its a stub delete."* It composes strings with no model call
+(`layers/core-api/src/routes/bets.ts:625-631,652-686`). Remove the button and its stub route; the human
+bet-retro pane itself stays in core.
+
 ## Still open
 
 - Do knowledge merge, split and flag-for-review come back? (The AU44 ledger records their deletion as a
