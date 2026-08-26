@@ -66,9 +66,24 @@ Within an agent turn, completed tool calls fold into a single aggregate expander
 
 Aggregation is a **renderer grouping beside `groupParts`**, not a Part kind. The `ToolRunBlock` type (`single | tool-run`) is exported from `part.ts` as the grouping shape; `aggregateToolRun(toolParts, aggregateAt)` is the pure grouping function.
 
-## Composer pills (`deriveComposerPills`)
+## Model options are agent configuration
 
-Composer pills in the Session view derive declaratively from the [`HarnessCapabilityDescriptor`](../agent-layer/harness-capability-descriptor.md). `deriveComposerPills(descriptor, modelId)` returns only the `HarnessModelOptionDescriptor` entries with a recognized control kind (`select | boolean | number | text`). An undeclared option is absent — no per-backend branching, no throws. Pills are launch settings (model · effort · mode), not inline tool-permission gates (HyperIdle has no per-tool allow/deny gate).
+The options a model runs with are set once, when someone configures the agent, and apply to every run
+of that agent. Nobody sets them per message.
+
+They derive declaratively from the [`HarnessCapabilityDescriptor`](../agent-layer/harness-capability-descriptor.md):
+the agent editor renders whatever the selected model declares, in whichever control kind it declares
+(`select | boolean | number | text`). An undeclared option is absent — no per-backend branching, no
+throws. A model that declares nothing renders nothing at all, which is most models on most harnesses.
+
+A harness's own default is **shown but never stored**. A control sitting at its default contributes no
+stored value, so an absent option means "whatever the harness does" rather than "unset" — which is what
+keeps an agent nobody configured running exactly as it did before, and stops an agent being pinned to
+whatever the default happened to be the day someone opened the editor.
+
+> The Session view composer once rendered these as per-message pills, via a `deriveComposerPills`
+> helper. That path never shipped anything: no harness ever declared an option, so the pill row
+> filtered a permanently empty list and never appeared. The helper has been deleted.
 
 ## Contracts
 

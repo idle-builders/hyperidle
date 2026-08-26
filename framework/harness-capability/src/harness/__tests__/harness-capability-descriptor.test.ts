@@ -19,7 +19,6 @@ function selectOption(
 			],
 		},
 		required: false,
-		scope: "launch",
 		defaultValue: "medium",
 		...overrides,
 	};

@@ -72,6 +72,7 @@ function agentToEditorDraft(agent: AgentConfig): AgentEditorDraft {
 		modelProvider: agent.modelProvider ?? null,
 		maxConcurrentSessions: agent.maxConcurrentSessions,
 		filesystemIds: agent.filesystemIds ?? [],
+		modelOptions: agent.modelOptions ?? {},
 	};
 }
 
@@ -135,6 +136,7 @@ export function SettingsAgents(): JSX.Element {
 		modelProvider: null,
 		maxConcurrentSessions: 1,
 		filesystemIds: [],
+		modelOptions: {},
 	});
 
 	// @lore FR-10: per-row action menu open state — replaces inline Edit/Delete buttons.
@@ -264,6 +266,7 @@ export function SettingsAgents(): JSX.Element {
 						harnessType: draft.harnessType || null,
 						modelId: draft.modelId || null,
 						modelProvider: draft.modelProvider || null,
+						modelOptions: draft.modelOptions,
 					}),
 				});
 			} else {
@@ -279,6 +282,7 @@ export function SettingsAgents(): JSX.Element {
 						modelId: draft.modelId || null,
 						modelProvider: draft.modelProvider || null,
 						maxConcurrentSessions: draft.maxConcurrentSessions,
+						modelOptions: draft.modelOptions,
 					}),
 				});
 			}
@@ -349,6 +353,7 @@ export function SettingsAgents(): JSX.Element {
 					modelId: addDraft.modelId || null,
 					modelProvider: addDraft.modelProvider || null,
 					maxConcurrentSessions: addDraft.maxConcurrentSessions,
+					modelOptions: addDraft.modelOptions,
 					teamId,
 				}),
 			});
@@ -373,6 +378,7 @@ export function SettingsAgents(): JSX.Element {
 				modelProvider: null,
 				maxConcurrentSessions: 1,
 				filesystemIds: [],
+				modelOptions: {},
 			});
 			showToast("Agent created");
 		} catch {

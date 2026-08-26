@@ -741,36 +741,6 @@ export default [
 	// any presentation file.
 	//
 	// Scoped to production code only — stories and tests are exempt.
-	{
-		// @lore `HarnessCard.tsx` was listed here until it was absorbed into
-		// `SettingsHarnesses.tsx`. A `files:` pattern that matches nothing is a
-		// silent no-op, so a dead entry reads as coverage the rule does not have.
-		files: [
-			"layers/core-ui/src/settings/harness-presentation.ts",
-			"layers/core-ui/src/settings/SettingsHarnesses.tsx",
-		],
-		languageOptions: {
-			parser: tsParser,
-			parserOptions: {
-				ecmaFeatures: { jsx: true },
-			},
-		},
-		rules: {
-			"no-restricted-syntax": [
-				"error",
-				{
-					// Ban any string literal that is a known harness type EXCEPT "builtin".
-					// The regex covers the AM4-scope types; extend if new families are added.
-					// Pattern: Literal value matching a known non-builtin harness family slug.
-					selector:
-						"Literal[value=/^(claude-code|codex|opencode|cursor-agent|aider|goose|cline|continue|avante)$/]",
-					message:
-						'AM4 descriptor-driven contract: harness-type string literals (other than "builtin") are banned in presentation files. Add a field to HarnessCapabilityDescriptor and use that instead. The ONLY allowed type literal is "builtin" (showsToggle exemption — founder rule).',
-				},
-			],
-		},
-	},
-
 	// @lore AU1's decomposition guard — "decomposition may create an
 	// AgentSessionRequest but must not select an AdapterPool or call
 	// startSession" — lived here, scoped solely to
@@ -937,6 +907,60 @@ export default [
 				"error",
 				{
 					// navigate("/artifacts/" + id) — the most common hand-roll pattern.
+					selector:
+						"CallExpression[callee.name='navigate'] > BinaryExpression[operator='+'] > Literal[value=/^\\/(artifacts|work\\/artifact)\\//]",
+					message:
+						"AM5 H1: do not navigate to a viewer route directly. Use createOpenHandler (open-handler.ts) — the unified open contract. Direct navigate() calls to /artifacts/ or /work/artifact/ bypass the open contract seam.",
+				},
+			],
+		},
+	},
+
+	// Descriptor-driven presentation: a screen renders from the harness
+	// descriptor and never learns WHICH harness it is looking at, so a new
+	// backend can be added without touching any presentation file.
+	//
+	// @lore This block MUST stay after the `layers/core-ui/src/**` block above.
+	// ESLint flat config does NOT merge `rules` across blocks — for one rule
+	// name the LAST matching block wins outright. This ban previously sat before
+	// that block and was silently replaced by it, so it never fired on any file
+	// it claimed to cover, while the docs described it as enforced. Break-tested
+	// on 2026-08-25: a bare `"codex"` literal in `SettingsHarnesses.tsx` produced
+	// no diagnostic at all before the move, and errors after it.
+	//
+	// It therefore restates the AM5 navigate selector, because taking over the
+	// rule name for these files would otherwise drop it.
+	//
+	// @lore A `files:` pattern that matches nothing is a silent no-op, so a dead
+	// entry reads as coverage the rule does not have. `HarnessCard.tsx` was
+	// listed here until it was absorbed into `SettingsHarnesses.tsx`.
+	{
+		files: [
+			"layers/core-ui/src/settings/harness-presentation.ts",
+			"layers/core-ui/src/settings/SettingsHarnesses.tsx",
+			// The agent editor renders per-model options straight from the
+			// descriptor, so it must not learn which harness it is looking at.
+			"layers/core-ui/src/settings/AgentEditor.tsx",
+		],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaFeatures: { jsx: true },
+			},
+		},
+		rules: {
+			"no-restricted-syntax": [
+				"error",
+				{
+					// Ban any string literal that is a known harness type EXCEPT "builtin".
+					selector:
+						"Literal[value=/^(claude-code|codex|opencode|cursor-agent|aider|goose|cline|continue|avante)$/]",
+					message:
+						'AM4 descriptor-driven contract: harness-type string literals (other than "builtin") are banned in presentation files. Add a field to HarnessCapabilityDescriptor and use that instead. The ONLY allowed type literal is "builtin" (showsToggle exemption — founder rule).',
+				},
+				{
+					// Restated from the core-ui block above, which this one overrides
+					// for these files.
 					selector:
 						"CallExpression[callee.name='navigate'] > BinaryExpression[operator='+'] > Literal[value=/^\\/(artifacts|work\\/artifact)\\//]",
 					message:

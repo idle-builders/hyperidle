@@ -57,6 +57,13 @@ const patchSoulPromptSchema = z.object({
 	harnessType: z.string().nullable().optional(),
 	modelId: z.string().nullable().optional(),
 	modelProvider: z.string().nullable().optional(),
+	/**
+	 * The harness options this assistant's model runs with. Sparse — a key is
+	 * present only where the user moved a control away from the harness's own
+	 * default. The Agents editor is shared with normal agents, so an option
+	 * omitted here would be rendered, set, saved and silently discarded.
+	 */
+	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 function rowToThread(row: {
@@ -346,6 +353,7 @@ export function createAssistantSoulRoutes(
 			name: agentRow.name,
 			harnessType: runConfig.harnessType,
 			modelId: runConfig.modelId,
+			modelOptions: runConfig.modelOptions,
 			modelProvider: runConfig.modelProvider,
 			systemPrompt: runConfig.systemPrompt,
 		});
@@ -476,6 +484,9 @@ export function createAssistantSoulRoutes(
 		if (modelProvider !== undefined) {
 			patch.modelProvider = modelProvider;
 		}
+		if (parsed.data.modelOptions !== undefined) {
+			patch.modelOptions = parsed.data.modelOptions;
+		}
 
 		if (Object.keys(patch).length > 0) {
 			await agentOrchestration.runConfig.write(assistantAgentId, patch);
@@ -491,6 +502,7 @@ export function createAssistantSoulRoutes(
 			harnessType: updatedRunConfig.harnessType,
 			modelId: updatedRunConfig.modelId,
 			modelProvider: updatedRunConfig.modelProvider,
+			modelOptions: updatedRunConfig.modelOptions,
 		});
 	});
 

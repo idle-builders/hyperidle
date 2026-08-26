@@ -17,8 +17,9 @@
  *    semantics `PATCH /api/agents/:id` has always had).
  */
 
-import { users } from "@hyperidle/db";
+import { agentRunConfig, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { eq } from "drizzle-orm";
 import {
 	DEFAULT_AGENT_RUN_CONFIG,
 	readAgentRunConfig,
@@ -56,6 +57,7 @@ describe("agent run config store", () => {
 			modelId: null,
 			modelProvider: null,
 			maxConcurrentSessions: 1,
+			modelOptions: {},
 		});
 		expect(config).toEqual(DEFAULT_AGENT_RUN_CONFIG);
 	});
@@ -70,6 +72,7 @@ describe("agent run config store", () => {
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 7,
+			modelOptions: { effort: "high" },
 		});
 
 		expect(await readAgentRunConfig(db, "a-full")).toEqual({
@@ -79,6 +82,7 @@ describe("agent run config store", () => {
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 7,
+			modelOptions: { effort: "high" },
 		});
 	});
 
@@ -89,6 +93,7 @@ describe("agent run config store", () => {
 			modelId: "claude-sonnet-4-6",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 3,
+			modelOptions: {},
 		});
 
 		await writeAgentRunConfig(db, "a-partial", { modelId: "claude-opus-4-8" });
@@ -100,6 +105,7 @@ describe("agent run config store", () => {
 			modelId: "claude-opus-4-8",
 			modelProvider: "anthropic",
 			maxConcurrentSessions: 3,
+			modelOptions: {},
 		});
 	});
 
@@ -131,6 +137,7 @@ describe("agent run config store", () => {
 			modelId: null,
 			modelProvider: null,
 			maxConcurrentSessions: 1,
+			modelOptions: {},
 		});
 	});
 
@@ -145,6 +152,81 @@ describe("agent run config store", () => {
 
 		expect(map.get("a-batch-1")?.maxConcurrentSessions).toBe(5);
 		expect(map.get("a-batch-2")).toEqual(DEFAULT_AGENT_RUN_CONFIG);
+	});
+
+	test("options an agent never configured read as none, and survive a sibling edit", async ({
+		db,
+	}) => {
+		await insertAgent(db, "a-untouched");
+		await writeAgentRunConfig(db, "a-untouched", { harnessType: "claude-code" });
+
+		// An agent whose options were never set reads as no options — the shape an
+		// agent configured before this column existed resolves to.
+		expect((await readAgentRunConfig(db, "a-untouched")).modelOptions).toEqual({});
+
+		await writeAgentRunConfig(db, "a-untouched", { modelOptions: { effort: "max" } });
+		// Editing an unrelated field must not disturb stored options.
+		await writeAgentRunConfig(db, "a-untouched", { maxConcurrentSessions: 4 });
+
+		const config = await readAgentRunConfig(db, "a-untouched");
+		expect(config.modelOptions).toEqual({ effort: "max" });
+		expect(config.maxConcurrentSessions).toBe(4);
+	});
+
+	test("options round-trip every value shape a harness control can produce", async ({ db }) => {
+		await insertAgent(db, "a-shapes");
+
+		await writeAgentRunConfig(db, "a-shapes", {
+			modelOptions: { effort: "high", verbose: true, retries: 3 },
+		});
+
+		expect((await readAgentRunConfig(db, "a-shapes")).modelOptions).toEqual({
+			effort: "high",
+			verbose: true,
+			retries: 3,
+		});
+	});
+
+	test("writing empty options clears them rather than storing an empty object", async ({ db }) => {
+		await insertAgent(db, "a-cleared");
+		await writeAgentRunConfig(db, "a-cleared", { modelOptions: { effort: "low" } });
+
+		await writeAgentRunConfig(db, "a-cleared", { modelOptions: {} });
+
+		expect((await readAgentRunConfig(db, "a-cleared")).modelOptions).toEqual({});
+		const [row] = await db
+			.select({ raw: agentRunConfig.modelOptionsJson })
+			.from(agentRunConfig)
+			.where(eq(agentRunConfig.agentUserId, "a-cleared"));
+		expect(row?.raw).toBeNull();
+	});
+
+	test("a corrupted options column degrades to no options rather than failing the read", async ({
+		db,
+	}) => {
+		await insertAgent(db, "a-corrupt");
+		await writeAgentRunConfig(db, "a-corrupt", { harnessType: "codex" });
+		await db
+			.update(agentRunConfig)
+			.set({ modelOptionsJson: "not json at all" })
+			.where(eq(agentRunConfig.agentUserId, "a-corrupt"));
+
+		const config = await readAgentRunConfig(db, "a-corrupt");
+
+		// The agent still runs — as an agent with no options, which is today's behaviour.
+		expect(config.modelOptions).toEqual({});
+		expect(config.harnessType).toBe("codex");
+	});
+
+	test("readAgentRunConfigs carries options for each agent", async ({ db }) => {
+		await insertAgent(db, "a-many-1");
+		await insertAgent(db, "a-many-2");
+		await writeAgentRunConfig(db, "a-many-1", { modelOptions: { effort: "xhigh" } });
+
+		const map = await readAgentRunConfigs(db, ["a-many-1", "a-many-2"]);
+
+		expect(map.get("a-many-1")?.modelOptions).toEqual({ effort: "xhigh" });
+		expect(map.get("a-many-2")?.modelOptions).toEqual({});
 	});
 
 	// @lore this file used to have a test asserting the `agentRunConfig.agentId → users.id` cascade

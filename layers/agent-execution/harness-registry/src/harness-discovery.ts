@@ -1,9 +1,12 @@
 import { execFile } from "node:child_process";
+import { promises as fs } from "node:fs";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import type {
 	HarnessAuthActionDescriptor,
 	HarnessModelDescriptor,
+	HarnessModelOptionDescriptor,
 	HarnessReadinessState,
 } from "@hyperidle/harness-capability";
 
@@ -97,11 +100,72 @@ function parseClaudeCatalog(output: string): HarnessModelDescriptor[] {
 			contextWindow,
 			selectable: true,
 			inheritedFromGateway: false,
-			options: [],
+			options: [CLAUDE_EFFORT_OPTION],
 		});
 	}
 
 	return models;
+}
+
+/**
+ * The effort levels `claude --effort` accepts, from `claude --help` (2.1.220).
+ *
+ * A compile-time list, unlike every other harness here: `claude models` does not
+ * publish per-model options, and the flag is session-level rather than
+ * per-model, so every discovered claude model declares the same set.
+ *
+ * @lore An older `claude` treats `--effort` as an unknown option and exits
+ * non-zero, which the adapter reports as a crashed session. The option is
+ * offered unconditionally, so someone on an older binary is offered a control
+ * that kills their runs. Accepted: an agent with nothing configured sends
+ * nothing, so only an agent explicitly configured with an effort is exposed.
+ */
+const CLAUDE_EFFORT_OPTION: HarnessModelOptionDescriptor = {
+	key: "effort",
+	label: "Effort",
+	helpText: "How much the model works before answering.",
+	control: {
+		kind: "select",
+		choices: [
+			{ value: "low", label: "low" },
+			{ value: "medium", label: "medium" },
+			{ value: "high", label: "high" },
+			{ value: "xhigh", label: "xhigh" },
+			{ value: "max", label: "max" },
+		],
+	},
+	required: false,
+};
+
+/**
+ * The variant option an opencode model declares.
+ *
+ * `opencode models --verbose` publishes a per-model `variants` map whose keys
+ * are the selectable variant names and whose values are the provider config
+ * each one applies. Verified live 2026-08-25: 146 of 363 models publish one, and
+ * the lists genuinely differ per model.
+ *
+ * @lore opencode SILENTLY IGNORES an unknown `--variant`, so there is no way to
+ * prove a bad value was rejected — unlike claude, whose binary names the flag
+ * back. Its evidence is therefore weaker than the other harnesses', and that is
+ * a fact about opencode rather than a gap in the tests.
+ */
+function opencodeModelOptions(
+	parsed: Record<string, unknown>,
+): readonly HarnessModelOptionDescriptor[] {
+	const variants = parsed.variants;
+	if (typeof variants !== "object" || variants === null || Array.isArray(variants)) return [];
+	const names = Object.keys(variants);
+	if (names.length === 0) return [];
+	return [
+		{
+			key: "variant",
+			label: "Variant",
+			helpText: "The provider settings this model runs with.",
+			control: { kind: "select", choices: names.map((name) => ({ value: name, label: name })) },
+			required: false,
+		},
+	];
 }
 
 /** Map an opencode providerID string to a valid ModelProvider or undefined. */
@@ -137,7 +201,7 @@ function parseOpencodeModelJson(raw: string): HarnessModelDescriptor | null {
 			contextWindow,
 			selectable: true,
 			inheritedFromGateway: false,
-			options: [],
+			options: opencodeModelOptions(parsed),
 		};
 	} catch {
 		return null;
@@ -291,6 +355,11 @@ interface HarnessProbeDeps {
 		url: string,
 		opts: { signal: AbortSignal },
 	) => Promise<{ ok: boolean; json: () => Promise<unknown> }>;
+	/**
+	 * Injectable reader for codex's own model cache, so unit tests never read the
+	 * real home directory. Returns the file's text, or null when there is none.
+	 */
+	readonly readCodexModelCache?: () => Promise<string | null>;
 }
 
 const HARNESS_COMMAND_TIMEOUT_MS = 15_000;
@@ -361,6 +430,90 @@ async function runCommand(
 export type { HarnessDiscoveryInput, HarnessDiscoveryResult, HarnessSessionProbeResult };
 
 /**
+ * The models codex can run, read from codex's own cache.
+ *
+ * Codex publishes no model list — no subcommand, nothing in its shell
+ * completions, and `codex doctor` reports no server model. What it does keep is
+ * `~/.codex/models_cache.json`, which it refreshes itself and scopes to the
+ * signed-in account (it carries an etag). That file is the only enumeration
+ * there is, and it is the reason codex can offer per-model options at all.
+ *
+ * @lore A hardcoded list was the obvious alternative and is simply WRONG, not
+ * merely brittle: verified 2026-08-25, `gpt-5.4` accepts four reasoning levels
+ * while `gpt-5.6-sol` accepts six including `ultra`. One flat list would offer
+ * `max` on a model that rejects it and hide `ultra` on one that takes it.
+ *
+ * The cost, accepted deliberately: this reads another tool's private file whose
+ * shape is not a contract and is version-dependent — the cache records the
+ * client that wrote it, and codex refuses a cache written by a different
+ * version. So EVERY failure here degrades to silence: no models, no options,
+ * exactly the behaviour codex had before. There is deliberately no fallback
+ * list, because a fallback is how a wrong list ships anyway.
+ */
+function parseCodexModelCache(raw: string): readonly HarnessModelDescriptor[] {
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		return [];
+	}
+	if (typeof parsed !== "object" || parsed === null) return [];
+	const models = (parsed as { models?: unknown }).models;
+	if (!Array.isArray(models)) return [];
+
+	return models.flatMap((entry) => {
+		if (typeof entry !== "object" || entry === null) return [];
+		const m = entry as Record<string, unknown>;
+		const slug = typeof m.slug === "string" ? m.slug : undefined;
+		if (!slug) return [];
+		// The file's own two flags decide what a person may pick.
+		if (m.visibility !== "list" || m.supported_in_api !== true) return [];
+
+		const levels = Array.isArray(m.supported_reasoning_levels) ? m.supported_reasoning_levels : [];
+		const choices = levels.flatMap((level) => {
+			if (typeof level !== "object" || level === null) return [];
+			const effort = (level as Record<string, unknown>).effort;
+			if (typeof effort !== "string") return [];
+			return [{ value: effort, label: effort }];
+		});
+		const defaultLevel = m.default_reasoning_level;
+		const options: HarnessModelOptionDescriptor[] =
+			choices.length === 0
+				? []
+				: [
+						{
+							key: "model_reasoning_effort",
+							label: "Reasoning effort",
+							helpText: "How much the model thinks before answering.",
+							control: { kind: "select", choices },
+							required: false,
+							...(typeof defaultLevel === "string" ? { defaultValue: defaultLevel } : {}),
+						},
+					];
+
+		return [
+			{
+				id: slug,
+				label: typeof m.display_name === "string" ? m.display_name : slug,
+				contextWindow: typeof m.context_window === "number" ? m.context_window : 0,
+				selectable: true,
+				inheritedFromGateway: false,
+				options,
+			} satisfies HarnessModelDescriptor,
+		];
+	});
+}
+
+/** Read codex's model cache from disk. Any failure means no models. */
+async function readCodexModelsFromDisk(): Promise<string | null> {
+	try {
+		return await fs.readFile(resolve(homedir(), ".codex", "models_cache.json"), "utf8");
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Per-harness config for the table-driven CLI probe.
  * Each entry carries the auth command, login descriptor, and per-harness
  * auth-output interpretation — the config that MUST differ per harness, not
@@ -396,7 +549,11 @@ const CLI_PROBE_CONFIGS: readonly [CliProbeConfig, CliProbeConfig, CliProbeConfi
 			authCmd: ["codex", "login", "status"],
 			async interpretAuth(stdout, stderr, exitCode, _d, version, authAction) {
 				const authText = stdout.trim() || stderr.trim();
-				if (authText.startsWith("Logged in using")) return { state: "ready", version, authAction };
+				if (authText.startsWith("Logged in using")) {
+					const raw = await (_d?.readCodexModelCache ?? readCodexModelsFromDisk)();
+					const models = raw === null ? [] : parseCodexModelCache(raw);
+					return { state: "ready", version, models, authAction };
+				}
 				if (authText.startsWith("Not logged in") || exitCode !== 0) {
 					return {
 						state: "unauthenticated",
@@ -699,6 +856,41 @@ async function fetchAnthropicModels(
 }
 
 /** AV2: Fetch OpenRouter model list via GET https://openrouter.ai/api/v1/models (no auth) */
+/**
+ * The reasoning-effort option a model declares, from OpenRouter's own catalogue.
+ *
+ * The catalogue publishes each model's `reasoning.supported_efforts` and its
+ * `reasoning.default_effort`. A model that publishes no efforts declares no
+ * option — most do not — and the editor then shows nothing for it.
+ *
+ * @lore Verified live 2026-08-25: of 418 catalogued models, 143 publish
+ * `reasoning_effort`. The value carries through to OpenRouter's native endpoint,
+ * which rejects an invalid one with HTTP 400 naming the parameter — see
+ * `builtin-model-options.integration.test.ts`.
+ */
+function openRouterModelOptions(
+	model: Record<string, unknown>,
+): readonly HarnessModelOptionDescriptor[] {
+	const reasoning = model.reasoning as Record<string, unknown> | undefined;
+	const efforts = reasoning?.supported_efforts;
+	if (!Array.isArray(efforts) || efforts.length === 0) return [];
+	const choices = efforts
+		.filter((effort): effort is string => typeof effort === "string")
+		.map((effort) => ({ value: effort, label: effort }));
+	if (choices.length === 0) return [];
+	const defaultEffort = reasoning?.default_effort;
+	return [
+		{
+			key: "reasoning_effort",
+			label: "Reasoning effort",
+			helpText: "How much the model thinks before answering.",
+			control: { kind: "select", choices },
+			required: false,
+			...(typeof defaultEffort === "string" ? { defaultValue: defaultEffort } : {}),
+		},
+	];
+}
+
 async function fetchOpenRouterModels(
 	fetchFn?: HarnessProbeDeps["fetchModels"],
 ): Promise<readonly HarnessModelDescriptor[]> {
@@ -728,7 +920,7 @@ async function fetchOpenRouterModels(
 					contextWindow,
 					selectable: true,
 					inheritedFromGateway: true,
-					options: [],
+					options: openRouterModelOptions(m),
 				} satisfies HarnessModelDescriptor,
 			];
 		});

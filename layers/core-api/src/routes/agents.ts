@@ -58,6 +58,11 @@ const createAgentSchema = z.object({
 	modelId: z.string().max(200).nullable().optional(),
 	modelProvider: z.string().max(100).nullable().optional(),
 	maxConcurrentSessions: z.number().int().min(1).max(20).default(1),
+	/**
+	 * The harness options this agent's model runs with. Sparse — a key is present
+	 * only where the user moved a control away from the harness's own default.
+	 */
+	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 	teamId: z.string().nullable().optional(),
 });
 
@@ -70,6 +75,11 @@ const patchAgentSchema = z.object({
 	modelId: z.string().max(200).nullable().optional(),
 	modelProvider: z.string().max(100).nullable().optional(),
 	maxConcurrentSessions: z.number().int().min(1).max(20).optional(),
+	/**
+	 * The harness options this agent's model runs with. Sparse — a key is present
+	 * only where the user moved a control away from the harness's own default.
+	 */
+	modelOptions: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -93,6 +103,7 @@ const EMPTY_RUN_CONFIG_VIEW = {
 	modelId: null,
 	modelProvider: null,
 	maxConcurrentSessions: 1,
+	modelOptions: {},
 } as const;
 
 /**
@@ -125,6 +136,7 @@ function buildRunConfigPatch(data: PatchAgentData): AgentOrchestrationRunConfigP
 	if ("modelProvider" in data) patch.modelProvider = data.modelProvider ?? null;
 	if (data.maxConcurrentSessions !== undefined)
 		patch.maxConcurrentSessions = data.maxConcurrentSessions;
+	if ("modelOptions" in data) patch.modelOptions = data.modelOptions ?? {};
 	return patch;
 }
 
@@ -213,6 +225,7 @@ export function createAgentRoutes(
 				modelId: runConfig.modelId,
 				modelProvider: runConfig.modelProvider,
 				maxConcurrentSessions: runConfig.maxConcurrentSessions,
+				modelOptions: runConfig.modelOptions,
 				status: agent.status,
 			};
 		});
@@ -297,6 +310,7 @@ export function createAgentRoutes(
 			modelId: effectiveModelId,
 			modelProvider: effectiveProvider,
 			maxConcurrentSessions: data.maxConcurrentSessions,
+			modelOptions: data.modelOptions ?? {},
 		});
 
 		return c.json(
@@ -310,6 +324,7 @@ export function createAgentRoutes(
 				modelTierPreference: data.modelTierPreference ?? null,
 				modelId: effectiveModelId,
 				modelProvider: effectiveProvider,
+				modelOptions: data.modelOptions ?? {},
 				maxConcurrentSessions: data.maxConcurrentSessions,
 				status: "active",
 			},

@@ -22,8 +22,8 @@ paths:
 # The design system that /design, /design-critique, /human-concept-review, and
 # /visual-polish render and score against.
 designSystem:
-  path: "framework/design-system"
-  tokens: "framework/design-system/src/tokens.css"
+  path: "layers/core-ui/src/ds"
+  tokens: "layers/core-ui/src/ds/tokens.css"
 
 # Version control + where /ship opens PRs and waits for CI.
 vcs: github

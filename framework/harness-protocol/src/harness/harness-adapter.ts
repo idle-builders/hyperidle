@@ -92,6 +92,16 @@ export interface SessionConfig {
 	 */
 	readonly resolvedModel?: ResolvedModel;
 	/**
+	 * The harness options this agent's model runs with, set once when the agent
+	 * was configured rather than chosen per message.
+	 *
+	 * Sparse: only a value moved away from the harness's own default is present,
+	 * so an absent key means "whatever the harness does". Absent or empty means
+	 * the adapter builds exactly the invocation it built before this existed —
+	 * that equivalence is the contract, not a convention.
+	 */
+	readonly modelOptions?: Readonly<Record<string, string | number | boolean>>;
+	/**
 	 * X5: MCP bridge connection info for this session.
 	 * When present, adapters that support MCP can use this to configure
 	 * their harness's MCP client connection. Optional because:

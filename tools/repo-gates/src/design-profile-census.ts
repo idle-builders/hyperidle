@@ -16,11 +16,11 @@ const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 207, default: 17, strong: 11 }
 const EXPECTED = {
 	typography: {
 		label: 117, // -1: read-mode ConversationHeader strip removed (was FR-3 +1); +1: BA1 review N7 RoutineDetailPane "Event" field label (event routines show an Event select instead of Schedule); +1: BA9a SettingsPlugins contribution key label
-		metadata: 232, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1)
+		metadata: 233, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section
 		small: 227, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
 		copy: 45,
 		control: 97, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
-		input: 10,
+		input: 11, // +1: AgentEditor model-option select (a harness's declared select for the chosen model)
 		"avatar-initial": 14,
 		subheading: 9,
 		lead: 9,

@@ -158,6 +158,12 @@ export interface AgentOrchestrationRunConfigView {
 	readonly modelId: string | null;
 	readonly modelProvider: string | null;
 	readonly maxConcurrentSessions: number;
+	/**
+	 * The harness options this agent's model runs with. Sparse — a key is present
+	 * only where the user moved a control away from the harness's own default, so
+	 * an absent key means "whatever the harness does".
+	 */
+	readonly modelOptions: Readonly<Record<string, string | number | boolean>>;
 }
 
 /** Mirrors `AgentRunConfigPatch` — a present key is written (incl. explicit `null`); an absent key is left alone. */

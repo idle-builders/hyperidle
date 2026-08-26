@@ -99,6 +99,7 @@ const NORMAL_AGENT_DRAFT: AgentEditorDraft = {
 	modelProvider: "openrouter",
 	maxConcurrentSessions: 1,
 	filesystemIds: [],
+	modelOptions: {},
 };
 
 const ASSISTANT_DRAFT: AgentEditorDraft = {
@@ -110,6 +111,73 @@ const ASSISTANT_DRAFT: AgentEditorDraft = {
 	modelProvider: "anthropic",
 	maxConcurrentSessions: 1,
 	filesystemIds: [],
+	modelOptions: {},
+};
+
+/**
+ * A harness whose selected model declares real options — one select with a
+ * harness default, and one on/off.
+ */
+const DECLARING_DESCRIPTOR: HarnessCapabilityDescriptor = {
+	type: "declaring",
+	name: "Declaring Harness",
+	kind: "local",
+	models: [
+		{
+			id: "model-with-options",
+			label: "Model With Options",
+			provider: "anthropic",
+			contextWindow: 200000,
+			selectable: true,
+			inheritedFromGateway: false,
+			options: [
+				{
+					key: "effort",
+					label: "Effort",
+					control: {
+						kind: "select",
+						choices: [
+							{ value: "low", label: "low" },
+							{ value: "medium", label: "medium" },
+							{ value: "high", label: "high" },
+						],
+					},
+					required: false,
+					defaultValue: "medium",
+				},
+				{
+					key: "verbose",
+					label: "Verbose",
+					control: { kind: "boolean" },
+					required: false,
+				},
+			],
+		},
+		{
+			id: "model-without-options",
+			label: "Model Without Options",
+			provider: "anthropic",
+			contextWindow: 200000,
+			selectable: true,
+			inheritedFromGateway: false,
+			options: [],
+		},
+	],
+	modelProviders: ["anthropic"],
+	discovery: { state: "ready" },
+	authAction: { kind: "none", label: "" },
+};
+
+const DECLARING_DRAFT: AgentEditorDraft = {
+	name: "Atlas",
+	role: "builder",
+	systemPrompt: "Build things",
+	harnessType: "declaring",
+	modelId: "model-with-options",
+	modelProvider: "anthropic",
+	maxConcurrentSessions: 1,
+	filesystemIds: [],
+	modelOptions: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -571,5 +639,76 @@ describe("Role template fetched when editing an existing agent", () => {
 		await waitFor(() => {
 			expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
 		});
+	});
+});
+
+describe("AgentEditor — model options", () => {
+	function renderWith(draft: AgentEditorDraft, onDraftChange = vi.fn()): typeof onDraftChange {
+		render(
+			<AgentEditor
+				agentId="a1"
+				draft={draft}
+				onDraftChange={onDraftChange}
+				harnesses={[DECLARING_DESCRIPTOR]}
+				onSave={vi.fn()}
+				onCancel={vi.fn()}
+				saving={false}
+				error={null}
+			/>,
+		);
+		return onDraftChange;
+	}
+
+	it("shows the options the selected model declares", () => {
+		renderWith(DECLARING_DRAFT);
+
+		expect(screen.getByText("Model options")).toBeInTheDocument();
+		expect(screen.getByLabelText("Effort")).toBeInTheDocument();
+		expect(screen.getByRole("switch", { name: "Verbose" })).toBeInTheDocument();
+	});
+
+	it("says the options apply to every run, not to one message", () => {
+		renderWith(DECLARING_DRAFT);
+
+		expect(screen.getByText(/applied to every run of this agent/i)).toBeInTheDocument();
+	});
+
+	it("renders NOTHING for a model that declares no options", () => {
+		// Not an empty box and not a "this model has no options" line — the
+		// section is simply absent, which is most models on most harnesses.
+		renderWith({ ...DECLARING_DRAFT, modelId: "model-without-options" });
+
+		expect(screen.queryByText("Model options")).not.toBeInTheDocument();
+		expect(screen.queryByLabelText("Effort")).not.toBeInTheDocument();
+	});
+
+	it("offers the harness default as a named leading choice", () => {
+		renderWith(DECLARING_DRAFT);
+
+		const select = screen.getByLabelText("Effort") as HTMLSelectElement;
+		expect(select.value).toBe("medium");
+		expect([...select.options].map((o) => o.text)).toContain("Default (medium)");
+	});
+
+	it("stores a value moved away from the harness default", async () => {
+		const user = userEvent.setup();
+		const onDraftChange = renderWith(DECLARING_DRAFT);
+
+		await user.selectOptions(screen.getByLabelText("Effort"), "high");
+
+		const update = onDraftChange.mock.calls[0]?.[0] as (p: AgentEditorDraft) => AgentEditorDraft;
+		expect(update(DECLARING_DRAFT).modelOptions).toEqual({ effort: "high" });
+	});
+
+	it("stores nothing when a control is returned to the harness default", async () => {
+		const user = userEvent.setup();
+		const configured = { ...DECLARING_DRAFT, modelOptions: { effort: "high" } };
+		const onDraftChange = renderWith(configured);
+
+		await user.selectOptions(screen.getByLabelText("Effort"), "medium");
+
+		const update = onDraftChange.mock.calls[0]?.[0] as (p: AgentEditorDraft) => AgentEditorDraft;
+		// Back to tracking the harness, rather than pinned to today's default.
+		expect(update(configured).modelOptions).toEqual({});
 	});
 });
