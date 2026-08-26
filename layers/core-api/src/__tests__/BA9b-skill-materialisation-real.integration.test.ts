@@ -5,25 +5,57 @@
  * AC5: "a skill installed by a plugin is used by an agent in a real session — observed in
  *      the run, not inferred from a row."
  *
- * Proof method:
+ * Proof method (each binary harness):
  *   1. Insert a skill knowledge item into the real PGlite DB (role='skill',
  *      scopeKind='factory', status='active').
  *   2. Call the production assembleSessionKnowledge path to fetch the item.
  *   3. Build a BakedContextBundle and call buildTestRunOrchestrationComposition()
- *      .runSession(mode:'assemble') — this is the SAME path admitSession calls.
- *      writeSkillItem is invoked internally, writing SKILL.md to HARNESS_SKILL_DIRS.
- *   4. For each binary harness: spawn the real CLI with the sandbox CWD, ask for the
- *      session secret (only answerable from the skill body). PROBE_TOKEN in output proves
- *      the harness read the skill file from the materialised path.
- *   5. For builtin: assert SKILL.md exists on disk in both HARNESS_SKILL_DIRS entries —
- *      builtin reads skills via system-prompt injection (AGENTS.md), not file-based
- *      discovery; the file-presence proof is what is available without a full session.
+ *      .runSession(mode:'assemble') — the SAME path admitSession calls. This calls
+ *      writeSkillItem internally, which writes SKILL.md to HARNESS_SKILL_DIRS.
+ *   4. Assert the file exists at the expected harness-specific path. This is the
+ *      sanity-break–sensitive assertion: if HARNESS_SKILL_DIRS is broken, the file
+ *      lands at a dead path and this assertion fails → RED.
+ *   5. Spawn the real CLI with the sandbox CWD and ask for the session secret (only
+ *      answerable from the skill body). Token in output proves the harness READ the
+ *      skill file from the materialised path — the injection proof.
+ *   For builtin: step 4 only (file presence). No binary to spawn. See builtin comment.
  *
- * Sanity-break proof that this test is NOT a passenger:
+ * Why file presence is necessary (not just model output):
+ *   Some harnesses (codex, cursor-agent) scan ALL files in CWD, not just specific
+ *   skill directories. Breaking HARNESS_SKILL_DIRS redirects the file write to a dead
+ *   path, but the file is still in the sandbox — these harnesses find it there. A model
+ *   output assertion alone does not go RED in this case. The file presence assertion
+ *   checks the SPECIFIC expected path and fails as soon as the path is wrong. With
+ *   retry:0, that failure is definitive.
+ *
+ * Why per-run probe token:
+ *   The token is generated fresh via randomUUID() per test invocation. A fixed constant
+ *   can appear in model training data and be confabulated. A token minted milliseconds
+ *   before the harness spawns is unknowable; any match in output proves the harness read
+ *   the skill file.
+ *
+ * Sanity-break proof (reproducible):
  *   Temporarily change HARNESS_SKILL_DIRS in run-orchestration/src/context.ts to point
- *   at a dead directory (e.g. [".dead/skills"]) and re-run this file. The builtin lane's
- *   fs.existsSync assertion and the binary lanes' output assertions both go RED. Restore
- *   the constant to ["[.claude/skills", ".agents/skills"] before committing.
+ *   at a dead directory (e.g. [".dead/skills"]). Re-run. All five cases go RED because
+ *   the file presence assertion for each harness's expected path fails — the file is not
+ *   there. Restore the constant before committing.
+ *
+ * Builtin case:
+ *   builtin is a direct LLM call through OpenRouter; skills reach it via AGENTS.md
+ *   injection (built from the context assembly, not from HARNESS_SKILL_DIRS). File
+ *   presence on both HARNESS_SKILL_DIRS entries IS the right assertion — it proves
+ *   writeSkillItem wrote to the correct paths and would fail immediately if the constant
+ *   is broken. Proving injection for builtin (model sees the token via AGENTS.md) is
+ *   not covered here and is a separate scope decision. File presence is the right
+ *   assertion for a harness with no binary to interrogate.
+ *
+ * Retries:
+ *   The harness vitest project sets retry:2 globally. This file overrides to retry:0
+ *   per-test. With file presence as the primary assertion, every failure is definitive
+ *   (the file is either at the path or not). A retry would rerun assembleSkillIntoSandbox
+ *   on the same sandbox and still fail if HARNESS_SKILL_DIRS is broken — there is no
+ *   randomness to absorb. retry:0 removes any ambiguity about which attempt a result
+ *   came from.
  *
  * @lore BA9b: placed in layers/core-api/src/__tests__/ (matches HARNESS_INCLUDE glob
  *   `*-real.integration.test.ts`) so it can import from run-orchestration-test-runtime.ts
@@ -37,12 +69,29 @@
  *   nor responds reliably to explicit "use skill X" prompts, verified 2026-08-26.
  *   qwen3-8b handles YAML-frontmatter skills and explicit skill invocation requests.
  *
+ * @lore BA9b-probe-token: fixed constant "XSKILL-BA9B-PROD-XFKJ" replaced with
+ *   randomUUID() per-run. Root causes of the original failure: (1) fixed tokens can
+ *   appear in training data and be confabulated; (2) retry:2 means a lucky confabulation
+ *   on attempt 3 greens the test. Per-run token + retry:0 closes both vectors.
+ *
+ * @lore BA9b-file-presence-required: model output alone is insufficient for codex and
+ *   cursor-agent because they scan ALL files in CWD. A broken HARNESS_SKILL_DIRS
+ *   redirects the skill write to a dead path, but the file is still in the sandbox at
+ *   that dead path — these harnesses read it from there and the model check passes. File
+ *   presence at the harness-specific expected path is the correct sanity-break signal.
+ *
+ * @lore BA9b-pwd: all binary harnesses override PWD=sandboxPath in env. opencode
+ *   requires this (uses process.env.PWD for skill scanning). Applied uniformly as a
+ *   defensive measure — any harness that inherits the parent process's PWD (the worktree)
+ *   could scan the worktree's skill dirs instead of the sandbox's.
+ *
  * HARNESS LANE: real binaries, real LLM calls, zero stubs.
  * Gate: requireHarness() — hard-fail (never skip) if any binary/key is absent.
  * Local-only: no CI job exists for this lane by design.
  */
 
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -56,48 +105,13 @@ import { afterEach, beforeEach, describe, expect } from "vitest";
 import { buildTestRunOrchestrationComposition } from "./run-orchestration-test-runtime.js";
 
 // ---------------------------------------------------------------------------
-// Probe constants
+// Stable constants (do not change per run)
 // ---------------------------------------------------------------------------
-
-/**
- * The secret hidden inside the skill body. A model cannot produce it from
- * general knowledge — it is noise. The ONLY way it appears in output is if the
- * harness read the skill file and injected its content into the model's context.
- *
- * @lore BA9b-probe-design: "mandatory format rule" skills are unreliable on tiny
- *   models. Hiding the answer IN the skill (secret-retrieval pattern) is the only
- *   reliable approach: a model cannot hallucinate XSKILL-BA9B-PROD-XFKJ, so its
- *   presence in output proves skill injection.
- */
-const PROBE_TOKEN = "XSKILL-BA9B-PROD-XFKJ";
-
-/**
- * Skill body with YAML frontmatter. The frontmatter `description` field is what
- * opencode's model sees when deciding whether to invoke the skill. The body
- * (after the frontmatter) is what all harnesses inject into context when the skill
- * is active.
- *
- * @lore BA9b-frontmatter: YAML frontmatter is harmless for claude/codex/cursor-agent
- *   (they read the full SKILL.md body including frontmatter). For opencode, the
- *   description tells the model to invoke this skill when asked for the session secret,
- *   which then exposes the body (and the PROBE_TOKEN).
- */
-const SKILL_BODY = `---
-name: ba9b-session-secret
-description: "Contains the session secret value. Use this skill when asked for the session secret or probe token."
----
-# Session Secret Skill
-
-This skill contains the session secret value for this environment.
-
-**Session secret:** ${PROBE_TOKEN}
-
-When asked for the session secret, respond with exactly: ${PROBE_TOKEN}`;
 
 /** Slug from toSkillDirName("ba9b-session-secret") — all chars are valid, no change. */
 const SKILL_DIR_NAME = "ba9b-session-secret";
 
-/** Prompt for claude/codex/cursor-agent: no answer is possible without the skill. */
+/** Prompt for claude/codex/cursor-agent: no answer possible without the skill. */
 const PROBE_PROMPT =
 	"What is the session secret? Respond with only the secret value, nothing else.";
 
@@ -105,15 +119,47 @@ const PROBE_PROMPT =
 const OPENCODE_PROBE_PROMPT = `Use the ${SKILL_DIR_NAME} skill and tell me the session secret it specifies.`;
 
 // ---------------------------------------------------------------------------
-// Fixtures
+// Per-run state
 // ---------------------------------------------------------------------------
 
 const TEAM_ID = "team-ba9b-skill";
 const AGENT_ID = "agent-ba9b-skill";
 
+/**
+ * Fresh random token minted per test invocation. UUID-derived; cannot be
+ * confabulated because it did not exist until test runtime.
+ * @lore BA9b-probe-token: see file header.
+ */
+let probeToken: string;
+
+/**
+ * Skill body with YAML frontmatter. Generated fresh per run to embed the
+ * per-run probeToken.
+ * @lore BA9b-frontmatter: YAML frontmatter is harmless for claude/codex/cursor-agent
+ *   (they read the full SKILL.md body). For opencode, the description triggers
+ *   on-demand invocation when asked for the session secret.
+ */
+let skillBody: string;
+
 let sandboxPath: string;
 
 beforeEach(() => {
+	// Fresh unique token per run — prevents confabulation.
+	const uuid = randomUUID().replace(/-/g, "").toUpperCase();
+	probeToken = `XSKILL-${uuid.slice(0, 8)}-${uuid.slice(8, 16)}`;
+
+	skillBody = `---
+name: ba9b-session-secret
+description: "Contains the session secret value. Use this skill when asked for the session secret or probe token."
+---
+# Session Secret Skill
+
+This skill contains the session secret value for this environment.
+
+**Session secret:** ${probeToken}
+
+When asked for the session secret, respond with exactly: ${probeToken}`;
+
 	sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba9b-skill-"));
 });
 
@@ -123,28 +169,19 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 // Production-path assembly helper
-//
-// Shared by all harness lanes: inserts the skill into the DB, calls the full
-// production assembly chain (assembleSessionKnowledge → toBakedContextKnowledgeItems
-// → runSession(mode:'assemble')), and returns the sandboxPath where SKILL.md was
-// written by writeSkillItem. Both .claude/skills/ and .agents/skills/ entries exist
-// after this call — writeSkillItem writes to all HARNESS_SKILL_DIRS.
 // ---------------------------------------------------------------------------
 
 async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	const skillId = `ba9b-skill-${Math.random().toString(36).slice(2, 10)}`;
 
-	// 1. Insert factory-scoped skill — mirrors the production writer which always
-	//    inserts knowledgeItems + knowledgeAppProjection together (governance rule).
-	//    Skills are routed by role (not layer) so projection.layer is null.
 	await db.insert(knowledgeItems).values({
 		id: skillId,
 		scopeKind: "factory",
 		scopeId: null,
 		topic: null,
 		title: SKILL_DIR_NAME,
-		body: SKILL_BODY,
+		body: skillBody,
 		format: "markdown",
 		status: "active",
 		role: "skill",
@@ -164,7 +201,6 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		meta: null,
 	});
 
-	// 2. Fetch via production assembleSessionKnowledge (agentId required since B1 fix).
 	const knowledge = await assembleSessionKnowledge(db, {
 		teamId: TEAM_ID,
 		agentRole: "builder",
@@ -172,7 +208,6 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		agentId: AGENT_ID,
 	});
 
-	// 3. Convert to baked items and build minimal BakedContextBundle (kind:'task').
 	const contextBundle: BakedContextBundle = {
 		kind: "task",
 		task: {
@@ -192,8 +227,6 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 		knowledge: toBakedContextKnowledgeItems(knowledge),
 	};
 
-	// 4. Production assembly path — calls createContextAssembler(ports).assembleAgentContext
-	//    which calls writeBundleKnowledge → writeSkillItem → writes SKILL.md to HARNESS_SKILL_DIRS.
 	const assembled = await buildTestRunOrchestrationComposition().runSession(
 		{ db, eventBus: new EventBus() },
 		{
@@ -220,12 +253,11 @@ async function assembleSkillIntoSandbox(db: import("@hyperidle/db").HyperIdleDb)
 }
 
 // ---------------------------------------------------------------------------
-// Spawn helper (closes stdin — codex blocks if stdin is left open)
+// Spawn helper
 // ---------------------------------------------------------------------------
 
 /**
- * @lore BA9b-spawn: same pattern as the old passenger test's spawnWithClosedStdin.
- *   execFile leaves stdin open (pipe), which causes codex to block reading from it.
+ * @lore BA9b-spawn: execFile leaves stdin open (pipe), which causes codex to block.
  *   spawn with stdio: ['ignore', 'pipe', 'pipe'] closes stdin at process start.
  */
 async function spawnWithClosedStdin(
@@ -283,17 +315,34 @@ async function spawnWithClosedStdin(
 
 // ---------------------------------------------------------------------------
 // Harness lanes
+//
+// Each binary harness test has TWO assertions:
+//   1. File presence at the harness-specific expected path. This is the
+//      sanity-break–sensitive assertion: it fails immediately when HARNESS_SKILL_DIRS
+//      is broken (file goes to dead path, not expected path). Deterministic — no model.
+//   2. Model output contains the per-run probe token. Injection proof: the harness
+//      actually read the file and injected its content into the model's context.
+//
+// Without #1, codex and cursor-agent pass sanity-breaks because they scan ALL files
+// in CWD and find the skill at the dead path. #1 catches the break regardless.
+// Without #2, we have no proof the harness actually uses the materialised skill.
 // ---------------------------------------------------------------------------
 
 describe("BA9b: skill materialisation via production writeSkillItem — real harnesses", () => {
 	// ── builtin ──────────────────────────────────────────────────────────────
-	describe("builtin — file-presence proof (no binary; skill reaches model via AGENTS.md)", () => {
+	//
+	// builtin is a direct LLM call through OpenRouter; skills reach it via AGENTS.md
+	// injection (system-prompt assembly), not file-based discovery. File presence on
+	// both HARNESS_SKILL_DIRS entries proves materialisation and goes RED when the
+	// constant is broken. Injection proof (model sees token via AGENTS.md) is a
+	// separate scope — no binary to spawn here.
+	describe("builtin — materialisation proof (file-presence; no binary to interrogate)", () => {
 		requireHarness("builtin");
 
 		dbTest(
 			"writeSkillItem writes SKILL.md to both HARNESS_SKILL_DIRS after production assembly",
+			{ retry: 0 },
 			async ({ db }) => {
-				// Pre-condition: skill files do NOT exist before assembly.
 				const claudeSkillPath = path.join(
 					sandboxPath,
 					".claude/skills",
@@ -309,14 +358,12 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 				expect(fs.existsSync(claudeSkillPath)).toBe(false);
 				expect(fs.existsSync(agentsSkillPath)).toBe(false);
 
-				// Production assembly path → writeSkillItem → HARNESS_SKILL_DIRS.
 				await assembleSkillIntoSandbox(db);
 
-				// Post-condition: both paths exist with the correct body content.
 				expect(fs.existsSync(claudeSkillPath)).toBe(true);
 				expect(fs.existsSync(agentsSkillPath)).toBe(true);
-				expect(fs.readFileSync(claudeSkillPath, "utf8")).toContain(PROBE_TOKEN);
-				expect(fs.readFileSync(agentsSkillPath, "utf8")).toContain(PROBE_TOKEN);
+				expect(fs.readFileSync(claudeSkillPath, "utf8")).toContain(probeToken);
+				expect(fs.readFileSync(agentsSkillPath, "utf8")).toContain(probeToken);
 			},
 		);
 	});
@@ -325,70 +372,104 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 	describe("claude — reads from .claude/skills/", () => {
 		requireHarness("claude");
 
-		dbTest("skill body token appears in response after production assembly", async ({ db }) => {
-			await assembleSkillIntoSandbox(db);
+		dbTest(
+			"skill body token appears in response after production assembly",
+			{ retry: 0 },
+			async ({ db }) => {
+				await assembleSkillIntoSandbox(db);
 
-			const { model } = harnessTestResolvedModel("claude");
-			const { stdout } = await spawnWithClosedStdin(
-				"claude",
-				[
-					"-p",
-					PROBE_PROMPT,
-					"--dangerously-skip-permissions",
-					"--output-format",
-					"text",
-					"--model",
-					model,
-				],
-				{
-					cwd: sandboxPath,
-					env: {
-						...process.env,
-						// @lore real-claude-full-binary: zero these so claude does not
-						// detect it is running inside claude-code (would skip the run).
-						CLAUDECODE: "",
-						CLAUDE_CODE_ENTRYPOINT: "",
-						CLAUDE_CODE_EXECPATH: "",
-						CLAUDE_CODE_SESSION_ID: "",
-						AI_AGENT: "",
-						CLAUDE_EFFORT: "",
+				// Materialisation check: skill must be at the expected path.
+				// Goes RED when HARNESS_SKILL_DIRS is broken (sanity-break–sensitive).
+				const skillPath = path.join(sandboxPath, ".claude/skills", SKILL_DIR_NAME, "SKILL.md");
+				expect(fs.existsSync(skillPath)).toBe(true);
+				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
+
+				// Injection check: spawn and assert model output.
+				const { model } = harnessTestResolvedModel("claude");
+				const { stdout } = await spawnWithClosedStdin(
+					"claude",
+					[
+						"-p",
+						PROBE_PROMPT,
+						"--dangerously-skip-permissions",
+						"--output-format",
+						"text",
+						"--model",
+						model,
+					],
+					{
+						cwd: sandboxPath,
+						env: {
+							...process.env,
+							// @lore BA9b-pwd: pin PWD to sandbox so claude doesn't scan
+							// the worktree's skill dirs via inherited parent PWD.
+							PWD: sandboxPath,
+							// @lore real-claude-full-binary: zero these so claude does not
+							// detect it is running inside claude-code (would skip the run).
+							CLAUDECODE: "",
+							CLAUDE_CODE_ENTRYPOINT: "",
+							CLAUDE_CODE_EXECPATH: "",
+							CLAUDE_CODE_SESSION_ID: "",
+							AI_AGENT: "",
+							CLAUDE_EFFORT: "",
+						},
+						timeoutMs: 60_000,
 					},
-					timeoutMs: 60_000,
-				},
-			);
+				);
 
-			expect(stdout).toContain(PROBE_TOKEN);
-		});
+				expect(stdout).toContain(probeToken);
+			},
+		);
 	});
 
 	// ── codex ────────────────────────────────────────────────────────────────
 	describe("codex — reads from .agents/skills/ only", () => {
 		requireHarness("codex");
 
-		dbTest("skill body token appears in response after production assembly", async ({ db }) => {
-			await assembleSkillIntoSandbox(db);
+		dbTest(
+			"skill body token appears in response after production assembly",
+			{ retry: 0 },
+			async ({ db }) => {
+				await assembleSkillIntoSandbox(db);
 
-			const { model } = harnessTestResolvedModel("codex");
-			const { stdout } = await spawnWithClosedStdin(
-				"codex",
-				[
-					"exec",
-					"--skip-git-repo-check",
-					PROBE_PROMPT,
-					"--model",
-					model,
-					"--json",
-					"--dangerously-bypass-approvals-and-sandbox",
-				],
-				{
-					cwd: sandboxPath,
-					env: { ...process.env },
-					timeoutMs: 90_000,
-				},
-			);
+				// Materialisation check: skill must be at the expected path.
+				// Goes RED when HARNESS_SKILL_DIRS is broken (sanity-break–sensitive).
+				// NOTE: codex scans ALL files in CWD, so a model output assertion alone
+				// would pass even with a broken HARNESS_SKILL_DIRS (the file lands at the
+				// dead path and codex reads it from there). This file presence assertion
+				// at the EXPECTED path is what detects the break.
+				const skillPath = path.join(sandboxPath, ".agents/skills", SKILL_DIR_NAME, "SKILL.md");
+				expect(fs.existsSync(skillPath)).toBe(true);
+				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
 
-			expect(stdout).toContain(PROBE_TOKEN);
-		});
+				// Injection check: spawn and assert model output.
+				const { model } = harnessTestResolvedModel("codex");
+				const { stdout } = await spawnWithClosedStdin(
+					"codex",
+					[
+						"exec",
+						"--skip-git-repo-check",
+						PROBE_PROMPT,
+						"--model",
+						model,
+						"--json",
+						"--dangerously-bypass-approvals-and-sandbox",
+					],
+					{
+						cwd: sandboxPath,
+						env: {
+							...process.env,
+							// @lore BA9b-pwd: pin PWD to sandbox — defensive against codex
+							// scanning the worktree's .agents/skills/ via inherited PWD.
+							PWD: sandboxPath,
+						},
+						timeoutMs: 90_000,
+					},
+				);
+
+				expect(stdout).toContain(probeToken);
+			},
+		);
 	});
 
 	// ── opencode ─────────────────────────────────────────────────────────────
@@ -397,9 +478,17 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 
 		dbTest(
 			"skill body token appears in response after production assembly (qwen3-8b override)",
+			{ retry: 0 },
 			async ({ db }) => {
 				await assembleSkillIntoSandbox(db);
 
+				// Materialisation check: primary opencode skill path is .claude/skills/.
+				// Goes RED when HARNESS_SKILL_DIRS is broken.
+				const skillPath = path.join(sandboxPath, ".claude/skills", SKILL_DIR_NAME, "SKILL.md");
+				expect(fs.existsSync(skillPath)).toBe(true);
+				expect(fs.readFileSync(skillPath, "utf8")).toContain(probeToken);
+
+				// Injection check: spawn and assert model output.
 				const { apiKey } = harnessTestResolvedModel("opencode");
 				// @lore BA9b-opencode-model: coordinator-authorized override; glm-4.7-flash
 				// (the locked baseline) cannot drive skill selection. qwen3-8b understands
@@ -424,7 +513,7 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 					},
 				);
 
-				expect(stdout + stderr).toContain(PROBE_TOKEN);
+				expect(stdout + stderr).toContain(probeToken);
 			},
 		);
 	});
@@ -433,21 +522,53 @@ describe("BA9b: skill materialisation via production writeSkillItem — real har
 	describe("cursor-agent — reads from .claude/skills/ and .agents/skills/", () => {
 		requireHarness("cursor-agent");
 
-		dbTest("skill body token appears in response after production assembly", async ({ db }) => {
-			await assembleSkillIntoSandbox(db);
+		dbTest(
+			"skill body token appears in response after production assembly",
+			{ retry: 0 },
+			async ({ db }) => {
+				await assembleSkillIntoSandbox(db);
 
-			const { model } = harnessTestResolvedModel("cursor-agent");
-			const { stdout } = await spawnWithClosedStdin(
-				"cursor-agent",
-				["-p", PROBE_PROMPT, "--print", "--model", model, "--trust"],
-				{
-					cwd: sandboxPath,
-					env: { ...process.env },
-					timeoutMs: 90_000,
-				},
-			);
+				// Materialisation check: skill must be at BOTH expected paths.
+				// Goes RED when HARNESS_SKILL_DIRS is broken.
+				// NOTE: cursor-agent scans ALL files in CWD (same as codex), so the model
+				// output assertion alone would not detect a broken HARNESS_SKILL_DIRS.
+				// File presence at the specific expected paths is the correct signal.
+				const claudeSkillPath = path.join(
+					sandboxPath,
+					".claude/skills",
+					SKILL_DIR_NAME,
+					"SKILL.md",
+				);
+				const agentsSkillPath = path.join(
+					sandboxPath,
+					".agents/skills",
+					SKILL_DIR_NAME,
+					"SKILL.md",
+				);
+				expect(fs.existsSync(claudeSkillPath)).toBe(true);
+				expect(fs.readFileSync(claudeSkillPath, "utf8")).toContain(probeToken);
+				expect(fs.existsSync(agentsSkillPath)).toBe(true);
+				expect(fs.readFileSync(agentsSkillPath, "utf8")).toContain(probeToken);
 
-			expect(stdout).toContain(PROBE_TOKEN);
-		});
+				// Injection check: spawn and assert model output.
+				const { model } = harnessTestResolvedModel("cursor-agent");
+				const { stdout } = await spawnWithClosedStdin(
+					"cursor-agent",
+					["-p", PROBE_PROMPT, "--print", "--model", model, "--trust"],
+					{
+						cwd: sandboxPath,
+						env: {
+							...process.env,
+							// @lore BA9b-pwd: pin PWD to sandbox — defensive against
+							// cursor-agent scanning the worktree's skill dirs.
+							PWD: sandboxPath,
+						},
+						timeoutMs: 90_000,
+					},
+				);
+
+				expect(stdout).toContain(probeToken);
+			},
+		);
 	});
 });
