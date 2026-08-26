@@ -974,6 +974,7 @@ interface ContextAssembler {
 	buildTemplateVariables(context: SessionContextData): Record<string, string>;
 	readonly emittedAgentRoots: readonly string[];
 	readonly emittedContextRoots: readonly string[];
+	readonly emittedSkillRoots: readonly string[];
 }
 
 /** Bind this Service's ports-taking functions to a single `ContextAssemblyPorts` instance. */
@@ -989,6 +990,7 @@ export function createContextAssembler(ports: ContextAssemblyPorts): ContextAsse
 		buildTemplateVariables,
 		emittedAgentRoots: EMITTED_AGENT_FILES,
 		emittedContextRoots: CONTEXT_ASSEMBLY_ROOTS,
+		emittedSkillRoots: HARNESS_SKILL_DIRS,
 	};
 }
 

@@ -302,20 +302,49 @@ export async function getPluginMcpContributions(
 /**
  * Write MCP server entries from mcp.json as plugin_configuration_defaults.
  * Each server is stored as kind='mcp_server' with key '<pluginId>/<serverName>'.
+ *
+ * Written directly (not through writePluginDefaults) so the namespaced key is
+ * explicit at this call site rather than being derived inside writePluginDefaults.
+ * Two plugins with the same server name get distinct keys: pluginA/bridge vs
+ * pluginB/bridge — no collision on the mcp_server (kind, key) unique constraint.
  */
 async function writeMcpServerDefaults(
 	db: HyperIdleDb,
 	pluginId: string,
 	mcpServers: ParsedMcpServer[],
 	ts: string,
-): Promise<ParsedContribution[]> {
-	const contributions: ParsedContribution[] = mcpServers.map((server) => ({
-		kind: "mcp_server" as const,
-		key: server.name,
-		value: server.config,
-	}));
-	await writePluginDefaults(db, pluginId, contributions, ts);
-	return contributions;
+): Promise<void> {
+	if (mcpServers.length === 0) return;
+	for (const server of mcpServers) {
+		const key = namespacedKey(pluginId, server.name);
+		const valueJson = stableJson(server.config);
+		const versionHash = sha256(valueJson);
+		const id = defaultId(pluginId, "mcp_server", key);
+		await db
+			.insert(pluginConfigurationDefaults)
+			.values({
+				id,
+				pluginId,
+				kind: "mcp_server",
+				key,
+				defaultValueJson: valueJson,
+				defaultVersionHash: versionHash,
+				createdAt: ts,
+				updatedAt: ts,
+			})
+			.onConflictDoUpdate({
+				target: [
+					pluginConfigurationDefaults.pluginId,
+					pluginConfigurationDefaults.kind,
+					pluginConfigurationDefaults.key,
+				],
+				set: {
+					defaultValueJson: valueJson,
+					defaultVersionHash: versionHash,
+					updatedAt: ts,
+				},
+			});
+	}
 }
 
 /**

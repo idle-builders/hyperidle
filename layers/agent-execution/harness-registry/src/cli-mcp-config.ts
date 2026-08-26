@@ -218,10 +218,14 @@ export interface PluginStdioServer {
  * how each CLI binary's config file is shaped.
  *
  * codex-toml: command/args written as TOML; no bearer_token_env_var (no token —
- *   stdio transports are local). ⚠️ UNVERIFIED: codex-cli stdio TOML shape;
- *   verified path is the HTTP/bearer shape from codex mcp get hyperidle --json.
- * opencode-json: type:"local" — opencode's stdio shape per opencode.ai/config.json
- *   schema. ⚠️ UNVERIFIED: "local" type name; bridge uses "remote".
+ *   stdio transports are local). Shape verified 2026-08-26: `codex mcp list` with
+ *   CODEX_HOME pointing to .codex-home/ confirmed `[mcp_servers.key]` with separate
+ *   command/args/cwd/env TOML fields is read and connected correctly.
+ * opencode-json: type:"local" with command as a MERGED array [binary, ...args].
+ *   Shape verified 2026-08-26: `opencode mcp list` in the sandbox CWD confirmed
+ *   `type:"local"` and `command:[binary,...args]` (single array, no separate "args"
+ *   key) is accepted. A string `command` + separate `args` is silently rejected with
+ *   "Ignoring MCP config entry without type". env:{} is also accepted by opencode 1.18.x.
  * cursor-json: same mcpServers JSON shape as claude's .mcp.json (.cursor/mcp.json).
  *   Verified: AW1 lore — cursor-agent reads .cursor/mcp.json like Cursor IDE does.
  */
@@ -282,7 +286,17 @@ function writePluginEntriesOpencodeJson(params: {
 	const { sandboxPath, servers } = params;
 	const opencodeJsonPath = path.join(sandboxPath, "opencode.json");
 
-	type OpenCodeMcpEntry = { type: string; command?: string; args?: string[]; enabled: boolean };
+	// opencode stdio shape (verified 2026-08-26 against opencode 1.18.x):
+	//   command is a SINGLE array: [binary, ...args]. Separate command string +
+	//   args array is silently rejected ("Ignoring MCP config entry without type").
+	//   env is a flat string→string object. cwd is a string if present.
+	type OpenCodeMcpEntry = {
+		type: string;
+		command?: string[];
+		enabled: boolean;
+		env?: Record<string, string>;
+		cwd?: string;
+	};
 	type OpenCodeJson = { $schema?: string; mcp: Record<string, OpenCodeMcpEntry> };
 
 	let existing: OpenCodeJson = { $schema: "https://opencode.ai/config.json", mcp: {} };
@@ -296,8 +310,21 @@ function writePluginEntriesOpencodeJson(params: {
 	}
 	for (const { key, config } of servers) {
 		const entry: OpenCodeMcpEntry = { type: "local", enabled: true };
-		if (typeof config.command === "string") entry.command = config.command;
-		if (Array.isArray(config.args)) entry.args = (config.args as unknown[]).map(String);
+		// Merge command binary + args into a single array (opencode's required shape).
+		const cmdArray: string[] = [];
+		if (typeof config.command === "string") cmdArray.push(config.command);
+		if (Array.isArray(config.args)) cmdArray.push(...(config.args as unknown[]).map(String));
+		if (cmdArray.length > 0) entry.command = cmdArray;
+		// env: flat string→string record.
+		if (config.env && typeof config.env === "object") {
+			const envObj: Record<string, string> = {};
+			for (const [k, v] of Object.entries(config.env as Record<string, unknown>)) {
+				envObj[k] = String(v);
+			}
+			if (Object.keys(envObj).length > 0) entry.env = envObj;
+		}
+		// cwd: working directory for the spawned MCP server process.
+		if (config.cwd !== undefined) entry.cwd = String(config.cwd);
 		existing.mcp[key] = entry;
 	}
 	fs.writeFileSync(opencodeJsonPath, JSON.stringify(existing, null, 2), "utf-8");

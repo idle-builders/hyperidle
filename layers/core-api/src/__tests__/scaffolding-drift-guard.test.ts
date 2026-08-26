@@ -104,6 +104,10 @@ describe("SANDBOX_SCAFFOLDING_PATHS drift-guard", () => {
 		assertAllCovered("runSession MCP configuration", provisioner.emittedFiles);
 	});
 
+	it("covers skill dirs written by writeSkillItem", () => {
+		assertAllCovered("writeSkillItem (skill dirs)", context.emittedSkillRoots);
+	});
+
 	it("covers every harness environment artifact emitted by the product writer", async () => {
 		for (const channel of ["settings-claude", "settings-codex", "process-reengage"] as const) {
 			const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "harness-scaffold-"));
