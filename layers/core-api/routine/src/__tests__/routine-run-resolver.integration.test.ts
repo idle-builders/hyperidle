@@ -35,6 +35,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import type { BakedContextBundle } from "@hyperidle/domain-model";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -332,6 +333,124 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 			routine: { id: "routine-rrun-ctx-noteam", prompt: "Summarize the week." },
 			team: null,
 			knowledge: [],
+		});
+	});
+});
+
+/**
+ * BA9c — triggerEvent threading through resolveRoutineRunRequest.
+ *
+ * The resolver carries whatever triggerEvent the caller supplies into the baked
+ * contextBundle. The subject assembly (loading the actual task/bet rows) happens
+ * in the scheduler — tested via the scheduler test suite. This suite verifies
+ * only that the threaded value is present and correct in the bundle.
+ */
+describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
+	test("includes triggerEvent in contextBundle when a task triggerEvent is supplied", async ({
+		db,
+	}) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
+		await seedTeam(db, "team-ba9c-trig-1");
+		await seedAgent(db, "owner-ba9c-trig-1", { teamId: "team-ba9c-trig-1" });
+		await seedRoutine(db, {
+			routineId: "routine-ba9c-trig-1",
+			ownerAgentId: "owner-ba9c-trig-1",
+		});
+		await seedRun(db, { runId: "run-ba9c-trig-1", routineId: "routine-ba9c-trig-1" });
+
+		const triggerEvent = {
+			type: "task_state_changed",
+			timestamp: 1_700_000_000_000,
+			transition: { from: "in_progress", to: "done" },
+			subject: {
+				kind: "task" as const,
+				task: { id: "tsk-x", title: "Feature Alpha", description: null, state: "done" },
+				bet: { id: "bet-x", description: "Ship Alpha", appetite: "small", doneCondition: null },
+			},
+		};
+
+		const baked = await resolveRoutineRunRequest(db, "run-ba9c-trig-1", {
+			...buildDeps(),
+			getTeamById: (d, id) => getTeam(d, { id }),
+			assembleSessionKnowledge,
+			triggerEvent,
+		});
+
+		const routineBundle = baked.contextBundle as
+			| Extract<BakedContextBundle, { kind: "routine" }>
+			| undefined;
+		expect(routineBundle?.triggerEvent).toMatchObject({
+			type: "task_state_changed",
+			transition: { from: "in_progress", to: "done" },
+			subject: {
+				kind: "task",
+				task: { id: "tsk-x", title: "Feature Alpha", state: "done" },
+				bet: { id: "bet-x", description: "Ship Alpha" },
+			},
+		});
+	});
+
+	test("contextBundle has no triggerEvent when none supplied (clock-fired path)", async ({
+		db,
+	}) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
+		await seedAgent(db, "owner-ba9c-clock-1");
+		await seedRoutine(db, {
+			routineId: "routine-ba9c-clock-1",
+			ownerAgentId: "owner-ba9c-clock-1",
+		});
+		await seedRun(db, { runId: "run-ba9c-clock-1", routineId: "routine-ba9c-clock-1" });
+
+		const baked = await resolveRoutineRunRequest(db, "run-ba9c-clock-1", buildDeps());
+
+		const routineBundle2 = baked.contextBundle as
+			| Extract<BakedContextBundle, { kind: "routine" }>
+			| undefined;
+		expect(routineBundle2?.triggerEvent).toBeUndefined();
+	});
+
+	test("team-less agent still receives triggerEvent in contextBundle", async ({ db }) => {
+		const { resolveRoutineRunRequest } = await import("../routine-service.js");
+		await seedAgent(db, "owner-ba9c-noteam");
+		await seedRoutine(db, {
+			routineId: "routine-ba9c-noteam",
+			ownerAgentId: "owner-ba9c-noteam",
+		});
+		await seedRun(db, { runId: "run-ba9c-noteam", routineId: "routine-ba9c-noteam" });
+
+		const triggerEvent = {
+			type: "bet_state_changed",
+			timestamp: 1_700_000_001_000,
+			transition: { from: "active", to: "completed" },
+			subject: {
+				kind: "bet" as const,
+				bet: {
+					id: "bet-y",
+					description: "Ship the feature",
+					state: "completed",
+					appetite: "large",
+					doneCondition: null,
+				},
+			},
+		};
+
+		const baked = await resolveRoutineRunRequest(db, "run-ba9c-noteam", {
+			...buildDeps(),
+			getTeamById: (d, id) => getTeam(d, { id }),
+			assembleSessionKnowledge,
+			triggerEvent,
+		});
+
+		// Team-less owner: team is null, knowledge is empty — but triggerEvent is present
+		const routineBundle3 = baked.contextBundle as
+			| Extract<BakedContextBundle, { kind: "routine" }>
+			| undefined;
+		expect(routineBundle3?.team).toBeNull();
+		expect(routineBundle3?.triggerEvent?.type).toBe("bet_state_changed");
+		expect(routineBundle3?.triggerEvent?.subject).toMatchObject({
+			kind: "bet",
+			// Bet subject only carries id+description — no state/appetite/doneCondition.
+			bet: { id: "bet-y", description: "Ship the feature" },
 		});
 	});
 });

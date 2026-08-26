@@ -150,6 +150,74 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).not.toContain("### Instruction");
 		expect(result.assembledPrompt).not.toContain("**Purpose:**");
 	});
+
+	// BA9c: trigger event rendering
+	it("renders ### Trigger Event section when context has a task triggerEvent", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "task_state_changed",
+				timestamp: 1_700_000_000_000,
+				transition: { from: "in_progress", to: "completed" },
+				subject: {
+					kind: "task" as const,
+					task: {
+						id: "t-x",
+						title: "BA9c-PROBE-TITLE",
+						description: "probe desc",
+						state: "completed",
+					},
+					bet: { id: "b-x", description: "BA9c-PROBE-BET" },
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("BA9c-PROBE-TITLE");
+		expect(result.assembledPrompt).toContain("BA9c-PROBE-BET");
+		expect(result.assembledPrompt).toContain("in_progress → completed");
+	});
+
+	it("renders ### Trigger Event section when context has a bet triggerEvent", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "bet_state_changed",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "bet" as const,
+					bet: { id: "b-y", description: "BA9c-BET-SUBJECT" },
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("BA9c-BET-SUBJECT");
+		expect(result.assembledPrompt).not.toContain("Task that triggered");
+	});
+
+	it("omits ### Trigger Event section when no triggerEvent (clock-fired path)", async () => {
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context: routineContext(),
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).not.toContain("### Trigger Event");
+	});
 });
 
 // Every session goes through the generic `assembleTaskFreePrompt` path,
