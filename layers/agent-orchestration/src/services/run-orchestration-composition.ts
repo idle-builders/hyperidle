@@ -29,6 +29,7 @@ import { summarizeToolArgs } from "@hyperidle/diagnostics";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
 import {
+	type PluginMcpContributionsPort,
 	type RunOptions,
 	type RunResult,
 	type RunTransitionSpec,
@@ -83,6 +84,7 @@ type TransitionContext = Extract<RunTransitionSpec, { target: "session" }>["cont
 export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHarnessStarted"> & {
 	readonly adapterPool?: unknown;
 	readonly workspace?: unknown;
+	readonly pluginMcpContributions?: PluginMcpContributionsPort;
 };
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];

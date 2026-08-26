@@ -2,13 +2,7 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-	type AgentSessionRequest,
-	type HyperIdleDb,
-	pluginConfigurationDefaults,
-	plugins,
-	sessions,
-} from "@hyperidle/db";
+import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
@@ -586,10 +580,7 @@ function expandPluginVars(value: string, pluginRoot: string): string {
 	return value.replace(/\$\{PLUGIN_ROOT\}/g, pluginRoot);
 }
 
-function expandMcpConfigValue(
-	val: unknown,
-	pluginRoot: string,
-): unknown {
+function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
 	if (typeof val === "string") return expandPluginVars(val, pluginRoot);
 	if (Array.isArray(val)) return val.map((v) => expandMcpConfigValue(v, pluginRoot));
 	if (val && typeof val === "object") {
@@ -610,34 +601,20 @@ function expandMcpConfigValue(
  * skipped (no ${PLUGIN_ROOT} to expand).
  *
  * AC7: scope filtering ensures team-scoped plugins only reach matching team sessions.
+ *
+ * @lore BA9b governance: plugins/pluginConfigurationDefaults are owned by settings
+ * (core-api layer). run-orchestration (agent-orchestration layer) cannot query them
+ * directly. The data arrives through PluginMcpContributionsPort, wired by the
+ * application via CoreApiBoot.pluginMcpContributions → ApplicationProvisionSessionDeps.
  */
 async function mergePluginMcpContributions(
-	db: HyperIdleDb,
+	port: PluginMcpContributionsPort | undefined,
 	mcpJsonPath: string,
 	teamId: string | null,
 ): Promise<void> {
-	const scopeFilter = teamId
-		? or(
-				eq(plugins.scopeKind, "factory"),
-				and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId)),
-			)
-		: eq(plugins.scopeKind, "factory");
+	if (!port) return;
 
-	const rows = await db
-		.select({
-			defaultValueJson: pluginConfigurationDefaults.defaultValueJson,
-			key: pluginConfigurationDefaults.key,
-			installPath: plugins.installPath,
-		})
-		.from(pluginConfigurationDefaults)
-		.innerJoin(plugins, eq(pluginConfigurationDefaults.pluginId, plugins.id))
-		.where(
-			and(
-				eq(pluginConfigurationDefaults.kind, "mcp_server"),
-				eq(plugins.state, "enabled"),
-				scopeFilter,
-			),
-		);
+	const rows = await port.getContributions(teamId);
 
 	if (rows.length === 0) return;
 
@@ -718,6 +695,22 @@ async function captureMountedFilesystems(
 	}
 }
 
+/**
+ * @lore BA9b: Fetches plugin MCP server contributions scoped to a team.
+ * Defined here as an opaque port — settings owns the tables, so provisioner
+ * cannot query them directly. The application composition root wires the
+ * implementation (from @hyperidle/settings via @hyperidle/core-api's boot).
+ */
+export interface PluginMcpContributionsPort {
+	getContributions(teamId: string | null): Promise<
+		readonly {
+			readonly key: string;
+			readonly defaultValueJson: string;
+			readonly installPath: string | null;
+		}[]
+	>;
+}
+
 interface ProvisionSessionDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
@@ -779,6 +772,12 @@ interface ProvisionSessionDeps {
 	 * each endSession/crashSession call.
 	 */
 	readonly mounter?: FilesystemMounterPort;
+	/**
+	 * BA9b: Plugin MCP server contributions for this session's team scope.
+	 * When absent, no plugin MCP servers are merged into the session config.
+	 * Provided by the application via CoreApiBoot.pluginMcpContributions.
+	 */
+	readonly pluginMcpContributions?: PluginMcpContributionsPort;
 }
 
 interface ProvisionSessionParams {
@@ -1523,7 +1522,7 @@ async function runSession(
 	// expanded to the plugin's installPath.
 	if (selectedAdapter.meta.type !== "builtin") {
 		try {
-			await mergePluginMcpContributions(db, mcpJsonPath, teamId ?? null);
+			await mergePluginMcpContributions(deps.pluginMcpContributions, mcpJsonPath, teamId ?? null);
 		} catch (mcpMergeErr) {
 			// biome-ignore lint/suspicious/noConsole: graceful-degradation, matches inbound bridge
 			console.warn(

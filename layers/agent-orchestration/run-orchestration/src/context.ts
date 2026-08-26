@@ -583,8 +583,29 @@ const CONTEXT_ASSEMBLY_DIRS = [
 ] as const;
 
 /**
- * @lore BA9b: Per-harness skill directories. Skills are written to all known
- * harness dirs so the session uses the skill regardless of which harness runs.
+ * @lore BA9b: Per-harness skill directories — empirically verified 2026-08-26.
+ *
+ * Each entry is the relative path (under the session sandbox) where the
+ * corresponding harness discovers SKILL.md files. Verified by writing a unique
+ * probe token to each location and running each real binary non-interactively,
+ * confirming the token appeared in output:
+ *
+ *   .claude/skills     — claude (Claude Code): confirmed (53 skills listed,
+ *                        probe token retrieved on invocation).
+ *                      — cursor-agent: ALSO reads this directory (probe token
+ *                        appeared; .cursor/rules/ was NOT picked up instead).
+ *   .opencode/skills   — opencode: confirmed via `opencode debug skill`; probe
+ *                        skill listed with full path. opencode does NOT read
+ *                        .claude/skills at project level (only ~/.claude/skills
+ *                        for global external skills).
+ *   .codex-home/skills — codex: confirmed with CODEX_HOME=<sandbox>/.codex-home.
+ *                        CliHarnessAdapter already sets CODEX_HOME; codex reads
+ *                        skills from there. Probe token appeared in codex exec output.
+ *
+ * builtin: no file-based skill dirs. It is a direct LLM call through OpenRouter;
+ * skills reach it via the system prompt injected in AGENTS.md (already written
+ * by context assembly). No extra directory entry needed.
+ *
  * Each subdir contains <skillDirName>/SKILL.md as per Agent Plugins 1.0.0.
  */
 const HARNESS_SKILL_DIRS = [".claude/skills", ".opencode/skills", ".codex-home/skills"] as const;
@@ -646,7 +667,10 @@ const ZONE_BY_LAYER: Record<string, string> = {
  * Plugin-contributed skills store the dirName as the title; manual skills use a slug.
  */
 function toSkillDirName(title: string): string {
-	return title.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
+	return title
+		.replace(/[^a-zA-Z0-9._-]/g, "_")
+		.replace(/_+/g, "_")
+		.replace(/^_|_$/g, "");
 }
 
 /**
@@ -687,17 +711,25 @@ function writeBundleKnowledge(
 ): Record<string, ManifestEntry> {
 	const manifestItems: Record<string, ManifestEntry> = {};
 	for (const item of knowledge) {
-		const role = item.role ?? "ordinary";
+		const role = item.role;
 
 		if (role === "skill") {
 			const relativePath = writeSkillItem(sandboxPath, item);
-			manifestItems[item.id] = { version: item.version, source_path: relativePath, format: item.format };
+			manifestItems[item.id] = {
+				version: item.version,
+				source_path: relativePath,
+				format: item.format,
+			};
 			continue;
 		}
 
 		if (role === "rule") {
 			const relativePath = writeItem(sandboxPath, item, "knowledge/rules");
-			manifestItems[item.id] = { version: item.version, source_path: relativePath, format: item.format };
+			manifestItems[item.id] = {
+				version: item.version,
+				source_path: relativePath,
+				format: item.format,
+			};
 			continue;
 		}
 
@@ -710,7 +742,11 @@ function writeBundleKnowledge(
 			// @lore BA9b: agent_file content is delivered via knowledge/rules/ — the agent's
 			// AGENTS.md already contains the system prompt; agent_file supplements it.
 			const relativePath = writeItem(sandboxPath, item, "knowledge/rules");
-			manifestItems[item.id] = { version: item.version, source_path: relativePath, format: item.format };
+			manifestItems[item.id] = {
+				version: item.version,
+				source_path: relativePath,
+				format: item.format,
+			};
 			continue;
 		}
 
@@ -868,7 +904,12 @@ function assembleAgentContext(input: AssembleAgentContextInput): AgentContextAss
 		};
 	}
 
-	const result = writeContextBundle(input.sandboxPath, input.sessionId, input.contextBundle, input.agentId);
+	const result = writeContextBundle(
+		input.sandboxPath,
+		input.sessionId,
+		input.contextBundle,
+		input.agentId,
+	);
 	return {
 		itemCount: result.itemCount,
 		durationMs: result.durationMs,

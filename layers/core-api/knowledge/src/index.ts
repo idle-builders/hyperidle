@@ -64,9 +64,12 @@ export {
 	get,
 	list,
 	remove,
+	removeByPluginTopic,
 	search,
 	transition,
+	type UpsertPluginSkillInput,
 	update,
+	upsertPluginSkill,
 } from "./knowledge-repository.js";
 export { sweep } from "./promotion-pipeline.js";
 // -- review-item factory (moved from @hyperidle/review, AU44 batch 4 rows 9/10 MERGE) --

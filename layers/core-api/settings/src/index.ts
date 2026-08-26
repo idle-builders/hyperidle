@@ -24,6 +24,7 @@ export type {
 	InstalledPlugin,
 	InstallPluginInput,
 	InstallPluginResult,
+	PluginMcpContributionRow,
 	PluginScope,
 	PluginSource,
 } from "./plugin-installer.js";
@@ -31,11 +32,13 @@ export {
 	disablePlugin,
 	enablePlugin,
 	getInstalledPlugin,
+	getPluginMcpContributions,
 	installPlugin,
 	listInstalledPlugins,
 	pluginContributionKey,
 	removePlugin,
 	restorePluginContribution,
+	skillItemId,
 } from "./plugin-installer.js";
 // -- plugin manifest parsing (BA9a) --
 export type {

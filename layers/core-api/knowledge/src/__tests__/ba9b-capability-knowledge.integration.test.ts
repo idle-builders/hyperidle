@@ -7,7 +7,7 @@
  * - Team-scoped capability items only reach the matching team's sessions (AC7)
  * - agent_file items have agentBindingId derived from scopeId
  */
-import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { assembleSessionKnowledge } from "../session-knowledge-assembler.js";
 
@@ -19,7 +19,7 @@ function generateId(): string {
 }
 
 async function insertKnowledgeItem(
-	db: Parameters<Parameters<typeof test>[1]>[0]["db"],
+	db: HyperIdleDb,
 	opts: {
 		id?: string;
 		title: string;
@@ -63,7 +63,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 		});
 
 		const items = await assembleSessionKnowledge(db, {
-			teamId: "any-team-" + generateId(),
+			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Ship feature X",
 		});
@@ -74,8 +74,8 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 	});
 
 	test("team-scoped skill only reaches matching team session (AC7)", async ({ db }) => {
-		const teamA = "team-a-" + generateId();
-		const teamB = "team-b-" + generateId();
+		const teamA = `team-a-${generateId()}`;
+		const teamB = `team-b-${generateId()}`;
 
 		await insertKnowledgeItem(db, {
 			title: "team-a-skill",
@@ -105,9 +105,9 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 	});
 
 	test("agent_file item with scopeId=agentId only reaches that agent", async ({ db }) => {
-		const agentId = "agent-" + generateId();
-		const teamId = "team-" + generateId();
-		const otherId = "agent-other-" + generateId();
+		const agentId = `agent-${generateId()}`;
+		const teamId = `team-${generateId()}`;
+		const otherId = `agent-other-${generateId()}`;
 
 		await insertKnowledgeItem(db, {
 			title: "agent-specific-instructions",
@@ -147,7 +147,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 		});
 
 		const items = await assembleSessionKnowledge(db, {
-			teamId: "any-team-" + generateId(),
+			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Work",
 		});
@@ -168,7 +168,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			scopeKind: "factory",
 			scopeId: null,
 			topic: null,
-			title: "dedup-skill-" + id,
+			title: `dedup-skill-${id}`,
 			body: "Dedup test.",
 			format: "markdown",
 			status: "active",
@@ -179,7 +179,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			updatedAt: now,
 		});
 		await db.insert(knowledgeAppProjection).values({
-			id: "proj-" + id,
+			id: `proj-${id}`,
 			knowledgeItemId: id,
 			layer: "L4",
 			scopeId: null,
@@ -187,17 +187,15 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			attentionScore: null,
 			confidence: null,
 			meta: null,
-			createdAt: now,
-			updatedAt: now,
 		});
 
 		const items = await assembleSessionKnowledge(db, {
-			teamId: "any-team-" + generateId(),
+			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Work",
 		});
 
-		const matching = items.filter((i) => i.title === "dedup-skill-" + id);
+		const matching = items.filter((i) => i.title === `dedup-skill-${id}`);
 		expect(matching).toHaveLength(1);
 	});
 });

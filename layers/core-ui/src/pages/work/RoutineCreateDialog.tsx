@@ -119,7 +119,7 @@ export function RoutineCreateDialog({
 
 	const handleSubmit = async (): Promise<void> => {
 		const trimmedName = name.trim();
-		if (!trimmedName || !agentId.trim()) return;
+		if (!(trimmedName && agentId.trim())) return;
 		if (whenMode === "schedule" && !resolvedCron.trim()) return;
 		if (whenMode === "event" && !eventType.trim()) return;
 

@@ -31,7 +31,6 @@ import { join } from "node:path";
 import {
 	type HyperIdleDb,
 	type PluginRow,
-	knowledgeItems,
 	pluginConfigurationDefaults,
 	plugins,
 } from "@hyperidle/db";
@@ -41,11 +40,16 @@ import {
 	type PluginScopeKind,
 	type PluginState,
 } from "@hyperidle/domain-model";
-import { and, asc, eq, inArray, ne, notInArray } from "drizzle-orm";
+import { and, asc, eq, ne, notInArray, or } from "drizzle-orm";
 import { writeConfigurationOverride } from "./plugin-configuration.js";
 import type { PluginSource } from "./plugin-fetch.js";
 import { fetchPlugin } from "./plugin-fetch.js";
-import type { ManifestWarning, ParsedContribution, ParsedMcpServer, ParsedSkill } from "./plugin-manifest.js";
+import type {
+	ManifestWarning,
+	ParsedContribution,
+	ParsedMcpServer,
+	ParsedSkill,
+} from "./plugin-manifest.js";
 import { parsePluginManifest } from "./plugin-manifest.js";
 
 // ---------------------------------------------------------------------------
@@ -91,7 +95,20 @@ export interface InstalledPlugin {
 }
 
 export type InstallPluginResult =
-	| { ok: true; plugin: InstalledPlugin }
+	| {
+			ok: true;
+			plugin: InstalledPlugin;
+			/**
+			 * Parsed skills from the manifest, needed by the core-api layer to sync
+			 * skill knowledge items through the knowledge service after install.
+			 * @lore BA9b: settings cannot write knowledgeItems (owned by knowledge).
+			 * The layer's route handler picks these up and calls knowledge.upsertPluginSkill.
+			 */
+			skills: readonly ParsedSkill[];
+			scopeKind: string;
+			scopeId: string | null;
+			installTs: string;
+	  }
 	| { ok: false; reason: string };
 
 // ---------------------------------------------------------------------------
@@ -228,92 +245,58 @@ async function removeStaleDefaults(
 /**
  * Deterministic knowledge item ID for a plugin skill.
  * Scoped to pluginId + skill title so reinstalls update the same row.
+ * Exported so the core-api layer's route handlers can compute the same IDs
+ * when syncing skills through the knowledge service (governance boundary).
  */
-function skillItemId(pluginId: string, dirName: string): string {
+export function skillItemId(pluginId: string, dirName: string): string {
 	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}`).slice(0, 24)}`;
 }
 
-/**
- * Write or update knowledge items for each skill in the plugin.
- * Skills are stored with role='skill', scopeKind/scopeId matching the plugin scope.
- *
- * @lore BA9b: The SKILL.md body is the knowledge item body. At session time,
- * context assembly writes it to .claude/skills/<title>/SKILL.md. Edits by
- * the user update the knowledge item body (D5: your edit wins, you are told
- * it detached from the plugin).
- */
-async function writeSkillKnowledgeItems(
-	db: HyperIdleDb,
-	pluginId: string,
-	skills: ParsedSkill[],
-	scopeKind: string,
-	scopeTeamId: string | null,
-	ts: string,
-): Promise<void> {
-	for (const skill of skills) {
-		const id = skillItemId(pluginId, skill.dirName);
-		// topic encodes the plugin origin so it can be found for stale cleanup
-		const topic = `plugin:${pluginId}`;
-		await db
-			.insert(knowledgeItems)
-			.values({
-				id,
-				scopeKind,
-				scopeId: scopeTeamId,
-				topic,
-				title: skill.dirName,
-				body: skill.body,
-				format: "markdown",
-				status: "active",
-				version: 1,
-				role: "skill",
-				updatedBy: `plugin:${pluginId}`,
-				createdAt: ts,
-				updatedAt: ts,
-			})
-			.onConflictDoUpdate({
-				target: [knowledgeItems.id],
-				set: {
-					// Only update body and metadata if the plugin is being reinstalled.
-					// User edits have a different updatedBy — we do NOT overwrite them.
-					// D5: your edit wins — the body stays as the user left it.
-					// We only update non-body fields (scope, timestamps) here.
-					scopeKind,
-					scopeId: scopeTeamId,
-					topic,
-					updatedAt: ts,
-				},
-			});
-	}
+// ---------------------------------------------------------------------------
+// Cross-layer read: plugin MCP contributions for session provisioning
+// ---------------------------------------------------------------------------
+
+export interface PluginMcpContributionRow {
+	key: string;
+	defaultValueJson: string;
+	installPath: string | null;
 }
 
 /**
- * Remove stale skill knowledge items for a plugin.
- * Called on reinstall to remove skills that were deleted from the manifest.
+ * Return MCP server contributions for all plugins in scope for the given team.
+ *
+ * @lore BA9b: The provisioner (run-orchestration, a different layer) cannot
+ * query plugins/pluginConfigurationDefaults directly — those tables are owned
+ * by settings. This function is the settings-service door: exposed from
+ * @hyperidle/settings, imported by @hyperidle/core-api (the layer), which
+ * wraps it in a CoreApiBoot capability the application hands to bootAgentOrchestration.
  */
-async function removeStaleSkillItems(
+export async function getPluginMcpContributions(
 	db: HyperIdleDb,
-	pluginId: string,
-	currentDirNames: string[],
-): Promise<void> {
-	const topic = `plugin:${pluginId}`;
-	// Get all skill item IDs for this plugin
-	const currentIds = currentDirNames.map((dirName) => skillItemId(pluginId, dirName));
+	teamId: string | null,
+): Promise<readonly PluginMcpContributionRow[]> {
+	const scopeFilter = teamId
+		? or(
+				and(eq(plugins.scopeKind, "factory")),
+				and(eq(plugins.scopeKind, "team"), eq(plugins.scopeTeamId, teamId)),
+			)
+		: eq(plugins.scopeKind, "factory");
 
-	// Fetch all skill items with this plugin's topic that are NOT in the current set
-	const allPluginSkills = await db
-		.select({ id: knowledgeItems.id })
-		.from(knowledgeItems)
-		.where(and(eq(knowledgeItems.topic, topic), eq(knowledgeItems.role, "skill")));
-
-	const staleIds = allPluginSkills
-		.map((r) => r.id)
-		.filter((id) => !currentIds.includes(id));
-
-	if (staleIds.length === 0) return;
-
-	// Hard-delete stale skill items (they have no edit log to worry about for plugin-managed items)
-	await db.delete(knowledgeItems).where(inArray(knowledgeItems.id, staleIds));
+	return db
+		.select({
+			defaultValueJson: pluginConfigurationDefaults.defaultValueJson,
+			key: pluginConfigurationDefaults.key,
+			installPath: plugins.installPath,
+		})
+		.from(pluginConfigurationDefaults)
+		.innerJoin(plugins, eq(pluginConfigurationDefaults.pluginId, plugins.id))
+		.where(
+			and(
+				eq(pluginConfigurationDefaults.kind, "mcp_server"),
+				eq(plugins.state, "enabled"),
+				scopeFilter,
+			),
+		);
 }
 
 /**
@@ -440,18 +423,9 @@ export async function installPlugin(
 		// Write/update MCP server contributions from mcp.json.
 		await writeMcpServerDefaults(db, pluginId, manifest.mcpServers, ts);
 
-		// Write/update skill knowledge items.
-		await writeSkillKnowledgeItems(
-			db,
-			pluginId,
-			manifest.skills,
-			input.scope.kind,
-			input.scope.teamId ?? null,
-			ts,
-		);
-
-		// Remove stale skill items (skills removed from the plugin).
-		await removeStaleSkillItems(db, pluginId, manifest.skills.map((s) => s.dirName));
+		// Skill knowledge items are synced by the core-api layer's route handler
+		// after installPlugin returns, using the knowledge service (governance boundary:
+		// settings cannot write to knowledgeItems — owned by knowledge).
 
 		const rows = await db.select().from(plugins).where(eq(plugins.id, pluginId)).limit(1);
 		const row = rows[0];
@@ -459,7 +433,14 @@ export async function installPlugin(
 			return { ok: false, reason: `Plugin row not found after insert: ${pluginId}` };
 		}
 
-		return { ok: true, plugin: pluginFromRow(row, manifest.warnings) };
+		return {
+			ok: true,
+			plugin: pluginFromRow(row, manifest.warnings),
+			skills: manifest.skills,
+			scopeKind: input.scope.kind,
+			scopeId: input.scope.teamId ?? null,
+			installTs: ts,
+		};
 	} finally {
 		fetched.cleanup();
 	}
@@ -549,9 +530,9 @@ export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 	await db
 		.delete(pluginConfigurationDefaults)
 		.where(eq(pluginConfigurationDefaults.pluginId, pluginId));
-	// Step 2: remove all skill knowledge items for this plugin
-	await removeStaleSkillItems(db, pluginId, []);
-	// Step 3: mark plugin as removed (restrict constraint now satisfied)
+	// Step 2: mark plugin as removed (restrict constraint now satisfied)
+	// @lore BA9b: skill knowledge item cleanup happens in the route handler
+	// (core-api layer), not here — settings cannot write to knowledge's table.
 	await db
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })

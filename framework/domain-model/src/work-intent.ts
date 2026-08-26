@@ -185,6 +185,10 @@ export interface BakedContextKnowledgeItem {
  * `layer` stays optional (matching `KnowledgeItemWithProjection`'s own
  * optional `layer?: string | null`) — `toBakedContextKnowledgeItems` below
  * normalizes it to the required-but-nullable `BakedContextKnowledgeItem.layer`.
+ * `role` and `scopeId` are required: both come from the kernel `knowledgeItems`
+ * table which is always present in a DB row. role is NOT NULL DEFAULT 'ordinary';
+ * scopeId is nullable but always present. No compat shim — callers provide the
+ * real DB values.
  */
 export interface SessionKnowledgeItemLike {
 	readonly id: string;
@@ -193,15 +197,17 @@ export interface SessionKnowledgeItemLike {
 	readonly format: string;
 	readonly version: number;
 	readonly layer?: string | null;
-	/** @lore BA9b: role defaults to 'ordinary' for pre-existing callers. */
-	readonly role?: string | null;
 	/**
-	 * @lore BA9b: For role='agent_file', scopeId on the DB row IS the agentId.
+	 * @lore BA9b: Kernel table column, NOT NULL DEFAULT 'ordinary'. Required.
+	 * Every DB row carries a non-null role after migration 0062.
+	 */
+	readonly role: string;
+	/**
+	 * @lore BA9b: Kernel table column. Required, nullable.
+	 * For agent_file items: contains the agentId the item is bound to.
 	 * toBakedContextKnowledgeItems derives agentBindingId from this field.
 	 */
-	readonly scopeId?: string | null;
-	/** @lore BA9b: agentId for agent_file binding (scopeId on the DB row). */
-	readonly agentBindingId?: string | null;
+	readonly scopeId: string | null;
 }
 
 /**
@@ -221,12 +227,10 @@ export function toBakedContextKnowledgeItems(
 		format: item.format,
 		version: item.version,
 		layer: item.layer ?? null,
-		role: item.role ?? "ordinary",
+		role: item.role,
 		// @lore BA9b: agent_file items store the agentId in scopeId on the DB row.
-		// agentBindingId can also be set explicitly (for synthetic items in tests).
-		agentBindingId:
-			item.agentBindingId ??
-			((item.role ?? "ordinary") === "agent_file" ? (item.scopeId ?? null) : null),
+		// agentBindingId is always derived — never set explicitly (no shim path).
+		agentBindingId: item.role === "agent_file" ? (item.scopeId ?? null) : null,
 	}));
 }
 

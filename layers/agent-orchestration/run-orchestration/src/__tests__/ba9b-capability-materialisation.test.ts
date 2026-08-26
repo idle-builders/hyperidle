@@ -101,7 +101,9 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 		});
 
 		expect(fs.existsSync(path.join(sandboxPath, ".opencode/skills/my-skill/SKILL.md"))).toBe(true);
-		expect(fs.existsSync(path.join(sandboxPath, ".codex-home/skills/my-skill/SKILL.md"))).toBe(true);
+		expect(fs.existsSync(path.join(sandboxPath, ".codex-home/skills/my-skill/SKILL.md"))).toBe(
+			true,
+		);
 	});
 
 	it("skills do NOT appear in knowledge/ or context/", async () => {
@@ -156,9 +158,7 @@ describe("BA9b: rule items materialise to knowledge/rules/", () => {
 		expect(files.length).toBeGreaterThan(0);
 		const ruleFile = files.find((f) => f.includes("no-console") || f.includes("no_console"));
 		expect(ruleFile).toBeDefined();
-		expect(fs.readFileSync(path.join(rulesDir, ruleFile!), "utf-8")).toBe(
-			"Never use console.log.",
-		);
+		expect(fs.readFileSync(path.join(rulesDir, ruleFile!), "utf-8")).toBe("Never use console.log.");
 	});
 });
 

@@ -20,8 +20,8 @@
  * consumer; making it private removes the exported symbol.
  */
 
-import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import type { HyperIdleDb } from "@hyperidle/db";
+import { knowledgeAppProjection, knowledgeItems } from "@hyperidle/db";
 import { and, eq, ne, or } from "drizzle-orm";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 import { list } from "./knowledge-repository.js";
@@ -303,6 +303,14 @@ async function fetchAllForLayer(
  * @lore BA9b: The 'team → null' SCOPE_TO_LAYER mapping is resolved here: we
  * do NOT route capability items through the layer system. We query them
  * directly by scope and role, and writeBundleKnowledge routes by role, not layer.
+ *
+ * @lore BA9b-listBase: This function does NOT use listBase(). listBase() filters
+ * by `knowledgeAppProjection.layer` (a projection table field). Capability items
+ * (skill/rule/agent_file) use scopeKind/scopeId from the kernel table — not layer.
+ * Going through listBase would force a layer predicate onto items that have no
+ * meaningful layer, silently dropping everything. The direct query is the correct
+ * path; there is no drift risk because the same LEFT JOIN to knowledgeAppProjection
+ * is reproduced here with the same merge logic as listBase's mergeItemWithProjection.
  */
 async function fetchCapabilityItems(
 	db: HyperIdleDb,
@@ -325,11 +333,7 @@ async function fetchCapabilityItems(
 		.from(knowledgeItems)
 		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
 		.where(
-			and(
-				ne(knowledgeItems.role, "ordinary"),
-				eq(knowledgeItems.status, "active"),
-				scopeFilter,
-			),
+			and(ne(knowledgeItems.role, "ordinary"), eq(knowledgeItems.status, "active"), scopeFilter),
 		)
 		.orderBy(knowledgeItems.id);
 

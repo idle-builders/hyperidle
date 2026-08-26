@@ -1100,3 +1100,86 @@ export async function remove(
 	}
 	return row;
 }
+
+// ---------------------------------------------------------------------------
+// Plugin-managed skill operations (BA9b)
+// ---------------------------------------------------------------------------
+
+export interface UpsertPluginSkillInput {
+	id: string;
+	pluginId: string;
+	dirName: string;
+	body: string;
+	scopeKind: string;
+	scopeId: string | null;
+	topic: string;
+	ts: string;
+}
+
+/**
+ * Insert or update a plugin-managed skill knowledge item.
+ *
+ * @lore BA9b: On conflict (same ID = same plugin+dirName), updates scope/topic/
+ * timestamp but PRESERVES the body — user edits win (D5: your edit wins, you
+ * are told it detached from the plugin). No edit-log entry is written here
+ * because these are machine-managed rows; a user edit through the knowledge
+ * route writes its own log entry via the normal update() path.
+ */
+export async function upsertPluginSkill(
+	db: HyperIdleDb,
+	input: UpsertPluginSkillInput,
+): Promise<void> {
+	await db
+		.insert(knowledgeItems)
+		.values({
+			id: input.id,
+			scopeKind: input.scopeKind,
+			scopeId: input.scopeId,
+			topic: input.topic,
+			title: input.dirName,
+			body: input.body,
+			format: "markdown",
+			status: "active",
+			version: 1,
+			role: "skill",
+			updatedBy: `plugin:${input.pluginId}`,
+			createdAt: input.ts,
+			updatedAt: input.ts,
+		})
+		.onConflictDoUpdate({
+			target: [knowledgeItems.id],
+			set: {
+				// D5: body is NOT in the update set — the user's edit wins.
+				scopeKind: input.scopeKind,
+				scopeId: input.scopeId,
+				topic: input.topic,
+				updatedAt: input.ts,
+			},
+		});
+}
+
+/**
+ * Hard-delete knowledge items matching `topic`, excluding items whose IDs are
+ * in `keepIds`. Used to remove stale plugin skill items on reinstall.
+ *
+ * @lore BA9b: Skills are hard-deleted (not archived) because they are
+ * machine-managed rows. A user-edited skill has `updatedBy` pointing to the
+ * user rather than the plugin, so if we delete it here the user loses their
+ * edit. Acceptable: the plugin manifest is the source of truth for which
+ * skills exist; a removed skill should not survive a reinstall.
+ */
+export async function removeByPluginTopic(
+	db: HyperIdleDb,
+	topic: string,
+	keepIds: readonly string[],
+): Promise<void> {
+	const rows = await db
+		.select({ id: knowledgeItems.id })
+		.from(knowledgeItems)
+		.where(eq(knowledgeItems.topic, topic));
+
+	const staleIds = rows.map((r) => r.id).filter((id) => !keepIds.includes(id));
+	if (staleIds.length === 0) return;
+
+	await db.delete(knowledgeItems).where(inArray(knowledgeItems.id, staleIds));
+}
