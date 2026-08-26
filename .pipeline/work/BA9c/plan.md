@@ -107,3 +107,64 @@ Any form of loop prevention beyond the existing no-self-trigger cut.
 - Do not reintroduce a startup-time subscription list.
 - Do not add loop prevention. Founder ruling on BA1 stands: all event types are authorable and the only
   cut is a routine's own run not re-triggering that same routine.
+
+
+---
+
+# As built
+
+Consolidated at ship; the review this section replaces was deleted after its content landed here.
+
+## What changed
+
+A `RoutineTriggerEvent` flows from the event bus into the baked `kind:"routine"` bundle and renders as a
+**Trigger Event** section in the prompt the agent actually runs — event type, when it happened, the
+transition where there is one, the subject, and the actor where the event carries one.
+
+Path: `registerRoutineEventMatcher` receives the event → `assembleTriggerEvent` resolves the subject →
+passed to `fireGenericRoutine` → `resolveRoutineRunRequest` threads it onto the bundle →
+`buildRoutineTaskSection` renders it.
+
+Clock-fired routines carry no trigger event. That is a real two-state domain, not a feature flag: the
+event caller always supplies one, the clock caller never does, and `assembleTriggerEvent` returns a
+non-optional value that is at minimum `{type, timestamp}`. There is no path where an event-fired run
+reaches the agent with the section missing.
+
+## Subjects: every event that carries an id now delivers it
+
+The first implementation resolved only `taskId` and `betId`, so 6 event types got a rich subject and the
+other **28 delivered a bare type label** — while the events themselves were carrying `threadId`,
+`itemId`, `artifactId`, `sessionId`, `teamId`, `routineId`, `agentId` and `userId`. A routine woken by
+`thread_message_appended` received the string `"thread_message_appended"` and could not find the thread.
+That is the doorbell this package existed to replace.
+
+Worse, an integration test *asserted* that a thread event yields no subject — the shortfall was written
+down as intended behaviour, which is why nothing caught it. **A test can encode a gap as correct; that is
+a distinct failure from a test that passes wrongly, and neither shows up as red.**
+
+Now: task and bet get the canonical rich shape, and everything else gets a `generic` subject naming the
+entity kind and id, plus the actor where one is carried. Task and bet reuse the canonical assembly rather
+than a bespoke literal — the first version dropped `appetite` and `doneCondition`, so a routine reacting
+to a bet finishing could not see what was wagered or when it counted as done.
+
+## Verified
+
+- Harness lane, real binaries, no stubs: an agent named the specific task it woke for — a probe token
+  existing nowhere but the triggering task.
+- Sanity-broken three ways, each confirmed red then restored clean: disabling the trigger-event rendering
+  (5 harness cases red), removing the thread subject (the AC4 test red), removing the `When` line (3
+  rendering tests red).
+- `npm run verify` exit 0; service integration lane 2416 passed.
+
+## Known limitations
+
+- **Actor identity is partial.** Events that carry `senderId`, `accessorId` or `agentId` now deliver it,
+  but several events have no actor field at all — `task_state_changed` among them — so "who did it" is
+  structurally unavailable there.
+- **A throwing subject lookup drops that event's firing.** `assembleTriggerEvent` is awaited inside the
+  matcher's un-awaited async handler with no try/catch, alongside the pre-existing `listRoutines` and
+  `originRoutineId` awaits under the same regime. It fails closed — no run — rather than delivering a run
+  with the feature silently off.
+- **Timestamp shapes differ across events.** Most carry a numeric `timestamp`; `work_selection_requested`,
+  `team_created`, `agent_added` and `user_created` carry an ISO string `at`. Both are handled, but a new
+  event type using a third shape would silently stamp assembly time instead.
