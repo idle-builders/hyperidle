@@ -83,11 +83,17 @@ describe("migrations 0062-0064: brownfield upgrade with populated tables", () =>
 			`);
 
 		// Seed: knowledge_items row — will gain NOT NULL role DEFAULT 'ordinary' from 0063
-		// Note: layer/kind/attention_score/confidence/meta were dropped in migration 0011;
-		// scope_kind (NOT NULL DEFAULT 'factory') was added in 0012 and requires no explicit value.
+		// Note: layer/kind/attention_score/confidence/meta were dropped from knowledge_items in
+		// migration 0011; scope_kind (NOT NULL DEFAULT 'factory') was added in 0012.
+		// Companion knowledge_app_projection row required per Ruling 13's companion clause
+		// (crossing-table-write governance rule).
 		await db.execute(sql`
 				INSERT INTO knowledge_items (id, title, body, format, status, updated_by, created_at, updated_at)
 				VALUES ('ki-1', 'Test Doc', 'Body text', 'markdown', 'active', 'user-arc', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z')
+			`);
+		await db.execute(sql`
+				INSERT INTO knowledge_app_projection (id, knowledge_item_id)
+				VALUES ('kap-1', 'ki-1')
 			`);
 
 		// Seed: plugins row — will gain nullable install_path from 0064
@@ -187,14 +193,23 @@ describe("migrations 0062-0064: brownfield upgrade with populated tables", () =>
 				VALUES ('user-fresh', '{"temperature":0.7}')
 			`);
 
-		// knowledge_items: role column exists, defaults to 'ordinary', accepts valid values
+		// knowledge_items: role column exists, defaults to 'ordinary', accepts valid values.
+		// Companion knowledge_app_projection rows required per Ruling 13's companion clause.
 		await db.execute(sql`
 				INSERT INTO knowledge_items (id, title, body, format, status, updated_by, created_at, updated_at)
 				VALUES ('ki-fresh', 'Fresh', 'Body', 'markdown', 'active', 'user-fresh', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z')
 			`);
 		await db.execute(sql`
+				INSERT INTO knowledge_app_projection (id, knowledge_item_id)
+				VALUES ('kap-fresh', 'ki-fresh')
+			`);
+		await db.execute(sql`
 				INSERT INTO knowledge_items (id, title, body, format, status, updated_by, created_at, updated_at, role)
 				VALUES ('ki-skill', 'Skill', 'Body', 'markdown', 'active', 'user-fresh', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z', 'skill')
+			`);
+		await db.execute(sql`
+				INSERT INTO knowledge_app_projection (id, knowledge_item_id)
+				VALUES ('kap-skill', 'ki-skill')
 			`);
 
 		const freshKiRows = await db.execute(sql`
