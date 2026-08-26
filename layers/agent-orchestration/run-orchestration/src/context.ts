@@ -1,7 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { BakedContextBundle, BakedContextKnowledgeItem } from "@hyperidle/domain-model";
+import type {
+	BakedContextBundle,
+	BakedContextKnowledgeItem,
+	RoutineTriggerEvent,
+} from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -124,6 +128,11 @@ interface RoutineSessionContextData {
 		id: string;
 		name: string;
 	} | null;
+	/**
+	 * BA9c: The event that caused this routine to fire. Absent for clock-fired
+	 * (heartbeat/calendar) routines.
+	 */
+	triggerEvent?: RoutineTriggerEvent;
 }
 
 /** Map a `kind:"routine"` baked `contextBundle` onto `RoutineSessionContextData` — a pure passthrough. */
@@ -134,6 +143,8 @@ function routineSessionContextDataFromBundle(
 		routine: bundle.routine,
 		agent: bundle.agent,
 		team: bundle.team,
+		// BA9c: thread through the trigger event (absent for clock-fired runs).
+		...(bundle.triggerEvent !== undefined ? { triggerEvent: bundle.triggerEvent } : {}),
 	};
 }
 
@@ -444,14 +455,47 @@ interface RoutinePromptCompositionInput {
 
 /**
  * Build the routine section markdown (AA2).
- * Replaces buildTaskSection for routine sessions — shows routine name/purpose
- * and last run summary instead of task/bet context.
+ * Replaces buildTaskSection for routine sessions — shows routine name/purpose,
+ * last run summary, and (BA9c) the trigger event context when this run was
+ * caused by a domain event rather than a clock tick.
  */
 function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 	const parts: string[] = ["## Routine", "", `**Name:** ${context.routine.name}`];
 
 	if (context.routine.prompt) {
 		parts.push("", "### Instruction", "", context.routine.prompt);
+	}
+
+	// BA9c: render trigger event context when present.
+	if (context.triggerEvent) {
+		const ev = context.triggerEvent;
+		parts.push("");
+		parts.push("### Trigger Event");
+		parts.push("");
+		parts.push(`**Event type:** ${ev.type}`);
+		if (ev.transition) {
+			parts.push(`**Transition:** ${ev.transition.from} → ${ev.transition.to}`);
+		}
+		if (ev.subject) {
+			if (ev.subject.kind === "task") {
+				parts.push("");
+				parts.push("**Task that triggered this run:**");
+				parts.push(`- **Title:** ${ev.subject.task.title}`);
+				parts.push(`- **ID:** ${ev.subject.task.id}`);
+				parts.push(`- **State:** ${ev.subject.task.state}`);
+				if (ev.subject.task.description) {
+					parts.push(`- **Description:** ${ev.subject.task.description}`);
+				}
+				parts.push("");
+				parts.push("**Bet this task belongs to:**");
+				parts.push(`- **Description:** ${ev.subject.bet.description}`);
+			} else if (ev.subject.kind === "bet") {
+				parts.push("");
+				parts.push("**Bet that triggered this run:**");
+				parts.push(`- **Description:** ${ev.subject.bet.description}`);
+				parts.push(`- **ID:** ${ev.subject.bet.id}`);
+			}
+		}
 	}
 
 	parts.push("");

@@ -52,7 +52,7 @@
 import * as crypto from "node:crypto";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
+import type { AgentSessionSourceKind, RoutineTriggerEvent } from "@hyperidle/domain-model";
 import {
 	type AgentWorkIntentSourceKind,
 	type BetStateChangedEvent,
@@ -580,6 +580,13 @@ export async function fireGenericRoutine(
 	routine: Routine,
 	ports: RoutineSchedulerPorts,
 	recordSkippedRun = false,
+	/**
+	 * BA9c: The event that caused this routine to fire, pre-assembled by
+	 * `registerRoutineEventMatcher`. Absent for clock-fired (heartbeat/calendar)
+	 * routines — the default `undefined` is semantically correct there,
+	 * not a feature flag (clock-fired routines genuinely have no trigger event).
+	 */
+	triggerEvent?: RoutineTriggerEvent,
 ): Promise<FireResult> {
 	const now = new Date();
 	const [runningRow] = await listRoutineRuns(db, {
@@ -622,6 +629,8 @@ export async function fireGenericRoutine(
 				// `settings.readServerConfig` for the `harnessDisabled` bake — no
 				// second `settings` read.
 				readServerConfig: (db) => ports.settings.readServerConfig(db),
+				// BA9c: forward the pre-assembled trigger event (absent for clock-fired runs).
+				...(triggerEvent !== undefined ? { triggerEvent } : {}),
 			});
 		});
 	} catch (error) {
@@ -754,6 +763,84 @@ async function originRoutineId(db: HyperIdleDb, event: DomainEvent): Promise<str
 }
 
 /**
+ * BA9c — assemble a RoutineTriggerEvent from a domain event and the DB.
+ *
+ * For events with a `taskId`: load the task and its bet (via the task's
+ * `betId`). For events with only a `betId`: load the bet directly. For all
+ * events: include `type` and `timestamp`. For state-transition events: include
+ * `transition`. Events with no recognizable entity (e.g. thread events without
+ * a task/bet link) carry only type+timestamp — the `subject` is omitted, not
+ * `null`, so callers can distinguish "absent" from "loaded and empty".
+ *
+ * @lore BA9c: assembly happens here (in the scheduler, which has the event and
+ * the ports) not in the resolver — the resolver just threads whatever
+ * RoutineTriggerEvent it receives. This keeps the subject DB-fresh at fire time.
+ */
+async function assembleTriggerEvent(
+	db: HyperIdleDb,
+	event: DomainEvent,
+	ports: RoutineSchedulerPorts,
+): Promise<RoutineTriggerEvent> {
+	// Cast to Record<string, unknown> for safe structural probing across the DomainEvent union.
+	// Uses 'unknown' intermediate to satisfy strict cast overlap check.
+	const rec = event as unknown as Record<string, unknown>;
+
+	const base: RoutineTriggerEvent = {
+		type: event.type,
+		// timestamp is present on every DomainEvent variant at runtime, but TypeScript
+		// cannot prove it on the union type level — read via the structural cast.
+		timestamp: typeof rec.timestamp === "number" ? rec.timestamp : Date.now(),
+	};
+
+	// Extract transition (fromState/toState) from events that carry one.
+	const transition =
+		typeof rec.fromState === "string" && typeof rec.toState === "string"
+			? { from: rec.fromState, to: rec.toState }
+			: undefined;
+
+	// Attempt to load a task subject when the event carries a taskId.
+	const taskId = typeof rec.taskId === "string" ? rec.taskId : null;
+	if (taskId) {
+		const task = await ports.work.getTaskById(db, taskId);
+		if (task) {
+			const bet = task.betId ? await ports.work.getBetById(db, task.betId) : null;
+			return {
+				...base,
+				...(transition ? { transition } : {}),
+				subject: {
+					kind: "task",
+					task: {
+						id: task.id,
+						title: task.title,
+						description: task.description,
+						state: task.state,
+					},
+					bet: bet
+						? { id: bet.id, description: bet.description }
+						: { id: task.betId ?? "unknown", description: "" },
+				},
+			};
+		}
+	}
+
+	// Attempt to load a bet subject when the event carries a betId (and no taskId matched).
+	const betId = typeof rec.betId === "string" ? rec.betId : null;
+	if (betId) {
+		const bet = await ports.work.getBetById(db, betId);
+		if (bet) {
+			return {
+				...base,
+				...(transition ? { transition } : {}),
+				subject: { kind: "bet", bet: { id: bet.id, description: bet.description } },
+			};
+		}
+	}
+
+	// No recognizable entity — return type+timestamp (+ transition if present).
+	return { ...base, ...(transition ? { transition } : {}) };
+}
+
+/**
  * BA1 D2 — replaces `registerEventTriggers`. One `eventBus.on` per member of
  * `EVENT_TYPES` (a compile-time constant — D8), not one per routine read
  * once at boot: the subscription set cannot go stale because it is not
@@ -787,8 +874,10 @@ function registerRoutineEventMatcher(
 				if (candidates.length === 0) return;
 				const origin = await originRoutineId(db, event);
 				const toFire = origin ? candidates.filter((routine) => routine.id !== origin) : candidates;
+				// BA9c: assemble the trigger event once, shared across all matching routines.
+				const triggerEvent = await assembleTriggerEvent(db, event, ports);
 				for (const routine of toFire) {
-					fireGenericRoutine(db, eventBus, routine, ports).catch(() => {
+					fireGenericRoutine(db, eventBus, routine, ports, false, triggerEvent).catch(() => {
 						/* fire-and-forget: generic firing is resilient internally */
 					});
 				}

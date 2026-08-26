@@ -40,6 +40,24 @@ import type { EventBus } from "@hyperidle/event-bus";
 export interface RoutineSchedulerPorts {
 	readonly work: {
 		getBetById(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
+		/**
+		 * BA9c: Load a task row for trigger event subject assembly. Called in
+		 * `registerRoutineEventMatcher` when a task event fires and the scheduler
+		 * needs to include the task (and its bet) in the `RoutineTriggerEvent`.
+		 */
+		getTaskById(
+			db: HyperIdleDb,
+			id: string,
+		): Promise<
+			| {
+					readonly id: string;
+					readonly title: string;
+					readonly description: string | null;
+					readonly state: string;
+					readonly betId: string | null;
+			  }
+			| undefined
+		>;
 		createItem(exec: WriteExecutor, values: NewItem): Promise<void>;
 		findRetroItemByThreadIds(
 			db: HyperIdleDb,

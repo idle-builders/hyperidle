@@ -257,6 +257,53 @@ export function toBakedContextKnowledgeItems(
  * `routine_run`'s (see that resolver test's `@lore`), not an
  * implementation-detail guess. Flagged for architecture reconciliation.
  */
+/**
+ * The event that caused an event-triggered routine to fire.
+ * Assembled by the scheduler at fire-time; threaded into the baked bundle so
+ * the running agent knows what happened and who was involved.
+ *
+ * @lore BA9c: Lives in domain-model (not event-bus) to avoid a circular
+ * dependency — event-bus already imports from domain-model. Uses plain
+ * `string` for `type` rather than importing `DomainEvent`.
+ */
+export interface RoutineTriggerEvent {
+	/** The domain event type string (e.g. "task_state_changed"). */
+	readonly type: string;
+	/** Unix timestamp (ms) of the original domain event. */
+	readonly timestamp: number;
+	/** State transition when the event carries one (fromState/toState). */
+	readonly transition?: {
+		readonly from: string;
+		readonly to: string;
+	};
+	/**
+	 * The entity the event concerns, assembled as fully as possible from the DB.
+	 * Absent when the event type carries no identifiable entity (e.g. generic
+	 * thread events without a task/bet link).
+	 */
+	readonly subject?:
+		| {
+				readonly kind: "task";
+				readonly task: {
+					readonly id: string;
+					readonly title: string;
+					readonly description: string | null;
+					readonly state: string;
+				};
+				readonly bet: {
+					readonly id: string;
+					readonly description: string;
+				};
+		  }
+		| {
+				readonly kind: "bet";
+				readonly bet: {
+					readonly id: string;
+					readonly description: string;
+				};
+		  };
+}
+
 export type BakedContextBundle =
 	| {
 			readonly kind: "task";
@@ -289,6 +336,11 @@ export type BakedContextBundle =
 			/** BA1 D4: nullable — the owner agent may belong to no team. */
 			readonly team: { readonly id: string; readonly name: string } | null;
 			readonly knowledge: readonly BakedContextKnowledgeItem[];
+			/**
+			 * BA9c: The event that caused this routine to fire. Absent for clock-fired
+			 * (heartbeat/calendar) routines — those have no triggering event.
+			 */
+			readonly triggerEvent?: RoutineTriggerEvent;
 	  }
 	| {
 			readonly kind: "knowledge";

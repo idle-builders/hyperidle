@@ -49,6 +49,7 @@ import {
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
+	RoutineTriggerEvent,
 	SessionKnowledgeItemLike,
 } from "@hyperidle/domain-model";
 import { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "@hyperidle/domain-model";
@@ -406,6 +407,12 @@ export interface RoutineRunResolverDeps {
 	 * (matches `admitSession`'s "absent = nothing disabled" degrade).
 	 */
 	readServerConfig?(db: HyperIdleDb): Promise<{ readonly harnessDisabled: readonly string[] }>;
+	/**
+	 * BA9c: The event that caused this routine to fire, already assembled by
+	 * the scheduler. The resolver just threads it into the baked bundle — no
+	 * second DB read here. Absent for clock-fired (heartbeat/calendar) routines.
+	 */
+	triggerEvent?: RoutineTriggerEvent;
 }
 
 /**
@@ -504,6 +511,8 @@ export async function resolveRoutineRunRequest(
 			agent: { id: agent.id, name: agent.name, role: agent.role },
 			team,
 			knowledge: toBakedContextKnowledgeItems(knowledge),
+			// BA9c: thread through the pre-assembled triggerEvent; absent for clock-fired runs.
+			...(deps.triggerEvent !== undefined ? { triggerEvent: deps.triggerEvent } : {}),
 		};
 	}
 	const { readServerConfig } = deps;

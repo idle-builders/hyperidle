@@ -87,6 +87,8 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 	return {
 		work: {
 			getBetById: (db, id) => work.get(db, "bet", id),
+			// BA9c: getTaskById for trigger event subject assembly.
+			getTaskById: (db, id) => work.get(db, "task", id),
 			createItem: (exec, values) => work.create(exec, "item", values),
 			findRetroItemByThreadIds: async (db, threadIds, marker) => {
 				const rows = await work.list(db, "item", { threadIds, bodyMarker: marker });
