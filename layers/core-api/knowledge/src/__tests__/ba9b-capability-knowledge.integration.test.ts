@@ -66,6 +66,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Ship feature X",
+			agentId: generateId(),
 		});
 
 		const skill = items.find((i) => i.title === "write-tests" && i.role === "skill");
@@ -89,12 +90,14 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			teamId: teamA,
 			agentRole: "builder",
 			taskDescription: "Work item",
+			agentId: generateId(),
 		});
 
 		const itemsForTeamB = await assembleSessionKnowledge(db, {
 			teamId: teamB,
 			agentRole: "builder",
 			taskDescription: "Work item",
+			agentId: generateId(),
 		});
 
 		const skillA = itemsForTeamA.find((i) => i.title === "team-a-skill");
@@ -150,6 +153,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Work",
+			agentId: generateId(),
 		});
 
 		const rule = items.find((i) => i.title === "no-console-rule" && i.role === "rule");
@@ -193,6 +197,7 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 			teamId: `any-team-${generateId()}`,
 			agentRole: "builder",
 			taskDescription: "Work",
+			agentId: generateId(),
 		});
 
 		const matching = items.filter((i) => i.title === `dedup-skill-${id}`);

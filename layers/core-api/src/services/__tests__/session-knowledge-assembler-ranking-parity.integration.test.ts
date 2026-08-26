@@ -194,6 +194,7 @@ describe("assembleSessionKnowledge — ranking parity with the pre-migration pat
 			teamId: TEAM_ID,
 			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
+			agentId: AGENT_ID,
 		});
 		const ids = new Set(budgeted.map((item) => item.id));
 
@@ -214,6 +215,7 @@ describe("assembleSessionKnowledge — ranking parity with the pre-migration pat
 			teamId: TEAM_ID,
 			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
+			agentId: AGENT_ID,
 		});
 
 		const zoneByLayer: Record<string, string> = {
@@ -252,6 +254,7 @@ describe("assembleSessionKnowledge — ranking parity with the pre-migration pat
 			teamId: TEAM_ID,
 			agentRole: AGENT_ROLE,
 			taskDescription: TASK_DESCRIPTION,
+			agentId: AGENT_ID,
 		});
 		const ids = new Set(budgeted.map((item) => item.id));
 		expect(ids.has("item-i12-l2-out")).toBe(false);
