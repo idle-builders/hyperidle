@@ -73,7 +73,6 @@ export interface HarnessModelOptionDescriptor {
 	readonly helpText?: string;
 	readonly control: HarnessModelOptionControl;
 	readonly required: boolean;
-	readonly scope: "launch" | "durable";
 	readonly defaultValue?: string | number | boolean;
 }
 

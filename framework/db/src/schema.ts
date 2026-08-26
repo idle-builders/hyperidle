@@ -122,6 +122,17 @@ export const agentRunConfig = pgTable("agent_run_config", {
 	modelId: text("model_id"),
 	modelProvider: text("model_provider"),
 	maxConcurrentSessions: integer("max_concurrent_sessions").notNull().default(1),
+	/**
+	 * The harness options this agent's model runs with, as a JSON object of the
+	 * option keys the harness declares for that model.
+	 *
+	 * Nullable with no default: an agent configured before this column existed,
+	 * or one whose options were never touched, reads as `{}` and runs exactly as
+	 * it did before. Sparse by design — only a value the user moved away from the
+	 * harness's own default is stored, so an absent key means "whatever the
+	 * harness does", not "unset".
+	 */
+	modelOptionsJson: text("model_options_json"),
 });
 
 // --- Process primitives ---

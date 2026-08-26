@@ -36,8 +36,37 @@ declares, and the empty state matters (most harnesses declare nothing). Not a ne
   fix, one layer lower.
 - An agent with no options configured must run exactly as it does today.
 
-**Out of scope.** Per-message or per-run option overrides. Exposing options for harnesses that do not
-declare any. Changing which models an agent may use.
+**Out of scope.** Per-message or per-run option overrides. Inventing options for a harness that has
+none. Changing which models an agent may use, *except* where a harness must publish a model list in
+order for its real options to hang off one (see the amendment below).
+
+## Amendment — 2026-08-25 (founder, at the concept gate)
+
+**Every supported harness that genuinely exposes per-model options declares them in this package, not
+a later one.** The original plan required only the *first* real declaration, to stop the pass-through
+shipping without a consumer. That floor stands, but it is no longer the ceiling: shipping with Claude
+alone would leave the same feature visibly empty for the other four harnesses, which is the defect
+this package exists to remove, merely narrowed rather than fixed.
+
+Consequences, decided with this amendment:
+
+- Each of the five supported harnesses (`claude-code`, `codex`, `opencode`, `cursor-agent`, `builtin`)
+  is investigated against its **real installed binary or API**, and every per-model option it genuinely
+  exposes is declared. A harness that truly exposes none declares none — that is a finding, not a gap,
+  and it must be recorded with the evidence that established it.
+- **Codex's model list is now in scope.** Options hang off a model, and codex publishes no model list
+  today, so its real `model_reasoning_effort` option cannot be reached without one. Adding that list is
+  part of this package. This is the one narrow exception to "changing which models an agent may use" —
+  it adds a harness's own models where none were published, and changes no model choice a user already has.
+- No option may be declared from memory or documentation alone. Each is verified against the running
+  binary or API, with the version and date recorded.
+
+**Amended acceptance criteria** (in addition to the five above):
+
+- Every supported harness that genuinely exposes per-model options declares them, and a run of an agent
+  on that harness carries them through to the harness.
+- A harness that exposes no per-model options is recorded as such with the evidence behind that finding.
+- Codex publishes its model list, and its real per-model option is reachable and carried through.
 
 ## Acceptance criteria
 

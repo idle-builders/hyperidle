@@ -440,14 +440,21 @@
 			"idx": 62,
 			"version": "7",
 			"when": 1785657600000,
-			"tag": "0062_BA9b_knowledge_role",
+			"tag": "0062_agent_model_options",
 			"breakpoints": true
 		},
 		{
 			"idx": 63,
 			"version": "7",
 			"when": 1785661200000,
-			"tag": "0063_BA9b_plugin_install_path",
+			"tag": "0063_BA9b_knowledge_role",
+			"breakpoints": true
+		},
+		{
+			"idx": 64,
+			"version": "7",
+			"when": 1785664800000,
+			"tag": "0064_BA9b_plugin_install_path",
 			"breakpoints": true
 		}
 	]

@@ -1,7 +1,7 @@
 /**
  * AU26 G1 — the sole reader/writer of `agent_run_config` (architecture §D-L).
  *
- * @lore AU26 G1: these six fields lived on `users` until AU26. Core administers
+ * @lore AU26 G1: these fields (six at the time) lived on `users` until AU26. Core administers
  * them (Settings → Agents writes them, the agent profile renders them) but
  * never operationally consumes them for its own purpose — only an agent's
  * session does. So the columns relocated into an `agent-orchestration`-owned
@@ -26,6 +26,54 @@ import {
 } from "@hyperidle/db";
 import { eq, inArray } from "drizzle-orm";
 
+/**
+ * A harness option's value. The four control shapes a harness may declare
+ * (select, boolean, number, text) collapse to these three value types.
+ */
+export type ModelOptionValue = string | number | boolean;
+
+/**
+ * The options an agent's model runs with, keyed by the option keys its harness
+ * declares for that model.
+ *
+ * **Sparse.** Only a value the user moved away from the harness's own default is
+ * present. An absent key means "whatever the harness does" — never "unset" —
+ * which is what keeps an agent that was never configured running exactly as it
+ * did before this existed, and stops an agent being frozen to whatever the
+ * default happened to be the day someone opened the editor.
+ */
+export type ModelOptions = Readonly<Record<string, ModelOptionValue>>;
+
+/**
+ * Parse the stored JSON text into options.
+ *
+ * Anything that is not a JSON object of scalar values reads as no options. The
+ * column is written only by {@link writeAgentRunConfig}, so a value that fails
+ * this is a corrupted or hand-edited row; degrading to "no options" makes such a
+ * row behave as an unconfigured agent rather than failing the agent's run.
+ */
+function parseModelOptions(raw: string | null): ModelOptions {
+	if (raw === null) return {};
+	try {
+		const parsed: unknown = JSON.parse(raw);
+		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+		const out: Record<string, ModelOptionValue> = {};
+		for (const [key, value] of Object.entries(parsed)) {
+			if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+				out[key] = value;
+			}
+		}
+		return out;
+	} catch {
+		return {};
+	}
+}
+
+/** Serialize options for storage. No options is stored as NULL, not as `"{}"`. */
+function serializeModelOptions(options: ModelOptions): string | null {
+	return Object.keys(options).length === 0 ? null : JSON.stringify(options);
+}
+
 /** One agent's run configuration, keyless — the `users.id` is the caller's context. */
 export interface AgentRunConfig {
 	readonly systemPrompt: string | null;
@@ -34,6 +82,7 @@ export interface AgentRunConfig {
 	readonly modelId: string | null;
 	readonly modelProvider: string | null;
 	readonly maxConcurrentSessions: number;
+	readonly modelOptions: ModelOptions;
 }
 
 /**
@@ -48,6 +97,7 @@ export const DEFAULT_AGENT_RUN_CONFIG: AgentRunConfig = {
 	modelId: null,
 	modelProvider: null,
 	maxConcurrentSessions: 1,
+	modelOptions: {},
 };
 
 /**
@@ -69,7 +119,22 @@ const CONFIG_COLUMNS = {
 	modelId: agentRunConfig.modelId,
 	modelProvider: agentRunConfig.modelProvider,
 	maxConcurrentSessions: agentRunConfig.maxConcurrentSessions,
+	modelOptionsJson: agentRunConfig.modelOptionsJson,
 } as const;
+
+/** Map a selected row's columns onto the config shape. */
+function rowToConfig(row: {
+	systemPrompt: string | null;
+	harnessType: string | null;
+	modelTierPreference: string | null;
+	modelId: string | null;
+	modelProvider: string | null;
+	maxConcurrentSessions: number;
+	modelOptionsJson: string | null;
+}): AgentRunConfig {
+	const { modelOptionsJson, ...rest } = row;
+	return { ...rest, modelOptions: parseModelOptions(modelOptionsJson) };
+}
 
 /** Read one agent's effective run config. Never `undefined` — see this module's `@lore`. */
 export async function readAgentRunConfig(
@@ -81,7 +146,7 @@ export async function readAgentRunConfig(
 		.from(agentRunConfig)
 		.where(eq(agentRunConfig.agentUserId, agentUserId))
 		.limit(1);
-	return row ?? DEFAULT_AGENT_RUN_CONFIG;
+	return row ? rowToConfig(row) : DEFAULT_AGENT_RUN_CONFIG;
 }
 
 /**
@@ -104,8 +169,8 @@ export async function readAgentRunConfigs(
 		.from(agentRunConfig)
 		.where(inArray(agentRunConfig.agentUserId, [...agentUserIds]));
 
-	for (const { agentUserId, ...config } of rows) {
-		result.set(agentUserId, config);
+	for (const { agentUserId, ...row } of rows) {
+		result.set(agentUserId, rowToConfig(row));
 	}
 	return result;
 }
@@ -132,6 +197,9 @@ export async function writeAgentRunConfig(
 		modelProvider: patch.modelProvider ?? DEFAULT_AGENT_RUN_CONFIG.modelProvider,
 		maxConcurrentSessions:
 			patch.maxConcurrentSessions ?? DEFAULT_AGENT_RUN_CONFIG.maxConcurrentSessions,
+		modelOptionsJson: serializeModelOptions(
+			patch.modelOptions ?? DEFAULT_AGENT_RUN_CONFIG.modelOptions,
+		),
 	};
 
 	const updateSet: Partial<NewAgentRunConfigRow> = {};
@@ -143,6 +211,8 @@ export async function writeAgentRunConfig(
 	if ("modelProvider" in patch) updateSet.modelProvider = patch.modelProvider ?? null;
 	if (patch.maxConcurrentSessions !== undefined)
 		updateSet.maxConcurrentSessions = patch.maxConcurrentSessions;
+	if ("modelOptions" in patch)
+		updateSet.modelOptionsJson = serializeModelOptions(patch.modelOptions ?? {});
 
 	const insert = exec.insert(agentRunConfig).values(insertValues);
 	if (Object.keys(updateSet).length === 0) {

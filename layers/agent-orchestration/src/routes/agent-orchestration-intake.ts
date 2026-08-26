@@ -219,6 +219,14 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 				modelId: z.string().nullable().optional(),
 				modelProvider: z.string().nullable().optional(),
 				maxConcurrentSessions: z.number().optional(),
+				// @lore Every field on a run-config patch is optional, so omitting one
+				// here still satisfies `AgentOrchestrationRunConfigPatch` — the
+				// `satisfies` below cannot catch a field this schema forgets, and a
+				// forgotten field is silently stripped at the seam rather than
+				// rejected. Add the field here whenever the view gains one.
+				modelOptions: z
+					.record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+					.optional(),
 			}) satisfies z.ZodType<AgentOrchestrationRunConfigPatch>,
 		),
 		async (c) => {

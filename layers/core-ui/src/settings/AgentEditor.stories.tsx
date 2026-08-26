@@ -98,7 +98,25 @@ const CLAUDE_CODE_DESCRIPTOR = {
 			contextWindow: 1000000,
 			selectable: true,
 			inheritedFromGateway: false,
-			options: [],
+			// What `claude --help` actually declares — see harness-discovery.
+			options: [
+				{
+					key: "effort",
+					label: "Effort",
+					helpText: "How much the model works before answering.",
+					control: {
+						kind: "select" as const,
+						choices: [
+							{ value: "low", label: "low" },
+							{ value: "medium", label: "medium" },
+							{ value: "high", label: "high" },
+							{ value: "xhigh", label: "xhigh" },
+							{ value: "max", label: "max" },
+						],
+					},
+					required: false,
+				},
+			],
 		},
 		{
 			id: "claude-haiku-4-5",
@@ -144,6 +162,7 @@ function NormalAgentEditor(): JSX.Element {
 		modelProvider: "openrouter",
 		maxConcurrentSessions: 1,
 		filesystemIds: [],
+		modelOptions: {},
 	});
 
 	return (
@@ -177,6 +196,7 @@ function AssistantAgentEditor(): JSX.Element {
 		modelProvider: "anthropic",
 		maxConcurrentSessions: 1,
 		filesystemIds: [],
+		modelOptions: {},
 	});
 
 	return (
@@ -209,6 +229,7 @@ function EmptyModelsEditor(): JSX.Element {
 		modelProvider: null,
 		maxConcurrentSessions: 1,
 		filesystemIds: [],
+		modelOptions: {},
 	});
 
 	return (
@@ -243,6 +264,7 @@ export const SavingState = (): JSX.Element => (
 			modelProvider: "openrouter",
 			maxConcurrentSessions: 1,
 			filesystemIds: [],
+			modelOptions: {},
 		}}
 		onDraftChange={() => undefined}
 		harnesses={ALL_HARNESSES}
@@ -269,6 +291,7 @@ export const WithError = (): JSX.Element => (
 			modelProvider: "openrouter",
 			maxConcurrentSessions: 1,
 			filesystemIds: [],
+			modelOptions: {},
 		}}
 		onDraftChange={() => undefined}
 		harnesses={ALL_HARNESSES}
@@ -276,5 +299,59 @@ export const WithError = (): JSX.Element => (
 		onCancel={() => undefined}
 		saving={false}
 		error="Model provider 'openrouter' is not supported by this harness. Allowed: anthropic."
+	/>
+);
+
+// ---------------------------------------------------------------------------
+// WithModelOptions: the selected model declares options, set once for the agent
+// ---------------------------------------------------------------------------
+
+export const WithModelOptions = (): JSX.Element => (
+	<AgentEditor
+		agentId="agent-atlas"
+		draft={{
+			name: "Atlas",
+			role: "builder",
+			systemPrompt: "You are Atlas.",
+			harnessType: "claude-code",
+			modelId: "claude-sonnet-4-6",
+			modelProvider: "anthropic",
+			maxConcurrentSessions: 1,
+			filesystemIds: [],
+			modelOptions: { effort: "high" },
+		}}
+		onDraftChange={() => undefined}
+		harnesses={ALL_HARNESSES}
+		onSave={() => undefined}
+		onCancel={() => undefined}
+		saving={false}
+		error={null}
+	/>
+);
+
+// ---------------------------------------------------------------------------
+// NoModelOptions: the selected model declares none — the section is absent
+// ---------------------------------------------------------------------------
+
+export const NoModelOptions = (): JSX.Element => (
+	<AgentEditor
+		agentId="agent-atlas"
+		draft={{
+			name: "Atlas",
+			role: "builder",
+			systemPrompt: "You are Atlas.",
+			harnessType: "claude-code",
+			modelId: "claude-haiku-4-5",
+			modelProvider: "anthropic",
+			maxConcurrentSessions: 1,
+			filesystemIds: [],
+			modelOptions: {},
+		}}
+		onDraftChange={() => undefined}
+		harnesses={ALL_HARNESSES}
+		onSave={() => undefined}
+		onCancel={() => undefined}
+		saving={false}
+		error={null}
 	/>
 );

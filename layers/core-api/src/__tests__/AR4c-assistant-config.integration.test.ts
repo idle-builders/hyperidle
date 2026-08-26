@@ -184,4 +184,54 @@ describe("AR4c: PATCH /api/users/:userId/assistant — harness+model config", ()
 		expect(body.modelId).toBe("deepseek/deepseek-v4-flash");
 		expect(body.modelProvider).toBe("openrouter");
 	});
+
+	test("model options set on an assistant persist, and come back on GET", async ({ db, app }) => {
+		// The Agents editor is shared between normal agents and assistants. An
+		// assistant on claude-code renders an Effort control, so an option the
+		// assistant route dropped would be offered, set, saved and silently lost —
+		// the exact defect this work removes, reproduced for assistants.
+		const userId = "assistant-model-options-user";
+		await seedUser(db, userId);
+
+		const res = await app.request(`/api/users/${userId}/assistant`, {
+			method: "PATCH",
+			headers: authHeaders(userId),
+			body: JSON.stringify({
+				harnessType: "builtin",
+				modelId: "deepseek/deepseek-v4-flash",
+				modelProvider: "openrouter",
+				modelOptions: { reasoning_effort: "high" },
+			}),
+		});
+
+		expect(res.status).toBe(200);
+		expect((await res.json()) as { modelOptions: Record<string, unknown> }).toMatchObject({
+			modelOptions: { reasoning_effort: "high" },
+		});
+
+		const getRes = await app.request(`/api/users/${userId}/assistant`, {
+			headers: authHeaders(userId),
+		});
+		expect((await getRes.json()) as { modelOptions: Record<string, unknown> }).toMatchObject({
+			modelOptions: { reasoning_effort: "high" },
+		});
+	});
+
+	test("an assistant nobody configured options for has none", async ({ db, app }) => {
+		const userId = "assistant-no-options-user";
+		await seedUser(db, userId);
+
+		await app.request(`/api/users/${userId}/assistant`, {
+			method: "PATCH",
+			headers: authHeaders(userId),
+			body: JSON.stringify({ systemPrompt: "no options here" }),
+		});
+
+		const getRes = await app.request(`/api/users/${userId}/assistant`, {
+			headers: authHeaders(userId),
+		});
+		expect((await getRes.json()) as { modelOptions: Record<string, unknown> }).toMatchObject({
+			modelOptions: {},
+		});
+	});
 });

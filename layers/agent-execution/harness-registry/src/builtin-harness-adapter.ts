@@ -11,6 +11,9 @@
  * the provisioning orchestrator.
  */
 
+// @lore X6: ModelTier is exported twice from @hyperidle/domain-model — once as ModelTier from types.ts
+// and once as MoneyModelTier from types/money.ts (same type, different alias). We import
+// ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
 import type { ModelTier, TierTokenCount, TokenUsage } from "@hyperidle/domain-model";
 import type {
 	ConversationMessage,
@@ -23,9 +26,6 @@ import type {
 	ToolRegistry,
 } from "@hyperidle/harness-protocol";
 import { isRequiredReturnAction, shouldForceReturn } from "@hyperidle/harness-protocol";
-// @lore X6: ModelTier is exported twice from @hyperidle/domain-model — once as ModelTier from types.ts
-// and once as MoneyModelTier from types/money.ts (same type, different alias). We import
-// ModelTier (not MoneyModelTier) for consistency with the rest of the codebase.
 import { isAboveThreshold, modelContextWindow } from "./context-window.js";
 import { callLlm } from "./llm-client.js";
 import type {
@@ -35,6 +35,7 @@ import type {
 	LlmToolResultBlock,
 	LlmToolUseBlock,
 } from "./llm-types.js";
+import { modelOptionRequestFields } from "./model-options.js";
 
 /** Configuration options for the built-in harness. */
 interface BuiltinHarnessOptions {
@@ -130,6 +131,21 @@ function formatMessagesForSummary(messages: LlmMessage[]): string {
 			return `${role}: ${text}`;
 		})
 		.join("\n");
+}
+
+/**
+ * The agent's configured options, narrowed to the ones this harness carries.
+ *
+ * An agent keeps its options when it switches harness, so a stored set may hold
+ * keys builtin never declared; those are dropped here rather than passed on.
+ * Returns an empty object for an agent with no options, so its request is
+ * identical to what it was before options existed.
+ */
+function builtinModelOptions(config: SessionConfig): {
+	modelOptions?: Readonly<Record<string, string | number | boolean>>;
+} {
+	const fields = modelOptionRequestFields("builtin", config.modelOptions);
+	return Object.keys(fields).length > 0 ? { modelOptions: fields } : {};
 }
 
 export class BuiltinHarnessAdapter implements HarnessAdapter {
@@ -480,6 +496,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 		while (true) {
 			const response = await callLlm({
 				model: resolvedModel,
+				...builtinModelOptions(config),
 				messages: session.messages,
 				// When registry is injected, expose its tool surface; otherwise no tools.
 				tools: session.registry ? session.toolDefs : [],
@@ -607,6 +624,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 		const response = await callLlm({
 			model: resolvedModel,
+			...builtinModelOptions(config),
 			messages: session.messages,
 			tools: session.toolDefs,
 			system: config.assembledPrompt,
@@ -659,6 +677,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 		const response = await callLlm({
 			model: resolvedModel,
+			...builtinModelOptions(config),
 			messages: session.messages,
 			tools: session.toolDefs,
 			system: config.assembledPrompt,
@@ -775,6 +794,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 		const response = await callLlm({
 			model: resolvedModel,
+			...builtinModelOptions(config),
 			messages: session.messages,
 			// No tools during wrap-up
 			system: config.assembledPrompt,
@@ -886,6 +906,7 @@ export class BuiltinHarnessAdapter implements HarnessAdapter {
 
 		const response = await callLlm({
 			model: resolvedModel,
+			...builtinModelOptions(config),
 			messages: session.messages,
 			tools: session.toolDefs,
 			system: config.assembledPrompt,
