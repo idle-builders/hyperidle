@@ -385,7 +385,7 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 			subject: {
 				kind: "task",
 				task: { id: "tsk-x", title: "Feature Alpha", state: "done" },
-				bet: { id: "bet-x", description: "Ship Alpha" },
+				bet: { id: "bet-x", description: "Ship Alpha", appetite: "small", doneCondition: null },
 			},
 		});
 	});
@@ -449,8 +449,7 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 		expect(routineBundle3?.triggerEvent?.type).toBe("bet_state_changed");
 		expect(routineBundle3?.triggerEvent?.subject).toMatchObject({
 			kind: "bet",
-			// Bet subject only carries id+description — no state/appetite/doneCondition.
-			bet: { id: "bet-y", description: "Ship the feature" },
+			bet: { id: "bet-y", description: "Ship the feature", appetite: "large", doneCondition: null },
 		});
 	});
 });

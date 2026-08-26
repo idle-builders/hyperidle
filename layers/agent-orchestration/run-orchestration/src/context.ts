@@ -469,10 +469,12 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 	// BA9c: render trigger event context when present.
 	if (context.triggerEvent) {
 		const ev = context.triggerEvent;
+		const eventTime = new Date(ev.timestamp).toISOString();
 		parts.push("");
 		parts.push("### Trigger Event");
 		parts.push("");
 		parts.push(`**Event type:** ${ev.type}`);
+		parts.push(`**When:** ${eventTime}`);
 		if (ev.transition) {
 			parts.push(`**Transition:** ${ev.transition.from} → ${ev.transition.to}`);
 		}
@@ -489,12 +491,35 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 				parts.push("");
 				parts.push("**Bet this task belongs to:**");
 				parts.push(`- **Description:** ${ev.subject.bet.description}`);
+				if (ev.subject.bet.appetite) {
+					parts.push(`- **Appetite:** ${ev.subject.bet.appetite}`);
+				}
+				if (ev.subject.bet.doneCondition) {
+					parts.push(`- **Done when:** ${ev.subject.bet.doneCondition}`);
+				}
 			} else if (ev.subject.kind === "bet") {
 				parts.push("");
 				parts.push("**Bet that triggered this run:**");
 				parts.push(`- **Description:** ${ev.subject.bet.description}`);
 				parts.push(`- **ID:** ${ev.subject.bet.id}`);
+				if (ev.subject.bet.appetite) {
+					parts.push(`- **Appetite:** ${ev.subject.bet.appetite}`);
+				}
+				if (ev.subject.bet.doneCondition) {
+					parts.push(`- **Done when:** ${ev.subject.bet.doneCondition}`);
+				}
+			} else if (ev.subject.kind === "generic") {
+				parts.push("");
+				const kindLabel =
+					ev.subject.entityKind.charAt(0).toUpperCase() + ev.subject.entityKind.slice(1);
+				parts.push(`**${kindLabel} that triggered this run:**`);
+				parts.push(`- **ID:** ${ev.subject.entityId}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
 			}
+		} else {
+			parts.push("**Subject:** no identifiable entity in this event");
 		}
 	}
 

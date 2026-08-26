@@ -132,6 +132,8 @@ async function assembleRoutineContextIntoSandbox(): Promise<void> {
 				bet: {
 					id: "bet-ba9c-harness-probe",
 					description: "Prove event context reaches the agent prompt",
+					appetite: "",
+					doneCondition: null,
 				},
 			},
 		},

@@ -167,7 +167,12 @@ describe("assembleRoutinePrompt", () => {
 						description: "probe desc",
 						state: "completed",
 					},
-					bet: { id: "b-x", description: "BA9c-PROBE-BET" },
+					bet: {
+						id: "b-x",
+						description: "BA9c-PROBE-BET",
+						appetite: "1 week",
+						doneCondition: "Ships to prod",
+					},
 				},
 			},
 		};
@@ -182,6 +187,11 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).toContain("BA9c-PROBE-TITLE");
 		expect(result.assembledPrompt).toContain("BA9c-PROBE-BET");
 		expect(result.assembledPrompt).toContain("in_progress → completed");
+		// B3: timestamp rendered
+		expect(result.assembledPrompt).toContain("**When:**");
+		// appetite + doneCondition rendered (B1)
+		expect(result.assembledPrompt).toContain("1 week");
+		expect(result.assembledPrompt).toContain("Ships to prod");
 	});
 
 	it("renders ### Trigger Event section when context has a bet triggerEvent", async () => {
@@ -192,7 +202,12 @@ describe("assembleRoutinePrompt", () => {
 				timestamp: 1_700_000_000_000,
 				subject: {
 					kind: "bet" as const,
-					bet: { id: "b-y", description: "BA9c-BET-SUBJECT" },
+					bet: {
+						id: "b-y",
+						description: "BA9c-BET-SUBJECT",
+						appetite: "2 weeks",
+						doneCondition: "All tests green",
+					},
 				},
 			},
 		};
@@ -206,6 +221,55 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).toContain("### Trigger Event");
 		expect(result.assembledPrompt).toContain("BA9c-BET-SUBJECT");
 		expect(result.assembledPrompt).not.toContain("Task that triggered");
+		expect(result.assembledPrompt).toContain("**When:**");
+		expect(result.assembledPrompt).toContain("2 weeks");
+		expect(result.assembledPrompt).toContain("All tests green");
+	});
+
+	it("renders generic subject for non-task/bet events (thread)", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "thread_message_appended",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "generic" as const,
+					entityKind: "thread",
+					entityId: "thread-abc-123",
+					actorId: "user-sender-456",
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("thread-abc-123");
+		expect(result.assembledPrompt).toContain("user-sender-456");
+		expect(result.assembledPrompt).toContain("**When:**");
+	});
+
+	it("renders 'no identifiable entity' when subject is absent", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "notification",
+				timestamp: 1_700_000_000_000,
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("no identifiable entity");
 	});
 
 	it("omits ### Trigger Event section when no triggerEvent (clock-fired path)", async () => {

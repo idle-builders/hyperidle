@@ -389,8 +389,11 @@ describe("BA9c — events without a rich subject carry the event type and timest
 
 			expect(baked.contextBundle.triggerEvent.type).toBe("thread_message_appended");
 			expect(baked.contextBundle.triggerEvent.timestamp).toBeGreaterThan(0);
-			// No subject for this event type — gap is explicit, not silent
-			expect(baked.contextBundle.triggerEvent.subject).toBeUndefined();
+			// B2: thread events carry threadId — retained as generic subject, not dropped
+			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("generic");
+			expect(baked.contextBundle.triggerEvent.subject.entityKind).toBe("thread");
+			expect(baked.contextBundle.triggerEvent.subject.entityId).toBe("thread-ba9c-nosubj");
+			expect(baked.contextBundle.triggerEvent.subject.actorId).toBe("user-ba9c-nosubj");
 		} finally {
 			scheduler.stop();
 		}

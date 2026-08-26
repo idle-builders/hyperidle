@@ -277,9 +277,17 @@ export interface RoutineTriggerEvent {
 		readonly to: string;
 	};
 	/**
-	 * The entity the event concerns, assembled as fully as possible from the DB.
-	 * Absent when the event type carries no identifiable entity (e.g. generic
-	 * thread events without a task/bet link).
+	 * The entity the event concerns, assembled as fully as possible.
+	 *
+	 * - `task`: full task+bet shape, DB-loaded (task_state_changed / dependency_met).
+	 * - `bet`:  full bet shape including appetite+doneCondition, DB-loaded
+	 *           (bet_state_changed / bet_revised).
+	 * - `generic`: for all other event types that carry a named entity id (threadId,
+	 *   itemId, sessionId, artifactId, teamId, agentId, userId, routineId, …).
+	 *   No DB lookup — carries the id directly from the event.
+	 *   `actorId` is set when the event explicitly names who performed the action
+	 *   (senderId, accessorId, agentId on thread/knowledge/session events).
+	 * Absent only when the event carries genuinely no identifying id.
 	 */
 	readonly subject?:
 		| {
@@ -293,6 +301,8 @@ export interface RoutineTriggerEvent {
 				readonly bet: {
 					readonly id: string;
 					readonly description: string;
+					readonly appetite: string;
+					readonly doneCondition: string | null;
 				};
 		  }
 		| {
@@ -300,7 +310,22 @@ export interface RoutineTriggerEvent {
 				readonly bet: {
 					readonly id: string;
 					readonly description: string;
+					readonly appetite: string;
+					readonly doneCondition: string | null;
 				};
+		  }
+		| {
+				/**
+				 * Generic entity carrier for non-task/bet events.
+				 * `entityKind` is a human-readable noun matching the event vocabulary
+				 * (e.g. "thread", "knowledge-item", "session", "artifact", "team",
+				 * "agent", "user", "routine"). `actorId` is the id of the person or
+				 * agent who performed the action when the event names one.
+				 */
+				readonly kind: "generic";
+				readonly entityKind: string;
+				readonly entityId: string;
+				readonly actorId?: string;
 		  };
 }
 
