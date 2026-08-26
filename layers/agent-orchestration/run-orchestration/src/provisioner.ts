@@ -607,7 +607,8 @@ function expandMcpConfigValue(val: unknown, pluginRoot: string): unknown {
  * directly. The data arrives through PluginMcpContributionsPort, wired by the
  * application via CoreApiBoot.pluginMcpContributions → ApplicationProvisionSessionDeps.
  */
-async function mergePluginMcpContributions(
+/** @for-testing exported so the unit test can call it directly without copy-pasting expansion helpers. */
+export async function mergePluginMcpContributions(
 	port: PluginMcpContributionsPort | undefined,
 	mcpJsonPath: string,
 	teamId: string | null,
