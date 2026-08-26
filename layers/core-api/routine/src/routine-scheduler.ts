@@ -808,6 +808,49 @@ async function assembleTriggerEvent(
 	const withTransition = <T extends RoutineTriggerEvent>(t: T): T =>
 		transition ? { ...t, transition } : t;
 
+	// actor = the agent or user who performed the action (senderId, accessorId).
+	// Declared here so the early artifact check below can use it.
+	const actorId =
+		(typeof rec.senderId === "string" ? rec.senderId : undefined) ??
+		(typeof rec.accessorId === "string" ? rec.accessorId : undefined);
+
+	const genericSubject = (
+		entityKind: string,
+		entityId: string,
+		overrideActorId?: string,
+	): RoutineTriggerEvent["subject"] => {
+		const actor = overrideActorId ?? actorId;
+		return {
+			kind: "generic",
+			entityKind,
+			entityId,
+			...(actor !== undefined ? { actorId: actor } : {}),
+		};
+	};
+
+	// ── Artifact check before task: artifact_created carries taskId (producing task) as a secondary
+	// FK reference, not the primary entity. Check artifactId first so artifact_created events
+	// produce kind:"artifact" rather than kind:"task". (Only artifact_created carries artifactId.)
+	if (typeof rec.artifactId === "string") {
+		const artifact = await ports.work.getArtifactById(db, rec.artifactId);
+		if (artifact) {
+			return withTransition({
+				...base,
+				subject: {
+					kind: "artifact",
+					artifact: {
+						id: artifact.id,
+						kind: artifact.kind,
+						label: artifact.label,
+						producingTaskId: artifact.producingTaskId,
+					},
+					...(actorId !== undefined ? { actorId } : {}),
+				},
+			});
+		}
+		return withTransition({ ...base, subject: genericSubject("artifact", rec.artifactId) });
+	}
+
 	// ── Task subject: full DB-loaded shape (task_state_changed, dependency_met) ──
 	const taskId = typeof rec.taskId === "string" ? rec.taskId : null;
 	if (taskId) {
@@ -857,42 +900,103 @@ async function assembleTriggerEvent(
 		}
 	}
 
-	// ── Generic entity subject: carry the id from the event without a DB lookup ──
-	// Priority order: prefer more-specific ids over container ids.
-	// actor = the agent or user who performed the action (senderId, accessorId, agentId).
-	const actorId =
-		(typeof rec.senderId === "string" ? rec.senderId : undefined) ??
-		(typeof rec.accessorId === "string" ? rec.accessorId : undefined);
-
-	const genericSubject = (
-		entityKind: string,
-		entityId: string,
-	): RoutineTriggerEvent["subject"] => ({
-		kind: "generic",
-		entityKind,
-		entityId,
-		...(actorId !== undefined ? { actorId } : {}),
-	});
+	// ── Rich entity subjects: DB-loaded shapes for core entities ──
+	// Priority order (new, BA9c): threadId → itemId → sessionId → agentId → teamId → routineId → userId
+	// agentId before teamId so agent_added → kind:"agent" (not kind:"team").
+	// actorId and genericSubject are declared before the artifact check above.
 
 	// Thread events: thread_created, thread_message_appended, thread_resolved,
 	//               thread_reopened, thread_archived
 	if (typeof rec.threadId === "string") {
+		const thread = await ports.conversation.findThreadById(db, rec.threadId);
+		if (thread) {
+			return withTransition({
+				...base,
+				subject: {
+					kind: "thread",
+					thread: {
+						id: thread.id,
+						hostKind: thread.hostKind,
+						hostId: thread.hostId,
+						resolvedAt: thread.resolvedAt,
+					},
+					...(actorId !== undefined ? { actorId } : {}),
+				},
+			});
+		}
+		// Orphaned thread: fall back to generic with the id from the event.
 		return withTransition({ ...base, subject: genericSubject("thread", rec.threadId) });
 	}
-	// Knowledge/item events: item_created, knowledge_created, knowledge_updated,
-	//                        knowledge_archived, knowledge_accessed
+
+	// Knowledge/item events: distinguish by event type.
+	// item_created → items table (kind:"item"); all others → knowledge_items (kind:"knowledge-item").
 	if (typeof rec.itemId === "string") {
-		return withTransition({ ...base, subject: genericSubject("knowledge-item", rec.itemId) });
+		if (event.type === "item_created") {
+			const item = await ports.work.getItemById(db, rec.itemId);
+			if (item) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "item",
+						item: {
+							id: item.id,
+							title: item.title,
+							kind: item.kind,
+							body: item.body,
+						},
+						...(actorId !== undefined ? { actorId } : {}),
+					},
+				});
+			}
+		} else {
+			const ki = await ports.knowledge.getItemById(db, rec.itemId);
+			if (ki) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "knowledge-item",
+						item: {
+							id: ki.id,
+							title: ki.title,
+							body: ki.body,
+							format: ki.format,
+							version: ki.version,
+						},
+						...(actorId !== undefined ? { actorId } : {}),
+					},
+				});
+			}
+		}
+		// Orphaned entity: fall back to generic.
+		return withTransition({
+			...base,
+			subject: genericSubject(event.type === "item_created" ? "item" : "knowledge-item", rec.itemId),
+		});
 	}
-	// Artifact events: artifact_created
-	if (typeof rec.artifactId === "string") {
-		return withTransition({ ...base, subject: genericSubject("artifact", rec.artifactId) });
-	}
+
 	// Session events: session_started, session_ended, session_handoff_completed,
 	//                session_not_returned, sandbox_writeback_changes_detected, tool_call_recorded
 	if (typeof rec.sessionId === "string") {
 		// For session events, the agentId (not senderId/accessorId) is the actor.
 		const sessionActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
+		if (ports.getSessionById) {
+			const session = await ports.getSessionById(db, rec.sessionId);
+			if (session) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "session",
+						session: {
+							id: session.id,
+							state: session.state,
+							agentId: session.agentId,
+							outcome: session.outcome,
+						},
+						...(sessionActor !== undefined ? { actorId: sessionActor } : {}),
+					},
+				});
+			}
+		}
 		return withTransition({
 			...base,
 			subject: {
@@ -903,20 +1007,52 @@ async function assembleTriggerEvent(
 			},
 		});
 	}
-	// Team/org events: team_created, agent_added, work_selection_requested
-	if (typeof rec.teamId === "string") {
-		// For agent_added, include the agentId as actor.
-		const teamActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
-		return withTransition({
-			...base,
-			subject: {
-				kind: "generic",
-				entityKind: "team",
-				entityId: rec.teamId,
-				...(teamActor !== undefined ? { actorId: teamActor } : {}),
-			},
-		});
+
+	// Agent events: agentId now has priority over teamId (fixes agent_added → kind:"agent").
+	// agent_added carries BOTH agentId and teamId; agentId check first ensures kind:"agent".
+	if (typeof rec.agentId === "string") {
+		if (ports.getAgentById) {
+			const agent = await ports.getAgentById(db, rec.agentId);
+			if (agent) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "agent",
+						agent: {
+							id: agent.id,
+							name: agent.name,
+							role: agent.role,
+						},
+						...(actorId !== undefined ? { actorId } : {}),
+					},
+				});
+			}
+		}
+		return withTransition({ ...base, subject: genericSubject("agent", rec.agentId) });
 	}
+
+	// Team/org events: team_created, work_selection_requested
+	// (agent_added already handled above via agentId)
+	if (typeof rec.teamId === "string") {
+		if (ports.getTeamById) {
+			const team = await ports.getTeamById(db, rec.teamId);
+			if (team) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "team",
+						team: {
+							id: team.id,
+							name: team.name,
+						},
+						...(actorId !== undefined ? { actorId } : {}),
+					},
+				});
+			}
+		}
+		return withTransition({ ...base, subject: genericSubject("team", rec.teamId) });
+	}
+
 	// Routine events: routine_fired
 	if (typeof rec.routineId === "string") {
 		const routineActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
@@ -930,10 +1066,7 @@ async function assembleTriggerEvent(
 			},
 		});
 	}
-	// Agent events: agent_added already covered by teamId; standalone agentId
-	if (typeof rec.agentId === "string") {
-		return withTransition({ ...base, subject: genericSubject("agent", rec.agentId) });
-	}
+
 	// User events: user_created
 	if (typeof rec.userId === "string") {
 		return withTransition({ ...base, subject: genericSubject("user", rec.userId) });

@@ -226,17 +226,19 @@ describe("assembleRoutinePrompt", () => {
 		expect(result.assembledPrompt).toContain("All tests green");
 	});
 
-	it("renders generic subject for non-task/bet events (thread)", async () => {
+	// After BA9c: thread events now produce kind:"thread" (rich shape), not kind:"generic".
+	// kind:"generic" is kept for event kinds with no core entity (e.g. "routine").
+	it("renders generic subject when entityKind has no rich shape (e.g. routine)", async () => {
 		const context = {
 			...routineContext(),
 			triggerEvent: {
-				type: "thread_message_appended",
+				type: "routine_fired",
 				timestamp: 1_700_000_000_000,
 				subject: {
 					kind: "generic" as const,
-					entityKind: "thread",
-					entityId: "thread-abc-123",
-					actorId: "user-sender-456",
+					entityKind: "routine",
+					entityId: "routine-abc-123",
+					actorId: "agent-456",
 				},
 			},
 		};
@@ -248,8 +250,223 @@ describe("assembleRoutinePrompt", () => {
 		});
 
 		expect(result.assembledPrompt).toContain("### Trigger Event");
-		expect(result.assembledPrompt).toContain("thread-abc-123");
-		expect(result.assembledPrompt).toContain("user-sender-456");
+		expect(result.assembledPrompt).toContain("routine-abc-123");
+		expect(result.assembledPrompt).toContain("agent-456");
+		expect(result.assembledPrompt).toContain("**When:**");
+	});
+
+	// BA9c: 7 new rich subject kind rendering tests
+
+	it("renders thread subject with hostKind, hostId, and state", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "thread_message_appended",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "thread" as const,
+					thread: {
+						id: "thread-ba9c-probe",
+						hostKind: "task",
+						hostId: "task-host-ba9c",
+						resolvedAt: null,
+					},
+					actorId: "user-sender-ba9c",
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("task");
+		expect(result.assembledPrompt).toContain("task-host-ba9c");
+		expect(result.assembledPrompt).toContain("**When:**");
+		expect(result.assembledPrompt).toContain("user-sender-ba9c");
+	});
+
+	it("renders item (work item) subject with title", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "item_created",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "item" as const,
+					item: {
+						id: "item-ba9c-probe",
+						title: "BA9c-ITEM-PROBE-TITLE",
+						kind: "review",
+						body: "Item body content",
+					},
+					actorId: "agent-creator-ba9c",
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("BA9c-ITEM-PROBE-TITLE");
+		expect(result.assembledPrompt).toContain("**When:**");
+	});
+
+	it("renders knowledge-item subject with title and format", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "knowledge_created",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "knowledge-item" as const,
+					item: {
+						id: "ki-ba9c-probe",
+						title: "BA9c-KI-PROBE-TITLE",
+						body: "Knowledge body",
+						format: "markdown",
+						version: 1,
+					},
+					actorId: "user-ki-actor",
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("BA9c-KI-PROBE-TITLE");
+		expect(result.assembledPrompt).toContain("markdown");
+		expect(result.assembledPrompt).toContain("**When:**");
+	});
+
+	it("renders artifact subject with kind and producingTaskId", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "artifact_created",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "artifact" as const,
+					artifact: {
+						id: "artifact-ba9c-probe",
+						kind: "document",
+						label: "BA9c Artifact Label",
+						producingTaskId: "task-producing-ba9c",
+					},
+					actorId: "agent-artifact-actor",
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("document");
+		expect(result.assembledPrompt).toContain("task-producing-ba9c");
+		expect(result.assembledPrompt).toContain("**When:**");
+	});
+
+	it("renders team subject with name", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "team_created",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "team" as const,
+					team: {
+						id: "team-ba9c-probe",
+						name: "BA9c-TEAM-PROBE-NAME",
+					},
+					actorId: "user-team-actor",
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("BA9c-TEAM-PROBE-NAME");
+		expect(result.assembledPrompt).toContain("**When:**");
+	});
+
+	it("renders session subject with state and agentId", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "session_ended",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "session" as const,
+					session: {
+						id: "session-ba9c-probe",
+						state: "ended",
+						agentId: "agent-session-ba9c",
+						outcome: "success",
+					},
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("ended");
+		expect(result.assembledPrompt).toContain("agent-session-ba9c");
+		expect(result.assembledPrompt).toContain("**When:**");
+	});
+
+	it("renders agent subject with name and role", async () => {
+		const context = {
+			...routineContext(),
+			triggerEvent: {
+				type: "agent_added",
+				timestamp: 1_700_000_000_000,
+				subject: {
+					kind: "agent" as const,
+					agent: {
+						id: "agent-ba9c-probe",
+						name: "BA9c-AGENT-PROBE-NAME",
+						role: "builder",
+					},
+					actorId: "user-actor-ba9c",
+				},
+			},
+		};
+		const result = await assembler.assembleRoutinePrompt({
+			systemPromptText: "",
+			context,
+			tools: [],
+			sandboxPath: "/tmp/unused",
+		});
+
+		expect(result.assembledPrompt).toContain("### Trigger Event");
+		expect(result.assembledPrompt).toContain("BA9c-AGENT-PROBE-NAME");
+		expect(result.assembledPrompt).toContain("builder");
 		expect(result.assembledPrompt).toContain("**When:**");
 	});
 

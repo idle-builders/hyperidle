@@ -57,18 +57,22 @@ function inertPorts(): RoutineSchedulerPorts {
 		work: {
 			getBetById: unreachable("work.getBetById"),
 			getTaskById: unreachable("work.getTaskById"),
+			getItemById: unreachable("work.getItemById"),
+			getArtifactById: unreachable("work.getArtifactById"),
 			createItem: unreachable("work.createItem"),
 			findRetroItemByThreadIds: unreachable("work.findRetroItemByThreadIds"),
 		},
 		conversation: {
 			getThreadIdsByHost: unreachable("conversation.getThreadIdsByHost"),
 			insertThread: unreachable("conversation.insertThread"),
+			findThreadById: unreachable("conversation.findThreadById"),
 		},
 		knowledge: {
 			runAutoPromotionSweep: unreachable("knowledge.runAutoPromotionSweep"),
 			runStaleSweep: unreachable("knowledge.runStaleSweep"),
 			listRecentByLayers: unreachable("knowledge.listRecentByLayers"),
 			recomputeAttentionForCandidates: unreachable("knowledge.recomputeAttentionForCandidates"),
+			getItemById: unreachable("knowledge.getItemById"),
 		},
 		settings: { readServerConfig: unreachable("settings.readServerConfig") },
 		workIntents: { enqueueWorkIntent: unreachable("workIntents.enqueueWorkIntent") },

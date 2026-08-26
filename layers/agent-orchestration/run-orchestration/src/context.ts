@@ -517,6 +517,71 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 				if (ev.subject.actorId) {
 					parts.push(`- **Actor:** ${ev.subject.actorId}`);
 				}
+			} else if (ev.subject.kind === "thread") {
+				parts.push("");
+				parts.push("**Thread that triggered this run:**");
+				parts.push(`- **Host:** ${ev.subject.thread.hostKind} ${ev.subject.thread.hostId}`);
+				parts.push(
+					`- **State:** ${ev.subject.thread.resolvedAt ? `resolved (${ev.subject.thread.resolvedAt})` : "open"}`,
+				);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "item") {
+				parts.push("");
+				parts.push("**Item that triggered this run:**");
+				parts.push(`- **Title:** ${ev.subject.item.title}`);
+				if (ev.subject.item.kind) {
+					parts.push(`- **Type:** ${ev.subject.item.kind}`);
+				}
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "knowledge-item") {
+				parts.push("");
+				parts.push("**Knowledge item that triggered this run:**");
+				parts.push(`- **Title:** ${ev.subject.item.title}`);
+				parts.push(`- **Format:** ${ev.subject.item.format}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "artifact") {
+				parts.push("");
+				parts.push("**Artifact that triggered this run:**");
+				parts.push(`- **Kind:** ${ev.subject.artifact.kind}`);
+				if (ev.subject.artifact.label) {
+					parts.push(`- **Label:** ${ev.subject.artifact.label}`);
+				}
+				parts.push(`- **Producing task:** ${ev.subject.artifact.producingTaskId}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "team") {
+				parts.push("");
+				parts.push("**Team that triggered this run:**");
+				parts.push(`- **Name:** ${ev.subject.team.name}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "session") {
+				parts.push("");
+				parts.push("**Session that triggered this run:**");
+				parts.push(`- **State:** ${ev.subject.session.state}`);
+				parts.push(`- **Agent:** ${ev.subject.session.agentId}`);
+				if (ev.subject.session.outcome) {
+					parts.push(`- **Outcome:** ${ev.subject.session.outcome}`);
+				}
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "agent") {
+				parts.push("");
+				parts.push("**Agent that triggered this run:**");
+				parts.push(`- **Name:** ${ev.subject.agent.name}`);
+				parts.push(`- **Role:** ${ev.subject.agent.role}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
 			}
 		} else {
 			parts.push("**Subject:** no identifiable entity in this event");

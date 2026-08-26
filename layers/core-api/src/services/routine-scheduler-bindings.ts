@@ -23,11 +23,12 @@
  */
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import { insertThread, listThreads } from "@hyperidle/conversation";
-import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
+import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
+import { sessions, type HyperIdleDb, type Routine, type WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
 	assembleSessionKnowledge,
+	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
 	sweep,
@@ -44,8 +45,9 @@ import {
 	startRoutineScheduler as startRoutineSchedulerInternal,
 } from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
-import { requireRunnableAgent } from "@hyperidle/users";
+import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
+import { eq } from "drizzle-orm";
 
 /**
  * @lore AU19 Increment 3h (relocated from `dispatch-bindings.ts`, AU21 §9
@@ -89,6 +91,10 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			getBetById: (db, id) => work.get(db, "bet", id),
 			// BA9c: getTaskById for trigger event subject assembly.
 			getTaskById: (db, id) => work.get(db, "task", id),
+			// BA9c: getItemById — work item (items table) for item_created events.
+			getItemById: (db, id) => work.get(db, "item", id),
+			// BA9c: getArtifactById — artifact for artifact_created events.
+			getArtifactById: (db, id) => work.get(db, "artifact", id),
 			createItem: (exec, values) => work.create(exec, "item", values),
 			findRetroItemByThreadIds: async (db, threadIds, marker) => {
 				const rows = await work.list(db, "item", { threadIds, bodyMarker: marker });
@@ -99,6 +105,8 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			getThreadIdsByHost: (db, hostKind, hostId) =>
 				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
 			insertThread,
+			// BA9c: findThreadById — thread row for thread_* events.
+			findThreadById: (db, id) => findThread(db, { id }),
 		},
 		knowledge: {
 			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
@@ -107,6 +115,11 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 			listRecentByLayers: (db, layers, since) =>
 				listKnowledgeItems(db, { recentByLayers: { layers, since } }),
 			recomputeAttentionForCandidates,
+			// BA9c: getItemById — knowledge item for knowledge_* events.
+			getItemById: async (db, id) => {
+				const item = await getKnowledgeItem(db, id);
+				return item ?? undefined;
+			},
 		},
 		settings: {
 			readServerConfig: async (db) => {
@@ -127,6 +140,26 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		// gets its ranked knowledge + routine/agent/team content baked at emit
 		// time instead of `run-orchestration` reading it back at launch.
 		getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
+		// BA9c: getSessionById — session row for session_* events.
+		getSessionById: async (db: HyperIdleDb, id: string) => {
+			const [row] = await db
+				.select({
+					id: sessions.id,
+					state: sessions.state,
+					agentId: sessions.agentId,
+					outcome: sessions.outcome,
+				})
+				.from(sessions)
+				.where(eq(sessions.id, id))
+				.limit(1);
+			return row;
+		},
+		// BA9c: getAgentById — agent (user) row for agent_added events.
+		// agentId takes priority over teamId in assembleTriggerEvent (fixes agent_added → kind:"agent").
+		getAgentById: (db: HyperIdleDb, id: string) =>
+			findUser(db, { id }).then((u) =>
+				u ? { id: u.id, name: u.name, role: u.role } : undefined,
+			),
 		assembleSessionKnowledge,
 	};
 }

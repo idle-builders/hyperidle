@@ -326,6 +326,99 @@ export interface RoutineTriggerEvent {
 				readonly entityKind: string;
 				readonly entityId: string;
 				readonly actorId?: string;
+		  }
+		| {
+				/** BA9c: DB-loaded thread subject (thread events). */
+				readonly kind: "thread";
+				readonly thread: {
+					readonly id: string;
+					/** Entity type the thread belongs to (e.g. "task", "bet", "user"). */
+					readonly hostKind: string;
+					readonly hostId: string;
+					/** null = open; ISO-8601 string = resolved. */
+					readonly resolvedAt: string | null;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded work item subject (item_created events —
+				 * rows from the `items` table, not knowledge_items).
+				 */
+				readonly kind: "item";
+				readonly item: {
+					readonly id: string;
+					readonly title: string;
+					/** "review", "action", etc. Nullable on the DB row. */
+					readonly kind: string | null;
+					readonly body: string | null;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded knowledge item subject (knowledge_created /
+				 * knowledge_updated / knowledge_archived / knowledge_accessed events).
+				 * Reuses BakedContextBundle.knowledge item shape minus layer/role/agentBindingId.
+				 */
+				readonly kind: "knowledge-item";
+				readonly item: {
+					readonly id: string;
+					readonly title: string;
+					readonly body: string;
+					readonly format: string;
+					readonly version: number;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/** BA9c: DB-loaded artifact subject (artifact_created events). */
+				readonly kind: "artifact";
+				readonly artifact: {
+					readonly id: string;
+					readonly kind: string;
+					readonly label: string | null;
+					readonly producingTaskId: string;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded team subject (team_created, work_selection_requested events).
+				 * Reuses BakedContextBundle team shape: {id, name}.
+				 */
+				readonly kind: "team";
+				readonly team: {
+					readonly id: string;
+					readonly name: string;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/** BA9c: DB-loaded session subject (session_started / session_ended etc. events). */
+				readonly kind: "session";
+				readonly session: {
+					readonly id: string;
+					readonly state: string;
+					readonly agentId: string;
+					readonly outcome: string | null;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded agent subject (agent_added events when agentId is the
+				 * primary entity — priority above teamId so agent_added → kind:"agent",
+				 * not kind:"team").
+				 * Reuses BakedContextBundle agent shape: {id, name, role}.
+				 */
+				readonly kind: "agent";
+				readonly agent: {
+					readonly id: string;
+					readonly name: string;
+					readonly role: string;
+				};
+				readonly actorId?: string;
 		  };
 }
 
