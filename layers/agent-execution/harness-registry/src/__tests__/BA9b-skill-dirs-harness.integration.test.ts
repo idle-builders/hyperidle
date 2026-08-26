@@ -148,7 +148,8 @@ const SKILL_DIR_NAME = "session-secret";
  * Neutral prompt that exercises the skill. The question ("session secret")
  * has no general-knowledge answer — the model must read the skill to answer.
  */
-const PROBE_PROMPT = "What is the session secret? Respond with only the secret value, nothing else.";
+const PROBE_PROMPT =
+	"What is the session secret? Respond with only the secret value, nothing else.";
 
 let sandboxPath: string;
 
@@ -262,23 +263,34 @@ describe("BA9b: harness skill discovery — real binaries, real LLM calls", () =
 			// opencode reads all three dirs; .agents/skills is used here to also prove
 			// cross-coverage with codex (both harnesses confirmed in the evidence file).
 			//
-			// Probe design for opencode: glm-4.7-flash is a tool-calling model that SEARCHES
-			// the filesystem when asked about project resources. It does NOT auto-inject skill
-			// content the way claude/cursor-agent do. So the probe uses a different approach:
-			//   1. Name the skill directory with the probe token embedded in it.
-			//   2. Ask opencode to list all skills in the project.
-			//   3. The model runs find/ls on .agents/skills/ and returns the directory name.
-			//   4. The probe token appears in the output as part of the directory path.
-			// This proves opencode reads .agents/skills/ and that materialisation went to the
-			// right place — the token can only appear if the directory was found.
+			// Probe design for opencode — WEAKER than the other three harnesses. Explicitly.
+			//
+			// claude/codex/cursor-agent use a body-token proof: the SKILL.md content contains
+			// the secret, the model can only return it if the skill's instructions reached the
+			// LLM context. opencode cannot be proven the same way because glm-4.7-flash does
+			// NOT auto-inject skill content into the LLM context — even with the skill file
+			// present in .agents/skills/, asking the model "what is the session secret?" returns
+			// "I don't have a session secret available" (verified 2026-08-26). The model does not
+			// see the skill body as a system instruction; instead it searches the filesystem when
+			// asked about unknown project resources.
+			//
+			// What IS provable for opencode: the harness binary finds .agents/skills/ when CWD
+			// is the sandbox. The directory-name probe exploits opencode's filesystem search:
+			//   1. Name the skill directory with the probe token embedded.
+			//   2. Ask opencode "what files are in .agents/skills/?".
+			//   3. The model runs ls on .agents/skills/ and returns the directory name.
+			//   4. The probe token appears in the output — impossible without reading that dir.
+			// This proves the file is WHERE opencode looks (AC3: materialisation is in the right
+			// place). It does NOT prove the skill instructions influenced the model (AC5's claim
+			// of "used by an agent"). That gap is noted here for the reviewer to decide.
 			//
 			// @lore BA9b-opencode-probe:
 			//   - --dir flag: does NOT make opencode scan that directory for skills. Skills are
-			//     scanned relative to the process's CWD. Use cwd: sandboxPath, not --dir.
+			//     scanned relative to process.env.PWD (not process.cwd()). Must set PWD.
 			//   - --pure: runs without external plugins; still reads the project's skill dirs.
 			//   - XDG_DATA_HOME isolation breaks opencode (crashes on empty DB dir). Omit it.
-			//   - glm-4.7-flash refuses "session secret" prompts on safety grounds. Use a
-			//     neutral listing prompt instead of the secret-retrieval probe.
+			//   - glm-4.7-flash refuses "session secret" prompts on safety grounds — body-token
+			//     proof blocked not just by missing injection but also by the safety filter.
 			const OPENCODE_SKILL_DIR_NAME = `probe-skill-${PROBE_TOKEN}`;
 			const skillDir = path.join(sandboxPath, ".agents/skills", OPENCODE_SKILL_DIR_NAME);
 			fs.mkdirSync(skillDir, { recursive: true });
@@ -333,14 +345,7 @@ describe("BA9b: harness skill discovery — real binaries, real LLM calls", () =
 			// PROBE_PROMPT: asks for the session secret whose answer is only in the skill.
 			const { stdout } = await spawnWithClosedStdin(
 				"cursor-agent",
-				[
-					"-p",
-					PROBE_PROMPT,
-					"--print",
-					"--model",
-					model,
-					"--trust",
-				],
+				["-p", PROBE_PROMPT, "--print", "--model", model, "--trust"],
 				{
 					cwd: sandboxPath,
 					env: {

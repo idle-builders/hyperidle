@@ -105,9 +105,7 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 
 		expect(fs.existsSync(path.join(sandboxPath, ".agents/skills/my-skill/SKILL.md"))).toBe(true);
 		// .opencode/skills and .codex-home/skills must NOT be written (dead paths).
-		expect(fs.existsSync(path.join(sandboxPath, ".opencode/skills/my-skill/SKILL.md"))).toBe(
-			false,
-		);
+		expect(fs.existsSync(path.join(sandboxPath, ".opencode/skills/my-skill/SKILL.md"))).toBe(false);
 		expect(fs.existsSync(path.join(sandboxPath, ".codex-home/skills/my-skill/SKILL.md"))).toBe(
 			false,
 		);
