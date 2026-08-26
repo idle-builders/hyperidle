@@ -42,7 +42,12 @@ import type {
 	ItemCreatedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/event-bus";
-import { get as getKnowledgeItem, list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
+import {
+	get as getKnowledgeItem,
+	list as listKnowledgeItems,
+	recomputeAttention,
+	sweep,
+} from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireGenericRoutine } from "@hyperidle/routine";
 import { drainIntents, enqueueWorkIntent } from "@hyperidle/session-requests";

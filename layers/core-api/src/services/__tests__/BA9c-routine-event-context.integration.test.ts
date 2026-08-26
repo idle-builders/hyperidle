@@ -28,7 +28,6 @@ import {
 	bets,
 	type HyperIdleDb,
 	items,
-	knowledgeItems,
 	routineRuns,
 	routines,
 	tasks,
@@ -39,6 +38,7 @@ import {
 } from "@hyperidle/db";
 import type { BetStateChangedEvent, EventBus, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import {
+	create as createKnowledgeItem,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
@@ -519,21 +519,17 @@ describe("BA9c — knowledge_created produces kind:knowledge-item rich subject",
 	}) => {
 		const { ownerAgentId } = await seedTeamAndOwner(db, "ba9c-ki-1");
 		const routineId = "ba9c-ki-1-routine";
-		const kiId = "ki-ba9c-1";
 
-		// Seed a knowledge item
-		await db.insert(knowledgeItems).values({
-			id: kiId,
+		// Seed a knowledge item via the service (writes kernel + projection together).
+		const ki = await createKnowledgeItem(db, {
 			title: "BA9c-KI-TITLE-PROBE",
 			body: "Knowledge body content",
 			format: "markdown",
 			status: "active",
-			version: 1,
-			role: "ordinary",
+			layer: null,
 			updatedBy: ownerAgentId,
-			createdAt: NOW,
-			updatedAt: NOW,
 		});
+		const kiId = ki.id;
 
 		await seedEventRoutine(db, routineId, ownerAgentId, "knowledge_created");
 

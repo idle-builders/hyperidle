@@ -24,7 +24,7 @@
 
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
-import { sessions, type HyperIdleDb, type Routine, type WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, Routine, WriteExecutor } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import {
 	assembleSessionKnowledge,
@@ -47,7 +47,6 @@ import {
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
-import { eq } from "drizzle-orm";
 
 /**
  * @lore AU19 Increment 3h (relocated from `dispatch-bindings.ts`, AU21 §9
@@ -141,18 +140,10 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		// time instead of `run-orchestration` reading it back at launch.
 		getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 		// BA9c: getSessionById — session row for session_* events.
-		getSessionById: async (db: HyperIdleDb, id: string) => {
-			const [row] = await db
-				.select({
-					id: sessions.id,
-					state: sessions.state,
-					agentId: sessions.agentId,
-					outcome: sessions.outcome,
-				})
-				.from(sessions)
-				.where(eq(sessions.id, id))
-				.limit(1);
-			return row;
+		// Uses the AgentOrchestrationPort seam (sessions table owned by run-orchestration).
+		getSessionById: async (_db: HyperIdleDb, id: string) => {
+			const row = await port.sessions.getById(id);
+			return row ?? undefined;
 		},
 		// BA9c: getAgentById — agent (user) row for agent_added events.
 		// agentId takes priority over teamId in assembleTriggerEvent (fixes agent_added → kind:"agent").
