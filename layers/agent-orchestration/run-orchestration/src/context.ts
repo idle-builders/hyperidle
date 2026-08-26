@@ -585,30 +585,37 @@ const CONTEXT_ASSEMBLY_DIRS = [
 /**
  * @lore BA9b: Per-harness skill directories — empirically verified 2026-08-26.
  *
- * Each entry is the relative path (under the session sandbox) where the
- * corresponding harness discovers SKILL.md files. Verified by writing a unique
- * probe token to each location and running each real binary non-interactively,
- * confirming the token appeared in output:
+ * Two directories cover all four binary harnesses. Established by planting a
+ * unique probe skill in each candidate directory and running every real binary
+ * non-interactively; only the directories whose probe token appeared in output
+ * are listed. Full evidence in:
+ *   .pipeline/work/BA9b/harness-skill-dirs-evidence.md
  *
- *   .claude/skills     — claude (Claude Code): confirmed (53 skills listed,
- *                        probe token retrieved on invocation).
- *                      — cursor-agent: ALSO reads this directory (probe token
- *                        appeared; .cursor/rules/ was NOT picked up instead).
- *   .opencode/skills   — opencode: confirmed via `opencode debug skill`; probe
- *                        skill listed with full path. opencode does NOT read
- *                        .claude/skills at project level (only ~/.claude/skills
- *                        for global external skills).
- *   .codex-home/skills — codex: confirmed with CODEX_HOME=<sandbox>/.codex-home.
- *                        CliHarnessAdapter already sets CODEX_HOME; codex reads
- *                        skills from there. Probe token appeared in codex exec output.
+ *   .claude/skills  — claude:        confirmed (probe-claudedir token returned).
+ *                  — cursor-agent:   ALSO reads this directory (probe-claudedir
+ *                                    appeared; .cursor/rules/ was NOT used).
+ *                  — opencode:       reads .claude/skills in addition to its own
+ *                                    .opencode/skills and .agents/skills.
+ *
+ *   .agents/skills  — codex:         ONLY directory codex reads; .codex-home/skills
+ *                                    is the config dir (auth/hooks), not skills.
+ *                                    probe-agentsdir appeared, probe-codexhomedir did not.
+ *                  — cursor-agent:   also reads .agents/skills (probe-agentsdir appeared).
+ *                  — opencode:       also reads .agents/skills (probe-agentsdir appeared).
+ *
+ * .opencode/skills is redundant (opencode reads .claude/skills too) and is
+ * therefore omitted. .codex-home/skills is dead — nothing reads it.
  *
  * builtin: no file-based skill dirs. It is a direct LLM call through OpenRouter;
  * skills reach it via the system prompt injected in AGENTS.md (already written
  * by context assembly). No extra directory entry needed.
  *
  * Each subdir contains <skillDirName>/SKILL.md as per Agent Plugins 1.0.0.
+ *
+ * Re-run the probe (evidence file §Method) if a harness is added or upgraded;
+ * skill discovery is harness behaviour, not ours, and it can change under us.
  */
-const HARNESS_SKILL_DIRS = [".claude/skills", ".opencode/skills", ".codex-home/skills"] as const;
+const HARNESS_SKILL_DIRS = [".claude/skills", ".agents/skills"] as const;
 const CONTEXT_ASSEMBLY_ROOTS = [
 	...new Set(
 		CONTEXT_ASSEMBLY_DIRS.map((directory) => {

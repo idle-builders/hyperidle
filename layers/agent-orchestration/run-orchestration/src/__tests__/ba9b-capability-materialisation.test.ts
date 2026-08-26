@@ -81,7 +81,10 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 		expect(fs.readFileSync(skillPath, "utf-8")).toBe("# Write Tests\nDo TDD.");
 	});
 
-	it("writes SKILL.md to .opencode/skills/ and .codex-home/skills/ too", async () => {
+	it("writes SKILL.md to .agents/skills/ (for codex and cursor-agent)", async () => {
+		// .agents/skills covers codex (only dir it reads) and cursor-agent.
+		// .opencode/skills is omitted — opencode also reads .claude/skills.
+		// .codex-home/skills is dead — nothing reads it (harness-skill-dirs-evidence.md).
 		const bundle = makeBundle("agent-1", [
 			{ id: "skill-2", title: "my-skill", body: "Body.", role: "skill" },
 		]);
@@ -100,9 +103,13 @@ describe("BA9b: skill items materialise to harness skill dirs", () => {
 			contextBundle: bundle,
 		});
 
-		expect(fs.existsSync(path.join(sandboxPath, ".opencode/skills/my-skill/SKILL.md"))).toBe(true);
+		expect(fs.existsSync(path.join(sandboxPath, ".agents/skills/my-skill/SKILL.md"))).toBe(true);
+		// .opencode/skills and .codex-home/skills must NOT be written (dead paths).
+		expect(fs.existsSync(path.join(sandboxPath, ".opencode/skills/my-skill/SKILL.md"))).toBe(
+			false,
+		);
 		expect(fs.existsSync(path.join(sandboxPath, ".codex-home/skills/my-skill/SKILL.md"))).toBe(
-			true,
+			false,
 		);
 	});
 

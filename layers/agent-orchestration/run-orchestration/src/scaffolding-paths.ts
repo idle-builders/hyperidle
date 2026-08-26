@@ -7,6 +7,7 @@ export const SANDBOX_SCAFFOLDING_PATHS = [
 	"CLAUDE.md",
 	".mcp.json",
 	".claude",
+	".agents",
 	".codex",
 	".codex-home",
 	".opencode",
