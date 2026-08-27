@@ -590,10 +590,7 @@ function RoutineDetailPaneLoaded({
 						<KeyValue label="Trigger type" value={formatTriggerType(routine.triggerType)} />
 						{/* BA9d D11: show transition constraint for event routines */}
 						{routine.triggerType === "event" && (
-							<KeyValue
-								label="Transition to"
-								value={routine.eventTransitionTo ?? "Any"}
-							/>
+							<KeyValue label="Transition to" value={routine.eventTransitionTo ?? "Any"} />
 						)}
 						<KeyValue label="Current autonomy" value={autonomyLabel} />
 						<KeyValue

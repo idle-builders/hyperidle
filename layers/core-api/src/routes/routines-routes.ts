@@ -332,9 +332,7 @@ export function createRoutineRoutes(
 			silent: routine.silent ?? false,
 			// BA9d D11: parse transition constraint from trigger_config for event routines.
 			eventTransitionTo:
-				routine.triggerType === "event"
-					? parseTransitionTo(routine.triggerConfig)
-					: null,
+				routine.triggerType === "event" ? parseTransitionTo(routine.triggerConfig) : null,
 		};
 
 		const detail: RoutineDetail = {
