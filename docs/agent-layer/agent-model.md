@@ -31,7 +31,7 @@ Agents are created from an `AgentScaffoldSpec`. `persistScaffoldedAgents` is the
 |---|---|---|
 | Role | `role` (text, not null) | Functional role — open string (`builder`, `product_manager`, `facilitator`, `assistant`, …). |
 | Status | `status` (text, not null) | Lifecycle state: `active` \| `paused` \| `retired` (`UserStatus`, `framework/domain-model/src/types.ts`). |
-| Category | `agent_category` (text, nullable) | `team` \| `strategy` \| `individual`. Null for humans and system rows. |
+| Category | `agent_category` (text, nullable) | `team` \| `individual`. Null for humans and system rows. (`strategy` removed in BA9d — existing rows migrated to `individual`.) |
 | Team | `team_id` (text, nullable) | Single nullable FK; null means factory-wide. |
 | Owner | `owner_user_id` (text, nullable) | Single nullable FK to another `users` row — the person this agent belongs to (`individual` category). A check constraint (`users_belonging_ck`) enforces a team, a person, or neither, never two: `owner_user_id IS NULL OR (kind = 'ai' AND team_id IS NULL)`. Written once at creation (`insertUser`); no update path exists yet. |
 
@@ -57,15 +57,14 @@ At session start the run orchestrator loads the system prompt, queries the knowl
 
 ## 3. The Three Categories
 
-Every AI agent belongs to exactly one structural category. Category determines scope, visibility, binding, and provisioning. The enum is closed — `team | strategy | individual` (`AGENT_CATEGORIES`, `framework/domain-model/src/types.ts`); adding a fourth requires a concept-doc update first. Stored in `users.agentCategory` (`framework/db/src/schema.ts`); human and system rows carry null.
+Every AI agent belongs to exactly one structural category. Category determines scope, visibility, binding, and provisioning. The enum is closed — `team | individual` (`AGENT_CATEGORIES`, `framework/domain-model/src/types.ts`); adding a third requires a concept-doc update first. Stored in `users.agentCategory` (`framework/db/src/schema.ts`); human and system rows carry null.
 
-> **`strategy` is a retired category.** It is still in the enum, still a column value, and four factory roles still write it on first boot, so it is described below as it exists in code. It is not a concept to build on — removing it is a schema migration against live rows and is tracked as its own work package.
+> **`strategy` category was removed in BA9d (migration 0065).** All former `strategy` rows (facilitator, scout, infra, platform) migrated to `individual`. Plugin-provided agents use BA9a's detach-and-restore mechanism — no special category needed.
 
 | Category | Binding | Provisioned by | Editability | Roles in catalog |
 |---|---|---|---|---|
 | **Team** | Bound to a team (`teamId` non-null) | Default roster per team function | Fully user-controlled | 11 roles: builder, designer, product_manager, qa_engineer, growth, ops, brand_voice, support, sales, content, data_analyst |
-| **Strategy** | Factory-wide (`teamId` null) | Factory bootstrap, from `defaultFactoryRoster` | System prompt editable | facilitator, scout, infra, platform |
-| **Individual** | Bound to a human user (`ownerUserId` non-null, `teamId` null) | Per-user at registration | Fully user-controlled | assistant |
+| **Individual** | Bound to a human user (`ownerUserId` non-null, `teamId` null) OR factory-wide facilitator/plugin agent | Per-user at registration, or plugin bootstrap | Fully user-controlled | assistant, facilitator, scout, infra, platform |
 
 ### 3.1 Team agents
 
@@ -89,7 +88,7 @@ Each human gets exactly one assistant: a personal operator scoped to that user. 
 
 Category is structural: scope + visibility. Role is functional: what the agent does within its category. Role is an **open string** (`UserRole = string`); `AGENT_ROLE_CATALOG` (`framework/domain-model/src/agent-roles.ts`) supplies metadata for known roles (label, category, template flag, team-function mapping). Unknown roles are valid — they get base tools, no template, and default to category `team`.
 
-Category is not a permission system — tool authorization is role-based filtering, never a category check. Category is not a UI grouping either: team agents are prominent in Work, strategy agents are mostly invisible, the assistant surfaces through its overlay. Whether category is immutable after creation is unverified in code (`users.ts` update route).
+Category is not a permission system — tool authorization is role-based filtering, never a category check. Category is not a UI grouping: team agents are prominent in Work, individual agents (including facilitators) are visible per role. Whether category is immutable after creation is unverified in code (`users.ts` update route).
 
 ### 3.5 Team functions and the default roster
 
@@ -107,7 +106,7 @@ Agents are **paused or retired, never deleted**. `status` is `active | paused | 
 
 ## 5. One Agent, One Team — Sub-Agents Are Internal
 
-An agent belongs to exactly one team or is factory-wide (category `strategy`). No multi-team membership — `users.teamId` is a single nullable FK (`framework/db/src/schema.ts`), and there is no membership join table for agents. This keeps identity clean, context unambiguous, and scheduling simple: every session loads one team's context.
+An agent belongs to exactly one team, or is factory-wide (`teamId` null, e.g. system assistant and plugin-provided facilitators). No multi-team membership — `users.teamId` is a single nullable FK (`framework/db/src/schema.ts`), and there is no membership join table for agents. This keeps identity clean, context unambiguous, and scheduling simple: every session loads one team's context.
 
 ### 5.1 Sub-agents within a session
 
