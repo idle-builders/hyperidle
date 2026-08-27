@@ -324,7 +324,11 @@ async function bootAgentLayer(deps: RuntimeDeps): Promise<AgentLayerHandle> {
 	};
 	await wake();
 	// EventBus is a latency hint only; polling remains the process-death recovery path.
-	const unsubscribe = deps.eventBus?.on("*", () => void wake());
+	// @lore BA9d: replaced wildcard subscription with the specific event that enqueues
+	// work — agent_work_intent_recorded. The "*" subscription fired on every domain event
+	// (including review threads, messages, etc.) and caused redundant wakes. The 1-second
+	// timer covers recovery; this subscription only reduces latency for the hot path.
+	const unsubscribe = deps.eventBus?.on("agent_work_intent_recorded", () => void wake());
 	const timer = setInterval(() => void wake(), 1_000);
 	const reapTimer = setInterval(
 		() => void deps.ports.sessionRequests.reapExpired(deps.db),
