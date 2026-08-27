@@ -65,7 +65,7 @@ const createOrgTeamSchema = z.object({
 const scaffoldSpecSchema = z.object({
 	role: z.string().min(1),
 	name: z.string().min(1),
-	agentCategory: z.enum(["team", "strategy", "individual"]),
+	agentCategory: z.enum(["team", "individual"]),
 	systemPrompt: z.string().nullable(),
 	idHint: z.string().optional(),
 });

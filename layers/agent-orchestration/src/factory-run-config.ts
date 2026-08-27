@@ -20,7 +20,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
-import { writeAgentRunConfig } from "@hyperidle/run-orchestration";
+import { writeAgentRunConfigIfAbsent } from "@hyperidle/run-orchestration";
 
 // ── Inlined template reader — identical logic to core-api/org/src/system-prompt-templates.ts ──
 // @lore AU44 AU20-fd: can't import @hyperidle/org from a sibling layer; small copy lives here.
@@ -80,7 +80,8 @@ export async function applyFactoryRunConfigDefaults(
 ): Promise<void> {
 	// ── AH2: runnable defaults so factory agents can start without configuration ──
 	for (const agent of rosterAgents) {
-		await writeAgentRunConfig(db, agent.id, { ...AH2_DEFAULTS });
+		// @lore BA9d: first-boot only — preserves user edits after initial setup.
+		await writeAgentRunConfigIfAbsent(db, agent.id, { ...AH2_DEFAULTS });
 	}
 
 	// ── System prompt templates from docs/system-prompts/ — read directly, no cache table ──
@@ -93,6 +94,7 @@ export async function applyFactoryRunConfigDefaults(
 	for (const agent of rosterAgents) {
 		const content = readTemplate(agent.role);
 		if (content === null) continue;
-		await writeAgentRunConfig(db, agent.id, { systemPrompt: content });
+		// @lore BA9d: first-boot only — preserves user-edited system prompts.
+		await writeAgentRunConfigIfAbsent(db, agent.id, { systemPrompt: content });
 	}
 }

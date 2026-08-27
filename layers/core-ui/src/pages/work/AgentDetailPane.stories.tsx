@@ -33,7 +33,8 @@ const TEAM_AGENT: AgentConfig = {
 	agentCategory: "team",
 };
 
-const STRATEGY_AGENT: AgentConfig = {
+// @lore BA9d: "strategy" category deleted. Was STRATEGY_AGENT — now an individual agent.
+const INDIVIDUAL_AGENT: AgentConfig = {
 	id: "agent-scout-1",
 	name: "Scout Agent",
 	role: "scout",
@@ -44,7 +45,7 @@ const STRATEGY_AGENT: AgentConfig = {
 	modelProvider: null,
 	maxConcurrentSessions: 1,
 	status: "active",
-	agentCategory: "strategy",
+	agentCategory: "individual",
 };
 
 const TEAM_MEMBER: RosterMember = {
@@ -55,12 +56,13 @@ const TEAM_MEMBER: RosterMember = {
 	agentCategory: "team",
 };
 
-const STRATEGY_MEMBER: RosterMember = {
+// @lore BA9d: was STRATEGY_MEMBER. Renamed and recategorised to individual.
+const INDIVIDUAL_MEMBER: RosterMember = {
 	agentId: "agent-scout-1",
 	name: "Scout Agent",
 	role: "scout",
 	isLead: false,
-	agentCategory: "strategy",
+	agentCategory: "individual",
 };
 
 export default { title: "Page: Work/AgentDetailPane" };
@@ -79,13 +81,13 @@ export const TeamAgent = (): JSX.Element => (
 	</Wrapper>
 );
 
-/** Strategy agent — config fields disabled, strategy note visible. */
-export const StrategyAgent = (): JSX.Element => (
+/** Individual agent — all config fields editable (D5 app-managed lock deleted BA9d). */
+export const IndividualAgent = (): JSX.Element => (
 	<Wrapper>
 		<div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
 			<AgentDetailPane
-				agent={STRATEGY_AGENT}
-				rosterMember={STRATEGY_MEMBER}
+				agent={INDIVIDUAL_AGENT}
+				rosterMember={INDIVIDUAL_MEMBER}
 				onClose={noop}
 				onSaved={noop}
 			/>

@@ -9,9 +9,10 @@
  * `agent_run_config` is deliberately out of scope here — that is the agent-orchestration face's
  * contract, covered by `layers/agent-orchestration/src/__tests__/factory-run-config.integration.test.ts`.
  *
- * @lore AU44 AU20-fd: `framework/factory-defaults` dissolved; roster literals inlined into
- * factory-state.ts directly. Facilitators still seeded from core until the plugin-track (AU20 Ruling
- * 3) builds the replacement — removing them early would silently break fresh installs.
+ * @lore BA9d: Facilitators removed from the factory roster. The five seed-agent-pf-* agents are
+ * now owned by the knowledge-management plugin (BA9d wave 2). The core factory seeds only
+ * system:propagation and seed-agent-cos (System Agent). ROSTER_IDS shrank from 6 → 1.
+ * Migration 0065 migrated existing strategy rows to "individual".
  */
 
 import { users } from "@hyperidle/db";
@@ -21,15 +22,10 @@ import { applyFactoryCoreState } from "../factory-state.js";
 
 const ROSTER_IDS = [
 	"seed-agent-cos",
-	"seed-agent-pf-build",
-	"seed-agent-pf-product",
-	"seed-agent-pf-growth",
-	"seed-agent-pf-ops",
-	"seed-agent-pf-facilitation",
 ];
 
 describe("applyFactoryCoreState — first-boot core state (AU29 AC 7)", () => {
-	test("creates the propagation user and roster users", async ({ db }) => {
+	test("creates the propagation user and the System Agent singleton", async ({ db }) => {
 		await applyFactoryCoreState(db);
 
 		const propagation = await db.select().from(users).where(eq(users.id, "system:propagation"));
@@ -41,20 +37,9 @@ describe("applyFactoryCoreState — first-boot core state (AU29 AC 7)", () => {
 		expect(cos[0]?.role).toBe("assistant");
 		expect(cos[0]?.agentCategory).toBe("individual");
 
+		// @lore BA9d: facilitators no longer seeded by factory — plugin track owns them.
 		const facilitators = await db.select().from(users).where(eq(users.role, "facilitator"));
-		expect(facilitators.map((f) => f.name).sort()).toEqual(
-			[
-				"Build Facilitator",
-				"Facilitation Facilitator",
-				"Growth Facilitator",
-				"Ops Facilitator",
-				"Product Facilitator",
-			].sort(),
-		);
-		for (const f of facilitators) {
-			expect(f.agentCategory).toBe("strategy");
-			expect(f.teamId).toBeNull();
-		}
+		expect(facilitators).toHaveLength(0);
 
 		// @lore AU43 repair: seed-ki-1 knowledge item assertions removed — ensureFactoryKnowledgeSeed
 		// was deleted by AU43 bundle-4. Bootstrap no longer seeds knowledge items.
@@ -68,7 +53,6 @@ describe("applyFactoryCoreState — first-boot core state (AU29 AC 7)", () => {
 		const byId = new Map(refs.map((r) => [r.id, r.role]));
 		expect([...byId.keys()].sort()).toEqual([...ROSTER_IDS].sort());
 		expect(byId.get("seed-agent-cos")).toBe("assistant");
-		expect(byId.get("seed-agent-pf-build")).toBe("facilitator");
 	});
 
 	test("is idempotent — a second call on the same db leaves the same rows and refs", async ({
@@ -78,7 +62,8 @@ describe("applyFactoryCoreState — first-boot core state (AU29 AC 7)", () => {
 		const second = await applyFactoryCoreState(db);
 
 		expect(second.map((r) => r.id).sort()).toEqual(first.map((r) => r.id).sort());
+		// @lore BA9d: 7 → 2 rows — only system:propagation and seed-agent-cos remain in factory.
 		const allUsers = await db.select().from(users);
-		expect(allUsers).toHaveLength(7);
+		expect(allUsers).toHaveLength(2);
 	});
 });

@@ -132,7 +132,7 @@ export function AgentDetailPane({
 	const catalogEntry = findRoleCatalogEntry(role);
 	const roleLabel = catalogEntry?.label ?? role;
 	const roleDescription = catalogEntry?.description ?? role;
-	const isStrategy = (rosterMember?.agentCategory ?? agent?.agentCategory) === "strategy";
+	// @lore BA9d D5: strategy category removed — isStrategy deleted.
 	const agentName = rosterMember?.name ?? agent?.name ?? "";
 	const initials = deriveInitials(agentName);
 
@@ -204,17 +204,7 @@ export function AgentDetailPane({
 						tools, context, and knowledge.
 					</p>
 
-					{isStrategy && (
-						<div
-							className="rounded-[var(--r-subtle)] p-[9px] mt-[6px] mb-[6px]"
-							style={{ background: "color-mix(in oklab, var(--status-warning) 6%, transparent)" }}
-						>
-							<p className="type-metadata  text-[var(--text-secondary)]">
-								This agent is managed by app defaults. Your system prompt edits are preserved, but
-								operational configuration may refresh when defaults change.
-							</p>
-						</div>
-					)}
+
 
 					<Input
 						textarea
@@ -248,13 +238,7 @@ export function AgentDetailPane({
 						type="button"
 						onClick={() => setConfigVisible((v) => !v)}
 					>
-						{isStrategy
-							? configVisible
-								? "Hide configuration (app-managed)"
-								: "Show configuration (app-managed)"
-							: configVisible
-								? "Hide configuration"
-								: "Show configuration"}
+						{configVisible ? "Hide configuration" : "Show configuration"}
 					</Button>
 
 					{configVisible && (
@@ -269,7 +253,7 @@ export function AgentDetailPane({
 										setFormValues((prev) => ({ ...prev, harnessType: e.target.value }))
 									}
 									placeholder="e.g. claude-code"
-									disabled={isStrategy || saving}
+									disabled={saving}
 								/>
 							</div>
 
@@ -288,7 +272,7 @@ export function AgentDetailPane({
 											modelTierPreference: e.target.value,
 										}))
 									}
-									disabled={isStrategy || saving}
+									disabled={saving}
 									options={[
 										{ value: "", label: "Default" },
 										...MODEL_TIERS.map((t) => ({ value: t, label: t })),
@@ -310,7 +294,7 @@ export function AgentDetailPane({
 											maxConcurrentSessions: Number(e.target.value),
 										}))
 									}
-									disabled={isStrategy || saving}
+									disabled={saving}
 								/>
 							</div>
 						</div>

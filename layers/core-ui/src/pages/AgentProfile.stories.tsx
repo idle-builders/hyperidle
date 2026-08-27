@@ -230,7 +230,8 @@ export const StrategyAgent = (): JSX.Element =>
 				...BASE_PROFILE,
 				name: "Scout Strategy",
 				role: "scout",
-				agentCategory: "strategy",
+				// @lore BA9d: "strategy" category deleted; was "strategy", now "individual".
+				agentCategory: "individual",
 				teamName: null,
 				teamId: null,
 				harnessCapabilities: {

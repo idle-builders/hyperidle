@@ -52,7 +52,7 @@ export interface RosterMember {
 	name: string;
 	role: string; // agents.role
 	isLead: boolean; // matches leadAgentId on the team
-	/** AB3: "team" | "strategy" | "individual" | null. Null when category is unset. */
+	/** AB3: "team" | "individual" | null. Null when category is unset. @lore BA9d: "strategy" removed. */
 	agentCategory: string | null;
 	/**
 	 * Whether an adapter matching this agent's harness type is registered in the

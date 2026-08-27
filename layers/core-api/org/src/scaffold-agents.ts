@@ -65,7 +65,7 @@ type TeamHarnessDefault = {
 export interface AgentScaffoldSpec {
 	readonly role: string;
 	readonly name: string;
-	readonly agentCategory: "team" | "strategy" | "individual";
+	readonly agentCategory: "team" | "individual"; // @lore BA9d: strategy removed
 	readonly systemPrompt: string | null;
 	readonly idHint?: string;
 	/** D6: the human this agent belongs to (`user_assistant` trigger only). */
