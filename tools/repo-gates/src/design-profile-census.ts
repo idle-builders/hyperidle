@@ -13,14 +13,6 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 // +1 BA9a: SettingsPlugins contribution list left border.
 const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 207, default: 17, strong: 11 } as const;
 
-// Ceiling for rawByFamily counters when a non-CSS use of the token-family
-// vocabulary legitimately appears in production identifiers or string literals.
-// Any count above the ceiling is still an error.
-// BA9d D11: +11 — "transition" appears in identifiers and element IDs
-// (transitionTo, routine-transition-input, triggerEvent.transition, etc.)
-// as a domain concept term (state-transition constraint), not a CSS duration token.
-const RAW_CEILING: Partial<Record<string, number>> = { duration: 11 };
-
 const EXPECTED = {
 	typography: {
 		label: 118, // -1: read-mode ConversationHeader strip removed (was FR-3 +1); +1: BA1 review N7 RoutineDetailPane "Event" field label (event routines show an Event select instead of Schedule); +1: BA9a SettingsPlugins contribution key label; +1: BA9d D11 RoutineDetailPane "Transition to" edit-mode label
@@ -70,8 +62,7 @@ failures.push(
 	...findLiveBorderCountMismatches(census.profiles.border, APPROVED_BORDER_RECEIPT_EXPANSION),
 );
 for (const [family, count] of Object.entries(census.rawByFamily)) {
-	const ceiling = RAW_CEILING[family] ?? 0;
-	if (count > ceiling) failures.push(`rawByFamily.${family}: expected ≤${ceiling}, found ${count}`);
+	if (count !== 0) failures.push(`rawByFamily.${family}: expected 0, found ${count}`);
 }
 for (const site of census.invalidProfileSites)
 	failures.push(`${site.path}:${site.locator} ${site.reason}`);
