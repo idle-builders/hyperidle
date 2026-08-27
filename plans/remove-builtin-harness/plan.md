@@ -30,9 +30,21 @@ Not read from docs — run against the installed binaries.
 | harness | its own listing | what we do today |
 |---|---|---|
 | claude | `claude -p "/model" --output-format json` — **$0, 0 tokens, 0 api ms** | run `claude models`, which is **not a subcommand** — the binary treats it as a prompt, answers with a model turn, and the parser wants a Markdown table → **zero models**, money spent per probe, output depends on the cwd's CLAUDE.md |
-| codex | app-server JSON-RPC `model/list` — 9 models with `supportedReasoningEfforts`, `serviceTiers`, `isDefault`, `hidden`; default now `gpt-5.6-sol` | nothing |
+| codex | `~/.codex/models_cache.json`, the account-scoped cache codex refreshes itself | **already correct** — reads that cache, filters on `visibility`/`supported_in_api`, and lifts each model's reasoning efforts. Its own lore rejects a hardcoded list for exactly the right reason. (An app-server JSON-RPC `model/list` also exists and returns the same set; no reason to switch.) |
 | cursor-agent | `cursor-agent --list-models` — ~30 account-scoped `id - Label` rows, ignores `--output-format` | nothing |
 | opencode | `opencode models --verbose` | correct |
+
+**Measured baseline, running the real `discoverLocalHarnesses` against the installed binaries:**
+
+| harness | state | models discovered |
+|---|---|---|
+| codex | ready | **6** — correct |
+| opencode | ready | **362** — correct |
+| claude-code | ready | **0** — broken |
+| cursor-agent | ready | **0** — missing |
+
+So Batch 1 is two harnesses, not three. I had claimed codex discovered nothing; that was wrong — I read
+only part of its probe. Corrected here after running discovery for real.
 
 **opencode takes any API key.** Isolated HOME, zero stored credentials:
 
@@ -91,12 +103,15 @@ Nothing moves to the next batch on a claim. A batch is done when its proof ran.
 
 ## Batch 1 — Every harness lists its own models
 
-**Change.** Replace model discovery for claude, codex and cursor-agent with each harness's own listing
-surface. claude: `claude -p "/model" --output-format json`. codex: JSON-RPC `model/list` over the
-app-server. cursor-agent: `cursor-agent --list-models`. opencode already correct, untouched. Carry each
-harness's declared per-model options through in the same pass — codex's reasoning efforts and service
-tiers, claude's `[1m]` and effort, opencode's variants. Delete `parseClaudeCatalog`'s Markdown-table path
-and the `claude models` call with it.
+**Change.** Two harnesses. **claude**: replace the `claude models` call and `parseClaudeCatalog`'s
+Markdown-table path with `claude -p "/model" --output-format json`. **cursor-agent**: add
+`cursor-agent --list-models`, which it has today and we never call. codex and opencode already discover
+correctly and are not touched. Carry each harness's declared per-model options through in the same pass
+where the harness publishes them.
+
+The existing claude unit test feeds a hand-written Markdown table as if it were real output, so it is
+green while production returns zero models. Captured fixtures replace it — the codex test already does
+this correctly and is the pattern to follow.
 
 Model ids stay in each harness's own vocabulary. No normalising, no common namespace.
 
