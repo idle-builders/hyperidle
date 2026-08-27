@@ -313,26 +313,6 @@ export function createTeamRoutes(
 			}
 		}
 
-		// AF17: provision built-in routines for this team — owned by this team's own agents.
-		// @lore AU44 B1: users.teamId references teams.id directly — teamId is the only id needed.
-		// ownerByRole is built from the created roster rows in the DB.
-		{
-			const createdAgents = await listUsers(db, { teamIds: [teamId] });
-			const ownerByRole: Partial<Record<string, string>> = {};
-			for (const agent of createdAgents) {
-				if (agent.role && !ownerByRole[agent.role]) {
-					ownerByRole[agent.role] = agent.id;
-				}
-			}
-			// AF17: provisioning errors propagate — a team must not be created silently
-			// without its automation. If this throws, the caller gets a 500 with details.
-			await routineService.provisionTeamRoutines(db, {
-				teamId,
-				ownerByRole,
-				leadAgentId: leadAgentId ?? agentIds[0] ?? "",
-			});
-		}
-
 		// AK6 T6: emit team_created event AFTER all agents are persisted.
 		// @lore AU44 B1: teamMembersId = teamId after the fold (one entity, one id).
 		eventBus.emit({

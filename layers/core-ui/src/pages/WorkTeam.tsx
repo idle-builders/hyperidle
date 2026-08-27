@@ -564,11 +564,7 @@ function WorkTeamLoaded({
 						}
 
 						const categoryLabel =
-							member.agentCategory === "strategy"
-								? "App-managed"
-								: member.agentCategory === "individual"
-									? "Individual"
-									: (member.agentCategory ?? "");
+							member.agentCategory === "individual" ? "Individual" : (member.agentCategory ?? "");
 
 						// Category cell — first cell when non-team category.
 						// @lore AG6: team agents do NOT render agent-card-category testid
