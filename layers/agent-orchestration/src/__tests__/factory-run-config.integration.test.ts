@@ -82,7 +82,7 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 		expect(row?.systemPrompt).toContain("You are a Facilitator");
 	});
 
-	test("upgrade over an operator-configured row: AH2 fields + prompt overwritten, modelTierPreference untouched", async ({
+	test("existing operator-configured row is left completely untouched (first-boot-only, D5)", async ({
 		db,
 	}) => {
 		await seedUser(db, "agent-upgrade", "facilitator");
@@ -102,12 +102,13 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 			.select()
 			.from(agentRunConfig)
 			.where(eq(agentRunConfig.agentUserId, "agent-upgrade"));
-		expect(row?.harnessType).toBe(AH2.harnessType);
-		expect(row?.modelId).toBe(AH2.modelId);
-		expect(row?.modelProvider).toBe(AH2.modelProvider);
-		expect(row?.maxConcurrentSessions).toBe(AH2.maxConcurrentSessions);
+		// writeAgentRunConfigIfAbsent sees the existing row → skips entirely.
+		expect(row?.harnessType).toBe("claude");
+		expect(row?.modelId).toBe("some-model");
+		expect(row?.modelProvider).toBe("openrouter");
+		expect(row?.maxConcurrentSessions).toBe(3);
 		expect(row?.modelTierPreference).toBe("workhorse");
-		expect(row?.systemPrompt).toContain("You are a Facilitator");
+		expect(row?.systemPrompt).toBe("operator-set prompt");
 	});
 
 	test("a missing template read preserves the agent's existing systemPrompt instead of nulling it", async ({
@@ -130,9 +131,8 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 			.select()
 			.from(agentRunConfig)
 			.where(eq(agentRunConfig.agentUserId, "agent-missing-template"));
-		// Step 1 (AH2 defaults) still runs unconditionally...
-		expect(row?.harnessType).toBe(AH2.harnessType);
-		// ...but step 2 (prompt backfill) must skip this role, leaving the prompt as it was.
+		// writeAgentRunConfigIfAbsent sees the existing row → skips entirely.
+		// The null template means the merged payload still isn't written — row unchanged.
 		expect(row?.systemPrompt).toBe("pre-existing prompt that must survive");
 	});
 });

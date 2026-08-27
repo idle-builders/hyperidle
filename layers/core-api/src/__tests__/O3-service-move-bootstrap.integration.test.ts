@@ -162,15 +162,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 			// `registerAgentLayerServices` boots one lifecycle — the assistant
 			// runs through the SAME durable poller (`startRuntime`) as every
 			// other kind.
-			// @lore AU21 §9 Increment 4: the routine scheduler (builtin-routine
-			// event reaction + the cron/due-eval tick loop) is its own
-			// core-api-side lifecycle, separate from the builtin routine
-			// reactions below.
-			{
-				owner: "builtin routine reactions",
-				cleanupEffect: "bet_state_changed subscription stop",
-				constituents: ["builtin routine reactions"],
-			},
+			// @lore BA9d wave 3: "builtin routine reactions" (bet_state_changed
+			// subscription) was deleted in commit aa260893c — no owner entry here.
 			{
 				owner: "routine scheduler",
 				cleanupEffect: "cron/due-eval tick stop",
@@ -318,9 +311,8 @@ describe("O3 AC-5: registerCoreDomainServices + registerAgentLayerServices", () 
 					clearedIntervals: 0,
 				},
 				{ unsubscribedEvents: [], clearedIntervals: 1 },
-				// @lore AU21 §9 Increment 4: `bet_state_changed` (builtin routine
-				// reaction) and the scheduler interval dispose separately.
-				{ unsubscribedEvents: ["bet_state_changed"], clearedIntervals: 0 },
+				// @lore BA9d wave 3: "builtin routine reactions" bet_state_changed
+				// subscription deleted in commit aa260893c — no entry here.
 				// @lore BA1 D2: `registerRoutineEventMatcher` replaces
 				// `registerEventTriggers` — one `eventBus.on` per EVENT_TYPES
 				// member (34, always, regardless of what is in `routines`), not

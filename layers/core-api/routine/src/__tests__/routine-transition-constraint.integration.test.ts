@@ -121,6 +121,7 @@ describe("routine transition constraint filter", () => {
 		const eventBus = new EventBus();
 		const scheduler = await startRoutineScheduler(db, eventBus, ports, {
 			pollIntervalMs: 999_999,
+			canProvision: true,
 		});
 
 		try {
@@ -155,6 +156,7 @@ describe("routine transition constraint filter", () => {
 		const eventBus = new EventBus();
 		const scheduler = await startRoutineScheduler(db, eventBus, ports, {
 			pollIntervalMs: 999_999,
+			canProvision: true,
 		});
 
 		try {
@@ -191,6 +193,7 @@ describe("routine transition constraint filter", () => {
 		const eventBus = new EventBus();
 		const scheduler = await startRoutineScheduler(db, eventBus, ports, {
 			pollIntervalMs: 999_999,
+			canProvision: true,
 		});
 
 		try {

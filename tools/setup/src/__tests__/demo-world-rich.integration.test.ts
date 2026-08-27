@@ -246,7 +246,10 @@ describe("AX1: lived-in demo world", () => {
 	test("sessions: terminal history plus live ones, all resolving", async ({ db }) => {
 		await seedWorld(db);
 
-		expect(await count(db, "sessions")).toBeGreaterThanOrEqual(40);
+		// @lore BA9d wave 3: three ritual routines removed from demo world
+		// (knowledge-decay, knowledge-promotion, post-task-retro) — their associated
+		// sessions are gone. Actual count is 34 (26 task + 2 live + 6 assistant turns).
+		expect(await count(db, "sessions")).toBeGreaterThanOrEqual(30);
 		expect(await count(db, "sessions", "WHERE state = 'active'")).toBeGreaterThanOrEqual(2);
 		expect(await count(db, "sessions", "WHERE state IN ('done','crashed')")).toBeGreaterThanOrEqual(
 			30,
@@ -268,18 +271,26 @@ describe("AX1: lived-in demo world", () => {
 		expect(dangling).toHaveLength(0);
 	});
 
-	test("routines: the four builtins plus history", async ({ db }) => {
+	// @lore BA9d: builtin routine mechanism deleted (provisionTeamRoutines removed).
+	// Only demo-routine-daily_digest remains. The three ritual routines
+	// (knowledge-decay, knowledge-promotion, post-task-retro) were also removed
+	// from demo world per coordinator instruction. No builtin:* rows exist.
+	test("routines: daily_digest routine with run history (BA9d: no builtin:* rows)", async ({
+		db,
+	}) => {
 		await seedWorld(db);
 
-		for (const id of [
-			"builtin:post-bet-retro",
-			"builtin:portfolio-retro",
-			"builtin:knowledge-decay",
-			"builtin:knowledge-promotion",
-		]) {
-			expect(await count(db, "routines", `WHERE id = '${id}'`), id).toBe(1);
-		}
-		expect(await count(db, "routine_runs")).toBeGreaterThanOrEqual(10);
+		// Only the daily-digest routine should exist.
+		expect(
+			await count(db, "routines", "WHERE id = 'demo-routine-daily_digest'"),
+			"demo-routine-daily_digest",
+		).toBe(1);
+		// No builtin:* routines (mechanism deleted in BA9d aa260893c).
+		expect(await count(db, "routines", "WHERE id LIKE 'builtin:%'"), "no builtin:* routines").toBe(
+			0,
+		);
+		// At least the daily-digest run history row.
+		expect(await count(db, "routine_runs")).toBeGreaterThanOrEqual(1);
 		const danglingRuns = await rows<{ id: string }>(
 			db,
 			`SELECT r.id FROM routine_runs r LEFT JOIN routines ro ON ro.id = r.routine_id WHERE ro.id IS NULL`,

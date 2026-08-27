@@ -9,6 +9,7 @@ import {
 } from "@hyperidle/db";
 import type { EventBus, KnowledgeUpdatedEvent } from "@hyperidle/event-bus";
 import { and, eq, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import { recomputeAttention } from "./attention-service.js";
 import type { KnowledgeItemWithProjection } from "./knowledge-repository.js";
 
 // --- Constants ---
@@ -429,6 +430,15 @@ async function runAutoPromotionSweep(
 		.from(knowledgeItems)
 		.where(eq(knowledgeItems.status, "provisional"))
 		.limit(maxBatchSize);
+
+	// @lore BA9d AF9 AC7: populate attention scores for ALL candidates before
+	// the promotion loop so items that are skipped (open conflict, below threshold)
+	// still get a score. `recomputeAttention` with only `{ db, eventBus }` skips
+	// review item creation (no `work`/`conversation` ports needed for score-only).
+	if (candidates.length > 0) {
+		const candidateIds = candidates.map((c) => c.id);
+		await recomputeAttention({ db, eventBus }, { filter: { ids: candidateIds } });
+	}
 
 	const promotedIds: string[] = [];
 	const flaggedForReviewIds: string[] = [];

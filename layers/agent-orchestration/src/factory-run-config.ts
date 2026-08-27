@@ -78,23 +78,16 @@ export async function applyFactoryRunConfigDefaults(
 	rosterAgents: ReadonlyArray<{ readonly id: string; readonly role: string }>,
 	readTemplate: (role: string) => string | null = readSystemPromptTemplateForRole,
 ): Promise<void> {
-	// ── AH2: runnable defaults so factory agents can start without configuration ──
+	// ── Single write per agent: AH2 defaults + template in one atomic absent-check ──
+	// @lore BA9d: first-boot only — if a row already exists nothing is written.
+	// Two separate calls broke this: first call (AH2) creates the row; second call
+	// (systemPrompt) then sees the row and skips — fresh agents never got a prompt.
+	// Merging into one call ensures both fields land together on a truly fresh row.
+	// @lore X3 / AU18: missing template is silently skipped (null → absent from payload).
 	for (const agent of rosterAgents) {
-		// @lore BA9d: first-boot only — preserves user edits after initial setup.
-		await writeAgentRunConfigIfAbsent(db, agent.id, { ...AH2_DEFAULTS });
-	}
-
-	// ── System prompt templates from docs/system-prompts/ — read directly, no cache table ──
-	// @lore X3 / AU18: read at bootstrap time. A missing file is silently skipped
-	// (graceful degradation) — writing `systemPrompt: null` on a missing file
-	// would overwrite an existing prompt, which the `content !== null` guard
-	// below exists to prevent.
-	// @lore AU44 B0: formerly iterated SYSTEM_PROMPT_TEMPLATE_FILES keys; now iterates
-	// rosterAgents directly so the deleted SYSTEM_PROMPT_TEMPLATE_FILES export is not needed.
-	for (const agent of rosterAgents) {
-		const content = readTemplate(agent.role);
-		if (content === null) continue;
-		// @lore BA9d: first-boot only — preserves user-edited system prompts.
-		await writeAgentRunConfigIfAbsent(db, agent.id, { systemPrompt: content });
+		const systemPrompt = readTemplate(agent.role);
+		const defaults: Record<string, unknown> = { ...AH2_DEFAULTS };
+		if (systemPrompt !== null) defaults.systemPrompt = systemPrompt;
+		await writeAgentRunConfigIfAbsent(db, agent.id, defaults);
 	}
 }

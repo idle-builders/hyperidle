@@ -111,10 +111,18 @@ interface AttentionService {
 interface AttentionServiceDeps {
 	readonly db: HyperIdleDb;
 	readonly eventBus: EventBus;
-	/** Injected `work` Service port (Mechanism C). */
-	readonly work: WorkPort;
-	/** Injected `conversation` Service port (Mechanism C — for review item thread creation). */
-	readonly conversation: ConversationPort;
+	/**
+	 * Injected `work` Service port (Mechanism C). Optional — when absent,
+	 * attention scores are still computed and written; only review item
+	 * creation (threshold crossing) is skipped. Callers like the promotion
+	 * sweep that only need score population can omit this.
+	 */
+	readonly work?: WorkPort;
+	/**
+	 * Injected `conversation` Service port (Mechanism C). Optional —
+	 * paired with `work`: review item creation is skipped when either is absent.
+	 */
+	readonly conversation?: ConversationPort;
 	/** Test seam: alternate weights loader. */
 	readonly loadWeights?: (db: HyperIdleDb) => AttentionWeights;
 	/** Test seam: Date.now() injection for determinism tests. */
@@ -143,15 +151,16 @@ interface AttentionServiceDeps {
  * can't both observe `prior < 0.7` and both emit `item_created`.
  */
 function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
-	const { db, eventBus, work } = deps;
+	const { db, eventBus } = deps;
 	const loadWeights = deps.loadWeights ?? loadAttentionWeights;
 	const now = deps.now ?? ((): number => Date.now());
-	// Build the review item factory once at service-creation time.
-	// `attentionReviewReasoningMarker` is a local import; no DI port needed.
-	const createReviewItemFn = createReviewItem({
-		conversation: deps.conversation,
-		work: deps.work,
-	});
+	// Build the review item factory only when both ports are provided.
+	// When absent (e.g. sweep-driven score population), threshold crossings
+	// still update the score; the review item is just not created.
+	const createReviewItemFn =
+		deps.work && deps.conversation
+			? createReviewItem({ conversation: deps.conversation, work: deps.work })
+			: null;
 
 	async function recomputeMany(
 		ids: readonly string[],
@@ -263,11 +272,14 @@ function buildAttentionService(deps: AttentionServiceDeps): AttentionService {
 				const crossed = (prior ?? 0) < ATTENTION_THRESHOLD && currentScore >= ATTENTION_THRESHOLD;
 
 				let reviewItemCreated = false;
-				if (crossed) {
+				// @lore BA9d AF9: review item creation requires both `work` and
+				// `conversation` ports. Sweep-driven callers (promotion pipeline)
+				// omit them — scores are still written; the review is just skipped.
+				if (crossed && deps.work && createReviewItemFn) {
 					const marker = attentionReviewReasoningMarker(item.id);
 					// @lore AU13 addendum §A6: MUST stay `tx` (not pooled `db`) — the
 					// idempotency probe runs inside the per-item critical-section tx.
-					const existing = await work.findItemByReasoningMarker(tx, marker);
+					const existing = await deps.work.findItemByReasoningMarker(tx, marker);
 					if (!existing) {
 						const hasConflict = await hasOpenConflict(tx, item.id);
 						const riskTier = hasConflict ? "medium" : "low";

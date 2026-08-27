@@ -122,12 +122,14 @@ describe("A2: Seed script", () => {
 		);
 		expect(Number(cosRows[0]?.count)).toBeGreaterThanOrEqual(1);
 
+		// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
+		// Facilitators are now provided by the rituals plugin; 0 in the base world.
 		// @lore AD8c: role string renamed from practice_facilitator to facilitator
 		const pfRows = await queryRows<{ count: string }>(
 			db,
 			"SELECT COUNT(*) AS count FROM users WHERE role = 'facilitator'",
 		);
-		expect(Number(pfRows[0]?.count)).toBe(5);
+		expect(Number(pfRows[0]?.count)).toBe(0);
 
 		// @lore AD8c: no agents must remain with the old practice_facilitator role
 		const oldPfRows = await queryRows<{ count: string }>(
@@ -153,7 +155,12 @@ describe("A2: Seed script", () => {
 	// with a usable system prompt, and that the docs file backing it exists on disk. Both
 	// facts survive: the content now lives in `agent_run_config.system_prompt`, and the
 	// on-disk file is asserted through the role→template resolver that produced it.
-	test("seeded facilitator and product_manager carry a non-empty system prompt", async ({ db }) => {
+	// @lore BA9d: factory no longer seeds facilitator agents — they are plugin-provided.
+	// SYSTEM_PROMPT_FILE_ROLES includes "facilitator" but 0 facilitators exist in the
+	// base world, so only product_manager rows are returned. The assertion is ≥1.
+	test("seeded product_manager carries a non-empty system prompt (facilitator is plugin-provided)", async ({
+		db,
+	}) => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
@@ -164,7 +171,8 @@ describe("A2: Seed script", () => {
 			   JOIN agent_run_config c ON c.agent_user_id = u.id
 			  WHERE u.role IN (${rolesList})`,
 		);
-		expect(rows.length).toBeGreaterThanOrEqual(2);
+		// Only product_manager agents exist (facilitators are plugin-provided, not seeded here).
+		expect(rows.length).toBeGreaterThanOrEqual(1);
 		for (const row of rows) {
 			expect(row.system_prompt, `${row.id} system_prompt must be set`).toBeTruthy();
 			expect((row.system_prompt ?? "").length).toBeGreaterThan(50);

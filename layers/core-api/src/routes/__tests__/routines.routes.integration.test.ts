@@ -237,10 +237,12 @@ describe("routines routes", () => {
 	});
 
 	// AF6 AC5 — founder observes a built-in self-run from the existing GET /:id
-	// surface. fireStoredRoutine must insert a terminal routine_runs row (§3a) so
-	// the route's runs[] is populated, with a terminal outcome.
+	// surface. fireStoredRoutine inserts a routine_runs row (§3a) so the route's
+	// runs[] is populated. Since BA9d all routines fire via the generic
+	// async-dispatch path: the run row starts with outcome="running" and lastRunAt
+	// is set immediately; the run completes asynchronously by the agent pipeline.
 	describe("AF6 AC5: built-in auto-run appears in GET /api/routines/:id runs[]", () => {
-		test("after a built-in fire, runs[] has a terminal run and lastRunAt is set", async ({
+		test("after a built-in fire, runs[] has a running run and lastRunAt is set", async ({
 			db,
 			app,
 			eventBus,
@@ -269,8 +271,10 @@ describe("routines routes", () => {
 
 			expect(body.runs.length).toBeGreaterThanOrEqual(1);
 			const latest = body.runs[0];
-			expect(["success", "skipped"]).toContain(latest?.outcome);
-			expect(latest?.endedAt).toBeTruthy();
+			// @lore BA9d: all routines now fire via generic async dispatch — the run
+			// row outcome is "running" immediately; it becomes terminal only after the
+			// agent pipeline completes (outside this test boundary).
+			expect(latest?.outcome).toBe("running");
 			expect(body.routine.lastRunAt).toBeTruthy();
 		});
 
