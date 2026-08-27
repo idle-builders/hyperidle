@@ -151,11 +151,6 @@ interface SeamCoreApiPortIncrement2OrgRoutineHandoff {
 			readonly ownerUserName: string | null;
 			readonly systemPromptOverride?: string;
 		}): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
-		provisionTeamRoutines(input: {
-			readonly teamId: string;
-			readonly ownerByRole: Readonly<Record<string, string | undefined>>;
-			readonly leadAgentId: string;
-		}): Promise<void>;
 	};
 	readonly routine: {
 		insertRoutine(input: Record<string, unknown>): Promise<void>;
@@ -364,34 +359,7 @@ describe("CoreApiPort.org — Increment 2 org/routine/handoff wave (RED)", () =>
 		expect(row?.teamId).toBe(teamMembersId);
 	});
 
-	// @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): added when
-	// `provisionTeamRoutines` moved from an opaque same-process
-	// `ToolHandlersRoutineAccessor`/`dispatch` pass-through onto this seam
-	// (`POST /org/team-routines`) — closes the `tool-handlers -> routine`
-	// hidden composition edge the guard flagged. Same pattern as
-	// `persistScaffoldedAgents` above (no 1:1 UI route, new narrow route).
-	test("provisionTeamRoutines reaches the real team-routines route (real routine rows land in the DB)", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-org-key-provision-routines");
-		const { teamId } = await seedTeam(db, { suffix: "provision1" });
-		await seedAgent(db, "agent-org-provision-lead");
-
-		const port = buildSeamPort("agent-org-provision-lead", app);
-		await port.org.provisionTeamRoutines({
-			teamId,
-			ownerByRole: { assistant: "agent-org-provision-lead" },
-			leadAgentId: "agent-org-provision-lead",
-		});
-
-		const rows = await db
-			.select()
-			.from(routines)
-			.where(eq(routines.ownerAgentId, "agent-org-provision-lead"));
-		expect(rows.length).toBe(4);
-		expect(rows.every((r) => r.ownerAgentId === "agent-org-provision-lead")).toBe(true);
-	});
+	// @lore BA9d: provisionTeamRoutines test deleted — route deleted with the builtin mechanism.
 
 	test("a write with no credentials is rejected, not silently bypassed (auth/boundary middleware ran)", async ({
 		db,

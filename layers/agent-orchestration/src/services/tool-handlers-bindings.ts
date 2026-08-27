@@ -194,13 +194,6 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 					ownerUserName,
 					systemPromptOverride,
 				}),
-			// AU21 §9 Increment 9 (forensic-triage wave, second pass): was an opaque
-			// same-process `ToolHandlersRoutineAccessor`/`dispatch` pass-through —
-			// now routes through the seam like every other `create_team` step
-			// (backed by `POST /org/team-routines`, see `core-api-port.ts`'s
-			// `CoreApiOrgPort.provisionTeamRoutines` doc comment).
-			provisionTeamRoutines: (input, actorId) =>
-				seamPortForActor(actorId).org.provisionTeamRoutines(input),
 			insertRoutine: (input: Record<string, unknown>, actorId: string) =>
 				seamPortForActor(actorId).routine.insertRoutine(widenInsertRoutineInput(input)),
 			getRoutineById: (id, actorId) => seamPortForActor(actorId).routine.getRoutineById(id),

@@ -134,9 +134,6 @@ const ports: ToolHandlersPorts = {
 				await sharedDb.update(teams).set(patch).where(eq(teams.id, teamId));
 			}
 		},
-
-		/** No-op: routine provisioning is orthogonal to FK correctness. */
-		provisionTeamRoutines: async () => {},
 	},
 };
 

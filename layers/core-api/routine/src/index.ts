@@ -46,22 +46,17 @@ export type { RoutineSchedulerPorts } from "./ports.js";
 // `@hyperidle/dispatch`'s `service.ts` — scheduler + `routineRuns` lifecycle
 // move core-side per architecture.md §6 Decision B′/B″ ruling #4; see
 // `routine-scheduler.ts`'s own top-of-file note) --
+// @lore BA9d: BuiltinRoutineId, PostBetRetroArgs, RunBuiltinResult, extractBuiltinKind,
+// fireBuiltinRoutine, provisionTeamRoutines, registerBuiltinRoutineHandlers are deleted —
+// the built-in routine mechanism is gone. All routines are now generic (plugin-provided
+// or user-created).
 export type {
-	BuiltinRoutineId,
 	FireResult,
-	PostBetRetroArgs,
 	RoutineScheduler,
 	RoutineSchedulerConfig,
-	RunBuiltinResult,
 } from "./routine-scheduler.js";
 export {
-	extractBuiltinKind,
-	fireBuiltinRoutine,
 	fireGenericRoutine,
-	// AU21 §9 Increment 9: relocated from `@hyperidle/dispatch` — team-creation-
-	// time builtin-routine definition seeding, now an intra-package call.
-	provisionTeamRoutines,
-	registerBuiltinRoutineHandlers,
 	startRoutineScheduler,
 } from "./routine-scheduler.js";
 // -- routine-service (AU13: routines + routineRuns CRUD + reads) --

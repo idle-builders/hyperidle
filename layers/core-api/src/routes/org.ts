@@ -27,7 +27,6 @@ import {
 	resolveReviewRecipients,
 	upsertOrgEdge,
 } from "@hyperidle/org";
-import { provisionTeamRoutines } from "@hyperidle/routine";
 import { findUser, insertUser, listUsers } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
@@ -77,15 +76,6 @@ const persistScaffoldedAgentsSchema = z.object({
 });
 
 /**
- * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): backs
- * `CoreApiOrgPort.provisionTeamRoutines` — `create_team`'s tool handler's
- * last remaining non-seam step (see `core-api-port.ts`'s own doc comment on
- * `CoreApiOrgPort` for the full reasoning). No 1:1 UI route (same shape as
- * `scaffoldedAgentsSchema` above) — `provisionTeamRoutines` is a step INSIDE
- * `POST /teams`'s heavier UI flow (`teams-routes.ts`), not itself a route;
- * this is a new, narrowly-scoped route built specifically for the seam.
- */
-/**
  * @lore AU44 AU20-fd: backs `CoreApiOrgPort.scaffoldFromRequest` — widens the
  * scaffold seam so agent-orchestration passes the request instead of pre-resolved
  * specs. Core-api resolves via `resolveAgentScaffoldSpecs` then persists.
@@ -100,12 +90,6 @@ const scaffoldFromRequestSchema = z.object({
 	ownerUserId: z.string().nullable(),
 	ownerUserName: z.string().nullable(),
 	systemPromptOverride: z.string().optional(),
-});
-
-const provisionTeamRoutinesSchema = z.object({
-	teamId: z.string().min(1),
-	ownerByRole: z.record(z.string(), z.string().optional()),
-	leadAgentId: z.string().min(1),
 });
 
 /**
@@ -335,22 +319,6 @@ export function createOrgRoutes(
 			specs,
 		);
 		return c.json(result, 201);
-	});
-
-	// POST /team-routines — seeds the four builtin-routine definitions for a
-	// team (`@hyperidle/routine`'s `provisionTeamRoutines`). `teams-routes.ts`'s
-	// `POST /teams` calls the underlying function directly in-process (same
-	// convention as `scaffolded-agents` above) — this route exists so
-	// `create_team`'s tool handler (already routing every other step through
-	// this seam) can reach it too, per Decision C.
-	router.post("/team-routines", validateBody(provisionTeamRoutinesSchema), async (c) => {
-		const body = c.req.valid("json" as never) as z.infer<typeof provisionTeamRoutinesSchema>;
-		await provisionTeamRoutines(db, {
-			teamId: body.teamId,
-			ownerByRole: body.ownerByRole,
-			leadAgentId: body.leadAgentId,
-		});
-		return c.json({}, 201);
 	});
 
 	return router;

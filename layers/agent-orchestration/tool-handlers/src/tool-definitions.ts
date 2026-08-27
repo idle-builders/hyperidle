@@ -1048,23 +1048,6 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 				await ports.coreApi.updateTeam(teamId, { leadAgentId: lead }, ctx.agentId);
 			}
 
-			{
-				const ownerByRole: Partial<Record<string, string>> = {};
-				for (const { role, agentId } of roster) {
-					if (role && !ownerByRole[role]) {
-						ownerByRole[role] = agentId;
-					}
-				}
-				await ports.coreApi.provisionTeamRoutines(
-					{
-						teamId,
-						ownerByRole,
-						leadAgentId: lead ?? agentIds[0] ?? "",
-					},
-					ctx.agentId,
-				);
-			}
-
 			ctx.eventBus.emit({
 				type: "team_created",
 				streamId: teamId,

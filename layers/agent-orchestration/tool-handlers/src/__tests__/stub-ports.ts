@@ -13,7 +13,6 @@ function notImplemented(): never {
 export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 	coreApi: {
 		createBet: notImplemented,
-		provisionTeamRoutines: notImplemented,
 		getTaskById: notImplemented,
 		getBetById: notImplemented,
 		updateBetById: notImplemented,

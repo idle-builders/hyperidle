@@ -78,7 +78,6 @@ import {
 	type PromoteKnowledgeItemRequest,
 	type PromoteKnowledgeItemResult,
 	type ProposedCallOutcomeResult,
-	type ProvisionTeamRoutinesRequest,
 	type RoutineView,
 	type ScaffoldFromRequestInput,
 	type TaskView,
@@ -189,9 +188,6 @@ interface CoreApiHcClient {
 		};
 		readonly "scaffold-request": {
 			$post(args: { readonly json: ScaffoldFromRequestInput }): Promise<Response>;
-		};
-		readonly "team-routines": {
-			$post(args: { readonly json: ProvisionTeamRoutinesRequest }): Promise<Response>;
 		};
 	};
 	readonly conversations: {
@@ -660,11 +656,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				const res = await client.org["scaffold-request"].$post({ json: input });
 				if (!res.ok) return throwSeamError("org.scaffoldFromRequest", res);
 				return (await res.json()) as PersistScaffoldedAgentsResponse;
-			},
-
-			async provisionTeamRoutines(input: ProvisionTeamRoutinesRequest): Promise<void> {
-				const res = await client.org["team-routines"].$post({ json: input });
-				if (!res.ok) return throwSeamError("org.provisionTeamRoutines", res);
 			},
 		},
 		routine: {

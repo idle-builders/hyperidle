@@ -341,21 +341,6 @@ interface ToolHandlersCoreApiAccessor {
 		systemPromptOverride: string | undefined,
 		actorId: string,
 	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
-	/**
-	 * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): moved here
-	 * from a standalone `ToolHandlersRoutineAccessor`/`ToolHandlersDispatchAccessor`
-	 * opaque same-process pass-through (this file's top `@lore`) — `create_team`'s
-	 * last non-seam step now routes through `CoreApiPort` like every other step
-	 * in that flow (Decision C), backed by `POST /org/team-routines`.
-	 */
-	provisionTeamRoutines(
-		input: {
-			readonly teamId: string;
-			readonly ownerByRole: Partial<Record<string, string>>;
-			readonly leadAgentId: string;
-		},
-		actorId: string,
-	): Promise<void>;
 	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<string | null>;
 	getRoutineById(
 		id: string,

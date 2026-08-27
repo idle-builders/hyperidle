@@ -47,10 +47,7 @@ import { resolveOrCreateCallingThread } from "./services/calling-thread-bindings
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
-import {
-	registerBuiltinRoutineReactions,
-	startRoutineScheduler,
-} from "./services/routine-scheduler-bindings.js";
+import { startRoutineScheduler } from "./services/routine-scheduler-bindings.js";
 import { registerWorkSessionEndReactions } from "./services/work-session-end-reactions.js";
 import { registerWorkSessionStartedReactions } from "./services/work-session-started-reactions.js";
 
@@ -502,15 +499,6 @@ export function registerAgentLayerServices(ctx: {
 	// reaction + the cron/due-eval tick loop) is its own core-api-side
 	// lifecycle (`routine-scheduler-bindings.ts`).
 	const pollIntervalMs = ctx.routinePollIntervalMs ?? DEFAULT_ROUTINE_POLL_INTERVAL_MS;
-
-	disposers.push(
-		identifyBootstrapOwner(
-			registerBuiltinRoutineReactions(db, eventBus, agentOrchestration),
-			"builtin routine reactions",
-			"bet_state_changed subscription stop",
-			["builtin routine reactions"],
-		),
-	);
 
 	const schedulerPromise = startRoutineScheduler(db, eventBus, agentOrchestration, {
 		pollIntervalMs,
