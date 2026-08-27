@@ -107,6 +107,16 @@ describe("migration 0065: BA9d purge strategy — brownfield", () => {
 				VALUES ('user-routine-daily', 'Daily Standup', 'calendar', '{"cron":"0 9 * * 1-5"}', true, 'seed-agent-cos', ${NOW})
 			`);
 
+		// Seed: routine_runs referencing the builtin routines.
+		// The migration does UPDATE (soft-delete), NOT DELETE, so the
+		// onDelete:"restrict" FK on routine_runs.routine_id must NOT block it.
+		await db.execute(sql`
+				INSERT INTO routine_runs (id, routine_id, started_at, outcome)
+				VALUES
+					('run-post-bet-retro-1', 'builtin:post-bet-retro:team-demo', ${NOW}, 'success'),
+					('run-knowledge-promotion-1', 'builtin:knowledge-promotion', ${NOW}, 'success')
+			`);
+
 		// Act: apply migration 0065
 		const folder65 = makeTempMigrationsFolder(65);
 		tempDirs.push(folder65);

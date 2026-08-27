@@ -53,6 +53,7 @@ import {
 	list as listKnowledgeItems,
 	recomputeAttention,
 	recordConflict as recordKnowledgeConflict,
+	sweep as runKnowledgeSweep,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
@@ -797,6 +798,20 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
 		return c.json(result);
+	});
+
+	// POST /sweep — agent-callable knowledge sweep (BA9d: replaces dead builtin routine path).
+	// kind="autoPromotion": promote provisional items that meet the repetition threshold.
+	// kind="stale": mark active items that have not been referenced recently as stale.
+	const sweepBodySchema = z.object({ kind: z.enum(["autoPromotion", "stale"]) });
+	router.post("/sweep", validateBody(sweepBodySchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof sweepBodySchema>;
+		const result =
+			body.kind === "autoPromotion"
+				? await runKnowledgeSweep(db, eventBus, "autoPromotion")
+				: await runKnowledgeSweep(db, eventBus, "stale", { nowMs: Date.now() });
+		const processed = "promotedIds" in result ? result.promotedIds.length : result.markedIds.length;
+		return c.json({ kind: body.kind, processed });
 	});
 
 	return router;

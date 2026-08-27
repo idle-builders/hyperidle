@@ -51,6 +51,7 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		createKnowledgeConflict: notImplemented,
 		promoteKnowledgeItem: notImplemented,
 		upsertKnowledgeAppProjectionAttentionScore: notImplemented,
+		runKnowledgeSweep: notImplemented,
 		recomputeAttentionScoreForItem: notImplemented,
 		mergeKnowledgeItem: notImplemented,
 		splitKnowledgeItem: notImplemented,

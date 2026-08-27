@@ -303,6 +303,79 @@ describe("routines routes", () => {
 	});
 
 	/**
+	 * BA9d D11 — silent-disable footgun.
+	 *
+	 * eventTransitionTo on a non-transition event type (anything other than
+	 * task_state_changed or bet_state_changed) silently never fires because the
+	 * event carries no fromState/toState. The route must reject this at creation
+	 * time with 400 so the author gets immediate feedback instead of a routine
+	 * that appears active but never runs.
+	 */
+	describe("BA9d D11 — POST /api/routines rejects transition constraint on non-transition event", () => {
+		test("eventTransitionTo with knowledge_updated returns 400", async ({ db, app }) => {
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "ba9d-footgun-team", name: "Footgun team", phase: "build", createdAt: now });
+			await db.insert(users).values({
+				id: "ba9d-footgun-agent",
+				kind: "ai",
+				name: "Footgun Agent",
+				role: "builder",
+				status: "active",
+				teamId: "ba9d-footgun-team",
+				createdAt: now,
+			});
+
+			const res = await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					name: "Bad constraint routine",
+					ownerAgentId: "ba9d-footgun-agent",
+					triggerType: "event",
+					eventType: "knowledge_updated",
+					eventTransitionTo: "done",
+				}),
+			});
+
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { error: string };
+			expect(body.error).toMatch(/task_state_changed|bet_state_changed/);
+		});
+
+		test("eventTransitionTo with task_state_changed returns 201", async ({ db, app }) => {
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "ba9d-valid-team", name: "Valid team", phase: "build", createdAt: now });
+			await db.insert(users).values({
+				id: "ba9d-valid-agent",
+				kind: "ai",
+				name: "Valid Agent",
+				role: "builder",
+				status: "active",
+				teamId: "ba9d-valid-team",
+				createdAt: now,
+			});
+
+			const res = await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					name: "Valid constraint routine",
+					ownerAgentId: "ba9d-valid-agent",
+					triggerType: "event",
+					eventType: "task_state_changed",
+					eventTransitionTo: "done",
+				}),
+			});
+
+			expect(res.status).toBe(201);
+		});
+	});
+
+	/**
 	 * BA1 D5/NB2 — `teamId` is removed from the create contract, not merely
 	 * ignored. A plain `z.object` (today's `createRoutineSchema`, no
 	 * `.strict()`) STRIPS an unrecognized key rather than rejecting it, and

@@ -21,7 +21,7 @@
 					"agentId": "librarian",
 					"triggerType": "calendar",
 					"triggerConfig": "{\"cron\":\"0 3 * * 0\"}",
-					"prompt": "Run the knowledge decay sweep. Review knowledge items that have not been updated or referenced recently. Lower the attention scores of stale items. Archive items that are no longer relevant and have very low attention scores. Keep the knowledge base current and focused."
+					"prompt": "Run the knowledge decay sweep by calling the run_knowledge_sweep tool with kind='stale'. This marks active knowledge items that have not been referenced recently as stale so the team's knowledge base stays current and focused."
 				},
 				{
 					"id": "knowledge-promotion",
@@ -29,7 +29,7 @@
 					"agentId": "librarian",
 					"triggerType": "calendar",
 					"triggerConfig": "{\"cron\":\"0 4 * * 0\"}",
-					"prompt": "Run the knowledge promotion sweep. Recompute attention scores for all draft and review knowledge items. Promote items with high engagement and relevance to active status. Surface the most-referenced items for each team so agents load the right context."
+					"prompt": "Run the knowledge promotion sweep by calling the run_knowledge_sweep tool with kind='autoPromotion'. This promotes provisional knowledge items that have met the repetition threshold to validated status so the most-referenced items are available to the team."
 				},
 				{
 					"id": "post-task-retro",

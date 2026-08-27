@@ -668,6 +668,16 @@ export interface CoreApiKnowledgePort {
 		}>,
 		updatedBy: string,
 	): Promise<ReadonlyArray<{ readonly id: string }>>;
+	/**
+	 * Run a knowledge sweep.
+	 * kind="autoPromotion" promotes provisional items meeting the repetition threshold.
+	 * kind="stale" marks active items not referenced recently as stale.
+	 * @lore BA9d: replaces the dead builtin-routine sweep path; exposed as an agent tool
+	 * so the Librarian can trigger sweeps from plugin routines.
+	 */
+	runKnowledgeSweep(
+		kind: "autoPromotion" | "stale",
+	): Promise<{ readonly kind: string; readonly processed: number }>;
 }
 
 /**

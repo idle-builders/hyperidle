@@ -489,6 +489,11 @@ function parsePluginAgent(item: unknown, warnings: ManifestWarning[]): ParsedPlu
 		});
 		return null;
 	}
+	// @lore BA9d: agentCategory accepts any non-empty string here — deliberate.
+	// The user-facing POST /api/agents Zod schema enforces z.enum(AGENT_CATEGORIES),
+	// but plugin agents are installed server-side and trusted; gating them at the
+	// parse layer would break forward-compat (a new category would silently skip
+	// every existing agent). The API guard is the right choke-point.
 	return {
 		id: obj.id,
 		name: obj.name,

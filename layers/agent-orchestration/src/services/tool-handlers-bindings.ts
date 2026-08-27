@@ -227,6 +227,8 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 				seamPortForActor(actorId).knowledge.mergeKnowledgeItem(targetId, sourceId, updatedBy),
 			splitKnowledgeItem: (itemId, newItems, updatedBy, actorId) =>
 				seamPortForActor(actorId).knowledge.splitKnowledgeItem(itemId, newItems, updatedBy),
+			runKnowledgeSweep: (kind, actorId) =>
+				seamPortForActor(actorId).knowledge.runKnowledgeSweep(kind),
 		},
 	};
 }

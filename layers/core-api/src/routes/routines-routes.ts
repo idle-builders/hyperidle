@@ -201,6 +201,20 @@ export function createRoutineRoutes(
 			// Stored as {"transitionTo":"<state>"} in the same column calendar
 			// routines use for their cron — no collision, different trigger types.
 			if (body.eventTransitionTo) {
+				// Silent-disable footgun: only task_state_changed and bet_state_changed
+				// carry fromState/toState — a transition constraint on any other event
+				// type can never be satisfied and the routine silently never fires.
+				const TRANSITION_EVENTS = new Set(["task_state_changed", "bet_state_changed"]);
+				if (!TRANSITION_EVENTS.has(body.eventType ?? "")) {
+					return c.json(
+						{
+							error:
+								"eventTransitionTo requires an event type that carries a state transition — only task_state_changed and bet_state_changed qualify",
+							code: API_ERROR_CODES.VALIDATION_ERROR,
+						},
+						400,
+					);
+				}
 				triggerConfig = JSON.stringify({ transitionTo: body.eventTransitionTo });
 			}
 		}

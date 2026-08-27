@@ -1,7 +1,8 @@
 /**
  * AX1 — demo world activity: ~45 sessions (terminal history + two live),
- * the four builtin routines plus the skeleton's daily digest with run
- * history, and the notifications waiting in the popover.
+ * three demo routines (post-task retro, knowledge decay, knowledge promotion)
+ * plus the skeleton's daily digest with run history, and the notifications.
+ * @lore BA9d: builtin:* routine concept deleted; portfolio retro dropped.
  */
 
 import {
@@ -22,8 +23,7 @@ import {
 	ROUTINE_DAILY_DIGEST,
 	ROUTINE_KNOWLEDGE_DECAY,
 	ROUTINE_KNOWLEDGE_PROMOTION,
-	ROUTINE_PORTFOLIO_RETRO,
-	ROUTINE_POST_BET_RETRO,
+	ROUTINE_POST_TASK_RETRO,
 	SESSION_ACTIVE_ASSISTANT,
 	SESSION_ACTIVE_COPY,
 	TASK_MOBILE_RESEARCH,
@@ -184,34 +184,29 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 		triggerConfig: Record<string, unknown>;
 		/** BA1 D2/D8: the event name, for `triggerType:"event"` only — a real column now. */
 		eventType?: string;
+		/** BA9d D11: optional transition constraint stored in triggerConfig. */
+		transitionTo?: string;
 		humanReview: boolean;
 		silent: boolean;
 		lastRunAt: string;
 		nextRunAt: string;
 	}[] = [
 		{
-			id: ROUTINE_POST_BET_RETRO,
-			name: "Post-bet retro",
-			ownerAgentId: PM_ID,
+			// @lore BA9d: was "builtin:post-bet-retro" on "bet_state_changed".
+			// Now a plain demo routine triggered on task completion (plugin shape).
+			id: ROUTINE_POST_TASK_RETRO,
+			name: "Post-task retro",
+			ownerAgentId: ASSISTANT_ID,
 			triggerType: "event",
 			triggerConfig: {},
-			eventType: "bet_state_changed",
+			eventType: "task_state_changed",
+			transitionTo: "done",
 			humanReview: true,
 			silent: false,
 			lastRunAt: clock.daysAgo(8),
 			nextRunAt: clock.daysAgo(-6),
 		},
-		{
-			id: ROUTINE_PORTFOLIO_RETRO,
-			name: "Portfolio retro",
-			ownerAgentId: ASSISTANT_ID,
-			triggerType: "calendar",
-			triggerConfig: { cron: "0 10 * * 1" },
-			humanReview: true,
-			silent: false,
-			lastRunAt: clock.daysAgo(4),
-			nextRunAt: clock.daysAgo(-3),
-		},
+		// ROUTINE_PORTFOLIO_RETRO deleted BA9d — concept explicitly dropped.
 		{
 			id: ROUTINE_KNOWLEDGE_DECAY,
 			name: "Knowledge decay",
@@ -237,6 +232,12 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 	];
 
 	for (const routine of routineSpecs) {
+		const isEventRoutine = routine.triggerType === "event";
+		const triggerConfigValue = isEventRoutine
+			? routine.transitionTo
+				? JSON.stringify({ transitionTo: routine.transitionTo })
+				: null
+			: JSON.stringify(routine.triggerConfig);
 		await db
 			.insert(routines)
 			.values({
@@ -244,8 +245,7 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 				name: routine.name,
 				ownerAgentId: routine.ownerAgentId,
 				triggerType: routine.triggerType,
-				triggerConfig:
-					routine.triggerType === "event" ? null : JSON.stringify(routine.triggerConfig),
+				triggerConfig: triggerConfigValue,
 				eventType: routine.eventType ?? null,
 				humanReview: routine.humanReview,
 				silent: routine.silent,
@@ -269,51 +269,44 @@ async function seedRoutinesAndRuns(db: HyperIdleDb, clock: DemoClock): Promise<v
 		readonly agentId: string;
 	}
 	const runs: readonly RunSpec[] = [
+		// @lore BA9d: was ROUTINE_POST_BET_RETRO; renamed ROUTINE_POST_TASK_RETRO.
 		{
 			id: "demo-run-retro-trial",
-			routineId: ROUTINE_POST_BET_RETRO,
+			routineId: ROUTINE_POST_TASK_RETRO,
 			startedDaysAgo: 14,
 			outcome: "success",
 			summary: "Retro written for Trial extension — validated; keeper: one-time limit.",
 			durationSeconds: 1840,
-			agentId: PM_ID,
+			agentId: ASSISTANT_ID,
 		},
 		{
 			id: "demo-run-retro-search",
-			routineId: ROUTINE_POST_BET_RETRO,
+			routineId: ROUTINE_POST_TASK_RETRO,
 			startedDaysAgo: 20,
 			outcome: "error",
 			summary: "Harness unavailable mid-run; retro retried.",
 			durationSeconds: 220,
-			agentId: PM_ID,
+			agentId: ASSISTANT_ID,
 		},
 		{
 			id: "demo-run-retro-search-retry",
-			routineId: ROUTINE_POST_BET_RETRO,
+			routineId: ROUTINE_POST_TASK_RETRO,
 			startedDaysAgo: 19,
 			outcome: "success",
 			summary: "Retro written for Search relevance — partial; keeper: the eval loop.",
 			durationSeconds: 1610,
-			agentId: PM_ID,
+			agentId: ASSISTANT_ID,
 		},
 		{
 			id: "demo-run-retro-mobile",
-			routineId: ROUTINE_POST_BET_RETRO,
+			routineId: ROUTINE_POST_TASK_RETRO,
 			startedDaysAgo: 8,
 			outcome: "success",
 			summary: "Kill retro written for the mobile spike — postmortem captured.",
 			durationSeconds: 1495,
-			agentId: PM_ID,
-		},
-		{
-			id: "demo-run-portfolio-1",
-			routineId: ROUTINE_PORTFOLIO_RETRO,
-			startedDaysAgo: 4,
-			outcome: "success",
-			summary: "Portfolio review: pricing bet on track, churn draft recommended for activation.",
-			durationSeconds: 2100,
 			agentId: ASSISTANT_ID,
 		},
+		// demo-run-portfolio-1 deleted BA9d — portfolio retro concept dropped.
 		...[6, 5, 4, 3, 2, 1].map((daysAgo, i) => ({
 			id: `demo-run-decay-${daysAgo}`,
 			routineId: ROUTINE_KNOWLEDGE_DECAY,

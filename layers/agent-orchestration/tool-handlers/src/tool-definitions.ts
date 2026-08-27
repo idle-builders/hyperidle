@@ -667,6 +667,32 @@ function makeSubmitReviewTool<TDb>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// run_knowledge_sweep
+// ─────────────────────────────────────────────────────────────────────────────
+
+const runKnowledgeSweepInputSchema = z.object({
+	kind: z.enum(["autoPromotion", "stale"]),
+});
+
+type RunKnowledgeSweepInput = z.infer<typeof runKnowledgeSweepInputSchema>;
+
+function makeRunKnowledgeSweepTool<TDb>(
+	ports: ToolHandlersPorts,
+): ToolDefinition<RunKnowledgeSweepInput, TDb> {
+	return {
+		name: "run_knowledge_sweep",
+		description:
+			"Run a knowledge sweep. kind='autoPromotion' promotes provisional knowledge items that meet the repetition threshold to validated status. kind='stale' marks active items that have not been referenced recently as stale. Call this from a scheduled routine, not from an interactive session.",
+		inputSchema: runKnowledgeSweepInputSchema,
+		roles: ["assistant", "facilitator", "product_manager"],
+		handler: async (args, ctx) => {
+			const result = await ports.coreApi.runKnowledgeSweep(args.kind, ctx.agentId);
+			return ok(result);
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // score_attention
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1568,6 +1594,7 @@ export function buildToolDefinitions(
 		toRegistered(makeCreateTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
+		toRegistered(makeRunKnowledgeSweepTool(ports)),
 		toRegistered(makeScoreAttentionTool(ports)),
 		toRegistered(makePromoteKnowledgeTool(ports)),
 		toRegistered(makeCreateConflictReviewTool(ports)),

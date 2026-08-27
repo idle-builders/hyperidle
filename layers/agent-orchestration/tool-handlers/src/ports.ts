@@ -447,6 +447,17 @@ interface ToolHandlersCoreApiAccessor {
 		actorId: string,
 	): Promise<{ readonly current: number }>;
 	/**
+	 * Run a knowledge sweep.
+	 * kind="autoPromotion" promotes provisional items meeting the repetition threshold.
+	 * kind="stale" marks active items not referenced recently as stale.
+	 * @lore BA9d: replaces the dead builtin-routine sweep path; exposed as an agent tool
+	 * so the Librarian can trigger sweeps from plugin routines.
+	 */
+	runKnowledgeSweep(
+		kind: "autoPromotion" | "stale",
+		actorId: string,
+	): Promise<{ readonly kind: string; readonly processed: number }>;
+	/**
 	 * Merge sourceId into targetId: appends source body to target, archives source.
 	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
 	 */

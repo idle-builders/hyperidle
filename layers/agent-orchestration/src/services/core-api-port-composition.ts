@@ -258,6 +258,11 @@ interface CoreApiHcClient {
 	};
 	readonly knowledge: {
 		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
+		readonly sweep: {
+			$post(args: {
+				readonly json: { readonly kind: "autoPromotion" | "stale" };
+			}): Promise<Response>;
+		};
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 			/** AU31 §2.7 — the writeback processor's optimistic-lock update; same route `PATCH /knowledge/:id` the human-facing UI patches through. */
@@ -805,6 +810,14 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				});
 				if (!res.ok) return throwSeamError("knowledge.recomputeAttentionScoreForItem", res);
 				return (await res.json()) as { readonly current: number };
+			},
+
+			async runKnowledgeSweep(
+				kind: "autoPromotion" | "stale",
+			): Promise<{ readonly kind: string; readonly processed: number }> {
+				const res = await client.knowledge.sweep.$post({ json: { kind } });
+				if (!res.ok) return throwSeamError("knowledge.runKnowledgeSweep", res);
+				return (await res.json()) as { readonly kind: string; readonly processed: number };
 			},
 
 			async mergeKnowledgeItem(
