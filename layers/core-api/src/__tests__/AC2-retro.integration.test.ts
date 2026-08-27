@@ -5,8 +5,7 @@
  * AC2-2:  Knowledge item body has ## Reality and ## Learnings; fabric meta has betId, hypothesis, verdict
  * AC2-3:  Re-validation upserts (no duplicate), version incremented
  * AC2-4:  Hypothesis snapshot is immutable (from creation time)
- * AC2-5:  POST /api/bets/:id/retro/draft returns { verdict, summary, learnings }
- * AC2-6:  Draft endpoint rejects non-completed/killed bets
+ * Note: AC2-5/AC2-6 (retro/draft endpoint) deleted in BA9d — D10.
  * AC2-10: Fabric row kind='reflection'
  * AC2-11: Knowledge item status='active'
  * AC2-14: Retro endpoint rejects non-completed/killed bets with 400
@@ -18,7 +17,6 @@ import {
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
-	tasks,
 	teams,
 } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
@@ -517,144 +515,6 @@ describe("POST /api/bets/:id/retro — AC2 hypothesis validation flow", () => {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ verdict: "validated", summary: "Unauthorized." }),
-		});
-		expect(res.status).toBe(401);
-		vi.unstubAllEnvs();
-	});
-});
-
-async function seedDraftBase(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "t1", name: "Alpha", phase: "build", createdAt: NOW });
-	await db.insert(bets).values([
-		{
-			id: "bet-completed",
-			teamId: "t1",
-			description: "Validate the onboarding hypothesis",
-			status: "completed",
-			hypothesis: "Users will complete onboarding in under 5 minutes.",
-			doneCondition: "80% of users complete step 1 through 5 without drop-off.",
-			createdAt: NOW,
-		},
-		{
-			id: "bet-active",
-			teamId: "t1",
-			description: "Active bet",
-			status: "active",
-			createdAt: NOW,
-		},
-	]);
-
-	// Seed some tasks for the draft endpoint
-	await db.insert(tasks).values([
-		{
-			id: "task-1",
-			betId: "bet-completed",
-			teamId: "t1",
-			title: "Build onboarding wizard",
-			state: "done",
-			outcomeVerdict: "met",
-			createdAt: NOW,
-			updatedAt: NOW,
-		},
-		{
-			id: "task-2",
-			betId: "bet-completed",
-			teamId: "t1",
-			title: "Analytics integration",
-			state: "done",
-			outcomeVerdict: "partially_met",
-			createdAt: NOW,
-			updatedAt: NOW,
-		},
-	]);
-}
-
-describe("POST /api/bets/:id/retro/draft — AC2 AI-assisted draft", () => {
-	// AC2-5: Draft endpoint returns { verdict, summary, learnings }
-	test("AC2-5: returns { verdict, summary, learnings } for completed bet with tasks", async ({
-		db,
-		app,
-	}) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedDraftBase(db);
-
-		const res = await app.request("/api/bets/bet-completed/retro/draft", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({}),
-		});
-		expect(res.status, `Expected 200, got ${res.status}`).toBe(200);
-
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.verdict).toBeTruthy();
-		expect(typeof body.verdict).toBe("string");
-		expect(["validated", "refuted", "partial", "inconclusive"]).toContain(body.verdict);
-		expect(body.summary).toBeTruthy();
-		expect(typeof body.summary).toBe("string");
-		expect(body.learnings).toBeTruthy();
-		expect(typeof body.learnings).toBe("string");
-		vi.unstubAllEnvs();
-	});
-
-	// AC2-5: Draft with no tasks returns generic content (not an error)
-	test("AC2-5: returns draft for bet with no tasks (generic stub content)", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedDraftBase(db);
-
-		// Insert bet with no tasks
-		await db.insert(bets).values({
-			id: "bet-no-tasks",
-			teamId: "t1",
-			description: "Bet with no tasks",
-			status: "completed",
-			createdAt: NOW,
-		});
-
-		const res = await app.request("/api/bets/bet-no-tasks/retro/draft", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.verdict).toBeTruthy();
-		expect(body.summary).toBeTruthy();
-		expect(body.learnings).toBeTruthy();
-		vi.unstubAllEnvs();
-	});
-
-	// AC2-6: Draft endpoint rejects non-completed/killed bets
-	test("AC2-6: rejects draft for active bet with 400", async ({ db, app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		await seedDraftBase(db);
-
-		const res = await app.request("/api/bets/bet-active/retro/draft", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({}),
-		});
-		expect(res.status).toBe(400);
-		vi.unstubAllEnvs();
-	});
-
-	test("AC2-6: returns 404 for non-existent bet", async ({ app }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await app.request("/api/bets/nonexistent/retro/draft", {
-			method: "POST",
-			headers: authHeaders(),
-			body: JSON.stringify({}),
-		});
-		expect(res.status).toBe(404);
-		vi.unstubAllEnvs();
-	});
-
-	// 401 without auth
-	test("returns 401 without authentication", async ({ requestWithoutAuth }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const res = await requestWithoutAuth("/api/bets/bet-completed/retro/draft", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({}),
 		});
 		expect(res.status).toBe(401);
 		vi.unstubAllEnvs();
