@@ -6,7 +6,7 @@
  * both accept and persist the constraint. A routine without the constraint
  * returns `eventTransitionTo: null`.
  */
-import { type HyperIdleDb, routines, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
