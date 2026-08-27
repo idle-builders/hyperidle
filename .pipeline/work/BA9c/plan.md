@@ -142,8 +142,10 @@ Worse, an integration test *asserted* that a thread event yields no subject — 
 down as intended behaviour, which is why nothing caught it. **A test can encode a gap as correct; that is
 a distinct failure from a test that passes wrongly, and neither shows up as red.**
 
-Now: task and bet get the canonical rich shape, and everything else gets a `generic` subject naming the
-entity kind and id, plus the actor where one is carried. Task and bet reuse the canonical assembly rather
+Now ten kinds assemble from a real row: `task`, `bet`, `thread`, `item` (the work-block table — the
+founder's "block" concept, not `knowledge_items`), `knowledge-item`, `artifact`, `team`, `session`,
+`agent` and `user`. Only `routine_fired` stays generic, deliberately: a routine waking about a routine
+carries nothing useful beyond the event itself. Task and bet reuse the canonical assembly rather
 than a bespoke literal — the first version dropped `appetite` and `doneCondition`, so a routine reacting
 to a bet finishing could not see what was wagered or when it counted as done.
 
@@ -168,3 +170,45 @@ to a bet finishing could not see what was wagered or when it counted as done.
 - **Timestamp shapes differ across events.** Most carry a numeric `timestamp`; `work_selection_requested`,
   `team_created`, `agent_added` and `user_created` carry an ISO string `at`. Both are handled, but a new
   event type using a third shape would silently stamp assembly time instead.
+
+
+## The subject is chosen by what the event is about, not by the first id present
+
+A later review found the selection rule was wrong in a way reading the code did not reveal. Session
+events carry a `taskId` alongside their `sessionId` — which task the session ran for — and `taskId` was
+checked first, so `session_ended` resolved to a **task**. A routine wanting the session's outcome got a
+task instead, and the discriminant flipped depending on whether the session happened to have one. The
+same shape hid a second bug: `routine_fired` carries both `routineId` and `agentId`, so it resolved to
+the agent and left the `routineId` branch unreachable.
+
+The rule is now: dispatch on **event type** first for events that carry secondary references, then fall
+back to a field scan. Ordering that list is a decision, not a detail — say why it is ordered as it is,
+because the next reader will otherwise "optimise" it back.
+
+Three shapes — session, agent and team — also had no test that could fail. The reviewer broke the session
+assembly and both suites stayed green. Each now has an integration case that emits a real event and
+asserts on a probe value loaded from the row, and each was broken and confirmed red.
+
+## Proven in the running app, not only in tests
+
+The harness lane proves an agent names what it woke for. This proves the **production wiring** — real
+bindings, real scheduler, real event — which test composition cannot.
+
+On a freshly bootstrapped demo workspace: an event-fired routine was added listening on
+`task_state_changed`, the app was started, and a bet was killed through its real API door. The cascade
+transitioned its tasks, the scheduler matched the routine, and the baked request carried:
+
+```
+type: task_state_changed
+subject.kind: task
+  task: "Write the four-email sequence"  (state: killed)
+  bet:  "Onboarding email sequence"      (with doneCondition)
+transition: in_progress -> killed
+```
+
+Also established on the way: all 65 migrations apply cleanly to an empty database, the app boots with no
+server errors on the new schema, and the onboarding wizard renders for a fresh install — so BA9a, BA9b
+and BA9c's schema changes hold together in the real server.
+
+A caution for repeating it: PGlite is single-writer, so the database cannot be read from a second process
+while the dev server holds it. Stop the server, then inspect.
