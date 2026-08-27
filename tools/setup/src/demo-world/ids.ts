@@ -111,12 +111,9 @@ export const KI_TRIAL_RETRO = "demo-ki-retro-trial-extension";
 export const KI_MOBILE_POSTMORTEM = "demo-ki-postmortem-mobile";
 
 // ── Routines ────────────────────────────────────────────────────────────────
-// @lore BA9d: builtin:* ids deleted — the plugin owns these routines.
-// Demo world seeds plain demo-routine-* ids so development data is realistic.
-export const ROUTINE_POST_TASK_RETRO = "demo-routine-post-task-retro";
-// ROUTINE_PORTFOLIO_RETRO deleted BA9d — plan explicitly DROPs this concept.
-export const ROUTINE_KNOWLEDGE_DECAY = "demo-routine-knowledge-decay";
-export const ROUTINE_KNOWLEDGE_PROMOTION = "demo-routine-knowledge-promotion";
+// @lore BA9d: ritual routine ids (post-task retro, knowledge decay, knowledge
+// promotion) removed from the demo world — the plugin owns them now. Only the
+// skeleton's daily digest remains here; all other routines come from plugins.
 export const ROUTINE_DAILY_DIGEST = "demo-routine-daily_digest";
 
 // ── Sessions (only the ones other rows reference) ───────────────────────────
