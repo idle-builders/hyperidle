@@ -232,11 +232,12 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			// Remove any stale skill items for this plugin (e.g., renamed skill dirs).
 			await removeByPluginTopic(tx, `plugin:${plugin.id}`, keepIds);
 
-			// Materialize declared agents as users rows. Global agents have no teamId.
-			// @lore BA9d AC4: factory-scoped plugins produce one global agent, not one
-			// per team. insertUserIfAbsent + onConflictDoNothing makes reinstall safe.
+			// Materialize declared agents as users rows.
+			// @lore BA9d: agentItemId/routineItemId include scope so factory installs
+			// produce one global row (teamId=null) while team installs produce one row
+			// per team (teamId=scopeId). insertUserIfAbsent makes reinstall idempotent.
 			for (const agentSpec of agents) {
-				const dbId = agentItemId(plugin.id, agentSpec.id);
+				const dbId = agentItemId(plugin.id, agentSpec.id, scopeKind, scopeId);
 				await insertUserIfAbsent(tx, {
 					id: dbId,
 					kind: "ai",
@@ -244,7 +245,7 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 					role: agentSpec.role,
 					status: "active",
 					agentCategory: agentSpec.agentCategory,
-					teamId: null,
+					teamId: scopeKind === "team" ? scopeId : null,
 					createdAt: installTs,
 				});
 			}
@@ -252,8 +253,8 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			// Materialize declared routines. insertRoutine onConflictDoNothing makes
 			// reinstall safe. Routines reference the materialized agent by DB id.
 			for (const routineSpec of routines) {
-				const routineDbId = routineItemId(plugin.id, routineSpec.id);
-				const agentDbId = agentItemId(plugin.id, routineSpec.agentId);
+				const routineDbId = routineItemId(plugin.id, routineSpec.id, scopeKind, scopeId);
+				const agentDbId = agentItemId(plugin.id, routineSpec.agentId, scopeKind, scopeId);
 				await insertRoutine(
 					tx,
 					{

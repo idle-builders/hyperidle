@@ -268,18 +268,39 @@ export function skillItemId(pluginId: string, dirName: string): string {
 
 /**
  * Stable DB id for a plugin-declared agent.
- * Deterministic from pluginId + the agent's local id in the manifest.
+ * Deterministic from pluginId + localId + install scope.
+ *
+ * @lore BA9d: scope is included in the hash so that a factory-scoped install
+ * produces exactly ONE global agent row (scopeId is null → hash suffix is
+ * constant), while a team-scoped install produces ONE row PER team (different
+ * teamId → different hash → different row). This is the entire mechanism that
+ * guarantees "global upkeep runs once, not once per team" for factory-scoped
+ * plugins like knowledge-management: the scheduler sees one routine row and
+ * fires it once. A team-scoped plugin gets one routine per team, which is the
+ * correct per-team behaviour. The same id derivation must be used wherever
+ * these rows are looked up — the test for two-team installs guards this.
  */
-export function agentItemId(pluginId: string, localId: string): string {
-	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}`).slice(0, 24)}`;
+export function agentItemId(
+	pluginId: string,
+	localId: string,
+	scopeKind: string,
+	scopeId: string | null,
+): string {
+	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
 }
 
 /**
  * Stable DB id for a plugin-declared routine.
- * Deterministic from pluginId + the routine's local id in the manifest.
+ * Deterministic from pluginId + localId + install scope.
+ * See @lore on agentItemId — same scope guarantee applies.
  */
-export function routineItemId(pluginId: string, localId: string): string {
-	return `pr_${sha256(`plugin-routine\0${pluginId}\0${localId}`).slice(0, 24)}`;
+export function routineItemId(
+	pluginId: string,
+	localId: string,
+	scopeKind: string,
+	scopeId: string | null,
+): string {
+	return `pr_${sha256(`plugin-routine\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
 }
 
 // ---------------------------------------------------------------------------
