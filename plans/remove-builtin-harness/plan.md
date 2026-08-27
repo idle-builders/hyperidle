@@ -1,0 +1,267 @@
+# Remove the built-in harness. Make model selection real.
+
+Working plan for this session. We build in batches. After each batch: review, verify, you test it by
+hand, then the next one. No pipeline ceremony, no work packages.
+
+## What we're doing
+
+HyperIdle ships its own agent loop — the `builtin` harness, an in-process adapter calling a model API
+through `callLlm`. It is the default for every agent, the always-available row in onboarding, and the
+cheap path most tests take. It loses to the coding CLIs on every feature that matters. It goes.
+
+Removing it forces the thing that has to be true anyway: **the model you pick for an agent is the model
+that runs.** That is broken today on every CLI harness.
+
+## What we proved on this machine, 2026-08-27
+
+Not read from docs — run against the installed binaries.
+
+**Every harness accepts a model on subscription auth, and reports back what it ran.**
+
+| harness | set it | read it back |
+|---|---|---|
+| claude | `--model haiku` / `--model sonnet` | result JSON `modelUsage` → `claude-haiku-4-5-20251001` / `claude-sonnet-5` |
+| codex | `--model gpt-5.4-mini`, ChatGPT login | session rollout JSONL `turn_context.model` (not in `--json` stdout) |
+| opencode | `--model openrouter/z-ai/glm-4.7-flash` | `opencode export <sid>` → `providerID` + `modelID` |
+| cursor-agent | `--model composer-2.5` / `gpt-5.2` | `--output-format stream-json` init event `model` — a **label**, `"Composer 2.5"`, not the id |
+
+**Every harness can list its own models. We use one of the four.**
+
+| harness | its own listing | what we do today |
+|---|---|---|
+| claude | `claude -p "/model" --output-format json` — **$0, 0 tokens, 0 api ms** | run `claude models`, which is **not a subcommand** — the binary treats it as a prompt, answers with a model turn, and the parser wants a Markdown table → **zero models**, money spent per probe, output depends on the cwd's CLAUDE.md |
+| codex | app-server JSON-RPC `model/list` — 9 models with `supportedReasoningEfforts`, `serviceTiers`, `isDefault`, `hidden`; default now `gpt-5.6-sol` | nothing |
+| cursor-agent | `cursor-agent --list-models` — ~30 account-scoped `id - Label` rows, ignores `--output-format` | nothing |
+| opencode | `opencode models --verbose` | correct |
+
+**opencode takes any API key.** Isolated HOME, zero stored credentials:
+
+| environment | models offered |
+|---|---|
+| nothing | 8 (free `opencode/*` tier) |
+| `OPENROUTER_API_KEY` | + 339 `openrouter/*` |
+| `ANTHROPIC_API_KEY` | + 15 `anthropic/*` |
+| project `opencode.json` with an `@ai-sdk/openai-compatible` provider (baseURL + key) | that provider's models |
+
+## The three defects
+
+1. **The model never reaches the CLI.** All four configs pass `--model {{model}}`. `{{model}}` comes from
+   `config.resolvedModel?.model` (`cli-harness-adapter.ts:494`); `resolvedModel` comes from `resolveModel`
+   (`resolve-model.ts:191`) which demands a gateway API key and rejects `openai-compatible` on the
+   per-agent path; the missing-credential error is swallowed (`start-runtime.ts:154`); `{{model}}` becomes
+   `""` and the strip-empty-flag branch (`cli-harness-adapter.ts:511`) deletes the flag. On a
+   subscription-only machine your choice is discarded in silence.
+2. **Discovery is missing or fake** — see the table above.
+3. **Nothing checks what ran.** Every readback exists. None is read. That is why 1 survived.
+
+Consequence: `HARNESS_TEST_MODELS` is a hand-maintained constant nothing verifies. codex's default has
+moved to `gpt-5.6-sol` while we pin `gpt-5.4-mini`; cursor's entry is `auto`, which by definition cannot
+prove a model was selected.
+
+## Rulings this plan follows
+
+1. Onboarding with an API key stays. The key goes to opencode.
+2. Model lists come from the harness itself. Web research only where no harness surface exists — after
+   checking, none needed.
+3. Order is agent → harness → model → that harness+model's extra settings.
+4. No hardcoded default harness. The user decides.
+5. No harness discovered → block setup, say what to install.
+6. No test mocks `callLlm`. Every model call goes through session provisioning.
+7. Evals run per CLI and can compare CLIs.
+
+## Watch out: three unrelated things are also called "builtin"
+
+`builtin:` routines (post-bet-retro, portfolio-retro, knowledge-decay, knowledge-promotion), the reserved
+`builtin` plugin id, and the `builtin` behaviour-config origin. Most matches for the word in this repo are
+one of those. **A sweep by name deletes working product.**
+
+---
+
+## How each batch closes
+
+1. I build it.
+2. `npm run verify` clean, plus the targeted real-harness tests for that batch.
+3. I review the diff against this plan and report what I actually proved, not what I intended.
+4. You test it by hand. I say exactly what to do and what you should see.
+5. Next batch.
+
+Nothing moves to the next batch on a claim. A batch is done when its proof ran.
+
+---
+
+## Batch 1 — Every harness lists its own models
+
+**Change.** Replace model discovery for claude, codex and cursor-agent with each harness's own listing
+surface. claude: `claude -p "/model" --output-format json`. codex: JSON-RPC `model/list` over the
+app-server. cursor-agent: `cursor-agent --list-models`. opencode already correct, untouched. Carry each
+harness's declared per-model options through in the same pass — codex's reasoning efforts and service
+tiers, claude's `[1m]` and effort, opencode's variants. Delete `parseClaudeCatalog`'s Markdown-table path
+and the `claude models` call with it.
+
+Model ids stay in each harness's own vocabulary. No normalising, no common namespace.
+
+**Done when.** For each of the four, the agent editor's model dropdown lists what that harness itself
+reports for this machine's login. Discovery spends no money and needs no API key. A harness that can't be
+asked reports zero models with a reason and doesn't break the others.
+
+**Prove it.** Real-binary test per harness asserting the list is non-empty and comes from the harness;
+a check that no discovery path issues a model turn.
+
+**You test.** Open an agent, switch its harness through all four, watch the model list change to that
+harness's real models each time.
+
+---
+
+## Batch 2 — The model you pick is the model that runs
+
+**Change.** Take the chosen model id from the agent's config to the spawned process with no credential
+resolution in the path. `resolveModel` stops being the source of `{{model}}`. Then read each harness's own
+report of what ran and fail on a mismatch: claude `modelUsage`, codex `turn_context.model` from the
+rollout, opencode `export`, cursor's stream-json init label mapped back to its id via `--list-models`.
+
+Derive the test-model matrix from live discovery instead of the hand-written constant. Drop cursor's
+`auto` — it can't prove selection.
+
+**Done when.** A session runs on the chosen model on all four harnesses with no API key stored anywhere,
+and a mismatch between requested and actual fails loudly.
+
+**Prove it.** Per-harness real-binary test: pin a model, run a session, assert the harness's own report
+names it. All four, no carve-out, no skip.
+
+**You test.** Set an agent to a specific model, run it, and see that model named in the session — then set
+a different one and see it change.
+
+---
+
+## Batch 3 — Extra settings per harness and model
+
+**Change.** Deliver the options each harness declares for the chosen model, in that harness's own form:
+codex reasoning effort and service tier via its config overrides, claude's context and effort, opencode's
+variants, cursor's bracket suffix on the model string. Options come from Batch 1's discovery; none are
+invented for a harness that publishes none.
+
+**Done when.** Picking an option changes the invocation, and the run reflects it.
+
+**Prove it.** Per-harness test that the declared option reaches the process and the run reports it where
+the harness reports it. Where a harness doesn't report it, prove the invocation carries it and say plainly
+that's as far as the proof goes.
+
+**You test.** Set an agent to codex with high reasoning effort, run it, and see the effort took.
+
+---
+
+## Batch 4 — An API key gets you a working workspace
+
+**Change.** Onboarding with a key hands the key to opencode under the env var matching its provider —
+today `envMap` hardcodes `ANTHROPIC_API_KEY` (`adapter-pool.ts:370`) whatever the key is for. A custom
+OpenAI-compatible endpoint goes into the sandbox `opencode.json` provider block, the same file we already
+write for MCP. Setup blocks when nothing is installed or signed in, naming each harness and its install or
+login command. The chosen harness becomes the workspace default; `DEFAULT_AGENT_HARNESS` and the two
+`?? "builtin"` literals go.
+
+**Open before this ships:** a first `opencode run` in a cold isolated HOME didn't finish in four minutes
+and was killed; the same command in an established HOME returns in seconds. A first run after onboarding is
+exactly the cold case. Measure it. If it's real, show progress rather than looking frozen.
+
+**Done when.** A fresh workspace, one API key, no CLI login: the first agent replies. A machine with no
+harness: setup won't complete and tells you what to install.
+
+**Prove it.** Live run per provider shape (OpenRouter key, Anthropic key, custom endpoint) ending in a
+real reply.
+
+**You test.** Fresh workspace, paste a key, ask the assistant something, get an answer.
+
+---
+
+## Batch 5 — Every model call goes through a real harness session
+
+**Change.** Delete the cassette seam (`__testing__/llm-cassette.ts`, `setLlmInterceptor`, the AH6
+Playwright lane and its committed cassettes). Re-establish the two proofs that today script `callLlm`
+(`af7-session-isolation`, `af7-handoff-revokes-tools`) through real harness sessions. Move the browser lane
+onto a real CLI. Give evals a harness selector and make a result name its harness and model, replacing the
+`DirectHarnessAdapter` that is registered as type `"builtin"` and has never run a real CLI despite its own
+comment claiming it does.
+
+This lands **before** the deletion, so the removal subtracts code and not coverage.
+
+**Done when.** Nothing in the repo intercepts a model call. Browser lane drives a real CLI. Evals run per
+harness and two harnesses can be compared on the same scenario.
+
+**Prove it.** The lanes run. A missing harness fails the run naming it — never skips.
+
+**You test.** Run an eval on two different CLIs and compare the results.
+
+---
+
+## Batch 6 — The built-in harness is gone
+
+**Change.** Delete `builtin-harness-adapter.ts` (1,034 lines), `llm-client.ts` (818) and `llm-types.ts`,
+the request-fields half of `model-options.ts` (`modelOptionArgv` stays — it serves the CLIs), the five
+forks in `provisioner.ts` (`:1105`, `:1366`, `:1481`, `:1579`, `:1719`), the `builtin` branch of the
+capability descriptor, `probeBuiltinGateway`, the never-disableable carve-outs in `routes/harnesses.ts` and
+`harness-presentation.ts`, the setup row and `BuiltinDetail`, the name from `HarnessAdapterType` and the
+supported list. Migrate every agent row that names it.
+
+Full and destructive — no shim, no alias, no adapter left registered. The three unrelated `builtin` nouns
+are untouched.
+
+One thing to decide, not assume: four of the five provisioner forks read "not built-in ⇒ do the MCP
+thing", so they become unconditional. The fifth is the resolved-model guard, which has no meaning without
+the built-in harness — its removal must not quietly drop a check a CLI session still needs. State what's
+still true.
+
+**Done when.** A session can only run through an installed harness, provisioning has one path, no agent is
+stranded and the row count is unchanged.
+
+**Prove it.** Upgrade a populated database and check every affected row. Run a session on each harness
+after the deletion.
+
+**You test.** Use the app end to end — the built-in harness appears nowhere, and `builtin:` routines still
+fire.
+
+---
+
+## Batch 7 — Model settings belong to the harness
+
+**Change.** Replace the three-tier gateway screen (`SettingsModels.tsx`, 381 lines — reasoning / workhorse
+/ fast) with per-harness settings: this harness's models, and what it needs from you — a key for the ones
+that take a key, its own sign-in for the ones that don't. Then delete whatever credential and gateway code
+has no consumer left: `ModelGatewayConfig`, `BUILT_IN_GATEWAY_CONFIG`, `MODEL_CATALOG`, `resolveModel`, and
+any credential name nothing reads.
+
+Every credential that survives must have a named consumer. A key someone already entered for a harness
+that still uses it keeps working — nobody re-enters a key.
+
+**Done when.** No product-wide model configuration exists anywhere, and every stored credential has a
+reader.
+
+**Prove it.** Trace every credential to its consumer. Upgrade a workspace that had a stored key and see
+agents keep running.
+
+**You test.** Open settings — each harness shows its own models and its own auth, and there's no tier
+screen left.
+
+---
+
+## Open questions
+
+1. **Existing agents on the built-in harness.** When we migrate `harness_type = 'builtin'` rows, what do
+   they become? The workspace's chosen default is the obvious answer — but if several harnesses are
+   installed and no default was ever set (workspaces created before Batch 4), we need a rule. Simplest:
+   the first ready harness in discovery order, and say so in the release note.
+2. **opencode's free tier.** With zero credentials it still offers 8 free `opencode/*` models. That makes
+   a no-key, no-login first run technically possible. You ruled "block at setup" — I'm flagging this
+   because it's new information, not to reopen it.
+3. **cursor-agent's readback is a label, not an id.** `"Composer 2.5"` for `composer-2.5`. Mapping via
+   `--list-models` is straightforward and fails loudly if a label stops matching. Good enough, or do you
+   want something stronger for cursor?
+4. **Eval breadth.** Every scenario on every harness by default is expensive. Default to one harness with
+   an explicit flag to fan out, or always fan out?
+
+---
+
+## Not doing
+
+Bundling or auto-installing a CLI. A model list written down anywhere. Reworking what evals measure.
+Touching `builtin:` routines, the reserved `builtin` plugin id, or the `builtin` behaviour-config origin.
+Keeping any compatibility path for anything removed.
