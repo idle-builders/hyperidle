@@ -87,11 +87,12 @@ describe("AGENT_ROLE_CATALOG", () => {
 		expect(uniqueRoles.size).toBe(roles.length);
 	});
 
-	it("all 3 categories are represented", () => {
+	it("all 2 categories are represented (strategy removed in BA9d)", () => {
 		const categoriesInCatalog = new Set(AGENT_ROLE_CATALOG.map((e) => e.category));
 		expect(categoriesInCatalog.has("team")).toBe(true);
-		expect(categoriesInCatalog.has("strategy")).toBe(true);
 		expect(categoriesInCatalog.has("individual")).toBe(true);
+		// Cast to string — TS rejects "strategy" as it's not in the AgentCategory union (BA9d).
+		expect((categoriesInCatalog as Set<string>).has("strategy")).toBe(false);
 	});
 
 	it("type annotation: each entry is assignable to AgentRoleCatalogEntry", () => {
@@ -119,10 +120,11 @@ describe("findRoleCatalogEntry", () => {
 	});
 
 	// @lore AD8c: role renamed from practice_facilitator to facilitator
+	// @lore BA9d: facilitator moved from category="strategy" to category="individual"
 	it("returns the entry for facilitator", () => {
 		const entry = findRoleCatalogEntry("facilitator");
 		expect(entry).toBeDefined();
-		expect(entry?.category).toBe("strategy");
+		expect(entry?.category).toBe("individual");
 	});
 
 	it("returns the entry for assistant (formerly chief_of_staff)", () => {
@@ -241,10 +243,11 @@ describe("defaultRoster", () => {
 		expect(roster).toEqual(sorted);
 	});
 
-	it("does not include strategy or individual category agents", () => {
+	it("does not include individual-category agents (facilitator, assistant)", () => {
+		// @lore BA9d: strategy category removed; facilitator + assistant are both "individual" now
 		const roster = defaultRoster(["development", "product", "design", "marketing"]);
-		expect(roster).not.toContain("assistant"); // @lore AD8b: individual-category agents not in team roster
-		expect(roster).not.toContain("facilitator"); // @lore AD8c: renamed from practice_facilitator
+		expect(roster).not.toContain("assistant"); // individual-category — not in team roster
+		expect(roster).not.toContain("facilitator"); // individual-category — not in team roster
 	});
 });
 
@@ -253,14 +256,14 @@ describe("defaultRoster", () => {
 // ---------------------------------------------------------------------------
 
 describe("AGENT_CATEGORIES", () => {
-	it("has exactly 3 values", () => {
-		expect(AGENT_CATEGORIES).toHaveLength(3);
+	it("has exactly 2 values (strategy removed in BA9d)", () => {
+		expect(AGENT_CATEGORIES).toHaveLength(2);
 	});
 
-	it("contains team, strategy, individual", () => {
+	it("contains team and individual only", () => {
 		expect(AGENT_CATEGORIES).toContain("team");
-		expect(AGENT_CATEGORIES).toContain("strategy");
 		expect(AGENT_CATEGORIES).toContain("individual");
+		expect(AGENT_CATEGORIES).not.toContain("strategy");
 	});
 
 	it("type annotation: AgentCategory is assignable", () => {

@@ -2,9 +2,8 @@
  * O1 event-split validation tests (RED phase).
  *
  * These tests verify:
- * - KernelEvent union exists and is exhaustive (16 members)
- * - StrategyEvent union exists
- * - DomainEvent = KernelEvent | StrategyEvent
+ * - The KernelEvent subset (locally typed) covers 16 members exhaustively
+ * - DomainEvent is a flat union (KernelEvent/StrategyEvent split removed in BA9d)
  * - New knowledge events: KnowledgeCreatedEvent, KnowledgeArchivedEvent, KnowledgeAccessedEvent
  * - SessionEndedEvent has NO costDelta field
  * - BetShippedEvent, BetCommittedEvent, ResponseRecordedEvent are NOT exported

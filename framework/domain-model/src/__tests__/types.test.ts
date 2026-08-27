@@ -73,10 +73,9 @@ describe("status-union runtime constants", () => {
 	});
 
 	describe("Agent categories (AB0)", () => {
-		it("AGENT_CATEGORIES has 3 values", () => {
-			expect(AGENT_CATEGORIES).toHaveLength(3);
+		it("AGENT_CATEGORIES has 2 values (strategy removed in BA9d)", () => {
+			expect(AGENT_CATEGORIES).toHaveLength(2);
 			expect(AGENT_CATEGORIES).toContain("team");
-			expect(AGENT_CATEGORIES).toContain("strategy");
 			expect(AGENT_CATEGORIES).toContain("individual");
 		});
 
