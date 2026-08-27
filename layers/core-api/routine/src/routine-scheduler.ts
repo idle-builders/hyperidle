@@ -52,7 +52,7 @@
 import * as crypto from "node:crypto";
 import type { HyperIdleDb, Routine } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { AgentSessionSourceKind } from "@hyperidle/domain-model";
+import type { AgentSessionSourceKind, RoutineTriggerEvent } from "@hyperidle/domain-model";
 import {
 	type AgentWorkIntentSourceKind,
 	type BetStateChangedEvent,
@@ -580,6 +580,13 @@ export async function fireGenericRoutine(
 	routine: Routine,
 	ports: RoutineSchedulerPorts,
 	recordSkippedRun = false,
+	/**
+	 * BA9c: The event that caused this routine to fire, pre-assembled by
+	 * `registerRoutineEventMatcher`. Absent for clock-fired (heartbeat/calendar)
+	 * routines — the default `undefined` is semantically correct there,
+	 * not a feature flag (clock-fired routines genuinely have no trigger event).
+	 */
+	triggerEvent?: RoutineTriggerEvent,
 ): Promise<FireResult> {
 	const now = new Date();
 	const [runningRow] = await listRoutineRuns(db, {
@@ -622,6 +629,8 @@ export async function fireGenericRoutine(
 				// `settings.readServerConfig` for the `harnessDisabled` bake — no
 				// second `settings` read.
 				readServerConfig: (db) => ports.settings.readServerConfig(db),
+				// BA9c: forward the pre-assembled trigger event (absent for clock-fired runs).
+				...(triggerEvent !== undefined ? { triggerEvent } : {}),
 			});
 		});
 	} catch (error) {
@@ -754,6 +763,384 @@ async function originRoutineId(db: HyperIdleDb, event: DomainEvent): Promise<str
 }
 
 /**
+ * BA9c — assemble a RoutineTriggerEvent from a domain event and the DB.
+ *
+ * For events with a `taskId`: load the task and its bet (via the task's
+ * `betId`). For events with only a `betId`: load the bet directly. For all
+ * events: include `type` and `timestamp`. For state-transition events: include
+ * `transition`. Events with no recognizable entity (e.g. thread events without
+ * a task/bet link) carry only type+timestamp — the `subject` is omitted, not
+ * `null`, so callers can distinguish "absent" from "loaded and empty".
+ *
+ * @lore BA9c: assembly happens here (in the scheduler, which has the event and
+ * the ports) not in the resolver — the resolver just threads whatever
+ * RoutineTriggerEvent it receives. This keeps the subject DB-fresh at fire time.
+ */
+async function assembleTriggerEvent(
+	db: HyperIdleDb,
+	event: DomainEvent,
+	ports: RoutineSchedulerPorts,
+): Promise<RoutineTriggerEvent> {
+	// Cast to Record<string, unknown> for safe structural probing across the DomainEvent union.
+	// Uses 'unknown' intermediate to satisfy strict cast overlap check.
+	const rec = event as unknown as Record<string, unknown>;
+
+	// Some events carry `at` (ISO-8601 string) rather than `timestamp` (number).
+	// work_selection_requested, team_created, agent_added, user_created use `at`.
+	const rawTimestamp =
+		typeof rec.timestamp === "number"
+			? rec.timestamp
+			: typeof rec.at === "string"
+				? new Date(rec.at).getTime()
+				: Date.now();
+
+	const base: RoutineTriggerEvent = {
+		type: event.type,
+		timestamp: rawTimestamp,
+	};
+
+	// Extract transition (fromState/toState) from events that carry one.
+	const transition =
+		typeof rec.fromState === "string" && typeof rec.toState === "string"
+			? { from: rec.fromState, to: rec.toState }
+			: undefined;
+
+	const withTransition = <T extends RoutineTriggerEvent>(t: T): T =>
+		transition ? { ...t, transition } : t;
+
+	// actor = the agent or user who performed the action (senderId, accessorId).
+	// Declared here so the early artifact check below can use it.
+	const actorId =
+		(typeof rec.senderId === "string" ? rec.senderId : undefined) ??
+		(typeof rec.accessorId === "string" ? rec.accessorId : undefined);
+
+	const genericSubject = (
+		entityKind: string,
+		entityId: string,
+		overrideActorId?: string,
+	): RoutineTriggerEvent["subject"] => {
+		const actor = overrideActorId ?? actorId;
+		return {
+			kind: "generic",
+			entityKind,
+			entityId,
+			...(actor !== undefined ? { actorId: actor } : {}),
+		};
+	};
+
+	// ── STEP 1: Event-type-first dispatch ──────────────────────────────────────
+	// Some events carry secondary FK references that would mis-fire under pure
+	// field-priority scanning. Dispatch on event type FIRST for those events,
+	// then fall through to field-priority scanning for everything else.
+
+	// Session events: session_started / session_ended / session_not_returned /
+	//   session_handoff_completed all carry taskId (the task the session runs for),
+	//   but taskId is context — not the primary entity. Dispatch by event.type so
+	//   taskId never wins over sessionId for these events.
+	if (
+		(event.type === "session_started" ||
+			event.type === "session_ended" ||
+			event.type === "session_not_returned" ||
+			event.type === "session_handoff_completed") &&
+		typeof rec.sessionId === "string"
+	) {
+		// For session events the agentId is the actor, not the subject.
+		const sessionActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
+		if (ports.getSessionById) {
+			const session = await ports.getSessionById(db, rec.sessionId);
+			if (session) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "session",
+						session: {
+							id: session.id,
+							state: session.state,
+							agentId: session.agentId,
+							outcome: session.outcome,
+						},
+						...(sessionActor !== undefined ? { actorId: sessionActor } : {}),
+					},
+				});
+			}
+		}
+		return withTransition({
+			...base,
+			subject: {
+				kind: "generic",
+				entityKind: "session",
+				entityId: rec.sessionId,
+				...(sessionActor !== undefined ? { actorId: sessionActor } : {}),
+			},
+		});
+	}
+
+	// routine_fired carries both routineId and agentId. The primary entity is the
+	// routine (what fired), not the agent (who owns it). Dispatch by event type to
+	// prevent agentId winning in the field-priority scan below.
+	// @lore BA9c: routineId stays generic — a routine waking about another routine
+	//   is thin by nature; no shape richer than {entityKind, entityId} is warranted.
+	//   Do not promote to a kind:"routine" subject.
+	if (event.type === "routine_fired" && typeof rec.routineId === "string") {
+		const routineActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
+		return withTransition({
+			...base,
+			subject: {
+				kind: "generic",
+				entityKind: "routine",
+				entityId: rec.routineId,
+				...(routineActor !== undefined ? { actorId: routineActor } : {}),
+			},
+		});
+	}
+
+	// ── STEP 2: Artifact check before task ──────────────────────────────────────
+	// artifact_created carries taskId (producing task) as a secondary FK reference.
+	// Check artifactId first (only artifact_created carries it) so artifact events
+	// produce kind:"artifact" rather than kind:"task".
+	if (typeof rec.artifactId === "string") {
+		const artifact = await ports.work.getArtifactById(db, rec.artifactId);
+		if (artifact) {
+			return withTransition({
+				...base,
+				subject: {
+					kind: "artifact",
+					artifact: {
+						id: artifact.id,
+						kind: artifact.kind,
+						label: artifact.label,
+						producingTaskId: artifact.producingTaskId,
+					},
+					...(actorId !== undefined ? { actorId } : {}),
+				},
+			});
+		}
+		return withTransition({ ...base, subject: genericSubject("artifact", rec.artifactId) });
+	}
+
+	// ── STEP 3: Field-priority scan for remaining events ─────────────────────────
+	// Session and routine_fired events are already dispatched above.
+	// Safe to check taskId now — no session event reaches here.
+	// Priority: taskId → betId → threadId → itemId → sessionId → agentId → teamId → userId
+
+	// Task subject: task_state_changed, dependency_met
+	const taskId = typeof rec.taskId === "string" ? rec.taskId : null;
+	if (taskId) {
+		const task = await ports.work.getTaskById(db, taskId);
+		if (task) {
+			const bet = task.betId ? await ports.work.getBetById(db, task.betId) : null;
+			return withTransition({
+				...base,
+				subject: {
+					kind: "task",
+					task: {
+						id: task.id,
+						title: task.title,
+						description: task.description,
+						state: task.state,
+					},
+					bet: bet
+						? {
+								id: bet.id,
+								description: bet.description,
+								appetite: bet.appetite ?? "",
+								doneCondition: bet.doneCondition,
+							}
+						: { id: task.betId ?? "unknown", description: "", appetite: "", doneCondition: null },
+				},
+			});
+		}
+	}
+
+	// Bet subject: bet_state_changed, bet_revised
+	const betId = typeof rec.betId === "string" ? rec.betId : null;
+	if (betId) {
+		const bet = await ports.work.getBetById(db, betId);
+		if (bet) {
+			return withTransition({
+				...base,
+				subject: {
+					kind: "bet",
+					bet: {
+						id: bet.id,
+						description: bet.description,
+						appetite: bet.appetite ?? "",
+						doneCondition: bet.doneCondition,
+					},
+				},
+			});
+		}
+	}
+
+	// Thread events: thread_created, thread_message_appended, thread_resolved,
+	//               thread_reopened, thread_archived
+	if (typeof rec.threadId === "string") {
+		const thread = await ports.conversation.findThreadById(db, rec.threadId);
+		if (thread) {
+			return withTransition({
+				...base,
+				subject: {
+					kind: "thread",
+					thread: {
+						id: thread.id,
+						hostKind: thread.hostKind,
+						hostId: thread.hostId,
+						resolvedAt: thread.resolvedAt,
+					},
+					...(actorId !== undefined ? { actorId } : {}),
+				},
+			});
+		}
+		return withTransition({ ...base, subject: genericSubject("thread", rec.threadId) });
+	}
+
+	// Knowledge/item events: distinguish by event type.
+	// item_created → items table (kind:"item"); all others → knowledge_items (kind:"knowledge-item").
+	if (typeof rec.itemId === "string") {
+		if (event.type === "item_created") {
+			const item = await ports.work.getItemById(db, rec.itemId);
+			if (item) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "item",
+						item: {
+							id: item.id,
+							title: item.title,
+							kind: item.kind,
+							body: item.body,
+						},
+						...(actorId !== undefined ? { actorId } : {}),
+					},
+				});
+			}
+		} else {
+			const ki = await ports.knowledge.getItemById(db, rec.itemId);
+			if (ki) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "knowledge-item",
+						item: {
+							id: ki.id,
+							title: ki.title,
+							body: ki.body,
+							format: ki.format,
+							version: ki.version,
+						},
+						...(actorId !== undefined ? { actorId } : {}),
+					},
+				});
+			}
+		}
+		return withTransition({
+			...base,
+			subject: genericSubject(
+				event.type === "item_created" ? "item" : "knowledge-item",
+				rec.itemId,
+			),
+		});
+	}
+
+	// Session fallback: sessionId-carrying non-session events (tool_call_recorded,
+	// sandbox_writeback_changes_detected). The session-event types were handled in
+	// step 1 above; these events don't carry taskId so field-priority is safe here.
+	if (typeof rec.sessionId === "string") {
+		const sessionActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
+		if (ports.getSessionById) {
+			const session = await ports.getSessionById(db, rec.sessionId);
+			if (session) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "session",
+						session: {
+							id: session.id,
+							state: session.state,
+							agentId: session.agentId,
+							outcome: session.outcome,
+						},
+						...(sessionActor !== undefined ? { actorId: sessionActor } : {}),
+					},
+				});
+			}
+		}
+		return withTransition({
+			...base,
+			subject: {
+				kind: "generic",
+				entityKind: "session",
+				entityId: rec.sessionId,
+				...(sessionActor !== undefined ? { actorId: sessionActor } : {}),
+			},
+		});
+	}
+
+	// Agent events: agent_added carries both agentId and teamId.
+	// agentId wins (already ordered here) so agent_added → kind:"agent", not kind:"team".
+	if (typeof rec.agentId === "string") {
+		if (ports.getAgentById) {
+			const agent = await ports.getAgentById(db, rec.agentId);
+			if (agent) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "agent",
+						agent: {
+							id: agent.id,
+							name: agent.name,
+							role: agent.role,
+						},
+						...(actorId !== undefined ? { actorId } : {}),
+					},
+				});
+			}
+		}
+		return withTransition({ ...base, subject: genericSubject("agent", rec.agentId) });
+	}
+
+	// Team events: team_created, work_selection_requested
+	// (agent_added handled above via agentId; team_created has agentIds[] not agentId)
+	if (typeof rec.teamId === "string") {
+		if (ports.getTeamById) {
+			const team = await ports.getTeamById(db, rec.teamId);
+			if (team) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "team",
+						team: {
+							id: team.id,
+							name: team.name,
+						},
+						...(actorId !== undefined ? { actorId } : {}),
+					},
+				});
+			}
+		}
+		return withTransition({ ...base, subject: genericSubject("team", rec.teamId) });
+	}
+
+	// User events: user_created — a human joining the workspace.
+	// kind:"user" distinguishes a person joining from kind:"agent" (bot added to team).
+	if (typeof rec.userId === "string") {
+		if (ports.getUserById) {
+			const user = await ports.getUserById(db, rec.userId);
+			if (user) {
+				return withTransition({
+					...base,
+					subject: { kind: "user", user, actorId: actorId ?? undefined },
+				});
+			}
+		}
+		return withTransition({ ...base, subject: genericSubject("user", rec.userId) });
+	}
+
+	// Genuinely no identifying entity in this event.
+	return withTransition({ ...base });
+}
+
+/**
  * BA1 D2 — replaces `registerEventTriggers`. One `eventBus.on` per member of
  * `EVENT_TYPES` (a compile-time constant — D8), not one per routine read
  * once at boot: the subscription set cannot go stale because it is not
@@ -787,8 +1174,10 @@ function registerRoutineEventMatcher(
 				if (candidates.length === 0) return;
 				const origin = await originRoutineId(db, event);
 				const toFire = origin ? candidates.filter((routine) => routine.id !== origin) : candidates;
+				// BA9c: assemble the trigger event once, shared across all matching routines.
+				const triggerEvent = await assembleTriggerEvent(db, event, ports);
 				for (const routine of toFire) {
-					fireGenericRoutine(db, eventBus, routine, ports).catch(() => {
+					fireGenericRoutine(db, eventBus, routine, ports, false, triggerEvent).catch(() => {
 						/* fire-and-forget: generic firing is resilient internally */
 					});
 				}

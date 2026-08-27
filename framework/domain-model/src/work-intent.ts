@@ -257,6 +257,197 @@ export function toBakedContextKnowledgeItems(
  * `routine_run`'s (see that resolver test's `@lore`), not an
  * implementation-detail guess. Flagged for architecture reconciliation.
  */
+/**
+ * The event that caused an event-triggered routine to fire.
+ * Assembled by the scheduler at fire-time; threaded into the baked bundle so
+ * the running agent knows what happened and who was involved.
+ *
+ * @lore BA9c: Lives in domain-model (not event-bus) to avoid a circular
+ * dependency — event-bus already imports from domain-model. Uses plain
+ * `string` for `type` rather than importing `DomainEvent`.
+ */
+export interface RoutineTriggerEvent {
+	/** The domain event type string (e.g. "task_state_changed"). */
+	readonly type: string;
+	/** Unix timestamp (ms) of the original domain event. */
+	readonly timestamp: number;
+	/** State transition when the event carries one (fromState/toState). */
+	readonly transition?: {
+		readonly from: string;
+		readonly to: string;
+	};
+	/**
+	 * The entity the event concerns, assembled as fully as possible.
+	 *
+	 * - `task`: full task+bet shape, DB-loaded (task_state_changed / dependency_met).
+	 * - `bet`:  full bet shape including appetite+doneCondition, DB-loaded
+	 *           (bet_state_changed / bet_revised).
+	 * - `generic`: for all other event types that carry a named entity id (threadId,
+	 *   itemId, sessionId, artifactId, teamId, agentId, userId, routineId, …).
+	 *   No DB lookup — carries the id directly from the event.
+	 *   `actorId` is set when the event explicitly names who performed the action
+	 *   (senderId, accessorId, agentId on thread/knowledge/session events).
+	 * Absent only when the event carries genuinely no identifying id.
+	 */
+	readonly subject?:
+		| {
+				readonly kind: "task";
+				readonly task: {
+					readonly id: string;
+					readonly title: string;
+					readonly description: string | null;
+					readonly state: string;
+				};
+				readonly bet: {
+					readonly id: string;
+					readonly description: string;
+					readonly appetite: string;
+					readonly doneCondition: string | null;
+				};
+		  }
+		| {
+				readonly kind: "bet";
+				readonly bet: {
+					readonly id: string;
+					readonly description: string;
+					readonly appetite: string;
+					readonly doneCondition: string | null;
+				};
+		  }
+		| {
+				/**
+				 * Generic entity carrier for non-task/bet events.
+				 * `entityKind` is a human-readable noun matching the event vocabulary
+				 * (e.g. "routine"). `actorId` is the id of the person or agent who
+				 * performed the action when the event names one.
+				 *
+				 * @lore BA9c: routineId stays generic — a routine waking about
+				 * another routine is thin by nature; there is no useful payload
+				 * beyond what the event already carries. Do not promote it.
+				 */
+				readonly kind: "generic";
+				readonly entityKind: string;
+				readonly entityId: string;
+				readonly actorId?: string;
+		  }
+		| {
+				/** BA9c: DB-loaded thread subject (thread events). */
+				readonly kind: "thread";
+				readonly thread: {
+					readonly id: string;
+					/** Entity type the thread belongs to (e.g. "task", "bet", "user"). */
+					readonly hostKind: string;
+					readonly hostId: string;
+					/** null = open; ISO-8601 string = resolved. */
+					readonly resolvedAt: string | null;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded work-block subject (item_created events — rows from
+				 * the `items` table, the founder's "block" concept: action items, reviews,
+				 * planning blocks). This is NOT `knowledge_items` — it is the work layer's
+				 * block entity, owned by @hyperidle/work, created via work.create("item").
+				 * The two nouns name genuinely different entities with different owners.
+				 */
+				readonly kind: "item";
+				readonly item: {
+					readonly id: string;
+					readonly title: string;
+					/** "review", "action", etc. Nullable on the DB row. */
+					readonly kind: string | null;
+					readonly body: string | null;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded knowledge-base subject (knowledge_created /
+				 * knowledge_updated / knowledge_archived / knowledge_accessed events —
+				 * rows from the `knowledge_items` table). This is the knowledge layer:
+				 * captured learnings, skills, memory — owned by @hyperidle/knowledge,
+				 * written through create() which writes kernel + app-projection together.
+				 * NOT the same as `kind:"item"` (work blocks). Different table, different owner.
+				 */
+				readonly kind: "knowledge-item";
+				readonly item: {
+					readonly id: string;
+					readonly title: string;
+					readonly body: string;
+					readonly format: string;
+					readonly version: number;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/** BA9c: DB-loaded artifact subject (artifact_created events). */
+				readonly kind: "artifact";
+				readonly artifact: {
+					readonly id: string;
+					readonly kind: string;
+					readonly label: string | null;
+					readonly producingTaskId: string;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded team subject (team_created, work_selection_requested events).
+				 * Reuses BakedContextBundle team shape: {id, name}.
+				 */
+				readonly kind: "team";
+				readonly team: {
+					readonly id: string;
+					readonly name: string;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/** BA9c: DB-loaded session subject (session_started / session_ended etc. events). */
+				readonly kind: "session";
+				readonly session: {
+					readonly id: string;
+					readonly state: string;
+					readonly agentId: string;
+					readonly outcome: string | null;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded agent subject (agent_added events when agentId is the
+				 * primary entity — priority above teamId so agent_added → kind:"agent",
+				 * not kind:"team").
+				 * Reuses BakedContextBundle agent shape: {id, name, role}.
+				 */
+				readonly kind: "agent";
+				readonly agent: {
+					readonly id: string;
+					readonly name: string;
+					readonly role: string;
+				};
+				readonly actorId?: string;
+		  }
+		| {
+				/**
+				 * BA9c: DB-loaded user subject (user_created events — a human joining
+				 * the workspace). Same {id, name, role} shape as kind:"agent" but the
+				 * discriminant carries information: "user" means a person joined,
+				 * "agent" means a bot was added to a team. A routine doing onboarding
+				 * acts differently on each. Loaded from the `users` table via
+				 * @hyperidle/users findUser, the same table that stores agents.
+				 */
+				readonly kind: "user";
+				readonly user: {
+					readonly id: string;
+					readonly name: string;
+					readonly role: string;
+				};
+				readonly actorId?: string;
+		  };
+}
+
 export type BakedContextBundle =
 	| {
 			readonly kind: "task";
@@ -289,6 +480,11 @@ export type BakedContextBundle =
 			/** BA1 D4: nullable — the owner agent may belong to no team. */
 			readonly team: { readonly id: string; readonly name: string } | null;
 			readonly knowledge: readonly BakedContextKnowledgeItem[];
+			/**
+			 * BA9c: The event that caused this routine to fire. Absent for clock-fired
+			 * (heartbeat/calendar) routines — those have no triggering event.
+			 */
+			readonly triggerEvent?: RoutineTriggerEvent;
 	  }
 	| {
 			readonly kind: "knowledge";

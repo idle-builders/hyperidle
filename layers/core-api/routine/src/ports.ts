@@ -40,6 +40,56 @@ import type { EventBus } from "@hyperidle/event-bus";
 export interface RoutineSchedulerPorts {
 	readonly work: {
 		getBetById(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
+		/**
+		 * BA9c: Load a task row for trigger event subject assembly. Called in
+		 * `registerRoutineEventMatcher` when a task event fires and the scheduler
+		 * needs to include the task (and its bet) in the `RoutineTriggerEvent`.
+		 */
+		getTaskById(
+			db: HyperIdleDb,
+			id: string,
+		): Promise<
+			| {
+					readonly id: string;
+					readonly title: string;
+					readonly description: string | null;
+					readonly state: string;
+					readonly betId: string | null;
+			  }
+			| undefined
+		>;
+		/**
+		 * BA9c: Load a work item row (items table) for trigger event subject assembly.
+		 * Called for item_created events.
+		 */
+		getItemById(
+			db: HyperIdleDb,
+			id: string,
+		): Promise<
+			| {
+					readonly id: string;
+					readonly title: string;
+					readonly kind: string | null;
+					readonly body: string | null;
+			  }
+			| undefined
+		>;
+		/**
+		 * BA9c: Load an artifact row for trigger event subject assembly.
+		 * Called for artifact_created events.
+		 */
+		getArtifactById(
+			db: HyperIdleDb,
+			id: string,
+		): Promise<
+			| {
+					readonly id: string;
+					readonly kind: string;
+					readonly label: string | null;
+					readonly producingTaskId: string;
+			  }
+			| undefined
+		>;
 		createItem(exec: WriteExecutor, values: NewItem): Promise<void>;
 		findRetroItemByThreadIds(
 			db: HyperIdleDb,
@@ -50,6 +100,22 @@ export interface RoutineSchedulerPorts {
 	readonly conversation: {
 		getThreadIdsByHost(db: HyperIdleDb, hostKind: string, hostId: string): Promise<string[]>;
 		insertThread(db: HyperIdleDb, values: NewThread): Promise<void>;
+		/**
+		 * BA9c: Load a thread row for trigger event subject assembly.
+		 * Called for thread_* events.
+		 */
+		findThreadById(
+			db: HyperIdleDb,
+			id: string,
+		): Promise<
+			| {
+					readonly id: string;
+					readonly hostKind: string;
+					readonly hostId: string;
+					readonly resolvedAt: string | null;
+			  }
+			| undefined
+		>;
 	};
 	readonly knowledge: {
 		runAutoPromotionSweep(
@@ -86,6 +152,23 @@ export interface RoutineSchedulerPorts {
 		): Promise<
 			| { readonly ok: true }
 			| { readonly ok: false; readonly error: { readonly code: string; readonly message: string } }
+		>;
+		/**
+		 * BA9c: Load a knowledge item row for trigger event subject assembly.
+		 * Called for knowledge_created/updated/archived/accessed events.
+		 */
+		getItemById(
+			db: HyperIdleDb,
+			id: string,
+		): Promise<
+			| {
+					readonly id: string;
+					readonly title: string;
+					readonly body: string;
+					readonly format: string;
+					readonly version: number;
+			  }
+			| undefined
 		>;
 	};
 	readonly settings: {
@@ -148,6 +231,53 @@ export interface RoutineSchedulerPorts {
 	 * shape exactly.
 	 */
 	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
+	/**
+	 * BA9c: Load a session row for trigger event subject assembly.
+	 * Called for session_started/ended/handoff etc. events.
+	 */
+	getSessionById?(
+		db: HyperIdleDb,
+		id: string,
+	): Promise<
+		| {
+				readonly id: string;
+				readonly state: string;
+				readonly agentId: string;
+				readonly outcome: string | null;
+		  }
+		| undefined
+	>;
+	/**
+	 * BA9c: Load an agent row for trigger event subject assembly.
+	 * Called for agent_added events (agentId takes priority over teamId).
+	 */
+	getAgentById?(
+		db: HyperIdleDb,
+		id: string,
+	): Promise<
+		| {
+				readonly id: string;
+				readonly name: string;
+				readonly role: string;
+		  }
+		| undefined
+	>;
+	/**
+	 * BA9c: Load a user row for trigger event subject assembly.
+	 * Called for user_created events. Same shape as getAgentById but the
+	 * discriminant differs: "user" = human joined, "agent" = bot added to team.
+	 */
+	getUserById?(
+		db: HyperIdleDb,
+		id: string,
+	): Promise<
+		| {
+				readonly id: string;
+				readonly name: string;
+				readonly role: string;
+		  }
+		| undefined
+	>;
 	assembleSessionKnowledge?(
 		db: HyperIdleDb,
 		input: {

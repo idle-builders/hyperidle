@@ -37,7 +37,7 @@
  * it; the post-bet-retro coverage above is unaffected.
  */
 
-import { insertThread, listThreads } from "@hyperidle/conversation";
+import { findThread, insertThread, listThreads } from "@hyperidle/conversation";
 import {
 	bets,
 	type HyperIdleDb,
@@ -49,7 +49,12 @@ import {
 	type WriteExecutor,
 } from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
-import { list as listKnowledgeItems, recomputeAttention, sweep } from "@hyperidle/knowledge";
+import {
+	get as getKnowledgeItem,
+	list as listKnowledgeItems,
+	recomputeAttention,
+	sweep,
+} from "@hyperidle/knowledge";
 import type { RoutineSchedulerPorts } from "@hyperidle/routine";
 import { fireBuiltinRoutine, fireGenericRoutine } from "@hyperidle/routine";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
@@ -73,6 +78,9 @@ function makePorts(): RoutineSchedulerPorts {
 	return {
 		work: {
 			getBetById: (db, id) => work.get(db, "bet", id),
+			getTaskById: (db, id) => work.get(db, "task", id),
+			getItemById: (db, id) => work.get(db, "item", id),
+			getArtifactById: (db, id) => work.get(db, "artifact", id),
 			createItem: (exec, values) => work.create(exec, "item", values),
 			findRetroItemByThreadIds: async (db, threadIds, marker) => {
 				const rows = await work.list(db, "item", { threadIds, bodyMarker: marker });
@@ -83,6 +91,7 @@ function makePorts(): RoutineSchedulerPorts {
 			getThreadIdsByHost: (db, hostKind, hostId) =>
 				listThreads(db, { host: { kind: hostKind, id: hostId } }).then((ts) => ts.map((t) => t.id)),
 			insertThread,
+			findThreadById: (db, id) => findThread(db, { id }),
 		},
 		knowledge: {
 			runAutoPromotionSweep: (db, eventBus) => sweep(db, eventBus, "autoPromotion"),
@@ -112,6 +121,10 @@ function makePorts(): RoutineSchedulerPorts {
 				);
 				if (!("ok" in result)) throw new Error("unexpected attention result");
 				return result;
+			},
+			getItemById: async (db, id) => {
+				const item = await getKnowledgeItem(db, id);
+				return item ?? undefined;
 			},
 		},
 		settings: {

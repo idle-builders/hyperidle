@@ -306,6 +306,7 @@ export type {
 	BakedContextBundle,
 	BakedContextKnowledgeItem,
 	BakedWorkIntentRequest,
+	RoutineTriggerEvent,
 	SessionKnowledgeItemLike,
 } from "./work-intent.js";
 export { bakeAgentRunnableConfig, toBakedContextKnowledgeItems } from "./work-intent.js";

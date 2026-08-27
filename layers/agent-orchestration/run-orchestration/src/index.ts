@@ -37,6 +37,10 @@ export {
 	// the lore in connection-provisioning.ts. No cross-package consumer.
 	type ServiceConnectionResolverPort,
 } from "./connection-provisioning.js";
+export {
+	createContextAssembler,
+	type RoutineSessionContextData,
+} from "./context.js";
 export type {
 	AdmittedRun,
 	HarnessPort,

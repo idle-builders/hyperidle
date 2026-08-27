@@ -1,0 +1,18 @@
+{
+  "id": "BA9c",
+  "title": "A routine that fires on an event knows what happened",
+  "phase": "shipping",
+  "status": "verified",
+  "branch": "claude/ba9c-event-context",
+  "base": "origin/main (57c334389, includes BA9a+BA9b)",
+  "artifacts": {
+    "plan": ".pipeline/work/BA9c/plan.md"
+  },
+  "gates": {
+    "verify": "exit 0",
+    "service-integration": "2416 passed",
+    "harness": "5 passed; 5 failed when rendering disabled"
+  },
+  "ship_policy": "HALT at CI-green OPEN PR \u2014 founder inspects before merge.",
+  "note": "Folder consolidated at ship: the review folded into plan.md under 'As built'."
+}

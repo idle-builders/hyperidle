@@ -1,7 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createLogger } from "@hyperidle/diagnostics";
-import type { BakedContextBundle, BakedContextKnowledgeItem } from "@hyperidle/domain-model";
+import type {
+	BakedContextBundle,
+	BakedContextKnowledgeItem,
+	RoutineTriggerEvent,
+} from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
 	type AgentSessionSourceKind,
@@ -124,6 +128,11 @@ interface RoutineSessionContextData {
 		id: string;
 		name: string;
 	} | null;
+	/**
+	 * BA9c: The event that caused this routine to fire. Absent for clock-fired
+	 * (heartbeat/calendar) routines.
+	 */
+	triggerEvent?: RoutineTriggerEvent;
 }
 
 /** Map a `kind:"routine"` baked `contextBundle` onto `RoutineSessionContextData` — a pure passthrough. */
@@ -134,6 +143,8 @@ function routineSessionContextDataFromBundle(
 		routine: bundle.routine,
 		agent: bundle.agent,
 		team: bundle.team,
+		// BA9c: thread through the trigger event (absent for clock-fired runs).
+		...(bundle.triggerEvent !== undefined ? { triggerEvent: bundle.triggerEvent } : {}),
 	};
 }
 
@@ -444,14 +455,145 @@ interface RoutinePromptCompositionInput {
 
 /**
  * Build the routine section markdown (AA2).
- * Replaces buildTaskSection for routine sessions — shows routine name/purpose
- * and last run summary instead of task/bet context.
+ * Replaces buildTaskSection for routine sessions — shows routine name/purpose,
+ * last run summary, and (BA9c) the trigger event context when this run was
+ * caused by a domain event rather than a clock tick.
  */
 function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 	const parts: string[] = ["## Routine", "", `**Name:** ${context.routine.name}`];
 
 	if (context.routine.prompt) {
 		parts.push("", "### Instruction", "", context.routine.prompt);
+	}
+
+	// BA9c: render trigger event context when present.
+	if (context.triggerEvent) {
+		const ev = context.triggerEvent;
+		const eventTime = new Date(ev.timestamp).toISOString();
+		parts.push("");
+		parts.push("### Trigger Event");
+		parts.push("");
+		parts.push(`**Event type:** ${ev.type}`);
+		parts.push(`**When:** ${eventTime}`);
+		if (ev.transition) {
+			parts.push(`**Transition:** ${ev.transition.from} → ${ev.transition.to}`);
+		}
+		if (ev.subject) {
+			if (ev.subject.kind === "task") {
+				parts.push("");
+				parts.push("**Task that triggered this run:**");
+				parts.push(`- **Title:** ${ev.subject.task.title}`);
+				parts.push(`- **ID:** ${ev.subject.task.id}`);
+				parts.push(`- **State:** ${ev.subject.task.state}`);
+				if (ev.subject.task.description) {
+					parts.push(`- **Description:** ${ev.subject.task.description}`);
+				}
+				parts.push("");
+				parts.push("**Bet this task belongs to:**");
+				parts.push(`- **Description:** ${ev.subject.bet.description}`);
+				if (ev.subject.bet.appetite) {
+					parts.push(`- **Appetite:** ${ev.subject.bet.appetite}`);
+				}
+				if (ev.subject.bet.doneCondition) {
+					parts.push(`- **Done when:** ${ev.subject.bet.doneCondition}`);
+				}
+			} else if (ev.subject.kind === "bet") {
+				parts.push("");
+				parts.push("**Bet that triggered this run:**");
+				parts.push(`- **Description:** ${ev.subject.bet.description}`);
+				parts.push(`- **ID:** ${ev.subject.bet.id}`);
+				if (ev.subject.bet.appetite) {
+					parts.push(`- **Appetite:** ${ev.subject.bet.appetite}`);
+				}
+				if (ev.subject.bet.doneCondition) {
+					parts.push(`- **Done when:** ${ev.subject.bet.doneCondition}`);
+				}
+			} else if (ev.subject.kind === "generic") {
+				parts.push("");
+				const kindLabel =
+					ev.subject.entityKind.charAt(0).toUpperCase() + ev.subject.entityKind.slice(1);
+				parts.push(`**${kindLabel} that triggered this run:**`);
+				parts.push(`- **ID:** ${ev.subject.entityId}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "thread") {
+				parts.push("");
+				parts.push("**Thread that triggered this run:**");
+				parts.push(`- **Host:** ${ev.subject.thread.hostKind} ${ev.subject.thread.hostId}`);
+				parts.push(
+					`- **State:** ${ev.subject.thread.resolvedAt ? `resolved (${ev.subject.thread.resolvedAt})` : "open"}`,
+				);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "item") {
+				parts.push("");
+				parts.push("**Item that triggered this run:**");
+				parts.push(`- **Title:** ${ev.subject.item.title}`);
+				if (ev.subject.item.kind) {
+					parts.push(`- **Type:** ${ev.subject.item.kind}`);
+				}
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "knowledge-item") {
+				parts.push("");
+				parts.push("**Knowledge item that triggered this run:**");
+				parts.push(`- **Title:** ${ev.subject.item.title}`);
+				parts.push(`- **Format:** ${ev.subject.item.format}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "artifact") {
+				parts.push("");
+				parts.push("**Artifact that triggered this run:**");
+				parts.push(`- **Kind:** ${ev.subject.artifact.kind}`);
+				if (ev.subject.artifact.label) {
+					parts.push(`- **Label:** ${ev.subject.artifact.label}`);
+				}
+				parts.push(`- **Producing task:** ${ev.subject.artifact.producingTaskId}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "team") {
+				parts.push("");
+				parts.push("**Team that triggered this run:**");
+				parts.push(`- **Name:** ${ev.subject.team.name}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "session") {
+				parts.push("");
+				parts.push("**Session that triggered this run:**");
+				parts.push(`- **State:** ${ev.subject.session.state}`);
+				parts.push(`- **Agent:** ${ev.subject.session.agentId}`);
+				if (ev.subject.session.outcome) {
+					parts.push(`- **Outcome:** ${ev.subject.session.outcome}`);
+				}
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "agent") {
+				parts.push("");
+				parts.push("**Agent that triggered this run:**");
+				parts.push(`- **Name:** ${ev.subject.agent.name}`);
+				parts.push(`- **Role:** ${ev.subject.agent.role}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			} else if (ev.subject.kind === "user") {
+				parts.push("");
+				parts.push("**User that triggered this run:**");
+				parts.push(`- **Name:** ${ev.subject.user.name}`);
+				parts.push(`- **Role:** ${ev.subject.user.role}`);
+				if (ev.subject.actorId) {
+					parts.push(`- **Actor:** ${ev.subject.actorId}`);
+				}
+			}
+		} else {
+			parts.push("**Subject:** no identifiable entity in this event");
+		}
 	}
 
 	parts.push("");
