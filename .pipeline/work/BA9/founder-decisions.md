@@ -153,6 +153,21 @@ Founder: *"yeah if its a stub delete."* It composes strings with no model call
 (`layers/core-api/src/routes/bets.ts:625-631,652-686`). Remove the button and its stub route; the human
 bet-retro pane itself stays in core.
 
+## D11 — A routine can name a transition, not only an event type (2026-08-27)
+
+Taken as approved when the founder said "approved merge and continue" without redirecting the
+recommendation. **Say so plainly and let them redirect if this is wrong.**
+
+D8 settled that a retro runs at the end of something, typically a task. BA9c now delivers the transition
+into the prompt, so a routine *can* read it and stop — but it still wakes on every task state change and
+burns a session to decide it is not the end. That is real spend on a shared backend.
+
+So a routine may name a transition alongside its event type — `task_state_changed` where `to = done` —
+and the matcher only fires it then. Smallest change that makes "at the end" true rather than approximated,
+and a natural extension of what a routine already declares. Rejected alternatives: filtering in the prompt
+(free to build, costs a session per transition) and emitting a dedicated completion event (cleanest to
+subscribe to, but new emitters are BA8's scope).
+
 ## Still open
 
 - Do knowledge merge, split and flag-for-review come back? (The AU44 ledger records their deletion as a
