@@ -20,9 +20,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../../__testing__/test-fixtures.js";
 import { applyFactoryCoreState } from "../factory-state.js";
 
-const ROSTER_IDS = [
-	"seed-agent-cos",
-];
+const ROSTER_IDS = ["seed-agent-cos"];
 
 describe("applyFactoryCoreState — first-boot core state (AU29 AC 7)", () => {
 	test("creates the propagation user and the System Agent singleton", async ({ db }) => {

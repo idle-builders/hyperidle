@@ -204,8 +204,6 @@ export function AgentDetailPane({
 						tools, context, and knowledge.
 					</p>
 
-
-
 					<Input
 						textarea
 						aria-label="System prompt"
