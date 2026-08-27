@@ -30,6 +30,7 @@ import {
 	items,
 	routineRuns,
 	routines,
+	sessions,
 	tasks,
 	teams,
 	threads,
@@ -707,6 +708,207 @@ describe("BA9c — user_created produces kind:user rich subject (not generic)", 
 			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("user");
 			expect(baked.contextBundle.triggerEvent.subject.user.name).toBe("BA9c-USER-NAME-PROBE");
 			expect(baked.contextBundle.triggerEvent.subject.user.role).toBe("member");
+		} finally {
+			scheduler.stop();
+		}
+	});
+});
+
+describe("BA9c — session_ended with taskId produces kind:session (not kind:task)", () => {
+	test("session_ended: subject is session even when taskId is present in event", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba9c-sess-1");
+		const routineId = "ba9c-sess-1-routine";
+		const betId = "bet-ba9c-sess-1";
+		const taskId = "task-ba9c-sess-1";
+		const sessionId = "session-ba9c-sess-1";
+
+		// Seed bet + task (so the session carries a real taskId)
+		await seedBet(db, betId, teamId);
+		await seedTask(db, taskId, betId, teamId);
+
+		// Seed a session row (state + outcome are the probe values)
+		await db.insert(sessions).values({
+			id: sessionId,
+			agentId: ownerAgentId,
+			taskId,
+			modelTier: "fast",
+			startedAt: NOW,
+			state: "ended",
+			outcome: "BA9c-SESSION-OUTCOME-PROBE",
+		});
+
+		await seedEventRoutine(db, routineId, ownerAgentId, "session_ended");
+
+		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
+			pollIntervalMs: 999_999,
+			canProvision: true,
+		});
+		try {
+			eventBus.emit({
+				type: "session_ended",
+				streamId: sessionId,
+				sessionId,
+				agentId: ownerAgentId,
+				taskId, // this is the secondary FK — must NOT become the subject
+				timestamp: Date.now(),
+				outcome: "completed",
+			});
+
+			await vi.waitFor(
+				async () => {
+					const runs = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, routineId));
+					expect(runs).toHaveLength(1);
+				},
+				{ timeout: 2000 },
+			);
+
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
+			const [intent] = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
+			const baked = JSON.parse(intent!.bakedRequestJson!);
+
+			// Primary assertion: session_ended → kind:"session", NOT kind:"task"
+			expect(baked.contextBundle.triggerEvent.type).toBe("session_ended");
+			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("session");
+			// Probe value from the DB row — cannot pass if assembly is skipped
+			expect(baked.contextBundle.triggerEvent.subject.session.outcome).toBe(
+				"BA9c-SESSION-OUTCOME-PROBE",
+			);
+		} finally {
+			scheduler.stop();
+		}
+	});
+});
+
+describe("BA9c — agent_added produces kind:agent rich subject", () => {
+	test("agent_added: subject is agent with probe name loaded from DB", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba9c-agt-1");
+		const routineId = "ba9c-agt-1-routine";
+		const newAgentId = "ba9c-agt-1-new-agent";
+
+		// Seed the agent being added
+		await db.insert(users).values({
+			id: newAgentId,
+			kind: "ai",
+			name: "BA9c-AGENT-NAME-PROBE",
+			role: "builder",
+			status: "active",
+			teamId,
+			createdAt: NOW,
+		});
+
+		await seedEventRoutine(db, routineId, ownerAgentId, "agent_added");
+
+		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
+			pollIntervalMs: 999_999,
+			canProvision: true,
+		});
+		try {
+			eventBus.emit({
+				type: "agent_added",
+				streamId: teamId,
+				teamId,
+				teamMembersId: "ba9c-agt-1-members",
+				agentId: newAgentId,
+				role: "builder",
+				at: new Date().toISOString(),
+			});
+
+			await vi.waitFor(
+				async () => {
+					const runs = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, routineId));
+					expect(runs).toHaveLength(1);
+				},
+				{ timeout: 2000 },
+			);
+
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
+			const [intent] = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
+			const baked = JSON.parse(intent!.bakedRequestJson!);
+
+			expect(baked.contextBundle.triggerEvent.type).toBe("agent_added");
+			// BA9c: agent_added → kind:"agent" (not kind:"team")
+			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("agent");
+			// Probe value from DB row
+			expect(baked.contextBundle.triggerEvent.subject.agent.name).toBe("BA9c-AGENT-NAME-PROBE");
+		} finally {
+			scheduler.stop();
+		}
+	});
+});
+
+describe("BA9c — team_created produces kind:team rich subject", () => {
+	test("team_created: subject is team with probe name loaded from DB", async ({
+		db,
+		eventBus,
+		agentOrchestration,
+	}) => {
+		const { teamId, ownerAgentId } = await seedTeamAndOwner(db, "ba9c-tm-1");
+		const routineId = "ba9c-tm-1-routine";
+
+		// The team itself is already seeded by seedTeamAndOwner.
+		// Override the name with the probe value.
+		await db.update(teams).set({ name: "BA9c-TEAM-NAME-PROBE" }).where(eq(teams.id, teamId));
+
+		await seedEventRoutine(db, routineId, ownerAgentId, "team_created");
+
+		const scheduler = await startRoutineScheduler(db, eventBus, agentOrchestration, {
+			pollIntervalMs: 999_999,
+			canProvision: true,
+		});
+		try {
+			eventBus.emit({
+				type: "team_created",
+				streamId: teamId,
+				teamId,
+				teamMembersId: "ba9c-tm-1-members",
+				functions: [],
+				agentIds: [],
+				at: new Date().toISOString(),
+			});
+
+			await vi.waitFor(
+				async () => {
+					const runs = await db
+						.select()
+						.from(routineRuns)
+						.where(eq(routineRuns.routineId, routineId));
+					expect(runs).toHaveLength(1);
+				},
+				{ timeout: 2000 },
+			);
+
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.routineId, routineId));
+			const [intent] = await db
+				.select()
+				.from(agentWorkIntents)
+				.where(eq(agentWorkIntents.sourceId, run?.id ?? ""));
+			const baked = JSON.parse(intent!.bakedRequestJson!);
+
+			expect(baked.contextBundle.triggerEvent.type).toBe("team_created");
+			// BA9c: team_created → kind:"team"
+			expect(baked.contextBundle.triggerEvent.subject.kind).toBe("team");
+			// Probe value from DB row
+			expect(baked.contextBundle.triggerEvent.subject.team.name).toBe("BA9c-TEAM-NAME-PROBE");
 		} finally {
 			scheduler.stop();
 		}

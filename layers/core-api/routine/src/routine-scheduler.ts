@@ -828,9 +828,76 @@ async function assembleTriggerEvent(
 		};
 	};
 
-	// ── Artifact check before task: artifact_created carries taskId (producing task) as a secondary
-	// FK reference, not the primary entity. Check artifactId first so artifact_created events
-	// produce kind:"artifact" rather than kind:"task". (Only artifact_created carries artifactId.)
+	// ── STEP 1: Event-type-first dispatch ──────────────────────────────────────
+	// Some events carry secondary FK references that would mis-fire under pure
+	// field-priority scanning. Dispatch on event type FIRST for those events,
+	// then fall through to field-priority scanning for everything else.
+
+	// Session events: session_started / session_ended / session_not_returned /
+	//   session_handoff_completed all carry taskId (the task the session runs for),
+	//   but taskId is context — not the primary entity. Dispatch by event.type so
+	//   taskId never wins over sessionId for these events.
+	if (
+		(event.type === "session_started" ||
+			event.type === "session_ended" ||
+			event.type === "session_not_returned" ||
+			event.type === "session_handoff_completed") &&
+		typeof rec.sessionId === "string"
+	) {
+		// For session events the agentId is the actor, not the subject.
+		const sessionActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
+		if (ports.getSessionById) {
+			const session = await ports.getSessionById(db, rec.sessionId);
+			if (session) {
+				return withTransition({
+					...base,
+					subject: {
+						kind: "session",
+						session: {
+							id: session.id,
+							state: session.state,
+							agentId: session.agentId,
+							outcome: session.outcome,
+						},
+						...(sessionActor !== undefined ? { actorId: sessionActor } : {}),
+					},
+				});
+			}
+		}
+		return withTransition({
+			...base,
+			subject: {
+				kind: "generic",
+				entityKind: "session",
+				entityId: rec.sessionId,
+				...(sessionActor !== undefined ? { actorId: sessionActor } : {}),
+			},
+		});
+	}
+
+	// routine_fired carries both routineId and agentId. The primary entity is the
+	// routine (what fired), not the agent (who owns it). Dispatch by event type to
+	// prevent agentId winning in the field-priority scan below.
+	// @lore BA9c: routineId stays generic — a routine waking about another routine
+	//   is thin by nature; no shape richer than {entityKind, entityId} is warranted.
+	//   Do not promote to a kind:"routine" subject.
+	if (event.type === "routine_fired" && typeof rec.routineId === "string") {
+		const routineActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
+		return withTransition({
+			...base,
+			subject: {
+				kind: "generic",
+				entityKind: "routine",
+				entityId: rec.routineId,
+				...(routineActor !== undefined ? { actorId: routineActor } : {}),
+			},
+		});
+	}
+
+	// ── STEP 2: Artifact check before task ──────────────────────────────────────
+	// artifact_created carries taskId (producing task) as a secondary FK reference.
+	// Check artifactId first (only artifact_created carries it) so artifact events
+	// produce kind:"artifact" rather than kind:"task".
 	if (typeof rec.artifactId === "string") {
 		const artifact = await ports.work.getArtifactById(db, rec.artifactId);
 		if (artifact) {
@@ -851,7 +918,12 @@ async function assembleTriggerEvent(
 		return withTransition({ ...base, subject: genericSubject("artifact", rec.artifactId) });
 	}
 
-	// ── Task subject: full DB-loaded shape (task_state_changed, dependency_met) ──
+	// ── STEP 3: Field-priority scan for remaining events ─────────────────────────
+	// Session and routine_fired events are already dispatched above.
+	// Safe to check taskId now — no session event reaches here.
+	// Priority: taskId → betId → threadId → itemId → sessionId → agentId → teamId → userId
+
+	// Task subject: task_state_changed, dependency_met
 	const taskId = typeof rec.taskId === "string" ? rec.taskId : null;
 	if (taskId) {
 		const task = await ports.work.getTaskById(db, taskId);
@@ -880,7 +952,7 @@ async function assembleTriggerEvent(
 		}
 	}
 
-	// ── Bet subject: full DB-loaded shape (bet_state_changed, bet_revised) ──
+	// Bet subject: bet_state_changed, bet_revised
 	const betId = typeof rec.betId === "string" ? rec.betId : null;
 	if (betId) {
 		const bet = await ports.work.getBetById(db, betId);
@@ -899,11 +971,6 @@ async function assembleTriggerEvent(
 			});
 		}
 	}
-
-	// ── Rich entity subjects: DB-loaded shapes for core entities ──
-	// Priority order (new, BA9c): threadId → itemId → sessionId → agentId → teamId → routineId → userId
-	// agentId before teamId so agent_added → kind:"agent" (not kind:"team").
-	// actorId and genericSubject are declared before the artifact check above.
 
 	// Thread events: thread_created, thread_message_appended, thread_resolved,
 	//               thread_reopened, thread_archived
@@ -924,7 +991,6 @@ async function assembleTriggerEvent(
 				},
 			});
 		}
-		// Orphaned thread: fall back to generic with the id from the event.
 		return withTransition({ ...base, subject: genericSubject("thread", rec.threadId) });
 	}
 
@@ -967,7 +1033,6 @@ async function assembleTriggerEvent(
 				});
 			}
 		}
-		// Orphaned entity: fall back to generic.
 		return withTransition({
 			...base,
 			subject: genericSubject(
@@ -977,10 +1042,10 @@ async function assembleTriggerEvent(
 		});
 	}
 
-	// Session events: session_started, session_ended, session_handoff_completed,
-	//                session_not_returned, sandbox_writeback_changes_detected, tool_call_recorded
+	// Session fallback: sessionId-carrying non-session events (tool_call_recorded,
+	// sandbox_writeback_changes_detected). The session-event types were handled in
+	// step 1 above; these events don't carry taskId so field-priority is safe here.
 	if (typeof rec.sessionId === "string") {
-		// For session events, the agentId (not senderId/accessorId) is the actor.
 		const sessionActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
 		if (ports.getSessionById) {
 			const session = await ports.getSessionById(db, rec.sessionId);
@@ -1011,8 +1076,8 @@ async function assembleTriggerEvent(
 		});
 	}
 
-	// Agent events: agentId now has priority over teamId (fixes agent_added → kind:"agent").
-	// agent_added carries BOTH agentId and teamId; agentId check first ensures kind:"agent".
+	// Agent events: agent_added carries both agentId and teamId.
+	// agentId wins (already ordered here) so agent_added → kind:"agent", not kind:"team".
 	if (typeof rec.agentId === "string") {
 		if (ports.getAgentById) {
 			const agent = await ports.getAgentById(db, rec.agentId);
@@ -1034,8 +1099,8 @@ async function assembleTriggerEvent(
 		return withTransition({ ...base, subject: genericSubject("agent", rec.agentId) });
 	}
 
-	// Team/org events: team_created, work_selection_requested
-	// (agent_added already handled above via agentId)
+	// Team events: team_created, work_selection_requested
+	// (agent_added handled above via agentId; team_created has agentIds[] not agentId)
 	if (typeof rec.teamId === "string") {
 		if (ports.getTeamById) {
 			const team = await ports.getTeamById(db, rec.teamId);
@@ -1056,23 +1121,8 @@ async function assembleTriggerEvent(
 		return withTransition({ ...base, subject: genericSubject("team", rec.teamId) });
 	}
 
-	// Routine events: routine_fired
-	if (typeof rec.routineId === "string") {
-		const routineActor = typeof rec.agentId === "string" ? rec.agentId : actorId;
-		return withTransition({
-			...base,
-			subject: {
-				kind: "generic",
-				entityKind: "routine",
-				entityId: rec.routineId,
-				...(routineActor !== undefined ? { actorId: routineActor } : {}),
-			},
-		});
-	}
-
 	// User events: user_created — a human joining the workspace.
-	// kind:"user" is the right discriminant (not "agent") so routines doing
-	// onboarding can distinguish a new person from a new bot.
+	// kind:"user" distinguishes a person joining from kind:"agent" (bot added to team).
 	if (typeof rec.userId === "string") {
 		if (ports.getUserById) {
 			const user = await ports.getUserById(db, rec.userId);
