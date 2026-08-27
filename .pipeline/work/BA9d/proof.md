@@ -51,19 +51,24 @@ attention scoring, applied to decay and promotion: the **schedule** belongs to t
 - **BA9c** — the retro routine learns which task finished; without it the retro could not do its job.
 - **BA9d** — what was installed, and the core it left behind.
 
-## Known gap found by this proof
+## A gap this proof found, and its fix
 
-**The demo world seeds the rituals it no longer owns.** A `--demo` bootstrap creates
-`demo-routine-knowledge-decay`, `demo-routine-knowledge-promotion` and `demo-routine-post-task-retro`.
-Two consequences:
+The first run of this proof showed **seven routines where there should have been four**. The demo world
+was still seeding the three rituals itself, so a demo install showed retros and knowledge upkeep
+*without* the plugin — contradicting the acceptance criterion — and showed each of them *twice* with it.
 
-1. A demo install **without** the plugin still shows retros and knowledge upkeep, which contradicts the
-   acceptance criterion that a team which does not install the plugin sees nothing referring to retros.
-2. A demo install **with** the plugin has each ritual twice — the demo copy and the plugin's.
+Every test passed throughout. The demo world's routines and the plugin's were each individually correct;
+only installing into a real seeded install showed them colliding. **This is the class of defect a test
+suite structurally cannot catch, because nothing is individually wrong.**
 
-This is tooling data, not production seeding, and it does not affect a real install. But the demo world
-should either drop them (a fresh install has no rituals until the plugin is installed) or install the
-plugin as part of the demo, which would also make the demo a better advertisement for it.
+Fixed by removing the three ritual routines and their seeded run history from the demo world. Left
+alone, deliberately: the daily digest (not a ritual), and knowledge items and threads where a *person*
+discusses a retro — that is someone talking, not machinery.
+
+Re-run from a clean bootstrap after the fix:
+
+- Before installing: **one** routine, the daily digest. Zero capability items.
+- After installing: **four** routines — the daily digest plus exactly one of each plugin ritual.
 
 ## Repeating this
 
