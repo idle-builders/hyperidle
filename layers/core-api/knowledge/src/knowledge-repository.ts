@@ -916,6 +916,24 @@ export function transition(
 		readonly updatedBy: string;
 	},
 ): Promise<KnowledgeItem>;
+export function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx: { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string },
+): Promise<KnowledgeItem>;
+export function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx: {
+		readonly target: "split";
+		readonly newItems: ReadonlyArray<{
+			readonly title: string;
+			readonly body: string;
+			readonly topic?: string;
+		}>;
+		readonly updatedBy: string;
+	},
+): Promise<KnowledgeItem[]>;
 // Implementation
 export async function transition(
 	db: HyperIdleDb,
@@ -935,8 +953,18 @@ export async function transition(
 				readonly scopeId: string | null;
 				readonly reason: string;
 				readonly updatedBy: string;
+		  }
+		| { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string }
+		| {
+				readonly target: "split";
+				readonly newItems: ReadonlyArray<{
+					readonly title: string;
+					readonly body: string;
+					readonly topic?: string;
+				}>;
+				readonly updatedBy: string;
 		  },
-): Promise<PromoteTransitionResult | void | KnowledgeItem> {
+): Promise<PromoteTransitionResult | void | KnowledgeItem | KnowledgeItem[]> {
 	switch (ctx.target) {
 		case "recomputeAttention": {
 			// Projection-only atomic upsert: computed scores are derived state, not
@@ -1058,6 +1086,115 @@ export async function transition(
 				throw new Error(`Failed to read back knowledge item ${id} after scope change`);
 			}
 			return updated;
+		}
+
+		case "merge": {
+			const { sourceId, updatedBy } = ctx;
+			const timestamp = now();
+
+			const target = await getItemForTransition(db, id);
+			const source = await getItemForTransition(db, sourceId);
+
+			if (!target) throw new Error(`transition('merge'): target item ${id} not found`);
+			if (!source) throw new Error(`transition('merge'): source item ${sourceId} not found`);
+
+			const mergedBody = `${target.body}\n\n---\n\n${source.body}`;
+
+			await db
+				.update(knowledgeItems)
+				.set({ body: mergedBody, version: target.version + 1, updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, id));
+
+			await db
+				.update(knowledgeItems)
+				.set({ status: "archived", updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, sourceId));
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: id,
+				editor: updatedBy,
+				field: "body",
+				oldValue: target.body,
+				newValue: mergedBody,
+				editType: "merge",
+				createdAt: timestamp,
+			});
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: sourceId,
+				editor: updatedBy,
+				field: "status",
+				oldValue: source.status,
+				newValue: "archived",
+				editType: "merge",
+				createdAt: timestamp,
+			});
+
+			const [merged] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!merged) throw new Error(`Failed to read back knowledge item ${id} after merge`);
+			return merged;
+		}
+
+		case "split": {
+			const { newItems, updatedBy } = ctx;
+			const timestamp = now();
+
+			const original = await getItemForTransition(db, id);
+			if (!original) throw new Error(`transition('split'): item ${id} not found`);
+
+			const created: KnowledgeItem[] = [];
+
+			for (const newItem of newItems) {
+				const newId = generateId();
+				await db.insert(knowledgeItems).values({
+					id: newId,
+					scopeKind: original.scopeKind,
+					scopeId: original.scopeId,
+					topic: newItem.topic ?? original.topic,
+					title: newItem.title,
+					body: newItem.body,
+					format: original.format,
+					status: "draft",
+					version: 1,
+					updatedBy,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+				});
+
+				await upsertProjectionLayer(db, newId, original.scopeKind);
+
+				const [row] = await db
+					.select()
+					.from(knowledgeItems)
+					.where(eq(knowledgeItems.id, newId))
+					.limit(1);
+				if (!row) throw new Error(`Failed to read back split item ${newId}`);
+				created.push(row);
+			}
+
+			await db
+				.update(knowledgeItems)
+				.set({ status: "archived", updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, id));
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: id,
+				editor: updatedBy,
+				field: "status",
+				oldValue: original.status,
+				newValue: "archived",
+				editType: "split",
+				createdAt: timestamp,
+			});
+
+			return created;
 		}
 	}
 }

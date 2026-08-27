@@ -15,7 +15,9 @@ import {
 	type UpsertPluginSkillInput,
 	upsertPluginSkill,
 } from "@hyperidle/knowledge";
+import { insertRoutine } from "@hyperidle/routine";
 import {
+	agentItemId,
 	disablePlugin,
 	enablePlugin,
 	getInstalledPlugin,
@@ -28,8 +30,10 @@ import {
 	pluginContributionKey,
 	removePlugin,
 	restorePluginContribution,
+	routineItemId,
 	skillItemId,
 } from "@hyperidle/settings";
+import { insertUserIfAbsent } from "@hyperidle/users";
 import { Hono } from "hono";
 
 // ---------------------------------------------------------------------------
@@ -201,11 +205,13 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 		// layer) cannot write knowledge (it doesn't own that table); the layer
 		// package routes are the correct cross-service bridge.
 		//
-		// Wrapped in a transaction so a partial failure (e.g. an upsert succeeds
-		// but the stale-removal fails) rolls back all skill writes atomically —
-		// no orphan knowledge items. installPlugin's file I/O runs before this
-		// block so the transaction holds only the DB leg of the sync.
-		const { plugin, skills, scopeKind, scopeId, installTs } = result;
+		// BA9d: materialize plugin-declared agents (users rows) and routines rows.
+		// settings cannot write users or routines — those tables are owned by their
+		// respective services. Both uses are idempotent (insertUserIfAbsent /
+		// insertRoutine onConflictDoNothing), so reinstalling is safe.
+		//
+		// Wrapped in a transaction so all cross-service writes are atomic.
+		const { plugin, skills, agents, routines, scopeKind, scopeId, installTs } = result;
 		await db.transaction(async (tx) => {
 			const keepIds: string[] = [];
 			for (const skill of skills) {
@@ -225,6 +231,44 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			}
 			// Remove any stale skill items for this plugin (e.g., renamed skill dirs).
 			await removeByPluginTopic(tx, `plugin:${plugin.id}`, keepIds);
+
+			// Materialize declared agents as users rows. Global agents have no teamId.
+			// @lore BA9d AC4: factory-scoped plugins produce one global agent, not one
+			// per team. insertUserIfAbsent + onConflictDoNothing makes reinstall safe.
+			for (const agentSpec of agents) {
+				const dbId = agentItemId(plugin.id, agentSpec.id);
+				await insertUserIfAbsent(tx, {
+					id: dbId,
+					kind: "ai",
+					name: agentSpec.name,
+					role: agentSpec.role,
+					status: "active",
+					agentCategory: agentSpec.agentCategory,
+					teamId: null,
+					createdAt: installTs,
+				});
+			}
+
+			// Materialize declared routines. insertRoutine onConflictDoNothing makes
+			// reinstall safe. Routines reference the materialized agent by DB id.
+			for (const routineSpec of routines) {
+				const routineDbId = routineItemId(plugin.id, routineSpec.id);
+				const agentDbId = agentItemId(plugin.id, routineSpec.agentId);
+				await insertRoutine(
+					tx,
+					{
+						id: routineDbId,
+						name: routineSpec.name,
+						ownerAgentId: agentDbId,
+						triggerType: routineSpec.triggerType,
+						triggerConfig: routineSpec.triggerConfig ?? null,
+						eventType: routineSpec.eventType ?? null,
+						prompt: routineSpec.prompt ?? null,
+						createdAt: installTs,
+					},
+					{ onConflictDoNothing: true },
+				);
+			}
 		});
 
 		return c.json({ plugin }, 201);

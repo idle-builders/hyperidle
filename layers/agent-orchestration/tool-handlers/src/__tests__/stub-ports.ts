@@ -53,5 +53,7 @@ export const STUB_TOOL_HANDLERS_PORTS: ToolHandlersPorts = {
 		promoteKnowledgeItem: notImplemented,
 		upsertKnowledgeAppProjectionAttentionScore: notImplemented,
 		recomputeAttentionScoreForItem: notImplemented,
+		mergeKnowledgeItem: notImplemented,
+		splitKnowledgeItem: notImplemented,
 	},
 };

@@ -230,6 +230,10 @@ export function buildToolHandlersPorts(transport: CoreApiTransport): ToolHandler
 				),
 			recomputeAttentionScoreForItem: (knowledgeItemId, actorId) =>
 				seamPortForActor(actorId).knowledge.recomputeAttentionScoreForItem(knowledgeItemId),
+			mergeKnowledgeItem: (targetId, sourceId, updatedBy, actorId) =>
+				seamPortForActor(actorId).knowledge.mergeKnowledgeItem(targetId, sourceId, updatedBy),
+			splitKnowledgeItem: (itemId, newItems, updatedBy, actorId) =>
+				seamPortForActor(actorId).knowledge.splitKnowledgeItem(itemId, newItems, updatedBy),
 		},
 	};
 }

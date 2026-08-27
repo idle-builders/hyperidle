@@ -461,6 +461,30 @@ interface ToolHandlersCoreApiAccessor {
 		knowledgeItemId: string,
 		actorId: string,
 	): Promise<{ readonly current: number }>;
+	/**
+	 * Merge sourceId into targetId: appends source body to target, archives source.
+	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
+	 */
+	mergeKnowledgeItem(
+		targetId: string,
+		sourceId: string,
+		updatedBy: string,
+		actorId: string,
+	): Promise<{ readonly id: string }>;
+	/**
+	 * Split itemId into two or more new items, archiving the original.
+	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
+	 */
+	splitKnowledgeItem(
+		itemId: string,
+		newItems: ReadonlyArray<{
+			readonly title: string;
+			readonly body: string;
+			readonly topic?: string;
+		}>,
+		updatedBy: string,
+		actorId: string,
+	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
 /** Every real outbound port this Service's source files need. */

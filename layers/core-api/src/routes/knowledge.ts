@@ -213,6 +213,26 @@ const updateKnowledgeSchema = z.object({
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
 });
 
+// BA9d: agent-reachable merge/split doors (recovered from AU44 scope breach,
+// see .pipeline/work/AU44/FEATURE-LEDGER.md rows 58-59 and founder D9).
+const mergeSchema = z.object({
+	sourceId: z.string().min(1),
+	updatedBy: z.string().min(1),
+});
+
+const splitSchema = z.object({
+	newItems: z
+		.array(
+			z.object({
+				title: z.string().min(1),
+				body: z.string().min(1),
+				topic: z.string().optional(),
+			}),
+		)
+		.min(2),
+	updatedBy: z.string().min(1),
+});
+
 /**
  * AU21 §9 Increment 2 (knowledge wave) — schemas for the four new narrow
  * routes backing `ToolHandlersKnowledgeAccessor`'s conflict/promote/attention
@@ -595,6 +615,81 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		eventBus.emit(updatedEvent);
 
 		return c.json(updated);
+	});
+
+	// POST /:id/merge — merge source item into target; source is archived.
+	// @lore BA9d D9: restored from AU44 scope breach (rows 58-59 of FEATURE-LEDGER.md).
+	router.post("/:id/merge", validateBody(mergeSchema), async (c) => {
+		const targetId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
+
+		const target = await getKnowledgeItem(db, targetId);
+		if (!target) {
+			const response: ApiErrorResponse = {
+				error: "Target knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const source = await getKnowledgeItem(db, body.sourceId);
+		if (!source) {
+			const response: ApiErrorResponse = {
+				error: "Source knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const merged = await knowledgeTransition(db, target.id, {
+			target: "merge",
+			sourceId: source.id,
+			updatedBy: body.updatedBy,
+		});
+
+		const mergedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${targetId}`,
+			itemId: targetId,
+			action: "merged",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(mergedEvent);
+
+		return c.json(merged);
+	});
+
+	// POST /:id/split — split item into two or more new items; original is archived.
+	// @lore BA9d D9: restored from AU44 scope breach (rows 58-59 of FEATURE-LEDGER.md).
+	router.post("/:id/split", validateBody(splitSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
+
+		const original = await getKnowledgeItem(db, id);
+		if (!original) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const createdItems = await knowledgeTransition(db, original.id, {
+			target: "split",
+			newItems: body.newItems,
+			updatedBy: body.updatedBy,
+		});
+
+		const splitEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "split",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(splitEvent);
+
+		return c.json({ items: createdItems });
 	});
 
 	// POST /:id/archive — archive item, emit knowledge_archived event

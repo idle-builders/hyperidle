@@ -29,6 +29,7 @@ export type {
 	PluginSource,
 } from "./plugin-installer.js";
 export {
+	agentItemId,
 	disablePlugin,
 	enablePlugin,
 	getInstalledPlugin,
@@ -38,6 +39,7 @@ export {
 	pluginContributionKey,
 	removePlugin,
 	restorePluginContribution,
+	routineItemId,
 	skillItemId,
 } from "./plugin-installer.js";
 // -- plugin manifest parsing (BA9a) --
@@ -45,6 +47,8 @@ export type {
 	ManifestParseResult,
 	ManifestWarning,
 	ParsedContribution,
+	ParsedPluginAgent,
+	ParsedPluginRoutine,
 	PluginManifest,
 } from "./plugin-manifest.js";
 export { parsePluginManifest } from "./plugin-manifest.js";

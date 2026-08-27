@@ -681,6 +681,20 @@ export interface CoreApiKnowledgePort {
 	 * the HTTP boundary.
 	 */
 	recomputeAttentionScoreForItem(knowledgeItemId: string): Promise<{ readonly current: number }>;
+	mergeKnowledgeItem(
+		targetId: string,
+		sourceId: string,
+		updatedBy: string,
+	): Promise<{ readonly id: string }>;
+	splitKnowledgeItem(
+		itemId: string,
+		newItems: ReadonlyArray<{
+			readonly title: string;
+			readonly body: string;
+			readonly topic?: string;
+		}>,
+		updatedBy: string,
+	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
 /**

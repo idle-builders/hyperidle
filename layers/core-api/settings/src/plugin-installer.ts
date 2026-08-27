@@ -48,6 +48,8 @@ import type {
 	ManifestWarning,
 	ParsedContribution,
 	ParsedMcpServer,
+	ParsedPluginAgent,
+	ParsedPluginRoutine,
 	ParsedSkill,
 } from "./plugin-manifest.js";
 import { parsePluginManifest } from "./plugin-manifest.js";
@@ -105,6 +107,18 @@ export type InstallPluginResult =
 			 * The layer's route handler picks these up and calls knowledge.upsertPluginSkill.
 			 */
 			skills: readonly ParsedSkill[];
+			/**
+			 * Agents declared in extensions["io.hyperidle"].agents[].
+			 * The core-api route handler materializes them as users rows via insertUserIfAbsent.
+			 * @lore BA9d: settings cannot write users (owned by users service).
+			 */
+			agents: readonly ParsedPluginAgent[];
+			/**
+			 * Routines declared in extensions["io.hyperidle"].routines[].
+			 * The core-api route handler materializes them as routines rows via insertRoutine.
+			 * @lore BA9d: settings cannot write routines (owned by routine service).
+			 */
+			routines: readonly ParsedPluginRoutine[];
 			scopeKind: string;
 			scopeId: string | null;
 			installTs: string;
@@ -250,6 +264,22 @@ async function removeStaleDefaults(
  */
 export function skillItemId(pluginId: string, dirName: string): string {
 	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}`).slice(0, 24)}`;
+}
+
+/**
+ * Stable DB id for a plugin-declared agent.
+ * Deterministic from pluginId + the agent's local id in the manifest.
+ */
+export function agentItemId(pluginId: string, localId: string): string {
+	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}`).slice(0, 24)}`;
+}
+
+/**
+ * Stable DB id for a plugin-declared routine.
+ * Deterministic from pluginId + the routine's local id in the manifest.
+ */
+export function routineItemId(pluginId: string, localId: string): string {
+	return `pr_${sha256(`plugin-routine\0${pluginId}\0${localId}`).slice(0, 24)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -466,6 +496,8 @@ export async function installPlugin(
 			ok: true,
 			plugin: pluginFromRow(row, manifest.warnings),
 			skills: manifest.skills,
+			agents: manifest.agents,
+			routines: manifest.routines,
 			scopeKind: input.scope.kind,
 			scopeId: input.scope.teamId ?? null,
 			installTs: ts,
