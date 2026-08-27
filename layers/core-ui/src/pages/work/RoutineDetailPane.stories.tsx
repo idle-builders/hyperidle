@@ -49,6 +49,7 @@ const ROUTINE_DETAIL: RoutineDetail = {
 		lastRunSummary:
 			"Digest sent to 4 team members. Highlighted 2 active bets, 3 completed tasks, and 1 blocker from Atlas Builder.",
 		silent: false,
+		eventTransitionTo: null,
 	},
 	runs: [
 		{

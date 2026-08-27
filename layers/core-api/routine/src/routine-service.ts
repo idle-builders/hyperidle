@@ -61,6 +61,32 @@ export type RoutineRun = typeof routineRuns.$inferSelect;
 
 /** Patch type for `updateRoutine`. */
 export type RoutinePatch = Partial<NewRoutine>;
+
+/**
+ * BA9d D11 — Extract the `transitionTo` constraint from an event routine's
+ * `trigger_config` JSON blob. Returns the state string if present, or null
+ * when no constraint is declared (routine fires on every occurrence of its
+ * event type).
+ *
+ * Storage: `{"transitionTo":"done"}` in `trigger_config` for event routines.
+ * Calendar routines use `{"cron":"..."}` in the same column — no collision
+ * since the two trigger types never share a row.
+ *
+ * @lore BA9d D11: lives in `trigger_config` (not a new column) because
+ * transition is never queried — filtering happens in-memory after the
+ * `event_type` index lookup. A dedicated column would require a migration for
+ * a value that needs no index. The `event_type` precedent was indexability;
+ * this is not that.
+ */
+export function parseTransitionTo(triggerConfig: string | null | undefined): string | null {
+	if (!triggerConfig) return null;
+	try {
+		const parsed = JSON.parse(triggerConfig) as Record<string, unknown>;
+		return typeof parsed.transitionTo === "string" ? parsed.transitionTo : null;
+	} catch {
+		return null;
+	}
+}
 /** Patch type for `updateRoutineRun`. */
 export type RoutineRunPatch = Partial<NewRoutineRun>;
 

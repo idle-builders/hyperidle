@@ -71,6 +71,7 @@ import {
 	insertRoutineRun,
 	listRoutineRuns,
 	listRoutines,
+	parseTransitionTo,
 	RoutineRunSourceUnavailableError,
 	resolveRoutineRunRequest,
 	updateRoutine,
@@ -1173,9 +1174,22 @@ function registerRoutineEventMatcher(
 				const candidates = matches.filter((routine) => extractBuiltinKind(routine.id) === null);
 				if (candidates.length === 0) return;
 				const origin = await originRoutineId(db, event);
-				const toFire = origin ? candidates.filter((routine) => routine.id !== origin) : candidates;
+				const noSelfTrigger = origin
+					? candidates.filter((routine) => routine.id !== origin)
+					: candidates;
 				// BA9c: assemble the trigger event once, shared across all matching routines.
 				const triggerEvent = await assembleTriggerEvent(db, event, ports);
+				// BA9d D11: apply transition constraint — fire only when the event's
+				// `transition.to` state matches the routine's declared constraint.
+				// A routine with no constraint (parseTransitionTo returns null) fires on
+				// every occurrence. A routine with a constraint but an event that carries
+				// no transition does not fire — the condition cannot be satisfied.
+				const toFire = noSelfTrigger.filter((routine) => {
+					const transitionTo = parseTransitionTo(routine.triggerConfig);
+					if (transitionTo === null) return true;
+					if (!triggerEvent.transition) return false;
+					return triggerEvent.transition.to === transitionTo;
+				});
 				for (const routine of toFire) {
 					fireGenericRoutine(db, eventBus, routine, ports, false, triggerEvent).catch(() => {
 						/* fire-and-forget: generic firing is resilient internally */
