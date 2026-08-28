@@ -168,6 +168,24 @@ and a natural extension of what a routine already declares. Rejected alternative
 (free to build, costs a session per transition) and emitting a dedicated completion event (cleanest to
 subscribe to, but new emitters are BA8's scope).
 
+## D12 — Restore means re-importing from the plugin (2026-08-28)
+
+Founder: *"restore to original version just means we import from the plugin again. the plugin is the
+original version."*
+
+So restore does not need a private copy of the original stored anywhere. The plugin **is** the original,
+and restoring a contribution means re-importing that item from the installed plugin source.
+
+This resolves a gap found while proving the lifecycle: D5's detach-and-restore worked for
+`contributions[]` items, which pass through `plugin_configuration_defaults`, but **not for skills**, which
+are written straight to `knowledge_items` with no stored default. Rather than adding a second copy of skill
+bodies to the defaults table, restore re-reads from the plugin.
+
+It works because install **copies the plugin into a managed directory** and records the location
+(`persistPlugin`, `plugin-installer.ts:405-414`; `plugins.install_path`). The source is on disk whether the
+plugin came from a git URL, a zip or a folder, so the original is always recoverable without a database
+copy of it.
+
 ## Still open
 
 - Do knowledge merge, split and flag-for-review come back? (The AU44 ledger records their deletion as a
