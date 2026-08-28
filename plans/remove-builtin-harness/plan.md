@@ -298,11 +298,37 @@ machine-wide. The live proof waits for a clear machine.
 ## Batch 5 — Every model call goes through a real harness session
 
 **Change.** Delete the cassette seam (`__testing__/llm-cassette.ts`, `setLlmInterceptor`, the AH6
-Playwright lane and its committed cassettes). Re-establish the two proofs that today script `callLlm`
-(`af7-session-isolation`, `af7-handoff-revokes-tools`) through real harness sessions. Move the browser lane
-onto a real CLI. Give evals a harness selector and make a result name its harness and model, replacing the
-`DirectHarnessAdapter` that is registered as type `"builtin"` and has never run a real CLI despite its own
-comment claiming it does.
+Playwright lane and its committed cassettes). Move the browser lane onto a real CLI. Give evals a
+harness selector and make a result name its harness and model, replacing the `DirectHarnessAdapter`
+that is registered as type `"builtin"` and has never run a real CLI despite its own comment claiming
+it does.
+
+**CORRECTED 2026-08-28.** This batch used to say "re-establish the two `af7` proofs through real
+harness sessions". That was wrong, and reading them settled it: both are regression tests for the
+**built-in adapter's own internals** — `af7-session-isolation` guards a session-map scan in
+`setSessionToolRegistry` that could bind one session's registry to another, and
+`af7-handoff-revokes-tools` guards an abort check inside builtin's `executeToolCalls`. Neither
+mechanism exists for a CLI harness, which reaches its tools through the MCP bridge in a separate
+process. They are not general proofs to port; they die with the code they guard, in Batch 6.
+
+**But the properties they assert do generalise, and one has no CLI proof at all.** Counting the
+`[harness:<name>]` lanes: `AL7-two-session-trust` and `assistant-reply-live-harness` cover all five,
+`real-harness-return-enforcement` covers several — and **`AU9-assistant-handoff-realbinary` is
+`builtin` only**. So when builtin goes, both the unit test and the only handoff lane go with it, and
+"handing a task off stops the prior session's tool access" becomes unproven on every harness that is
+left. That gap has to be closed here, before Batch 6, not discovered after it.
+
+**Two prerequisites this batch cannot start without.**
+
+1. *The browser lane needs a server that discovers harnesses.* `npm run dev` boots `remote-server`
+   with `topology: "disabled"`, which builds no local adapter pool — every CLI reports "not installed"
+   regardless of the machine. Only the desktop app boots `topology: "local"` today. Either a
+   local-topology dev entry point exists, or the browser lane runs against the packaged app.
+2. *Evals need a threading decision.* `runEvalSession` is called from **77 sites across 24 scenario
+   files**, each building its deps explicitly, so a harness selector is either a codemod over all of
+   them or a piece of run-scoped state the runner sets once. The runner is serial by design, which
+   makes the second defensible — but it is ambient state, and that is a call to make deliberately
+   rather than discover in a diff.
 
 This lands **before** the deletion, so the removal subtracts code and not coverage.
 
