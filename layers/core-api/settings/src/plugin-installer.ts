@@ -566,6 +566,13 @@ export async function getInstalledPlugin(
  *
  * AC7: the resolver's `active: hasOverride || plugin.state === 'enabled'`
  * handles this automatically.
+ *
+ * @lore BA9d: This function only flips plugins.state. The real disable work —
+ * deactivating materialised routines, agents, and skills that the plugin
+ * created — lives in the route handler (layers/core-api/src/routes/plugins.ts).
+ * Settings cannot write to routines, users, or knowledge_items (governance
+ * boundary). Both must succeed or the plugin is in a split state; the route
+ * runs this call first and the row-cleanup second, inside a try/catch.
  */
 export async function disablePlugin(
 	db: HyperIdleDb,
@@ -613,8 +620,12 @@ export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 		.delete(pluginConfigurationDefaults)
 		.where(eq(pluginConfigurationDefaults.pluginId, pluginId));
 	// Step 2: mark plugin as removed (restrict constraint now satisfied)
-	// @lore BA9b: skill knowledge item cleanup happens in the route handler
-	// (core-api layer), not here — settings cannot write to knowledge's table.
+	// @lore BA9d: All domain-row cleanup (routines, agents, skills) happens
+	// in the route handler after this call — settings cannot write to those
+	// tables (governance boundary). The route wraps both calls; if this
+	// succeeds but the row cleanup fails, the plugin is in state='removed'
+	// with its rows still live. The route catches that and returns
+	// REMOVE_CLEANUP_FAILED rather than silently leaving a split state.
 	await db
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })

@@ -293,15 +293,22 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
 		// @lore BA9d: reactivate materialised rows so routines fire again,
-		// agent runs again, and skills reach sessions.
-		await db.transaction(async (tx) => {
-			await tx.update(routines).set({ active: true }).where(eq(routines.pluginId, id));
-			await tx.update(users).set({ status: "active" }).where(eq(users.pluginId, id));
-			await tx
-				.update(knowledgeItems)
-				.set({ status: "active", updatedAt: new Date().toISOString() })
-				.where(and(eq(knowledgeItems.topic, `plugin:${id}`)));
-		});
+		// agent runs again, and skills reach sessions. disablePlugin() only flips
+		// plugins.state — the domain-row cleanup lives here (governance boundary:
+		// settings cannot write routines/users/knowledge).
+		try {
+			await db.transaction(async (tx) => {
+				await tx.update(routines).set({ active: true }).where(eq(routines.pluginId, id));
+				await tx.update(users).set({ status: "active" }).where(eq(users.pluginId, id));
+				await tx
+					.update(knowledgeItems)
+					.set({ status: "active", updatedAt: new Date().toISOString() })
+					.where(and(eq(knowledgeItems.topic, `plugin:${id}`)));
+			});
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return c.json({ code: "ENABLE_CLEANUP_FAILED", error: msg }, 500);
+		}
 		return c.json({ ok: true });
 	});
 
@@ -319,15 +326,22 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
 		// @lore BA9d: deactivate materialised rows so routines stop firing,
-		// agent stops running, and skills stop reaching sessions.
-		await db.transaction(async (tx) => {
-			await tx.update(routines).set({ active: false }).where(eq(routines.pluginId, id));
-			await tx.update(users).set({ status: "inactive" }).where(eq(users.pluginId, id));
-			await tx
-				.update(knowledgeItems)
-				.set({ status: "archived", updatedAt: new Date().toISOString() })
-				.where(and(eq(knowledgeItems.topic, `plugin:${id}`)));
-		});
+		// agent stops running, and skills stop reaching sessions. disablePlugin()
+		// only flips plugins.state — the domain-row cleanup lives here
+		// (governance boundary: settings cannot write routines/users/knowledge).
+		try {
+			await db.transaction(async (tx) => {
+				await tx.update(routines).set({ active: false }).where(eq(routines.pluginId, id));
+				await tx.update(users).set({ status: "inactive" }).where(eq(users.pluginId, id));
+				await tx
+					.update(knowledgeItems)
+					.set({ status: "archived", updatedAt: new Date().toISOString() })
+					.where(and(eq(knowledgeItems.topic, `plugin:${id}`)));
+			});
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return c.json({ code: "DISABLE_CLEANUP_FAILED", error: msg }, 500);
+		}
 		return c.json({ ok: true });
 	});
 

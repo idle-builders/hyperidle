@@ -48,84 +48,80 @@ describe("migration 0066: BA9d plugin_id columns — brownfield", () => {
 		}
 	});
 
-	it(
-		"adds plugin_id to routines and users; existing rows survive with NULL",
-		{ timeout: 120_000 },
-		async () => {
-			// Arrange: fresh PGlite at migration 0065 state
-			const client = new PGlite();
-			clients.push(client);
-			await client.waitReady;
-			const db = drizzle(client);
+	it("adds plugin_id to routines and users; existing rows survive with NULL", {
+		timeout: 120_000,
+	}, async () => {
+		// Arrange: fresh PGlite at migration 0065 state
+		const client = new PGlite();
+		clients.push(client);
+		await client.waitReady;
+		const db = drizzle(client);
 
-			const folder65 = makeTempMigrationsFolder(65);
-			tempDirs.push(folder65);
-			await migrate(db, { migrationsFolder: folder65 });
+		const folder65 = makeTempMigrationsFolder(65);
+		tempDirs.push(folder65);
+		await migrate(db, { migrationsFolder: folder65 });
 
-			// Seed: required system user
-			await db.execute(sql`
+		// Seed: required system user
+		await db.execute(sql`
 				INSERT INTO users (id, name, role, kind, status, created_at)
 				VALUES ('system:propagation', 'Propagation System', 'system', 'ai', 'active', ${NOW})
 			`);
 
-			// Seed: a pre-existing agent (no plugin_id column yet)
-			await db.execute(sql`
+		// Seed: a pre-existing agent (no plugin_id column yet)
+		await db.execute(sql`
 				INSERT INTO users (id, name, role, kind, status, agent_category, created_at)
 				VALUES ('pre-existing-agent', 'Legacy Agent', 'assistant', 'ai', 'active', 'individual', ${NOW})
 			`);
 
-			// Seed: a pre-existing routine (no plugin_id column yet)
-			await db.execute(sql`
+		// Seed: a pre-existing routine (no plugin_id column yet)
+		await db.execute(sql`
 				INSERT INTO routines (id, name, trigger_type, trigger_config, active, owner_agent_id, created_at)
 				VALUES ('pre-existing-routine', 'Daily Digest', 'calendar', '{"cron":"0 9 * * 1-5"}', true, 'pre-existing-agent', ${NOW})
 			`);
 
-			// Act: apply migration 0066
-			const folder66 = makeTempMigrationsFolder(66);
-			tempDirs.push(folder66);
-			await migrate(db, { migrationsFolder: folder66 });
+		// Act: apply migration 0066
+		const folder66 = makeTempMigrationsFolder(66);
+		tempDirs.push(folder66);
+		await migrate(db, { migrationsFolder: folder66 });
 
-			// Assert 1: existing user row survives with plugin_id = NULL
-			const agentRows = await db.execute(sql`
+		// Assert 1: existing user row survives with plugin_id = NULL
+		const agentRows = await db.execute(sql`
 				SELECT id, plugin_id FROM users WHERE id = 'pre-existing-agent'
 			`);
-			const agentRow = (agentRows.rows as Array<{ id: string; plugin_id: string | null }>)[0];
-			expect(agentRow).toBeDefined();
-			expect(agentRow?.plugin_id).toBeNull();
+		const agentRow = (agentRows.rows as Array<{ id: string; plugin_id: string | null }>)[0];
+		expect(agentRow).toBeDefined();
+		expect(agentRow?.plugin_id).toBeNull();
 
-			// Assert 2: existing routine row survives with plugin_id = NULL
-			const routineRows = await db.execute(sql`
+		// Assert 2: existing routine row survives with plugin_id = NULL
+		const routineRows = await db.execute(sql`
 				SELECT id, plugin_id FROM routines WHERE id = 'pre-existing-routine'
 			`);
-			const routineRow = (
-				routineRows.rows as Array<{ id: string; plugin_id: string | null }>
-			)[0];
-			expect(routineRow).toBeDefined();
-			expect(routineRow?.plugin_id).toBeNull();
+		const routineRow = (routineRows.rows as Array<{ id: string; plugin_id: string | null }>)[0];
+		expect(routineRow).toBeDefined();
+		expect(routineRow?.plugin_id).toBeNull();
 
-			// Assert 3: new rows can set plugin_id
-			await db.execute(sql`
+		// Assert 3: new rows can set plugin_id
+		await db.execute(sql`
 				INSERT INTO users (id, name, role, kind, status, agent_category, plugin_id, created_at)
 				VALUES ('plugin-agent-km', 'Knowledge Librarian', 'knowledge-librarian', 'ai', 'active', 'individual', 'knowledge-management', ${NOW})
 			`);
-			await db.execute(sql`
+		await db.execute(sql`
 				INSERT INTO routines (id, name, trigger_type, trigger_config, active, owner_agent_id, plugin_id, created_at)
 				VALUES ('km-decay', 'Knowledge Decay', 'calendar', '{"cron":"0 3 * * 0"}', true, 'plugin-agent-km', 'knowledge-management', ${NOW})
 			`);
 
-			const pluginAgent = await db.execute(sql`
+		const pluginAgent = await db.execute(sql`
 				SELECT plugin_id FROM users WHERE id = 'plugin-agent-km'
 			`);
-			expect(
-				(pluginAgent.rows as Array<{ plugin_id: string | null }>)[0]?.plugin_id,
-			).toBe("knowledge-management");
+		expect((pluginAgent.rows as Array<{ plugin_id: string | null }>)[0]?.plugin_id).toBe(
+			"knowledge-management",
+		);
 
-			const pluginRoutine = await db.execute(sql`
+		const pluginRoutine = await db.execute(sql`
 				SELECT plugin_id FROM routines WHERE id = 'km-decay'
 			`);
-			expect(
-				(pluginRoutine.rows as Array<{ plugin_id: string | null }>)[0]?.plugin_id,
-			).toBe("knowledge-management");
-		},
-	);
+		expect((pluginRoutine.rows as Array<{ plugin_id: string | null }>)[0]?.plugin_id).toBe(
+			"knowledge-management",
+		);
+	});
 });
