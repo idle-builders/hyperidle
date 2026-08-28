@@ -6,6 +6,7 @@
  * release() decrements the count when a session ends.
  */
 
+import type { HarnessType } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import type { AdapterInfo, AdapterMeta, HarnessAdapter } from "@hyperidle/harness-protocol";
 import { BuiltinHarnessAdapter } from "./builtin-harness-adapter.js";
@@ -225,7 +226,14 @@ export class AdapterPool {
 	 */
 	describeSelectFailure(requirements?: SelectRequirements): string {
 		if (this.entries.size === 0) {
-			return "no harness adapters are registered (none was discovered on this host)";
+			// Covers both ways a pool ends up empty, because the pool cannot tell
+			// them apart: a `local`-topology deployment discovered no CLI on this
+			// host, and a `disabled`-topology one (the `remote-server`
+			// Application) never discovers anything at all — it waits for remote
+			// workers to register. Naming only the first would send a
+			// remote-server operator hunting for a binary that was never meant to
+			// be installed.
+			return "no harness adapters are registered — no local harness was discovered on this host, and no remote worker has registered";
 		}
 		const live = [...this.entries.values()].filter((entry) => !entry.paused);
 		if (live.length === 0) {
@@ -331,7 +339,7 @@ export class AdapterPool {
  * test can assert that codex config has a {{prompt}} or {{seed}} template arg. Without
  * a per-session prompt carrier codex sessions get a generic system prompt only.
  */
-const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
+const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 	codex: {
 		binary: "codex",
 		// @lore X5: `codex exec` runs a single-turn headless session; --json emits

@@ -470,6 +470,13 @@
 			"when": 1785672000000,
 			"tag": "0066_plugin_id_columns",
 			"breakpoints": true
+		},
+		{
+			"idx": 67,
+			"version": "7",
+			"when": 1785675600000,
+			"tag": "0067_repair_claude_harness_type",
+			"breakpoints": true
 		}
 	]
 }

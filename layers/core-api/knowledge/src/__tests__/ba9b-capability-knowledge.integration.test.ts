@@ -204,3 +204,56 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 		expect(matching).toHaveLength(1);
 	});
 });
+
+/**
+ * A plugin's own agent is created `agentCategory: "individual"` and belongs to
+ * no team. Capability items are scoped factory/team/agent independently of any
+ * team, so a team-less agent must still receive the factory-scoped ones —
+ * otherwise a plugin's skills can never reach the very agent the plugin ships
+ * them for, which is what happened to the Knowledge Librarian.
+ */
+describe("capability items for a team-less agent", () => {
+	test("a factory-scoped skill reaches an agent that belongs to no team", async ({ db }) => {
+		const skillId = await insertKnowledgeItem(db, {
+			title: "knowledge-decay",
+			body: "# Knowledge decay sweep",
+			role: "skill",
+			scopeKind: "factory",
+		});
+
+		const assembled = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "Run the knowledge decay sweep",
+			agentId: "agent-teamless",
+		});
+
+		expect(assembled.map((i) => i.id)).toContain(skillId);
+	});
+
+	test("an agent-bound skill reaches its agent with no team in play", async ({ db }) => {
+		const boundId = await insertKnowledgeItem(db, {
+			title: "librarian-only",
+			body: "# Bound to one agent",
+			role: "skill",
+			scopeKind: "user",
+			scopeId: "agent-teamless",
+		});
+		const otherId = await insertKnowledgeItem(db, {
+			title: "someone-elses",
+			body: "# Bound to a different agent",
+			role: "skill",
+			scopeKind: "user",
+			scopeId: "agent-other",
+		});
+
+		const assembled = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "Run the knowledge decay sweep",
+			agentId: "agent-teamless",
+		});
+
+		const ids = assembled.map((i) => i.id);
+		expect(ids).toContain(boundId);
+		expect(ids).not.toContain(otherId);
+	});
+});
