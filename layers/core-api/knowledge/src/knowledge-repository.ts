@@ -1332,3 +1332,29 @@ export async function removeByPluginTopic(
 		.set({ status: "archived", updatedAt: new Date().toISOString() })
 		.where(inArray(knowledgeItems.id, staleIds));
 }
+
+/**
+ * Set the status of all knowledge items for a plugin (by topic).
+ * Used by the plugin disable/enable lifecycle in the route layer.
+ *
+ * status='archived' → skills stop reaching sessions (assembler filters status='active').
+ * status='active'   → skills are restored on enable.
+ *
+ * @lore BA9d: the route cannot write the `knowledge_items` table directly
+ * (governance boundary) — it calls this function instead. This is a topic-level
+ * bulk update: ALL items with topic=`plugin:${pluginId}` are affected,
+ * including any the user has edited (their body survives in the row; only the
+ * status changes). There is NO restore path for user-edited skill bodies on
+ * disable/remove — skills do not go through plugin_configuration_defaults, so
+ * restorePluginContribution() cannot recover them.
+ */
+export async function setPluginSkillsStatus(
+	db: HyperIdleDb,
+	pluginId: string,
+	status: "active" | "archived",
+): Promise<void> {
+	await db
+		.update(knowledgeItems)
+		.set({ status, updatedAt: new Date().toISOString() })
+		.where(eq(knowledgeItems.topic, `plugin:${pluginId}`));
+}

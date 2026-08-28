@@ -36,3 +36,22 @@ export async function listFactoryAgents(
 		.from(users)
 		.where(and(eq(users.kind, "ai"), inArray(users.id, [...ids])));
 }
+
+/**
+ * Set the `status` field on all user rows materialised by a plugin install.
+ * Used by the plugin disable/enable/remove lifecycle in the route layer.
+ *
+ * Users/agents are never hard-deleted on remove — many tables have
+ * ON DELETE RESTRICT FKs on users.id (items.sourceAgentId,
+ * routines.ownerAgentId, etc.). Status='inactive' is the safe tombstone.
+ *
+ * @lore BA9d: the route cannot write the `users` table directly
+ * (governance boundary) — it calls this function instead.
+ */
+export async function setPluginAgentsStatus(
+	exec: WriteExecutor,
+	pluginId: string,
+	status: "active" | "inactive",
+): Promise<void> {
+	await exec.update(users).set({ status }).where(eq(users.pluginId, pluginId));
+}

@@ -564,3 +564,44 @@ export async function resolveRoutineRunRequest(
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }
+
+// ---------------------------------------------------------------------------
+// Plugin lifecycle — bulk writes by pluginId
+// ---------------------------------------------------------------------------
+
+/**
+ * Set the `active` flag on all routines belonging to a plugin.
+ * Used by the plugin disable/enable lifecycle in the route layer.
+ *
+ * @lore BA9d: the route cannot write the `routines` table directly
+ * (governance boundary) — it calls this function instead.
+ */
+export async function setPluginRoutinesActive(
+	exec: WriteExecutor,
+	pluginId: string,
+	active: boolean,
+): Promise<void> {
+	await exec.update(routines).set({ active }).where(eq(routines.pluginId, pluginId));
+}
+
+/**
+ * Soft-delete all routines belonging to a plugin: set active=false and
+ * deletedAt=now(). Used by the plugin remove lifecycle.
+ *
+ * Soft-delete (not hard-delete) because routine_runs.routineId has
+ * ON DELETE RESTRICT — any install where a routine ever fired cannot
+ * hard-delete the parent routine row.
+ *
+ * @lore BA9d: the route cannot write the `routines` table directly
+ * (governance boundary) — it calls this function instead.
+ */
+export async function softDeletePluginRoutines(
+	exec: WriteExecutor,
+	pluginId: string,
+): Promise<void> {
+	const now = new Date().toISOString();
+	await exec
+		.update(routines)
+		.set({ active: false, deletedAt: now })
+		.where(eq(routines.pluginId, pluginId));
+}

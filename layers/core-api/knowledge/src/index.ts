@@ -66,6 +66,7 @@ export {
 	remove,
 	removeByPluginTopic,
 	search,
+	setPluginSkillsStatus,
 	transition,
 	type UpsertPluginSkillInput,
 	update,

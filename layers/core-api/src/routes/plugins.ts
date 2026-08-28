@@ -8,15 +8,19 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
-import { knowledgeItems, routines, users } from "@hyperidle/db";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
 	removeByPluginTopic,
+	setPluginSkillsStatus,
 	type UpsertPluginSkillInput,
 	upsertPluginSkill,
 } from "@hyperidle/knowledge";
-import { insertRoutine } from "@hyperidle/routine";
+import {
+	insertRoutine,
+	setPluginRoutinesActive,
+	softDeletePluginRoutines,
+} from "@hyperidle/routine";
 import {
 	agentItemId,
 	disablePlugin,
@@ -34,8 +38,7 @@ import {
 	routineItemId,
 	skillItemId,
 } from "@hyperidle/settings";
-import { insertUserIfAbsent } from "@hyperidle/users";
-import { and, eq } from "drizzle-orm";
+import { insertUserIfAbsent, setPluginAgentsStatus } from "@hyperidle/users";
 import { Hono } from "hono";
 
 // ---------------------------------------------------------------------------
@@ -295,15 +298,13 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 		// @lore BA9d: reactivate materialised rows so routines fire again,
 		// agent runs again, and skills reach sessions. disablePlugin() only flips
 		// plugins.state — the domain-row cleanup lives here (governance boundary:
-		// settings cannot write routines/users/knowledge).
+		// settings cannot write routines/users/knowledge). Service functions own
+		// each table write; they accept WriteExecutor so this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				await tx.update(routines).set({ active: true }).where(eq(routines.pluginId, id));
-				await tx.update(users).set({ status: "active" }).where(eq(users.pluginId, id));
-				await tx
-					.update(knowledgeItems)
-					.set({ status: "active", updatedAt: new Date().toISOString() })
-					.where(and(eq(knowledgeItems.topic, `plugin:${id}`)));
+				await setPluginRoutinesActive(tx, id, true);
+				await setPluginAgentsStatus(tx, id, "active");
+				await setPluginSkillsStatus(tx, id, "active");
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -329,14 +330,13 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 		// agent stops running, and skills stop reaching sessions. disablePlugin()
 		// only flips plugins.state — the domain-row cleanup lives here
 		// (governance boundary: settings cannot write routines/users/knowledge).
+		// Service functions own each table write; they accept WriteExecutor so
+		// this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				await tx.update(routines).set({ active: false }).where(eq(routines.pluginId, id));
-				await tx.update(users).set({ status: "inactive" }).where(eq(users.pluginId, id));
-				await tx
-					.update(knowledgeItems)
-					.set({ status: "archived", updatedAt: new Date().toISOString() })
-					.where(and(eq(knowledgeItems.topic, `plugin:${id}`)));
+				await setPluginRoutinesActive(tx, id, false);
+				await setPluginAgentsStatus(tx, id, "inactive");
+				await setPluginSkillsStatus(tx, id, "archived");
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -359,18 +359,14 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
 		// @lore BA9d: clean up all materialised rows inside a transaction.
-		// Routines are soft-deleted (deletedAt) because routine_runs has RESTRICT FK.
-		// Users/agents are deactivated (status='inactive') because many tables have RESTRICT FK to users.
-		// Skills are archived by removeByPluginTopic (RESTRICT FK from audit logs).
+		// Routines soft-deleted (not hard-deleted) because routine_runs has RESTRICT FK.
+		// Agents deactivated (not hard-deleted) because many tables have RESTRICT FK on users.id.
+		// Skills archived because knowledge audit-log tables have RESTRICT FK on knowledge_items.id.
+		// Service functions own each table write; they accept WriteExecutor so this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				const now = new Date().toISOString();
-				await tx
-					.update(routines)
-					.set({ active: false, deletedAt: now })
-					.where(eq(routines.pluginId, id));
-				await tx.update(users).set({ status: "inactive" }).where(eq(users.pluginId, id));
-				// BA9b: archive all skill knowledge items for this plugin.
+				await softDeletePluginRoutines(tx, id);
+				await setPluginAgentsStatus(tx, id, "inactive");
 				await removeByPluginTopic(tx, `plugin:${id}`, []);
 			});
 		} catch (err) {
