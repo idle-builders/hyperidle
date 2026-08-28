@@ -65,6 +65,7 @@ export {
 	list,
 	remove,
 	removeByPluginTopic,
+	restorePluginSkillBody,
 	search,
 	setPluginSkillsStatus,
 	transition,

@@ -7,11 +7,14 @@
  * plugin-installer.ts.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
 	removeByPluginTopic,
+	restorePluginSkillBody,
 	setPluginSkillsStatus,
 	type UpsertPluginSkillInput,
 	upsertPluginSkill,
@@ -201,7 +204,18 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			teamId: sc.kind === "team" ? (sc.teamId as string) : null,
 		};
 
-		const result = await installPlugin(db, { source: pluginSource, scope: pluginScope });
+		// pluginsBaseDir is optional — provided by tests (temp dir) and production
+		// config so plugin files are persisted and skills can be restored from disk.
+		const pluginsBaseDir =
+			typeof (body as Record<string, unknown>).pluginsBaseDir === "string"
+				? ((body as Record<string, unknown>).pluginsBaseDir as string)
+				: undefined;
+
+		const result = await installPlugin(db, {
+			source: pluginSource,
+			scope: pluginScope,
+			pluginsBaseDir,
+		});
 		if (!result.ok) {
 			return c.json({ code: "INSTALL_FAILED", error: result.reason }, 422);
 		}
@@ -405,6 +419,39 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 		}
 
 		const namespacedKey = pluginContributionKey(pluginId, manifestKey);
+
+		// Skills are stored as knowledge_items and are not in plugin_configuration_defaults,
+		// so restoring them means re-reading the SKILL.md from the plugin's install_path.
+		// @lore BA9d D12: the plugin IS the canonical version; restore = re-import from disk.
+		if (kind === "skill") {
+			if (!existing.installPath) {
+				return c.json(
+					{
+						code: "NO_INSTALL_PATH",
+						error:
+							"Plugin was installed without a pluginsBaseDir — skill body cannot be restored from disk.",
+					},
+					422,
+				);
+			}
+			const skillFilePath = join(existing.installPath, "skills", manifestKey, "SKILL.md");
+			let body: string;
+			try {
+				body = readFileSync(skillFilePath, "utf-8");
+			} catch {
+				return c.json(
+					{
+						code: "SKILL_SOURCE_NOT_FOUND",
+						error: `Skill source not found at ${skillFilePath}. The plugin install may be corrupted.`,
+					},
+					422,
+				);
+			}
+			const skillId = skillItemId(pluginId, manifestKey);
+			await restorePluginSkillBody(db, skillId, body, pluginId);
+			return c.json({ ok: true, key: namespacedKey });
+		}
+
 		await restorePluginContribution(db, {
 			pluginId,
 			manifestKey,

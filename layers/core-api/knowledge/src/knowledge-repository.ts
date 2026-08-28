@@ -1358,3 +1358,31 @@ export async function setPluginSkillsStatus(
 		.set({ status, updatedAt: new Date().toISOString() })
 		.where(eq(knowledgeItems.topic, `plugin:${pluginId}`));
 }
+
+/**
+ * Overwrite a skill's body with the plugin's original content and reset
+ * updatedBy back to `plugin:${pluginId}`, marking the item as no longer
+ * detached from the plugin.
+ *
+ * Called by the restore-contribution route when kind="skill" (D12): the
+ * route reads the SKILL.md from install_path on disk and passes the body
+ * here so knowledge-repository stays pure (no filesystem access).
+ *
+ * @lore D12: "restore to original version just means we import from the
+ * plugin again. the plugin is the original version." — founder, BA9/founder-decisions.md.
+ * We deliberately do NOT store a separate copy in plugin_configuration_defaults;
+ * the file on disk IS the authoritative original.
+ */
+export async function restorePluginSkillBody(
+	db: HyperIdleDb,
+	skillId: string,
+	body: string,
+	pluginId: string,
+): Promise<void> {
+	// @lore D12: resetting updatedBy to plugin:${pluginId} clears the
+	// "detached" signal — the item matches its source again.
+	await db
+		.update(knowledgeItems)
+		.set({ body, updatedBy: `plugin:${pluginId}`, updatedAt: new Date().toISOString() })
+		.where(eq(knowledgeItems.id, skillId));
+}
