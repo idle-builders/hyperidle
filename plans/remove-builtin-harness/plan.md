@@ -283,8 +283,19 @@ counts. Same rule the model checks follow: an absent list never rejects. `instal
 While the built-in harness still exists it is always choosable, so this panel cannot appear in
 production yet. It starts working the moment Batch 5 lands, and the component tests exercise it now.
 
-**Still to do in this batch:** the `openai-compatible` provider block, and the live end-to-end proof
-(onboard with a key, first agent replies).
+**Fifth piece done: the live proof.** opencode completes a real turn on a key HyperIdle holds, with
+`OPENROUTER_API_KEY` deleted from the process environment for the duration — so the adapter's own
+injection is the only path a key could have taken. The lane captures the child's environment and
+asserts the key arrived there and that no other vendor's variable did. Breaking the injection turns it
+red: the variable disappears and opencode gets nothing.
+
+Credential assertions compare **booleans, never values** — a failing assertion prints what it
+received, and the received value here is a live key. The first version printed one into the test
+output.
+
+**Still to do in this batch:** the `openai-compatible` provider block, which is the one provider
+onboarding offers that no environment variable can carry (it has no fixed host, so it needs a provider
+block with its base URL in the sandbox `opencode.json`).
 
 **The opencode "hang" was mine, not the machine's.** `opencode run` waits on stdin when stdin is
 neither a TTY nor closed. Every manual run from a non-interactive shell hung; every adapter-driven run
