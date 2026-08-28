@@ -252,3 +252,64 @@ are this package's to remove, once the plugin takes over.
   `strategy`, no agent is stranded without a category, and the row count is unchanged.
 - Given the repo is searched for `strategy` as an agent category afterwards, when the results are read,
   then every remaining hit is the unrelated knowledge/task fabric sense.
+
+
+---
+
+# As refined and delivered
+
+Consolidated at ship. `requirements.md` and `refine-critique.md` are folded in here and deleted.
+`founder-decisions.md` stays — it is founder authority, not a phase artifact, and the four package
+plans cite it.
+
+## BA9 was split into four packages (founder decision, 2026-08-25)
+
+A live interview settled the substrate, and the work was too large for one package. The split, in
+build order, with each package's own `plan.md` carrying its "As built" record:
+
+| Package | Outcome | Shipped |
+|---|---|---|
+| **BA9a** | A plugin can be installed | PR #513 |
+| **BA9b** | Skills, rules and agent files are knowledge | PR #515 |
+| **BA9c** | A routine that fires on an event knows what happened | PR #516 |
+| **BA9d** | The rituals become a plugin, and `strategy` is purged | PR #517 |
+
+## What refinement established, and what it got wrong
+
+Refinement plus an independent critique corrected five claims in the original plan. Each was
+re-tested against the tree; all five held:
+
+1. **No restart is needed** after installing a routine. The event matcher subscribes once per member
+   of a compile-time constant and reads the database on delivery, so the subscription set cannot go
+   stale. The plan's restart step was dropped from the proof.
+2. **Practice communities are live**, not absent — `communityForRole` scopes which L3 knowledge every
+   agent session loads. Only the facilitator *agents* were invisible.
+3. **Skills did not exist** in any form — no table, no route, no loader. Of "agents, skills, routines
+   and triggers", two existed, one retired in BA1, one never existed. BA9b built skills as knowledge.
+4. **The per-team duplication fix was not inherited from BA1.** It came from an explicit `scope`
+   field on the builtin specs that BA9d deletes, so the property had to be re-established rather than
+   assumed. The track registry asserted the opposite; building on that would have reintroduced the bug.
+5. **Both tables the plan carved out as "different sense of the word" were already gone.**
+
+The ritual inventory was the other product of refinement: most candidates did **not** travel. Practice
+communities, the attention score with its session ranking and manual door, the human bet-retro save and
+the manual promote door all stayed in core because something reads them while working. The five
+facilitator personas, the portfolio retro and the contradiction detector died because they never worked.
+What shipped as a plugin is small — one agent and a few routines carrying prompts.
+
+## The pattern worth carrying forward
+
+The same failure shape appeared at four levels across this track, and every instance passed its tests:
+
+- Skill directories chosen by plausible name — one right, one redundant, one that nothing reads —
+  while unit tests asserted the writer matched the constant the same author had picked.
+- A harness test that imported no production code and hardcoded the directories itself; repointing the
+  production constant at a dead path left it green, with real model calls.
+- An `agentId` parameter that was optional and that no production caller passed, so agent-file binding
+  never ran — and its test passed by supplying the parameter itself.
+- MCP dialect shapes written from plausibility; probing the real binary showed opencode silently
+  rejects the `command`/`args` form and needs a merged array.
+
+**The lesson: evidence that confirms the author's own setup is not evidence.** What settled each of
+these was running the real binary and asking it what it saw, then breaking the production constant and
+confirming the test went red.
