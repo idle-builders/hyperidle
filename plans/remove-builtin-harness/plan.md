@@ -286,12 +286,12 @@ production yet. It starts working the moment Batch 5 lands, and the component te
 **Still to do in this batch:** the `openai-compatible` provider block, and the live end-to-end proof
 (onboard with a key, first agent replies).
 
-**Blocked on the machine, not the code.** opencode hangs on every `run` here — it reaches `init` in its
-own log and stops, while its database queries fine and OpenRouter is reachable, so the 2.9 GB DB was
-the wrong suspect. Its log shows **a second worktree running opencode concurrently**
-(`au-service-methods-cleanup-158cd0`), so cross-session contention is the better explanation — and my
-`pkill -9 -f opencode` while diagnosing would have hit that session's runs too. Do not kill opencode
-machine-wide. The live proof waits for a clear machine.
+**The opencode "hang" was mine, not the machine's.** `opencode run` waits on stdin when stdin is
+neither a TTY nor closed. Every manual run from a non-interactive shell hung; every adapter-driven run
+succeeded, because `CliHarnessAdapter` calls `child.stdin?.end()`. Adding `< /dev/null` answers in
+seconds. The 2.9 GB database and the "second worktree" were both wrong theories, and killing opencode
+processes over them accomplished nothing. **The same failure mode was already solved for codex** in
+this session ("Reading additional input from stdin…") — a driven CLI gets closed stdin, always.
 
 ---
 
@@ -318,17 +318,17 @@ process. They are not general proofs to port; they die with the code they guard,
 "handing a task off stops the prior session's tool access" becomes unproven on every harness that is
 left. That gap has to be closed here, before Batch 6, not discovered after it.
 
-**Two prerequisites this batch cannot start without.**
+**Founder rulings, 2026-08-28/29, which settle this batch's shape.**
 
-1. *The browser lane needs a server that discovers harnesses.* `npm run dev` boots `remote-server`
-   with `topology: "disabled"`, which builds no local adapter pool — every CLI reports "not installed"
-   regardless of the machine. Only the desktop app boots `topology: "local"` today. Either a
-   local-topology dev entry point exists, or the browser lane runs against the packaged app.
-2. *Evals need a threading decision.* `runEvalSession` is called from **77 sites across 24 scenario
-   files**, each building its deps explicitly, so a harness selector is either a codemod over all of
-   them or a piece of run-scoped state the runner sets once. The runner is serial by design, which
-   makes the second defensible — but it is ambient state, and that is a call to make deliberately
-   rather than discover in a diff.
+- **The browser is not a harness surface at all.** The web version exists to command remote workers;
+  it does not run local harnesses and is not supposed to. So the cassette lane is **not** replaced by
+  a real-CLI browser lane — it is deleted, and browser tests stop making model calls, because in the
+  web version there is no model call to make. `topology: "disabled"` was never the bug it looked like.
+- **The eval harness is one setting for the run** — whatever is simplest. Run-scoped state the runner
+  sets once, not a codemod over 77 call sites.
+- **Any harness test runs against every harness. Anything that existed purely for the built-in one
+  goes out.** That decides both `af7` tests (deleted, not ported) and `AU9-assistant-handoff`, which is
+  `builtin`-only today: handoff becomes a lane across all four, or it is not a harness test.
 
 This lands **before** the deletion, so the removal subtracts code and not coverage.
 
