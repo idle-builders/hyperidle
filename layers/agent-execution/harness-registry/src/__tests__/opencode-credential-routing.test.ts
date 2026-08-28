@@ -21,12 +21,28 @@
 
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 
 const OPENCODE_CLI_CONFIG = cliAdapterFixture("opencode");
+
+// A real directory: a brought OpenAI-compatible endpoint is declared in a config
+// file the adapter writes into the session directory, so that directory has to
+// exist the way it does in production.
+const sandboxes: string[] = [];
+afterEach(() => {
+	for (const dir of sandboxes.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+});
+function makeSandbox(): string {
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-cred-"));
+	sandboxes.push(dir);
+	return dir;
+}
 
 function makeFakeChild(): { proc: ChildProcess; emitExit: (code: number | null) => void } {
 	const proc = new EventEmitter() as unknown as ChildProcess;
@@ -49,7 +65,7 @@ async function spawnEnvFor(
 	const adapter = new CliHarnessAdapter(OPENCODE_CLI_CONFIG, { spawnFn: spawnSpy });
 	const started = adapter.startSession({
 		sessionId: "opencode-credential-routing",
-		sandboxPath: "/workspace/opencode-test",
+		sandboxPath: makeSandbox(),
 		assembledPrompt: "Do the task.",
 		modelTier: "workhorse",
 		tools: [],
@@ -99,10 +115,11 @@ describe("a stored key reaches opencode under its own provider's name", () => {
 	});
 
 	it("a key for a provider opencode takes no variable for is not smuggled into one", async () => {
-		// openai-compatible has no fixed host, so there is no environment variable
-		// that means "this endpoint". It needs a provider block in the sandbox
-		// config carrying its base URL — until that exists, putting the key in some
-		// other vendor's variable would point it at the wrong service.
+		// openai-compatible has no fixed host, so no environment variable can mean
+		// "this endpoint": the key alone says nothing about where to send it. It
+		// travels as a provider block in the session config instead (see
+		// `opencode-custom-endpoint`), and putting it in some other vendor's
+		// variable would aim it at the wrong service.
 		const env = await spawnEnvFor({
 			provider: "openai-compatible",
 			model: "meta-llama/Llama-3-70b-chat-hf",

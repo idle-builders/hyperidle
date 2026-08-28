@@ -526,7 +526,13 @@ describe("opencode CLI adapter (real binary, production CliHarnessAdapter path)"
 				modelTier: "workhorse" as const,
 				tools: [],
 				resolvedModel: {
-					provider: "openai-compatible" as const,
+					// This route IS OpenRouter, and now has to say so. The label used to
+					// read `openai-compatible`, which in this product means something
+					// else entirely: an endpoint the person typed in themselves, with no
+					// fixed host. The adapter answers that by declaring a provider in the
+					// session config and addressing the model through it — correct for a
+					// brought endpoint, wrong for an id already routed by `openrouter/`.
+					provider: "openrouter" as const,
 					// Provider-prefixed model id required by opencode (OpenRouter route).
 					// @lore Opencode uses provider-prefixed model IDs.
 					model: "openrouter/openai/gpt-4o-mini",

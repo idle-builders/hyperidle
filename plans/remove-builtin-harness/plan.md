@@ -293,9 +293,26 @@ Credential assertions compare **booleans, never values** — a failing assertion
 received, and the received value here is a live key. The first version printed one into the test
 output.
 
-**Still to do in this batch:** the `openai-compatible` provider block, which is the one provider
-onboarding offers that no environment variable can carry (it has no fixed host, so it needs a provider
-block with its base URL in the sandbox `opencode.json`).
+**Sixth piece done — Batch 4 closed: a brought OpenAI-compatible endpoint reaches opencode.** The one
+provider onboarding offers that no environment variable can carry: it has no fixed host, so the key
+alone says nothing about where to send it. The adapter declares it as a provider in the session
+`opencode.json` (base URL + key, `@ai-sdk/openai-compatible`) and addresses the model as
+`<provider>/<model>` so the id names who serves it. The file is MERGED — the MCP server is already
+there and clobbering it would take the agent's tools away to give it a model. Proven live end to end
+against a real endpoint with a real key.
+
+**It broke a lane, and the break was informative.** `openai-compatible` was being used in two
+incompatible senses. In the product it means "an endpoint the person typed in". In the harness tests
+it was the label on an **OpenRouter** route whose model id was already prefixed `openrouter/…` — so
+the new rule double-prefixed it and the turn failed. Both labels are corrected to `openrouter`, which
+is what those routes actually are: `HARNESS_TEST_MODELS.opencode` and the opencode case in
+`cli-adapter-real-binary`. **The founder-set MODEL values are untouched** — only the provider label,
+which was wrong before this change and merely harmless. This was flagged twice as cosmetic before it
+became load-bearing.
+
+---
+
+
 
 **The opencode "hang" was mine, not the machine's.** `opencode run` waits on stdin when stdin is
 neither a TTY nor closed. Every manual run from a non-interactive shell hung; every adapter-driven run

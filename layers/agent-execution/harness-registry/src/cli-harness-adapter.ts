@@ -121,6 +121,28 @@ interface CliAdapterConfig {
 	 */
 	readonly credentialEnvByProvider?: Readonly<Record<string, string>>;
 	/**
+	 * How a brought OpenAI-compatible endpoint is declared to this harness.
+	 *
+	 * Onboarding offers three provider shapes. Two are named vendors with fixed
+	 * hosts, and their key travels in {@link credentialEnvByProvider}. The third
+	 * is whatever endpoint someone types, and no environment variable can carry
+	 * it — the key alone says nothing about where to send it. It needs a provider
+	 * declared in the config file the harness reads from the session directory,
+	 * carrying the base URL, and the model addressed as `<provider>/<model>` so
+	 * the id names who serves it.
+	 *
+	 * Only opencode declares this. Verified live 2026-08-27: a project
+	 * `opencode.json` with this shape made the model appear in `opencode models`.
+	 */
+	readonly customEndpointProvider?: {
+		/** Provider id written into the config, and the prefix the model takes. */
+		readonly id: string;
+		/** The SDK package the harness loads for an OpenAI-compatible endpoint. */
+		readonly npm: string;
+		/** Config file, relative to the session directory. */
+		readonly configFile: string;
+	};
+	/**
 	 * How to interpret stdout lines.
 	 * "ndjson" — each line is parsed as JSON; valid HarnessEvent objects are
 	 * yielded directly; invalid JSON is wrapped as completion events.
@@ -338,6 +360,52 @@ function resolveTemplates(template: string, vars: Record<TemplateVar, string>): 
 		result = result.split(key).join(value);
 	}
 	return result;
+}
+
+/**
+ * Declare a brought OpenAI-compatible endpoint in the harness's own config file,
+ * and return the model id addressed through it.
+ *
+ * The file is MERGED, never rewritten: the MCP server is already in there by the
+ * time a session starts, and clobbering it would take away the agent's tools to
+ * give it a model. An unreadable or non-object file is replaced rather than
+ * merged into — there is nothing there worth keeping.
+ */
+function declareCustomEndpoint(params: {
+	readonly sandboxPath: string;
+	readonly spec: NonNullable<CliAdapterConfig["customEndpointProvider"]>;
+	readonly model: string;
+	readonly baseUrl: string;
+	readonly apiKey: string;
+}): string {
+	const { sandboxPath, spec, model, baseUrl, apiKey } = params;
+	const file = path.join(sandboxPath, spec.configFile);
+
+	let config: Record<string, unknown> = {};
+	try {
+		const existing = JSON.parse(fs.readFileSync(file, "utf-8")) as unknown;
+		if (existing && typeof existing === "object" && !Array.isArray(existing)) {
+			config = existing as Record<string, unknown>;
+		}
+	} catch {
+		// No file yet, or nothing parseable in it.
+	}
+
+	const provider =
+		config.provider && typeof config.provider === "object" && !Array.isArray(config.provider)
+			? (config.provider as Record<string, unknown>)
+			: {};
+
+	provider[spec.id] = {
+		npm: spec.npm,
+		options: { baseURL: baseUrl, apiKey },
+		// The provider must declare the model, or the prefixed id points at nothing.
+		models: { [model]: {} },
+	};
+	config.provider = provider;
+
+	fs.writeFileSync(file, JSON.stringify(config, null, 2), "utf-8");
+	return `${spec.id}/${model}`;
 }
 
 /** Build the sandboxed environment from allowlist + resolved envMap. */
@@ -569,6 +637,24 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		if (credentialEnv && provider && apiKey) {
 			const varName = credentialEnv[provider];
 			if (varName) resolvedEnvMap[varName] = apiKey;
+		}
+
+		// ── A brought OpenAI-compatible endpoint, which no variable can carry.
+		const endpointSpec = this.config.customEndpointProvider;
+		const baseUrl = config.resolvedModel?.baseUrl;
+		if (endpointSpec && provider === "openai-compatible" && apiKey && baseUrl) {
+			const model = templateVars["{{model}}"];
+			if (model) {
+				const addressed = declareCustomEndpoint({
+					sandboxPath: config.sandboxPath,
+					spec: endpointSpec,
+					model,
+					baseUrl,
+					apiKey,
+				});
+				// Re-resolve argv so `--model` names the provider that serves it.
+				resolvedArgs = resolvedArgs.map((arg) => (arg === model ? addressed : arg));
+			}
 		}
 
 		// ── Per-session CODEX_HOME injection.

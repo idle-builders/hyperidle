@@ -115,4 +115,60 @@ describe("[harness:opencode] a key HyperIdle holds is enough to get an answer", 
 			fs.rmSync(sandboxPath, { recursive: true, force: true });
 		}
 	}, 240_000);
+
+	test("opencode completes a turn through a brought OpenAI-compatible endpoint", async () => {
+		// OpenRouter speaks the OpenAI-compatible protocol, so it stands in for the
+		// "type your own endpoint" case using a credential this machine actually
+		// has. Nothing here names OpenRouter to opencode: it is handed a base URL
+		// and a key, exactly as a stranger's endpoint would be, and reaches the
+		// model through the provider block the adapter declares.
+		expect(Boolean(hostKey)).toBe(true);
+
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "opencode-brought-endpoint-"));
+		try {
+			let argv: string[] = [];
+			const capturingSpawn = ((...args: Parameters<typeof spawn>) => {
+				argv = args[1] as string[];
+				return spawn(...args);
+			}) as typeof spawn;
+
+			const adapter = new CliHarnessAdapter(OPENCODE_CLI_CONFIG, { spawnFn: capturingSpawn });
+			const handle = await adapter.startSession({
+				sessionId: `brought-endpoint-${Math.random().toString(36).slice(2, 10)}`,
+				sandboxPath,
+				assembledPrompt: "Reply with exactly the token ENDPOINT_OK and nothing else.",
+				modelTier: "workhorse",
+				tools: [],
+				selectedModel: "z-ai/glm-4.7-flash",
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "z-ai/glm-4.7-flash",
+					apiKey: hostKey as string,
+					baseUrl: "https://openrouter.ai/api/v1",
+				},
+				mcpConnectionInfo: undefined,
+			} as SessionConfig);
+
+			const events: HarnessEvent[] = [];
+			for await (const ev of adapter.streamEvents(handle)) {
+				events.push(ev);
+			}
+			const result = await adapter.stopSession(handle);
+
+			expect(result.outcome).toBe("completed");
+			const text = events
+				.filter((e): e is Extract<HarnessEvent, { type: "completion" }> => e.type === "completion")
+				.map((e) => e.text)
+				.join(" ");
+			expect(text).toContain("ENDPOINT_OK");
+
+			// The model was addressed through the declared provider, not passed
+			// through as a bare id opencode would have had to already know.
+			const model = argv[argv.indexOf("--model") + 1] ?? "";
+			expect(model.endsWith("/z-ai/glm-4.7-flash")).toBe(true);
+			expect(model).not.toBe("z-ai/glm-4.7-flash");
+		} finally {
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+		}
+	}, 240_000);
 });

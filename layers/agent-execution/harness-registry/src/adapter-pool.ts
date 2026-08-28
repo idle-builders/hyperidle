@@ -373,6 +373,11 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 			anthropic: "ANTHROPIC_API_KEY",
 			openrouter: "OPENROUTER_API_KEY",
 		},
+		customEndpointProvider: {
+			id: "brought-endpoint",
+			npm: "@ai-sdk/openai-compatible",
+			configFile: "opencode.json",
+		},
 		// AL7 delta: changed from "text" → "ndjson" because opencode --format json emits JSONL.
 		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via
 		// normalizeHarnessEvent until the opencode pre-map is added (T6 verify). The router capture

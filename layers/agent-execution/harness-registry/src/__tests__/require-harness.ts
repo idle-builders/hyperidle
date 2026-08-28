@@ -161,7 +161,7 @@ export function requireHarness(...names: HarnessName[]): void {
  */
 export interface HarnessTestModelSpec {
 	/** Model-gateway provider the resolved model routes through. */
-	readonly provider: "openai-compatible" | "anthropic";
+	readonly provider: "openai-compatible" | "anthropic" | "openrouter";
 	/** The locked model id passed to the harness. */
 	readonly model: string;
 	/** Base URL for the provider. */
@@ -201,7 +201,13 @@ export const HARNESS_TEST_MODELS = {
 		apiKeyEnv: null,
 	},
 	opencode: {
-		provider: "openai-compatible",
+		// The MODEL is untouched and stays founder-set. The PROVIDER label is
+		// corrected: this route is OpenRouter, and `openai-compatible` means
+		// something else in this product — an endpoint the person typed in, with no
+		// fixed host, which the adapter answers by declaring a provider in the
+		// session config and addressing the model through it. Applying that to an
+		// id already routed by `openrouter/` double-prefixes it and the turn fails.
+		provider: "openrouter",
 		model: "openrouter/z-ai/glm-4.7-flash",
 		baseUrl: "https://openrouter.ai/api",
 		apiKeyEnv: "OPENROUTER_API_KEY",
@@ -220,7 +226,7 @@ export const HARNESS_TEST_MODELS = {
 
 /** The resolved-model shape a harness run consumes. */
 export interface ResolvedTestModel {
-	readonly provider: "openai-compatible" | "anthropic";
+	readonly provider: "openai-compatible" | "anthropic" | "openrouter";
 	readonly model: string;
 	readonly apiKey: string;
 	readonly baseUrl: string;
