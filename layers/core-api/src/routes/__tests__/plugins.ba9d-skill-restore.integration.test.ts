@@ -8,21 +8,14 @@
 import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { knowledgeItems } from "@hyperidle/db";
 import { skillItemId } from "@hyperidle/settings";
-import { eq } from "drizzle-orm";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
-const API_KEY = "test-ba9d-skill-restore";
 const PLUGIN_ROOT = resolve("plugins/knowledge-management");
 const PLUGIN_ID = "knowledge-management";
 // One skill dirName from the plugin's skills/ directory.
 const SKILL_DIR = "post-task-retro";
-
-function auth(): Record<string, string> {
-	return { "X-API-Key": API_KEY };
-}
 
 const tempDirs: string[] = [];
 
@@ -44,52 +37,64 @@ function copyPlugin(): string {
 }
 
 describe("BA9d skill restore", () => {
+	// pluginsApp is a per-test app instance with a temp pluginsBaseDir already
+	// configured in the composition root — no pluginsBaseDir in the request body.
 	test("restore re-imports skill body from plugin source, resets updatedBy", async ({
-		db,
-		app,
+		pluginsApp,
 	}) => {
-		// 1. Install with pluginsBaseDir so install_path is set.
-		const pluginsBaseDir = join(tmpdir(), `ba9d-sr-base-${Date.now()}`);
-		mkdirSync(pluginsBaseDir, { recursive: true });
-		tempDirs.push(pluginsBaseDir);
-
+		// 1. Install. The app's pluginsBaseDir is set at construction time by the
+		//    fixture, so install_path is stored automatically.
 		const pluginDir = copyPlugin();
-		const installRes = await app.request("/api/plugins", {
+		const installRes = await pluginsApp.request("/api/plugins", {
 			method: "POST",
-			headers: { ...auth(), "Content-Type": "application/json" },
+			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				source: { type: "folder", path: pluginDir },
 				scope: { kind: "factory" },
-				pluginsBaseDir,
 			}),
 		});
 		expect(installRes.status).toBe(201);
 
-		// 2. Look up the skill row by its deterministic hashed ID.
+		// 2. Fetch the skill from the knowledge route to get its current state.
 		const skillId = skillItemId(PLUGIN_ID, SKILL_DIR);
-		const skillRows = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, skillId));
-		const skillRow = skillRows[0];
-		expect(skillRow).toBeDefined();
-		const originalBody = skillRow!.body;
+		const getRes = await pluginsApp.request(`/api/knowledge/${skillId}`);
+		expect(getRes.status).toBe(200);
+		const skillItem = (await getRes.json()) as {
+			id: string;
+			body: string;
+			version: number;
+			updatedBy: string;
+		};
+
 		// Sanity: original body matches SKILL.md on disk.
+		const originalBody = skillItem.body;
 		const diskBody = readFileSync(join(PLUGIN_ROOT, "skills", SKILL_DIR, "SKILL.md"), "utf-8");
 		expect(originalBody).toBe(diskBody);
+		expect(skillItem.updatedBy).toBe(`plugin:${PLUGIN_ID}`);
 
-		// 3. Simulate a user edit: overwrite body directly in the DB.
-		await db
-			.update(knowledgeItems)
-			.set({ body: "USER EDITED CONTENT", updatedBy: "user-alice" })
-			.where(eq(knowledgeItems.id, skillId));
+		// 3. Simulate a user edit via the knowledge PATCH route.
+		const patchRes = await pluginsApp.request(`/api/knowledge/${skillId}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				body: "USER EDITED CONTENT",
+				updatedBy: "user-alice",
+				version: skillItem.version,
+			}),
+		});
+		expect(patchRes.status).toBe(200);
 
 		// Verify the edit landed.
-		const edited = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, skillId));
-		expect(edited[0]?.body).toBe("USER EDITED CONTENT");
-		expect(edited[0]?.updatedBy).toBe("user-alice");
+		const editedRes = await pluginsApp.request(`/api/knowledge/${skillId}`);
+		expect(editedRes.status).toBe(200);
+		const edited = (await editedRes.json()) as { body: string; updatedBy: string };
+		expect(edited.body).toBe("USER EDITED CONTENT");
+		expect(edited.updatedBy).toBe("user-alice");
 
 		// 4. Call the restore route.
-		const restoreRes = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
+		const restoreRes = await pluginsApp.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
-			headers: { ...auth(), "Content-Type": "application/json" },
+			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ kind: "skill", manifestKey: SKILL_DIR }),
 		});
 		expect(restoreRes.status).toBe(200);
@@ -97,28 +102,30 @@ describe("BA9d skill restore", () => {
 		expect(restoreBody.ok).toBe(true);
 
 		// 5. Confirm body is back to original, updatedBy reset to plugin.
-		const restored = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, skillId));
-		expect(restored[0]?.body).toBe(originalBody);
-		expect(restored[0]?.updatedBy).toBe(`plugin:${PLUGIN_ID}`);
+		const restoredRes = await pluginsApp.request(`/api/knowledge/${skillId}`);
+		expect(restoredRes.status).toBe(200);
+		const restored = (await restoredRes.json()) as { body: string; updatedBy: string };
+		expect(restored.body).toBe(originalBody);
+		expect(restored.updatedBy).toBe(`plugin:${PLUGIN_ID}`);
 	});
 
-	test("restore without install_path returns NO_INSTALL_PATH", async ({ db, app }) => {
-		// Install WITHOUT pluginsBaseDir — install_path will be null.
+	// Uses the standard `app` fixture (no pluginsBaseDir) to prove that trying
+	// to restore a skill when install_path is null returns a clear error.
+	test("restore without install_path returns NO_INSTALL_PATH", async ({ app }) => {
 		const pluginDir = copyPlugin();
 		const installRes = await app.request("/api/plugins", {
 			method: "POST",
-			headers: { ...auth(), "Content-Type": "application/json" },
+			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				source: { type: "folder", path: pluginDir },
 				scope: { kind: "factory" },
-				// no pluginsBaseDir
 			}),
 		});
 		expect(installRes.status).toBe(201);
 
 		const restoreRes = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
-			headers: { ...auth(), "Content-Type": "application/json" },
+			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ kind: "skill", manifestKey: SKILL_DIR }),
 		});
 		expect(restoreRes.status).toBe(422);

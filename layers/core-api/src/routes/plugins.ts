@@ -75,7 +75,7 @@ export interface PluginListResponse {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createPluginRoutes(db: HyperIdleDb): Hono {
+export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Hono {
 	const router = new Hono();
 
 	// ── GET /api/plugins ────────────────────────────────────────────────────
@@ -203,13 +203,6 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			kind: sc.kind as "factory" | "team",
 			teamId: sc.kind === "team" ? (sc.teamId as string) : null,
 		};
-
-		// pluginsBaseDir is optional — provided by tests (temp dir) and production
-		// config so plugin files are persisted and skills can be restored from disk.
-		const pluginsBaseDir =
-			typeof (body as Record<string, unknown>).pluginsBaseDir === "string"
-				? ((body as Record<string, unknown>).pluginsBaseDir as string)
-				: undefined;
 
 		const result = await installPlugin(db, {
 			source: pluginSource,
@@ -429,7 +422,7 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 					{
 						code: "NO_INSTALL_PATH",
 						error:
-							"Plugin was installed without a pluginsBaseDir — skill body cannot be restored from disk.",
+							"This plugin has no recorded install path — it was installed before skill restore was supported, or on a server not configured with a plugins directory. Reinstall the plugin to enable restore.",
 					},
 					422,
 				);
