@@ -237,3 +237,28 @@ skills into directories nothing reads, and this.
   would reject. Recorded as a deliberate decision — per ETHOS this is not a rogue-plugin guard — but it
   is the one remaining surface that could reintroduce the purged value.
 - Actor identity in event context is partial, inherited from BA9c: several events carry no actor field.
+
+
+## Re-proved after the final fixes (2026-08-28)
+
+The first end-to-end proof ran **before** the last round of fixes, which changed real behaviour — so it
+was stale and had to be repeated. Re-run from a clean bootstrap at `ea3b41757`:
+
+**Migration 65 now actually applies.** A fresh install reports **66** migrations applied where it
+previously reported 65. The migration had been silently skipped because its journal `when` was written in
+**seconds instead of milliseconds**, and drizzle decides what to apply by comparing that timestamp — a
+fact established back in BA9a. So the `strategy` purge would never have run on any real database while
+every local gate reported the package complete. Its own brownfield test caught it, which is the second
+migration defect that test family has found.
+
+**A fresh install is clean:** zero `strategy` rows, zero facilitators, one routine (the daily digest).
+
+**Installing the plugin** through its real HTTP door: 201, and four routines afterwards — one of each,
+no duplicates.
+
+**The sweep does real work.** With 27 knowledge items backdated past the 90-day threshold, calling the
+sweep door in the running server returned `processed: 27`, and the statuses moved from 27 active / 2
+stale to **0 active / 29 stale**. This is the operation the plugin's routine instructs the Librarian to
+call, so "knowledge decay still happens" is now evidenced rather than asserted — and it matters, because
+one of the bugs in the final round was `recomputeAttention` never being called after candidates were
+loaded.
