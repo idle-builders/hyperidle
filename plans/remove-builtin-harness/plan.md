@@ -183,6 +183,33 @@ that's as far as the proof goes.
 
 ---
 
+**DONE 2026-08-28.** No production change was needed — `model-options.ts` already declared each
+harness's keys and carriers with a compile-time coupling. What was missing was the same thing Batch 2
+fixed for the model: proof the harness on the far end honoured the value.
+
+- **claude** `--effort` — verified through the adapter. `/model` reports the effort in force and costs
+  nothing, so the proof is free. Asking `low` then `max` gives two different answers.
+- **codex** `model_reasoning_effort` — verified. Its rollout records `effort` beside `model`.
+- **cursor-agent** declares no options, and the reason is now pinned by a test rather than a comment:
+  its own `--list-models` tip advertises `--model 'id[context=1m,effort=high]'`, and the binary
+  **rejects** that form. Effort is part of model identity there (~200 flat ids ending `-low`/`-high`/
+  `-max`/`-fast`).
+- **opencode** `--variant` — carried, deliberately NOT verified. opencode publishes no statement of
+  the variant a session ran with and silently ignores an unknown one, so a lane asserting only that
+  the turn completed would prove the flag is tolerated, not applied. Recorded in the test file.
+
+**The sanity break earned its keep.** The first codex lane asked for `high` and passed with the option
+carrier broken — because the machine's own `config.toml` sets `model_reasoning_effort = "high"` and
+`provisionCodexHome` copies it into the session. Rewritten to ask for two efforts, neither of them the
+one already in play; a broken carrier now fails with `codex ran at high, not the requested low`.
+
+**Local snag, not a product finding:** opencode is currently wedged on this machine — every run hangs,
+including ones that worked earlier today. Its global `~/.local/share/opencode/opencode.db` is 2.9 GB,
+which is the documented lock-contention failure mode, and killing probe runs mid-flight is what
+provoked it. Nothing in the tree changed. It needs the DB cleared before opencode lanes run again.
+
+---
+
 ## Batch 4 — An API key gets you a working workspace
 
 **Change.** Onboarding with a key hands the key to opencode under the env var matching its provider —
