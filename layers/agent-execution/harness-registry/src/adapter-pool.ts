@@ -212,6 +212,55 @@ export class AdapterPool {
 	}
 
 	/**
+	 * Why `select(requirements)` would return null, in the caller's words.
+	 *
+	 * `select` has six distinct ways to reject every entry, and the pool is the
+	 * only thing that can tell them apart. Callers used to collapse all six
+	 * into "all adapters are at capacity" — false for the case that actually
+	 * happens (an empty pool, because discovery found no harness binary), and
+	 * false in a way that points the reader at the wrong subsystem.
+	 *
+	 * Ordered most-actionable first: an empty pool is a different problem from
+	 * a filtered-out pool, which is a different problem from a full one.
+	 */
+	describeSelectFailure(requirements?: SelectRequirements): string {
+		if (this.entries.size === 0) {
+			return "no harness adapters are registered (none was discovered on this host)";
+		}
+		const live = [...this.entries.values()].filter((entry) => !entry.paused);
+		if (live.length === 0) {
+			return `every registered harness adapter is paused (${this.entries.size} total)`;
+		}
+		const availableTypes = [...new Set(live.map((entry) => entry.meta.type ?? "untyped"))];
+		if (requirements?.harnessType) {
+			const ofType = live.filter((entry) => entry.meta.type === requirements.harnessType);
+			if (ofType.length === 0) {
+				return `no harness adapter of type "${requirements.harnessType}" is available (available: ${availableTypes.join(", ")})`;
+			}
+		}
+		const disabled = requirements?.disabledTypes ?? [];
+		if (disabled.length > 0) {
+			const enabled = live.filter(
+				(entry) =>
+					!entry.meta.type || entry.meta.type === "builtin" || !disabled.includes(entry.meta.type),
+			);
+			if (enabled.length === 0) {
+				return `every available harness type is disabled in settings (disabled: ${disabled.join(", ")})`;
+			}
+		}
+		if (requirements?.modelProviders) {
+			const required = requirements.modelProviders;
+			const matching = live.filter((entry) =>
+				required.every((provider) => entry.meta.modelProviders.includes(provider)),
+			);
+			if (matching.length === 0) {
+				return `no harness adapter supports the required model providers (${required.join(", ")})`;
+			}
+		}
+		return `all harness adapters are at capacity (${live.length} available: ${availableTypes.join(", ")})`;
+	}
+
+	/**
 	 * AB1: Return the HarnessCapabilities for the first adapter matching the given
 	 * harnessType. When harnessType is null, returns capabilities from any adapter
 	 * (useful when the agent has no preference — any adapter will do).

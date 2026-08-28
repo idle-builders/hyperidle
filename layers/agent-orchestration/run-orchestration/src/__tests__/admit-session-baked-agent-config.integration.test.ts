@@ -150,6 +150,7 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 				},
 			}),
 			release: () => undefined,
+			describeSelectFailure: () => "test pool selected nothing",
 		},
 		workspace: {
 			spawn: async () => ({ sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-config" }),
