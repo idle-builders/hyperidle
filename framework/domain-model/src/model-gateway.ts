@@ -96,9 +96,6 @@ export const DEFAULT_AGENT_MODEL_ID = "claude-sonnet-4-6";
 /** AH2: Default provider for per-agent model selection. */
 export const DEFAULT_AGENT_MODEL_PROVIDER: ModelProvider = "anthropic";
 
-/** AH2: Default harnessType for per-agent harness selection. */
-export const DEFAULT_AGENT_HARNESS = "builtin";
-
 /**
  * X4: Built-in gateway configuration — matches the old MODEL_TIER_MAP values exactly.
  * Zero behavior change when no gateway config is stored in serverConfig.

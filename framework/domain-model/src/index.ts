@@ -144,7 +144,6 @@ export type {
 // catalogEntry, isCatalogModel moved to layers/core-api/src/model-utils.ts (AU44-b8).
 export {
 	BUILT_IN_GATEWAY_CONFIG,
-	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
 	MODEL_CATALOG,

@@ -260,9 +260,16 @@ none, so it is judged only per-provider (an OpenRouter id is not wrong because a
 never heard of it). That second clause exists for the built-in harness alone and goes when it does.
 `isCatalogModel` is deleted — it had no other caller.
 
+**Third piece done: nothing is chosen on anyone's behalf.** `DEFAULT_AGENT_HARNESS` is deleted, and
+the `builtin` + `claude-sonnet-4-6` + `anthropic` triple no longer gets written by the agents route,
+team scaffolding, or the assistant stub. An agent created with no harness stores none, and the run
+resolves it — the pool takes an available harness, that harness runs its own default model. Two
+existing tests stated the old rule and now state the new one; a migration test that compared
+migration 0032's backfill against the live constant now asserts the literal that migration actually
+wrote, since a past migration's behaviour must not be tied to a value the product is free to change.
+
 **Still to do in this batch:** the `openai-compatible` provider block; setup blocking when nothing is
-installed; dropping `DEFAULT_AGENT_HARNESS` and the two `?? "builtin"` literals; and the live
-end-to-end proof (onboard with a key, first agent replies).
+installed; and the live end-to-end proof (onboard with a key, first agent replies).
 
 **Blocked on the machine, not the code.** opencode hangs on every `run` here — it reaches `init` in its
 own log and stops, while its database queries fine and OpenRouter is reachable, so the 2.9 GB DB was

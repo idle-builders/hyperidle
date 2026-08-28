@@ -170,9 +170,10 @@ export async function persistScaffoldedAgents(
 		});
 		await users.writeAgentRunConfig(db, agentId, {
 			systemPrompt: spec.systemPrompt,
-			harnessType: resolvedHarness?.harnessType ?? "builtin",
-			modelId: resolvedHarness?.modelId ?? "claude-sonnet-4-6",
-			modelProvider: resolvedHarness?.modelProvider ?? "anthropic",
+			// No team harness chosen means none is stored — see the agents route.
+			harnessType: resolvedHarness?.harnessType ?? null,
+			modelId: resolvedHarness?.modelId ?? null,
+			modelProvider: resolvedHarness?.modelProvider ?? null,
 			maxConcurrentSessions: spec.role === "builder" ? 3 : 1,
 		});
 

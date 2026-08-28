@@ -548,7 +548,7 @@ describe("AH2 AC3: new agents get default model + harness", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("POST without explicit model/harness still creates agent with defaults", async ({
+	test("POST without explicit model/harness creates the agent with neither", async ({
 		db,
 		eventBus,
 	}) => {
@@ -566,9 +566,9 @@ describe("AH2 AC3: new agents get default model + harness", () => {
 
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as Record<string, unknown>;
-		// defaults applied
-		expect(body.harnessType).toBe("builtin");
-		expect(body.modelId).toBe("claude-sonnet-4-6");
-		expect(body.modelProvider).toBe("anthropic");
+		// Nothing is chosen on the caller's behalf — see `no-harness-is-chosen-for-you`.
+		expect(body.harnessType ?? null).toBeNull();
+		expect(body.modelId ?? null).toBeNull();
+		expect(body.modelProvider ?? null).toBeNull();
 	});
 });

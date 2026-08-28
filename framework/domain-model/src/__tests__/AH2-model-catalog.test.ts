@@ -4,7 +4,7 @@
  * AC4: Choices reflect current catalog; defaults point at current
  * - MODEL_CATALOG contains exactly the 4 current Claude models
  * - catalogEntry / isCatalogModel helpers work correctly
- * - DEFAULT_AGENT_MODEL_ID / DEFAULT_AGENT_MODEL_PROVIDER / DEFAULT_AGENT_HARNESS
+ * - DEFAULT_AGENT_MODEL_ID / DEFAULT_AGENT_MODEL_PROVIDER
  *
  * These tests FAIL until:
  *  - framework/domain-model/src/model-gateway.ts adds MODEL_CATALOG, isCatalogModel, catalogEntry, DEFAULT_AGENT_*
@@ -14,7 +14,6 @@
 import { describe, expect, it } from "vitest";
 import {
 	catalogEntry,
-	DEFAULT_AGENT_HARNESS,
 	DEFAULT_AGENT_MODEL_ID,
 	DEFAULT_AGENT_MODEL_PROVIDER,
 	isCatalogModel,
@@ -136,9 +135,5 @@ describe("AH2 AC4: DEFAULT_AGENT_* constants", () => {
 
 	it("DEFAULT_AGENT_MODEL_PROVIDER is anthropic", () => {
 		expect(DEFAULT_AGENT_MODEL_PROVIDER).toBe("anthropic");
-	});
-
-	it("DEFAULT_AGENT_HARNESS is builtin", () => {
-		expect(DEFAULT_AGENT_HARNESS).toBe("builtin");
 	});
 });

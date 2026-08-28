@@ -398,9 +398,10 @@ export function createTeamRoutes(
 						createdAt: now,
 					});
 					await agentOrchestration.runConfig.write(assistantId, {
-						harnessType: stubHarness?.harnessType ?? "builtin",
-						modelId: stubHarness?.modelId ?? "claude-sonnet-4-6",
-						modelProvider: stubHarness?.modelProvider ?? "anthropic",
+						// No team harness chosen means none is stored — see the agents route.
+						harnessType: stubHarness?.harnessType ?? null,
+						modelId: stubHarness?.modelId ?? null,
+						modelProvider: stubHarness?.modelProvider ?? null,
 					});
 				} else if (stubHarness !== undefined) {
 					// Assistant already exists (created at user registration with no harness).

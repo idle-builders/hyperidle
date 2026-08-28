@@ -58,7 +58,7 @@ describe("primary harness persisted as team default", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("unset default: no team default AND scaffolded agents fall back to builtin", async ({
+	test("unset default: no team default AND scaffolded agents are assigned none", async ({
 		db,
 		app,
 	}) => {
@@ -77,7 +77,10 @@ describe("primary harness persisted as team default", () => {
 		const body = (await res.json()) as { teamMembers: { id: string } };
 		const teamMembersId = body.teamMembers.id;
 
-		// Scaffolded agents fall back to builtin/claude-sonnet-4-6
+		// A team whose owner picked no harness assigns its agents none. The run
+		// resolves it — the pool takes an available harness and that harness runs
+		// its own default model — rather than a vendor name being written onto the
+		// row and shown back as someone's configuration.
 		const agents = await db.select().from(users).where(eq(users.teamId, teamMembersId));
 		expect(agents.length).toBeGreaterThan(0);
 		for (const agent of agents) {
@@ -86,8 +89,8 @@ describe("primary harness persisted as team default", () => {
 				.from(agentRunConfig)
 				.where(eq(agentRunConfig.agentUserId, agent.id))
 				.limit(1);
-			expect(config?.harnessType).toBe("builtin");
-			expect(config?.modelId).toBe("claude-sonnet-4-6");
+			expect(config?.harnessType ?? null).toBeNull();
+			expect(config?.modelId ?? null).toBeNull();
 		}
 
 		vi.unstubAllEnvs();

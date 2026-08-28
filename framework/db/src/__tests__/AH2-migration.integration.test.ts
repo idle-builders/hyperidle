@@ -42,7 +42,7 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 // @lore AU44-b8: isCatalogModel moved to core-api (layers); framework/db can't import layers.
 // Inline the catalog check using MODEL_CATALOG directly.
-import { DEFAULT_AGENT_HARNESS, MODEL_CATALOG } from "@hyperidle/domain-model";
+import { MODEL_CATALOG } from "@hyperidle/domain-model";
 
 function isCatalogModel(id: string): boolean {
 	return MODEL_CATALOG.some((m) => m.id === id);
@@ -335,8 +335,12 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 		}
 	});
 
-	it("DEFAULT_AGENT_HARNESS matches the harness backfilled for null-harness rows", async () => {
-		// Proves the migration default aligns with the shared constant
+	it("backfills null-harness rows with the harness that migration actually wrote", async () => {
+		// A historical fact about migration 0032, asserted as the literal it wrote.
+		// It used to be compared against a live `DEFAULT_AGENT_HARNESS` constant,
+		// which tied a past migration's behaviour to a value the product is still
+		// free to change — and the product has since stopped naming a default
+		// harness at all.
 		await insertLegacyAgent("default-harness-check", {
 			harnessType: null,
 			agentCategory: "strategy",
@@ -345,6 +349,6 @@ describe("AH2 migration 0032 — AC3: no AI agent ends unrunnable after backfill
 		await run0032Backfill();
 
 		const row = await readAgent("default-harness-check");
-		expect(row.harnessType).toBe(DEFAULT_AGENT_HARNESS);
+		expect(row.harnessType).toBe("builtin");
 	});
 });

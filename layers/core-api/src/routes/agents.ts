@@ -26,14 +26,7 @@ import type {
 	AgentOrchestrationRunConfigPatch,
 } from "@hyperidle/api-contract";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	AGENT_CATEGORIES,
-	DEFAULT_AGENT_HARNESS,
-	DEFAULT_AGENT_MODEL_ID,
-	DEFAULT_AGENT_MODEL_PROVIDER,
-	findRoleCatalogEntry,
-	MODEL_TIERS,
-} from "@hyperidle/domain-model";
+import { AGENT_CATEGORIES, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { getTeam, readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
@@ -252,10 +245,14 @@ export function createAgentRoutes(
 
 		const data = parsed.data;
 
-		// AH2: Apply defaults for harness and model when not specified
-		const effectiveHarnessType = data.harnessType ?? DEFAULT_AGENT_HARNESS;
-		const effectiveProvider = data.modelProvider ?? DEFAULT_AGENT_MODEL_PROVIDER;
-		const effectiveModelId = data.modelId ?? DEFAULT_AGENT_MODEL_ID;
+		// Nothing is chosen on the caller's behalf. An agent created without a
+		// harness or a model stores neither, and the run resolves both: the pool
+		// takes an available harness, and that harness runs its own default model.
+		// A compiled-in vendor name here would present a decision nobody made back
+		// to them as their own configuration.
+		const effectiveHarnessType = data.harnessType ?? null;
+		const effectiveProvider = data.modelProvider ?? null;
+		const effectiveModelId = data.modelId ?? null;
 
 		// AH2: Validate (harness, provider, modelId) triple
 		const validationError = validateAgentConfig(
