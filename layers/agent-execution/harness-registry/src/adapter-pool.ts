@@ -367,8 +367,11 @@ const CLI_TOOL_CONFIGS: Record<string, CliAdapterConfig> = {
 			"--model",
 			"{{model}}",
 		],
-		envMap: {
-			ANTHROPIC_API_KEY: "{{apiKey}}",
+		// No blind key injection — the key goes under its own provider's name.
+		envMap: {},
+		credentialEnvByProvider: {
+			anthropic: "ANTHROPIC_API_KEY",
+			openrouter: "OPENROUTER_API_KEY",
 		},
 		// AL7 delta: changed from "text" → "ndjson" because opencode --format json emits JSONL.
 		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via

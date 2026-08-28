@@ -99,6 +99,28 @@ interface CliAdapterConfig {
 	 */
 	readonly envMap: Readonly<Record<string, string>>;
 	/**
+	 * Which environment variable a stored API key arrives in, keyed by the
+	 * provider that key is for.
+	 *
+	 * Only for a harness that accepts someone's own key — opencode. The others
+	 * authenticate through their own login and are handed nothing, deliberately:
+	 * injecting a key there shadows the auth the person already has.
+	 *
+	 * A provider with no entry gets nothing. That is the correct answer for
+	 * `openai-compatible`, which has no fixed host, so no variable can mean "this
+	 * endpoint" — it needs a provider block carrying its base URL, and putting its
+	 * key in some other vendor's variable would aim it at the wrong service.
+	 *
+	 * @lore The predecessor was a fixed `envMap: { ANTHROPIC_API_KEY: "{{apiKey}}" }`
+	 * on opencode, which sent every key under that one name whatever provider it
+	 * was for. Onboarding offers three providers, so the common case — an
+	 * OpenRouter key — was stored, carried into the subprocess, and unreadable by
+	 * the provider it belonged to. It also set the variable to `""` when there was
+	 * no key at all, and an empty-but-set variable is not nothing: a harness that
+	 * reads it can prefer it over a working login.
+	 */
+	readonly credentialEnvByProvider?: Readonly<Record<string, string>>;
+	/**
 	 * How to interpret stdout lines.
 	 * "ndjson" — each line is parsed as JSON; valid HarnessEvent objects are
 	 * yielded directly; invalid JSON is wrapped as completion events.
@@ -538,6 +560,15 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		const resolvedEnvMap: Record<string, string> = {};
 		for (const [key, value] of Object.entries(this.config.envMap)) {
 			resolvedEnvMap[key] = resolveTemplates(value, templateVars);
+		}
+
+		// ── The stored key, under the name its own provider reads.
+		const credentialEnv = this.config.credentialEnvByProvider;
+		const provider = config.resolvedModel?.provider;
+		const apiKey = config.resolvedModel?.apiKey;
+		if (credentialEnv && provider && apiKey) {
+			const varName = credentialEnv[provider];
+			if (varName) resolvedEnvMap[varName] = apiKey;
 		}
 
 		// ── Per-session CODEX_HOME injection.

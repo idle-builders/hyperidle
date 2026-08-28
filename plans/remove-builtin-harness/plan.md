@@ -233,6 +233,34 @@ real reply.
 
 ---
 
+**IN PROGRESS 2026-08-28. First piece done: the key reaches the harness under its own provider's name.**
+
+opencode's adapter injected `{{apiKey}}` into `ANTHROPIC_API_KEY` **whatever provider the key was for**.
+Onboarding offers three providers, so the common case — an OpenRouter key — was stored, carried into
+the subprocess, and unreadable by the provider it belonged to. With no key at all it set
+`ANTHROPIC_API_KEY=""`, and an empty-but-set variable is not nothing: a harness that reads it can
+prefer it over a working login.
+
+Replaced with `credentialEnvByProvider` on the harness config: anthropic → `ANTHROPIC_API_KEY`,
+openrouter → `OPENROUTER_API_KEY`, and nothing for a provider with no entry. `openai-compatible` has
+no fixed host, so no variable can mean "this endpoint" — it needs a provider block carrying its base
+URL in the sandbox `opencode.json`, and until that exists its key is deliberately not smuggled into
+another vendor's variable. Only opencode declares the map; the other three authenticate through their
+own login and are handed nothing, deliberately.
+
+**Still to do in this batch:** the `openai-compatible` provider block; setup blocking when nothing is
+installed; dropping `DEFAULT_AGENT_HARNESS` and the two `?? "builtin"` literals; and the live
+end-to-end proof (onboard with a key, first agent replies).
+
+**Blocked on the machine, not the code.** opencode hangs on every `run` here — it reaches `init` in its
+own log and stops, while its database queries fine and OpenRouter is reachable, so the 2.9 GB DB was
+the wrong suspect. Its log shows **a second worktree running opencode concurrently**
+(`au-service-methods-cleanup-158cd0`), so cross-session contention is the better explanation — and my
+`pkill -9 -f opencode` while diagnosing would have hit that session's runs too. Do not kill opencode
+machine-wide. The live proof waits for a clear machine.
+
+---
+
 ## Batch 5 — Every model call goes through a real harness session
 
 **Change.** Delete the cassette seam (`__testing__/llm-cassette.ts`, `setLlmInterceptor`, the AH6
