@@ -270,7 +270,9 @@ export function SetupFlow(): JSX.Element {
 	// @lore AV1: we never block setup on discovery; graceful-degrade to builtin.
 	const [descriptors, setDescriptors] = useState<HarnessCapabilityDescriptor[]>([]);
 	const [harnessLoaded, setHarnessLoaded] = useState(false);
-	// The currently selected primary harness type. "builtin" is the default.
+	// The selected primary harness. Discovery replaces this with the first row
+	// this machine can actually run; the initial value only holds until then, and
+	// goes with the built-in harness itself.
 	const [selectedHarnessType, setSelectedHarnessType] = useState<string>("builtin");
 
 	useEffect(() => {
@@ -284,7 +286,12 @@ export function SetupFlow(): JSX.Element {
 				}
 				const data = (await res.json()) as HarnessCapabilityDescriptor[];
 				if (!cancelled) {
-					setDescriptors(Array.isArray(data) ? data : []);
+					const list = Array.isArray(data) ? data : [];
+					setDescriptors(list);
+					// Preselect the first harness this machine can actually run, so the
+					// form opens on a real choice rather than a name that may not be here.
+					const firstChoosable = list.find((d) => isChoosable(d));
+					if (firstChoosable) setSelectedHarnessType(firstChoosable.type);
 					setHarnessLoaded(true);
 				}
 			})
@@ -358,11 +365,24 @@ export function SetupFlow(): JSX.Element {
 		(gatewayProvider === "anthropic" || gatewayModel.trim().length > 0) &&
 		(!providerMeta.needsEndpoint || gatewayBaseUrl.trim().length > 0);
 
+	// Nothing on this machine can run an agent. Finishing setup here would hand
+	// someone a workspace whose agents silently fail, with nothing on screen
+	// saying why — so it does not finish.
+	// An EMPTY list is discovery telling us nothing — it failed, or answered with
+	// something that was not a list at all. Blocking on that would strand someone
+	// over a probe error rather than a real absence, so only a list that came back
+	// populated and choosable-free counts as "this machine cannot run an agent".
+	// Same rule the model checks follow: an absent list never rejects.
+	const choosableHarnesses = descriptors.filter((d) => isChoosable(d));
+	const noHarnessAvailable =
+		harnessLoaded && descriptors.length > 0 && choosableHarnesses.length === 0;
+
 	// R2: Start requires a name; the gateway fields only bind when built-in needs them.
 	const canStart =
 		name.trim().length > 0 &&
 		functionsValid &&
 		(!needsGatewayCredential || gatewayConfigComplete) &&
+		!noHarnessAvailable &&
 		!submitting;
 
 	const handleFolderPick = useCallback(async (): Promise<void> => {
@@ -803,6 +823,36 @@ export function SetupFlow(): JSX.Element {
 										);
 									})}
 						</div>
+						{noHarnessAvailable && (
+							<div
+								data-testid="no-harness-available"
+								role="alert"
+								className="border-width-thin  border-[var(--border-subtle)] rounded-[var(--r-default)] bg-[var(--surface-elevated)] mt-[9px] px-[12px] py-[12px]"
+							>
+								<p className="type-copy   text-[var(--text-primary)]">
+									No agent harness is ready on this machine
+								</p>
+								<p className="type-metadata  text-[var(--text-tertiary)]  mt-[3px]">
+									HyperIdle runs your agents through a coding CLI you install and sign into. Install
+									one, sign in, then reopen HyperIdle.
+								</p>
+								<ul className="mt-[9px] flex flex-col gap-[6px]">
+									{descriptors.map((d) => (
+										<li key={d.type}>
+											<span className="type-small   text-[var(--text-primary)]">{d.name}</span>
+											<span className="type-metadata  text-[var(--text-tertiary)]">
+												— {d.discovery.reason ?? installHintText(d)}
+											</span>
+											{d.authAction.kind === "native_cli_login" && d.authAction.command && (
+												<code className="type-metadata  text-[var(--text-secondary)]  ml-[6px]">
+													{d.authAction.command.join(" ")}
+												</code>
+											)}
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
 					</div>
 
 					{/* Repo path (optional) */}

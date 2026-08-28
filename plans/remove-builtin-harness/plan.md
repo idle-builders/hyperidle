@@ -268,8 +268,23 @@ existing tests stated the old rule and now state the new one; a migration test t
 migration 0032's backfill against the live constant now asserts the literal that migration actually
 wrote, since a past migration's behaviour must not be tied to a value the product is free to change.
 
-**Still to do in this batch:** the `openai-compatible` provider block; setup blocking when nothing is
-installed; and the live end-to-end proof (onboard with a key, first agent replies).
+**Fourth piece done: setup will not finish on a machine that cannot run an agent.** When discovery
+returns harnesses and none is choosable, Start is disabled and the screen names each one, what state
+it is in, and the command that fixes it — copy taken from discovery's own reason and login command,
+not invented. Discovery also now preselects the first harness this machine can actually run instead
+of opening on a hardcoded name.
+
+The distinction that took two attempts: an **empty** descriptor list is discovery telling us nothing
+— it failed, or answered with something that was not a list — and blocking on that would strand
+someone over a probe error rather than a real absence. Only a populated list with nothing choosable
+counts. Same rule the model checks follow: an absent list never rejects. `installed` and
+`unauthenticated` are both "not ready", because neither can run a turn.
+
+While the built-in harness still exists it is always choosable, so this panel cannot appear in
+production yet. It starts working the moment Batch 5 lands, and the component tests exercise it now.
+
+**Still to do in this batch:** the `openai-compatible` provider block, and the live end-to-end proof
+(onboard with a key, first agent replies).
 
 **Blocked on the machine, not the code.** opencode hangs on every `run` here — it reaches `init` in its
 own log and stops, while its database queries fine and OpenRouter is reachable, so the 2.9 GB DB was

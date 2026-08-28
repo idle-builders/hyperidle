@@ -11,14 +11,14 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 // expansion is the measured final source-profile population.
 // Deletion pass: -1 thin, from select-diff.tsx.
 // +1 BA9a: SettingsPlugins contribution list left border.
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 207, default: 17, strong: 11 } as const;
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 208, default: 17, strong: 11 } as const;
 
 const EXPECTED = {
 	typography: {
 		label: 117, // -1: read-mode ConversationHeader strip removed (was FR-3 +1); +1: BA1 review N7 RoutineDetailPane "Event" field label (event routines show an Event select instead of Schedule); +1: BA9a SettingsPlugins contribution key label
-		metadata: 233, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section
-		small: 227, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
-		copy: 45,
+		metadata: 236, // +3: the setup screen's no-harness-ready panel (explanation line + per-harness reason + login command); -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section
+		small: 228, // +1: the setup screen's no-harness-ready panel names each harness; -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
+		copy: 46, // +1: the setup screen's no-harness-ready heading
 		control: 97, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
 		input: 11, // +1: AgentEditor model-option select (a harness's declared select for the chosen model)
 		"avatar-initial": 14,
