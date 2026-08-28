@@ -135,6 +135,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 					},
 				}),
 				release: () => undefined,
+				describeSelectFailure: () => "test pool selected nothing",
 			},
 			workspace: {
 				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
@@ -204,6 +205,7 @@ describe("session_not_returned carries callingThreadId (Increment 5)", () => {
 					},
 				}),
 				release: () => undefined,
+				describeSelectFailure: () => "test pool selected nothing",
 			},
 			workspace: {
 				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),

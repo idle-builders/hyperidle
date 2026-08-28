@@ -170,6 +170,7 @@ describe("generic transcript delivery (Increment 4)", () => {
 					},
 				}),
 				release: () => undefined,
+				describeSelectFailure: () => "test pool selected nothing",
 			},
 			workspace: {
 				spawn: async () => ({ sandboxId: "sbx-1", path: sandboxPath }),
