@@ -9,11 +9,6 @@
  */
 import { MODEL_CATALOG } from "@hyperidle/domain-model";
 
-/** Returns true if `id` is a valid catalog model ID. */
-export function isCatalogModel(id: string): boolean {
-	return MODEL_CATALOG.some((m) => m.id === id);
-}
-
 /** Returns the catalog entry for `id`, or undefined if not found. */
 export function catalogEntry(id: string): (typeof MODEL_CATALOG)[number] | undefined {
 	return MODEL_CATALOG.find((m) => m.id === id);

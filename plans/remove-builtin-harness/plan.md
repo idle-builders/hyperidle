@@ -248,6 +248,18 @@ URL in the sandbox `opencode.json`, and until that exists its key is deliberatel
 another vendor's variable. Only opencode declares the map; the other three authenticate through their
 own login and are handed nothing, deliberately.
 
+**Second piece done: a model the harness offers can actually be saved.** Batch 1 changed where the
+model list comes from and left the save path behind. `validateAgentConfig` checked an
+anthropic-provider model against `MODEL_CATALOG` — four static gateway ids containing none of the
+names claude accepts — so the editor offered `haiku` and the API answered `UNKNOWN_MODEL`. Step C of
+agent → harness → model was a dropdown that threw.
+
+The check now asks the harness's own descriptor. A list the harness STATED is authoritative; an
+`inheritedFromGateway` list is the model-gateway catalog standing in for a harness that published
+none, so it is judged only per-provider (an OpenRouter id is not wrong because an Anthropic catalog
+never heard of it). That second clause exists for the built-in harness alone and goes when it does.
+`isCatalogModel` is deleted — it had no other caller.
+
 **Still to do in this batch:** the `openai-compatible` provider block; setup blocking when nothing is
 installed; dropping `DEFAULT_AGENT_HARNESS` and the two `?? "builtin"` literals; and the live
 end-to-end proof (onboard with a key, first agent replies).
