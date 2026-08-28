@@ -966,6 +966,12 @@ interface AdmittedSession {
 	 * agent that has none.
 	 */
 	readonly modelOptions: Readonly<Record<string, string | number | boolean>>;
+	/**
+	 * The model this agent was configured with, read from its own run config
+	 * during admit. `null` when the person chose none — the harness then keeps
+	 * its own default. No credential is resolved to produce this.
+	 */
+	readonly selectedModel: string | null;
 	readonly sandboxHandle: SessionLifecycleSandboxHandle;
 	readonly sandboxPath: string;
 	/** AK2: was `watcher: FileWatcher` — renamed to `ingestion: IngestionHandle` as part of Strategy port decoupling. */
@@ -1264,6 +1270,10 @@ async function admitSession(
 		systemPromptText,
 		modelTier,
 		modelOptions: runConfig.modelOptions,
+		// The model this agent was configured with, read straight from its own
+		// config. No credential, no provider union, no tier — see
+		// `SessionConfig.selectedModel`.
+		selectedModel: runConfig.modelId,
 		sandboxHandle,
 		sandboxPath,
 		ingestion,
@@ -1314,6 +1324,7 @@ async function runSession(
 		systemPromptText,
 		modelTier,
 		modelOptions,
+		selectedModel,
 		sandboxHandle,
 		sandboxPath,
 		ingestion,
@@ -1640,6 +1651,9 @@ async function runSession(
 		modelTier,
 		tools: allowedToolNames,
 		resolvedModel: params.resolvedModel as ResolvedModel | undefined,
+		// Absent when the agent chose nothing, so the harness keeps its own default
+		// rather than being handed an empty string to strip back out.
+		...(selectedModel ? { selectedModel } : {}),
 		// The options this agent was configured with. Absent when the agent has
 		// none, so an unconfigured agent's invocation is byte-identical to what it
 		// was before per-agent options existed.

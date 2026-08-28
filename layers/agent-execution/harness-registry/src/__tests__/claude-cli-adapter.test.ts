@@ -167,6 +167,41 @@ describe("CliHarnessAdapter(CLAUDE_CLI_CONFIG) spawn behavior", () => {
 		expect(args[args.indexOf("--model") + 1]).toBe("claude-sonnet-4-6");
 	});
 
+	it("passes the model the agent chose, with no gateway-resolved model present at all", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+		// The shape a subscription-authenticated machine actually has: an agent
+		// configured with a model, and NO credential anywhere to resolve one.
+		const { resolvedModel: _dropped, ...withoutGateway } = makeSessionConfig();
+		const sessionP = adapter.startSession({ ...withoutGateway, selectedModel: "haiku" });
+		await Promise.resolve();
+		fakeChild.emitExit(0, null);
+		await sessionP;
+
+		const [, args] = spawnSpy.mock.calls[0] as [string, string[], unknown];
+		expect(args[args.indexOf("--model") + 1]).toBe("haiku");
+	});
+
+	it("prefers the agent's chosen model over a gateway-resolved one", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(CLAUDE_CLI_CONFIG, { spawnFn: spawnSpy });
+		// makeSessionConfig resolves to claude-sonnet-4-6 through the gateway; the
+		// agent's own choice is what the person picked and what must win.
+		const sessionP = adapter.startSession({ ...makeSessionConfig(), selectedModel: "opus" });
+		await Promise.resolve();
+		fakeChild.emitExit(0, null);
+		await sessionP;
+
+		const [, args] = spawnSpy.mock.calls[0] as [string, string[], unknown];
+		expect(args[args.indexOf("--model") + 1]).toBe("opus");
+	});
+
 	it("forwards only PATH, HOME, LANG, USER, LOGNAME from process.env (not DATABASE_URL, ANTHROPIC_API_KEY etc)", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();

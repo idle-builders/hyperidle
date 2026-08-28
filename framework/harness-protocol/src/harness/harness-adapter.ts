@@ -86,6 +86,21 @@ export interface SessionConfig {
 	readonly modelTier: ModelTier;
 	readonly tools: readonly string[];
 	/**
+	 * The model this agent was configured to run on, in the harness's own
+	 * vocabulary — `haiku`, `gpt-5.6-sol`, `composer-2.5`,
+	 * `openrouter/z-ai/glm-4.7-flash`. Set from the agent's own configuration,
+	 * with no credential resolved to produce it.
+	 *
+	 * Absent means the person chose nothing, and the harness runs on its own
+	 * default. That is a stated outcome, not the accident of an empty string.
+	 *
+	 * Distinct from {@link resolvedModel}, which additionally carries a provider,
+	 * an API key and a base URL because the built-in harness calls a model API
+	 * itself. A spawned CLI authenticates on its own and needs none of that — it
+	 * needs the name to put after `--model`, which is this.
+	 */
+	readonly selectedModel?: string;
+	/**
 	 * X4: Resolved model configuration from the gateway.
 	 * When present, adapters use this instead of looking up by modelTier.
 	 * Optional for backward compatibility during migration.

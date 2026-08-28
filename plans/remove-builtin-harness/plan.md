@@ -148,6 +148,24 @@ a different one and see it change.
 
 ---
 
+**DONE 2026-08-28.** `SessionConfig.selectedModel` carries the agent's own choice from
+`agent_run_config.modelId` to the spawned process; the CLI adapter prefers it over the gateway's
+`resolvedModel`. Proven on all four real binaries, each read back from the harness's own report
+(claude `modelUsage`, cursor init line, codex rollout `turn_context.model`, `opencode export`).
+Sanity-broken: reverting the one adapter line turns all four lanes red — opencode visibly ran
+`openrouter/qwen/qwen3.8-max`, its own default, instead of the requested model. That is the
+production defect, caught.
+
+**Residual, deliberate:** `resolvedModel` is still the fallback when an agent has chosen no model,
+so a workspace with a gateway credential still gets the tier model in that case. Batch 6 deletes that
+fallback with the gateway. The chosen-model path itself is credential-free today.
+
+**Not done here:** production records nothing about which model ran — the readback lives in the test.
+Two of four harnesses report it in-stream (claude, cursor) and two only in their own session artifacts
+(codex, opencode), so a uniform production signal is its own piece of work, not a line in this one.
+
+---
+
 ## Batch 3 — Extra settings per harness and model
 
 **Change.** Deliver the options each harness declares for the chosen model, in that harness's own form:

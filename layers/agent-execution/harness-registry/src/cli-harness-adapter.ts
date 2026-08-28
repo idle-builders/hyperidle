@@ -491,7 +491,11 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			: "proceed";
 		const templateVars: Record<TemplateVar, string> = {
 			"{{sandbox}}": config.sandboxPath,
-			"{{model}}": config.resolvedModel?.model ?? "",
+			// The agent's own choice first. `resolvedModel` is the gateway's answer,
+			// which needs an API key per provider and rejects `openai-compatible`
+			// outright — on a subscription-authenticated machine it is absent, and
+			// falling back to it is what silently discarded the person's model.
+			"{{model}}": config.selectedModel ?? config.resolvedModel?.model ?? "",
 			"{{apiKey}}": config.resolvedModel?.apiKey ?? "",
 			"{{baseUrl}}": config.resolvedModel?.baseUrl ?? "",
 			"{{mcpUrl}}": config.mcpConnectionInfo?.url ?? "",
@@ -634,7 +638,7 @@ export class CliHarnessAdapter implements HarnessAdapter {
 			reEngageCarrier: this.config.reEngageCarrier,
 			spawnEnv: sandboxedEnv,
 			// store resolved model for re-engage spawn (opencode --model flag).
-			reEngageResolvedModel: config.resolvedModel?.model,
+			reEngageResolvedModel: config.selectedModel ?? config.resolvedModel?.model,
 			reEngageOptionArgv: optionArgv,
 		};
 
