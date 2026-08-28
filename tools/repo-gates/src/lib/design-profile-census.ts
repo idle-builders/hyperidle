@@ -166,7 +166,7 @@ export function collectDesignProfileCensus(sources: readonly DesignSource[]): De
 			//   `transitioning`— a bare CSS `transition` class is followed by space or
 			//   end-of-value, never by an alphanumeric continuation character.
 			duration:
-				/(?<![.\-])\btransition(?:-[^\s"'`]+)?(?![a-zA-Z_])|(?<![a-zA-Z_-])duration-|(?<![a-zA-Z_-])animate-/g,
+				/(?<![.-])\btransition(?:-[^\s"'`]+)?(?![a-zA-Z_])|(?<![a-zA-Z_-])duration-|(?<![a-zA-Z_-])animate-/g,
 			easing: /\bease-/g,
 			color: /\b(?:text|bg|border)-(?:slate|gray|zinc|neutral|red|blue|indigo|purple)-\d/g,
 		};

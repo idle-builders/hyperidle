@@ -68,11 +68,6 @@ type AutoPromotionResult =
 	| { readonly shouldPromote: true; readonly reason: string; readonly distinctScopes: number }
 	| { readonly shouldPromote: false; readonly reason: string; readonly distinctScopes: number };
 
-/** Contradiction detection result. */
-type ContradictionResult =
-	| { readonly contradicts: true; readonly withItemId: string; readonly reason: string }
-	| { readonly contradicts: false };
-
 /** Summary of an auto-promotion sweep. */
 interface AutoPromotionSweepResult {
 	readonly scanned: number;
@@ -84,34 +79,6 @@ interface AutoPromotionSweepResult {
 /** Summary of a stale sweep. */
 interface StaleSweepResult {
 	readonly markedIds: readonly string[];
-}
-
-// --- Helpers ---
-
-interface ParsedMeta {
-	readonly claims?: readonly string[];
-	readonly forbids?: readonly string[];
-}
-
-function parseMeta(raw: string | null): ParsedMeta {
-	if (!raw) return {};
-	try {
-		const parsed: unknown = JSON.parse(raw);
-		if (typeof parsed !== "object" || parsed === null) return {};
-		const obj = parsed as Record<string, unknown>;
-		const claims = Array.isArray(obj.claims)
-			? obj.claims.filter((c): c is string => typeof c === "string")
-			: undefined;
-		const forbids = Array.isArray(obj.forbids)
-			? obj.forbids.filter((c): c is string => typeof c === "string")
-			: undefined;
-		return { claims, forbids };
-	} catch {
-		// @lore G3: malformed meta JSON is treated as empty, not a crash.
-		// Meta may come from agent-authored tool calls — a single bad row
-		// must not break a sweep over thousands of items.
-		return {};
-	}
 }
 
 /**
@@ -245,107 +212,6 @@ async function checkAutoPromotion(
 }
 
 /**
- * Structural contradiction heuristic between an L3 proposed practice and
- * any existing L4 principle on the same topic.
- *
- * Heuristic (two matching clauses):
- *   1. L4 principle shares the L3 item's `topic` AND L4.meta.forbids
- *      contains the L3 item's `topic` OR any string in L3.meta.claims.
- *   2. L4 principle shares the L3 item's `topic` AND L3.meta.claims
- *      contains any string in L4.meta.forbids.
- *
- * Returns the first L4 item that matches (deterministic ordering by id).
- *
- * @lore G3 contradiction heuristic: structural only. Prose-level
- * contradictions are not caught — they require the attention engine's
- * conflict signal + human review. False positives are possible when two
- * items share a topic string but semantically don't conflict. Documented
- * limitation — see plans/work-packages/G3-plan.md §3.3.
- */
-async function detectLayerContradiction(
-	db: HyperIdleDb,
-	knowledgeItemId: string,
-): Promise<ContradictionResult> {
-	// @lore O2: layer, kind, meta are in knowledgeAppProjection. LEFT JOIN to get them.
-	const [subjectRow] = await db
-		.select({
-			item: knowledgeItems,
-			fabric: knowledgeAppProjection,
-		})
-		.from(knowledgeItems)
-		.leftJoin(knowledgeAppProjection, eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id))
-		.where(eq(knowledgeItems.id, knowledgeItemId))
-		.limit(1);
-	if (!subjectRow) {
-		return { contradicts: false };
-	}
-
-	const subjectLayer = subjectRow.fabric?.layer ?? null;
-	const subjectMeta = subjectRow.fabric?.meta ?? null;
-
-	// The rule applies only to L3 proposals being checked against L4 principles.
-	if (subjectLayer !== "L3") {
-		return { contradicts: false };
-	}
-	if (!subjectRow.item.topic) {
-		return { contradicts: false };
-	}
-
-	const subjectMetaParsed = parseMeta(subjectMeta);
-	const subjectClaims = subjectMetaParsed.claims ?? [];
-	const subjectTopic = subjectRow.item.topic;
-
-	// Find L4 principles on the same topic.
-	// @lore O2: JOIN with app projection to filter by layer and kind from the extension table.
-	const principleRows = await db
-		.select({
-			item: knowledgeItems,
-			fabric: knowledgeAppProjection,
-		})
-		.from(knowledgeItems)
-		.innerJoin(
-			knowledgeAppProjection,
-			eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-		)
-		.where(
-			and(
-				eq(knowledgeAppProjection.layer, "L4"),
-				eq(knowledgeAppProjection.kind, "principle"),
-				eq(knowledgeItems.topic, subjectTopic),
-				ne(knowledgeItems.status, "archived"),
-			),
-		);
-
-	for (const principleRow of principleRows) {
-		const pMeta = parseMeta(principleRow.fabric?.meta ?? null);
-		const forbids = pMeta.forbids ?? [];
-		if (forbids.length === 0) continue;
-
-		// Clause 1a: forbids contains the L3 item's topic
-		if (forbids.includes(subjectTopic)) {
-			return {
-				contradicts: true,
-				withItemId: principleRow.item.id,
-				reason: `L4 principle ${principleRow.item.id}.meta.forbids includes topic '${subjectTopic}'`,
-			};
-		}
-
-		// Clause 1b / 2: overlap between L4.forbids and L3.claims
-		for (const claim of subjectClaims) {
-			if (forbids.includes(claim)) {
-				return {
-					contradicts: true,
-					withItemId: principleRow.item.id,
-					reason: `L4 principle ${principleRow.item.id}.meta.forbids overlaps L3 claim '${claim}'`,
-				};
-			}
-		}
-	}
-
-	return { contradicts: false };
-}
-
-/**
  * Return `active` knowledge items whose `updated_at` is older than
  * `thresholdMs` before `nowMs`. Result is capped at `maxBatchSize` so
  * the caller can bound the working set per pass — additional stale
@@ -455,21 +321,6 @@ async function runAutoPromotionSweep(
 		const rec = await checkAutoPromotion(db, item.id);
 		if (!rec.shouldPromote) {
 			skippedIds.push(item.id);
-			continue;
-		}
-
-		// AC3 — structural contradiction with L4 principle
-		const contradiction = await detectLayerContradiction(db, item.id);
-		if (contradiction.contradicts) {
-			flaggedForReviewIds.push(item.id);
-			const flagEvent: KnowledgeUpdatedEvent = {
-				type: "knowledge_updated",
-				streamId: randomUUID(),
-				itemId: item.id,
-				action: "contradiction_flagged",
-				timestamp: Date.now(),
-			};
-			eventBus.emit(flagEvent);
 			continue;
 		}
 

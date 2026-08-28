@@ -1308,14 +1308,8 @@ export async function upsertPluginSkill(
 }
 
 /**
- * Hard-delete knowledge items matching `topic`, excluding items whose IDs are
- * in `keepIds`. Used to remove stale plugin skill items on reinstall.
- *
- * @lore BA9b: Skills are hard-deleted (not archived) because they are
- * machine-managed rows. A user-edited skill has `updatedBy` pointing to the
- * user rather than the plugin, so if we delete it here the user loses their
- * edit. Acceptable: the plugin manifest is the source of truth for which
- * skills exist; a removed skill should not survive a reinstall.
+ * Archive knowledge items matching `topic`, excluding items whose IDs are
+ * in `keepIds`. Used to clean up stale plugin skill items on reinstall or remove.
  */
 export async function removeByPluginTopic(
 	db: HyperIdleDb,
@@ -1330,5 +1324,11 @@ export async function removeByPluginTopic(
 	const staleIds = rows.map((r) => r.id).filter((id) => !keepIds.includes(id));
 	if (staleIds.length === 0) return;
 
-	await db.delete(knowledgeItems).where(inArray(knowledgeItems.id, staleIds));
+	// @lore BA9d: archive instead of hard-delete — knowledge_edit_log/access_log/conflicts
+	// have RESTRICT FK on knowledge_items.id (I3 security: audit trail outlives subject).
+	// Archived items are excluded from session assembly (status != 'active' filter).
+	await db
+		.update(knowledgeItems)
+		.set({ status: "archived", updatedAt: new Date().toISOString() })
+		.where(inArray(knowledgeItems.id, staleIds));
 }

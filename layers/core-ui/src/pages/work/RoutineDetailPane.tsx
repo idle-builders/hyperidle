@@ -206,7 +206,7 @@ function RoutineDetailPaneLoaded({
 	const [editing, setEditing] = useState(false);
 
 	useEffect(() => {
-		if (!isEventRoutine || !editing) return;
+		if (!(isEventRoutine && editing)) return;
 		let cancelled = false;
 		void (async () => {
 			try {

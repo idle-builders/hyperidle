@@ -8,6 +8,7 @@
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
+import { knowledgeItems, routines, users } from "@hyperidle/db";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
@@ -34,6 +35,7 @@ import {
 	skillItemId,
 } from "@hyperidle/settings";
 import { insertUserIfAbsent } from "@hyperidle/users";
+import { and, eq } from "drizzle-orm";
 import { Hono } from "hono";
 
 // ---------------------------------------------------------------------------
@@ -246,6 +248,7 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 					status: "active",
 					agentCategory: agentSpec.agentCategory,
 					teamId: scopeKind === "team" ? scopeId : null,
+					pluginId: plugin.id,
 					createdAt: installTs,
 				});
 			}
@@ -265,6 +268,7 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 						triggerConfig: routineSpec.triggerConfig ?? null,
 						eventType: routineSpec.eventType ?? null,
 						prompt: routineSpec.prompt ?? null,
+						pluginId: plugin.id,
 						createdAt: installTs,
 					},
 					{ onConflictDoNothing: true },
@@ -288,6 +292,16 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
+		// @lore BA9d: reactivate materialised rows so routines fire again,
+		// agent runs again, and skills reach sessions.
+		await db.transaction(async (tx) => {
+			await tx.update(routines).set({ active: true }).where(eq(routines.pluginId, id));
+			await tx.update(users).set({ status: "active" }).where(eq(users.pluginId, id));
+			await tx
+				.update(knowledgeItems)
+				.set({ status: "active", updatedAt: new Date().toISOString() })
+				.where(and(eq(knowledgeItems.topic, `plugin:${id}`)));
+		});
 		return c.json({ ok: true });
 	});
 
@@ -304,6 +318,16 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
+		// @lore BA9d: deactivate materialised rows so routines stop firing,
+		// agent stops running, and skills stop reaching sessions.
+		await db.transaction(async (tx) => {
+			await tx.update(routines).set({ active: false }).where(eq(routines.pluginId, id));
+			await tx.update(users).set({ status: "inactive" }).where(eq(users.pluginId, id));
+			await tx
+				.update(knowledgeItems)
+				.set({ status: "archived", updatedAt: new Date().toISOString() })
+				.where(and(eq(knowledgeItems.topic, `plugin:${id}`)));
+		});
 		return c.json({ ok: true });
 	});
 
@@ -320,8 +344,25 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
-		// BA9b: remove all skill knowledge items for this plugin.
-		await removeByPluginTopic(db, `plugin:${id}`, []);
+		// @lore BA9d: clean up all materialised rows inside a transaction.
+		// Routines are soft-deleted (deletedAt) because routine_runs has RESTRICT FK.
+		// Users/agents are deactivated (status='inactive') because many tables have RESTRICT FK to users.
+		// Skills are archived by removeByPluginTopic (RESTRICT FK from audit logs).
+		try {
+			await db.transaction(async (tx) => {
+				const now = new Date().toISOString();
+				await tx
+					.update(routines)
+					.set({ active: false, deletedAt: now })
+					.where(eq(routines.pluginId, id));
+				await tx.update(users).set({ status: "inactive" }).where(eq(users.pluginId, id));
+				// BA9b: archive all skill knowledge items for this plugin.
+				await removeByPluginTopic(tx, `plugin:${id}`, []);
+			});
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return c.json({ code: "REMOVE_CLEANUP_FAILED", error: msg }, 500);
+		}
 		return c.json({ ok: true });
 	});
 
