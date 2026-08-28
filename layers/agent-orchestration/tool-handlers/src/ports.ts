@@ -341,21 +341,6 @@ interface ToolHandlersCoreApiAccessor {
 		systemPromptOverride: string | undefined,
 		actorId: string,
 	): Promise<{ readonly agentIds: readonly string[]; readonly leadAgentId: string | null }>;
-	/**
-	 * @lore AU21 §9 Increment 9 (forensic-triage wave, second pass): moved here
-	 * from a standalone `ToolHandlersRoutineAccessor`/`ToolHandlersDispatchAccessor`
-	 * opaque same-process pass-through (this file's top `@lore`) — `create_team`'s
-	 * last non-seam step now routes through `CoreApiPort` like every other step
-	 * in that flow (Decision C), backed by `POST /org/team-routines`.
-	 */
-	provisionTeamRoutines(
-		input: {
-			readonly teamId: string;
-			readonly ownerByRole: Partial<Record<string, string>>;
-			readonly leadAgentId: string;
-		},
-		actorId: string,
-	): Promise<void>;
 	insertRoutine(input: Record<string, unknown>, actorId: string): Promise<string | null>;
 	getRoutineById(
 		id: string,
@@ -461,6 +446,41 @@ interface ToolHandlersCoreApiAccessor {
 		knowledgeItemId: string,
 		actorId: string,
 	): Promise<{ readonly current: number }>;
+	/**
+	 * Run a knowledge sweep.
+	 * kind="autoPromotion" promotes provisional items meeting the repetition threshold.
+	 * kind="stale" marks active items not referenced recently as stale.
+	 * @lore BA9d: replaces the dead builtin-routine sweep path; exposed as an agent tool
+	 * so the Librarian can trigger sweeps from plugin routines.
+	 */
+	runKnowledgeSweep(
+		kind: "autoPromotion" | "stale",
+		actorId: string,
+	): Promise<{ readonly kind: string; readonly processed: number }>;
+	/**
+	 * Merge sourceId into targetId: appends source body to target, archives source.
+	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
+	 */
+	mergeKnowledgeItem(
+		targetId: string,
+		sourceId: string,
+		updatedBy: string,
+		actorId: string,
+	): Promise<{ readonly id: string }>;
+	/**
+	 * Split itemId into two or more new items, archiving the original.
+	 * @lore BA9d D9: restored agent-reachable door (AU44 scope breach, rows 58-59).
+	 */
+	splitKnowledgeItem(
+		itemId: string,
+		newItems: ReadonlyArray<{
+			readonly title: string;
+			readonly body: string;
+			readonly topic?: string;
+		}>,
+		updatedBy: string,
+		actorId: string,
+	): Promise<ReadonlyArray<{ readonly id: string }>>;
 }
 
 /** Every real outbound port this Service's source files need. */

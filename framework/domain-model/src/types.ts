@@ -104,18 +104,20 @@ export const MODEL_TIERS = ["reasoning", "workhorse", "fast"] as const;
 export type TriggerType = "heartbeat" | "calendar" | "event" | "continuous";
 
 /**
- * AB0: Agent categories. Closed enum — adding a fourth requires a concept-doc update.
+ * AB0: Agent categories. Closed enum.
  * - team: bound to a team, domain specialist
- * - strategy: factory-wide, strategy-controlled
- * - individual: bound to a human user
+ * - individual: bound to a human user (or a factory-wide agent not tied to one team)
  *
  * @lore AB0: Replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES split which was
  * about system layer, not agent category. The category system is orthogonal to
  * the role system.
  * @lore AD8a: Renamed "personal" → "individual". Migration 0027_AD8a_agent_type_rename.sql
  * updates existing DB rows.
+ * @lore BA9d: "strategy" removed. Migration 0065 migrates all strategy rows to "individual".
+ * The five seeded facilitators are dropped from factory-state.ts; factory-wide roles
+ * (facilitator, scout, infra, platform) now use "individual".
  */
-export const AGENT_CATEGORIES = ["team", "strategy", "individual"] as const;
+export const AGENT_CATEGORIES = ["team", "individual"] as const;
 export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
 
 /**

@@ -198,13 +198,15 @@ function RoutineDetailPaneLoaded({
 	const [eventType, setEventType] = useState<string>(routine.eventType ?? "");
 	const [eventTypes, setEventTypes] = useState<readonly string[]>([]);
 	const isEventRoutine = routine.triggerType === "event";
+	// BA9d D11: transition constraint for event routines — empty string means no constraint.
+	const [transitionTo, setTransitionTo] = useState<string>(routine.eventTransitionTo ?? "");
 	// Silent toggle
 	const [silent, setSilent] = useState<boolean>(routine.silent ?? false);
 	const [saving, setSaving] = useState(false);
 	const [editing, setEditing] = useState(false);
 
 	useEffect(() => {
-		if (!isEventRoutine || !editing) return;
+		if (!(isEventRoutine && editing)) return;
 		let cancelled = false;
 		void (async () => {
 			try {
@@ -246,6 +248,7 @@ function RoutineDetailPaneLoaded({
 		setScheduleValue(initialScheduleValue);
 		setCustomCron(initialCustomCron);
 		setEventType(routine.eventType ?? "");
+		setTransitionTo(routine.eventTransitionTo ?? "");
 		setSilent(routine.silent ?? false);
 		setEditing(false);
 	}, [routine, initialScheduleValue, initialCustomCron]);
@@ -267,6 +270,8 @@ function RoutineDetailPaneLoaded({
 			// eventType to write.
 			if (isEventRoutine) {
 				if (eventType) body.eventType = eventType;
+				// BA9d D11: send null to clear constraint, string to set it.
+				body.eventTransitionTo = transitionTo.trim() || null;
 			} else if (resolvedCron) {
 				body.triggerConfig = JSON.stringify({ cron: resolvedCron });
 			}
@@ -291,6 +296,7 @@ function RoutineDetailPaneLoaded({
 		autonomyLevel,
 		isEventRoutine,
 		eventType,
+		transitionTo,
 		resolvedCron,
 		silent,
 		routineId,
@@ -476,24 +482,44 @@ function RoutineDetailPaneLoaded({
 								// matches ITS kind instead of always rendering the schedule
 								// picker (which silently wrote a `trigger_config` cron on
 								// save even here).
-								<div className="flex flex-col gap-[6px] mb-[9px]">
-									<label
-										className="type-label uppercase     text-[var(--text-tertiary)]"
-										htmlFor="routine-event-select"
-									>
-										Event
-									</label>
-									<Select
-										id="routine-event-select"
-										aria-label="Event"
-										size="sm"
-										value={eventType}
-										onChange={(e) => setEventType(e.target.value)}
-										disabled={saving}
-										placeholder="Select an event…"
-										options={eventTypes.map((e) => ({ value: e, label: e }))}
-									/>
-								</div>
+								<>
+									<div className="flex flex-col gap-[6px] mb-[9px]">
+										<label
+											className="type-label uppercase     text-[var(--text-tertiary)]"
+											htmlFor="routine-event-select"
+										>
+											Event
+										</label>
+										<Select
+											id="routine-event-select"
+											aria-label="Event"
+											size="sm"
+											value={eventType}
+											onChange={(e) => setEventType(e.target.value)}
+											disabled={saving}
+											placeholder="Select an event…"
+											options={eventTypes.map((e) => ({ value: e, label: e }))}
+										/>
+									</div>
+									{/* BA9d D11: optional transition constraint */}
+									<div className="flex flex-col gap-[6px] mb-[9px]">
+										<label
+											className="type-label uppercase     text-[var(--text-tertiary)]"
+											htmlFor="routine-transition-input"
+										>
+											Transition to (optional)
+										</label>
+										<Input
+											id="routine-transition-input"
+											aria-label="Transition to state"
+											type="text"
+											value={transitionTo}
+											onChange={(e) => setTransitionTo(e.target.value)}
+											disabled={saving}
+											placeholder="e.g. done"
+										/>
+									</div>
+								</>
 							) : (
 								<>
 									<div className="flex flex-col gap-[6px] mb-[9px]">
@@ -562,6 +588,10 @@ function RoutineDetailPaneLoaded({
 						<KeyValue label="Agent" value={routine.agentName} />
 						<KeyValue label="Schedule" value={routine.scheduleLabel} />
 						<KeyValue label="Trigger type" value={formatTriggerType(routine.triggerType)} />
+						{/* BA9d D11: show transition constraint for event routines */}
+						{routine.triggerType === "event" && (
+							<KeyValue label="Transition to" value={routine.eventTransitionTo ?? "Any"} />
+						)}
 						<KeyValue label="Current autonomy" value={autonomyLabel} />
 						<KeyValue
 							label="Next run"

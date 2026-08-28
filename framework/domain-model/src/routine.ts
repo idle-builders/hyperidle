@@ -106,6 +106,17 @@ export interface RoutineInfo {
 	lastRunSummary: string | null;
 	/** AV4: Whether the routine runs silently (no post per run). Defaults to false. */
 	silent: boolean;
+	/**
+	 * BA9d D11: Transition constraint for event routines. When set, the routine
+	 * fires only when the triggering event carries a state transition where
+	 * `to` equals this value (e.g. `"done"`). Null means no constraint — the
+	 * routine fires on every occurrence of its event type.
+	 *
+	 * Stored in `trigger_config` as `{"transitionTo":"<value>"}` — not a
+	 * separate column, because filtering is always in-memory after the
+	 * `event_type` index lookup and no index is needed on the constraint.
+	 */
+	eventTransitionTo: string | null;
 }
 
 /**

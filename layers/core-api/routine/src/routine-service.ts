@@ -61,6 +61,32 @@ export type RoutineRun = typeof routineRuns.$inferSelect;
 
 /** Patch type for `updateRoutine`. */
 export type RoutinePatch = Partial<NewRoutine>;
+
+/**
+ * BA9d D11 — Extract the `transitionTo` constraint from an event routine's
+ * `trigger_config` JSON blob. Returns the state string if present, or null
+ * when no constraint is declared (routine fires on every occurrence of its
+ * event type).
+ *
+ * Storage: `{"transitionTo":"done"}` in `trigger_config` for event routines.
+ * Calendar routines use `{"cron":"..."}` in the same column — no collision
+ * since the two trigger types never share a row.
+ *
+ * @lore BA9d D11: lives in `trigger_config` (not a new column) because
+ * transition is never queried — filtering happens in-memory after the
+ * `event_type` index lookup. A dedicated column would require a migration for
+ * a value that needs no index. The `event_type` precedent was indexability;
+ * this is not that.
+ */
+export function parseTransitionTo(triggerConfig: string | null | undefined): string | null {
+	if (!triggerConfig) return null;
+	try {
+		const parsed = JSON.parse(triggerConfig) as Record<string, unknown>;
+		return typeof parsed.transitionTo === "string" ? parsed.transitionTo : null;
+	} catch {
+		return null;
+	}
+}
 /** Patch type for `updateRoutineRun`. */
 export type RoutineRunPatch = Partial<NewRoutineRun>;
 
@@ -537,4 +563,45 @@ export async function resolveRoutineRunRequest(
 		agentConfig: bakeAgentRunnableConfig(agent),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
+}
+
+// ---------------------------------------------------------------------------
+// Plugin lifecycle — bulk writes by pluginId
+// ---------------------------------------------------------------------------
+
+/**
+ * Set the `active` flag on all routines belonging to a plugin.
+ * Used by the plugin disable/enable lifecycle in the route layer.
+ *
+ * @lore BA9d: the route cannot write the `routines` table directly
+ * (governance boundary) — it calls this function instead.
+ */
+export async function setPluginRoutinesActive(
+	exec: WriteExecutor,
+	pluginId: string,
+	active: boolean,
+): Promise<void> {
+	await exec.update(routines).set({ active }).where(eq(routines.pluginId, pluginId));
+}
+
+/**
+ * Soft-delete all routines belonging to a plugin: set active=false and
+ * deletedAt=now(). Used by the plugin remove lifecycle.
+ *
+ * Soft-delete (not hard-delete) because routine_runs.routineId has
+ * ON DELETE RESTRICT — any install where a routine ever fired cannot
+ * hard-delete the parent routine row.
+ *
+ * @lore BA9d: the route cannot write the `routines` table directly
+ * (governance boundary) — it calls this function instead.
+ */
+export async function softDeletePluginRoutines(
+	exec: WriteExecutor,
+	pluginId: string,
+): Promise<void> {
+	const now = new Date().toISOString();
+	await exec
+		.update(routines)
+		.set({ active: false, deletedAt: now })
+		.where(eq(routines.pluginId, pluginId));
 }

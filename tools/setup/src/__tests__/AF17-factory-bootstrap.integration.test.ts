@@ -58,18 +58,17 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(rows[0]?.agent_category).toBe("individual");
 	});
 
-	test("one facilitator agent per community of practice (5 communities)", async ({ db }) => {
+	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
+	// They are now provided by the rituals plugin. The factory bootstrap must
+	// not create them — 0 pf-* rows after bootstrap proves the clean boundary.
+	test("factory no longer seeds facilitator agents (now plugin-provided)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; role: string }>(
 			db,
 			"SELECT id, role FROM users WHERE id LIKE 'seed-agent-pf-%' ORDER BY id",
 		);
-		// 5 communities: build, product, growth, ops, facilitation
-		expect(rows.length).toBeGreaterThanOrEqual(5);
-		for (const row of rows) {
-			expect(row.role).toBe("facilitator");
-		}
+		expect(rows.length).toBe(0);
 	});
 
 	// @lore AU18: previously asserted a `factory_settings.system_template:<role>`
@@ -135,17 +134,17 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 		expect(Number(rows[0]?.count)).toBe(0);
 	});
 
-	test("facilitator agents have null team_id (factory-scoped, not team-scoped)", async ({ db }) => {
+	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents.
+	// Verified above; this companion test is now a no-op guard (0 rows → loop
+	// never runs — confirms no spurious pf-* row exists with a team_id set).
+	test("no facilitator agents seeded by factory (BA9d: plugin-provided)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
 		const rows = await queryRows<{ id: string; team_id: string | null }>(
 			db,
 			"SELECT id, team_id FROM users WHERE id LIKE 'seed-agent-pf-%'",
 		);
-		expect(rows.length).toBeGreaterThanOrEqual(1);
-		for (const row of rows) {
-			expect(row.team_id).toBeNull();
-		}
+		expect(rows.length).toBe(0);
 	});
 });
 

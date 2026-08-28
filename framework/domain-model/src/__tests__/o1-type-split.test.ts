@@ -40,10 +40,10 @@ describe("O1 kernel type additions to @hyperidle/domain-model", () => {
 			expect("AGENT_CATEGORIES" in sharedIndex).toBe(true);
 		});
 
-		it("AGENT_CATEGORIES has 3 values", () => {
+		it("AGENT_CATEGORIES has 2 values (strategy removed in BA9d)", () => {
 			const val = (sharedIndex as Record<string, unknown>)["AGENT_CATEGORIES"] as string[];
 			expect(Array.isArray(val)).toBe(true);
-			expect(val.length).toBe(3);
+			expect(val.length).toBe(2);
 		});
 
 		it("KERNEL_USER_ROLES is NOT exported from shared after AB0", () => {

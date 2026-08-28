@@ -1,16 +1,10 @@
 /**
- * AF9 — AC2: Promotion sweep builtin routine.
+ * AF9 — AC2: Promotion sweep.
  *
- * RED PHASE: These tests fail until `builtin:knowledge-promotion` is added to
- * `BUILTIN_ROUTINE_IDS` and implemented in `fireStoredRoutine` (Task 2).
- *
- * Key critique findings honored:
- * - Assert `routine_runs` outcome=success row written on a successful sweep.
- * - Assert NEGATIVE: disabled routine writes NO run row.
- * - Assert exactly one `knowledge_updated action=auto_promoted` per promoted
- *   item — no double-emit (the sweep emits; the handler must NOT also emit).
- * - Assert `builtin:knowledge-promotion` is in `BUILTIN_ROUTINE_IDS` and
- *   receives a `nextRunAt` from `seedBuiltinRoutines`.
+ * Tests the knowledge-promotion sweep logic directly via `sweep(db, eventBus, "autoPromotion")`.
+ * The builtin routine mechanism was deleted in BA9d; these tests now call the
+ * underlying service function that the plugin (or a future scheduler entry)
+ * will invoke.
  */
 
 import {
@@ -18,68 +12,13 @@ import {
 	knowledgeAppProjection,
 	knowledgeEditLog,
 	knowledgeItems,
-	routineRuns,
-	routines,
-	teams,
-	users,
 } from "@hyperidle/db";
 import type { KnowledgeUpdatedEvent } from "@hyperidle/event-bus";
+import { sweep } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
-
-const TEST_TEAM_ID = "prod-1";
-// @lore BA1 D7: knowledge-promotion is seeded ONCE, globally — a bare id,
-// not per-team. Only post-bet-retro keeps the per-team `:<teamId>` suffix.
-const PROMOTION_ROUTINE_ID = "builtin:knowledge-promotion";
-
-/**
- * Seed the agent rows referenced by builtin routines.
- * Mirrors `seedOwners` in `builtin-routines.integration.test.ts`.
- */
-async function seedOwners(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
-	await db.insert(users).values({
-		id: "seed-agent-cos",
-		name: "System Agent",
-		role: "assistant",
-		status: "active",
-		createdAt: NOW_ISO,
-	});
-	await db.insert(users).values({
-		id: "seed-agent-pf-facilitation",
-		name: "Facilitation Facilitator",
-		role: "facilitator",
-		status: "active",
-		createdAt: NOW_ISO,
-	});
-	await db.insert(users).values({
-		id: "demo-agent-pm",
-		name: "Acme PM",
-		role: "product_manager",
-		status: "active",
-		teamId: "prod-1",
-		createdAt: NOW_ISO,
-	});
-}
-
-/**
- * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
- * Uses seedTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
- */
-async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
-	await seedTeamRoutines(db, {
-		teamId,
-		ownerByRole: {
-			facilitator: "seed-agent-pf-facilitation",
-			product_manager: "demo-agent-pm",
-			assistant: "seed-agent-cos",
-		},
-		leadAgentId: "seed-agent-cos",
-	});
-}
 
 /**
  * Seed 5 provisional items sharing the same (layer, topic, kind) signature
@@ -119,46 +58,13 @@ async function seedPromotionCandidates(db: HyperIdleDb, prefix: string): Promise
 	return `${prefix}-ki-0`;
 }
 
-describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
-	test("BUILTIN_ROUTINE_IDS contains 'builtin:knowledge-promotion'", () => {
-		// This test asserts a static property via runtime import.
-		// BUILTIN_ROUTINE_IDS contains the kind (global), not the per-team id.
-		expect(PROMOTION_ROUTINE_ID).toContain("builtin:knowledge-promotion");
-	});
-
-	test("seedBuiltinRoutines creates 'builtin:knowledge-promotion' with nextRunAt (scheduler eligible)", async ({
-		db,
-	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-
-		const [row] = await db.select().from(routines).where(eq(routines.id, PROMOTION_ROUTINE_ID));
-
-		expect(row).toBeDefined();
-		expect(row?.triggerType).toBe("calendar");
-		// cron should be 03:00 daily (distinct from knowledge-decay 02:00)
-		const triggerConfig = JSON.parse(row?.triggerConfig ?? "{}") as { cron?: string };
-		expect(triggerConfig.cron).toBe("0 3 * * *");
-		// Calendar builtins must have nextRunAt set by seedBuiltinRoutines.
-		expect(row?.nextRunAt).not.toBeNull();
-		// silent: false — promotions emit events (unlike decay which is silent).
-		expect(row?.silent).toBe(false);
-	});
-
-	test("fireStoredRoutine promotes provisional items meeting the threshold", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-
+describe("AF9 AC2: knowledge-promotion sweep", () => {
+	test("sweep promotes provisional items meeting the threshold", async ({ db, eventBus }) => {
 		// Seed 5 provisional items with same signature across 5 scopes.
 		const subjectId = await seedPromotionCandidates(db, "promo-basic");
 
-		// Act: run the promotion routine.
-		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
-		expect(result.fired).toBe(true);
+		// Act: run the promotion sweep.
+		await sweep(db, eventBus, "autoPromotion");
 
 		// Assert: the subject item is now validated.
 		const [item] = await db
@@ -177,103 +83,40 @@ describe("AF9 AC2: builtin:knowledge-promotion routine", () => {
 		expect(autoPromoEdit).toBeDefined();
 	});
 
-	test("fireStoredRoutine writes a routine_runs row with outcome=success", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-		await seedPromotionCandidates(db, "promo-runs");
-
-		const runsBefore = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
-
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
-
-		const runsAfter = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
-
-		expect(runsAfter.length).toBe(runsBefore.length + 1);
-		const newRun = runsAfter[runsAfter.length - 1];
-		expect(newRun?.outcome).toBe("success");
-		expect(newRun?.startedAt).not.toBeNull();
-		expect(newRun?.endedAt).not.toBeNull();
-	});
-
-	test("disabled routine writes NO routine_runs row (AC2 negative: disabled → no fire)", async ({
-		db,
-		eventBus,
-		agentOrchestration,
-	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-
-		// Disable the promotion routine.
-		await db.update(routines).set({ active: false }).where(eq(routines.id, PROMOTION_ROUTINE_ID));
-
-		const runsBefore = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
-
-		// Act: run while disabled.
-		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
-		expect(result.fired).toBe(false);
-
-		// Assert: NO new routine_runs row written (the AF6 invariant: disabled → no row).
-		const runsAfter = await db
-			.select()
-			.from(routineRuns)
-			.where(eq(routineRuns.routineId, PROMOTION_ROUTINE_ID));
-		expect(runsAfter.length).toBe(runsBefore.length);
-	});
-
 	test("exactly ONE knowledge_updated action=auto_promoted per promoted item (no double-emit)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
 		const subjectId = await seedPromotionCandidates(db, "promo-emit");
 
 		const updatedEvents: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => updatedEvents.push(e));
 
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await sweep(db, eventBus, "autoPromotion");
 
 		// Filter to auto_promoted events for the subject.
 		const autoPromotedForSubject = updatedEvents.filter(
 			(e) => e.action === "auto_promoted" && e.itemId === subjectId,
 		);
 
-		// The sweep emits one event per promoted item.
-		// The builtin handler must NOT additionally emit — exactly ONE.
+		// The sweep emits exactly one event per promoted item.
 		expect(autoPromotedForSubject.length).toBe(1);
 	});
 
 	test("idempotent: running again on already-validated items does not re-promote", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
 		await seedPromotionCandidates(db, "promo-idem");
 
 		// First run — promotes items.
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await sweep(db, eventBus, "autoPromotion");
 
 		const updatedEventsRound2: KnowledgeUpdatedEvent[] = [];
 		eventBus.on("knowledge_updated", (e) => updatedEventsRound2.push(e));
 
 		// Second run — already validated, should produce no new auto_promoted events.
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await sweep(db, eventBus, "autoPromotion");
 
 		const newAutoPromoted = updatedEventsRound2.filter((e) => e.action === "auto_promoted");
 		expect(newAutoPromoted.length).toBe(0);

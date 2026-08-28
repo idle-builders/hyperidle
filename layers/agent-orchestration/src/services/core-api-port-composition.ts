@@ -78,7 +78,6 @@ import {
 	type PromoteKnowledgeItemRequest,
 	type PromoteKnowledgeItemResult,
 	type ProposedCallOutcomeResult,
-	type ProvisionTeamRoutinesRequest,
 	type RoutineView,
 	type ScaffoldFromRequestInput,
 	type TaskView,
@@ -190,9 +189,6 @@ interface CoreApiHcClient {
 		readonly "scaffold-request": {
 			$post(args: { readonly json: ScaffoldFromRequestInput }): Promise<Response>;
 		};
-		readonly "team-routines": {
-			$post(args: { readonly json: ProvisionTeamRoutinesRequest }): Promise<Response>;
-		};
 	};
 	readonly conversations: {
 		readonly items: {
@@ -262,6 +258,11 @@ interface CoreApiHcClient {
 	};
 	readonly knowledge: {
 		$post(args: { readonly json: CreateKnowledgeItemRequest }): Promise<Response>;
+		readonly sweep: {
+			$post(args: {
+				readonly json: { readonly kind: "autoPromotion" | "stale" };
+			}): Promise<Response>;
+		};
 		readonly ":id": {
 			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
 			/** AU31 §2.7 — the writeback processor's optimistic-lock update; same route `PATCH /knowledge/:id` the human-facing UI patches through. */
@@ -302,6 +303,25 @@ interface CoreApiHcClient {
 			};
 			readonly "recompute-attention": {
 				$post(args: { readonly param: { readonly id: string } }): Promise<Response>;
+			};
+			readonly merge: {
+				$post(args: {
+					readonly param: { readonly id: string };
+					readonly json: { readonly sourceId: string; readonly updatedBy: string };
+				}): Promise<Response>;
+			};
+			readonly split: {
+				$post(args: {
+					readonly param: { readonly id: string };
+					readonly json: {
+						readonly newItems: ReadonlyArray<{
+							readonly title: string;
+							readonly body: string;
+							readonly topic?: string;
+						}>;
+						readonly updatedBy: string;
+					};
+				}): Promise<Response>;
 			};
 		};
 	};
@@ -642,11 +662,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("org.scaffoldFromRequest", res);
 				return (await res.json()) as PersistScaffoldedAgentsResponse;
 			},
-
-			async provisionTeamRoutines(input: ProvisionTeamRoutinesRequest): Promise<void> {
-				const res = await client.org["team-routines"].$post({ json: input });
-				if (!res.ok) return throwSeamError("org.provisionTeamRoutines", res);
-			},
 		},
 		routine: {
 			async insertRoutine(input: InsertRoutineRequest): Promise<string | null> {
@@ -795,6 +810,45 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				});
 				if (!res.ok) return throwSeamError("knowledge.recomputeAttentionScoreForItem", res);
 				return (await res.json()) as { readonly current: number };
+			},
+
+			async runKnowledgeSweep(
+				kind: "autoPromotion" | "stale",
+			): Promise<{ readonly kind: string; readonly processed: number }> {
+				const res = await client.knowledge.sweep.$post({ json: { kind } });
+				if (!res.ok) return throwSeamError("knowledge.runKnowledgeSweep", res);
+				return (await res.json()) as { readonly kind: string; readonly processed: number };
+			},
+
+			async mergeKnowledgeItem(
+				targetId: string,
+				sourceId: string,
+				updatedBy: string,
+			): Promise<{ readonly id: string }> {
+				const res = await client.knowledge[":id"].merge.$post({
+					param: { id: targetId },
+					json: { sourceId, updatedBy },
+				});
+				if (!res.ok) return throwSeamError("knowledge.mergeKnowledgeItem", res);
+				return (await res.json()) as { readonly id: string };
+			},
+
+			async splitKnowledgeItem(
+				itemId: string,
+				newItems: ReadonlyArray<{
+					readonly title: string;
+					readonly body: string;
+					readonly topic?: string;
+				}>,
+				updatedBy: string,
+			): Promise<ReadonlyArray<{ readonly id: string }>> {
+				const res = await client.knowledge[":id"].split.$post({
+					param: { id: itemId },
+					json: { newItems, updatedBy },
+				});
+				if (!res.ok) return throwSeamError("knowledge.splitKnowledgeItem", res);
+				const body = (await res.json()) as { readonly items: Array<{ readonly id: string }> };
+				return body.items;
 			},
 		},
 		// AU31 §2.5 — the AL7 trust-first workflow's three ops, backed by

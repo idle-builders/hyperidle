@@ -53,8 +53,12 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
 		expect(agentRows[0]?.systemPrompt).toBeNull();
 	});
 
-	// @lore AD8c: role renamed from practice_facilitator to facilitator; template key renamed accordingly.
-	test("facilitator agents have systemPrompt matching facilitator template (AD8c)", async ({
+	// @lore BA9d: factory no longer seeds seed-agent-pf-* facilitator agents —
+	// they are now plugin-provided. Neither runFactoryBootstrap nor seedDemoWorld
+	// creates any facilitator-role user row, so there is nothing to backfill.
+	// This test proves that 0 facilitator rows exist after bootstrap + demo seed,
+	// ensuring no stale pf-* seeding silently crept back in.
+	test("no facilitator agents exist after bootstrap + demo seed (BA9d: plugin-provided)", async ({
 		db,
 	}) => {
 		await runFactoryBootstrap(db);
@@ -66,13 +70,14 @@ describe("X3 AC-3: existing agents backfilled with systemPrompt from role templa
          JOIN agent_run_config c ON c.agent_user_id = u.id
         WHERE u.role = 'facilitator'`,
 		);
-		const template = readSystemPromptTemplateForRole("facilitator");
 
-		expect(agentRows.length).toBeGreaterThanOrEqual(1);
-		for (const agent of agentRows) {
-			expect(agent.systemPrompt, `${agent.id} should have systemPrompt set`).toBeTruthy();
-			expect(agent.systemPrompt).toBe(template);
-		}
+		// facilitator template file still exists on disk (readSystemPromptTemplateForRole
+		// should still return non-null for the role) — the template is used by the plugin.
+		const template = readSystemPromptTemplateForRole("facilitator");
+		expect(template).toBeTruthy();
+
+		// No facilitator agents should exist in the seeded world (plugin provides them).
+		expect(agentRows.length).toBe(0);
 	});
 
 	// AB0: builder now has a template (docs/system-prompts/builder.md added)

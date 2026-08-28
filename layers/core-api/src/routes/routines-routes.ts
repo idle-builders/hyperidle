@@ -12,7 +12,7 @@ import { validateBody } from "@hyperidle/domain-model/http";
 import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
-import { humanizeSchedule } from "@hyperidle/routine";
+import { humanizeSchedule, parseTransitionTo } from "@hyperidle/routine";
 import { findUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
@@ -63,6 +63,12 @@ const createRoutineSchema = z
 		triggerConfig: z.string().min(1).optional(),
 		/** BA1 D8: required (and validated against `EVENT_TYPES`) for `triggerType:"event"` only. */
 		eventType: z.enum(EVENT_TYPE_VALUES).optional(),
+		/**
+		 * BA9d D11: optional transition constraint for `triggerType:"event"` routines.
+		 * When set, the routine fires only when the event's `transition.to` equals
+		 * this value. Null or absent means no constraint — fires on every occurrence.
+		 */
+		eventTransitionTo: z.string().min(1).nullish(),
 	})
 	.strict();
 
@@ -85,6 +91,12 @@ const updateRoutineSchema = z
 		 * 400s on every clear.
 		 */
 		prompt: z.string().max(12_000).nullish(),
+		/**
+		 * BA9d D11: transition constraint update for event routines.
+		 * Null clears the constraint (fires on every occurrence again).
+		 * A non-empty string sets a new constraint value.
+		 */
+		eventTransitionTo: z.string().min(1).nullish(),
 	})
 	.strict();
 
@@ -185,6 +197,26 @@ export function createRoutineRoutes(
 				);
 			}
 			eventType = body.eventType;
+			// BA9d D11: serialize transition constraint into trigger_config.
+			// Stored as {"transitionTo":"<state>"} in the same column calendar
+			// routines use for their cron — no collision, different trigger types.
+			if (body.eventTransitionTo) {
+				// Silent-disable footgun: only task_state_changed and bet_state_changed
+				// carry fromState/toState — a transition constraint on any other event
+				// type can never be satisfied and the routine silently never fires.
+				const TRANSITION_EVENTS = new Set(["task_state_changed", "bet_state_changed"]);
+				if (!TRANSITION_EVENTS.has(body.eventType ?? "")) {
+					return c.json(
+						{
+							error:
+								"eventTransitionTo requires an event type that carries a state transition — only task_state_changed and bet_state_changed qualify",
+							code: API_ERROR_CODES.VALIDATION_ERROR,
+						},
+						400,
+					);
+				}
+				triggerConfig = JSON.stringify({ transitionTo: body.eventTransitionTo });
+			}
 		}
 
 		const routineId = body.id ?? crypto.randomUUID();
@@ -312,6 +344,9 @@ export function createRoutineRoutes(
 			lastRunSummary: routine.lastRunSummary ?? null,
 			// AV4: silent flag — defaults false for pre-AV4 routines missing the column
 			silent: routine.silent ?? false,
+			// BA9d D11: parse transition constraint from trigger_config for event routines.
+			eventTransitionTo:
+				routine.triggerType === "event" ? parseTransitionTo(routine.triggerConfig) : null,
 		};
 
 		const detail: RoutineDetail = {
@@ -355,6 +390,14 @@ export function createRoutineRoutes(
 		// AA1: extended fields
 		if (body.name !== undefined) updates.name = body.name;
 		if (body.prompt !== undefined) updates.prompt = body.prompt;
+		// BA9d D11: update transition constraint — serialized into trigger_config.
+		// null clears the constraint; a string value sets a new one.
+		if (body.eventTransitionTo !== undefined) {
+			updates.triggerConfig =
+				body.eventTransitionTo !== null
+					? JSON.stringify({ transitionTo: body.eventTransitionTo })
+					: null;
+		}
 		if (body.state !== undefined) {
 			updates.state = body.state;
 			// Sync active boolean with state for backward compat

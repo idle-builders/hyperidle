@@ -392,13 +392,7 @@ function AgentProfileLoaded({
 								{/* AI4 Decision 3a: Category tag (name + status are in PageHeader) */}
 								{data.agentCategory && data.agentCategory !== "team" && (
 									<Tag
-										label={
-											data.agentCategory === "strategy"
-												? "App-managed"
-												: data.agentCategory === "individual"
-													? "Individual"
-													: data.agentCategory
-										}
+										label={data.agentCategory === "individual" ? "Individual" : data.agentCategory}
 									/>
 								)}
 							</div>

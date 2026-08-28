@@ -1,15 +1,13 @@
 /**
  * AF9 — AC4: Attention-sorted triage orders items by a real, populated score.
  *
- * RED PHASE: These tests fail until Task 2+4 implement `runKnowledgePromotion`
- * and it calls `buildAttentionService({db, eventBus}).recomputeScope({ids})` on
- * the candidate set (Task 4).
+ * Tests the attention population that the promotion sweep piggybacks.
+ * The builtin routine mechanism was deleted in BA9d; these tests now call
+ * `sweep(db, eventBus, "autoPromotion")` directly.
  *
- * Critique WARNING 2 honored:
  * - `recomputeScope` requires a filter (FILTER_REQUIRED) and rejects oversize
- *   batches (BATCH_TOO_LARGE). The AC4 test drives the **narrow form** only:
- *   `{ ids: candidateIds }` — the form that passes the guards and covers the
- *   common case (the sweep touches a bounded candidate set).
+ *   batches (BATCH_TOO_LARGE). The sweep drives the narrow form:
+ *   `{ ids: candidateIds }` — the form that passes the guards.
  * - Items seeded here ARE in the candidate set (status=provisional, meet the
  *   promotion threshold), so the sweep's attention recompute actually runs.
  * - Assertions verify differing scores across items with structurally different
@@ -21,61 +19,12 @@ import {
 	knowledgeAppProjection,
 	knowledgeConflicts,
 	knowledgeItems,
-	teams,
-	users,
 } from "@hyperidle/db";
+import { sweep } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
-import { fireStoredRoutine, seedTeamRoutines } from "./dispatch-test-helpers.js";
 
 const NOW_ISO = "2026-06-11T00:00:00.000Z";
-
-const TEST_TEAM_ID = "prod-1";
-// @lore BA1 D7: knowledge-promotion is seeded ONCE, globally — a bare id,
-// not per-team. Only post-bet-retro keeps the per-team `:<teamId>` suffix.
-const PROMOTION_ROUTINE_ID = "builtin:knowledge-promotion";
-
-async function seedOwners(db: HyperIdleDb): Promise<void> {
-	await db.insert(teams).values({ id: "prod-1", name: "Acme", phase: "build", createdAt: NOW_ISO });
-	await db.insert(users).values({
-		id: "seed-agent-cos",
-		name: "System Agent",
-		role: "assistant",
-		status: "active",
-		createdAt: NOW_ISO,
-	});
-	await db.insert(users).values({
-		id: "seed-agent-pf-facilitation",
-		name: "Facilitation Facilitator",
-		role: "facilitator",
-		status: "active",
-		createdAt: NOW_ISO,
-	});
-	await db.insert(users).values({
-		id: "demo-agent-pm",
-		name: "Acme PM",
-		role: "product_manager",
-		status: "active",
-		teamId: "prod-1",
-		createdAt: NOW_ISO,
-	});
-}
-
-/**
- * @lore AF17: replaces seedBuiltinRoutines(db, teamId).
- * Uses seedTeamRoutines so ids are per-team: `builtin:<kind>:<teamId>`.
- */
-async function seedBuiltinRoutines(db: HyperIdleDb, teamId = TEST_TEAM_ID): Promise<void> {
-	await seedTeamRoutines(db, {
-		teamId,
-		ownerByRole: {
-			facilitator: "seed-agent-pf-facilitation",
-			product_manager: "demo-agent-pm",
-			assistant: "seed-agent-cos",
-		},
-		leadAgentId: "seed-agent-cos",
-	});
-}
 
 /**
  * Seed 5 provisional items (same signature, distinct scopes) to meet the
@@ -118,11 +67,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 	test("promotion sweep populates attentionScore on candidate items (not all null)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-
 		// Seed 5 provisional items that meet the promotion threshold.
 		const ids = await seedCandidates(db, "attn-basic");
 
@@ -135,10 +80,8 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			expect(row?.attentionScore).toBeNull();
 		}
 
-		// Act: run the promotion routine. Task 4 piggybacks recomputeScope({ids})
-		// on the sweep's candidate set.
-		const result = await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
-		expect(result.fired).toBe(true);
+		// Act: run the promotion sweep. Attention recompute is piggybacked on the sweep's candidate set.
+		await sweep(db, eventBus, "autoPromotion");
 
 		// Assert: at least some items now have a populated attentionScore.
 		let populatedCount = 0;
@@ -150,18 +93,14 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			if (fabric?.attentionScore != null) populatedCount++;
 		}
 
-		// At least one item's attentionScore was populated by the routine.
+		// At least one item's attentionScore was populated by the sweep.
 		expect(populatedCount).toBeGreaterThan(0);
 	});
 
 	test("items with an open conflict score differently from items without (real differing scores)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-
 		// Seed 5 candidates using different prefix — isolated test.
 		const ids = await seedCandidates(db, "attn-diff");
 		const conflictedId = ids[0]!;
@@ -179,8 +118,8 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			createdAt: NOW_ISO,
 		});
 
-		// Act: run promotion routine — attention recompute is piggybacked.
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		// Act: run promotion sweep — attention recompute is piggybacked.
+		await sweep(db, eventBus, "autoPromotion");
 
 		// Retrieve scores.
 		const [conflictedFabric] = await db
@@ -208,11 +147,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 	test("attentionScore values differ across items (not all equal — confirms real scoring)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-
 		// Two candidates: one gets an open conflict (higher attention), one is clean.
 		const ids = await seedCandidates(db, "attn-neq");
 		const conflictedId = ids[0]!;
@@ -228,7 +163,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			createdAt: NOW_ISO,
 		});
 
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await sweep(db, eventBus, "autoPromotion");
 
 		// Collect all populated scores.
 		const scores: number[] = [];
@@ -253,11 +188,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 	test("attention-sorted order reflects scores (conflicted item sorts above clean items)", async ({
 		db,
 		eventBus,
-		agentOrchestration,
 	}) => {
-		await seedOwners(db);
-		await seedBuiltinRoutines(db, "prod-1");
-
 		const ids = await seedCandidates(db, "attn-order");
 		const conflictedId = ids[2]!; // mid-list item gets a conflict
 
@@ -272,7 +203,7 @@ describe("AF9 AC4: attention population on promotion sweep", () => {
 			createdAt: NOW_ISO,
 		});
 
-		await fireStoredRoutine(db, eventBus, agentOrchestration, PROMOTION_ROUTINE_ID);
+		await sweep(db, eventBus, "autoPromotion");
 
 		// Retrieve scores for the conflicted item and the first clean item.
 		const [conflictedFabric] = await db

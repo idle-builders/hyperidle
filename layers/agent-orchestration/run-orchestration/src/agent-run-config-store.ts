@@ -221,3 +221,33 @@ export async function writeAgentRunConfig(
 	}
 	await insert.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: updateSet });
 }
+
+/**
+ * Insert a run-config row only if none already exists for this agent — leaves
+ * any existing user-edited config untouched.
+ *
+ * @lore BA9d: factory bootstrap uses this so the every-launch AH2_DEFAULTS
+ * write stops overwriting user edits. The "App-managed" lock (strategy
+ * category) is gone; factory agents are now user-editable. First-boot
+ * semantics: set the defaults once, then get out of the way.
+ */
+export async function writeAgentRunConfigIfAbsent(
+	exec: WriteExecutor,
+	agentUserId: string,
+	patch: AgentRunConfigPatch,
+): Promise<void> {
+	const insertValues: NewAgentRunConfigRow = {
+		agentUserId,
+		systemPrompt: patch.systemPrompt ?? DEFAULT_AGENT_RUN_CONFIG.systemPrompt,
+		harnessType: patch.harnessType ?? DEFAULT_AGENT_RUN_CONFIG.harnessType,
+		modelTierPreference: patch.modelTierPreference ?? DEFAULT_AGENT_RUN_CONFIG.modelTierPreference,
+		modelId: patch.modelId ?? DEFAULT_AGENT_RUN_CONFIG.modelId,
+		modelProvider: patch.modelProvider ?? DEFAULT_AGENT_RUN_CONFIG.modelProvider,
+		maxConcurrentSessions:
+			patch.maxConcurrentSessions ?? DEFAULT_AGENT_RUN_CONFIG.maxConcurrentSessions,
+		modelOptionsJson: serializeModelOptions(
+			patch.modelOptions ?? DEFAULT_AGENT_RUN_CONFIG.modelOptions,
+		),
+	};
+	await exec.insert(agentRunConfig).values(insertValues).onConflictDoNothing();
+}

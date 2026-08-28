@@ -916,6 +916,24 @@ export function transition(
 		readonly updatedBy: string;
 	},
 ): Promise<KnowledgeItem>;
+export function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx: { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string },
+): Promise<KnowledgeItem>;
+export function transition(
+	db: HyperIdleDb,
+	id: string,
+	ctx: {
+		readonly target: "split";
+		readonly newItems: ReadonlyArray<{
+			readonly title: string;
+			readonly body: string;
+			readonly topic?: string;
+		}>;
+		readonly updatedBy: string;
+	},
+): Promise<KnowledgeItem[]>;
 // Implementation
 export async function transition(
 	db: HyperIdleDb,
@@ -935,8 +953,18 @@ export async function transition(
 				readonly scopeId: string | null;
 				readonly reason: string;
 				readonly updatedBy: string;
+		  }
+		| { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string }
+		| {
+				readonly target: "split";
+				readonly newItems: ReadonlyArray<{
+					readonly title: string;
+					readonly body: string;
+					readonly topic?: string;
+				}>;
+				readonly updatedBy: string;
 		  },
-): Promise<PromoteTransitionResult | void | KnowledgeItem> {
+): Promise<PromoteTransitionResult | void | KnowledgeItem | KnowledgeItem[]> {
 	switch (ctx.target) {
 		case "recomputeAttention": {
 			// Projection-only atomic upsert: computed scores are derived state, not
@@ -1059,6 +1087,115 @@ export async function transition(
 			}
 			return updated;
 		}
+
+		case "merge": {
+			const { sourceId, updatedBy } = ctx;
+			const timestamp = now();
+
+			const target = await getItemForTransition(db, id);
+			const source = await getItemForTransition(db, sourceId);
+
+			if (!target) throw new Error(`transition('merge'): target item ${id} not found`);
+			if (!source) throw new Error(`transition('merge'): source item ${sourceId} not found`);
+
+			const mergedBody = `${target.body}\n\n---\n\n${source.body}`;
+
+			await db
+				.update(knowledgeItems)
+				.set({ body: mergedBody, version: target.version + 1, updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, id));
+
+			await db
+				.update(knowledgeItems)
+				.set({ status: "archived", updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, sourceId));
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: id,
+				editor: updatedBy,
+				field: "body",
+				oldValue: target.body,
+				newValue: mergedBody,
+				editType: "merge",
+				createdAt: timestamp,
+			});
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: sourceId,
+				editor: updatedBy,
+				field: "status",
+				oldValue: source.status,
+				newValue: "archived",
+				editType: "merge",
+				createdAt: timestamp,
+			});
+
+			const [merged] = await db
+				.select()
+				.from(knowledgeItems)
+				.where(eq(knowledgeItems.id, id))
+				.limit(1);
+			if (!merged) throw new Error(`Failed to read back knowledge item ${id} after merge`);
+			return merged;
+		}
+
+		case "split": {
+			const { newItems, updatedBy } = ctx;
+			const timestamp = now();
+
+			const original = await getItemForTransition(db, id);
+			if (!original) throw new Error(`transition('split'): item ${id} not found`);
+
+			const created: KnowledgeItem[] = [];
+
+			for (const newItem of newItems) {
+				const newId = generateId();
+				await db.insert(knowledgeItems).values({
+					id: newId,
+					scopeKind: original.scopeKind,
+					scopeId: original.scopeId,
+					topic: newItem.topic ?? original.topic,
+					title: newItem.title,
+					body: newItem.body,
+					format: original.format,
+					status: "draft",
+					version: 1,
+					updatedBy,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+				});
+
+				await upsertProjectionLayer(db, newId, original.scopeKind);
+
+				const [row] = await db
+					.select()
+					.from(knowledgeItems)
+					.where(eq(knowledgeItems.id, newId))
+					.limit(1);
+				if (!row) throw new Error(`Failed to read back split item ${newId}`);
+				created.push(row);
+			}
+
+			await db
+				.update(knowledgeItems)
+				.set({ status: "archived", updatedBy, updatedAt: timestamp })
+				.where(eq(knowledgeItems.id, id));
+
+			await db.insert(knowledgeEditLog).values({
+				id: generateId(),
+				itemId: id,
+				editor: updatedBy,
+				field: "status",
+				oldValue: original.status,
+				newValue: "archived",
+				editType: "split",
+				createdAt: timestamp,
+			});
+
+			return created;
+		}
 	}
 }
 
@@ -1171,14 +1308,8 @@ export async function upsertPluginSkill(
 }
 
 /**
- * Hard-delete knowledge items matching `topic`, excluding items whose IDs are
- * in `keepIds`. Used to remove stale plugin skill items on reinstall.
- *
- * @lore BA9b: Skills are hard-deleted (not archived) because they are
- * machine-managed rows. A user-edited skill has `updatedBy` pointing to the
- * user rather than the plugin, so if we delete it here the user loses their
- * edit. Acceptable: the plugin manifest is the source of truth for which
- * skills exist; a removed skill should not survive a reinstall.
+ * Archive knowledge items matching `topic`, excluding items whose IDs are
+ * in `keepIds`. Used to clean up stale plugin skill items on reinstall or remove.
  */
 export async function removeByPluginTopic(
 	db: HyperIdleDb,
@@ -1193,5 +1324,65 @@ export async function removeByPluginTopic(
 	const staleIds = rows.map((r) => r.id).filter((id) => !keepIds.includes(id));
 	if (staleIds.length === 0) return;
 
-	await db.delete(knowledgeItems).where(inArray(knowledgeItems.id, staleIds));
+	// @lore BA9d: archive instead of hard-delete — knowledge_edit_log/access_log/conflicts
+	// have RESTRICT FK on knowledge_items.id (I3 security: audit trail outlives subject).
+	// Archived items are excluded from session assembly (status != 'active' filter).
+	await db
+		.update(knowledgeItems)
+		.set({ status: "archived", updatedAt: new Date().toISOString() })
+		.where(inArray(knowledgeItems.id, staleIds));
+}
+
+/**
+ * Set the status of all knowledge items for a plugin (by topic).
+ * Used by the plugin disable/enable lifecycle in the route layer.
+ *
+ * status='archived' → skills stop reaching sessions (assembler filters status='active').
+ * status='active'   → skills are restored on enable.
+ *
+ * @lore BA9d: the route cannot write the `knowledge_items` table directly
+ * (governance boundary) — it calls this function instead. This is a topic-level
+ * bulk update: ALL items with topic=`plugin:${pluginId}` are affected,
+ * including any the user has edited (their body survives in the row; only the
+ * status changes). There is NO restore path for user-edited skill bodies on
+ * disable/remove — skills do not go through plugin_configuration_defaults, so
+ * restorePluginContribution() cannot recover them.
+ */
+export async function setPluginSkillsStatus(
+	db: HyperIdleDb,
+	pluginId: string,
+	status: "active" | "archived",
+): Promise<void> {
+	await db
+		.update(knowledgeItems)
+		.set({ status, updatedAt: new Date().toISOString() })
+		.where(eq(knowledgeItems.topic, `plugin:${pluginId}`));
+}
+
+/**
+ * Overwrite a skill's body with the plugin's original content and reset
+ * updatedBy back to `plugin:${pluginId}`, marking the item as no longer
+ * detached from the plugin.
+ *
+ * Called by the restore-contribution route when kind="skill" (D12): the
+ * route reads the SKILL.md from install_path on disk and passes the body
+ * here so knowledge-repository stays pure (no filesystem access).
+ *
+ * @lore D12: "restore to original version just means we import from the
+ * plugin again. the plugin is the original version." — founder, BA9/founder-decisions.md.
+ * We deliberately do NOT store a separate copy in plugin_configuration_defaults;
+ * the file on disk IS the authoritative original.
+ */
+export async function restorePluginSkillBody(
+	db: HyperIdleDb,
+	skillId: string,
+	body: string,
+	pluginId: string,
+): Promise<void> {
+	// @lore D12: resetting updatedBy to plugin:${pluginId} clears the
+	// "detached" signal — the item matches its source again.
+	await db
+		.update(knowledgeItems)
+		.set({ body, updatedBy: `plugin:${pluginId}`, updatedAt: new Date().toISOString() })
+		.where(eq(knowledgeItems.id, skillId));
 }

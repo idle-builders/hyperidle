@@ -67,7 +67,6 @@ export type {
 	PromoteKnowledgeItemRequest,
 	PromoteKnowledgeItemResult,
 	ProposedCallOutcomeResult,
-	ProvisionTeamRoutinesRequest,
 	// ReviewRecipientsQuery: param of resolveReviewRecipientsForItem — no name-importers
 	RoutineView,
 	ScaffoldFromRequestInput,

@@ -27,6 +27,7 @@ export {
 	readAgentRunConfig,
 	readAgentRunConfigs,
 	writeAgentRunConfig,
+	writeAgentRunConfigIfAbsent,
 } from "./agent-run-config-store.js";
 export {
 	applyProvisioningPlan,

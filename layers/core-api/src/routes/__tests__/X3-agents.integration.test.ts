@@ -291,6 +291,17 @@ describe("X3 AC-5: POST /api/agents creates a new agent", () => {
 		expect(res.status).toBe(400);
 	});
 
+	// @lore BA9d: strategy AgentCategory removed — API wire must reject it.
+	test("returns 400 when agentCategory is 'strategy'", async ({ db, app }) => {
+		await seedPrereqs(db);
+		const res = await app.request("/api/agents", {
+			method: "POST",
+			headers: authHeaders(),
+			body: JSON.stringify({ name: "Strategy Bot", role: "assistant", agentCategory: "strategy" }),
+		});
+		expect(res.status).toBe(400);
+	});
+
 	test("returns 400 when modelTierPreference is invalid", async ({ db, app }) => {
 		await seedPrereqs(db);
 		const res = await app.request("/api/agents", {

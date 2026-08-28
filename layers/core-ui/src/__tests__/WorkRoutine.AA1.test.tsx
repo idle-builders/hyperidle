@@ -35,6 +35,7 @@ const MOCK_ROUTINE_DETAIL: RoutineDetail = {
 		createdAt: null,
 		lastRunSummary: null,
 		silent: false,
+		eventTransitionTo: null,
 	},
 	runs: [
 		{

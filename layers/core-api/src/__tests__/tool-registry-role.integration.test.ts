@@ -111,7 +111,9 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
 	// @lore AU20 repair: read_inbox (1) + write_session_notes (1) + commit_file (1) deleted → 22 → 19.
-	test("B3: assistant registry includes all 19 tools", ({ db, app }) => {
+	// @lore BA9d wave 2: merge_knowledge + split_knowledge added → 19 → 21.
+	// @lore BA9d wave 3: run_knowledge_sweep added → 21 → 22.
+	test("B3: assistant registry includes all 22 tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),
@@ -122,7 +124,9 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 17
 		// + 1 AK4 draft tool: edit_bet = 18
 		// + 1 AU27 Increment 2: reply = 19
-		expect(names).toHaveLength(19);
+		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 21
+		// + 1 BA9d wave 3: run_knowledge_sweep = 22
+		expect(names).toHaveLength(22);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}

@@ -2,8 +2,8 @@
  * AC2 RED — WorkBet retro outcome section component tests.
  *
  * AC2-7:  WorkBet shows hypothesis in read-only left column during editing
- * AC2-8:  "Draft with AI" button pre-fills form fields
  * AC2-12: Populated state shows two-column layout with hypothesis (left) + reality+learnings (right)
+ * Note: AC2-8 ("Draft with AI" button) was deleted in BA9d — D10.
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
@@ -115,85 +115,6 @@ describe("WorkBet — AC2 retro section (editing state)", () => {
 
 		// The column should have a "Predicted" label
 		expect(screen.getByText(/predicted/i)).toBeInTheDocument();
-	});
-
-	// AC2-8: "Draft with AI" button exists in editing mode
-	it("AC2-8: shows 'Draft with AI' button in editing mode", async () => {
-		const user = userEvent.setup();
-		renderBet(makeBet({ hypothesis: "Some hypothesis.", outcomeVerdict: null }));
-
-		await user.click(screen.getByRole("button", { name: /record outcome/i }));
-
-		expect(screen.getByRole("button", { name: /draft with ai/i })).toBeInTheDocument();
-	});
-
-	// AC2-8: "Draft with AI" button calls the draft endpoint and pre-fills form fields
-	it("AC2-8: clicking 'Draft with AI' calls draft endpoint and pre-fills verdict, summary, learnings", async () => {
-		const user = userEvent.setup();
-
-		// Mock the API fetch so the draft call succeeds
-		const mockFetch = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({
-				verdict: "partial",
-				summary: "AI-generated summary of what happened.",
-				learnings: "AI-generated learnings from the bet.",
-			}),
-		});
-		vi.stubGlobal("fetch", mockFetch);
-
-		renderBet(
-			makeBet({ id: "b-draft-test", hypothesis: "Some hypothesis.", outcomeVerdict: null }),
-		);
-
-		await user.click(screen.getByRole("button", { name: /record outcome/i }));
-		await user.click(screen.getByRole("button", { name: /draft with ai/i }));
-
-		// Wait for the async draft call to complete and form to be pre-filled
-		await waitFor(() => {
-			// Verify the draft endpoint was called
-			expect(mockFetch).toHaveBeenCalledWith(
-				expect.stringContaining("/retro/draft"),
-				expect.objectContaining({ method: "POST" }),
-			);
-		});
-
-		// Verdict select should be pre-filled with "partial"
-		await waitFor(() => {
-			const verdictSelect = screen.getByRole("combobox");
-			expect(verdictSelect).toHaveValue("partial");
-		});
-
-		// Summary textarea should be pre-filled
-		const summaryTextarea = screen.getByTestId("retro-summary-textarea");
-		expect(summaryTextarea).toHaveValue("AI-generated summary of what happened.");
-
-		// Learnings textarea should be pre-filled
-		const learningsTextarea = screen.getByTestId("retro-learnings-textarea");
-		expect(learningsTextarea).toHaveValue("AI-generated learnings from the bet.");
-	});
-
-	// AC2-8: Draft error shows error message, form remains usable
-	it("AC2-8: shows error message when draft fails, form remains usable", async () => {
-		const user = userEvent.setup();
-
-		const mockFetch = vi.fn().mockResolvedValue({
-			ok: false,
-			json: async () => ({ error: "LLM unavailable" }),
-		});
-		vi.stubGlobal("fetch", mockFetch);
-
-		renderBet(makeBet({ hypothesis: "Some hypothesis.", outcomeVerdict: null }));
-
-		await user.click(screen.getByRole("button", { name: /record outcome/i }));
-		await user.click(screen.getByRole("button", { name: /draft with ai/i }));
-
-		await waitFor(() => {
-			expect(screen.getByText(/could not generate draft/i)).toBeInTheDocument();
-		});
-
-		// Form should still be visible (not crashed)
-		expect(screen.getByRole("form", { name: /record bet outcome/i })).toBeInTheDocument();
 	});
 
 	// Save calls POST /retro (not /outcome)

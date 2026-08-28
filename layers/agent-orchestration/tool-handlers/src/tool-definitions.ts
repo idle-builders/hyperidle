@@ -667,6 +667,32 @@ function makeSubmitReviewTool<TDb>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// run_knowledge_sweep
+// ─────────────────────────────────────────────────────────────────────────────
+
+const runKnowledgeSweepInputSchema = z.object({
+	kind: z.enum(["autoPromotion", "stale"]),
+});
+
+type RunKnowledgeSweepInput = z.infer<typeof runKnowledgeSweepInputSchema>;
+
+function makeRunKnowledgeSweepTool<TDb>(
+	ports: ToolHandlersPorts,
+): ToolDefinition<RunKnowledgeSweepInput, TDb> {
+	return {
+		name: "run_knowledge_sweep",
+		description:
+			"Run a knowledge sweep. kind='autoPromotion' promotes provisional knowledge items that meet the repetition threshold to validated status. kind='stale' marks active items that have not been referenced recently as stale. Call this from a scheduled routine, not from an interactive session.",
+		inputSchema: runKnowledgeSweepInputSchema,
+		roles: ["assistant", "facilitator", "product_manager"],
+		handler: async (args, ctx) => {
+			const result = await ports.coreApi.runKnowledgeSweep(args.kind, ctx.agentId);
+			return ok(result);
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // score_attention
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -894,6 +920,85 @@ function makeCreateConflictReviewTool<TDb>(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// merge_knowledge
+// @lore BA9d D9: restored from AU44 scope breach. Merges sourceId into target,
+// appending source body behind a separator, then archives the source.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const mergeKnowledgeInputSchema = z.object({
+	targetId: z.string().min(1).describe("ID of the knowledge item to merge INTO"),
+	sourceId: z.string().min(1).describe("ID of the knowledge item to merge FROM (will be archived)"),
+});
+
+type MergeKnowledgeInput = z.infer<typeof mergeKnowledgeInputSchema>;
+
+function makeMergeKnowledgeTool<TDb>(
+	ports: ToolHandlersPorts,
+): ToolDefinition<MergeKnowledgeInput, TDb> {
+	return {
+		name: "merge_knowledge",
+		description:
+			"Merge two knowledge items: appends the source item's body to the target item (separated by ---), then archives the source. Use when two related pieces of knowledge should live as one.",
+		inputSchema: mergeKnowledgeInputSchema,
+		roles: ["assistant", "facilitator", "product_manager"],
+		handler: async (args, ctx) => {
+			const updatedBy = `agent:${ctx.agentId}`;
+			const result = await ports.coreApi.mergeKnowledgeItem(
+				args.targetId,
+				args.sourceId,
+				updatedBy,
+				ctx.agentId,
+			);
+			return ok({ mergedId: result.id, sourceArchived: args.sourceId });
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// split_knowledge
+// @lore BA9d D9: restored from AU44 scope breach. Splits one item into two or
+// more new items, archiving the original.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const splitKnowledgeItemSchema = z.object({
+	title: z.string().min(1),
+	body: z.string().min(1),
+	topic: z.string().optional(),
+});
+
+const splitKnowledgeInputSchema = z.object({
+	itemId: z.string().min(1).describe("ID of the knowledge item to split (will be archived)"),
+	newItems: z
+		.array(splitKnowledgeItemSchema)
+		.min(2)
+		.describe("Two or more new items to create from this one"),
+});
+
+type SplitKnowledgeInput = z.infer<typeof splitKnowledgeInputSchema>;
+
+function makeSplitKnowledgeTool<TDb>(
+	ports: ToolHandlersPorts,
+): ToolDefinition<SplitKnowledgeInput, TDb> {
+	return {
+		name: "split_knowledge",
+		description:
+			"Split a knowledge item into two or more focused items. The original is archived; each new item starts in draft. Use when a knowledge item covers multiple distinct topics that should be managed independently.",
+		inputSchema: splitKnowledgeInputSchema,
+		roles: ["assistant", "facilitator", "product_manager"],
+		handler: async (args, ctx) => {
+			const updatedBy = `agent:${ctx.agentId}`;
+			const created = await ports.coreApi.splitKnowledgeItem(
+				args.itemId,
+				args.newItems,
+				updatedBy,
+				ctx.agentId,
+			);
+			return ok({ originalArchived: args.itemId, createdIds: created.map((c) => c.id) });
+		},
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // create_team
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -967,23 +1072,6 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 			if (lead !== null) {
 				// @lore AU20 Am7: updateTeam(teamId, {leadAgentId}) replaces setTeamMembersLeadAgent.
 				await ports.coreApi.updateTeam(teamId, { leadAgentId: lead }, ctx.agentId);
-			}
-
-			{
-				const ownerByRole: Partial<Record<string, string>> = {};
-				for (const { role, agentId } of roster) {
-					if (role && !ownerByRole[role]) {
-						ownerByRole[role] = agentId;
-					}
-				}
-				await ports.coreApi.provisionTeamRoutines(
-					{
-						teamId,
-						ownerByRole,
-						leadAgentId: lead ?? agentIds[0] ?? "",
-					},
-					ctx.agentId,
-				);
 			}
 
 			ctx.eventBus.emit({
@@ -1506,9 +1594,12 @@ export function buildToolDefinitions(
 		toRegistered(makeCreateTaskTool(ports)),
 		toRegistered(makeSubmitReviewTool(ports)),
 		toRegistered(makeCreateArtifactTool(ports)),
+		toRegistered(makeRunKnowledgeSweepTool(ports)),
 		toRegistered(makeScoreAttentionTool(ports)),
 		toRegistered(makePromoteKnowledgeTool(ports)),
 		toRegistered(makeCreateConflictReviewTool(ports)),
+		toRegistered(makeMergeKnowledgeTool(ports)),
+		toRegistered(makeSplitKnowledgeTool(ports)),
 		toRegistered(makeCreateTeamTool(ports)),
 		toRegistered(makeAddAgentTool(ports)),
 		toRegistered(makeCreateBetTool(ports)),

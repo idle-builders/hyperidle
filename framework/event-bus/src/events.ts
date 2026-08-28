@@ -599,16 +599,16 @@ export interface ProposedCallGrantedEvent {
 }
 
 /**
- * Kernel events: entity lifecycle facts. When a kernel entity changes state,
- * these events announce what happened.
+ * Discriminated union of all domain events.
  *
- * @lore O1: To add a kernel event: (1) define the interface with type literal
+ * @lore O1: To add an event: (1) define the interface with type literal
  * discriminant, streamId, and timestamp, (2) add it to this union, (3) emit
  * from the route/service after the DB write. The EventBus is generic — no
- * bus changes needed. A switch(event.type) over KernelEvent must compile
- * without a default case.
+ * bus changes needed.
+ * @lore BA9d: KernelEvent and StrategyEvent type aliases removed — they reflected
+ * a kernel/strategy split that is now gone. DomainEvent is the single union.
  */
-type KernelEvent =
+export type DomainEvent =
 	| AgentWorkIntentEvent
 	| AgentRunAdmissionFailedEvent
 	| AgentRunLifecycleChangedEvent
@@ -644,18 +644,12 @@ type KernelEvent =
 	// AL7 trust-first: proposed call executed (renamed from operation_executed)
 	| ProposedCallExecutedEvent
 	// AL7 trust-first: proposed call granted → triggers session-2 re-engagement
-	| ProposedCallGrantedEvent;
-
-/** Strategy events: automation reactions and strategy-layer observations. */
-type StrategyEvent =
+	| ProposedCallGrantedEvent
 	| NotificationEvent
 	| PropagationAppliedEvent
 	| PropagationFailedEvent
 	| RoutineFiredEvent
 	| ToolCallRecordedEvent;
-
-/** Discriminated union of all domain events. */
-export type DomainEvent = KernelEvent | StrategyEvent;
 
 /** All valid event type strings. */
 export type EventType = DomainEvent["type"];
@@ -712,12 +706,12 @@ export const EVENT_TYPES = [
 	"tool_call_recorded",
 ] as const satisfies readonly EventType[];
 // completeness: a new EventType not listed above is a compile error here.
-type _EventTypesComplete =
+type EventTypesComplete =
 	Exclude<EventType, (typeof EVENT_TYPES)[number]> extends never
 		? true
 		: ["EVENT_TYPES is missing", Exclude<EventType, (typeof EVENT_TYPES)[number]>];
-const _eventTypesComplete: _EventTypesComplete = true;
-void _eventTypesComplete;
+const EventTypesComplete: EventTypesComplete = true;
+void EventTypesComplete;
 
 /** Wildcard subscription type. */
 export type WildcardType = "*";

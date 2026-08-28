@@ -142,14 +142,17 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 		teamFunctions: ["research"],
 		hasTemplate: false,
 	},
-	// Strategy agents
+	// Factory-wide / cross-team agents
 	// @lore AD8c: renamed from practice_facilitator to facilitator. All existing
 	// DB rows with role='practice_facilitator' must be migrated manually for production;
 	// for pre-production the seed handles fresh databases. See architecture Risk 1.
+	// @lore BA9d: category changed from "strategy" (removed) to "individual". These
+	// roles are factory-wide and not bound to one team; "individual" is the correct
+	// category for non-team agents.
 	{
 		role: "facilitator",
 		label: "Facilitator",
-		category: "strategy",
+		category: "individual",
 		description:
 			"L3 facilitator. Runs practice meetings, synthesizes findings, monitors knowledge decay.",
 		community: "ops",
@@ -159,7 +162,7 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 	{
 		role: "scout",
 		label: "Scout",
-		category: "strategy",
+		category: "individual",
 		description: "Analyst. Finds and evaluates market opportunities.",
 		community: "product",
 		teamFunctions: [],
@@ -168,7 +171,7 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 	{
 		role: "infra",
 		label: "Infra Agent",
-		category: "strategy",
+		category: "individual",
 		description: "SRE. Maintains shared infrastructure.",
 		community: "ops",
 		teamFunctions: [],
@@ -177,7 +180,7 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 	{
 		role: "platform",
 		label: "Platform Agent",
-		category: "strategy",
+		category: "individual",
 		description: "DX engineer. Maintains shared tools, templates, CI/CD.",
 		community: "building",
 		teamFunctions: [],

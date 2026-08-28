@@ -61,7 +61,7 @@ export const users = pgTable(
 		avatarUrl: text("avatar_url"),
 		createdAt: text("created_at").notNull(),
 		/**
-		 * AB0: Agent category — team | strategy | individual.
+		 * AB0: Agent category — team | individual.
 		 * Null for human users and system users.
 		 * @lore AB0: This replaces the KERNEL_USER_ROLES / FABRIC_USER_ROLES
 		 * split which was about system layer, not agent category.
@@ -78,6 +78,8 @@ export const users = pgTable(
 		ownerUserId: text("owner_user_id").references((): AnyPgColumn => users.id, {
 			onDelete: "set null",
 		}),
+		/** BA9d: set when this user row was materialised by a plugin install. Used for disable/enable/remove cleanup. */
+		pluginId: text("plugin_id"),
 	},
 	(table) => [
 		check(
@@ -583,6 +585,8 @@ export const routines = pgTable(
 		nextRunAt: text("next_run_at"),
 		/** AA2: Soft delete timestamp. When set, routine is archived. */
 		deletedAt: text("deleted_at"),
+		/** BA9d: set when this routine was materialised by a plugin install. Used for disable/enable/remove cleanup. */
+		pluginId: text("plugin_id"),
 		/** AA2: Last successful run's summary. Single-slot overwrite per concept doc. */
 		lastRunSummary: text("last_run_summary"),
 		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */

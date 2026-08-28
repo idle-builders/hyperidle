@@ -48,6 +48,8 @@ import type {
 	ManifestWarning,
 	ParsedContribution,
 	ParsedMcpServer,
+	ParsedPluginAgent,
+	ParsedPluginRoutine,
 	ParsedSkill,
 } from "./plugin-manifest.js";
 import { parsePluginManifest } from "./plugin-manifest.js";
@@ -105,6 +107,18 @@ export type InstallPluginResult =
 			 * The layer's route handler picks these up and calls knowledge.upsertPluginSkill.
 			 */
 			skills: readonly ParsedSkill[];
+			/**
+			 * Agents declared in extensions["io.hyperidle"].agents[].
+			 * The core-api route handler materializes them as users rows via insertUserIfAbsent.
+			 * @lore BA9d: settings cannot write users (owned by users service).
+			 */
+			agents: readonly ParsedPluginAgent[];
+			/**
+			 * Routines declared in extensions["io.hyperidle"].routines[].
+			 * The core-api route handler materializes them as routines rows via insertRoutine.
+			 * @lore BA9d: settings cannot write routines (owned by routine service).
+			 */
+			routines: readonly ParsedPluginRoutine[];
 			scopeKind: string;
 			scopeId: string | null;
 			installTs: string;
@@ -250,6 +264,43 @@ async function removeStaleDefaults(
  */
 export function skillItemId(pluginId: string, dirName: string): string {
 	return `ki_${sha256(`plugin-skill\0${pluginId}\0${dirName}`).slice(0, 24)}`;
+}
+
+/**
+ * Stable DB id for a plugin-declared agent.
+ * Deterministic from pluginId + localId + install scope.
+ *
+ * @lore BA9d: scope is included in the hash so that a factory-scoped install
+ * produces exactly ONE global agent row (scopeId is null → hash suffix is
+ * constant), while a team-scoped install produces ONE row PER team (different
+ * teamId → different hash → different row). This is the entire mechanism that
+ * guarantees "global upkeep runs once, not once per team" for factory-scoped
+ * plugins like knowledge-management: the scheduler sees one routine row and
+ * fires it once. A team-scoped plugin gets one routine per team, which is the
+ * correct per-team behaviour. The same id derivation must be used wherever
+ * these rows are looked up — the test for two-team installs guards this.
+ */
+export function agentItemId(
+	pluginId: string,
+	localId: string,
+	scopeKind: string,
+	scopeId: string | null,
+): string {
+	return `pa_${sha256(`plugin-agent\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
+}
+
+/**
+ * Stable DB id for a plugin-declared routine.
+ * Deterministic from pluginId + localId + install scope.
+ * See @lore on agentItemId — same scope guarantee applies.
+ */
+export function routineItemId(
+	pluginId: string,
+	localId: string,
+	scopeKind: string,
+	scopeId: string | null,
+): string {
+	return `pr_${sha256(`plugin-routine\0${pluginId}\0${localId}\0${scopeKind}\0${scopeId ?? ""}`).slice(0, 24)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -466,6 +517,8 @@ export async function installPlugin(
 			ok: true,
 			plugin: pluginFromRow(row, manifest.warnings),
 			skills: manifest.skills,
+			agents: manifest.agents,
+			routines: manifest.routines,
 			scopeKind: input.scope.kind,
 			scopeId: input.scope.teamId ?? null,
 			installTs: ts,
@@ -513,6 +566,13 @@ export async function getInstalledPlugin(
  *
  * AC7: the resolver's `active: hasOverride || plugin.state === 'enabled'`
  * handles this automatically.
+ *
+ * @lore BA9d: This function only flips plugins.state. The real disable work —
+ * deactivating materialised routines, agents, and skills that the plugin
+ * created — lives in the route handler (layers/core-api/src/routes/plugins.ts).
+ * Settings cannot write to routines, users, or knowledge_items (governance
+ * boundary). Both must succeed or the plugin is in a split state; the route
+ * runs this call first and the row-cleanup second, inside a try/catch.
  */
 export async function disablePlugin(
 	db: HyperIdleDb,
@@ -560,8 +620,12 @@ export async function removePlugin(db: HyperIdleDb, pluginId: string, now?: stri
 		.delete(pluginConfigurationDefaults)
 		.where(eq(pluginConfigurationDefaults.pluginId, pluginId));
 	// Step 2: mark plugin as removed (restrict constraint now satisfied)
-	// @lore BA9b: skill knowledge item cleanup happens in the route handler
-	// (core-api layer), not here — settings cannot write to knowledge's table.
+	// @lore BA9d: All domain-row cleanup (routines, agents, skills) happens
+	// in the route handler after this call — settings cannot write to those
+	// tables (governance boundary). The route wraps both calls; if this
+	// succeeds but the row cleanup fails, the plugin is in state='removed'
+	// with its rows still live. The route catches that and returns
+	// REMOVE_CLEANUP_FAILED rather than silently leaving a split state.
 	await db
 		.update(plugins)
 		.set({ state: "removed", removedAt: ts, updatedAt: ts })

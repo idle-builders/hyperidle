@@ -1,0 +1,16 @@
+{
+  "id": "BA9d",
+  "title": "The rituals become a plugin, and strategy is purged",
+  "phase": "shipping",
+  "status": "verified",
+  "branch": "claude/ba9d-rituals-plugin",
+  "base": "origin/main (eaaa74de8)",
+  "artifacts": {
+    "plan": ".pipeline/work/BA9d/plan.md"
+  },
+  "gates": {
+    "verify": "exit 0"
+  },
+  "ship_policy": "HALT at CI-green OPEN PR \u2014 founder inspects before merge.",
+  "note": "Folder consolidated at ship: review and live proof folded into plan.md under As built."
+}

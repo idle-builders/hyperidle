@@ -171,6 +171,16 @@ interface AppOptions {
 	 * tests may override for isolation.
 	 */
 	agentWorkIntentRecorder?: import("@hyperidle/domain-model").AgentWorkIntentRecorderFn;
+	/**
+	 * BA9d D12: base directory where plugin files are persisted on install.
+	 * When provided, `installPlugin` copies the plugin source to
+	 * `{pluginsBaseDir}/{pluginId}/` and stores the path in `plugins.install_path`.
+	 * Required for skill restore to work (restore reads from install_path on disk).
+	 * Absent → plugin files are not persisted; install_path will be null; skills
+	 * are still materialised as knowledge items but cannot be restored from source.
+	 * Production wiring passes the platform config dir; tests pass a temp dir.
+	 */
+	pluginsBaseDir?: string;
 }
 
 /**
@@ -391,7 +401,7 @@ async function createCoreApiApp(options?: AppOptions): Promise<Hono> {
 		// owns). Same path, other host — see `createAgentOrchestrationApp`.
 		api.route("/search", createSearchRoutes(options.db, eventBus));
 		api.route("/settings/agent-behavior", createAgentBehaviorSettingsRoutes(options.db));
-		api.route("/plugins", createPluginRoutes(options.db));
+		api.route("/plugins", createPluginRoutes(options.db, options.pluginsBaseDir));
 		api.route("/notifications", createNotificationRoutes(options.db, { deps: notificationsDeps }));
 
 		const db = options.db;

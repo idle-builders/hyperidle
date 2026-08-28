@@ -159,7 +159,14 @@ export function collectDesignProfileCensus(sources: readonly DesignSource[]): De
 			"font-weight": /\bfont-(?:normal|medium|semibold|bold|\[\d)/g,
 			"line-height": /\bleading-(?:none|tight|snug|normal|relaxed|loose|\[)/g,
 			"letter-spacing": /\btracking-(?:tighter|tight|normal|wide|wider|widest|\[)/g,
-			duration: /\b(?:transition(?:-[^\s"'`]+)?|duration-|animate-)/g,
+			// BA9d D11: two false-positive positions excluded:
+			// · Preceded by `.` or `-`: property access (.transition) or compound
+			//   hyphenated HTML id (routine-transition-input) — neither is a CSS class.
+			// · Followed by a letter: identifier-middle like `transitionTo` or
+			//   `transitioning`— a bare CSS `transition` class is followed by space or
+			//   end-of-value, never by an alphanumeric continuation character.
+			duration:
+				/(?<![.-])\btransition(?:-[^\s"'`]+)?(?![a-zA-Z_])|(?<![a-zA-Z_-])duration-|(?<![a-zA-Z_-])animate-/g,
 			easing: /\bease-/g,
 			color: /\b(?:text|bg|border)-(?:slate|gray|zinc|neutral|red|blue|indigo|purple)-\d/g,
 		};

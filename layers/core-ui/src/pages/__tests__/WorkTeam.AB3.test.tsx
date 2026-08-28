@@ -81,7 +81,8 @@ const TEAM_WITH_AGENTS: TeamDetail = {
 			name: "Scout Agent",
 			role: "scout",
 			isLead: false,
-			agentCategory: "strategy",
+			// @lore BA9d: strategy category removed; scout is now individual
+			agentCategory: "individual",
 		},
 		{
 			agentId: "agent-cos-1",
@@ -122,7 +123,8 @@ const MOCK_AGENT_CONFIGS = [
 		maxConcurrentSessions: 1,
 		status: "active",
 		activeSessions: 0,
-		agentCategory: "strategy",
+		// @lore BA9d: strategy category removed; scout is now individual
+		agentCategory: "individual",
 	},
 	{
 		id: "agent-cos-1",
@@ -214,16 +216,7 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		});
 	});
 
-	it("app-managed agent card shows an 'App-managed' category tag", async () => {
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			const tags = screen.getAllByTestId("agent-card-category");
-			const tagTexts = tags.map((t) => t.textContent ?? "");
-			expect(tagTexts.some((t) => t.includes("App-managed"))).toBe(true);
-		});
-	});
-
+	// @lore BA9d: App-managed category (strategy) deleted — no App-managed test.
 	// @lore AD8a: "personal" category renamed to "individual"; display label updated to "Individual".
 	it("individual agent card shows an 'Individual' category tag", async () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
@@ -244,9 +237,10 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		});
 
 		// The team agent (Atlas Builder) card should not contain a category testid
-		// We check the tags count — only 2 (strategy + individual), not 3
+		// We check the tags count — only 2 (both individual), not 3
+		// @lore BA9d: strategy category removed; scout and System Agent are both "individual"
 		const tags = screen.queryAllByTestId("agent-card-category");
-		expect(tags.length).toBe(2); // strategy + individual only
+		expect(tags.length).toBe(2); // two individual-category agents (scout + System Agent)
 	});
 });
 
@@ -371,25 +365,8 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		mockApiFetch.mockReset();
 	});
 
-	it("app-managed agent dialog shows app defaults management note", async () => {
-		const user = userEvent.setup();
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-row").length).toBe(3);
-		});
-
-		// Click the app-managed agent (Scout Agent — index 1) Customize button
-		const rows = screen.getAllByTestId("agent-row");
-		const scoutRow = rows.find((c) => c.textContent?.includes("Scout Agent"));
-		const scoutBtn = scoutRow?.querySelector('[data-testid="agent-customize-btn"]');
-		expect(scoutBtn).toBeDefined();
-		await user.click((scoutBtn as HTMLElement) ?? document.body);
-
-		await waitFor(() => {
-			expect(screen.getByText(/managed by app defaults/i)).toBeInTheDocument();
-		});
-	});
+	// @lore BA9d D5: app-managed dialog tests deleted — strategy category and the
+	// "managed by app defaults" UI lock are removed. Plugins now configure agents.
 
 	// @lore AV4: team agent pane (no dialog) does NOT show app-managed note.
 	it("team agent pane does NOT show app defaults management note", async () => {
@@ -415,37 +392,8 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 		expect(screen.queryByText(/managed by app defaults/i)).not.toBeInTheDocument();
 	});
 
-	// @lore AV4: app-managed agent config fields in pane (no dialog).
-	it("app-managed agent config fields are disabled when config section is expanded", async () => {
-		const user = userEvent.setup();
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-row").length).toBe(3);
-		});
-
-		const scoutRow2 = screen
-			.getAllByTestId("agent-row")
-			.find((c) => c.textContent?.includes("Scout Agent"));
-		const scoutBtn2 = scoutRow2?.querySelector('[data-testid="agent-customize-btn"]');
-		expect(scoutBtn2).toBeDefined();
-		await user.click((scoutBtn2 as HTMLElement) ?? document.body);
-
-		// AV4: wait for pane (no dialog check)
-		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
-		});
-
-		// Toggle config open
-		const configToggle = screen.getByRole("button", { name: /show configuration/i });
-		await user.click(configToggle);
-
-		// All config inputs should be disabled for app-managed agents
-		await waitFor(() => {
-			const harnessInput = screen.getByLabelText(/harness/i);
-			expect(harnessInput).toBeDisabled();
-		});
-	});
+	// @lore BA9d D5: app-managed config-disabled test deleted — strategy category and
+	// the disabled-config-for-app-managed-agents UI are removed. Plugins configure agents.
 
 	// @lore AV4: team agent config fields in pane (no dialog).
 	it("team agent config fields are enabled when config section is expanded", async () => {

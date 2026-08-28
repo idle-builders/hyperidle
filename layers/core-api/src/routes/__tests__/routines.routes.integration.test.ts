@@ -237,10 +237,12 @@ describe("routines routes", () => {
 	});
 
 	// AF6 AC5 — founder observes a built-in self-run from the existing GET /:id
-	// surface. fireStoredRoutine must insert a terminal routine_runs row (§3a) so
-	// the route's runs[] is populated, with a terminal outcome.
+	// surface. fireStoredRoutine inserts a routine_runs row (§3a) so the route's
+	// runs[] is populated. Since BA9d all routines fire via the generic
+	// async-dispatch path: the run row starts with outcome="running" and lastRunAt
+	// is set immediately; the run completes asynchronously by the agent pipeline.
 	describe("AF6 AC5: built-in auto-run appears in GET /api/routines/:id runs[]", () => {
-		test("after a built-in fire, runs[] has a terminal run and lastRunAt is set", async ({
+		test("after a built-in fire, runs[] has a running run and lastRunAt is set", async ({
 			db,
 			app,
 			eventBus,
@@ -269,8 +271,10 @@ describe("routines routes", () => {
 
 			expect(body.runs.length).toBeGreaterThanOrEqual(1);
 			const latest = body.runs[0];
-			expect(["success", "skipped"]).toContain(latest?.outcome);
-			expect(latest?.endedAt).toBeTruthy();
+			// @lore BA9d: all routines now fire via generic async dispatch — the run
+			// row outcome is "running" immediately; it becomes terminal only after the
+			// agent pipeline completes (outside this test boundary).
+			expect(latest?.outcome).toBe("running");
 			expect(body.routine.lastRunAt).toBeTruthy();
 		});
 
@@ -299,6 +303,79 @@ describe("routines routes", () => {
 			});
 			const body = (await res.json()) as { runs: unknown[] };
 			expect(body.runs).toHaveLength(0);
+		});
+	});
+
+	/**
+	 * BA9d D11 — silent-disable footgun.
+	 *
+	 * eventTransitionTo on a non-transition event type (anything other than
+	 * task_state_changed or bet_state_changed) silently never fires because the
+	 * event carries no fromState/toState. The route must reject this at creation
+	 * time with 400 so the author gets immediate feedback instead of a routine
+	 * that appears active but never runs.
+	 */
+	describe("BA9d D11 — POST /api/routines rejects transition constraint on non-transition event", () => {
+		test("eventTransitionTo with knowledge_updated returns 400", async ({ db, app }) => {
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "ba9d-footgun-team", name: "Footgun team", phase: "build", createdAt: now });
+			await db.insert(users).values({
+				id: "ba9d-footgun-agent",
+				kind: "ai",
+				name: "Footgun Agent",
+				role: "builder",
+				status: "active",
+				teamId: "ba9d-footgun-team",
+				createdAt: now,
+			});
+
+			const res = await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					name: "Bad constraint routine",
+					ownerAgentId: "ba9d-footgun-agent",
+					triggerType: "event",
+					eventType: "knowledge_updated",
+					eventTransitionTo: "done",
+				}),
+			});
+
+			expect(res.status).toBe(400);
+			const body = (await res.json()) as { error: string };
+			expect(body.error).toMatch(/task_state_changed|bet_state_changed/);
+		});
+
+		test("eventTransitionTo with task_state_changed returns 201", async ({ db, app }) => {
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "ba9d-valid-team", name: "Valid team", phase: "build", createdAt: now });
+			await db.insert(users).values({
+				id: "ba9d-valid-agent",
+				kind: "ai",
+				name: "Valid Agent",
+				role: "builder",
+				status: "active",
+				teamId: "ba9d-valid-team",
+				createdAt: now,
+			});
+
+			const res = await app.request("/api/routines", {
+				method: "POST",
+				headers: authHeaders(),
+				body: JSON.stringify({
+					name: "Valid constraint routine",
+					ownerAgentId: "ba9d-valid-agent",
+					triggerType: "event",
+					eventType: "task_state_changed",
+					eventTransitionTo: "done",
+				}),
+			});
+
+			expect(res.status).toBe(201);
 		});
 	});
 

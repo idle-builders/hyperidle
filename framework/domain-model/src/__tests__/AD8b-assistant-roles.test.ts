@@ -66,10 +66,12 @@ describe("AD8b — AGENT_ROLE_CATALOG: assistant entry", () => {
 		expect(entry?.community).toBe("ops");
 	});
 
-	it("AGENT_ROLE_CATALOG contains exactly one individual-category entry", () => {
-		const individualEntries = AGENT_ROLE_CATALOG.filter((e) => e.category === "individual");
-		expect(individualEntries).toHaveLength(1);
-		expect(individualEntries[0]?.role).toBe("assistant");
+	// @lore BA9d: strategy category removed; facilitator + 4 others moved to individual.
+	// assistant is still in the individual category.
+	it("AGENT_ROLE_CATALOG: assistant is an individual-category entry", () => {
+		const assistantEntry = AGENT_ROLE_CATALOG.find((e) => e.role === "assistant");
+		expect(assistantEntry).toBeDefined();
+		expect(assistantEntry?.category).toBe("individual");
 	});
 
 	it("findRoleCatalogEntry('chief_of_staff') returns undefined (renamed to assistant)", () => {

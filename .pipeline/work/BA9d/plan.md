@@ -153,3 +153,112 @@ that is a named step, not a surprise.
 A plugin marketplace or distribution. Reworking the knowledge store. Deciding whether teams should hold
 retros. Emitting the five events that have no emitter — that is BA8. The `knowledge_app_projection` table
 and its `@lore O2` columns.
+
+
+---
+
+# As built
+
+Consolidated at ship. The live proof this section summarises was folded in from `proof.md`.
+
+Built in three waves: the routine transition constraint, the plugin itself, then the purge.
+
+## What shipped
+
+**A routine can name a transition, not only an event type** (D8/D11). Stored in the existing
+`trigger_config` as JSON — no new column, because it is filtered in memory and never needs an index. A
+routine with no constraint behaves exactly as before. A routine naming a transition on an event type that
+never carries one is now **rejected at creation** rather than silently never firing.
+
+**The knowledge-management plugin** — one agent (Knowledge Librarian), three routines and three skills,
+in Agent Plugins 1.0.0 format at `plugins/knowledge-management/`. The post-task retro fires on
+`task_state_changed` with `transitionTo: "done"`, which is D8's "a retro runs at the end of something,
+most typically a task".
+
+**Decay and promotion keep their deterministic operation.** The sweep is exposed as an agent-callable
+tool (`run_knowledge_sweep`) and the plugin's routines instruct the Librarian to call it. This is the
+split the plan already drew for attention scoring — the **ritual** (weekly, at 3am) belongs to the
+plugin, the **operation** (what "stale" means, what gets archived) stays in core where it is tested. An
+earlier version had the routines as prompt-only sessions, which left the tested sweep orphaned in core
+with no caller and reduced knowledge upkeep to an LLM approximating it.
+
+**The purge.** `strategy` gone from the type, schema, wire contract and interface. `BUILTIN_ROUTINE_IDS`,
+`fireBuiltinRoutine`, the builtin specs, `extractBuiltinKind`, `provisionTeamRoutines`,
+`POST /org/team-routines`, `StrategyEvent`, `KernelEvent`, `PostBetRetroArgs` — all removed outright, not
+stubbed. The five seeded facilitators and the "Draft with AI" stub are gone. Migration 0065 rewrites
+`strategy` → `individual` and **soft-deletes** the `builtin:*` routine rows, because
+`routine_runs.routineId` is `onDelete: "restrict"` and a hard delete would abort any install where a
+retro ever ran.
+
+**The App-managed lock is deleted, and the behaviour behind it fixed.** D5 removes the lock;
+`writeAgentRunConfigIfAbsent` makes the run-config and system-prompt write **first-boot only**, so a
+person's edits survive. Deleting the warning while keeping the every-launch overwrite would have removed
+the disclosure and kept the surprise.
+
+**The wildcard subscription is gone.** `on("*")` became `on("agent_work_intent_recorded")`, and the
+comment names which paths get a sub-second wake and which fall back to the one-second poll — a behaviour
+change that is written down rather than discovered.
+
+## Two mechanisms that must not be deleted by accident
+
+**"Global upkeep runs once" lives in the id hash.** `agentItemId`/`routineItemId` include the install
+scope, so a factory-scoped install produces one constant id — one row, fired once — while a team-scoped
+install produces one row per team. This is *not* inherited from BA1's owner-agent change, whatever the
+track registry says; the previous guarantee came from a `scope` field on the builtin specs that this
+package deletes. It carries a `@lore` where the ids are derived.
+
+**The demo world must not seed the rituals.** It did, and the live proof caught it.
+
+## Proven in the running app
+
+Full record in the commit history and summarised here. On a freshly bootstrapped install: no `strategy`
+category, no facilitators, no `builtin:*` routines, one routine (the daily digest). Installing the plugin
+through its real HTTP door created the Librarian agent (`agent_category: individual`), three routines and
+three skills as knowledge items at factory scope. Triggering the promotion routine produced a run whose
+prompt instructs the agent to call `run_knowledge_sweep`. Four routines after install — one of each, no
+duplicates.
+
+All four packages appear in that one flow: BA9a installed it, BA9b carried its skills to the session,
+BA9c tells the retro which task finished, BA9d is what was installed.
+
+## The defect the tests could not have caught
+
+The first proof run showed seven routines where there should have been four — the demo world seeded the
+rituals and the plugin added its own. Every test passed, because each set was individually correct.
+Nothing was wrong until they were in the same database. That is the third time in this track that running
+the real product found what a green suite could not: BA9a shipped an installer with no door, BA9b wrote
+skills into directories nothing reads, and this.
+
+## Known limitations
+
+- A brownfield upgrade soft-deletes the old builtin routines, so an existing install **loses automated
+  knowledge upkeep until it installs the plugin**. By design, but it belongs in release notes.
+- `parsePluginAgent` accepts any string as `agentCategory`, so a plugin could declare a value the API
+  would reject. Recorded as a deliberate decision — per ETHOS this is not a rogue-plugin guard — but it
+  is the one remaining surface that could reintroduce the purged value.
+- Actor identity in event context is partial, inherited from BA9c: several events carry no actor field.
+
+
+## Re-proved after the final fixes (2026-08-28)
+
+The first end-to-end proof ran **before** the last round of fixes, which changed real behaviour — so it
+was stale and had to be repeated. Re-run from a clean bootstrap at `ea3b41757`:
+
+**Migration 65 now actually applies.** A fresh install reports **66** migrations applied where it
+previously reported 65. The migration had been silently skipped because its journal `when` was written in
+**seconds instead of milliseconds**, and drizzle decides what to apply by comparing that timestamp — a
+fact established back in BA9a. So the `strategy` purge would never have run on any real database while
+every local gate reported the package complete. Its own brownfield test caught it, which is the second
+migration defect that test family has found.
+
+**A fresh install is clean:** zero `strategy` rows, zero facilitators, one routine (the daily digest).
+
+**Installing the plugin** through its real HTTP door: 201, and four routines afterwards — one of each,
+no duplicates.
+
+**The sweep does real work.** With 27 knowledge items backdated past the 90-day threshold, calling the
+sweep door in the running server returned `processed: 27`, and the statuses moved from 27 active / 2
+stale to **0 active / 29 stale**. This is the operation the plugin's routine instructs the Librarian to
+call, so "knowledge decay still happens" is now evidenced rather than asserted — and it matters, because
+one of the bugs in the final round was `recomputeAttention` never being called after candidates were
+loaded.

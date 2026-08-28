@@ -53,6 +53,7 @@ import {
 	list as listKnowledgeItems,
 	recomputeAttention,
 	recordConflict as recordKnowledgeConflict,
+	sweep as runKnowledgeSweep,
 	update as updateKnowledgeItem,
 	VersionConflictError,
 } from "@hyperidle/knowledge";
@@ -211,6 +212,26 @@ const updateKnowledgeSchema = z.object({
 	topic: z.string().optional(),
 	format: z.string().optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
+});
+
+// BA9d: agent-reachable merge/split doors (recovered from AU44 scope breach,
+// see .pipeline/work/AU44/FEATURE-LEDGER.md rows 58-59 and founder D9).
+const mergeSchema = z.object({
+	sourceId: z.string().min(1),
+	updatedBy: z.string().min(1),
+});
+
+const splitSchema = z.object({
+	newItems: z
+		.array(
+			z.object({
+				title: z.string().min(1),
+				body: z.string().min(1),
+				topic: z.string().optional(),
+			}),
+		)
+		.min(2),
+	updatedBy: z.string().min(1),
 });
 
 /**
@@ -597,6 +618,81 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json(updated);
 	});
 
+	// POST /:id/merge — merge source item into target; source is archived.
+	// @lore BA9d D9: restored from AU44 scope breach (rows 58-59 of FEATURE-LEDGER.md).
+	router.post("/:id/merge", validateBody(mergeSchema), async (c) => {
+		const targetId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof mergeSchema>;
+
+		const target = await getKnowledgeItem(db, targetId);
+		if (!target) {
+			const response: ApiErrorResponse = {
+				error: "Target knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const source = await getKnowledgeItem(db, body.sourceId);
+		if (!source) {
+			const response: ApiErrorResponse = {
+				error: "Source knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const merged = await knowledgeTransition(db, target.id, {
+			target: "merge",
+			sourceId: source.id,
+			updatedBy: body.updatedBy,
+		});
+
+		const mergedEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${targetId}`,
+			itemId: targetId,
+			action: "merged",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(mergedEvent);
+
+		return c.json(merged);
+	});
+
+	// POST /:id/split — split item into two or more new items; original is archived.
+	// @lore BA9d D9: restored from AU44 scope breach (rows 58-59 of FEATURE-LEDGER.md).
+	router.post("/:id/split", validateBody(splitSchema), async (c) => {
+		const id = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof splitSchema>;
+
+		const original = await getKnowledgeItem(db, id);
+		if (!original) {
+			const response: ApiErrorResponse = {
+				error: "Knowledge item not found",
+				code: API_ERROR_CODES.NOT_FOUND,
+			};
+			return c.json(response, 404);
+		}
+
+		const createdItems = await knowledgeTransition(db, original.id, {
+			target: "split",
+			newItems: body.newItems,
+			updatedBy: body.updatedBy,
+		});
+
+		const splitEvent: KnowledgeUpdatedEvent = {
+			type: "knowledge_updated",
+			streamId: `knowledge:${id}`,
+			itemId: id,
+			action: "split",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(splitEvent);
+
+		return c.json({ items: createdItems });
+	});
+
 	// POST /:id/archive — archive item, emit knowledge_archived event
 	router.post("/:id/archive", async (c) => {
 		const id = c.req.param("id");
@@ -702,6 +798,20 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		const id = c.req.param("id");
 		const result = await recomputeAttentionScoreForKnowledgeItem(db, eventBus, id);
 		return c.json(result);
+	});
+
+	// POST /sweep — agent-callable knowledge sweep (BA9d: replaces dead builtin routine path).
+	// kind="autoPromotion": promote provisional items that meet the repetition threshold.
+	// kind="stale": mark active items that have not been referenced recently as stale.
+	const sweepBodySchema = z.object({ kind: z.enum(["autoPromotion", "stale"]) });
+	router.post("/sweep", validateBody(sweepBodySchema), async (c) => {
+		const body = c.req.valid("json" as never) as z.infer<typeof sweepBodySchema>;
+		const result =
+			body.kind === "autoPromotion"
+				? await runKnowledgeSweep(db, eventBus, "autoPromotion")
+				: await runKnowledgeSweep(db, eventBus, "stale", { nowMs: Date.now() });
+		const processed = "promotedIds" in result ? result.promotedIds.length : result.markedIds.length;
+		return c.json({ kind: body.kind, processed });
 	});
 
 	return router;

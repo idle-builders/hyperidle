@@ -407,6 +407,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 				modelId: null,
 				modelProvider: null,
 				agentCategory: null,
+				pluginId: null,
 			}),
 		};
 	}

@@ -7,15 +7,25 @@
  * plugin-installer.ts.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
 	removeByPluginTopic,
+	restorePluginSkillBody,
+	setPluginSkillsStatus,
 	type UpsertPluginSkillInput,
 	upsertPluginSkill,
 } from "@hyperidle/knowledge";
 import {
+	insertRoutine,
+	setPluginRoutinesActive,
+	softDeletePluginRoutines,
+} from "@hyperidle/routine";
+import {
+	agentItemId,
 	disablePlugin,
 	enablePlugin,
 	getInstalledPlugin,
@@ -28,8 +38,10 @@ import {
 	pluginContributionKey,
 	removePlugin,
 	restorePluginContribution,
+	routineItemId,
 	skillItemId,
 } from "@hyperidle/settings";
+import { insertUserIfAbsent, setPluginAgentsStatus } from "@hyperidle/users";
 import { Hono } from "hono";
 
 // ---------------------------------------------------------------------------
@@ -63,7 +75,7 @@ export interface PluginListResponse {
 // Factory
 // ---------------------------------------------------------------------------
 
-export function createPluginRoutes(db: HyperIdleDb): Hono {
+export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Hono {
 	const router = new Hono();
 
 	// ── GET /api/plugins ────────────────────────────────────────────────────
@@ -192,7 +204,11 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			teamId: sc.kind === "team" ? (sc.teamId as string) : null,
 		};
 
-		const result = await installPlugin(db, { source: pluginSource, scope: pluginScope });
+		const result = await installPlugin(db, {
+			source: pluginSource,
+			scope: pluginScope,
+			pluginsBaseDir,
+		});
 		if (!result.ok) {
 			return c.json({ code: "INSTALL_FAILED", error: result.reason }, 422);
 		}
@@ -201,11 +217,13 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 		// layer) cannot write knowledge (it doesn't own that table); the layer
 		// package routes are the correct cross-service bridge.
 		//
-		// Wrapped in a transaction so a partial failure (e.g. an upsert succeeds
-		// but the stale-removal fails) rolls back all skill writes atomically —
-		// no orphan knowledge items. installPlugin's file I/O runs before this
-		// block so the transaction holds only the DB leg of the sync.
-		const { plugin, skills, scopeKind, scopeId, installTs } = result;
+		// BA9d: materialize plugin-declared agents (users rows) and routines rows.
+		// settings cannot write users or routines — those tables are owned by their
+		// respective services. Both uses are idempotent (insertUserIfAbsent /
+		// insertRoutine onConflictDoNothing), so reinstalling is safe.
+		//
+		// Wrapped in a transaction so all cross-service writes are atomic.
+		const { plugin, skills, agents, routines, scopeKind, scopeId, installTs } = result;
 		await db.transaction(async (tx) => {
 			const keepIds: string[] = [];
 			for (const skill of skills) {
@@ -225,6 +243,47 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			}
 			// Remove any stale skill items for this plugin (e.g., renamed skill dirs).
 			await removeByPluginTopic(tx, `plugin:${plugin.id}`, keepIds);
+
+			// Materialize declared agents as users rows.
+			// @lore BA9d: agentItemId/routineItemId include scope so factory installs
+			// produce one global row (teamId=null) while team installs produce one row
+			// per team (teamId=scopeId). insertUserIfAbsent makes reinstall idempotent.
+			for (const agentSpec of agents) {
+				const dbId = agentItemId(plugin.id, agentSpec.id, scopeKind, scopeId);
+				await insertUserIfAbsent(tx, {
+					id: dbId,
+					kind: "ai",
+					name: agentSpec.name,
+					role: agentSpec.role,
+					status: "active",
+					agentCategory: agentSpec.agentCategory,
+					teamId: scopeKind === "team" ? scopeId : null,
+					pluginId: plugin.id,
+					createdAt: installTs,
+				});
+			}
+
+			// Materialize declared routines. insertRoutine onConflictDoNothing makes
+			// reinstall safe. Routines reference the materialized agent by DB id.
+			for (const routineSpec of routines) {
+				const routineDbId = routineItemId(plugin.id, routineSpec.id, scopeKind, scopeId);
+				const agentDbId = agentItemId(plugin.id, routineSpec.agentId, scopeKind, scopeId);
+				await insertRoutine(
+					tx,
+					{
+						id: routineDbId,
+						name: routineSpec.name,
+						ownerAgentId: agentDbId,
+						triggerType: routineSpec.triggerType,
+						triggerConfig: routineSpec.triggerConfig ?? null,
+						eventType: routineSpec.eventType ?? null,
+						prompt: routineSpec.prompt ?? null,
+						pluginId: plugin.id,
+						createdAt: installTs,
+					},
+					{ onConflictDoNothing: true },
+				);
+			}
 		});
 
 		return c.json({ plugin }, 201);
@@ -243,6 +302,21 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
+		// @lore BA9d: reactivate materialised rows so routines fire again,
+		// agent runs again, and skills reach sessions. disablePlugin() only flips
+		// plugins.state — the domain-row cleanup lives here (governance boundary:
+		// settings cannot write routines/users/knowledge). Service functions own
+		// each table write; they accept WriteExecutor so this is one transaction.
+		try {
+			await db.transaction(async (tx) => {
+				await setPluginRoutinesActive(tx, id, true);
+				await setPluginAgentsStatus(tx, id, "active");
+				await setPluginSkillsStatus(tx, id, "active");
+			});
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return c.json({ code: "ENABLE_CLEANUP_FAILED", error: msg }, 500);
+		}
 		return c.json({ ok: true });
 	});
 
@@ -258,6 +332,22 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
+		}
+		// @lore BA9d: deactivate materialised rows so routines stop firing,
+		// agent stops running, and skills stop reaching sessions. disablePlugin()
+		// only flips plugins.state — the domain-row cleanup lives here
+		// (governance boundary: settings cannot write routines/users/knowledge).
+		// Service functions own each table write; they accept WriteExecutor so
+		// this is one transaction.
+		try {
+			await db.transaction(async (tx) => {
+				await setPluginRoutinesActive(tx, id, false);
+				await setPluginAgentsStatus(tx, id, "inactive");
+				await setPluginSkillsStatus(tx, id, "archived");
+			});
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return c.json({ code: "DISABLE_CLEANUP_FAILED", error: msg }, 500);
 		}
 		return c.json({ ok: true });
 	});
@@ -275,8 +365,21 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 			const msg = err instanceof Error ? err.message : String(err);
 			return c.json({ code: "FORBIDDEN", error: msg }, 400);
 		}
-		// BA9b: remove all skill knowledge items for this plugin.
-		await removeByPluginTopic(db, `plugin:${id}`, []);
+		// @lore BA9d: clean up all materialised rows inside a transaction.
+		// Routines soft-deleted (not hard-deleted) because routine_runs has RESTRICT FK.
+		// Agents deactivated (not hard-deleted) because many tables have RESTRICT FK on users.id.
+		// Skills archived because knowledge audit-log tables have RESTRICT FK on knowledge_items.id.
+		// Service functions own each table write; they accept WriteExecutor so this is one transaction.
+		try {
+			await db.transaction(async (tx) => {
+				await softDeletePluginRoutines(tx, id);
+				await setPluginAgentsStatus(tx, id, "inactive");
+				await removeByPluginTopic(tx, `plugin:${id}`, []);
+			});
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			return c.json({ code: "REMOVE_CLEANUP_FAILED", error: msg }, 500);
+		}
 		return c.json({ ok: true });
 	});
 
@@ -309,6 +412,39 @@ export function createPluginRoutes(db: HyperIdleDb): Hono {
 		}
 
 		const namespacedKey = pluginContributionKey(pluginId, manifestKey);
+
+		// Skills are stored as knowledge_items and are not in plugin_configuration_defaults,
+		// so restoring them means re-reading the SKILL.md from the plugin's install_path.
+		// @lore BA9d D12: the plugin IS the canonical version; restore = re-import from disk.
+		if (kind === "skill") {
+			if (!existing.installPath) {
+				return c.json(
+					{
+						code: "NO_INSTALL_PATH",
+						error:
+							"This plugin has no recorded install path — it was installed before skill restore was supported, or on a server not configured with a plugins directory. Reinstall the plugin to enable restore.",
+					},
+					422,
+				);
+			}
+			const skillFilePath = join(existing.installPath, "skills", manifestKey, "SKILL.md");
+			let body: string;
+			try {
+				body = readFileSync(skillFilePath, "utf-8");
+			} catch {
+				return c.json(
+					{
+						code: "SKILL_SOURCE_NOT_FOUND",
+						error: `Skill source not found at ${skillFilePath}. The plugin install may be corrupted.`,
+					},
+					422,
+				);
+			}
+			const skillId = skillItemId(pluginId, manifestKey);
+			await restorePluginSkillBody(db, skillId, body, pluginId);
+			return c.json({ ok: true, key: namespacedKey });
+		}
+
 		await restorePluginContribution(db, {
 			pluginId,
 			manifestKey,

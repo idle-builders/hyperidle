@@ -102,7 +102,7 @@ export interface AgentConfig {
 	 * keeps the counts in their own state — same rendered string, and a save no
 	 * longer carries a run count at all.
 	 */
-	/** AB3: "team" | "strategy" | "individual" | null. Matches users.agentCategory. @lore AD8a: "personal" renamed to "individual". */
+	/** AB3: "team" | "individual" | null. Matches users.agentCategory. @lore AD8a: "personal"→"individual". @lore BA9d: "strategy" removed. */
 	agentCategory: string | null;
 	/**
 	 * AO1: Registered-filesystem ids injected into THIS bot (the per-bot injection
