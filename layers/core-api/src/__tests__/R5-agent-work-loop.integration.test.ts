@@ -181,9 +181,14 @@ describe("R5: Agent Work Loop integration", () => {
 		});
 	});
 
-	// AC2: submit_review tool posts a review message visible in the bet's thread
-	describe("AC2: submit_review tool — review message in bet host thread", () => {
-		test("submitted review message appears in bet host thread", async ({ db, eventBus, app }) => {
+	// AC2: submit_review tool posts a review message visible in the task's
+	// own thread (founder ruling 7: never the bet's).
+	describe("AC2: submit_review tool — review message in task host thread", () => {
+		test("submitted review message appears in the task's own host thread", async ({
+			db,
+			eventBus,
+			app,
+		}) => {
 			await seedBase(db);
 			const ctx = makeContext(db, eventBus);
 			const submitReviewTool = buildSubmitReviewTool(app);
@@ -204,11 +209,12 @@ describe("R5: Agent Work Loop integration", () => {
 				messageId: string;
 			};
 
-			// Thread should exist with hostKind="bet"
+			// Founder ruling 7: the review lands on the TASK's own thread, never
+			// the bet's.
 			const [thread] = await db.select().from(threads).where(eq(threads.id, threadId));
 			expect(thread).toBeDefined();
-			expect(thread?.hostKind).toBe("bet");
-			expect(thread?.hostId).toBe("b1");
+			expect(thread?.hostKind).toBe("task");
+			expect(thread?.hostId).toBe("task-1");
 
 			// Message should exist
 			const [msg] = await db.select().from(messages).where(eq(messages.id, messageId));

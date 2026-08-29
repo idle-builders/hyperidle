@@ -596,13 +596,56 @@ const submitReviewInputSchema = z.object({
 
 type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
 
+/**
+ * Founder ruling 7 — a review lands in the thread the task already has, or a
+ * new one attached to the task, never the bet's: a task will exist without a
+ * bet, so resolving via `parentTask.betId` is not just the wrong host, it can
+ * be an empty one. Extracted from the handler to keep it readable as a
+ * single flow.
+ */
+async function resolveReviewThreadId(
+	ports: ToolHandlersPorts,
+	taskId: string,
+	agentId: string,
+	now: string,
+): Promise<string> {
+	const existingThread = await ports.coreApi.getFirstThreadByHost("task", taskId, agentId);
+	if (existingThread) {
+		if (!existingThread.participants.includes(agentId)) {
+			await ports.coreApi.updateThread(
+				existingThread.id,
+				{ participants: [...existingThread.participants, agentId], lastActiveAt: now },
+				agentId,
+			);
+		}
+		return existingThread.id;
+	}
+
+	// @lore founder ruling 7 — a newly created review thread starts with NO
+	// participants at all, so it has to be seeded, and it is seeded with the
+	// sole human via `findSoleHumanUser`: the same seam `reply`'s
+	// no-calling-thread fallback already uses (this file, above), not
+	// `resolveReviewRecipientsForItem`-style team routing, which answers a
+	// different question ("who on the team should see this new item") for a
+	// thread that may already have other participants. Without a human
+	// participant an agent-raised review is unreachable by construction —
+	// nobody is in the thread to approve it.
+	const human = await ports.coreApi.findSoleHumanUser(agentId);
+	const participants = human ? [human.id, agentId] : [agentId];
+	const created = await ports.coreApi.insertThread(
+		{ hostKind: "task", hostId: taskId, participants },
+		agentId,
+	);
+	return created.id;
+}
+
 function makeSubmitReviewTool<TDb>(
 	ports: ToolHandlersPorts,
 ): ToolDefinition<SubmitReviewInput, TDb> {
 	return {
 		name: "submit_review",
 		description:
-			"Submit a review for the current bet's work. Posts a review-type message to the bet's host thread. If no artifactRef is provided, falls back to a plain message with the review summary.",
+			"Submit a review for the current task's work. Posts a review-type message to the task's own thread — the task's existing thread if it has one, otherwise a new thread attached to the task (never the bet's thread — a task can exist without a bet). If no artifactRef is provided, falls back to a plain message with the review summary.",
 		inputSchema: submitReviewInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = submitReviewInputSchema.safeParse(args);
@@ -611,31 +654,9 @@ function makeSubmitReviewTool<TDb>(
 
 			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
-			const betId = parentTask.betId;
 
 			const now = new Date().toISOString();
-			// AU21 §9 Increment 2: routes through the CoreApiPort seam — the SAME
-			// routes a human caller's client would use — instead of the raw
-			// `ports.conversation` DI calls (deleted).
-			const existingThread = await ports.coreApi.getFirstThreadByHost("bet", betId, ctx.agentId);
-
-			let threadId: string;
-			if (existingThread) {
-				threadId = existingThread.id;
-				if (!existingThread.participants.includes(ctx.agentId)) {
-					await ports.coreApi.updateThread(
-						threadId,
-						{ participants: [...existingThread.participants, ctx.agentId], lastActiveAt: now },
-						ctx.agentId,
-					);
-				}
-			} else {
-				const created = await ports.coreApi.insertThread(
-					{ hostKind: "bet", hostId: betId, participants: [ctx.agentId] },
-					ctx.agentId,
-				);
-				threadId = created.id;
-			}
+			const threadId = await resolveReviewThreadId(ports, ctx.taskId, ctx.agentId, now);
 
 			// The route generates the message's id server-side; `created.id`
 			// replaces the client-generated `randomUUID()` the raw DI path used.
@@ -661,7 +682,7 @@ function makeSubmitReviewTool<TDb>(
 
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
-			return ok({ messageId, threadId, betId });
+			return ok({ messageId, threadId, betId: parentTask.betId });
 		},
 	};
 }
