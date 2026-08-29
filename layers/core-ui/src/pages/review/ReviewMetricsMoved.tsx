@@ -318,9 +318,7 @@ function ReviewMetricsMovedView({ fixture }: ReviewMetricsMovedProps): JSX.Eleme
 	// which figure starts expanded (so all 3 layers are visible in a screenshot) —
 	// the payload's own first figure, never a fixed literal, since the mapper's
 	// figure ids are generated per-payload (`fig-0`, `fig-1`, …).
-	const [expandedId, setExpandedId] = useState<string | null>(
-		() => fixture.figures[0]?.id ?? null,
-	);
+	const [expandedId, setExpandedId] = useState<string | null>(() => fixture.figures[0]?.id ?? null);
 
 	return (
 		<div className="max-w-[760px] bg-[var(--surface-page)] text-[var(--text-primary)]">

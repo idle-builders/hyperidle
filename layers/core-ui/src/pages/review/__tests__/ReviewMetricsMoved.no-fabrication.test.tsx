@@ -86,7 +86,7 @@ describe("ReviewMetricsMoved — no fabrication", () => {
 		expect(screen.queryByText(/no source/i)).not.toBeInTheDocument();
 	});
 
-	it('paints the success background on the tie-out strip when the payload ties', () => {
+	it("paints the success background on the tie-out strip when the payload ties", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
 		const tieOutStrip = screen.getByText(/^Opening 101/).closest("div");
