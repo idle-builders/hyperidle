@@ -302,3 +302,50 @@ If a path through the harness adapter is stubbed, it is **not** an integration t
 - Changing MCP bridge or enforcement product behavior (unless a real test surfaces a genuine bug).
 
 **Effort.** M (~1d)
+
+### AR7 — A Tier-2 harness is held to a guarantee the design does not make for it
+
+**Work package.** As someone reading the harness lane, I want the assistant-reply proof to assert
+what each harness can actually be held to, so that a red test means a real defect rather than an
+unlucky turn — and, if cursor-agent *can* be forced, for it to be forced like the others.
+
+**Why this matters.** `assistant-reply-live-harness.integration.test.ts` runs one proof across five
+harnesses and asserts `outcome === "completed"` for all of them. That outcome requires the return
+gate to observe a `reply()` tool call: `evaluate()` returns `not_returned` when a turn ends
+`completed` and the gate never saw one. cursor-agent is configured `returnEnforcementChannel: "none"`
+— there is no Stop-hook channel, so nothing re-prompts it and whether the test passes comes down to
+whether the model spontaneously called the tool. The domain model already says as much:
+`not_returned` is the outcome for a turn that ends without a return action *"after force budget
+spent, or on a Tier-2 harness."* So the lane currently carries a permanently red test that reports
+nothing about the code — and a red test nobody trusts is worse than no test.
+
+**Type.** backend.
+
+**What exists today.** cursor-agent is registered with `returnEnforcementChannel: "none"` and
+`mcpConfig: { dialect: "cursor-json" }`, and does receive the tool bridge (`--approve-mcps`). The
+other four harnesses have a real enforcement channel (`settings-claude`, `settings-codex`, …). The
+test applies one assertion to all five. Reproduced on `origin/main` and on a feature branch, twice
+each: 1 failed / 4 passed, always cursor-agent, always at `expect(result.outcome).toBe("completed")`.
+
+**What's genuinely missing.** A decision, then the work that follows it. Either the proof asserts
+per-tier — a Tier-2 harness is held to "the reply landed if it returned", not to "it returned" — or
+cursor-agent gains a real enforcement channel and is held to the same bar as the rest. The second
+needs evidence about whether the cursor-agent CLI supports a stop-hook at all; that is external tool
+capability and must be researched, not assumed.
+
+**Depends on.** None.
+
+**Complexity.** S
+
+**Acceptance criteria.**
+- The harness lane has no permanently-red test: every harness in the assistant-reply proof is
+  asserted against a guarantee its configuration can actually deliver.
+- If cursor-agent stays Tier-2, the proof states that in the test itself, and a reply that *does*
+  land is still asserted to reach the calling thread.
+- If cursor-agent gains an enforcement channel, it is proven by a real forced turn on the real
+  binary, not by a scripted adapter, per this track's forcing principle.
+- The decision and its evidence (what the cursor-agent CLI does and does not support, with version
+  and date) are recorded in the work package.
+
+**Registered.** 2026-08-29, parked out of BA9 by founder decision — found while proving BA9 end to
+end, unrelated to plugins or knowledge.
