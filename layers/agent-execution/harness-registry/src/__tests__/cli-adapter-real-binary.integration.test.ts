@@ -53,12 +53,13 @@
  * captured; token_usage>0 is the current equivalent proof).
  */
 
-import { execFile, execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
 import type { HarnessEvent, SessionConfig } from "@hyperidle/harness-protocol";
+import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { describe, expect, test } from "vitest";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 
@@ -66,6 +67,7 @@ const CLAUDE_CLI_CONFIG = cliAdapterFixture("claude");
 const CURSOR_AGENT_CLI_CONFIG = cliAdapterFixture("cursor-agent");
 
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
 import { requireHarness } from "./require-harness.js";
 
 const execFileAsync = promisify(execFile);
@@ -152,7 +154,7 @@ function provisionClaudeSandbox(sandboxPath: string): void {
 /**
  * Copy codex auth (auth.json + config.toml only, no SQLite) into .codex-home/.
  *
- * @lore BA2 ruling 18: this test drives `CliHarnessAdapter` directly against
+ * @lore BA2 ruling 18 (kept under ruling 22): this test drives `CliHarnessAdapter` directly against
  * `CLI_TOOL_CONFIGS.codex` with the git-repo-check bypass flag removed, so the
  * sandbox's own trust declaration (production's job — `writeCliMcpConfig`'s
  * codex-toml dialect) is not exercised here; this harness-adapter-level test
@@ -370,22 +372,22 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 		return;
 	}
 
-	const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-codex-"));
+	// @lore BA2 ruling 22 (corrects a prior version of this test): the sandbox
+	// here MUST come from production's own provisioning path, not a hand-rolled
+	// `git init` — a hand-rolled init proves nothing about whether production
+	// actually initializes the sandbox; it passes for the wrong reason even if
+	// the real fix is deleted. `LocalSandboxAdapter.spawn()` is the exact
+	// adapter run-orchestration's provisioner uses to create a session sandbox;
+	// `ensureSandboxGitRepo` is the exact function it calls afterwards (Phase
+	// 4.5, after filesystem mounting — there is none to mount here). Same two
+	// calls, same order, as the real session-provisioning flow.
+	const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-adapter-codex-base-"));
+	const sandboxAdapter = new LocalSandboxAdapter();
+	const sandboxHandle = await sandboxAdapter.spawn(baseDir);
+	const sandboxPath = sandboxHandle.path;
 
 	try {
-		// Codex requires a git repo in the working directory.
-		execFileSync("git", ["init"], { cwd: sandboxPath, stdio: "ignore" });
-		execFileSync("git", ["commit", "--allow-empty", "-m", "init"], {
-			cwd: sandboxPath,
-			stdio: "ignore",
-			env: {
-				...process.env,
-				GIT_AUTHOR_NAME: "test",
-				GIT_AUTHOR_EMAIL: "test@test.com",
-				GIT_COMMITTER_NAME: "test",
-				GIT_COMMITTER_EMAIL: "test@test.com",
-			},
-		});
+		ensureSandboxGitRepo(sandboxPath);
 
 		// Provision .codex-home/ (auth.json + config.toml only — no SQLite).
 		// The adapter detects this dir and sets CODEX_HOME automatically.
@@ -488,7 +490,7 @@ async function runCodexAdapterTest({ skip }: { skip: () => void }): Promise<void
 			);
 		}
 	} finally {
-		await rmSandboxWithRetry(sandboxPath);
+		await rmSandboxWithRetry(baseDir);
 	}
 }
 

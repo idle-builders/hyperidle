@@ -51,7 +51,7 @@ import {
 } from "./filesystem-provisioning.js";
 // Filesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
-import { type Filesystem, localTrustedPath } from "./mounter.js";
+import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -1197,6 +1197,14 @@ async function admitSession(
 			mounter: deps.mounter,
 		});
 	}
+
+	// @lore BA2 ruling 22: guarantee the sandbox is a git repo, AFTER mounting
+	// (never before — a mounted code filesystem's `git clone`/`git worktree add`
+	// refuses a target directory that already has a `.git`; see
+	// `ensureSandboxGitRepo`'s own doc comment in mounter.ts). Unconditional —
+	// runs even when no mounter is configured, since every session sandbox
+	// benefits (codex's trust precondition; an agent's own diff/revert).
+	ensureSandboxGitRepo(sandboxPath);
 
 	// ── Phase 6: assemble context into the sandbox through the agent layer.
 	if (params.taskId) {

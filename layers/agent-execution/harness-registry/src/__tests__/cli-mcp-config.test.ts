@@ -213,6 +213,36 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 			expect(content.match(/trust_level = "trusted"/g)?.length).toBe(1);
 		});
 
+		test("escapes a quote in a trustedPaths entry instead of breaking the TOML string", () => {
+			// A doc_set folder name is user-influenced (BA2 ruling 18: the filesystem
+			// primitive supplies the trusted path). An unescaped `"` in that path would
+			// close the TOML string early, corrupting the file or letting the remainder
+			// of the path be read as arbitrary config keys.
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+			const maliciousPath = '/tmp/docs"]\n[bogus_key]\ninjected = true\n#';
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+				trustedPaths: [maliciousPath],
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			// The quote and newlines must be escaped, not written raw — the entry
+			// stays a single `[projects."..."]` table header on one line, and the
+			// injected content lives inside the quoted string, not as its own table.
+			expect(content).toContain(
+				`[projects."${maliciousPath.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"]`,
+			);
+			const lines = content.split("\n");
+			expect(lines).not.toContain("[bogus_key]");
+			expect(lines).not.toContain("injected = true");
+			expect(lines.filter((line) => line.startsWith("[projects."))).toHaveLength(2);
+		});
+
 		test("leaves the [mcp_servers.hyperidle] block undisturbed by the trust declaration", () => {
 			const codexHomeDir = path.join(sandboxPath, ".codex-home");
 			fs.mkdirSync(codexHomeDir, { recursive: true });

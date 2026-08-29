@@ -139,20 +139,43 @@ function writeCodexToml(params: {
 }
 
 /**
- * BA2 founder ruling 18: trust is DECLARED through codex's own mechanism, never
- * bypassed. codex 0.150.1 refuses to run ("Not inside a trusted directory")
- * unless the directory it is launched in carries `[projects."<path>"]
- * trust_level = "trusted"` in its config.toml — verified in the installed
- * binary's own `~/.codex/config.toml`. The session sandbox (codex's cwd) is
- * always declared; `extraPaths` carries the session's other mounted
- * filesystems (the filesystem primitive's job is deciding what is trusted —
- * see docs/process-layer/filesystem-primitive.md), so a doc_set folder
- * symlinked into the sandbox from elsewhere on disk is trusted too, not just
- * the sandbox root it is linked under.
+ * BA2 ruling 22 (corrects ruling 18): trust is DECLARED through codex's own
+ * mechanism, never bypassed — kept deliberately as the general shape (where a
+ * harness has a trusted-directory mechanism, declare the filesystems we
+ * inject as trusted through it), not because it was observed to change
+ * whether `codex exec` runs. Empirically, on codex-cli 0.150.1, this
+ * `[projects."<path>"] trust_level = "trusted"` block makes no observed
+ * difference to the "Not inside a trusted directory" refusal in either
+ * direction — that refusal tracks git-repo-ness alone (see
+ * `ensureSandboxGitRepo`, run-orchestration/mounter.ts, and the corrected
+ * @lore in adapter-pool.ts next to codex's CLI_TOOL_CONFIGS entry). The
+ * session sandbox (codex's cwd) is always declared; `extraPaths` carries the
+ * session's other mounted filesystems (the filesystem primitive's job is
+ * deciding what is trusted — see docs/process-layer/filesystem-primitive.md),
+ * so a doc_set folder symlinked into the sandbox from elsewhere on disk is
+ * trusted too, not just the sandbox root it is linked under.
  */
 function buildCodexTrustBlock(sandboxPath: string, extraPaths?: readonly string[]): string {
 	const paths = [...new Set([sandboxPath, ...(extraPaths ?? [])])];
-	return paths.map((p) => `\n[projects."${p}"]\ntrust_level = "trusted"\n`).join("");
+	return paths
+		.map((p) => `\n[projects."${escapeTomlString(p)}"]\ntrust_level = "trusted"\n`)
+		.join("");
+}
+
+/**
+ * Escape a value for a TOML basic string. `extraPaths` (a mounted filesystem's
+ * real path, e.g. a doc_set folder name) is user-influenced — an unescaped `"`
+ * closes the string early and lets the rest of the value be parsed as TOML
+ * (new keys/tables), and a literal newline is not valid inside a basic string
+ * at all. Escape backslash first so later escapes are not double-escaped.
+ */
+function escapeTomlString(value: string): string {
+	return value
+		.replace(/\\/g, "\\\\")
+		.replace(/"/g, '\\"')
+		.replace(/\n/g, "\\n")
+		.replace(/\r/g, "\\r")
+		.replace(/\t/g, "\\t");
 }
 
 // ── opencode-json dialect ─────────────────────────────────────────────────────

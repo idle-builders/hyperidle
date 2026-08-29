@@ -12,7 +12,9 @@
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { MountingGitRunnerFactory } from "./mounter-ports.js";
 
 /**
@@ -208,9 +210,36 @@ export function localTrustedPath(filesystem: Filesystem): string | undefined {
 	const ref = filesystem.resourceRef;
 	if (ref.kind === "doc_set") return ref.folder;
 	if (ref.kind === "code" && filesystem.connectionId == null && isLocalRepoPath(ref)) {
-		return ref.repo;
+		return normalizeLocalPath(ref.repo);
 	}
 	return undefined;
+}
+
+/**
+ * BA2 ruling 18 defect fix: `isLocalRepoPath` accepts `~/`, `./`, `../` and
+ * `file://` spellings (a repo ref is user-configured, not machine-generated),
+ * but a harness's trust config wants a real filesystem path — `[projects."~/repo"]`
+ * is not a path codex's own trust store resolves against `~`. Expand `~`,
+ * resolve relative segments against cwd, strip a `file://` scheme, and
+ * canonicalize through `realpathSync` so a symlinked spelling of the same repo
+ * declares the same trusted path codex will actually see as its cwd. Falls
+ * back to the resolved (non-realpath'd) form if the path does not exist yet —
+ * by the time this runs the mount phase has already created it, but a defensive
+ * fallback beats throwing out of a trust-declaration helper.
+ */
+function normalizeLocalPath(raw: string): string {
+	let resolved = raw;
+	if (resolved.startsWith("file://")) {
+		resolved = fileURLToPath(resolved);
+	} else if (resolved === "~" || resolved.startsWith("~/")) {
+		resolved = path.join(os.homedir(), resolved.slice(1));
+	}
+	resolved = path.resolve(resolved);
+	try {
+		return fs.realpathSync(resolved);
+	} catch {
+		return resolved;
+	}
 }
 
 class MalformedFilesystemError extends Error {
@@ -266,4 +295,27 @@ export class RegistryFilesystemMounter {
 	}): Promise<AdapterCaptureResult> {
 		return { success: true, captured: false };
 	}
+}
+
+/**
+ * BA2 founder ruling 22: every session sandbox is a git repository — codex-cli
+ * refuses to run outside a directory it recognizes as one ("Not inside a
+ * trusted directory"), a SEPARATE precondition from the `trust_level =
+ * "trusted"` declaration (cli-mcp-config.ts) — and a versioned scratch
+ * directory is plausibly useful beyond codex (an agent can diff/revert its
+ * own work). A bare `git init` with no commits is sufficient for codex's
+ * check — verified against codex-cli 0.150.1; no initial commit is required.
+ *
+ * Called AFTER Phase 4.5 filesystem mounting, never before: `GitCloneAdapter`
+ * and `GitWorktreeAdapter` both write straight into `sandboxPath`, and both
+ * `git clone` and `git worktree add` refuse a target directory that already
+ * contains a `.git` (verified empirically — "already exists" / "not an empty
+ * directory"). Mounting a code filesystem already makes the sandbox a git
+ * repo as a side effect, so this only inits when `.git` is still absent —
+ * the no-filesystem and doc_set-only cases, which is exactly where the
+ * original bug lived.
+ */
+export function ensureSandboxGitRepo(sandboxPath: string): void {
+	if (fs.existsSync(path.join(sandboxPath, ".git"))) return;
+	execFileSync("git", ["init", "--quiet"], { cwd: sandboxPath });
 }
