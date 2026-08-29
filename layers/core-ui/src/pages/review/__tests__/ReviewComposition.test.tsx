@@ -36,10 +36,9 @@ describe("ReviewComposition", () => {
 			expect(screen.getByText(kpi.label)).toBeInTheDocument();
 			expect(screen.getByText(kpi.value)).toBeInTheDocument();
 		}
-		// T4c (architecture.md §2.8.1 C / plan.md AC8): "Before"/"After" came only from the
-		// hardcoded CheckoutCard mock this task deletes (F42) — never from real subject data.
-		// Asserting them here encoded the defect; dropped rather than preserving the mock to
-		// keep it green.
+		// "Before"/"After" came only from the deleted hardcoded CheckoutCard mock —
+		// never from real subject data. Asserting them here encoded the defect;
+		// dropped rather than preserving the mock to keep it green.
 	});
 
 	it("AC2: surfaces derived needs with jump links", () => {
@@ -156,16 +155,15 @@ describe("ReviewComposition", () => {
 	});
 });
 
-describe("ReviewComposition — T4c: the checkout mock is deleted (architecture.md §2.8.1 C / plan.md AC8)", () => {
+describe("ReviewComposition — the checkout mock is deleted", () => {
 	/**
 	 * A ComposedReviewSubject shaped like a real, non-demo review — deliberately NOT the AL3
 	 * fixture above. A production `ReviewPayload` only ever carries `{title, reasoning,
 	 * artifactRef}` (domain-model `thread.ts:199-203`, what `submit_review` actually writes);
 	 * nothing populates a token count, tools, KPIs or needs, so the loader composes those as
-	 * empty (architecture.md §2.8.1 A: "empty arrays for what nothing produces"). `tokens: ""`
-	 * is that real gap, not a convenience value chosen to make the assertion trivially pass —
-	 * it is the exact condition the architecture cites for F42 ("every review that is not the
-	 * demo fixture").
+	 * empty arrays for what nothing produces. `tokens: ""` is that real gap, not a
+	 * convenience value chosen to make the assertion trivially pass — it is the exact
+	 * condition every non-demo review is in.
 	 */
 	const realReviewSubject: ComposedReviewSubject = {
 		id: "review-msg-real-1",

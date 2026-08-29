@@ -1,5 +1,4 @@
-// BA2 T4e-a — shared helper for the no-fabrication property (architecture.md
-// §2.8.2 D, §6.2 NB-5, founder ruling 14).
+// Shared helper for the no-fabrication property.
 //
 // The property under test is NOT a list of banned strings: "no string or number
 // may reach the DOM that the payload did not supply, except fixed interface

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { MOCK_REVIEW_SUBJECT } from "../__fixtures__/review-subject.fixture";
 import { getReviewCanvas } from "../canvas-registry";
@@ -34,9 +35,9 @@ describe("ReviewMetricsMoved canvas", () => {
 
 		expect(screen.getAllByText(/Recognized revenue/i).length).toBeGreaterThan(0);
 		expect(screen.getByText(/Roll-forward/i)).toBeInTheDocument();
-		// BA2 T4e-a (ruling 14, §2.8.2 D): "ties to bank" named a source the
-		// payload never supplied and was removed as fabrication. `tieOut.ties`
-		// is a real payload boolean, so the honest indicator is the bare word.
+		// "ties to bank" named a source the payload never supplied and was
+		// removed as fabrication. `tieOut.ties` is a real payload boolean, so
+		// the honest indicator is the bare word.
 		expect(screen.getAllByText(/^ties$/i).length).toBeGreaterThan(0);
 	});
 
@@ -47,9 +48,17 @@ describe("ReviewMetricsMoved canvas", () => {
 		expect(screen.getByText(/Unidentified wire/i)).toBeInTheDocument();
 	});
 
-	it("exposes a detail affordance (L3)", () => {
+	it("exposes a detail affordance (L3), open by default on the payload's own first figure", async () => {
+		const user = userEvent.setup();
 		renderCanvas();
 
-		expect(screen.getAllByRole("button", { name: /Where from\?/i }).length).toBeGreaterThan(0);
+		// The fixture's one headline figure starts expanded — derived from the
+		// real payload's own first figure, not a fixed literal — so the toggle
+		// reads "Hide source" until clicked.
+		const toggle = screen.getByRole("button", { name: /Hide source/i });
+		expect(toggle).toBeInTheDocument();
+
+		await user.click(toggle);
+		expect(screen.getByRole("button", { name: /Where from\?/i })).toBeInTheDocument();
 	});
 });

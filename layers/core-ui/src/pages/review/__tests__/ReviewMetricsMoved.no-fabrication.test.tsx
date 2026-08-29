@@ -1,13 +1,12 @@
-// BA2 T4e-a — ReviewMetricsMoved must render only what its payload supplies.
+// ReviewMetricsMoved must render only what its payload supplies.
 //
-// architecture.md §2.8.2 D names the whole L1 narrative as invented ("...from
-// April. The period ties to bank; biggest open item is a $0.00 wire with no
-// source."), the fixed `Apr`/`May` column heads, and `usd()`/`usdCents()`
-// forcing every number into USD even though `MetricsMovedPayload` carries no
-// currency field at all — and separately, that the payload's OWN `period`
-// field never renders anywhere.
+// The whole L1 narrative used to be invented ("...from April. The period ties
+// to bank; biggest open item is a $0.00 wire with no source."), along with
+// fixed `Apr`/`May` column heads, and `usd()`/`usdCents()` forcing every
+// number into USD even though `MetricsMovedPayload` carries no currency field
+// at all — and separately, the payload's OWN `period` field never rendered
+// anywhere.
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { getReviewCanvas } from "../canvas-registry";
 import type { MetricsMovedPayload, ReviewArtifact } from "../review-artifact";
@@ -58,17 +57,8 @@ const CHROME = [
 	"Opening",
 	"Activity",
 	"Closing",
-	"Show",
-	"Hide",
-	"items",
-	"less",
-	"than",
-	"net",
-	"ties",
-	"to",
-	"bank", // NOTE: kept as chrome only in the sense the tie-out strip always
-	// shows this phrase when `tieOut.ties` is true — flagged as ambiguous
-	// below; see the dedicated negative test for the narrative sentence.
+	"ties", // the tie-out strip's own fixed word — conditional on `tieOut.ties`,
+	// but "ties" itself names the region rather than asserting a fact.
 	"Exceptions",
 	"by",
 	"amount",
@@ -79,7 +69,7 @@ const CHROME = [
 	"in",
 ];
 
-describe("ReviewMetricsMoved — no fabrication (BA2 T4e-a)", () => {
+describe("ReviewMetricsMoved — no fabrication", () => {
 	it("renders the payload's own period instead of a fixed month name", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
@@ -92,9 +82,25 @@ describe("ReviewMetricsMoved — no fabrication (BA2 T4e-a)", () => {
 	it("does not assert the period ties to a bank the payload never named", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
-		// appears twice today: the L1 narrative AND the tie-out strip footer.
 		expect(screen.queryAllByText(/ties to bank/i)).toHaveLength(0);
 		expect(screen.queryByText(/no source/i)).not.toBeInTheDocument();
+	});
+
+	it('does not paint a success checkmark or "ties" over a tie-out the payload marks false', () => {
+		render(
+			<Canvas
+				artifact={artifactWith({
+					...SENTINEL_PAYLOAD,
+					tieOut: { ...SENTINEL_PAYLOAD.tieOut, ties: false },
+				})}
+			/>,
+		);
+
+		// The checkmark glyph and the "ties" word were previously rendered
+		// unconditionally, painting a success mark over a reconciliation that
+		// the payload itself marks as not tying.
+		expect(screen.queryByText("✓")).not.toBeInTheDocument();
+		expect(screen.queryByText(/^ties$/)).not.toBeInTheDocument();
 	});
 
 	it("does not force a USD currency reading onto payload numbers with no currency field", () => {
@@ -103,22 +109,18 @@ describe("ReviewMetricsMoved — no fabrication (BA2 T4e-a)", () => {
 		expect(domText(container)).not.toContain("$");
 	});
 
-	it("does not invent a QuickBooks provenance for a figure the payload never sourced", async () => {
-		const user = userEvent.setup();
+	it("does not invent a QuickBooks provenance for a figure the payload never sourced", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
-		await user.click(screen.getByRole("button", { name: /where from/i }));
-
+		// The sole figure starts expanded (derived from the payload's own first
+		// figure), so the disclosure is already open — no click needed.
+		expect(screen.getByRole("button", { name: /Hide source/i })).toBeInTheDocument();
 		expect(screen.queryByText(/quickbooks/i)).not.toBeInTheDocument();
 		expect(screen.queryAllByText(/^qb$/i)).toHaveLength(0);
 	});
 
-	it("renders only what the payload supplies, chrome aside, once every disclosure is open", async () => {
-		const user = userEvent.setup();
+	it("renders only what the payload supplies, chrome aside, once every disclosure is open", () => {
 		const { container } = render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
-
-		await user.click(screen.getByRole("button", { name: /where from/i }));
-		await user.click(screen.getByRole("button", { name: /items/i }));
 
 		expect(screen.getByText(SENTINEL_PAYLOAD.headlines[0]!.label)).toBeInTheDocument();
 		expect(domText(container)).toContain(String(SENTINEL_PAYLOAD.headlines[0]!.current));
@@ -146,8 +148,6 @@ describe("ReviewMetricsMoved — no fabrication (BA2 T4e-a)", () => {
 			derived: [
 				1, // exceptions.length ("1, by amount")
 				524 - 311, // the rendered delta pill (current - prior)
-				0, // mapMetricsPayload always sets trivia {count:0, net:0} — the payload
-				// carries no trivia concept at all, so zero is honest, not invented.
 				"Z", // ToolLogo's neutral monogram for the unrecognized "zx-tool-metrics" id
 			],
 		});

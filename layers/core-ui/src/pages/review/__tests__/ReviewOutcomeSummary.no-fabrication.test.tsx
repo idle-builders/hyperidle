@@ -1,14 +1,14 @@
-// BA2 T4e-a — ReviewOutcomeSummary must render only what its payload supplies.
+// ReviewOutcomeSummary must render only what its payload supplies.
 //
 // Two things this file proves that a prop/type-level test cannot:
 //   1. the guard-passing path (`isOutcomeSummaryPayload` never checks `tokens`)
-//      renders "0 tok" for an agent that reported no token count — a fabricated
-//      fact, not an honest empty. §2.8.2 D names this the guard-skipped-optional
-//      trap: deleting `?? 0` alone renders "undefined tok" instead, because
-//      `TokensChip` takes `tokens: number`. The fix is conditional rendering.
+//      used to render "0 tok" for an agent that reported no token count — a
+//      fabricated fact, not an honest empty (deleting `?? 0` alone renders
+//      "undefined tok" instead, because `TokensChip` takes `tokens: number`).
+//      The fix is conditional rendering.
 //   2. every other string the frame renders on a well-formed payload came from
-//      that payload — checked as a token diff (architecture.md §6.2 NB-5), not a
-//      banned-string list, so it also catches a fabrication nobody has named yet.
+//      that payload — checked as a token diff, not a banned-string list, so it
+//      also catches a fabrication nobody has named yet.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -89,7 +89,7 @@ const DERIVED = [
 	"Z", // ToolLogo's neutral monogram for an unrecognized tool id — first letter of "zx-tool-outcome"
 ];
 
-describe("ReviewOutcomeSummary — no fabrication (BA2 T4e-a)", () => {
+describe("ReviewOutcomeSummary — no fabrication", () => {
 	it("renders no token count at all when the payload omits tokens (guard-passing path)", () => {
 		// isOutcomeSummaryPayload (ReviewOutcomeSummary.tsx:342-353) never checks
 		// `tokens` — a well-formed payload missing it PASSES the guard. Today
@@ -107,9 +107,9 @@ describe("ReviewOutcomeSummary — no fabrication (BA2 T4e-a)", () => {
 		const user = userEvent.setup();
 		const { container } = render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
-		// Trap 1 (§2.8.2 D): the default DOM is not the whole DOM. Expand the
-		// done-conditions disclosure so the met condition (floated out of the
-		// default unmet-only view) is checked too.
+		// The default DOM is not the whole DOM. Expand the done-conditions
+		// disclosure so the met condition (floated out of the default
+		// unmet-only view) is checked too.
 		await user.click(screen.getByRole("button", { name: /expand all/i }));
 
 		// positive: every payload-supplied value the frame owns actually appears —

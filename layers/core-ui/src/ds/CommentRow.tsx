@@ -207,9 +207,9 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			return <MessagePayloads text={p.text} refs={p.refs} sanitizeHtml={sanitizeHtml} />;
 		}
 		case "review": {
-			// T4c (architecture.md §2.8.1 C): rich slots carry the review's substance on
-			// ThreadShell, but HostThreadSection supplies none (WorkTask.tsx, HostThreadSection.tsx)
-			// — without a fallback a review is a blank row there. Text only, no navigation.
+			// Rich slots carry the review's substance on ThreadShell, but
+			// HostThreadSection supplies none (WorkTask.tsx, HostThreadSection.tsx) —
+			// without a fallback a review is a blank row there. Text only, no navigation.
 			const p = message.payload;
 			return (
 				<p className="type-copy  text-[var(--text-secondary)]  whitespace-pre-wrap break-words">
@@ -218,8 +218,7 @@ function renderBody(message: Message, sanitizeHtml?: (raw: string) => string): R
 			);
 		}
 		case "questionnaire":
-			// questionnaire substance lives in the rich slots; standard body is null. Not a
-			// review and not T4c's — left alone.
+			// questionnaire substance lives in the rich slots; standard body is null.
 			return null;
 		default:
 			return exhaustiveAssert(message);

@@ -1,10 +1,10 @@
-// BA2 T4e-a — ReviewBrowserPreview must render only what its payload supplies.
+// ReviewBrowserPreview must render only what its payload supplies.
 //
-// `BrowserPreviewPayload` is `{url, title, previewBody}` — nothing else.
-// `mapBrowserPayload` (ReviewBrowserPreview.tsx:479-500) invents a fixed nav
-// bar, a "Solo / $19/mo" pricing tier, and reuses `previewBody` twice (subhead
-// AND footer). The view itself hardcodes a second tier badge, "Founder", that
-// the mapper's own tier ("Solo") never named.
+// `BrowserPreviewPayload` is `{url, title, previewBody}` — nothing else. An
+// earlier mapper invented a fixed nav bar, a "Solo / $19/mo" pricing tier, and
+// reused `previewBody` twice (subhead AND footer). The view itself hardcoded
+// a second tier badge, "Founder", that the mapper's own tier ("Solo") never
+// named.
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { getReviewCanvas } from "../canvas-registry";
@@ -37,10 +37,9 @@ const SENTINEL_PAYLOAD: BrowserPreviewPayload = {
 // chrome, present verbatim in every sibling no-fabrication CHROME list
 // (ReviewMetricsMoved, ReviewBatch, ReviewCodeDiff, ReviewFieldChangeSet,
 // ReviewRenderedInContext, ReviewActionOperation all include both tokens).
-// This file omitted "in"; added to match — see write-code report for BA2 T4e-a.
 const CHROME = ["Approve", "Request", "changes", "Reload", "preview", "Open", "in"];
 
-describe("ReviewBrowserPreview — no fabrication (BA2 T4e-a)", () => {
+describe("ReviewBrowserPreview — no fabrication", () => {
 	it("does not invent a nav bar the payload never supplied", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 

@@ -107,14 +107,13 @@ describe("ReviewActionOperation — AL7 execution outcome band", () => {
 	});
 });
 
-// AC10b (WARNING-2) described `ProposedCallArgsPanel` + the `proposedCall`
-// prop path as the fix for an approver seeing fake Stripe ids/amounts. BA2
-// T4e-a deletes that panel and prop: `artifact.proposedCall` is populated
-// only by a real `proposed_calls` row (`findProposedCall` in the reviews
-// loader), and nothing in production ever writes one — architecture.md §1
-// "The AL7 capture machinery is production-dead" (the workflow router's
-// `sessionWorkflow` has no producer; the one durable-session call site,
-// `run-orchestration/src/start-runtime.ts`, passes none). So this describe
-// block's four tests exercised a prop path reachable only from this test
-// file, never from a real render — test-only-reachable code, deleted with
-// the code it covered rather than preserved.
+// `ProposedCallArgsPanel` and the `proposedCall` prop it read were the fix for
+// an approver seeing fake Stripe ids/amounts; both are deleted here.
+// `artifact.proposedCall` is populated only by a real `proposed_calls` row
+// (`findProposedCall` in the reviews loader), and nothing in production ever
+// writes one — the AL7 capture machinery is production-dead (the workflow
+// router's `sessionWorkflow` has no producer; the one durable-session call
+// site, `run-orchestration/src/start-runtime.ts`, passes none). So this
+// describe block's four tests exercised a prop path reachable only from this
+// test file, never from a real render — test-only-reachable code, deleted
+// with the code it covered rather than preserved.

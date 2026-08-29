@@ -1,10 +1,9 @@
-// BA2 T4e-a — ReviewActionOperation must render only what its payload supplies.
+// ReviewActionOperation must render only what its payload supplies.
 //
-// Named in architecture.md §2.8.2 D: the "Approve refund" button renders on ANY
-// operation, not only a refund. This file also names one the architecture's own
-// sweep missed — `IrreversibleBadge` renders unconditionally regardless of
+// The "Approve refund" button used to render on ANY operation, not only a
+// refund. `IrreversibleBadge` used to render unconditionally regardless of
 // `payload.irreversible`, contradicting the L3 reversibility text a few lines
-// below it, which IS conditional on the same field. Flagged, not decided here.
+// below it, which was already conditional on the same field.
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { getReviewCanvas } from "../canvas-registry";
@@ -49,15 +48,13 @@ const CHROME = [
 	"Approve",
 	"Open",
 	"in",
-	"Irreversible", // the fixed-vocabulary badge/section label, not this test's assertion target
-	"Irreversible once submitted — confirm to proceed.".split(/\s+/), // mapper's own conditional text
 ].flat();
 
 function domTextOf(container: HTMLElement): string {
 	return domText(container);
 }
 
-describe("ReviewActionOperation — no fabrication (BA2 T4e-a)", () => {
+describe("ReviewActionOperation — no fabrication", () => {
 	it('does not label the approve action "refund" for a non-refund operation', () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
@@ -103,7 +100,13 @@ describe("ReviewActionOperation — no fabrication (BA2 T4e-a)", () => {
 				...SENTINEL_PAYLOAD.receiptFields.flatMap((f) => [f.label, f.value]),
 			],
 			chrome: CHROME,
-			derived: ["Z"], // ToolLogo's neutral monogram for the unrecognized "zx-tool-action" id
+			derived: [
+				"Z", // ToolLogo's neutral monogram for the unrecognized "zx-tool-action" id
+				// A claim about THIS operation, computed from `payload.irreversible` —
+				// not fixed vocabulary, so it belongs here rather than in chrome.
+				"Irreversible",
+				..."Irreversible once submitted — confirm to proceed.".split(/\s+/),
+			],
 		});
 	});
 

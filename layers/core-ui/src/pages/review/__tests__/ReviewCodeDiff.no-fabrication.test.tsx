@@ -1,14 +1,13 @@
-// BA2 T4e-a — ReviewCodeDiff must render only what its payload supplies.
+// ReviewCodeDiff must render only what its payload supplies.
 //
-// architecture.md §2.8.2 D names `coverage +0.4%` (CiRow, ReviewCodeDiff.tsx:335-336)
-// as a figure `CodeDiffPayload` has no field for, rendered on every diff — and
-// the fixed "Minor / generated & formatting — safe to skip" framing (:751-753).
-// This file also names two neither critique caught: `checks: readonly
-// string[]` carries labels only, no pass/fail state, yet CiRow always renders
-// "All checks passed" with a checkmark next to every one of them; and the
-// expanded trivia band hardcodes three literal filenames — "openapi/schema.gen.ts",
-// "package-lock.json", "src/checkout/styles.css" — regardless of what the
-// payload's trivia actually touched.
+// `coverage +0.4%` (CiRow) used to render on every diff as a figure
+// `CodeDiffPayload` has no field for, alongside a fixed "Minor / generated &
+// formatting — safe to skip" framing. `checks: readonly string[]` carries
+// labels only, no pass/fail state, yet CiRow used to always render "All
+// checks passed" with a checkmark next to every one of them; and the
+// expanded trivia band used to hardcode three literal filenames —
+// "openapi/schema.gen.ts", "package-lock.json", "src/checkout/styles.css" —
+// regardless of what the payload's trivia actually touched.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -63,15 +62,12 @@ const CHROME = [
 	"Minor",
 	"generated",
 	"formatting",
-	"safe",
-	"to",
-	"skip",
 	"Logic",
 	"Open",
 	"in",
 ];
 
-describe("ReviewCodeDiff — no fabrication (BA2 T4e-a)", () => {
+describe("ReviewCodeDiff — no fabrication", () => {
 	it("does not invent a coverage figure the payload has no field for", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
@@ -97,12 +93,9 @@ describe("ReviewCodeDiff — no fabrication (BA2 T4e-a)", () => {
 		const user = userEvent.setup();
 		const { container } = render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
-		// BA2 T4e-a: the top (most-relevant) file now starts expanded by default,
-		// derived from the payload's own first file — previously this only ever
-		// happened to be true for the deleted CODE_DIFF_FIXTURE's own first path,
-		// so a sentinel payload with a different path needed an explicit click.
-		// SENTINEL_PAYLOAD's one file IS the default now; clicking its toggle
-		// here would collapse it instead of opening it.
+		// The top (most-relevant) file starts expanded by default, derived from
+		// the payload's own first file. SENTINEL_PAYLOAD's one file IS the
+		// default; clicking its toggle here would collapse it instead of opening it.
 		await user.click(
 			screen.getByRole("button", { name: new RegExp(SENTINEL_PAYLOAD.triviaSummary) }),
 		);

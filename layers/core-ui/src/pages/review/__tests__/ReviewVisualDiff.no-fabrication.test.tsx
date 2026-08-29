@@ -1,14 +1,14 @@
-// BA2 T4e-b — ReviewVisualDiff must render only what its payload supplies.
+// ReviewVisualDiff must render only what its payload supplies.
 //
-// founder ruling 17 / architecture.md §2.8.2 E: `MockScreen` (ReviewVisualDiff.tsx
-// :114-160) rendered a fabricated signup screen — "Create your account", "Start
-// your 14-day trial — no card required.", an `Email`/`Password` field pair, a
-// "Create account" CTA — as BOTH the design and the build evidence pane, for
-// EVERY payload, in every compare mode (side, overlay, swipe). A hardcoded
-// `ToolLogo tool="figma"` was mounted on each pane and on the overlay header
-// regardless of the artifact's real tool. `VisualDiffPayload` carries labels
-// only (`before.label`, `after.label`, `diffRegions[{id,label}]`) — no image
-// data — so there was never anything real behind any of it.
+// `MockScreen` used to render a fabricated signup screen — "Create your
+// account", "Start your 14-day trial — no card required.", an
+// `Email`/`Password` field pair, a "Create account" CTA — as BOTH the design
+// and the build evidence pane, for EVERY payload, in every compare mode
+// (side, overlay, swipe). A hardcoded `ToolLogo tool="figma"` was mounted on
+// each pane and on the overlay header regardless of the artifact's real tool.
+// `VisualDiffPayload` carries labels only (`before.label`, `after.label`,
+// `diffRegions[{id,label}]`) — no image data — so there was never anything
+// real behind any of it.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -77,7 +77,7 @@ const CHROME = [
 	"in",
 ];
 
-describe("ReviewVisualDiff — no fabrication (BA2 T4e-b)", () => {
+describe("ReviewVisualDiff — no fabrication", () => {
 	it("does not render a fabricated signup screen in the default (side) mode", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 

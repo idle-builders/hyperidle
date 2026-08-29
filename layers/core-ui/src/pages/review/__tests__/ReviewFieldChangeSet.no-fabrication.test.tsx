@@ -1,10 +1,11 @@
-// BA2 T4e-a — ReviewFieldChangeSet must render only what its payload supplies.
+// ReviewFieldChangeSet must render only what its payload supplies.
 //
-// Both fabrications named in architecture.md §2.8.2 D sit behind disclosures
-// and were invisible to a first-paint dump — exactly the trap §2.8.2 D warns
-// about: `FieldRow` hardcodes a Salesforce mark on every field's "Source"
-// disclosure (line 212), and the "+N unchanged" disclosure always names five
-// specific field labels no payload ever supplied (line 335).
+// Both fabrications this file names sit behind disclosures and were invisible
+// to a first-paint dump: `FieldRow` used to hardcode a Salesforce mark on
+// every field's "Source" disclosure, and the "+N unchanged" line used to
+// always name five specific field labels no payload ever supplied. The
+// unchanged line is a static count now, not a disclosure — the payload
+// carries no field-level detail behind it to expand into.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -66,7 +67,7 @@ const CHROME = [
 	"in",
 ];
 
-describe("ReviewFieldChangeSet — no fabrication (BA2 T4e-a)", () => {
+describe("ReviewFieldChangeSet — no fabrication", () => {
 	it("does not mark every field's provenance Salesforce regardless of the real source tool", async () => {
 		const user = userEvent.setup();
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
@@ -81,11 +82,8 @@ describe("ReviewFieldChangeSet — no fabrication (BA2 T4e-a)", () => {
 		expect(screen.queryAllByText(/^sf$/)).toHaveLength(0);
 	});
 
-	it("does not name five specific unchanged fields no payload supplied", async () => {
-		const user = userEvent.setup();
+	it("does not name five specific unchanged fields no payload supplied", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
-
-		await user.click(screen.getByRole("button", { name: /unchanged/i }));
 
 		expect(screen.queryByText(/Owner/)).not.toBeInTheDocument();
 		expect(screen.queryByText(/Lead source/)).not.toBeInTheDocument();
@@ -117,9 +115,8 @@ describe("ReviewFieldChangeSet — no fabrication (BA2 T4e-a)", () => {
 	// one field's "Source" disclosure closes any other. Each row's disclosure is
 	// therefore checked in its own state rather than assumed to coexist.
 	//
-	// BA2 T4e-a: row alpha is the sole needs-you field, so it is now the
-	// top-relevance row expanded by default — derived from the real payload,
-	// not a deleted demo fixture's hardcoded field id. No click needed to
+	// Row alpha is the sole needs-you field, so it is the top-relevance row
+	// expanded by default — derived from the real payload. No click needed to
 	// open it; clicking its own "Source" toggle here would close it instead.
 	it("row alpha's disclosure renders only what the payload supplies, chrome aside", () => {
 		const { container } = render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
@@ -154,11 +151,8 @@ describe("ReviewFieldChangeSet — no fabrication (BA2 T4e-a)", () => {
 		});
 	});
 
-	it("the unchanged disclosure renders only what the payload supplies, chrome aside", async () => {
-		const user = userEvent.setup();
+	it("the unchanged count line renders only what the payload supplies, chrome aside", () => {
 		const { container } = render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
-
-		await user.click(screen.getByRole("button", { name: /unchanged/i }));
 
 		assertNoFabrication(domText(container), {
 			supplied: SUPPLIED,

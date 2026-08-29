@@ -1,11 +1,11 @@
-// BA2 T4e-a — ReviewBatch must render only what its payload supplies.
+// ReviewBatch must render only what its payload supplies.
 //
 // `BatchPayload.flagged` items carry only `{id, ref, reason}` — no sentiment,
-// no flag category, no drafted reply. `mapBatchPayload` (ReviewBatch.tsx:513-558)
-// still hardcodes every flagged item as `flag: "churn"` (renders "CHURN THREAT"
-// on any kind of flagged item) and `sentiment: "neutral"`, and the view's
-// win-line metric ("Median first response would drop...") has no payload
-// field behind it at all — `BatchPayload` declares no `metric` shape.
+// no flag category, no drafted reply. An earlier `mapBatchPayload` hardcoded
+// every flagged item as `flag: "churn"` (rendering "CHURN THREAT" on any kind
+// of flagged item) and `sentiment: "neutral"`, and the view's win-line metric
+// ("Median first response would drop...") had no payload field behind it at
+// all — `BatchPayload` declares no `metric` shape.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -73,7 +73,7 @@ const CHROME = [
 	"in",
 ];
 
-describe("ReviewBatch — no fabrication (BA2 T4e-a)", () => {
+describe("ReviewBatch — no fabrication", () => {
 	it("does not classify every flagged item as a churn threat regardless of the real reason", () => {
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
@@ -93,11 +93,9 @@ describe("ReviewBatch — no fabrication (BA2 T4e-a)", () => {
 	});
 
 	it("does not claim a policy routed the item to you when no draft field exists at all", () => {
-		// BA2 T4e-a: the sole flagged item now starts expanded by default,
-		// derived from the payload's own first flagged item — previously this
-		// only ever happened to be true for the deleted FIXTURE's own "f1" id,
-		// so a sentinel item with a different id needed an explicit click to
-		// open the L3 panel this assertion reads.
+		// The sole flagged item starts expanded by default, derived from the
+		// payload's own first flagged item, so the L3 panel this assertion
+		// reads is already open — no click needed.
 		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
 
 		expect(screen.queryByText(/policy routes this straight to you/i)).not.toBeInTheDocument();
