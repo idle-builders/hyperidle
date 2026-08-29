@@ -97,10 +97,16 @@ what was actually satisfying codex all along.
   (`run-orchestration/src/__tests__/mounter-registry.test.ts`,
   `describe("ensureSandboxGitRepo")`): reverting `ensureSandboxGitRepo` to a
   no-op turns "initializes a bare sandbox... as a git repository" red;
-  restored, green. A separate test proves the ordering constraint directly —
-  mounting a fake code filesystem into the sandbox first, then calling
-  `ensureSandboxGitRepo`, must be a no-op that never touches the mount's own
-  `.git`.
+  restored, green. A separate test mounts a fake code filesystem (a
+  `gitRunnerFactory` fake that just writes a `.git` file, not a real `git
+  worktree add`) into the sandbox first, then calls `ensureSandboxGitRepo`,
+  and asserts it is a no-op that never touches that `.git`. That proves
+  `ensureSandboxGitRepo`'s own no-op behavior when `.git` already exists —
+  it does not prove the call-site ordering in `provisioner.ts` (mount before
+  `ensureSandboxGitRepo`), and it does not prove real `git clone`/`git
+  worktree add` refuses a target directory that already has a `.git`; both
+  of those are confirmed separately, against the real binary, elsewhere in
+  this pass's verification.
 - `mounter-registry.test.ts`'s `describe("localTrustedPath")`: four new
   cases (red before the `normalizeLocalPath` fix, green after) covering
   `~/`, `./`, `file://`, and a real symlink resolved to its canonical path.
