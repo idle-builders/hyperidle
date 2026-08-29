@@ -37,11 +37,13 @@
  */
 
 import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { describe, vi } from "vitest";
+import { afterEach, describe, vi } from "vitest";
 import { TargetAgentNotRunnableError } from "../errors.js";
 import { createProvisioner } from "../provisioner.js";
 
@@ -143,7 +145,7 @@ function buildDefenseInDepthOnlyPorts(
 	return { ...base, ...overrides };
 }
 
-function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
+function buildDeps(db: HyperIdleDb, sandboxPath: string): ProvisionSessionDeps {
 	return {
 		db,
 		eventBus: new EventBus(),
@@ -168,8 +170,8 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 			// `ensureSandboxGitRepo` step now depends on that, so this fake must
 			// honor it too.
 			spawn: async () => {
-				fs.mkdirSync("/tmp/au21-admit-session-defense-in-depth-only", { recursive: true });
-				return { sandboxId: "sbx-1", path: "/tmp/au21-admit-session-defense-in-depth-only" };
+				fs.mkdirSync(sandboxPath, { recursive: true });
+				return { sandboxId: "sbx-1", path: sandboxPath };
 			},
 			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
 			destroy: async () => undefined,
@@ -178,6 +180,18 @@ function buildDeps(db: HyperIdleDb): ProvisionSessionDeps {
 }
 
 describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read (Increment 12, third/founder-final pass)", () => {
+	// Each test gets its own fresh `mkdtempSync` sandbox, never a fixed path —
+	// a fixed `/tmp/au21-...` path accumulates a `.git` from earlier runs, so
+	// an assertion against it would still pass even with `ensureSandboxGitRepo`
+	// deleted from `provisioner.ts`. See the third test's `.git` assertion
+	// below, which this fresh-directory setup makes a real, fixable-red check.
+	const sandboxDirs: string[] = [];
+	afterEach(() => {
+		for (const dir of sandboxDirs.splice(0)) {
+			fs.rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
 	test("a malformed/missing baked config (resolver-bug simulation) still throws TargetAgentNotRunnableError, with no live read of any kind", async ({
 		db,
 	}) => {
@@ -197,12 +211,16 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 
 		const ports = buildDefenseInDepthOnlyPorts({});
 		const provisioner = createProvisioner(ports);
+		const sandboxPath = fs.mkdtempSync(
+			path.join(os.tmpdir(), "au21-admit-session-defense-in-depth-only-"),
+		);
+		sandboxDirs.push(sandboxPath);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId: "defense-agent-1",
 			productId: "task-free",
-			sandboxBasePath: "/tmp/au21-admit-session-defense-in-depth-only",
+			sandboxBasePath: sandboxPath,
 			// A resolver bug baked an inconsistent snapshot — `kind`/`status`
 			// disagree with what `requireRunnableAgent` would ever produce.
 			agentConfig: {
@@ -213,9 +231,9 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 			},
 		};
 
-		await expect(provisioner.admit(buildDeps(db as HyperIdleDb), params)).rejects.toBeInstanceOf(
-			TargetAgentNotRunnableError,
-		);
+		await expect(
+			provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params),
+		).rejects.toBeInstanceOf(TargetAgentNotRunnableError);
 	});
 
 	test("admission fails for a missing bake entirely (agentConfig absent), same defense-in-depth path, zero live read", async ({
@@ -223,19 +241,23 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 	}) => {
 		const ports = buildDefenseInDepthOnlyPorts({});
 		const provisioner = createProvisioner(ports);
+		const sandboxPath = fs.mkdtempSync(
+			path.join(os.tmpdir(), "au21-admit-session-defense-in-depth-only-"),
+		);
+		sandboxDirs.push(sandboxPath);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId: "no-such-agent",
 			productId: "task-free",
-			sandboxBasePath: "/tmp/au21-admit-session-defense-in-depth-only",
+			sandboxBasePath: sandboxPath,
 			// No `agentConfig` at all — every real durable path bakes it; its
 			// absence is a hard provisioning failure, never a silent allow.
 		};
 
-		await expect(provisioner.admit(buildDeps(db as HyperIdleDb), params)).rejects.toBeInstanceOf(
-			TargetAgentNotRunnableError,
-		);
+		await expect(
+			provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params),
+		).rejects.toBeInstanceOf(TargetAgentNotRunnableError);
 	});
 
 	test("a well-formed, genuinely-runnable baked snapshot admits successfully with ZERO live read — an agent deactivated in the live row after emit still admits, by design", async ({
@@ -258,12 +280,16 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 
 		const ports = buildDefenseInDepthOnlyPorts({});
 		const provisioner = createProvisioner(ports);
+		const sandboxPath = fs.mkdtempSync(
+			path.join(os.tmpdir(), "au21-admit-session-defense-in-depth-only-"),
+		);
+		sandboxDirs.push(sandboxPath);
 
 		const params: ProvisionSessionParams = {
 			taskId: null,
 			agentId: "defense-agent-2",
 			productId: "task-free",
-			sandboxBasePath: "/tmp/au21-admit-session-defense-in-depth-only",
+			sandboxBasePath: sandboxPath,
 			agentConfig: {
 				kind: "ai",
 				status: "active",
@@ -272,8 +298,17 @@ describe("admitSession — baked-snapshot defense-in-depth ONLY, zero live read 
 			},
 		};
 
-		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb), params);
+		const admitted = await provisioner.admit(buildDeps(db as HyperIdleDb, sandboxPath), params);
 		expect(admitted).toBeDefined();
 		expect(admitted.sessionId).toEqual(expect.any(String));
+		// `ensureSandboxGitRepo`'s only production call site (provisioner.ts's
+		// admit, post-mount) — this is the one place in the suite that both
+		// executes the line AND asserts on its effect. `sandboxPath` is a fresh
+		// `mkdtempSync` directory (never the fixed `/tmp/au21-...` paths the
+		// other admit-session integration tests used to share), so this can
+		// actually go red: deleting the `ensureSandboxGitRepo` call leaves no
+		// `.git` here, unlike a reused fixed path that would carry one over
+		// from an earlier run regardless of whether the production line ran.
+		expect(fs.existsSync(path.join(sandboxPath, ".git"))).toBe(true);
 	});
 });
