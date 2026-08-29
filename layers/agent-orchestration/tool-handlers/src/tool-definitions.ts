@@ -25,7 +25,6 @@ import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
 import {
 	ARTIFACT_KINDS,
-	ARTIFACT_VIEW_SHAPES,
 	artifactPreviewSchema,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
@@ -33,6 +32,7 @@ import {
 	KNOWLEDGE_STATUSES,
 	type KnowledgeLayer,
 	type KnowledgeStatus,
+	REVIEW_CANVAS_KINDS,
 	type ReviewPayload,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
@@ -583,15 +583,40 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 // submit_review
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Respelled from the retired `ARTIFACT_VIEW_SHAPES` (zero overlap with what
+ * `create_artifact` emits) to the consolidated `ARTIFACT_KINDS`.
+ * `.optional()` on `kind` for the same reason as `threads-schema.ts`'s twin
+ * copy of this schema: the value is never trusted — the loader re-reads the
+ * real kind off the artifact row.
+ */
 const artifactRefSchema = z.object({
 	id: z.string().min(1),
-	kind: z.enum(ARTIFACT_VIEW_SHAPES),
+	kind: z.enum(ARTIFACT_KINDS).optional(),
+});
+
+/**
+ * The canvas-envelope channel: an agent attaches canvas payloads directly,
+ * with no stored artifact or `create_artifact` producer required. `kind`
+ * validates against the nine `REVIEW_CANVAS_KINDS`; `payload` stays opaque
+ * (a malformed payload is discovered at render, by the honest per-canvas
+ * fallback, not rejected here).
+ */
+const reviewCanvasArtifactSchema = z.object({
+	id: z.string().min(1),
+	tool: z.string().min(1),
+	app: z.string().min(1),
+	sourceHref: z.string().min(1),
+	title: z.string().min(1),
+	kind: z.enum(REVIEW_CANVAS_KINDS),
+	payload: z.record(z.string(), z.unknown()),
 });
 
 const submitReviewInputSchema = z.object({
 	title: z.string().min(1).max(512),
 	reasoning: z.array(z.string().max(1024)).min(1).max(16),
 	artifactRef: artifactRefSchema.optional(),
+	artifacts: z.array(reviewCanvasArtifactSchema).optional(),
 });
 
 type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
@@ -652,12 +677,25 @@ function makeSubmitReviewTool<TDb>(
 	return {
 		name: "submit_review",
 		description:
-			"Submit a review for the current task's work. Posts a review-type message to the task's own thread — the task's existing thread if it has one, otherwise a new thread attached to the task (never the bet's thread — a task can exist without a bet). If no artifactRef is provided, falls back to a plain message with the review summary.",
+			"Submit a review for the current task's work. Posts a review-type message to the task's own thread — the task's existing thread if it has one, otherwise a new thread attached to the task (never the bet's thread — a task can exist without a bet). Attach evidence either as `artifacts` — inline canvas payloads (kind is one of: outcome_summary, field_change_set, action_operation, rendered_in_context, metrics_moved, visual_diff, code_diff, batch, browser_preview; payload shape is validated at render time, not here) — or as `artifactRef`, a reference to an artifact this task already produced via create_artifact. If neither is provided, falls back to a plain message with the review summary.",
 		inputSchema: submitReviewInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = submitReviewInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
 			const input = parsed.data;
+
+			// A review may not claim proof it does not have: the referenced
+			// artifact must exist and belong to the calling task, the same
+			// binding `create_artifact` itself enforces.
+			if (input.artifactRef) {
+				const referenced = await ports.coreApi.getArtifactById(input.artifactRef.id, ctx.agentId);
+				if (!referenced || referenced.producingTaskId !== ctx.taskId) {
+					return err(
+						"INVALID_INPUT",
+						`artifactRef ${input.artifactRef.id} does not resolve to an artifact produced by task ${ctx.taskId}`,
+					);
+				}
+			}
 
 			const parentTask = await ports.coreApi.getTaskById(ctx.taskId, ctx.agentId);
 			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
@@ -674,11 +712,14 @@ function makeSubmitReviewTool<TDb>(
 			// The route generates the message's id server-side; `created.id`
 			// replaces the client-generated `randomUUID()` the raw DI path used.
 			let created: { readonly id: string };
-			if (input.artifactRef) {
+			// A review carrying only canvas artifacts is a review; an agent that
+			// supplies neither still gets today's plain-message fallback.
+			if (input.artifactRef || input.artifacts?.length) {
 				const payload: ReviewPayload = {
 					title: input.title,
 					reasoning: input.reasoning,
-					artifactRef: input.artifactRef,
+					...(input.artifactRef ? { artifactRef: input.artifactRef } : {}),
+					...(input.artifacts ? { artifacts: input.artifacts } : {}),
 				};
 				created = await ports.coreApi.insertMessage(
 					{ threadId, type: "review", payload: { ...payload }, clientKey: crypto.randomUUID() },

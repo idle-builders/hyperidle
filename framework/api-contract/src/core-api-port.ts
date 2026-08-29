@@ -71,6 +71,19 @@ export interface BetView {
 }
 
 /**
+ * Mirrors `GET /artifacts/:id`'s response — only the fields a `CoreApiPort`
+ * consumer relies on. `submit_review` uses this to confirm a stored
+ * `artifactRef` resolves to an artifact whose `producingTaskId` matches the
+ * calling task before attaching it — a review may not claim proof it does
+ * not have.
+ */
+export interface ArtifactView {
+	readonly id: string;
+	readonly producingTaskId: string;
+	readonly kind: string;
+}
+
+/**
  * Mirrors the fields `PATCH /bets/:id` accepts across its discriminated-union
  * wire shape (`field`/`value`/`reason`, `routes/bets.ts`). `buildCoreApiPort`
  * issues one PATCH per present field — the route accepts exactly one field
@@ -222,6 +235,8 @@ export interface CoreApiWorkPort {
 	createItem(input: CreateItemRequest): Promise<CreateItemResponse>;
 	findItemByReasoningMarker(marker: string): Promise<{ readonly id: string } | undefined>;
 	createArtifact(input: CreateArtifactRequest): Promise<CreateArtifactResponse>;
+	/** Over `GET /artifacts/:id`, the same shape as `getTaskById`/`getBetById`. */
+	getArtifactById(id: string): Promise<ArtifactView | undefined>;
 	handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse>;
 }
 

@@ -118,7 +118,38 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			// to show). The review's OWN threadId is always composed (never read
 			// from the payload) so the client fetches the thread directly by id
 			// instead of guessing it from a by-host lookup.
-			return c.json({ ...reviewPayload, threadId: reviewMsg.threadId });
+			//
+			// @lore layer, never replace: a resolved `artifactRef` is APPENDED to
+			// whatever `artifacts` the payload already carries (never to an empty
+			// list, and never in place of it).
+			const artifactRef = reviewPayload.artifactRef as { readonly id?: unknown } | undefined;
+			const artifactRefId = typeof artifactRef?.id === "string" ? artifactRef.id : undefined;
+			const referencedArtifact = artifactRefId
+				? await work.get(db, "artifact", artifactRefId)
+				: undefined;
+
+			if (!referencedArtifact) {
+				return c.json({ ...reviewPayload, threadId: reviewMsg.threadId });
+			}
+
+			// No invented values: `tool`/`app`/`title` have no real source on a
+			// bare stored-artifact row, so they are left absent rather than
+			// defaulted into something plausible. `sourceHref` is a real,
+			// derivable value — the artifact's own permalink.
+			const resolved: Record<string, unknown> = {
+				id: referencedArtifact.id,
+				kind: referencedArtifact.kind,
+				sourceHref: `/artifacts/${referencedArtifact.id}`,
+				...(referencedArtifact.label ? { title: referencedArtifact.label } : {}),
+			};
+			const existingArtifacts = Array.isArray(reviewPayload.artifacts)
+				? (reviewPayload.artifacts as Array<Record<string, unknown>>)
+				: [];
+			return c.json({
+				...reviewPayload,
+				threadId: reviewMsg.threadId,
+				artifacts: [...existingArtifacts, resolved],
+			});
 		}
 
 		// Build the ProposedCallView to nest on the artifact.

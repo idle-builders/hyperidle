@@ -278,13 +278,20 @@ const ARTIFACT_KIND_LABEL: Partial<Record<string, string>> = {
 	data_metrics: "Data",
 };
 
-/** Map an ArtifactRef to an artifact/diff Embed (text_diff → diff). */
-function artifactRefToEmbed(ref: ArtifactRef): Embed {
+/**
+ * Map an ArtifactRef to an artifact/diff Embed (text_diff → diff).
+ *
+ * @lore `ArtifactRef` is optional on `ReviewPayload` now that a canvas-only
+ * review (see `artifacts`) has no stored artifact to reference — `undefined`
+ * here means "no changeSet embed to show", not a bug.
+ */
+function artifactRefToEmbed(ref: ArtifactRef | undefined): Embed | null {
+	if (!ref) return null;
 	const target: OpenTarget = { route: "artifact", artifactId: ref.id };
 	if (ref.kind === "text_diff") {
 		return { kind: "diff", label: "Changes", meta: "", target };
 	}
-	const label = ARTIFACT_KIND_LABEL[ref.kind] ?? "Artifact";
+	const label = (ref.kind ? ARTIFACT_KIND_LABEL[ref.kind] : undefined) ?? "Artifact";
 	return { kind: "artifact", label, target };
 }
 

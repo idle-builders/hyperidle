@@ -20,6 +20,7 @@ export type {
 	AgentOrchestrationWorkIntentReceipt,
 } from "./agent-orchestration-port.js";
 export type {
+	ArtifactView,
 	BetView,
 	CaptureProposedCallRequest,
 	CaptureProposedCallResponse,

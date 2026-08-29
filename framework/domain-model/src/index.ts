@@ -214,7 +214,6 @@ export type {
 	ArtifactRef,
 	ArtifactThreadSummary,
 	ArtifactThreadSummaryResponse,
-	ArtifactViewShape,
 	AssistantNotice,
 	// BlockId + BlockHostKind: wire types embedded in AnchorRef/BlockRef; inlined in
 	// thread.ts after blocks/types.ts dissolved into core-ui (AU44 batch 8).
@@ -235,6 +234,8 @@ export type {
 	PlainPayloadWithBlockId,
 	QuestionnairePayload,
 	RedactedPayload,
+	ReviewCanvasArtifact,
+	ReviewCanvasKind,
 	ReviewPayload,
 	Thread,
 	ThreadId,
@@ -243,13 +244,13 @@ export type {
 	VerdictPayload,
 } from "./thread.js";
 export {
-	ARTIFACT_VIEW_SHAPES,
 	HOST_KINDS,
 	headCollapsePredicate,
 	isBlocking,
 	isRedactedPayload,
 	MESSAGE_TYPES,
 	// promotedRichMessageId MERGE → core-ui/ds/thread-display.ts (AU44 batch 8)
+	REVIEW_CANVAS_KINDS,
 	VERDICT_DECISIONS,
 	verdictDecisionLabel,
 	// verdictDecisionToStatus MERGE → core-ui/ds/status-mapping.ts (AU44 batch 8)

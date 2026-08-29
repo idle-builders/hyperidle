@@ -36,6 +36,7 @@
  */
 
 import {
+	type ArtifactView,
 	type BetView,
 	type CaptureProposedCallRequest,
 	type CaptureProposedCallResponse,
@@ -205,6 +206,9 @@ interface CoreApiHcClient {
 	};
 	readonly artifacts: {
 		$post(args: { readonly json: CreateArtifactRequest }): Promise<Response>;
+		readonly ":id": {
+			$get(args: { readonly param: { readonly id: string } }): Promise<Response>;
+		};
 	};
 	readonly users: {
 		$get(args: {
@@ -529,6 +533,11 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				});
 				if (!res.ok) return throwSeamError("work.createArtifact", res);
 				return (await res.json()) as CreateArtifactResponse;
+			},
+
+			async getArtifactById(id: string): Promise<ArtifactView | undefined> {
+				const res = await client.artifacts[":id"].$get({ param: { id } });
+				return getOrUndefined<ArtifactView>("work.getArtifactById", res);
 			},
 
 			async handoffTask(taskId: string, input: HandoffTaskRequest): Promise<HandoffTaskResponse> {
