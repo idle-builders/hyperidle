@@ -40,6 +40,7 @@ import {
 import { routineSessionContextDataFromBundle, sessionContextDataFromBundle } from "./context.js";
 import {
 	ConcurrencyLimitError,
+	NoAvailableHarnessError,
 	NoEligibleHarnessError,
 	TargetAgentNotRunnableError,
 } from "./errors.js";
@@ -177,6 +178,12 @@ interface SessionLifecycleSelectedEntry {
 interface SessionLifecycleAdapterPool {
 	select(requirements?: SessionLifecycleSelectRequirements): SessionLifecycleSelectedEntry | null;
 	release(id: string): void;
+	/**
+	 * Why `select` would decline, in the pool's own words. REQUIRED, not
+	 * optional: an optional diagnostic is one every implementer quietly skips,
+	 * and the fallback message then becomes the thing everyone actually reads.
+	 */
+	describeSelectFailure(requirements?: SessionLifecycleSelectRequirements): string;
 }
 
 interface SessionLifecycleEnforcementEntry {
@@ -1069,12 +1076,17 @@ async function admitSession(
 	};
 	const selectedAdapter = adapterPool.select(selectRequirements);
 	if (!selectedAdapter) {
+		// Ask the pool WHY rather than asserting a reason. `select` declines for
+		// six different causes and this call site used to report exactly one of
+		// them ("all adapters are at capacity") for all six — false for the case
+		// that actually happens in practice, an empty pool because no harness
+		// binary was discovered, and false in a way that sends whoever reads it
+		// to the wrong subsystem.
+		const reason = adapterPool.describeSelectFailure(selectRequirements);
 		if (runConfig.harnessType) {
-			throw new NoEligibleHarnessError(runConfig.harnessType);
+			throw new NoEligibleHarnessError(runConfig.harnessType, reason);
 		}
-		throw new Error(
-			`No available adapter in pool — all adapters are at capacity${runConfig.harnessType ? ` (harnessType: ${runConfig.harnessType})` : ""}`,
-		);
+		throw new NoAvailableHarnessError(reason);
 	}
 	const harness = selectedAdapter.adapter;
 	const adapterId = selectedAdapter.id;

@@ -86,7 +86,12 @@ function buildRoutes(): RouteObject[] {
 				{ path: "work/bet/new", element: <WorkBetCreate /> },
 				{ path: "work/bet/:betId", element: <WorkBet /> },
 				{ path: "work/bet/:betId/task/:taskId", element: <WorkTask /> },
-				{ path: "work/bet/:betId/review/:reviewId", element: <ReviewPage /> },
+				// Flattened from `work/bet/:betId/review/:reviewId` — the loader
+				// now names the review's own thread directly, so the route needs
+				// no bet. Deleted rather than redirected: no persisted row holds
+				// the old shape (CLAUDE.md's absolute rule 2 forbids a compat
+				// shim with nothing to bridge).
+				{ path: "reviews/:reviewId", element: <ReviewPage /> },
 				{ path: "agents/:agentId", element: <AgentProfile /> },
 				{ path: "knowledge", element: <KnowledgeList /> },
 				{ path: "knowledge/new", element: <KnowledgeCreate /> },

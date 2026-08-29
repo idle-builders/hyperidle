@@ -15,7 +15,8 @@
  *
  * @lore AM1: the conversation no longer TAKES a verdict. An unresolved review
  * renders as a `review` Part with a single "Open review" hook → the real
- * ReviewPage (`/work/bet/:betId/review/:reviewId`); a resolved review echoes as a
+ * ReviewPage (`/reviews/:reviewId` — flattened from
+ * `/work/bet/:betId/review/:reviewId`); a resolved review echoes as a
  * `resolved` Part. The decision UI lives on the review page (design §5). The
  * verdict SEMANTICS (Message type, payload, verdictDecisionLabel, POST shape) are
  * unchanged — only the decision UI relocated.
@@ -288,11 +289,8 @@ function InspectDestination({ path }: { path: string }): JSX.Element {
 			/>
 		);
 	}
-	const review = pathname?.match(/^\/work\/bet\/([^/]+)\/review\/([^/]+)$/);
-	if (review?.[1] && review[2])
-		return (
-			<ReviewPage overrideBetId={review[1]} overrideReviewId={review[2]} presentation="pane" />
-		);
+	const review = pathname?.match(/^\/reviews\/([^/]+)$/);
+	if (review?.[1]) return <ReviewPage overrideReviewId={review[1]} presentation="pane" />;
 	return <EmptyState title="Unavailable" description="This reference cannot be inspected here." />;
 }
 
@@ -472,20 +470,15 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 		identitiesToAuthors(data.identities, viewerId),
 	);
 	const participants = identitiesToParticipants(data.identities);
-	// AM1 ARCH-1: the review route needs a betId the source-agnostic adapter cannot
-	// know (a review Message carries none). The PAGE has thread→host context: a
-	// bet-hosted thread's host id IS the bet. Source it here and feed it to the
-	// OpenTarget→navigate seam. For task/other hosts the bet isn't cheaply available
-	// → betId stays null and the review open action no-ops (no dead URL).
-	const reviewBetId = data.thread.hostKind === "bet" ? data.thread.hostId : null;
 	// AM1: the OpenTarget routing seam. Reference/host navigation flows through the
 	// one `OpenHandler` — the same descriptor-driven seam the PartList renderer uses.
 	// host targets resolve through resolveHostRoute (total over BlockHostKind);
-	// user/factory are documented no-ops; review uses the page-sourced betId.
+	// user/factory are documented no-ops. The review route no longer needs a
+	// page-sourced betId — `/reviews/:reviewId` resolves for every host, bet or
+	// task.
 	// AM3: onOpenSession fills the `case "session"` no-op — fires when a
 	// `session-reference` Embed or a sub-agent tool row is clicked (AC1).
 	const openTarget = createOpenHandler(navigate, {
-		betId: reviewBetId,
 		onInspectPath: (path) => setInspection({ kind: "path", path }),
 		onOpenSession: (sessionId) => setInspection({ kind: "session", sessionId }),
 	});
@@ -580,7 +573,6 @@ function ConversationsDetail({ threadId }: { threadId: string }): JSX.Element {
 						participants={participants}
 						onSend={onSend}
 						scroll
-						reviewBetId={reviewBetId}
 						headerPresentation={inspection ? "pane" : "read"}
 					/>
 				}

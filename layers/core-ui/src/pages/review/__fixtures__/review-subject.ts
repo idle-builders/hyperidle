@@ -16,7 +16,7 @@ const outcomeArtifact: ReviewArtifact<OutcomeSummaryPayload> = {
 	id: "artifact:outcome:1",
 	tool: "hyperidle",
 	app: "HyperIdle",
-	sourceHref: "https://hyperidle.com/work/bet/bet-123/review/rev-1",
+	sourceHref: "https://hyperidle.com/reviews/rev-1",
 	title: "May close — revenue reconciliation",
 	kind: "outcome_summary",
 	payload: {

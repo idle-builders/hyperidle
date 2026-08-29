@@ -239,4 +239,36 @@ describe("registerRoutineRunSessionEndReactions", () => {
 			expect(run?.outcome).toBe("error");
 		});
 	});
+
+	/**
+	 * Recording `outcome:"error"` with no message is what made every real
+	 * provisioning failure undiagnosable: the routine run says it broke and
+	 * refuses to say how. The reason travels on the event, so the finalizer
+	 * must persist it.
+	 */
+	test("agent_run_lifecycle_changed failure records WHY the run failed, not just that it did", async ({
+		db,
+		eventBus,
+	}) => {
+		const { runId } = await seedRunningRoutine(db, "rrser-lifecycle-reason");
+		registerRoutineRunSessionEndReactions(db, eventBus);
+
+		const event: AgentRunLifecycleChangedEvent = {
+			type: "agent_run_lifecycle_changed",
+			streamId: `routine:${runId}`,
+			requestId: "rrser-lifecycle-reason-request",
+			sourceKind: "routine",
+			sourceId: runId,
+			state: "failed",
+			errorMessage: "No available adapter in pool — all adapters are at capacity",
+			timestamp: Date.now(),
+		};
+		eventBus.emit(event);
+
+		await vi.waitFor(async () => {
+			const [run] = await db.select().from(routineRuns).where(eq(routineRuns.id, runId));
+			expect(run?.outcome).toBe("error");
+			expect(run?.errorMessage).toContain("No available adapter in pool");
+		});
+	});
 });

@@ -13,7 +13,8 @@ interface ScoringContext {
 	taskDescription: string;
 	taskTags: string[];
 	agentRole: string;
-	productId: string;
+	/** Optional: absent for a team-less agent. No scorer reads it today. */
+	productId?: string;
 }
 
 const DEFAULT_WEIGHTS: ScoringWeights = {

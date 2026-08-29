@@ -95,6 +95,7 @@ const composedArtifacts: ComposedReviewSubject["artifacts"] = AL2_REVIEW_SUBJECT
 export const REVIEW_COMPOSITION_SUBJECT: ComposedReviewSubject = {
 	id: "review:AL3:fixture",
 	title: "Fix expired-promo checkout — silent success → typed 422",
+	threadId: "thread-review-1",
 	betId: "bet-123",
 	betTitle: "Billing reliability",
 	taskId: "task-456",

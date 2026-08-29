@@ -415,14 +415,29 @@ function extractClaudeResultMetrics(obj: Record<string, unknown>): {
 } {
 	const usage =
 		obj.usage && typeof obj.usage === "object" ? (obj.usage as Record<string, unknown>) : {};
+	// @lore BA2 cursor-metrics: cursor-agent is configured with the same
+	// eventDialect: "claude-stream-json" as claude (it advertises a
+	// claude-compatible `--output-format stream-json`), and its terminal
+	// `result` line does carry a `usage` object — but with CAMELCASE keys
+	// (`inputTokens`/`outputTokens`/`cacheReadTokens`/`cacheWriteTokens`),
+	// not claude's native snake_case. Proven against the installed binary
+	// (2026.08.25-3e8eec8): a real run reported
+	// `"usage":{"inputTokens":4,"outputTokens":759,"cacheReadTokens":61008,
+	// "cacheWriteTokens":9070}`. Without this fallback every cursor-agent
+	// session silently reports 0 input/output tokens regardless of real
+	// spend — the exact thing that made a real, reasoned model refusal look
+	// like "the prompt never arrived" in BA2's resumed-session investigation.
 	return {
 		durationMs: finiteNonNegative(obj.duration_ms),
 		apiDurationMs: finiteNonNegative(obj.duration_api_ms),
 		modelTurns: finiteNonNegative(obj.num_turns),
-		inputTokens: finiteNonNegative(usage.input_tokens),
-		outputTokens: finiteNonNegative(usage.output_tokens),
-		cachedInputTokens: finiteNonNegative(usage.cache_read_input_tokens),
-		cacheCreationInputTokens: finiteNonNegative(usage.cache_creation_input_tokens),
+		inputTokens: finiteNonNegative(usage.input_tokens) ?? finiteNonNegative(usage.inputTokens),
+		outputTokens: finiteNonNegative(usage.output_tokens) ?? finiteNonNegative(usage.outputTokens),
+		cachedInputTokens:
+			finiteNonNegative(usage.cache_read_input_tokens) ?? finiteNonNegative(usage.cacheReadTokens),
+		cacheCreationInputTokens:
+			finiteNonNegative(usage.cache_creation_input_tokens) ??
+			finiteNonNegative(usage.cacheWriteTokens),
 	};
 }
 

@@ -74,13 +74,6 @@ export interface ConversationSurfaceProps {
 	onSend: (text: string) => Promise<void> | void;
 	/** Story-only visual toggle (default false; the page never sets this). */
 	scroll?: boolean;
-	/**
-	 * UI-005: bet that hosts this conversation's thread, when resolvable. Used to
-	 * determine whether the "Open review" button in ReviewRequestPart can navigate to a
-	 * valid review URL. Null/absent = task-hosted or bet not cheaply available →
-	 * the review button is hidden rather than rendered as a dead link.
-	 */
-	reviewBetId?: string | null;
 	/** Read mode keeps context in the readable lane; pane mode owns split identity. */
 	headerPresentation?: "read" | "pane";
 }
@@ -301,7 +294,6 @@ export default function ConversationSurface({
 	participants,
 	onSend,
 	scroll = false,
-	reviewBetId,
 	headerPresentation = "pane",
 }: ConversationSurfaceProps): JSX.Element {
 	const [insertMenuOpen, setInsertMenuOpen] = useState(false);
@@ -397,12 +389,7 @@ export default function ConversationSurface({
 					<div className="mx-auto w-full max-w-[760px]">
 						{/* The message column is rendered by the PRODUCTION renderer — the
 						    approved design and PartList cannot drift. */}
-						<PartList
-							parts={parts}
-							onOpen={onOpen}
-							onAnswer={(text) => void onSend(text)}
-							reviewBetId={reviewBetId}
-						/>
+						<PartList parts={parts} onOpen={onOpen} onAnswer={(text) => void onSend(text)} />
 					</div>
 				</div>
 				{/* UI-062: single DS Composer; insert affordance via leading slot; iconSend matches Hearth design.

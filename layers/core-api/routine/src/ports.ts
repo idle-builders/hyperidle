@@ -281,7 +281,8 @@ export interface RoutineSchedulerPorts {
 	assembleSessionKnowledge?(
 		db: HyperIdleDb,
 		input: {
-			readonly teamId: string;
+			/** Absent for a team-less agent — see `assembleSessionKnowledge`'s own note. */
+			readonly teamId?: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
 			readonly agentId: string;

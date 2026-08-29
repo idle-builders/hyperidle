@@ -33,6 +33,13 @@ import { Hono } from "hono";
 
 const FIXTURE_REVIEW = {
 	id: "review:AL3:fixture",
+	// `ComposedReviewSubject.threadId` is a required string — `ReviewPage`
+	// fetches and posts to it directly (never guessing via a host lookup).
+	// The fixture needs its own value so this loader's contract stays total
+	// even on the demo path: without it the client's verdict guard (which
+	// checks `reviewSubject`, not `threadId`) would let a POST reach
+	// `/api/threads/undefined/messages`.
+	threadId: "thread:AL3:fixture",
 	title: "Fix expired-promo checkout — silent success → typed 422",
 	betId: "bet-123",
 	betTitle: "Billing reliability",
@@ -107,8 +114,11 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		const reviewPayload = JSON.parse(reviewMsg.payload) as Record<string, unknown>;
 
 		if (!pcView) {
-			// No proposed call — descriptive review (no action_operation outcome to show).
-			return c.json({ ...reviewPayload });
+			// No proposed call — descriptive review (no action_operation outcome
+			// to show). The review's OWN threadId is always composed (never read
+			// from the payload) so the client fetches the thread directly by id
+			// instead of guessing it from a by-host lookup.
+			return c.json({ ...reviewPayload, threadId: reviewMsg.threadId });
 		}
 
 		// Build the ProposedCallView to nest on the artifact.
@@ -165,6 +175,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 
 		return c.json({
 			...reviewPayload,
+			threadId: reviewMsg.threadId,
 			artifacts: artifactsWithOp,
 		});
 	});

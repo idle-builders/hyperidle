@@ -102,6 +102,13 @@ export interface ComposedReviewArtifact extends ReviewArtifact {
  * reviewer needs to orient, judge, and decide without opening anything.
  */
 export interface ComposedReviewSubject extends ReviewSubject {
+	/**
+	 * The review message's own thread id, always composed by the loader
+	 * (never read from the payload). The page fetches this thread directly
+	 * instead of guessing it from a host lookup, which resolves the WRONG
+	 * thread whenever a host has more than one.
+	 */
+	readonly threadId: string;
 	readonly betId: string;
 	readonly betTitle: string;
 	readonly taskId?: string;

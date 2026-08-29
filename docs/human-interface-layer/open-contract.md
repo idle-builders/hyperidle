@@ -21,7 +21,7 @@ Seeded in [`part-model.md`](part-model.md) (the conversation-only wiring) and un
 |---|---|---|
 | `host` | the entity's host surface (block / knowledge / bet / task / agent) | `resolveHostRoute(hostKind, hostId)` — total over host kinds; `user`, `factory`, and (currently) `task` are documented no-ops (`host-route.ts,36-39`) |
 | `artifact` | the standardized artifact view | `/artifacts/:id` (`open-handler.ts`) |
-| `review` | the review experience | `/work/bet/:betId/review/:reviewId` (`betId` page-supplied; no-op without it, `open-handler.ts`) |
+| `review` | the review experience | `/reviews/:reviewId` — resolves for every host, no page-supplied context needed (`open-handler.ts`) |
 | `session` | the Session view (AM3) | page-supplied `onOpenSession(sessionId)` (no route — a split panel, `open-handler.ts`) |
 
 ## Hard rules

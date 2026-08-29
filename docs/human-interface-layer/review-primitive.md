@@ -20,7 +20,7 @@ AL2 ships nine proof-family canvases. Each artifact renders through the canvas s
 
 ## Composition surface (AL3)
 
-The `ReviewComposition` component at `/work/bet/:betId/review/:reviewId` (`layers/core-ui/src/router.tsx`) wraps the canvas families into a coherent review page:
+The `ReviewComposition` component at `/reviews/:reviewId` (`layers/core-ui/src/router.tsx`) wraps the canvas families into a coherent review page:
 
 ```
 ReviewComposition
@@ -89,6 +89,6 @@ The `action_operation` canvas (`ReviewActionOperation`) renders a persistent **O
 
 ## Where it lives
 
-The registry, types, canvases, and composition component are in `layers/core-ui/src/pages/review/`. `ReviewPage` at `/work/bet/:betId/review/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewMessageId` (`layers/core-api/src/routes/reviews.ts`) — a real loader querying `proposed_calls LEFT JOIN operation_outcomes` plus artifacts, humanizing `executedAt` server-side; a fixture remains only for the demo id `rev-1`. The route is mounted in `layers/core-api/src/app.ts`.
+The registry, types, canvases, and composition component are in `layers/core-ui/src/pages/review/`. `ReviewPage` at `/reviews/:reviewId` renders `ReviewComposition`. The server exposes `GET /api/reviews/:reviewMessageId` (`layers/core-api/src/routes/reviews.ts`) — a real loader querying `proposed_calls LEFT JOIN operation_outcomes` plus artifacts, humanizing `executedAt` server-side; a fixture remains only for the demo id `rev-1`. The route is mounted in `layers/core-api/src/app.ts`.
 
 Next: [`Artifact` primitive](../process-layer/artifact-primitive.md) for the canonical data shape, or [`Thread` primitive](./thread-primitive.md) for the conversation container and verdict grammar.

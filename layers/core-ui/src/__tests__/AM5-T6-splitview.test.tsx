@@ -180,28 +180,27 @@ describe("AC3: review open-handler route (regression guard)", () => {
 		const { createOpenHandler } = await import("../services/open-handler.js");
 		const nav = vi.fn();
 		const inspect = vi.fn();
-		const handler = createOpenHandler(nav, { betId: "bet-1", onInspectPath: inspect });
+		const handler = createOpenHandler(nav, { onInspectPath: inspect });
 		handler({ route: "artifact", artifactId: "art-1" });
 		handler({ route: "host", hostKind: "knowledge_item", hostId: "knowledge-1", blockId: "b 1" });
-		handler({ route: "review", betId: "bet-1", reviewId: "rev-1", intent: "inspect" });
+		handler({ route: "review", reviewId: "rev-1", intent: "inspect" });
 		expect(inspect.mock.calls.map(([path]) => path)).toEqual([
 			"/artifacts/art-1",
 			"/knowledge/knowledge-1#block-b%201",
-			"/work/bet/bet-1/review/rev-1",
+			"/reviews/rev-1",
 		]);
 		expect(nav).not.toHaveBeenCalled();
 	});
 
-	it("structural Open review still navigates to the review page", async () => {
+	it("structural Open review still navigates to the review page (/reviews/:reviewId)", async () => {
 		const { createOpenHandler } = await import("../services/open-handler.js");
 		const nav = vi.fn();
 		const inspect = vi.fn();
-		createOpenHandler(nav, { betId: "bet-1", onInspectPath: inspect })({
+		createOpenHandler(nav, { onInspectPath: inspect })({
 			route: "review",
-			betId: "bet-1",
 			reviewId: "rev-1",
 		});
-		expect(nav).toHaveBeenCalledWith("/work/bet/bet-1/review/rev-1");
+		expect(nav).toHaveBeenCalledWith("/reviews/rev-1");
 		expect(inspect).not.toHaveBeenCalled();
 	});
 });

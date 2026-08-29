@@ -204,3 +204,195 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 		expect(matching).toHaveLength(1);
 	});
 });
+
+/**
+ * Capability items are scoped factory / team / agent, independently of any
+ * team. An agent with no team (`agentCategory: "individual"`) is an ordinary
+ * agent and must still receive everything scoped to reach it — the factory
+ * ones, and the ones bound to it by id.
+ *
+ * Nothing here is about where an item came from. A skill is a knowledge row
+ * with `role: "skill"`; whichever writer produced it, the scope decides who
+ * receives it.
+ */
+describe("capability items for a team-less agent", () => {
+	test("a factory-scoped skill reaches an agent that belongs to no team", async ({ db }) => {
+		const skillId = await insertKnowledgeItem(db, {
+			title: "knowledge-decay",
+			body: "# Knowledge decay sweep",
+			role: "skill",
+			scopeKind: "factory",
+		});
+
+		const assembled = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "Run the knowledge decay sweep",
+			agentId: "agent-teamless",
+		});
+
+		expect(assembled.map((i) => i.id)).toContain(skillId);
+	});
+
+	test("an agent-bound skill reaches its agent with no team in play", async ({ db }) => {
+		const boundId = await insertKnowledgeItem(db, {
+			title: "librarian-only",
+			body: "# Bound to one agent",
+			role: "skill",
+			scopeKind: "user",
+			scopeId: "agent-teamless",
+		});
+		const otherId = await insertKnowledgeItem(db, {
+			title: "someone-elses",
+			body: "# Bound to a different agent",
+			role: "skill",
+			scopeKind: "user",
+			scopeId: "agent-other",
+		});
+
+		const assembled = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "Run the knowledge decay sweep",
+			agentId: "agent-teamless",
+		});
+
+		const ids = assembled.map((i) => i.id);
+		expect(ids).toContain(boundId);
+		expect(ids).not.toContain(otherId);
+	});
+});
+
+/**
+ * The scope decides who receives a capability item — not what created it and
+ * not what kind of agent asks. These cover the reach an installer's `factory`
+ * and `team` choices actually buy, from the receiving agent's side.
+ */
+describe("who a capability item reaches", () => {
+	test("a factory-scoped skill reaches a team agent and a team-less one alike", async ({ db }) => {
+		const skillId = await insertKnowledgeItem(db, {
+			title: "shared-practice",
+			body: "# Everyone gets this",
+			role: "skill",
+			scopeKind: "factory",
+		});
+
+		const forTeamAgent = await assembleSessionKnowledge(db, {
+			teamId: "team-alpha",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-in-team",
+		});
+		const forTeamlessAgent = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "anything",
+			agentId: "agent-no-team",
+		});
+
+		expect(forTeamAgent.map((i) => i.id)).toContain(skillId);
+		expect(forTeamlessAgent.map((i) => i.id)).toContain(skillId);
+	});
+
+	test("a team-scoped skill reaches that team's agents and no one else", async ({ db }) => {
+		const skillId = await insertKnowledgeItem(db, {
+			title: "alpha-only",
+			body: "# Team alpha only",
+			role: "skill",
+			scopeKind: "team",
+			scopeId: "team-alpha",
+		});
+
+		const inTeam = await assembleSessionKnowledge(db, {
+			teamId: "team-alpha",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-in-team",
+		});
+		const otherTeam = await assembleSessionKnowledge(db, {
+			teamId: "team-beta",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-elsewhere",
+		});
+		const teamless = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "anything",
+			agentId: "agent-no-team",
+		});
+
+		expect(inTeam.map((i) => i.id)).toContain(skillId);
+		expect(otherTeam.map((i) => i.id)).not.toContain(skillId);
+		expect(teamless.map((i) => i.id)).not.toContain(skillId);
+	});
+
+	test("a skill bound to one agent reaches that agent even inside a team", async ({ db }) => {
+		const boundId = await insertKnowledgeItem(db, {
+			title: "just-for-this-agent",
+			body: "# Bound",
+			role: "skill",
+			scopeKind: "user",
+			scopeId: "agent-in-team",
+		});
+
+		const itsOwner = await assembleSessionKnowledge(db, {
+			teamId: "team-alpha",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-in-team",
+		});
+		const teammate = await assembleSessionKnowledge(db, {
+			teamId: "team-alpha",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-teammate",
+		});
+
+		expect(itsOwner.map((i) => i.id)).toContain(boundId);
+		// Same team, same role — only the binding separates them.
+		expect(teammate.map((i) => i.id)).not.toContain(boundId);
+	});
+});
+
+/**
+ * `list()` applies a scope filter only when `scopeId !== undefined`, so an
+ * absent team must not be passed through to the team-scoped L2 fetch — doing so
+ * returns EVERY team's L2 knowledge instead of none. A team-less agent has no
+ * team-scoped knowledge to receive; it must not inherit other teams'.
+ */
+describe("a team-less agent receives no team-scoped ordinary knowledge", () => {
+	test("does not inherit another team's L2 items", async ({ db }) => {
+		const otherTeamItem = `l2-other-team-${generateId()}`;
+		const now = new Date().toISOString();
+		await db.insert(knowledgeItems).values({
+			id: otherTeamItem,
+			scopeKind: "team",
+			scopeId: "team-somebody-else",
+			topic: null,
+			title: "Another team's working agreement",
+			body: "Private to that team.",
+			format: "markdown",
+			status: "active",
+			role: "ordinary",
+			version: 1,
+			updatedBy: "test-user",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeAppProjection).values({
+			id: `proj-${otherTeamItem}`,
+			knowledgeItemId: otherTeamItem,
+			layer: "L2",
+			scopeId: "team-somebody-else",
+			kind: null,
+			attentionScore: null,
+			confidence: null,
+			meta: null,
+		});
+
+		const assembled = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "anything",
+			agentId: "agent-with-no-team",
+		});
+
+		expect(assembled.map((i) => i.id)).not.toContain(otherTeamItem);
+	});
+});

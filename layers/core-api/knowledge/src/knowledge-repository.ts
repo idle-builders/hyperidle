@@ -1302,6 +1302,14 @@ export async function upsertPluginSkill(
 				scopeKind: input.scopeKind,
 				scopeId: input.scopeId,
 				topic: input.topic,
+				// Uninstall and disable both ARCHIVE these rows, and only `active`
+				// ones reach a session. Leaving status alone here meant a reinstall
+				// produced a plugin that reported `enabled`, restored its agent and
+				// routines, and still delivered no skills to anyone — the rows came
+				// back archived and stayed that way. Installing is a deliberate act;
+				// it makes the contribution live again. Distinct from `body`, which
+				// stays untouched so a person's edit survives.
+				status: "active" as const,
 				updatedAt: input.ts,
 			},
 		});

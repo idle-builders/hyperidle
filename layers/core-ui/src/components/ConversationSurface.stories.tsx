@@ -133,7 +133,7 @@ const PARTS: Part[] = [
 			meta: "+2 −1",
 			target: { route: "artifact", artifactId: "art-1" },
 		},
-		reviewTarget: { betId: "bet-1", reviewId: "rv-1" },
+		reviewTarget: { reviewId: "rv-1" },
 	},
 	{
 		id: "m8",
@@ -144,7 +144,7 @@ const PARTS: Part[] = [
 		label: "APPROVED",
 		resolvedBy: "A. Founder",
 		summary: "approve deploy of passkey login to staging",
-		reviewTarget: { betId: "bet-1", reviewId: "rv-1" },
+		reviewTarget: { reviewId: "rv-1" },
 	},
 ];
 

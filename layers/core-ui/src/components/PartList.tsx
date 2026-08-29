@@ -35,17 +35,16 @@ function renderPart(
 	part: Part,
 	onOpen: OpenHandler,
 	onAnswer: ((text: string) => void) | undefined,
-	betId: string | null | undefined,
 ): JSX.Element {
 	switch (part.kind) {
 		case "prose":
 			return <ProsePart part={part} onOpen={onOpen} />;
-		case "review": {
-			// UI-005: The "Open review" button is only available when the bet is resolvable.
-			// pageBetId (from thread context) or part.reviewTarget.betId (non-empty) both suffice.
-			const canOpen = (betId != null && betId !== "") || part.reviewTarget.betId !== "";
-			return <ReviewRequestPart part={part} onOpen={onOpen} canOpen={canOpen} />;
-		}
+		case "review":
+			// The route no longer needs a bet id — `/reviews/:reviewId` resolves
+			// for any host — so the `canOpen` gate that hid "Open review" on a
+			// task-hosted thread is deleted rather than widened. There is
+			// nothing left to guard.
+			return <ReviewRequestPart part={part} onOpen={onOpen} />;
 		case "resolved":
 			return <ReviewResolvedPart part={part} onOpen={onOpen} />;
 		case "questionnaire":
@@ -105,12 +104,6 @@ export interface PartListProps {
 	 * reply via this callback (wired to ConversationSurface's onSend at the page).
 	 */
 	onAnswer?: (text: string) => void;
-	/**
-	 * UI-005: bet that hosts the conversation. When null/absent, "Open review" is
-	 * hidden on ReviewRequestParts whose own target also lacks a betId (avoids a
-	 * dead-URL navigation).
-	 */
-	reviewBetId?: string | null;
 }
 
 /**
@@ -162,7 +155,7 @@ function DaySeparator({ label }: { label: string }): JSX.Element {
 	);
 }
 
-export function PartList({ parts, onOpen, onAnswer, reviewBetId }: PartListProps): JSX.Element {
+export function PartList({ parts, onOpen, onAnswer }: PartListProps): JSX.Element {
 	const groups = groupParts(parts);
 	return (
 		<div data-ds-component="PartList" className="flex flex-col gap-[18px]">
@@ -213,7 +206,7 @@ export function PartList({ parts, onOpen, onAnswer, reviewBetId }: PartListProps
 								</div>
 								<div className="flex flex-col gap-[12px]">
 									{group.parts.map((part) => (
-										<div key={part.id}>{renderPart(part, onOpen, onAnswer, reviewBetId)}</div>
+										<div key={part.id}>{renderPart(part, onOpen, onAnswer)}</div>
 									))}
 								</div>
 							</div>

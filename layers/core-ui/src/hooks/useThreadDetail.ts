@@ -165,6 +165,17 @@ export function useThreadDetail(threadId: string): ThreadDetailState {
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `tick` is intentionally a dependency — bumping it via retry() re-runs the fetch.
 	useEffect(() => {
+		// Skip when threadId is empty — mirrors `useHostThread`'s hostId skip.
+		// A caller whose subject hasn't loaded yet (e.g. `ReviewPage` before
+		// `subject.threadId` resolves) must not fire `GET /api/threads/` (400)
+		// or subscribe to the bogus `thread:` WS topic.
+		if (!threadId) {
+			setStatus("loading");
+			setError(null);
+			setData(null);
+			return;
+		}
+
 		const ac = new AbortController();
 		abortRef.current?.abort();
 		abortRef.current = ac;
@@ -220,6 +231,7 @@ export function useThreadDetail(threadId: string): ThreadDetailState {
 	// the pushed data directly (append the new `Message`, patch the thread's
 	// `resolvedAt`) instead of bumping `tick` to trigger a second fetch.
 	useEffect(() => {
+		if (!threadId) return;
 		const ws = getWsClient();
 		const topic = `thread:${threadId}`;
 		const unsubscribe = ws.subscribe(topic, (raw) => {
