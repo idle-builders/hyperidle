@@ -34,7 +34,10 @@ describe("ReviewMetricsMoved canvas", () => {
 
 		expect(screen.getAllByText(/Recognized revenue/i).length).toBeGreaterThan(0);
 		expect(screen.getByText(/Roll-forward/i)).toBeInTheDocument();
-		expect(screen.getAllByText(/ties to bank/i).length).toBeGreaterThan(0);
+		// BA2 T4e-a (ruling 14, §2.8.2 D): "ties to bank" named a source the
+		// payload never supplied and was removed as fabrication. `tieOut.ties`
+		// is a real payload boolean, so the honest indicator is the bare word.
+		expect(screen.getAllByText(/^ties$/i).length).toBeGreaterThan(0);
 	});
 
 	it("surfaces exceptions, floating needs-you items", () => {

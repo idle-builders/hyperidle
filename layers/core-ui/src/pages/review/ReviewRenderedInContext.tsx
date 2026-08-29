@@ -24,6 +24,7 @@ import type { Block } from "../../block/types.js";
 import { Button, headingIdentityMatches } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { RenderedInContextPayload, ReviewCanvasProps } from "./review-artifact";
 import {
 	AnchoredThreadCard,
@@ -43,7 +44,8 @@ interface FlaggedClaim {
 }
 
 export interface RenderedEmail {
-	readonly tool: "mailchimp";
+	/** BA2 T4e-a: widened from the literal `"mailchimp"` — the real `artifact.tool`. */
+	readonly tool: string;
 	readonly campaignName: string;
 	readonly sender: string;
 	readonly senderEmail: string;
@@ -59,34 +61,6 @@ export interface RenderedEmail {
 	readonly footer: string;
 	readonly flaggedClaims: readonly FlaggedClaim[];
 }
-
-export const FIXTURE: RenderedEmail = {
-	tool: "mailchimp",
-	campaignName: "Solo plan launch — $19/mo",
-	sender: "HyperIdle",
-	senderEmail: "hello@hyperidle.com",
-	subject: "Your team, minus the busywork — now $19",
-	preview: "The agent OS that plans, drafts, and waits for your call. Founder pricing ends Sunday.",
-	receivedAt: "9:00 AM",
-	audienceLabel: "to 12,400 free + trial",
-	excludedNote: "412 paid recipients excluded (already on a higher plan)",
-	sendPlan: "Thu, Jun 18 · 9:00 AM ET",
-	heroHeadline: "Run a team of agents. Keep the final say.",
-	bodyParas: [
-		"HyperIdle gives you a flat team of AI agents that plan work, draft the output, and stop at the decisions only you should make. No prompt-wrangling, no babysitting a chat window.",
-		"For the next launch week, the Solo plan is $19/mo — one founder, unlimited agents, every integration. After Sunday it goes to $29.",
-		"You stay in the loop where it counts: every send, refund, and record change waits for your approval first. Set up in under 5 minutes and point your first agent at real work today.",
-	],
-	ctaLabel: "Start for $19/mo",
-	footer:
-		"HyperIdle · 2261 Market St #4242, San Francisco CA · You're receiving this as a HyperIdle free or trial user. Unsubscribe · Manage preferences",
-	flaggedClaims: [
-		{
-			text: "Set up in under 5 minutes",
-			reason: "Unverified claim — no source. Median onboarding in last 30d was 11 min.",
-		},
-	],
-};
 
 // ── Small chrome atoms (Hearth/CP1 tokens by name) ───────────────────────────
 
@@ -168,12 +142,10 @@ export function EmailRender({
 				borderRadius: 12,
 			}}
 		>
-			{/* email header / logo bar */}
-			<div style={{ padding: "18px 24px", borderBottom: "1px solid #efeae1" }}>
-				<span style={{ fontSize: 17, fontWeight: 700, color: "#2f2a22", letterSpacing: "-0.01em" }}>
-					HyperIdle
-				</span>
-			</div>
+			{/* BA2 T4e-a (§2.8.2 D): this header bar hardcoded the brand "HyperIdle"
+			    regardless of who actually sent the email. There is no payload field
+			    for a brand distinct from the sender already named in the inbox row
+			    above — subtracted rather than duplicating that same value here. */}
 
 			{/* hero */}
 			<div style={{ padding: viewport === "mobile" ? "24px 20px" : "32px 36px" }}>
@@ -237,7 +209,7 @@ export function EmailRender({
 // ── Component ────────────────────────────────────────────────────────────────
 
 export interface ReviewRenderedInContextProps {
-	readonly data?: RenderedEmail;
+	readonly data: RenderedEmail;
 	readonly documentTitle?: string;
 	readonly artifactId?: string;
 	readonly blocks?: ReadonlyArray<Block>;
@@ -258,7 +230,7 @@ export interface ReviewRenderedInContextProps {
  *  - needs-you (shown here): the flag panel is open by default when claims exist.
  */
 function ReviewRenderedInContextView({
-	data = FIXTURE,
+	data,
 	documentTitle,
 	artifactId = "",
 	blocks = [],
@@ -304,7 +276,9 @@ function ReviewRenderedInContextView({
 				}}
 			>
 				<div className="flex items-center gap-[9px]">
-					<ToolLogo tool="mailchimp" size="md" withLabel label="" />
+					{/* BA2 T4e-a: was hardcoded "mailchimp" regardless of the real
+					    source tool (§2.8.2 D). */}
+					<ToolLogo tool={data.tool} size="md" withLabel label="" />
 					<span className="type-metadata " style={{ color: "var(--text-tertiary)" }}>
 						·
 					</span>
@@ -331,7 +305,9 @@ function ReviewRenderedInContextView({
 							borderRadius: "var(--r-pill)",
 						}}
 					>
-						H
+						{/* BA2 T4e-a: the avatar letter was fixed "H" regardless of the
+						    real sender (§2.8.2 D) — derived from `data.sender`, not invented. */}
+						{data.sender.slice(0, 1).toUpperCase()}
 					</div>
 					<div className="flex min-w-0 flex-1 flex-col gap-[3px]">
 						<div className="flex items-baseline justify-between gap-[12px]">
@@ -422,9 +398,16 @@ function ReviewRenderedInContextView({
 						>
 							{flagCount} flag{flagCount === 1 ? "" : "s"}
 						</span>
-						<span className="type-small " style={{ color: "var(--text-secondary)" }}>
-							{flagCount > 0 ? "1 unverified claim · send plan · exclusions" : "No flags"}
-						</span>
+						{/* BA2 T4e-a (§2.8.2 D): "1 unverified claim · send plan ·
+						    exclusions" rendered unconditionally regardless of how many
+						    flags there actually were or what they said. The badge above
+						    already carries the real count; nothing generic to add here
+						    when there is at least one. */}
+						{flagCount === 0 ? (
+							<span className="type-small " style={{ color: "var(--text-secondary)" }}>
+								No flags
+							</span>
+						) : null}
 					</div>
 					<span
 						className="motion-move type-metadata  "
@@ -532,9 +515,13 @@ function isRenderedPayload(payload: unknown): payload is RenderedInContextPayloa
 	);
 }
 
-function mapRenderedPayload(payload: RenderedInContextPayload, title: string): RenderedEmail {
+function mapRenderedPayload(
+	payload: RenderedInContextPayload,
+	title: string,
+	tool: string,
+): RenderedEmail {
 	return {
-		tool: "mailchimp",
+		tool,
 		campaignName: title,
 		sender: payload.inboxRow.sender,
 		senderEmail: "hello@example.com",
@@ -553,13 +540,18 @@ function mapRenderedPayload(payload: RenderedInContextPayload, title: string): R
 }
 
 export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.Element {
-	const data = isRenderedPayload(artifact.payload)
-		? mapRenderedPayload(artifact.payload, artifact.title)
-		: FIXTURE;
-	const body = isRenderedPayload(artifact.payload)
-		? artifact.payload.body
-		: FIXTURE.bodyParas.join("\n\n");
+	const valid = isRenderedPayload(artifact.payload);
+	// Hooks must run unconditionally on every render (rules-of-hooks) — computed
+	// ahead of the guard-failure early return, using an empty body when the
+	// payload doesn't validate (its result is unused on that path).
+	const body = valid ? artifact.payload.body : "";
 	const blocks = useMemo(() => deriveProseBlocks(artifact.id, body), [artifact.id, body]);
+	if (!valid) {
+		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// fallback, never the Mailchimp demo fixture.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
+	const data = mapRenderedPayload(artifact.payload, artifact.title, artifact.tool);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

@@ -22,6 +22,7 @@ import type { JSX } from "react";
 import { headingIdentityMatches } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { BrowserPreviewPayload, ReviewCanvasProps } from "./review-artifact";
 import { isSafeSourceHref } from "./source-link-guard";
 
@@ -47,47 +48,6 @@ interface PreviewPage {
 	readonly tiers: readonly PricingTier[];
 	readonly footerNote: string;
 }
-
-const FIXTURE: PreviewPage = {
-	url: "https://hyperidle-preview.vercel.app/pricing",
-	brand: "HyperIdle",
-	navLinks: ["Product", "Pricing", "Docs", "Changelog"],
-	eyebrow: "Launch-week pricing",
-	headline: "Run a team of agents. Keep the final say.",
-	subhead:
-		"One founder, unlimited agents, every integration. Cancel anytime — no agent does anything without your approval.",
-	tiers: [
-		{
-			name: "Solo",
-			price: "$19",
-			cadence: "/mo",
-			blurb: "For the one-person company. Founder pricing through Sunday.",
-			features: [
-				"Unlimited agents",
-				"Every integration",
-				"Approval gates on every action",
-				"5-minute setup",
-			],
-			cta: "Start for $19/mo",
-			featured: true,
-		},
-		{
-			name: "Team",
-			price: "$49",
-			cadence: "/seat",
-			blurb: "For small teams sharing a fleet of agents and one knowledge base.",
-			features: [
-				"Everything in Solo",
-				"Shared team knowledge",
-				"Per-seat approval routing",
-				"Audit log export",
-			],
-			cta: "Choose Team",
-			featured: false,
-		},
-	],
-	footerNote: "Preview deploy · not yet promoted to production · pricing-v2",
-};
 
 // ── The artifact under review: a hand-rendered web page ───────────────────────
 // Neutral page styling — the one place not using Hearth chrome tokens, because
@@ -133,21 +93,10 @@ function RenderedPage({
 						</span>
 					))}
 				</div>
-				<a
-					href={data.url}
-					onClick={(e) => e.preventDefault()}
-					style={{
-						padding: "9px 18px",
-						fontSize: 13,
-						fontWeight: 600,
-						color: "#ffffff",
-						background: "#2f6b4f",
-						borderRadius: 9999,
-						textDecoration: "none",
-					}}
-				>
-					Get started
-				</a>
+				{/* BA2 T4e-a (§2.8.2 D): the nav CTA was a fixed "Get started" marketing
+				    label rendered on every preview, regardless of what page is under
+				    review — the payload has no CTA copy at all, so subtracted rather
+				    than reworded. */}
 			</nav>
 
 			{/* hero */}
@@ -323,7 +272,7 @@ function TrafficLights(): JSX.Element {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export interface ReviewBrowserPreviewProps {
-	readonly data?: PreviewPage;
+	readonly data: PreviewPage;
 	readonly documentTitle?: string;
 	readonly onApprove?: () => void;
 	readonly onRequestChanges?: () => void;
@@ -341,7 +290,7 @@ export interface ReviewBrowserPreviewProps {
  *  - populated (shown here): the deployed pricing page, ready for a verdict.
  */
 function ReviewBrowserPreviewView({
-	data = FIXTURE,
+	data,
 	documentTitle,
 	onApprove,
 	onRequestChanges,
@@ -476,33 +425,34 @@ function isBrowserPreviewPayload(payload: unknown): payload is BrowserPreviewPay
 }
 
 // AL2 — review artifact wrapper.
+//
+// @lore BA2 T4e-a (§2.8.2 D): `BrowserPreviewPayload` is `{url, title,
+// previewBody}` — nothing else. The old mapper invented a fixed nav bar and a
+// "Solo / $19/mo" pricing tier the payload never carried, and reused
+// `previewBody` as both the subhead AND the footer note (rendering it twice).
+// `navLinks`/`tiers` are left empty (the regions just don't render — there is
+// nothing to fabricate a nav bar or a price from) and `footerNote` is not a
+// second copy of `previewBody`.
 function mapBrowserPayload(payload: BrowserPreviewPayload): PreviewPage {
 	return {
 		url: payload.url,
 		brand: payload.title,
-		navLinks: ["Product", "Pricing", "Docs", "Changelog"],
+		navLinks: [],
 		eyebrow: "Preview",
 		headline: payload.title,
 		subhead: payload.previewBody,
-		tiers: [
-			{
-				name: "Solo",
-				price: "$19",
-				cadence: "/mo",
-				blurb: "",
-				features: [],
-				cta: "Get started",
-				featured: true,
-			},
-		],
-		footerNote: payload.previewBody,
+		tiers: [],
+		footerNote: "",
 	};
 }
 
 export function ReviewBrowserPreview({ artifact }: ReviewCanvasProps): JSX.Element {
-	const data = isBrowserPreviewPayload(artifact.payload)
-		? mapBrowserPayload(artifact.payload)
-		: FIXTURE;
+	if (!isBrowserPreviewPayload(artifact.payload)) {
+		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// fallback, never the pricing-page demo fixture.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
+	const data = mapBrowserPayload(artifact.payload);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

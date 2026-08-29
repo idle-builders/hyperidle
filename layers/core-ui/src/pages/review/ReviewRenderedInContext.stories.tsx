@@ -7,7 +7,6 @@ import { MOCK_REVIEW_SUBJECT } from "./__fixtures__/review-subject.fixture";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import {
 	EmailRender,
-	FIXTURE,
 	type RenderedEmail,
 	ReviewRenderedInContext,
 } from "./ReviewRenderedInContext";
@@ -15,6 +14,32 @@ import {
 export default { title: "Review/Rendered In Context", group: "Conversations" };
 
 const artifact = MOCK_REVIEW_SUBJECT.artifacts.find((a) => a.kind === "rendered_in_context")!;
+
+// Story-only data (dev world, not production) — the shape `EmailRender` needs
+// once a payload has already been mapped. Kept consistent with the same
+// mailchimp/launch-email story fixture the "Populated" variant renders below.
+const EMAIL_BODY_EXAMPLE: RenderedEmail = {
+	tool: "mailchimp",
+	campaignName: "Solo plan launch — $19/mo",
+	sender: "HyperIdle",
+	senderEmail: "hello@hyperidle.com",
+	subject: "Your team, minus the busywork — now $19",
+	preview: "Founder pricing ends Sunday.",
+	receivedAt: "9:00 AM",
+	audienceLabel: "to 12,400 free + trial",
+	excludedNote: "412 paid recipients excluded (already on a higher plan)",
+	sendPlan: "Thu, Jun 18 · 9:00 AM ET",
+	heroHeadline: "Run a team of agents. Keep the final say.",
+	bodyParas: ["Run a team of agents. Keep the final say."],
+	ctaLabel: "Start for $19/mo",
+	footer: "HyperIdle · Unsubscribe · Manage preferences",
+	flaggedClaims: [
+		{
+			text: "Set up in under 5 minutes",
+			reason: "Unverified claim — no source. Median onboarding in last 30d was 11 min.",
+		},
+	],
+};
 
 // ── Basic variant: just the email body ────────────────────────────────────────
 // Inlined from ReviewRenderedInContext.tsx — the LOW-fidelity sibling of
@@ -28,7 +53,7 @@ interface ReviewEmailBodyProps {
 }
 
 function ReviewEmailBody({
-	data = FIXTURE,
+	data = EMAIL_BODY_EXAMPLE,
 	onApprove,
 	onRequestChanges,
 }: ReviewEmailBodyProps): JSX.Element {

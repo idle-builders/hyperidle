@@ -255,7 +255,12 @@ function FrameHeader({
 						data-az16-profile="data"
 						className="type-data   tabular-nums text-[var(--text-tertiary)]"
 					>
-						{s.tokens} · {s.producedAgo}
+						{/* T4c (architecture.md §2.8.1 C): a demo review is the only subject that ever
+						carries `tokens` — a produced-by-an-agent review never does — so the separator
+						rendered with nothing on its left for every non-demo review (F42). */}
+						{s.tokens && s.producedAgo
+							? `${s.tokens} · ${s.producedAgo}`
+							: s.tokens || s.producedAgo}
 					</span>
 				</div>
 			}
@@ -289,20 +294,6 @@ function TaskSection({ subject }: { readonly subject: ComposedReviewSubject }): 
 				>
 					“{s.prompt}”
 				</p>
-				<button
-					type="button"
-					onClick={() => {
-						/* no-op */
-					}}
-					className="type-control mt-[9px] inline-flex items-center gap-[6px]   text-[var(--accent-deep)]    hover:brightness-95"
-				>
-					<span className="text-[var(--text-tertiary)]">{s.betTitle}</span>
-					<span aria-hidden="true" className="text-[var(--text-tertiary)]">
-						›
-					</span>
-					<span className="truncate">{s.taskTitle ?? s.title}</span>
-					<span aria-hidden="true">→</span>
-				</button>
 			</div>
 		</section>
 	);
@@ -343,94 +334,6 @@ function KpiChip({ kpi }: { kpi: ReviewKpi }): JSX.Element {
 	);
 }
 
-function CheckoutProof(): JSX.Element {
-	return (
-		<div className="grid grid-cols-2 gap-[12px]">
-			<CheckoutCard variant="before" />
-			<CheckoutCard variant="after" />
-		</div>
-	);
-}
-
-function CheckoutCard({ variant }: { variant: "before" | "after" }): JSX.Element {
-	const isAfter = variant === "after";
-	return (
-		<figure className="border-width-thin overflow-hidden rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-elevated)]">
-			<figcaption className="border-width-thin-b flex items-center justify-between  border-[var(--border-subtle)] px-[12px] py-[6px]">
-				<span className="type-label   uppercase  text-[var(--text-tertiary)]">
-					{isAfter ? "After" : "Before"}
-				</span>
-				<span
-					data-spacing-role="compact-pill"
-					className="type-metadata inline-flex items-center gap-[4px] rounded-[var(--r-pill)] px-[6px] py-[2px]  "
-					style={{
-						color: isAfter ? "var(--status-success)" : "var(--status-error)",
-						background: `color-mix(in oklab, ${isAfter ? "var(--status-success)" : "var(--status-error)"} 14%, transparent)`,
-					}}
-				>
-					{isAfter ? "fixed" : "the bug"}
-				</span>
-			</figcaption>
-
-			<div className="flex flex-col gap-[9px] p-[12px]">
-				<div className="flex flex-col gap-[6px]">
-					<span className="type-metadata   text-[var(--text-tertiary)]">Promo code</span>
-					<div className="flex items-center gap-[6px]">
-						<div
-							className={`type-data ${[
-								"flex-1 rounded-[var(--r-default)]  bg-[var(--surface-page)] px-[9px] py-[6px]   text-[var(--text-primary)]",
-								isAfter ? "border-[var(--status-error)]" : "border-[var(--border-default)]",
-							].join(" ")}`}
-						>
-							SPRING24
-						</div>
-						<span className="type-metadata rounded-[var(--r-default)] bg-[var(--surface-container)] px-[9px] py-[6px]   text-[var(--text-tertiary)]">
-							Apply
-						</span>
-					</div>
-					{isAfter ? (
-						<span className="type-metadata   text-[var(--status-error)]">
-							This code expired on Apr 3.
-						</span>
-					) : (
-						<span className="type-metadata  text-[var(--text-tertiary)]">No feedback shown.</span>
-					)}
-				</div>
-
-				<div className="border-width-thin-t type-data flex flex-col gap-[3px]  border-[var(--border-subtle)] pt-[9px]   tabular-nums">
-					<ResultRow label="Subtotal" value="$120.00" />
-					<ResultRow label="Promo (SPRING24)" value={isAfter ? "—" : "−$24.00"} muted={isAfter} />
-					<div className="border-width-thin-t mt-[3px] flex items-center justify-between  border-[var(--border-subtle)] pt-[6px]">
-						<span className="type-small  text-[var(--text-primary)]">Total</span>
-						<span className="type-small  text-[var(--text-primary)]">
-							{isAfter ? "$120.00" : "$96.00"}
-						</span>
-					</div>
-				</div>
-			</div>
-		</figure>
-	);
-}
-
-function ResultRow({
-	label,
-	value,
-	muted,
-}: {
-	label: string;
-	value: string;
-	muted?: boolean;
-}): JSX.Element {
-	return (
-		<div className="flex items-center justify-between">
-			<span className="text-[var(--text-secondary)]">{label}</span>
-			<span className={muted ? "text-[var(--text-tertiary)]" : "text-[var(--text-primary)]"}>
-				{value}
-			</span>
-		</div>
-	);
-}
-
 function ResultSection({ subject }: { readonly subject: ComposedReviewSubject }): JSX.Element {
 	const s = subject;
 	const met = s.intent.filter((c) => c.met).length;
@@ -446,8 +349,6 @@ function ResultSection({ subject }: { readonly subject: ComposedReviewSubject })
 						<KpiChip key={kpi.label} kpi={kpi} />
 					))}
 				</div>
-
-				<CheckoutProof />
 
 				<p className="type-metadata  text-[var(--text-tertiary)]">
 					Met the task:{" "}
@@ -696,20 +597,9 @@ function ExaminePane({
 						paneTitleProfile="subheading"
 						reservePaneControls
 						leading={
-							<div className="flex min-w-0 items-center justify-between gap-[9px]">
-								<div className="flex min-w-0 items-center gap-[9px] overflow-hidden">
-									<KindBadge kind={artifact.kind} />
-									<ToolLogo tool={artifact.tool as ToolId} size="sm" />
-								</div>
-								<button
-									type="button"
-									onClick={() => {
-										/* no-op */
-									}}
-									className="type-control rounded-[var(--r-pill)] border-width-thin border-[var(--border-default)] bg-[var(--surface-elevated)] px-[10px] py-[5px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-								>
-									Comment on this
-								</button>
+							<div className="flex min-w-0 items-center gap-[9px] overflow-hidden">
+								<KindBadge kind={artifact.kind} />
+								<ToolLogo tool={artifact.tool as ToolId} size="sm" />
 							</div>
 						}
 						title={<span className="block truncate">{artifact.title}</span>}
@@ -731,13 +621,16 @@ function ExaminePane({
 				<div className="flex flex-col gap-[18px] p-[18px]">
 					{/* AL7 trust-first: action_operation canvases receive status+outcome from the
 					    loader via ComposedReviewArtifact.proposedCall (trust-first model).
-					    Fallback to stagedOperation for backward compat during migration. */}
+					    Fallback to stagedOperation for backward compat during migration.
+					    BA2 T4e-a: the captured-args panel itself is deleted — `proposedCall`
+					    is never populated in production (nothing writes a proposed-call row;
+					    §1 "The AL7 capture machinery is production-dead"), so it was only
+					    ever reachable from a unit test. */}
 					{artifact.kind === "action_operation" ? (
 						<ReviewActionOperation
 							artifact={artifact}
 							status={artifact.proposedCall?.status ?? artifact.stagedOperation?.status}
 							outcome={artifact.proposedCall?.outcome ?? artifact.stagedOperation?.outcome}
-							proposedCall={artifact.proposedCall}
 						/>
 					) : (
 						<Canvas artifact={artifact} />

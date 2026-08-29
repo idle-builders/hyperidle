@@ -15,6 +15,7 @@
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isNumber, isPlainObject, isString } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { MetricsMovedPayload, ReviewCanvasProps } from "./review-artifact";
 import { ToolLogo } from "./ToolLogo";
 
@@ -29,10 +30,13 @@ interface Provenance {
 interface MovedFigure {
 	readonly id: string;
 	readonly label: string;
-	readonly prior: number; // April
-	readonly current: number; // May
+	readonly prior: number;
+	readonly current: number;
 	readonly headline?: boolean; // surfaced in L1
-	readonly provenance: Provenance;
+	/** BA2 T4e-a: undefined when the payload carries no per-figure provenance —
+	 * an agent-supplied `MetricsMovedPayload.headlines[]` entry has no source
+	 * field at all, so there is nothing honest to show here (§2.8.2 D). */
+	readonly provenance?: Provenance;
 }
 
 interface RollForwardRow {
@@ -67,149 +71,26 @@ interface CloseFixture {
 	readonly exceptions: readonly Exception[]; // exception float (biggest first)
 }
 
-const FIXTURE: CloseFixture = {
-	period: "May 2026",
-	figures: [
-		{
-			id: "rev",
-			label: "Recognized revenue",
-			prior: 588_000,
-			current: 612_400,
-			headline: true,
-			provenance: {
-				source: "GL account 4000 · from Stripe MRR export",
-				detail:
-					"412 invoices (in_1P8…–in_1Pq2…), recognized ratably; matches Stripe billing $612,400.00",
-				tool: "stripe",
-			},
-		},
-		{
-			id: "cash",
-			label: "Cash & equivalents",
-			prior: 1_051_990,
-			current: 1_284_302,
-			provenance: {
-				source: "GL account 1000 · bank feed",
-				detail:
-					"Mercury operating + savings; reconciled to statement close 05-31, 3 items in transit",
-				tool: "quickbooks",
-			},
-		},
-		{
-			id: "ar",
-			label: "Accounts receivable",
-			prior: 142_300,
-			current: 118_900,
-			provenance: {
-				source: "GL account 1200 · A/R aging",
-				detail: "37 open invoices; $24,400 net collected vs new billings in May",
-				tool: "quickbooks",
-			},
-		},
-	],
-	rows: [
-		{
-			id: "rev",
-			label: "Recognized revenue (4000)",
-			opening: 588_000,
-			activity: 24_400,
-			closing: 612_400,
-			changed: true,
-		},
-		{
-			id: "cash",
-			label: "Cash & equivalents (1000)",
-			opening: 1_051_990,
-			activity: 232_312,
-			closing: 1_284_302,
-			changed: true,
-		},
-		{
-			id: "ar",
-			label: "Accounts receivable (1200)",
-			opening: 142_300,
-			activity: -23_400,
-			closing: 118_900,
-			changed: true,
-		},
-		{
-			id: "deferred",
-			label: "Deferred revenue (2300)",
-			opening: 96_500,
-			activity: 8_140,
-			closing: 104_640,
-			changed: true,
-		},
-		{
-			id: "cogs",
-			label: "Cost of revenue (5000)",
-			opening: 71_200,
-			activity: 2_980,
-			closing: 74_180,
-			changed: true,
-		},
-		{
-			id: "prepaid",
-			label: "Prepaid expenses (1400)",
-			opening: 18_900,
-			activity: 0,
-			closing: 18_900,
-			changed: false,
-		},
-	],
-	trivia: { count: 9, net: 37 },
-	tieOut: { opening: 1_051_990, activity: 232_312, closing: 1_284_302, ties: true },
-	exceptions: [
-		{
-			id: "wire",
-			amount: 9_840,
-			title: "Unidentified wire — no source",
-			detail:
-				"Inbound $9,840.00 to Mercury operating 05-22, no matching invoice or customer. Booked to suspense (2900) pending identification.",
-			kind: "anomaly",
-			needsYou: true,
-		},
-		{
-			id: "ach",
-			amount: 4_200,
-			title: "Duplicate ACH — over authority",
-			detail:
-				"Vendor payment to Ramp $4,200.00 posted twice (05-14, 05-15). Reversal exceeds your $2,500 auto-approve limit.",
-			kind: "anomaly",
-			needsYou: true,
-		},
-		{
-			id: "dit",
-			amount: 31_500,
-			title: "Deposits in transit — timing",
-			detail:
-				"$31,500.00 of card settlements deposited 05-31, cleared bank 06-02. Normal cutoff timing; clears next period.",
-			kind: "timing",
-			needsYou: false,
-		},
-	],
-};
-
 // ── format helpers ───────────────────────────────────────────────────────────
+//
+// @lore BA2 T4e-a: `MetricsMovedPayload` carries no currency field at all, so
+// formatting every number as USD (`style: "currency"`) asserted a fact
+// (§2.8.2 D) the payload never supplied. These format grouping only.
 
-function usd(n: number): string {
+function fmt(n: number): string {
 	return n.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD",
 		minimumFractionDigits: 0,
 		maximumFractionDigits: 0,
 	});
 }
-function usdCents(n: number): string {
+function fmtCents(n: number): string {
 	return n.toLocaleString("en-US", {
-		style: "currency",
-		currency: "USD",
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2,
 	});
 }
 function signed(n: number): string {
-	const v = usd(Math.abs(n));
+	const v = fmt(Math.abs(n));
 	return n >= 0 ? `+${v}` : `−${v}`;
 }
 
@@ -255,10 +136,10 @@ function Headline({
 				<DeltaPill delta={delta} />
 			</div>
 			<div className={`type-metric ${`mt-[6px]    text-[var(--text-primary)] ${NUM}`}`}>
-				{usd(figure.current)}
+				{fmt(figure.current)}
 			</div>
 			<div className={`type-metadata ${`mt-[6px]  text-[var(--text-tertiary)] ${NUM}`}`}>
-				Apr {usd(figure.prior)} → May
+				{fmt(figure.prior)} → {fmt(figure.current)}
 			</div>
 			<button
 				type="button"
@@ -275,7 +156,10 @@ function Headline({
 				</span>
 				{expanded ? "Hide source" : "Where from?"}
 			</button>
-			{expanded ? (
+			{/* BA2 T4e-a: an agent-supplied payload carries no per-figure provenance
+			    (§2.8.2 D) — render the disclosure's content only when there is one,
+			    never a fabricated tool/source/detail. */}
+			{expanded && figure.provenance ? (
 				// L3 — per-figure provenance
 				<div className="border-width-thin mt-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
 					<div className="flex items-center gap-[6px]">
@@ -336,7 +220,7 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 							<td
 								className={`type-small ${`px-[12px] py-[9px] text-right  text-[var(--text-secondary)] ${NUM}`}`}
 							>
-								{usd(r.opening)}
+								{fmt(r.opening)}
 							</td>
 							<td
 								className={`type-small ${`px-[12px] py-[9px] text-right  ${NUM}`}`}
@@ -348,19 +232,22 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 								className={`type-small ${`px-[12px] py-[9px] text-right   ${NUM}`}`}
 								style={r.changed ? changedCellStyle() : { color: "var(--text-secondary)" }}
 							>
-								{usd(r.closing)}
+								{fmt(r.closing)}
 							</td>
 						</tr>
 					))}
 					<tr>
 						<td colSpan={4} className="px-[12px] py-[6px]">
+							{/* BA2 T4e-a: the fixed "< $100" sub-threshold figure asserted a
+							    materiality cutoff `MetricsMovedPayload` has no field for — the
+							    mapper never actually groups rows by it either (§2.8.2 D). */}
 							<button
 								type="button"
 								onClick={() => setShowTrivia((v) => !v)}
 								className="motion-feedback type-control text-[var(--text-tertiary)]"
 								aria-expanded={showTrivia}
 							>
-								{showTrivia ? "Hide" : "Show"} {fixture.trivia.count} items &lt; $100 (net{" "}
+								{showTrivia ? "Hide" : "Show"} {fixture.trivia.count} items (net{" "}
 								{signed(fixture.trivia.net)})
 							</button>
 						</td>
@@ -381,12 +268,17 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 					✓
 				</span>
 				<span className={`type-small ${` text-[var(--text-primary)] ${NUM}`}`}>
-					Opening {usd(fixture.tieOut.opening)} + activity {signed(fixture.tieOut.activity)} =
-					Closing <span className="type-small ">{usd(fixture.tieOut.closing)}</span>
+					Opening {fmt(fixture.tieOut.opening)} + activity {signed(fixture.tieOut.activity)} =
+					Closing <span className="type-small ">{fmt(fixture.tieOut.closing)}</span>
 				</span>
-				<span className="type-small  " style={{ color: "var(--status-success)" }}>
-					ties to bank
-				</span>
+				{/* BA2 T4e-a (founder-decided ambiguity #2): `tieOut.ties` is a real
+				    payload boolean — a conditional tie indicator is honest. "bank" was
+				    an invented noun the payload never named and is not restored. */}
+				{fixture.tieOut.ties ? (
+					<span className="type-small  " style={{ color: "var(--status-success)" }}>
+						ties
+					</span>
+				) : null}
 			</div>
 		</div>
 	);
@@ -407,11 +299,14 @@ function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 				className={`type-copy ${`shrink-0   ${NUM}`}`}
 				style={{ color: ex.needsYou ? "var(--status-error)" : "var(--text-secondary)" }}
 			>
-				{usdCents(ex.amount)}
+				{fmtCents(ex.amount)}
 			</span>
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-[6px]">
 					<span className="type-small   text-[var(--text-primary)]">{ex.title}</span>
+					{/* BA2 T4e-a: `needsYou` is `optional` on the payload — its absence means
+					    "unknown", not "confirmed routine". A "Timing" badge asserted the
+					    latter unconditionally; only the confirmed-true case renders now. */}
 					{ex.needsYou ? (
 						<span
 							className="type-label rounded-[var(--r-pill)] px-[6px] py-[3px]   uppercase "
@@ -419,14 +314,7 @@ function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 						>
 							Needs you
 						</span>
-					) : (
-						<span
-							className="type-label rounded-[var(--r-pill)] px-[6px] py-[3px]   uppercase "
-							style={{ background: "var(--status-info-dim)", color: "var(--status-info)" }}
-						>
-							Timing
-						</span>
-					)}
+					) : null}
 				</div>
 				<p className={`type-metadata ${`mt-[3px]   text-[var(--text-secondary)] ${NUM}`}`}>
 					{ex.detail}
@@ -439,36 +327,27 @@ function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 // ── the canvas ───────────────────────────────────────────────────────────────
 
 export interface ReviewMetricsMovedProps {
-	readonly fixture?: CloseFixture;
+	readonly fixture: CloseFixture;
 	/** which figure starts expanded (so all 3 layers are visible in a screenshot). */
 	readonly initialExpandedFigureId?: string | null;
 }
 
 function ReviewMetricsMovedView({
-	fixture = FIXTURE,
+	fixture,
 	initialExpandedFigureId = "rev",
 }: ReviewMetricsMovedProps): JSX.Element {
 	const [expandedId, setExpandedId] = useState<string | null>(initialExpandedFigureId);
-	const found = fixture.figures.find((f) => f.headline) ?? fixture.figures[0];
-	if (!found) throw new Error("ReviewMetricsMoved: no headline figure");
-	const headline = found;
 
 	return (
 		<div className="max-w-[760px] bg-[var(--surface-page)] text-[var(--text-primary)]">
 			<div className="p-[18px]">
-				{/* ── L1 ── one-glance summary (tool/period now in source header) ── */}
-				<p className={`type-copy ${`  text-[var(--text-primary)] ${NUM}`}`}>
-					Recognized revenue closed at <span className="type-small ">{usd(headline.current)}</span>,
-					up{" "}
-					<span className="type-small " style={{ color: "var(--status-success)" }}>
-						{signed(headline.current - headline.prior)}
-					</span>{" "}
-					from April. The period ties to bank; biggest open item is a{" "}
-					<span className="type-small ">{usdCents(fixture.exceptions[0]?.amount ?? 0)}</span> wire
-					with no source.
-				</p>
-
-				<div className="mt-[12px] grid grid-cols-3 gap-[9px]">
+				{/* BA2 T4e-a: the former L1 narrative ("Recognized revenue closed at …
+				    from April. The period ties to bank; biggest open item is a $0.00
+				    wire with no source.") asserted a full sentence of facts no payload
+				    field backs — fixed month names, a bank tie claim, a coerced-to-zero
+				    exception amount. Subtracted rather than reworded (§2.8.2 D); the
+				    figure cards below already carry the real headline numbers. */}
+				<div className="grid grid-cols-3 gap-[9px]">
 					{fixture.figures.map((f) => (
 						<Headline
 							key={f.id}
@@ -481,7 +360,7 @@ function ReviewMetricsMovedView({
 
 				{/* ── L2 ── the structured proof: roll-forward + tie-out ── */}
 				<div className="type-label mt-[18px] mb-[9px]   uppercase  text-[var(--text-tertiary)]">
-					Roll-forward · reconciliation
+					Roll-forward · reconciliation · {fixture.period}
 				</div>
 				<RollForwardTable fixture={fixture} />
 
@@ -526,13 +405,16 @@ function isRollForwardRow(value: unknown): value is RollForwardRow {
 }
 
 function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
+	// BA2 T4e-a: `MetricsMovedPayload.headlines[]` carries no per-figure source
+	// at all — the old mapper invented one (`tool: "quickbooks"`, `source:
+	// payload.period`). `provenance` is left undefined; the view renders the
+	// disclosure only when there is real provenance to show (§2.8.2 D).
 	const figures: MovedFigure[] = payload.headlines.map((h, i) => ({
 		id: `fig-${i}`,
 		label: h.label,
 		prior: h.prior,
 		current: h.current,
 		headline: true,
-		provenance: { source: payload.period, detail: "", tool: "quickbooks" },
 	}));
 	const exceptions: Exception[] = payload.exceptions.map((ex, i) => ({
 		id: `ex-${i}`,
@@ -554,9 +436,12 @@ function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
 }
 
 export function ReviewMetricsMoved({ artifact }: ReviewCanvasProps): JSX.Element {
-	const fixture = isMetricsMovedPayload(artifact.payload)
-		? mapMetricsPayload(artifact.payload)
-		: FIXTURE;
+	if (!isMetricsMovedPayload(artifact.payload)) {
+		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// fallback, never the May-close demo fixture.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
+	const fixture = mapMetricsPayload(artifact.payload);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader

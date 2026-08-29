@@ -20,11 +20,9 @@ import type { ProposedCallStatus } from "@hyperidle/domain-model";
 import { type JSX, useState } from "react";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { ActionOperationPayload, ReviewCanvasProps } from "./review-artifact";
-import type { ProposedCallOutcomeView, ProposedCallView } from "./review-composition";
-
-// ── fixture ─────────────────────────────────────────────────────────────────
-// A realistic Stripe refund staged for human verdict.
+import type { ProposedCallOutcomeView } from "./review-composition";
 
 interface RefundField {
 	readonly label: string;
@@ -44,34 +42,11 @@ interface RefundOperation {
 	readonly fields: readonly RefundField[];
 	readonly blastRadius: readonly string[];
 	readonly reversibility: string;
+	/** BA2 T4e-a: the raw flag — both `IrreversibleBadge` and the L3 section
+	 * title used to render unconditionally, contradicting `reversibility`
+	 * (a few lines below) which already read this same field (§2.8.2 D). */
+	readonly irreversible: boolean;
 }
-
-const REFUND: RefundOperation = {
-	tool: "stripe",
-	action: "Refund payment",
-	amount: "$1,240.00",
-	currency: "USD",
-	intent: "Refund the duplicate charge on invoice INV-4471 back to the original card.",
-	fields: [
-		{ label: "Charge", value: "ch_3QspeeJ2a7kLmN0p", mono: true },
-		{
-			label: "Customer",
-			value: "cus_PnWq8xR2vTbA1c",
-			mono: true,
-			sub: "Northwind Logistics",
-		},
-		{ label: "Reason", value: "duplicate" },
-		{ label: "Idempotency key", value: "refund_2026_INV4471_dup", mono: true },
-		{ label: "Net after refund", value: "$0.00", sub: "charge fully refunded" },
-	],
-	blastRadius: [
-		"Affects 1 customer, 1 charge.",
-		"Reverses the ledger entry on the May close (revenue −$1,240.00).",
-		"Emails a Stripe refund receipt to billing@northwind-logistics.com.",
-	],
-	reversibility:
-		"Irreversible once submitted — Stripe processes the refund immediately and a refund cannot be cancelled. Re-charging the customer is a new, separate payment.",
-};
 
 // ── canvas ──────────────────────────────────────────────────────────────────
 
@@ -89,7 +64,7 @@ const REFUND: RefundOperation = {
 // uses the same shape, so canvas and loader cannot drift either.
 
 export interface ReviewActionOperationProps {
-	readonly operation?: RefundOperation;
+	readonly operation: RefundOperation;
 	/** AL7 trust-first: drives the outcome band. `captured` renders the AL2 canvas unchanged. */
 	readonly status?: ProposedCallStatus;
 	readonly outcome?: ProposedCallOutcomeView;
@@ -98,7 +73,7 @@ export interface ReviewActionOperationProps {
 }
 
 function ReviewActionOperationView({
-	operation = REFUND,
+	operation,
 	status = "captured",
 	outcome,
 	onApprove,
@@ -121,7 +96,10 @@ function ReviewActionOperationView({
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px]">
 						<h2 className="type-subheading    text-[var(--text-primary)]">{operation.action}</h2>
-						<IrreversibleBadge />
+						{/* BA2 T4e-a: rendered unconditionally regardless of
+						    `operation.irreversible` — a reversible action was labelled
+						    irreversible next to text (below) saying the opposite. */}
+						{operation.irreversible ? <IrreversibleBadge /> : null}
 					</div>
 					<p className="type-small mt-[6px]   text-[var(--text-secondary)]">{operation.intent}</p>
 				</div>
@@ -136,7 +114,10 @@ function ReviewActionOperationView({
 					background: "var(--accent-secondary-dim)",
 				}}
 			>
-				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Refund amount</span>
+				{/* BA2 T4e-a: "Refund amount" labelled this box on every operation,
+				    not only a refund (§2.8.2 D) — no generic replacement caption is
+				    supplied by the payload either, so the label is subtracted; the
+				    figure and its currency (below) are the payload's own. */}
 				<span
 					className="type-metric    text-[var(--text-primary)]"
 					style={{ fontVariantNumeric: "tabular-nums" }}
@@ -242,7 +223,14 @@ function ReviewActionOperationView({
 							/>
 						</svg>
 						<div>
-							<div className="type-label   uppercase  text-[var(--status-error)]">Irreversible</div>
+							{/* BA2 T4e-a: rendered unconditionally regardless of
+							    `operation.irreversible`, unlike the paragraph right below
+							    it — which already read the same field. */}
+							{operation.irreversible ? (
+								<div className="type-label   uppercase  text-[var(--status-error)]">
+									Irreversible
+								</div>
+							) : null}
 							<p className="type-small mt-[3px]   text-[var(--text-secondary)]">
 								{operation.reversibility}
 							</p>
@@ -261,6 +249,8 @@ function ReviewActionOperationView({
 				>
 					Reject
 				</button>
+				{/* BA2 T4e-a (§2.8.2 D): labelled "Approve refund" on every operation,
+				    not only a refund. */}
 				<button
 					type="button"
 					onClick={onApprove}
@@ -270,7 +260,7 @@ function ReviewActionOperationView({
 						background: "var(--accent-primary)",
 					}}
 				>
-					Approve refund
+					Approve
 				</button>
 			</footer>
 		</article>
@@ -462,77 +452,21 @@ function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
 		reversibility: payload.irreversible
 			? "Irreversible once submitted — confirm to proceed."
 			: "Reversible before the operation is executed.",
+		irreversible: payload.irreversible,
 	};
-}
-
-/**
- * AC10b (WARNING-2, ETHOS §3): When a Proposed Call is present, render the
- * concrete captured toolId + args BEFORE the standard operation card.
- * The human approves what they actually see — no summary, no fabricated data.
- *
- * @lore AL7 CRITICAL-3: Previously only `status`+`outcome` were passed and the
- * component defaulted to the hardcoded REFUND fixture. The approver saw fake
- * Stripe ids/amount, not the agent's real call. This section renders the verbatim
- * captured args so gross divergence is visible to human judgment.
- */
-function ProposedCallArgsPanel({
-	proposedCall,
-}: {
-	readonly proposedCall: ProposedCallView;
-}): JSX.Element {
-	const argEntries = Object.entries(proposedCall.args);
-	return (
-		<section
-			className="border-width-thin overflow-hidden  border-[var(--border-subtle)] bg-[var(--surface-elevated)]"
-			style={{ borderRadius: "var(--r-subtle)" }}
-			aria-label="Proposed call details"
-		>
-			<div className="border-width-thin-b flex items-center gap-[9px]  border-[var(--border-subtle)] px-[12px] py-[9px]">
-				<span className="type-label   uppercase  text-[var(--text-tertiary)]">Tool</span>
-				<span
-					className="type-data   text-[var(--text-primary)]"
-					data-testid="proposed-call-tool-id"
-				>
-					{proposedCall.toolId}
-				</span>
-			</div>
-			{argEntries.length > 0 ? (
-				<dl className="px-[12px]">
-					{argEntries.map(([key, value], i) => (
-						<div
-							key={key}
-							className="border-none flex items-start justify-between gap-[12px] py-[9px]"
-							style={{
-								borderTop: i === 0 ? undefined : "var(--bw-thin) solid var(--border-subtle)",
-							}}
-						>
-							<dt className="type-small shrink-0 pt-[1px]  text-[var(--text-tertiary)]">{key}</dt>
-							<dd
-								className="type-data min-w-0 text-right   text-[var(--text-primary)] break-all"
-								data-testid={`proposed-call-arg-${key}`}
-							>
-								{typeof value === "string" ? value : JSON.stringify(value)}
-							</dd>
-						</div>
-					))}
-				</dl>
-			) : null}
-		</section>
-	);
 }
 
 export function ReviewActionOperation({
 	artifact,
 	status,
 	outcome,
-	proposedCall,
-}: ReviewCanvasProps &
-	Pick<ReviewActionOperationProps, "status" | "outcome"> & {
-		readonly proposedCall?: ProposedCallView;
-	}): JSX.Element {
-	const operation = isActionOperationPayload(artifact.payload)
-		? mapActionPayload(artifact.payload)
-		: REFUND;
+}: ReviewCanvasProps & Pick<ReviewActionOperationProps, "status" | "outcome">): JSX.Element {
+	if (!isActionOperationPayload(artifact.payload)) {
+		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// fallback, never the REFUND demo fixture.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
+	const operation = mapActionPayload(artifact.payload);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader
@@ -541,9 +475,6 @@ export function ReviewActionOperation({
 				record={artifact.title}
 				href={artifact.sourceHref}
 			/>
-			{/* AC10b WARNING-2: render the concrete captured args (verbatim, not a summary)
-			    so the human approves what the agent actually called. */}
-			{proposedCall ? <ProposedCallArgsPanel proposedCall={proposedCall} /> : null}
 			<ReviewActionOperationView operation={operation} status={status} outcome={outcome} />
 		</div>
 	);
