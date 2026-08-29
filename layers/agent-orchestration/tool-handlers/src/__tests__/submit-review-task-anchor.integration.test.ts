@@ -3,9 +3,12 @@
  * the thread the task already has, or a new one attached to the task —
  * NEVER the bet, because tasks will exist without bets. The resolution:
  * `getFirstThreadByHost("task", ctx.taskId, …)`, else
- * `insertThread({hostKind:"task", hostId: ctx.taskId, …})` seeding the human
- * as a participant (the same shape `findSoleHumanUser` already gives
- * `reply`'s own no-calling-thread fallback, `tool-definitions.ts`).
+ * `insertThread({hostKind:"task", hostId: ctx.taskId, …})` seeding the
+ * task's OWN team's humans as participants, via `resolveReviewRecipientsForItem`
+ * — the same team-scoped seam `create_item` already uses for this decision
+ * (`tool-definitions.ts`). This backend is shared across an organisation's
+ * teams, so a review must reach the team that owns the work, never an
+ * arbitrary human resolved with no team filter at all.
  *
  * Every assertion below is checked against the PERSISTED row (the
  * `threads`/`messages` tables), never only `result.success` — a
@@ -31,15 +34,6 @@ const HUMAN_ID = "human-founder-1";
 
 let sharedDb: HyperIdleDb;
 
-/**
- * The one seam that seeds a newly created thread's human participant.
- * Returns a fixed human id so the test can assert on it without depending
- * on team-routing logic, which is proven separately elsewhere.
- */
-async function fakeFindSoleHumanUser(): Promise<{ readonly id: string }> {
-	return { id: HUMAN_ID };
-}
-
 const ports: ToolHandlersPorts = {
 	...STUB_TOOL_HANDLERS_PORTS,
 	coreApi: {
@@ -49,13 +43,27 @@ const ports: ToolHandlersPorts = {
 			// is `notNull`, so a real task cannot be produced without one yet —
 			// ruling 7's stated FUTURE case) — special-cased by id so this fake
 			// still routes every real seeded task through the actual db.
-			if (id === "t4-nobet-task") {
-				return { betId: "", teamId: "t4-nobet-team", notes: null };
+			if (id === "task-no-bet") {
+				return { betId: "", teamId: "team-no-bet", notes: null };
 			}
 			const row = await work.get(sharedDb, "task", id);
 			return row ? { betId: row.betId, teamId: row.teamId, notes: row.notes ?? null } : undefined;
 		},
-		findSoleHumanUser: fakeFindSoleHumanUser,
+		// Backed by the real `users` table so the test genuinely exercises
+		// team-scoped resolution — humans on the team, falling back to all
+		// humans only when the team has none — the same algorithm the
+		// production `resolveReviewRecipients` (org-routing.ts) implements.
+		resolveReviewRecipientsForItem: async (ctx) => {
+			const teamHumans = ctx.teamId
+				? await sharedDb
+						.select()
+						.from(users)
+						.where(and(eq(users.kind, "human"), eq(users.teamId, ctx.teamId)))
+				: [];
+			if (teamHumans.length > 0) return teamHumans.map((u) => u.id);
+			const allHumans = await sharedDb.select().from(users).where(eq(users.kind, "human"));
+			return allHumans.map((u) => u.id);
+		},
 		getFirstThreadByHost: async (hostKind: string, hostId: string) => {
 			const [row] = await sharedDb
 				.select()
@@ -115,9 +123,9 @@ function makeContext(
 		db,
 		eventBus,
 		agentId: "agent-builder",
-		sessionId: `session-t4-anchor-${sessionSuffix}`,
+		sessionId: `session-review-anchor-${sessionSuffix}`,
 		taskId,
-		sandboxPath: path.join(os.tmpdir(), `hi-t4-anchor-${sessionSuffix}-${Date.now()}`),
+		sandboxPath: path.join(os.tmpdir(), `hi-review-anchor-${sessionSuffix}-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
 }
@@ -125,11 +133,23 @@ function makeContext(
 async function seedTeamBetTask(
 	db: HyperIdleDb,
 	idPrefix: string,
+	humanId?: string,
 ): Promise<{ teamId: string; betId: string; taskId: string }> {
 	const teamId = `${idPrefix}-team`;
 	const betId = `${idPrefix}-bet`;
 	const taskId = `${idPrefix}-task`;
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
+	if (humanId) {
+		await db.insert(users).values({
+			id: humanId,
+			kind: "human",
+			name: humanId,
+			role: "founder",
+			status: "active",
+			teamId,
+			createdAt: NOW,
+		});
+	}
 	await db.insert(bets).values({
 		id: betId,
 		teamId,
@@ -189,7 +209,7 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 	});
 
 	it("posts to the task's existing thread, not the bet's, when the task already has both a bet thread and a task thread", async () => {
-		const { betId, taskId } = await seedTeamBetTask(db, "t4-both");
+		const { betId, taskId } = await seedTeamBetTask(db, "task-both-threads");
 
 		// Both hosts already have a thread — the exact situation where a
 		// by-host lookup on the bet would find and reuse the WRONG one.
@@ -215,7 +235,11 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		});
 
 		const result = await submitReviewTool.handler(
-			{ title: "Please approve", reasoning: ["done"], artifactRef: artifactRef("t4-both") },
+			{
+				title: "Please approve",
+				reasoning: ["done"],
+				artifactRef: artifactRef("task-both-threads"),
+			},
 			makeContext(db, eventBus, taskId, "both"),
 		);
 
@@ -234,10 +258,14 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 	});
 
 	it("creates a thread attached to the task — never the bet — when the task has no thread yet", async () => {
-		const { taskId } = await seedTeamBetTask(db, "t4-create");
+		const { taskId } = await seedTeamBetTask(db, "task-thread-create");
 
 		const result = await submitReviewTool.handler(
-			{ title: "Please approve", reasoning: ["done"], artifactRef: artifactRef("t4-create") },
+			{
+				title: "Please approve",
+				reasoning: ["done"],
+				artifactRef: artifactRef("task-thread-create"),
+			},
 			makeContext(db, eventBus, taskId, "create"),
 		);
 
@@ -256,10 +284,14 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 	});
 
 	it("seeds the human as a participant on a thread it creates — the thread is otherwise unreachable in the participant-scoped inbox", async () => {
-		const { taskId } = await seedTeamBetTask(db, "t4-seed");
+		const { taskId } = await seedTeamBetTask(db, "task-seed-participant", HUMAN_ID);
 
 		const result = await submitReviewTool.handler(
-			{ title: "Please approve", reasoning: ["done"], artifactRef: artifactRef("t4-seed") },
+			{
+				title: "Please approve",
+				reasoning: ["done"],
+				artifactRef: artifactRef("task-seed-participant"),
+			},
 			makeContext(db, eventBus, taskId, "seed"),
 		);
 
@@ -286,10 +318,10 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		// return an empty `betId` (see the `ports.coreApi.getTaskById` fake
 		// above) — no `tasks` row is inserted, so nothing here can pass by
 		// accidentally reading a real bet.
-		const taskId = "t4-nobet-task";
+		const taskId = "task-no-bet";
 
 		const result = await submitReviewTool.handler(
-			{ title: "Please approve", reasoning: ["done"], artifactRef: artifactRef("t4-nobet") },
+			{ title: "Please approve", reasoning: ["done"], artifactRef: artifactRef("task-no-bet") },
 			makeContext(db, eventBus, taskId, "nobet"),
 		);
 
@@ -305,5 +337,27 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		const written = await reviewMessages(db);
 		expect(written).toHaveLength(1);
 		expect(written[0]?.threadId).toBe(taskHosted[0]?.id);
+	});
+
+	it("seeds only the OWNING team's human — a second team's human never receives a review that isn't theirs", async () => {
+		const HUMAN_TEAM_A = "human-team-a";
+		const HUMAN_TEAM_B = "human-team-b";
+		const { taskId } = await seedTeamBetTask(db, "task-team-a", HUMAN_TEAM_A);
+		await seedTeamBetTask(db, "task-team-b", HUMAN_TEAM_B);
+
+		const result = await submitReviewTool.handler(
+			{ title: "Please approve", reasoning: ["done"], artifactRef: artifactRef("task-team-a") },
+			makeContext(db, eventBus, taskId, "team-scoped"),
+		);
+
+		expect(result.success).toBe(true);
+
+		const createdThreads = await allThreads(db);
+		const taskHosted = createdThreads.find((t) => t.hostKind === "task" && t.hostId === taskId);
+		expect(taskHosted).toBeDefined();
+
+		const participants = taskHosted?.participants as string[];
+		expect(participants).toContain(HUMAN_TEAM_A);
+		expect(participants).not.toContain(HUMAN_TEAM_B);
 	});
 });

@@ -606,6 +606,7 @@ type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
 async function resolveReviewThreadId(
 	ports: ToolHandlersPorts,
 	taskId: string,
+	teamId: string,
 	agentId: string,
 	now: string,
 ): Promise<string> {
@@ -621,17 +622,23 @@ async function resolveReviewThreadId(
 		return existingThread.id;
 	}
 
-	// @lore founder ruling 7 — a newly created review thread starts with NO
-	// participants at all, so it has to be seeded, and it is seeded with the
-	// sole human via `findSoleHumanUser`: the same seam `reply`'s
-	// no-calling-thread fallback already uses (this file, above), not
-	// `resolveReviewRecipientsForItem`-style team routing, which answers a
-	// different question ("who on the team should see this new item") for a
-	// thread that may already have other participants. Without a human
-	// participant an agent-raised review is unreachable by construction —
-	// nobody is in the thread to approve it.
-	const human = await ports.coreApi.findSoleHumanUser(agentId);
-	const participants = human ? [human.id, agentId] : [agentId];
+	// @lore founder ruling — this backend is shared across an organisation's
+	// teams, so a newly created review thread must be seeded with the team
+	// that owns the task, never with "whichever human happens to be first in
+	// the users table" (`findSoleHumanUser`'s old fallback here). That picked
+	// one arbitrary person regardless of team, which put the review in one
+	// human's inbox and left it absent from the right team's — the exact
+	// class of unreachability this tool exists to close. Reuse
+	// `resolveReviewRecipientsForItem` (already `create_item`'s seam for the
+	// same decision): team humans, falling back to all humans only when the
+	// team itself has none. `agentRole` is accepted for backward-compat by
+	// the backing route but no longer drives the result, so it is not worth
+	// an extra `getUserById` call here — pass `undefined`.
+	const humanIds = await ports.coreApi.resolveReviewRecipientsForItem(
+		{ userId: agentId, agentRole: undefined, teamId },
+		agentId,
+	);
+	const participants = humanIds.length > 0 ? [...humanIds, agentId] : [agentId];
 	const created = await ports.coreApi.insertThread(
 		{ hostKind: "task", hostId: taskId, participants },
 		agentId,
@@ -656,7 +663,13 @@ function makeSubmitReviewTool<TDb>(
 			if (!parentTask) return err("NOT_FOUND", `Parent task not found: ${ctx.taskId}`);
 
 			const now = new Date().toISOString();
-			const threadId = await resolveReviewThreadId(ports, ctx.taskId, ctx.agentId, now);
+			const threadId = await resolveReviewThreadId(
+				ports,
+				ctx.taskId,
+				parentTask.teamId,
+				ctx.agentId,
+				now,
+			);
 
 			// The route generates the message's id server-side; `created.id`
 			// replaces the client-generated `randomUUID()` the raw DI path used.
