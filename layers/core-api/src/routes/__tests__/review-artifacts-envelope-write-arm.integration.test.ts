@@ -1,24 +1,20 @@
 /**
- * BA2 T4d (RED) — the canvas-envelope channel: `submit_review` gains
- * `artifacts?: ReviewArtifact[]`, written straight onto the review message
- * payload in the same shape the demo world already persists and the loader
- * already serves. `.pipeline/work/BA2/architecture.md` §2.8.2 B1 (the write
- * path, traced end to end) and B2 (the envelope), T4d's row in §5.
+ * The canvas-envelope channel: `submit_review`'s `artifacts?:
+ * ReviewCanvasArtifact[]`, written straight onto the review message payload
+ * in the same shape the demo world already persists and the loader already
+ * serves.
  *
  * This is the PRIMARY channel — how an agent attaches the payloads the nine
  * canvases actually render, with no stored artifact/producer required. The
  * `artifactRef` channel (`reviews-loader-artifact-channel.integration.test.ts`,
  * `submit-review-artifact-ref.integration.test.ts`) is the secondary one.
  *
- * Traced (architecture.md F65, executed): `messageInputSchema.safeParse`
- * SUCCEEDS today and returns `["title","reasoning","artifactRef"]` —
- * `artifacts` is silently dropped because `reviewPayloadSchema` never
- * declares it, and a bare `z.object` strips unknown keys by default. This
- * file proves that specific silent drop by going through the REAL write
- * route the array is dropped at (`POST /api/threads/:id/messages`) and the
- * REAL read route that would otherwise (wrongly) look fine
- * (`GET /api/reviews/:id` never validates on read at all — it round-trips
- * `JSON.parse` verbatim — so the only place this can be lost is the write).
+ * `reviewPayloadSchema` declares `artifacts` explicitly — a bare `z.object`
+ * strips unknown keys by default, so an undeclared field would be silently
+ * dropped on write. This file proves the array survives the REAL write route
+ * (`POST /api/threads/:id/messages`) and comes back byte-identical from the
+ * REAL read route (`GET /api/reviews/:id`, which round-trips `JSON.parse`
+ * verbatim — so the only place this could be lost is the write).
  */
 
 import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
@@ -95,14 +91,14 @@ function authHeaders(): Record<string, string> {
 	return { "Content-Type": "application/json" };
 }
 
-describe("BA2 T4d — submit_review's canvas-envelope channel survives the write (BLK-2)", () => {
+describe("submit_review's canvas-envelope channel survives the write", () => {
 	test("a canvas-only review (no artifactRef) survives write and is served back by GET /api/reviews/:id", async ({
 		db,
 		app,
 	}) => {
-		const world = await seedWorld(db, "t4d-envelope-write");
+		const world = await seedWorld(db, "envelope-write");
 		const inlineCanvas = {
-			id: "t4d-envelope-write-canvas-1",
+			id: "envelope-write-canvas-1",
 			tool: "github",
 			app: "GitHub",
 			sourceHref: "https://github.example/pr/1",
@@ -117,10 +113,6 @@ describe("BA2 T4d — submit_review's canvas-envelope channel survives the write
 			},
 		};
 
-		// RED today for two combined reasons, both part of the same B1 schema
-		// edit: `artifactRef` is required on the write arm (a canvas-only
-		// review has none to give), AND `artifacts` isn't declared at all (so
-		// even once optional, the array would still be silently stripped).
 		const create = await app.request(`/api/threads/${world.threadId}/messages`, {
 			method: "POST",
 			headers: authHeaders(),
@@ -131,7 +123,7 @@ describe("BA2 T4d — submit_review's canvas-envelope channel survives the write
 					reasoning: ["done"],
 					artifacts: [inlineCanvas],
 				},
-				clientKey: "t4d-envelope-write-key",
+				clientKey: "envelope-write-key",
 			}),
 		});
 		expect(create.status).toBe(201);

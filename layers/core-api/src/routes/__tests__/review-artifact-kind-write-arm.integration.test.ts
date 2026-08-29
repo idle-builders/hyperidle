@@ -1,28 +1,26 @@
 /**
- * BA2 T4d (RED) — `reviewPayloadSchema`'s write arm speaks the consolidated
- * six-kind artifact vocabulary; the read arm stays tolerant of whatever a row
- * already carries. `.pipeline/work/BA2/architecture.md` §2.8.2 B3 (BLK-4).
+ * `reviewPayloadSchema`'s write arm speaks the consolidated six-kind artifact
+ * vocabulary (`ARTIFACT_KINDS`); the read arm (`reviewPayloadSchemaRow`) stays
+ * tolerant of whatever a row already carries.
  *
- * Today BOTH the write arm (`messageInputSchema`, used by
- * `POST /api/threads/:id/messages`) and the read arm
- * (`messageRowSchema`, used by `GET /api/threads/:id`) point at the SAME
- * `reviewPayloadSchema`, whose `artifactRef.kind` is
- * `z.enum(ARTIFACT_VIEW_SHAPES)` — five pre-consolidation values
- * (`"text_diff"`, `"content_preview"`, `"visual_comparison"`,
- * `"action_summary"`, `"data_metrics"`) with ZERO overlap with the six
- * consolidated `ARTIFACT_KINDS` (`"text"`, `"code"`, `"image"`, `"data"`,
- * `"html"`, `"url"`) `create_artifact` actually emits (architecture.md F51).
+ * The write arm (`messageInputSchema`, used by
+ * `POST /api/threads/:id/messages`) now validates `artifactRef.kind` against
+ * `ARTIFACT_KINDS` (`"text"`, `"code"`, `"image"`, `"data"`, `"html"`,
+ * `"url"`) — the six consolidated values `create_artifact` actually emits —
+ * refusing the five pre-consolidation values (`"text_diff"`,
+ * `"content_preview"`, `"visual_comparison"`, `"action_summary"`,
+ * `"data_metrics"`) that have zero overlap with them.
  *
- * The read-arm half of this split (a RETIRED kind on an existing row must not
- * throw on read-back) is already proven red by
- * `threads.verdict-review-resumption.integration.test.ts`'s
- * "a review row whose artifactRef.kind falls outside the current
- * ARTIFACT_VIEW_SHAPES enum does not throw on read-back" — not duplicated
- * here. This file covers the WRITE-arm half that test does not: a
- * consolidated kind must be WRITABLE, and a retired kind must no longer be.
+ * The read arm (`messageRowSchema`, used by `GET /api/threads/:id`) stays
+ * tolerant: a row already persisted with one of the five retired values must
+ * still parse, not throw `messageRowSchema.parse()` and take out the whole
+ * thread. That half is covered below, not in a separate file — there is no
+ * `threads.verdict-review-resumption.integration.test.ts` on this branch or
+ * on `origin/main`; it belonged to a sibling work package that was split
+ * apart and never landed here.
  */
 
-import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -31,6 +29,7 @@ const NOW = new Date().toISOString();
 interface World {
 	readonly taskId: string;
 	readonly threadId: string;
+	readonly agentId: string;
 }
 
 async function seedWorld(db: HyperIdleDb, idPrefix: string): Promise<World> {
@@ -93,7 +92,7 @@ async function seedWorld(db: HyperIdleDb, idPrefix: string): Promise<World> {
 		createdAt: NOW,
 	});
 
-	return { taskId, threadId };
+	return { taskId, threadId, agentId };
 }
 
 function authHeaders(): Record<string, string> {
@@ -122,17 +121,16 @@ async function postReview(
 	});
 }
 
-describe("BA2 T4d — reviewPayloadSchema write arm speaks the consolidated ARTIFACT_KINDS vocabulary (BLK-4)", () => {
+describe("reviewPayloadSchema write arm speaks the consolidated ARTIFACT_KINDS vocabulary", () => {
 	test("a review carrying a consolidated artifact kind is writable and reads back unchanged", async ({
 		db,
 		app,
 	}) => {
-		const world = await seedWorld(db, "t4d-write-new");
+		const world = await seedWorld(db, "write-new");
 
-		// RED today: the write arm still validates against the five
-		// pre-consolidation ARTIFACT_VIEW_SHAPES values, so "text" — one of the
-		// six kinds `create_artifact` actually emits — is rejected with 400.
-		const create = await postReview(app, world.threadId, "art-x", "text", "t4d-write-new-key");
+		// "text" is one of the six kinds `create_artifact` actually emits — the
+		// write arm accepts it.
+		const create = await postReview(app, world.threadId, "art-x", "text", "write-new-key");
 		expect(create.status).toBe(201);
 		const created = (await create.json()) as { message: { id: string } };
 
@@ -152,18 +150,57 @@ describe("BA2 T4d — reviewPayloadSchema write arm speaks the consolidated ARTI
 		db,
 		app,
 	}) => {
-		const world = await seedWorld(db, "t4d-write-retired");
+		const world = await seedWorld(db, "write-retired");
 
-		// RED today: the write arm currently ACCEPTS this (it's one of today's
-		// five ARTIFACT_VIEW_SHAPES values) and returns 201. After the fix,
-		// nothing pre-AM5 may be written again — the write arm must refuse it.
-		const create = await postReview(
-			app,
-			world.threadId,
-			"art-y",
-			"text_diff",
-			"t4d-write-retired-key",
-		);
+		// "text_diff" is one of the five retired ARTIFACT_VIEW_SHAPES values —
+		// nothing may write it again.
+		const create = await postReview(app, world.threadId, "art-y", "text_diff", "write-retired-key");
 		expect(create.status).toBe(400);
+	});
+});
+
+describe("reviewPayloadSchemaRow read arm stays tolerant of a retired kind an existing row carries", () => {
+	test("a review row persisted before the respell, still carrying a retired artifactRef.kind, reads back on GET /threads/:id instead of taking out the thread", async ({
+		db,
+		app,
+	}) => {
+		const world = await seedWorld(db, "read-retired");
+		const messageId = "read-retired-review-msg";
+
+		// Written directly at the DB layer — bypassing `messageInputSchema`
+		// entirely, exactly like a row that predates this change would already
+		// sit in production. If `messageRowSchema` (which this route's
+		// `rowToMessage` runs every row through) validated `artifactRef.kind`
+		// with the same strict `ARTIFACT_KINDS` enum as the write arm, this
+		// row's `.parse()` would throw and `GET /threads/:id` would 500 for
+		// EVERY message in the thread, not just this one.
+		await db.insert(messages).values({
+			id: messageId,
+			senderId: world.agentId,
+			threadId: world.threadId,
+			type: "review",
+			payload: JSON.stringify({
+				title: "Please approve",
+				reasoning: ["r"],
+				artifactRef: { id: "art-legacy", kind: "text_diff" },
+			}),
+			clientKey: "read-retired-key",
+			createdAt: NOW,
+		});
+
+		const get = await app.request(`/api/threads/${world.threadId}`, {
+			method: "GET",
+			headers: authHeaders(),
+		});
+
+		expect(get.status).toBe(200);
+		const detail = (await get.json()) as {
+			messages: ReadonlyArray<{ id: string; payload: { artifactRef?: { kind?: string } } }>;
+		};
+		const reviewMsg = detail.messages.find((m) => m.id === messageId);
+		expect(reviewMsg).toBeDefined();
+		// The retired value survives verbatim — the read arm is tolerant, not
+		// normalizing.
+		expect(reviewMsg?.payload.artifactRef?.kind).toBe("text_diff");
 	});
 });

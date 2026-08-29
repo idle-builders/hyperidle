@@ -1,29 +1,20 @@
 /**
- * BA2 T4d (RED) — `submit_review`'s canvas-envelope channel: an agent
- * attaches inline canvas payloads directly, with no stored artifact or
- * `create_artifact` producer required. `.pipeline/work/BA2/architecture.md`
- * §2.8.2 B2 — the decided trade: `submit_review` validates the envelope
- * (`id`, `tool`, `app`, `sourceHref`, `title`, `kind` against the nine
- * `REVIEW_CANVAS_KINDS`) strictly, and treats `payload` as opaque. Submit
- * cannot tell an agent its payload is malformed for its kind — that is
- * discovered at render, by the honest `ReviewUnknownCanvas` fallback
- * (T4e-a, untouched here).
+ * `submit_review`'s canvas-envelope channel: an agent attaches inline canvas
+ * payloads directly, with no stored artifact or `create_artifact` producer
+ * required. The envelope (`id`, `tool`, `app`, `sourceHref`, `title`, `kind`
+ * against the nine `REVIEW_CANVAS_KINDS`) is validated structurally; `payload`
+ * stays opaque — submit cannot tell an agent its payload is malformed for its
+ * kind, that is discovered at render, by the honest `ReviewUnknownCanvas`
+ * fallback.
  *
  * This is the PRIMARY channel per ruling 13 — it is how an agent's work
  * reaches a rendered canvas at all. `submit-review-artifact-ref.integration.
  * test.ts` covers the secondary (stored-artifact) channel.
  *
- * Today `submitReviewInputSchema` has no `artifacts` field at all, and the
- * handler's branch is `if (input.artifactRef) { review } else { plain }` —
- * so an `artifacts`-only call takes the PLAIN-message branch, silently
- * dropping the array (the same class of silent drop
- * `review-artifacts-envelope-write-arm.integration.test.ts` proves one layer
- * further down, at the core-api route). Both tests below are red for that
- * reason, checked against the actual persisted row rather than only the
- * handler's return value, since a weak `result.success` check would not
- * distinguish "created a review with artifacts" from "created a plain
- * message and silently ignored artifacts" — both currently return
- * `success: true`.
+ * Both tests below check the actual persisted row rather than only the
+ * handler's return value: `result.success` is `true` on both a real review
+ * AND a silent plain-message fallback that drops `artifacts` entirely, so
+ * only the row distinguishes them.
  */
 
 import * as os from "node:os";
@@ -51,13 +42,6 @@ const ports: ToolHandlersPorts = {
 			const row = await work.get(sharedDb, "task", id);
 			return row ? { betId: row.betId, teamId: row.teamId, notes: row.notes ?? null } : undefined;
 		},
-		// BA2 T4 — the handler's create-thread branch now seeds the human via
-		// this seam (see `submit-review-task-anchor.integration.test.ts`); this
-		// file's own tests are about the canvas-envelope channel, not
-		// participants, so `undefined` (no human found) keeps the create branch
-		// deterministic without pulling in a scenario this file doesn't
-		// otherwise seed.
-		findSoleHumanUser: async () => undefined,
 		getFirstThreadByHost: async (hostKind: string, hostId: string) => {
 			const [row] = await sharedDb
 				.select()
@@ -158,7 +142,7 @@ async function reviewMessagesInDb(
 	return rows.map((r) => ({ ...r, payload: JSON.parse(r.payload) as unknown }));
 }
 
-describe("submit_review — the canvas-envelope channel (BA2 T4d, §2.8.2 B2)", () => {
+describe("submit_review — the canvas-envelope channel", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
@@ -185,16 +169,16 @@ describe("submit_review — the canvas-envelope channel (BA2 T4d, §2.8.2 B2)", 
 	});
 
 	it("attaches an inline canvas payload to a real review message — not silently dropped onto a plain message", async () => {
-		const { taskId } = await seedTeamBetTask(db, "t4d-canvas-happy");
+		const { taskId } = await seedTeamBetTask(db, "canvas-happy");
 		const canvasArtifact = {
-			id: "t4d-canvas-happy-art",
+			id: "canvas-happy-art",
 			tool: "github",
 			app: "GitHub",
 			sourceHref: "https://github.example/pr/1",
 			title: "The diff",
 			kind: "code_diff",
 			// Deliberately unusual/arbitrary payload shape — the envelope must
-			// not reject it, per §2.8.2 B2's opaque-payload trade.
+			// not reject it; `payload` is validated at render, not here.
 			payload: { anything: "goes", nested: { nope: 1 }, list: [1, 2, 3] },
 		};
 
@@ -209,11 +193,9 @@ describe("submit_review — the canvas-envelope channel (BA2 T4d, §2.8.2 B2)", 
 
 		expect(result.success).toBe(true);
 
-		// RED today: nothing declares `artifacts` on `submitReviewInputSchema`
-		// and the branch is `artifactRef`-only, so this call today creates a
-		// `type:"plain"` message with the array silently gone — checked against
-		// the ACTUAL persisted row, not just `result.success` (which is `true`
-		// either way, so it alone would not catch the regression).
+		// Checked against the ACTUAL persisted row, not just `result.success`
+		// (which is `true` on both a real review and the silent
+		// plain-message fallback, so it alone would not catch a regression).
 		const written = await reviewMessagesInDb(db);
 		expect(written).toHaveLength(1);
 		expect(written[0]?.type).toBe("review");
@@ -222,9 +204,9 @@ describe("submit_review — the canvas-envelope channel (BA2 T4d, §2.8.2 B2)", 
 	});
 
 	it("refuses an envelope whose kind is not one of the nine review canvas kinds", async () => {
-		const { taskId } = await seedTeamBetTask(db, "t4d-canvas-badkind");
+		const { taskId } = await seedTeamBetTask(db, "canvas-badkind");
 		const badArtifact = {
-			id: "t4d-canvas-badkind-art",
+			id: "canvas-badkind-art",
 			tool: "github",
 			app: "GitHub",
 			sourceHref: "https://github.example/pr/2",
@@ -233,11 +215,6 @@ describe("submit_review — the canvas-envelope channel (BA2 T4d, §2.8.2 B2)", 
 			payload: { anything: "goes" },
 		};
 
-		// RED today: there is no envelope validation for `artifacts` at all —
-		// the array is silently dropped (see the happy-path test above) and the
-		// call falls through to the plain-message branch, succeeding instead
-		// of refusing. `success: true` here is the wrong outcome, not the
-		// right one for a different reason.
 		const result = await submitReviewTool.handler(
 			{
 				title: "Please approve",

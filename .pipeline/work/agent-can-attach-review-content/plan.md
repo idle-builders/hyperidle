@@ -100,8 +100,18 @@ sibling work extracted from the same source branch).
    `reviews-loader-artifact-channel.integration.test.ts` deliberately seeding
    a stored kind (`"text"`) different from the payload's own
    `artifactRef.kind` (`"html"`) and asserting the resolved entry carries the
-   real one. No invented fields: `tool`/`app`/`title` stay absent unless the
-   artifact has a `label`; `sourceHref` is the artifact's own real permalink.
+   real one. `ReviewArtifact` (`layers/core-ui/src/pages/review/review-artifact.ts`)
+   requires `tool`/`app`/`title`/`payload` on every entry with no optionality
+   — the review UI renders every entry through `ToolLogo`/`KindBadge`/a
+   canvas component unconditionally, so omitting any of them crashes the
+   page (`ToolLogo`'s `tool.slice(0, 1)` on `undefined`), not just looks
+   incomplete. `tool`/`app` use the same self-attributed sentinel the
+   fixtures already use for HyperIdle-native evidence with no per-tool
+   provenance (`"hyperidle"`/`"HyperIdle"`, see `review-subject.ts`'s
+   `outcomeArtifact`) rather than fabricating a false external identity;
+   `title` falls back to the artifact's own id when it has no `label`;
+   `payload` is `{}` (opaque, matching the proposed-call branch's own
+   convention); `sourceHref` is the artifact's own real permalink.
 
 4. **The canvas-envelope channel.** `submit_review` gains `artifacts?:
    ReviewCanvasArtifact[]` — an agent can attach evidence directly with no
@@ -139,15 +149,30 @@ sibling work extracted from the same source branch).
   alone keeps this change inside `core-api`/`agent-orchestration`/
   `domain-model` only.
 
-### Incidental compile fix (not a scope change)
+### Incidental compile fix, and the vocabulary migration this made necessary
 
 Widening `ReviewPayload.artifactRef` to optional and `ArtifactRef.kind` to
 `string | undefined` broke three `layers/core-ui` call sites that assumed
 both were always present (`part.ts`'s `artifactRefToEmbed`, `ThreadShell.tsx`'s
-`artifactSlot` prop type, used at two call sites). Fixed minimally: both
-functions now accept the `| undefined` case and render nothing for it
-(`changeSet: Embed | null` already existed as the return shape) — no behavior
-change for any thread that still always carries `artifactRef`.
+`artifactSlot` prop type, used at two call sites). Both functions now accept
+the `| undefined` case and render nothing for it (`changeSet: Embed | null`
+already existed as the return shape).
+
+That fix alone was not the whole story: `part.ts`'s `ARTIFACT_KIND_LABEL` and
+its `artifactRefToEmbed` diff check still only recognized the retired
+`ARTIFACT_VIEW_SHAPES` five values (`text_diff`, ...). Once the write arm
+stops emitting those and starts emitting the six consolidated `ARTIFACT_KINDS`
+instead (`tools/setup/src/demo-world/conversations.ts`'s own seed data changes
+`visual_comparison`→`html` and `text_diff`→`code`, twice), every NEW review
+chip fell through to the generic "Artifact" label and the diff embed became
+unreachable — a real behavior change this branch's respell caused, not
+"no behavior change for any thread that still always carries `artifactRef`"
+as originally (wrongly) claimed here. Fixed by adding the six current-vocabulary
+entries to `ARTIFACT_KIND_LABEL` and widening the diff check to `"text_diff" ||
+"code"`, alongside — not replacing — the retired entries: no data migration
+touches an already-persisted row, so a legacy `text_diff` value must keep
+rendering correctly forever. Covered by
+`layers/core-ui/src/components/parts/__tests__/part.artifact-kind.test.ts`.
 
 ## Files changed
 
@@ -174,18 +199,41 @@ Production:
   (`action_operation`, `field_change_set`, `rendered_in_context`, `batch`)
   get real demo rows.
 - `layers/core-ui/src/components/parts/part.ts`,
-  `layers/core-ui/src/ds/ThreadShell.tsx` — incidental compile fix (see
-  above).
+  `layers/core-ui/src/ds/ThreadShell.tsx` — incidental compile fix, plus the
+  vocabulary-migration fix above (`ARTIFACT_KIND_LABEL`/diff check now cover
+  both the retired and the current vocabulary).
+- `layers/core-ui/src/pages/review/review-artifact.ts` — `@lore` pointing at
+  `REVIEW_CANVAS_KINDS`'s new single-homed location (the two lists are kept
+  in sync by hand, never unified, per layer boundary).
 - `layers/agent-orchestration/tool-handlers/src/__tests__/stub-ports.ts` —
   `getArtifactById: notImplemented` stub entry.
+- `docs/process-layer/artifact-primitive.md`,
+  `docs/information-architecture/conversations-view.md` — corrected to
+  describe the respell instead of citing the deleted `ARTIFACT_VIEW_SHAPES`
+  as live.
 
 Tests (new, extracted from the source branch):
 - `layers/core-api/src/routes/__tests__/review-artifact-kind-write-arm.integration.test.ts`
+  — write-arm coverage, plus the read-arm tolerance test the file originally
+  (wrongly) cited as covered by a file that exists on neither this branch
+  nor `origin/main`.
 - `layers/core-api/src/routes/__tests__/review-artifacts-envelope-write-arm.integration.test.ts`
 - `layers/core-api/src/routes/__tests__/reviews-loader-artifact-channel.integration.test.ts`
+  — including the nonexistent-artifact no-fabrication case, and full-shape
+  (`tool`/`app`/`payload` present, not just `id`) assertions on every
+  resolved entry.
 - `layers/agent-orchestration/tool-handlers/src/__tests__/submit-review-artifact-ref.integration.test.ts`
+  — including a persisted-row assertion on the happy path (previously
+  `result.success` only).
 - `layers/agent-orchestration/tool-handlers/src/__tests__/submit-review-canvas-artifacts.integration.test.ts`
 - `tools/setup/src/__tests__/demo-world-canvas-kinds.integration.test.ts`
+- `layers/core-ui/src/pages/review/__tests__/ReviewComposition.test.tsx` —
+  renders a resolved stored-artifact entry (the reviews loader's actual
+  output shape) through the real `ArtifactRow`/`ToolLogo` render path, not a
+  canvas component in isolation.
+- `layers/core-ui/src/components/parts/__tests__/part.artifact-kind.test.ts`
+  — `derivePartsFromMessages`'s `artifactRef.kind` → embed mapping across
+  both the retired and current vocabularies.
 
 Tests (pre-existing, incidental retired-kind fixture updates — legitimate,
 since the write arm now rejects them; kind-only edits, no behavior
@@ -210,6 +258,7 @@ inside the existing `messages.payload` JSON column, not a new schema column.
 - `npm run test:integration:service` — 312 files / 2442 tests passed, 4
   skipped (unchanged skip count from before this change).
 - Targeted new/updated tests (20 tests across 7 files) pass in isolation.
+- `layers/core-ui` full component suite: 343 files / 3465 tests passed.
 - **Break → red → revert → green, byte-identical:** removed the
   `artifacts: z.array(reviewCanvasArtifactSchema).optional()` line from the
   write-arm schema (reintroducing the silent-drop). Reran
@@ -219,3 +268,33 @@ inside the existing `messages.payload` JSON column, not a new schema column.
   weak-assertion false pass. Restored the file from a pre-edit backup and
   reran: green again, `git diff --stat` against the pre-break commit shows
   only the intended feature diff remains (no residual change).
+- **B1 fix, break → red → revert → green, byte-identical (round 2 review
+  fixes):** reverted `reviews.ts`'s resolved entry to the pre-fix
+  `{id, kind, sourceHref, title?}` four-field shape. Reran
+  `reviews-loader-artifact-channel.integration.test.ts`: 3 of 4 tests
+  reddened on `expectRenderableArtifact`'s `typeof row.tool` assertion
+  (`expected 'undefined' to be 'string'`) — the exact under-shaped entry
+  the original bug produced. Restored the file: `diff` against the pre-break
+  version showed zero residual difference, and all 4 tests passed again.
+- **The new core-ui render test itself, mutation-tested:** temporarily
+  rewrote `ReviewComposition.test.tsx`'s new test to build `resolvedArtifact`
+  from the ORIGINAL pre-fix four-field shape (no `tool`/`app`/`payload`).
+  Reran: it reddened with the exact crash a real reviewer session hit —
+  `TypeError: Cannot read properties of undefined (reading 'slice')` at
+  `ToolLogo.tsx:84`. Restored the test file: `diff` against the pre-mutation
+  version showed zero residual difference, and the file's 12 tests passed
+  again. This proves the new render test is sensitive to the regression
+  class it exists to catch, not a coincidental pass — it directly
+  reconstructs the crash the review found on a real render, though it
+  asserts against a hand-built literal (not a live call into `reviews.ts`);
+  the `reviews-loader-artifact-channel.integration.test.ts` full-shape
+  assertions above are what proves `reviews.ts` itself always emits that
+  shape.
+- **B2 fix, break → red → revert → green, byte-identical:** collapsed
+  `reviewPayloadSchemaRow` back onto the strict write-arm schema (removing
+  the read-arm's `.optional() string` tolerance). Reran
+  `review-artifact-kind-write-arm.integration.test.ts`: the new read-arm
+  test reddened with `expected 500 to be 200` — a whole-thread
+  `GET /threads/:id` outage for a message carrying a retired
+  `artifactRef.kind`, exactly the outage the read-arm split exists to
+  prevent. Restored the file: zero residual diff, all 3 tests passed again.

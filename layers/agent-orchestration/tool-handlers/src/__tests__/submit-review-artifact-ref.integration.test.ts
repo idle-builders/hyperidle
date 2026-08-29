@@ -1,8 +1,9 @@
 /**
- * BA2 T4d (RED) — `submit_review`'s stored-artifact reference channel.
- * `.pipeline/work/BA2/architecture.md` §2.8.2 B3 (the `artifactRef.kind`
- * vocabulary respell — BLK-4) and §2.8.2 B4 (the ownership check: a review
- * may not reference an artifact it did not produce).
+ * `submit_review`'s stored-artifact reference channel: `artifactRef.kind`
+ * validates against the consolidated `ARTIFACT_KINDS` vocabulary
+ * `create_artifact` actually emits, and the handler confirms a referenced
+ * artifact belongs to the calling task before letting a review claim it as
+ * proof.
  *
  * Unit-level test of `submit_review`'s own handler logic against a real test
  * db — same shape as `create-artifact.integration.test.ts`'s own `@lore`:
@@ -10,14 +11,6 @@
  * updateThread,insertMessage,getArtifactById}` are exercised, wired to real
  * `@hyperidle/work`/raw-table operations against the real test db; everything
  * else stays the unused stub.
- *
- * Today `submit_review`'s `artifactRefSchema` is `z.enum(ARTIFACT_VIEW_SHAPES)`
- * — five pre-consolidation values with zero overlap with the six kinds
- * `create_artifact` emits — and the handler never checks that a referenced
- * artifact belongs to the calling task at all. Both tests below are red for
- * that combined reason; closing either gap alone is not what the acceptance
- * criterion asks for ("a stored artifact reference resolves, and a reference
- * to an artifact belonging to another task is refused").
  */
 
 import * as os from "node:os";
@@ -58,12 +51,6 @@ const ports: ToolHandlersPorts = {
 			const row = await work.get(sharedDb, "artifact", id);
 			return row ? { id: row.id, producingTaskId: row.producingTaskId, kind: row.kind } : undefined;
 		},
-		// BA2 T4 — the handler's create-thread branch now seeds the human via
-		// this seam (see `submit-review-task-anchor.integration.test.ts`); this
-		// file's own tests are about the artifactRef channel, not participants,
-		// so `undefined` (no human found) keeps the create branch deterministic
-		// without pulling in a scenario this file doesn't otherwise seed.
-		findSoleHumanUser: async () => undefined,
 		getFirstThreadByHost: async (hostKind: string, hostId: string) => {
 			const [row] = await sharedDb
 				.select()
@@ -157,7 +144,7 @@ async function seedTeamBetTask(
 	return { teamId, betId, taskId };
 }
 
-describe("submit_review — the stored artifactRef channel (BA2 T4d, BLK-3/BLK-4)", () => {
+describe("submit_review — the stored artifactRef channel", () => {
 	let handle: TestDbHandle;
 	let db: HyperIdleDb;
 	let eventBus: EventBus;
@@ -185,8 +172,8 @@ describe("submit_review — the stored artifactRef channel (BA2 T4d, BLK-3/BLK-4
 	});
 
 	it("resolves a stored artifact reference produced by the calling task", async () => {
-		const { taskId } = await seedTeamBetTask(db, "t4d-own");
-		const artifactId = "t4d-own-artifact";
+		const { taskId } = await seedTeamBetTask(db, "own");
+		const artifactId = "own-artifact";
 		await db.insert(artifacts).values({
 			id: artifactId,
 			producingTaskId: taskId,
@@ -196,10 +183,6 @@ describe("submit_review — the stored artifactRef channel (BA2 T4d, BLK-3/BLK-4
 			createdAt: NOW,
 		});
 
-		// RED today: `artifactRefSchema` only accepts the five pre-consolidation
-		// ARTIFACT_VIEW_SHAPES values — "text" (one of the six kinds
-		// `create_artifact` actually emits) fails validation with INVALID_INPUT
-		// before ownership is ever considered.
 		const result = await submitReviewTool.handler(
 			{
 				title: "Please approve",
@@ -210,34 +193,41 @@ describe("submit_review — the stored artifactRef channel (BA2 T4d, BLK-3/BLK-4
 		);
 
 		expect(result.success).toBe(true);
+
+		// The persisted row, not just the return value — `result.success` is
+		// `true` on both a real review AND the silent plain-message fallback,
+		// so only the row proves the artifactRef actually survived.
+		const written = await db.select().from(messages).where(eq(messages.type, "review"));
+		expect(written).toHaveLength(1);
+		const payload = JSON.parse(written[0]!.payload) as {
+			artifactRef?: { id: string; kind?: string };
+		};
+		expect(payload.artifactRef).toEqual({ id: artifactId, kind: "text" });
 	});
 
 	it("refuses a reference to an artifact produced by a DIFFERENT task", async () => {
-		const owner = await seedTeamBetTask(db, "t4d-owner");
-		const stranger = await seedTeamBetTask(db, "t4d-stranger");
-		const artifactId = "t4d-owner-artifact";
+		const owner = await seedTeamBetTask(db, "owner");
+		const stranger = await seedTeamBetTask(db, "stranger");
+		const artifactId = "owner-artifact";
 		await db.insert(artifacts).values({
 			id: artifactId,
 			producingTaskId: owner.taskId,
-			kind: "text_diff",
+			kind: "text",
 			label: null,
 			previewJson: null,
 			createdAt: NOW,
 		});
 
-		// `kind` here is a value that VALIDATES under today's schema
-		// (pre-consolidation ARTIFACT_VIEW_SHAPES) — deliberately, so this test
-		// isolates the missing ownership check from the parallel BLK-3 kind
-		// respell landing in the same task, rather than failing for the wrong
-		// reason. RED today: nothing in `submit_review` checks the artifact's
-		// `producingTaskId` against `ctx.taskId` at all, so the call succeeds
-		// and a review is created referencing proof the calling task does not
-		// own.
+		// `kind` here is a value the schema accepts — deliberately, so this
+		// test isolates the ownership check from the artifact-kind vocabulary,
+		// rather than failing for the wrong reason (a schema rejection would
+		// also produce `success: false`, but would prove nothing about
+		// ownership).
 		const result = await submitReviewTool.handler(
 			{
 				title: "Please approve",
 				reasoning: ["done"],
-				artifactRef: { id: artifactId, kind: "text_diff" },
+				artifactRef: { id: artifactId, kind: "text" },
 			},
 			makeContext(db, eventBus, stranger.taskId),
 		);

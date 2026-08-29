@@ -1,24 +1,18 @@
 /**
- * BA2 T4d (RED) — the four unexercised review canvases get real demo rows.
- * `.pipeline/work/BA2/architecture.md` §2.8.2 C / founder ruling 14 ("no demo
- * data in productive CODE; prefilled demo ROWS are fine").
+ * The four review canvases that had no demo data (`field_change_set`,
+ * `rendered_in_context`, `batch`, `action_operation`) get real seeded rows —
+ * founder ruling: no demo data in production CODE, but prefilled demo ROWS
+ * are fine.
  *
- * `field_change_set`, `rendered_in_context`, `batch` and `action_operation`
- * have no data anywhere in the demo world today — the nine canvas renderers
- * all already work (ruling 13), but four of the nine have never had anything
- * to render. This proves the SEEDED DATA exists and is well-formed against
- * each kind's documented payload shape (`review-artifact.ts`'s
+ * The nine canvas renderers all already work; four of the nine had never had
+ * anything to render. This proves the SEEDED DATA exists and is well-formed
+ * against each kind's documented payload shape (`review-artifact.ts`'s
  * `FieldChangeSetPayload`/`RenderedInContextPayload`/`BatchPayload`/
  * `ActionOperationPayload`) — not a component render with a hand-fed
- * fixture, which the existing per-canvas `.test.tsx` files already cover and
- * already pass (that render logic is not this task's job; T4e-a is separate
- * and untouched here). `tools/setup` cannot import `layers/core-ui`'s types
- * (governance layer boundary), so the shape checks below are structural,
- * against the same field names `architecture.md`'s table names for each
- * kind, not a type-guard import.
- *
- * All four assertions are red today: zero rows of any of these four kinds
- * exist anywhere in the seeded demo world.
+ * fixture, which the existing per-canvas `.test.tsx` files already cover.
+ * `tools/setup` cannot import `layers/core-ui`'s types (governance layer
+ * boundary), so the shape checks below are structural field-name checks, not
+ * a type-guard import.
  */
 
 import type { HyperIdleDb } from "@hyperidle/db";
@@ -51,7 +45,7 @@ async function artifactsOfKind(
 		.map((a) => a.payload as Record<string, unknown>);
 }
 
-describe("BA2 T4d — the four unexercised review canvases get real demo rows (ruling 14)", () => {
+describe("the four unexercised review canvases get real demo rows", () => {
 	test("field_change_set: at least one seeded artifact, shaped like FieldChangeSetPayload", async ({
 		db,
 	}) => {
