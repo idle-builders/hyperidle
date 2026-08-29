@@ -28,6 +28,7 @@ import type { ApiErrorResponse } from "@hyperidle/domain-model";
 import {
 	API_ERROR_CODES,
 	KNOWLEDGE_LAYERS,
+	KNOWLEDGE_ROLES,
 	roleLabel,
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
@@ -202,6 +203,12 @@ const createKnowledgeSchema = z.object({
 	// layer stays derived from scopeToLayer(scopeKind)).
 	kind: z.enum(KNOWLEDGE_ITEM_KINDS).optional(),
 	layer: z.enum(KNOWLEDGE_LAYERS).optional(),
+	/**
+	 * The document's role — what context assembly does with it. Absent means
+	 * `ordinary`, which is the column default and what every existing caller
+	 * has always produced.
+	 */
+	role: z.enum(KNOWLEDGE_ROLES).optional(),
 });
 
 const updateKnowledgeSchema = z.object({
@@ -212,6 +219,13 @@ const updateKnowledgeSchema = z.object({
 	topic: z.string().optional(),
 	format: z.string().optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
+	/**
+	 * Changing the role is how an ordinary note becomes a skill, and how a
+	 * skill goes back to being an ordinary note. Scope has its own route
+	 * (`PATCH /:id/scope`) because it carries a reason; a role change is an
+	 * ordinary field edit and rides the ordinary versioned update.
+	 */
+	role: z.enum(KNOWLEDGE_ROLES).optional(),
 });
 
 // BA9d: agent-reachable merge/split doors (recovered from AU44 scope breach,
@@ -463,6 +477,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			format: body.format,
 			// O2: default status is "draft" (was "captured" in old implementation)
 			status: body.status ?? "draft",
+			role: body.role,
 			updatedBy: body.updatedBy,
 		});
 
@@ -580,6 +595,7 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					topic: body.topic,
 					format: body.format,
 					status: body.status,
+					role: body.role,
 					updatedBy: body.updatedBy,
 				},
 				body.version,

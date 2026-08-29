@@ -27,6 +27,7 @@ import {
 
 import {
 	type KernelKnowledgeStatus,
+	type KnowledgeRole,
 	type SCOPE_KINDS,
 	scopeToLayer,
 } from "@hyperidle/domain-model";
@@ -54,6 +55,12 @@ export interface CreateKnowledgeItemInput {
 	 * when not provided (preserves existing behavior for callers that don't set scope). */
 	scopeKind?: string | null;
 	scopeId?: string | null;
+	/**
+	 * What context assembly does with this document: an ordinary knowledge file,
+	 * a SKILL.md in the harness skills directory, a rule, or an agent file bound
+	 * to one agent. Absent leaves the column default (`ordinary`).
+	 */
+	role?: KnowledgeRole;
 	/**
 	 * @lore AU14: made optional so callers with no `kind` concept (the HTTP route)
 	 * can omit it and keep `projection.kind` null, matching pre-AU14 route behavior.
@@ -100,6 +107,8 @@ export interface UpdateKnowledgeItemInput {
 	 * CreateKnowledgeItemInput.status (R7) — the PATCH route accepts kernel
 	 * statuses (e.g. "draft") that are outside the app-runtime KnowledgeStatus enum. */
 	status?: KnowledgeStatus | KernelKnowledgeStatus;
+	/** Changing this promotes an ordinary note into a skill, or demotes one back. */
+	role?: KnowledgeRole;
 	updatedBy?: string;
 	/** @lore AU44 batch 4: retained so the retro upsert (Ruling 3 PLUGIN row) can write
 	 * reflection metadata until the BA curation plugin track provides a replacement. */
@@ -237,6 +246,9 @@ export async function create(
 		body: input.body,
 		format: input.format,
 		status: input.status,
+		// Absent leaves the column default (`ordinary`), which is what every
+		// caller predating an authorable role produced.
+		...(input.role ? { role: input.role } : {}),
 		version: 1,
 		updatedBy: input.updatedBy,
 		createdAt: timestamp,
@@ -287,7 +299,18 @@ export async function create(
  * @lore O2: projection fields (layer, scopeId, kind, attentionScore, confidence, meta)
  * are removed from canonical EDITABLE_FIELDS and written to the extension table instead.
  */
-const KERNEL_EDITABLE_FIELDS = ["topic", "title", "body", "format", "status", "updatedBy"] as const;
+// `role` rides the ordinary editable set so a change is versioned and written to
+// the edit log like any other field — promoting a note to a skill is an edit with
+// an author and a history, not a hidden reclassification.
+const KERNEL_EDITABLE_FIELDS = [
+	"topic",
+	"title",
+	"body",
+	"format",
+	"status",
+	"role",
+	"updatedBy",
+] as const;
 
 const PROJECTION_EDITABLE_FIELDS = ["layer", "scopeId", "kind", "meta"] as const;
 
