@@ -169,6 +169,7 @@ describe("ReviewComposition — the checkout mock is deleted", () => {
 	const realReviewSubject: ComposedReviewSubject = {
 		id: "review-msg-real-1",
 		title: "Fix the checkout regression",
+		threadId: "thread-real-1",
 		betId: "bet-real-1",
 		betTitle: "Checkout reliability",
 		taskId: "task-real-1",
