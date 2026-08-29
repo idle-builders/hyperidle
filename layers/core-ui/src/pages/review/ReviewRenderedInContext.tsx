@@ -24,6 +24,7 @@ import type { Block } from "../../block/types.js";
 import { Button, headingIdentityMatches } from "../../ds";
 import { CanvasSourceHeader } from "./CanvasSourceHeader";
 import { isPlainObject, isString } from "./payload-guard";
+import { ReviewUnknownCanvas } from "./ReviewUnknownCanvas";
 import type { RenderedInContextPayload, ReviewCanvasProps } from "./review-artifact";
 import {
 	AnchoredThreadCard,
@@ -43,50 +44,17 @@ interface FlaggedClaim {
 }
 
 export interface RenderedEmail {
-	readonly tool: "mailchimp";
+	/** Widened from the literal `"mailchimp"` — carries the real `artifact.tool`. */
+	readonly tool: string;
 	readonly campaignName: string;
 	readonly sender: string;
-	readonly senderEmail: string;
 	readonly subject: string;
 	readonly preview: string;
 	readonly receivedAt: string; // inbox-row time label
-	readonly audienceLabel: string; // "12,400 free + trial"
-	readonly excludedNote: string; // segment-exclusion note
-	readonly sendPlan: string; // "Thu, Jun 18 · 9:00am ET"
 	readonly heroHeadline: string;
 	readonly bodyParas: readonly string[];
-	readonly ctaLabel: string;
-	readonly footer: string;
 	readonly flaggedClaims: readonly FlaggedClaim[];
 }
-
-export const FIXTURE: RenderedEmail = {
-	tool: "mailchimp",
-	campaignName: "Solo plan launch — $19/mo",
-	sender: "HyperIdle",
-	senderEmail: "hello@hyperidle.com",
-	subject: "Your team, minus the busywork — now $19",
-	preview: "The agent OS that plans, drafts, and waits for your call. Founder pricing ends Sunday.",
-	receivedAt: "9:00 AM",
-	audienceLabel: "to 12,400 free + trial",
-	excludedNote: "412 paid recipients excluded (already on a higher plan)",
-	sendPlan: "Thu, Jun 18 · 9:00 AM ET",
-	heroHeadline: "Run a team of agents. Keep the final say.",
-	bodyParas: [
-		"HyperIdle gives you a flat team of AI agents that plan work, draft the output, and stop at the decisions only you should make. No prompt-wrangling, no babysitting a chat window.",
-		"For the next launch week, the Solo plan is $19/mo — one founder, unlimited agents, every integration. After Sunday it goes to $29.",
-		"You stay in the loop where it counts: every send, refund, and record change waits for your approval first. Set up in under 5 minutes and point your first agent at real work today.",
-	],
-	ctaLabel: "Start for $19/mo",
-	footer:
-		"HyperIdle · 2261 Market St #4242, San Francisco CA · You're receiving this as a HyperIdle free or trial user. Unsubscribe · Manage preferences",
-	flaggedClaims: [
-		{
-			text: "Set up in under 5 minutes",
-			reason: "Unverified claim — no source. Median onboarding in last 30d was 11 min.",
-		},
-	],
-};
 
 // ── Small chrome atoms (Hearth/CP1 tokens by name) ───────────────────────────
 
@@ -168,12 +136,10 @@ export function EmailRender({
 				borderRadius: 12,
 			}}
 		>
-			{/* email header / logo bar */}
-			<div style={{ padding: "18px 24px", borderBottom: "1px solid #efeae1" }}>
-				<span style={{ fontSize: 17, fontWeight: 700, color: "#2f2a22", letterSpacing: "-0.01em" }}>
-					HyperIdle
-				</span>
-			</div>
+			{/* No brand name here: this header bar used to hardcode "HyperIdle"
+			    regardless of who actually sent the email. There is no payload field
+			    for a brand distinct from the sender already named in the inbox row
+			    above — subtracted rather than duplicating that same value here. */}
 
 			{/* hero */}
 			<div style={{ padding: viewport === "mobile" ? "24px 20px" : "32px 36px" }}>
@@ -204,31 +170,6 @@ export function EmailRender({
 						{p}
 					</p>
 				))}
-
-				{/* CTA pill */}
-				<div style={{ marginTop: 28 }}>
-					<a
-						href="https://hyperidle.com/start"
-						onClick={(e) => e.preventDefault()}
-						style={{
-							display: "inline-block",
-							padding: "13px 28px",
-							fontSize: 15,
-							fontWeight: 600,
-							color: "#ffffff",
-							background: "#2f6b4f",
-							borderRadius: 9999,
-							textDecoration: "none",
-						}}
-					>
-						{data.ctaLabel}
-					</a>
-				</div>
-			</div>
-
-			{/* footer */}
-			<div style={{ padding: "18px 24px", borderTop: "1px solid #efeae1", background: "#faf7f1" }}>
-				<p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: "#8a8174" }}>{data.footer}</p>
 			</div>
 		</div>
 	);
@@ -237,7 +178,7 @@ export function EmailRender({
 // ── Component ────────────────────────────────────────────────────────────────
 
 export interface ReviewRenderedInContextProps {
-	readonly data?: RenderedEmail;
+	readonly data: RenderedEmail;
 	readonly documentTitle?: string;
 	readonly artifactId?: string;
 	readonly blocks?: ReadonlyArray<Block>;
@@ -258,7 +199,7 @@ export interface ReviewRenderedInContextProps {
  *  - needs-you (shown here): the flag panel is open by default when claims exist.
  */
 function ReviewRenderedInContextView({
-	data = FIXTURE,
+	data,
 	documentTitle,
 	artifactId = "",
 	blocks = [],
@@ -304,13 +245,7 @@ function ReviewRenderedInContextView({
 				}}
 			>
 				<div className="flex items-center gap-[9px]">
-					<ToolLogo tool="mailchimp" size="md" withLabel label="" />
-					<span className="type-metadata " style={{ color: "var(--text-tertiary)" }}>
-						·
-					</span>
-					<span className="type-metadata  " style={{ color: "var(--text-secondary)" }}>
-						{data.audienceLabel}
-					</span>
+					<ToolLogo tool={data.tool} size="md" withLabel label="" />
 				</div>
 
 				{/* the row as a mail client paints it */}
@@ -331,7 +266,8 @@ function ReviewRenderedInContextView({
 							borderRadius: "var(--r-pill)",
 						}}
 					>
-						H
+						{/* Derived from `data.sender`, not a fixed letter. */}
+						{data.sender.slice(0, 1).toUpperCase()}
 					</div>
 					<div className="flex min-w-0 flex-1 flex-col gap-[3px]">
 						<div className="flex items-baseline justify-between gap-[12px]">
@@ -422,9 +358,16 @@ function ReviewRenderedInContextView({
 						>
 							{flagCount} flag{flagCount === 1 ? "" : "s"}
 						</span>
-						<span className="type-small " style={{ color: "var(--text-secondary)" }}>
-							{flagCount > 0 ? "1 unverified claim · send plan · exclusions" : "No flags"}
-						</span>
+						{/* No fixed-prose summary here: a hardcoded "1 unverified claim ·
+						    send plan · exclusions" would assert something regardless of how
+						    many flags there actually were or what they said. The badge above
+						    already carries the real count; nothing generic to add when
+						    there is at least one. */}
+						{flagCount === 0 ? (
+							<span className="type-small " style={{ color: "var(--text-secondary)" }}>
+								No flags
+							</span>
+						) : null}
 					</div>
 					<span
 						className="motion-move type-metadata  "
@@ -459,29 +402,6 @@ function ReviewRenderedInContextView({
 								</span>
 							</div>
 						))}
-
-						{/* send plan + exclusions */}
-						<div
-							className="flex flex-col gap-[6px] p-[12px]"
-							style={{
-								background: "var(--surface-container)",
-								border: "var(--bw-thin) solid var(--border-subtle)",
-								borderRadius: "var(--r-subtle)",
-							}}
-						>
-							<div className="flex items-baseline justify-between gap-[12px]">
-								<ChromeLabel>Send plan</ChromeLabel>
-								<span
-									className="type-small  "
-									style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
-								>
-									{data.sendPlan}
-								</span>
-							</div>
-							<span className="type-metadata " style={{ color: "var(--text-secondary)" }}>
-								{data.excludedNote}
-							</span>
-						</div>
 					</div>
 				) : null}
 			</section>
@@ -532,34 +452,37 @@ function isRenderedPayload(payload: unknown): payload is RenderedInContextPayloa
 	);
 }
 
-function mapRenderedPayload(payload: RenderedInContextPayload, title: string): RenderedEmail {
+function mapRenderedPayload(
+	payload: RenderedInContextPayload,
+	title: string,
+	tool: string,
+): RenderedEmail {
 	return {
-		tool: "mailchimp",
+		tool,
 		campaignName: title,
 		sender: payload.inboxRow.sender,
-		senderEmail: "hello@example.com",
 		subject: payload.inboxRow.subject,
 		preview: payload.inboxRow.preview,
 		receivedAt: "",
-		audienceLabel: "",
-		excludedNote: "",
-		sendPlan: "",
 		heroHeadline: payload.body || title,
 		bodyParas: payload.body ? [payload.body] : [],
-		ctaLabel: "",
-		footer: "",
 		flaggedClaims: payload.flags.map((text) => ({ text, reason: "" })),
 	};
 }
 
 export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.Element {
-	const data = isRenderedPayload(artifact.payload)
-		? mapRenderedPayload(artifact.payload, artifact.title)
-		: FIXTURE;
-	const body = isRenderedPayload(artifact.payload)
-		? artifact.payload.body
-		: FIXTURE.bodyParas.join("\n\n");
+	const valid = isRenderedPayload(artifact.payload);
+	// Hooks must run unconditionally on every render (rules-of-hooks) — computed
+	// ahead of the guard-failure early return, using an empty body when the
+	// payload doesn't validate (its result is unused on that path).
+	const body = valid ? artifact.payload.body : "";
 	const blocks = useMemo(() => deriveProseBlocks(artifact.id, body), [artifact.id, body]);
+	if (!valid) {
+		// A malformed payload gets the honest unknown-canvas
+		// fallback, never the Mailchimp demo fixture.
+		return <ReviewUnknownCanvas artifact={artifact} />;
+	}
+	const data = mapRenderedPayload(artifact.payload, artifact.title, artifact.tool);
 	return (
 		<div className="flex flex-col gap-[12px]">
 			<CanvasSourceHeader
