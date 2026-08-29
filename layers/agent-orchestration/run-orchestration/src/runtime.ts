@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { type AgentSessionRequest, type HyperIdleDb, sessions } from "@hyperidle/db";
+import { createLogger } from "@hyperidle/diagnostics";
 import type { BakedAgentRunnableConfig, BakedContextBundle } from "@hyperidle/domain-model";
 import {
 	type AgentSessionSourceCorrelation,
@@ -7,7 +8,7 @@ import {
 	agentSessionRequestInputSchema,
 } from "@hyperidle/domain-model";
 import type { ConversationMessage } from "@hyperidle/harness-protocol";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createContextAssembler } from "./context.js";
 import type {
 	AdmittedRun,
@@ -25,6 +26,8 @@ import {
 	TargetAgentNotRunnableError,
 } from "./errors.js";
 import { createProvisioner } from "./provisioner.js";
+
+const logger = createLogger({ pkg: "run-orchestration.runtime" });
 
 type RuntimeProvisionDeps = HarnessPortDeps<HyperIdleDb>;
 type ExecutionPorts = Omit<RuntimePorts, "sessionProvisioner"> & {
@@ -87,6 +90,22 @@ async function reserveOrAdoptSession(
 		.limit(1);
 	if (!winner) throw new Error(`Failed to reserve session for ${input.requestId}`);
 	return { adopted: true, sessionId: winner.id };
+}
+
+/**
+ * Close out the session `reserveOrAdoptSession` reserved for a request whose
+ * admission then failed. CAS'd on `state:"active"` (the same guard
+ * `start-runtime.ts`'s boot sweep uses) so a concurrent legitimate end wins
+ * and this becomes a no-op rather than clobbering it.
+ */
+async function endReservedSessionAfterFailedAdmission(
+	db: HyperIdleDb,
+	requestId: string,
+): Promise<void> {
+	await db
+		.update(sessions)
+		.set({ state: "crashed", outcome: "crashed", endedAt: new Date().toISOString() })
+		.where(and(eq(sessions.requestId, requestId), eq(sessions.state, "active")));
 }
 
 function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorrelation {
@@ -399,6 +418,31 @@ async function runClaimedRequest(
 				await ports.sessionRequests.releaseClaim(deps.db, request.id, request.claimToken);
 			}
 			throw err;
+		}
+		logger.error("Agent run failed", {
+			requestId: request.id,
+			sourceKind: request.sourceKind,
+			sourceId: request.sourceId,
+			agentId: request.agentId,
+			phase: admitted ? "post-admission" : "pre-admission",
+			// Spelled out rather than passing `err`: an Error has no enumerable
+			// own properties, so it JSON-serializes to `{}` and the log line says
+			// a run failed without ever saying why — the same silence this whole
+			// change exists to remove.
+			errorName: err instanceof Error ? err.name : typeof err,
+			errorMessage: err instanceof Error ? err.message : String(err),
+			stack: err instanceof Error ? err.stack : undefined,
+		});
+		// `reserveOrAdoptSession` inserts the session row BEFORE `admitSession`
+		// runs, so a pre-admission throw leaves an `active` session behind with
+		// no runtime attached to it. Nothing else ends it: the detached-runtime
+		// `crashSession` below only fires once `admitted` is set. The result was
+		// a product showing an agent working forever on work that had already
+		// failed, and a phantom `active` row counting against the agent's own
+		// concurrency limit — so the NEXT run could be refused by a session that
+		// never started.
+		if (!admitted) {
+			await endReservedSessionAfterFailedAdmission(deps.db, request.id);
 		}
 		// @lore AU9 R1: this catch spans both preconditions of the single terminal
 		// writer. When `admitted` is set, `markRequestRunning` already succeeded —

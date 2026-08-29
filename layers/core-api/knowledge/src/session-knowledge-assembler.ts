@@ -252,7 +252,16 @@ async function rank(
 
 /** Input to assembleSessionKnowledge — the emit-time context an agent's session needs. */
 export interface SessionKnowledgeInput {
-	readonly teamId: string;
+	/**
+	 * @lore The agent's team, when it has one. Optional because a plugin's own
+	 * agent is created `agentCategory: "individual"` and belongs to no team —
+	 * and capability items (skill/rule/agent_file) are scoped factory / team /
+	 * agent independently of any team, so a team-less agent must still receive
+	 * the factory- and agent-scoped ones. Absent simply means the team-scoped
+	 * L2 layer and team-scoped capability items contribute nothing, which is
+	 * the honest answer rather than a reason to assemble nothing at all.
+	 */
+	readonly teamId?: string;
 	readonly agentRole: string;
 	readonly taskDescription: string;
 	/**
@@ -319,19 +328,23 @@ async function fetchAllForLayer(
  */
 async function fetchCapabilityItems(
 	db: HyperIdleDb,
-	teamId: string,
+	teamId: string | undefined,
 	agentId: string | undefined,
 ): Promise<KnowledgeItemWithProjection[]> {
-	const scopeFilter = agentId
-		? or(
-				eq(knowledgeItems.scopeKind, "factory"),
-				and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId)),
-				and(eq(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.scopeId, agentId)),
-			)
-		: or(
-				eq(knowledgeItems.scopeKind, "factory"),
-				and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId)),
-			);
+	// A clause per scope that is actually in play. `teamId` is absent for a
+	// team-less agent; emitting a `scopeId = undefined` comparison there would
+	// silently match nothing AND drag the whole OR down with it in some
+	// drivers, so the clause is omitted rather than fed a missing value.
+	const scopeClauses = [
+		eq(knowledgeItems.scopeKind, "factory"),
+		...(teamId
+			? [and(eq(knowledgeItems.scopeKind, "team"), eq(knowledgeItems.scopeId, teamId))]
+			: []),
+		...(agentId
+			? [and(eq(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.scopeId, agentId))]
+			: []),
+	];
+	const scopeFilter = or(...scopeClauses);
 
 	const rows = await db
 		.select({ item: knowledgeItems, projection: knowledgeAppProjection })
@@ -375,9 +388,13 @@ export async function assembleSessionKnowledge(
 ): Promise<readonly KnowledgeItemWithProjection[]> {
 	const community = communityForRole(input.agentRole);
 
+	// L2 is the team layer. `list()` applies a scope filter only when `scopeId`
+	// is defined, so passing an absent team through would return EVERY team's L2
+	// knowledge rather than none — a team-less agent would inherit other teams'
+	// working agreements. No team means no team layer.
 	const [l4Items, l2Items, l3Items, capabilityItems] = await Promise.all([
 		fetchAllForLayer(db, "L4"),
-		fetchAllForLayer(db, "L2", input.teamId),
+		input.teamId ? fetchAllForLayer(db, "L2", input.teamId) : Promise.resolve([]),
 		fetchAllForLayer(db, "L3", community),
 		fetchCapabilityItems(db, input.teamId, input.agentId),
 	]);

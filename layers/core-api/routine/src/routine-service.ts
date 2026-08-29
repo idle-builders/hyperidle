@@ -416,7 +416,8 @@ export interface RoutineRunResolverDeps {
 	assembleSessionKnowledge?(
 		db: HyperIdleDb,
 		input: {
-			readonly teamId: string;
+			/** Absent for a team-less agent — see `assembleSessionKnowledge`'s own note. */
+			readonly teamId?: string;
 			readonly agentRole: string;
 			readonly taskDescription: string;
 			readonly agentId: string;
@@ -502,11 +503,21 @@ export async function resolveRoutineRunRequest(
 	const userId = agent.ownerUserId ?? undefined;
 
 	// BA1 D4: the bundle is always baked when `assembleSessionKnowledge` is
-	// available — a team-less owner still gets its prompt delivered, just
-	// with `team: null` and `knowledge: []` (assembling knowledge needs a
-	// team; this resolver does not invent a global query). `getTeamById`
-	// stays optional Mechanism-C plumbing, now driven by the AGENT's team
-	// rather than a `routines.team_id` column that no longer exists.
+	// available. `getTeamById` stays optional Mechanism-C plumbing, driven by
+	// the AGENT's team rather than a `routines.team_id` column that no longer
+	// exists.
+	//
+	// A team-less owner used to be handed `knowledge: []` outright, on the
+	// reasoning that assembling knowledge needs a team. That stopped being true
+	// when capability items (skill/rule/agent_file) arrived: they are scoped
+	// factory / team / agent, and the factory- and agent-scoped ones need no
+	// team at all. An agent with no team is an ordinary agent — `agentCategory:
+	// "individual"` — and must still receive everything scoped to reach it. The
+	// team decides only what the TEAM-scoped layers contribute.
+	//
+	// Proven on the packaged app by the case that exposed it: an individual
+	// agent ran with an empty sandbox, no `.claude/skills` written, while
+	// factory-scoped skills sat in the database.
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionKnowledge } = deps;
 	if (assembleSessionKnowledge) {
@@ -515,17 +526,14 @@ export async function resolveRoutineRunRequest(
 			const teamRow = await getTeamById(db, teamId);
 			if (teamRow) team = { id: teamRow.id, name: teamRow.name };
 		}
-		const knowledge = team
-			? await assembleSessionKnowledge(db, {
-					teamId: team.id,
-					agentRole: agent.role,
-					// BA1 D3: the scorer ranks knowledge against the instruction
-					// the run will actually execute, not a description of the
-					// routine.
-					taskDescription: routine.prompt ?? routine.name,
-					agentId: agent.id,
-				})
-			: [];
+		const knowledge = await assembleSessionKnowledge(db, {
+			...(team ? { teamId: team.id } : {}),
+			agentRole: agent.role,
+			// BA1 D3: the scorer ranks knowledge against the instruction the run
+			// will actually execute, not a description of the routine.
+			taskDescription: routine.prompt ?? routine.name,
+			agentId: agent.id,
+		});
 		contextBundle = {
 			kind: "routine",
 			routine: {

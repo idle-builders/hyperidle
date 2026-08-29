@@ -274,6 +274,50 @@ build order, with each package's own `plan.md` carrying its "As built" record:
 | **BA9c** | A routine that fires on an event knows what happened | PR #516 |
 | **BA9d** | The rituals become a plugin, and `strategy` is purged | PR #517 |
 
+## Three more batches (founder, 2026-08-29) — BA9 is not done
+
+Proving a–d end to end on the packaged desktop app found the capability half of BA9b unbuilt and the
+plugin boundary in the wrong place. These are batches of BA9, not follow-on work. BA9 is delivered
+when all seven are done, and everything is proven end to end on the packaged app.
+
+| Batch | Outcome | Depends on |
+|---|---|---|
+| **BA9e** | Role and scope are editable on any knowledge document | — |
+| **BA9f** | Rule, agent file and routine prompt are knowledge documents | BA9e |
+| **BA9g** | The plugin service owns what it installed | BA9f |
+
+**BA9e — role and scope are editable.** Founder: *"role and scope should be editable"*. The read side
+is built and proven live: a factory-scoped skill reaches a team agent and a team-less one alike, a
+team-scoped one reaches only that team, an agent-bound one reaches only its agent. The write side does
+not exist. `createKnowledgeSchema` has no `role`; `updateKnowledgeSchema` cannot change `role`,
+`scopeKind` or `scopeId`; **nothing anywhere writes `scopeKind:'user'`**, so the agent binding the
+reader supports has no producer; and no `.tsx` mentions `skill`, `rule` or `agent_file`. Only
+`upsertPluginSkill` writes a role today, so a capability exists only if a plugin brought it.
+
+**BA9f — the other three become knowledge documents.** Founder: *"rule, agent file, skills files,
+routine prompt should all be knowledge documents"*, and the routine prompt belongs here *"since
+otherwise the plugin stuff is directly broken again"*. `rule` and `agent_file` are materialised by
+`context.ts` and have no writer and no manifest key. `agent_file` is written into `knowledge/rules/`
+as a self-described supplement while the real AGENTS.md is generated from the assembled prompt — the
+opposite of the intent that an agent file IS that agent's AGENTS.md. `routines.prompt` is a plain
+`text` column; existing prompts migrate.
+
+**BA9g — the plugin service owns what it installed.** Founder: *"the plugin is not purely a writer it
+also needs to know the provenance and be able to update… the plugin service keeps track of which
+entities belong to a certain plugin"*. Provenance is recorded three ways: `users.plugin_id`,
+`routines.plugin_id` and `plugin_configuration_defaults.plugin_id` are real columns, while skills use
+`topic = "plugin:<id>"` — editing a skill's topic orphans it from uninstall and enable permanently.
+The contributions view reads only the configuration tables, so skills never appear and the decided
+detach/restore has no surface. `mergePluginMcpContributions` expands `${PLUGIN_ROOT}`/`${PLUGIN_DATA}`
+at session-provisioning time; that moves to install.
+
+Found during review of the a–d follow-on fixes, and belonging to this batch: installing over a
+**disabled** plugin re-enables the plugin row (`state: "enabled"`, `disabledAt: null`, unconditionally
+on conflict) but leaves its agents `inactive` and its routines `active: false` — only the enable route
+restores those. So a reinstall of a disabled plugin yields a plugin that reports enabled with a dead
+agent and dead routines. Pre-existing; the ownership registry is where the lifecycle becomes one
+operation instead of three that can disagree.
+
 ## What refinement established, and what it got wrong
 
 Refinement plus an independent critique corrected five claims in the original plan. Each was

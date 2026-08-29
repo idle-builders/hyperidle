@@ -121,6 +121,28 @@ export const AGENT_CATEGORIES = ["team", "individual"] as const;
 export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
 
 /**
+ * The harness types an adapter can register under, and therefore the only
+ * values `agent_run_config.harness_type` can usefully hold: pinning an agent
+ * to anything else means the pool can never select for it and every run of
+ * that agent fails.
+ *
+ * Selection compares this string for exact equality (`adapter-pool.ts`'s
+ * `select`), so a near-miss is as fatal as nonsense. The demo world seeded
+ * `"claude"` against an adapter registered as `"claude-code"`, which made its
+ * builder agent permanently unrunnable — a typo no type caught, because every
+ * declaration on the path was a bare `string`. Both the registration side and
+ * every writer now spell the vocabulary from here.
+ */
+export const HARNESS_TYPES = [
+	"builtin",
+	"claude-code",
+	"codex",
+	"opencode",
+	"cursor-agent",
+] as const;
+export type HarnessType = (typeof HARNESS_TYPES)[number];
+
+/**
  * AB0: Agent role is an open string. The role catalog in agent-roles.ts provides
  * known roles with metadata, but any non-empty string is a valid role.
  *

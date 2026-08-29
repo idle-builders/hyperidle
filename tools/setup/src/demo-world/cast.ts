@@ -8,6 +8,7 @@
  */
 
 import { agentRunConfig, type HyperIdleDb, orgEdges, teams, users } from "@hyperidle/db";
+import type { HarnessType } from "@hyperidle/domain-model";
 import { eq } from "drizzle-orm";
 import {
 	ASSISTANT_ID,
@@ -27,7 +28,7 @@ interface AgentSpec {
 	readonly name: string;
 	readonly role: string;
 	readonly createdAt: string;
-	readonly harnessType: string;
+	readonly harnessType: HarnessType;
 	readonly maxConcurrentSessions: number;
 }
 
@@ -99,13 +100,13 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 			.onConflictDoNothing();
 	}
 
-	// Harness variety on the pre-existing skeleton agents (builder on claude,
-	// the rest builtin) — gives the Agents view something to distinguish.
+	// Harness variety on the pre-existing skeleton agents (builder on Claude
+	// Code, the rest builtin) — gives the Agents view something to distinguish.
 	for (const [agentId, harnessType] of [
-		[BUILDER_ID, "claude"],
+		[BUILDER_ID, "claude-code"],
 		[PM_ID, "builtin"],
 		[ASSISTANT_ID, "builtin"],
-	] as const) {
+	] as const satisfies readonly (readonly [string, HarnessType])[]) {
 		await db
 			.insert(agentRunConfig)
 			.values({ agentUserId: agentId, harnessType, maxConcurrentSessions: 1 })

@@ -423,6 +423,17 @@ const sessionLifecyclePort: SessionLifecycleRuntime = {
 				sessionId: input.sessionId,
 				claimToken: input.claimToken,
 				failureCode: input.failureCode,
+				// @lore This adapter silently dropped `errorMessage` for months.
+				// Nothing caught it: the field is optional on both sides, so
+				// omitting it from this fresh object literal type-checks, and
+				// `run-orchestration/__tests__/test-ports.ts` REIMPLEMENTS this
+				// port (forwarding the field correctly), so the package's own
+				// tests asserted the message green while production wrote null.
+				// Every failed request in a real database read `error_code:
+				// "Error"`, `error_message: null` — a failure that refused to say
+				// what it was. Any new field here needs a test through the real
+				// composition, not through `test-ports`.
+				errorMessage: input.errorMessage,
 			},
 		);
 	},

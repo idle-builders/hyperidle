@@ -97,6 +97,15 @@ export interface AgentRunLifecycleChangedEvent {
 	readonly sourceId: string;
 	readonly state: "completed" | "failed" | "cancelled";
 	readonly sessionId?: string;
+	/**
+	 * Why the run ended this way, read back off the durable request row. A
+	 * subscriber that records a terminal outcome of its own (core-api's
+	 * routine-run finalizer) has no other source for the reason — without
+	 * these it can only write "it failed", which is what left every real
+	 * provisioning failure undiagnosable from the product.
+	 */
+	readonly failureCode?: string;
+	readonly errorMessage?: string;
 	readonly timestamp: number;
 }
 

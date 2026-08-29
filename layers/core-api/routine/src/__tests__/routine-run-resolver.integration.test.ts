@@ -297,14 +297,19 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		});
 	});
 
-	// BA1 D4 — the case this wave adds: a team-less owner cannot be scored
-	// against a team, so the resolver skips knowledge assembly rather than
-	// inventing a global query, and bakes `team: null` / `knowledge: []`
-	// instead of omitting the bundle entirely (the prompt still has to
-	// reach the agent).
-	test("bakes team:null and knowledge:[] for a team-less owner, without calling assembleSessionKnowledge", async ({
-		db,
-	}) => {
+	// BA1 D4 bakes `team: null` for a team-less owner rather than omitting the
+	// bundle — the prompt still has to reach the agent.
+	//
+	// This test used to also assert that knowledge assembly was SKIPPED for
+	// such an owner, on the reasoning that nothing can be scored without a
+	// team. That stopped being true once capability items (skill/rule/
+	// agent_file) arrived: they are scoped factory / team / agent, and the
+	// factory- and agent-scoped ones need no team. Skipping meant a plugin's
+	// own agent — created `agentCategory: "individual"`, so team-less by
+	// construction — could never receive the skills that same plugin
+	// installed for it. The assembler is now always called; the team only
+	// decides what the team-scoped layers contribute.
+	test("assembles knowledge for a team-less owner and still bakes team:null", async ({ db }) => {
 		const { resolveRoutineRunRequest } = await import("../routine-service.js");
 		await seedAgent(db, "owner-rrun-ctx-noteam");
 		await seedRoutine(db, {
@@ -318,21 +323,35 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		});
 
 		let assembleCalled = false;
+		let receivedTeamId: string | undefined = "unset";
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-noteam", {
 			requireRunnableAgent,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
-			assembleSessionKnowledge: async () => {
+			assembleSessionKnowledge: async (_db, input) => {
 				assembleCalled = true;
-				return [];
+				receivedTeamId = input.teamId;
+				return [
+					{
+						id: "skill-rrun-ctx-noteam",
+						title: "knowledge-decay",
+						body: "# Knowledge decay sweep",
+						role: "skill",
+					} as never,
+				];
 			},
 		});
 
-		expect(assembleCalled).toBe(false);
+		expect(assembleCalled).toBe(true);
+		// No team to scope by — the assembler is told so plainly rather than
+		// being handed a stand-in id.
+		expect(receivedTeamId).toBeUndefined();
 		expect(baked.contextBundle).toMatchObject({
 			kind: "routine",
 			routine: { id: "routine-rrun-ctx-noteam", prompt: "Summarize the week." },
 			team: null,
-			knowledge: [],
+			knowledge: expect.arrayContaining([
+				expect.objectContaining({ id: "skill-rrun-ctx-noteam", role: "skill" }),
+			]),
 		});
 	});
 });
