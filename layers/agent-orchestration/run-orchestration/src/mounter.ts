@@ -190,6 +190,29 @@ function isLocalRepoPath(
 	);
 }
 
+/**
+ * BA2 ruling 18 — the real local path a mounted filesystem stands on, if any.
+ *
+ * `LocalFolderAdapter` symlinks `resourceRef.folder` (an absolute path
+ * elsewhere on disk) INTO the sandbox rather than copying it, and
+ * `GitWorktreeAdapter` backs its worktree with a local `resourceRef.repo` —
+ * both are real filesystem paths outside the sandbox root that a harness with
+ * a trust precondition (codex) needs told about, not just the sandbox itself.
+ * A cloned repo (`GitCloneAdapter`, `connectionId != null`) has no such path —
+ * it is written directly into the sandbox, already covered by the sandbox's
+ * own trust declaration. Returns `undefined` when the filesystem has no local
+ * path distinct from the sandbox (a remote clone, or a cloud source not yet
+ * built).
+ */
+export function localTrustedPath(filesystem: Filesystem): string | undefined {
+	const ref = filesystem.resourceRef;
+	if (ref.kind === "doc_set") return ref.folder;
+	if (ref.kind === "code" && filesystem.connectionId == null && isLocalRepoPath(ref)) {
+		return ref.repo;
+	}
+	return undefined;
+}
+
 class MalformedFilesystemError extends Error {
 	readonly filesystem: Filesystem;
 

@@ -148,6 +148,88 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 			// And the new block is also present.
 			expect(after).toContain("[mcp_servers.hyperidle]");
 		});
+
+		// ── BA2 ruling 18 — trust is declared, not bypassed ───────────────────────
+		//
+		// codex 0.150.1 refuses to run outside a directory it trusts ("Not inside
+		// a trusted directory"). The fix is NOT a bypass flag — it is codex's own
+		// declaration mechanism: `[projects."<path>"] trust_level = "trusted"` in
+		// config.toml. This writer already authors that file for the MCP entry, so
+		// the trust declaration belongs beside it.
+
+		test('declares the sandbox path trusted via [projects."<path>"] trust_level', () => {
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			expect(content).toContain(`[projects."${sandboxPath}"]`);
+			expect(content).toContain('trust_level = "trusted"');
+		});
+
+		test("declares each mounted filesystem's real path trusted alongside the sandbox", () => {
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+			const mountedRepoPath = fs.mkdtempSync(path.join(os.tmpdir(), "t1-mounted-repo-"));
+
+			try {
+				writeCliMcpConfig({
+					dialect: "codex-toml",
+					sandboxPath,
+					mcpUrl: TEST_MCP_URL,
+					token: TEST_TOKEN,
+					trustedPaths: [mountedRepoPath],
+				});
+
+				const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+				expect(content).toContain(`[projects."${sandboxPath}"]`);
+				expect(content).toContain(`[projects."${mountedRepoPath}"]`);
+				// Both entries declare trust_level = "trusted" (count, not just contains).
+				expect(content.match(/trust_level = "trusted"/g)?.length).toBe(2);
+			} finally {
+				fs.rmSync(mountedRepoPath, { recursive: true, force: true });
+			}
+		});
+
+		test("does not duplicate the trust entry when a trustedPaths entry equals the sandbox", () => {
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+				trustedPaths: [sandboxPath],
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			expect(content.match(/trust_level = "trusted"/g)?.length).toBe(1);
+		});
+
+		test("leaves the [mcp_servers.hyperidle] block undisturbed by the trust declaration", () => {
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+				trustedPaths: ["/some/other/mounted/path"],
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			expect(content).toContain("[mcp_servers.hyperidle]");
+			expect(content).toContain(`url = "${TEST_MCP_URL}"`);
+			expect(content).toContain('bearer_token_env_var = "HYPERIDLE_MCP_TOKEN"');
+		});
 	});
 
 	// ── opencode-json dialect ─────────────────────────────────────────────────

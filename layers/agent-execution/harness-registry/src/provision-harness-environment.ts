@@ -9,6 +9,13 @@ export interface ProvisionOptions {
 	readonly dialect?: "codex-toml" | "opencode-json" | "cursor-json";
 	readonly channel?: ReturnEnforcementChannel;
 	readonly forceBudget?: number;
+	/**
+	 * BA2 ruling 18: the session's mounted filesystems, threaded down to the
+	 * dialect writer so a harness with a trust precondition (codex) can declare
+	 * them trusted alongside the sandbox. See cli-mcp-config.ts's
+	 * `HarnessMcpConfigParams.trustedPaths`.
+	 */
+	readonly trustedPaths?: readonly string[];
 }
 
 export async function provisionHarnessEnvironment(
@@ -20,6 +27,7 @@ export async function provisionHarnessEnvironment(
 				sandboxPath: options.sandboxPath,
 				mcpUrl: options.mcpUrl,
 				token: options.token,
+				trustedPaths: options.trustedPaths,
 			})
 		: {};
 	if (options.channel) {

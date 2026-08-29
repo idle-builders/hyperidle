@@ -372,6 +372,22 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// Verified against codex-cli: `codex exec --help` lists three values:
 		// read-only (default), workspace-write, danger-full-access.
 		// workspace-write = writable within the cwd tree; no full-disk access.
+		//
+		// @lore BA2 ruling 18 (corrects T8): codex-cli 0.150.1 refuses to run
+		// outside a directory it TRUSTS — "Not inside a trusted directory" — which
+		// T8 misdiagnosed as a git-repo precondition and "fixed" with
+		// `--skip-git-repo-check`. That was wrong on both counts: it is not a
+		// git-repo check (verified in the installed binary's own
+		// ~/.codex/config.toml, `[projects."<path>"] trust_level = "trusted"` is
+		// codex's OWN trust declaration, nothing to do with git), and bypassing
+		// the check is not the same as satisfying it — a bypass silences the
+		// refusal without making the directory trusted, which is exactly the move
+		// this package refuses everywhere else. The correct fix grants trust
+		// through codex's own mechanism: `writeCliMcpConfig`'s codex-toml dialect
+		// (cli-mcp-config.ts, `buildCodexTrustBlock`) writes a `[projects."<sandbox>"]
+		// trust_level = "trusted"` entry (plus one per mounted filesystem) into the
+		// same `.codex-home/config.toml` this adapter already points CODEX_HOME at.
+		// No flag needed here anymore.
 		args: ["exec", "--sandbox", "workspace-write", "--model", "{{model}}", "{{prompt}}", "--json"],
 		envMap: {
 			OPENAI_API_KEY: "{{apiKey}}",

@@ -149,7 +149,20 @@ function provisionClaudeSandbox(sandboxPath: string): void {
 	fs.writeFileSync(path.join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
 }
 
-/** Copy codex auth (auth.json + config.toml only, no SQLite) into .codex-home/. */
+/**
+ * Copy codex auth (auth.json + config.toml only, no SQLite) into .codex-home/.
+ *
+ * @lore BA2 ruling 18: this test drives `CliHarnessAdapter` directly against
+ * `CLI_TOOL_CONFIGS.codex` with the git-repo-check bypass flag removed, so the
+ * sandbox's own trust declaration (production's job — `writeCliMcpConfig`'s
+ * codex-toml dialect) is not exercised here; this harness-adapter-level test
+ * has no bridge/mcpUrl/token to call it with. Declare trust for the ephemeral
+ * sandbox directly, in the same shape codex itself writes (`codex mcp add` /
+ * accepting a trust prompt): `[projects."<path>"] trust_level = "trusted"`.
+ * The home config.toml this test copies in has this same block for the
+ * developer's real, durable directories — never for an mkdtemp path, which is
+ * why the block is appended here rather than relied upon from the copy.
+ */
 function provisionCodexHome(sandboxPath: string): boolean {
 	const codexHomeDir = path.join(sandboxPath, ".codex-home");
 	fs.mkdirSync(codexHomeDir, { recursive: true });
@@ -162,6 +175,11 @@ function provisionCodexHome(sandboxPath: string): boolean {
 			if (fname === "auth.json") authFound = true;
 		}
 	}
+	fs.appendFileSync(
+		path.join(codexHomeDir, "config.toml"),
+		`\n[projects."${sandboxPath}"]\ntrust_level = "trusted"\n`,
+		"utf-8",
+	);
 	return authFound;
 }
 

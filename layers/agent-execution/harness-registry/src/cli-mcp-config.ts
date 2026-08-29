@@ -44,6 +44,16 @@ interface HarnessMcpConfigParams {
 	readonly mcpUrl: string;
 	/** 64-char hex bridge session token. */
 	readonly token: string;
+	/**
+	 * Additional local paths to declare trusted, beyond the sandbox itself —
+	 * the session's mounted filesystems (BA2 founder ruling 18: the filesystem
+	 * primitive is what declares trusted directories; the harness is told what
+	 * it declares, in whatever form that harness understands). Currently only
+	 * the codex-toml dialect acts on this — codex is the harness with a trust
+	 * precondition; the field is threaded generically so a future harness with
+	 * the same shape of check does not need a parallel param.
+	 */
+	readonly trustedPaths?: readonly string[];
 }
 
 interface HarnessMcpConfigResult {
@@ -76,11 +86,11 @@ interface HarnessMcpConfigResult {
  * The Codex home and OpenCode config are both rooted inside the session sandbox.
  */
 function writeHarnessMcpConfig(params: HarnessMcpConfigParams): HarnessMcpConfigResult {
-	const { dialect, sandboxPath, mcpUrl, token } = params;
+	const { dialect, sandboxPath, mcpUrl, token, trustedPaths } = params;
 
 	switch (dialect) {
 		case "codex-toml":
-			return writeCodexToml({ sandboxPath, mcpUrl, token });
+			return writeCodexToml({ sandboxPath, mcpUrl, token, trustedPaths });
 
 		case "opencode-json":
 			return writeOpencodeJson({ sandboxPath, mcpUrl, token });
@@ -96,8 +106,9 @@ function writeCodexToml(params: {
 	sandboxPath: string;
 	mcpUrl: string;
 	token: string;
+	trustedPaths?: readonly string[];
 }): HarnessMcpConfigResult {
-	const { sandboxPath, mcpUrl, token } = params;
+	const { sandboxPath, mcpUrl, token, trustedPaths } = params;
 
 	const codexHomeDir = path.join(sandboxPath, ".codex-home");
 	const configTomlPath = path.join(codexHomeDir, "config.toml");
@@ -120,10 +131,28 @@ function writeCodexToml(params: {
 	// Append to existing config.toml (return-enforcement provisioning may have written model/auth
 	// blocks already). Create the file if absent.
 	fs.appendFileSync(configTomlPath, mcpBlock, "utf-8");
+	fs.appendFileSync(configTomlPath, buildCodexTrustBlock(sandboxPath, trustedPaths), "utf-8");
 
 	// Token must be injected as an env var on codex spawn — NOT forwarded from
 	// process.env (it's per-session-generated). Caller injects outside allowlist.
 	return { tokenEnv: { HYPERIDLE_MCP_TOKEN: token } };
+}
+
+/**
+ * BA2 founder ruling 18: trust is DECLARED through codex's own mechanism, never
+ * bypassed. codex 0.150.1 refuses to run ("Not inside a trusted directory")
+ * unless the directory it is launched in carries `[projects."<path>"]
+ * trust_level = "trusted"` in its config.toml — verified in the installed
+ * binary's own `~/.codex/config.toml`. The session sandbox (codex's cwd) is
+ * always declared; `extraPaths` carries the session's other mounted
+ * filesystems (the filesystem primitive's job is deciding what is trusted —
+ * see docs/process-layer/filesystem-primitive.md), so a doc_set folder
+ * symlinked into the sandbox from elsewhere on disk is trusted too, not just
+ * the sandbox root it is linked under.
+ */
+function buildCodexTrustBlock(sandboxPath: string, extraPaths?: readonly string[]): string {
+	const paths = [...new Set([sandboxPath, ...(extraPaths ?? [])])];
+	return paths.map((p) => `\n[projects."${p}"]\ntrust_level = "trusted"\n`).join("");
 }
 
 // ── opencode-json dialect ─────────────────────────────────────────────────────
