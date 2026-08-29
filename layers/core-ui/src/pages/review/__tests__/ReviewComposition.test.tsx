@@ -153,6 +153,35 @@ describe("ReviewComposition", () => {
 
 		expect(within(container).getByText("Mystery output")).toBeInTheDocument();
 	});
+
+	// The reviews loader's no-proposed-call branch (`routes/reviews.ts`) appends
+	// a resolved stored-artifact entry to `artifacts` — byte-identical in shape
+	// to what it puts on the wire. Every prior test in this file exercises
+	// hand-authored fixture artifacts that already carry every field
+	// `ArtifactRow`/`ToolLogo` need; none of them would have caught a loader
+	// that omits `tool`/`app`/`payload` (`ToolLogo`'s `tool.slice(0, 1)`
+	// crashes the whole row on `undefined`). This test renders the row-level
+	// list (not a canvas component directly) with exactly the loader's output
+	// shape so a missing required field reddens here first.
+	it("renders a resolved stored-artifact entry (the reviews loader's actual output shape) without crashing", () => {
+		const resolvedArtifact: ReviewArtifact = {
+			id: "artifact:resolved:1",
+			tool: "hyperidle",
+			app: "HyperIdle",
+			kind: "text" as ReviewCanvasKind,
+			sourceHref: "/artifacts/artifact:resolved:1",
+			title: "Resolved reference title",
+			payload: {},
+		};
+		renderComposition({
+			subject: {
+				...REVIEW_COMPOSITION_SUBJECT,
+				artifacts: [...REVIEW_COMPOSITION_SUBJECT.artifacts, resolvedArtifact],
+			},
+		});
+
+		expect(screen.getByText("Resolved reference title")).toBeInTheDocument();
+	});
 });
 
 describe("ReviewComposition — the checkout mock is deleted", () => {

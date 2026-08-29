@@ -416,7 +416,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 					"Hero option B leads with the trial — matches the activation focus.",
 					"Copy is final except the FAQ, which Growth delivers tomorrow.",
 				],
-				artifactRef: { id: ART_PRICING_PAGE, kind: "visual_comparison" },
+				artifactRef: { id: ART_PRICING_PAGE, kind: "html" },
 				id: MSG_PRICING_REVIEW,
 				betId: BET_PRICING,
 				betTitle: "Pricing page overhaul",
@@ -525,6 +525,30 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 								"<section><h1>Simple pricing that scales with your team</h1><p>Two tiers. No surprises. Start free for 14 days.</p><table><tr><th></th><th>Starter</th><th>Team</th></tr><tr><td>Dashboards</td><td>5</td><td>Unlimited</td></tr><tr><td>Seats</td><td>3</td><td>Unlimited</td></tr></table></section>",
 						},
 					},
+					// @lore `action_operation` had no demo data anywhere; seeded here
+					// (data, not code) so the renderer is proven. Hosted on the
+					// pricing review: an account migrated to annual mid-cycle during
+					// the page overhaul and is owed a prorated credit — a
+					// pricing-adjacent, not fabricated, staged action.
+					{
+						id: "demo-rv-pricing-credit",
+						tool: "stripe",
+						app: "Stripe",
+						sourceHref: "https://dashboard.stripe.example/customers/acct-2290",
+						title: "Issue migration credit",
+						kind: "action_operation",
+						payload: {
+							verb: "Issue migration credit",
+							amountWire: { currency: "USD", units: 1000, formatted: "$10.00" },
+							irreversible: false,
+							reversible: true,
+							blastRadius: ["Applies to the next invoice for acct-2290 (annual plan)"],
+							receiptFields: [
+								{ label: "Account", value: "acct-2290" },
+								{ label: "Reason", value: "Prorated credit for early annual switch" },
+							],
+						},
+					},
 				],
 			},
 			createdAt: clock.hoursAgo(5),
@@ -600,7 +624,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 					"All date math in UTC; the old timezone drift at the entitlement edge is gone.",
 					"Covered by the extension tests, including the decline path.",
 				],
-				artifactRef: { id: ART_TRIAL_FLOW, kind: "text_diff" },
+				artifactRef: { id: ART_TRIAL_FLOW, kind: "code" },
 				id: MSG_TRIAL_REVIEW,
 				betId: BET_TRIAL,
 				betTitle: "Trial extension flow",
@@ -731,6 +755,56 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 							trivia: { count: 3, summary: "Import renames + comment.", added: 3, removed: 3 },
 						},
 					},
+					// @lore `field_change_set` and `rendered_in_context` had no demo
+					// data anywhere; seeded here (data, not code) so both renderers
+					// are proven. Hosted on the trial review: extending a trial IS a
+					// record field change (the entitlement's expiry), and granting it
+					// triggers a real confirmation email — the most direct fit of the
+					// three bets.
+					{
+						id: "demo-rv-trial-fieldchange",
+						tool: "github",
+						app: "Pulse",
+						sourceHref: "/work/bet/demo-bet-trial-extension",
+						title: "Trial entitlement — acct-4821",
+						kind: "field_change_set",
+						payload: {
+							recordLabel: "Trial entitlement — acct-4821",
+							fields: [
+								{
+									label: "Expires at",
+									old: "2026-08-21",
+									new: "2026-08-28",
+									provenance: "extendTrial()",
+								},
+								{
+									label: "Extension used",
+									old: "false",
+									new: "true",
+									provenance: "extendTrial()",
+								},
+							],
+							unchangedCount: 4,
+						},
+					},
+					{
+						id: "demo-rv-trial-email",
+						tool: "github",
+						app: "Pulse",
+						sourceHref: "/work/bet/demo-bet-trial-extension",
+						title: "Extension confirmation email",
+						kind: "rendered_in_context",
+						payload: {
+							inboxRow: {
+								sender: "Acme Pulse <noreply@acmepulse.example>",
+								subject: "Your trial just got 7 more days",
+								preview: "Good news — we've extended your trial through August 28.",
+							},
+							body: "Hi there,\n\nWe've extended your trial by seven days — no action needed on your end. Your new expiry is August 28.\n\n— Acme Pulse",
+							renderMode: "email",
+							flags: [],
+						},
+					},
 				],
 			},
 			createdAt: clock.daysAgo(29),
@@ -769,7 +843,7 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 					"Eval loop shows 54% → 68% top-3 on the first forty queries.",
 					"Weights are constants in rank.ts for now.",
 				],
-				artifactRef: { id: ART_SEARCH_RANKING, kind: "text_diff" },
+				artifactRef: { id: ART_SEARCH_RANKING, kind: "code" },
 				id: MSG_SEARCH_REVIEW,
 				betId: BET_SEARCH,
 				betTitle: "Search relevance tuning",
@@ -901,6 +975,40 @@ export async function seedConversations(db: HyperIdleDb, clock: DemoClock): Prom
 							rows: [],
 							tieOut: { opening: 54, activity: 14, closing: 68, ties: true },
 							exceptions: [],
+						},
+					},
+					// @lore `batch` had no demo data anywhere; seeded here (data, not
+					// code) so the renderer is proven. Hosted on the search review:
+					// the eval loop's 40 queries are a natural per-item batch.
+					{
+						id: "demo-rv-search-batch",
+						tool: "github",
+						app: "GitHub",
+						sourceHref: "https://acme.example/search-eval",
+						title: "Eval queries — triage",
+						kind: "batch",
+						payload: {
+							rollup: { total: 40, needYou: 3, autoResolved: 30, drafted: 7 },
+							flagged: [
+								{
+									id: "q-1",
+									ref: "query: 'pricing faq'",
+									reason: "Top-3 hit dropped after re-rank",
+								},
+								{
+									id: "q-2",
+									ref: "query: 'cancel plan'",
+									reason: "Recency overweighted a stale doc",
+								},
+								{
+									id: "q-3",
+									ref: "query: 'sso setup'",
+									reason: "No exact title match; needs a manual tune",
+								},
+							],
+							auto: [{ id: "a-1", label: "Queries within ±2 rank of baseline", count: 30 }],
+							drafted: [{ id: "d-1", label: "Weight adjustments queued for next eval", count: 7 }],
+							approveAllExcept: ["q-1", "q-2", "q-3"],
 						},
 					},
 				],

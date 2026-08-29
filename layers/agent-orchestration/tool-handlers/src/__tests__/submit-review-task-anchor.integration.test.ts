@@ -170,8 +170,33 @@ async function seedTeamBetTask(
 	return { teamId, betId, taskId };
 }
 
-function artifactRef(idSuffix: string): { id: string; kind: "text_diff" } {
-	return { id: `${idSuffix}-art`, kind: "text_diff" };
+/**
+ * This suite is about thread anchoring, not artifact validation, so it
+ * attaches evidence through the canvas-envelope channel (`artifacts`) rather
+ * than a stored `artifactRef` — the retired `"text_diff"` vocabulary this
+ * helper used to emit predates both this test and the consolidated
+ * `ARTIFACT_KINDS`/`REVIEW_CANVAS_KINDS` vocabularies, and a stored
+ * `artifactRef` now also requires a real backing row owned by the calling
+ * task, which is orthogonal to what this file exercises.
+ */
+function canvasArtifact(idSuffix: string): {
+	id: string;
+	tool: string;
+	app: string;
+	sourceHref: string;
+	title: string;
+	kind: "outcome_summary";
+	payload: Record<string, unknown>;
+} {
+	return {
+		id: `${idSuffix}-art`,
+		tool: "hyperidle",
+		app: "HyperIdle",
+		sourceHref: `/artifacts/${idSuffix}-art`,
+		title: idSuffix,
+		kind: "outcome_summary",
+		payload: {},
+	};
 }
 
 async function allThreads(db: HyperIdleDb): Promise<ReadonlyArray<Record<string, unknown>>> {
@@ -238,7 +263,7 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 			{
 				title: "Please approve",
 				reasoning: ["done"],
-				artifactRef: artifactRef("task-both-threads"),
+				artifacts: [canvasArtifact("task-both-threads")],
 			},
 			makeContext(db, eventBus, taskId, "both"),
 		);
@@ -264,7 +289,7 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 			{
 				title: "Please approve",
 				reasoning: ["done"],
-				artifactRef: artifactRef("task-thread-create"),
+				artifacts: [canvasArtifact("task-thread-create")],
 			},
 			makeContext(db, eventBus, taskId, "create"),
 		);
@@ -290,7 +315,7 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 			{
 				title: "Please approve",
 				reasoning: ["done"],
-				artifactRef: artifactRef("task-seed-participant"),
+				artifacts: [canvasArtifact("task-seed-participant")],
 			},
 			makeContext(db, eventBus, taskId, "seed"),
 		);
@@ -321,7 +346,7 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		const taskId = "task-no-bet";
 
 		const result = await submitReviewTool.handler(
-			{ title: "Please approve", reasoning: ["done"], artifactRef: artifactRef("task-no-bet") },
+			{ title: "Please approve", reasoning: ["done"], artifacts: [canvasArtifact("task-no-bet")] },
 			makeContext(db, eventBus, taskId, "nobet"),
 		);
 
@@ -346,7 +371,7 @@ describe("submit_review — anchors on the task's thread, never the bet's (found
 		await seedTeamBetTask(db, "task-team-b", HUMAN_TEAM_B);
 
 		const result = await submitReviewTool.handler(
-			{ title: "Please approve", reasoning: ["done"], artifactRef: artifactRef("task-team-a") },
+			{ title: "Please approve", reasoning: ["done"], artifacts: [canvasArtifact("task-team-a")] },
 			makeContext(db, eventBus, taskId, "team-scoped"),
 		);
 

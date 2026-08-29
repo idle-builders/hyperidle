@@ -118,7 +118,52 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 			// to show). The review's OWN threadId is always composed (never read
 			// from the payload) so the client fetches the thread directly by id
 			// instead of guessing it from a by-host lookup.
-			return c.json({ ...reviewPayload, threadId: reviewMsg.threadId });
+			//
+			// @lore layer, never replace: a resolved `artifactRef` is APPENDED to
+			// whatever `artifacts` the payload already carries (never to an empty
+			// list, and never in place of it).
+			const artifactRef = reviewPayload.artifactRef as { readonly id?: unknown } | undefined;
+			const artifactRefId = typeof artifactRef?.id === "string" ? artifactRef.id : undefined;
+			const referencedArtifact = artifactRefId
+				? await work.get(db, "artifact", artifactRefId)
+				: undefined;
+
+			if (!referencedArtifact) {
+				return c.json({ ...reviewPayload, threadId: reviewMsg.threadId });
+			}
+
+			// `ReviewArtifact` (the shape the review UI renders every entry as,
+			// `layers/core-ui/src/pages/review/review-artifact.ts`) requires
+			// `tool`/`app`/`title`/`payload` — every entry is rendered through
+			// `ToolLogo`/`KindBadge`/a canvas component with no per-field
+			// optionality, so leaving any of them out crashes the page, not just
+			// looks incomplete. A bare stored artifact has no per-tool
+			// provenance (no SaaS connector produced it), so `tool`/`app` use
+			// the same self-attributed sentinel the fixtures already use for
+			// HyperIdle-native evidence (`"hyperidle"`/`"HyperIdle"`, see
+			// `review-subject.ts`'s `outcomeArtifact`) rather than fabricating a
+			// false external identity. `title` falls back to the artifact's own
+			// id when it has no `label` — never blank. `sourceHref` is a real,
+			// derivable value — the artifact's own permalink. `payload` is
+			// intentionally opaque (`{}`), matching the proposed-call branch's
+			// own convention below for an artifact with no per-kind payload.
+			const resolved: Record<string, unknown> = {
+				id: referencedArtifact.id,
+				tool: "hyperidle",
+				app: "HyperIdle",
+				kind: referencedArtifact.kind,
+				sourceHref: `/artifacts/${referencedArtifact.id}`,
+				title: referencedArtifact.label ?? referencedArtifact.id,
+				payload: {},
+			};
+			const existingArtifacts = Array.isArray(reviewPayload.artifacts)
+				? (reviewPayload.artifacts as Array<Record<string, unknown>>)
+				: [];
+			return c.json({
+				...reviewPayload,
+				threadId: reviewMsg.threadId,
+				artifacts: [...existingArtifacts, resolved],
+			});
 		}
 
 		// Build the ProposedCallView to nest on the artifact.

@@ -83,7 +83,7 @@ const validClientKey = "uuid-12345678";
 const validReviewPayload = {
 	title: "Pricing overhaul review",
 	reasoning: ["Reduces churn", "Aligns to Q3 roadmap"],
-	artifactRef: { id: "art-1", kind: "text_diff" as const },
+	artifactRef: { id: "art-1", kind: "code" as const },
 };
 
 describe("AC-7 / AC-10 — POST /api/threads creates a thread per host_kind", () => {
@@ -183,7 +183,7 @@ describe("AC-12 — POST /api/threads/:id/messages round-trips every MessageType
 					payload = {
 						title: "follow-up",
 						reasoning: ["b"],
-						artifactRef: { id: "art-2", kind: "text_diff" },
+						artifactRef: { id: "art-2", kind: "code" },
 					};
 					break;
 				case "questionnaire":
@@ -732,7 +732,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 				payload: {
 					title: "second review",
 					reasoning: ["after the first verdict"],
-					artifactRef: { id: "art-2", kind: "text_diff" },
+					artifactRef: { id: "art-2", kind: "code" },
 				},
 				clientKey: "ro-second",
 			}),
@@ -794,7 +794,7 @@ describe("Re-open semantics (plan §6.1 REVISED for adversary C5)", () => {
 				payload: {
 					title: "intruder",
 					reasoning: ["no"],
-					artifactRef: { id: "art-3", kind: "text_diff" },
+					artifactRef: { id: "art-3", kind: "code" },
 				},
 				clientKey: "ro-intruder",
 			}),

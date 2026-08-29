@@ -63,7 +63,7 @@ export interface ThreadShellProps {
 	thread: Thread;
 	messages: ReadonlyArray<Message>;
 	identities: Record<string, ThreadShellIdentity>;
-	artifactSlot?: (ref: ArtifactRef) => ReactNode;
+	artifactSlot?: (ref: ArtifactRef | undefined) => ReactNode;
 	onAppendMessage: (input: ThreadShellAppendInput) => Promise<void>;
 	loading?: boolean;
 	error?: string;
@@ -161,7 +161,7 @@ interface RichSlotsForRow {
 
 function buildRichSlots(
 	message: Message,
-	artifactSlot: ((ref: ArtifactRef) => ReactNode) | undefined,
+	artifactSlot: ((ref: ArtifactRef | undefined) => ReactNode) | undefined,
 ): RichSlotsForRow | null {
 	if (message.type === "review") {
 		const { payload } = message;

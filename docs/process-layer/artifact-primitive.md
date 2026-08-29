@@ -49,15 +49,27 @@ Kind answers "what format did the agent produce?" — not "what business domain 
 
 **The `data` kind is NOT TablePayload.** `data.rows` is a freeform `Record<string,string>[]` key/value grid, incompatible with `TablePayload`'s GFM `InlineNode[][][]` shape; the composition uses a lifted bespoke rows table plus the extracted `KpiStat` and `Sparkline` primitives (`compose-artifact-body.tsx`).
 
-## ArtifactView — the five review-embed shapes
+## ArtifactRef — a review message's reference to a stored Artifact
 
-`ARTIFACT_VIEW_SHAPES` (`framework/domain-model/src/thread.ts`) is a closed enum of five renderer shapes:
+`ARTIFACT_VIEW_SHAPES` — a pre-consolidation, five-value closed enum
+(`text_diff | content_preview | visual_comparison | action_summary |
+data_metrics`) that predated the six fundamental kinds above — is DELETED,
+not migrated: it had zero overlap with the `ARTIFACT_KINDS` `create_artifact`
+actually emits.
 
-```
-text_diff | content_preview | visual_comparison | action_summary | data_metrics
-```
-
-**ArtifactView is not the Artifact.** The five shapes describe HOW a review-message embed renders its preview — a sub-vocabulary inside the `review_message_embed` placement — never a synonym for the primitive itself. `framework/conversation-parts/src/part.ts` maps `ArtifactRef`s to embeds against these shapes (`text_diff` → diff embed).
+`ArtifactRef.kind` (`framework/domain-model/src/thread.ts`) now respells onto
+that same six-value `ARTIFACT_KINDS` vocabulary at write time
+(`reviewPayloadSchema`'s write arm, `layers/core-api/src/routes/threads-schema.ts`).
+The type itself stays `kind?: string` — never a closed union — because
+nothing that reads it trusts the value: `GET /api/reviews/:id`
+(`layers/core-api/src/routes/reviews.ts`) re-reads the REAL kind off the
+referenced artifact row instead. The read arm (`reviewPayloadSchemaRow`)
+stays tolerant of a retired value a row already carries, so an existing
+review persisted before this respell still reads back instead of taking out
+the whole thread. `layers/core-ui/src/components/parts/part.ts`'s
+`artifactRefToEmbed` renders both vocabularies: the retired `text_diff` (a
+legacy row) and its current-vocabulary successor `code` both map to the diff
+embed.
 
 ## Base primitives × compositions × placements (AM5)
 

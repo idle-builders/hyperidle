@@ -22,7 +22,16 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
+import {
+	artifacts,
+	bets,
+	type HyperIdleDb,
+	messages,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import type { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
@@ -98,6 +107,17 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
+	});
+	// `submit_review` now checks a stored `artifactRef` resolves to an
+	// artifact produced by the calling task before attaching it; a real row
+	// is required for the artifactRef test below.
+	await db.insert(artifacts).values({
+		id: "art-123",
+		producingTaskId: "task-1",
+		kind: "text",
+		label: null,
+		previewJson: null,
+		createdAt: NOW,
 	});
 }
 
@@ -238,7 +258,7 @@ describe("R5: Agent Work Loop integration", () => {
 				{
 					title: "Work complete with artifact",
 					reasoning: ["Feature implemented"],
-					artifactRef: { id: "art-123", kind: "content_preview" },
+					artifactRef: { id: "art-123", kind: "text" },
 				},
 				ctx,
 			);
