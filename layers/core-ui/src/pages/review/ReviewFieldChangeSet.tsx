@@ -45,11 +45,10 @@ interface FieldChange {
 }
 
 interface ChangeSet {
-	/** BA2 T4e-a: widened from the literal `"salesforce"` — an agent-supplied
-	 * payload has no tool concept of its own; this now carries the real
-	 * `artifact.tool` so the per-field provenance mark is honest (§2.8.2 D). */
+	/** Widened from the literal `"salesforce"` — an agent-supplied payload has
+	 * no tool concept of its own; this carries the real `artifact.tool` so the
+	 * per-field provenance mark is honest. */
 	readonly tool: string;
-	readonly object: string;
 	readonly record: string;
 	readonly changed: readonly FieldChange[];
 	readonly unchangedCount: number;
@@ -165,8 +164,6 @@ function FieldRow({
 							className="mt-[9px] ml-[105px] flex flex-col gap-[6px]"
 						>
 							<div className="type-metadata flex items-center gap-[6px]  text-[var(--text-secondary)]">
-								{/* BA2 T4e-a (§2.8.2 D): marked every field's provenance
-								    "salesforce" regardless of the real source tool. */}
 								<ToolLogo tool={tool} size="sm" label="" />
 								<span>{field.source}</span>
 							</div>
@@ -207,13 +204,11 @@ export function ReviewFieldChangeSetView({
 	);
 
 	const [approved, setApproved] = useState<ReadonlySet<string>>(new Set());
-	// BA2 T4e-a: derived from the real payload's own top-relevance field (not a
-	// deleted demo fixture's id) so the default expansion is correct for any
-	// payload, not only one that happens to share the fixture's field id.
+	// Derived from the real payload's own top-relevance field, so the default
+	// expansion is correct for any payload.
 	const [expanded, setExpanded] = useState<string | null>(
 		() => defaultExpandedId ?? ordered[0]?.id ?? null,
 	);
-	const [showUnchanged, setShowUnchanged] = useState(false);
 
 	const toggleApprove = (id: string): void =>
 		setApproved((prev) => {
@@ -278,24 +273,19 @@ export function ReviewFieldChangeSetView({
 				))}
 			</div>
 
-			{/* collapsed trivia — unchanged fields. BA2 T4e-a (§2.8.2 D): the expanded
-			    disclosure used to name five specific field labels ("Owner, Lead
-			    source, Probability, Type, Account") no payload ever supplied —
+			{/* unchanged-fields trivia line — a static count, not a disclosure:
 			    `FieldChangeSetPayload` carries only the unchanged COUNT, not which
-			    fields. Subtracted rather than reworded; the count above already says
-			    what is known. */}
-			<button
-				type="button"
-				onClick={() => setShowUnchanged((v) => !v)}
-				aria-expanded={showUnchanged}
-				className="type-control flex w-full items-center gap-[6px] px-[18px] py-[9px] text-left   text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+			    fields, so there is nothing to expand into. An earlier version named
+			    five specific field labels here ("Owner, Lead source, Probability,
+			    Type, Account") no payload ever supplied. */}
+			<div
+				className="type-control flex w-full items-center gap-[6px] px-[18px] py-[9px] text-left   text-[var(--text-tertiary)]"
 				style={{
 					background: "var(--surface-page)",
 				}}
 			>
-				<span aria-hidden>{showUnchanged ? "▾" : "▸"}</span>
 				<span>+{changeSet.unchangedCount} unchanged</span>
-			</button>
+			</div>
 
 			{/* ── footer — per-field approve rollup (frame owns the final verdict) ── */}
 			<div
@@ -331,7 +321,6 @@ function isFieldChangePayload(payload: unknown): payload is FieldChangeSetPayloa
 function mapFieldChangePayload(payload: FieldChangeSetPayload, tool: string): ChangeSet {
 	return {
 		tool,
-		object: "Record",
 		record: payload.recordLabel,
 		unchangedCount: payload.unchangedCount,
 		changed: payload.fields.map((field) => ({
@@ -348,7 +337,7 @@ function mapFieldChangePayload(payload: FieldChangeSetPayload, tool: string): Ch
 
 export function ReviewFieldChangeSet({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isFieldChangePayload(artifact.payload)) {
-		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// A malformed payload gets the honest unknown-canvas
 		// fallback, never the Salesforce demo fixture.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}

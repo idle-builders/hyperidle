@@ -11,16 +11,15 @@
 //       (Side-by-side · Overlay · Swipe).
 //   L3  on demand   — the differing regions listed as chips; clicking one flags it.
 //
-// @lore BA2 T4e-b / founder ruling 17: this canvas used to fill BOTH evidence
-// panes, in every compare mode, with a hand-drawn fake signup screen ("Create
-// your account", an email field placeholdered "you@company.com", a "Create
-// account" CTA) plus a hardcoded Figma mark — for every payload, regardless of
-// what was actually under review. `VisualDiffPayload` carries labels only, no
-// image data, so there was never anything real to put there; the fake screen
-// was pure invention (ruling 14) and is deleted outright, not guarded. Per
-// ruling 13, real visual content belongs to the `image` artifact kind; until a
-// payload carries one, the honest behavior is to say so — the same rule every
-// other canvas in this family already follows (ruling 14, §2.8.2 D).
+// @lore This canvas used to fill BOTH evidence panes, in every compare mode,
+// with a hand-drawn fake signup screen ("Create your account", an email field
+// placeholdered "you@company.com", a "Create account" CTA) plus a hardcoded
+// Figma mark — for every payload, regardless of what was actually under
+// review. `VisualDiffPayload` carries labels only, no image data, so there
+// was never anything real to put there; the fake screen was pure invention
+// and is deleted outright, not guarded. Real visual content belongs to the
+// `image` artifact kind; until a payload carries one, the honest behavior is
+// to say so — the same rule every other canvas in this family already follows.
 //
 // Chrome tokens are Hearth/CP1 by NAME (var(--token)). No hex anywhere in this
 // surface — the tool mark that used to live inside the evidence panes is gone;
@@ -63,7 +62,7 @@ const MODES: readonly { readonly id: CompareMode; readonly label: string }[] = [
 
 // ── Evidence pane ──────────────────────────────────────────────────────────
 // No mocked screen: the payload carries labels, not images. An honest absence
-// stands in until a real `image` artifact reaches this canvas (ruling 13).
+// stands in until a real `image` artifact reaches this canvas.
 
 function NoImagePane(): JSX.Element {
 	return (
@@ -283,7 +282,7 @@ function mapVisualPayload(payload: VisualDiffPayload): VisualDiff {
 
 export function ReviewVisualDiff({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isVisualDiffPayload(artifact.payload)) {
-		// BA2 T4e-b (ruling 14): a malformed payload gets the honest unknown-canvas
+		// A malformed payload gets the honest unknown-canvas
 		// fallback, never a fabricated signup screen.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}

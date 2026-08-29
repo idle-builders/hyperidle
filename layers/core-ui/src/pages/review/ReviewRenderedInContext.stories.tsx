@@ -22,7 +22,6 @@ const EMAIL_BODY_EXAMPLE: RenderedEmail = {
 	tool: "mailchimp",
 	campaignName: "Solo plan launch — $19/mo",
 	sender: "HyperIdle",
-	senderEmail: "hello@hyperidle.com",
 	subject: "Your team, minus the busywork — now $19",
 	preview: "Founder pricing ends Sunday.",
 	receivedAt: "9:00 AM",

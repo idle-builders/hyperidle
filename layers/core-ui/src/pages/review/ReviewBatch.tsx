@@ -38,18 +38,17 @@ interface FlaggedItem {
 	readonly customer: string;
 	readonly account: string;
 	readonly arr: string; // formatted, "" when consumer / no ARR
-	/** BA2 T4e-a: undefined when the payload carries no sentiment for this item
-	 * — `BatchPayload.flagged[]` is `{id, ref, reason}` only (§2.8.2 D). */
+	/** Undefined when the payload carries no sentiment for this item. */
 	readonly sentiment?: "angry" | "frustrated" | "neutral";
 	readonly subject: string;
-	/** BA2 T4e-a: undefined when the payload names no flag category. */
+	/** Undefined when the payload names no flag category. */
 	readonly flag?: FlagKind;
 	readonly flagReason: string; // the one-line WHY this needs a human
 	readonly waited: string;
 	// L3 context
 	readonly lastMessage: string;
-	/** BA2 T4e-a: undefined when the payload carries no drafted reply at all —
-	 * distinct from "" (a real draft that happens to be empty). */
+	/** Undefined when the payload carries no drafted reply at all — distinct
+	 * from "" (a real draft that happens to be empty). */
 	readonly draftedReply?: string;
 	readonly draftNote: string; // why the agent stopped short of sending
 }
@@ -70,8 +69,7 @@ interface BatchFixture {
 	readonly needsYou: number;
 	readonly autoResolved: number;
 	readonly drafted: number;
-	/** BA2 T4e-a: undefined when there is no payload field behind an impact
-	 * metric — `BatchPayload` declares no `metric` shape at all (§2.8.2 D). */
+	/** Undefined when there is no payload field behind an impact metric. */
 	readonly metric?: { readonly label: string; readonly before: string; readonly after: string };
 	readonly flagged: readonly FlaggedItem[];
 	readonly groups: readonly RoutineGroup[];
@@ -142,9 +140,8 @@ export interface ReviewBatchProps {
 }
 
 function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.Element {
-	// BA2 T4e-a: derived from the real payload's own first flagged item (not a
-	// deleted demo fixture's id) so the default expansion is correct for any
-	// payload, not only one that happens to share the fixture's item id.
+	// Derived from the real payload's own first flagged item, so the default
+	// expansion is correct for any payload.
 	const [expandedId, setExpandedId] = useState<string | undefined>(
 		() => initialExpandedId ?? batch.flagged[0]?.id,
 	);
@@ -187,9 +184,8 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 					<Rollup value={String(batch.drafted)} label="drafted" />
 				</div>
 
-				{/* the win — one calm line of impact. BA2 T4e-a (§2.8.2 D): rendered
-				    unconditionally from a "Median first response" metric no payload
-				    field backs at all — only shown when the payload actually has one. */}
+				{/* the win — one calm line of impact, only shown when the payload
+				    actually supplies a metric. */}
 				{batch.metric ? (
 					<div className="border-width-thin-t flex items-center gap-[9px] px-[18px] py-[9px]  border-[var(--border-subtle)] bg-[color-mix(in_oklab,var(--status-success)_6%,transparent)]">
 						<span className="h-[6px] w-[6px] rounded-[var(--r-pill)] bg-[var(--status-success)] shrink-0" />
@@ -254,8 +250,7 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 													{item.account}
 												</span>
 											)}
-											{/* BA2 T4e-a: `BatchPayload.flagged[]` carries no sentiment field —
-											    undefined means unknown, not "neutral" (§2.8.2 D). */}
+											{/* Undefined means unknown, not "neutral". */}
 											{item.sentiment ? (
 												<span className="type-metadata  text-[var(--text-tertiary)] shrink-0">
 													· {SENTIMENT_LABEL[item.sentiment]}
@@ -271,8 +266,6 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 										<span className="type-metadata  text-[var(--text-tertiary)] tabular-nums hidden sm:inline">
 											{item.waited}
 										</span>
-										{/* BA2 T4e-a: `BatchPayload.flagged[]` carries no flag-category field —
-										    every item rendered as "CHURN THREAT" regardless (§2.8.2 D). */}
 										{item.flag ? <FlagPill kind={item.flag} /> : null}
 										<span
 											aria-hidden="true"
@@ -312,10 +305,9 @@ function ReviewBatchView({ batch, initialExpandedId }: ReviewBatchProps): JSX.El
 												</p>
 											</div>
 										) : null}
-										{/* BA2 T4e-a: `BatchPayload.flagged[]` carries no drafted-reply field at
-										    all — "policy routes this straight to you" asserted a routing
-										    decision no payload field supports (§2.8.2 D). Subtracted rather
-										    than kept as an else-branch claim. */}
+										{/* No else-branch here: absent a drafted reply, there is no payload
+										    field that supports a routing claim ("policy routes this to you"),
+										    so nothing renders rather than asserting one. */}
 
 										{/* why the agent held — framed explanation, not just a red box */}
 										<div className="flex flex-col gap-[6px] rounded-[var(--r-subtle)]  border-[var(--status-error)] bg-[color-mix(in_oklab,var(--status-error)_8%,transparent)] px-[12px] py-[9px]">
@@ -431,10 +423,9 @@ function isBatchPayload(payload: unknown): payload is BatchPayload {
 }
 
 function mapBatchPayload(payload: BatchPayload): BatchFixture {
-	// BA2 T4e-a: `BatchPayload.flagged[]` is `{id, ref, reason}` — no sentiment,
-	// no flag category, no drafted reply. Leaving those fields undefined (rather
-	// than a hardcoded "neutral"/"churn"/"") lets the view render honestly:
-	// nothing invented on the success path (§2.8.2 D).
+	// `BatchPayload.flagged[]` carries no sentiment, flag category, or drafted
+	// reply. Leaving those fields undefined (rather than a hardcoded
+	// "neutral"/"churn"/"") lets the view render honestly: nothing invented.
 	const flagged: FlaggedItem[] = payload.flagged.map((item) => ({
 		id: item.id,
 		ref: item.ref,
@@ -479,7 +470,7 @@ function mapBatchPayload(payload: BatchPayload): BatchFixture {
 
 export function ReviewBatch({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isBatchPayload(artifact.payload)) {
-		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// A malformed payload gets the honest unknown-canvas
 		// fallback, never the Zendesk triage demo fixture.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}

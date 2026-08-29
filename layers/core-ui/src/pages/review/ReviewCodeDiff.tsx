@@ -175,7 +175,7 @@ function ReviewedBox({
 
 // ── L1: CI checks row ─────────────────────────────────────────────────────────────
 //
-// @lore BA2 T4e-a (§2.8.2 D): `CodeDiffPayload.checks` is `readonly string[]` —
+// @lore `CodeDiffPayload.checks` is `readonly string[]` —
 // labels only, no pass/fail state. The row used to render every one with a
 // green checkmark under a fixed "All checks passed" banner and a coverage
 // figure (`+0.4%`) the payload has no field for at all — a review must not
@@ -478,20 +478,19 @@ export interface ReviewCodeDiffProps {
 	/** AL4: the guarded payload so the canvas can compute deterministic line block ids. */
 	readonly payload: CodeDiffPayload;
 	/** AL4: owning artifact id for deterministic line block ids. */
-	readonly artifactId?: string;
+	readonly artifactId: string;
 }
 
 function ReviewCodeDiffView({
 	initialExpandedPath,
 	payload,
-	artifactId = "artifact:code:fixture",
+	artifactId,
 }: ReviewCodeDiffProps): JSX.Element {
 	const data = mapCodeDiffPayload(payload, artifactId);
 	const { description, files, trivia, checks } = data;
 	// relevance order: logic band first, then test band — never file/alpha order.
-	// BA2 T4e-a: computed from the real payload's files (not a fixture's path)
-	// so the top-file default expansion is correct for every payload, not only
-	// one that happens to share the deleted demo fixture's first file path.
+	// Computed from the real payload's files, so the top-file default expansion
+	// is correct for every payload.
 	const ordered = [...files].sort((a, b) => (a.band === b.band ? 0 : a.band === "logic" ? -1 : 1));
 	const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
 		const start = initialExpandedPath ?? ordered[0]?.path;
@@ -605,11 +604,10 @@ function ReviewCodeDiffView({
 					);
 				})}
 
-				{/* MINOR band — the separation header so the user knows these don't need review.
-				    BA2 T4e-a (§2.8.2 D): "safe to skip" asserted a judgement about THIS diff
-				    no payload field backs, and the expanded row below used to hardcode three
-				    literal filenames regardless of what the payload's trivia actually touched —
-				    both removed; `trivia.summary` is the payload's own description. */}
+				{/* MINOR band — the separation header so the user knows these don't need
+				    review. No judgement ("safe to skip") is asserted about THIS diff — no
+				    payload field backs one — and the expanded row below shows only the
+				    payload's own `trivia.summary`, never hardcoded filenames. */}
 				<div className="mt-[3px] flex items-baseline gap-[6px] px-[12px] pt-[6px]">
 					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Minor</span>
 					<span className="type-metadata  text-[var(--text-tertiary)]">
@@ -659,7 +657,7 @@ function isCodeDiffPayload(payload: unknown): payload is CodeDiffPayload {
 	);
 }
 
-function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId?: string): CodeDiffData {
+function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId: string): CodeDiffData {
 	const trivia = isPlainObject(payload.trivia)
 		? {
 				count: Number(payload.trivia.count) || 0,
@@ -672,7 +670,7 @@ function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId?: string): Code
 	return {
 		title: payload.prTitle,
 		description: payload.description,
-		files: payload.files.map((file, fileIndex) => ({
+		files: payload.files.map((file) => ({
 			path: file.path,
 			added: Number(file.added) || 0,
 			removed: Number(file.removed) || 0,
@@ -685,12 +683,7 @@ function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId?: string): Code
 					const spotLabel = `${file.path}:${line.newNo ?? line.oldNo ?? "new"}`;
 					return {
 						...line,
-						blockId: lineBlockId(
-							artifactId ?? `artifact:code:${fileIndex}`,
-							file.path,
-							hunkIndex,
-							line,
-						),
+						blockId: lineBlockId(artifactId, file.path, hunkIndex, line),
 						spotLabel,
 					};
 				}),
@@ -703,7 +696,7 @@ function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId?: string): Code
 
 export function ReviewCodeDiff({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isCodeDiffPayload(artifact.payload)) {
-		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// A malformed payload gets the honest unknown-canvas
 		// fallback, never the promo-fix PR demo fixture.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}

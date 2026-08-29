@@ -69,9 +69,9 @@ export interface ReviewOutcomeSummaryProps {
 	/** tools used, in impact order. rendered as a mini-logo row.
 	 * accepts unknown tool ids (ToolLogo falls back to a neutral monogram). */
 	readonly tools: readonly (ToolId | string)[];
-	/** BA2 T4e-a: undefined when the payload didn't report a count — the guard
+	/** Undefined when the payload didn't report a count — the guard
 	 * (`isOutcomeSummaryPayload`) never checks this field, so a well-formed
-	 * payload without it must not render a fabricated "0 tok" (§2.8.2 D). */
+	 * payload without it must not render a fabricated "0 tok". */
 	readonly tokens?: number;
 	/** Awaiting = queued for you; Blocking = the work cannot proceed without you. */
 	readonly standing: "Awaiting" | "Blocking";
@@ -273,11 +273,10 @@ function ReviewOutcomeSummaryView(props: ReviewOutcomeSummaryProps): JSX.Element
 							<ToolLogo key={t} tool={t} withLabel />
 						))}
 					</div>
-					{/* BA2 T4e-a: the guard never checks `tokens`, so a well-formed
-					    payload omitting it must not fall back to "0 tok" — `TokensChip`
-					    requires a real number, so it renders conditionally instead
-					    (§2.8.2 D; deleting the old `?? 0` alone would render
-					    "undefined tok"). */}
+					{/* The guard never checks `tokens`, so a well-formed payload omitting
+					    it must not fall back to "0 tok" — `TokensChip` requires a real
+					    number, so it renders conditionally instead (deleting the old
+					    `?? 0` alone would render "undefined tok"). */}
 					{tokens !== undefined ? <TokensChip tokens={tokens} /> : null}
 				</div>
 			</header>
@@ -364,10 +363,10 @@ function isOutcomeSummaryPayload(payload: unknown): payload is OutcomeSummaryPay
 /** AL2 wrapper: receives a uniform review artifact and mounts the frame lead. */
 export function ReviewOutcomeSummary({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isOutcomeSummaryPayload(artifact.payload)) {
-		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// A malformed payload gets the honest unknown-canvas
 		// fallback — this used to fall back to `{}` and render a half-empty frame
 		// (`standing` defaulted to "Awaiting", `achieved` to the artifact title),
-		// both invented on the guard-failure path (§2.8.2 D).
+		// both invented on the guard-failure path.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}
 	const payload = artifact.payload;

@@ -255,9 +255,8 @@ function FrameHeader({
 						data-az16-profile="data"
 						className="type-data   tabular-nums text-[var(--text-tertiary)]"
 					>
-						{/* T4c (architecture.md §2.8.1 C): a demo review is the only subject that ever
-						carries `tokens` — a produced-by-an-agent review never does — so the separator
-						rendered with nothing on its left for every non-demo review (F42). */}
+						{/* A produced-by-an-agent review never carries `tokens`, so the
+						separator must not render with nothing on its left. */}
 						{s.tokens && s.producedAgo
 							? `${s.tokens} · ${s.producedAgo}`
 							: s.tokens || s.producedAgo}
@@ -622,10 +621,10 @@ function ExaminePane({
 					{/* AL7 trust-first: action_operation canvases receive status+outcome from the
 					    loader via ComposedReviewArtifact.proposedCall (trust-first model).
 					    Fallback to stagedOperation for backward compat during migration.
-					    BA2 T4e-a: the captured-args panel itself is deleted — `proposedCall`
-					    is never populated in production (nothing writes a proposed-call row;
-					    §1 "The AL7 capture machinery is production-dead"), so it was only
-					    ever reachable from a unit test. */}
+					    The captured-args panel itself is deleted — `proposedCall` is never
+					    populated in production (nothing writes a proposed-call row; the AL7
+					    capture machinery is production-dead), so it was only ever reachable
+					    from a unit test. */}
 					{artifact.kind === "action_operation" ? (
 						<ReviewActionOperation
 							artifact={artifact}

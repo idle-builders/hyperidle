@@ -44,11 +44,10 @@ interface FlaggedClaim {
 }
 
 export interface RenderedEmail {
-	/** BA2 T4e-a: widened from the literal `"mailchimp"` — the real `artifact.tool`. */
+	/** Widened from the literal `"mailchimp"` — carries the real `artifact.tool`. */
 	readonly tool: string;
 	readonly campaignName: string;
 	readonly sender: string;
-	readonly senderEmail: string;
 	readonly subject: string;
 	readonly preview: string;
 	readonly receivedAt: string; // inbox-row time label
@@ -142,7 +141,7 @@ export function EmailRender({
 				borderRadius: 12,
 			}}
 		>
-			{/* BA2 T4e-a (§2.8.2 D): this header bar hardcoded the brand "HyperIdle"
+			{/* No brand name here: this header bar used to hardcode "HyperIdle"
 			    regardless of who actually sent the email. There is no payload field
 			    for a brand distinct from the sender already named in the inbox row
 			    above — subtracted rather than duplicating that same value here. */}
@@ -177,31 +176,40 @@ export function EmailRender({
 					</p>
 				))}
 
-				{/* CTA pill */}
-				<div style={{ marginTop: 28 }}>
-					<a
-						href="https://hyperidle.com/start"
-						onClick={(e) => e.preventDefault()}
-						style={{
-							display: "inline-block",
-							padding: "13px 28px",
-							fontSize: 15,
-							fontWeight: 600,
-							color: "#ffffff",
-							background: "#2f6b4f",
-							borderRadius: 9999,
-							textDecoration: "none",
-						}}
-					>
-						{data.ctaLabel}
-					</a>
-				</div>
+				{/* CTA pill — `RenderedInContextPayload` has no CTA-copy field, so a
+				    production render never has one to show. */}
+				{data.ctaLabel ? (
+					<div style={{ marginTop: 28 }}>
+						<a
+							href="https://hyperidle.com/start"
+							onClick={(e) => e.preventDefault()}
+							style={{
+								display: "inline-block",
+								padding: "13px 28px",
+								fontSize: 15,
+								fontWeight: 600,
+								color: "#ffffff",
+								background: "#2f6b4f",
+								borderRadius: 9999,
+								textDecoration: "none",
+							}}
+						>
+							{data.ctaLabel}
+						</a>
+					</div>
+				) : null}
 			</div>
 
-			{/* footer */}
-			<div style={{ padding: "18px 24px", borderTop: "1px solid #efeae1", background: "#faf7f1" }}>
-				<p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: "#8a8174" }}>{data.footer}</p>
-			</div>
+			{/* footer — no payload field backs one, so a production render never has one. */}
+			{data.footer ? (
+				<div
+					style={{ padding: "18px 24px", borderTop: "1px solid #efeae1", background: "#faf7f1" }}
+				>
+					<p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: "#8a8174" }}>
+						{data.footer}
+					</p>
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -276,15 +284,19 @@ function ReviewRenderedInContextView({
 				}}
 			>
 				<div className="flex items-center gap-[9px]">
-					{/* BA2 T4e-a: was hardcoded "mailchimp" regardless of the real
-					    source tool (§2.8.2 D). */}
 					<ToolLogo tool={data.tool} size="md" withLabel label="" />
-					<span className="type-metadata " style={{ color: "var(--text-tertiary)" }}>
-						·
-					</span>
-					<span className="type-metadata  " style={{ color: "var(--text-secondary)" }}>
-						{data.audienceLabel}
-					</span>
+					{/* No payload field backs an audience size, so no separator or label
+					    render for a production payload that never carries one. */}
+					{data.audienceLabel ? (
+						<>
+							<span className="type-metadata " style={{ color: "var(--text-tertiary)" }}>
+								·
+							</span>
+							<span className="type-metadata  " style={{ color: "var(--text-secondary)" }}>
+								{data.audienceLabel}
+							</span>
+						</>
+					) : null}
 				</div>
 
 				{/* the row as a mail client paints it */}
@@ -305,8 +317,7 @@ function ReviewRenderedInContextView({
 							borderRadius: "var(--r-pill)",
 						}}
 					>
-						{/* BA2 T4e-a: the avatar letter was fixed "H" regardless of the
-						    real sender (§2.8.2 D) — derived from `data.sender`, not invented. */}
+						{/* Derived from `data.sender`, not a fixed letter. */}
 						{data.sender.slice(0, 1).toUpperCase()}
 					</div>
 					<div className="flex min-w-0 flex-1 flex-col gap-[3px]">
@@ -398,11 +409,11 @@ function ReviewRenderedInContextView({
 						>
 							{flagCount} flag{flagCount === 1 ? "" : "s"}
 						</span>
-						{/* BA2 T4e-a (§2.8.2 D): "1 unverified claim · send plan ·
-						    exclusions" rendered unconditionally regardless of how many
-						    flags there actually were or what they said. The badge above
-						    already carries the real count; nothing generic to add here
-						    when there is at least one. */}
+						{/* No fixed-prose summary here: a hardcoded "1 unverified claim ·
+						    send plan · exclusions" would assert something regardless of how
+						    many flags there actually were or what they said. The badge above
+						    already carries the real count; nothing generic to add when
+						    there is at least one. */}
 						{flagCount === 0 ? (
 							<span className="type-small " style={{ color: "var(--text-secondary)" }}>
 								No flags
@@ -443,28 +454,35 @@ function ReviewRenderedInContextView({
 							</div>
 						))}
 
-						{/* send plan + exclusions */}
-						<div
-							className="flex flex-col gap-[6px] p-[12px]"
-							style={{
-								background: "var(--surface-container)",
-								border: "var(--bw-thin) solid var(--border-subtle)",
-								borderRadius: "var(--r-subtle)",
-							}}
-						>
-							<div className="flex items-baseline justify-between gap-[12px]">
-								<ChromeLabel>Send plan</ChromeLabel>
-								<span
-									className="type-small  "
-									style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
-								>
-									{data.sendPlan}
-								</span>
+						{/* send plan + exclusions — `RenderedInContextPayload` has no field for
+						    either, so a production render never has one to show. */}
+						{data.sendPlan || data.excludedNote ? (
+							<div
+								className="flex flex-col gap-[6px] p-[12px]"
+								style={{
+									background: "var(--surface-container)",
+									border: "var(--bw-thin) solid var(--border-subtle)",
+									borderRadius: "var(--r-subtle)",
+								}}
+							>
+								{data.sendPlan ? (
+									<div className="flex items-baseline justify-between gap-[12px]">
+										<ChromeLabel>Send plan</ChromeLabel>
+										<span
+											className="type-small  "
+											style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
+										>
+											{data.sendPlan}
+										</span>
+									</div>
+								) : null}
+								{data.excludedNote ? (
+									<span className="type-metadata " style={{ color: "var(--text-secondary)" }}>
+										{data.excludedNote}
+									</span>
+								) : null}
 							</div>
-							<span className="type-metadata " style={{ color: "var(--text-secondary)" }}>
-								{data.excludedNote}
-							</span>
-						</div>
+						) : null}
 					</div>
 				) : null}
 			</section>
@@ -524,7 +542,6 @@ function mapRenderedPayload(
 		tool,
 		campaignName: title,
 		sender: payload.inboxRow.sender,
-		senderEmail: "hello@example.com",
 		subject: payload.inboxRow.subject,
 		preview: payload.inboxRow.preview,
 		receivedAt: "",
@@ -547,7 +564,7 @@ export function ReviewRenderedInContext({ artifact }: ReviewCanvasProps): JSX.El
 	const body = valid ? artifact.payload.body : "";
 	const blocks = useMemo(() => deriveProseBlocks(artifact.id, body), [artifact.id, body]);
 	if (!valid) {
-		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// A malformed payload gets the honest unknown-canvas
 		// fallback, never the Mailchimp demo fixture.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}

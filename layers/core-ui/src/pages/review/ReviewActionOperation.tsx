@@ -33,8 +33,7 @@ interface RefundField {
 	readonly sub?: string;
 }
 
-interface RefundOperation {
-	readonly tool: "stripe";
+interface Operation {
 	readonly action: string;
 	readonly amount: string;
 	readonly currency: string;
@@ -42,9 +41,9 @@ interface RefundOperation {
 	readonly fields: readonly RefundField[];
 	readonly blastRadius: readonly string[];
 	readonly reversibility: string;
-	/** BA2 T4e-a: the raw flag — both `IrreversibleBadge` and the L3 section
-	 * title used to render unconditionally, contradicting `reversibility`
-	 * (a few lines below) which already read this same field (§2.8.2 D). */
+	/** Both `IrreversibleBadge` and the L3 section title read this alongside
+	 * `reversibility` below, which already carries the same fact — keeping
+	 * both conditional on it avoids one contradicting the other. */
 	readonly irreversible: boolean;
 }
 
@@ -64,7 +63,7 @@ interface RefundOperation {
 // uses the same shape, so canvas and loader cannot drift either.
 
 export interface ReviewActionOperationProps {
-	readonly operation: RefundOperation;
+	readonly operation: Operation;
 	/** AL7 trust-first: drives the outcome band. `captured` renders the AL2 canvas unchanged. */
 	readonly status?: ProposedCallStatus;
 	readonly outcome?: ProposedCallOutcomeView;
@@ -96,9 +95,6 @@ function ReviewActionOperationView({
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-[6px]">
 						<h2 className="type-subheading    text-[var(--text-primary)]">{operation.action}</h2>
-						{/* BA2 T4e-a: rendered unconditionally regardless of
-						    `operation.irreversible` — a reversible action was labelled
-						    irreversible next to text (below) saying the opposite. */}
 						{operation.irreversible ? <IrreversibleBadge /> : null}
 					</div>
 					<p className="type-small mt-[6px]   text-[var(--text-secondary)]">{operation.intent}</p>
@@ -114,10 +110,9 @@ function ReviewActionOperationView({
 					background: "var(--accent-secondary-dim)",
 				}}
 			>
-				{/* BA2 T4e-a: "Refund amount" labelled this box on every operation,
-				    not only a refund (§2.8.2 D) — no generic replacement caption is
-				    supplied by the payload either, so the label is subtracted; the
-				    figure and its currency (below) are the payload's own. */}
+				{/* No caption here: the payload names no operation type, so no
+				    generic label is supplied either — the figure and its currency
+				    below are the payload's own. */}
 				<span
 					className="type-metric    text-[var(--text-primary)]"
 					style={{ fontVariantNumeric: "tabular-nums" }}
@@ -223,9 +218,6 @@ function ReviewActionOperationView({
 							/>
 						</svg>
 						<div>
-							{/* BA2 T4e-a: rendered unconditionally regardless of
-							    `operation.irreversible`, unlike the paragraph right below
-							    it — which already read the same field. */}
 							{operation.irreversible ? (
 								<div className="type-label   uppercase  text-[var(--status-error)]">
 									Irreversible
@@ -249,8 +241,6 @@ function ReviewActionOperationView({
 				>
 					Reject
 				</button>
-				{/* BA2 T4e-a (§2.8.2 D): labelled "Approve refund" on every operation,
-				    not only a refund. */}
 				<button
 					type="button"
 					onClick={onApprove}
@@ -440,9 +430,8 @@ function isActionOperationPayload(payload: unknown): payload is ActionOperationP
 	);
 }
 
-function mapActionPayload(payload: ActionOperationPayload): RefundOperation {
+function mapActionPayload(payload: ActionOperationPayload): Operation {
 	return {
-		tool: "stripe",
 		action: payload.verb,
 		amount: payload.amountWire.formatted,
 		currency: payload.amountWire.currency,
@@ -462,7 +451,7 @@ export function ReviewActionOperation({
 	outcome,
 }: ReviewCanvasProps & Pick<ReviewActionOperationProps, "status" | "outcome">): JSX.Element {
 	if (!isActionOperationPayload(artifact.payload)) {
-		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// A malformed payload gets the honest unknown-canvas
 		// fallback, never the REFUND demo fixture.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}

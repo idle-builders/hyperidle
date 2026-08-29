@@ -3,8 +3,8 @@
 //
 // Three layers (brief §1):
 //   L1  the moved headlines, materiality-sorted (biggest $ on top), + exceptions count + ToolLogo.
-//   L2  the roll-forward / reconciliation table with CHANGED CELLS HIGHLIGHTED, sub-$100 rows
-//       collapsed, and an explicit TIE-OUT STRIP (opening + activity = closing ✓ ties to bank).
+//   L2  the roll-forward / reconciliation table with CHANGED CELLS HIGHLIGHTED and an explicit
+//       TIE-OUT STRIP (opening + activity = closing), conditional on the payload's own `ties` flag.
 //   L3  on demand — per-figure PROVENANCE (a figure → its source export / GL account) and the
 //       EXCEPTIONS list; the two real exceptions carry needs-you flags.
 //
@@ -33,9 +33,9 @@ interface MovedFigure {
 	readonly prior: number;
 	readonly current: number;
 	readonly headline?: boolean; // surfaced in L1
-	/** BA2 T4e-a: undefined when the payload carries no per-figure provenance —
-	 * an agent-supplied `MetricsMovedPayload.headlines[]` entry has no source
-	 * field at all, so there is nothing honest to show here (§2.8.2 D). */
+	/** Undefined when the payload carries no per-figure provenance — an
+	 * agent-supplied `MetricsMovedPayload.headlines[]` entry has no source
+	 * field at all, so there is nothing honest to show here. */
 	readonly provenance?: Provenance;
 }
 
@@ -61,7 +61,6 @@ interface CloseFixture {
 	readonly period: string;
 	readonly figures: readonly MovedFigure[]; // materiality-sorted
 	readonly rows: readonly RollForwardRow[]; // materiality-sorted
-	readonly trivia: { readonly count: number; readonly net: number };
 	readonly tieOut: {
 		readonly opening: number;
 		readonly activity: number;
@@ -73,9 +72,9 @@ interface CloseFixture {
 
 // ── format helpers ───────────────────────────────────────────────────────────
 //
-// @lore BA2 T4e-a: `MetricsMovedPayload` carries no currency field at all, so
-// formatting every number as USD (`style: "currency"`) asserted a fact
-// (§2.8.2 D) the payload never supplied. These format grouping only.
+// @lore `MetricsMovedPayload` carries no currency field at all, so formatting
+// every number as USD (`style: "currency"`) would assert a fact the payload
+// never supplied. These format grouping only.
 
 function fmt(n: number): string {
 	return n.toLocaleString("en-US", {
@@ -156,9 +155,9 @@ function Headline({
 				</span>
 				{expanded ? "Hide source" : "Where from?"}
 			</button>
-			{/* BA2 T4e-a: an agent-supplied payload carries no per-figure provenance
-			    (§2.8.2 D) — render the disclosure's content only when there is one,
-			    never a fabricated tool/source/detail. */}
+			{/* An agent-supplied payload carries no per-figure provenance — render
+			    the disclosure's content only when there is one, never a fabricated
+			    tool/source/detail. */}
 			{expanded && figure.provenance ? (
 				// L3 — per-figure provenance
 				<div className="border-width-thin mt-[9px] rounded-[var(--r-subtle)]  border-[var(--border-subtle)] bg-[var(--surface-container)] p-[12px]">
@@ -188,7 +187,6 @@ function changedCellStyle(): React.CSSProperties {
 }
 
 function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
-	const [showTrivia, setShowTrivia] = useState(false);
 	return (
 		<div
 			className="border-width-thin overflow-hidden rounded-[var(--r-default)]  border-[var(--border-default)] bg-[var(--surface-elevated)]"
@@ -236,44 +234,31 @@ function RollForwardTable({ fixture }: { fixture: CloseFixture }): JSX.Element {
 							</td>
 						</tr>
 					))}
-					<tr>
-						<td colSpan={4} className="px-[12px] py-[6px]">
-							{/* BA2 T4e-a: the fixed "< $100" sub-threshold figure asserted a
-							    materiality cutoff `MetricsMovedPayload` has no field for — the
-							    mapper never actually groups rows by it either (§2.8.2 D). */}
-							<button
-								type="button"
-								onClick={() => setShowTrivia((v) => !v)}
-								className="motion-feedback type-control text-[var(--text-tertiary)]"
-								aria-expanded={showTrivia}
-							>
-								{showTrivia ? "Hide" : "Show"} {fixture.trivia.count} items (net{" "}
-								{signed(fixture.trivia.net)})
-							</button>
-						</td>
-					</tr>
 				</tbody>
 			</table>
 
-			{/* tie-out strip — the control total that proves the roll-forward */}
+			{/* tie-out strip — the control total that proves the roll-forward.
+			    `tieOut.ties` is a real payload boolean; the checkmark and its
+			    success-tinted background are conditional on it too, not just the
+			    "ties" word, so a `ties: false` payload never paints a false success
+			    mark over its own reconciliation line. */}
 			<div
 				className="border-width-thin-t flex flex-wrap items-center gap-x-[6px] gap-y-[3px]  border-[var(--border-default)] px-[12px] py-[9px]"
-				style={{ background: "var(--accent-primary-dim)" }}
+				style={{ background: fixture.tieOut.ties ? "var(--accent-primary-dim)" : undefined }}
 			>
-				<span
-					className="inline-flex items-center justify-center"
-					style={{ color: "var(--status-success)" }}
-					aria-hidden="true"
-				>
-					✓
-				</span>
+				{fixture.tieOut.ties ? (
+					<span
+						className="inline-flex items-center justify-center"
+						style={{ color: "var(--status-success)" }}
+						aria-hidden="true"
+					>
+						✓
+					</span>
+				) : null}
 				<span className={`type-small ${` text-[var(--text-primary)] ${NUM}`}`}>
 					Opening {fmt(fixture.tieOut.opening)} + activity {signed(fixture.tieOut.activity)} =
 					Closing <span className="type-small ">{fmt(fixture.tieOut.closing)}</span>
 				</span>
-				{/* BA2 T4e-a (founder-decided ambiguity #2): `tieOut.ties` is a real
-				    payload boolean — a conditional tie indicator is honest. "bank" was
-				    an invented noun the payload never named and is not restored. */}
 				{fixture.tieOut.ties ? (
 					<span className="type-small  " style={{ color: "var(--status-success)" }}>
 						ties
@@ -304,9 +289,8 @@ function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-[6px]">
 					<span className="type-small   text-[var(--text-primary)]">{ex.title}</span>
-					{/* BA2 T4e-a: `needsYou` is `optional` on the payload — its absence means
-					    "unknown", not "confirmed routine". A "Timing" badge asserted the
-					    latter unconditionally; only the confirmed-true case renders now. */}
+					{/* `needsYou` is optional on the payload — its absence means "unknown",
+					    not "confirmed routine", so only the confirmed-true case renders. */}
 					{ex.needsYou ? (
 						<span
 							className="type-label rounded-[var(--r-pill)] px-[6px] py-[3px]   uppercase "
@@ -328,25 +312,27 @@ function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 
 export interface ReviewMetricsMovedProps {
 	readonly fixture: CloseFixture;
-	/** which figure starts expanded (so all 3 layers are visible in a screenshot). */
+	/** which figure starts expanded (so all 3 layers are visible in a screenshot).
+	 * Defaults to the payload's own first figure — never a fixed literal, since
+	 * the mapper's figure ids are generated per-payload (`fig-0`, `fig-1`, …). */
 	readonly initialExpandedFigureId?: string | null;
 }
 
 function ReviewMetricsMovedView({
 	fixture,
-	initialExpandedFigureId = "rev",
+	initialExpandedFigureId,
 }: ReviewMetricsMovedProps): JSX.Element {
-	const [expandedId, setExpandedId] = useState<string | null>(initialExpandedFigureId);
+	const [expandedId, setExpandedId] = useState<string | null>(
+		() => initialExpandedFigureId ?? fixture.figures[0]?.id ?? null,
+	);
 
 	return (
 		<div className="max-w-[760px] bg-[var(--surface-page)] text-[var(--text-primary)]">
 			<div className="p-[18px]">
-				{/* BA2 T4e-a: the former L1 narrative ("Recognized revenue closed at …
-				    from April. The period ties to bank; biggest open item is a $0.00
-				    wire with no source.") asserted a full sentence of facts no payload
-				    field backs — fixed month names, a bank tie claim, a coerced-to-zero
-				    exception amount. Subtracted rather than reworded (§2.8.2 D); the
-				    figure cards below already carry the real headline numbers. */}
+				{/* No L1 narrative sentence here: a fixed-prose summary would assert
+				    facts (month names, a tie claim, an exception amount) no payload
+				    field backs. The figure cards below already carry the real
+				    headline numbers. */}
 				<div className="grid grid-cols-3 gap-[9px]">
 					{fixture.figures.map((f) => (
 						<Headline
@@ -405,10 +391,10 @@ function isRollForwardRow(value: unknown): value is RollForwardRow {
 }
 
 function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
-	// BA2 T4e-a: `MetricsMovedPayload.headlines[]` carries no per-figure source
-	// at all — the old mapper invented one (`tool: "quickbooks"`, `source:
+	// `MetricsMovedPayload.headlines[]` carries no per-figure source at all —
+	// an earlier mapper invented one (`tool: "quickbooks"`, `source:
 	// payload.period`). `provenance` is left undefined; the view renders the
-	// disclosure only when there is real provenance to show (§2.8.2 D).
+	// disclosure only when there is real provenance to show.
 	const figures: MovedFigure[] = payload.headlines.map((h, i) => ({
 		id: `fig-${i}`,
 		label: h.label,
@@ -429,7 +415,6 @@ function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
 		period: payload.period,
 		figures,
 		rows,
-		trivia: { count: 0, net: 0 },
 		tieOut: payload.tieOut,
 		exceptions,
 	};
@@ -437,7 +422,7 @@ function mapMetricsPayload(payload: MetricsMovedPayload): CloseFixture {
 
 export function ReviewMetricsMoved({ artifact }: ReviewCanvasProps): JSX.Element {
 	if (!isMetricsMovedPayload(artifact.payload)) {
-		// BA2 T4e-a (ruling 14): a malformed payload gets the honest unknown-canvas
+		// A malformed payload gets the honest unknown-canvas
 		// fallback, never the May-close demo fixture.
 		return <ReviewUnknownCanvas artifact={artifact} />;
 	}
