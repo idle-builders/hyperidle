@@ -58,12 +58,12 @@ async function seedReviewMessage(
 	});
 }
 
-describe("GET /api/reviews/:id — returns the review's own threadId (BA2 T4b)", () => {
+describe("GET /api/reviews/:id — returns the review's own threadId", () => {
 	test("the response carries threadId equal to the message's own thread", async ({ db, app }) => {
-		const taskId = `task-t4b-${crypto.randomUUID()}`;
-		const agentId = `agent-t4b-${crypto.randomUUID()}`;
-		const threadId = `thread-t4b-${crypto.randomUUID()}`;
-		const reviewId = `msg-t4b-${crypto.randomUUID()}`;
+		const taskId = `task-single-thread-${crypto.randomUUID()}`;
+		const agentId = `agent-reviewer-${crypto.randomUUID()}`;
+		const threadId = `thread-own-${crypto.randomUUID()}`;
+		const reviewId = `msg-review-${crypto.randomUUID()}`;
 
 		await seedAgent(db, agentId);
 		await seedThread(db, { id: threadId, hostId: taskId, initiatorId: agentId, lastActiveAt: NOW });
@@ -86,11 +86,11 @@ describe("GET /api/reviews/:id — returns the review's own threadId (BA2 T4b)",
 		// thread for this host" strategy (the client's current by-host lookup)
 		// would resolve to the WRONG one. The loader must name the review
 		// message's actual thread, never guess from the host.
-		const taskId = `task-t4b-multi-${crypto.randomUUID()}`;
-		const agentId = `agent-t4b-multi-${crypto.randomUUID()}`;
-		const earlierThreadId = `thread-t4b-earlier-${crypto.randomUUID()}`;
-		const ownThreadId = `thread-t4b-own-${crypto.randomUUID()}`;
-		const reviewId = `msg-t4b-multi-${crypto.randomUUID()}`;
+		const taskId = `task-two-threads-${crypto.randomUUID()}`;
+		const agentId = `agent-two-threads-${crypto.randomUUID()}`;
+		const earlierThreadId = `thread-earlier-${crypto.randomUUID()}`;
+		const ownThreadId = `thread-own-${crypto.randomUUID()}`;
+		const reviewId = `msg-review-${crypto.randomUUID()}`;
 
 		await seedAgent(db, agentId);
 		await seedThread(db, {
