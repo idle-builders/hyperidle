@@ -166,9 +166,9 @@ describe("submit_review tool", () => {
 		});
 	});
 
-	// Thread reuse: second call reuses existing bet thread
+	// Thread reuse: second call reuses existing task thread
 	describe("thread reuse", () => {
-		test("second call reuses existing bet thread (idempotent thread creation)", async ({
+		test("second call reuses existing task thread (idempotent thread creation)", async ({
 			db,
 			app,
 		}) => {

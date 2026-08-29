@@ -33,6 +33,13 @@ import { Hono } from "hono";
 
 const FIXTURE_REVIEW = {
 	id: "review:AL3:fixture",
+	// `ComposedReviewSubject.threadId` is a required string — `ReviewPage`
+	// fetches and posts to it directly (never guessing via a host lookup).
+	// The fixture needs its own value so this loader's contract stays total
+	// even on the demo path: without it the client's verdict guard (which
+	// checks `reviewSubject`, not `threadId`) would let a POST reach
+	// `/api/threads/undefined/messages`.
+	threadId: "thread:AL3:fixture",
 	title: "Fix expired-promo checkout — silent success → typed 422",
 	betId: "bet-123",
 	betTitle: "Billing reliability",
