@@ -62,7 +62,7 @@ export {
 	type InjectedFilesystemsReaderPort,
 	mountFilesystemsForAgent,
 } from "./filesystem-provisioning.js";
-export { RegistryFilesystemMounter } from "./mounter.js";
+export { ensureSandboxGitRepo, RegistryFilesystemMounter } from "./mounter.js";
 export type { MountingGitRunnerFactory } from "./mounter-ports.js";
 export type { PluginMcpContributionsPort } from "./provisioner.js";
 export {

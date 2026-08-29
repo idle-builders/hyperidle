@@ -20,6 +20,7 @@
  * mounted) lives in `filesystems-added-after-emit.integration.test.ts`.
  */
 
+import * as fs from "node:fs";
 import { type HyperIdleDb, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
@@ -157,7 +158,14 @@ function buildDeps(
 			describeSelectFailure: () => "test pool selected nothing",
 		},
 		workspace: {
-			spawn: async () => ({ sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-fs" }),
+			// A real workspace adapter always materializes the directory it hands
+			// back (LocalSandboxAdapter.spawn) — admitSession's post-mount
+			// `ensureSandboxGitRepo` step now depends on that, so this fake must
+			// honor it too.
+			spawn: async () => {
+				fs.mkdirSync("/tmp/au21-admit-session-baked-fs", { recursive: true });
+				return { sandboxId: "sbx-1", path: "/tmp/au21-admit-session-baked-fs" };
+			},
 			exec: async () => ({ stdout: "", stderr: "", exitCode: 0 }),
 			destroy: async () => undefined,
 		},

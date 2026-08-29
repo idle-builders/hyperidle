@@ -51,7 +51,7 @@ import {
 } from "./filesystem-provisioning.js";
 // Filesystem: local to this package — sibling service boundary (Mechanism C).
 // @lore AU44 b2: moved from @hyperidle/domain-model (dissolved filesystem-contract).
-import type { Filesystem } from "./mounter.js";
+import { ensureSandboxGitRepo, type Filesystem, localTrustedPath } from "./mounter.js";
 import { transitionRun } from "./transition-run.js";
 
 type TransitionSpec = Parameters<typeof transitionRun>[1];
@@ -244,6 +244,8 @@ interface SessionLifecycleHarnessRuntime {
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
+		/** BA2 ruling 18: the session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
+		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 	/** @lore BA9b B2: write plugin stdio MCP entries in the harness's dialect. Dialect knowledge lives in cli-mcp-config.ts. */
 	writePluginStdioMcpEntries(params: {
@@ -1196,6 +1198,14 @@ async function admitSession(
 		});
 	}
 
+	// @lore BA2 ruling 22: guarantee the sandbox is a git repo, AFTER mounting
+	// (never before — a mounted code filesystem's `git clone`/`git worktree add`
+	// refuses a target directory that already has a `.git`; see
+	// `ensureSandboxGitRepo`'s own doc comment in mounter.ts). Unconditional —
+	// runs even when no mounter is configured, since every session sandbox
+	// benefits (codex's trust precondition; an agent's own diff/revert).
+	ensureSandboxGitRepo(sandboxPath);
+
 	// ── Phase 6: assemble context into the sandbox through the agent layer.
 	if (params.taskId) {
 		await ports.contextAssembly.assembleAgentContext({
@@ -1529,11 +1539,18 @@ async function runSession(
 			fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 			if (adapterCapabilities.cliMcpDialect) {
+				// BA2 ruling 18: the session's mounted filesystems (AO2, phase 4.5
+				// above) are the trusted directories — tell the harness what the
+				// filesystem primitive already declared, alongside the sandbox.
+				const trustedPaths = mountedFilesystems
+					.map((filesystem) => localTrustedPath(filesystem))
+					.filter((p): p is string => p !== undefined);
 				const result = await ports.harnessRuntime.writeCliMcpConfig({
 					dialect: adapterCapabilities.cliMcpDialect,
 					sandboxPath,
 					mcpUrl,
 					token: bridge.token,
+					...(trustedPaths.length > 0 ? { trustedPaths } : {}),
 				});
 				if (result.tokenEnv && Object.keys(result.tokenEnv).length > 0) {
 					mcpTokenEnv = result.tokenEnv;
