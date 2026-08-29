@@ -144,7 +144,7 @@ describe("CLI native metrics capture — tokens, turns, duration", () => {
 		expect(result.metrics).not.toHaveProperty("nativeCostUsd");
 	});
 
-	it("captures cursor-agent's camelCase result usage (BA2: cursor-agent emits inputTokens/outputTokens/cacheReadTokens/cacheWriteTokens, not claude's snake_case)", async () => {
+	it("captures cursor-agent's camelCase result usage (cursor-agent emits inputTokens/outputTokens/cacheReadTokens/cacheWriteTokens, not claude's snake_case)", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
 		spawnSpy.mockReturnValue(fakeChild.proc);
@@ -167,8 +167,7 @@ describe("CLI native metrics capture — tokens, turns, duration", () => {
 		})();
 
 		// Real shape captured from the installed cursor-agent 2026.08.25-3e8eec8
-		// binary's `result` line (`.pipeline/work/BA2/harness-research/cursor-agent.md`
-		// investigation) — camelCase, unlike claude's native snake_case.
+		// binary's `result` line — camelCase, unlike claude's native snake_case.
 		fakeChild.emitStdout(
 			JSON.stringify({
 				type: "result",
