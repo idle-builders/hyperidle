@@ -144,6 +144,68 @@ describe("CLI native metrics capture — tokens, turns, duration", () => {
 		expect(result.metrics).not.toHaveProperty("nativeCostUsd");
 	});
 
+	it("captures cursor-agent's camelCase result usage (BA2: cursor-agent emits inputTokens/outputTokens/cacheReadTokens/cacheWriteTokens, not claude's snake_case)", async () => {
+		const spawnSpy = vi.fn();
+		const fakeChild = makeFakeChild();
+		spawnSpy.mockReturnValue(fakeChild.proc);
+
+		const adapter = new CliHarnessAdapter(
+			makeConfig({
+				binary: "cursor-agent",
+				eventFormat: "ndjson",
+				eventDialect: "claude-stream-json",
+			}),
+			{ spawnFn: spawnSpy },
+		);
+		const handle = await adapter.startSession(makeSessionConfig());
+
+		const events: HarnessEvent[] = [];
+		const streamPromise = (async () => {
+			for await (const event of adapter.streamEvents(handle)) {
+				events.push(event);
+			}
+		})();
+
+		// Real shape captured from the installed cursor-agent 2026.08.25-3e8eec8
+		// binary's `result` line (`.pipeline/work/BA2/harness-research/cursor-agent.md`
+		// investigation) — camelCase, unlike claude's native snake_case.
+		fakeChild.emitStdout(
+			JSON.stringify({
+				type: "result",
+				subtype: "success",
+				duration_ms: 15116,
+				duration_api_ms: 15116,
+				is_error: false,
+				result: "I'm not going to run that command.",
+				usage: {
+					inputTokens: 4,
+					outputTokens: 759,
+					cacheReadTokens: 61008,
+					cacheWriteTokens: 9070,
+				},
+			}),
+		);
+		fakeChild.emitExit(0, null);
+		await streamPromise;
+
+		const tokenEvent = events.find((event) => event.type === "token_usage");
+		expect(tokenEvent).toMatchObject({
+			type: "token_usage",
+			inputTokens: 4,
+			outputTokens: 759,
+			cachedInputTokens: 61008,
+			cacheCreationInputTokens: 9070,
+		});
+
+		const result = await adapter.stopSession(handle);
+		expect(result.metrics).toMatchObject({
+			inputTokens: 4,
+			outputTokens: 759,
+			cachedInputTokens: 61008,
+			cacheCreationInputTokens: 9070,
+		});
+	});
+
 	it("captures Codex turn.completed usage and turn count", async () => {
 		const spawnSpy = vi.fn();
 		const fakeChild = makeFakeChild();
