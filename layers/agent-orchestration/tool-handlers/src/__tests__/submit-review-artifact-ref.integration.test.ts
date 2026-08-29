@@ -109,9 +109,9 @@ function makeContext(
 		db,
 		eventBus,
 		agentId: "agent-builder",
-		sessionId: "session-t4d",
+		sessionId: "session-submitreview",
 		taskId,
-		sandboxPath: path.join(os.tmpdir(), `hi-t4d-submitreview-${Date.now()}`),
+		sandboxPath: path.join(os.tmpdir(), `hi-submitreview-${Date.now()}`),
 		ingestion: { dispose: (): void => {} },
 	};
 }

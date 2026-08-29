@@ -281,9 +281,12 @@ function resolveAuthor(
 // stay here so an existing row keeps a real label instead of falling
 // through to "Artifact"; the six current entries are what a NEW row can
 // actually carry.
+// `text_diff` and `code` are deliberately absent: `artifactRefToEmbed` below
+// handles both before ever reaching this map (the `ref.kind === "text_diff"
+// || ref.kind === "code"` branch returns early), so an entry here for either
+// would be dead code — never read.
 const ARTIFACT_KIND_LABEL: Partial<Record<string, string>> = {
 	// Retired (`ARTIFACT_VIEW_SHAPES`) — legacy rows only.
-	text_diff: "Changes",
 	content_preview: "Artifact",
 	visual_comparison: "Comparison",
 	action_summary: "Summary",
@@ -291,7 +294,6 @@ const ARTIFACT_KIND_LABEL: Partial<Record<string, string>> = {
 	// Current (`ARTIFACT_KINDS`) — what `create_artifact`/`submit_review`
 	// actually write today.
 	text: "Text",
-	code: "Changes",
 	image: "Image",
 	data: "Data",
 	html: "Preview",
