@@ -29,7 +29,7 @@ Before adding any component, hook, or helper, read `layers/core-ui/src/ds/index.
 
 ## Visual review & annotation
 
-Live story rendering + browser annotation is provided by the **`/pipeline:human-concept-review` skill's component viewer**. For a high-stakes change the founder annotates the live render there and the planner revises the real TSX until approval. Design critique (9 dimensions — hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop, premium polish, 0–10) runs in `/pipeline:design-critique`. For the visual-regression policy, see `visual-regression.md`.
+Live story rendering and browser annotation come from the design viewer that ships with `/design` (`skills/design/viewer/launch.mjs`). For a high-stakes change the founder annotates the live render there and the real TSX is revised until approval. The nine design dimensions — hierarchy, spacing, typography, color, coherence, states, a11y, anti-slop, premium polish — are the bar `/design` works to; see `aesthetic-quality.md`. For the visual-regression policy, see `visual-regression.md`.
 
 **Data attributes** on components — `data-ds-component` (shell components use `data-ds-shell`), `data-ds-tier`, `data-uses`, `data-daisyui`, `data-used-by` on the outermost element; inner sub-components also carry `data-ds-component` + `data-ds-tier`. These DOM markers carry component identity and drive the skill's annotation overlay.
 
