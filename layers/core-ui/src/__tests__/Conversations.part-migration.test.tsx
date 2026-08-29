@@ -219,12 +219,12 @@ describe("Conversations — Part-model migration (AM1 task 12)", () => {
 		const openReview = screen.getAllByRole("button", { name: /open review/i })[0]!;
 		await user.click(openReview);
 
-		// ARCH-1 / ADV-2: "Open review" fires the OpenTarget→navigate seam to the FULL
-		// valid review path. The page sources the betId from the bet-hosted thread
-		// (host id IS the bet), so there is no empty segment / double slash. The
-		// conversation navigates AWAY to the review route and never takes the verdict
-		// inline.
-		await waitFor(() => expect(lastPath).toBe(`/work/bet/${BET_ID}/review/${REVIEW_MSG.id}`));
+		// "Open review" fires the OpenTarget→navigate seam to the flattened
+		// `/reviews/:reviewId` route — the loader names the review's own
+		// thread directly, so the URL no longer needs a bet at all
+		// (bet-hosted included). The conversation navigates AWAY to the
+		// review route and never takes the verdict inline.
+		await waitFor(() => expect(lastPath).toBe(`/reviews/${REVIEW_MSG.id}`));
 		expect(lastPath).not.toContain("//");
 		expect(lastPath).not.toContain("/conversations");
 		// No verdict was POSTed by the conversation.

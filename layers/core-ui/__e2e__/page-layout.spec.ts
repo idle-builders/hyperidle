@@ -202,7 +202,7 @@ test("review with an artifact open uses two local panes", async ({ page }) => {
 		json(route, REVIEW_COMPOSITION_SUBJECT),
 	);
 	await page.setViewportSize({ width: 1024, height: 768 });
-	await page.goto("/work/bet/bet-123/review/review-layout");
+	await page.goto("/reviews/review-layout");
 	await page
 		.getByText(REVIEW_COMPOSITION_SUBJECT.artifacts[0]?.title ?? "", { exact: true })
 		.click();

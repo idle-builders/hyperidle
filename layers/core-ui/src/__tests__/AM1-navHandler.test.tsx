@@ -48,16 +48,10 @@ describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
 		expect(navigate).toHaveBeenCalledWith("/artifacts/art-1");
 	});
 
-	it("review → navigate('/work/bet/:betId/review/:reviewId')", () => {
+	it("review → navigate('/reviews/:reviewId') (flattened, no betId needed)", () => {
 		const navigate = vi.fn();
-		createOpenHandler(navigate)({ route: "review", betId: "bet-1", reviewId: "rv1" });
-		expect(navigate).toHaveBeenCalledWith("/work/bet/bet-1/review/rv1");
-	});
-
-	it("review with empty/unsourced betId does NOT navigate (graceful no-op, ARCH-1)", () => {
-		const navigate = vi.fn();
-		createOpenHandler(navigate)({ route: "review", betId: "", reviewId: "rv1" });
-		expect(navigate).not.toHaveBeenCalled();
+		createOpenHandler(navigate)({ route: "review", reviewId: "rv1" });
+		expect(navigate).toHaveBeenCalledWith("/reviews/rv1");
 	});
 
 	it("host + user (no navigable host) does NOT call navigate (documented no-op)", () => {

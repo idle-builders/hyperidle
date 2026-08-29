@@ -1,10 +1,4 @@
-import type {
-	AnchorRef,
-	HostKind,
-	Message,
-	PlainPayload,
-	VerdictDecision,
-} from "@hyperidle/domain-model";
+import type { AnchorRef, Message, PlainPayload, VerdictDecision } from "@hyperidle/domain-model";
 import { isRedactedPayload } from "@hyperidle/domain-model";
 import type { JSX } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -12,26 +6,20 @@ import { useParams } from "react-router-dom";
 import type { BlockId } from "../../block/types.js";
 import { ErrorState, PageHeader, PageScaffold } from "../../ds";
 import { useCurrentUser } from "../../hooks/useCurrentUser.js";
-import type { HostThreadIdentity } from "../../hooks/useHostThread.js";
-import { useHostThread } from "../../hooks/useHostThread.js";
+import type { ThreadDetail } from "../../hooks/useThreadDetail.js";
+import { useThreadDetail } from "../../hooks/useThreadDetail.js";
 import { apiFetch } from "../../services/api-fetch.js";
-import {
-	postPlainHostMessage,
-	postVerdictHostMessage,
-	resolveOrCreateHostThread,
-} from "../../services/host-threads.js";
+import { postPlainHostMessage, postVerdictHostMessage } from "../../services/host-threads.js";
 import { relativeShort } from "../../utils/time.js";
 import { ReviewComposition } from "./ReviewComposition.js";
 import type { ComposedReviewSubject, ReviewComment } from "./review-composition.js";
 
 export type ReviewLoader = (params: {
-	readonly betId: string;
 	readonly reviewId: string;
 }) => Promise<ComposedReviewSubject>;
 
 interface ReviewPageProps {
 	readonly loader?: ReviewLoader;
-	readonly overrideBetId?: string;
 	readonly overrideReviewId?: string;
 	readonly presentation?: "page" | "pane";
 }
@@ -61,7 +49,7 @@ function isArtifactEntityRef(ref: {
  */
 function hostMessagesToReviewComments(
 	messages: ReadonlyArray<Message>,
-	identities: Record<string, HostThreadIdentity>,
+	identities: ThreadDetail["identities"],
 ): ReadonlyArray<ReviewComment> {
 	const result: ReviewComment[] = [];
 	for (const m of messages) {
@@ -108,43 +96,42 @@ function hostMessagesToReviewComments(
 /**
  * AL3 — production review destination.
  *
- * Loads the review Subject for the canonical route
- * `/work/bet/:betId/review/:reviewId` and renders the ReviewComposition surface.
- * The optional `loader` prop is used by tests to avoid a real fetch.
+ * Loads the review Subject for the canonical route `/reviews/:reviewId`
+ * (flattened from `/work/bet/:betId/review/:reviewId`) and renders the
+ * ReviewComposition surface. The optional `loader` prop is used by tests to
+ * avoid a real fetch.
  */
 export function ReviewPage({
 	loader = defaultLoader,
-	overrideBetId,
 	overrideReviewId,
 	presentation = "page",
 }: ReviewPageProps = {}): JSX.Element {
-	const { betId: routeBetId = "", reviewId: routeReviewId = "" } = useParams<{
-		betId: string;
-		reviewId: string;
-	}>();
-	const betId = overrideBetId ?? routeBetId;
+	const { reviewId: routeReviewId = "" } = useParams<{ reviewId: string }>();
 	const reviewId = overrideReviewId ?? routeReviewId;
 	const [subject, setSubject] = useState<ComposedReviewSubject | null>(null);
 	const [error, setError] = useState<Error | null>(null);
 	const { user } = useCurrentUser();
 
-	const hostId = subject?.taskId ?? subject?.betId ?? "";
-	const hostKind: HostKind = subject?.taskId ? "task" : "bet";
-	const hostThread = useHostThread(hostKind, hostId);
+	// Fetch the thread the loader NAMES directly, instead of guessing it from
+	// a host lookup (a by-host lookup resolves the first thread for that
+	// host — the WRONG thread whenever a host has more than one).
+	// `subject.threadId` is the review message's own thread.
+	const threadDetail = useThreadDetail(subject?.threadId ?? "");
 
 	const reviewSubject = useMemo<ComposedReviewSubject | null>(() => {
 		if (!subject) return null;
+		const threadMessages = threadDetail.data?.messages;
 		const threadComments =
-			hostThread.data?.messages && hostThread.data.messages.length > 0
-				? hostMessagesToReviewComments(hostThread.data.messages, hostThread.data.identities)
+			threadMessages && threadMessages.length > 0
+				? hostMessagesToReviewComments(threadMessages, threadDetail.data?.identities ?? {})
 				: undefined;
 		if (!threadComments) return subject;
 		return { ...subject, conversation: threadComments };
-	}, [subject, hostThread.data]);
+	}, [subject, threadDetail.data]);
 
 	useEffect(() => {
 		let cancelled = false;
-		loader({ betId, reviewId })
+		loader({ reviewId })
 			.then((s) => {
 				if (!cancelled) setSubject(s);
 			})
@@ -154,26 +141,30 @@ export function ReviewPage({
 		return () => {
 			cancelled = true;
 		};
-	}, [betId, reviewId, loader]);
+	}, [reviewId, loader]);
 
 	const handlePostComment = useCallback(
 		async ({ text, anchor }: { text: string; anchor?: AnchorRef }) => {
 			if (!(user && reviewId && reviewSubject)) return;
-			const threadId = hostThread.data?.thread.id;
-			const activeThreadId =
-				threadId ?? (await resolveOrCreateHostThread(hostKind, hostId, user.id, null));
-			await postPlainHostMessage(activeThreadId, text, crypto.randomUUID(), undefined, anchor);
-			hostThread.refresh();
-			const refreshed = await loader({ betId, reviewId });
+			// The review message already lives in a thread — there is always one
+			// to post to, so no resolve-or-create fallback is needed.
+			await postPlainHostMessage(
+				reviewSubject.threadId,
+				text,
+				crypto.randomUUID(),
+				undefined,
+				anchor,
+			);
+			threadDetail.retry();
+			const refreshed = await loader({ reviewId });
 			setSubject(refreshed);
 		},
-		[betId, hostId, hostKind, hostThread, loader, reviewId, reviewSubject, user],
+		[loader, reviewId, reviewSubject, threadDetail, user],
 	);
 
 	const handleSubmitVerdict = useCallback(
 		async (decision: VerdictDecision) => {
-			const threadId = hostThread.data?.thread.id;
-			if (!(threadId && reviewId && user)) return;
+			if (!(reviewSubject && reviewId && user)) return;
 			// The verdict resolves a specific type:"review" message. The route
 			// `reviewId` IS that message's id — the OpenTarget is built directly
 			// from the review Message (`shared/src/part.ts` reviewTarget:
@@ -188,12 +179,19 @@ export function ReviewPage({
 			// (403) the sender lacked authority. In every case we refresh so the
 			// surface shows the authoritative resolved state, not a stale/optimistic
 			// one — which is also how the user sees a race/authz failure surface.
-			await postVerdictHostMessage(threadId, decision, reviewMessageId, crypto.randomUUID());
-			hostThread.refresh();
-			const refreshed = await loader({ betId, reviewId });
+			// Posted to `reviewSubject.threadId` — the thread the LOADER names —
+			// never a by-host guess.
+			await postVerdictHostMessage(
+				reviewSubject.threadId,
+				decision,
+				reviewMessageId,
+				crypto.randomUUID(),
+			);
+			threadDetail.retry();
+			const refreshed = await loader({ reviewId });
 			setSubject(refreshed);
 		},
-		[betId, hostThread, loader, reviewId, user],
+		[loader, reviewId, reviewSubject, threadDetail, user],
 	);
 
 	if (error) {
@@ -229,7 +227,7 @@ export function ReviewPage({
 				subject={reviewSubject}
 				onSubmitVerdict={handleSubmitVerdict}
 				onPostComment={user ? handlePostComment : undefined}
-				threadId={hostThread.data?.thread.id ?? ""}
+				threadId={subject.threadId}
 				presentation={presentation}
 			/>
 		</PageScaffold>
