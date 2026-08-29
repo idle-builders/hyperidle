@@ -51,6 +51,11 @@ const ports: ToolHandlersPorts = {
 				? { id: row.id, participants: JSON.parse(row.participants) as string[] }
 				: undefined;
 		},
+		// `resolveReviewThreadId` reaches this when a task has no thread yet.
+		// No human user is ever seeded in this suite, so the real backing
+		// route (humans on the team, falling back to all humans) would resolve
+		// to the same empty list this fake returns directly.
+		resolveReviewRecipientsForItem: async () => [],
 		insertThread: async (input) => {
 			const id = crypto.randomUUID();
 			await sharedDb.insert(threads).values({
