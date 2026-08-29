@@ -311,6 +311,13 @@ The contributions view reads only the configuration tables, so skills never appe
 detach/restore has no surface. `mergePluginMcpContributions` expands `${PLUGIN_ROOT}`/`${PLUGIN_DATA}`
 at session-provisioning time; that moves to install.
 
+Found during review of the a–d follow-on fixes, and belonging to this batch: installing over a
+**disabled** plugin re-enables the plugin row (`state: "enabled"`, `disabledAt: null`, unconditionally
+on conflict) but leaves its agents `inactive` and its routines `active: false` — only the enable route
+restores those. So a reinstall of a disabled plugin yields a plugin that reports enabled with a dead
+agent and dead routines. Pre-existing; the ownership registry is where the lifecycle becomes one
+operation instead of three that can disagree.
+
 ## What refinement established, and what it got wrong
 
 Refinement plus an independent critique corrected five claims in the original plan. Each was

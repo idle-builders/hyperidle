@@ -388,9 +388,13 @@ export async function assembleSessionKnowledge(
 ): Promise<readonly KnowledgeItemWithProjection[]> {
 	const community = communityForRole(input.agentRole);
 
+	// L2 is the team layer. `list()` applies a scope filter only when `scopeId`
+	// is defined, so passing an absent team through would return EVERY team's L2
+	// knowledge rather than none — a team-less agent would inherit other teams'
+	// working agreements. No team means no team layer.
 	const [l4Items, l2Items, l3Items, capabilityItems] = await Promise.all([
 		fetchAllForLayer(db, "L4"),
-		fetchAllForLayer(db, "L2", input.teamId),
+		input.teamId ? fetchAllForLayer(db, "L2", input.teamId) : Promise.resolve([]),
 		fetchAllForLayer(db, "L3", community),
 		fetchCapabilityItems(db, input.teamId, input.agentId),
 	]);

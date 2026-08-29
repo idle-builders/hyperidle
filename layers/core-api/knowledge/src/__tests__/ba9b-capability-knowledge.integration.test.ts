@@ -350,3 +350,49 @@ describe("who a capability item reaches", () => {
 		expect(teammate.map((i) => i.id)).not.toContain(boundId);
 	});
 });
+
+/**
+ * `list()` applies a scope filter only when `scopeId !== undefined`, so an
+ * absent team must not be passed through to the team-scoped L2 fetch — doing so
+ * returns EVERY team's L2 knowledge instead of none. A team-less agent has no
+ * team-scoped knowledge to receive; it must not inherit other teams'.
+ */
+describe("a team-less agent receives no team-scoped ordinary knowledge", () => {
+	test("does not inherit another team's L2 items", async ({ db }) => {
+		const otherTeamItem = `l2-other-team-${generateId()}`;
+		const now = new Date().toISOString();
+		await db.insert(knowledgeItems).values({
+			id: otherTeamItem,
+			scopeKind: "team",
+			scopeId: "team-somebody-else",
+			topic: null,
+			title: "Another team's working agreement",
+			body: "Private to that team.",
+			format: "markdown",
+			status: "active",
+			role: "ordinary",
+			version: 1,
+			updatedBy: "test-user",
+			createdAt: now,
+			updatedAt: now,
+		});
+		await db.insert(knowledgeAppProjection).values({
+			id: `proj-${otherTeamItem}`,
+			knowledgeItemId: otherTeamItem,
+			layer: "L2",
+			scopeId: "team-somebody-else",
+			kind: null,
+			attentionScore: null,
+			confidence: null,
+			meta: null,
+		});
+
+		const assembled = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "anything",
+			agentId: "agent-with-no-team",
+		});
+
+		expect(assembled.map((i) => i.id)).not.toContain(otherTeamItem);
+	});
+});
