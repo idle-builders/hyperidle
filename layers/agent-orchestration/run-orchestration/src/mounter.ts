@@ -205,10 +205,15 @@ function isLocalRepoPath(
  * own trust declaration. Returns `undefined` when the filesystem has no local
  * path distinct from the sandbox (a remote clone, or a cloud source not yet
  * built).
+ *
+ * @lore Both branches run through `normalizeLocalPath` — `doc_set.folder` is
+ * as user-configured as `code.repo` (a `./docs` or `~/docs` spelling emits an
+ * inert `[projects."./docs"]` codex never matches against its resolved cwd
+ * if left unnormalized). Do not special-case one branch to skip it.
  */
 export function localTrustedPath(filesystem: Filesystem): string | undefined {
 	const ref = filesystem.resourceRef;
-	if (ref.kind === "doc_set") return ref.folder;
+	if (ref.kind === "doc_set") return normalizeLocalPath(ref.folder);
 	if (ref.kind === "code" && filesystem.connectionId == null && isLocalRepoPath(ref)) {
 		return normalizeLocalPath(ref.repo);
 	}

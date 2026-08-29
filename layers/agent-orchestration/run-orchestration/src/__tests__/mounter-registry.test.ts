@@ -130,6 +130,15 @@ describe("localTrustedPath", () => {
 		expect(result).toBe(fs.realpathSync(real));
 		fs.rmSync(root, { recursive: true, force: true });
 	});
+
+	it("resolves a relative ./ doc_set folder against the process cwd, not verbatim, same as code", () => {
+		const fsRecord = filesystem({
+			kind: "doc_set",
+			resourceRef: { kind: "doc_set", folder: "./au20-nonexistent-docs" },
+		});
+		const result = localTrustedPath(fsRecord);
+		expect(result).toBe(path.resolve("./au20-nonexistent-docs"));
+	});
 });
 
 describe("ensureSandboxGitRepo", () => {
