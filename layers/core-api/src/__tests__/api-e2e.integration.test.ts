@@ -365,7 +365,7 @@ describe("E2E API Integration (I5)", () => {
 						payload: {
 							title: "E2E review",
 							reasoning: ["needs verdict"],
-							artifactRef: { id: "a-e2e", kind: "text_diff" },
+							artifactRef: { id: "a-e2e", kind: "code" },
 						},
 					},
 				}),

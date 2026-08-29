@@ -14,7 +14,16 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
+import {
+	artifacts,
+	bets,
+	type HyperIdleDb,
+	messages,
+	tasks,
+	teams,
+	threads,
+	users,
+} from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
@@ -65,6 +74,17 @@ async function seed(db: HyperIdleDb): Promise<void> {
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	// `submit_review` now checks a stored `artifactRef` resolves to an
+	// artifact produced by the calling task before attaching it; a real row
+	// is required for the AC2 happy-path test below.
+	await db.insert(artifacts).values({
+		id: "art-1",
+		producingTaskId: "task-1",
+		kind: "text",
+		label: null,
+		previewJson: null,
+		createdAt: NOW,
+	});
 }
 
 function makeContext(db: HyperIdleDb): ToolContext<HyperIdleDb> {
@@ -92,7 +112,7 @@ describe("submit_review tool", () => {
 				{
 					title: "Work complete",
 					reasoning: ["All tests pass", "Code reviewed"],
-					artifactRef: { id: "art-1", kind: "content_preview" },
+					artifactRef: { id: "art-1", kind: "text" },
 				},
 				makeContext(db),
 			);
@@ -121,7 +141,7 @@ describe("submit_review tool", () => {
 			expect(payload.title).toBe("Work complete");
 			expect(payload.reasoning).toEqual(["All tests pass", "Code reviewed"]);
 			expect(payload.artifactRef.id).toBe("art-1");
-			expect(payload.artifactRef.kind).toBe("content_preview");
+			expect(payload.artifactRef.kind).toBe("text");
 
 			// Founder ruling 7: the review lands on the TASK's own thread, never
 			// the bet's.
