@@ -107,8 +107,11 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 		const reviewPayload = JSON.parse(reviewMsg.payload) as Record<string, unknown>;
 
 		if (!pcView) {
-			// No proposed call — descriptive review (no action_operation outcome to show).
-			return c.json({ ...reviewPayload });
+			// No proposed call — descriptive review (no action_operation outcome
+			// to show). The review's OWN threadId is always composed (never read
+			// from the payload) so the client fetches the thread directly by id
+			// instead of guessing it from a by-host lookup.
+			return c.json({ ...reviewPayload, threadId: reviewMsg.threadId });
 		}
 
 		// Build the ProposedCallView to nest on the artifact.
@@ -165,6 +168,7 @@ export function createReviewRoutes(db: HyperIdleDb): Hono {
 
 		return c.json({
 			...reviewPayload,
+			threadId: reviewMsg.threadId,
 			artifacts: artifactsWithOp,
 		});
 	});
