@@ -61,7 +61,7 @@ describe("AC6: block-anchored target → same path from any context", () => {
 			blockId: "block-123",
 		};
 		createOpenHandler(nav1, {})(target);
-		createOpenHandler(nav2, { betId: "bet-ignored" })(target);
+		createOpenHandler(nav2, { onOpenSession: vi.fn() })(target);
 		expect(nav1.mock.calls[0]![0]).toBe(nav2.mock.calls[0]![0]);
 		expect(nav1).toHaveBeenCalledWith("/knowledge/ki-5#block-block-123");
 	});

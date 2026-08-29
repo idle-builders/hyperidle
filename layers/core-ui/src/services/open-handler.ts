@@ -10,7 +10,7 @@
  * Route map (the §6 routing contract):
  *   host    → resolveHostRoute(hostKind, hostId)   (total over BlockHostKind; null = no-op, e.g. user)
  *   artifact→ /artifacts/:id
- *   review  → /work/bet/:betId/review/:reviewId
+ *   review  → /reviews/:reviewId
  *   session → AM3 dial-in — NO destination yet; documented no-op (R3). AM1 must
  *             not invent a fabricated path.
  *
@@ -19,15 +19,12 @@
  * fabricated `knowledgeId`. `user` resolves to null → no navigation (matching
  * the resolver's existing null return).
  *
- * @lore AM1 ARCH-1: a review Message carries NO betId (`ReviewPayload` has none),
- * so the source-agnostic Message→Part adapter cannot source it and emits an empty
- * placeholder `betId`. The betId is owned by the PAGE, which holds the thread→host
- * context (a bet-hosted thread's host id IS the bet). The page supplies it via
- * `createOpenHandler(navigate, { betId })`. The handler prefers the page-supplied
- * betId, falls back to a non-empty betId carried on the target, and — when NEITHER
- * is available — performs a documented NO-OP rather than navigating to a malformed
- * `/work/bet//review/:id` dead URL (graceful degradation). The adapter stays
- * source-agnostic; betId resolution lives entirely at this page/handler seam.
+ * @lore The review route used to require a betId a task-hosted thread has no
+ * way to supply (the page had to source it from thread→host context and the
+ * handler fell back to a no-op when it couldn't). Once the loader names the
+ * review's own thread directly, the URL needs nothing but the reviewId —
+ * `/reviews/:id` resolves for every host, so there is no longer a no-op case
+ * to document here.
  */
 
 import type { HostKind } from "@hyperidle/domain-model";
@@ -37,15 +34,8 @@ import { type ProductObjectKind, presentationFor } from "./object-presentation.j
 
 export type NavigateFn = (path: string) => void;
 
-/** Page-supplied routing context the source-agnostic adapter cannot know (ARCH-1). */
+/** Page-supplied routing context the source-agnostic adapter cannot know. */
 export interface OpenHandlerContext {
-	/**
-	 * The bet the conversation belongs to, when resolvable from thread→host
-	 * context (host IS a bet). `null`/absent when the host is a task/other and the
-	 * bet cannot be cheaply sourced — the review open action then no-ops instead of
-	 * routing to a dead URL.
-	 */
-	readonly betId?: string | null;
 	/**
 	 * AM3: callback to open a session view (entry + sub-agent recursion).
 	 * When supplied, fires for `case "session"` instead of the old no-op.
@@ -105,15 +95,7 @@ export function createOpenHandler(navigate: NavigateFn, ctx?: OpenHandlerContext
 				openInspect("artifact", `/artifacts/${target.artifactId}`, navigate, ctx);
 				return;
 			case "review": {
-				// Prefer the page-supplied betId (authoritative — it has thread→host
-				// context); fall back to a non-empty betId carried on the target.
-				const pageBetId =
-					ctx?.betId !== undefined && ctx.betId !== null && ctx.betId !== "" ? ctx.betId : null;
-				const targetBetId = target.betId !== "" ? target.betId : null;
-				const betId = pageBetId ?? targetBetId;
-				// No bet → no valid review route. Documented no-op (no dead URL).
-				if (betId === null) return;
-				const path = `/work/bet/${betId}/review/${target.reviewId}`;
+				const path = `/reviews/${target.reviewId}`;
 				if (target.intent === "inspect") openInspect("review", path, navigate, ctx);
 				else navigate(path);
 				return;

@@ -61,21 +61,24 @@ const laterReviewMessage: Message = {
 	} as unknown as ReviewPayload,
 };
 
-const refreshSpy = vi.fn();
+const retrySpy = vi.fn();
 
-vi.mock("../../../hooks/useHostThread.js", () => ({
-	useHostThread: () => ({
+// ReviewPage fetches the thread the loader NAMES directly (`useThreadDetail`),
+// instead of guessing it from a by-host lookup (`useHostThread`).
+vi.mock("../../../hooks/useThreadDetail.js", () => ({
+	useThreadDetail: () => ({
+		status: "ready",
 		data: {
 			thread: { id: "thread-review-1" },
 			messages: [reviewMessage, anchoredMessage, laterReviewMessage],
+			headMessageId: null,
 			identities: {
 				"u-founder": { name: "You", role: "founder" },
 				"agent-atlas": { name: "Atlas", role: "agent" },
 			},
 		},
 		error: null,
-		isLoading: false,
-		refresh: refreshSpy,
+		retry: retrySpy,
 	}),
 }));
 
@@ -94,18 +97,18 @@ vi.mock("../../../services/host-threads.js", async (importOriginal) => {
 
 afterEach(() => {
 	postVerdictSpy.mockClear();
-	refreshSpy.mockClear();
+	retrySpy.mockClear();
 });
 describe("ReviewPage route", () => {
 	function renderRoute(loader?: () => Promise<typeof REVIEW_COMPOSITION_SUBJECT>) {
 		const router = createMemoryRouter(
 			[
 				{
-					path: "/work/bet/:betId/review/:reviewId",
+					path: "/reviews/:reviewId",
 					element: <ReviewPage loader={loader} />,
 				},
 			],
-			{ initialEntries: ["/work/bet/bet-123/review/rev-1"] },
+			{ initialEntries: ["/reviews/rev-1"] },
 		);
 		return render(<RouterProvider router={router} />);
 	}
@@ -117,7 +120,7 @@ describe("ReviewPage route", () => {
 		await waitFor(() => {
 			expect(screen.getByText(`“${REVIEW_COMPOSITION_SUBJECT.prompt}”`)).toBeInTheDocument();
 		});
-		expect(loader).toHaveBeenCalledWith({ reviewId: "rev-1", betId: "bet-123" });
+		expect(loader).toHaveBeenCalledWith({ reviewId: "rev-1" });
 	});
 
 	it("maps host-thread messages into the review conversation with anchors", async () => {
@@ -170,7 +173,7 @@ describe("ReviewPage route", () => {
 
 		// On success the page refreshes the thread + reloads the subject.
 		await waitFor(() => {
-			expect(refreshSpy).toHaveBeenCalled();
+			expect(retrySpy).toHaveBeenCalled();
 		});
 		expect(loader).toHaveBeenCalledTimes(2);
 	});
@@ -209,11 +212,11 @@ describe("CRITICAL-2 — loader → composition → canvas: Outcome band renders
 		const router = createMemoryRouter(
 			[
 				{
-					path: "/work/bet/:betId/review/:reviewId",
+					path: "/reviews/:reviewId",
 					element: <ReviewPage loader={loader} />,
 				},
 			],
-			{ initialEntries: ["/work/bet/bet-123/review/rev-1"] },
+			{ initialEntries: ["/reviews/rev-1"] },
 		);
 		render(<RouterProvider router={router} />);
 		return loader;

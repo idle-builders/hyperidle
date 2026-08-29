@@ -72,7 +72,7 @@ describe("AC6: same artifact OpenTarget from two contexts → identical path", (
 		const nav2 = vi.fn();
 		const target = { route: "host" as const, hostKind: "artifact" as const, hostId: "art-99" };
 		createOpenHandler(nav1, {})(target);
-		createOpenHandler(nav2, { betId: "some-bet" })(target);
+		createOpenHandler(nav2, { onOpenSession: vi.fn() })(target);
 		// Both should navigate to the same path
 		expect(nav1).toHaveBeenCalledWith(nav2.mock.calls[0]![0]);
 		expect(nav1).toHaveBeenCalledWith("/artifacts/art-99");

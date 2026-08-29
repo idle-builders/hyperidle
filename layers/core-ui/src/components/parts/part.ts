@@ -99,9 +99,17 @@ interface BasePart {
 	readonly embeds: ReadonlyArray<Embed>;
 }
 
-/** Opaque routing target the review hook resolves (betId/reviewId pair). */
+/**
+ * Opaque routing target the review hook resolves.
+ *
+ * @lore `betId` DELETED, not widened. The route used to be
+ * `/work/bet/:betId/review/:reviewId`, so a task-hosted review (no bet)
+ * could never build a valid target — `canOpen` in `PartList.tsx` required a
+ * bet id that a task-hosted thread has no way to supply. Once the loader
+ * names the review's own thread directly, the route flattens to
+ * `/reviews/:reviewId` and there is nothing left for a bet id to gate.
+ */
 interface ReviewTarget {
-	readonly betId: string;
 	readonly reviewId: string;
 }
 
@@ -203,7 +211,6 @@ export type OpenTarget =
 	| { readonly route: "artifact"; readonly artifactId: string }
 	| {
 			readonly route: "review";
-			readonly betId: string;
 			readonly reviewId: string;
 			readonly intent?: "navigate" | "inspect";
 	  }
@@ -372,7 +379,7 @@ export function derivePartsFromMessages(
 			}
 			case "review": {
 				const verdict = verdicts.get(message.id);
-				const reviewTarget: ReviewTarget = { betId: "", reviewId: message.id };
+				const reviewTarget: ReviewTarget = { reviewId: message.id };
 				if (verdict !== undefined || message.resolvedAt !== null) {
 					parts.push({
 						...base,
@@ -408,7 +415,7 @@ export function derivePartsFromMessages(
 							? resolveAuthor(verdict.resolverId, viewerId, identities).name
 							: author.name,
 						summary: message.payload.question,
-						reviewTarget: { betId: "", reviewId: message.id },
+						reviewTarget: { reviewId: message.id },
 					});
 				} else {
 					parts.push({
