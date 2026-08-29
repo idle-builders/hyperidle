@@ -25,7 +25,11 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 // -3 ReviewVisualDiff.tsx (the deleted MockScreen's hero-band border, the deleted
 //   Field component's border, the deleted Thumb component's border — the fake signup
 //   screen and its L1 thumbnails).
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 194, default: 17, strong: 11 } as const;
+// Review fix-round -1: ReviewRenderedInContext.tsx — the send-plan/exclusions
+//   container's `var(--bw-thin)` inline border, deleted with the five dead
+//   fields (`audienceLabel`/`excludedNote`/`sendPlan`/`ctaLabel`/`footer`)
+//   `mapRenderedPayload` hardcoded to "" unconditionally.
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 193, default: 17, strong: 11 } as const;
 
 const EXPECTED = {
 	typography: {
@@ -45,7 +49,7 @@ const EXPECTED = {
 		// hardcoded field names deleted); -2 ReviewVisualDiff.tsx net (the deleted
 		// MockScreen hero caption + the deleted Field's placeholder-box mark, offset
 		// by the honest-absence pane's own "No rendered image supplied" caption).
-		metadata: 221, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section; -1: BA9d D10 removed "Draft with AI" error span from WorkBet.tsx; -1: BA9d D5 removed "app-managed" note paragraph from AgentDetailPane.tsx
+		metadata: 219, // -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section; -1: BA9d D10 removed "Draft with AI" error span from WorkBet.tsx; -1: BA9d D5 removed "app-managed" note paragraph from AgentDetailPane.tsx
 		// Review-canvas fabrication cleanup -8: -1 ReviewActionOperation.tsx
 		// (ProposedCallArgsPanel's arg-key `dt` deleted with the panel); -1
 		// ReviewBatch.tsx net (the "no reply drafted" dashed box's caption deleted;
@@ -55,7 +59,16 @@ const EXPECTED = {
 		// L1 narrative paragraph's three spans, offset by the conditional "ties" span
 		// + the rebuilt per-figure current/prior line); -1 ReviewVisualDiff.tsx (the
 		// deleted "Create account" CTA span).
-		small: 219, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
+		// Review fix-round net -2: -2 ReviewRenderedInContext.tsx (audienceLabel's
+		//   separator "·" span + its own label span, both dead — the field is
+		//   hardcoded to "" unconditionally, never a real optional case) + -1
+		//   ReviewRenderedInContext.tsx (excludedNote's span, same reason), offset by
+		//   +1 ReviewFieldChangeSet.tsx (the unchanged-fields row now uses
+		//   `type-metadata` instead of a stray `type-control` left from when the row
+		//   was a disclosure button).
+		small: 218, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
+		// Review fix-round -1: ReviewRenderedInContext.tsx — the sendPlan value
+		//   span, dead along with the field it displayed.
 		copy: 45,
 		// Review-canvas fabrication cleanup -2: ReviewComposition.tsx — TaskSection's
 		// dead breadcrumb button and ExaminePane's dead "Comment on this" button, both
@@ -63,7 +76,9 @@ const EXPECTED = {
 		// Follow-up review fixes -1: ReviewMetricsMoved.tsx — the trivia
 		// "Show/Hide N items" toggle deleted outright (`MetricsMovedPayload` has no
 		// trivia concept at all, so the toggle disclosed nothing real).
-		control: 94, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
+		// Review fix-round -1: ReviewFieldChangeSet.tsx — the unchanged-fields row's
+		//   `type-control` class removed (it is a static count, not a control).
+		control: 93, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
 		input: 11, // +1: AgentEditor model-option select (a harness's declared select for the chosen model)
 		"avatar-initial": 14,
 		subheading: 9,

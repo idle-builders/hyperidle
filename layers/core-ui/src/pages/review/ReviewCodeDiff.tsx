@@ -66,15 +66,16 @@ interface ChangedFile {
 
 interface CiCheck {
 	readonly label: string;
-	/** success cells show a ✓; the coverage delta carries its own text. */
-	readonly detail?: string;
 }
 
 interface CodeDiffData {
 	readonly title: string;
 	readonly description: string;
 	readonly files: readonly ChangedFile[];
-	readonly trivia: {
+	/** Undefined when the payload carries no aggregate trivia object — an
+	 * agent-supplied `CodeDiffPayload` can omit `trivia` entirely, and there is
+	 * nothing honest to show for a band with no real count behind it. */
+	readonly trivia?: {
 		readonly count: number;
 		readonly summary: string;
 		readonly added: number;
@@ -475,7 +476,7 @@ function FileCard({
 export interface ReviewCodeDiffProps {
 	/** start with the top (most-relevant) file expanded so L3 shows by default. */
 	readonly initialExpandedPath?: string;
-	/** AL4: the guarded payload so the canvas can compute deterministic line block ids. */
+	/** the guarded payload so the canvas can compute deterministic line block ids. */
 	readonly payload: CodeDiffPayload;
 	/** AL4: owning artifact id for deterministic line block ids. */
 	readonly artifactId: string;
@@ -535,8 +536,9 @@ function ReviewCodeDiffView({
 		}
 	}
 
-	const totalAdded = files.reduce((s, f) => s + f.added, 0) + trivia.added;
-	const totalRemoved = files.reduce((s, f) => s + f.removed, 0) + trivia.removed;
+	const totalAdded = files.reduce((s, f) => s + f.added, 0) + (trivia?.added ?? 0);
+	const totalRemoved = files.reduce((s, f) => s + f.removed, 0) + (trivia?.removed ?? 0);
+	const fileCount = files.length + (trivia?.count ?? 0);
 
 	return (
 		<section
@@ -568,9 +570,7 @@ function ReviewCodeDiffView({
 
 				<div className="border-width-thin-t flex items-center justify-between  border-[var(--border-subtle)] pt-[12px]">
 					<span className="type-metadata  text-[var(--text-secondary)]">
-						<span className="type-data  tabular-nums  text-[var(--text-primary)]">
-							{files.length + trivia.count}
-						</span>{" "}
+						<span className="type-data  tabular-nums  text-[var(--text-primary)]">{fileCount}</span>{" "}
 						files changed · relevance-ranked
 					</span>
 					<button
@@ -578,7 +578,7 @@ function ReviewCodeDiffView({
 						onClick={collapseOrExpandAll}
 						className="type-control border-width-thin rounded-[var(--r-pill)]  border-[var(--border-default)] bg-[var(--surface-elevated)] px-[12px] py-[6px]   text-[var(--text-secondary)]    hover:text-[var(--text-primary)]"
 					>
-						{allCollapsed ? "Expand" : "Collapse"} {files.length + trivia.count} files changed
+						{allCollapsed ? "Expand" : "Collapse"} {fileCount} files changed
 					</button>
 				</div>
 			</header>
@@ -604,34 +604,40 @@ function ReviewCodeDiffView({
 					);
 				})}
 
-				{/* MINOR band — the separation header so the user knows these don't need
-				    review. No judgement ("safe to skip") is asserted about THIS diff — no
-				    payload field backs one — and the expanded row below shows only the
-				    payload's own `trivia.summary`, never hardcoded filenames. */}
-				<div className="mt-[3px] flex items-baseline gap-[6px] px-[12px] pt-[6px]">
-					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Minor</span>
-					<span className="type-metadata  text-[var(--text-tertiary)]">
-						generated &amp; formatting
-					</span>
-				</div>
-				{/* generated / trivia — collapsed to one row, never line-by-line */}
-				<div className="border-width-thin rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
-					<button
-						type="button"
-						onClick={() => setTriviaOpen((v) => !v)}
-						aria-expanded={triviaOpen}
-						className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
-					>
-						<Chevron open={triviaOpen} />
-						<span className="type-small flex-1  text-[var(--text-secondary)]">
-							<span className="type-data  tabular-nums  text-[var(--text-primary)]">
-								{trivia.count}
-							</span>{" "}
-							files · {trivia.summary}
-						</span>
-						<ChangeBadge added={trivia.added} removed={trivia.removed} />
-					</button>
-				</div>
+				{/* MINOR band — only when the payload actually supplies an aggregate
+				    `trivia` object; no object means there is no real count/summary to
+				    report, not "0 files". No judgement ("safe to skip") is asserted
+				    about THIS diff — no payload field backs one — and the expanded
+				    row below shows only the payload's own `trivia.summary`, never
+				    hardcoded filenames. */}
+				{trivia ? (
+					<>
+						<div className="mt-[3px] flex items-baseline gap-[6px] px-[12px] pt-[6px]">
+							<span className="type-label   uppercase  text-[var(--text-tertiary)]">Minor</span>
+							<span className="type-metadata  text-[var(--text-tertiary)]">
+								generated &amp; formatting
+							</span>
+						</div>
+						{/* generated / trivia — collapsed to one row, never line-by-line */}
+						<div className="border-width-thin rounded-[var(--r-subtle)]  border-dashed border-[var(--border-subtle)] bg-[var(--surface-container)]">
+							<button
+								type="button"
+								onClick={() => setTriviaOpen((v) => !v)}
+								aria-expanded={triviaOpen}
+								className="flex w-full items-center gap-[9px] px-[12px] py-[9px] text-left"
+							>
+								<Chevron open={triviaOpen} />
+								<span className="type-small flex-1  text-[var(--text-secondary)]">
+									<span className="type-data  tabular-nums  text-[var(--text-primary)]">
+										{trivia.count}
+									</span>{" "}
+									files · {trivia.summary}
+								</span>
+								<ChangeBadge added={trivia.added} removed={trivia.removed} />
+							</button>
+						</div>
+					</>
+				) : null}
 			</div>
 
 			{/*
@@ -658,6 +664,8 @@ function isCodeDiffPayload(payload: unknown): payload is CodeDiffPayload {
 }
 
 function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId: string): CodeDiffData {
+	// Only a real `payload.trivia` object backs the Minor band's count/summary —
+	// no `trivia` object means there is no aggregate trivia to report, not "0".
 	const trivia = isPlainObject(payload.trivia)
 		? {
 				count: Number(payload.trivia.count) || 0,
@@ -665,7 +673,7 @@ function mapCodeDiffPayload(payload: CodeDiffPayload, artifactId: string): CodeD
 				added: Number(payload.trivia.added) || 0,
 				removed: Number(payload.trivia.removed) || 0,
 			}
-		: { count: 0, summary: payload.triviaSummary, added: 0, removed: 0 };
+		: undefined;
 
 	return {
 		title: payload.prTitle,

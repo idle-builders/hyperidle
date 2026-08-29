@@ -279,7 +279,7 @@ export function ReviewFieldChangeSetView({
 			    five specific field labels here ("Owner, Lead source, Probability,
 			    Type, Account") no payload ever supplied. */}
 			<div
-				className="type-control flex w-full items-center gap-[6px] px-[18px] py-[9px] text-left   text-[var(--text-tertiary)]"
+				className="type-metadata flex w-full items-center gap-[6px] px-[18px] py-[9px]   text-[var(--text-tertiary)]"
 				style={{
 					background: "var(--surface-page)",
 				}}

@@ -157,9 +157,10 @@ describe("ReviewComposition", () => {
 
 describe("ReviewComposition — the checkout mock is deleted", () => {
 	/**
-	 * A ComposedReviewSubject shaped like a real, non-demo review — deliberately NOT the AL3
-	 * fixture above. A production `ReviewPayload` only ever carries `{title, reasoning,
-	 * artifactRef}` (domain-model `thread.ts:199-203`, what `submit_review` actually writes);
+	 * A ComposedReviewSubject shaped like a real, non-demo review — deliberately NOT the
+	 * REVIEW_COMPOSITION_SUBJECT fixture above. A production `ReviewPayload` only ever
+	 * carries `{title, reasoning, artifactRef}` (domain-model `thread.ts:199-203`, what
+	 * `submit_review` actually writes);
 	 * nothing populates a token count, tools, KPIs or needs, so the loader composes those as
 	 * empty arrays for what nothing produces. `tokens: ""` is that real gap, not a
 	 * convenience value chosen to make the assertion trivially pass — it is the exact

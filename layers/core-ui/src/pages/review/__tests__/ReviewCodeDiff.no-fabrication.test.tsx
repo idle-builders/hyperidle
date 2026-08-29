@@ -9,7 +9,6 @@
 // "openapi/schema.gen.ts", "package-lock.json", "src/checkout/styles.css" —
 // regardless of what the payload's trivia actually touched.
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { getReviewCanvas } from "../canvas-registry";
 import type { CodeDiffPayload, ReviewArtifact } from "../review-artifact";
@@ -89,16 +88,11 @@ describe("ReviewCodeDiff — no fabrication", () => {
 		expect(screen.queryByText(/safe to skip/i)).not.toBeInTheDocument();
 	});
 
-	it("renders only what the payload supplies, chrome aside, once the file and trivia disclosures are open", async () => {
-		const user = userEvent.setup();
+	it("renders only what the payload supplies, chrome aside, once the file disclosure is open", () => {
+		// SENTINEL_PAYLOAD supplies no `trivia` object, so the Minor band never
+		// renders at all (see the dedicated absence test below) — nothing to
+		// click open here beyond the file, which starts expanded by default.
 		const { container } = render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
-
-		// The top (most-relevant) file starts expanded by default, derived from
-		// the payload's own first file. SENTINEL_PAYLOAD's one file IS the
-		// default; clicking its toggle here would collapse it instead of opening it.
-		await user.click(
-			screen.getByRole("button", { name: new RegExp(SENTINEL_PAYLOAD.triviaSummary) }),
-		);
 
 		expect(screen.getByText(SENTINEL_PAYLOAD.description)).toBeInTheDocument();
 		expect(screen.getByText(SENTINEL_PAYLOAD.checks[0]!)).toBeInTheDocument();
@@ -107,7 +101,6 @@ describe("ReviewCodeDiff — no fabrication", () => {
 		expect(
 			screen.getByText(SENTINEL_PAYLOAD.files[0]!.hunks![0]!.lines[0]!.text.trim()),
 		).toBeInTheDocument();
-		expect(screen.getByText(new RegExp(SENTINEL_PAYLOAD.triviaSummary))).toBeInTheDocument();
 
 		assertNoFabrication(domText(container), {
 			supplied: [
@@ -121,17 +114,27 @@ describe("ReviewCodeDiff — no fabrication", () => {
 				SENTINEL_PAYLOAD.files[0]!.removed!,
 				SENTINEL_PAYLOAD.files[0]!.hunks![0]!.header,
 				SENTINEL_PAYLOAD.files[0]!.hunks![0]!.lines[0]!.text,
-				SENTINEL_PAYLOAD.triviaSummary,
 			],
 			chrome: CHROME,
 			derived: [
-				1, // files.length + trivia.count (0) — "1 files changed"
+				1, // files.length (1) + trivia.count (no trivia object supplied, so 0) — "1 files changed"
 				SENTINEL_PAYLOAD.files[0]!.added!, // total added badge (one file, no trivia added)
 				SENTINEL_PAYLOAD.files[0]!.removed!, // total removed badge
-				0, // trivia.count — no `trivia` object supplied, mapper defaults it to 0
 				"Z", // ToolLogo's neutral monogram for the unrecognized "zx-tool-code" id
 			],
 		});
+	});
+
+	it("does not render the Minor/trivia band at all when the payload supplies no trivia object", () => {
+		// `mapCodeDiffPayload` used to default an absent `trivia` to
+		// `{count: 0, ...}`, and the band rendered that "0" unconditionally —
+		// the same trap the token chip fix closed elsewhere. The fix here is
+		// the same shape: no `trivia` object, no band, not a fabricated "0".
+		render(<Canvas artifact={artifactWith(SENTINEL_PAYLOAD)} />);
+
+		expect(screen.queryByText("Minor")).not.toBeInTheDocument();
+		expect(screen.queryByText(/generated & formatting/i)).not.toBeInTheDocument();
+		expect(screen.queryByText(new RegExp(SENTINEL_PAYLOAD.triviaSummary))).not.toBeInTheDocument();
 	});
 
 	it("falls back to the safe unknown-canvas, not the promo-fix PR fixture, on a malformed payload", () => {

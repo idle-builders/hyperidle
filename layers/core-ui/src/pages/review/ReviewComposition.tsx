@@ -622,7 +622,7 @@ function ExaminePane({
 					    loader via ComposedReviewArtifact.proposedCall (trust-first model).
 					    Fallback to stagedOperation for backward compat during migration.
 					    The captured-args panel itself is deleted — `proposedCall` is never
-					    populated in production (nothing writes a proposed-call row; the AL7
+					    populated in production (nothing writes a proposed-call row; the
 					    capture machinery is production-dead), so it was only ever reachable
 					    from a unit test. */}
 					{artifact.kind === "action_operation" ? (

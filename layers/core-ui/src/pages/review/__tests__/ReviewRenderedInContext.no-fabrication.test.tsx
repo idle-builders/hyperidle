@@ -12,8 +12,9 @@
 // (not the sender's own initial), and the flags panel always read "1
 // unverified claim · send plan · exclusions" regardless of how many flags
 // there are or what they say. `audienceLabel`, `excludedNote`, `sendPlan`,
-// `ctaLabel`, and `footer` render conditionally now — the payload has no
-// field for any of them, so a production render never has one to show.
+// `ctaLabel`, and `footer` are deleted outright now — `RenderedInContextPayload`
+// has no field for any of them, so a production render could never populate
+// one; the fields were dead weight, not a real optional case.
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";

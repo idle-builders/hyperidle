@@ -111,7 +111,7 @@ describe("ReviewActionOperation — AL7 execution outcome band", () => {
 // an approver seeing fake Stripe ids/amounts; both are deleted here.
 // `artifact.proposedCall` is populated only by a real `proposed_calls` row
 // (`findProposedCall` in the reviews loader), and nothing in production ever
-// writes one — the AL7 capture machinery is production-dead (the workflow
+// writes one — the capture machinery is production-dead (the workflow
 // router's `sessionWorkflow` has no producer; the one durable-session call
 // site, `run-orchestration/src/start-runtime.ts`, passes none). So this
 // describe block's four tests exercised a prop path reachable only from this

@@ -312,18 +312,14 @@ function ExceptionRow({ ex }: { ex: Exception }): JSX.Element {
 
 export interface ReviewMetricsMovedProps {
 	readonly fixture: CloseFixture;
-	/** which figure starts expanded (so all 3 layers are visible in a screenshot).
-	 * Defaults to the payload's own first figure — never a fixed literal, since
-	 * the mapper's figure ids are generated per-payload (`fig-0`, `fig-1`, …). */
-	readonly initialExpandedFigureId?: string | null;
 }
 
-function ReviewMetricsMovedView({
-	fixture,
-	initialExpandedFigureId,
-}: ReviewMetricsMovedProps): JSX.Element {
+function ReviewMetricsMovedView({ fixture }: ReviewMetricsMovedProps): JSX.Element {
+	// which figure starts expanded (so all 3 layers are visible in a screenshot) —
+	// the payload's own first figure, never a fixed literal, since the mapper's
+	// figure ids are generated per-payload (`fig-0`, `fig-1`, …).
 	const [expandedId, setExpandedId] = useState<string | null>(
-		() => initialExpandedFigureId ?? fixture.figures[0]?.id ?? null,
+		() => fixture.figures[0]?.id ?? null,
 	);
 
 	return (

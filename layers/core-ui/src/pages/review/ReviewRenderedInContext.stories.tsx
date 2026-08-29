@@ -25,13 +25,8 @@ const EMAIL_BODY_EXAMPLE: RenderedEmail = {
 	subject: "Your team, minus the busywork — now $19",
 	preview: "Founder pricing ends Sunday.",
 	receivedAt: "9:00 AM",
-	audienceLabel: "to 12,400 free + trial",
-	excludedNote: "412 paid recipients excluded (already on a higher plan)",
-	sendPlan: "Thu, Jun 18 · 9:00 AM ET",
 	heroHeadline: "Run a team of agents. Keep the final say.",
 	bodyParas: ["Run a team of agents. Keep the final say."],
-	ctaLabel: "Start for $19/mo",
-	footer: "HyperIdle · Unsubscribe · Manage preferences",
 	flaggedClaims: [
 		{
 			text: "Set up in under 5 minutes",

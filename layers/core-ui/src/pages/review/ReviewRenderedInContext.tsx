@@ -51,13 +51,8 @@ export interface RenderedEmail {
 	readonly subject: string;
 	readonly preview: string;
 	readonly receivedAt: string; // inbox-row time label
-	readonly audienceLabel: string; // "12,400 free + trial"
-	readonly excludedNote: string; // segment-exclusion note
-	readonly sendPlan: string; // "Thu, Jun 18 · 9:00am ET"
 	readonly heroHeadline: string;
 	readonly bodyParas: readonly string[];
-	readonly ctaLabel: string;
-	readonly footer: string;
 	readonly flaggedClaims: readonly FlaggedClaim[];
 }
 
@@ -175,41 +170,7 @@ export function EmailRender({
 						{p}
 					</p>
 				))}
-
-				{/* CTA pill — `RenderedInContextPayload` has no CTA-copy field, so a
-				    production render never has one to show. */}
-				{data.ctaLabel ? (
-					<div style={{ marginTop: 28 }}>
-						<a
-							href="https://hyperidle.com/start"
-							onClick={(e) => e.preventDefault()}
-							style={{
-								display: "inline-block",
-								padding: "13px 28px",
-								fontSize: 15,
-								fontWeight: 600,
-								color: "#ffffff",
-								background: "#2f6b4f",
-								borderRadius: 9999,
-								textDecoration: "none",
-							}}
-						>
-							{data.ctaLabel}
-						</a>
-					</div>
-				) : null}
 			</div>
-
-			{/* footer — no payload field backs one, so a production render never has one. */}
-			{data.footer ? (
-				<div
-					style={{ padding: "18px 24px", borderTop: "1px solid #efeae1", background: "#faf7f1" }}
-				>
-					<p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: "#8a8174" }}>
-						{data.footer}
-					</p>
-				</div>
-			) : null}
 		</div>
 	);
 }
@@ -285,18 +246,6 @@ function ReviewRenderedInContextView({
 			>
 				<div className="flex items-center gap-[9px]">
 					<ToolLogo tool={data.tool} size="md" withLabel label="" />
-					{/* No payload field backs an audience size, so no separator or label
-					    render for a production payload that never carries one. */}
-					{data.audienceLabel ? (
-						<>
-							<span className="type-metadata " style={{ color: "var(--text-tertiary)" }}>
-								·
-							</span>
-							<span className="type-metadata  " style={{ color: "var(--text-secondary)" }}>
-								{data.audienceLabel}
-							</span>
-						</>
-					) : null}
 				</div>
 
 				{/* the row as a mail client paints it */}
@@ -453,36 +402,6 @@ function ReviewRenderedInContextView({
 								</span>
 							</div>
 						))}
-
-						{/* send plan + exclusions — `RenderedInContextPayload` has no field for
-						    either, so a production render never has one to show. */}
-						{data.sendPlan || data.excludedNote ? (
-							<div
-								className="flex flex-col gap-[6px] p-[12px]"
-								style={{
-									background: "var(--surface-container)",
-									border: "var(--bw-thin) solid var(--border-subtle)",
-									borderRadius: "var(--r-subtle)",
-								}}
-							>
-								{data.sendPlan ? (
-									<div className="flex items-baseline justify-between gap-[12px]">
-										<ChromeLabel>Send plan</ChromeLabel>
-										<span
-											className="type-small  "
-											style={{ color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}
-										>
-											{data.sendPlan}
-										</span>
-									</div>
-								) : null}
-								{data.excludedNote ? (
-									<span className="type-metadata " style={{ color: "var(--text-secondary)" }}>
-										{data.excludedNote}
-									</span>
-								) : null}
-							</div>
-						) : null}
 					</div>
 				) : null}
 			</section>
@@ -545,13 +464,8 @@ function mapRenderedPayload(
 		subject: payload.inboxRow.subject,
 		preview: payload.inboxRow.preview,
 		receivedAt: "",
-		audienceLabel: "",
-		excludedNote: "",
-		sendPlan: "",
 		heroHeadline: payload.body || title,
 		bodyParas: payload.body ? [payload.body] : [],
-		ctaLabel: "",
-		footer: "",
 		flaggedClaims: payload.flags.map((text) => ({ text, reason: "" })),
 	};
 }
