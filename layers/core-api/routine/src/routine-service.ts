@@ -511,12 +511,13 @@ export async function resolveRoutineRunRequest(
 	// reasoning that assembling knowledge needs a team. That stopped being true
 	// when capability items (skill/rule/agent_file) arrived: they are scoped
 	// factory / team / agent, and the factory- and agent-scoped ones need no
-	// team at all. The guard meant a plugin's own agent — created
-	// `agentCategory: "individual"`, so team-less by construction — could never
-	// receive the skills the very same plugin installed for it. Proven on the
-	// packaged app: the Knowledge Librarian ran with an empty sandbox, no
-	// `.claude/skills` written. The team now only decides what the TEAM-scoped
-	// layers contribute.
+	// team at all. An agent with no team is an ordinary agent — `agentCategory:
+	// "individual"` — and must still receive everything scoped to reach it. The
+	// team decides only what the TEAM-scoped layers contribute.
+	//
+	// Proven on the packaged app by the case that exposed it: an individual
+	// agent ran with an empty sandbox, no `.claude/skills` written, while
+	// factory-scoped skills sat in the database.
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionKnowledge } = deps;
 	if (assembleSessionKnowledge) {

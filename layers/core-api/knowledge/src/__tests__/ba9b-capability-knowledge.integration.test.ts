@@ -206,11 +206,14 @@ describe("BA9b: assembleSessionKnowledge includes capability items", () => {
 });
 
 /**
- * A plugin's own agent is created `agentCategory: "individual"` and belongs to
- * no team. Capability items are scoped factory/team/agent independently of any
- * team, so a team-less agent must still receive the factory-scoped ones —
- * otherwise a plugin's skills can never reach the very agent the plugin ships
- * them for, which is what happened to the Knowledge Librarian.
+ * Capability items are scoped factory / team / agent, independently of any
+ * team. An agent with no team (`agentCategory: "individual"`) is an ordinary
+ * agent and must still receive everything scoped to reach it — the factory
+ * ones, and the ones bound to it by id.
+ *
+ * Nothing here is about where an item came from. A skill is a knowledge row
+ * with `role: "skill"`; whichever writer produced it, the scope decides who
+ * receives it.
  */
 describe("capability items for a team-less agent", () => {
 	test("a factory-scoped skill reaches an agent that belongs to no team", async ({ db }) => {
@@ -255,5 +258,95 @@ describe("capability items for a team-less agent", () => {
 		const ids = assembled.map((i) => i.id);
 		expect(ids).toContain(boundId);
 		expect(ids).not.toContain(otherId);
+	});
+});
+
+/**
+ * The scope decides who receives a capability item — not what created it and
+ * not what kind of agent asks. These cover the reach an installer's `factory`
+ * and `team` choices actually buy, from the receiving agent's side.
+ */
+describe("who a capability item reaches", () => {
+	test("a factory-scoped skill reaches a team agent and a team-less one alike", async ({ db }) => {
+		const skillId = await insertKnowledgeItem(db, {
+			title: "shared-practice",
+			body: "# Everyone gets this",
+			role: "skill",
+			scopeKind: "factory",
+		});
+
+		const forTeamAgent = await assembleSessionKnowledge(db, {
+			teamId: "team-alpha",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-in-team",
+		});
+		const forTeamlessAgent = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "anything",
+			agentId: "agent-no-team",
+		});
+
+		expect(forTeamAgent.map((i) => i.id)).toContain(skillId);
+		expect(forTeamlessAgent.map((i) => i.id)).toContain(skillId);
+	});
+
+	test("a team-scoped skill reaches that team's agents and no one else", async ({ db }) => {
+		const skillId = await insertKnowledgeItem(db, {
+			title: "alpha-only",
+			body: "# Team alpha only",
+			role: "skill",
+			scopeKind: "team",
+			scopeId: "team-alpha",
+		});
+
+		const inTeam = await assembleSessionKnowledge(db, {
+			teamId: "team-alpha",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-in-team",
+		});
+		const otherTeam = await assembleSessionKnowledge(db, {
+			teamId: "team-beta",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-elsewhere",
+		});
+		const teamless = await assembleSessionKnowledge(db, {
+			agentRole: "assistant",
+			taskDescription: "anything",
+			agentId: "agent-no-team",
+		});
+
+		expect(inTeam.map((i) => i.id)).toContain(skillId);
+		expect(otherTeam.map((i) => i.id)).not.toContain(skillId);
+		expect(teamless.map((i) => i.id)).not.toContain(skillId);
+	});
+
+	test("a skill bound to one agent reaches that agent even inside a team", async ({ db }) => {
+		const boundId = await insertKnowledgeItem(db, {
+			title: "just-for-this-agent",
+			body: "# Bound",
+			role: "skill",
+			scopeKind: "user",
+			scopeId: "agent-in-team",
+		});
+
+		const itsOwner = await assembleSessionKnowledge(db, {
+			teamId: "team-alpha",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-in-team",
+		});
+		const teammate = await assembleSessionKnowledge(db, {
+			teamId: "team-alpha",
+			agentRole: "builder",
+			taskDescription: "anything",
+			agentId: "agent-teammate",
+		});
+
+		expect(itsOwner.map((i) => i.id)).toContain(boundId);
+		// Same team, same role — only the binding separates them.
+		expect(teammate.map((i) => i.id)).not.toContain(boundId);
 	});
 });
