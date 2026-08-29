@@ -167,15 +167,40 @@ function buildCodexTrustBlock(sandboxPath: string, extraPaths?: readonly string[
  * real path, e.g. a doc_set folder name) is user-influenced — an unescaped `"`
  * closes the string early and lets the rest of the value be parsed as TOML
  * (new keys/tables), and a literal newline is not valid inside a basic string
- * at all. Escape backslash first so later escapes are not double-escaped.
+ * at all.
+ *
+ * @lore A single-pass regex + callback, not a chain of `.replace`s — a chain
+ * only covers the escapes it enumerates (this used to stop at `\ " \n \r \t`,
+ * leaving every other C0 control character, e.g. a vertical tab from a pasted
+ * path, emitted raw; codex's own TOML parser then dies with "invalid basic
+ * string" — verified against the real binary). The TOML spec requires every
+ * control character in a basic string to be escaped; this handles the named
+ * escapes it defines (`\\ \" \n \r \t \b \f`) and falls back to `\uXXXX` for
+ * everything else in the C0/DEL range. A single pass also avoids the
+ * double-escaping a sequential chain risks if ever reordered.
  */
 function escapeTomlString(value: string): string {
-	return value
-		.replace(/\\/g, "\\\\")
-		.replace(/"/g, '\\"')
-		.replace(/\n/g, "\\n")
-		.replace(/\r/g, "\\r")
-		.replace(/\t/g, "\\t");
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: matching control characters IS the point of this escape function.
+	return value.replace(/[\\"\n\r\t\x00-\x1f\x7f]/g, (ch) => {
+		switch (ch) {
+			case "\\":
+				return "\\\\";
+			case '"':
+				return '\\"';
+			case "\n":
+				return "\\n";
+			case "\r":
+				return "\\r";
+			case "\t":
+				return "\\t";
+			case "\b":
+				return "\\b";
+			case "\f":
+				return "\\f";
+			default:
+				return `\\u${ch.charCodeAt(0).toString(16).padStart(4, "0")}`;
+		}
+	});
 }
 
 // ── opencode-json dialect ─────────────────────────────────────────────────────

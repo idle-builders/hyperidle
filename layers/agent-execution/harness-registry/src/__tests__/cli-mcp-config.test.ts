@@ -243,6 +243,29 @@ describe("T1 — writeCliMcpConfig (AC5)", () => {
 			expect(lines.filter((line) => line.startsWith("[projects."))).toHaveLength(2);
 		});
 
+		test("escapes a non-newline/tab C0 control character in a trustedPaths entry instead of emitting it raw", () => {
+			// `escapeTomlString` used to handle only `\ " \n \r \t` — any other C0
+			// control character (e.g. a vertical tab from a pasted path) was
+			// emitted raw, which codex's own TOML parser rejects with "invalid
+			// basic string" (verified against the real binary), killing the
+			// session. `\x0b` (vertical tab) stands in for that whole class here.
+			const codexHomeDir = path.join(sandboxPath, ".codex-home");
+			fs.mkdirSync(codexHomeDir, { recursive: true });
+			const controlCharPath = "/tmp/docs\x0bnotes";
+
+			writeCliMcpConfig({
+				dialect: "codex-toml",
+				sandboxPath,
+				mcpUrl: TEST_MCP_URL,
+				token: TEST_TOKEN,
+				trustedPaths: [controlCharPath],
+			});
+
+			const content = fs.readFileSync(path.join(codexHomeDir, "config.toml"), "utf-8");
+			expect(content).toContain('[projects."/tmp/docs\\u000bnotes"]');
+			expect(content).not.toContain("\x0b");
+		});
+
 		test("leaves the [mcp_servers.hyperidle] block undisturbed by the trust declaration", () => {
 			const codexHomeDir = path.join(sandboxPath, ".codex-home");
 			fs.mkdirSync(codexHomeDir, { recursive: true });
