@@ -155,8 +155,17 @@ describe("ensureSandboxGitRepo", () => {
 		const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "au20-ensure-git-noop-"));
 		try {
 			execFileSync("git", ["init", "--quiet"], { cwd: sandbox });
-			execFileSync("git", ["commit", "--allow-empty", "-m", "existing", "--author=t <t@t.com>"], {
+			execFileSync("git", ["commit", "--allow-empty", "-m", "existing"], {
 				cwd: sandbox,
+				// CI runners carry no global git identity — set author AND
+				// committer explicitly (--author alone leaves committer unset).
+				env: {
+					...process.env,
+					GIT_AUTHOR_NAME: "test",
+					GIT_AUTHOR_EMAIL: "test@test.com",
+					GIT_COMMITTER_NAME: "test",
+					GIT_COMMITTER_EMAIL: "test@test.com",
+				},
 			});
 			const before = execFileSync("git", ["rev-parse", "HEAD"], { cwd: sandbox }).toString();
 			ensureSandboxGitRepo(sandbox);
