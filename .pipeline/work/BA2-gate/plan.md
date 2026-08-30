@@ -127,3 +127,44 @@ repo's standard, and the thing that caught four defects in this work that every 
   detail to settle when built.
 - **Whether a session with no task can have rules at all.** A review needs a task (ruling 6 of the
   interview); what a rule means for a task-free session is unsettled.
+
+## The two open questions, settled
+
+### How "once" is enforced
+
+The founder ruled the clearance is one time, "but again only if it blocked in the first place."
+
+**The clearance consumes itself.** When the verdict resumes the session we rewrite the sandbox's hook
+config, and the entry we write is a single-use one: the shim, on matching it, allows the action and
+removes the entry from the file in the same step. The agent retries and succeeds. If it attempts the
+same action again later in that session, the entry is gone, the original rule matches again, and it is
+pushed back again — which is exactly "once, and only because it blocked."
+
+This needs no table, no expiry, and no bookkeeping outside the sandbox. The clearance lives and dies with
+the piece of work, because the file does.
+
+### Whether a task-free session can have rules
+
+**The premise this rested on is wrong, and the schema says so explicitly.** Ruling 6 recorded that a
+review needs a task, on the founder's reading that "realistically anything is a task." It is not:
+`sessions.taskId` is nullable, and the comment on the column states the reason outright — assistant,
+routine, knowledge and decomposition runs "are real sessions without fabricated task rows." Making them
+task-free was a deliberate choice not to fabricate data, and it agrees with the standing no-fabrication
+rule.
+
+So four session kinds run without a task, and they do not split the way the ruling assumed:
+
+- **Assistant** sessions are the interactive kind — a human is in the conversation. An agent that needs
+  permission there should ask in the thread. It does not need this machinery, and a review would be a
+  slower way to ask a question of someone already listening.
+- **Routine, knowledge and decomposition** sessions run **unattended**. These are the sessions this gate
+  exists for, and they are precisely the ones with no task to hang a review on.
+
+That is a real gap, not a detail to settle while building, so it is flagged rather than decided. The
+recommendation: let a review hang off the **session**, with the task as an optional stronger anchor when
+one exists. A session always exists, always has an agent and an owner, and the review surfaces already
+resolve a thread to post back into. Ruling 6's instinct — that a review needs somewhere to belong — holds;
+"task" was the wrong noun for it.
+
+**Nothing else is blocked by this.** Task-backed sessions are the majority path and the whole gate can be
+built, tested and proven against them. This decides only how far it reaches afterwards.
