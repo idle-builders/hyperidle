@@ -128,15 +128,15 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 
 **Pipeline** — `.pipeline/` (tracked durable pipeline state):
 
-- `<track>.md` — new-shape per-track coordination file (WP registry table + dependency graph); a WP's full spec seeds at `work/<id>/plan.md` alongside it.
-- `work/<id>/` — new-shape per-workpackage folder; `plan.md` is the seeded spec (`/refine` → `requirements.md`, `/design` → `design/`, `/architecture` → `architecture.md` + `feasibility.md` land alongside it).
-- `progress/` — per-workpackage progress JSON files
-- `retro-log/<workpackage>.jsonl` — retro observations, one append-only file per workpackage (feeds `/pipeline:compound`). Split per-workpackage so parallel branches never merge-conflict; `.gitattributes` sets `merge=union` as a safety net.
+- `<track>.md` — per-track coordination file (item registry table + dependency graph). An item that has not been refined yet has only its registry row.
+- `work/<id>/` — per-item folder. It holds exactly two files: `plan.md`, the item's durable account, written with the maintainer during refinement and kept to 50–100 lines; and `retro.jsonl`, its retro observations, which `/pipeline:compound` reads across every item. Run material — requirements, architecture, critiques, reviews, design prose, progress JSON — is working state that is folded into `plan.md` and removed when the item ships.
+- `audits/` — product and security audit ledgers, read by the `product-deep-review` and `security-audit` skills.
 
-**Working artifacts** — `plans/` (tracked; persists across worktrees, retired at `/pipeline:write-docs`):
+Per-item retros are separate files precisely so parallel branches never merge-conflict; never introduce a repository-level file that runs append to.
 
-- `<workpackage-id>/` — per-workpackage artifacts grouped together. Each workpackage gets its own folder (e.g., `plans/L10/`) containing `requirements.md`, `architecture.md`, `architecture-critique.md`, `dod.md`, `design/approved.md`, `*-review.md`, `*-scan.md`, etc. A workpackage's artifacts **always** live in its own folder, `plans/<workpackage-id>/<artifact>.md` (the track's strategic frame lives in `docs/` ground truth, settled in `/pipeline:work-planning`). `plans/` is tracked so these persist across worktrees and downstream phases read them; `/pipeline:write-docs` retires the ones whose essence has landed in `docs/` + code (git history keeps them).
-- `reviews/` — cross-cutting research (area-/journey-/improvements-/reference- files, not workpackage-specific)
+**Legacy, do not extend** — `plans/` and `reviews/`:
+
+These are the pre-`.pipeline` artifact store: per-workpackage folders holding `requirements.md`, `architecture.md`, critiques, reviews and scans, plus cross-cutting research under `reviews/`. They are superseded by `work/<id>/plan.md` and kept only as history. **Never write here, and never treat one as an item's spec** — the current record is the item's plan. A handful of tests and gates still write output into `plans/` paths; that is a defect being carried, not a pattern to follow.
 
 ---
 
