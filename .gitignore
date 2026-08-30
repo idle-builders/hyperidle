@@ -15,8 +15,6 @@ visual-reports/
 sync-reports/
 .pipeline/*
 !.pipeline/work-packages/
-!.pipeline/progress/
-!.pipeline/retro-log/
 !.pipeline/audits/
 !.pipeline/work/
 !.pipeline/[A-Z]*.md
