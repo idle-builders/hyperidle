@@ -45,8 +45,6 @@ export interface RunContextBundle {
 		readonly sourceId: string;
 		readonly sourceCorrelation: AgentSessionSourceCorrelation;
 	};
-	/** Opaque pass-through — `session-lifecycle`-owned `RegistrySessionWorkflow`. Never inspected here. */
-	readonly sessionWorkflow?: unknown;
 	readonly contextBundle?: BakedContextBundle;
 	readonly agentConfig?: BakedAgentRunnableConfig;
 	readonly harnessDisabled?: readonly string[];
@@ -254,7 +252,6 @@ export type RunOptions =
 			readonly claim?: { readonly now: Date; readonly leaseMs: number };
 			readonly resolvedModel?: RunContextBundle["resolvedModel"];
 			readonly modelTier?: RunContextBundle["modelTier"];
-			readonly sessionWorkflow?: RunContextBundle["sessionWorkflow"];
 			readonly enforceResolvedModelGuard?: boolean;
 	  }
 	| {

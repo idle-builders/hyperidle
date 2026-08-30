@@ -17,7 +17,6 @@ export const AGENT_WORK_INTENT_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_run",
-	"reengagement",
 ] as const;
 
 export type AgentWorkIntentKind = (typeof AGENT_WORK_INTENT_KINDS)[number];
@@ -35,8 +34,7 @@ export type AgentWorkIntentSourceKind =
 	| "explicit_session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "task_dispatch_attempt"
-	| "proposed_call";
+	| "task_dispatch_attempt";
 
 export interface AgentWorkIntentEvent {
 	readonly type: "agent_work_intent_recorded";
@@ -555,39 +553,6 @@ export interface UserCreatedEvent {
 }
 
 /**
- * AL7 trust-first: Emitted after an approved call executes (ok or failed) in session 2.
- * Renamed from operation_executed → proposed_call_executed.
- *
- * @lore AL7 W4: streamId = subjectThreadId (the bet host thread).
- * The UI subscribes per thread to refresh the Outcome band on the review canvas.
- */
-export interface ProposedCallExecutedEvent {
-	type: "proposed_call_executed";
-	streamId: string; // = subjectThreadId (the bet host thread)
-	proposedCallId: string;
-	reviewMessageId: string;
-	status: "ok" | "failed";
-	timestamp: number;
-}
-
-/**
- * AL7 trust-first: Emitted after an approve verdict composes a tailored grant and
- * transitions the Proposed Call to 'granted'. Triggers session-2 re-engagement
- * via task-dispatcher's handleProposedCallGranted subscription.
- *
- * @lore AL7 R1: explicit event + dedicated subscription (not the owner-change
- * handleSessionEnded path) — avoids double-dispatch and collision with session reuse.
- */
-export interface ProposedCallGrantedEvent {
-	type: "proposed_call_granted";
-	streamId: string; // = subjectThreadId for per-thread subscriptions
-	proposedCallId: string;
-	taskId: string;
-	agentId: string;
-	timestamp: number;
-}
-
-/**
  * Discriminated union of all domain events.
  *
  * @lore O1: To add an event: (1) define the interface with type literal
@@ -630,10 +595,6 @@ export type DomainEvent =
 	| UserCreatedEvent
 	// AK7: selection occasion event
 	| WorkSelectionRequestedEvent
-	// AL7 trust-first: proposed call executed (renamed from operation_executed)
-	| ProposedCallExecutedEvent
-	// AL7 trust-first: proposed call granted → triggers session-2 re-engagement
-	| ProposedCallGrantedEvent
 	| NotificationEvent
 	| PropagationAppliedEvent
 	| PropagationFailedEvent

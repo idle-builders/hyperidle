@@ -42,7 +42,7 @@ export interface BakedWorkIntentRequest {
 	 * AU21 §9 Increment 11 (Decision H2): the `assistant_turn` family's baked
 	 * thread transcript (`@hyperidle/conversation`'s `resolveAssistantTurnRequest`).
 	 * Absent for every other kind — `task_run`/`knowledge_action`/`routine_run`/
-	 * `reengagement` instead bake a `contextBundle` (Decision H3, Increment 12).
+	 * Others instead bake a `contextBundle` (Decision H3, Increment 12).
 	 */
 	readonly transcript?: ReadonlyArray<{
 		readonly senderId: string;
@@ -51,7 +51,7 @@ export interface BakedWorkIntentRequest {
 	}>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
-	 * `routine_run`/`reengagement` families' baked entity content (task/bet/
+	 * `routine_run` families' baked entity content (task/bet/
 	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
 	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces —
 	 * `context.ts`'s `SessionContextData`/`RoutineSessionContextData` content,
@@ -87,8 +87,8 @@ export interface BakedWorkIntentRequest {
 	/**
 	 * AU27 — the session's calling thread id, baked at emit time by every
 	 * resolver whose kind has a real thread host: `assistant_turn` (the
-	 * conversation thread), `task_run`/`session_start`/`reengagement`/
-	 * `proposed_call` (the task's thread), and `knowledge_action` (the
+	 * conversation thread), `task_run`/`session_start`/
+	 * `knowledge_action` (the
 	 * knowledge item's thread). `routine_run` bakes none — a routine has no
 	 * thread host — and its `reply` tool call falls back to a direct thread
 	 * with the sole human user instead. Carried through onto the created
@@ -230,7 +230,7 @@ export interface SessionKnowledgeItemLike {
  * Map `assembleSessionKnowledge`'s ranked+budgeted output onto the
  * `BakedContextKnowledgeItem[]` shape every `contextBundle` variant carries —
  * one shared mapper so `task-run-resolver.ts`/`knowledge-action-resolver.ts`/
- * the routine resolver/`proposed-call-workflow.ts` don't each reimplement the
+ * the routine resolver doesn't reimplement the
  * same field-pick.
  */
 export function toBakedContextKnowledgeItems(
@@ -252,7 +252,7 @@ export function toBakedContextKnowledgeItems(
 
 /**
  * AU21 §9 Increment 12 (Decision H3) — the baked entity content a
- * `task_run`/`reengagement` session needs (`kind:"task"`, matching
+ * a `task_run` session needs (`kind:"task"`, matching
  * `context.ts`'s `SessionContextData`), a `routine_run` session needs
  * (`kind:"routine"`, matching `RoutineSessionContextData`), or a
  * `knowledge_action` session needs (`kind:"knowledge"` — the flagged item
@@ -522,7 +522,7 @@ export type BakedContextBundle =
  * `bet_decomposition`, shrinking the union from seven to six), matching
  * `agent_work_intents_kind_ck` + `agent_work_intents_kind_source_compat_ck`
  * (`framework/db/src/schema.ts`) exactly. `work` (`task_run`) and `review`
- * (`reengagement`) used to re-declare their own narrower local mirrors of
+ * used to re-declare their own narrower local mirrors of
  * this exact shape (`WorkAgentWorkIntentInput`/`ReviewAgentWorkIntentInput`)
  * purely because this union hadn't grown to cover their kinds yet — now that
  * it does, every caller imports this ONE type and the mirrors are deleted
@@ -574,15 +574,6 @@ export type AgentWorkIntentRecorderInput =
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
 			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts` (AU21 Increment 3). */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
-			readonly kind: "reengagement";
-			readonly sourceKind: "proposed_call";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by `proposed-call-workflow.ts`'s `resolveReengagementRequest` (AU21 Increment 3). */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  };
 

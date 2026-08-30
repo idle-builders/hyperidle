@@ -154,8 +154,6 @@ export type { NotificationType, NotificationTypeKey } from "./notifications.js";
 // NotificationUrgency unexported (SIMPLIFY): member of registry entry; no external consumer names it directly.
 // shortLabelForType MERGE → core-ui/shell/notification-display.ts (AU44 batch 8)
 export { NOTIFICATION_TYPES } from "./notifications.js";
-export type { ProposedCall, ProposedCallStatus, Reversibility } from "./proposed-call.js";
-export { PROPOSED_CALL_STATUSES, REVERSIBILITY } from "./proposed-call.js";
 export type {
 	RoutineCardSummary,
 	RoutineDetail,
@@ -188,7 +186,6 @@ export {
 	agentSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
-	proposedCallSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
 	taskSessionRequestInputSchema,
 } from "./session-request.js";

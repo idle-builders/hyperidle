@@ -78,7 +78,7 @@ async function rebakePendingSiblingsForThread(
 			// contextBundle deps the real `POST /threads/:id/messages` route
 			// bakes (threads.ts:1372-1375) so a re-baked stale sibling still
 			// carries harnessDisabled + the agent's injected filesystems —
-			// consistent with the "granted" reengagement path's forwarding.
+			// consistent with the resumed-session path's forwarding.
 			getAgentIdentity,
 			readServerConfig,
 		});

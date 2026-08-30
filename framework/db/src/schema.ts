@@ -412,11 +412,11 @@ export const agentWorkIntents = pgTable(
 		index("agent_work_intents_claim_expires_idx").on(table.claimExpiresAt),
 		check(
 			"agent_work_intents_kind_ck",
-			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run','reengagement')`,
+			sql`${table.kind} in ('assistant_turn','session_start','knowledge_action','routine_run','task_run')`,
 		),
 		check(
 			"agent_work_intents_source_kind_ck",
-			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt','proposed_call')`,
+			sql`${table.sourceKind} in ('thread_message','explicit_session_start','knowledge_action','routine_run','task_dispatch_attempt')`,
 		),
 		check(
 			"agent_work_intents_status_ck",
@@ -435,7 +435,6 @@ export const agentWorkIntents = pgTable(
 				or (${table.kind} = 'knowledge_action' and ${table.sourceKind} = 'knowledge_action')
 				or (${table.kind} = 'routine_run' and ${table.sourceKind} = 'routine_run')
 				or (${table.kind} = 'task_run' and ${table.sourceKind} = 'task_dispatch_attempt')
-				or (${table.kind} = 'reengagement' and ${table.sourceKind} = 'proposed_call')
 			`,
 		),
 		/**
@@ -1339,112 +1338,6 @@ export const inviteCodes = pgTable(
 	(table) => [uniqueIndex("invite_codes_code_uq").on(table.code)],
 );
 
-// --- AL7 trust-first: Proposed Calls + Tailored Grants + Operation Outcomes ---
-
-/**
- * Proposed Calls — irreversible tool calls captured during session 1, routed to
- * human review. The agent proposes; the human approves; the agent's own session
- * executes in session 2. HyperIdle executes nothing of its own (AC12).
- *
- * @lore AL7 trust-first: replaces staged_operations. Key differences:
- *   - toolId + args (verbatim captured call, not capabilityTool/operation/params)
- *   - originSessionId + identityHash UNIQUE — capture idempotency (WARNING-5.2)
- *   - status: captured | granted | executed | failed | held (not pending/executing)
- *   - No idempotencyKey (replaced by origin_session_id + identity_hash UNIQUE)
- *
- * @lore AL7 WARNING-5.2: UNIQUE constraint on (origin_session_id, identity_hash)
- * is a CONSTRAINT, not a plain index. The capture insert uses
- * ON CONFLICT (origin_session_id, identity_hash) DO NOTHING RETURNING *;
- * firstCapture = rows.length > 0. Only a UNIQUE enforces the dedup — a plain
- * index does not prevent duplicate rows.
- */
-export const proposedCalls = pgTable(
-	"proposed_calls",
-	{
-		id: text("id").primaryKey(),
-		// C1: THE review dispatch key.
-		reviewMessageId: text("review_message_id")
-			.notNull()
-			.references(() => messages.id, { onDelete: "restrict" }),
-		// Loader/index anchor ONLY — never the dispatch key.
-		subjectThreadId: text("subject_thread_id")
-			.notNull()
-			.references(() => threads.id, { onDelete: "restrict" }),
-		artifactId: text("artifact_id")
-			.notNull()
-			.references(() => artifacts.id, { onDelete: "restrict" }),
-		originSessionId: text("origin_session_id").notNull(),
-		toolId: text("tool_id").notNull(),
-		args: text("args").notNull(), // verbatim JSON captured args
-		identityHash: text("identity_hash").notNull(), // SHA-256 over canonical {toolId, args}; arg-pin convenience metadata
-		reversibility: text("reversibility").notNull(), // "irreversible" | "reversible"
-		// captured | granted | executed | failed | held
-		status: text("status").notNull().default("captured"),
-		stagedByAgentId: text("staged_by_agent_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "restrict" }),
-		createdAt: text("created_at").notNull(),
-	},
-	(table) => [
-		index("proposed_calls_review_msg_idx").on(table.reviewMessageId, table.status),
-		index("proposed_calls_subject_idx").on(table.subjectThreadId),
-		index("proposed_calls_artifact_idx").on(table.artifactId),
-		// WARNING-5.2: MUST be a UNIQUE constraint, not a plain index.
-		// ON CONFLICT (origin_session_id, identity_hash) DO NOTHING RETURNING *
-		uniqueIndex("proposed_calls_capture_uq").on(table.originSessionId, table.identityHash),
-	],
-);
-
-/**
- * Tailored Grants — scoped permission composed on approve, consumed once by
- * session 2 via a single-statement CAS.
- *
- * @lore AL7 D2: separate table so the grant has its own lifecycle (compose at
- * approve, consume in session 2, re-mint on re-open). CAS consume:
- *   UPDATE tailored_grants SET consumed=true WHERE ... AND consumed=false RETURNING *
- * One non-null return = claimed; null = already consumed (no double-execute).
- *
- * @lore AL7 D3: retryCount is a liveness-net counter only (AC11b). It is NOT
- * a guard — the liveness net fires on crash/no-show, never on re-derivation.
- */
-export const tailoredGrants = pgTable(
-	"tailored_grants",
-	{
-		proposedCallId: text("proposed_call_id")
-			.primaryKey()
-			.references(() => proposedCalls.id, { onDelete: "restrict" }),
-		taskScope: text("task_scope").notNull(), // tasks.id
-		agentScope: text("agent_scope").notNull(), // agents.id — the same owner resuming
-		approvedToolId: text("approved_tool_id").notNull(),
-		approvedArgs: text("approved_args").notNull(), // JSON; recorded approved args (arg-pin uses these)
-		argPinned: boolean("arg_pinned").notNull().default(false),
-		identityHash: text("identity_hash"), // optional, for the arg-pin convenience
-		consumed: boolean("consumed").notNull().default(false),
-		retryCount: integer("retry_count").notNull().default(0), // liveness net (AC11b), not a guard
-		mintedAt: text("minted_at").notNull(),
-		consumedAt: text("consumed_at"),
-	},
-	(t) => [index("grant_match_idx").on(t.taskScope, t.agentScope, t.approvedToolId, t.consumed)],
-);
-
-/**
- * Operation Outcomes — immutable terminal result of one executed Proposed Call.
- *
- * @lore AL7 trust-first: proposedCallId IS the PK — enforces 0..1 per call
- * and immutability structurally. FK renamed from staged_operation_id.
- * receipt replaces payload (holds the tool's return identity string or JSON).
- */
-export const operationOutcomes = pgTable("operation_outcomes", {
-	// 0..1 per Proposed Call — PK enforces immutability.
-	proposedCallId: text("proposed_call_id")
-		.primaryKey()
-		.references(() => proposedCalls.id, { onDelete: "restrict" }),
-	status: text("status").notNull(), // "ok" | "failed"
-	receipt: text("receipt"), // tool return on ok (serialized)
-	error: text("error"), // surfaced verbatim on failed — never null+failed
-	executedAt: text("executed_at").notNull(),
-});
-
 // --- Inferred types ---
 
 // @lore U1 / AU44 B1: Team is the single domain entity — team_members dissolved into it.
@@ -1504,12 +1397,6 @@ export type NewLoginSession = typeof loginSessions.$inferInsert;
 
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
-
-export type ProposedCall = typeof proposedCalls.$inferSelect;
-
-export type TailoredGrant = typeof tailoredGrants.$inferSelect;
-
-export type OperationOutcome = typeof operationOutcomes.$inferSelect;
 
 // --- AN1: Service connections (per-user external tool connections) ---
 

@@ -1,4 +1,4 @@
-import type { AnchorRef, ProposedCallStatus, VerdictDecision } from "@hyperidle/domain-model";
+import type { AnchorRef, VerdictDecision } from "@hyperidle/domain-model";
 import type { ReviewArtifact, ReviewSubject } from "./review-artifact.js";
 
 export interface ReviewCommentRef {
@@ -45,55 +45,11 @@ export interface ReviewVerdictState {
 	readonly resolvedAt?: string;
 }
 
-/**
- * AL7 trust-first: the execution outcome returned by the reviews loader.
- * The component never parses time — `executedAt` is pre-humanized by the loader.
- */
-export interface ProposedCallOutcomeView {
-	readonly status: "ok" | "failed";
-	/** The tool's return identity that proves it happened (e.g. `re_3Qs… · refunded`). */
-	readonly receipt?: string;
-	/** Surfaced verbatim + un-truncated on failure — never swallowed, never clipped. */
-	readonly error?: string;
-	/** Already-formatted short/relative display string (e.g. "2 min ago"). */
-	readonly executedAt: string;
-}
-
-/**
- * AL7 trust-first: the Proposed Call + outcome data returned by the reviews loader for
- * an operative artifact (`action_operation` kind).
- * WARNING-2: args is the verbatim captured args object (not an argsSummary string).
- */
-export interface ProposedCallView {
-	readonly proposedCallId: string;
-	readonly toolId: string;
-	readonly args: Record<string, unknown>; // verbatim captured args (AC10b)
-	readonly status: ProposedCallStatus;
-	readonly outcome?: ProposedCallOutcomeView;
-}
-
-// @lore AL7: StagedOperationView/StagedOperationOutcomeView retained as aliases
-// during the green phase to avoid a full web component rewrite in one PR.
-// ReviewComposition.tsx reads artifact.proposedCall?.{} directly.
-/** @deprecated Use ProposedCallOutcomeView */
-export type StagedOperationOutcomeView = ProposedCallOutcomeView;
-/** @deprecated Use ProposedCallView */
-export type StagedOperationView = ProposedCallView;
-
 export interface ComposedReviewArtifact extends ReviewArtifact {
 	/** Optional one-line summary shown in the artifact opener row. */
 	readonly summary?: string;
 	/** Optional badge shown at the right of the opener row. */
 	readonly badge?: string;
-	/**
-	 * AL7 trust-first: present only for `action_operation` kind artifacts that have a
-	 * Proposed Call row. Undefined for descriptive artifacts (code_diff, field_change_set, etc.)
-	 * and for operative artifacts that have not yet been captured.
-	 * WARNING-2: args is the verbatim captured args (human approves what they actually see).
-	 */
-	readonly proposedCall?: ProposedCallView;
-	/** @deprecated Use proposedCall — retained for backward compat during web migration. */
-	readonly stagedOperation?: StagedOperationView;
 }
 
 /**

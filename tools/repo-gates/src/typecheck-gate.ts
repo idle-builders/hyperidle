@@ -529,7 +529,6 @@ function buildLeafDeclarations(root: string, tscBin: string): void {
 		"layers/core-api/notifications",
 		"layers/core-api/credentials",
 		"layers/core-api/routine",
-		"layers/core-api/review",
 		"layers/core-api/policy",
 		// @lore AU20 C1: core-api/retention dissolved — sweeps distributed to owning services
 		// (users/knowledge/notifications) + propagation_log reaper co-located at composition root.

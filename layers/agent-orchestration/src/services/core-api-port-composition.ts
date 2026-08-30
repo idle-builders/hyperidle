@@ -38,11 +38,7 @@
 import {
 	type ArtifactView,
 	type BetView,
-	type CaptureProposedCallRequest,
-	type CaptureProposedCallResponse,
 	CORE_API_ACTOR_OVERRIDE_HEADER,
-	type ConsumeTailoredGrantRequest,
-	type ConsumeTailoredGrantResponse,
 	type ConversationInboxRowView,
 	type ConversationMessageType,
 	type ConversationThreadView,
@@ -78,7 +74,6 @@ import {
 	type PersistScaffoldedAgentsResponse,
 	type PromoteKnowledgeItemRequest,
 	type PromoteKnowledgeItemResult,
-	type ProposedCallOutcomeResult,
 	type RoutineView,
 	type ScaffoldFromRequestInput,
 	type TaskView,
@@ -326,22 +321,6 @@ interface CoreApiHcClient {
 						readonly updatedBy: string;
 					};
 				}): Promise<Response>;
-			};
-		};
-	};
-	readonly reviews: {
-		readonly "proposed-calls": {
-			$post(args: { readonly json: CaptureProposedCallRequest }): Promise<Response>;
-			readonly consume: {
-				$post(args: { readonly json: ConsumeTailoredGrantRequest }): Promise<Response>;
-			};
-			readonly ":id": {
-				readonly outcome: {
-					$post(args: {
-						readonly param: { readonly id: string };
-						readonly json: { readonly result: ProposedCallOutcomeResult };
-					}): Promise<Response>;
-				};
 			};
 		};
 	};
@@ -858,37 +837,6 @@ export function buildCoreApiPort(transport: CoreApiTransport): CoreApiPort {
 				if (!res.ok) return throwSeamError("knowledge.splitKnowledgeItem", res);
 				const body = (await res.json()) as { readonly items: Array<{ readonly id: string }> };
 				return body.items;
-			},
-		},
-		// AU31 §2.5 — the AL7 trust-first workflow's three ops, backed by
-		// `routes/reviews.ts`'s new write routes. The moved tool dispatch
-		// (`@hyperidle/tool-handlers`) is this port's only caller.
-		review: {
-			async captureProposedCall(
-				input: CaptureProposedCallRequest,
-			): Promise<CaptureProposedCallResponse> {
-				const res = await client.reviews["proposed-calls"].$post({ json: input });
-				if (!res.ok) return throwSeamError("review.captureProposedCall", res);
-				return (await res.json()) as CaptureProposedCallResponse;
-			},
-
-			async consumeTailoredGrant(
-				input: ConsumeTailoredGrantRequest,
-			): Promise<ConsumeTailoredGrantResponse | null> {
-				const res = await client.reviews["proposed-calls"].consume.$post({ json: input });
-				if (!res.ok) return throwSeamError("review.consumeTailoredGrant", res);
-				return (await res.json()) as ConsumeTailoredGrantResponse | null;
-			},
-
-			async recordOutcome(
-				proposedCallId: string,
-				result: ProposedCallOutcomeResult,
-			): Promise<void> {
-				const res = await client.reviews["proposed-calls"][":id"].outcome.$post({
-					param: { id: proposedCallId },
-					json: { result },
-				});
-				if (!res.ok) return throwSeamError("review.recordOutcome", res);
 			},
 		},
 	};

@@ -51,7 +51,6 @@ const WORK_INTENT_KINDS = [
 	"knowledge_action",
 	"routine_run",
 	"task_run",
-	"reengagement",
 ] as const;
 
 function isWorkIntentKind(value: string): value is AgentOrchestrationWorkIntentKind {
