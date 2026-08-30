@@ -143,4 +143,4 @@ WebSocket subscribe authorization is owned by the [Authorization Model](./author
 - **A backlog.** Draft bets live on the Work view; unpicked drafts expire.
 - **Multiple applications.** One app, two form factors.
 - **Jira-style reporting.** Conversations (review threads) and Work (bet/task views) are the human surfaces for status.
-- **A git forge, a CI engine, or deploy infrastructure.** HyperIdle rides the git substrate (code in a local-first, forge-optional git repo), integrates CI/registries/deploy/SSO via API/MCP, and triggers side-effects through connected systems — it never hosts repos, runs runners, or executes a deploy itself. See [System Boundary](./system-boundary.md); the trigger-not-executor seam is the [Proposed Call](../process-layer/staged-operation.md) (AL7).
+- **A git forge, a CI engine, or deploy infrastructure.** HyperIdle rides the git substrate (code in a local-first, forge-optional git repo), integrates CI/registries/deploy/SSO via API/MCP, and triggers side-effects through connected systems — it never hosts repos, runs runners, or executes a deploy itself. See [System Boundary](./system-boundary.md) for the trigger-not-executor seam.

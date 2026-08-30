@@ -109,7 +109,7 @@ type ReplyInput = z.infer<typeof replyInputSchema>;
  * (`ports.coreApi.insertMessage`, backed by `POST /threads/:id/messages`) —
  * never an orchestration-side special write. Available to every agent kind
  * (no `roles` filter) — this is how the assistant answers, but any agent
- * kind with a calling thread (task_run/session_start/reengagement/
+ * kind with a calling thread (task_run/session_start/
  * knowledge_action) can use it too.
  *
  * Deliberately narrower than `send_message`: NO thread argument. `reply`

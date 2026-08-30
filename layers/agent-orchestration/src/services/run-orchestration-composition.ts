@@ -220,7 +220,7 @@ function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<Hyper
  * `@hyperidle/knowledge` functions directly (`create-server.ts:545-562`
  * before this leaf) — an application → service crossing that hosting could
  * not legalize. `db` is accepted and ignored on every method (same idiom as
- * `buildProposedCallWorkflowPort`): the seam's server side reads/writes
+ * the seam's server side reads/writes
  * through its OWN `db`, not this argument, which exists only so the object
  * satisfies the writeback processor's pre-existing pooled-handle-shaped port.
  */

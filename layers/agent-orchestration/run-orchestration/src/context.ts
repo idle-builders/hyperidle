@@ -22,7 +22,7 @@ import type { EventBus } from "@hyperidle/event-bus";
  * EMIT time by each per-kind resolver (`@hyperidle/work`'s
  * `task-run-resolver.ts`, `@hyperidle/knowledge`'s
  * `knowledge-action-resolver.ts`, `@hyperidle/routine`'s
- * `resolveRoutineRunRequest`, `@hyperidle/review`'s `proposed-call-workflow.ts`)
+ * `resolveRoutineRunRequest`)
  * calling the shared `@hyperidle/knowledge`'s `assembleSessionKnowledge`
  * (Wave A) — the `requireRunnableAgent` precedent. `assembleAgentContext`
  * below consumes the baked `contextBundle` carried on the session request and
@@ -1000,7 +1000,7 @@ interface AssembleAgentContextInput {
 	readonly sourceCorrelation: AgentSessionSourceCorrelation | null;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle a
-	 * `task_run`/`reengagement` (`kind:"task"`) or `routine_run`
+	 * `task_run` (`kind:"task"`) or `routine_run`
 	 * (`kind:"routine"`) session's sandbox is built from. Absent for
 	 * `knowledge_action` (`kind:"knowledge"` bundles carry no established
 	 * sandbox-context shape yet — a knowledge-review turn keeps today's

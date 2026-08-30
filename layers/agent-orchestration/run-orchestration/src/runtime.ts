@@ -128,7 +128,7 @@ function parseCorrelation(request: AgentSessionRequest): AgentSessionSourceCorre
 
 /**
  * AU21 §9 Increment 12 (Decision H3): the `task_run`/`routine_run`/
- * `reengagement` families' baked entity+knowledge bundle, carried on
+ * baked entity+knowledge bundle, carried on
  * `request.payloadJson` the same way Increment 11's `transcript`/`modelId`
  * ride it (`session-requests/src/service.ts`'s `createFromBakedRequestInternal`).
  */

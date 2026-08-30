@@ -55,7 +55,7 @@ The trust engine itself is owned by [review-primitive.md](review-primitive.md); 
 
 1. **Reasoning visible by default.** Every item shows *why* — `items.reasoning` (`framework/db/src/schema.ts`) and `reasoning[]` on thread messages (`framework/domain-model/src/thread.ts`).
 2. **Team transparency.** The WorkTeam summary strip (`layers/core-ui/src/pages/WorkTeam.tsx`) shows capacity and status.
-3. **Reversibility rides Proposed Calls, not items.** Staged operations carry `reversibility` (`schema.ts`); irreversible calls route to review where a human or learning chose it, reversible calls flow without review. Mechanics: [process-layer/staged-operation.md](../process-layer/staged-operation.md).
+3. **Reversibility rides the action, not the item.** An action a human or a learning marked consequential routes to review; everything else flows without one. The gate that routes a consequential action to a human is being rebuilt; no document describes a live mechanism for it until it lands.
 4. **The trust dial is earned, not hand-set.** Approval rate from verdict history × riskTier (AD4, `policy-engine.ts`): rate ≥ 0.9 and low risk → auto-resolve; ≥ 0.7 and low risk → queue; high risk or skill_change → always push; fewer than 10 verdicts → always push (cold-start). Thresholds live in factory settings.
 
 The arc worth keeping: the human is in every loop on day one and only in the loops that matter later — driven by earned approval rate. Routing of agent-produced review items to humans is soft and overridable: the mechanism is item-router plus policy-engine (risk tier × approval-rate trust), never a fixed responsibility table.

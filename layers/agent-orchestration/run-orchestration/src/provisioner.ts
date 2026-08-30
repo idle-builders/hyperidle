@@ -858,7 +858,7 @@ interface ProvisionSessionParams {
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — the baked entity+knowledge bundle
 	 * this session's sandbox context (Phase 6) and prompt persona (Phase 8.5)
-	 * are built from — `kind:"task"` for `task_run`/`reengagement`,
+	 * are built from — `kind:"task"` for `task_run`,
 	 * `kind:"routine"` for `routine_run`. Sourced from the emit-time resolver
 	 * via the drained `AgentSessionRequest.payloadJson` (zero db read here).
 	 * Absent for `knowledge_action`/`session_start`/`assistant_turn` turns.
@@ -909,7 +909,7 @@ interface ProvisionSessionParams {
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread id, baked at
 	 * EMIT time by every per-kind resolver that has one (`assistant_turn` from
 	 * the triggering message's thread; `task_run`/`session_start`/
-	 * `reengagement` from Decision 0's resolve-or-create). Absent for
+	 * resolve-or-create). Absent for
 	 * `routine_run`/`knowledge_action`. Forwarded verbatim onto
 	 * `SessionLifecycleToolContext.threadId` in Phase 8 — the `reply` tool
 	 * (Increment 2) reads it from there. ZERO orchestration -> core read.

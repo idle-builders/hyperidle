@@ -268,7 +268,7 @@ export interface SessionKnowledgeInput {
 	 * @lore BA9b: agentId is required to fetch agent_file items bound to this agent.
 	 * Required (not optional) so no caller can accidentally omit it and silently lose
 	 * agent-bound knowledge items. All three real bundle-builders (task-run-resolver,
-	 * routine-service, proposed-call-workflow) have agent.id in scope and must pass it.
+	 * routine-service) have agent.id in scope and must pass it.
 	 */
 	readonly agentId: string;
 }

@@ -8,8 +8,8 @@
 // AU21 §9 Increment 10a (Decision I): `bet_decomposition` is REMOVED — the
 // built-in bet_decomposition mechanism no longer exists, so the union shrinks
 // from seven kinds to six.
-// BA2 (delete capture): `reengagement` REMOVED — AL7 capture machinery deleted,
-// union shrinks from six kinds to five.
+// `reengagement` is REMOVED with the capture machinery it belonged to,
+// so the union shrinks from six kinds to five.
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "../events.js";

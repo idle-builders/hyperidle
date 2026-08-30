@@ -98,9 +98,9 @@ describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_IN
 
 	// AU21 §9 Increment 10a (Decision I) — the built-in `bet_decomposition`
 	// mechanism is REMOVED entirely, not migrated: the intent union shrinks
-	// from seven kinds to six. BA2 delete pass removes `reengagement` too,
-	// so the union is now five kinds.
-	const FIVE_KINDS_POST_BA2 = [
+	// from seven kinds to six. Deleting the capture machinery removes
+	// `reengagement` too, so the union is now five kinds.
+	const FIVE_LIVE_KINDS = [
 		"assistant_turn",
 		"session_start",
 		"knowledge_action",
@@ -108,9 +108,9 @@ describe("agent_work_intents kind CHECK == @hyperidle/domain-model AGENT_WORK_IN
 		"task_run",
 	] as const;
 
-	test("AGENT_WORK_INTENT_KINDS is exactly the FIVE-kind post-BA2 union (reengagement removed)", () => {
+	test("AGENT_WORK_INTENT_KINDS is exactly the five live kinds (reengagement removed)", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toHaveLength(5);
-		expect([...AGENT_WORK_INTENT_KINDS].sort()).toEqual([...FIVE_KINDS_POST_BA2].sort());
+		expect([...AGENT_WORK_INTENT_KINDS].sort()).toEqual([...FIVE_LIVE_KINDS].sort());
 		expect(AGENT_WORK_INTENT_KINDS).not.toContain("bet_decomposition");
 		expect(AGENT_WORK_INTENT_KINDS).not.toContain("reengagement");
 	});

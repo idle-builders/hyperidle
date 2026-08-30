@@ -590,7 +590,7 @@ async function createFromBakedRequestInternal(
 		sourceCorrelation: baked.sourceCorrelation,
 		// AU21 §9 Increment 11 (Decision H2) / Increment 12 (Decision H3): the
 		// assistant_turn family's baked transcript, the
-		// task_run/routine_run/knowledge_action/reengagement families' baked
+		// task_run/routine_run/knowledge_action families' baked
 		// contextBundle, and (Wave E) EVERY kind's baked
 		// agentConfig/harnessDisabled ride the existing generic `payloadJson`
 		// pass-through column onto the created `AgentSessionRequest`.
@@ -1042,7 +1042,7 @@ export type BakedWorkIntentRequest = {
 	}>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3): the `task_run`/`knowledge_action`/
-	 * `routine_run`/`reengagement` families' baked entity content (task/bet/
+	 * `routine_run` families' baked entity content (task/bet/
 	 * agent/team, or routine/agent/team) plus the ranked+budgeted knowledge
 	 * items `@hyperidle/knowledge`'s `assembleSessionKnowledge` produces.
 	 * Absent for `assistant_turn` (bakes `transcript` instead) — see
