@@ -4,7 +4,8 @@ import type { Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
 import { expect, test } from "./fixtures";
 
-const EVIDENCE = resolve(process.cwd(), "../../.pipeline/work/AZ16/evidence");
+// Screenshots are review artifacts, not pixel-diff assertions (AG1/U11 naming convention).
+const SCREENSHOTS = resolve(process.cwd(), "test-results");
 
 const THREAD = {
 	id: "t-az16",
@@ -255,7 +256,7 @@ async function addProfilePanel(page: Page): Promise<void> {
 	);
 }
 
-test.beforeAll(async () => mkdir(EVIDENCE, { recursive: true }));
+test.beforeAll(async () => mkdir(SCREENSHOTS, { recursive: true }));
 
 test("AZ16 complete profiles resolve exactly and paint in both Hearth themes", async ({ page }) => {
 	await installAz16Mocks(page);
@@ -337,9 +338,9 @@ test("AZ16 complete profiles resolve exactly and paint in both Hearth themes", a
 		);
 	}
 
-	await page.screenshot({ path: resolve(EVIDENCE, "profiles-light.png"), fullPage: true });
+	await page.screenshot({ path: resolve(SCREENSHOTS, "AZ16-profiles-light.png"), fullPage: true });
 	await page.evaluate(() => document.documentElement.setAttribute("data-theme", "hearth-dark"));
-	await page.screenshot({ path: resolve(EVIDENCE, "profiles-dark.png"), fullPage: true });
+	await page.screenshot({ path: resolve(SCREENSHOTS, "AZ16-profiles-dark.png"), fullPage: true });
 });
 
 test("AZ16 representative route matrix paints loaded application states", async ({ page }) => {
@@ -359,13 +360,19 @@ test("AZ16 representative route matrix paints loaded application states", async 
 		} else {
 			await expect(page.getByText(REVIEW_COMPOSITION_SUBJECT.title).first()).toBeVisible();
 		}
-		await page.screenshot({ path: resolve(EVIDENCE, `route-${name}.png`), fullPage: false });
+		await page.screenshot({
+			path: resolve(SCREENSHOTS, `AZ16-route-${name}.png`),
+			fullPage: false,
+		});
 	}
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto("/conversations?settings=open");
 	const input = page.locator('[data-az16-profile~="input"]').first();
 	await expect(input).toHaveCSS("font-size", "16px");
-	await page.screenshot({ path: resolve(EVIDENCE, "settings-mobile-input.png"), fullPage: false });
+	await page.screenshot({
+		path: resolve(SCREENSHOTS, "AZ16-settings-mobile-input.png"),
+		fullPage: false,
+	});
 });
 
 test("AZ16 reduced motion disables authored and foreign motion globally", async ({ page }) => {

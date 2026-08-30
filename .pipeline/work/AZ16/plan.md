@@ -53,11 +53,6 @@ Three things were rejected along the way. An extractor heuristic was rejected as
 
 ## How we work on this
 
-This folder is not reduced to plan-plus-retro, deliberately. Most of what it holds are live build inputs wired into `npm run lint`, not run artefacts:
-
-- `lint:az16-audit` runs `audit-checksum-gate.mjs`, which SHA-256 checksums the six frozen manifest/decision snapshots against `audit-checksums.sha256` and fails if any changed.
-- `lint:az16-receipts` runs `tools/repo-gates/src/az16-migration-receipt-gate.ts`, which reads the three site manifests and the 1,383 receipts across `migration-receipts-wave-*.tsv` to prove every audited destination was migrated.
-
-So `audit-checksum-gate.mjs`, `audit-checksums.sha256`, `migration-receipt.schema.json`, the seven wave TSVs and the six frozen TSVs must stay exactly as they are — editing any of them breaks lint. The folder can only be reduced once these gates are re-homed under `tools/`, alongside the other repo gates that already live there.
+The migration ran on a frozen per-source audit and 1,383 signed receipts, gated by `lint:az16-audit` and `lint:az16-receipts`. Both gates and all their data are gone: the receipt gate only re-asserted a finished migration's file list, said nothing about current token correctness, and needed a hardcoded patch on every PR that moved code; the checksum gate existed solely to freeze the data it read. Enforcement now rests entirely on the live layers — the ESLint profile rules, the `tokens.css` gate and the runtime census — which measure the code as it stands rather than replaying history. The folder is plan plus retro.
 
 The item shipped. Procedure was one combined refine/design/architecture round, one founder concept approval, one builder session across nine sub-1,000-line waves, then exactly one implementation review; that review found four blockers, the same builder repaired each red-first, and no second review or further human gate was permitted. Final verification: lint, typecheck 55/55 packages, the named Playwright profile matrix 3/3, and verify all pass. The affected unit lane passes 573 files / 6,266 tests but retains two watcher timing failures in `layers/agent-orchestration/run-orchestration`; both reproduce alone and the package has no branch diff or commits, so this is accepted non-blocking baseline evidence, not an AZ16 defect.

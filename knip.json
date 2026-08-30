@@ -114,7 +114,6 @@
 				"src/design-backlog-drift.ts!",
 				"src/design-css-gate.ts!",
 				"src/design-profile-census.ts!",
-				"src/az16-migration-receipt-gate.ts!",
 				"src/knip-production-test-files.mjs!"
 			]
 		},
