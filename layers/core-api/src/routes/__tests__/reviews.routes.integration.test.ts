@@ -1,7 +1,7 @@
+import type { HyperIdleDb } from "@hyperidle/db";
 import { messages, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
-import type { HyperIdleDb } from "@hyperidle/db";
 
 const TEST_API_KEY = "test-key-reviews";
 
