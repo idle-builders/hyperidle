@@ -1,0 +1,92 @@
+[
+  {
+    "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
+    "line": 365,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "layers/core-api/policy/src/lifecycle-propagation.ts",
+    "line": 367,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "layers/core-api/src/middleware/auth.ts",
+    "line": 149,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "layers/core-api/src/middleware/auth.ts",
+    "line": 169,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "layers/core-api/src/routes/auth.ts",
+    "line": 56,
+    "symbol": "u-founder",
+    "kind": "literal-id",
+    "shape": "string",
+    "importerCount": 0,
+    "triageHint": "straight-swap"
+  },
+  {
+    "path": "layers/core-ui/src/fixtures/knowledge-data.ts",
+    "line": 72,
+    "symbol": "MOCK_KNOWLEDGE_ITEMS",
+    "kind": "symbol",
+    "shape": "array",
+    "importerCount": 1,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
+    "line": 69,
+    "symbol": "../fixtures/knowledge-data",
+    "kind": "import",
+    "shape": "import",
+    "importerCount": 0,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
+    "line": 131,
+    "symbol": "LEGACY_DETAILS",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 3,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
+    "line": 209,
+    "symbol": "LEGACY_SOURCES",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 1,
+    "triageHint": "borderline"
+  },
+  {
+    "path": "layers/core-ui/src/pages/KnowledgeDetail.tsx",
+    "line": 215,
+    "symbol": "FALLBACK_DETAIL",
+    "kind": "symbol",
+    "shape": "object",
+    "importerCount": 0,
+    "triageHint": "borderline"
+  }
+]

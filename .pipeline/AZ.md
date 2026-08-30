@@ -83,6 +83,6 @@ Each was a real finding; none needed a decision. AZ1 is the clearest case — tw
 
 ---
 
-**Provenance.** `plans/reviews/ui-audit-consolidated.md` — three passes: one driving the running app, one reading the source, one founder walkthrough. It records where the passes disagreed and how each conflict was settled live. Every finding cited here was verified in the running application.
+**Provenance.** `reviews/ui-audit-consolidated.md` — three passes: one driving the running app, one reading the source, one founder walkthrough. It records where the passes disagreed and how each conflict was settled live. Every finding cited here was verified in the running application.
 
 **Before building — one input defect.** `.claude/rules/frontend.md` is a *binding* rule slot and still specifies a "forest green accent"; Crème Lemon replaced it. `tokens.css` is the truth. Tracked as `UI-171`.

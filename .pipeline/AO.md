@@ -4,7 +4,7 @@ The genuinely-missing work to let a flat team of humans and AI agents build real
 
 **Shipped foundation.** AO1 (a product's output filesystem) and AO2 (mount the bound filesystem into the session working directory) are merged. AO3 is **WONT DO** — see below.
 
-**Locked concept (`/pipeline:refine AO0`, 2026-06-26).** Full concept: `plans/AO/requirements.md` plus the decision-rule research in `plans/AO/research-filesystem-vs-tool.md`. The outcomes that bind this track:
+**Locked concept (`/pipeline:refine AO0`, 2026-06-26).** The outcomes that bind this track:
 
 - **Filesystem↔Tool↔Knowledge decision rule.** A filesystem is **only** an authored, file-like, version-controlled corpus (code + document authoring). **Systems of record** (email inbox, ticket queue, CRM) are **live tools** — Track AN — and are never materialized. **Reference corpora** are **retrieval** — the knowledge fabric. Discriminator: *author a corpus* → filesystem; *operate a system of record* → tool; *look something up* → knowledge. Not "does an API exist." So AO does **not** materialize inboxes, CRMs or ticket queues and does **not** build a Drive/Dropbox sync engine.
 - **Agents work with their credentials in the sandbox.** The bound Connection's auth is provisioned into the sandbox so the agent's own tools push and open PRs. **No credential withholding, no broker-only path** — the reverted-broker model is dead (PR #364).

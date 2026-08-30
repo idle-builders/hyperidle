@@ -568,7 +568,7 @@ if (isEntrypoint) {
 	const repoRoot = join(scriptPath, "..", "..", "..", "..");
 	const webSrc = join(repoRoot, "layers/core-ui/src");
 	const serverSrcDirs = collectAU19SrcDirs(repoRoot);
-	const outDir = join(repoRoot, "plans/mock-data-purge");
+	const outDir = join(repoRoot, "tools/repo-gates/mock-inventory");
 	const inventoryPath = join(outDir, "inventory.json");
 
 	const webSrcExists = existsSync(webSrc);
@@ -627,7 +627,7 @@ if (isEntrypoint) {
 	};
 
 	process.stdout.write(
-		`mock-inventory: ${rows.length} rows written to plans/mock-data-purge/\n` +
+		`mock-inventory: ${rows.length} rows written to tools/repo-gates/mock-inventory/\n` +
 			`  symbol: ${byKind.symbol}, import: ${byKind.import}, literal-id: ${byKind["literal-id"]}\n` +
 			`  See: ${POLICY_DOC_URL}\n`,
 	);

@@ -249,7 +249,7 @@ describe("KnowledgeBody — T-SEC-1 XSS defence", () => {
 		// links (inlineFromMd degrades hostile links to plain text). This test is
 		// a regression guard at the L23 boundary: if L2 behaviour changes, this
 		// test catches it. If it fails, it means L2's renderInline has a bug —
-		// file as a follow-up in plans/L23/follow-ups.md.
+		// file it as a follow-up.
 		const body = "[click](javascript:alert(1))\n";
 		const { container } = render(<KnowledgeBody body={body} hostId="k-xss-f" />);
 		const anchors = container.querySelectorAll("a");

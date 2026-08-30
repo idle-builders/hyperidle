@@ -11,7 +11,7 @@ Flat, chewable list. **No pipeline ceremony.** One agent picks the next unchecke
 
 **Not in this list:** anything owned by a work package in `AZ.md` (page scaffold + scroll, page geometry, the visual system's closed sets, open/edit rule, artifact rendering, sidebar composition). Those need a decision first. Items below that touch the same surfaces are still safe to do — they are defects, not design choices.
 
-Evidence for every item: `plans/reviews/ui-audit-consolidated.md`.
+Evidence for every item: `reviews/ui-audit-consolidated.md`.
 
 ---
 

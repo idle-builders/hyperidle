@@ -1,8 +1,7 @@
 /**
  * AU13: Routine service — the only module permitted to read or write
- * `routines`, `routine_runs`. Every write call site enumerated in
- * `.pipeline/plans/AU13.md` §4d-§4e, and every read call site enumerated in
- * the read-ownership addendum §A3, routes through one of these functions
+ * `routines`, `routine_runs`. Every write call site and every read call site
+ * routes through one of these functions
  * instead of a direct `insert`/`update`/`delete`/`select` against the table
  * objects.
  *

@@ -2,7 +2,7 @@
  * AR1 — requireHarness unit tests (TDD red phase).
  *
  * Tests runtime behavior of the requireHarness() hard-fail helper against the
- * STRICT harness model (plans/AR/concept.md):
+ * STRICT harness model:
  *
  *   HarnessName = "claude" | "codex" | "opencode" | "cursor-agent" | "builtin"
  *     - claude/codex/opencode/cursor-agent → binary-on-PATH (keychain/inherited login, NO API key)

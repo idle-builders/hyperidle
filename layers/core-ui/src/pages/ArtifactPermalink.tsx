@@ -1,5 +1,4 @@
 // L3 — ArtifactPermalink: single_full_preview surface for /artifacts/:id.
-// Source: plans/L3/architecture.md §6.5.
 //
 // @lore L18: HostThreadSection added below ArtifactPreview. hostKind="artifact",
 // hostId=data.id. Padding changed from p-6 to p-3 per L18 architecture.

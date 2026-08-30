@@ -224,7 +224,7 @@ export function scopeKindToLabel(scopeKind: string): string {
 
 /**
  * AC1: Closed enum of bet outcome verdicts.
- * Adding a fifth value requires updating plans/AC1/concept.md first.
+ * Adding a fifth value is a concept change, not a type change.
  *
  * @lore AC1: "validated" means the hypothesis held; "refuted" means it didn't;
  * "partial" means mixed results; "inconclusive" means insufficient evidence.
@@ -246,7 +246,7 @@ export const BET_OUTCOME_VERDICT_LABEL: Record<BetOutcomeVerdict, string> = {
 
 /**
  * AC1: Closed enum of task outcome verdicts.
- * Adding a fifth value requires updating plans/AC1/concept.md first.
+ * Adding a fifth value is a concept change, not a type change.
  *
  * @lore AC1: Records whether the task's done condition was met during review.
  * NOT set automatically by the state machine — must be explicitly recorded by

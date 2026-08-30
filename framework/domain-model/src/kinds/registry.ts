@@ -247,7 +247,6 @@ export const urlKind: KindDefinition = {
  * because import.meta.glob is Vite-specific and doesn't work in the Node server.
  * Adding a new kind = one preview schema, one definition, and one entry here.
  * This is "configuration" not "core logic" — same pattern as adding a Hono route.
- * See plans/AE6/architecture.md §1.3 for the design-it-twice analysis.
  */
 const REGISTRY: ReadonlyMap<string, KindDefinition> = new Map([
 	[textKind.kind, textKind],

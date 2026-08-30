@@ -16,7 +16,7 @@ Three things AU21 deliberately left open, each spun out of its architecture or i
 | AU24 | AY2 |
 | AU25 | AY3 |
 
-Historical artifacts (`work/AU21/`, `work/AU27/`, `plans/`) keep the old IDs as-is — they are records of the builds that spawned these.
+Historical artifacts (`work/AU21/`, `work/AU27/`) keep the old IDs as-is — they are records of the builds that spawned these.
 
 **Registration shape.** AY1 has a seeded spec at `work/AY1/plan.md`. AY2 and AY3 are row-only registrations (full spec in the Status column below) — seed `work/<id>/plan.md` when either enters the pipeline.
 

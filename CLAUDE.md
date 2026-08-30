@@ -129,14 +129,8 @@ Each folder has an `index.md` with section links. `/pipeline:refine` and `/pipel
 **Pipeline** — `.pipeline/` (tracked durable pipeline state):
 
 - `<track>.md` — per-track coordination file (item registry table + dependency graph). An item that has not been refined yet has only its registry row.
-- `work/<id>/` — per-item folder. It holds exactly two files: `plan.md`, the item's durable account, written with the maintainer during refinement and kept to 50–100 lines; and `retro.jsonl`, its retro observations, which `/pipeline:compound` reads across every item. Run material — requirements, architecture, critiques, reviews, design prose, progress JSON — is working state that is folded into `plan.md` and removed when the item ships.
-- `audits/` — product and security audit ledgers, read by the `product-deep-review` and `security-audit` skills.
-
-Per-item retros are separate files precisely so parallel branches never merge-conflict; never introduce a repository-level file that runs append to.
-
-**Legacy, do not extend** — `plans/` and `reviews/`:
-
-These are the pre-`.pipeline` artifact store: per-workpackage folders holding `requirements.md`, `architecture.md`, critiques, reviews and scans, plus cross-cutting research under `reviews/`. They are superseded by `work/<id>/plan.md` and kept only as history. **Never write here, and never treat one as an item's spec** — the current record is the item's plan. A handful of tests and gates still write output into `plans/` paths; that is a defect being carried, not a pattern to follow.
+- `work/<id>/` — per-item folder: `plan.md`, the item's durable account, 50–100 lines; and `retro.jsonl`, its retro observations.
+- `audits/` — product and security audit ledgers, read by `product-deep-review` and `security-audit`.
 
 ---
 

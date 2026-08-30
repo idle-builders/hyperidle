@@ -6,7 +6,7 @@
 
 **Constraint.** Ride the MCP standard — a tool source is a standard MCP server; never reimplement a service's API.
 
-**Concept status.** There is no concept doc to lean on — the prior `plans/AN/requirements.md` was deleted as not worth keeping. Every package below is **Concept: Required** — run `/pipeline:refine <id>` to lock its nouns fresh before building.
+**Concept status.** There is no concept doc to lean on. Every package below is **Concept: Required** — run `/pipeline:refine <id>` to lock its nouns fresh before building.
 
 **Shipped foundation.** AN1 (connect a service once) and AN2 (authenticate once; connected tools work in every sandbox) are merged.
 

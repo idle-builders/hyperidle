@@ -38,7 +38,7 @@ After AQ1, two implementations of `SandboxAdapter` exist:
 | `LocalSandboxAdapter` | The host run path. Creates the working dir, sets `cwd` for the harness spawn, removes the dir on destroy. |
 | `DisabledSandboxAdapter` | Server-profile boot guard. Refuses to provision sessions. Not isolation — it prevents any agents from running on a shared backend where `HYPERIDLE_PROFILE != laptop`. |
 
-`DockerSandboxAdapter` and `IsolatedHarnessAdapter` were deleted in AQ1. They created the appearance of isolation while the default path already ran host-local. See `plans/AQ1/concept.md` for the rationale.
+`DockerSandboxAdapter` and `IsolatedHarnessAdapter` were deleted in AQ1. They created the appearance of isolation while the default path already ran host-local.
 
 ## Configuration
 

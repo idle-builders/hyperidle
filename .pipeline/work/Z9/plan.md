@@ -81,6 +81,3 @@ no-JS. Review verdict DONE with all six acceptance criteria passing.
   wiring is separate work.
 - Two non-blocking biome `!important` warnings remain in the reduced-motion block; the universal
   disable there is intentional.
-- Verify runs rewrite stale `plans/AI3|AI4/proof/*.png` snapshots. This is pre-existing
-  snapshot-net behavior unrelated to this work, but every worktree run must revert that churn
-  before committing.

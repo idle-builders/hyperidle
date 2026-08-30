@@ -6,7 +6,6 @@
  *
  * @lore L13: Product = Team 1:1 invariant. The public identifier is always the
  * team id (formerly product id); the agent-membership group is an internal join key.
- * See plans/L13/concept.md §"What 1:1 actually means".
  *
  * @lore U1: File renamed from product.ts to team.ts. All Product* types renamed
  * to Team*. BetCardSummary.pitchTitle renamed to BetCardSummary.descriptionTitle.

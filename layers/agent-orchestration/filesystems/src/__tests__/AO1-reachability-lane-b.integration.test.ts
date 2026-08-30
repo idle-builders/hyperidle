@@ -18,8 +18,6 @@
  *
  * Skip condition: LOUDLY skip (not silently) when env vars are absent.
  * The skip message names every missing var so the runner knows exactly what to provide.
- *
- * Source of truth: plans/AO1/architecture.md §v2·5 + §v2·6 Lane B
  */
 
 import * as crypto from "node:crypto";

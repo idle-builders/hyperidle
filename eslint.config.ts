@@ -601,7 +601,7 @@ export default [
 	// @lore AI3: The arithmetic half of AC-2 ("no surface computes time for display locally")
 	// is NOT statically expressible — Date-diff arithmetic and sort/group/timer arithmetic
 	// share the same AST. The ban covers only what is architecturally distinguishable:
-	// toLocale* rendering on a Date receiver. See plans/AI3/architecture.md §"AC-2/AC-5 static gate (split)".
+	// toLocale* rendering on a Date receiver.
 	{
 		files: ["layers/core-ui/src/**/*.{ts,tsx}"],
 		ignores: [

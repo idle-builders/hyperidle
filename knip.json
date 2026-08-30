@@ -7,7 +7,6 @@
 		"docs/product/.vitepress/**",
 		"applications/website/.astro/**",
 		"tools/eslint-plugin-design/test-fixtures/**",
-		"plans/**",
 		".pipeline/**",
 		"layers/core-ui/src/**/*.stories.tsx",
 		"**/vitest-setup.ts",

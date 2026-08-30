@@ -18,8 +18,6 @@
  *   AC5  — NoopAuthResolver → needs_attention for connection-backed; local → reachable
  *   AC6  — DELETE filesystem cascades injections
  *   AC8  — migration: filesystems + filesystem_injections tables, correct columns, no agent_user_id
- *
- * Source of truth: plans/AO1/architecture.md §Phase 2 + §3 + §8
  */
 
 import * as os from "node:os";

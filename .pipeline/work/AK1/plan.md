@@ -12,8 +12,9 @@ before AK2's kernel/strategy split so that split built on final vocabulary.
 | skill-tools | tools |
 | materialize / composePrompt | context assembly |
 
-Old names appear only in git history and in retired docs. `harness-vocab-guard`, wired into `verify`,
-fails the build on a dangling reference to any of them — that guard is the enforcement, not review.
+Old names appear only in git history and in retired docs. Nothing enforces the mapping — the
+`harness-vocab-guard` that once ran in `verify` was retired with the other consolidated guards, so a
+regression to an old noun is caught by review or not at all.
 
 ## Constraints found the hard way
 
@@ -26,4 +27,4 @@ fails the build on a dangling reference to any of them — that guard is the enf
 ## Dangling reference
 
 The rename's authority was cited as `docs/architecture/kernel-strategy-split.md §4`. That file no
-longer exists. The locked nouns are now only enforced by the guard and recorded here.
+longer exists. The locked nouns are recorded here and nowhere else.

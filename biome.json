@@ -160,7 +160,7 @@
 			"!.worktrees",
 			"!.claude/worktrees",
 			"!.pipeline",
-			"!**/plans",
+			"!tools/repo-gates/mock-inventory",
 			"!tools/eslint-plugin-design/test-fixtures",
 			"!layers/agent-execution/harness-registry/src/__tests__/fixtures",
 			"!.verify-attestations",

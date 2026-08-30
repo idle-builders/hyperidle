@@ -27,7 +27,7 @@
  * @lore AI3 cross-surface agreement: AC-1 Phase 4 strengthened to capture each
  * surface's textContent and assert all four are strictly equal (Set.size === 1).
  * Surface-4 (work-task) uses overrideTaskId seam — page.route() mocks /api/bets/:id
- * with a task whose startedAt = SEED_CREATED_AT. Screenshot saved to plans/AI3/proof/.
+ * with a task whose startedAt = SEED_CREATED_AT. Screenshot saved to test-results/.
  */
 
 import * as fs from "node:fs";
@@ -208,7 +208,7 @@ function makeSeedBetDetail() {
 // @lore AI3: Use import.meta.url + fileURLToPath because this spec runs as ESM
 // (Playwright transpiles .ts files). __dirname is not available in ESM scope.
 const SpecDir = path.dirname(fileURLToPath(import.meta.url));
-const PROOF_DIR = path.resolve(SpecDir, "../../../plans/AI3/proof");
+const PROOF_DIR = path.resolve(SpecDir, "../../../test-results");
 
 // ── AC-1: Same age → same label across ≥ 4 surfaces ───────────────────────
 
@@ -314,7 +314,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 	 * can navigate directly to /work/bet/:betId/task/:taskId without a real DB.
 	 * page.route() mocks /api/bets/:betId returning a BetDetail with one task
 	 * whose startedAt = SEED_CREATED_AT. WorkTask renders that via relativeLong()
-	 * into data-testid="task-started-at". Screenshot saved to plans/AI3/proof/.
+	 * into data-testid="task-started-at". Screenshot saved to test-results/.
 	 */
 	test("WorkTask work page renders relative label with shared register", async ({ page }) => {
 		// Mock /api/bets/:betId — useBet calls GET /api/bets/<betId>
@@ -355,10 +355,10 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		const text = await startedAtEl.textContent();
 		expect(text).not.toBe("—");
 
-		// Capture proof screenshot for plans/AI3/proof/surface-4-work-task.png
+		// Capture proof screenshot for test-results/AI3-surface-4-work-task.png
 		fs.mkdirSync(PROOF_DIR, { recursive: true });
 		await page.screenshot({
-			path: path.join(PROOF_DIR, "surface-4-work-task.png"),
+			path: path.join(PROOF_DIR, "AI3-surface-4-work-task.png"),
 			fullPage: false,
 		});
 	});
@@ -383,7 +383,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 		// Capture surface-1 screenshot
 		fs.mkdirSync(PROOF_DIR, { recursive: true });
 		await page.screenshot({
-			path: path.join(PROOF_DIR, "surface-1-thread-list.png"),
+			path: path.join(PROOF_DIR, "AI3-surface-1-thread-list.png"),
 			fullPage: false,
 		});
 
@@ -397,7 +397,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 		// Capture surface-2 screenshot
 		await page.screenshot({
-			path: path.join(PROOF_DIR, "surface-2-knowledge-list.png"),
+			path: path.join(PROOF_DIR, "AI3-surface-2-knowledge-list.png"),
 			fullPage: false,
 		});
 
@@ -413,7 +413,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 
 		// Capture surface-3 screenshot
 		await page.screenshot({
-			path: path.join(PROOF_DIR, "surface-3-notification-popover.png"),
+			path: path.join(PROOF_DIR, "AI3-surface-3-notification-popover.png"),
 			fullPage: false,
 		});
 
@@ -483,7 +483,7 @@ test.describe("AC-1: one-clock label agreement across surfaces", () => {
 			`Compact register identical (surfaces 1-3): ${compactLabels.size === 1}`,
 			`Cross-register structural guarantee (s4 === s1 + " ago"): ${workTaskLabel === `${threadLabel} ago`}`,
 		].join("\n");
-		fs.writeFileSync(path.join(PROOF_DIR, "labels.txt"), labelsContent, "utf8");
+		fs.writeFileSync(path.join(PROOF_DIR, "AI3-labels.txt"), labelsContent, "utf8");
 	});
 });
 
