@@ -392,12 +392,24 @@ out. It is reverted rather than committed red. Three things it turned up, all of
    cannot be reached, so the agent has no tools and can never call `reply()`. The built-in harness
    never noticed, because it calls tools in-process; this is the single sharpest illustration of what
    the built-in harness has been hiding. Bind a real free port first.
-3. **Five full servers, each with its own durable poller, do not coexist in one file** against a
+3. **codex does not complete a turn on this machine, and that is not this lane's doing.** With the two
+   fixes above applied, `builtin` (13s) and `claude` (51s) pass alone; `codex` produces no assistant
+   message at all inside 240s. The `real-harness-return-enforcement` codex lane **already fails on
+   `origin/main`** in the same way (its binary never reaches `turn.completed`), verified by restoring
+   main's production files and re-running. So codex is red in two independent lanes for a reason that
+   predates this work — and "every harness" coverage cannot be honestly claimed until that is
+   understood. `cursor-agent` is the other harness already red on main.
+4. **Five full servers, each with its own durable poller, do not coexist in one file** against a
    fixture DB that truncates between tests — the leftovers surface as
    `Unknown agent request <id>` unhandled rejections. `assistant-reply-live-harness` avoids this by
    driving `composition.runSession` directly instead of booting a server per lane; the handoff proof
    cannot, because the HTTP → poller chain IS what it proves. Either the lanes get one file each, or
    disposal has to be provably complete between them.
+
+**The written lane is kept as `plans/remove-builtin-harness/AU9-all-harness-lane.ts.draft`** — a draft,
+not a test, so nothing runs it. It carries all the fixes above. Restoring it is a copy; what it needs
+is an answer on codex, not more rewriting. The committed test stays `builtin`-only meanwhile, so the
+branch is green and the gap is stated rather than hidden.
 
 ---
 
