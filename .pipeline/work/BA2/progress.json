@@ -1,0 +1,302 @@
+{
+  "id": "BA2",
+  "title": "A human approves an agent's risky action and the agent can then take it",
+  "track": "BA",
+  "tier": "mvp",
+  "status": "in-progress",
+  "phase": "phase-2-complete",
+  "branch": "claude/pipeline-ba2-264d90",
+  "base": "dc8d1cbd71a071bcfde4ac4dfaeda835e9073d0e",
+  "sessions": [
+    {
+      "started": "2026-08-25",
+      "phase": "preflight",
+      "note": "worktree verified clean off origin/main; refine and design skipped per plan Pre-build"
+    },
+    {
+      "started": "2026-08-25",
+      "phase": "architecture",
+      "note": "planner produced architecture.md + feasibility.md; all nine claimed breaks verified true, five further breaks found (E1-E5)"
+    },
+    {
+      "started": "2026-08-25",
+      "phase": "architecture-revision-2",
+      "note": "planner accepted all 5 round-2 blockers; orchestrator independently verified the load-bearing fix (provisioner.ts:1331-1337 hands the built registry to openMcpBridge for non-builtin adapters, inside a try - the capturing-bridge route to a real registry is genuine)"
+    }
+  ],
+  "phasesSkipped": {
+    "refine": "plan Pre-build names architecture only; plan states outcome, ACs, constraints and scope unambiguously",
+    "design": "plan Pre-build explicitly excludes design: existing review screen, behaviour change only"
+  },
+  "evaluations": [
+    {
+      "phase": "architecture-critique",
+      "attempt": 1,
+      "verdict": "BLOCKED",
+      "blocking": 4,
+      "summary": [
+        "B1: review message lands in a task thread no surface can open it from; renders with an empty body on the task page",
+        "B2: reading the approval marks in the provisioner reopens the founder-closed run-orchestration read edge, and the doc asserts the opposite; how the mark set reaches classifyReversibility is undeclared",
+        "B3: workflow armed on every session but capture needs a task; task-less sessions FK-violate and throw, outside the failure sink",
+        "B4: folding the verdict post-commit puts two 404s and a throw after the thread is resolved - silent failure reproduced in a new place"
+      ],
+      "returnedToPlanner": true
+    },
+    {
+      "phase": "architecture-critique",
+      "attempt": 2,
+      "verdict": "BLOCKED",
+      "blocking": 5,
+      "reviewer": "fresh, not shown round 1",
+      "summary": [
+        "B1: anchor is the bet thread but the loader returns taskId; ReviewPage picks host by taskId first, so the verdict posts to the wrong thread and the server 400s",
+        "B2: the new pre-flight 4xx refusal becomes an unhandled rejection in the client - human clicks approve and sees nothing",
+        "B3: three production submit sites bypass the wrapper the marks are stamped in (policy-bindings task_run, routine-scheduler, assistant-turn-coherence)",
+        "B4: Lane 1 premise false - every user of the named precedent stubs the provisioner, so the only CI-gated lane cannot reach a provisioner-built registry",
+        "B5: the guard named as live proof of the closed read edge never reaches provisionSession, so it cannot go red for it"
+      ],
+      "upheld": [
+        "reversibility inversion",
+        "deletions",
+        "configuration_overrides store choice",
+        "announce/terminate split",
+        "the bet-thread open hop itself"
+      ],
+      "returnedToPlanner": true
+    },
+    {
+      "phase": "architecture-critique",
+      "attempt": 3,
+      "verdict": "BLOCKED",
+      "blocking": 3,
+      "reviewer": "fresh, not shown rounds 1-2",
+      "summary": [
+        "B1: two of the five reachable verdict decisions (approve-with-comments, edit) map to nothing - resolves the review and mints no grant",
+        "B2: ReviewPage discards the post result, so an existing 403 path already shows the human nothing; the fix closed only the new path",
+        "B3: the cited precedent hand-inserts the request row and never calls drainIntents, so Lane 1 step 1 would assert on its own setup"
+      ],
+      "upheld": [
+        "intents.submit enumeration",
+        "by-construction closure of the stamp",
+        "openMcpBridge yields the provisioner-built registry",
+        "dedicated verdict route dead",
+        "annotations + proposed_calls.reversibility dead",
+        "mvp proportionality",
+        "BA/AU ownership boundary"
+      ],
+      "reviewerNote": "none requires a redesign; all three are one-paragraph decisions"
+    },
+    {
+      "phase": "architecture-critique",
+      "attempt": "3-corrections",
+      "verdict": "CLEARED",
+      "verifiedBy": "orchestrator, directly against the code per the adjudication",
+      "checked": [
+        "VERDICT_DECISIONS has five members and all five now map; approve-with-comments grants consistently with verdictDecisionLabel (thread.ts:337-340) and approval-rate.ts:82",
+        "client handles the whole VerdictPostOutcome union; forbidden no longer dropped",
+        "Lane 1 split into Half A (real intents.submit -> real drainIntents, red if the stamp is reverted) and Half B (drained row -> provisioner-built registry via capturing openMcpBridge)",
+        "pre-flight now leads with the no-proposed-call carve-out so ordinary review verdicts proceed"
+      ]
+    },
+    {
+      "phase": "architecture-critique-v2",
+      "attempt": 3,
+      "verdict": "BLOCKED",
+      "blocking": 4,
+      "summary": [
+        "BLK-1: approval path specified against a verdict route with zero production callers - the browser posts to the message endpoint, whose handler discards the decision",
+        "BLK-2: the five-verdict-enum defect does not exist on any reachable path; that scope is removed",
+        "BLK-3: the re-keyed resolver reads messages, owned by conversation, undeclared",
+        "BLK-4: a required taskId on ReviewPayload breaks read-back of every existing review message"
+      ],
+      "upheld": [
+        "ownership",
+        "the adjudication seam",
+        "the four shims",
+        "AC5 invariant",
+        "opencode isolation",
+        "the deletions",
+        "the evidence design"
+      ]
+    },
+    {
+      "phase": "architecture-critique-v2",
+      "attempt": 4,
+      "verdict": "BLOCKED",
+      "blocking": 2,
+      "note": "reviewer: the gap is small, both closed by editing existing sections, no new mechanism or scope, design not needed",
+      "summary": [
+        "BLK-1: the Open review button is hidden unless a bet resolves - three files gate the render and none is in T4b's list, so the human path is still dead",
+        "BLK-2: a throw on post-commit resumption leaves approved-but-not-done with nothing in the thread and nothing in the browser"
+      ]
+    },
+    {
+      "phase": "architecture-critique-v2",
+      "attempt": "4-corrections",
+      "verdict": "CLEARED",
+      "verifiedBy": "orchestrator, directly against the document and the code",
+      "checked": [
+        "BLK-1: step 0 added ahead of the three fixes; T4b file list extended to parts/part.ts, PartList.tsx, Conversations.tsx; evidence moved up to a Conversations-level assertion",
+        "BLK-2: the post-commit block is wrapped so any failure - predicate or thrown - takes the cannot-resume branch, and the POST still returns success so the page refreshes",
+        "ruling 8 applied: no design pass, open design question withdrawn",
+        "ruling 9 applied: requirements D12 rewritten as CONFIRMED",
+        "architecture section 9 states no open founder questions remain"
+      ]
+    }
+  ],
+  "artifacts": {
+    "interview": ".pipeline/work/BA2/interview-2026-08-25.md",
+    "plan": ".pipeline/work/BA2/plan.md",
+    "requirements": ".pipeline/work/BA2/requirements.md",
+    "founderRulings": ".pipeline/work/BA2/founder-rulings.md",
+    "superseded": ".pipeline/work/BA2/superseded/",
+    "harnessResearch": ".pipeline/work/BA2/harness-research/",
+    "harnessFindings": ".pipeline/work/BA2/harness-research/FINDINGS.md"
+  },
+  "approvals": {
+    "conceptInterview": "founder confirmed the synthesis 2026-08-25",
+    "planRewrite": "founder instructed the rewrite; the interview is the authority",
+    "singlePackage": "founder: one package, split into batches or phases if necessary",
+    "rulings": {
+      "preMarked": "nothing ships pre-marked",
+      "enabledToggle": "BA9's row - untouched by BA2",
+      "design": "no design pass - use the existing affordance; review appears in the task's thread or a new one in your conversation (ruling 8)",
+      "decline": "CONFIRMED - decline tells the agent why and it may come back; previously an assumption (ruling 9)",
+      "gateProof": "accepted on simplicity, recorded as deferred rather than independently reasoned (ruling 10)",
+      "reviewScreens": "ruling 11 - the review screens working and being reachable is in scope; 'accessible' read as reachable/usable, not assistive-tech a11y, and flagged",
+      "reviewCanvases": "ruling 12 - the content pipeline is IN scope; canvases must render real data; bar is a full end-to-end demonstration",
+      "canvases": "ruling 13 - six-kind consolidation stands; canvases stay and are wired to it; proof is a manual test of an agent-made review being seen and approved",
+      "demoData": "ruling 14 - no demo data in productive code; prefilled demo ROWS are fine. Seeding the three unexercised canvases is approved (it is data). The nine substitution sites, FIXTURE_REVIEW on the shipping route, and the checkout mock are prohibited, not just defects.",
+      "accessible": "ruling 15 - CONFIRMED: reachable and usable, not assistive-technology accessibility. Was an orchestrator assumption; now a founder ruling.",
+      "visualDiff": "ruling 17 - delete the fabricated screens; real visual content arrives as image artifacts through the six consolidated kinds; demo instances only via database seeding. T4e-b unblocked."
+    },
+    "conceptGate": "APPROVED 2026-08-25"
+  },
+  "verdicts": {},
+  "adjudications": [
+    {
+      "after": "evaluation 3",
+      "decision": "continue with a changed strategy",
+      "rationale": "findings converged 4 -> 5 -> 3, reviewer states no redesign needed, and the three corrections are narrow and directly checkable; a fourth full audit would re-verify what three independent reviewers have now upheld",
+      "changedStrategy": "narrow correction pass by the planner, verified directly by the orchestrator against the code rather than by a fourth open-ended critique",
+      "evaluationCountReset": true
+    },
+    {
+      "after": "evaluation 3 of the reconceived architecture",
+      "decision": "continue with a changed strategy",
+      "rationale": "findings are narrow and the reviewer upheld the rest under enumeration; BLK-1 was caused by an orchestrator instruction, not by the planner",
+      "changedStrategy": "lift the blanket quarantine on superseded/feasibility.md - its concept is dead but its path:line audit of the current tree is accurate, and blanket-ignoring it lost the verified fact that the verdict route has no production caller",
+      "orchestratorError": "instructing the planner to ignore the superseded folder entirely discarded a verified fact audit along with the rejected concept"
+    }
+  ],
+  "gate": {
+    "name": "concept gate",
+    "state": "APPROVED 2026-08-25",
+    "note": "build authorised"
+  },
+  "rejection": {
+    "date": "2026-08-25",
+    "scope": "architecture.md and plan.md both rejected - the framing, not the execution",
+    "founderPoints": [
+      "reviews are not bet-scoped; tasks will exist without bets; if a denominator is needed it is the TASK, not the bet",
+      "review thread placement: probably its own thread (an agent reaching out to a human mid-task), else the task's thread, else back to the thread the task started from",
+      "classifying what is dangerous needs flexibility; nobody maintains lists anymore; classifiers are the thing now - this overturns the no-classifier reading",
+      "start from: an agent wants to do something destructive and asks for approval, PROPOSING what kind of request it may do afterwards - even though it could have acted without asking",
+      "the value is learning what agents themselves think is dangerous or needs review",
+      "a review is a formalized way of communicating, including artifacts and examples",
+      "no gigantic machinery around blocking commands; it is usually not one command but the next ACTION"
+    ],
+    "next": "live interview with the founder to establish the real concept before anything is re-planned"
+  },
+  "nextAction": "Phase 1 - establish what each of the five supported harnesses can actually do about intercepting an action the agent takes inside its session. Verified per harness, not assumed. This precedes architecture.",
+  "phase1": {
+    "result": "all four CLI harnesses can block a session action and return text the model reads - proven live against real binaries, not documentation",
+    "versions": {
+      "claude-code": "2.1.220",
+      "codex": "codex-cli 0.146.1",
+      "opencode": "1.18.16",
+      "cursor-agent": "2026.08.25-3e8eec8",
+      "builtin": "in-process"
+    },
+    "shapingFacts": [
+      "native approval is unusable headlessly on every harness - hooks are the only path",
+      "rules must be evaluated in the hook body (codex matcher is tool-names-only), so one rule engine in HyperIdle plus four thin shims",
+      "the hook must report back over the bridge or HyperIdle never learns a block happened (codex emits no JSONL for a block)",
+      "blocking and the agent understanding are separate and fail separately per harness",
+      "fail-open is silent on codex, cursor-agent and opencode - a positive per-session proof that the gate is live is required and is not yet in the ACs"
+    ],
+    "founderDecisionsOpen": [],
+    "preExistingDefects": [
+      "opencode return-enforcement plugin has never run (raised as separate task)",
+      "opencode agents touching paths outside the sandbox are silently auto-rejected and the turn ends"
+    ],
+    "founderDecisionsTaken": [
+      "mechanism: HOOKS on all four CLI harnesses - founder confirmed. Native harness approval is not an option anyway: it is unusable headlessly on every one of them.",
+      "holding the agent inline: WITHDRAWN - the agent is frozen inside the tool call and cannot compose the review; D10 stands, approval resumes the agent",
+      "the push-back is two pieces: standing policy in the seed prompt (naming submit_review), and a terse fact in the hook deny message - an instruction in the deny message is what Sonnet refused as prompt injection",
+      "builtin: OUT OF SCOPE - ignore it; no registry-level special case. Accepted consequence: a team rule does not reach a builtin agent."
+    ]
+  },
+  "corrections": [
+    "Reported to the founder that the canvases never render real data. Wrong: the demo world proves all nine renderers work. The gap is upstream - no agent can produce the data."
+  ],
+  "openIssues": [
+    {
+      "id": "stale-base-and-mcp-floor",
+      "found": "2026-08-28",
+      "what": "origin/main advanced from dc8d1cbd7 to eaaa74de8 since this branch was cut. Two consequences.",
+      "detail": [
+        "The capability floor reads 10 on this branch and 14 on main - main raised it; nobody here lowered it. A rebase resolves it.",
+        "npm run lint reports one error: floors-tight, kind mcp, declared floor 29 vs 38 live. The floor is 29 on both main and this branch, so the question is whether this branch raised the live count - T2's red phase added POST /action-check to mcp-route.ts and widened mcp-bridge and mcp/index, which plausibly did. If it is ours, the ratchet must be tightened in this PR."
+      ],
+      "resolution": "rebase onto current origin/main, reinstall (a rebased worktree needs it before check/test can be trusted), then re-run lint and settle the floor. Do it when no agent is mid-run.",
+      "status": "resolved",
+      "resolvedNote": "Rebased onto eaaa74de8. Journal conflict: kept main 0061-0064, renamed ours to 0065_team_action_rules (idx 65). Migration chain verified 66/66 against a fresh PGlite DB. capability floor: main win (14), no local edit needed - text merged clean. mcp floor: live 33 on origin/main vs 38 here - this branch raised it (T2 route+widening). Tightened floor 29 -> 34 (suggestedFloor). table-owners totals stayed 40, verified against live schema. Also fixed a real type error surfaced by the rebase merge: action-gate-provisioning test mock was missing writePluginStdioMcpEntries (added by main BA9b), matched sibling test convention (neverCalled). check, lint, and the four BA2 integration test files all green."
+    },
+    {
+      "id": "no-durable-session-renders-task-description",
+      "status": "open - separate work package",
+      "found": "2026-08-29",
+      "what": "No durable session - review_approved (T7 fixed within BA2's own path) included until this finding, and task_run/routine_run/knowledge_action/assistant_turn still today - has its task's own instruction rendered in its prompt. `RunContextBundle` (agent-orchestration/run-orchestration/src/contracts.ts:34-54) carries `taskId` but no description, and `assembleTaskFreePrompt` (provisioner.ts:553-621), the branch every durable session takes because `requestContext` is always set (provisioner.ts:1462-1466 requires `!params.requestContext`), never reads `contextBundle` at all - only `sourceSection`/`conversationSection` built from `params.transcript`. `run-orchestration` may not read the task itself to fill the gap (blind, request-driven executor, architecture.md 2.3/2.6).",
+      "sharperEvidenceFromT7RealBinaryRun": [
+        "BA2's own fix (review-reengagement.ts's buildResumeTranscript) bakes task.title/description into the transcript core-side, and this is PROVEN correct at both levels: the unit test (review/src/__tests__/review-reengagement.integration.test.ts) and a live CLAUDE.md dump from the real-binary lane (local-sb-2/CLAUDE.md) that shows the baked sentence reaching the resumed session's system prompt exactly as designed.",
+        "But a task's `description` column is a STANDING field (set once, at task creation) and can never carry a dynamically-generated, session-specific instruction (e.g. an exact file path chosen at runtime). The real-binary test's own fixture (action-gate-realbinary.integration.test.ts:294-326, `seedTaskSessionRequest`) proves this by construction: it seeds `tasks` with no `description` at all, and injects the actual one-shot instruction only into an ephemeral `transcriptBake`/`contextBundle.task.description` scoped to the FIRST session's own AgentSessionRequest - discarded once that session ends. The test file's own comment ('this is what actually gets the instruction in front of the model on the durable path') shows its author already knew task.description would not reach the first session either, without that workaround.",
+        "Consequence, reproduced live (haiku, 3/3 attempts across two separate runs): a review_approved-resumed session, even carrying BA2's new task-instruction sentence (title only, no description - ruling 14 correctly declines to invent one), replies 'I appreciate the approval, but I don't have context about what task I was working on or what action was blocked' instead of acting. It is not refusing or suspecting injection - it genuinely lacks the SPECIFIC instruction, because that instruction was never durable.",
+        "The real fix for full resumption fidelity is carrying the ORIGINAL blocked session's own instruction/turns forward into the resumed session - a capability distinct from (and larger than) rendering the task's standing description, and touches the same orchestration-layer prompt-assembly code shared by every durable session kind. Out of BA2's scope by the same reasoning as the general case above."
+      ],
+      "evidence": [
+        "layers/agent-orchestration/run-orchestration/src/contracts.ts:34-54",
+        "layers/agent-orchestration/run-orchestration/src/provisioner.ts:553-621,1462-1490",
+        "layers/core-api/src/__tests__/action-gate-realbinary.integration.test.ts:294-326"
+      ]
+    },
+    {
+      "id": "visual-diff-has-no-image-source",
+      "status": "queued",
+      "found": "2026-08-29",
+      "what": "visual_diff is now honest but permanently blank: it always renders 'No rendered image supplied', because VisualDiffPayload carries only labels (before.label, after.label, diffRegions id/label, overlayMode) - there is no image field anywhere.",
+      "whyItMatters": "Ruling 17 says real visual content reaches a review as artifacts of the six consolidated kinds, image being the relevant one. The canvas does not read attached artifacts, so that mechanism is specified and unwired. Until it is, this canvas can never show anything.",
+      "theWork": "Have the canvas render an attached image artifact - the artifact channel already exists from T4d - then seed a demo image artifact through the demo world, per ruling 14's 'demo stuff only ever enters through database population'.",
+      "queuedAfter": "the four harness tasks, per the founder's instruction not to stop until all four work"
+    }
+  ],
+  "tasks": {
+    "T1": "green",
+    "T2": "green",
+    "T3": "green",
+    "T4c": "green",
+    "T4": "green 11/12 - the 12th is T4d's schema split, documented in the test",
+    "T7": "GREEN - the real-binary lane passes 4/4, confirmed twice consecutively (91s, 111s) against the real claude binary"
+  },
+  "phase2Result": {
+    "provenOn": "2026-08-29, real claude binary, two consecutive clean runs",
+    "whatItProves": "a team rule blocks a real agent's shell command; the agent understands the push-back and raises a review with a real artifact and the rule id; the clearance is stamped; a human approves through the live route; the clearance clears once; the agent is resumed knowing both what it was doing and what was cleared, and completes the work. With no rule, the same action runs untouched and no review is created.",
+    "modelCompliance": "claude-haiku-4-5 complied fully - stopped retrying, called submit_review with the correct rule id and a real artifact, no refusal and no suspected-injection language in any run. The two-piece push-back design (standing policy in the seed prompt, terse fact in the deny message) is validated on a real model.",
+    "defectsOnlyThisLaneFound": [
+      "the per-session gate was dropped at two hops, so the bridge never received one for any session - the feature was inert in production while every service test passed",
+      "submit_review validated clearsRuleId and then discarded it, so the clearance was never stamped and approving could never have cleared anything",
+      "architecture section 2.9 - telling the resumed agent what was cleared - was specified and never built",
+      "the proof fixture seeded a task with no description, a shape create_task cannot produce, which made a correct resumption fix look insufficient"
+    ]
+  }
+}
