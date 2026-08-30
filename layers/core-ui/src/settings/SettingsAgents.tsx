@@ -569,7 +569,6 @@ export function SettingsAgents(): JSX.Element {
 						}}
 						saving={adding}
 						error={addError}
-						fetchTemplateOnMount
 						filesystems={filesystems}
 					/>
 				</div>

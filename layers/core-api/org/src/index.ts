@@ -43,7 +43,6 @@ export type { AgentScaffoldSpec, ScaffoldResult } from "./scaffold-agents.js";
 export { persistScaffoldedAgents } from "./scaffold-agents.js";
 
 // -- system prompt templates (AU44 AU20-fd — moved from framework/factory-defaults) --
-export { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
 
 // -- team lookup (AU20 Am7 / AU44 B1 — team_members dissolved) --
 export type { CreateTeamInput } from "./team-lookup.js";

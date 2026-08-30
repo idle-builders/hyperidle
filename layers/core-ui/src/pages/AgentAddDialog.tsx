@@ -14,7 +14,7 @@
  */
 
 import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Dialog, Input, KeyValue, Select } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
@@ -62,7 +62,6 @@ export function AgentAddDialog({
 	const { showToast } = useToast();
 	const [formValues, setFormValues] = useState<AddFormValues>(INITIAL_FORM);
 	const [creating, setCreating] = useState(false);
-	const templateFetchAbortRef = useRef<AbortController | null>(null);
 
 	// Reset form on open
 	useEffect(() => {
@@ -73,36 +72,13 @@ export function AgentAddDialog({
 
 	const isDirty = formValues.name.trim().length > 0 || formValues.systemPrompt.trim().length > 0;
 
-	// Fetch template for the selected role (abort on rapid changes)
-	const fetchTemplate = useCallback(async (role: string): Promise<void> => {
-		if (templateFetchAbortRef.current) {
-			templateFetchAbortRef.current.abort();
-		}
-		const controller = new AbortController();
-		templateFetchAbortRef.current = controller;
-		try {
-			const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(role)}`, {
-				signal: controller.signal,
-			});
-			if (!res.ok) return;
-			const json = (await res.json()) as { role: string; content: string };
-			setFormValues((prev) => ({ ...prev, systemPrompt: json.content }));
-		} catch (err) {
-			if (err instanceof Error && err.name === "AbortError") return;
-		} finally {
-			if (templateFetchAbortRef.current === controller) {
-				templateFetchAbortRef.current = null;
-			}
-		}
-	}, []);
+	// @lore BA9g: prefilling a new agent's identity from the role's template is
+	// gone with the route and the files behind it. The personas belong to the
+	// `role-personas` plugin; a new agent starts with an empty identity.
 
-	const handleRoleChange = useCallback(
-		(newRole: string): void => {
-			setFormValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
-			void fetchTemplate(newRole);
-		},
-		[fetchTemplate],
-	);
+	const handleRoleChange = useCallback((newRole: string): void => {
+		setFormValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
+	}, []);
 
 	const handleCreate = useCallback(async (): Promise<void> => {
 		if (!formValues.name.trim()) return;

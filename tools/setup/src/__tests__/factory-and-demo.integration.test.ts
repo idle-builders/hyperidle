@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { sql } from "drizzle-orm";
 import { seedDemoWorld } from "../demo-fixture.js";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
@@ -21,6 +22,34 @@ async function queryRows<T extends Record<string, unknown>>(
 ): Promise<T[]> {
 	const result = await db.execute(sql.raw(query));
 	return (result as { rows: T[] }).rows;
+}
+
+/**
+ * The persona the `role-personas` plugin ships for a role.
+ *
+ * @lore BA9g: these were `docs/system-prompts/*.md`, read by the runtime through
+ * `readSystemPromptTemplateForRole`. That reader is deleted — HyperIdle ships a
+ * single agent with a bare AGENTS.md and holds no built-in idea of a "builder".
+ * The demo world is what a team looks like once the plugin is installed, so the
+ * fixture and these tests read the plugin's own files.
+ */
+function rolePersona(role: string): string | null {
+	const files: Readonly<Record<string, string>> = {
+		builder: "builder.md",
+		designer: "designer.md",
+		facilitator: "facilitator.md",
+		growth: "growth.md",
+		ops: "ops.md",
+		product_manager: "product-manager.md",
+		qa_engineer: "qa-engineer.md",
+	};
+	const filename = files[role];
+	if (!filename) return null;
+	try {
+		return readFileSync(resolve("plugins/role-personas/personas", filename), "utf-8");
+	} catch {
+		return null;
+	}
 }
 
 describe("A2: Seed script", () => {
@@ -192,7 +221,7 @@ describe("A2: Seed script", () => {
 		await seedDemoWorld(db);
 
 		for (const role of SYSTEM_PROMPT_FILE_ROLES) {
-			const content = readSystemPromptTemplateForRole(role);
+			const content = rolePersona(role);
 			expect(content, `${role} system prompt file must exist and be readable`).toBeTruthy();
 			expect((content ?? "").length).toBeGreaterThan(50);
 		}
@@ -208,12 +237,12 @@ describe("A2: Seed script", () => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
-		const content = readSystemPromptTemplateForRole("facilitator");
+		const content = rolePersona("facilitator");
 		expect(content).toBeTruthy();
 		expect((content ?? "").length).toBeGreaterThan(50);
 
 		// @lore AD8c: old role name must not resolve
-		expect(readSystemPromptTemplateForRole("practice_facilitator")).toBeNull();
+		expect(rolePersona("practice_facilitator")).toBeNull();
 	});
 });
 

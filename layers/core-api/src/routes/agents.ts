@@ -5,7 +5,6 @@
  * POST   /api/agents              — create new agent (founder-only)
  * PATCH  /api/agents/:id         — update agent config (founder-only)
  * DELETE /api/agents/:id         — soft-delete to "retired" (founder-only)
- * GET    /api/agents/templates/:role — fetch system prompt template (docs-backed, AU18)
  *
  * @lore X3: Separate from /api/users because the self-edit guard on PATCH /api/users/:id
  * returns 403 when the authenticated user tries to edit another user. Agent management
@@ -36,7 +35,7 @@ import {
 } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import { getAgentIdentityIds, upsertAgentIdentity } from "@hyperidle/knowledge";
-import { getTeam, readSystemPromptTemplateForRole } from "@hyperidle/org";
+import { getTeam } from "@hyperidle/org";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
@@ -169,29 +168,11 @@ export function createAgentRoutes(
 		return handleAgentProfile(c, db, adapterPool, agentOrchestration);
 	});
 
-	// ── GET /templates/:role — MUST come before /:id to avoid route collision ──
-	// @lore X3: Hono matches routes in registration order. If /:id was registered
-	// first, "templates" would be captured as the id param. Register the static
-	// path prefix first.
-	//
-	// @lore AU18 (round 3 CRITICAL fix): previously a DB-key lookup against
-	// `factorySettings.system_template:<role>` (traversal-safe by construction —
-	// a table key lookup, not a filesystem path). Now resolves via
-	// `readSystemPromptTemplateForRole`, which maps `role` through the
-	// canonical `SYSTEM_PROMPT_TEMPLATE_FILES` map BEFORE any filesystem
-	// access — an untrusted `role` that isn't an exact map key returns `null`
-	// (404) without ever touching `fs`, so traversal stays closed by
-	// construction. See system-prompt-templates.ts for the full rationale.
-	router.get("/templates/:role", async (c) => {
-		const role = c.req.param("role");
-		const content = readSystemPromptTemplateForRole(role);
-
-		if (content === null) {
-			return c.json({ error: "No template for role", code: "NOT_FOUND" }, 404);
-		}
-
-		return c.json({ role, content });
-	});
+	// @lore BA9g: `GET /templates/:role` is DELETED. It served
+	// `docs/system-prompts/*.md`, which moved into the `role-personas` plugin —
+	// HyperIdle ships a single agent with a bare AGENTS.md and holds no opinion
+	// about what a "builder" is. A plugin's agent brings its own identity, and an
+	// agent you create starts empty until you write one.
 
 	// ── GET / — list AI agents (excludes system role and retired) ──
 	router.get("/", async (c) => {

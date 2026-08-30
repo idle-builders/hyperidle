@@ -396,6 +396,27 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 					teamId: scopeKind === "team" ? scopeId : null,
 					createdAt: installTs,
 				});
+
+				// Who the agent is. A plugin contributing an agent contributes its
+				// identity — the gap BA9f named, closed now that an identity is a
+				// knowledge document. Deterministic id so a reinstall updates the same
+				// document instead of orphaning it, and `upsertPluginDocument` leaves
+				// the body alone on conflict so a person's edit survives.
+				if (agentSpec.identity) {
+					const identityId = `ki_af_${dbId}`;
+					knowledgeIds.push(identityId);
+					await upsertPluginDocument(tx, {
+						id: identityId,
+						pluginId: plugin.id,
+						title: `${agentSpec.name} — identity`,
+						scopeKind: "user",
+						scopeId: dbId,
+						topic: null,
+						body: agentSpec.identity,
+						ts: installTs,
+						role: "agent_file",
+					});
+				}
 			}
 
 			// Materialize declared routines. insertRoutine onConflictDoNothing makes

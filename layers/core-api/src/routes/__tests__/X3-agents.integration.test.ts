@@ -525,84 +525,9 @@ describe("X3 AC-7: DELETE /api/agents/:id soft-deletes", () => {
 // AC-8: GET /api/agents/templates/:role returns template content
 // ---------------------------------------------------------------------------
 
-describe("X3 AC-8: GET /api/agents/templates/:role returns template content", () => {
-	beforeEach(() => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-	});
-
-	afterEach(() => {
-		vi.unstubAllEnvs();
-	});
-
-	test("returns 200 with { role, content } for product_manager", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/product_manager", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.role).toBe("product_manager");
-		expect(typeof body.content).toBe("string");
-		expect((body.content as string).length).toBeGreaterThan(0);
-	});
-
-	// @lore AU18: template content now comes from the real
-	// docs/system-prompts/product-manager.md file on disk (no seeded fixture).
-	test("template content matches the real docs/system-prompts/product-manager.md file", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/product_manager", {
-			headers: authHeaders(),
-		});
-		const body = (await res.json()) as Record<string, unknown>;
-
-		expect(body.content).toMatch(/Product Manager|PM|#/i);
-	});
-
-	// @lore AU18: `builder` now HAS a real template file
-	// (docs/system-prompts/builder.md, added by AB0) and is one of the 7
-	// canonical roles in SYSTEM_PROMPT_TEMPLATE_FILES — it resolves 200, not
-	// 404. `assistant` is the role that stays 404 by design: it has a
-	// docs/system-prompts/assistant.md file but is intentionally excluded
-	// from the canonical map because bootstrap never seeded it historically
-	// (@lore AD8a) — preserving today's 404 exactly (round 3 CRITICAL fix).
-	test("returns 200 for builder role (has a real template file, AB0)", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/builder", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(typeof body.content).toBe("string");
-		expect((body.content as string).length).toBeGreaterThan(0);
-	});
-
-	test("returns 404 for assistant role (excluded from the canonical map by design)", async ({
-		db,
-		app,
-	}) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/assistant", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(404);
-		const body = (await res.json()) as Record<string, unknown>;
-		expect(body.code).toBe("NOT_FOUND");
-	});
-
-	test("returns 404 for nonexistent role", async ({ db, app }) => {
-		await seedPrereqs(db);
-		const res = await app.request("/api/agents/templates/nonexistent_role", {
-			headers: authHeaders(),
-		});
-		expect(res.status).toBe(404);
-	});
-
-	test("returns 401 without auth header", async ({ requestWithoutAuth }) => {
-		const res = await requestWithoutAuth("/api/agents/templates/product_manager");
-		expect(res.status).toBe(401);
-	});
-});
+// @lore BA9g: AC-8 covered `GET /api/agents/templates/:role`, which served
+// `docs/system-prompts/*.md`. Both the route and those files are gone — the
+// personas are the `role-personas` plugin's, and HyperIdle ships a single agent
+// with a bare AGENTS.md rather than a built-in idea of what a "builder" is. A
+// plugin's agent brings its own identity (`BA9g-plugin-agent-identity`), and an
+// agent you create starts empty until you write one.

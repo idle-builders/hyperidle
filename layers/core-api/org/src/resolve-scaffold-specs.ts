@@ -1,6 +1,5 @@
 import { AGENT_ROLE_CATALOG, defaultRoster } from "@hyperidle/domain-model";
 import type { AgentScaffoldSpec } from "./scaffold-agents.js";
-import { readSystemPromptTemplateForRole } from "./system-prompt-templates.js";
 
 /**
  * @lore AU44 AU20-fd: moved from `framework/factory-defaults/src/agent-scaffold.ts`
@@ -39,6 +38,12 @@ const APP_ASSISTANT_SYSTEM_PROMPT =
 export function resolveAgentScaffoldSpecs(
 	request: AgentScaffoldRequest,
 ): readonly AgentScaffoldSpec[] {
+	// @lore BA9g: `systemPrompt` is always null here now. It used to be the role's
+	// template, read off `docs/system-prompts/*.md` at scaffold time. Those files
+	// moved into the `role-personas` plugin: HyperIdle ships a single agent with a
+	// bare AGENTS.md, and a builder, a designer, a PM are things a plugin brings
+	// rather than opinions the product holds. A scaffolded agent starts with no
+	// identity; install a plugin, or write one.
 	switch (request.trigger) {
 		case "team_scaffold": {
 			const specs: AgentScaffoldSpec[] = [];
@@ -48,7 +53,7 @@ export function resolveAgentScaffoldSpecs(
 					role,
 					name: `${request.teamName ?? "Team"} ${entry?.label ?? role}`,
 					agentCategory: entry?.category ?? "team",
-					systemPrompt: entry?.hasTemplate ? readSystemPromptTemplateForRole(role) : null,
+					systemPrompt: null,
 				});
 			}
 			return specs;
@@ -61,7 +66,7 @@ export function resolveAgentScaffoldSpecs(
 					role: request.role,
 					name: request.name ?? `${request.teamName ?? "Agent"} ${request.role}`,
 					agentCategory: entry?.category ?? "team",
-					systemPrompt: entry?.hasTemplate ? readSystemPromptTemplateForRole(request.role) : null,
+					systemPrompt: null,
 				},
 			];
 		}

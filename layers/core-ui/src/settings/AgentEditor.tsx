@@ -9,7 +9,6 @@
  *  - Role field is `RoleCombobox` (catalog + custom free-text, NOT a closed Select).
  *  - Model select comes from `modelOptionsForHarness(selectedDescriptor)` — DISCOVERED
  *    models only, never MODEL_CATALOG. Empty discovered list → affordance text.
- *  - `fetchTemplateOnMount` prop: when true, fetches the template for the initial role
  *    on mount (used when editing an existing agent whose prompt was auto-filled).
  *  - Props are fully controlled: parent owns draft + sets it on changes.
  *
@@ -32,10 +31,9 @@
 
 import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
-import { type JSX, useEffect, useRef } from "react";
+import type { JSX } from "react";
 import { Link as RRLink } from "react-router-dom";
 import { Button, Input, RoleCombobox, SectionLabel, Select, Toggle } from "../ds";
-import { apiFetch } from "../services/api-fetch.js";
 import {
 	declaredOptionsFor,
 	defaultChoiceLabel,
@@ -93,11 +91,6 @@ export interface AgentEditorProps {
 	/** Inline error (from 422 or save failure). */
 	error: string | null;
 	/**
-	 * When true, fetches the role template on mount and pre-fills systemPrompt
-	 * if empty. Used when editing an existing agent (role template for prompt hint).
-	 */
-	fetchTemplateOnMount?: boolean;
-	/**
 	 * AO1: the team's registered filesystems — pool for the per-bot injection control.
 	 * Absent → the filesystem control is not rendered.
 	 */
@@ -152,7 +145,6 @@ export function AgentEditor({
 	onCancel,
 	saving,
 	error,
-	fetchTemplateOnMount,
 	filesystems,
 	identityKnowledgeId,
 }: AgentEditorProps): JSX.Element {
@@ -172,37 +164,12 @@ export function AgentEditor({
 	];
 
 	// Template fetch on mount
-	const templateFetchRef = useRef<AbortController | null>(null);
 
-	useEffect(() => {
-		if (!fetchTemplateOnMount) return;
-		const controller = new AbortController();
-		templateFetchRef.current = controller;
-		void (async () => {
-			try {
-				const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(draft.role)}`, {
-					signal: controller.signal,
-				});
-				if (!res.ok) return;
-				const json = (await res.json()) as { role: string; content: string };
-				onDraftChange((prev) => ({
-					...prev,
-					systemPrompt: prev.systemPrompt || json.content,
-				}));
-			} catch (err) {
-				if (err instanceof Error && err.name === "AbortError") return;
-				// 404 (custom role with no template) → no-op, editor stays usable
-			} finally {
-				if (templateFetchRef.current === controller) {
-					templateFetchRef.current = null;
-				}
-			}
-		})();
-		return () => {
-			controller.abort();
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [onDraftChange, fetchTemplateOnMount, draft.role]);
+	// @lore BA9g: the editor used to prefill a new agent's identity from
+	// `GET /api/agents/templates/:role`. That route and the files behind it are
+	// gone — the personas are the `role-personas` plugin's, and HyperIdle holds
+	// no built-in idea of what a "builder" is. A new agent starts with an empty
+	// identity you write, or a plugin's agent brings its own.
 
 	const isAssistant = agentId.startsWith("ast-");
 
