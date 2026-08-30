@@ -46,3 +46,4 @@ rules:
   # architecture: <none yet>                  # → architecture, architecture-critique, review
   # security: <none yet>                      # → review
   # docs: <none yet>                          # → write-docs
+  taste: .claude/rules/taste.md          # → refine, program-design, pipeline
