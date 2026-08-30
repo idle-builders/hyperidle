@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type HyperIdleDb, taskDispatchAttempts } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts, type WriteExecutor } from "@hyperidle/db";
 import type { BakedWorkIntentRequest } from "@hyperidle/domain-model";
 import {
 	canTransitionTaskState,
@@ -8,8 +8,8 @@ import {
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { eq } from "drizzle-orm";
-import { TaskInvalidTransitionError } from "./errors.js";
-import type { AgentWorkIntentRecorder } from "./ports.js";
+import { CapacityExceededError, TaskCycleError, TaskInvalidTransitionError } from "./errors.js";
+import type { AgentWorkIntentRecorder, TeamCapacityReader } from "./ports.js";
 import type { TaskRunResolverDeps } from "./task-run-resolver.js";
 import { resolveTaskRunRequest } from "./task-run-resolver.js";
 import * as work from "./work-service.js";
@@ -31,6 +31,36 @@ import * as work from "./work-service.js";
 export interface TaskStateMachineDeps {
 	readonly workIntents: AgentWorkIntentRecorder;
 	readonly taskRunResolver: TaskRunResolverDeps;
+	/**
+	 * BB1: reads `teams.capacity` for the WIP check on `-> in_progress`. Same
+	 * injected-port shape the deleted bet state machine used, minus its write
+	 * half — the count is live, so there is nothing to write back.
+	 */
+	readonly teamCapacity: TeamCapacityReader;
+}
+
+/**
+ * BB1: reject a parent link that would make the tree cyclic — a task set as its
+ * own parent, or reparented under one of its own descendants.
+ *
+ * Called before any write that sets `parentTaskId`. The read and the write must
+ * share a transaction, or two concurrent reparents can each see an acyclic tree
+ * and together produce a cycle.
+ */
+export async function assertNoCycle(
+	exec: WriteExecutor,
+	taskId: string,
+	parentTaskId: string,
+): Promise<void> {
+	if (taskId === parentTaskId) {
+		throw new TaskCycleError(taskId, parentTaskId);
+	}
+	// If the proposed parent is somewhere in this task's own subtree, linking
+	// them closes a loop.
+	const subtree = await work.listSubtreeIds(exec, taskId);
+	if (subtree.includes(parentTaskId)) {
+		throw new TaskCycleError(taskId, parentTaskId);
+	}
 }
 
 export {
@@ -101,12 +131,35 @@ export async function transitionTask(
 			}
 
 			const now = new Date().toISOString();
+
+			// BB1: the WIP limit. Counted live inside this transaction rather than
+			// read off a stored tally, so two tasks starting at once cannot both
+			// see the same stale count and together exceed capacity — they
+			// serialize on the write lock the same way the bet commit path did.
+			//
+			// The count spans the whole team at every depth: what bounds the
+			// factory is how much work is actually running, not how many top-level
+			// commitments exist.
+			if (toState === "in_progress" && fromState !== "in_progress") {
+				const team = await deps.teamCapacity.getByTeamId(tx, task.teamId);
+				if (!team) {
+					throw new Error(`Team not found: ${task.teamId}`);
+				}
+				const running = await work.countTeamTasksInProgress(tx, task.teamId);
+				if (running >= team.capacity) {
+					throw new CapacityExceededError(task.teamId, team.capacity);
+				}
+			}
+
 			const { applied } = await work.transition(tx, "task", {
 				id: taskId,
 				guard: { field: "state", equals: fromState },
 				patch: {
 					state: toState,
 					updatedAt: now,
+					// BB1: moved off the deleted bet path, which stamped this on
+					// completion. Every task records when it finished.
+					...(toState === "done" ? { completedAt: now } : {}),
 				},
 			});
 

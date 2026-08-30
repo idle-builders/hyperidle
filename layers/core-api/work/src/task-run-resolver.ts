@@ -21,7 +21,7 @@
  * never a second read.
  */
 
-import type { Bet, HyperIdleDb, Task, Team, User } from "@hyperidle/db";
+import type { HyperIdleDb, Task, Team, User } from "@hyperidle/db";
 import type {
 	BakedAgentRunnableConfig,
 	BakedContextBundle,
@@ -132,7 +132,7 @@ export interface BakedTaskRunRequest {
 async function bakeTaskContextBundle(
 	db: HyperIdleDb,
 	task: Task,
-	bet: Bet,
+	ancestors: readonly Task[],
 	agent: User,
 	getTeamById: NonNullable<TaskRunResolverDeps["getTeamById"]>,
 	assembleSessionKnowledge: NonNullable<TaskRunResolverDeps["assembleSessionKnowledge"]>,
@@ -148,12 +148,13 @@ async function bakeTaskContextBundle(
 	return {
 		kind: "task",
 		task: { id: task.id, title: task.title, description: task.description, state: task.state },
-		bet: {
-			id: bet.id,
-			description: bet.description,
-			appetite: bet.appetite ?? "",
-			doneCondition: bet.doneCondition,
-		},
+		// BB1: root-first, so the agent reads the goal chain top-down.
+		ancestors: ancestors.map((a) => ({
+			id: a.id,
+			title: a.title,
+			description: a.description,
+			doneCondition: a.doneCondition,
+		})),
 		agent: { id: agent.id, name: agent.name, role: agent.role },
 		team: { id: team.id, name: team.name },
 		knowledge: toBakedContextKnowledgeItems(knowledge),
@@ -250,12 +251,21 @@ export async function resolveTaskRunRequest(
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionKnowledge, readServerConfig } = deps;
 	if (getTeamById && assembleSessionKnowledge) {
-		const bet = await work.get(db, "bet", task.betId);
-		if (bet) {
+		// BB1: the containing work is now a chain, not a single bet.
+		// `listAncestorIds` returns nearest-first; the bundle wants root-first.
+		const ancestorIds = await work.listAncestorIds(db, task.id);
+		const ancestorRows =
+			ancestorIds.length > 0 ? await work.list(db, "task", { ids: ancestorIds }) : [];
+		const byId = new Map(ancestorRows.map((a) => [a.id, a]));
+		const ancestors = [...ancestorIds]
+			.reverse()
+			.map((id) => byId.get(id))
+			.filter((a): a is Task => a !== undefined);
+		{
 			contextBundle = await bakeTaskContextBundle(
 				db,
 				task,
-				bet,
+				ancestors,
 				agent,
 				getTeamById,
 				assembleSessionKnowledge,

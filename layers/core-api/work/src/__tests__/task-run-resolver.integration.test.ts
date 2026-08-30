@@ -34,7 +34,6 @@
 
 import { findThread } from "@hyperidle/conversation";
 import {
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -49,20 +48,23 @@ import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
 
-async function seedTeamAndBet(
+async function seedTeamAndRootTask(
 	db: HyperIdleDb,
-	options: { readonly teamId: string; readonly betId: string },
+	options: { readonly teamId: string; readonly rootTaskId: string },
 ): Promise<void> {
 	const now = new Date().toISOString();
 	await db
 		.insert(teams)
 		.values({ id: options.teamId, name: options.teamId, phase: "build", createdAt: now });
-	await db.insert(bets).values({
-		id: options.betId,
+	await db.insert(tasks).values({
+		id: options.rootTaskId,
+		parentTaskId: null,
 		teamId: options.teamId,
+		title: "Task-run resolver bet",
 		description: "Task-run resolver bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 }
 
@@ -85,7 +87,7 @@ async function seedTask(
 	db: HyperIdleDb,
 	options: {
 		readonly taskId: string;
-		readonly betId: string;
+		readonly rootTaskId: string;
 		readonly teamId: string;
 		readonly state?: string;
 		readonly ownerAgentId?: string;
@@ -94,7 +96,7 @@ async function seedTask(
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
 		id: options.taskId,
-		betId: options.betId,
+		parentTaskId: options.rootTaskId,
 		teamId: options.teamId,
 		ownerAgentId: options.ownerAgentId ?? null,
 		title: "Task-run resolver task",
@@ -131,11 +133,11 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		db,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-1", betId: "bet-trun-1" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-1", rootTaskId: "bet-trun-1" });
 		await seedAgent(db, "agent-trun-1");
 		await seedTask(db, {
 			taskId: "task-trun-1",
-			betId: "bet-trun-1",
+			rootTaskId: "bet-trun-1",
 			teamId: "team-trun-1",
 			ownerAgentId: "agent-trun-1",
 		});
@@ -175,11 +177,11 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 
 	test("rejects a dispatch attempt that is no longer 'requested'", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-2", betId: "bet-trun-2" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-2", rootTaskId: "bet-trun-2" });
 		await seedAgent(db, "agent-trun-2");
 		await seedTask(db, {
 			taskId: "task-trun-2",
-			betId: "bet-trun-2",
+			rootTaskId: "bet-trun-2",
 			teamId: "team-trun-2",
 			ownerAgentId: "agent-trun-2",
 		});
@@ -201,11 +203,11 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 
 	test("rejects when the task is not in an agent-work-eligible state", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-3", betId: "bet-trun-3" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-3", rootTaskId: "bet-trun-3" });
 		await seedAgent(db, "agent-trun-3");
 		await seedTask(db, {
 			taskId: "task-trun-3",
-			betId: "bet-trun-3",
+			rootTaskId: "bet-trun-3",
 			teamId: "team-trun-3",
 			ownerAgentId: "agent-trun-3",
 			state: "done",
@@ -229,12 +231,12 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		db,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-4", betId: "bet-trun-4" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-4", rootTaskId: "bet-trun-4" });
 		await seedAgent(db, "agent-trun-4-attempt");
 		await seedAgent(db, "agent-trun-4-new-owner");
 		await seedTask(db, {
 			taskId: "task-trun-4",
-			betId: "bet-trun-4",
+			rootTaskId: "bet-trun-4",
 			teamId: "team-trun-4",
 			// Owner reassigned after the attempt below was created.
 			ownerAgentId: "agent-trun-4-new-owner",
@@ -256,7 +258,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 
 	test("rejects when the attempt's agent is not a runnable AI agent", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-5", betId: "bet-trun-5" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-5", rootTaskId: "bet-trun-5" });
 		// `tasks.owner_agent_id` / `task_dispatch_attempts.agent_id` FK to
 		// `users.id` — a real row must exist to satisfy the constraint. Seeded
 		// as `kind: "human"` (not `"ai"`) so the row is real but still fails
@@ -272,7 +274,7 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
 		});
 		await seedTask(db, {
 			taskId: "task-trun-5",
-			betId: "bet-trun-5",
+			rootTaskId: "bet-trun-5",
 			teamId: "team-trun-5",
 			ownerAgentId: "agent-trun-5-unrunnable",
 		});
@@ -325,20 +327,20 @@ describe("resolveTaskRunRequest — emit-time task_run resolver (work)", () => {
  * row, not read it twice.
  */
 describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
-	test("bakes a contextBundle (kind:'task') with task/bet/agent/team content + ranked knowledge", async ({
+	test("bakes a contextBundle (kind:'task') with task/ancestors/agent/team content + ranked knowledge", async ({
 		db,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
 
-		await seedTeamAndBet(db, { teamId: "team-trun-ctx-1", betId: "bet-trun-ctx-1" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-ctx-1", rootTaskId: "bet-trun-ctx-1" });
 		await db
-			.update(bets)
-			.set({ appetite: "2 weeks", doneCondition: "Shipped to prod" })
-			.where(eq(bets.id, "bet-trun-ctx-1"));
+			.update(tasks)
+			.set({ doneCondition: "Shipped to prod" })
+			.where(eq(tasks.id, "bet-trun-ctx-1"));
 		await seedAgent(db, "agent-trun-ctx-1");
 		await seedTask(db, {
 			taskId: "task-trun-ctx-1",
-			betId: "bet-trun-ctx-1",
+			rootTaskId: "bet-trun-ctx-1",
 			teamId: "team-trun-ctx-1",
 			ownerAgentId: "agent-trun-ctx-1",
 		});
@@ -406,12 +408,17 @@ describe("resolveTaskRunRequest — contextBundle baking (Increment 12 Wave B, R
 				description: "Ship the contextBundle wiring.",
 				state: "accepted",
 			},
-			bet: {
-				id: "bet-trun-ctx-1",
-				description: "Task-run resolver bet",
-				appetite: "2 weeks",
-				doneCondition: "Shipped to prod",
-			},
+			// BB1: the single `bet` became the ancestor chain, root first. This task
+			// sits one level down, so the chain is exactly its parent — the same
+			// row the old `bet` assertion named.
+			ancestors: [
+				{
+					id: "bet-trun-ctx-1",
+					title: "Task-run resolver bet",
+					description: "Task-run resolver bet",
+					doneCondition: "Shipped to prod",
+				},
+			],
 			agent: { id: "agent-trun-ctx-1", name: "Agent", role: "builder" },
 			team: { id: "team-trun-ctx-1", name: team?.name },
 			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-trun-ctx-l4" })]),
@@ -453,11 +460,11 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 
 	test("bakes callingThreadId by resolving-or-creating the task's thread", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-thread-1", betId: "bet-trun-thread-1" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-thread-1", rootTaskId: "bet-trun-thread-1" });
 		await seedAgent(db, "agent-trun-thread-1");
 		await seedTask(db, {
 			taskId: "task-trun-thread-1",
-			betId: "bet-trun-thread-1",
+			rootTaskId: "bet-trun-thread-1",
 			teamId: "team-trun-thread-1",
 			ownerAgentId: "agent-trun-thread-1",
 		});
@@ -485,11 +492,11 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 		db,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-thread-2", betId: "bet-trun-thread-2" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-thread-2", rootTaskId: "bet-trun-thread-2" });
 		await seedAgent(db, "agent-trun-thread-2");
 		await seedTask(db, {
 			taskId: "task-trun-thread-2",
-			betId: "bet-trun-thread-2",
+			rootTaskId: "bet-trun-thread-2",
 			teamId: "team-trun-thread-2",
 			ownerAgentId: "agent-trun-thread-2",
 		});
@@ -525,11 +532,11 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 		db,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-trun-thread-3", betId: "bet-trun-thread-3" });
+		await seedTeamAndRootTask(db, { teamId: "team-trun-thread-3", rootTaskId: "bet-trun-thread-3" });
 		await seedAgent(db, "agent-trun-thread-3");
 		await seedTask(db, {
 			taskId: "task-trun-thread-3",
-			betId: "bet-trun-thread-3",
+			rootTaskId: "bet-trun-thread-3",
 			teamId: "team-trun-thread-3",
 			ownerAgentId: "agent-trun-thread-3",
 		});
@@ -564,11 +571,11 @@ describe("resolveTaskRunRequest — callingThreadId baking (Increment 1)", () =>
 describe("resolveTaskRunRequest — session_start path", () => {
 	test("bakes the full request for a valid task + runnable agent", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-sstart-1", betId: "bet-sstart-1" });
+		await seedTeamAndRootTask(db, { teamId: "team-sstart-1", rootTaskId: "bet-sstart-1" });
 		await seedAgent(db, "agent-sstart-1");
 		await seedTask(db, {
 			taskId: "task-sstart-1",
-			betId: "bet-sstart-1",
+			rootTaskId: "bet-sstart-1",
 			teamId: "team-sstart-1",
 			ownerAgentId: "agent-sstart-1",
 		});
@@ -611,8 +618,8 @@ describe("resolveTaskRunRequest — session_start path", () => {
 		db,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-sstart-2", betId: "bet-sstart-2" });
-		await seedTask(db, { taskId: "task-sstart-2", betId: "bet-sstart-2", teamId: "team-sstart-2" });
+		await seedTeamAndRootTask(db, { teamId: "team-sstart-2", rootTaskId: "bet-sstart-2" });
+		await seedTask(db, { taskId: "task-sstart-2", rootTaskId: "bet-sstart-2", teamId: "team-sstart-2" });
 		// Agent row absent — requireRunnableAgent must reject.
 
 		await expect(
@@ -630,11 +637,11 @@ describe("resolveTaskRunRequest — session_start path", () => {
 
 	test("rejects a retired (non-runnable status) requested agent", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-sstart-3", betId: "bet-sstart-3" });
+		await seedTeamAndRootTask(db, { teamId: "team-sstart-3", rootTaskId: "bet-sstart-3" });
 		await seedAgent(db, "agent-sstart-3-retired", { status: "retired" });
 		await seedTask(db, {
 			taskId: "task-sstart-3",
-			betId: "bet-sstart-3",
+			rootTaskId: "bet-sstart-3",
 			teamId: "team-sstart-3",
 			ownerAgentId: "agent-sstart-3-retired",
 		});
@@ -678,11 +685,11 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 
 	test("bakes callingThreadId by resolving-or-creating the task's thread", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-sstart-thread-1", betId: "bet-sstart-thread-1" });
+		await seedTeamAndRootTask(db, { teamId: "team-sstart-thread-1", rootTaskId: "bet-sstart-thread-1" });
 		await seedAgent(db, "agent-sstart-thread-1");
 		await seedTask(db, {
 			taskId: "task-sstart-thread-1",
-			betId: "bet-sstart-thread-1",
+			rootTaskId: "bet-sstart-thread-1",
 			teamId: "team-sstart-thread-1",
 			ownerAgentId: "agent-sstart-thread-1",
 		});
@@ -706,11 +713,11 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 		db,
 	}) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-sstart-thread-2", betId: "bet-sstart-thread-2" });
+		await seedTeamAndRootTask(db, { teamId: "team-sstart-thread-2", rootTaskId: "bet-sstart-thread-2" });
 		await seedAgent(db, "agent-sstart-thread-2");
 		await seedTask(db, {
 			taskId: "task-sstart-thread-2",
-			betId: "bet-sstart-thread-2",
+			rootTaskId: "bet-sstart-thread-2",
 			teamId: "team-sstart-thread-2",
 			ownerAgentId: "agent-sstart-thread-2",
 		});
@@ -739,11 +746,11 @@ describe("resolveTaskRunRequest — session_start callingThreadId baking", () =>
 
 	test("bakes no callingThreadId when the dep is not supplied", async ({ db }) => {
 		const { resolveTaskRunRequest } = await import("../task-run-resolver.js");
-		await seedTeamAndBet(db, { teamId: "team-sstart-thread-3", betId: "bet-sstart-thread-3" });
+		await seedTeamAndRootTask(db, { teamId: "team-sstart-thread-3", rootTaskId: "bet-sstart-thread-3" });
 		await seedAgent(db, "agent-sstart-thread-3");
 		await seedTask(db, {
 			taskId: "task-sstart-thread-3",
-			betId: "bet-sstart-thread-3",
+			rootTaskId: "bet-sstart-thread-3",
 			teamId: "team-sstart-thread-3",
 			ownerAgentId: "agent-sstart-thread-3",
 		});

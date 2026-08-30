@@ -4,16 +4,16 @@ import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.
 import * as work from "./work-service.js";
 
 /**
- * `cascadeBetKill`'s deps — `transitionTask`'s bag plus the downward run-stop
+ * `cascadeTaskKill`'s deps — `transitionTask`'s bag plus the downward run-stop
  * call.
  *
  * @lore AU26 H2 (§D-M.2): stopping a run is `agent-orchestration`'s state
  * transition, so `work` asks for it (Mechanism C — a nested Service may depend
  * only on `@hyperidle/db` + framework packages, never on another Service
- * directly). Wired at `routes/bets.ts` to `@hyperidle/run-orchestration`'s
+ * directly). Wired at `routes/tasks.ts` to `@hyperidle/run-orchestration`'s
  * `requestRunStopForTasks`.
  */
-export interface BetKillCascadeDeps extends TaskStateMachineDeps {
+export interface TaskKillCascadeDeps extends TaskStateMachineDeps {
 	readonly runOrchestration: {
 		requestRunStopForTasks(
 			exec: WriteExecutor,
@@ -26,15 +26,22 @@ export interface BetKillCascadeDeps extends TaskStateMachineDeps {
 const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
 
 /**
- * Cascade a bet kill downward to its tasks and sessions (AF12 AC3/AC6).
+ * Kill a task and its entire subtree, at any depth, plus the runs underneath.
  *
- * Synchronous, in the kernel kill path: the `/kill` endpoint returns only after
- * tasks/sessions are stopped, so the UI's immediate refresh shows true state.
+ * Synchronous, in the kill path: the endpoint returns only after tasks and runs
+ * are stopped, so the UI's immediate refresh shows true state.
  *
- * - Non-terminal tasks on the bet → killed via the CAS-guarded `transitionTask`.
+ * - Non-terminal tasks in the subtree → killed via the CAS-guarded `transitionTask`.
  * - Active runs on those tasks → stopped via `run-orchestration`'s
  *   `requestRunStopForTasks`, which owns the CAS and the `session_ended`
  *   suppression.
+ *
+ * @lore BB1: this used to be `cascadeBetKill`, and it walked exactly ONE hop —
+ * `list("task", { betId })` — because a bet's tasks were the only thing below
+ * it. With a recursive task the subtree has no depth bound, so the hop becomes
+ * `listSubtreeIds` (one recursive CTE, one consistent read). Killing deepest
+ * first means a parent is never killed while a live child still hangs off it.
+ *
  * @lore AF12 cascade: stops active sessions WITHOUT emitting `session_ended` to
  * avoid re-entrant upward propagation (the engine ignores non-'completed'
  * outcomes anyway, but emitting could trip unrelated handlers). AU26 H2 moved
@@ -48,40 +55,42 @@ const TERMINAL_TASK_STATES: string[] = ["done", "killed"];
  * `requestRunStopForTasks` returns the runs it actually stopped so callers know
  * which sessions were affected.
  */
-export async function cascadeBetKill(
+export async function cascadeTaskKill(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	betId: string,
-	deps: BetKillCascadeDeps,
+	rootTaskId: string,
+	deps: TaskKillCascadeDeps,
 ): Promise<{ tasksKilled: string[]; sessionsStopped: string[] }> {
 	const tasksKilled: string[] = [];
 	const sessionsStopped: string[] = [];
 
-	// 1. Non-terminal tasks on the bet.
-	// @lore AU13 CONFUSION: `notInArray(state, TERMINAL_TASK_STATES)` doesn't fit
-	// `listTasks`'s AND-composed `eq`-only opts shape — filter client-side over
-	// the full per-bet task list instead of adding a new SQL-level function for
-	// one caller (same result set, plan §5.3's "distinct mechanic" bar not met).
-	const nonTerminalTasks = (await work.list(db, "task", { betId })).filter(
-		(t) => !TERMINAL_TASK_STATES.includes(t.state),
-	);
+	// 1. The whole subtree, root included, nearest-first.
+	const subtreeIds = await work.listSubtreeIds(db, rootTaskId);
+	if (subtreeIds.length === 0) return { tasksKilled, sessionsStopped };
+
+	const subtree = await work.list(db, "task", { ids: subtreeIds });
+	const nonTerminal = subtree.filter((t) => !TERMINAL_TASK_STATES.includes(t.state));
 
 	// 2. Stop the active runs on those tasks. `run-orchestration` owns the
 	// select, the CAS and the `session_ended` suppression; it returns only the
 	// runs it actually stopped.
 	const stoppedRuns = await deps.runOrchestration.requestRunStopForTasks(
 		db,
-		nonTerminalTasks.map((t) => t.id),
+		nonTerminal.map((t) => t.id),
 	);
 
-	for (const task of nonTerminalTasks) {
-		// 3. Track runs actually stopped.
+	// 3. Kill deepest-first. `listSubtreeIds` returns nearest-first (root at
+	// index 0), so reversing walks the leaves up — a parent is never killed
+	// while a live child still hangs off it.
+	const depthOrder = new Map(subtreeIds.map((id, i) => [id, i]));
+	const deepestFirst = [...nonTerminal].sort(
+		(a, b) => (depthOrder.get(b.id) ?? 0) - (depthOrder.get(a.id) ?? 0),
+	);
+
+	for (const task of deepestFirst) {
 		for (const run of stoppedRuns.filter((r) => r.taskId === task.id)) {
 			sessionsStopped.push(run.sessionId);
 		}
-
-		// 4. Kill the task via the CAS-guarded transitionTask (emits task_state_changed;
-		// the upward engine sees a terminal bet and logs `skipped` — harmless).
 		await transitionTask(db, eventBus, task.id, "killed", deps);
 		tasksKilled.push(task.id);
 	}

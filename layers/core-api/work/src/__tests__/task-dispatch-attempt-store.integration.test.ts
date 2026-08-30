@@ -31,7 +31,6 @@
  */
 
 import {
-	bets,
 	type HyperIdleDb,
 	sessions,
 	taskDispatchAttempts,
@@ -46,7 +45,7 @@ import { taskDispatchAttemptStore } from "../work-service.js";
 const AGENT_ID = "agent-dispatch-ordinal";
 const SESSION_IDS = ["session-ord-1", "session-ord-2", "session-ord-3", "session-ord-4"] as const;
 const TEAM_ID = "team-dispatch-ordinal";
-const BET_ID = "bet-dispatch-ordinal";
+const ROOT_TASK_ID = "bet-dispatch-ordinal";
 
 async function seedWorld(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
@@ -59,12 +58,15 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	await db.insert(teams).values({ id: TEAM_ID, name: TEAM_ID, phase: "build", createdAt: now });
-	await db.insert(bets).values({
-		id: BET_ID,
+	await db.insert(tasks).values({
+		id: ROOT_TASK_ID,
+		parentTaskId: null,
 		teamId: TEAM_ID,
+		title: "Dispatch-attempt ordinal bet",
 		description: "Dispatch-attempt ordinal bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	for (const id of SESSION_IDS) {
 		await db.insert(sessions).values({
@@ -81,7 +83,7 @@ async function seedTask(db: HyperIdleDb, taskId: string): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
 		id: taskId,
-		betId: BET_ID,
+		parentTaskId: ROOT_TASK_ID,
 		teamId: TEAM_ID,
 		ownerAgentId: AGENT_ID,
 		title: taskId,

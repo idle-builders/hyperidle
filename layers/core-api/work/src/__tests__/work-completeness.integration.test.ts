@@ -1,36 +1,39 @@
 /** AU20 Stage 1: consumer-demand completeness contract for the work service. */
-import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { create, get, list } from "../work-service.js";
 
 async function seedWork(
 	db: HyperIdleDb,
 	suffix: string,
-): Promise<{ betId: string; taskId: string }> {
+): Promise<{ rootTaskId: string; taskId: string }> {
 	const now = "2026-07-21T00:00:00.000Z";
 	const teamId = `work-team-${suffix}`;
-	const betId = `work-bet-${suffix}`;
+	const rootTaskId = `work-bet-${suffix}`;
 	const taskId = `work-task-${suffix}`;
 	await db
 		.insert(teams)
 		.values({ id: teamId, name: `Team ${suffix}`, phase: "build", createdAt: now });
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "Completeness bet",
 		description: "Completeness bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		title: "Completeness task",
 		state: "accepted",
 		createdAt: now,
 		updatedAt: now,
 	});
-	return { betId, taskId };
+	return { rootTaskId, taskId };
 }
 
 async function seedItemDeps(

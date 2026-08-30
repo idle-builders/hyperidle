@@ -89,6 +89,7 @@ export {
 	HttpError,
 	InvalidTransitionError,
 	MissingCredentialError,
+	TaskCycleError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
 // Event vocabulary dissolved to framework/event-bus (AU44 batch 8).

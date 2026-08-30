@@ -38,18 +38,14 @@ export type {
 	ArtifactWithTaskTitle,
 	CreateArtifactInput,
 } from "./artifact-store.js";
-// -- bet kill cascade (AF12) --
-export { type BetKillCascadeDeps, cascadeBetKill } from "./bet-kill-cascade.js";
-// -- bet state machine --
-// updateBetField folded into bets.ts PATCH route (AU44 B3).
-export { transitionBet } from "./bet-state-machine.js";
-// Bet title derivation (moved from @hyperidle/presentation-format, AU44 batch7)
-export { deriveTitle } from "./bet-title.js";
+// -- task kill cascade (AF12; BB1 made it recursive over the subtree) --
+export { cascadeTaskKill, type TaskKillCascadeDeps } from "./task-kill-cascade.js";
 // -- dependency-watcher (AU20 Ag2: relocated from @hyperidle/filesystems) --
 export { checkAndUnblockDependents } from "./dependency-watcher.js";
 export {
 	CapacityExceededError,
 	InvalidTransitionError,
+	TaskCycleError,
 	TaskInvalidTransitionError,
 } from "./errors.js";
 // -- unified emit-time resolver (AU21 §6 Decision B; AU44 B3 merge) --
@@ -65,7 +61,7 @@ export type {
 export { resolveTaskRunRequest } from "./task-run-resolver.js";
 // -- task state machine --
 export type { TaskStateMachineDeps } from "./task-state-machine.js";
-export { transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
+export { assertNoCycle, transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
 // -- work-service (bets/tasks/items repository — the sole table path) --
 // AU20 Ag5b: old read exports collapsed into get()/list() general primitives.
 // AU20 Ag5c: old write exports (createBet/createTask/createItem/appendTaskNote/
@@ -77,8 +73,6 @@ export { transitionTask, VALID_TRANSITIONS } from "./task-state-machine.js";
 //   (bet-state-machine.ts, bet-decomposition.ts, task-state-machine.ts).
 export type {
 	AppendNoteOp,
-	Bet,
-	BetUpdatePatch,
 	Item,
 	ItemUpdatePatch,
 	Task,
@@ -90,9 +84,13 @@ export type {
 	WorkFilter,
 } from "./work-service.js";
 export {
+	countTeamTasksInProgress,
 	create,
 	get,
 	list,
+	listAncestorIds,
+	listSubtreeIds,
+	MAX_TASK_DEPTH,
 	taskDispatchAttemptStore,
 	transition,
 	update,

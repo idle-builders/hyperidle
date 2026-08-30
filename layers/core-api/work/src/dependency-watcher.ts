@@ -1,9 +1,7 @@
 import type { WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { EventBus } from "@hyperidle/event-bus";
-import type { AgentWorkIntentRecorder } from "./ports.js";
-import type { TaskRunResolverDeps } from "./task-run-resolver.js";
-import { transitionTask } from "./task-state-machine.js";
+import { type TaskStateMachineDeps, transitionTask } from "./task-state-machine.js";
 import { get, list } from "./work-service.js";
 
 const logger = createLogger({ pkg: "work.dependency-watcher" });
@@ -37,10 +35,7 @@ export async function checkAndUnblockDependents(
 	db: WriteExecutor,
 	eventBus: EventBus,
 	completedTaskId: string,
-	deps: {
-		readonly workIntents: AgentWorkIntentRecorder;
-		readonly taskRunResolver: TaskRunResolverDeps;
-	},
+	deps: TaskStateMachineDeps,
 ): Promise<void> {
 	// SQL pre-filter: hold-state tasks whose dependencies include the literal
 	// quoted completedTaskId. The LIKE pattern wraps the id in JSON quotes
@@ -96,7 +91,7 @@ export async function checkAndUnblockDependents(
 			eventBus,
 			task.id,
 			"accepted",
-			{ workIntents: deps.workIntents, taskRunResolver: deps.taskRunResolver },
+			deps,
 			"accepted",
 		);
 
