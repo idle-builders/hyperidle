@@ -278,6 +278,8 @@ export interface RoutineSchedulerPorts {
 		  }
 		| undefined
 	>;
+	/** Read a knowledge document's body — the routine's instruction lives in one. */
+	getKnowledgeBody?(db: HyperIdleDb, knowledgeItemId: string): Promise<string | null>;
 	assembleSessionKnowledge?(
 		db: HyperIdleDb,
 		input: {

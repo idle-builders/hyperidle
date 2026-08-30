@@ -16,8 +16,8 @@ import {
 	removeByPluginTopic,
 	restorePluginSkillBody,
 	setPluginSkillsStatus,
-	type UpsertPluginSkillInput,
-	upsertPluginSkill,
+	type UpsertPluginDocumentInput,
+	upsertPluginDocument,
 } from "@hyperidle/knowledge";
 import {
 	insertRoutine,
@@ -229,17 +229,17 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 			for (const skill of skills) {
 				const id = skillItemId(plugin.id, skill.dirName);
 				keepIds.push(id);
-				const input: UpsertPluginSkillInput = {
+				const input: UpsertPluginDocumentInput = {
 					id,
 					pluginId: plugin.id,
-					dirName: skill.dirName,
+					title: skill.dirName,
 					body: skill.body,
 					scopeKind,
 					scopeId,
 					topic: `plugin:${plugin.id}`,
 					ts: installTs,
 				};
-				await upsertPluginSkill(tx, input);
+				await upsertPluginDocument(tx, input);
 			}
 			// Remove any stale skill items for this plugin (e.g., renamed skill dirs).
 			await removeByPluginTopic(tx, `plugin:${plugin.id}`, keepIds);
@@ -268,6 +268,25 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 			for (const routineSpec of routines) {
 				const routineDbId = routineItemId(plugin.id, routineSpec.id, scopeKind, scopeId);
 				const agentDbId = agentItemId(plugin.id, routineSpec.agentId, scopeKind, scopeId);
+				// A routine's instruction is a knowledge document, so a plugin
+				// contributing a routine contributes its prompt as one — the thing the
+				// old column made impossible. Deterministic id so a reinstall updates
+				// the same document rather than orphaning it.
+				let routinePromptDocId: string | null = null;
+				if (routineSpec.prompt) {
+					routinePromptDocId = `ki_rp_${routineDbId}`;
+					await upsertPluginDocument(tx, {
+						id: routinePromptDocId,
+						pluginId: plugin.id,
+						title: `${routineSpec.name || "Routine"} — prompt`,
+						scopeKind: "factory",
+						scopeId: null,
+						topic: `plugin:${plugin.id}`,
+						body: routineSpec.prompt,
+						ts: installTs,
+						role: "ordinary",
+					});
+				}
 				await insertRoutine(
 					tx,
 					{
@@ -277,7 +296,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 						triggerType: routineSpec.triggerType,
 						triggerConfig: routineSpec.triggerConfig ?? null,
 						eventType: routineSpec.eventType ?? null,
-						prompt: routineSpec.prompt ?? null,
+						promptKnowledgeId: routinePromptDocId,
 						pluginId: plugin.id,
 						createdAt: installTs,
 					},

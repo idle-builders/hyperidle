@@ -546,7 +546,16 @@ export const routines = pgTable(
 		 * its own; this column IS it. Nullable: a routine with no prompt runs
 		 * the owner agent on its own persona (AC3).
 		 */
-		prompt: text("prompt"),
+		/**
+		 * The knowledge document carrying this routine's instruction. A routine
+		 * prompt is knowledge like any other — readable, editable and reusable in
+		 * the knowledge view — so it lives there rather than in a column of its
+		 * own. Null for a routine with no instruction, which runs on its name.
+		 */
+		promptKnowledgeId: text("prompt_knowledge_id").references(
+			(): AnyPgColumn => knowledgeItems.id,
+			{ onDelete: "set null" },
+		),
 		ownerAgentId: text("owner_agent_id")
 			.notNull()
 			.references(() => users.id, { onDelete: "restrict" }),

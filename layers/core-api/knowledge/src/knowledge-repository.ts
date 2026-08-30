@@ -1234,19 +1234,23 @@ export async function remove(
 // Plugin-managed skill operations (BA9b)
 // ---------------------------------------------------------------------------
 
-export interface UpsertPluginSkillInput {
+export interface UpsertPluginDocumentInput {
 	id: string;
 	pluginId: string;
-	dirName: string;
+	/** The document's title — a skill's directory name, or a routine's prompt title. */
+	title: string;
 	body: string;
 	scopeKind: string;
 	scopeId: string | null;
 	topic: string;
 	ts: string;
+	/** Defaults to `skill`. A routine's prompt is an ordinary document. */
+	role?: KnowledgeRole;
 }
 
 /**
- * Insert or update a plugin-managed skill knowledge item.
+ * Insert or update a plugin-managed knowledge document — a skill, or the
+ * document a contributed routine's prompt lives in.
  *
  * @lore BA9b: On conflict (same ID = same plugin+dirName), updates scope/topic/
  * timestamp but PRESERVES the body — user edits win (D5: your edit wins, you
@@ -1254,9 +1258,9 @@ export interface UpsertPluginSkillInput {
  * because these are machine-managed rows; a user edit through the knowledge
  * route writes its own log entry via the normal update() path.
  */
-export async function upsertPluginSkill(
+export async function upsertPluginDocument(
 	db: HyperIdleDb,
-	input: UpsertPluginSkillInput,
+	input: UpsertPluginDocumentInput,
 ): Promise<void> {
 	await db
 		.insert(knowledgeItems)
@@ -1265,12 +1269,12 @@ export async function upsertPluginSkill(
 			scopeKind: input.scopeKind,
 			scopeId: input.scopeId,
 			topic: input.topic,
-			title: input.dirName,
+			title: input.title,
 			body: input.body,
 			format: "markdown",
 			status: "active",
 			version: 1,
-			role: "skill",
+			role: input.role ?? "skill",
 			updatedBy: `plugin:${input.pluginId}`,
 			createdAt: input.ts,
 			updatedAt: input.ts,

@@ -152,6 +152,8 @@ export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): Routin
 		getUserById: (db: HyperIdleDb, id: string) =>
 			findUser(db, { id }).then((u) => (u ? { id: u.id, name: u.name, role: u.role } : undefined)),
 		assembleSessionKnowledge,
+		getKnowledgeBody: async (db, knowledgeItemId) =>
+			(await getKnowledgeItem(db, knowledgeItemId))?.body ?? null,
 	};
 }
 

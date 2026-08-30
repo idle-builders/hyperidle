@@ -202,7 +202,6 @@ async function seedEventRoutine(
 	await db.insert(routines).values({
 		id,
 		name: `${id} event routine`,
-		prompt: `You fired because of a ${eventType} event. Report the context.`,
 		state: "active",
 		ownerAgentId,
 		triggerType: "event",
@@ -954,7 +953,6 @@ describe("BA9c — team-less agent owner still receives triggerEvent in contextB
 		await db.insert(routines).values({
 			id: "ba9c-noteam-routine",
 			name: "BA9c team-less routine",
-			prompt: "Report the event.",
 			state: "active",
 			ownerAgentId: "ba9c-noteam-owner",
 			triggerType: "event",
