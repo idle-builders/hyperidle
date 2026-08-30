@@ -100,7 +100,7 @@ hyperidle/
 │   ├── eval/                   # Graded journey evals — real-LLM tuning tool, not tests
 │   └── governance/             # Package-boundary rules + the misplacement ledger — see its own README.md
 ├── docs/                       # Ground-truth documentation
-├── .pipeline/                  # work/<id>/plan.md + <track>.md coordination; legacy specs in work-packages/
+├── .pipeline/                  # <track>.md registries + work/<id>/plan.md per item
 ├── deploy/                     # macOS LaunchAgent service wrapper, setup script, Homebrew cask, Helm chart
 └── .github/                    # Workflows: ci, deploy, desktop-release, release-guard, release
 ```

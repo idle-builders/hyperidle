@@ -2,7 +2,7 @@
 
 Agentic operating system for managing product teams of AI agents. Two founders (CEO + CPO) run a "Product Factory" — a portfolio of digital products where AI agents do the implementation work.
 
-See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/architecture/`; user stories in `.pipeline/work-packages/`.
+See `ETHOS.md` for the builder philosophy and `CLAUDE.md` for the absolute rules. Architecture lives in `docs/architecture/`; work packages in `.pipeline/` — one `<track>.md` registry per track, one `work/<id>/` folder per item.
 
 ---
 
@@ -21,7 +21,7 @@ Open <http://localhost:5173>.
 
 ## Pipeline (autonomous batch story execution)
 
-The `/pipeline` skill drives the loop — `plan → tests → code → reviews → DoD → verify → ship → retro`. Each work item is one folder, `.pipeline/work/<id>/`, holding its `plan.md` and its `retro.jsonl`; tracks are registered in `.pipeline/<track>.md`. Older work packages still live under `.pipeline/work-packages/` (`TRACK-*.md` + `pipeline-manifest.yaml`) pending migration.
+The `/pipeline` skill drives the loop — `plan → tests → code → reviews → DoD → verify → ship → retro`. Each work item is one folder, `.pipeline/work/<id>/`, holding its `plan.md` and its `retro.jsonl`; tracks are registered in `.pipeline/<track>.md`.
 
 ### `/pipeline` — interactive Claude Code skill
 
@@ -123,6 +123,6 @@ hyperidle/
 - `docs/guides/user/` — using HyperIdle as an end user
 - `docs/deployment/` — VPS / cloud deployment
 - `docs/architecture/` — three-layer system overview
-- `.pipeline/work-packages/` — per-track user stories
+- `.pipeline/<track>.md` — per-track work-package registries; `.pipeline/work/<id>/` — per-item plans and artifacts
 - `CLAUDE.md` — rules for AI agents working in this repo
 - `ETHOS.md` — builder philosophy

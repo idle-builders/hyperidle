@@ -14,7 +14,6 @@ layers/core-ui/__e2e__/screenshots/
 visual-reports/
 sync-reports/
 .pipeline/*
-!.pipeline/work-packages/
 !.pipeline/audits/
 !.pipeline/work/
 !.pipeline/[A-Z]*.md

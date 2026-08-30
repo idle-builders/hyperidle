@@ -21,7 +21,7 @@
  *   in CI without a custom CI step. (It was originally enforced via the signed
  *   attestation; the attestation is gone and CI now runs the test suite directly,
  *   which enforces this the same way for a simpler reason.)
- *   See plans/AJ1/architecture.md and `.pipeline/work-packages/TRACK-AJ.md`.
+ *   See plans/AJ1/architecture.md.
  */
 
 import * as fs from "node:fs";

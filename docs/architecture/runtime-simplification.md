@@ -146,7 +146,7 @@ channel (`layers/agent-orchestration/run-orchestration/src/worker-ingress.ts`,
 `layers/agent-execution/harness-registry/src/remote-harness-adapter.ts`) — never a Layer or a
 Service.
 
-**AU8 and AU17 are retired, both superseded by AU19** (`.pipeline/work-packages/TRACK-AU.md`). AU8's
+**AU8 and AU17 are retired, both superseded by AU19** (`.pipeline/AU.md`). AU8's
 goal — one general ownership guard instead of many hand-typed ones — is subsumed into AU19's Table
 ACL mechanism above. AU17's package-boundary technique is reused, but the internal shape it produced
 (flat `services/`) is discarded in favor of the Layer/Service structure this section defines.
