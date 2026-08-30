@@ -103,7 +103,7 @@ const delSuccessfulDelegation: EvalScenario = {
 
 		// Create a task for the delegate
 		const { taskId: delegateTaskId } = await seedTask(ctx.db, {
-			betId: world.betId,
+			parentTaskId: world.rootTaskId,
 			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			title: "Delegate task",
@@ -125,7 +125,7 @@ const delSuccessfulDelegation: EvalScenario = {
 
 		// Create the routine for delegation
 		const { taskId: routineTaskId } = await seedTask(ctx.db, {
-			betId: world.betId,
+			parentTaskId: world.rootTaskId,
 			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			title: "Routine trigger task",
@@ -212,7 +212,7 @@ const delNoDelegateAvailable: EvalScenario = {
 
 		// Seed delegate agent
 		const { taskId: ownerBlockingTaskId } = await seedTask(ctx.db, {
-			betId: world.betId,
+			parentTaskId: world.rootTaskId,
 			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			title: "Owner blocking task",
@@ -223,7 +223,7 @@ const delNoDelegateAvailable: EvalScenario = {
 			teamId: world.teamId,
 		});
 		const { taskId: candidateTaskId } = await seedTask(ctx.db, {
-			betId: world.betId,
+			parentTaskId: world.rootTaskId,
 			teamId: world.teamId,
 			ownerAgentId: candidateId,
 			title: "Candidate blocking task",
@@ -234,7 +234,7 @@ const delNoDelegateAvailable: EvalScenario = {
 		await seedActiveSession(ctx.db, { taskId: candidateTaskId, agentId: candidateId });
 
 		const { taskId: routineTaskId } = await seedTask(ctx.db, {
-			betId: world.betId,
+			parentTaskId: world.rootTaskId,
 			teamId: world.teamId,
 			ownerAgentId: world.agentId,
 			title: "Deferred routine task",

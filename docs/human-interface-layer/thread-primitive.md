@@ -79,7 +79,7 @@ An unanswered review whose agent finished and walked away is *not* blocking. Blo
 
 - Server is the source of truth; every write emits an event (`layers/core-api/src/routes/threads.ts`; delivery guarantees documented in the `framework/event-bus/src/event-bus.ts` docblock).
 - Agents and humans are equal participants: either can initiate a thread to the other, and any participant can post.
-- Views never own threads. Conversations is one renderer of threads; bet detail, task detail, knowledge-item detail, artifact detail, and the assistant overlay are others. Threads exist whether or not any view is open.
+- Views never own threads. Conversations is one renderer of threads; task detail, knowledge-item detail, artifact detail, and the assistant overlay are others. Threads exist whether or not any view is open.
 
 ## Closure discipline
 

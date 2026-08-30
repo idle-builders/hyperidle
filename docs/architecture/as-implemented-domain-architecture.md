@@ -7,7 +7,7 @@ Code-derived domain, component, and interface map. Each diagram shows domain own
 ```mermaid
 flowchart LR
   Interface["Human collaboration interface\nwork, conversations, knowledge, settings"]
-  Coordination["Coordination domain\nteams, bets, tasks, routines"]
+  Coordination["Coordination domain\nteams, tasks, routines"]
   Conversation["Conversation domain\nthreads, messages, reviews, artifacts"]
   Knowledge["Knowledge domain\nknowledge items, relevance, attention, writeback"]
   Session["Agent session domain\nsession lifecycle and execution"]
@@ -42,10 +42,9 @@ flowchart LR
 flowchart TB
   subgraph Coordination["Coordination Domain"]
     Team["Team membership"]
-    Bet["Bet lifecycle"]
-    Task["Task lifecycle"]
+    Task["Task lifecycle (recursive tree)"]
     Routine["Routine lifecycle"]
-    CoordinationAPI["Interface\nteams, bets, tasks, routines APIs\nstate transition events"]
+    CoordinationAPI["Interface\nteams, tasks, routines APIs\nstate transition events"]
   end
 
   subgraph Conversation["Conversation Domain"]
@@ -134,31 +133,30 @@ flowchart TB
   Team["Team\nproduct/work boundary"]
   MemberGroup["Team membership group"]
   Agent["Agent or human user"]
-  Bet["Bet\nbounded commitment"]
-  Task["Task\nassignable unit"]
+  Task["Task\nunit of work (root or subtask)"]
+  Subtask["Subtask\n(same shape, parentTaskId set)"]
   Routine["Routine\nrecurring trigger"]
 
   Team --> MemberGroup
   MemberGroup --> Agent
-  Team --> Bet
-  Bet --> Task
+  Team --> Task
+  Task --> Subtask
+  Subtask --> Subtask
   Team --> Routine
   Agent --> Task
   Agent --> Routine
 
-  BetState["Bet state machine\ndraft → active → completed | killed"] --> Bet
-  TaskState["Task state machine\ntransition, handoff, dependencies"] --> Task
+  TaskState["Task state machine\nproposed→accepted→in_progress→review→done | killed\nhold, blocked as runtime states"] --> Task
   RoutineScheduler["Routine scheduler"] --> Routine
 
-  BetState -- "bet_state_changed" --> Events["EventBus"]
-  TaskState -- "task_state_changed" --> Events
+  TaskState -- "task_state_changed" --> Events["EventBus"]
   RoutineScheduler -- "routine_fired" --> Events
 
   Task -- "accepted owner task" --> SessionRequest["Session request"]
   Routine -- "trigger" --> SessionRequest
 ```
 
-Bet lifecycle endpoints: `POST /api/bets/:id/commit`, `/:id/ship`, `/:id/kill`, `/:id/outcome` (`layers/core-api/src/routes/bets.ts`). Task handoff: `POST /api/tasks/:id/handoff` (`layers/core-api/src/routes/tasks.ts`) via the handoff protocol. Lifecycle semantics live in [process-layer](../process-layer/bets-shape-commit-change-ship.md).
+Task endpoints: `POST /api/tasks` (create, with optional `parentTaskId`), `GET /api/tasks/:id` (returns full subtree), `PATCH /api/tasks/:id` (edit — same door for humans and agents, no gate), `POST /api/tasks/:id/handoff`, `POST /api/tasks/:id/kill` (`layers/core-api/src/routes/tasks.ts`) via the handoff protocol. Lifecycle semantics: [tasks-and-sessions](../process-layer/tasks-and-sessions.md).
 
 ## L2 - Conversation Domain
 
@@ -340,7 +338,7 @@ Tables in `framework/db/src/schema.ts`: filesystems, filesystem_injections, file
 flowchart TB
   EventBus["EventBus\ntyped in-process events"]
 
-  CoordinationEvents["Coordination events\ntask_state_changed\nbet_state_changed\nroutine_fired"] --> EventBus
+  CoordinationEvents["Coordination events\ntask_state_changed\nroutine_fired"] --> EventBus
   SessionEvents["Session events\nsession_started\nsession_ended\nsession_not_returned\ntool_call_recorded"] --> EventBus
   ConversationEvents["Conversation events\nthread_created\nthread_message_appended\nitem_created\nproposed_call_granted"] --> EventBus
   KnowledgeEvents["Knowledge events\nknowledge_accessed\nknowledge_updated\nknowledge_created\nknowledge_archived"] --> EventBus
@@ -385,7 +383,7 @@ Verified against code 2026-08-06. Component-level facts only; primitive semantic
 
 ### Primitive store
 
-Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). 44 tables, all shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), bets, tasks, sessions, routines, routine_runs, threads, messages, items, org_edges, knowledge_items (:883) + knowledge_app_projection (:1004) + knowledge_edit_log (:912) + knowledge_access_log + knowledge_conflicts, propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), credential/config/login/invite/proposed-call tables.
+Embedded Postgres: PGlite (laptop/test) or postgres-js (VPS/cloud), one unified Drizzle type (`framework/db/src/connection.ts`). All shapes owned by `framework/db/src/schema.ts`: teams, team_members, users (humans and agents, `kind` human|ai), tasks (recursive — `parent_task_id` nullable self-FK; replaces the former `bets` + `tasks` two-table design), sessions, routines, routine_runs, threads, messages, items, org_edges, knowledge_items (:883) + knowledge_app_projection (:1004) + knowledge_edit_log (:912) + knowledge_access_log + knowledge_conflicts, propagation_log, notification_queue, artifacts, filesystems (+injections/captures), agent-run tables (agent_session_requests, agent_work_intents, explicit_session_starts, agent_run_config, …), credential/config/login/invite/proposed-call tables.
 
 - The `responses` table is dropped — verdicts are `verdict`-typed messages ([Thread primitive](../human-interface-layer/thread-primitive.md)).
 - Message idempotency: UNIQUE(threadId, senderId, clientKey).
@@ -408,7 +406,7 @@ See the L2 Knowledge Domain paragraph above; full design in [knowledge-architect
 
 ### API layer
 
-Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, bets (incl. `/:id/commit|ship|kill|outcome`), tasks (incl. `/:id/handoff`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
+Hono on Node. `core-api` mounts its routes under `/api` (`layers/core-api/src/app.ts`); each Layer hosts its own app, and an Application composes them (`applications/remote-server/src/create-server.ts`, `applications/desktop/src/main.ts`). Schedulers start from `layers/core-api/src/service-bootstrap.ts`. Route groups: auth, users, agents, teams, team-members, tasks (incl. `/:id/handoff`, `/:id/kill`, `PATCH /:id`), sessions, reviews, artifacts, filesystems, knowledge (URL shape `/:id`, not `/:layer`), conversations, threads, org, recipients, status (incl. `/digest`), workers, harnesses, credentials, hint-progress, dispatch-queue, search, settings, ws. `/connections` is served by `agent-orchestration`'s own app (`layers/agent-orchestration/src/app.ts`, `layers/agent-orchestration/src/routes/connections.ts`) — its table set (`service_connections`) is owned by that Layer (AU26 E4).
 
 Auth: single `HYPERIDLE_API_KEY` via `X-API-Key` header (constant-time compare) + Bearer login-session tokens + invite codes (`layers/core-api/src/middleware/auth.ts`, `layers/core-api/users/src/login-session.ts`). Boundary enforcement: [authorization model](./authorization-model.md).
 
@@ -430,7 +428,7 @@ Channels `"console"` | `"noop"` (`framework/diagnostics/src/observability/types.
 
 ## MCP Tool Surface
 
-Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). The tool set is declared in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: read_inbox, send_message, reply, log_task, query_practice, write_memory, handoff_to, create_item, create_artifact, write_session_notes, create_bet, edit_bet, create_task, create_team, add_agent, create_routine, update_routine, promote_knowledge, score_attention, create_conflict_review, submit_review, commit_file.
+Agents interact with the process layer through MCP tools served in-process (`layers/agent-execution/harness-registry/src/mcp/mcp-bridge.ts` + `tool-registry.ts`). The tool set is declared in `layers/agent-orchestration/tool-handlers/src/tool-definitions.ts`: read_inbox, send_message, reply, log_task, query_practice, write_memory, handoff_to, create_item, create_artifact, write_session_notes, create_task (with optional parentTaskId), edit_task (ungated — same door for humans and agents), create_team, add_agent, create_routine, update_routine, promote_knowledge, score_attention, create_conflict_review, submit_review, commit_file.
 
 The same nouns have real HTTP surfaces for clients: `/api/users/:id/inbox` (GET/POST, principal-self scoped), `POST /api/tasks/:id/handoff`, `/api/knowledge` (`/search`, `/`, `/triage-count`, `/:id`).
 

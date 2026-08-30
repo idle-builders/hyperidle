@@ -34,14 +34,14 @@ HyperIdle is keyboard-first. The shortcuts that work everywhere:
 
 **List navigation with J/K** exists only on the Knowledge list (alongside x, v, and o/Enter there) — it is not an app-wide convention. The global search panel uses arrow keys instead.
 
-**Back vs. Up:** The breadcrumb trail at the top of detail screens shows your structural position (Work → Bet → Task). Clicking a breadcrumb segment goes *up* to the parent route. ⌘[ goes *back* to wherever you were before — which may be a different view entirely.
+**Back vs. Up:** The breadcrumb trail at the top of detail screens shows your structural position (Work → Team → Task, then parent task if nested). Clicking a breadcrumb segment goes *up* to the parent route. ⌘[ goes *back* to wherever you were before — which may be a different view entirely.
 
 ## Global Search
 
 Press **⌘K** (or **Ctrl+K**) from any view to open global search. It searches three buckets:
 
 - **Conversations** — thread titles and the latest message's text
-- **Work** — bets only (description, hypothesis, done condition); tasks are not searched
+- **Work** — tasks (description, done condition)
 - **Knowledge** — title and body; items scoped to a user are visible only to their author
 
 Results are grouped by type, exact-prefix matches ranked first. Arrow keys navigate, Enter opens, Escape closes.
@@ -53,7 +53,7 @@ HyperIdle uses a consistent dismissal grammar across all overlays:
 - **Escape** closes any open dialog, sheet, or popover.
 - **Backdrop click** closes modal dialogs (clicking outside the dialog box).
 - **Dirty-input guard**: if you have unsaved typed input, Escape shows a discard confirmation strip instead of closing immediately. The strip is safe by default — focus lands on **Keep editing**. Press Enter or click **Keep editing** to stay in your work. Press Tab then Enter (or click **Discard**) to drop your changes and close. A second Escape also keeps your work — it does not discard.
-- **Confirmation dialogs** (kill a bet, destructive actions) always close on Escape — they are never guarded. Escape is equivalent to Cancel: nothing happens until you explicitly confirm.
+- **Confirmation dialogs** (kill a task, destructive actions) always close on Escape — they are never guarded. Escape is equivalent to Cancel: nothing happens until you explicitly confirm.
 
 Overlay layers stack predictably: the mobile navigation drawer sits below notification popovers, which sit below modal dialogs. Opening overlays in any order always produces the correct visual stack.
 

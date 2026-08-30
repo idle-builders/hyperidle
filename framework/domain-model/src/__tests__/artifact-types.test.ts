@@ -115,14 +115,15 @@ describe("Artifact canonical wire shape (AE6)", () => {
 		expect(page.items).toEqual([]);
 	});
 
-	it("ArtifactFilterAxis is a discriminated union over the 4 axes", () => {
+	it("ArtifactFilterAxis is a discriminated union over the 3 axes (BB1: bet axis removed)", () => {
+		// @lore BB1: the "bet" axis is deleted — artifacts formerly scoped to a bet
+		// are now scoped to the root task that replaced it ("task" axis).
 		const axes: ArtifactFilterAxis[] = [
 			{ axis: "task", taskId: "t1" },
-			{ axis: "bet", betId: "b1" },
 			{ axis: "product", teamId: "p1" },
 			{ axis: "portfolio" },
 		];
-		expect(axes).toHaveLength(4);
+		expect(axes).toHaveLength(3);
 	});
 });
 

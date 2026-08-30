@@ -1,19 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
 	AGENT_CATEGORIES,
-	BET_STATUSES,
-	type BetStatus,
 	KERNEL_KNOWLEDGE_STATUSES,
 	type KernelKnowledgeStatus,
 	TASK_STATES,
 	type TaskState,
 } from "../types.js";
+// @lore BB1: BET_STATUSES and BetStatus removed — task vocabulary is the only work vocabulary.
 
 /**
- * I4 cross-cutting: runtime `as const` arrays for `BetStatus` and
- * `KnowledgeStatus` unions, paralleling the existing `TASK_STATES`. This
- * unlocks exhaustive iteration at the web layer for status-mapping coverage
- * without drifting from the type-checked union.
+ * I4 cross-cutting: runtime `as const` arrays for `KnowledgeStatus` unions,
+ * paralleling the existing `TASK_STATES`. BetStatus was here and is now gone (BB1).
  */
 describe("status-union runtime constants", () => {
 	describe("TASK_STATES", () => {
@@ -24,33 +21,6 @@ describe("status-union runtime constants", () => {
 		it("derives TaskState union", () => {
 			const s: TaskState = TASK_STATES[0];
 			expect(typeof s).toBe("string");
-		});
-	});
-
-	describe("BET_STATUSES", () => {
-		it("is exported as a runtime array", () => {
-			expect(Array.isArray(BET_STATUSES)).toBe(true);
-		});
-
-		// @lore U1: Simplified from 9 statuses to 4 (draft | active | completed | killed).
-		// Old statuses: shaped->draft, committed|in_progress|behind|blocked|paused|review->active,
-		// shipped->completed.
-		it("has 4 bet statuses matching the BetStatus union (U1 simplified)", () => {
-			expect(BET_STATUSES).toHaveLength(4);
-		});
-
-		it("includes every BetStatus value", () => {
-			const expected: readonly BetStatus[] = ["draft", "active", "completed", "killed"];
-			for (const status of expected) {
-				expect(BET_STATUSES).toContain(status);
-			}
-		});
-
-		it("runtime and type values agree", () => {
-			for (const status of BET_STATUSES) {
-				const typed: BetStatus = status;
-				expect(typeof typed).toBe("string");
-			}
 		});
 	});
 

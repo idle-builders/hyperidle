@@ -1440,9 +1440,6 @@ export type NewUser = typeof users.$inferInsert;
 // `AgentRunConfig` is the keyless value object callers actually consume.
 export type NewAgentRunConfigRow = typeof agentRunConfig.$inferInsert;
 
-export type Bet = typeof bets.$inferSelect;
-export type NewBet = typeof bets.$inferInsert;
-
 export type Task = typeof tasks.$inferSelect;
 export type NewTask = typeof tasks.$inferInsert;
 

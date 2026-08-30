@@ -31,7 +31,7 @@ describe("A2: Migration", () => {
 				// @lore U1: `products` → `teams`; old `team_members` dissolved into `teams` (AU44 B1)
 				// @lore: file_leases was dropped in earlier migrations
 				"users",
-				"bets",
+				// @lore BB1: `bets` table dropped — tasks table now carries parentTaskId self-FK.
 				// @lore AU18: `factory_settings` retired — `server_config` is its
 				// typed singleton-row successor.
 				"server_config",
@@ -63,7 +63,10 @@ describe("A2: Migration", () => {
 		// @lore AU44 B1: `team_members` dissolved into `teams` in migration 0058.
 		// Exact-absence proves the DROP TABLE in 0058 ran.
 		expect(tableNames).not.toContain("team_members");
-		expect(tableNames.length).toBeGreaterThanOrEqual(14);
+		// @lore BB1: `bets` table dropped — tasks carry parentTaskId self-FK now.
+		// Exact-absence proves the DROP TABLE in the BB1 migration ran.
+		expect(tableNames).not.toContain("bets");
+		expect(tableNames.length).toBeGreaterThanOrEqual(13);
 	});
 
 	test("migrated database supports CRUD with Drizzle ORM", async ({ db }) => {
@@ -75,7 +78,8 @@ describe("A2: Migration", () => {
 			phase: "build",
 			createdAt: now,
 			capacity: 7,
-			activeBets: 2,
+			// @lore BB1: `activeBets` column dropped — WIP is counted live via
+			// countTeamTasksInProgress. No insert needed.
 			formedAt: now,
 		});
 
@@ -85,7 +89,7 @@ describe("A2: Migration", () => {
 			id: "test-prod",
 			name: "Test",
 			capacity: 7,
-			activeBets: 2,
+			// @lore BB1: `activeBets` column dropped — not in schema, not asserted.
 			formedAt: now,
 		});
 	});
@@ -154,7 +158,8 @@ describe("A2: Migration", () => {
 				>[0],
 			);
 			const rows = (result as { rows: Array<{ n: string | number }> }).rows;
-			expect(Number(rows[0]?.n)).toBeGreaterThanOrEqual(15);
+			// @lore BB1: bets table dropped — was 15, now 14.
+		expect(Number(rows[0]?.n)).toBeGreaterThanOrEqual(14);
 		} finally {
 			await handle.close();
 		}

@@ -12,12 +12,12 @@ The day-to-day operating rhythm and a playbook for common situations. For what e
 
 ### Weekly planning (~15 minutes)
 
-1. Open **Work** — the overview is the landing page for all teams and bets.
+1. Open **Work** — the overview is the landing page for all teams and their active tasks.
 2. Click a team to open its team page.
-3. Activate 2–3 draft bets that are ready.
+3. Move 2–3 proposed tasks to `accepted` that are ready to start.
 4. Kill or reshape stale work.
 
-Bet lifecycle semantics live in [Bets](../../process-layer/bets-shape-commit-change-ship.md).
+Task lifecycle semantics live in [Tasks and Sessions](../../process-layer/tasks-and-sessions.md).
 
 ### Weekly knowledge curation (~20 minutes)
 
@@ -29,34 +29,34 @@ Bet lifecycle semantics live in [Bets](../../process-layer/bets-shape-commit-cha
 
 1. Open the **assistant** pinned thread.
 2. Read recent messages for cross-team patterns.
-3. Reply with your thoughts. If a pattern warrants committed work, the assistant can draft a bet for you to review and activate.
+3. Reply with your thoughts. If a pattern warrants committed work, the assistant can draft a root task for you to review and activate.
 
 ## Handling Common Situations
 
-### Turning a knowledge item into a bet
+### Turning a knowledge item into a task
 
 When a captured insight is ready to become committed work, promote it directly — no retyping.
 
 1. Open the knowledge item in the **Knowledge** view.
 2. Click the overflow menu (`···`) in the top-right corner.
-3. Choose **Promote to bet**.
+3. Choose **Promote to task**.
 
-**Single team:** the bet is created immediately and you land in the bet page, body pre-filled with the item's content. Review, refine, then choose **Activate bet** from the bet's overflow menu when ready.
+**Single team:** the task is created immediately and you land in the task page, body pre-filled with the item's content. Review, refine, then move it from `proposed` to `accepted` when ready.
 
-**Multiple teams:** you are taken to the bet create page (`Work → New bet`) with the body pre-filled. Pick your team, then create.
+**Multiple teams:** you are taken to the task create page (`Work → New task`) with the body pre-filled. Pick your team, then create.
 
-The source knowledge item is not changed. The new bet opens in `draft` status — you activate it manually when the description is ready. The bet header shows "From knowledge: &lt;title&gt;" with a link back to the original item, so the origin is always traceable.
+The source knowledge item is not changed. The new task opens in `proposed` status — you accept it manually when the description is ready. The task header shows "From knowledge: &lt;title&gt;" with a link back to the original item, so the origin is always traceable.
 
-**Archived items cannot be promoted.** Archive the item only when you no longer need it as a promotion source, or after the derived bet has been activated.
+**Archived items cannot be promoted.** Archive the item only when you no longer need it as a promotion source, or after the derived task has been accepted.
 
-### No tasks after activating a bet
+### No subtasks after accepting a task
 
-After you activate a bet, the task section shows "No tasks yet." Tasks are added by agents on the team as they pick up work.
+After you accept a task, the subtask section shows "No subtasks yet." Subtasks are added by agents on the team as they break down the work, or by you directly.
 
-If no tasks appear after the team has been running for a while:
+If no subtasks appear after the team has been running for a while:
 
 1. Check that an active AI agent exists on the team. Navigate to the team page and confirm there is at least one agent with an appropriate role (builder, product manager, etc.).
-2. If no agent is present, click **Add an agent** (visible in the "No tasks yet" state) or navigate to the team page directly.
+2. If no agent is present, click **Add an agent** (visible in the "No subtasks yet" state) or navigate to the team page directly.
 
 Task and session lifecycle detail lives in [Tasks and Sessions](../../process-layer/tasks-and-sessions.md).
 
@@ -70,13 +70,13 @@ Task and session lifecycle detail lives in [Tasks and Sessions](../../process-la
 
 The verdict grammar is defined in [Thread Primitive](../../human-interface-layer/thread-primitive.md).
 
-### Killing a bet
+### Killing a task
 
-Killing a bet stops its in-flight work and frees your team's capacity for other bets.
+Killing a task stops its in-flight work, kills its entire subtree, and frees your team's capacity.
 
-1. Open the bet, click the overflow menu (`···`), and choose **Kill**.
+1. Open the task, click the overflow menu (`···`), and choose **Kill**.
 2. A confirmation dialog explains exactly what happens:
-   - **In-progress tasks are killed** and their active sessions are stopped.
+   - **The entire subtask tree is killed** and their active sessions are stopped.
    - **Existing artifacts are preserved** — nothing already produced is deleted.
    - **Team capacity is freed.**
    - **Running agents finish their current step first**, so killing is not an instant stop.
@@ -86,9 +86,9 @@ Killing a bet stops its in-flight work and frees your team's capacity for other 
 
 Each task records the agent **sessions** that worked on it.
 
-1. Open a task from its bet page.
+1. Open a task from its parent task or from the team page.
 2. The **Sessions** section lists every session for that task.
-3. A live green dot and an **Active** label mark a session that's currently running. Finished sessions show their final state — `Done`, `stopped` (if the bet was killed), or `crashed`.
+3. A live green dot and an **Active** label mark a session that's currently running. Finished sessions show their final state — `Done`, `stopped` (if the task was killed), or `crashed`.
 4. If no agent has started yet, you'll see **No sessions yet.**
 
 ### Knowledge conflict
@@ -115,6 +115,6 @@ HyperIdle does not track or enforce spend. Your ceiling is the budget on your up
 What HyperIdle does bound is **concurrency** — how much runs at once:
 
 - Each agent has a maximum number of simultaneous sessions (default 1). At the limit, new work queues or moves to a teammate.
-- Each team has a capacity — the number of parallel tasks it will take on.
+- Each team has a capacity — the number of tasks that may be in-progress at once, counted at every depth of the task tree.
 
 You can see capacity and status on **Work → Team**. The reasoning behind bounding concurrency rather than time lives in [WIP Limits](../../process-layer/wip-and-cost-limits.md).

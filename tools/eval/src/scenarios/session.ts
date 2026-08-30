@@ -9,7 +9,7 @@ import { sessions } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { judgeSessionCompleted, judgeSessionNotesWritten } from "../judges.js";
 import { runEvalSession } from "../provision-harness.js";
-import { seedAgent, seedBet, seedFounder, seedTask, seedTeam } from "../seeding.js";
+import { seedAgent, seedFounder, seedRootTask, seedTask, seedTeam } from "../seeding.js";
 import type {
 	DimensionScore,
 	EvalScenario,
@@ -43,14 +43,14 @@ Write substantive session notes covering: what you analyzed, key findings, and n
 			harnessType: "builtin",
 		});
 
-		const { betId } = await seedBet(ctx.db, {
+		const { rootTaskId } = await seedRootTask(ctx.db, {
 			teamId,
 			description: "Q4 sales pipeline optimization",
 			doneCondition: "Pipeline bottlenecks identified and addressed.",
 		});
 
 		const { taskId } = await seedTask(ctx.db, {
-			betId,
+			parentTaskId: rootTaskId,
 			teamId,
 			ownerAgentId: agentId,
 			title: "Analyze Q4 pipeline conversion rates",
@@ -67,7 +67,7 @@ Use write_session_notes to document your analysis.`,
 		return {
 			teamId,
 			agentId,
-			betId,
+			rootTaskId,
 			taskId,
 			sandboxBasePath,
 		};
@@ -144,14 +144,14 @@ const sessModelTierBuilderDevops: EvalScenario = {
 			harnessType: "builtin",
 		});
 
-		const { betId } = await seedBet(ctx.db, {
+		const { rootTaskId } = await seedRootTask(ctx.db, {
 			teamId,
 			description: "Infrastructure optimization",
 			doneCondition: "Optimization complete.",
 		});
 
 		const { taskId } = await seedTask(ctx.db, {
-			betId,
+			parentTaskId: rootTaskId,
 			teamId,
 			ownerAgentId: agentId,
 			title: "Document infrastructure optimization approach",
@@ -163,7 +163,7 @@ const sessModelTierBuilderDevops: EvalScenario = {
 		return {
 			teamId,
 			agentId,
-			betId,
+			rootTaskId,
 			taskId,
 			sandboxBasePath,
 		};
@@ -231,14 +231,14 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 			harnessType: "builtin",
 		});
 
-		const { betId } = await seedBet(ctx.db, {
+		const { rootTaskId } = await seedRootTask(ctx.db, {
 			teamId,
 			description: "Frontend component library",
 			doneCondition: "Component documented.",
 		});
 
 		const { taskId } = await seedTask(ctx.db, {
-			betId,
+			parentTaskId: rootTaskId,
 			teamId,
 			ownerAgentId: agentId,
 			title: "Document component API",
@@ -250,7 +250,7 @@ const sessWorkspaceCleanupBuilderFrontend: EvalScenario = {
 		return {
 			teamId,
 			agentId,
-			betId,
+			rootTaskId,
 			taskId,
 			sandboxBasePath,
 		};

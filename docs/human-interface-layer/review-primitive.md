@@ -1,6 +1,6 @@
 # Review primitive
 
-A review is a single surface where a human judges one **Subject** — the output of a task or bet — and casts one **verdict**. It is dual-anchored: it shows *what was asked* (the intent / prompt) and *what was produced* (the Subject), so the verdict answers both "did it do the right thing?" and "is the output sound?". The underlying data is the [`Artifact` primitive](../process-layer/artifact-primitive.md); the review layer only owns presentation. The verdict grammar itself (five decisions, buttons-only) is owned by the [`Thread` primitive](./thread-primitive.md).
+A review is a single surface where a human judges one **Subject** — the output of a task — and casts one **verdict**. It is dual-anchored: it shows *what was asked* (the intent / prompt) and *what was produced* (the Subject), so the verdict answers both "did it do the right thing?" and "is the output sound?". The underlying data is the [`Artifact` primitive](../process-layer/artifact-primitive.md); the review layer only owns presentation. The verdict grammar itself (five decisions, buttons-only) is owned by the [`Thread` primitive](./thread-primitive.md).
 
 ## Review canvas families
 
@@ -24,7 +24,7 @@ The `ReviewComposition` component at `/reviews/:reviewId` (`layers/core-ui/src/r
 
 ```
 ReviewComposition
-├─ Frame header    (bet › task, agent → reviewer, verdict buttons)
+├─ Frame header    (task › subtask, agent → reviewer, verdict buttons)
 ├─ The task        (the real prompt + source link)
 ├─ Result          (outcome, KPIs, visible proof, intent met-line)
 ├─ Needs you       (risks, each jump-linked to its artifact)

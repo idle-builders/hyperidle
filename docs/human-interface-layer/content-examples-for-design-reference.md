@@ -15,22 +15,22 @@ Each example uses one of the retired `ARTIFACT_VIEW_SHAPES` embed layouts (`text
 ## Chat threads
 
 - "Quick question about Acme's data retention policy before I draft the privacy page — do we keep deal data after the subscription ends?" — from Acme Writer to Founder.
-- "I noticed three of our recent Ambrovia bets all hit the same auth issue — want to talk about it?" — from Ambrovia Product Manager to Founder.
+- "I noticed three of our recent Ambrovia tasks all hit the same auth issue — want to talk about it?" — from Ambrovia Product Manager to Founder.
 - "I'm stuck — Coolify deploy keeps timing out. The webhook signing keys might be wrong. Can you check?" — from Acme Backend Builder to Founder.
 
 ## Sidebar ambient indicators
 
-- Bets: "Acme: Pricing overhaul — 4/7 tasks done · week 3 of 6" | "Ambrovia: Onboarding v2 — 1/4 tasks done · week 1 of 4"
+- Tasks: "Acme: Pricing overhaul — 4/7 subtasks done" | "Ambrovia: Onboarding v2 — 1/4 subtasks done"
 - Blocked: "2 agents blocked" → "Acme Backend Builder: waiting on Stripe API keys (3h)" | "Ambrovia Frontend Builder: waiting on review verdict (45min)"
 - Knowledge triage badge: "+8 new items this week"
 - System: "6 agents active · 0 failures · 0 conflicts"
 
-## Bet examples (Work)
+## Task examples (Work)
 
-Rendered by `BetCard` (`framework/design-system/src/BetCard.tsx`); created via `WorkBetCreate` (`layers/core-ui/src/pages/WorkBetCreate.tsx`). Statuses come from the [bet lifecycle](../process-layer/bets-shape-commit-change-ship.md) enum (`draft | active | completed | killed`).
+Tasks are the single work primitive; root tasks (no parent) are the top-level commitments. Rendered by the task row in `WorkTeam.tsx`; created via `WorkTaskCreate`. States come from the [task lifecycle](../process-layer/tasks-and-sessions.md) enum (`proposed | accepted | hold | in_progress | blocked | review | done | killed`).
 
-- Title: "Search results relevance (ranking overhaul)". Team: Acme. Status: draft. Body (markdown): the shaped bet — problem statement, proposed solution sketch, rabbit holes to avoid, what "done" means.
-- Title: "Onboarding v2 — guided setup flow". Team: Ambrovia. Status: active.
+- Title: "Search results relevance (ranking overhaul)". Team: Acme. State: proposed. Body (markdown): the shaped task — problem statement, proposed solution sketch, rabbit holes to avoid, done condition.
+- Title: "Onboarding v2 — guided setup flow". Team: Ambrovia. State: in_progress. Subtasks: "Design new step flow" (done), "Implement analytics tracking" (in_progress), "QA pass" (hold).
 
 ## Knowledge items
 

@@ -29,7 +29,6 @@
 
 import * as crypto from "node:crypto";
 import {
-	type Bet,
 	type HyperIdleDb,
 	type OperationOutcome,
 	operationOutcomes,
@@ -182,15 +181,12 @@ export interface ReengagementResolverDeps {
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/work`'s own
-	 * `bets` table, injected (Mechanism C — `@hyperidle/review` cannot import
-	 * `@hyperidle/work` directly, same reasoning as the existing `getTaskById`
-	 * injection). Absent at a call site not yet wired to bake context — the
-	 * resolver falls back to baking no `contextBundle`, matching every
-	 * existing caller's current (context-free) behavior unchanged.
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s `getTeam`,
+	 * injected for the same Mechanism C reason as `getTaskById` above.
+	 *
+	 * @lore BB1: `getBetById` deleted — bets table is gone. Ancestor chain is
+	 * traversed via repeated `getTaskById` calls (already required above).
 	 */
-	getBetById?(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
-	/** AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s `getTeam`, injected for the same Mechanism C reason as `getBetById` above. */
 	getTeamById?(db: HyperIdleDb, id: string): Promise<Team | undefined>;
 	/** AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s `assembleSessionKnowledge` (Wave A), injected for the same Mechanism C reason. */
 	assembleSessionKnowledge?(
@@ -234,7 +230,6 @@ function optionalReengagementBakeDeps(
 	deps: Partial<ReengagementResolverDeps>,
 ): Partial<ReengagementResolverDeps> {
 	return {
-		...(deps.getBetById ? { getBetById: deps.getBetById } : {}),
 		...(deps.getTeamById ? { getTeamById: deps.getTeamById } : {}),
 		...(deps.assembleSessionKnowledge
 			? { assembleSessionKnowledge: deps.assembleSessionKnowledge }
@@ -263,15 +258,14 @@ export interface BakedReengagementRequest {
 		readonly grantedAgentId: string;
 	};
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — the task/bet/agent/team content +
+	 * AU21 §9 Increment 12 (Decision H3) — the task/ancestors/agent/team content +
 	 * ranked knowledge a `reengagement` session's sandbox needs, baked at emit
 	 * time from the SAME `task` this resolver already loaded to validate.
-	 * Present only when `deps.getBetById`/`deps.getTeamById`/
-	 * `deps.assembleSessionKnowledge` were supplied (see `ReengagementResolverDeps`
-	 * `@lore` above) — unlike `routine_run`/`knowledge_action`, this IS a real
-	 * preserve-behavior migration (a `reengagement` session already flows
-	 * through the full task/bet/ranked-knowledge path today, see this file's
-	 * Wave B test `@lore`).
+	 * Present only when `deps.getTeamById`/`deps.assembleSessionKnowledge`
+	 * were supplied (see `ReengagementResolverDeps` `@lore` above).
+	 *
+	 * @lore BB1: `bet` replaced by `ancestors` in `BakedContextBundle.kind:"task"`.
+	 * `deps.getBetById` removed — bets table is gone.
 	 */
 	readonly contextBundle?: BakedContextBundle;
 	/**
@@ -320,17 +314,39 @@ export async function resolveReengagementRequest(
 	}
 
 	// AU21 §9 Increment 12 (Decision H3): bake the contextBundle only when the
-	// caller supplied all three context deps (see `ReengagementResolverDeps`
+	// caller supplied both context deps (see `ReengagementResolverDeps`
 	// `@lore`) — destructured into locals so TS keeps them narrowed
 	// non-optional inside the block below, no non-null assertion needed.
+	//
+	// @lore BB1: `getBetById` is gone. Ancestor chain is traversed via
+	// `getTaskById` (already a required dep). Ancestors are root-first per
+	// `BakedContextBundle.ancestors` contract.
 	let contextBundle: BakedContextBundle | undefined;
-	const { getBetById, getTeamById, assembleSessionKnowledge } = deps;
-	if (getBetById && getTeamById && assembleSessionKnowledge) {
-		const [bet, team] = await Promise.all([
-			getBetById(db, task.betId),
-			getTeamById(db, task.teamId),
-		]);
-		if (bet && team) {
+	const { getTeamById, assembleSessionKnowledge } = deps;
+	if (getTeamById && assembleSessionKnowledge) {
+		const team = await getTeamById(db, task.teamId);
+		if (team) {
+			// Walk parent chain to build root-first ancestor array.
+			const ancestorsNearestFirst: Array<{
+				readonly id: string;
+				readonly title: string;
+				readonly description: string | null;
+				readonly doneCondition: string | null;
+			}> = [];
+			let current: Task = task;
+			while (current.parentTaskId) {
+				const parent = await deps.getTaskById(db, current.parentTaskId);
+				if (!parent) break;
+				ancestorsNearestFirst.push({
+					id: parent.id,
+					title: parent.title,
+					description: parent.description,
+					doneCondition: parent.doneCondition,
+				});
+				current = parent;
+			}
+			const ancestors = ancestorsNearestFirst.reverse();
+
 			const knowledge = await assembleSessionKnowledge(db, {
 				teamId: task.teamId,
 				agentRole: agent.role,
@@ -340,12 +356,7 @@ export async function resolveReengagementRequest(
 			contextBundle = {
 				kind: "task",
 				task: { id: task.id, title: task.title, description: task.description, state: task.state },
-				bet: {
-					id: bet.id,
-					description: bet.description,
-					appetite: bet.appetite ?? "",
-					doneCondition: bet.doneCondition,
-				},
+				ancestors,
 				agent: { id: agent.id, name: agent.name, role: agent.role },
 				team: { id: team.id, name: team.name },
 				knowledge: toBakedContextKnowledgeItems(knowledge),
@@ -759,7 +770,6 @@ export async function handleUnconsumedGrantOnSessionEnd(
 		await applyLivenessRetry(db, grant, opts.intentRecorder, {
 			getTaskById: opts.getTaskById,
 			requireRunnableAgent: opts.requireRunnableAgent,
-			getBetById: opts.getBetById,
 			getTeamById: opts.getTeamById,
 			assembleSessionKnowledge: opts.assembleSessionKnowledge,
 			readServerConfig: opts.readServerConfig,
@@ -794,7 +804,6 @@ export async function reengageOnAdmissionFailure(
 	await applyLivenessRetry(db, grant, opts.intentRecorder, {
 		getTaskById: opts.getTaskById,
 		requireRunnableAgent: opts.requireRunnableAgent,
-		getBetById: opts.getBetById,
 		getTeamById: opts.getTeamById,
 		assembleSessionKnowledge: opts.assembleSessionKnowledge,
 		readServerConfig: opts.readServerConfig,

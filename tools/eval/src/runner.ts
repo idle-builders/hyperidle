@@ -168,26 +168,28 @@ function isEvalScenario(value: unknown): value is EvalScenario {
 }
 
 // ---------------------------------------------------------------------------
-// Token extraction from bet
+// Token extraction from root task
+// @lore BB1: tokensActualJson moved from bets to tasks. We query the root task
+// row, which accumulates this task's own session token usage.
 // ---------------------------------------------------------------------------
 
 async function extractTokensByTier(
 	db: HyperIdleDb,
-	betId: string,
+	rootTaskId: string,
 ): Promise<Record<string, { prompt: number; completion: number }>> {
-	const { bets } = await import("@hyperidle/db");
+	const { tasks } = await import("@hyperidle/db");
 	const { eq } = await import("drizzle-orm");
 
-	const [bet] = await db
-		.select({ tokensActualJson: bets.tokensActualJson })
-		.from(bets)
-		.where(eq(bets.id, betId))
+	const [task] = await db
+		.select({ tokensActualJson: tasks.tokensActualJson })
+		.from(tasks)
+		.where(eq(tasks.id, rootTaskId))
 		.limit(1);
 
-	if (!bet?.tokensActualJson) return {};
+	if (!task?.tokensActualJson) return {};
 
 	try {
-		const parsed = JSON.parse(bet.tokensActualJson) as {
+		const parsed = JSON.parse(task.tokensActualJson) as {
 			byTier?: Record<string, { prompt: number; completion: number }>;
 		};
 		return parsed.byTier ?? {};
@@ -276,7 +278,7 @@ export async function runEval(options: RunOptions): Promise<EvalReport> {
 			const { dimensions, aggregateScore } = await scoreScenario(scenario.rubric, judgeCtx);
 
 			// Step 4: Extract token data from bet
-			const tokensByTier = await extractTokensByTier(db, seedResult.betId);
+			const tokensByTier = await extractTokensByTier(db, seedResult.rootTaskId);
 
 			process.stderr.write(`[eval]   score=${aggregateScore.toFixed(3)}\n`);
 

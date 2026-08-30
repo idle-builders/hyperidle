@@ -29,42 +29,48 @@ async function seedWorld(db: HyperIdleDb): Promise<void> {
 }
 
 describe("AX1: lived-in demo world", () => {
-	test("bets span all four lifecycles with outcomes on closed bets", async ({ db }) => {
+	// @lore BB1: bets table dropped. Root tasks (parent_task_id IS NULL) replace bets.
+	// State mapping: draft→proposed, active→in_progress, completed→done, killed→killed.
+	test("root tasks span all four states with outcomes on closed tasks", async ({ db }) => {
 		await seedWorld(db);
 
-		for (const status of ["draft", "active", "completed", "killed"]) {
+		for (const state of ["proposed", "in_progress", "done", "killed"]) {
 			expect(
-				await count(db, "bets", `WHERE status = '${status}'`),
-				`bets ${status}`,
+				await count(db, "tasks", `WHERE parent_task_id IS NULL AND state = '${state}'`),
+				`root tasks ${state}`,
 			).toBeGreaterThanOrEqual(1);
 		}
-		expect(await count(db, "bets", "WHERE status = 'active'")).toBeGreaterThanOrEqual(2);
+		expect(
+			await count(db, "tasks", "WHERE parent_task_id IS NULL AND state = 'in_progress'"),
+		).toBeGreaterThanOrEqual(2);
 
-		// Closed bets carry an outcome verdict + summary + timestamp.
+		// Closed root tasks carry an outcome verdict + summary.
 		const closed = await rows<{
 			id: string;
 			outcome_verdict: string | null;
 			outcome_summary: string | null;
 		}>(
 			db,
-			"SELECT id, outcome_verdict, outcome_summary FROM bets WHERE status IN ('completed','killed')",
+			"SELECT id, outcome_verdict, outcome_summary FROM tasks WHERE parent_task_id IS NULL AND state IN ('done','killed')",
 		);
 		expect(closed.length).toBeGreaterThanOrEqual(3);
-		for (const bet of closed) {
-			expect(bet.outcome_verdict, `${bet.id} verdict`).toBeTruthy();
-			expect(bet.outcome_summary, `${bet.id} summary`).toBeTruthy();
+		for (const rt of closed) {
+			expect(rt.outcome_verdict, `${rt.id} verdict`).toBeTruthy();
+			expect(rt.outcome_summary, `${rt.id} summary`).toBeTruthy();
 		}
 
-		// At least one draft bet was promoted from a real knowledge item.
+		// At least one proposed root task was promoted from a real knowledge item.
 		const promoted = await rows<{ id: string }>(
 			db,
-			`SELECT b.id FROM bets b JOIN knowledge_items k ON k.id = b.source_knowledge_item_id
-			  WHERE b.status = 'draft'`,
+			`SELECT t.id FROM tasks t JOIN knowledge_items k ON k.id = t.source_knowledge_item_id
+			  WHERE t.parent_task_id IS NULL AND t.state = 'proposed'`,
 		);
 		expect(promoted.length).toBeGreaterThanOrEqual(1);
 	});
 
-	test("tasks cover all eight states and resolve to bets, teams, owners", async ({ db }) => {
+	// @lore BB1: tasks now form a tree (root → child → grandchild). The dangling
+	// check no longer joins bets; it verifies team + owner FKs for child tasks.
+	test("tasks cover all eight states, teams, and owners", async ({ db }) => {
 		await seedWorld(db);
 
 		for (const state of [
@@ -82,17 +88,29 @@ describe("AX1: lived-in demo world", () => {
 				`tasks ${state}`,
 			).toBeGreaterThanOrEqual(1);
 		}
+		// Root tasks + child tasks + grandchild tasks
 		expect(await count(db, "tasks")).toBeGreaterThanOrEqual(25);
 
+		// Child tasks must have a valid parent_task_id FK; all tasks must resolve team + owner.
 		const dangling = await rows<{ id: string }>(
 			db,
 			`SELECT t.id FROM tasks t
-			  LEFT JOIN bets b ON b.id = t.bet_id
+			  LEFT JOIN tasks parent ON parent.id = t.parent_task_id
 			  LEFT JOIN teams tm ON tm.id = t.team_id
 			  LEFT JOIN users u ON u.id = t.owner_agent_id
-			  WHERE b.id IS NULL OR tm.id IS NULL OR u.id IS NULL`,
+			  WHERE (t.parent_task_id IS NOT NULL AND parent.id IS NULL)
+			     OR tm.id IS NULL`,
 		);
 		expect(dangling).toHaveLength(0);
+
+		// At least one 3-level branch exists: a task whose parent also has a parent.
+		const grandchildren = await rows<{ id: string }>(
+			db,
+			`SELECT t.id FROM tasks t
+			  JOIN tasks parent ON parent.id = t.parent_task_id
+			  WHERE parent.parent_task_id IS NOT NULL`,
+		);
+		expect(grandchildren.length).toBeGreaterThanOrEqual(1);
 	});
 
 	test("conversations include blocking, resolved, assistant and DM threads", async ({ db }) => {
@@ -148,11 +166,11 @@ describe("AX1: lived-in demo world", () => {
 		expect(await count(db, "messages", "WHERE type = 'questionnaire'")).toBeGreaterThanOrEqual(1);
 
 		// Every thread host resolves; every message sender resolves.
+		// @lore BB1: 'bet' host_kind removed — those threads now use host_kind = 'task'.
 		const badHosts = await rows<{ id: string }>(
 			db,
 			`SELECT th.id FROM threads th
-			  WHERE (th.host_kind = 'bet' AND NOT EXISTS (SELECT 1 FROM bets b WHERE b.id = th.host_id))
-			     OR (th.host_kind = 'task' AND NOT EXISTS (SELECT 1 FROM tasks t WHERE t.id = th.host_id))
+			  WHERE (th.host_kind = 'task' AND NOT EXISTS (SELECT 1 FROM tasks t WHERE t.id = th.host_id))
 			     OR (th.host_kind = 'knowledge_item' AND NOT EXISTS (SELECT 1 FROM knowledge_items k WHERE k.id = th.host_id))
 			     OR (th.host_kind = 'artifact' AND NOT EXISTS (SELECT 1 FROM artifacts a WHERE a.id = th.host_id))
 			     OR (th.host_kind = 'agent' AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = th.host_id))
@@ -233,12 +251,13 @@ describe("AX1: lived-in demo world", () => {
 		expect(await count(db, "knowledge_edit_log")).toBeGreaterThanOrEqual(3);
 		expect(await count(db, "knowledge_access_log")).toBeGreaterThanOrEqual(5);
 
-		// Provenance loop: a completed bet produced a retro item scoped to it.
+		// Provenance loop: a done/killed root task produced a retro item scoped to it.
+		// @lore BB1: scope_kind was 'bet', now 'task' — the scope_id points at a root task row.
 		const retro = await rows<{ id: string }>(
 			db,
 			`SELECT k.id FROM knowledge_items k
-			  JOIN bets b ON b.id = k.scope_id
-			  WHERE k.scope_kind = 'bet' AND b.status IN ('completed','killed')`,
+			  JOIN tasks t ON t.id = k.scope_id
+			  WHERE k.scope_kind = 'task' AND t.parent_task_id IS NULL AND t.state IN ('done','killed')`,
 		);
 		expect(retro.length).toBeGreaterThanOrEqual(1);
 	});
@@ -313,9 +332,13 @@ describe("AX1: lived-in demo world", () => {
 	test("the world has weeks of history, anchored to seed time", async ({ db }) => {
 		await seedWorld(db);
 
-		const oldest = await rows<{ min: string }>(db, "SELECT MIN(created_at) AS min FROM bets");
+		// @lore BB1: bets table gone — use root tasks (parent_task_id IS NULL) for age anchor.
+		const oldest = await rows<{ min: string }>(
+			db,
+			"SELECT MIN(created_at) AS min FROM tasks WHERE parent_task_id IS NULL",
+		);
 		const ageDays = (Date.now() - new Date(oldest[0]?.min ?? "").getTime()) / 86_400_000;
-		expect(ageDays, "oldest bet is weeks old").toBeGreaterThanOrEqual(21);
+		expect(ageDays, "oldest root task is weeks old").toBeGreaterThanOrEqual(21);
 
 		const newest = await rows<{ max: string }>(db, "SELECT MAX(created_at) AS max FROM messages");
 		const freshnessHours = (Date.now() - new Date(newest[0]?.max ?? "").getTime()) / 3_600_000;
@@ -325,10 +348,10 @@ describe("AX1: lived-in demo world", () => {
 	test("seeding twice changes nothing", async ({ db }) => {
 		await seedWorld(db);
 
+		// @lore BB1: "bets" removed from table list — the table is dropped.
 		const tables = [
 			"users",
 			"teams",
-			"bets",
 			"tasks",
 			"threads",
 			"messages",
@@ -357,18 +380,22 @@ describe("AX1: lived-in demo world", () => {
 	test("team state reflects the live workload", async ({ db }) => {
 		await seedWorld(db);
 
-		const members = await rows<{ active_bets: number; lead_agent_id: string | null }>(
+		// @lore BB1: `active_bets` column dropped from teams — WIP is counted
+		// live via countTeamTasksInProgress. The bets table is gone too. We now
+		// verify the team has a lead_agent_id and that root tasks exist.
+		const teamRow = await rows<{ lead_agent_id: string | null }>(
 			db,
-			// @lore AU44 B1: team_members folded into teams; active_bets/lead_agent_id now on teams
-			"SELECT active_bets, lead_agent_id FROM teams WHERE id = 'demo-team-acme'",
+			"SELECT lead_agent_id FROM teams WHERE id = 'demo-team-acme'",
 		);
-		const activeBets = await count(
+		expect(teamRow[0]?.lead_agent_id).toBeTruthy();
+
+		// Root tasks (parentTaskId IS NULL) should exist for the demo team.
+		const rootTaskCount = await count(
 			db,
-			"bets",
-			"WHERE status = 'active' AND team_id = 'demo-team-acme'",
+			"tasks",
+			"WHERE parent_task_id IS NULL AND team_id = 'demo-team-acme'",
 		);
-		expect(members[0]?.active_bets).toBe(activeBets);
-		expect(members[0]?.lead_agent_id).toBeTruthy();
+		expect(rootTaskCount).toBeGreaterThan(0);
 
 		// Local-mode auth resolves the first human user — that must be the demo founder,
 		// so the founder row predates every other human.

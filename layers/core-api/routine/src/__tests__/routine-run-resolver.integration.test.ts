@@ -377,6 +377,7 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 		});
 		await seedRun(db, { runId: "run-ba9c-trig-1", routineId: "routine-ba9c-trig-1" });
 
+		// @lore BB1: task subject now uses `ancestors` (root-first parent chain) instead of `bet`.
 		const triggerEvent = {
 			type: "task_state_changed",
 			timestamp: 1_700_000_000_000,
@@ -384,7 +385,7 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 			subject: {
 				kind: "task" as const,
 				task: { id: "tsk-x", title: "Feature Alpha", description: null, state: "done" },
-				bet: { id: "bet-x", description: "Ship Alpha", appetite: "small", doneCondition: null },
+				ancestors: [{ id: "root-x", title: "Ship Alpha", description: null, doneCondition: null }],
 			},
 		};
 
@@ -404,7 +405,7 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 			subject: {
 				kind: "task",
 				task: { id: "tsk-x", title: "Feature Alpha", state: "done" },
-				bet: { id: "bet-x", description: "Ship Alpha", appetite: "small", doneCondition: null },
+				ancestors: [{ id: "root-x", title: "Ship Alpha" }],
 			},
 		});
 	});
@@ -437,19 +438,21 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 		});
 		await seedRun(db, { runId: "run-ba9c-noteam", routineId: "routine-ba9c-noteam" });
 
+		// @lore BB1: bet_state_changed deleted — a bet is now a root task (parentTaskId IS NULL).
+		// Test now uses task_state_changed with a root task subject (empty ancestors).
 		const triggerEvent = {
-			type: "bet_state_changed",
+			type: "task_state_changed",
 			timestamp: 1_700_000_001_000,
-			transition: { from: "active", to: "completed" },
+			transition: { from: "in_progress", to: "done" },
 			subject: {
-				kind: "bet" as const,
-				bet: {
+				kind: "task" as const,
+				task: {
 					id: "bet-y",
-					description: "Ship the feature",
-					state: "completed",
-					appetite: "large",
-					doneCondition: null,
+					title: "Ship the feature",
+					description: null,
+					state: "done",
 				},
+				ancestors: [],
 			},
 		};
 
@@ -465,10 +468,11 @@ describe("resolveRoutineRunRequest — triggerEvent threading (BA9c)", () => {
 			| Extract<BakedContextBundle, { kind: "routine" }>
 			| undefined;
 		expect(routineBundle3?.team).toBeNull();
-		expect(routineBundle3?.triggerEvent?.type).toBe("bet_state_changed");
+		expect(routineBundle3?.triggerEvent?.type).toBe("task_state_changed");
 		expect(routineBundle3?.triggerEvent?.subject).toMatchObject({
-			kind: "bet",
-			bet: { id: "bet-y", description: "Ship the feature", appetite: "large", doneCondition: null },
+			kind: "task",
+			task: { id: "bet-y", title: "Ship the feature", state: "done" },
+			ancestors: [],
 		});
 	});
 });

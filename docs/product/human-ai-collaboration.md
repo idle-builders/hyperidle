@@ -4,7 +4,7 @@ Agents execute. Humans validate. That is the collaboration model. Not zero-human
 
 | Role | Responsibility | Example |
 |------|---------------|---------|
-| **Founders / team leads** | Render verdicts, review high-stakes artifacts, shape bets, curate knowledge | Reviewing a deploy proposal, pruning stale practices |
+| **Founders / team leads** | Render verdicts, review high-stakes artifacts, shape tasks, curate knowledge | Reviewing a deploy proposal, pruning stale practices |
 | **Agents (team members)** | Pick up tasks, run sessions, ship artifacts, write to practice | Mika (Builder) implementing the Stripe webhook handler |
 | **Strategy agents (facilitators)** | Organize what teams produce, [score attention](../knowledge-architecture/relevance-and-attention.md), route to the right eyes | Assistant drafting the monthly portfolio retro |
 
@@ -14,7 +14,7 @@ Agents execute. Humans validate. That is the collaboration model. Not zero-human
 
 The Builder agent on the Acme team is a member of that team. It picks up tasks, runs sessions, ships artifacts, and writes to the practice when it learns something. It is not a tool the founder invokes. Agents initiate conversations with founders. They surface problems. They propose changes. They flag uncertainty.
 
-**Example.** Mika is the Acme Builder. On Tuesday, she picks up "Implement Stripe webhook handler" from the payments bet. She works through the implementation and hits a product question: which webhook events does the product actually need? She creates a handoff to the founder (`toHuman`, `layers/core-api/policy/src/handoff-protocol.ts`): "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
+**Example.** Mika is the Acme Builder. On Tuesday, she picks up "Implement Stripe webhook handler" as a subtask of the payments task. She works through the implementation and hits a product question: which webhook events does the product actually need? She creates a handoff to the founder (`toHuman`, `layers/core-api/policy/src/handoff-protocol.ts`): "I can implement all 27 Stripe event types or scope to the 4 we need for checkout. Which?"
 
 The founder replies in the thread. Mika starts a new session with the answer and completes the task. When she finds that optimal retry logic conflicts with the growth practice docs, she writes a new practice item and flags the Growth Facilitator. That knowledge becomes available to every Builder the next time webhooks come up.
 
@@ -64,9 +64,9 @@ Kind registry and shared grounding (`ToolLogo`/`CanvasSourceHeader`): [review pr
 
 - **Not "zero human companies."** Humans are in every loop that matters — exactly those loops, not the ones that do not matter.
 - **Not workflow orchestration.** Agents decide at runtime what to do next and surface decisions through reviews.
-- **Not humans doing agent work.** Humans shape bets, create routines, and record outcomes in the Work view; agents run the tasks and sessions underneath. Founders redirect execution through thread conversations, not by micro-editing task state.
+- **Not humans doing agent work.** Humans shape tasks, create routines, and record outcomes in the Work view; agents run the subtasks and sessions underneath. Founders redirect execution through thread conversations, not by micro-editing task state.
 - **Not unlimited autonomy over time.** Trust is per-agent verdict history — it grows as approvals accumulate and never becomes exemption from judgment on high-risk work.
 
 ---
 
-Next: [How Knowledge Compounds](./how-knowledge-compounds.md) — the knowledge layers, practices, and the machinery that makes the tenth bet faster than the first.
+Next: [How Knowledge Compounds](./how-knowledge-compounds.md) — the knowledge layers, practices, and the machinery that makes the tenth task faster than the first.

@@ -17,7 +17,7 @@ So the correct framing of everything below is conditional: **when a review check
 
 ## The frame: every approve has consequences
 
-A review is a decision point, and a decision moves the world. Even approving a chart resolves its work (closes the task, advances the bet) and may launch the next step. A **consequence** is either **internal** (a HyperIdle state move) or **external** (a call to a connected tool). The question is never *whether* something happens on approve — it is *what*, and *whether it can be undone*.
+A review is a decision point, and a decision moves the world. Even approving a chart resolves its work (closes the task, propagates state up the task tree) and may launch the next step. A **consequence** is either **internal** (a HyperIdle state move) or **external** (a call to a connected tool). The question is never *whether* something happens on approve — it is *what*, and *whether it can be undone*.
 
 ## The classifier: reversibility, not familiarity
 

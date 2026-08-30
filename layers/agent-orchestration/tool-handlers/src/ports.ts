@@ -90,7 +90,7 @@ interface ToolHandlersCreateTeamInput {
 	/** The `teamMembers.id` for the companion row (1:1 invariant). */
 	readonly teamMembersId: string;
 	readonly capacity?: number;
-	readonly activeBets?: number;
+	// @lore BB1: activeBets removed — WIP limit is capacity counted live.
 	readonly formedAt?: string;
 }
 
@@ -333,10 +333,11 @@ interface ToolHandlersCoreApiAccessor {
 	): Promise<{ readonly teamId: string } | undefined>;
 	/** Atomically creates a `teams` row + its `teamMembers` companion (1:1 invariant). */
 	createTeam(input: ToolHandlersCreateTeamInput, actorId: string): Promise<void>;
-	/** Update team-owned columns (phase on `teams`, activeBets/leadAgentId on `teamMembers`). */
+	/** Update team-owned columns (phase on `teams`, leadAgentId on `teamMembers`). */
+	// @lore BB1: activeBets removed from patch — WIP limit is capacity counted live.
 	updateTeam(
 		teamId: string,
-		patch: { phase?: string; activeBets?: number; leadAgentId?: string },
+		patch: { phase?: string; leadAgentId?: string },
 		actorId: string,
 	): Promise<void>;
 	/** Collapses `resolveReviewRecipients(db, ctx, {getUserById})` — see this file's top `@lore`. */

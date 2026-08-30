@@ -186,10 +186,7 @@ describe("T4: exhaustive DomainEvent switch handles proposed_call_granted (AC13)
 					return "agent_run_admission_failed";
 				case "task_state_changed":
 					return "task_state_changed";
-				case "bet_state_changed":
-					return "bet_state_changed";
-				case "bet_revised":
-					return "bet_revised";
+				// @lore BB1: bet_state_changed and bet_revised deleted — bet is now a root task.
 				case "session_started":
 					return "session_started";
 				case "session_ended":

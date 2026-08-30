@@ -53,7 +53,7 @@ The rejection list is load-bearing. Get any of these wrong and the primitive col
 Blocks have no independent lifecycle. They are derived at read time, used for the render, and discarded. The state of a block is exactly the state of its source body:
 
 1. **Body created or written** — by a human in the app or by an agent through the file-watcher writeback path ([sync mechanics](../knowledge-architecture/sync-and-conflict-resolution.md)).
-2. **A surface derives on read** — bet bodies, knowledge bodies, review canvases, artifact bodies all call the same `deriveBlocks`. Render-surface table in [derivation-and-rendering.md](derivation-and-rendering.md).
+2. **A surface derives on read** — task bodies, knowledge bodies, review canvases, artifact bodies all call the same `deriveBlocks`. Render-surface table in [derivation-and-rendering.md](derivation-and-rendering.md).
 3. **Body is edited.** Re-derivation runs. Blocks whose normalised content + outline path are unchanged keep their ids; changed blocks get new ids; vanished blocks are gone. Inbound anchors pointing at a now-missing blockId degrade to a **"source changed"** indicator (`BlockRefEmbed.tsx:10`, `review-canvas.tsx:176`) — the thread or message survives.
 4. **Body is deleted.** All derived blocks are gone (nothing stored to delete). Anchored threads render the same degraded indicator and continue under their own lifecycle.
 
@@ -61,7 +61,7 @@ There is no block status, no block draft, no block archived — the Block type c
 
 ## 5. Authority
 
-- **Owner of the source body:** the host entity (knowledge item, bet, task, artifact, agent, user). Its existing authority model governs; see [process-layer](../process-layer/index.md) for work primitives.
+- **Owner of the source body:** the host entity (knowledge item, task, artifact, agent, user). Its existing authority model governs; see [process-layer](../process-layer/index.md) for work primitives.
 - **Sole producer of Blocks:** `deriveBlocks` (`framework/block-derivation/src/blocks/derive-blocks.ts` — the only `blocks.push`, :409-416). No other code emits Blocks. Resolution is client-side at render time; there is no server-side pre-resolution endpoint (`useBlockResolution.ts` @lore T4).
 - **Mutator of Block instances:** nothing. Blocks are values — recompute, never edit. To change a block, edit the source markdown.
 - **Mutator of the BlockKind set:** doc-first. Update this folder's concept docs, then [canonical-shapes.md](canonical-shapes.md) (the canonical signature `framework/domain-model/src/blocks/types.ts` cites), then consumers. PRs that change the kind set without the doc update are non-conformant.
@@ -91,4 +91,4 @@ The no-dialect rule (§3.1) forces the whole shape:
 - **Block-anchored discussion is independent of any linking primitive.** The anchor is a property of the block — `{ blockId }` — usable by threads without any wiki-link system (linking remains deferred). This is what let per-block discussion ship first.
 - **Re-derivation is cheap and safe.** Derivation is pure (no I/O, no clock, no DB) and fast (<1ms for typical bodies), so every render re-derives; no cache is needed for correctness or shipped at all.
 
-The cost is the BlockId algorithm complexity — paid once, behind a stable contract ([contracts.md](contracts.md)). The payoff is proven: one primitive renders bet bodies, knowledge bodies, review canvases, and artifact bodies (`WorkBet.tsx`, `KnowledgeBody.tsx`, `review-canvas.tsx`, `compose-artifact-body.tsx`) with zero ceremony at the writing surface.
+The cost is the BlockId algorithm complexity — paid once, behind a stable contract ([contracts.md](contracts.md)). The payoff is proven: one primitive renders task bodies, knowledge bodies, review canvases, and artifact bodies (`WorkTask.tsx`, `KnowledgeBody.tsx`, `review-canvas.tsx`, `compose-artifact-body.tsx`) with zero ceremony at the writing surface.

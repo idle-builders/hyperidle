@@ -56,7 +56,7 @@ Draft and `needs_human` items sorted by `attentionScore` descending (unscored it
 
 **Full-page create (`/knowledge/new`, `KnowledgeCreate.tsx`):** bordered header (breadcrumb + editable title input + **Create** button, disabled until title and body have content) over a two-column body — `BodyEditor` left, metadata card right with a scope picker. Create-time scope options: Shared → factory, Team → team, Private → user (`SCOPE_CREATE_OPTIONS`). Human-authored items are created as status `active` immediately (AF13 §1) — no draft detour.
 
-**In-context capture (`KnowledgeCreateDialog`):** the dialog survives for capture from a host object — e.g. "Add knowledge" on a bet detail page opens it with the bet scope locked (`WorkBet.tsx`).
+**In-context capture (`KnowledgeCreateDialog`):** the dialog survives for capture from a host object — e.g. "Add knowledge" on a task detail page opens it with the task scope locked (`WorkTask.tsx`).
 
 ## 4. Data semantics (pointers)
 

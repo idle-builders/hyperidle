@@ -18,7 +18,7 @@ Every knowledge item attaches to exactly one entity via `scope_kind + scope_id`.
 - `product` — product-specific context and architecture decisions. `scope_id` = product id.
 - `practice` — cross-product learning for a discipline. `scope_id` = practice community id.
 - `team` — team-level knowledge. `scope_id` = team id.
-- `bet` — conceptual context for a specific bet. `scope_id` = bet id.
+- `bet` — legacy scope kind for knowledge items created before BB1 (when bets existed as a separate primitive). These items carry no layer (`bet` maps to null in `SCOPE_TO_LAYER`). New items should use `task` scope.
 - `task` — notes, findings, failures for a specific task. `scope_id` = task id.
 - `user` — personal notes, private scratch. No `scope_id`.
 
@@ -56,7 +56,7 @@ Items without a layer are invisible to context assembly — session context asse
 
 The Knowledge service projects arbitrary slices of knowledge into agent sandboxes. "All practices relevant to building + all product decisions from the last cycle + the factory principles" is one SQL query against one table with a join to the projection table. Multiple databases or file trees would turn that into a multi-source join with file I/O — slow, fragile, hard to version.
 
-The process primitives (bets, tasks, sessions, teams, routines) stay in their own tables. `knowledge_items` is for knowledge artifacts only.
+The process primitives (tasks, sessions, teams, routines) stay in their own tables. `knowledge_items` is for knowledge artifacts only.
 
 ## Blocks are projections
 

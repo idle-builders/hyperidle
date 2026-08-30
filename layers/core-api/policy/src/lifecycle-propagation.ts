@@ -1,38 +1,19 @@
 /** Reactive lifecycle propagation. */
 
+import { randomUUID } from "node:crypto";
 import type { HyperIdleDb } from "@hyperidle/db";
-import {
-	type BetStatus,
-	canTransitionTaskState,
-	type PropagationLevel,
-	type TaskState,
-} from "@hyperidle/domain-model";
+import { canTransitionTaskState, type TaskState } from "@hyperidle/domain-model";
 import type {
-	BetStateChangedEvent,
 	EventBus,
 	PropagationAppliedEvent,
 	PropagationFailedEvent,
 	SessionEndedEvent,
 	TaskStateChangedEvent,
 } from "@hyperidle/event-bus";
-import {
-	InvalidTransitionError as SharedInvalidTransitionError,
-	TaskInvalidTransitionError,
-} from "./errors.js";
+import { TaskInvalidTransitionError } from "./errors.js";
 import type { PolicyDeps } from "./ports.js";
 
 type LifecyclePropagationDeps = Pick<PolicyDeps, "work" | "conversation" | "users">;
-
-interface RevisionLogEntry {
-	timestamp: string;
-	field: string;
-	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
-	old_value: unknown;
-	// biome-ignore lint/style/useNamingConvention: serialized JSON format uses snake_case
-	new_value: unknown;
-	reason: string;
-	actor?: string;
-}
 
 async function transitionTask(
 	db: HyperIdleDb,
@@ -101,82 +82,10 @@ function isInvalidTransitionError(err: unknown): err is Error & { name: "Invalid
 	return err instanceof Error && err.name === "InvalidTransitionError";
 }
 
-/**
- * Valid bet states that can transition to 'review' via propagation.
- * @lore U1: simplified from {in_progress,behind,blocked,paused} to {active}.
- */
-const PROPAGATABLE_BET_STATES: ReadonlySet<BetStatus> = new Set(["active"]);
-
-/**
- * Synchronously transition a bet to 'completed' for propagation purposes.
- *
- * @lore L20: We cannot call transitionBet() (which is async) from a
- * synchronous EventBus handler without losing synchronous execution semantics.
- * transitionBet() has no real async work (uses synchronous better-sqlite3),
- * but its async signature means .then() executes in the microtask queue —
- * after tests assert results. This synchronous version duplicates the minimal
- * bet-to-completed transition logic. See architecture trade-off §12.1.
- *
- * @lore U1: Status simplified. `active` → `completed` (formerly active → review).
- * `bet.productId` → `bet.teamId`.
- */
-async function transitionBetToCompletedAsync(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	betId: string,
-	deps: LifecyclePropagationDeps,
-): Promise<void> {
-	const bet = await deps.work.getBetById(db, betId);
-	if (!bet) throw new Error(`Bet '${betId}' not found`);
-
-	const fromState = bet.status as BetStatus;
-
-	if (!PROPAGATABLE_BET_STATES.has(fromState)) {
-		throw new SharedInvalidTransitionError(fromState, "completed");
-	}
-
-	// Build revision log entry
-	const existingLog: RevisionLogEntry[] = bet.revisionLog
-		? (JSON.parse(bet.revisionLog) as RevisionLogEntry[])
-		: [];
-
-	const entry: RevisionLogEntry = {
-		timestamp: new Date().toISOString(),
-		field: "status",
-		old_value: fromState,
-		new_value: "completed",
-		reason: "All tasks completed — system propagation",
-		actor: SYSTEM_PROPAGATION_AGENT_ID,
-	};
-	const updatedLog = JSON.stringify([...existingLog, entry]);
-
-	// CAS update — only if still in fromState
-	const { applied } = await deps.work.transitionBetStatus(db, {
-		betId,
-		fromStatus: fromState,
-		patch: { status: "completed", revisionLog: updatedLog },
-	});
-
-	if (!applied) {
-		throw new SharedInvalidTransitionError(fromState, "completed");
-	}
-
-	// Emit bet_state_changed (same as transitionBet does)
-	// @lore U1: streamId is now bet.teamId (formerly bet.productId).
-	eventBus.emit({
-		type: "bet_state_changed",
-		streamId: bet.teamId,
-		betId,
-		fromState,
-		toState: "completed",
-		timestamp: Date.now(),
-	});
-}
-
 /** ID of the system agent that authors propagation review threads. */
 const SYSTEM_PROPAGATION_AGENT_ID = "system:propagation";
 
-/** Terminal task states — tasks in these states are "done" for bet completion purposes. */
+/** Terminal task states — tasks in these states count as finished. */
 const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
 
 // ─── Session -> Task propagation ─────────────────────────────────────────────
@@ -241,9 +150,9 @@ async function propagateSessionToTask(
 		const appliedEvent: PropagationAppliedEvent = {
 			type: "propagation_applied",
 			streamId: taskId,
-			sourceLevel: "session" as PropagationLevel,
+			sourceLevel: "session",
 			sourceId: sessionId,
-			targetLevel: "task" as PropagationLevel,
+			targetLevel: "task",
 			targetId: taskId,
 			targetTransition: "in_progress -> review",
 			timestamp: Date.now(),
@@ -260,9 +169,9 @@ async function propagateSessionToTask(
 		const failedEvent: PropagationFailedEvent = {
 			type: "propagation_failed",
 			streamId: taskId,
-			sourceLevel: "session" as PropagationLevel,
+			sourceLevel: "session",
 			sourceId: sessionId,
-			targetLevel: "task" as PropagationLevel,
+			targetLevel: "task",
 			targetId: taskId,
 			failureReason: err instanceof Error ? err.message : String(err),
 			timestamp: Date.now(),
@@ -271,77 +180,112 @@ async function propagateSessionToTask(
 	}
 }
 
-// ─── Task -> Bet propagation ──────────────────────────────────────────────────
+// ─── Task -> Parent propagation (recursive rollup) ───────────────────────────
 
 /**
- * @lore L20: propagateTaskToBet is async — transitionBetToReview is genuinely
- * async after the PGlite migration. Callers (EventBus handlers) must wrap in
- * void (async () => { ... })() to satisfy the sync handler contract.
+ * When a task reaches a terminal state (`done` or `killed`), walk its ancestor
+ * chain and transition each ancestor that now has all-terminal children.
+ *
+ * @lore BB1: replaces the single-hop `propagateTaskToBet`. A bet was one fixed
+ * level above a task; ancestors are now at any depth. We use `listAncestorIds`
+ * (nearest-first) and process the chain in one call — each ancestor transition
+ * commits before we read the next level, so the sibling check at level N+1 sees
+ * the just-committed `done` state of level N. The `task_state_changed` event
+ * emitted by each `transitionTask` re-triggers this handler for the ancestor;
+ * those secondary calls find their own ancestors already done and skip (CAS).
+ *
+ * Only `review -> done` is legal per the task state machine. Ancestors in other
+ * states (e.g. `in_progress`) cause an `InvalidTransitionError` which is caught
+ * and treated as a race — the human's current state wins.
+ *
+ * A root task completing (`parentTaskId === null`) is what used to be a bet
+ * completing. The ship-confirmation thread is created only for root tasks.
  */
-async function propagateTaskToBet(
+async function propagateTaskToParent(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	taskId: string,
 	deps: LifecyclePropagationDeps,
 ): Promise<void> {
-	// All DB reads and the transition are inside the try so that read failures
-	// are reported via propagation_failed (not left as unhandled rejections).
-	let betId: string | undefined;
+	let lastAttemptedAncestorId: string | undefined;
 	try {
-		// Look up the task to get its betId
-		const task = await deps.work.getTaskById(db, taskId);
-		if (!task) return;
+		const ancestorIds = await deps.work.listAncestorIds(db, taskId);
+		if (ancestorIds.length === 0) {
+			// taskId is itself a root — no parent to propagate to.
+			return;
+		}
 
-		betId = task.betId;
+		for (const ancestorId of ancestorIds) {
+			lastAttemptedAncestorId = ancestorId;
 
-		// Look up the bet — only propagate if bet is in an active state
-		const bet = await deps.work.getBetById(db, betId);
-		if (!bet) return;
+			const ancestor = await deps.work.getTaskById(db, ancestorId);
+			if (!ancestor) break;
 
-		// @lore U1: statuses simplified: "shipped" → "completed", "review" dropped.
-		const TERMINAL_BET_STATES = new Set(["completed", "killed"]);
-		if (TERMINAL_BET_STATES.has(bet.status)) return;
+			// Already terminal: this ancestor was completed by a prior iteration
+			// or a concurrent write. Continue up the chain — the grandparent
+			// might still be waiting for this ancestor AND another sibling, but
+			// if the ancestor is now done we can still check higher up.
+			if (TERMINAL_TASK_STATES.has(ancestor.state)) continue;
 
-		// Query all tasks on this bet
-		const allBetTasks = await deps.work.listTasks(db, { betId });
-		if (allBetTasks.length === 0) return;
+			// Check: are ALL direct children of this ancestor terminal?
+			const children = await deps.work.listChildTasks(db, ancestorId);
+			if (children.length === 0) break; // No children — do not auto-complete.
+			const allTerminal = children.every((c) => TERMINAL_TASK_STATES.has(c.state));
+			if (!allTerminal) break; // At least one child still active — stop here.
 
-		// Check: are ALL tasks in terminal state?
-		const allTerminal = allBetTasks.every((t) => TERMINAL_TASK_STATES.has(t.state));
-		if (!allTerminal) return;
+			const fromState = ancestor.state;
 
-		// @lore U1: `active` → `completed` (formerly active → review).
-		const fromStatus = bet.status;
-		await transitionBetToCompletedAsync(db, eventBus, betId, deps);
+			// Transition to done. The task state machine requires `review -> done`;
+			// if the ancestor is in another state this throws InvalidTransitionError,
+			// caught below as a race (human intent wins).
+			await transitionTask(db, eventBus, ancestorId, "done", deps);
 
-		// Create ship-confirmation review thread
-		await createShipConfirmationThread(db, eventBus, betId, allBetTasks, deps);
+			// Root task completion is what used to be a bet completing.
+			// @lore BB1: anchored on parentTaskId === null, NOT on depth or a flag.
+			if (ancestor.parentTaskId === null) {
+				await createShipConfirmationThread(db, eventBus, ancestorId, children, deps);
 
-		// Emit propagation_applied for the task -> bet hop (observability).
-		const appliedEvent: PropagationAppliedEvent = {
-			type: "propagation_applied",
-			streamId: betId,
-			sourceLevel: "task" as PropagationLevel,
-			sourceId: taskId,
-			targetLevel: "bet" as PropagationLevel,
-			targetId: betId,
-			targetTransition: `${fromStatus} -> completed`,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(appliedEvent);
+				// Team status is derived on read — no write needed. Emit for observability.
+				const teamEvent: PropagationAppliedEvent = {
+					type: "propagation_applied",
+					streamId: ancestor.teamId,
+					sourceLevel: "task",
+					sourceId: ancestorId,
+					targetLevel: "team",
+					targetId: ancestor.teamId,
+					targetTransition: `${fromState} -> done`,
+					timestamp: Date.now(),
+				};
+				eventBus.emit(teamEvent);
+			}
+
+			// Emit propagation_applied for this task -> ancestor hop.
+			const appliedEvent: PropagationAppliedEvent = {
+				type: "propagation_applied",
+				streamId: ancestorId,
+				sourceLevel: "task",
+				sourceId: taskId,
+				targetLevel: "task",
+				targetId: ancestorId,
+				targetTransition: `${fromState} -> done`,
+				timestamp: Date.now(),
+			};
+			eventBus.emit(appliedEvent);
+		}
 	} catch (err) {
 		if (isInvalidTransitionError(err)) {
-			// F4: Race condition — bet was already moved by human. Silently skip.
+			// F4: Race condition — ancestor was already moved by a human or a
+			// concurrent propagation. Silently skip; the human intent wins.
 			return;
 		}
 		// Unexpected error — emit propagation_failed for extension subscribers.
 		const failedEvent: PropagationFailedEvent = {
 			type: "propagation_failed",
-			streamId: betId ?? taskId,
-			sourceLevel: "task" as PropagationLevel,
+			streamId: lastAttemptedAncestorId ?? taskId,
+			sourceLevel: "task",
 			sourceId: taskId,
-			targetLevel: "bet" as PropagationLevel,
-			targetId: betId ?? taskId,
+			targetLevel: "task",
+			targetId: lastAttemptedAncestorId ?? taskId,
 			failureReason: err instanceof Error ? err.message : String(err),
 			timestamp: Date.now(),
 		};
@@ -351,36 +295,42 @@ async function propagateTaskToBet(
 
 // ─── Ship-confirmation review thread ─────────────────────────────────────────
 
+/**
+ * Create a ship-confirmation thread on a ROOT task that just completed.
+ *
+ * @lore BB1: previously anchored on a `bet` row. A root task (`parentTaskId ===
+ * null`) is the new bet equivalent — `hostKind: "task"` replaces `hostKind: "bet"`.
+ */
 async function createShipConfirmationThread(
 	db: HyperIdleDb,
 	eventBus: EventBus,
-	betId: string,
-	allBetTasks: Array<{ state: string }>,
+	rootTaskId: string,
+	allChildren: Array<{ state: string }>,
 	deps: LifecyclePropagationDeps,
 ): Promise<void> {
 	const now = new Date().toISOString();
-	const threadId = crypto.randomUUID();
+	const threadId = randomUUID();
 
 	// P2: Read founder from users table (kind = 'human') instead of factorySettings.
 	// @lore P2: fallback to "u-founder" for unseeded DBs — same sentinel as auth middleware.
 	const humanUser = await deps.users.getFirstUserByKind(db, "human");
 	const founderId = humanUser?.id ?? "u-founder";
 
-	const doneCount = allBetTasks.filter((t) => t.state === "done").length;
-	const killedCount = allBetTasks.filter((t) => t.state === "killed").length;
-	const totalCount = allBetTasks.length;
+	const doneCount = allChildren.filter((t) => t.state === "done").length;
+	const killedCount = allChildren.filter((t) => t.state === "killed").length;
+	const totalCount = allChildren.length;
 
 	await deps.conversation.insertThread(db, {
 		id: threadId,
-		hostKind: "bet",
-		hostId: betId,
+		hostKind: "task",
+		hostId: rootTaskId,
 		initiatorId: SYSTEM_PROPAGATION_AGENT_ID,
 		participants: JSON.stringify([SYSTEM_PROPAGATION_AGENT_ID, founderId]),
 		lastActiveAt: now,
 		createdAt: now,
 	});
 
-	const messageId = crypto.randomUUID();
+	const messageId = randomUUID();
 	await deps.conversation.insertMessage(db, {
 		id: messageId,
 		senderId: SYSTEM_PROPAGATION_AGENT_ID,
@@ -388,11 +338,11 @@ async function createShipConfirmationThread(
 		type: "review",
 		payload: JSON.stringify({
 			kind: "ship_confirmation",
-			betId,
+			taskId: rootTaskId,
 			taskSummary: { done: doneCount, killed: killedCount, total: totalCount },
-			message: "All tasks on this bet are complete. Confirm shipping?",
+			message: "All subtasks on this task are complete. Confirm shipping?",
 		}),
-		clientKey: `propagation-ship-${betId}-${Date.now()}`,
+		clientKey: `propagation-ship-${rootTaskId}-${Date.now()}`,
 		createdAt: now,
 	});
 
@@ -400,59 +350,11 @@ async function createShipConfirmationThread(
 		type: "thread_created",
 		streamId: threadId,
 		threadId,
-		hostKind: "bet",
-		hostId: betId,
+		hostKind: "task",
+		hostId: rootTaskId,
 		initiatorId: SYSTEM_PROPAGATION_AGENT_ID,
 		timestamp: Date.now(),
 	});
-}
-
-// ─── Bet -> Team propagation ──────────────────────────────────────────────────
-
-/**
- * @lore U1: Renamed from logBetToProductPropagation. `"product"` level → `"team"`.
- * `bet.productId` → `bet.teamId`. Team status is derived on read — no write needed.
- */
-async function emitBetToTeamPropagation(
-	db: HyperIdleDb,
-	eventBus: EventBus,
-	betId: string,
-	newStatus: string,
-	deps: LifecyclePropagationDeps,
-): Promise<void> {
-	// DB read inside try so a read failure is reported via propagation_failed.
-	try {
-		// Look up the bet to find its teamId
-		const bet = await deps.work.getBetById(db, betId);
-		// @lore U1: `teamId` replaces `productId`.
-		const teamId = bet?.teamId ?? betId; // fallback to betId if bet not found (shouldn't happen)
-
-		// Team status is derived on read — no write-time propagation needed.
-		// Emit propagation_applied for observability.
-		const appliedEvent: PropagationAppliedEvent = {
-			type: "propagation_applied",
-			streamId: teamId,
-			sourceLevel: "bet" as PropagationLevel,
-			sourceId: betId,
-			targetLevel: "team" as PropagationLevel,
-			targetId: teamId,
-			targetTransition: `bet -> ${newStatus}`,
-			timestamp: Date.now(),
-		};
-		eventBus.emit(appliedEvent);
-	} catch (err) {
-		const failedEvent: PropagationFailedEvent = {
-			type: "propagation_failed",
-			streamId: betId,
-			sourceLevel: "bet" as PropagationLevel,
-			sourceId: betId,
-			targetLevel: "team" as PropagationLevel,
-			targetId: betId,
-			failureReason: err instanceof Error ? err.message : String(err),
-			timestamp: Date.now(),
-		};
-		eventBus.emit(failedEvent);
-	}
 }
 
 // ─── Public registration function ─────────────────────────────────────────────
@@ -461,6 +363,11 @@ async function emitBetToTeamPropagation(
  * Register lifecycle propagation event handlers on the EventBus.
  *
  * Returns an unsubscribe function that tears down all subscriptions.
+ *
+ * @lore BB1: the three-handler chain (session -> task, task -> bet, bet ->
+ * team) is now two handlers. Bets are gone; a root task (`parentTaskId ===
+ * null`) is what a bet was. Handler 2 now drives a recursive rollup via
+ * `listAncestorIds` and `listChildTasks` rather than a single fixed hop.
  *
  * @lore AU44 batch6: propagation_log table dropped (AU20 Ruling 2 affirmed
  * by founder). The retry heartbeat, `recordPropagationHop`, `retryFailedPropagations`,
@@ -491,27 +398,19 @@ function registerLifecyclePropagation(
 		})();
 	});
 
-	// Handler 2: task_state_changed -> evaluate bet transition
+	// Handler 2: task_state_changed -> evaluate parent transition (recursive rollup).
+	// Fires for every terminal state so that a kill also propagates upward.
 	const unsubTaskChanged = eventBus.on("task_state_changed", (event: TaskStateChangedEvent) => {
 		if (event.toState === "done" || event.toState === "killed") {
 			void (async () => {
-				await propagateTaskToBet(db, eventBus, event.taskId, deps);
+				await propagateTaskToParent(db, eventBus, event.taskId, deps);
 			})();
-		}
-	});
-
-	// Handler 3: bet_state_changed -> emit bet->team propagation (derived on read)
-	// @lore U1: "shipped" → "completed"; logBetToProductPropagation → emitBetToTeamPropagation.
-	const unsubBetChanged = eventBus.on("bet_state_changed", (event: BetStateChangedEvent) => {
-		if (event.toState === "completed" || event.toState === "killed") {
-			void emitBetToTeamPropagation(db, eventBus, event.betId, event.toState, deps);
 		}
 	});
 
 	return () => {
 		unsubSessionEnded();
 		unsubTaskChanged();
-		unsubBetChanged();
 	};
 }
 

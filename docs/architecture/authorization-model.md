@@ -25,7 +25,7 @@ Host kinds are closed (`bet|task|knowledge_item|artifact|agent|user|team|factory
 
 The boundary is **derived, never a user-edited ACL**. There is one decision function; every read endpoint and every WS subscribe routes through it. Host-scoped resources **must stay broadly readable** — over-restricting a bet/task/knowledge discussion is as much a defect as leaking a participant-scoped one.
 
-`canWrite` mirrors `canRead` today; it is kept separate so future write-only tightening (e.g. only bet members can commit) has a seam.
+`canWrite` mirrors `canRead` today; it is kept separate so future write-only tightening (e.g. only task members can transition state) has a seam.
 
 **Not** the same as knowledge `scope_kind` — that classifies content *placement*, not request *authorization*.
 

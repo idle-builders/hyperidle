@@ -10,8 +10,7 @@ export type {
 	AgentWorkIntentKind,
 	AgentWorkIntentSourceKind,
 	ArtifactCreatedEvent,
-	BetRevisedEvent,
-	BetStateChangedEvent,
+	// @lore BB1: BetRevisedEvent and BetStateChangedEvent deleted — bet is now a root task.
 	DependencyMetEvent,
 	DomainEvent,
 	EventByType,

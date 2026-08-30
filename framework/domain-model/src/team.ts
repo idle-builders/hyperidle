@@ -14,7 +14,7 @@
  */
 
 import type { RoutineCardSummary } from "./routine.js";
-import type { BetStatus } from "./types.js";
+import type { TaskState } from "./types.js";
 
 /**
  * Status of a product team — derived server-side from active bet states
@@ -75,20 +75,27 @@ export interface RosterMember {
  * `routineCostThisMonth` (all WireMoney|null, L17) are HARD-DELETED along
  * with the rest of the cost-cap/accounting feature — no replacement. `burn`
  * now carries only capacity utilisation.
+ *
+ * @lore BB1: `activeBets` counter DELETED — the WIP limit is now counted
+ * live from tasks in `in_progress` (`countTeamTasksInProgress`). `capacity`
+ * remains: it is the max concurrent in_progress tasks per team.
  */
 export interface TeamBurn {
-	capacity: number; // team_members.capacity (max parallel bets)
-	activeBets: number; // team_members.active_bets cached counter
+	capacity: number; // team_members.capacity (max concurrent in_progress tasks)
 }
 
-export interface BetCardSummary {
+/**
+ * Summary of one in_progress task for the team page.
+ *
+ * @lore BB1: Replaces `BetCardSummary` — a bet is now a root task. The card
+ * shows any task currently in_progress (at any depth), not just root tasks.
+ */
+export interface TaskCardSummary {
 	id: string;
-	// @lore U1: `descriptionTitle` was formerly `pitchTitle`. Derives a display
-	// title from bets.description (formerly bets.pitch).
-	descriptionTitle: string;
-	status: BetStatus; // "active" in new lifecycle
-	progressDone: number; // count(tasks where state='done')
-	progressTotal: number; // count(tasks)
+	title: string;
+	state: TaskState; // always "in_progress" for the active list, kept typed for callers
+	progressDone: number; // count(subtasks where state='done')
+	progressTotal: number; // count(subtasks)
 }
 
 export interface TeamDetail {
@@ -96,7 +103,8 @@ export interface TeamDetail {
 	teamMembers: { id: string; formedAt: string; dissolvedAt: string | null };
 	roster: RosterMember[]; // sorted: lead first, then by name asc
 	burn: TeamBurn;
-	activeBets: BetCardSummary[]; // bets WHERE team_id = :id AND status = 'active'
+	/** @lore BB1: replaces `activeBets: BetCardSummary[]` — tasks in_progress at any depth. */
+	tasksInProgress: TaskCardSummary[];
 	/** AA1: routines belonging to this team, sorted by name asc. Absent in pre-AA1 fixtures. */
 	routines?: RoutineCardSummary[];
 }
@@ -105,11 +113,16 @@ export interface TeamDetail {
  * Shape returned by GET /api/products (the list endpoint used by Portfolio).
  * Extends TeamSummary with portfolio-level counters.
  */
+/**
+ * @lore BB1: `activeBets`→`tasksInProgress`, `shipped`→`tasksDone`.
+ * Comments updated to remove "bets" terminology. The underlying counts now
+ * reflect root tasks (parent_task_id IS NULL) with the corresponding states.
+ */
 export interface TeamListItem extends TeamSummary {
-	activeBets: number; // count of active bets
-	shipped: number; // count of completed bets
+	tasksInProgress: number; // count of in_progress root tasks
+	tasksDone: number; // count of done root tasks
 	shipRate: string; // percentage string, e.g. "67%" or "—" when no history
-	progress: { done: number; total: number }; // sum across active bets
+	progress: { done: number; total: number }; // sum across in_progress tasks
 	/** AA1: total routines belonging to this team (all states). */
 	routineCount: number;
 	/** AB2: total AI agents in the team. */

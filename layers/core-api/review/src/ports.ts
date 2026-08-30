@@ -18,7 +18,7 @@
  * contract — callers of `transitionProposedCall({to:'granted',...})` must
  * supply it via `ports.intentRecorder`.
  */
-import type { Bet, HyperIdleDb, Task, Team, User, WriteExecutor } from "@hyperidle/db";
+import type { HyperIdleDb, Task, Team, User, WriteExecutor } from "@hyperidle/db";
 import type {
 	AgentWorkIntentRecorderFn,
 	AgentWorkIntentRecorderInput,
@@ -103,15 +103,16 @@ export interface ReviewPorts {
 	 */
 	readonly requireRunnableAgent: (db: HyperIdleDb, agentId: string) => Promise<User>;
 	/**
-	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/work`'s own
-	 * `bets` table + `@hyperidle/org`'s `getTeam`, injected (Mechanism C —
-	 * `review` cannot import `work`/`org` directly). Forwarded into
+	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s `getTeam`, injected
+	 * (Mechanism C — `review` cannot import `org` directly). Forwarded into
 	 * `resolveReengagementRequest`'s deps (via `applyLivenessRetry`/
 	 * `handleUnconsumedGrantOnSessionEnd`/`reengageOnAdmissionFailure`) so the
 	 * liveness-net re-provision bakes the same `contextBundle` the primary
 	 * `transitionProposedCall({to:"granted"})` emit site does.
+	 *
+	 * @lore BB1: `getBetById` deleted — there is no bet table. Ancestor chain is
+	 * traversed via repeated `getTaskById` calls in `resolveReengagementRequest`.
 	 */
-	readonly getBetById?: (db: HyperIdleDb, id: string) => Promise<Bet | undefined>;
 	readonly getTeamById?: (db: HyperIdleDb, id: string) => Promise<Team | undefined>;
 	/** AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s `assembleSessionKnowledge`, injected for the same Mechanism C reason. */
 	readonly assembleSessionKnowledge?: (

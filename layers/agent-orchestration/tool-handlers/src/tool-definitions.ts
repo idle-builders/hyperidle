@@ -791,7 +791,17 @@ function makeSubmitReviewTool<TDb>(
 
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
-			return ok({ messageId, threadId });
+			// BB1: walk the parentTaskId chain to find the root task.
+			let rootTaskId = ctx.taskId;
+			let cursor: { parentTaskId: string | null } = parentTask;
+			while (cursor.parentTaskId !== null) {
+				const ancestor = await ports.coreApi.getTaskById(cursor.parentTaskId, ctx.agentId);
+				if (!ancestor) break;
+				rootTaskId = cursor.parentTaskId;
+				cursor = ancestor;
+			}
+
+			return ok({ messageId, threadId, rootTaskId });
 		},
 	};
 }
@@ -1170,7 +1180,7 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 					createdAt: now,
 					teamMembersId,
 					capacity: 5,
-					activeBets: 0,
+					// @lore BB1: activeBets removed — WIP limit is capacity counted live.
 					formedAt: now,
 				},
 				ctx.agentId,

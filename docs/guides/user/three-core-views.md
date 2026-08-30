@@ -69,27 +69,27 @@ Your assistant is not a pinned conversation — it opens as an overlay from the 
 
 ## 2. Work — planning and tracking
 
-Work is organized in three levels:
+Work is organized in levels:
 
-**Work overview** — a flat list of your teams: name, active-bet count, and a status chip (healthy / behind / blocked). Teams sort by urgency — blocked first, then behind, then healthy. If you have exactly one team, the overview is skipped and Work opens straight on your team's page.
+**Work overview** — a flat list of your teams: name, in-progress task count, and a status chip (healthy / behind / blocked). Teams sort by urgency — blocked first, then behind, then healthy. If you have exactly one team, the overview is skipped and Work opens straight on your team's page.
 
-**Team page** — capacity and status, active bets, routines, and agents. **New bet** lives here and on the Work overview header.
+**Team page** — capacity and status, active tasks, routines, and agents. **New task** lives here and on the Work overview header.
 
-**Bet detail** — the bet's description (rendered as Blocks), progress, task list, and comment thread. Lifecycle semantics live in [bets](../../process-layer/bets-shape-commit-change-ship.md).
+**Task detail** — the task's description (rendered as Blocks), subtask tree, outcome section, and comment thread. A task may have subtasks to any depth; each subtask links to its own task page. Lifecycle semantics live in [tasks and sessions](../../process-layer/tasks-and-sessions.md).
 
-### What the task section shows
+### What the subtask section shows
 
-The Tasks section on a bet detail page shows one of three states:
+The Subtasks section on a task page shows one of three states:
 
 | State | What you see | What it means |
 |---|---|---|
-| Tasks present | Task rows with status chips | Agents are working or work is queued |
-| Not committed | "Not committed yet" | The bet is still a draft; activate to start work |
-| No tasks yet | "No tasks yet" + Add an agent | The bet is active but no tasks exist; add an agent or task to get work started |
+| Subtasks present | Subtask rows with status chips | Agents are working or work is queued |
+| No subtasks yet | "No subtasks yet" + Add an agent | The task is accepted but no subtasks exist; add an agent or subtask to get work started |
+| Proposed | State chip shows "proposed" | The task hasn't been accepted yet |
 
-Either tasks are there, or an honest reason explains why they aren't.
+Either subtasks are there, or an honest reason explains why they aren't.
 
-**Activating a bet** moves it from `draft` to `active`. The task section shows "No tasks yet" until agents on the team begin adding tasks. Task and session details live in [tasks and sessions](../../process-layer/tasks-and-sessions.md).
+**Accepting a task** moves it from `proposed` to `accepted`. The subtask section shows "No subtasks yet" until agents on the team begin adding work. Task and session details live in [tasks and sessions](../../process-layer/tasks-and-sessions.md).
 
 ---
 

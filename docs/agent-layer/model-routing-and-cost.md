@@ -4,7 +4,7 @@ How a session gets its model: per-agent model first, tier fallback second. This 
 
 ## 1. Per-agent model
 
-Each agent can have a **per-agent model** (`agent_run_config.model_id` + `agent_run_config.model_provider`, `framework/db/src/schema.ts` — AU26 moved these off `users` into the agent-orchestration-owned `agent_run_config` table), set in Settings → Agents (options come from `MODEL_CATALOG`). Two agents can run different models during the same bet — a PM on Opus while a builder runs Sonnet.
+Each agent can have a **per-agent model** (`agent_run_config.model_id` + `agent_run_config.model_provider`, `framework/db/src/schema.ts` — AU26 moved these off `users` into the agent-orchestration-owned `agent_run_config` table), set in Settings → Agents (options come from `MODEL_CATALOG`). Two agents can run different models during the same task — a PM on Opus while a builder runs Sonnet.
 
 Resolution order (`resolveModel`, `framework/domain-model/src/model-gateway.ts`) — a single discriminated entry point that replaced the former separate `resolveAgentModel`/`resolveModelTier` pair:
 

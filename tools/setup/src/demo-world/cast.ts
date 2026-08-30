@@ -132,9 +132,9 @@ export async function seedCast(db: HyperIdleDb, clock: DemoClock): Promise<void>
 	}
 
 	// Team state reflects six weeks of use: the PM leads (docs/process-layer
-	// default), two bets are live.
+	// default). @lore BB1: activeBets removed — WIP is counted live.
 	await db
 		.update(teams)
-		.set({ leadAgentId: PM_ID, activeBets: 2, formedAt: clock.daysAgo(44) })
+		.set({ leadAgentId: PM_ID, formedAt: clock.daysAgo(44) })
 		.where(eq(teams.id, TEAM_ID));
 }

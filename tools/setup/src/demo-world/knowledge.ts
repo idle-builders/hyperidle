@@ -14,10 +14,10 @@ import {
 	knowledgeItems,
 } from "@hyperidle/db";
 import {
-	BET_MOBILE,
-	BET_SEARCH,
-	BET_TRIAL,
 	BUILDER_ID,
+	ROOT_TASK_MOBILE,
+	ROOT_TASK_SEARCH,
+	ROOT_TASK_TRIAL,
 	DESIGNER_ID,
 	FACILITATOR_ID,
 	FOUNDER_ID,
@@ -36,7 +36,8 @@ import type { DemoClock } from "./time.js";
 
 interface KnowledgeSpec {
 	readonly id: string;
-	readonly scopeKind: "factory" | "product" | "practice" | "team" | "bet" | "task" | "user";
+	// @lore BB1: "bet" removed from scopeKind — bets table dropped; use "task" for root-task scope.
+	readonly scopeKind: "factory" | "product" | "practice" | "team" | "task" | "user";
 	readonly scopeId: string | null;
 	readonly topic: string;
 	readonly title: string;
@@ -306,8 +307,8 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 		},
 		{
 			id: KI_MOBILE_POSTMORTEM,
-			scopeKind: "bet",
-			scopeId: BET_MOBILE,
+			scopeKind: "task",
+			scopeId: ROOT_TASK_MOBILE,
 			topic: "mobile",
 			title: "Postmortem: the mobile spike we killed",
 			body: "Hypothesis: meaningful Pulse usage happens away from a desk. Reality: mobile is 6% of sessions, mostly read-only, and the responsive app covers it.\n\n**What we keep:** the competitor teardown (they churn mobile users too), the usage numbers, and the discipline of research-before-prototype.\n\n**Cost of the lesson:** three agent-weeks. Worth it once, never again for this question.",
@@ -427,9 +428,9 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 		// ── Bet scope: retros attached to their bets ────────────────────────
 		{
 			id: KI_TRIAL_RETRO,
-			scopeKind: "bet",
-			scopeId: BET_TRIAL,
-			topic: "bets",
+			scopeKind: "task",
+			scopeId: ROOT_TASK_TRIAL,
+			topic: "tasks",
 			title: "Retro: trial extension — validated, and the hidden labor",
 			body: "Hypothesis said 20% of expiring trials; reality delivered 27% taking the extension, 31% of those converting.\n\n**Keeper:** the one-time limit — it kept the offer honest and support load near zero.\n**Drop:** the reason dropdown — nobody used it; it added a step to a one-click flow.\n\nSurprise: support-granted extensions dropped 92%. We built back real hidden labor.",
 			status: "active",
@@ -443,9 +444,9 @@ export async function seedKnowledge(db: HyperIdleDb, clock: DemoClock): Promise<
 		},
 		{
 			id: "demo-ki-retro-search",
-			scopeKind: "bet",
-			scopeId: BET_SEARCH,
-			topic: "bets",
+			scopeKind: "task",
+			scopeId: ROOT_TASK_SEARCH,
+			topic: "tasks",
 			title: "Retro: search relevance — partial, and the eval loop wins",
 			body: "Top-3 hit rate moved 54% → 71%: real, short of the 80% target. Recency mattered more than expected; personalization was killed mid-bet.\n\n**Keeper:** the eval loop — it outlives the bet and measures every future change.\n**Drop:** chasing the last 9 points without new signal; that is diminishing returns.",
 			status: "active",

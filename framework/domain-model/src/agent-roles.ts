@@ -65,7 +65,7 @@ export const AGENT_ROLE_CATALOG: readonly AgentRoleCatalogEntry[] = [
 		role: "product_manager",
 		label: "Product Manager",
 		category: "team",
-		description: "Team lead. Shapes pitches, coordinates cycles, decomposes bets.",
+		description: "Team lead. Shapes goals, coordinates cycles, decomposes tasks.",
 		community: "product",
 		teamFunctions: ["product"],
 		hasTemplate: true,

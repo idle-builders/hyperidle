@@ -19,7 +19,7 @@ Seeded in [`part-model.md`](part-model.md) (the conversation-only wiring) and un
 
 | `route` | Opens | Resolves to |
 |---|---|---|
-| `host` | the entity's host surface (block / knowledge / bet / task / agent) | `resolveHostRoute(hostKind, hostId)` — total over host kinds; `user`, `factory`, and (currently) `task` are documented no-ops (`host-route.ts,36-39`) |
+| `host` | the entity's host surface (block / knowledge / bet / task / agent) | `resolveHostRoute(hostKind, hostId)` — total over host kinds; `user` and `factory` are documented no-ops; `task` should resolve to `/work/task/:taskId` (see H5); `bet` resolves to `/work/bet/:betId` for legacy threads (`host-route.ts`) |
 | `artifact` | the standardized artifact view | `/artifacts/:id` (`open-handler.ts`) |
 | `review` | the review experience | `/reviews/:reviewId` — resolves for every host, no page-supplied context needed (`open-handler.ts`) |
 | `session` | the Session view (AM3) | page-supplied `onOpenSession(sessionId)` (no route — a split panel, `open-handler.ts`) |
@@ -34,7 +34,7 @@ Seeded in [`part-model.md`](part-model.md) (the conversation-only wiring) and un
 - **F2.** `full` is the fold's expanded Inspect state. It is distinct from canonical page navigation.
 - **F3.** One shared fold primitive (`SplitView` in `framework/design-system`); no per-surface reimplementation.
 - **F4.** The fold reuses existing renderers for its destination half — the resolved composition; it authors no renderer and no new view shape.
-- **H5.** Host routing matches real routes only. `artifact → /artifacts/:id` (fixed from the dead `/work/artifact/:id`, `host-route.ts`). `task` currently resolves to **null** — the `/work/bet/:betId/task/:taskId` route needs a `betId` not available at the `resolveHostRoute` seam; documented no-op, task→parent-bet routing deferred to a future WP (`host-route.ts`, BLOCKER-1 lore). No reference resolves to a non-existent route.
+- **H5.** Host routing matches real routes only. `artifact → /artifacts/:id` (fixed from the dead `/work/artifact/:id`, `host-route.ts`). `task` should resolve to `/work/task/:taskId` (BB1 removed the need for betId in the route; code update to `host-route.ts` case "task" is part of the BB1 UI work). `bet` still resolves to `/work/bet/:betId` in `host-route.ts` for legacy threads — a cleanup to remove that case follows once the bet route is deleted. No reference resolves to a non-existent route.
 
 ## Open presentation (the fold)
 
@@ -56,7 +56,7 @@ One Inspect continuum: `back ⇄ split ⇄ full`; the origin keeps its route and
 
 ## Context completion at the page seam
 
-A reference is source-agnostic and cannot know everything its destination needs. The **page** supplies the gap once, when it binds the contract: `createOpenHandler(navigate, { betId, onOpenSession })` (`OpenHandlerContext`, `open-handler.ts`). The page holds thread→host context (a bet-hosted thread's host *is* the bet; page-supplied `betId` wins over target-carried) and owns panel placement (the session view). No component below the page owns navigation.
+A reference is source-agnostic and cannot know everything its destination needs. The **page** supplies the gap once, when it binds the contract: `createOpenHandler(navigate, { onOpenSession })` (`OpenHandlerContext`, `open-handler.ts`). The page owns panel placement (the session view). No component below the page owns navigation.
 
 ## What this is NOT
 

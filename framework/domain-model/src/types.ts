@@ -39,15 +39,6 @@ export const TASK_STATE_LABEL: Record<TaskState, string> = {
 	killed: "Killed",
 };
 
-/**
- * The mutable fields a bet caller can patch via PATCH /api/bets/:id while
- * the bet is in `in_progress`. Mirrored by the server's
- * `bet-state-machine.MUTABLE_FIELDS` set; both must stay in sync.
- *
- * @lore I2 V2: the route schema now uses `z.enum(MUTABLE_BET_FIELDS)` so a
- * bad `field` value is rejected by Zod (400) instead of falling through to
- * the service layer (which would throw a generic 500).
- */
 export interface HealthResponse {
 	status: "ok";
 	timestamp: string;
@@ -66,30 +57,11 @@ export const KERNEL_KNOWLEDGE_STATUSES = ["draft", "active", "archived", "needs_
 export type KernelKnowledgeStatus = (typeof KERNEL_KNOWLEDGE_STATUSES)[number];
 
 /**
- * The full set of legal bet lifecycle statuses. The `BetStatus` union is
- * derived from this constant. Mirrors the I3 pattern for `TASK_STATES`.
- *
- * @lore I4 cross-cutting: required so `BET_STATUS_MAP` can be exhaustively
- * verified at runtime without drifting from the type-checked union.
- *
- * @lore U1: Simplified from 9 statuses to 4. Old status mapping:
- * shaped->draft, committed|in_progress|behind|blocked|paused|review->active,
- * shipped->completed, killed->killed. The `at_risk` boolean on bets replaces
- * the old `behind` sub-state.
+ * @lore BB1: `BET_STATUSES`, `BetStatus`, and `BET_STATUS_LABEL` are DELETED.
+ * A bet was a root task; the task state vocabulary (TASK_STATES) is the only
+ * work vocabulary. Old mapping: draft→proposed, active→in_progress,
+ * completed→done, killed→killed.
  */
-export const BET_STATUSES = ["draft", "active", "completed", "killed"] as const;
-
-export type BetStatus = (typeof BET_STATUSES)[number];
-
-/**
- * AI4: Human-readable labels for each BetStatus. Exhaustive `Record`.
- */
-export const BET_STATUS_LABEL: Record<BetStatus, string> = {
-	draft: "Draft",
-	active: "Active",
-	completed: "Completed",
-	killed: "Killed",
-};
 
 export type ModelTier = "reasoning" | "workhorse" | "fast";
 

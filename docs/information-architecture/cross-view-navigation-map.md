@@ -29,11 +29,11 @@ Every navigation edge in the shipped app, verified against `layers/core-ui/src/r
 | From | To | Trigger |
 |---|---|---|
 | Work overview | Team view | Click team row → `/work/team/:teamId` (`WorkOverview.tsx:186-196`); the 1-team short-circuit skips the overview entirely (`WorkOverview.tsx:194`) |
-| Team view | Bet detail | Click BetRow (`WorkTeam.tsx`) → `/work/bet/:betId` |
+| Team view | Task detail | Click task row (`WorkTeam.tsx`) → `/work/task/:taskId` |
 | Team view | Routine detail | Click routine row → `/work/routine/:routineId` |
-| Team view | New bet | "+ bet" → full page `/work/bet/new` (WorkBetCreate, `router.tsx:85`) — not an overlay |
-| Bet detail | Task detail | Click task row → `/work/bet/:betId/task/:taskId` (`router.tsx:87`) |
-| Bet detail | Team view | Breadcrumb (`WorkBet.tsx`, DS Breadcrumb + NavHistoryCluster) |
+| Team view | New task | "+ task" → full page `/work/task/new` (WorkTaskCreate, `router.tsx`) — not an overlay |
+| Task detail | Subtask detail | Click subtask row → `/work/task/:subtaskId` |
+| Task detail | Team view | Breadcrumb navigates up the ancestor chain |
 
 ## Within Knowledge
 

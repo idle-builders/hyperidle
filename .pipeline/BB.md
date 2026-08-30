@@ -65,6 +65,26 @@ today's check cannot say anything about at all.
 |---|---|---|---|---|---|
 | BB1 | Everything is a task, and a task has subtasks | backend + frontend | L | — | **planned — registered 2026-08-30.** Full destructive merge of `bets` into `tasks` with a self-referencing `parent_task_id`, the cut list above applied, recursive rollup / kill-cascade / token accumulation replacing the single two-level hop, WIP re-anchored to concurrent `in_progress`, one `PATCH /tasks/:id` open to humans and agents alike, and one recursive task surface replacing the bet page and the task page. See `work/BB1/plan.md`. |
 
+## What this track changed outside itself
+
+**Track BA8 loses one of its five events.** BA8 ("Things that happen announce themselves") is
+registered against five event types that are "defined and dispatcher-cased with no emitter anywhere",
+one of which is **bet revised**. BB1 deletes it, along with `bet_state_changed`, taking the event
+vocabulary from 34 types to 32.
+
+Neither deletion costs a capability, and the reasoning differs for each:
+
+- `bet_revised` never fired. It is dead vocabulary, and BA8's own row is the evidence. Deleting it
+  makes BA8 smaller, not harder — four events to wire instead of five.
+- `bet_state_changed` is genuinely covered by `task_state_changed`, because a bet IS a root task now.
+
+One honest consequence, recorded so nobody rediscovers it as a bug: a routine could previously say
+declaratively "wake me when a BET changes state". It must now subscribe to `task_state_changed` and
+decide for itself whether the task is a root (`parentTaskId === null`). The event surface is not
+narrower — every fact still announces itself — but that one distinction moved from the subscription
+to the subscriber. If that turns out to matter in practice, the fix is a filter on the subscription,
+not a second event type.
+
 ## Dependency graph
 
 - `BB1` → nothing. It is the substrate.

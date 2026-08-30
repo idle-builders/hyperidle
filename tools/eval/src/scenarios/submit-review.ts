@@ -351,7 +351,7 @@ Use submit_review with:
 
 const srBetThreadTargetingBuilderFrontend: EvalScenario = {
 	id: "sr-bet-thread-targeting-builder-frontend",
-	description: "Builder review lands in bet's host thread (hostKind=bet, hostId=betId)",
+	description: "Builder review lands in bet's host thread (hostKind=bet, hostId=rootTaskId)",
 	feature: "submit_review",
 	tags: [],
 	seed: async (ctx: SeedContext): Promise<ScenarioSeedResult> => {
@@ -379,7 +379,7 @@ No artifactRef needed for this review.`,
 		// Pre-seed the bet's host thread (as if the bet already has a thread)
 		await seedThread(ctx.db, {
 			hostKind: "bet",
-			hostId: world.betId,
+			hostId: world.rootTaskId,
 			initiatorId: world.founderId,
 			participants: [world.founderId],
 		});
@@ -431,7 +431,7 @@ No artifactRef needed for this review.`,
 					}
 
 					const correctKind = thread.hostKind === "bet";
-					const correctHost = thread.hostId === ctx.seedResult.betId;
+					const correctHost = thread.hostId === ctx.seedResult.rootTaskId;
 
 					if (correctKind && correctHost) {
 						return { score: 1.0 };
@@ -439,7 +439,7 @@ No artifactRef needed for this review.`,
 					if (correctKind) {
 						return {
 							score: 0.75,
-							note: `hostKind=bet but hostId=${thread.hostId} (expected ${ctx.seedResult.betId})`,
+							note: `hostKind=bet but hostId=${thread.hostId} (expected ${ctx.seedResult.rootTaskId})`,
 						};
 					}
 					return {

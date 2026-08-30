@@ -22,19 +22,17 @@ Depth: [agent-layer/agent-model.md](../agent-layer/agent-model.md).
 
 **F-1.7** Model routing is tier-based (reasoning / workhorse / fast). Tier resolves as: explicit session parameter → agent `modelTierPreference` → `workhorse`; a per-agent `modelId`/`modelProvider` override takes precedence. Deployers map each tier to an actual model via `ModelGatewayConfig`. Vocabulary and mechanics: [agent-layer/model-routing-and-cost.md](../agent-layer/model-routing-and-cost.md).
 
-## F-2: The Five Process Primitives
+## F-2: The Four Process Primitives
 
-Shapes and semantics: [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md).
+Shapes and semantics: [process-layer/the-four-primitives.md](../process-layer/the-four-primitives.md).
 
-**F-2.1 Bet.** A committed unit of work owned by a team. Status is `draft | active | completed | killed` with an `atRisk` boolean (`framework/domain-model/src/types.ts`). Every change to a mutable field (done condition, hypothesis, token appetite, description, at_risk) is recorded in the bet's `revisionLog`; done-condition changes emit a review item to the responsible human. Bets carry an `outcomeVerdict` (validated / refuted / partial / inconclusive). Lifecycle depth: [process-layer/bets-shape-commit-change-ship.md](../process-layer/bets-shape-commit-change-ship.md).
+**F-2.1 Task.** A unit of work with an explicit done condition, owned by a team. A task may contain subtasks to any depth; a task with no parent is a root task — the top-level commitment. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/domain-model/src/types.ts`). `hold` means unmet upstream dependencies — the Dependency Watcher auto-transitions hold → accepted when all upstream tasks reach `done`. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met), an optional thread, and `tokensActualJson` for their own session's usage (subtree totals are summed at read time). Every change to a mutable field lands in `auditTrail`. Editing is ungated — `PATCH /api/tasks/:id` accepts the same body from a human or an agent with no role or status gate. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
 
-**F-2.2 Task.** A unit of work picked up by one agent. Eight states: `proposed | accepted | hold | in_progress | blocked | review | done | killed` (`framework/domain-model/src/types.ts`). `hold` means unmet upstream dependencies — the Dependency Watcher auto-transitions hold → accepted when all upstream tasks reach `done`. `blocked` is distinct: a runtime block discovered during execution. Tasks carry an `outcomeVerdict` (met / met_with_rework / partially_met / not_met) and an optional thread. Depth: [process-layer/tasks-and-sessions.md](../process-layer/tasks-and-sessions.md).
+**F-2.2 Session.** A single agent's bounded run on a task, states `active | paused | done | crashed`. The session ends before context compaction, and the agent writes session notes back to the task before ending — notes are the bridge between sessions on the same task. Shape owned by [process-layer/the-four-primitives.md](../process-layer/the-four-primitives.md) §Sessions.
 
-**F-2.3 Session.** A single agent's bounded run on a task, states `active | paused | done | crashed`. The session ends before context compaction, and the agent writes session notes back to the task before ending — notes are the bridge between sessions on the same task. Shape owned by [process-layer/the-five-primitives.md](../process-layer/the-five-primitives.md) §Sessions.
+**F-2.3 Team.** A persistent group of agents. Capacity is a single integer — max concurrent in-progress tasks at any depth of the task tree. Teams persist; agents join and leave by direct membership change. Depth: [process-layer/teams.md](../process-layer/teams.md).
 
-**F-2.4 Team.** A persistent group of agents. Capacity is a single integer — max parallel bets. Teams persist; agents join and leave by direct membership change. Depth: [process-layer/teams.md](../process-layer/teams.md).
-
-**F-2.5 Routine.** A recurring trigger attached to a named agent with persistent state across runs (`stateKey`). Trigger types: heartbeat, calendar (cron in `triggerConfig`), event (any of the full event vocabulary, `EVENT_TYPES`), continuous. A routine has no team of its own — its scope is wherever its owner agent belongs. Routines declare `humanReview` and `silent` (sleep-time routines that update memory without producing items). Lifecycle state is `active | paused | error` (`routines.state`, `framework/db/src/schema.ts`); the boolean `routines.active` is **deprecated** — new code reads `state` (AA2 will drop `active`). Each trigger is recorded in `routine_runs` — an append-only audit log (`framework/db/src/schema.ts`). Routine creation is not approval-gated; an event routine takes effect on the very next matching event, with no restart. Depth: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
+**F-2.4 Routine.** A recurring trigger attached to a named agent with persistent state across runs (`stateKey`). Trigger types: heartbeat, calendar (cron in `triggerConfig`), event (any of the full event vocabulary, `EVENT_TYPES`), continuous. An event trigger may carry a `transitionTo` constraint in `triggerConfig` to filter by the target state. A routine has no team of its own — its scope is wherever its owner agent belongs. Routines declare `humanReview` and `silent` (sleep-time routines that update memory without producing items). Lifecycle state is `active | paused | error` (`routines.state`, `framework/db/src/schema.ts`); the boolean `routines.active` is **deprecated** — new code reads `state` (AA2 will drop `active`). Each trigger is recorded in `routine_runs` — an append-only audit log (`framework/db/src/schema.ts`). Routine creation is not approval-gated; an event routine takes effect on the very next matching event, with no restart. All routines are generic (plugin-provided or user-created) — there are no hard-wired builtin routines in core. Depth: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
 
 ## F-3: Knowledge
 
@@ -64,7 +62,7 @@ Duties and lifecycle: [knowledge-architecture/facilitators.md](../knowledge-arch
 
 **F-4.3** Product managers have a dual role: coordinator (integrates the task list, resolves handoffs, drafts retros) and self-improver.
 
-**F-4.4** When a bet's mutable fields change (done condition, hypothesis, token appetite), done-condition changes emit a review item to the responsible human. Beyond that, surfacing trajectory shifts is the product manager's judgement — no numerical thresholds.
+**F-4.4** Surfacing trajectory shifts is the product manager's judgement — no numerical thresholds. Done-condition changes and other significant task edits are visible in `auditTrail`; emitting a review item for notable changes is the product manager's call.
 
 ## F-5: Handoff
 
@@ -80,7 +78,7 @@ Depth: [process-layer/handoff-and-lifecycle-propagation.md](../process-layer/han
 
 Item shape and routing rules: [human-interface-layer/items-and-routing.md](../human-interface-layer/items-and-routing.md).
 
-**F-6.1** **Not currently implemented.** This described `routeItem` routing every item to one of the three views by risk tier, kind, and verb (risk tier medium/high, reviews, skill changes, and chat → Conversations; knowledge → Knowledge; work/bets → Work; fallback Conversations). Core-api itself already stopped calling this inline at item creation (`@lore O2`, `layers/core-api/src/routes/conversations.ts`), and AU21 §6 Decision L3 traced the remaining `tool-handlers` copy (`route_item` tool + `ports.work.routeItem` + the `item-router.ts` file) to be vestigial — its `view` output was consumed by nothing — and deleted it outright. Real item routing (persisted, actually driving where an item surfaces) does not exist in the codebase today; re-provisioning it is a separate, unscoped product decision, not this fix.
+**F-6.1** **Not currently implemented.** This described `routeItem` routing every item to one of the three views by risk tier, kind, and verb (risk tier medium/high, reviews, skill changes, and chat → Conversations; knowledge → Knowledge; work/tasks → Work; fallback Conversations). Core-api itself already stopped calling this inline at item creation (`@lore O2`, `layers/core-api/src/routes/conversations.ts`), and AU21 §6 Decision L3 traced the remaining `tool-handlers` copy (`route_item` tool + `ports.work.routeItem` + the `item-router.ts` file) to be vestigial — its `view` output was consumed by nothing — and deleted it outright. Real item routing (persisted, actually driving where an item surfaces) does not exist in the codebase today; re-provisioning it is a separate, unscoped product decision, not this fix.
 
 **F-6.2** Human decisions on review items use the five-verdict grammar — see [human-interface-layer/thread-primitive.md](../human-interface-layer/thread-primitive.md).
 
@@ -90,24 +88,24 @@ Item shape and routing rules: [human-interface-layer/items-and-routing.md](../hu
 
 ## F-7: Top-Down and Bottom-Up Knowledge Flow
 
-**F-7.1** Top-down: humans set direction through factory-layer knowledge and bet commitment in the Work view. Every session's assembled context includes the factory layer.
+**F-7.1** Top-down: humans set direction through factory-layer knowledge and task commitment in the Work view. Every session's assembled context includes the factory layer.
 
 **F-7.2** Bottom-up: agents contribute findings to their practice through direct knowledge writes; the facilitator decides which become captured practice items. New practice knowledge is automatically available to the next session via context assembly — pull, not push. Any agent can message humans directly.
 
-**F-7.3** The two flows meet at the bet: committed top-down, revised bottom-up, every revision logged in `revisionLog` with reasoning.
+**F-7.3** The two flows meet at the task: committed top-down, revised bottom-up, every revision appended to `auditTrail` with reasoning.
 
 ## F-8: Retros and Learning
 
-Builtin routines: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
+Plugin routines: [process-layer/routines-and-retros.md](../process-layer/routines-and-retros.md).
 
-**F-8.1** Every completed or killed bet produces a retro (builtin `post-bet-retro` routine on the product manager, per team): hypothesis vs. reality, surprises, practice-worthy patterns, reusable artifacts.
+**F-8.1** When a task transitions to `done`, the `post-task-retro` routine from the knowledge-management plugin fires. The Knowledge Librarian reads the completed task's notes, identifies concrete learnings, and creates or updates knowledge items. This routine is plugin-provided — teams without the knowledge-management plugin have no automatic retro unless they create one manually.
 
-**F-8.3** A monthly portfolio retro runs on the assistant (first Monday, 30-day window): portfolio-level patterns, capacity observations.
+**F-8.3** Periodic portfolio retros are not a built-in mechanism. A team or founder can create a calendar-triggered routine on any agent to review cross-task patterns at whatever cadence they choose.
 
 ## F-9: WIP Limits
 
 Concurrency semantics: [process-layer/wip-and-cost-limits.md](../process-layer/wip-and-cost-limits.md).
 
-**F-9.2** An agent's WIP limit is `maxConcurrentSessions`, default 1 (`framework/db/src/schema.ts`). Team capacity is a single max-parallel-bets integer.
+**F-9.2** An agent's WIP limit is `maxConcurrentSessions`, default 1 (`framework/db/src/schema.ts`). Team capacity (`teams.capacity`) is a single integer — the maximum number of tasks that may be `in_progress` at once, counted at every depth of the task tree.
 
-**F-9.3** Hitting a WIP limit is enforced synchronously, never a silent drop: activating a bet at full team capacity is rejected with `CapacityExceededError` (409); an agent already at its session concurrency limit causes the run to retry rather than starting a second session.
+**F-9.3** Hitting a WIP limit is enforced synchronously, never a silent drop: transitioning a task to `in_progress` when the team is at capacity is rejected with `CapacityExceededError` (409); an agent already at its session concurrency limit causes the run to retry rather than starting a second session.

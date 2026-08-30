@@ -20,11 +20,11 @@ HyperIdle solves the organizational problem.
 
 ## Three properties that define the system
 
-**Teams persist across bets.** The Builder agent that shipped auth in January ships payments in March. It knows the codebase, the brand, and what broke last time. That accumulated context is the company's most valuable asset. HyperIdle keeps it. The team *is* the product — one team per product, persistent.
+**Teams persist across tasks.** The Builder agent that shipped auth in January ships payments in March. It knows the codebase, the brand, and what broke last time. That accumulated context is the company's most valuable asset. HyperIdle keeps it. The team *is* the product — one team per product, persistent.
 
 **Humans validate, agents execute.** Agents handle execution. Humans hold judgment, delivered through PR-shaped verdicts on agent work, with review gated by earned trust rather than blanket gates. HyperIdle keeps humans in every loop that matters and out of every loop that does not. See [Human-AI Collaboration](./human-ai-collaboration.md).
 
-**Knowledge compounds.** What an agent learns on one bet is available to every later agent — captured in a shared store, layered by scope, and shared through communities of practice. The tenth bet is faster than the first. See [How Knowledge Compounds](./how-knowledge-compounds.md).
+**Knowledge compounds.** What an agent learns on one task is available to every later agent — captured in a shared store, layered by scope, and shared through communities of practice. The tenth task is faster than the first. See [How Knowledge Compounds](./how-knowledge-compounds.md).
 
 ---
 
@@ -33,7 +33,7 @@ HyperIdle solves the organizational problem.
 HyperIdle ships as a macOS desktop application (Electron) with three views and a sidebar:
 
 - **Conversations** — review threads and chat threads. An agent proposes deploying a landing page; the founder approves, comments, or requests changes. Same shape as a GitHub pull request.
-- **Work** — bets planned and tracked. What every agent is doing and what is blocked.
+- **Work** — tasks planned and tracked. What every agent is doing and what is blocked.
 - **Knowledge** — the company wiki. Knowledge items organized by practice and scope. Founders prune stale practices, validate new patterns, and add tacit knowledge agents cannot generate.
 
 ---
@@ -52,4 +52,4 @@ A bad fit: you want to automate a single workflow. Use n8n or Zapier.
 
 ---
 
-Next: [How Work Flows](./how-work-flows.md) — the process model of teams, bets, tasks, sessions, and handoffs.
+Next: [How Work Flows](./how-work-flows.md) — the process model of teams, tasks, sessions, and handoffs.

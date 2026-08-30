@@ -32,7 +32,7 @@ Current shipped set (non-exhaustive — see `framework/design-system/src/index.t
 
 - **ThreadRow** — Avatar + title + caption + StatusChip + relative timestamp.
 - **BetCard** — Tag(product) + title + StatusChip + Progress + owner Avatar.
-- **TaskCard** — title + StatusChip + optional bet Tag + owner Avatar.
+- **TaskCard** — title + StatusChip + optional parent-task Tag + owner Avatar.
 - **KnowledgeRow** — title + Tag(category) + caption + timestamp.
 - **NotificationRow** — StatusChip + summary + source Tag + timestamp + optional inline `btn btn-ghost btn-xs` action.
 

@@ -282,7 +282,7 @@ function isRoutineSourceKind(k: string | undefined): boolean {
  * BA1 §3.1.1 — resolve the routine whose run produced `event`, in three
  * steps, giving up (`null`) rather than guessing. This is coverage, not
  * completeness: an event an agent's own actions caused (e.g. a routine's
- * agent edits a bet, emitting `bet_state_changed`) carries no trace of the
+ * agent edits a task, emitting `task_state_changed`) carries no trace of the
  * routine at all, and this function correctly returns `null` for it — the
  * founder's loop ruling (§3.1) accepts that case rather than plumbing new
  * origin-tracking through every event contract.
@@ -311,12 +311,15 @@ async function originRoutineId(db: HyperIdleDb, event: DomainEvent): Promise<str
 /**
  * BA9c — assemble a RoutineTriggerEvent from a domain event and the DB.
  *
- * For events with a `taskId`: load the task and its bet (via the task's
- * `betId`). For events with only a `betId`: load the bet directly. For all
+ * For events with a `taskId`: load the task and its ancestors. For all
  * events: include `type` and `timestamp`. For state-transition events: include
  * `transition`. Events with no recognizable entity (e.g. thread events without
- * a task/bet link) carry only type+timestamp — the `subject` is omitted, not
+ * a task link) carry only type+timestamp — the `subject` is omitted, not
  * `null`, so callers can distinguish "absent" from "loaded and empty".
+ *
+ * @lore BB1: the separate bet subject (`kind: "bet"`) is DELETED. A bet is now
+ * a root task; `bet_state_changed`/`bet_revised` events are gone. Task subjects
+ * now carry `ancestors` (the root-first ancestor chain) instead of a single bet.
  *
  * @lore BA9c: assembly happens here (in the scheduler, which has the event and
  * the ports) not in the resolver — the resolver just threads whatever
@@ -467,14 +470,21 @@ async function assembleTriggerEvent(
 	// ── STEP 3: Field-priority scan for remaining events ─────────────────────────
 	// Session and routine_fired events are already dispatched above.
 	// Safe to check taskId now — no session event reaches here.
-	// Priority: taskId → betId → threadId → itemId → sessionId → agentId → teamId → userId
+	// @lore BB1: betId removed from priority chain — bet is now a root task.
+	// Priority: taskId → threadId → itemId → sessionId → agentId → teamId → userId
 
 	// Task subject: task_state_changed, dependency_met
 	const taskId = typeof rec.taskId === "string" ? rec.taskId : null;
 	if (taskId) {
 		const task = await ports.work.getTaskById(db, taskId);
 		if (task) {
-			const bet = task.betId ? await ports.work.getBetById(db, task.betId) : null;
+			// @lore BB1: `bet` replaced by `ancestors` (root-first parent chain).
+			// We have the immediate parent's id but not a preloaded chain here;
+			// the ancestors array starts empty and will be populated by the
+			// routine-scheduler-bindings when it upgrades getTaskById to load
+			// the ancestor chain. For now, emit with an empty ancestors list so
+			// the shape is correct — root tasks (parentTaskId IS NULL) have no
+			// ancestors anyway, and non-root task ancestor loading is a follow-up.
 			return withTransition({
 				...base,
 				subject: {
@@ -485,38 +495,15 @@ async function assembleTriggerEvent(
 						description: task.description,
 						state: task.state,
 					},
-					bet: bet
-						? {
-								id: bet.id,
-								description: bet.description,
-								appetite: bet.appetite ?? "",
-								doneCondition: bet.doneCondition,
-							}
-						: { id: task.betId ?? "unknown", description: "", appetite: "", doneCondition: null },
+					ancestors: [],
 				},
 			});
 		}
 	}
 
-	// Bet subject: bet_state_changed, bet_revised
-	const betId = typeof rec.betId === "string" ? rec.betId : null;
-	if (betId) {
-		const bet = await ports.work.getBetById(db, betId);
-		if (bet) {
-			return withTransition({
-				...base,
-				subject: {
-					kind: "bet",
-					bet: {
-						id: bet.id,
-						description: bet.description,
-						appetite: bet.appetite ?? "",
-						doneCondition: bet.doneCondition,
-					},
-				},
-			});
-		}
-	}
+	// @lore BB1: bet subject block DELETED — bet is now a root task; the
+	// bet_state_changed and bet_revised event types are gone. Root tasks fire
+	// task_state_changed; the task subject above handles them.
 
 	// Thread events: thread_created, thread_message_appended, thread_resolved,
 	//               thread_reopened, thread_archived

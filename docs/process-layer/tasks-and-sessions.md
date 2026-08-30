@@ -22,7 +22,7 @@ The distinction between `hold` and `blocked` is important: `hold` is structural 
 
 Transitions are events in the audit trail (`tasks.auditTrail`). WorkTeam AgentRow health indicators surface blocked and held tasks prominently because they're the most actionable signal of friction.
 
-How task-state changes propagate to bets and how work moves between owners is covered in [handoff and lifecycle propagation](handoff-and-lifecycle-propagation.md).
+How state changes propagate up the task tree and how work moves between owners is covered in [handoff and lifecycle propagation](handoff-and-lifecycle-propagation.md).
 
 ## 2. Sessions: many runs per task
 

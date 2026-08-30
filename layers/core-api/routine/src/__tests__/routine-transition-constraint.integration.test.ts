@@ -48,7 +48,7 @@ function makePorts(
 ): RoutineSchedulerPorts {
 	return {
 		work: {
-			getBetById: unreachable("work.getBetById"),
+			// @lore BB1: getBetById deleted — bet is now a root task.
 			// Returns undefined so assembleTriggerEvent falls through to generic subject
 			// without crashing when a task_state_changed event carries taskId.
 			getTaskById: () => Promise.resolve(undefined),

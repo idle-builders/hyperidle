@@ -10,7 +10,7 @@ Most agent systems have workers (agents that do things) and maybe an orchestrato
 |-------|-------|--------------------|
 | L4 Factory | **System assistant** (factory-level singleton, `framework/factory-defaults/src/factory-roster.ts:124-127`) | Factory-level knowledge above the per-product teams |
 | L3 Practice | **Facilitator** (one per community: build/product/growth/ops, plus facilitation itself) | Role-specific practices, anti-patterns, conflicts, community-wide learnings |
-| L2 Product | **Product Manager** (one per product) | Product cycles, team coordination, bet shaping, cross-function handoffs — and its own facilitation quality |
+| L2 Product | **Product Manager** (one per product) | Product cycles, team coordination, task shaping, cross-function handoffs — and its own facilitation quality |
 
 In code: role `facilitator`, category `individual` (`framework/domain-model/src/agent-roles.ts` — renamed from `practice_facilitator`, @lore AD8c; moved from `strategy` to `individual` in BA9d). Facilitators are now provided by the knowledge-management plugin (BA9d wave 2), not seeded at factory boot. The Product Manager is a `team`-category agent ("Team lead") — its facilitator hat is a conceptual framing, not a code category. The assistant is a per-user individual agent with guardrails (@lore AD8b). Role identity and the full taxonomy live in [agent-model](../agent-layer/agent-model.md).
 
@@ -24,7 +24,7 @@ The fifth facilitator — for **facilitation itself** — means the facilitators
 
 1. **Continuously organize.** Merge duplicates, resolve conflicts (`knowledgeConflicts`, `framework/db/src/schema.ts:962`; see [sync-and-conflict-resolution](./sync-and-conflict-resolution.md)), archive stale items (stale sweep, `layers/core-api/knowledge/src/promotion-pipeline.ts:83`), link and tag for retrievability.
 2. **Score every item for human attention.** Weighted 8-signal attention score, threshold 0.7 → review item. Signal and question tables live in [relevance-and-attention](./relevance-and-attention.md).
-3. **Shape the human's queue for their layer.** The facilitator curates the Knowledge view triage queue; the Product Manager shapes the coming cycle's bets.
+3. **Shape the human's queue for their layer.** The facilitator curates the Knowledge view triage queue; the Product Manager shapes the coming cycle's tasks.
 4. **Ask for the right kind of feedback.** A contradicting pair needs *resolution*; a novel pattern needs *validation*; a stable-but-stale practice needs *retirement or extension*. The facilitator picks the question — the question-kind routing table is in [relevance-and-attention](./relevance-and-attention.md). (Design intent; the question strings aren't in code yet.)
 5. **Close the loop.** Human feedback is written back into the knowledge store (`layers/agent-orchestration/run-orchestration/src/writeback-processor.ts`) and bumps confidence/attention scores.
 
@@ -62,7 +62,7 @@ Implemented as `KNOWLEDGE_STATUSES` (`framework/domain-model/src/knowledge.ts:20
 
 ## The Product Manager's two jobs
 
-**Job 1 — Coordinator.** Runs the product's cycles: kicks off bets, tracks status, calls the end-of-cycle reflection. Resolves cross-function handoffs, unblocks the team, shapes the next cycle's bets, escalates beyond-product-scope items.
+**Job 1 — Coordinator.** Runs the product's cycles: kicks off tasks, tracks status, calls the end-of-cycle reflection. Resolves cross-function handoffs, unblocks the team, shapes the next cycle's tasks, escalates beyond-product-scope items.
 
 **Job 2 — Self-improver.** Watches its own coordination and asks: *am I running this team well?* Captures facilitation-level learnings, reflects on facilitation quality, proposes process changes.
 

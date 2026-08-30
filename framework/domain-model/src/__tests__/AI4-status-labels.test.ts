@@ -13,10 +13,7 @@ import {
 	AGENT_OPERATIONAL_STATUS_LABEL,
 	BET_OUTCOME_VERDICT_LABEL,
 	BET_OUTCOME_VERDICTS,
-	BET_STATUS_LABEL,
-	BET_STATUSES,
 	type BetOutcomeVerdict,
-	type BetStatus,
 	TASK_OUTCOME_VERDICT_LABEL,
 	TASK_OUTCOME_VERDICTS,
 	TASK_STATE_LABEL,
@@ -24,6 +21,7 @@ import {
 	type TaskOutcomeVerdict,
 	type TaskState,
 } from "../types.js";
+// @lore BB1: BET_STATUS_LABEL, BET_STATUSES, BetStatus removed — task vocabulary only.
 
 // --- TASK_STATE_LABEL ---
 
@@ -86,47 +84,7 @@ describe("TASK_STATE_LABEL (AI4 AC2)", () => {
 	});
 });
 
-// --- BET_STATUS_LABEL ---
-
-describe("BET_STATUS_LABEL (AI4 AC2)", () => {
-	it("is exported as a non-null object", () => {
-		expect(BET_STATUS_LABEL).toBeDefined();
-	});
-
-	it("covers all 4 BetStatus values with non-empty strings", () => {
-		for (const status of BET_STATUSES) {
-			const label = BET_STATUS_LABEL[status];
-			expect(label, `BET_STATUS_LABEL["${status}"] must be a non-empty string`).toBeTruthy();
-		}
-	});
-
-	it("maps draft to 'Draft'", () => {
-		expect(BET_STATUS_LABEL["draft"]).toBe("Draft");
-	});
-
-	it("maps active to 'Active'", () => {
-		expect(BET_STATUS_LABEL["active"]).toBe("Active");
-	});
-
-	it("maps completed to 'Completed'", () => {
-		expect(BET_STATUS_LABEL["completed"]).toBe("Completed");
-	});
-
-	it("maps killed to 'Killed'", () => {
-		expect(BET_STATUS_LABEL["killed"]).toBe("Killed");
-	});
-
-	it("has exactly 4 entries (one per BET_STATUSES value)", () => {
-		expect(Object.keys(BET_STATUS_LABEL)).toHaveLength(BET_STATUSES.length);
-	});
-
-	it("exhaustively covers all BET_STATUSES runtime values", () => {
-		const keys = Object.keys(BET_STATUS_LABEL) as BetStatus[];
-		for (const status of BET_STATUSES) {
-			expect(keys).toContain(status);
-		}
-	});
-});
+// @lore BB1: BET_STATUS_LABEL tests removed — BET_STATUSES/BetStatus/BET_STATUS_LABEL deleted.
 
 // --- BET_OUTCOME_VERDICT_LABEL ---
 

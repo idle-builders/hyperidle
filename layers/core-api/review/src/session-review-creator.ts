@@ -49,7 +49,7 @@ export function registerReviewSubscriptions(
 			getTaskById: ports.work.getTaskById,
 			requireRunnableAgent: ports.requireRunnableAgent,
 			// AU21 §9 Increment 12 (Decision H3): also bake the contextBundle.
-			getBetById: ports.getBetById,
+			// @lore BB1: getBetById removed — bets table is gone.
 			getTeamById: ports.getTeamById,
 			assembleSessionKnowledge: ports.assembleSessionKnowledge,
 			// AU21 §9 Increment 12 (Decision H3), Wave E: also bake harnessDisabled.

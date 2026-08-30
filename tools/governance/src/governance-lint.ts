@@ -69,6 +69,7 @@ import { noLaunderedReExports } from "./rules/no-laundered-re-exports.js";
 import { noPerFileAllowances } from "./rules/no-per-file-allowances.js";
 import { noProductionImportsDevelopment } from "./rules/no-production-imports-development.js";
 import { noStaleBuildArtifacts } from "./rules/no-stale-build-artifacts.js";
+import { oneWorkPrimitive } from "./rules/one-work-primitive.js";
 import { patternLive } from "./rules/pattern-live.js";
 import { registriesHonest } from "./rules/registries-honest.js";
 import { serviceValuesDoNotEscapeTheFace } from "./rules/service-values-do-not-escape-the-face.js";
@@ -129,6 +130,7 @@ function buildRules(
 		layerExportsResolveInsideTheLayer({ locate: buildPackageLocator(census.packages), readFile }),
 		serviceValuesDoNotEscapeTheFace({ locate: buildPackageLocator(census.packages), readFile }),
 		deepImportsDieWithTheirEntries({ readFile }),
+		oneWorkPrimitive({ readFile }),
 		...crossingRules({
 			architecture,
 			crossings: detected.crossings,
@@ -247,6 +249,7 @@ function runLive(errorsOnly: boolean): number {
 			readFile: readRepoFile,
 		}),
 		deepImportsDieWithTheirEntries({ readFile: readRepoFile }),
+		oneWorkPrimitive({ readFile: readRepoFile }),
 		...crossingRules(ruleInput),
 	];
 

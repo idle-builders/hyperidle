@@ -51,7 +51,6 @@
 import { findThread } from "@hyperidle/conversation";
 import {
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -76,11 +75,6 @@ async function getTaskById(db: HyperIdleDb, id: string) {
 	return row;
 }
 
-async function getBetById(db: HyperIdleDb, id: string) {
-	const [row] = await db.select().from(bets).where(eq(bets.id, id));
-	return row;
-}
-
 async function seedAgent(
 	db: HyperIdleDb,
 	options: { readonly id: string; readonly kind?: string; readonly status?: string },
@@ -95,24 +89,21 @@ async function seedAgent(
 	});
 }
 
-/** Seeds team + bet + task, returns the task id. */
+/**
+ * Seeds team + root task (parentTaskId: null), returns the task id and teamId.
+ *
+ * @lore BB1: bets table deleted. Root tasks (parentTaskId === null) replace bets
+ * as the top-level work container. `seedTask` no longer inserts into bets.
+ */
 async function seedTask(
 	db: HyperIdleDb,
 	options: { readonly id: string; readonly ownerAgentId?: string },
 ): Promise<{ readonly taskId: string; readonly teamId: string }> {
 	const teamId = `${options.id}-team`;
-	const betId = `${options.id}-bet`;
 	await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: NOW });
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
-		description: "Reengagement resolver test bet",
-		status: "active",
-		createdAt: NOW,
-	});
 	await db.insert(tasks).values({
 		id: options.id,
-		betId,
+		parentTaskId: null,
 		teamId,
 		ownerAgentId: options.ownerAgentId,
 		title: "Reengagement resolver test task",
@@ -398,27 +389,19 @@ describe("resolveReengagementRequest — emit-time reengagement resolver (review
 });
 
 /**
- * AU21 §9 Increment 12 (Decision H3), Wave B (RED) — `reengagement` bakes a
- * `contextBundle` (`kind:"task"`) matching what `context.ts`'s pre-migration
- * `assembleContext`/`buildSessionContextData` used to assemble for a
- * `proposed_call` re-provision session (it already sets a real `taskId`, so
- * — unlike `routine_run`/`knowledge_action`, see the sibling waves' CONFUSION
- * notes — reengagement genuinely DOES flow through the full task/bet/ranked-
- * knowledge path today; this is a real preserve-behavior migration, not a
- * capability add).
+ * AU21 §9 Increment 12 (Decision H3), Wave B — `reengagement` bakes a
+ * `contextBundle` (`kind:"task"`) with task/ancestors/agent/team content +
+ * ranked knowledge.
  *
- * @lore Mechanism C: `getTeamById` (`@hyperidle/org`), `getBetById`
- * (`@hyperidle/work`'s own `bets` table — `@hyperidle/review` cannot import
- * `@hyperidle/work` directly, same reasoning as the existing `getTaskById`
- * injection) and `assembleSessionKnowledge` (`@hyperidle/knowledge`) are all
- * INJECTED, following `ReengagementResolverDeps`'s existing
- * `getTaskById`-injection precedent. `requireRunnableAgent`'s return type
- * also needs widening from `Promise<unknown>` to `Promise<User>` (H2
- * precedent) so the resolver can bake `agent.name`/`agent.role` from the SAME
- * already-validated row, no extra read.
+ * @lore BB1: `getBetById` removed — bets table is gone. `ancestors` replaces
+ * `bet` in the contextBundle. A root task has no ancestors (empty array).
+ *
+ * @lore Mechanism C: `getTeamById` (`@hyperidle/org`) and
+ * `assembleSessionKnowledge` (`@hyperidle/knowledge`) are INJECTED, following
+ * `ReengagementResolverDeps`'s existing `getTaskById`-injection precedent.
  */
-describe("resolveReengagementRequest — contextBundle baking (Increment 12 Wave B, RED)", () => {
-	test("bakes a contextBundle (kind:'task') with task/bet/agent/team content + ranked knowledge", async ({
+describe("resolveReengagementRequest — contextBundle baking (Increment 12 Wave B)", () => {
+	test("bakes a contextBundle (kind:'task') with task/ancestors/agent/team content + ranked knowledge", async ({
 		db,
 	}) => {
 		const { resolveReengagementRequest } = await import("../proposed-call-workflow.js");
@@ -457,24 +440,17 @@ describe("resolveReengagementRequest — contextBundle baking (Increment 12 Wave
 		const baked = await resolveReengagementRequest(db, "pc-reengage-ctx-1", {
 			requireRunnableAgent,
 			getTaskById,
-			getBetById,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,
 		});
 
 		const team = await getTeam(db, { id: teamId });
 
-		// RED (npm run check): `ReengagementResolverDeps` does not declare
-		// `getBetById`/`getTeamById`/`assembleSessionKnowledge` yet (TS2353 on
-		// the call above); `BakedReengagementRequest` does not declare
-		// `contextBundle` yet (TS2339 below). Left uncast deliberately — the
-		// compile errors ARE the RED signal. Vitest's transpile-only run still
-		// executes; `contextBundle` is `undefined` at runtime, which
-		// `toMatchObject` fails on.
 		expect(baked.contextBundle).toMatchObject({
 			kind: "task",
 			task: { id: taskId, title: "Reengagement resolver test task" },
-			bet: { description: "Reengagement resolver test bet" },
+			// Root task has no parent — ancestors array is empty.
+			ancestors: [],
 			agent: { id: "ast-reengage-ctx-1", name: "Agent", role: "builder" },
 			team: { id: teamId, name: team?.name },
 			knowledge: expect.arrayContaining([expect.objectContaining({ id: "item-reengage-ctx-l4" })]),

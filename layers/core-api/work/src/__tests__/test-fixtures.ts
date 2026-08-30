@@ -33,4 +33,12 @@ export const test = dbTest.extend<Pick<WorkIntegrationFixtures, "eventBus">>({
 	},
 });
 
-export { afterAll, afterEach, beforeAll, beforeEach, describe, expect, vi } from "@hyperidle/db/test-fixtures";
+/**
+ * @lore BB1: the vitest globals come straight from `vitest`, NOT re-exported
+ * from `@hyperidle/db/test-fixtures`. Re-exporting them here would launder the
+ * database package's testing surface through `work` — a governance violation
+ * (`no-laundered-re-exports`), and a real one: it makes `work` look like the
+ * owner of symbols it merely passes along. Only `test` is re-exported, because
+ * only `test` is genuinely extended here.
+ */
+export { afterAll, afterEach, beforeAll, beforeEach, describe, expect, vi } from "vitest";

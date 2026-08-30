@@ -10,7 +10,11 @@ Each agent has a maximum number of in-progress sessions — WIP limit, **default
 
 ## Per team
 
-Each team has a maximum number of parallel tasks (`teamMembers.capacity`, `framework/db/src/schema.ts` — no baked-in formula) and a soft preference for one active bet at a time. Multiple parallel bets are allowed but tracked as *focus on capacity*, not money.
+Each team has a maximum number of tasks that may be `in_progress` at once (`teams.capacity`, `framework/db/src/schema.ts` — no baked-in formula). The check runs on the transition into `in_progress` (`transitionTask`, `layers/core-api/work/src/task-state-machine.ts`) and refuses with `CapacityExceededError`.
+
+The limit counts tasks **at every depth of the task tree**, not just root tasks. What bounds a factory is how much work is actually running, not how many top-level commitments exist.
+
+> **BB1 change.** This limit used to be checked in exactly one place — the bet *commit* ceremony — against a stored `teams.activeBets` tally the commit/complete/kill paths maintained by hand. Both are gone. The ceremony is deleted, and the tally with it: a stored count of a derivable fact can drift from the truth, so the count is now a live `COUNT(*) WHERE state = 'in_progress'` taken inside the transition's own transaction. That makes it un-stale by construction, and it closes the hole the old check could say nothing about — work started without ever being committed.
 
 ## Per factory
 
@@ -22,6 +26,6 @@ Shape Up's appetite was a calendar timebox because human teams shipped against c
 
 ## Anti-pattern: duration as a budget axis
 
-Any future spec proposing a `duration_cap`, `time_budget`, `deadline_as_cap`, "max session length as a budget", or any other duration-shaped budget axis on a bet, task, session, agent, or team is **rejected by this section**. Time is not the signal; duration may be displayed informationally and may inform retros, but it may not gate work. No `duration_cap` or `time_budget` exists in any schema or service — the only duration-shaped column is the deprecated bet `appetite` string.
+Any future spec proposing a `duration_cap`, `time_budget`, `deadline_as_cap`, "max session length as a budget", or any other duration-shaped budget axis on a bet, task, session, agent, or team is **rejected by this section**. Time is not the signal; duration may be displayed informationally and may inform retros, but it may not gate work. No `duration_cap` or `time_budget` exists in any schema or service — no duration-shaped column exists at all (the deprecated bet `appetite` string was dropped with the `bets` table in BB1).
 
 This is the canonical statement of the rule; [canonical-shapes](./canonical-shapes.md) points here.

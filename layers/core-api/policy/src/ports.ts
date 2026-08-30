@@ -1,8 +1,6 @@
 import type {
-	Bet,
 	Item,
 	Message,
-	NewBet,
 	NewItem,
 	NewTask,
 	NewThread,
@@ -32,16 +30,22 @@ export interface PolicyDeps {
 			args: { taskId: string; expectedUpdatedAt: string; claimedAt: string },
 		): Promise<{ applied: boolean }>;
 		createItem?(db: WriteExecutor, values: NewItem): Promise<void>;
-		getBetById(db: WriteExecutor, id: string): Promise<Bet | undefined>;
-		transitionBetStatus(
-			db: WriteExecutor,
-			args: { betId: string; fromStatus: string; patch: Partial<NewBet> },
-		): Promise<{ applied: boolean }>;
 		transitionTaskState(
 			db: WriteExecutor,
 			args: { taskId: string; fromState: string; patch: Partial<NewTask> },
 		): Promise<{ applied: boolean }>;
-		listTasks(db: WriteExecutor, opts?: { betId?: string }): Promise<Task[]>;
+		/**
+		 * BB1: list all direct children of the given parent task. Used by the
+		 * recursive completion rollup to check whether all siblings are terminal
+		 * before propagating upward.
+		 */
+		listChildTasks(db: WriteExecutor, parentTaskId: string): Promise<Task[]>;
+		/**
+		 * BB1: return ancestor IDs nearest-first, excluding the task itself.
+		 * Used by `propagateTaskToParent` to walk the full ancestor chain in
+		 * one call (rather than relying solely on the event-chain re-trigger).
+		 */
+		listAncestorIds(db: WriteExecutor, taskId: string): Promise<string[]>;
 		/**
 		 * Record a dispatch attempt. The ordinal is the owner's business, so it
 		 * is not in the input — see `taskDispatchAttemptStore.insertAttempt`.

@@ -10,15 +10,15 @@ Humans engage through six interaction modes, each with a distinct rhythm and cog
 
 **Review (seconds, reactive).** Approve, reject, or comment on concrete proposed actions. This is the daily driver. Target: 15-second decidability for simple items, with room for multi-turn conversation when the item warrants it — see [the three views](../human-interface-layer/the-three-views.md) for the full principle.
 
-**Prioritize (ambient, daily).** Glance at factory state — active bets, blockers, capacity (`WorkOverview.tsx`, `WorkBet.tsx` / `WorkRoutine.tsx` / `AgentProfile.tsx`). A few minutes with morning coffee. No decisions required, just awareness and occasional nudges.
+**Prioritize (ambient, daily).** Glance at factory state — active tasks, blockers, capacity (`WorkOverview.tsx`, `WorkTask.tsx` / `WorkRoutine.tsx` / `AgentProfile.tsx`). A few minutes with morning coffee. No decisions required, just awareness and occasional nudges.
 
 **Create (minutes, proactive).** Humans are not just reviewers — they actively create:
-- **Bets** — author a markdown `description` and create bets from the Work view (`WorkBetCreate.tsx`).
-- **Knowledge** — write knowledge items at any of the 7 scopes: `factory | product | practice | team | bet | task | user` (`framework/domain-model/src/types.ts`; `user` = user-private).
+- **Tasks** — author a title, description, and done condition; create tasks from the Work view (`WorkTaskCreate.tsx`). Root tasks are the top-level commitments; subtasks can be added to any depth.
+- **Knowledge** — write knowledge items at any of the 7 scopes: `factory | product | practice | team | task | user` (`framework/domain-model/src/types.ts`; `user` = user-private).
 - **Conversations** — initiate threads with specific agents via the RecipientPicker, opened from the UI.
 - **Session dial-in** — observe a running agent session's live activity stream (**D** key, `Conversations.tsx`). Read-only, with filter tabs All | Tools | Reasoning.
 
-**Bet (weekly, focused).** Pick the next 2–3 bets under a hard capacity cap (`team_members.capacity`). Fifteen minutes, once a week — forces trade-offs through explicit limits. Bet statuses are `draft | active | completed | killed`; lifecycle owned by [bets: shape, commit, change, ship](../process-layer/bets-shape-commit-change-ship.md).
+**Plan (weekly, focused).** Pick the next 2–3 root tasks to accept under a hard capacity cap (`teams.capacity`). Fifteen minutes, once a week — forces trade-offs through explicit limits. Task states are `proposed | accepted | hold | in_progress | blocked | review | done | killed`; lifecycle owned by [tasks and sessions](../process-layer/tasks-and-sessions.md).
 
 **Assistant (monthly, conversational).** Talk with the assistant agent about how the factory is running — cross-product patterns, recurring obstacles, rule changes. Accessible via the assistant overlay (sidebar button), deliberately engaged monthly.
 

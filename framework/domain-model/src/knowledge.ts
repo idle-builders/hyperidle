@@ -8,7 +8,6 @@ export const SCOPE_TO_LAYER: Readonly<Record<ScopeKind, KnowledgeLayer | null>> 
 	product: "L2",
 	practice: "L3",
 	task: "L1",
-	bet: null,
 	team: null,
 	user: null,
 };

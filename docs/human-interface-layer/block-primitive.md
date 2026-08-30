@@ -10,7 +10,7 @@ A Block is a **derived, addressable, renderable region of a markdown body**. Bod
 
 | Surface | Source body |
 |---|---|
-| Bet description (`WorkBet.tsx`) | `bets.description` markdown |
+| Task description (`WorkTask.tsx`) | `tasks.description` markdown |
 | Knowledge body (`KnowledgeBody.tsx`) | `knowledge_items.body` markdown |
 | Review canvas artifact bodies (`review-canvas.tsx`) | artifact body markdown |
 | Per-block discussion | threads anchored on the surfaces above |
@@ -26,4 +26,4 @@ Each Block exposes a `BlockAnchor` — `{ blockId }` (`framework/domain-model/sr
 Capital-B **Block** in this layer always means the content primitive from `docs/blocks/`. Do not confuse with:
 
 - **blocked / blocking** — workflow states from the process layer (task on hold or blocked, blocking review threads);
-- **design-system components** — Tier-2 React widgets like ThreadRow and BetCard. The renderer for the primitive is the `<Block />` component from `@hyperidle/design-system`. Component-tier naming (`*Payload` components + `<Block />`) is owned by [`docs/ui-design/our-components.md`](../ui-design/our-components.md).
+- **design-system components** — Tier-2 React widgets like ThreadRow and TaskCard. The renderer for the primitive is the `<Block />` component from `@hyperidle/design-system`. Component-tier naming (`*Payload` components + `<Block />`) is owned by [`docs/ui-design/our-components.md`](../ui-design/our-components.md).

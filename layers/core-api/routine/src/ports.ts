@@ -1,5 +1,5 @@
+// @lore BB1: Bet import removed — bet is now a root task; getBetById deleted.
 import type {
-	Bet,
 	HyperIdleDb,
 	NewItem,
 	NewThread,
@@ -39,11 +39,11 @@ import type { EventBus } from "@hyperidle/event-bus";
  */
 export interface RoutineSchedulerPorts {
 	readonly work: {
-		getBetById(db: HyperIdleDb, id: string): Promise<Bet | undefined>;
+		// @lore BB1: getBetById DELETED — bet is now a root task; use getTaskById with parentTaskId=null.
 		/**
 		 * BA9c: Load a task row for trigger event subject assembly. Called in
 		 * `registerRoutineEventMatcher` when a task event fires and the scheduler
-		 * needs to include the task (and its bet) in the `RoutineTriggerEvent`.
+		 * needs to include the task and its ancestors in the `RoutineTriggerEvent`.
 		 */
 		getTaskById(
 			db: HyperIdleDb,
@@ -54,7 +54,7 @@ export interface RoutineSchedulerPorts {
 					readonly title: string;
 					readonly description: string | null;
 					readonly state: string;
-					readonly betId: string | null;
+					readonly parentTaskId: string | null;
 			  }
 			| undefined
 		>;
