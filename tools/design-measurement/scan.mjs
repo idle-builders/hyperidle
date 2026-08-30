@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // AZ7 measurement scanner — static, reproducible.
 // Usage: node scan.mjs <repoRoot> <outDir>
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { join, relative } from "node:path";
 
 const ROOT_ARG = process.argv[2];
 if (!ROOT_ARG) throw new Error("usage: node <script> <repoRoot> <outDir>");
@@ -11,7 +11,7 @@ const ts = createRequire(`${ROOT_ARG}/package.json`)("typescript");
 
 const ROOT = ROOT_ARG;
 const OUT = process.argv[3];
-if (!ROOT || !OUT) throw new Error("usage: scan.mjs <repoRoot> <outDir>");
+if (!(ROOT && OUT)) throw new Error("usage: scan.mjs <repoRoot> <outDir>");
 mkdirSync(OUT, { recursive: true });
 
 // ---- discovery: role roots, never a hardcoded package path -----------------
@@ -67,10 +67,7 @@ const DYN = "«dyn»";
 function buildConstMap(sf) {
 	const map = new Map();
 	function walk(node) {
-		if (
-			ts.isVariableDeclarationList(node) &&
-			(node.flags & ts.NodeFlags.Const) !== 0
-		) {
+		if (ts.isVariableDeclarationList(node) && (node.flags & ts.NodeFlags.Const) !== 0) {
 			for (const decl of node.declarations) {
 				if (ts.isIdentifier(decl.name) && decl.initializer) {
 					// A name declared more than once in the file (shadowing across
@@ -206,7 +203,7 @@ const cssFiles = [];
 		else if (/\.css$/.test(e)) cssFiles.push(relative(ROOT, p));
 	}
 })(join(ROOT, "framework"));
-(function () {
+(() => {
 	for (const r of ["layers", "applications"]) {
 		(function w(dir) {
 			let entries;
@@ -236,13 +233,16 @@ for (const rel of cssFiles) {
 // ---- axis: buttons ---------------------------------------------------------
 // DaisyUI component classes are part of a control's recipe — they carry the
 // whole fill/border/height/radius package.
-const DAISY_RE = /^(btn|input|textarea|select|badge|checkbox|toggle|radio|file-input|range|tab|tabs|card|menu|dropdown|modal|alert|kbd)(-[a-z0-9]+)*$/;
+const DAISY_RE =
+	/^(btn|input|textarea|select|badge|checkbox|toggle|radio|file-input|range|tab|tabs|card|menu|dropdown|modal|alert|kbd)(-[a-z0-9]+)*$/;
 const RECIPE_RE =
 	/^(bg-|border|rounded|h-\[|h-\d|min-h-|max-h-|py-|px-|p-\d|p-\[|pt-|pb-|pl-|pr-|text-\[\d+px\]|text-(xs|sm|base|lg|xl)$|font-|leading-|gap-|shadow|ring|outline|uppercase|lowercase|capitalize|tracking-)/;
 function recipeKey(cls) {
 	const toks = tokensOf(cls)
 		.filter((t) => RECIPE_RE.test(t) || DAISY_RE.test(t) || t === DYN)
-		.map((t) => t.replace(/^(hover|focus|active|disabled|lg|md|sm|dark|group-hover|focus-visible):.*$/, ""))
+		.map((t) =>
+			t.replace(/^(hover|focus|active|disabled|lg|md|sm|dark|group-hover|focus-visible):.*$/, ""),
+		)
 		.filter(Boolean);
 	return [...new Set(toks)].sort().join(" ");
 }
@@ -265,7 +265,16 @@ for (const b of rawInputs) {
 	inputRecipes.get(k).push(`${b.file}:${b.line}`);
 }
 const dsInputLike = elements.filter((e) =>
-	["Input", "SearchField", "Select", "Composer", "BodyEditor", "RoleCombobox", "Checkbox", "Toggle"].includes(e.tag),
+	[
+		"Input",
+		"SearchField",
+		"Select",
+		"Composer",
+		"BodyEditor",
+		"RoleCombobox",
+		"Checkbox",
+		"Toggle",
+	].includes(e.tag),
 );
 
 // ---- axis: filled surfaces -------------------------------------------------
@@ -299,14 +308,29 @@ for (const el of elements) {
 	if (el.tag === "StatusChip") continue;
 	const cls = el.cls;
 	const t = tokensOf(cls);
-	const pill = t.some((x) => /^rounded-full$|^rounded-\[9999px\]$|^rounded-\[var\(--r-pill\)\]$/.test(x));
+	const pill = t.some((x) =>
+		/^rounded-full$|^rounded-\[9999px\]$|^rounded-\[var\(--r-pill\)\]$/.test(x),
+	);
 	const mono = /font-\[family-name:var\(--font-mono\)\]|font-mono/.test(cls);
 	const upper = t.includes("uppercase");
 	const tinted = /color-mix\(/.test(cls);
-	const dot = t.includes("rounded-full") && t.some((x) => /^h-\[\d+px\]$/.test(x)) && t.some((x) => /^w-\[\d+px\]$/.test(x));
+	const dot =
+		t.includes("rounded-full") &&
+		t.some((x) => /^h-\[\d+px\]$/.test(x)) &&
+		t.some((x) => /^w-\[\d+px\]$/.test(x));
 	const score = [pill, mono, upper, tinted].filter(Boolean).length;
 	if (dot || (score >= 2 && /status|state|kind|verdict|badge|chip|tag|pill/i.test(cls + el.file))) {
-		localStatusCandidates.push({ file: el.file, line: el.line, tag: el.tag, pill, mono, upper, tinted, dot, cls });
+		localStatusCandidates.push({
+			file: el.file,
+			line: el.line,
+			tag: el.tag,
+			pill,
+			mono,
+			upper,
+			tinted,
+			dot,
+			cls,
+		});
 	}
 }
 
@@ -327,7 +351,9 @@ const summary = {
 	},
 	radius: Object.fromEntries([...radius.entries()].sort((a, b) => b[1] - a[1])),
 	cssBorderRadiusDecls: cssRadius.length,
-	surfaces: Object.fromEntries([...surfaceUse.entries()].map(([k, v]) => [k, v.length]).sort((a, b) => b[1] - a[1])),
+	surfaces: Object.fromEntries(
+		[...surfaceUse.entries()].map(([k, v]) => [k, v.length]).sort((a, b) => b[1] - a[1]),
+	),
 	status: {
 		statusChipUses: statusChipUses.length,
 		statusChipFiles: statusChipFiles.length,
@@ -338,7 +364,9 @@ writeFileSync(join(OUT, "summary.json"), `${JSON.stringify(summary, null, "\t")}
 writeFileSync(
 	join(OUT, "button-recipes.json"),
 	`${JSON.stringify(
-		[...btnRecipes.entries()].map(([k, v]) => ({ recipe: k, count: v.length, sites: v })).sort((a, b) => b.count - a.count),
+		[...btnRecipes.entries()]
+			.map(([k, v]) => ({ recipe: k, count: v.length, sites: v }))
+			.sort((a, b) => b.count - a.count),
 		null,
 		"\t",
 	)}\n`,
@@ -346,13 +374,21 @@ writeFileSync(
 writeFileSync(
 	join(OUT, "input-recipes.json"),
 	`${JSON.stringify(
-		[...inputRecipes.entries()].map(([k, v]) => ({ recipe: k, count: v.length, sites: v })).sort((a, b) => b.count - a.count),
+		[...inputRecipes.entries()]
+			.map(([k, v]) => ({ recipe: k, count: v.length, sites: v }))
+			.sort((a, b) => b.count - a.count),
 		null,
 		"\t",
 	)}\n`,
 );
 writeFileSync(join(OUT, "radius-sites.json"), `${JSON.stringify(radiusSites, null, "\t")}\n`);
 writeFileSync(join(OUT, "css-radius.json"), `${JSON.stringify(cssRadius, null, "\t")}\n`);
-writeFileSync(join(OUT, "surface-sites.json"), `${JSON.stringify(Object.fromEntries(surfaceUse), null, "\t")}\n`);
-writeFileSync(join(OUT, "status-sites.json"), `${JSON.stringify({ statusChipUses, localStatusCandidates }, null, "\t")}\n`);
+writeFileSync(
+	join(OUT, "surface-sites.json"),
+	`${JSON.stringify(Object.fromEntries(surfaceUse), null, "\t")}\n`,
+);
+writeFileSync(
+	join(OUT, "status-sites.json"),
+	`${JSON.stringify({ statusChipUses, localStatusCandidates }, null, "\t")}\n`,
+);
 console.log(JSON.stringify(summary, null, 2));

@@ -1,8 +1,8 @@
-// Renders .pipeline/work/AZ7/migration-backlog.md from a predicates.mjs scan.
+// Renders docs/design/migration-backlog.md from a predicates.mjs scan.
 //
 // Usage (from repo root):
-//   node .pipeline/work/AZ7/measurement/predicates.mjs "$PWD" /tmp/az7-after
-//   node .pipeline/work/AZ7/measurement/render-backlog.mjs /tmp/az7-after "$PWD"
+//   node tools/design-measurement/predicates.mjs "$PWD" /tmp/design-backlog
+//   node tools/design-measurement/render-backlog.mjs /tmp/design-backlog "$PWD"
 //
 // Reads predicate-sites.json's `controlChrome` and `handrolledChip` arrays
 // (the broad, per-element predicates — not the narrower no-handrolled-control
@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const OUT_DIR = process.argv[2];
 const ROOT = process.argv[3];
-if (!OUT_DIR || !ROOT) throw new Error("usage: render-backlog.mjs <predicatesOutDir> <repoRoot>");
+if (!(OUT_DIR && ROOT)) throw new Error("usage: render-backlog.mjs <predicatesOutDir> <repoRoot>");
 const data = JSON.parse(readFileSync(`${OUT_DIR}/predicate-sites.json`, "utf8"));
 
 const isProd = (rel) =>
@@ -53,28 +53,28 @@ const KNOWN = {
 
 let id = 180;
 const lines = [];
-lines.push("# AZ7 migration backlog — remaining hand-rolled control/chip sites");
+lines.push("# Design migration backlog — remaining hand-rolled control/chip sites");
 lines.push("");
 lines.push(
-	"Meant to fold into `.pipeline/AZ-bugs.md` (Batch D — \"adopt the primitives that already exist\"), " +
-		"continuing its numbering from UI-172. AZ7 closed radii, inputs and status fully, and buttons " +
-		"partly (the 63-site DaisyUI + accent-fill union) — see `.pipeline/work/AZ7/plan.md` " +
-		"§4.1. Everything below is the declared-out-of-scope remainder: hand-rolled buttons with " +
-		"token-legal chrome (no DaisyUI class, no accent/status fill) and hand-rolled chips (pill radius " +
-		"+ a fill, not one of the design-system chip components).",
+	"The generated inventory of hand-rolled control and chip sites still open in `layers/core-ui/`. " +
+		"The visual-system closure migrated radii, inputs and status fully, and buttons partly (the " +
+		"63-site DaisyUI + accent-fill union); everything below is the remainder that closure declared " +
+		"out of scope — hand-rolled buttons with token-legal chrome (no DaisyUI class, no accent/status " +
+		"fill) and hand-rolled chips (pill radius + a fill, not one of the design-system chip " +
+		"components). Item ids continue the `UI-` sequence the design bug batches use, from UI-180.",
 );
 lines.push("");
 lines.push(
-	"**Sites already tracked under an existing Batch D id are referenced, not re-filed:** " +
+	"**Sites already tracked under an existing `UI-` id are referenced, not re-filed:** " +
 		"UI-060 (`Row`'s button branch missing `w-full` — this is why several `no-handrolled-control` " +
-		"exceptions AZ7 left in place cite it directly), UI-062 (three message composers), " +
+		"exceptions cite it directly), UI-062 (three message composers), " +
 		"UI-066 (two destructive button styles), UI-067 (disabled-primary opacity), " +
 		"UI-074 (kebab bypasses `Menu`), UI-150 (the `ACTIVE` chip on every curated-knowledge row).",
 );
 lines.push("");
 lines.push(
-	"**Regenerate:** `node .pipeline/work/AZ7/measurement/predicates.mjs \"$PWD\" /tmp/az7-after && " +
-		"node .pipeline/work/AZ7/measurement/render-backlog.mjs /tmp/az7-after \"$PWD\"`. The list cannot " +
+	"**Regenerate:** `npm run design:backlog`, which runs `tools/design-measurement/predicates.mjs` " +
+		"then `tools/design-measurement/render-backlog.mjs`. The list cannot " +
 		"drift from the code — it is a straight read of `predicate-sites.json`'s `controlChrome` and " +
 		"`handrolledChip` arrays, filtered to `layers/core-ui/` production files. Re-running after any " +
 		"future migration regenerates the whole file (item numbering will shift — that is expected).",
@@ -82,12 +82,14 @@ lines.push(
 lines.push("");
 lines.push("---");
 lines.push("");
-lines.push("## Hand-rolled buttons/inputs — token-legal chrome, no DaisyUI class, no accent/status fill");
+lines.push(
+	"## Hand-rolled buttons/inputs — token-legal chrome, no DaisyUI class, no accent/status fill",
+);
 lines.push("");
 lines.push(
 	"Each already passes `design/no-handrolled-control` (E2's honest boundary, plan.md §3.3: " +
-		"\"a hand-rolled `<button>` with a token-legal fill in a page still passes E2 unless it uses an " +
-		"accent/status fill or a DaisyUI class\"). Migrating to `Button`/`Input` is a look-alike, not a lint fix.",
+		'"a hand-rolled `<button>` with a token-legal fill in a page still passes E2 unless it uses an ' +
+		'accent/status fill or a DaisyUI class"). Migrating to `Button`/`Input` is a look-alike, not a lint fix.',
 );
 lines.push("");
 for (const [file, sites] of [...controlByFile.entries()].sort()) {
@@ -109,7 +111,7 @@ lines.push("");
 lines.push("## Hand-rolled chips — pill radius + a fill, not a design-system chip component");
 lines.push("");
 lines.push(
-	"Set 1's \"not a button\" note and Set 5's status set don't cover \"a small pill-shaped label,\" which is " +
+	'Set 1\'s "not a button" note and Set 5\'s status set don\'t cover "a small pill-shaped label," which is ' +
 		"where these live — `StatusChip`/`Tag`/`ReferenceChip`/`ArtifactKindBadge` are the closed set for chip " +
 		"*meaning*; these sites paint the same visual shape without going through any of them.",
 );
@@ -139,5 +141,5 @@ lines.push(
 );
 lines.push("");
 
-writeFileSync(`${ROOT}/.pipeline/work/AZ7/migration-backlog.md`, `${lines.join("\n")}\n`);
+writeFileSync(`${ROOT}/docs/design/migration-backlog.md`, `${lines.join("\n")}\n`);
 console.log("wrote migration-backlog.md:", id - 180, "items");

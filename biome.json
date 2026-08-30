@@ -237,6 +237,17 @@
 			}
 		},
 		{
+			"includes": ["tools/design-measurement/*.mjs"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off",
+						"noAssignInExpressions": "off"
+					}
+				}
+			}
+		},
+		{
 			"includes": ["tools/trace/*.ts"],
 			"linter": {
 				"rules": {

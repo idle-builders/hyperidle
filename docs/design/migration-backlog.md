@@ -1,10 +1,10 @@
-# AZ7 migration backlog — remaining hand-rolled control/chip sites
+# Design migration backlog — remaining hand-rolled control/chip sites
 
-Meant to fold into `.pipeline/AZ-bugs.md` (Batch D — "adopt the primitives that already exist"), continuing its numbering from UI-172. AZ7 closed radii, inputs and status fully, and buttons partly (the 63-site DaisyUI + accent-fill union) — see `.pipeline/work/AZ7/plan.md` §4.1. Everything below is the declared-out-of-scope remainder: hand-rolled buttons with token-legal chrome (no DaisyUI class, no accent/status fill) and hand-rolled chips (pill radius + a fill, not one of the design-system chip components).
+The generated inventory of hand-rolled control and chip sites still open in `layers/core-ui/`. The visual-system closure migrated radii, inputs and status fully, and buttons partly (the 63-site DaisyUI + accent-fill union); everything below is the remainder that closure declared out of scope — hand-rolled buttons with token-legal chrome (no DaisyUI class, no accent/status fill) and hand-rolled chips (pill radius + a fill, not one of the design-system chip components). Item ids continue the `UI-` sequence the design bug batches use, from UI-180.
 
-**Sites already tracked under an existing Batch D id are referenced, not re-filed:** UI-060 (`Row`'s button branch missing `w-full` — this is why several `no-handrolled-control` exceptions AZ7 left in place cite it directly), UI-062 (three message composers), UI-066 (two destructive button styles), UI-067 (disabled-primary opacity), UI-074 (kebab bypasses `Menu`), UI-150 (the `ACTIVE` chip on every curated-knowledge row).
+**Sites already tracked under an existing `UI-` id are referenced, not re-filed:** UI-060 (`Row`'s button branch missing `w-full` — this is why several `no-handrolled-control` exceptions cite it directly), UI-062 (three message composers), UI-066 (two destructive button styles), UI-067 (disabled-primary opacity), UI-074 (kebab bypasses `Menu`), UI-150 (the `ACTIVE` chip on every curated-knowledge row).
 
-**Regenerate:** `node .pipeline/work/AZ7/measurement/predicates.mjs "$PWD" /tmp/az7-after && node .pipeline/work/AZ7/measurement/render-backlog.mjs /tmp/az7-after "$PWD"`. The list cannot drift from the code — it is a straight read of `predicate-sites.json`'s `controlChrome` and `handrolledChip` arrays, filtered to `layers/core-ui/` production files. Re-running after any future migration regenerates the whole file (item numbering will shift — that is expected).
+**Regenerate:** `npm run design:backlog`, which runs `tools/design-measurement/predicates.mjs` then `tools/design-measurement/render-backlog.mjs`. The list cannot drift from the code — it is a straight read of `predicate-sites.json`'s `controlChrome` and `handrolledChip` arrays, filtered to `layers/core-ui/` production files. Re-running after any future migration regenerates the whole file (item numbering will shift — that is expected).
 
 ---
 

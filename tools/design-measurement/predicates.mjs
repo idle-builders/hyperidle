@@ -1,9 +1,9 @@
 // Second pass: size the exact populations the proposed rules would flag.
 // Reuses scan.mjs's parse by re-implementing the element walk (kept in one file
 // so the numbers can be re-derived from a single command).
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { join, relative } from "node:path";
 
 const ROOT_ARG = process.argv[2];
 if (!ROOT_ARG) throw new Error("usage: node <script> <repoRoot> <outDir>");
@@ -31,7 +31,7 @@ function walk(dir) {
 for (const r of ROLE_ROOTS) walk(join(ROOT, r));
 if (acc.length === 0) throw new Error("HARD FAIL: zero tsx");
 const isProd = (rel) =>
-	!/\.(test|stories|spec)\.tsx$/.test(rel) && !rel.split("/").some((s) => s.startsWith("__"));
+	!(/\.(test|stories|spec)\.tsx$/.test(rel) || rel.split("/").some((s) => s.startsWith("__")));
 
 const DYN = "«dyn»";
 
@@ -65,7 +65,8 @@ function classTextOf(attr, constMap) {
 	const seen = new Set();
 	function visit(n) {
 		if (!n) return;
-		if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return void out.push(n.text);
+		if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n))
+			return void out.push(n.text);
 		if (ts.isTemplateExpression(n)) {
 			out.push(n.head.text);
 			for (const sp of n.templateSpans) {
@@ -99,13 +100,20 @@ function classTextOf(attr, constMap) {
 }
 const els = [];
 for (const rel of acc) {
-	const sf = ts.createSourceFile(rel, readFileSync(join(ROOT, rel), "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+	const sf = ts.createSourceFile(
+		rel,
+		readFileSync(join(ROOT, rel), "utf8"),
+		ts.ScriptTarget.Latest,
+		true,
+		ts.ScriptKind.TSX,
+	);
 	const constMap = buildConstMap(sf);
 	(function v(node) {
 		if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
 			let cls = "";
 			for (const a of node.attributes.properties)
-				if (ts.isJsxAttribute(a) && a.name.getText(sf) === "className") cls = classTextOf(a, constMap);
+				if (ts.isJsxAttribute(a) && a.name.getText(sf) === "className")
+					cls = classTextOf(a, constMap);
 			els.push({
 				file: rel,
 				line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
@@ -120,30 +128,46 @@ for (const rel of acc) {
 const tok = (c) => c.split(/\s+/).filter(Boolean);
 const base = (t) => t.replace(/^[a-z-]+:/, ""); // strip variant prefixes (hover:, lg:, …)
 
-const RADIUS_RE = /^rounded(-(?:t|r|b|l|tl|tr|bl|br|s|e|ss|se|es|ee))?(-(?:none|xs|sm|md|lg|xl|2xl|3xl|4xl|full))?(-\[[^\]]+\])?$/;
-const TOKEN_RADIUS_RE = /^rounded(-(?:t|r|b|l|tl|tr|bl|br|s|e|ss|se|es|ee))?-\[var\(--r-(none|subtle|default|pill)\)\]$/;
-const PILL = (t) => t === "rounded-full" || /^rounded(-[a-z]{1,2})?-\[var\(--r-pill\)\]$/.test(t) || t === "rounded-[9999px]";
+const RADIUS_RE =
+	/^rounded(-(?:t|r|b|l|tl|tr|bl|br|s|e|ss|se|es|ee))?(-(?:none|xs|sm|md|lg|xl|2xl|3xl|4xl|full))?(-\[[^\]]+\])?$/;
+const TOKEN_RADIUS_RE =
+	/^rounded(-(?:t|r|b|l|tl|tr|bl|br|s|e|ss|se|es|ee))?-\[var\(--r-(none|subtle|default|pill)\)\]$/;
+const PILL = (t) =>
+	t === "rounded-full" ||
+	/^rounded(-[a-z]{1,2})?-\[var\(--r-pill\)\]$/.test(t) ||
+	t === "rounded-[9999px]";
 const FILL_RE = /^bg-\[(var\(--(surface|accent|status)[a-z-]*\)|color-mix\([^\]]*\))\]$/;
 const BORDER_TOKEN_RE = /^border(-[a-z]{1,2})?-\[(1\.5px|var\(--border[a-z-]*\))\]$/;
-const DAISY_CONTROL = /^(btn|input|textarea|select|badge|checkbox|toggle|radio|file-input|range)(-[a-z0-9]+)*$/;
+const DAISY_CONTROL =
+	/^(btn|input|textarea|select|badge|checkbox|toggle|radio|file-input|range)(-[a-z0-9]+)*$/;
 const CONTROL_TAGS = new Set(["button", "input", "textarea", "select"]);
-const DS_CHIPS = new Set(["StatusChip", "Tag", "ReferenceChip", "ArtifactKindBadge", "RowDot", "LiveDot", "Avatar"]);
+const DS_CHIPS = new Set([
+	"StatusChip",
+	"Tag",
+	"ReferenceChip",
+	"ArtifactKindBadge",
+	"RowDot",
+	"LiveDot",
+	"Avatar",
+]);
 
 const R = { radiusNonToken: [], controlChrome: [], handrolledChip: [] };
 for (const e of els) {
 	const ts_ = tok(e.cls).map(base);
 	// 1 — radius spelled as anything other than a --r-* token
-	for (const t of ts_) if (RADIUS_RE.test(t) && !TOKEN_RADIUS_RE.test(t)) R.radiusNonToken.push({ ...e, token: t });
+	for (const t of ts_)
+		if (RADIUS_RE.test(t) && !TOKEN_RADIUS_RE.test(t)) R.radiusNonToken.push({ ...e, token: t });
 	// 2 — a raw control that paints its own chrome
 	if (CONTROL_TAGS.has(e.tag)) {
 		const fill = ts_.some((t) => FILL_RE.test(t));
 		const border = ts_.some((t) => BORDER_TOKEN_RE.test(t));
 		const daisy = ts_.some((t) => DAISY_CONTROL.test(t));
 		const radius = ts_.some((t) => RADIUS_RE.test(t));
-		if (fill || border || daisy || radius) R.controlChrome.push({ ...e, fill, border, daisy, radius });
+		if (fill || border || daisy || radius)
+			R.controlChrome.push({ ...e, fill, border, daisy, radius });
 	}
 	// 3 — a hand-rolled chip: pill radius + a fill, on a non-DS-chip element
-	if (!DS_CHIPS.has(e.tag) && !CONTROL_TAGS.has(e.tag)) {
+	if (!(DS_CHIPS.has(e.tag) || CONTROL_TAGS.has(e.tag))) {
 		const pill = ts_.some(PILL);
 		const fill = ts_.some((t) => FILL_RE.test(t));
 		if (pill && fill) R.handrolledChip.push(e);
@@ -158,13 +182,17 @@ const summary = {
 	radiusNonToken: count(R.radiusNonToken),
 	radiusNonTokenByToken: Object.fromEntries(
 		Object.entries(
-			R.radiusNonToken.filter((x) => x.prod).reduce((m, x) => ((m[x.token] = (m[x.token] ?? 0) + 1), m), {}),
+			R.radiusNonToken
+				.filter((x) => x.prod)
+				.reduce((m, x) => ((m[x.token] = (m[x.token] ?? 0) + 1), m), {}),
 		).sort((a, b) => b[1] - a[1]),
 	),
 	controlChrome: count(R.controlChrome),
 	controlChromeByTag: Object.fromEntries(
 		Object.entries(
-			R.controlChrome.filter((x) => x.prod).reduce((m, x) => ((m[x.tag] = (m[x.tag] ?? 0) + 1), m), {}),
+			R.controlChrome
+				.filter((x) => x.prod)
+				.reduce((m, x) => ((m[x.tag] = (m[x.tag] ?? 0) + 1), m), {}),
 		).sort((a, b) => b[1] - a[1]),
 	),
 	controlChromeByPkg: Object.fromEntries(

@@ -2,15 +2,14 @@
 /**
  * Design-migration-backlog drift gate.
  *
- * `.pipeline/work/AZ7/migration-backlog.md` is not hand-written — it is a
- * straight render of `predicates.mjs`'s element scan (see the file's own
- * "Regenerate:" line).
+ * `docs/design/migration-backlog.md` is not hand-written — it is a straight
+ * render of `tools/design-measurement/predicates.mjs`'s element scan (see the
+ * file's own "Regenerate:" line).
  *
  * @lore A prior review round found the committed backlog had drifted from
  * its own generator: a scanner change (identifier following, template-literal
  * span resolution) was never re-run against the tracked file, so it quietly
- * stopped matching the code it claims to enumerate. See
- * `.pipeline/work/AZ7/plan.md` §7 (review history) for the finding.
+ * stopped matching the code it claims to enumerate.
  *
  * This gate re-runs the real generator pair (`predicates.mjs` +
  * `render-backlog.mjs`, unmodified, in a throwaway output location so the
@@ -37,10 +36,10 @@ import { fileURLToPath } from "node:url";
 // tools/repo-gates/src/design-backlog-drift.ts → repo root is three levels up.
 const REPO_ROOT = join(fileURLToPath(import.meta.url), "..", "..", "..", "..");
 
-const MEASUREMENT_DIR = join(REPO_ROOT, ".pipeline/work/AZ7/measurement");
+const MEASUREMENT_DIR = join(REPO_ROOT, "tools/design-measurement");
 const PREDICATES_SCRIPT = join(MEASUREMENT_DIR, "predicates.mjs");
 const RENDER_SCRIPT = join(MEASUREMENT_DIR, "render-backlog.mjs");
-const BACKLOG_REL_PATH = ".pipeline/work/AZ7/migration-backlog.md";
+const BACKLOG_REL_PATH = "docs/design/migration-backlog.md";
 const BACKLOG_PATH = join(REPO_ROOT, BACKLOG_REL_PATH);
 
 interface BacklogItem {
@@ -98,7 +97,7 @@ function diffItems(
 /**
  * Runs the real generator pair into a throwaway location and returns the
  * markdown it would write. `render-backlog.mjs` writes to a hardcoded
- * `${ROOT}/.pipeline/work/AZ7/migration-backlog.md`, so we point its `ROOT`
+ * `${ROOT}/docs/design/migration-backlog.md`, so we point its `ROOT`
  * argument at a scratch directory (not the real repo) — the real committed
  * file is only ever read, never overwritten, in check mode.
  */
@@ -112,7 +111,7 @@ function generateBacklog(scratchRoot: string): string {
 	execFileSync(process.execPath, [PREDICATES_SCRIPT, REPO_ROOT, outDir], { stdio: "pipe" });
 
 	const fakeRoot = join(scratchRoot, "fake-root");
-	mkdirSync(join(fakeRoot, ".pipeline/work/AZ7"), { recursive: true });
+	mkdirSync(join(fakeRoot, "docs/design"), { recursive: true });
 	execFileSync(process.execPath, [RENDER_SCRIPT, outDir, fakeRoot], { stdio: "pipe" });
 
 	return readFileSync(join(fakeRoot, BACKLOG_REL_PATH), "utf8");
@@ -133,7 +132,7 @@ if (!(existsSync(PREDICATES_SCRIPT) && existsSync(RENDER_SCRIPT))) {
 }
 
 if (isCheck) {
-	const scratch = mkdtempSync(join(tmpdir(), "az7-backlog-check-"));
+	const scratch = mkdtempSync(join(tmpdir(), "design-backlog-check-"));
 	let fresh: string;
 	try {
 		fresh = generateBacklog(scratch);
@@ -197,7 +196,7 @@ if (isCheck) {
 }
 
 // Write mode — regenerate the real, committed file in place.
-const writeOutDir = mkdtempSync(join(tmpdir(), "az7-backlog-write-"));
+const writeOutDir = mkdtempSync(join(tmpdir(), "design-backlog-write-"));
 try {
 	execFileSync(process.execPath, [PREDICATES_SCRIPT, REPO_ROOT, writeOutDir], { stdio: "inherit" });
 	execFileSync(process.execPath, [RENDER_SCRIPT, writeOutDir, REPO_ROOT], { stdio: "inherit" });

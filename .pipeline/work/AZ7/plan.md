@@ -90,11 +90,10 @@ Deferred and residual:
   story-only utilities ship in the production stylesheet; `Button.tsx`'s prose comment emits
   utility-shaped strings as real CSS rules; the drift gate goes quiet (fail-closed) when the
   difference is not site-level.
-- `npm run verify` hard-depends on generator scripts that lived in this work-item folder
-  (`.pipeline/work/AZ7/measurement/`) and on the generated `migration-backlog.md`. That was already
-  flagged at ship as an unusual home for a permanent gate's generator; the consolidation that
-  produced this file removed them, so `design:backlog:check` must be re-homed under `tools/` or
-  retired before `verify` is green again.
+- `npm run verify` hard-depends on generator scripts that used to live in this work-item folder and
+  on the backlog they render. That was flagged at ship as an unusual home for a permanent gate's
+  generator, and it has since been fixed: the harness lives at `tools/design-measurement/` and the
+  backlog at `docs/design/migration-backlog.md`, both repo assets, neither an item artifact.
 - Outside this package: `.pipeline/AZ-bugs.md` exists on disk in one worktree only — `.gitignore`
   matches no re-include pattern, so git is blind to it and pruning that worktree loses it. The fix
   is a one-line re-include, explicitly not this package's job.

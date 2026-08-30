@@ -37,7 +37,17 @@
 	},
 	"workspaces": {
 		".": {
-			"entry": ["vitest.integration.config.ts!", "eslint.design.config.ts!"]
+			// The design-measurement scripts are spawned by
+			// tools/repo-gates/src/design-backlog-drift.ts (and run by hand); nothing
+			// imports them, so they are entry points, not dead files.
+			"entry": [
+				"vitest.integration.config.ts!",
+				"eslint.design.config.ts!",
+				"tools/design-measurement/predicates.mjs!",
+				"tools/design-measurement/render-backlog.mjs!",
+				"tools/design-measurement/scan.mjs!",
+				"tools/design-measurement/measure.eslint.config.ts!"
+			]
 		},
 		"framework/domain-model": {},
 		"framework/diagnostics": {},
