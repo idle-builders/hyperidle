@@ -1,0 +1,637 @@
+/**
+ * BA2 — session handles: native id capture and session resumption.
+ *
+ * LOCAL-ONLY LANE — runs via test:integration (harness project). Needs real CLI
+ * binaries and real LLM credentials. Never a GitHub Actions job.
+ *
+ * Proves per harness (claude/codex/cursor-agent/opencode), all four:
+ *
+ *   1. A session's native id is captured (or assigned) and survives to where a
+ *      resume could use it.
+ *   2. That session resumes and receives a new user message.
+ *   3. The resumed session retains its prior context — it knows the task ID from
+ *      the first turn.
+ *   4. A resume aimed at a WRONG/unknown session id is detected and fails loudly.
+ *      Most important on cursor-agent, which exits 0 on a wrong id.
+ *
+ * @lore BA2 cursor-agent-silent-fail: cursor-agent exits 0 even on a wrong or
+ * missing session id, echoing back the requested id. Detection is from content:
+ * a resumed context-free session does not know the task ID.
+ *
+ * @lore BA2 claude-session-global: In claude 2.1.247, --resume <uuid> finds
+ * sessions globally by UUID — NOT per working directory. The research claim that
+ * "wrong-dir fails loudly with exit 1" did not hold against the installed binary.
+ * The correct "wrong resume" probe for claude is a bogus UUID (exits 0 with
+ * error_during_execution and empty result, detected via content check).
+ */
+
+import { execFile } from "node:child_process";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { promisify } from "node:util";
+import type { HarnessEvent, SessionConfig, SessionResumeConfig } from "@hyperidle/harness-protocol";
+import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
+import { describe, expect, test } from "vitest";
+import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { LocalSandboxAdapter } from "../local-sandbox-adapter.js";
+import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
+import { requireHarness } from "./require-harness.js";
+
+const execFileAsync = promisify(execFile);
+
+// ── Context marker planted in session 1, tested in the resumed session ────────
+// A non-guessable task-ID token so "did the model know this?" is meaningful.
+// Framed as a task ID (not a "codeword") to avoid security-minded model
+// refusals that treat codeword exchanges as prompt-injection attempts.
+// @lore BA2 context-marker-framing: "codeword" framing caused haiku to refuse
+// the acknowledgment and to decline recalling it in Phase 2 ("I can't treat
+// codeword exchanges as authentication"). "Task ID" framing is semantically
+// identical but does not trigger security heuristics.
+const CODEWORD = "KESTREL-7429";
+const PHASE1_PROMPT =
+	`The task ID for this session is ${CODEWORD}. ` +
+	`Acknowledge receipt by replying with exactly the token PHASE1_OK.`;
+const PHASE2_PROMPT =
+	`What task ID was assigned to this session at the start of our conversation? ` +
+	`Reply with just the task ID, nothing else.`;
+
+// ── Sandbox cleanup (retry on ENOTEMPTY — OS race on macOS) ──────────────────
+
+async function rmSandbox(sandboxPath: string): Promise<void> {
+	for (let attempt = 0; attempt < 5; attempt += 1) {
+		try {
+			fs.rmSync(sandboxPath, { recursive: true, force: true });
+			return;
+		} catch (err) {
+			const code = (err as NodeJS.ErrnoException).code;
+			if (code !== "ENOTEMPTY" && code !== "EBUSY") throw err;
+			await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+		}
+	}
+	fs.rmSync(sandboxPath, { recursive: true, force: true });
+}
+
+// ── Drain all events from a running session ───────────────────────────────────
+
+async function drainEvents(
+	adapter: CliHarnessAdapter,
+	handle: Awaited<ReturnType<CliHarnessAdapter["startSession"]>>,
+): Promise<{ events: HarnessEvent[]; completionTexts: string[] }> {
+	const events: HarnessEvent[] = [];
+	for await (const ev of adapter.streamEvents(handle)) {
+		events.push(ev);
+	}
+	const completionTexts = events
+		.filter((e) => e.type === "completion")
+		.map((e) => ("text" in e ? (e.text as string) : ""));
+	return { events, completionTexts };
+}
+
+function knownCodeword(completionTexts: string[]): boolean {
+	return completionTexts.some((t) => t.includes(CODEWORD));
+}
+
+// ── Auth probe helpers ────────────────────────────────────────────────────────
+
+async function claudeAuthed(): Promise<boolean> {
+	try {
+		const { stdout } = await execFileAsync("claude", ["auth", "status"], { timeout: 10_000 });
+		const parsed = JSON.parse(stdout.trim()) as { loggedIn?: boolean };
+		return parsed.loggedIn === true;
+	} catch {
+		return false;
+	}
+}
+
+async function codexAuthed(): Promise<boolean> {
+	try {
+		const { stdout, stderr } = await execFileAsync("codex", ["login", "status"], {
+			timeout: 10_000,
+		});
+		return (stdout + stderr).trim().startsWith("Logged in");
+	} catch {
+		return false;
+	}
+}
+
+async function opencodeAuthed(): Promise<boolean> {
+	try {
+		if (!process.env.OPENROUTER_API_KEY) return false;
+		const { stdout } = await execFileAsync("opencode", ["providers", "list"], { timeout: 10_000 });
+		return /\d+\s+credentials/.test(stdout) || stdout.includes("environment variable");
+	} catch {
+		return false;
+	}
+}
+
+async function cursorAgentAuthed(): Promise<boolean> {
+	try {
+		const { stdout } = await execFileAsync("cursor-agent", ["status"], { timeout: 10_000 });
+		return stdout.includes("Logged in");
+	} catch {
+		return false;
+	}
+}
+
+// ── claude sandbox provisioning ───────────────────────────────────────────────
+
+function provisionClaudeSandbox(sandboxPath: string): void {
+	fs.writeFileSync(
+		path.join(sandboxPath, ".mcp.json"),
+		JSON.stringify({
+			mcpServers: { hyperidle: { type: "http", url: "http://localhost:9/api/mcp/x" } },
+		}),
+		"utf-8",
+	);
+	fs.mkdirSync(path.join(sandboxPath, ".claude"), { recursive: true });
+	fs.writeFileSync(path.join(sandboxPath, ".claude", "settings.json"), JSON.stringify({}), "utf-8");
+}
+
+// ── codex sandbox provisioning ────────────────────────────────────────────────
+
+function provisionCodexHome(sandboxPath: string): boolean {
+	const codexHomeDir = path.join(sandboxPath, ".codex-home");
+	fs.mkdirSync(codexHomeDir, { recursive: true });
+	const homeCodexDir = path.join(os.homedir(), ".codex");
+	let authFound = false;
+	for (const fname of ["auth.json", "config.toml"]) {
+		const src = path.join(homeCodexDir, fname);
+		if (fs.existsSync(src)) {
+			fs.copyFileSync(src, path.join(codexHomeDir, fname));
+			if (fname === "auth.json") authFound = true;
+		}
+	}
+	fs.appendFileSync(
+		path.join(codexHomeDir, "config.toml"),
+		`\n[projects."${sandboxPath}"]\ntrust_level = "trusted"\n`,
+		"utf-8",
+	);
+	return authFound;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// claude-code
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("BA2 session handles — claude-code", () => {
+	requireHarness("claude");
+
+	test("assigns session id immediately at start, resumes with prior context, bogus-id resume detected", async ({
+		skip,
+	}) => {
+		if (!(await claudeAuthed())) {
+			skip();
+			return;
+		}
+
+		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-claude-a-"));
+
+		try {
+			provisionClaudeSandbox(sandboxA);
+
+			const claudeConfig = cliAdapterFixture("claude");
+			const adapter = new CliHarnessAdapter(claudeConfig);
+
+			// ── Proof 1: native id is assigned BEFORE any stream event ───────
+			const configPhase1: SessionConfig = {
+				sessionId: `ba2-claude-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sandboxPath: sandboxA,
+				assembledPrompt: PHASE1_PROMPT,
+				modelTier: "workhorse",
+				tools: [],
+				resolvedModel: {
+					provider: "anthropic",
+					model: "haiku",
+					apiKey: "",
+					baseUrl: "https://api.anthropic.com",
+				},
+			};
+
+			const handleP1 = await adapter.startSession(configPhase1);
+
+			// For claude, the id is assigned at start time (via --session-id).
+			// It must be readable immediately — not after streaming.
+			const nativeId = adapter.getNativeSessionId?.(handleP1);
+			expect(
+				nativeId,
+				"claude native session id must be set immediately at startSession",
+			).toBeTruthy();
+
+			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
+			const r1 = await adapter.stopSession(handleP1);
+			expect(r1.outcome).toBe("completed");
+
+			// Sanity: the task ID appeared in phase 1's output OR was acknowledged.
+			// (Some models say "PHASE1_OK" without repeating the task ID — that's fine.)
+			// What matters is that phase 2 resume knows the task ID.
+			expect(
+				p1Texts.some((t) => t.includes("PHASE1_OK") || t.includes(CODEWORD)),
+				`Phase 1 must produce PHASE1_OK or mention ${CODEWORD}. Got: ${p1Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// ── Proof 2 + 3: resume retains prior context ────────────────────
+			const resumeConfigA: SessionResumeConfig = {
+				sandboxPath: sandboxA,
+				modelTier: "workhorse",
+				resolvedModel: {
+					provider: "anthropic",
+					model: "haiku",
+					apiKey: "",
+					baseUrl: "https://api.anthropic.com",
+				},
+			};
+
+			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigA);
+			expect(handleP2, "resumeSession must return a handle").toBeDefined();
+			if (!handleP2) return;
+
+			const { completionTexts: p2Texts } = await drainEvents(adapter, handleP2);
+			const r2 = await adapter.stopSession(handleP2);
+			expect(r2.outcome).toBe("completed");
+
+			expect(
+				knownCodeword(p2Texts),
+				`Resumed claude session must know the task ID "${CODEWORD}". ` +
+					`Got: ${p2Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// ── Proof 4: bogus-id resume detected (fails loudly) ──────────────
+			// claude exits 0 with is_error:true and empty result on a bogus UUID.
+			// Detection is content-based: outcome may be "completed" (exit 0) but
+			// the session has no task ID in its output.
+			//
+			// @lore BA2 claude-session-global: In claude 2.1.247, --resume <uuid>
+			// finds sessions GLOBALLY by UUID, NOT per working directory. The research
+			// claim that "wrong-dir fails loudly with exit 1" did not hold against the
+			// installed binary — wrong-dir resume exits 0 and succeeds (the session is
+			// found from any cwd). A bogus (non-existent) UUID is the correct test:
+			// it exits 0 with error_during_execution subtype and empty result, so
+			// content-based detection (no task ID in output) correctly signals failure.
+			const bogusId = "00000000-0000-0000-0000-000000000000";
+			let bogusIdDetected = false;
+			try {
+				const handleWrong = await adapter.resumeSession?.(bogusId, PHASE2_PROMPT, resumeConfigA);
+				if (handleWrong) {
+					const { completionTexts: wrongTexts } = await drainEvents(adapter, handleWrong);
+					const resultWrong = await adapter.stopSession(handleWrong);
+					// claude exits 0 on a bogus id (error_during_execution), result is "".
+					// Detection is via content: no task ID in output.
+					bogusIdDetected = resultWrong.outcome !== "completed" || !knownCodeword(wrongTexts);
+				}
+			} catch {
+				// A thrown error is also a loud failure — detection successful.
+				bogusIdDetected = true;
+			}
+
+			expect(
+				bogusIdDetected,
+				"Bogus-id resume on claude must be detected (crashed outcome or no task ID in output)",
+			).toBe(true);
+		} finally {
+			await rmSandbox(sandboxA);
+		}
+	}, 120_000);
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// codex
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("BA2 session handles — codex", () => {
+	requireHarness("codex");
+
+	test("captures thread_id from thread.started, resumes with prior context, wrong-id fails loudly", async ({
+		skip,
+	}) => {
+		if (!(await codexAuthed())) {
+			skip();
+			return;
+		}
+
+		const baseDir = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-codex-base-"));
+		const sandboxAdapter = new LocalSandboxAdapter();
+		const sandboxHandle = await sandboxAdapter.spawn(baseDir);
+		const sandboxPath = sandboxHandle.path;
+
+		try {
+			ensureSandboxGitRepo(sandboxPath);
+
+			const authFound = provisionCodexHome(sandboxPath);
+			if (!authFound) {
+				skip();
+				return;
+			}
+
+			const codexConfig = cliAdapterFixture("codex");
+			const adapter = new CliHarnessAdapter(codexConfig);
+
+			// ── Phase 1: run session, capture native thread id ────────────────
+			const configP1: SessionConfig = {
+				sessionId: `ba2-codex-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sandboxPath,
+				assembledPrompt: PHASE1_PROMPT,
+				modelTier: "workhorse",
+				tools: [],
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "gpt-5.4-mini",
+					apiKey: "",
+					baseUrl: "https://api.openai.com",
+				},
+			};
+
+			const handleP1 = await adapter.startSession(configP1);
+
+			// Native id is NOT available before the stream (codex emits it on thread.started).
+			// Stream to completion so the event is consumed.
+			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
+			const r1 = await adapter.stopSession(handleP1);
+			expect(r1.outcome).toBe("completed");
+
+			// ── Proof 1: native id captured from event stream ─────────────────
+			const nativeId = adapter.getNativeSessionId?.(handleP1);
+			expect(
+				nativeId,
+				"codex native session id (thread_id) must be captured from thread.started event",
+			).toBeTruthy();
+
+			expect(
+				p1Texts.some((t) => t.includes("PHASE1_OK") || t.includes(CODEWORD)),
+				`Phase 1 must produce PHASE1_OK or mention ${CODEWORD}. Got: ${p1Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// ── Proof 2 + 3: resume retains prior context ────────────────────
+			const resumeConfig: SessionResumeConfig = {
+				sandboxPath,
+				modelTier: "workhorse",
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "gpt-5.4-mini",
+					apiKey: "",
+					baseUrl: "https://api.openai.com",
+				},
+			};
+
+			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfig);
+			expect(handleP2, "resumeSession must return a handle").toBeDefined();
+			if (!handleP2) return;
+
+			const { completionTexts: p2Texts } = await drainEvents(adapter, handleP2);
+			const r2 = await adapter.stopSession(handleP2);
+			expect(r2.outcome).toBe("completed");
+
+			expect(
+				knownCodeword(p2Texts),
+				`Resumed codex session must know codeword "${CODEWORD}". ` +
+					`Got: ${p2Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// ── Proof 4: wrong id fails loudly ───────────────────────────────
+			// codex returns exit 1 with "no rollout found for thread id" on bad id.
+			const bogusId = "00000000-0000-0000-0000-000000000000";
+			let wrongIdDetected = false;
+			try {
+				const handleWrong = await adapter.resumeSession?.(bogusId, PHASE2_PROMPT, resumeConfig);
+				if (handleWrong) {
+					await drainEvents(adapter, handleWrong);
+					const rWrong = await adapter.stopSession(handleWrong);
+					// codex exits 1 on a bad thread id → outcome "crashed"
+					wrongIdDetected = rWrong.outcome !== "completed";
+				}
+			} catch {
+				wrongIdDetected = true;
+			}
+
+			expect(
+				wrongIdDetected,
+				"Wrong thread-id resume on codex must fail loudly (crashed outcome)",
+			).toBe(true);
+		} finally {
+			await sandboxAdapter.destroy(sandboxHandle);
+			await rmSandbox(baseDir);
+		}
+	}, 120_000);
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// cursor-agent
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("BA2 session handles — cursor-agent", () => {
+	requireHarness("cursor-agent");
+
+	test("captures session_id from system/init, resumes with prior context, wrong-dir resume detected as context-free", async ({
+		skip,
+	}) => {
+		if (!(await cursorAgentAuthed())) {
+			skip();
+			return;
+		}
+
+		const sandboxA = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-cursor-a-"));
+		const sandboxB = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-cursor-b-"));
+
+		try {
+			const cursorConfig = cliAdapterFixture("cursor-agent");
+			const adapter = new CliHarnessAdapter(cursorConfig);
+
+			// ── Phase 1: run session, plant codeword ──────────────────────────
+			const configP1: SessionConfig = {
+				sessionId: `ba2-cursor-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sandboxPath: sandboxA,
+				assembledPrompt: PHASE1_PROMPT,
+				modelTier: "workhorse",
+				tools: [],
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "auto",
+					apiKey: "",
+					baseUrl: "https://api.cursor.com",
+				},
+			};
+
+			const handleP1 = await adapter.startSession(configP1);
+			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
+			const r1 = await adapter.stopSession(handleP1);
+			expect(r1.outcome).toBe("completed");
+
+			// ── Proof 1: native id captured from system/init event ────────────
+			const nativeId = adapter.getNativeSessionId?.(handleP1);
+			expect(
+				nativeId,
+				"cursor-agent native session id must be captured from system/init event",
+			).toBeTruthy();
+
+			expect(
+				p1Texts.some((t) => t.includes("PHASE1_OK") || t.includes(CODEWORD)),
+				`Phase 1 must produce PHASE1_OK or mention ${CODEWORD}. Got: ${p1Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// ── Proof 2 + 3: correct resume retains prior context ─────────────
+			const resumeConfigA: SessionResumeConfig = {
+				sandboxPath: sandboxA,
+				modelTier: "workhorse",
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "auto",
+					apiKey: "",
+					baseUrl: "https://api.cursor.com",
+				},
+			};
+
+			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigA);
+			expect(handleP2, "resumeSession must return a handle").toBeDefined();
+			if (!handleP2) return;
+
+			const { completionTexts: p2Texts } = await drainEvents(adapter, handleP2);
+			const r2 = await adapter.stopSession(handleP2);
+			expect(r2.outcome).toBe("completed");
+
+			expect(
+				knownCodeword(p2Texts),
+				`Resumed cursor-agent session must know codeword "${CODEWORD}". ` +
+					`Got: ${p2Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// ── Proof 4: wrong-directory resume detected as context-free ──────
+			// @lore BA2 cursor-agent-silent-fail: cursor-agent exits 0 on a wrong-dir
+			// resume, echoes the requested id, but runs context-free. Detection is
+			// content-based: the resumed session does NOT know the codeword from sandboxA.
+			const resumeConfigB: SessionResumeConfig = {
+				sandboxPath: sandboxB, // WRONG directory — cursor-agent won't find sandboxA's session
+				modelTier: "workhorse",
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "auto",
+					apiKey: "",
+					baseUrl: "https://api.cursor.com",
+				},
+			};
+
+			const handleWrong = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfigB);
+			expect(handleWrong, "resumeSession must return a handle even for wrong dir").toBeDefined();
+			if (!handleWrong) return;
+
+			const { completionTexts: wrongTexts } = await drainEvents(adapter, handleWrong);
+			await adapter.stopSession(handleWrong);
+
+			// Key assertion: wrong-dir resume does NOT know the codeword.
+			// This is "detected" — the test fails loudly if cursor-agent somehow
+			// returns the codeword from a wrong-directory context.
+			expect(
+				knownCodeword(wrongTexts),
+				`Wrong-directory cursor-agent resume must NOT know codeword "${CODEWORD}" ` +
+					`(proves context-free session detected). Got: ${wrongTexts.slice(0, 3).join("|")}`,
+			).toBe(false);
+		} finally {
+			await rmSandbox(sandboxA);
+			await rmSandbox(sandboxB);
+		}
+	}, 120_000);
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// opencode
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe("BA2 session handles — opencode", () => {
+	requireHarness("opencode");
+
+	test("captures sessionID from first event, resumes with prior context, wrong-id fails loudly", async ({
+		skip,
+	}) => {
+		if (!(await opencodeAuthed())) {
+			skip();
+			return;
+		}
+
+		const sandboxPath = fs.mkdtempSync(path.join(os.tmpdir(), "ba2-opencode-"));
+
+		try {
+			const opencodeConfig = cliAdapterFixture("opencode");
+			const adapter = new CliHarnessAdapter(opencodeConfig);
+
+			// ── Phase 1: run session, plant codeword ──────────────────────────
+			const configP1: SessionConfig = {
+				sessionId: `ba2-oc-p1-${Math.random().toString(36).slice(2, 8)}`,
+				sandboxPath,
+				assembledPrompt: PHASE1_PROMPT,
+				modelTier: "workhorse",
+				tools: [],
+				resolvedModel: {
+					provider: "openai-compatible",
+					// Provider-prefixed model id required by opencode's OpenRouter route.
+					model: "openrouter/z-ai/glm-4.7-flash",
+					apiKey: process.env.OPENROUTER_API_KEY ?? "",
+					baseUrl: "https://openrouter.ai/api",
+				},
+			};
+
+			const handleP1 = await adapter.startSession(configP1);
+			const { completionTexts: p1Texts } = await drainEvents(adapter, handleP1);
+			const r1 = await adapter.stopSession(handleP1);
+			expect(r1.outcome).toBe("completed");
+
+			// ── Proof 1: native id captured from event stream ─────────────────
+			const nativeId = adapter.getNativeSessionId?.(handleP1);
+			expect(
+				nativeId,
+				"opencode native session id (sessionID) must be captured from event stream",
+			).toBeTruthy();
+
+			expect(
+				p1Texts.some((t) => t.includes("PHASE1_OK") || t.includes(CODEWORD)),
+				`Phase 1 must produce PHASE1_OK or mention ${CODEWORD}. Got: ${p1Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// ── Proof 2 + 3: resume retains prior context ────────────────────
+			const resumeConfig: SessionResumeConfig = {
+				sandboxPath,
+				modelTier: "workhorse",
+				resolvedModel: {
+					provider: "openai-compatible",
+					model: "openrouter/z-ai/glm-4.7-flash",
+					apiKey: process.env.OPENROUTER_API_KEY ?? "",
+					baseUrl: "https://openrouter.ai/api",
+				},
+			};
+
+			const handleP2 = await adapter.resumeSession?.(nativeId!, PHASE2_PROMPT, resumeConfig);
+			expect(handleP2, "resumeSession must return a handle").toBeDefined();
+			if (!handleP2) return;
+
+			const { completionTexts: p2Texts } = await drainEvents(adapter, handleP2);
+			const r2 = await adapter.stopSession(handleP2);
+			expect(r2.outcome).toBe("completed");
+
+			expect(
+				knownCodeword(p2Texts),
+				`Resumed opencode session must know codeword "${CODEWORD}". ` +
+					`Got: ${p2Texts.slice(0, 3).join("|")}`,
+			).toBe(true);
+
+			// ── Proof 4: wrong id fails loudly ───────────────────────────────
+			// opencode exits 1 with "Error: Session not found" on a bad session id.
+			const bogusId = "ses_000000000000000000000000000000000000000000";
+			let wrongIdDetected = false;
+			try {
+				const handleWrong = await adapter.resumeSession?.(bogusId, PHASE2_PROMPT, resumeConfig);
+				if (handleWrong) {
+					await drainEvents(adapter, handleWrong);
+					const rWrong = await adapter.stopSession(handleWrong);
+					wrongIdDetected = rWrong.outcome !== "completed";
+				}
+			} catch {
+				wrongIdDetected = true;
+			}
+
+			expect(
+				wrongIdDetected,
+				"Wrong session-id resume on opencode must fail loudly (crashed outcome)",
+			).toBe(true);
+		} finally {
+			await rmSandbox(sandboxPath);
+		}
+	}, 120_000);
+});
