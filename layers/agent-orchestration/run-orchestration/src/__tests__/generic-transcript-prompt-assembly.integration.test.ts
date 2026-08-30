@@ -16,7 +16,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { expect, test } from "@hyperidle/db/test-fixtures";
 import { EventBus } from "@hyperidle/event-bus";
 import type { SessionConfig } from "@hyperidle/harness-protocol";
@@ -129,18 +129,21 @@ describe("generic transcript delivery (Increment 4)", () => {
 	async function seedTask(db: HyperIdleDb, taskId: string): Promise<void> {
 		const now = new Date().toISOString();
 		const teamId = `${taskId}-team`;
-		const betId = `${taskId}-bet`;
+		const rootTaskId = `${taskId}-bet`;
 		await db.insert(teams).values({ id: teamId, name: teamId, phase: "build", createdAt: now });
-		await db.insert(bets).values({
-			id: betId,
-			teamId,
+		await db.insert(tasks).values({
+			id: rootTaskId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Generic transcript test bet",
 			description: "Generic transcript test bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: now,
+			updatedAt: now,
 		});
 		await db.insert(tasks).values({
 			id: taskId,
-			betId,
+			parentTaskId: rootTaskId,
 			teamId,
 			title: "Generic transcript test task",
 			state: "accepted",

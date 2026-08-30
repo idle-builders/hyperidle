@@ -398,13 +398,18 @@ export async function list(
 		if (f.state !== undefined) conditions.push(eq(tasks.state, f.state));
 		if (f.ownerAgentId !== undefined) conditions.push(eq(tasks.ownerAgentId, f.ownerAgentId));
 		if (f.teamId !== undefined) conditions.push(eq(tasks.teamId, f.teamId));
+		// BB1: siblings come back in display order, always. `position` alone is not
+		// a total order (it defaults to 0 and nothing forces uniqueness), so
+		// createdAt then id break ties — otherwise the tree can render in a
+		// different order on two successive reads.
 		const query =
 			conditions.length > 0
 				? exec
 						.select()
 						.from(tasks)
 						.where(and(...conditions))
-				: exec.select().from(tasks);
+						.orderBy(tasks.position, tasks.createdAt, tasks.id)
+				: exec.select().from(tasks).orderBy(tasks.position, tasks.createdAt, tasks.id);
 		return f.limit !== undefined ? query.limit(f.limit) : query;
 	}
 
@@ -578,8 +583,12 @@ function parentCond(parentTaskId: string | null): SQL {
  * time (`assertNoCycle`), so this cap should never bind — it is here because a
  * recursive CTE that meets a cycle does not error, it spins forever, and a
  * corrupt row must not be able to hang a request.
+ *
+ * @lore BB1: 32 matches the cap the nested-knowledge-documents work chose for
+ * its own tree. The number is arbitrary in both places; having ONE number
+ * across the product's two trees is the point, so if either moves, move both.
  */
-export const MAX_TASK_DEPTH = 100;
+export const MAX_TASK_DEPTH = 32;
 
 export async function listSubtreeIds(exec: WriteExecutor, rootId: string): Promise<string[]> {
 	const result = (await exec.execute(sql`

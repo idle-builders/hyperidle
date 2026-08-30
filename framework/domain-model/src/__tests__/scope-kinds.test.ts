@@ -13,8 +13,8 @@ import { describe, expect, it } from "vitest";
 import { SCOPE_KINDS, SCOPES_REQUIRING_ID } from "../types.js";
 
 describe("Q2 AC-2: SCOPE_KINDS and ScopeKind", () => {
-	it("exports exactly 7 scope kinds (AU26 F2: filesystem removed)", () => {
-		expect(SCOPE_KINDS).toHaveLength(7);
+	it("exports exactly 6 scope kinds (AU26 F2: filesystem removed; BB1: bet removed)", () => {
+		expect(SCOPE_KINDS).toHaveLength(6);
 	});
 
 	it("includes all required scope values", () => {
@@ -23,9 +23,13 @@ describe("Q2 AC-2: SCOPE_KINDS and ScopeKind", () => {
 		expect(kinds).toContain("product");
 		expect(kinds).toContain("practice");
 		expect(kinds).toContain("team");
-		expect(kinds).toContain("bet");
 		expect(kinds).toContain("task");
 		expect(kinds).toContain("user");
+	});
+
+	it("BB1: no longer offers a bet scope — a bet is a task with no parent", () => {
+		expect(SCOPE_KINDS as readonly string[]).not.toContain("bet");
+		expect(SCOPES_REQUIRING_ID as ReadonlySet<string>).not.toContain("bet");
 	});
 
 	it("no longer offers a filesystem scope", () => {

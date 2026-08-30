@@ -19,7 +19,7 @@ const assembler = createContextAssembler({
 function sessionContext() {
 	return {
 		task: { id: "t1", title: "Ship the thing", description: "Do the work", state: "in_progress" },
-		bet: { id: "b1", description: "Ship it fast", appetite: "small", doneCondition: "It ships" },
+		ancestors: [{ id: "b1", title: "Root goal", description: "Ship it fast", doneCondition: "It ships" }],
 		agent: { id: "a1", name: "Ada", role: "builder" },
 		team: { id: "team1", name: "Alpha" },
 	};
@@ -167,12 +167,14 @@ describe("assembleRoutinePrompt", () => {
 						description: "probe desc",
 						state: "completed",
 					},
-					bet: {
-						id: "b-x",
-						description: "BA9c-PROBE-BET",
-						appetite: "1 week",
-						doneCondition: "Ships to prod",
-					},
+					ancestors: [
+						{
+							id: "b-x",
+							title: "Root goal",
+							description: "BA9c-PROBE-ANCESTOR",
+							doneCondition: "Ships to prod",
+						},
+					],
 				},
 			},
 		};
@@ -185,45 +187,11 @@ describe("assembleRoutinePrompt", () => {
 
 		expect(result.assembledPrompt).toContain("### Trigger Event");
 		expect(result.assembledPrompt).toContain("BA9c-PROBE-TITLE");
-		expect(result.assembledPrompt).toContain("BA9c-PROBE-BET");
+		expect(result.assembledPrompt).toContain("BA9c-PROBE-ANCESTOR");
 		expect(result.assembledPrompt).toContain("in_progress → completed");
 		// B3: timestamp rendered
 		expect(result.assembledPrompt).toContain("**When:**");
-		// appetite + doneCondition rendered (B1)
-		expect(result.assembledPrompt).toContain("1 week");
-		expect(result.assembledPrompt).toContain("Ships to prod");
-	});
-
-	it("renders ### Trigger Event section when context has a bet triggerEvent", async () => {
-		const context = {
-			...routineContext(),
-			triggerEvent: {
-				type: "bet_state_changed",
-				timestamp: 1_700_000_000_000,
-				subject: {
-					kind: "bet" as const,
-					bet: {
-						id: "b-y",
-						description: "BA9c-BET-SUBJECT",
-						appetite: "2 weeks",
-						doneCondition: "All tests green",
-					},
-				},
-			},
-		};
-		const result = await assembler.assembleRoutinePrompt({
-			systemPromptText: "",
-			context,
-			tools: [],
-			sandboxPath: "/tmp/unused",
-		});
-
-		expect(result.assembledPrompt).toContain("### Trigger Event");
-		expect(result.assembledPrompt).toContain("BA9c-BET-SUBJECT");
-		expect(result.assembledPrompt).not.toContain("Task that triggered");
-		expect(result.assembledPrompt).toContain("**When:**");
-		expect(result.assembledPrompt).toContain("2 weeks");
-		expect(result.assembledPrompt).toContain("All tests green");
+		expect(result.assembledPrompt).toContain("Ancestor tasks");
 	});
 
 	// After BA9c: thread events now produce kind:"thread" (rich shape), not kind:"generic".

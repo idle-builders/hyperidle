@@ -33,6 +33,8 @@ ALTER TABLE tasks ADD COLUMN completed_at text;
 --> statement-breakpoint
 ALTER TABLE tasks ADD COLUMN outcome_summary text;
 --> statement-breakpoint
+ALTER TABLE tasks ADD COLUMN position integer NOT NULL DEFAULT 0;
+--> statement-breakpoint
 
 -- 2. Refuse to run if a bet id already names a task. Both are UUIDs, so this
 --    cannot happen in practice — but "cannot happen" is not a reason to
@@ -123,6 +125,17 @@ FROM bets b;
 -- 4. Existing tasks become children of the root their bet turned into. Because
 --    the root kept the bet's id, the parent id IS the old bet id.
 UPDATE tasks SET parent_task_id = bet_id WHERE bet_id IS NOT NULL;
+--> statement-breakpoint
+
+-- 4b. Seed sibling display order from creation order, per parent. Root tasks
+--     (parent NULL) are ordered among themselves the same way.
+WITH ordered AS (
+  SELECT id, ROW_NUMBER() OVER (
+    PARTITION BY parent_task_id ORDER BY created_at, id
+  ) - 1 AS pos
+  FROM tasks
+)
+UPDATE tasks t SET position = o.pos FROM ordered o WHERE o.id = t.id;
 --> statement-breakpoint
 
 -- 5. The kind strings. Ids are unchanged, so this is the whole rewire.

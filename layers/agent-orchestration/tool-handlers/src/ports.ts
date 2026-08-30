@@ -133,49 +133,61 @@ interface ToolHandlersCreateKnowledgeConflictInput {
 /**
  * `CoreApiPort` write-seam accessor (AU21 §9 Increment 1). Unlike every
  * other accessor in this file, this one takes NO `TDb` — the write crosses
- * via the seam's transport (a real `POST /bets` route call through the
- * SAME door core-ui uses, architecture.md §6 Decision A/C), not a
- * same-process DB handle. `actorId` carries the calling agent's own
- * identity as the route actor (§12) — the composition root threads it onto
- * the request, never a hardcoded/founder constant.
+ * via the seam's transport (a real route call through the SAME door core-ui
+ * uses, architecture.md §6 Decision A/C), not a same-process DB handle.
+ * `actorId` carries the calling agent's own identity as the route actor (§12)
+ * — the composition root threads it onto the request, never a hardcoded/
+ * founder constant.
+ *
+ * @lore BB1: `createBet`/`getBetById`/`updateBetById` removed — the `bets`
+ * table is gone; tasks are one recursive primitive. `createTask` now takes
+ * `parentTaskId` (nullable). `getTaskById` returns `parentTaskId` instead of
+ * `betId`/`rootTaskId`. `updateTaskById` is added as the one edit door for
+ * agents, mirroring `PATCH /api/tasks/:id` with no actor or role gate.
  */
 interface ToolHandlersCoreApiAccessor {
-	createBet(
-		input: {
-			readonly teamId: string;
-			readonly description: string;
-			readonly doneCondition: string | null;
-			readonly hypothesis: string | null;
-		},
-		actorId: string,
-	): Promise<{ readonly id: string; readonly teamId: string; readonly status: string }>;
 	/** Structural mirror of `@hyperidle/api-contract`'s `TaskView` (Mechanism C: no import). */
 	getTaskById(
 		id: string,
 		actorId: string,
 	): Promise<
-		{ readonly betId: string; readonly teamId: string; readonly notes: string | null } | undefined
+		| {
+				readonly parentTaskId: string | null;
+				readonly teamId: string;
+				readonly notes: string | null;
+		  }
+		| undefined
 	>;
-	getBetById(id: string, actorId: string): Promise<{ readonly status: string } | undefined>;
-	updateBetById(
-		id: string,
-		updates: Partial<{
-			description: string;
-			doneCondition: string | null;
-			hypothesis: string | null;
-		}>,
-		actorId: string,
-	): Promise<void>;
 	createTask(
 		input: {
-			readonly betId: string;
+			readonly parentTaskId: string | null;
+			readonly teamId: string;
 			readonly title: string;
 			readonly description: string | null;
 			readonly doneCondition: string | null;
 			readonly ownerAgentId: string | null;
 		},
 		actorId: string,
-	): Promise<{ readonly id: string; readonly betId: string; readonly teamId: string }>;
+	): Promise<{ readonly id: string; readonly teamId: string }>;
+	/**
+	 * One edit door for agents: mirrors `PATCH /api/tasks/:id`.
+	 * No actor gate, no role gate — humans and agents use the same endpoint.
+	 * `state` routes through `transitionTask` server-side; all other fields
+	 * are plain writes plus `updatedAt`.
+	 */
+	updateTaskById(
+		id: string,
+		updates: {
+			readonly title?: string;
+			readonly description?: string | null;
+			readonly doneCondition?: string | null;
+			readonly ownerAgentId?: string | null;
+			readonly dependencies?: string | null;
+			readonly parentTaskId?: string | null;
+			readonly state?: string;
+		},
+		actorId: string,
+	): Promise<void>;
 	/**
 	 * Atomic note append via the seam. Resolves `undefined` when the task does
 	 * not exist (task-not-found signal for the `log_task` handler) — never throws.
@@ -216,8 +228,7 @@ interface ToolHandlersCoreApiAccessor {
 		actorId: string,
 	): Promise<{ readonly id: string; readonly producingTaskId: string; readonly kind: string }>;
 	/**
-	 * The shape `getTaskById`/`getBetById`/`getItemById` already establish,
-	 * over `GET /artifacts/:id`. `submit_review` uses this to confirm a
+	 * Mirrors `GET /artifacts/:id`. `submit_review` uses this to confirm a
 	 * stored `artifactRef` resolves to an artifact whose `producingTaskId`
 	 * matches `ctx.taskId` before attaching it — a review may not claim
 	 * proof it does not have.

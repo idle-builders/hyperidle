@@ -19,7 +19,6 @@
 import {
 	agentSessionRequests,
 	agentWorkIntents,
-	bets,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -398,16 +397,19 @@ describe("agent session request repository", () => {
 				createdAt: now,
 			},
 		]);
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "explicit-bet",
+			parentTaskId: null,
 			teamId: "explicit-team",
+			title: "Bet",
 			description: "Bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: now,
+			updatedAt: now,
 		});
 		await db.insert(tasks).values({
 			id: "explicit-task",
-			betId: "explicit-bet",
+			parentTaskId: "explicit-bet",
 			teamId: "explicit-team",
 			title: "Task",
 			state: "accepted",

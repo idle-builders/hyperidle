@@ -365,12 +365,13 @@ interface SessionLifecycleSessionContextData {
 		readonly description: string | null;
 		readonly state: string;
 	};
-	readonly bet: {
+	/** Root-first chain of ancestor tasks. ancestors[0] is the root task (the former "bet"). */
+	readonly ancestors: readonly {
 		readonly id: string;
-		readonly description: string;
-		readonly appetite: string;
+		readonly title: string;
+		readonly description: string | null;
 		readonly doneCondition: string | null;
-	};
+	}[];
 	readonly agent: { readonly id: string; readonly name: string; readonly role: string };
 	readonly team: { readonly id: string; readonly name: string };
 }
@@ -1422,8 +1423,8 @@ async function runSession(
 		params.contextBundle?.kind === "task"
 	) {
 		// AU21 §9 Increment 12 (Decision H3): normal (non-durable, no
-		// requestContext) task session — derive task+bet+agent+team context
-		// from the baked `kind:"task"` bundle, ZERO db read (the task/bet/
+		// requestContext) task session — derive task+ancestors+agent+team context
+		// from the baked `kind:"task"` bundle, ZERO db read (the task/
 		// users/org reads this used to make via `buildSessionContextData` are
 		// gone).
 		const sessionContextData = sessionContextDataFromBundle(params.contextBundle);

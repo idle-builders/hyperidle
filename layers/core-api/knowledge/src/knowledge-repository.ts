@@ -159,12 +159,6 @@ export interface KnowledgeItemWithProjection extends KnowledgeItem {
 // KnowledgeDetailRow, etc.) deleted in AU20 K1-reads.
 // ---------------------------------------------------------------------------
 
-/** Row shape for list({retroForBet}) — replaces exported RetroExistingKnowledgeItemRow. */
-type RetroRow = {
-	readonly id: string;
-	readonly version: number;
-};
-
 /** Row shape for list({recentByLayers}) — replaces exported RecentLayeredKnowledgeItemRow. */
 type RecentRow = {
 	readonly title: string;
@@ -638,7 +632,6 @@ export async function get(
  * Discriminated variants (first matching wins):
  * - `{scope}` → items in scopeKind+scopeId on kernel table (replaces listByScope)
  * - `{visibleWithSignals}` → all items visible to viewerUserId with L22 signals
- * - `{retroForBet}` → the single retro knowledge item for a bet
  * - `{titlesByIds}` → batched title lookup
  * - `{recentByLayers}` → items in given layers updated since a cutoff
  * - `{exportable}` → items with matching layer/status for git export
@@ -655,10 +648,6 @@ export function list(
 	db: HyperIdleDb,
 	filter: { readonly visibleWithSignals: string },
 ): Promise<KnowledgeItemWithProjection[]>;
-export function list(
-	db: HyperIdleDb,
-	filter: { readonly retroForBet: string },
-): Promise<RetroRow | null>;
 export function list(
 	db: HyperIdleDb,
 	filter: { readonly titlesByIds: readonly string[] },
@@ -685,7 +674,6 @@ export async function list(
 	db: HyperIdleDb,
 	filter?:
 		| { readonly visibleWithSignals: string }
-		| { readonly retroForBet: string }
 		| { readonly titlesByIds: readonly string[] }
 		| { readonly recentByLayers: { readonly layers: readonly string[]; readonly since: string } }
 		| {
@@ -699,7 +687,6 @@ export async function list(
 		| ListFilters,
 ): Promise<
 	| KnowledgeItemWithProjection[]
-	| RetroRow
 	| null
 	| readonly { id: string; title: string }[]
 	| readonly RecentRow[]
@@ -718,26 +705,6 @@ export async function list(
 			)
 			.where(or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, viewerUserId)));
 		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
-	}
-
-	if ("retroForBet" in filter) {
-		// Inlined from former findRetroKnowledgeItemForBet.
-		const [row] = await db
-			.select({ id: knowledgeItems.id, version: knowledgeItems.version })
-			.from(knowledgeItems)
-			.innerJoin(
-				knowledgeAppProjection,
-				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
-			)
-			.where(
-				and(
-					eq(knowledgeItems.scopeKind, "bet"),
-					eq(knowledgeItems.scopeId, filter.retroForBet),
-					eq(knowledgeAppProjection.kind, "reflection"),
-				),
-			)
-			.limit(1);
-		return row ?? null;
 	}
 
 	if ("titlesByIds" in filter) {

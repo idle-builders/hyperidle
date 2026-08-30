@@ -65,12 +65,13 @@ interface SessionContextData {
 		description: string | null;
 		state: string;
 	};
-	bet: {
+	/** Root-first chain of ancestor tasks. ancestors[0] is the root task (the former "bet"). */
+	ancestors: readonly {
 		id: string;
-		description: string;
-		appetite: string;
+		title: string;
+		description: string | null;
 		doneCondition: string | null;
-	};
+	}[];
 	agent: {
 		id: string;
 		name: string;
@@ -92,7 +93,7 @@ function sessionContextDataFromBundle(
 ): SessionContextData {
 	return {
 		task: bundle.task,
-		bet: bundle.bet,
+		ancestors: bundle.ancestors,
 		agent: bundle.agent,
 		team: bundle.team,
 	};
@@ -321,9 +322,11 @@ function buildToolsSection(tools: readonly ToolSummary[]): string {
 
 function buildTaskSection(context: SessionContextData): string {
 	const description = context.task.description ?? "No description provided.";
-	const doneCondition = context.bet.doneCondition ?? "Not specified.";
+	// Root ancestor (ancestors[0]) carries the top-level done condition.
+	const rootAncestor = context.ancestors[0];
+	const doneCondition = rootAncestor?.doneCondition ?? "Not specified.";
 
-	return [
+	const parts = [
 		"## Task",
 		"",
 		`**Title:** ${context.task.title}`,
@@ -333,12 +336,20 @@ function buildTaskSection(context: SessionContextData): string {
 		"",
 		doneCondition,
 		"",
-		"### Bet Context",
-		"",
-		`**Bet:** ${context.bet.description}`,
-		`**Appetite:** ${context.bet.appetite}`,
-		"",
-	].join("\n");
+	];
+
+	if (context.ancestors.length > 0) {
+		parts.push("### Context");
+		parts.push("");
+		// Show root-first so the agent sees the big goal before the immediate parent.
+		for (const ancestor of context.ancestors) {
+			const detail = ancestor.description ? ` — ${ancestor.description}` : "";
+			parts.push(`- **${ancestor.title}**${detail}`);
+		}
+		parts.push("");
+	}
+
+	return parts.join("\n");
 }
 
 const WORKSPACE_SECTION = `## Workspace
@@ -349,7 +360,7 @@ Your workspace is organized as follows:
   - \`product/\` -- Product-specific knowledge items (L2).
   - \`practices/\` -- Practice community knowledge items (L3).
   - \`factory/\` -- Factory-wide knowledge items (L4).
-  - \`session.toon\` -- Encoded session context (task, bet, agent, team data).
+  - \`session.toon\` -- Encoded session context (task, ancestors, agent, team data).
 - \`knowledge/\` -- Knowledge files you can read and update.
   - \`practices/\` -- Practice knowledge.
   - \`decisions/\` -- Decision records.
@@ -488,25 +499,13 @@ function buildRoutineTaskSection(context: RoutineSessionContextData): string {
 				if (ev.subject.task.description) {
 					parts.push(`- **Description:** ${ev.subject.task.description}`);
 				}
-				parts.push("");
-				parts.push("**Bet this task belongs to:**");
-				parts.push(`- **Description:** ${ev.subject.bet.description}`);
-				if (ev.subject.bet.appetite) {
-					parts.push(`- **Appetite:** ${ev.subject.bet.appetite}`);
-				}
-				if (ev.subject.bet.doneCondition) {
-					parts.push(`- **Done when:** ${ev.subject.bet.doneCondition}`);
-				}
-			} else if (ev.subject.kind === "bet") {
-				parts.push("");
-				parts.push("**Bet that triggered this run:**");
-				parts.push(`- **Description:** ${ev.subject.bet.description}`);
-				parts.push(`- **ID:** ${ev.subject.bet.id}`);
-				if (ev.subject.bet.appetite) {
-					parts.push(`- **Appetite:** ${ev.subject.bet.appetite}`);
-				}
-				if (ev.subject.bet.doneCondition) {
-					parts.push(`- **Done when:** ${ev.subject.bet.doneCondition}`);
+				if (ev.subject.ancestors.length > 0) {
+					parts.push("");
+					parts.push("**Ancestor tasks (root first):**");
+					for (const ancestor of ev.subject.ancestors) {
+						const detail = ancestor.description ? ` — ${ancestor.description}` : "";
+						parts.push(`- **${ancestor.title}**${detail}`);
+					}
 				}
 			} else if (ev.subject.kind === "generic") {
 				parts.push("");

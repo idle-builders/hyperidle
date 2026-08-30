@@ -175,12 +175,17 @@ export type OrgEdgeMechanism = (typeof ORG_EDGE_MECHANISMS)[number];
  * ruled the scope out and the record whole into agent-orchestration. There is
  * no production data, so nothing is migrated.
  */
+/**
+ * @lore BB1: `"bet"` is GONE. A bet is a task with no parent now, so knowledge
+ * produced under a bet is knowledge produced under a task. Migration 0068
+ * re-scoped every `"bet"` row to `"task"`; the scope_id did not change, because
+ * each bet became a root task keeping its own id.
+ */
 export const SCOPE_KINDS = [
 	"factory",
 	"product",
 	"practice",
 	"team",
-	"bet",
 	"task",
 	"user",
 ] as const;
@@ -200,13 +205,12 @@ export const SCOPES_REQUIRING_ID: ReadonlySet<ScopeKind> = new Set<ScopeKind>([
 	"product",
 	"practice",
 	"team",
-	"bet",
 	"task",
 ]);
 
 /**
  * Maps a raw scopeKind from the API to the user-facing bucket label.
- * factory/practice/bet/task → "Shared"
+ * factory/practice/task → "Shared"
  * team/product → "Team"
  * user → "Private"
  * Anything else → "Shared" (safe fallback).

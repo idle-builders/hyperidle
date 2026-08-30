@@ -15,7 +15,7 @@
  * they were core tables this Layer must never touch.
  */
 
-import { bets, type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, sessions, tasks, teams, users } from "@hyperidle/db";
 import { test as dbTest } from "@hyperidle/db/test-fixtures";
 import { describe, expect } from "vitest";
 import {
@@ -51,17 +51,19 @@ async function seedRunHosts(db: HyperIdleDb): Promise<void> {
 			createdAt: NOW,
 		},
 	]);
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "Test",
 		description: "Test",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "team-1",
 		title: "Task",
 		state: "in_progress",

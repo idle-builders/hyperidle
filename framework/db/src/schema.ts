@@ -212,6 +212,19 @@ export const tasks = pgTable(
 		}),
 		/** BB1: set when the task reaches `done` (moved from `bets`). */
 		completedAt: text("completed_at"),
+		/**
+		 * BB1: display order among siblings. Defaults to creation order; ties
+		 * break on `createdAt` then `id` so the order is total and stable.
+		 *
+		 * @lore BB1: deliberately NOT derived from `dependencies`, and
+		 * deliberately not recency. `dependencies` says what must FINISH first;
+		 * this says what to SHOW first, and two siblings with no dependency
+		 * between them still need a defined order. Ordering by recency would
+		 * reshuffle the tree whenever someone edits a child, which makes a tree
+		 * unbrowsable. Aligned with the nested-knowledge-documents tree, which
+		 * chose the same shape for the same reason.
+		 */
+		position: integer("position").notNull().default(0),
 	},
 	(table) => [
 		index("tasks_parent_task_id_idx").on(table.parentTaskId),
