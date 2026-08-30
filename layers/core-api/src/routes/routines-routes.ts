@@ -13,6 +13,7 @@ import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,
 	get as getKnowledgeItem,
+	setKnowledgeStatus,
 	update as updateKnowledgeItem,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
@@ -319,6 +320,18 @@ export function createRoutineRoutes(
 			state: "paused",
 			active: false,
 		});
+
+		// @lore BA9g: the routine's instruction is a knowledge document (BA9f), and
+		// deleting the routine used to leave it behind — an orphan in the knowledge
+		// view titled "<name> — prompt", belonging to a routine that no longer
+		// exists and that nothing could reach again.
+		//
+		// Archived, not hard-deleted: `knowledge_edit_log` and friends hold
+		// RESTRICT FKs on `knowledge_items.id`, and the audit trail outlives its
+		// subject.
+		if (existing.promptKnowledgeId) {
+			await setKnowledgeStatus(db, [existing.promptKnowledgeId], "archived");
+		}
 
 		return c.json({ deleted: true, deletedAt: now });
 	});
