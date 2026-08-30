@@ -56,6 +56,10 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	"radius-token-only": { coreUi: "error", designSystem: "error" },
 	// E2: core-ui only — design-system is where controls are BUILT (Trade-off 4).
 	"no-handrolled-control": { coreUi: "error", designSystem: "off" },
+	// The chip half of the same population, scoped by the same boundary:
+	// `ds/` is where Avatar's circle, LiveDot's dot and Progress's pill-shaped
+	// track are BUILT, and all three match the predicate correctly.
+	"no-handrolled-chip": { coreUi: "error", designSystem: "off" },
 	// E7: wired at error for the first time (D2: previously registered
 	// nowhere). Scoped to layers/core-ui/src by the rule's own filename check —
 	// design-system is legitimately a registry home, not a violation site.

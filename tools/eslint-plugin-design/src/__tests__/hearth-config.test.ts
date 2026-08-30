@@ -81,13 +81,16 @@ describe("hearth-config totality", () => {
 		// present at error in the core-ui block — the live break-test proof (AC5).
 		expect(coreUiBlock?.rules?.["design/radius-token-only"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/no-handrolled-control"]).toBe("error");
+		expect(coreUiBlock?.rules?.["design/no-handrolled-chip"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/no-hardcoded-color"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/no-off-grid-spacing"]).toBe("error");
 		expect(coreUiBlock?.rules?.["design/shadow-token-only"]).toBe("error");
 		expect(designSystemBlock?.rules?.["design/radius-token-only"]).toBe("error");
 		expect(designSystemBlock?.rules?.["design/no-off-grid-spacing"]).toBe("error");
 		expect(designSystemBlock?.rules?.["design/shadow-token-only"]).toBe("error");
-		// no-handrolled-control is deliberately OFF for design-system (Trade-off 4).
+		// no-handrolled-control and no-handrolled-chip are deliberately OFF for
+		// design-system (Trade-off 4) — ds/ is where control and chip chrome is BUILT.
 		expect(designSystemBlock?.rules?.["design/no-handrolled-control"]).toBeUndefined();
+		expect(designSystemBlock?.rules?.["design/no-handrolled-chip"]).toBeUndefined();
 	});
 });
