@@ -9,7 +9,6 @@
  */
 
 import {
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -60,17 +59,19 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: now,
 	});
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "Ship onboarding v2 flow",
 		description: "Ship onboarding v2 flow",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "p1",
 		title: "Write login page",
 		state: "in_progress",
@@ -141,6 +142,7 @@ describe("AF14 AC1 — GET /api/threads returns human-readable titles", () => {
 		expect(dmThread?.title).not.toMatch(/^[0-9a-f-]{36}$/i);
 	});
 
+	// BB1: bet-scoped → task-scoped (root task); hostKind "bet" removed.
 	test("bet-scoped thread title is the bet's derived title", async ({ db, app }) => {
 		await seedBase(db);
 
@@ -148,7 +150,7 @@ describe("AF14 AC1 — GET /api/threads returns human-readable titles", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				hostKind: "bet",
+				hostKind: "task",
 				hostId: "bet-1",
 				participants: ["u-founder", "agent-1"],
 				initialMessage: {
@@ -261,19 +263,26 @@ describe("AF14 W1 — fallback titles when host is deleted", () => {
 		vi.unstubAllEnvs();
 	});
 
-	test("bet-scoped thread with deleted bet → title is 'Deleted bet', not the hostId uuid", async ({
+	/**
+	 * @lore BB1: was "bet-scoped thread with deleted bet". Host kind "bet" no
+	 * longer exists — migration 0068 flipped every such thread to "task" — so the
+	 * fallback under test is now "Deleted task". The PROPERTY being asserted is
+	 * unchanged and is the point: an orphaned thread must render a typed label,
+	 * never a bare uuid leaked into the interface.
+	 */
+	test("task-scoped thread with deleted task → title is 'Deleted task', not the hostId uuid", async ({
 		db,
 		app,
 	}) => {
 		await seedBase(db);
 
-		// Create thread referencing a bet that will be deleted
+		// Create thread referencing a task that will be deleted
 		const now = new Date().toISOString();
-		// Insert thread directly (bypassing normal create flow to avoid bet FK)
+		// Insert thread directly (bypassing normal create flow to avoid the task FK)
 		await db.insert(threads).values({
 			id: "orphan-thread-1",
-			hostKind: "bet",
-			hostId: "bet-deleted-999", // does not exist in bets table
+			hostKind: "task",
+			hostId: "task-deleted-999", // does not exist in tasks
 			initiatorId: "u-founder",
 			participants: JSON.stringify(["u-founder", "agent-1"]),
 			pinned: false,
@@ -290,10 +299,10 @@ describe("AF14 W1 — fallback titles when host is deleted", () => {
 		const orphan = body.threads.find((t: { id: string }) => t.id === "orphan-thread-1");
 		expect(orphan).toBeDefined();
 		// Must be a typed fallback, NEVER the bare hostId uuid
-		expect(orphan?.title).not.toBe("bet-deleted-999");
+		expect(orphan?.title).not.toBe("task-deleted-999");
 		expect(orphan?.title).not.toMatch(/^[0-9a-f-]{36}$/i);
 		// Should be the typed label
-		expect(orphan?.title).toBe("Deleted bet");
+		expect(orphan?.title).toBe("Deleted task");
 	});
 });
 

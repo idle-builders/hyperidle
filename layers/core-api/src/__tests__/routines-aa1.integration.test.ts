@@ -10,7 +10,7 @@
  * - AC-6: Work portfolio shows routine count per team alongside bet count
  */
 
-import { bets, type HyperIdleDb, routineRuns, routines, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, routineRuns, routines, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "../__testing__/test-fixtures.js";
 
@@ -525,17 +525,20 @@ describe("AA1: Routine Visibility API", () => {
 			const now = new Date().toISOString();
 
 			// Need a bet + task for FK satisfaction in session creation
-			await db.insert(bets).values({
+			await db.insert(tasks).values({
 				id: "bet-trigger-test",
+				parentTaskId: null,
 				teamId: "team-aa1",
+				title: "Trigger test bet",
 				description: "Trigger test bet",
-				status: "active",
+				state: "in_progress",
 				createdAt: now,
+				updatedAt: now,
 			});
 
 			await db.insert(tasks).values({
 				id: "task-trigger-test",
-				betId: "bet-trigger-test",
+				parentTaskId: "bet-trigger-test",
 				teamId: "team-aa1",
 				title: "Trigger test task",
 				state: "in_progress",

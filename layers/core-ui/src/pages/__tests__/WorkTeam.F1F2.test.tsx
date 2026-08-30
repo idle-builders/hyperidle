@@ -50,13 +50,12 @@ const TEAM_WITH_BETS: TeamDetail = {
 	roster: [],
 	burn: {
 		capacity: 3,
-		activeBets: 1,
 	},
-	activeBets: [
+	tasksInProgress: [
 		{
 			id: "bet-1",
-			descriptionTitle: "Ship the MVP",
-			status: "active",
+			title: "Ship the MVP",
+			state: "in_progress" as const,
 			progressDone: 2,
 			progressTotal: 5,
 		},
@@ -65,9 +64,9 @@ const TEAM_WITH_BETS: TeamDetail = {
 
 const TEAM_EMPTY: TeamDetail = {
 	...TEAM_WITH_BETS,
-	activeBets: [],
+	tasksInProgress: [],
 	roster: [],
-	burn: { ...TEAM_WITH_BETS.burn, activeBets: 0 },
+	burn: { ...TEAM_WITH_BETS.burn },
 };
 
 function renderWithRouter(ui: ReactNode, path = "/work/team/f1-team-1"): ReturnType<typeof render> {
@@ -75,7 +74,8 @@ function renderWithRouter(ui: ReactNode, path = "/work/team/f1-team-1"): ReturnT
 		<MemoryRouter initialEntries={[path]}>
 			<Routes>
 				<Route path="/work/team/:teamId" element={ui} />
-				<Route path="/work/bet/new" element={<div data-testid="bet-new-page">New Bet</div>} />
+				{/* @lore BB1: bet route replaced by task route */}
+				<Route path="/work/task/new" element={<div data-testid="task-new-page">New Task</div>} />
 				<Route path="*" element={ui} />
 			</Routes>
 		</MemoryRouter>,
@@ -151,10 +151,11 @@ describe("WorkTeam lists use flush variant (no grey container)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// F2 — "+ New bet" button in Active Bets section
+// @lore BB1: "+ New bet" renamed to "+ New task" — root tasks replace bets
+// F2 — "+ New task" button in Active Bets section
 // ---------------------------------------------------------------------------
 
-describe("Active Bets SectionLabel has a + New bet button", () => {
+describe("Active Bets SectionLabel has a + New task button (BB1: was New bet)", () => {
 	beforeEach(() => {
 		mockApiFetch.mockReturnValue(Promise.resolve(makeAgentsResponse()));
 		global.fetch = vi.fn().mockResolvedValue(makeHintResponse());
@@ -165,15 +166,15 @@ describe("Active Bets SectionLabel has a + New bet button", () => {
 		mockApiFetch.mockReset();
 	});
 
-	it("renders '+ New bet' button in the Active Bets section", async () => {
+	it("renders '+ New task' button in the Active Bets section (BB1: was New bet)", async () => {
 		renderWithRouter(<WorkTeam overrideData={TEAM_EMPTY} skipArtifacts />);
 		await waitFor(() => {
 			expect(screen.getByTestId("new-bet-btn")).toBeInTheDocument();
 		});
-		expect(screen.getByTestId("new-bet-btn").textContent).toMatch(/\+ new bet/i);
+		expect(screen.getByTestId("new-bet-btn").textContent).toMatch(/\+ new task/i);
 	});
 
-	it("clicking '+ New bet' navigates to /work/bet/new", async () => {
+	it("clicking '+ New task' navigates to /work/task/new (BB1: was /work/bet/new)", async () => {
 		const user = userEvent.setup();
 		renderWithRouter(<WorkTeam overrideData={TEAM_EMPTY} skipArtifacts />);
 		await waitFor(() => {
@@ -181,7 +182,7 @@ describe("Active Bets SectionLabel has a + New bet button", () => {
 		});
 		await user.click(screen.getByTestId("new-bet-btn"));
 		await waitFor(() => {
-			expect(screen.getByTestId("bet-new-page")).toBeInTheDocument();
+			expect(screen.getByTestId("task-new-page")).toBeInTheDocument();
 		});
 	});
 });

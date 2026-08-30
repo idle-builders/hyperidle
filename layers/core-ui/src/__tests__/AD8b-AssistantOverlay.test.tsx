@@ -130,7 +130,7 @@ describe("AD8b — AssistantOverlay message thread rendering", () => {
 describe("AD8b — AssistantOverlay context chips", () => {
 	it("renders context chips when contextRefs is non-empty", () => {
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
-			{ kind: "bet", id: "bet-1", label: "Test Bet" },
+			{ kind: "task", id: "task-1", label: "Test Bet" },
 		];
 		renderOverlay(true, contextRefs);
 		expect(screen.getByText("Test Bet")).toBeInTheDocument();
@@ -153,7 +153,7 @@ describe("AD8b — AssistantOverlay context chips", () => {
 		const user = userEvent.setup();
 		const onRemoveContextRef = vi.fn();
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
-			{ kind: "bet", id: "bet-1", label: "My Bet" },
+			{ kind: "task", id: "task-1", label: "My Bet" },
 		];
 		renderOverlay(true, contextRefs, vi.fn(), onRemoveContextRef);
 		const dismissButton = screen.getByRole("button", { name: /remove|dismiss|×/i });

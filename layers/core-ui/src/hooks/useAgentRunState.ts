@@ -55,7 +55,7 @@ export type RunStateStatus = "loading" | "ready" | "error";
 /** The subset of a task the run-state renders need. Both fields are core's. */
 interface TaskRef {
 	readonly title: string;
-	readonly betId: string | null;
+	// @lore BB1: betId removed — tasks link directly via /work/task/:taskId
 }
 
 /**
@@ -79,13 +79,13 @@ async function fetchTaskRefs(
 	const rows = (await res.json()) as ReadonlyArray<{
 		id?: unknown;
 		title?: unknown;
-		betId?: unknown;
+
 	}>;
 	for (const row of rows) {
 		if (typeof row.id !== "string") continue;
 		refs.set(row.id, {
 			title: typeof row.title === "string" ? row.title : row.id,
-			betId: typeof row.betId === "string" ? row.betId : null,
+
 		});
 	}
 	return refs;
@@ -102,7 +102,7 @@ export interface RosterRunState {
 	readonly healthDetail: string;
 	readonly activeTaskTitle: string | null;
 	readonly activeTaskId: string | null;
-	readonly activeBetId: string | null;
+// @lore BB1: activeBetId removed — use activeTaskId + /work/task/:taskId
 }
 
 export interface RosterMemberRef {
@@ -170,7 +170,7 @@ export function useRosterRunState(members: ReadonlyArray<RosterMemberRef>): Rost
 					healthDetail: deriveHealthDetail(signals),
 					activeTaskTitle: activeTask?.title ?? null,
 					activeTaskId: active?.taskId ?? null,
-					activeBetId: activeTask?.betId ?? null,
+					// @lore BB1: activeBetId removed
 				});
 			}
 			setState(next);
@@ -199,7 +199,7 @@ export const DEFAULT_ROSTER_RUN_STATE: RosterRunState = {
 	healthDetail: "Healthy",
 	activeTaskTitle: null,
 	activeTaskId: null,
-	activeBetId: null,
+// @lore BB1: activeBetId removed
 };
 
 // ---------------------------------------------------------------------------
@@ -266,7 +266,7 @@ export function useAgentRunState(agentId: string | null, harnessAvailable: boole
 								sessionId: active.id,
 								taskId: active.taskId,
 								// @lore AB1 M1: the bet route expects betId, not taskId.
-								betId: taskRefs.get(active.taskId)?.betId ?? "",
+								// @lore BB1: betId removed from session nav
 								startedAt: active.startedAt,
 							}
 						: null,

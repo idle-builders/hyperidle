@@ -33,7 +33,6 @@
 import {
 	agentWorkIntents,
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
@@ -81,7 +80,7 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 	}) => {
 		const idPrefix = "au21-reengage-migration-1";
 		const teamId = `${idPrefix}-team`;
-		const betId = `${idPrefix}-bet`;
+		const rootTaskId = `${idPrefix}-bet`;
 		const taskId = `${idPrefix}-task`;
 		const agentId = `${idPrefix}-agent`;
 		const threadId = `${idPrefix}-thread`;
@@ -97,16 +96,19 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 			status: "active",
 			createdAt: NOW,
 		});
-		await db.insert(bets).values({
-			id: betId,
-			teamId,
+		await db.insert(tasks).values({
+			id: rootTaskId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "reengagement migration proof bet",
 			description: "reengagement migration proof bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 		await db.insert(tasks).values({
 			id: taskId,
-			betId,
+			parentTaskId: rootTaskId,
 			teamId,
 			ownerAgentId: agentId,
 			title: "reengagement migration proof task",
@@ -116,8 +118,9 @@ describe("agent_run_admission_failed — reengagement reaction fires for a REAL 
 		});
 		await db.insert(threads).values({
 			id: threadId,
-			hostKind: "bet",
-			hostId: betId,
+			// BB1: hostKind "bet" removed — root tasks use hostKind "task".
+			hostKind: "task",
+			hostId: rootTaskId,
 			initiatorId: agentId,
 			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,

@@ -23,11 +23,11 @@ import { useArtifactThreadSummary } from "../hooks/useArtifactThreadSummary.js";
 import { relativeShort } from "../utils/time.js";
 
 export interface ArtifactThreadsSummaryProps {
-	betId: string;
+	taskId: string;
 }
 
-export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): JSX.Element | null {
-	const { data, error, isLoading } = useArtifactThreadSummary(betId);
+export function ArtifactThreadsSummary({ taskId }: ArtifactThreadsSummaryProps): JSX.Element | null {
+	const { data, error, isLoading } = useArtifactThreadSummary(taskId);
 
 	if (isLoading) {
 		return (
@@ -118,7 +118,7 @@ export function ArtifactThreadsSummary({ betId }: ArtifactThreadsSummaryProps): 
 			{data.truncated && remaining > 0 && (
 				<Link
 					data-testid="artifact-threads-summary-more"
-					to={`/artifacts?betId=${betId}`}
+					to={`/artifacts?taskId=${taskId}`}
 					className="type-control  text-[var(--text-tertiary)] px-3 py-1 hover:text-[var(--text-primary)]"
 				>
 					+{remaining} more artifact discussions →

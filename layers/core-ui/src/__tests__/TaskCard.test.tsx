@@ -25,8 +25,8 @@ describe("TaskCard", () => {
 		expect(screen.getByText("HEALTHY")).toBeInTheDocument();
 	});
 
-	it("renders betTag as Tag when provided", () => {
-		render(<TaskCard {...defaultProps} betTag="Mobile V2" />);
+	it("renders parentTag as Tag when provided", () => {
+		render(<TaskCard {...defaultProps} parentTag="Mobile V2" />);
 		const tag = screen.getByText("Mobile V2");
 		expect(tag).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 		expect(tag.className).toContain("text-secondary");
@@ -97,10 +97,10 @@ describe("TaskCard", () => {
 	});
 
 	it("composes at least 2 Tier 1 primitives (StatusChip + Tag)", () => {
-		render(<TaskCard {...defaultProps} betTag="Sprint 1" />);
+		render(<TaskCard {...defaultProps} parentTag="Sprint 1" />);
 		// StatusChip
 		expect(screen.getByText("HEALTHY")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
-		// Tag for betTag
+		// Tag for parentTag
 		expect(screen.getByText("Sprint 1")).toHaveClass("inline-flex", "rounded-[var(--r-pill)]");
 	});
 

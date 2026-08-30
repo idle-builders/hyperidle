@@ -15,7 +15,6 @@
 
 import {
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	messages,
 	operationOutcomes,
@@ -44,7 +43,7 @@ async function seedReviewWithProposedCall(
 }> {
 	const teamId = `team-rl-${crypto.randomUUID()}`;
 	const agentId = `agent-rl-${crypto.randomUUID()}`;
-	const betId = `bet-rl-${crypto.randomUUID()}`;
+	const rootTaskId = `bet-rl-${crypto.randomUUID()}`;
 	const taskId = `task-rl-${crypto.randomUUID()}`;
 	const artifactId = `art-rl-${crypto.randomUUID()}`;
 	const proposedCallId = `pc-rl-${crypto.randomUUID()}`;
@@ -61,16 +60,19 @@ async function seedReviewWithProposedCall(
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "RL bet",
 		description: "RL bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		ownerAgentId: agentId,
 		title: "RL task",
@@ -89,7 +91,7 @@ async function seedReviewWithProposedCall(
 	await db.insert(threads).values({
 		id: threadId,
 		hostKind: "bet",
-		hostId: betId,
+		hostId: rootTaskId,
 		initiatorId: agentId,
 		participants: JSON.stringify([agentId]),
 		lastActiveAt: NOW,

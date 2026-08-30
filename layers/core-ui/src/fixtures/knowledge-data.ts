@@ -199,7 +199,7 @@ export const MOCK_KNOWLEDGE_ITEMS: ReadonlyArray<MockKnowledgeItem> = [
 		scope: "product",
 		topic: "Onboarding",
 		attentionScore: 40,
-		whyNow: "Used by 3 bets this cycle",
+		whyNow: "Used by 3 tasks this cycle",
 	},
 	// Product scope — UI Kit
 	{

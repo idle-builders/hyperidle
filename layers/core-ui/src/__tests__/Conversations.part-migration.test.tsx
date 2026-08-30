@@ -32,7 +32,7 @@ const THREAD_ID = "t-am1-migration";
 const BET_ID = "bet-am1-migration";
 const FAKE_THREAD = {
 	id: THREAD_ID,
-	hostKind: "bet",
+	hostKind: "task",
 	hostId: BET_ID,
 	initiatorId: "agent-1",
 	participants: ["u-founder", "agent-1"],

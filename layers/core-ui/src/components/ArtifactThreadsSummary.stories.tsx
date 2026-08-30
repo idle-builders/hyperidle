@@ -135,7 +135,7 @@ export const Truncated = (): React.JSX.Element => (
 			</ul>
 			<a
 				data-testid="artifact-threads-summary-more"
-				href="/artifacts?betId=bet-1"
+				href="/artifacts?taskId=bet-1"
 				className="text-xs text-[var(--text-tertiary)] px-3 py-1 hover:text-[var(--text-primary)]"
 			>
 				+2 more
@@ -148,6 +148,6 @@ export const Truncated = (): React.JSX.Element => (
 
 export const LiveComponent = (): React.JSX.Element => (
 	<MemoryRouter>
-		<ArtifactThreadsSummary betId="bet-demo-001" />
+		<ArtifactThreadsSummary taskId="bet-demo-001" />
 	</MemoryRouter>
 );

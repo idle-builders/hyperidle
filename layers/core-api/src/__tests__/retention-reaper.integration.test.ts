@@ -14,7 +14,7 @@
  * `server-factory.ts` so the predicate is directly testable without waiting
  * on the real 6h `setInterval`.
  */
-import { bets, type HyperIdleDb, taskDispatchAttempts, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts, tasks, teams, users } from "@hyperidle/db";
 import { enqueue, listNotifications, reap } from "@hyperidle/notifications";
 import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // NOT YET CREATED — this import failing to resolve is this file's primary RED
@@ -33,7 +33,7 @@ async function seedTaskDispatchAttempt(
 	},
 ): Promise<void> {
 	const teamId = `${options.id}-team`;
-	const betId = `${options.id}-bet`;
+	const rootTaskId = `${options.id}-bet`;
 	const taskId = `${options.id}-task`;
 	const agentId = `${options.id}-agent`;
 	await db
@@ -48,16 +48,19 @@ async function seedTaskDispatchAttempt(
 		status: "active",
 		createdAt: now.toISOString(),
 	});
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "retention-reaper bet",
 		description: "retention-reaper bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: now.toISOString(),
+		updatedAt: now.toISOString(),
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		ownerAgentId: agentId,
 		title: "retention-reaper task",

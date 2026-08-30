@@ -138,16 +138,17 @@ export function createArtifactRoutes(db: HyperIdleDb, _eventBus?: EventBus): Hon
 			}
 			taskIds = [taskId];
 		} else if (axis === "bet") {
-			const betId = c.req.query("betId");
-			if (!betId) {
-				return c.json({ error: "betId required", code: "INVALID_QUERY" }, 400);
+			const rootTaskId = c.req.query("rootTaskId");
+			if (!rootTaskId) {
+				return c.json({ error: "rootTaskId required", code: "INVALID_QUERY" }, 400);
 			}
+			// BB1: use listSubtreeIds for recursive subtree enumeration.
 			// L3 review fix Sec-MED-4: cap intermediate id materialisation.
-			const rows = await work.list(db, "task", { betId, limit: MAX_TASK_ID_FANOUT + 1 });
-			if (rows.length > MAX_TASK_ID_FANOUT) {
+			const subtreeIds = await work.listSubtreeIds(db, rootTaskId);
+			if (subtreeIds.length > MAX_TASK_ID_FANOUT) {
 				return c.json({ error: "Task fan-out too large", code: "FANOUT_TOO_LARGE" }, 400);
 			}
-			taskIds = rows.map((r) => r.id);
+			taskIds = subtreeIds;
 		} else if (axis === "product") {
 			// @lore U1: `productId` query param renamed to `teamId`; `tasks.productId` column dropped.
 			const teamId = c.req.query("teamId") ?? c.req.query("productId");

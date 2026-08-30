@@ -42,7 +42,7 @@ describe("T4 — BlockRefEmbed states", () => {
 
 	it("renders a loading skeleton when status=loading", () => {
 		mockUseBlockResolution.mockReturnValue({ status: "loading" });
-		renderEmbed("blk-1", "bet", "bet-abc");
+		renderEmbed("blk-1", "task", "task-abc");
 		// Skeleton: some loading indicator — could be shimmer div or aria-busy
 		expect(screen.getByTestId("block-ref-embed-loading")).toBeInTheDocument();
 	});
@@ -53,21 +53,21 @@ describe("T4 — BlockRefEmbed states", () => {
 			payload: { kind: "paragraph", inline: [{ type: "text", value: "Hello block" }] },
 			hostLabel: "My Bet",
 		});
-		renderEmbed("blk-1", "bet", "bet-abc");
+		renderEmbed("blk-1", "task", "task-abc");
 		expect(screen.getByTestId("block-ref-embed-resolved")).toBeInTheDocument();
 		expect(screen.getByText(/hello block/i)).toBeInTheDocument();
 	});
 
 	it("renders 'source changed' indicator when status=degraded (AC-7)", () => {
 		mockUseBlockResolution.mockReturnValue({ status: "degraded" });
-		renderEmbed("blk-1", "bet", "bet-abc");
+		renderEmbed("blk-1", "task", "task-abc");
 		expect(screen.getByTestId("block-ref-embed-degraded")).toBeInTheDocument();
 		expect(screen.getByText(/source changed/i)).toBeInTheDocument();
 	});
 
 	it("does NOT crash when status=degraded", () => {
 		mockUseBlockResolution.mockReturnValue({ status: "degraded" });
-		expect(() => renderEmbed("blk-1", "bet", "bet-abc")).not.toThrow();
+		expect(() => renderEmbed("blk-1", "task", "task-abc")).not.toThrow();
 	});
 
 	it("renders error state with retry button when status=error (AC-7)", () => {
@@ -86,7 +86,7 @@ describe("T4 — BlockRefEmbed states", () => {
 			payload: { kind: "paragraph", inline: [{ type: "text", value: "Content here" }] },
 			hostLabel: "The Bet Title",
 		});
-		renderEmbed("blk-1", "bet", "bet-abc");
+		renderEmbed("blk-1", "task", "task-abc");
 		// The embed card should display a "from" label hinting at the source
 		const embedCard = screen.getByTestId("block-ref-embed-resolved");
 		expect(embedCard.textContent).toMatch(/bet|block from/i);
@@ -108,7 +108,7 @@ describe("T4 — BlockRefEmbed retry behavior", () => {
 			error: "Timeout",
 			retry: retryFn,
 		});
-		renderEmbed("blk-fail", "bet", "bet-retry");
+		renderEmbed("blk-fail", "task", "task-retry");
 		await user.click(screen.getByRole("button", { name: /retry/i }));
 		expect(retryFn).toHaveBeenCalledOnce();
 	});

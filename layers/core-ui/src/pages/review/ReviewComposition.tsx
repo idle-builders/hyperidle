@@ -219,13 +219,16 @@ function FrameHeader({
 			presentation={presentation}
 			reservePaneControls={reservePaneControls}
 			title={s.title}
+			// @lore BB1: betId → parentTaskId; /work/bet/ → /work/task/
 			leading={
 				<Breadcrumb
 					segments={[
 						{ label: "Work", to: "/work" },
-						{ label: s.betTitle, to: `/work/bet/${s.betId}` },
+						...(s.parentTaskId
+							? [{ label: s.betTitle, to: `/work/task/${s.parentTaskId}` }]
+							: []),
 						...(s.taskId && s.taskTitle
-							? [{ label: s.taskTitle, to: `/work/bet/${s.betId}/task/${s.taskId}` }]
+							? [{ label: s.taskTitle, to: `/work/task/${s.taskId}` }]
 							: []),
 						{ label: s.title },
 					]}

@@ -20,8 +20,8 @@ import { useHostThread } from "../../hooks/useHostThread";
 
 const THREAD_FIXTURE = {
 	id: "t-host-001",
-	hostKind: "bet" as const,
-	hostId: "bet-001",
+	hostKind: "task" as const,
+	hostId: "task-001",
 	initiatorId: "u-founder",
 	participants: ["u-founder", "agent-unassigned"],
 	pinned: false,
@@ -57,7 +57,7 @@ describe("HostThreadSection (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" />);
+		render(<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" />);
 
 		expect(screen.getByTestId("host-thread-section-loading")).toBeInTheDocument();
 		expect(screen.getByRole("status", { name: /loading discussion/i })).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe("HostThreadSection (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" />);
+		render(<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" />);
 
 		expect(screen.getByTestId("host-thread-section-error")).toBeInTheDocument();
 	});
@@ -84,7 +84,7 @@ describe("HostThreadSection (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" />);
+		render(<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" />);
 
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
 		expect(screen.getByTestId("host-thread-section-empty")).toBeInTheDocument();
@@ -100,7 +100,7 @@ describe("HostThreadSection (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(<HostThreadSection hostKind="bet" hostId="bet-001" title="Discussion" />);
+		render(<HostThreadSection hostKind="task" hostId="task-001" title="Discussion" />);
 
 		expect(screen.getByTestId("host-thread-section")).toBeInTheDocument();
 		expect(screen.getByText("Hello discussion")).toBeInTheDocument();
@@ -129,9 +129,9 @@ describe("HostThreadSection (L18)", () => {
 			refresh: vi.fn(),
 		});
 
-		render(<HostThreadSection hostKind="bet" hostId="bet-abc" title="Discussion" />);
+		render(<HostThreadSection hostKind="task" hostId="task-abc" title="Discussion" />);
 
-		expect(useHostThread).toHaveBeenCalledWith("bet", "bet-abc");
+		expect(useHostThread).toHaveBeenCalledWith("task", "task-abc");
 	});
 
 	it("calls useHostThread with correct hostKind=knowledge_item", () => {

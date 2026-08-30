@@ -30,7 +30,7 @@ function LocationProbe(): null {
 const BET_ID = "bet-am1";
 const FAKE_THREAD = {
 	id: THREAD_ID,
-	hostKind: "bet",
+	hostKind: "task",
 	hostId: BET_ID,
 	initiatorId: "agent-1",
 	participants: ["u-founder", "agent-1"],
@@ -319,7 +319,7 @@ describe("ReviewPage — approve reaches the thread the loader NAMES, for a task
 	const composedSubject = {
 		id: REVIEW_ID,
 		title: "Approve the deploy",
-		betId: "",
+		parentTaskId: null,
 		betTitle: "",
 		taskId: TASK_ID_2,
 		taskTitle: "Ship the deploy",

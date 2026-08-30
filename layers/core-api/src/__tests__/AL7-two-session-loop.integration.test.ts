@@ -26,7 +26,6 @@ import {
 } from "@hyperidle/agent-orchestration";
 import {
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	messages,
 	operationOutcomes,
@@ -93,7 +92,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 }> {
 	const teamId = `team-loop-${crypto.randomUUID()}`;
 	const agentId = `agent-loop-${crypto.randomUUID()}`;
-	const betId = `bet-loop-${crypto.randomUUID()}`;
+	const rootTaskId = `bet-loop-${crypto.randomUUID()}`;
 	const taskId = `task-loop-${crypto.randomUUID()}`;
 	const artifactId = `art-loop-${crypto.randomUUID()}`;
 
@@ -106,16 +105,19 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "Loop bet",
 		description: "Loop bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		ownerAgentId: agentId,
 		title: "Loop task",
@@ -134,7 +136,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 	await db.insert(threads).values({
 		id: threadId,
 		hostKind: "bet",
-		hostId: betId,
+		hostId: rootTaskId,
 		initiatorId: agentId,
 		participants: JSON.stringify([agentId]),
 		lastActiveAt: NOW,

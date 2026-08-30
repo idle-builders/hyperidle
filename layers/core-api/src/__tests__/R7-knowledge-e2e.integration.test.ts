@@ -17,7 +17,6 @@ import {
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
 import {
-	bets,
 	type HyperIdleDb,
 	knowledgeAppProjection,
 	knowledgeItems,
@@ -68,17 +67,19 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		status: "active",
 		createdAt: NOW,
 	});
-	// tasks require a betId (NOT NULL FK) — seed a bet first
-	await db.insert(bets).values({
+	// BB1: root task replaces bet
+	await db.insert(tasks).values({
 		id: "bet-r7",
+		parentTaskId: null,
 		teamId: TEAM_ID,
-		description: "R7 test bet",
-		status: "active",
+		title: "R7 root task",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: "task-r7",
-		betId: "bet-r7",
+		parentTaskId: "bet-r7",
 		teamId: TEAM_ID,
 		title: "R7 test task",
 		state: "in_progress",
@@ -484,16 +485,17 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 		// real rows (including the item write_memory JUST persisted, proving
 		// the "session N knowledge reaches session N+1" behavior is unchanged).
 		const [taskRow] = await db.select().from(tasks).where(eq(tasks.id, "task-r7"));
-		const [betRow] = await db.select().from(bets).where(eq(bets.id, "bet-r7"));
 		const [teamRow] = await db.select().from(teams).where(eq(teams.id, TEAM_ID));
 		const [agentRow] = await db.select().from(users).where(eq(users.id, AGENT_ID));
-		if (!(taskRow && betRow && teamRow && agentRow)) throw new Error("fixture rows missing");
+		if (!(taskRow && teamRow && agentRow)) throw new Error("fixture rows missing");
 		const knowledge = await assembleSessionKnowledge(db, {
 			teamId: TEAM_ID,
 			agentRole: agentRow.role,
 			taskDescription: taskRow.description ?? taskRow.title,
 			agentId: AGENT_ID,
 		});
+		// BB1: root task row for ancestors chain
+		const [rootRow] = await db.select().from(tasks).where(eq(tasks.id, "bet-r7"));
 		const contextBundle: BakedContextBundle = {
 			kind: "task",
 			task: {
@@ -502,12 +504,16 @@ describe("R7 AC-5: write_memory items appear in subsequent sessions", () => {
 				description: taskRow.description,
 				state: taskRow.state,
 			},
-			bet: {
-				id: betRow.id,
-				description: betRow.description,
-				appetite: betRow.appetite ?? "",
-				doneCondition: betRow.doneCondition,
-			},
+			ancestors: rootRow
+				? [
+						{
+							id: rootRow.id,
+							title: rootRow.title,
+							description: rootRow.description ?? null,
+							doneCondition: rootRow.doneCondition ?? null,
+						},
+					]
+				: [],
 			agent: { id: agentRow.id, name: agentRow.name, role: agentRow.role },
 			team: { id: teamRow.id, name: teamRow.name },
 			knowledge: toBakedContextKnowledgeItems(knowledge),

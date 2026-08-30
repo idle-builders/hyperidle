@@ -199,7 +199,7 @@ describe("ReviewComposition — the checkout mock is deleted", () => {
 		id: "review-msg-real-1",
 		title: "Fix the checkout regression",
 		threadId: "thread-real-1",
-		betId: "bet-real-1",
+		parentTaskId: "task-parent-1",
 		betTitle: "Checkout reliability",
 		taskId: "task-real-1",
 		taskTitle: "Fix the checkout regression",

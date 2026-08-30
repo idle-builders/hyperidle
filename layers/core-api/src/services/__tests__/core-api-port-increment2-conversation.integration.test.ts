@@ -392,7 +392,8 @@ describe("CoreApiPort.conversation — Increment 2 conversation wave (RED)", () 
 		const threadId = "thread-conv-firstbyhost";
 		await db.insert(threads).values({
 			id: threadId,
-			hostKind: "bet",
+			// BB1: hostKind "bet" removed — root tasks use hostKind "task".
+			hostKind: "task",
 			hostId: "bet-conv-firstbyhost",
 			initiatorId: "agent-conv-firstbyhost",
 			participants: JSON.stringify(["agent-conv-firstbyhost"]),
@@ -401,7 +402,7 @@ describe("CoreApiPort.conversation — Increment 2 conversation wave (RED)", () 
 		});
 
 		const port = buildSeamPort("agent-conv-firstbyhost", app);
-		const found = await port.conversation.getFirstThreadByHost("bet", "bet-conv-firstbyhost");
+		const found = await port.conversation.getFirstThreadByHost("task", "bet-conv-firstbyhost");
 
 		expect(found?.id).toBe(threadId);
 	});
@@ -409,7 +410,7 @@ describe("CoreApiPort.conversation — Increment 2 conversation wave (RED)", () 
 	test("getFirstThreadByHost against a host with no thread resolves undefined", async ({ app }) => {
 		vi.stubEnv("HYPERIDLE_API_KEY", "inc2-conv-key-firstbyhost-404");
 		const port = buildSeamPort("agent-conv-firstbyhost-none", app);
-		const found = await port.conversation.getFirstThreadByHost("bet", "bet-conv-no-thread");
+		const found = await port.conversation.getFirstThreadByHost("task", "bet-conv-no-thread");
 		expect(found).toBeUndefined();
 	});
 

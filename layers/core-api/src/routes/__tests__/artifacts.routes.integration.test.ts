@@ -6,7 +6,7 @@
  * POST /api/artifacts         — create artifact
  */
 
-import { artifacts, bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -30,18 +30,20 @@ async function seedBase(db: HyperIdleDb): Promise<{ taskId: string }> {
 		teamId: "team-1",
 		createdAt: now,
 	});
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
 		title: "Test task",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "team-1",
 		state: "in_progress",
 		ownerAgentId: "agent-1",
@@ -86,7 +88,7 @@ describe("artifacts routes", () => {
 			expect(res.status).toBe(400);
 		});
 
-		test("returns 400 when axis=bet but betId is missing", async ({ app }) => {
+		test("returns 400 when axis=bet but rootTaskId is missing", async ({ app }) => {
 			const res = await app.request("/api/artifacts?axis=bet", {
 				method: "GET",
 				headers: authHeaders(),

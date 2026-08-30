@@ -68,7 +68,7 @@ describe("useArtifactThreadSummary (L18)", () => {
 		expect(result.current.error).toBeNull();
 
 		const [url] = fetchSpy.mock.calls[0] as [string];
-		expect(url).toContain("/api/bets/bet-001/artifact-thread-summary");
+		expect(url).toContain("/api/tasks/bet-001/artifact-thread-summary");
 	});
 
 	it("returns error when fetch fails", async () => {

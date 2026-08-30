@@ -15,7 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AssistantAttachButton } from "../components/AssistantAttachButton";
 import { AssistantContext, type AssistantContextRef } from "../contexts/AssistantContext";
 
-const testRef: AssistantContextRef = { kind: "bet", id: "bet-1", label: "Ambrovia v2" };
+const testRef: AssistantContextRef = { kind: "task", id: "task-1", label: "Ambrovia v2" };
 
 function renderWithContext(
 	overlayOpen: boolean,

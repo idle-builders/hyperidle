@@ -22,10 +22,9 @@ const policyEngineDeps: PolicyDeps = {
 			work.list(exec, "item", { sourceAgentId: agentId }).then((rows) => rows.map((r) => r.id)),
 		// lifecycle stubs (never called in engine tests):
 		getTaskById: () => Promise.resolve(undefined),
-		getBetById: () => Promise.resolve(undefined),
-		transitionBetStatus: () => Promise.resolve({ applied: false }),
 		transitionTaskState: () => Promise.resolve({ applied: false }),
-		listTasks: () => Promise.resolve([]),
+		listChildTasks: () => Promise.resolve([]),
+		listAncestorIds: () => Promise.resolve([]),
 	},
 	conversation: {
 		insertMessage,

@@ -401,11 +401,11 @@ function AgentProfileLoaded({
 								{data.teamName && <span className="ml-[6px]">· {data.teamName}</span>}
 								<span className="ml-[6px]">· Created {createdDate}</span>
 							</p>
-							{/* Active session link — /work/bet/:betId/task/:taskId (M1: was using taskId as betId) */}
+							{/* @lore BB1: active session links directly to /work/task/:taskId */}
 							{activeSession !== null && (
 								<div className="mt-[6px]" data-testid="agent-active-session">
 									<RRLink
-										to={`/work/bet/${encodeURIComponent(activeSession.betId)}/task/${encodeURIComponent(activeSession.taskId)}`}
+										to={`/work/task/${encodeURIComponent(activeSession.taskId)}`}
 										className="type-control  text-[var(--accent-deep)] hover:underline"
 									>
 										↗ Active session: {activeSession.sessionId}

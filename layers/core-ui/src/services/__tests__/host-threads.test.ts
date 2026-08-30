@@ -63,7 +63,7 @@ describe("resolveOrCreateHostThread (L18)", () => {
 		vi.restoreAllMocks();
 	});
 
-	for (const hostKind of ["bet", "task", "knowledge_item", "artifact"] as const) {
+	for (const hostKind of ["task", "task", "knowledge_item", "artifact"] as const) {
 		it(`resolveOrCreateHostThread round-trips on host_kind='${hostKind}'`, async () => {
 			fetchSpy.mockResolvedValueOnce(makeThreadListResponse([{ id: EXISTING_THREAD_ID }]));
 
@@ -87,7 +87,7 @@ describe("resolveOrCreateHostThread (L18)", () => {
 			.mockResolvedValueOnce(makeThreadListResponse([]))
 			.mockResolvedValueOnce(makeCreateThreadResponse(CREATED_THREAD_ID));
 
-		const result = await resolveOrCreateHostThread("bet", "bet-new-1", FOUNDER_ID, AGENT_ID);
+		const result = await resolveOrCreateHostThread("task", "bet-new-1", FOUNDER_ID, AGENT_ID);
 
 		expect(result).toBe(CREATED_THREAD_ID);
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -97,7 +97,7 @@ describe("resolveOrCreateHostThread (L18)", () => {
 			hostId: string;
 			participants: string[];
 		};
-		expect(body.hostKind).toBe("bet");
+		expect(body.hostKind).toBe("task");
 		expect(body.hostId).toBe("bet-new-1");
 		expect(body.participants).toContain(FOUNDER_ID);
 	});

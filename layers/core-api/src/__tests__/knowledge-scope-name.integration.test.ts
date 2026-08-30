@@ -11,7 +11,6 @@
  * Uses real DB + real Hono app fixtures.
  */
 import {
-	bets,
 	filesystems,
 	type HyperIdleDb,
 	knowledgeAppProjection,
@@ -153,15 +152,18 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 			phase: "active",
 			createdAt: new Date().toISOString(),
 		});
-		const betId = crypto.randomUUID();
-		await db.insert(bets).values({
-			id: betId,
-			teamId,
+		const rootTaskId = crypto.randomUUID();
+		await db.insert(tasks).values({
+			id: rootTaskId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Ship the new onboarding flow",
 			description: "Ship the new onboarding flow",
-			status: "active",
+			state: "in_progress",
 			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		});
-		const id = await createKnowledgeItem(db, { scopeKind: "bet", scopeId: betId });
+		const id = await createKnowledgeItem(db, { scopeKind: "bet", scopeId: rootTaskId });
 		const res = await app.request(`/api/knowledge/${id}`, { headers: authHeaders() });
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as Record<string, unknown>;
@@ -177,19 +179,22 @@ describe("GET /api/knowledge/:id returns resolved scopeName alongside scopeKind/
 			phase: "active",
 			createdAt: new Date().toISOString(),
 		});
-		const betId = crypto.randomUUID();
-		await db.insert(bets).values({
-			id: betId,
-			teamId,
+		const rootTaskId = crypto.randomUUID();
+		await db.insert(tasks).values({
+			id: rootTaskId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Build auth",
 			description: "Build auth",
-			status: "active",
+			state: "in_progress",
 			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
 		});
 		const now = new Date().toISOString();
 		const taskId = crypto.randomUUID();
 		await db.insert(tasks).values({
 			id: taskId,
-			betId,
+			parentTaskId: rootTaskId,
 			teamId,
 			title: "Implement JWT refresh",
 			state: "active",

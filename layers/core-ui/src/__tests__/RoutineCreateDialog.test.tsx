@@ -34,7 +34,7 @@ const MOCK_AGENTS = [
 
 const EVENT_TYPES_RESPONSE = {
 	ok: true,
-	json: vi.fn().mockResolvedValue({ eventTypes: ["bet_state_changed", "task_state_changed"] }),
+	json: vi.fn().mockResolvedValue({ eventTypes: ["task_state_changed", "task_state_changed"] }),
 } as unknown as Response;
 
 function renderDialog(overrides: Partial<Parameters<typeof RoutineCreateDialog>[0]> = {}): void {

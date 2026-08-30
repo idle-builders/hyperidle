@@ -50,9 +50,10 @@ function fetchHostBody(hostKind: BlockHostKind, hostId: string): Promise<string 
 		let url: string;
 		let bodyField: string;
 
-		if (hostKind === "bet") {
-			url = `/api/bets/${encodeURIComponent(hostId)}`;
-			bodyField = "pitch";
+		if (hostKind === "task") {
+			// @lore BB1: bets are now root tasks — description is the body field
+			url = `/api/tasks/${encodeURIComponent(hostId)}`;
+			bodyField = "description";
 		} else if (hostKind === "knowledge_item") {
 			url = `/api/knowledge/${encodeURIComponent(hostId)}`;
 			bodyField = "body";
@@ -81,8 +82,6 @@ function evictCache(hostKind: BlockHostKind, hostId: string): void {
 
 function hostKindLabel(hostKind: BlockHostKind): string {
 	switch (hostKind) {
-		case "bet":
-			return "bet pitch";
 		case "knowledge_item":
 			return "knowledge item";
 		case "task":
@@ -122,7 +121,7 @@ export function useBlockResolution(
 				if (cancelled) return;
 
 				if (body === null) {
-					if (hostKind !== "bet" && hostKind !== "knowledge_item") {
+					if (hostKind !== "task" && hostKind !== "knowledge_item") {
 						// Unsupported host kind
 						setResult({
 							status: "degraded",
@@ -142,7 +141,7 @@ export function useBlockResolution(
 				}
 
 				const { blocks } = deriveBlocks(body, {
-					kind: hostKind as "bet" | "knowledge_item",
+					kind: hostKind as "task" | "knowledge_item",
 					id: hostId,
 				});
 				if (cancelled) return;

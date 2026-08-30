@@ -109,7 +109,8 @@ export interface ComposedReviewSubject extends ReviewSubject {
 	 * thread whenever a host has more than one.
 	 */
 	readonly threadId: string;
-	readonly betId: string;
+	// @lore BB1: betId → parentTaskId (null means root task, non-null means sub-task)
+	readonly parentTaskId: string | null;
 	readonly betTitle: string;
 	readonly taskId?: string;
 	readonly taskTitle?: string;

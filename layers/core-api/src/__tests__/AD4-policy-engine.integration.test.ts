@@ -50,10 +50,9 @@ const policyEngineDeps: PolicyDeps = {
 		},
 		// lifecycle stubs (never called in engine tests):
 		getTaskById: () => Promise.resolve(undefined),
-		getBetById: () => Promise.resolve(undefined),
-		transitionBetStatus: () => Promise.resolve({ applied: false }),
 		transitionTaskState: () => Promise.resolve({ applied: false }),
-		listTasks: () => Promise.resolve([]),
+		listChildTasks: () => Promise.resolve([]),
+		listAncestorIds: () => Promise.resolve([]),
 	},
 	conversation: {
 		insertMessage,

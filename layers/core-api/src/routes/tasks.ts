@@ -1,54 +1,113 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
-import type { HyperIdleDb } from "@hyperidle/db";
-import { API_ERROR_CODES } from "@hyperidle/domain-model";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import {
+	API_ERROR_CODES,
+	TASK_OUTCOME_VERDICTS,
+	TASK_STATES,
+} from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
+import { getTeam } from "@hyperidle/org";
 import type { PolicySessionContext } from "@hyperidle/policy";
+import type { Task, TaskKillCascadeDeps, TaskStateMachineDeps } from "@hyperidle/work";
 import * as work from "@hyperidle/work";
+import {
+	assertNoCycle,
+	CapacityExceededError,
+	cascadeTaskKill,
+	InvalidTransitionError,
+	TaskCycleError,
+	transitionTask,
+} from "@hyperidle/work";
 import { Hono } from "hono";
 import z from "zod";
+import { enumValues } from "../schemas/common.schema.js";
+import { buildSeamBackedWorkIntentRecorder } from "../services/agent-orchestration-port-composition.js";
 import { buildProductionHandoff } from "../services/policy-bindings.js";
+import { taskRunResolverDeps } from "../services/task-run-resolver-bindings.js";
 
 /**
- * Zod schemas for request validation.
+ * BB1: `TeamCapacityReader` adapter — reads `teams.capacity` for the WIP
+ * check on `-> in_progress`. Read-only (no setActiveBets write side).
  */
+const teamCapacity: TaskStateMachineDeps["teamCapacity"] = {
+	getByTeamId: (exec: WriteExecutor, teamId: string) => getTeam(exec, { id: teamId }),
+};
+
+/** Build the injected deps bag for `transitionTask` / `cascadeTaskKill`. */
+function buildTaskDeps(agentOrchestration: AgentOrchestrationPort): TaskStateMachineDeps {
+	return {
+		workIntents: buildSeamBackedWorkIntentRecorder(agentOrchestration),
+		taskRunResolver: taskRunResolverDeps,
+		teamCapacity,
+	};
+}
+
+/** Build the deps bag for `cascadeTaskKill`. */
+function buildKillDeps(agentOrchestration: AgentOrchestrationPort): TaskKillCascadeDeps {
+	return {
+		...buildTaskDeps(agentOrchestration),
+		runOrchestration: {
+			requestRunStopForTasks: (_exec, taskIds) =>
+				agentOrchestration.runs.stopForTasks(taskIds),
+		},
+	};
+}
+
+// ---------------------------------------------------------------------------
+// Zod schemas
+// ---------------------------------------------------------------------------
+
 /**
- * @lore AU21 §9 Increment 2: `description`/`doneCondition`/`ownerAgentId`
- * accept an explicit `null`, not just absence — `CoreApiPort.work.createTask`
- * (`core-api-port-composition.ts`) forwards `create_task`'s tool input
- * verbatim, which fills unset optional fields with a real `null` (matching
- * this route's own `body.description ?? null` normalization below), and
- * `JSON.stringify` serializes an object's `null` properties (unlike
- * `undefined`, which it drops) — the wire body genuinely carries `null`.
+ * BB1 POST /tasks body.
+ * `teamId` may be omitted when `parentTaskId` is given — inherited from parent.
  */
-const createTaskSchema = z.object({
-	betId: z.string(),
-	title: z.string().min(1),
-	description: z.string().nullish(),
-	doneCondition: z.string().nullish(),
-	ownerAgentId: z.string().nullish(),
+const createTaskSchema = z
+	.object({
+		parentTaskId: z.string().optional(),
+		teamId: z.string().optional(),
+		title: z.string().min(1),
+		description: z.string().nullish(),
+		doneCondition: z.string().nullish(),
+		ownerAgentId: z.string().nullish(),
+	})
+	.refine((b) => b.teamId !== undefined || b.parentTaskId !== undefined, {
+		message: "teamId is required when parentTaskId is omitted",
+		path: ["teamId"],
+	});
+
+/**
+ * BB1 PATCH /tasks/:id — the one edit door. No actor gate.
+ * `.strict()` rejects unknown keys with a 400.
+ */
+const patchTaskSchema = z
+	.object({
+		title: z.string().min(1).optional(),
+		description: z.string().nullable().optional(),
+		doneCondition: z.string().nullable().optional(),
+		ownerAgentId: z.string().nullable().optional(),
+		dependencies: z.string().nullable().optional(),
+		parentTaskId: z.string().nullable().optional(),
+		state: z.enum(enumValues(TASK_STATES)).optional(),
+	})
+	.strict();
+
+/** POST /tasks/:id/kill body. */
+const killTaskSchema = z.object({ reason: z.string().min(1) });
+
+/**
+ * BB1 POST /tasks/:id/outcome — the surviving learning half of the deleted
+ * bet retro. The plugin skill `post-task-retro` is the structured-learning half.
+ */
+const outcomeSchema = z.object({
+	verdict: z.enum(enumValues(TASK_OUTCOME_VERDICTS)),
+	summary: z.string().optional(),
 });
 
-/**
- * AU21 §9 Increment 2 — the `CoreApiPort.work.appendTaskNote` seam method's
- * backing route. Mirrors `work-service.ts`'s atomic SQL-CASE note append
- * (`update(exec,"task",id,{notes:{appendNote:entry}})`) — the same "goes via
- * MCP API back to core, just like the user would" door `log_task` used to
- * reach directly via raw DI.
- */
-const appendTaskNoteSchema = z.object({
-	entry: z.string().min(1),
-});
+/** PATCH /tasks/:id/notes — atomic note append (unchanged). */
+const appendTaskNoteSchema = z.object({ entry: z.string().min(1) });
 
-/**
- * @lore AU21 §9 Increment 2: `contextId`/`status`/`error` are optional
- * caller-supplied overrides — the `CoreApiPort.work.handoffTask` seam
- * method's real caller (`handoff_to`'s tool handler) needs the FULL
- * `HandoffMetadata` fidelity (`@hyperidle/policy`'s wire shape), which this
- * route previously hardcoded (`context_id: session.id`, `status: "completed"`,
- * `error` dropped entirely). Omitting all three preserves the exact original
- * behavior for any caller that doesn't supply them.
- */
+/** POST /tasks/:id/handoff — hand off to another agent/role/human (unchanged). */
 const handoffSchema = z.object({
 	sessionId: z.string(),
 	toAgent: z.string().optional(),
@@ -62,9 +121,56 @@ const handoffSchema = z.object({
 	error: z.string().optional(),
 });
 
+// ---------------------------------------------------------------------------
+// Tree helpers
+// ---------------------------------------------------------------------------
+
+type TaskNode = Task & { children: TaskNode[] };
+
+/** Build a recursive tree from a flat list, rooted at the given parentId. */
+function buildChildren(all: Task[], parentId: string): TaskNode[] {
+	return all
+		.filter((t) => t.parentTaskId === parentId)
+		.map((t) => ({ ...t, children: buildChildren(all, t.id) }));
+}
+
 /**
- * Create Hono routes for task endpoints.
- * Requires db and eventBus injected.
+ * Sum token usage across the subtree. `tokensActualJson` is a JSON object of
+ * numeric fields — sum each field across all tasks that carry it.
+ * Returns null when no task in the subtree has token data.
+ */
+function sumTokensActual(tasks: Task[]): Record<string, number> | null {
+	const acc: Record<string, number> = {};
+	let any = false;
+	for (const t of tasks) {
+		if (!t.tokensActualJson) continue;
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(t.tokensActualJson);
+		} catch {
+			continue;
+		}
+		if (typeof parsed !== "object" || parsed === null) continue;
+		for (const [k, v] of Object.entries(parsed)) {
+			if (typeof v === "number") {
+				acc[k] = (acc[k] ?? 0) + v;
+				any = true;
+			}
+		}
+	}
+	return any ? acc : null;
+}
+
+// ---------------------------------------------------------------------------
+// Route factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Create Hono routes for the task surface (BB1: replaces the deleted bet routes).
+ *
+ * @lore BB1: Every route in `bets.ts` is DELETED. This file is the single
+ * task surface. `PATCH /tasks/:id` is the one edit door for humans and agents
+ * alike — no role gate, no draft-only check, no approval interception.
  */
 export function createTaskRoutes(
 	db: HyperIdleDb,
@@ -74,22 +180,131 @@ export function createTaskRoutes(
 	const router = new Hono<HyperIdleEnv>();
 	const handoff = buildProductionHandoff(agentOrchestration);
 
-	// POST /tasks — create a new task (agent-driven decomposition)
+	// -------------------------------------------------------------------------
+	// GET /tasks
+	// Filters: ?ids=a,b,c · ?parent_id=<id>|root · ?team_id= · ?state= · ?owner= · ?q=
+	// -------------------------------------------------------------------------
+	router.get("/", async (c) => {
+		const ids = c.req.query("ids");
+		const parentIdParam = c.req.query("parent_id");
+		const teamId = c.req.query("team_id");
+		const state = c.req.query("state");
+		const owner = c.req.query("owner");
+		const q = c.req.query("q");
+
+		// `ids` wins over all other filters (work.list short-circuits to inArray).
+		if (ids !== undefined) {
+			const result = await work.list(db, "task", {
+				ids: ids.split(",").filter((id) => id.length > 0),
+			});
+			return c.json(result);
+		}
+
+		// `parent_id=root` means tasks with no parent (NULL parent_task_id).
+		const parentTaskId: string | null | undefined =
+			parentIdParam === "root"
+				? null
+				: parentIdParam !== undefined
+					? parentIdParam
+					: undefined;
+
+		const result = await work.list(db, "task", {
+			...(parentTaskId !== undefined ? { parentTaskId } : {}),
+			...(teamId ? { teamId } : {}),
+			...(state ? { state } : {}),
+			...(owner ? { ownerAgentId: owner } : {}),
+			...(q ? { text: q } : {}),
+		});
+
+		return c.json(result);
+	});
+
+	// -------------------------------------------------------------------------
+	// GET /tasks/:id — bare row
+	// -------------------------------------------------------------------------
+	router.get("/:id", async (c) => {
+		const taskId = c.req.param("id");
+		const task = await work.get(db, "task", taskId);
+		if (!task) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		return c.json(task);
+	});
+
+	// -------------------------------------------------------------------------
+	// GET /tasks/:id/tree
+	// Returns { task, ancestors: Task[], children: TaskNode[], tokensActualRollup }
+	// ancestors: root-first for the breadcrumb.
+	// children: recursively nested.
+	// tokensActualRollup: summed over the whole subtree at read time (no rollup col).
+	// -------------------------------------------------------------------------
+	router.get("/:id/tree", async (c) => {
+		const taskId = c.req.param("id");
+
+		const task = await work.get(db, "task", taskId);
+		if (!task) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		// Ancestors: nearest-first from listAncestorIds, reversed for root-first.
+		const ancestorIds = await work.listAncestorIds(db, taskId);
+		const ancestorTasks =
+			ancestorIds.length > 0
+				? await work.list(db, "task", { ids: ancestorIds })
+				: [];
+		// Re-sort root-first: listAncestorIds returns nearest-first (depth 1, 2, …).
+		const ancestorById = new Map(ancestorTasks.map((t) => [t.id, t]));
+		const ancestors: Task[] = [...ancestorIds].reverse().flatMap((id) => {
+			const t = ancestorById.get(id);
+			return t ? [t] : [];
+		});
+
+		// Subtree: all descendants (inclusive of root).
+		const subtreeIds = await work.listSubtreeIds(db, taskId);
+		const subtreeTasks =
+			subtreeIds.length > 0
+				? await work.list(db, "task", { ids: subtreeIds })
+				: [task];
+
+		// Build nested children structure (excluding root itself).
+		const children = buildChildren(subtreeTasks, taskId);
+
+		// Token rollup across the whole subtree.
+		const tokensActualRollup = sumTokensActual(subtreeTasks);
+
+		return c.json({ task, ancestors, children, tokensActualRollup });
+	});
+
+	// -------------------------------------------------------------------------
+	// POST /tasks — create with optional parentTaskId
+	// teamId may be omitted when parentTaskId is given (inherited from parent).
+	// -------------------------------------------------------------------------
 	router.post("/", validateBody(createTaskSchema), async (c) => {
 		const body = c.req.valid("json" as never) as z.infer<typeof createTaskSchema>;
 		const now = new Date().toISOString();
 
-		// Validate bet exists
-		const bet = await work.get(db, "bet", body.betId);
-		if (!bet) {
-			return c.json({ error: "Bet not found", code: "NOT_FOUND" }, 404);
+		let resolvedTeamId = body.teamId;
+
+		if (body.parentTaskId !== undefined) {
+			// Assert no cycle before creating (creating under self is impossible,
+			// but a round-trip to a corrupt subtree should still be guarded).
+			const parent = await work.get(db, "task", body.parentTaskId);
+			if (!parent) {
+				return c.json({ error: "Parent task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+			}
+			// Inherit teamId from parent when not supplied.
+			resolvedTeamId ??= parent.teamId;
+		}
+
+		if (!resolvedTeamId) {
+			return c.json({ error: "teamId is required", code: API_ERROR_CODES.VALIDATION_ERROR }, 400);
 		}
 
 		const taskId = crypto.randomUUID();
 		await work.create(db, "task", {
 			id: taskId,
-			betId: body.betId,
-			teamId: bet.teamId,
+			parentTaskId: body.parentTaskId ?? null,
+			teamId: resolvedTeamId,
 			title: body.title,
 			description: body.description ?? null,
 			doneCondition: body.doneCondition ?? null,
@@ -103,48 +318,130 @@ export function createTaskRoutes(
 		return c.json(created, 201);
 	});
 
-	// GET /tasks — list, filterable by ids, bet_id, state, owner
+	// -------------------------------------------------------------------------
+	// PATCH /tasks/:id — the ONE edit door (BB1).
 	//
-	// @lore AU26 review W4: `?ids=a,b,c` reads N tasks in ONE request. The J4
-	// move composes agent-run state with task titles in the browser, and without
-	// this it had to issue `GET /tasks/:id` per task — the same N+1 `@lore AB1
-	// S2` had already removed once, server-side. `work.list`'s `ids` filter
-	// existed all along; only the route had no way to ask for it. `ids` wins over
-	// the other filters, because that is what `work.list` does with it (it
-	// short-circuits to an `inArray` read).
-	router.get("/", async (c) => {
-		const ids = c.req.query("ids");
-		const betId = c.req.query("bet_id");
-		const state = c.req.query("state");
-		const owner = c.req.query("owner");
+	// Rules (api-contract.md §PATCH):
+	//   1. No actor gate. Human and agent get identical results.
+	//   2. `state` routes through transitionTask (never a bare column write).
+	//   3. `parentTaskId` calls assertNoCycle INSIDE the same transaction as the write.
+	//   4. Everything else is a plain field write + updatedAt.
+	//   5. Unknown keys rejected (400) — enforced by .strict() on the schema.
+	// -------------------------------------------------------------------------
+	router.patch("/:id", validateBody(patchTaskSchema), async (c) => {
+		const taskId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof patchTaskSchema>;
 
-		const result = await work.list(db, "task", {
-			// `?ids=` present but empty means "no tasks", never "every task".
-			...(ids !== undefined ? { ids: ids.split(",").filter((id) => id.length > 0) } : {}),
-			...(betId ? { betId } : {}),
-			...(state ? { state } : {}),
-			...(owner ? { ownerAgentId: owner } : {}),
-		});
+		// Separate state and parentTaskId from the plain-field patch.
+		const { state, parentTaskId, ...plainFields } = body;
 
-		return c.json(result);
+		// Verify the task exists before any writes.
+		const existing = await work.get(db, "task", taskId);
+		if (!existing) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		const now = new Date().toISOString();
+
+		try {
+			// -- parentTaskId reparent (must assertNoCycle INSIDE the transaction) --
+			if (parentTaskId !== undefined) {
+				await db.transaction(async (tx) => {
+					if (parentTaskId !== null) {
+						await assertNoCycle(tx, taskId, parentTaskId);
+					}
+					// Write parentTaskId and any other plain fields together.
+					const patch: Record<string, unknown> = { ...plainFields, parentTaskId, updatedAt: now };
+					await work.update(tx, "task", taskId, patch);
+				});
+			} else if (Object.keys(plainFields).length > 0) {
+				// Plain field writes only.
+				await work.update(db, "task", taskId, { ...plainFields, updatedAt: now });
+			}
+
+			// -- state transition (after plain writes so the task is already in its new shape) --
+			if (state !== undefined) {
+				const deps = buildTaskDeps(agentOrchestration);
+				await transitionTask(db, eventBus, taskId, state, deps);
+			}
+		} catch (err) {
+			if (err instanceof TaskCycleError) {
+				return c.json({ error: err.message, code: "TASK_CYCLE" }, 409);
+			}
+			if (err instanceof InvalidTransitionError) {
+				return c.json({ error: err.message, code: "INVALID_TRANSITION" }, 409);
+			}
+			if (err instanceof CapacityExceededError) {
+				return c.json({ error: err.message, code: "CAPACITY_EXCEEDED" }, 409);
+			}
+			throw err;
+		}
+
+		const updated = await work.get(db, "task", taskId);
+		if (!updated) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		return c.json(updated);
 	});
 
-	// GET /tasks/:id — bare task detail (AU21 §9 Increment 2: `CoreApiPort.work.getTaskById`'s
-	// backing route — no bare detail route existed before this; only the
-	// enriched `GET /bets/:id` (tasks nested under a bet) served task rows).
-	router.get("/:id", async (c) => {
+	// -------------------------------------------------------------------------
+	// POST /tasks/:id/kill — recursive cascade kill
+	// -------------------------------------------------------------------------
+	router.post("/:id/kill", validateBody(killTaskSchema), async (c) => {
 		const taskId = c.req.param("id");
+		c.req.valid("json" as never);
+
 		const task = await work.get(db, "task", taskId);
 		if (!task) {
 			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
-		return c.json(task);
+
+		try {
+			const deps = buildKillDeps(agentOrchestration);
+			const result = await cascadeTaskKill(db, eventBus, taskId, deps);
+			return c.json(result);
+		} catch (err) {
+			if (err instanceof InvalidTransitionError) {
+				return c.json({ error: err.message, code: "INVALID_TRANSITION" }, 409);
+			}
+			throw err;
+		}
 	});
 
-	// PATCH /tasks/:id/notes — atomic note append (AU21 §9 Increment 2:
-	// `CoreApiPort.work.appendTaskNote`'s backing route). Returns 404 (not a
-	// thrown error) when the task does not exist — the seam maps that to an
-	// `undefined` resolve, matching `work-service.ts`'s no-pre-read contract.
+	// -------------------------------------------------------------------------
+	// POST /tasks/:id/outcome — record task outcome (verdict + optional summary).
+	// The learning half of the deleted bet retro.
+	// -------------------------------------------------------------------------
+	router.post("/:id/outcome", validateBody(outcomeSchema), async (c) => {
+		const taskId = c.req.param("id");
+		const body = c.req.valid("json" as never) as z.infer<typeof outcomeSchema>;
+
+		const task = await work.get(db, "task", taskId);
+		if (!task) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+
+		const now = new Date().toISOString();
+		const actor = c.get("userId") ?? null;
+
+		await work.update(db, "task", taskId, {
+			outcomeVerdict: body.verdict,
+			outcomeSummary: body.summary ?? null,
+			outcomeRecordedAt: now,
+			outcomeRecordedBy: actor,
+			updatedAt: now,
+		});
+
+		const updated = await work.get(db, "task", taskId);
+		if (!updated) {
+			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
+		}
+		return c.json(updated);
+	});
+
+	// -------------------------------------------------------------------------
+	// PATCH /tasks/:id/notes — atomic note append (unchanged from pre-BB1).
+	// -------------------------------------------------------------------------
 	router.patch("/:id/notes", validateBody(appendTaskNoteSchema), async (c) => {
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof appendTaskNoteSchema>;
@@ -156,15 +453,9 @@ export function createTaskRoutes(
 		return c.json(result);
 	});
 
-	// @lore AU26 J4: `GET /tasks/:id/sessions` is DELETED. Its entire payload was
-	// agent-run data — core-api reading `agent-orchestration`'s `sessions` table
-	// to serve a list OF RUNS. Founder ruling: *"orchestration now has an api so
-	// that the ui can get the agent run state from the orchestration directly."*
-	// `useTaskSessions` now calls
-	// `GET /api/agent-orchestration/runs?task_id=…` and does the same mapping
-	// client-side, so the task view and the task sheet render identically.
-
-	// POST /tasks/:id/handoff — hand off task to another agent/role/human
+	// -------------------------------------------------------------------------
+	// POST /tasks/:id/handoff — hand off to another agent/role/human (unchanged).
+	// -------------------------------------------------------------------------
 	router.post("/:id/handoff", validateBody(handoffSchema), async (c) => {
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof handoffSchema>;
@@ -174,29 +465,12 @@ export function createTaskRoutes(
 			return c.json({ error: "Task not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		// @lore AU26 J4: the run row comes down the READ DOOR, not a raw
-		// `db.select().from(sessions)` — a core-api Layer route reading the other
-		// Layer's data goes through `AgentOrchestrationPort.sessions.getById`
-		// (§D-A rule 3), the same way `sessions-routes.ts` already does. No new
-		// port surface: this reuses the method that already exists. Only two
-		// fields are read below, and both are genuinely core's need — the 404
-		// (handing off a non-existent run must fail) and `agentId` (the author of
-		// every thread, message and item the handoff creates), which is a
-		// property of the run and cannot be derived from anything core owns.
+		// @lore AU26 J4: reads the run through the seam's read door, not a direct table read.
 		const session = await agentOrchestration.sessions.getById(body.sessionId);
 		if (!session) {
 			return c.json({ error: "Session not found", code: API_ERROR_CODES.NOT_FOUND }, 404);
 		}
 
-		// Build the minimal handoff context.
-		//
-		// @lore AU26 J1: `sandboxPath`, `ingestion` and `traceId` are DELETED.
-		// `handoff` takes `PolicySessionContext = {sessionId, agentId, taskId}`
-		// (`policy/src/ports.ts:17-21`) and reads exactly those three — the other
-		// three were constructed here and never read by anything, and with them
-		// goes the `session.sandboxSnapshot` read. The `/tmp/.hyperidle-noop-*`
-		// sentinel guarded `endSession`'s `fs.promises.rm`, a code path this route
-		// no longer reaches now that H1 moved the run-end write down.
 		const sessionContext: PolicySessionContext = {
 			sessionId: session.id,
 			agentId: session.agentId,

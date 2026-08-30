@@ -98,7 +98,7 @@ export const Selected = (): React.JSX.Element => (
 		snippet="Conversion up 8% on the $29 tier"
 		timestamp="1h"
 		selected={true}
-		hostTag="bet"
+		hostTag="task"
 		avatars={[{ initials: "TG" }]}
 		messageCount={4}
 	/>

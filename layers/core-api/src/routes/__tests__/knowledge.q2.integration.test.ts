@@ -223,18 +223,19 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 		expect(res.status).toBe(201);
 	});
 
-	test("POST with scopeKind=bet and scopeId=bet-123 returns 201", async ({ db, app }) => {
+	// BB1: scopeKind="bet" removed — use "task" instead for task-scoped knowledge.
+	test("POST with scopeKind=task and scopeId=task-123 returns 201", async ({ db, app }) => {
 		await seedFounder(db, "u-founder");
 		const res = await app.request("/api/knowledge", {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				title: "Bet knowledge",
-				body: "What we learned from this bet",
+				title: "Task knowledge",
+				body: "What we learned from this task",
 				format: "markdown",
 				updatedBy: "u-founder",
-				scopeKind: "bet",
-				scopeId: "bet-123",
+				scopeKind: "task",
+				scopeId: "task-123",
 			}),
 		});
 		expect(res.status).toBe(201);
@@ -246,18 +247,19 @@ describe("Q2 AC-4: POST /api/knowledge scope validation", () => {
 			method: "POST",
 			headers: authHeaders(),
 			body: JSON.stringify({
-				title: "Bet item",
+				title: "Task item",
 				body: "Body",
 				format: "markdown",
 				updatedBy: "u-founder",
-				scopeKind: "bet",
-				scopeId: "bet-abc",
+				scopeKind: "task",
+				scopeId: "task-abc",
 			}),
 		});
 		expect(res.status).toBe(201);
 		const body = (await res.json()) as { scopeKind: string; scopeId: string };
-		expect(body.scopeKind).toBe("bet");
-		expect(body.scopeId).toBe("bet-abc");
+		// BB1: "bet" scope removed; "task" is the equivalent work-scoped kind.
+		expect(body.scopeKind).toBe("task");
+		expect(body.scopeId).toBe("task-abc");
 	});
 });
 
@@ -551,7 +553,7 @@ describe("Q2 AC-8: all scope kinds use the same schema and lifecycle", () => {
 		{ scopeKind: "product", scopeId: "prod-1" },
 		{ scopeKind: "practice", scopeId: "fe-practice" },
 		{ scopeKind: "team", scopeId: "team-1" },
-		{ scopeKind: "bet", scopeId: "bet-1" },
+		// BB1: "bet" scopeKind removed — "task" covers work-scoped items.
 		{ scopeKind: "task", scopeId: "task-1" },
 		{ scopeKind: "user", scopeId: null },
 	];
@@ -686,15 +688,16 @@ describe("Q2 AC-9: fabric layer assignment on creation", () => {
 		expect(fabricRow?.layer).toBe("L1");
 	});
 
-	test("bet-scoped item has no layer (null) in fabric", async ({ db, app }) => {
+	// BB1: "bet" scope removed. All task-scoped items (root or subtask) get layer=L1
+	// because scopeKind drives layer assignment, not task depth.
+	test("task-scoped item (root task) also gets layer=L1 in fabric", async ({ db, app }) => {
 		await seedFounder(db, "u-founder");
-		const id = await createItem(app, "bet", "bet-1");
+		const id = await createItem(app, "task", "task-root-1");
 		const [fabricRow] = await db
 			.select()
 			.from(knowledgeAppProjection)
 			.where(eq(knowledgeAppProjection.knowledgeItemId, id));
-		// bet has null layer — fabric row may not exist or has null layer
-		expect(fabricRow?.layer ?? null).toBeNull();
+		expect(fabricRow?.layer).toBe("L1");
 	});
 
 	test("team-scoped item has no layer (null) in fabric", async ({ db, app }) => {
@@ -756,7 +759,7 @@ describe("Q2 AC-10: scope_kind closed enum validation at API boundary", () => {
 		{ kind: "product", id: "prod-1" },
 		{ kind: "practice", id: "fe" },
 		{ kind: "team", id: "team-1" },
-		{ kind: "bet", id: "bet-1" },
+		// BB1: "bet" scopeKind removed — tasks are the single work primitive.
 		{ kind: "task", id: "task-1" },
 		{ kind: "user", id: null },
 	];

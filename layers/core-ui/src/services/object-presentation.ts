@@ -1,6 +1,6 @@
+// @lore BB1: "bet" removed — a bet is a task with no parent.
 export type ProductObjectKind =
 	| "team"
-	| "bet"
 	| "task"
 	| "routine"
 	| "agent"
@@ -10,7 +10,7 @@ export type ProductObjectKind =
 	| "review"
 	| "session";
 export const PRODUCT_OBJECT_KINDS =
-	"team bet task routine agent thread knowledge_item artifact review session".split(
+	"team task routine agent thread knowledge_item artifact review session".split(
 		" ",
 	) as ProductObjectKind[];
 export type OpenIntent = "navigate" | "inspect" | "act";

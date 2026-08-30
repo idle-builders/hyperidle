@@ -108,7 +108,7 @@ const EVENT_TRIGGERED: RoutineDetail = {
 		...ROUTINE_DETAIL.routine,
 		triggerType: "event",
 		triggerConfig: null,
-		eventType: "bet_state_changed",
+		eventType: "task_state_changed",
 		scheduleLabel: "On bet state changed",
 	},
 };

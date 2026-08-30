@@ -54,7 +54,8 @@ describe("registerWorkStatePushGateway — work-state push forwarder", () => {
 		expect(payload.data).toEqual({ taskId: "task-1", toState: "accepted" });
 	});
 
-	test("pushes the changed betId/toState on bet_state_changed, not an invalidate ping", async ({
+	// BB1: bet_state_changed deleted — root tasks fire task_state_changed.
+	test("pushes the changed taskId/toState on task_state_changed for root tasks too", async ({
 		db: _db,
 		eventBus,
 	}) => {
@@ -62,11 +63,11 @@ describe("registerWorkStatePushGateway — work-state push forwarder", () => {
 		registerWorkStatePushGateway(eventBus, target);
 
 		eventBus.emit({
-			type: "bet_state_changed",
-			streamId: "bet-1",
-			betId: "bet-1",
-			fromState: "active",
-			toState: "completed",
+			type: "task_state_changed",
+			streamId: "task-root-1",
+			taskId: "task-root-1",
+			fromState: "proposed",
+			toState: "in_progress",
 			timestamp: Date.now(),
 		});
 
@@ -74,8 +75,8 @@ describe("registerWorkStatePushGateway — work-state push forwarder", () => {
 		expect(target.calls[0]?.topic).toBe("work");
 		const payload = JSON.parse(target.calls[0]?.data ?? "{}");
 		expect(payload.type).toBe("update");
-		expect(payload.kind).toBe("bet_state_changed");
-		expect(payload.data).toEqual({ betId: "bet-1", toState: "completed" });
+		expect(payload.kind).toBe("task_state_changed");
+		expect(payload.data).toEqual({ taskId: "task-root-1", toState: "in_progress" });
 	});
 
 	test("the unregister function stops all forwarding", async ({ db: _db, eventBus }) => {
@@ -92,11 +93,11 @@ describe("registerWorkStatePushGateway — work-state push forwarder", () => {
 			timestamp: Date.now(),
 		});
 		eventBus.emit({
-			type: "bet_state_changed",
-			streamId: "bet-2",
-			betId: "bet-2",
-			fromState: "active",
-			toState: "completed",
+			type: "task_state_changed",
+			streamId: "task-root-2",
+			taskId: "task-root-2",
+			fromState: "proposed",
+			toState: "in_progress",
 			timestamp: Date.now(),
 		});
 

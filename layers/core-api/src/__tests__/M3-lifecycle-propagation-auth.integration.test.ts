@@ -14,7 +14,7 @@ import {
 	updateThread,
 } from "@hyperidle/conversation";
 import type { WriteExecutor } from "@hyperidle/db";
-import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { type PolicyDeps, registerPolicy } from "@hyperidle/policy";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
@@ -37,15 +37,10 @@ const lifecyclePropagationDeps: PolicyDeps = {
 				guard: { field: "state", equals: fromState },
 				patch,
 			}),
-		getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
-		transitionBetStatus: (exec, { betId, fromStatus, patch }) =>
-			work.transition(exec, "bet", {
-				id: betId,
-				guard: { field: "status", equals: fromStatus },
-				patch,
-			}),
-		listTasks: (exec: WriteExecutor, opts?: { betId?: string }) =>
-			work.list(exec, "task", opts ?? {}),
+		listChildTasks: (exec: WriteExecutor, parentTaskId: string) =>
+			work.list(exec, "task", { parentTaskId }),
+		listAncestorIds: (exec: WriteExecutor, taskId: string) =>
+			work.listAncestorIds(exec, taskId),
 		getItemById: (exec: WriteExecutor, id: string) => work.get(exec, "item", id),
 		updateItemById: (exec: WriteExecutor, id: string, patch) =>
 			work.update(exec, "item", id, patch),
@@ -95,13 +90,15 @@ async function seedBase(db: HyperIdleDb, founderId = "test-founder-1"): Promise<
 		.insert(teams)
 		.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
 
-	// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
-	await db.insert(bets).values({
+	// BB1: bets replaced by root tasks (parentTaskId: null)
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "prod-1",
-		description: "Test bet",
-		status: "active",
+		title: "Test bet",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 
 	await db.insert(users).values({
@@ -126,7 +123,7 @@ async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 	// @lore U1: tasks.teamId references `teams` (domain entity), not `teamMembers`.
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "prod-1",
 		ownerAgentId: "agent-1",
 		title: "Done task 1",
@@ -137,7 +134,7 @@ async function seedDoneTasks(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(tasks).values({
 		id: "task-2",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "prod-1",
 		ownerAgentId: "agent-1",
 		title: "Done task 2",

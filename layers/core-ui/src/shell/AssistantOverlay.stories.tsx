@@ -18,7 +18,7 @@ const anchorRef = createRef<HTMLButtonElement>();
 const noop = (): void => undefined;
 
 const contextRefs: AssistantContextRef[] = [
-	{ kind: "bet", id: "bet-1", label: "Ambrovia v2" },
+	{ kind: "task", id: "task-1", label: "Ambrovia v2" },
 	{ kind: "task", id: "task-1", label: "Fix authentication bug" },
 ];
 

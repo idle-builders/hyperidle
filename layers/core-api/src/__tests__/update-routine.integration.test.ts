@@ -8,7 +8,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, routines, tasks, teams, users } from "@hyperidle/db";
+import { routines, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect } from "vitest";
@@ -29,7 +29,7 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 }> {
 	const teamId = `team-${Date.now()}`;
 	const agentId = `agent-${Date.now()}`;
-	const betId = `bet-${Date.now()}`;
+	const rootTaskId = `bet-${Date.now()}`;
 	const stubTaskId = `task-${Date.now()}`;
 	const routineId = `routine-${Date.now()}`;
 
@@ -42,16 +42,19 @@ async function seedRoutine(db: Parameters<typeof makeContext>[0]): Promise<{
 		teamId: teamId,
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "Stub bet",
 		description: "Stub bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: stubTaskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		title: "Routine: Test Routine",
 		state: "accepted",

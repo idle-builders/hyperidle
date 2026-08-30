@@ -28,7 +28,6 @@ import {
 } from "@hyperidle/agent-orchestration";
 import {
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
@@ -83,14 +82,14 @@ function makeAbortTracker(): { aborted: Set<string>; abort: (sessionId: string) 
 async function seedWorld(db: HyperIdleDb): Promise<{
 	agentId: string;
 	taskId: string;
-	betId: string;
+	rootTaskId: string;
 	threadId: string;
 	reviewMessageId: string;
 	artifactId: string;
 }> {
 	const teamId = `team-cap-${crypto.randomUUID()}`;
 	const agentId = `agent-cap-${crypto.randomUUID()}`;
-	const betId = `bet-cap-${crypto.randomUUID()}`;
+	const rootTaskId = `bet-cap-${crypto.randomUUID()}`;
 	const taskId = `task-cap-${crypto.randomUUID()}`;
 	const artifactId = `art-cap-${crypto.randomUUID()}`;
 
@@ -103,16 +102,19 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "Cap bet",
 		description: "Cap bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		ownerAgentId: agentId,
 		title: "Cap task",
@@ -131,7 +133,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 	await db.insert(threads).values({
 		id: threadId,
 		hostKind: "bet",
-		hostId: betId,
+		hostId: rootTaskId,
 		initiatorId: agentId,
 		participants: JSON.stringify([agentId]),
 		lastActiveAt: NOW,
@@ -153,7 +155,7 @@ async function seedWorld(db: HyperIdleDb): Promise<{
 		createdAt: NOW,
 	});
 
-	return { agentId, taskId, betId, threadId, reviewMessageId, artifactId };
+	return { agentId, taskId, rootTaskId, threadId, reviewMessageId, artifactId };
 }
 
 function makeCtx(
@@ -389,7 +391,7 @@ describe("AC9: descriptive artifact does not capture or execute on approve", () 
 		db,
 		app,
 	}) => {
-		const { agentId, taskId, betId } = await seedWorld(db);
+		const { agentId, taskId, rootTaskId } = await seedWorld(db);
 
 		// Descriptive artifact (code diff, not action_operation)
 		const descArtifactId = `art-desc-${crypto.randomUUID()}`;
@@ -404,7 +406,7 @@ describe("AC9: descriptive artifact does not capture or execute on approve", () 
 		await db.insert(threads).values({
 			id: threadId,
 			hostKind: "bet",
-			hostId: betId,
+			hostId: rootTaskId,
 			initiatorId: agentId,
 			participants: JSON.stringify([agentId]),
 			lastActiveAt: NOW,

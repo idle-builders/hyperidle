@@ -799,16 +799,16 @@ function KnowledgeDetailView({
 	}
 
 	/**
-	 * AK5: Promote-to-bet handler.
-	 * Single-team: POST /api/bets with sourceKnowledgeItemId → navigate to /work/bet/:id.
-	 * Multi-team: navigate to /work/bet/new?fromKnowledge=:id (team picker in WorkBetCreate).
+	 * @lore BB1: Promote-to-task handler — POSTs to /api/tasks.
+	 * Single-team: POST /api/tasks with sourceKnowledgeItemId → navigate to /work/task/:id.
+	 * Multi-team: navigate to /work/task/new?fromKnowledge=:id (team picker in WorkTaskCreate).
 	 *
 	 * @lore AK5: team resolution uses useTeams() (already used in WorkBetCreate).
 	 * Single-team auto-resolves (the common factory case) — zero friction.
 	 * Multi-team falls back to the existing WorkBetCreate page which has the team Select
 	 * and already collects the required teamId before creating the bet.
 	 */
-	async function handlePromoteToBet(): Promise<void> {
+	async function handlePromoteToTask(): Promise<void> {
 		closeOverflow();
 		const teams = teamsData?.teams ?? [];
 		const singleTeam = teams.length === 1;
@@ -816,7 +816,7 @@ function KnowledgeDetailView({
 		if (!singleTeam) {
 			// Multi-team: navigate to WorkBetCreate with fromKnowledge param; provenance
 			// is carried through by WorkBetCreate's ?fromKnowledge= pre-fill path (task 7).
-			navigate(`/work/bet/new?fromKnowledge=${encodeURIComponent(effectiveKnowledgeId)}`);
+			navigate(`/work/task/new?fromKnowledge=${encodeURIComponent(effectiveKnowledgeId)}`);
 			return;
 		}
 
@@ -825,7 +825,7 @@ function KnowledgeDetailView({
 
 		setPromoteError(null);
 		try {
-			const res = await apiFetch("/api/bets", {
+			const res = await apiFetch("/api/tasks", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -836,7 +836,7 @@ function KnowledgeDetailView({
 			});
 			if (res.ok) {
 				const data = (await res.json()) as { id: string };
-				navigate(`/work/bet/${data.id}`);
+				navigate(`/work/task/${data.id}`);
 			} else {
 				const data = (await res.json().catch(() => ({}))) as { error?: string };
 				setPromoteError(data.error ?? `Promote failed: ${res.status}`);
@@ -970,7 +970,7 @@ function KnowledgeDetailView({
 										setScopeChangeOpen(true);
 										closeOverflow();
 									}}
-									onPromoteToBet={() => void handlePromoteToBet()}
+									onPromoteToBet={() => void handlePromoteToTask()}
 									archiving={archiving}
 									itemStatus={item.status}
 									isReadOnly={isReadOnly}

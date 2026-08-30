@@ -96,7 +96,6 @@ export interface SeedTeamOptions {
 	readonly createdAt?: string;
 	readonly teamMembersId?: string;
 	readonly capacity?: number;
-	readonly activeBets?: number;
 	readonly formedAt?: string;
 }
 
@@ -123,7 +122,6 @@ export async function seedTeam(
 		factoryDbPath: options.factoryDbPath,
 		createdAt,
 		capacity: options.capacity ?? 5,
-		activeBets: options.activeBets ?? 0,
 		formedAt: options.formedAt ?? createdAt,
 	});
 	// teamMembersId = id after the fold — kept in return for caller backward compat.

@@ -30,9 +30,8 @@ const BASE_TEAM: TeamDetail = {
 	roster: [],
 	burn: {
 		capacity: 5,
-		activeBets: 0,
 	},
-	activeBets: [],
+	tasksInProgress: [],
 	routines: [],
 };
 

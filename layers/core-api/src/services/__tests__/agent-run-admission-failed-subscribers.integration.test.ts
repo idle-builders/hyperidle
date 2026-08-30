@@ -43,7 +43,6 @@
 import {
 	agentWorkIntents,
 	artifacts,
-	bets,
 	explicitSessionStarts,
 	type HyperIdleDb,
 	items,
@@ -203,16 +202,19 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		// The dispatch attempt's agent is not runnable (paused) — forces
 		// requireRunnableActor's InvalidAgentWorkSourceError at drain.
 		await seedAgent(db, "w0-sub-task-agent", { teamId, status: "paused" });
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "w0-sub-task-bet",
-			teamId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Wave 0 subscriber bet",
 			description: "Wave 0 subscriber bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 		await db.insert(tasks).values({
 			id: "w0-sub-task",
-			betId: "w0-sub-task-bet",
+			parentTaskId: "w0-sub-task-bet",
 			teamId,
 			title: "Wave 0 subscriber task",
 			state: "accepted",
@@ -269,16 +271,19 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 		const { teamId } = await seedTeam(db, "w0-sub-start");
 		// The requested agent is not runnable — forces InvalidAgentWorkSourceError.
 		await seedAgent(db, "w0-sub-start-agent", { teamId, status: "retired" });
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "w0-sub-start-bet",
-			teamId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Wave 0 subscriber bet",
 			description: "Wave 0 subscriber bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 		await db.insert(tasks).values({
 			id: "w0-sub-start-task",
-			betId: "w0-sub-start-bet",
+			parentTaskId: "w0-sub-start-bet",
 			teamId,
 			title: "Wave 0 subscriber task",
 			state: "accepted",
@@ -395,16 +400,19 @@ describe("agent_run_admission_failed — per-kind core-api reactions", () => {
 	}) => {
 		const { teamId } = await seedTeam(db, "w0-sub-reengage");
 		await seedAgent(db, "w0-sub-reengage-agent", { teamId });
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "w0-sub-reengage-bet",
-			teamId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Wave 0 subscriber reengagement bet",
 			description: "Wave 0 subscriber reengagement bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 		await db.insert(tasks).values({
 			id: "w0-sub-reengage-task",
-			betId: "w0-sub-reengage-bet",
+			parentTaskId: "w0-sub-reengage-bet",
 			teamId,
 			title: "Wave 0 subscriber task",
 			state: "in_progress",

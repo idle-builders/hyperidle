@@ -25,7 +25,6 @@
 import {
 	agentWorkIntents,
 	artifacts,
-	bets,
 	filesystemInjections,
 	filesystems,
 	type HyperIdleDb,
@@ -55,7 +54,7 @@ async function seedApprovableWorld(
 	readonly teamId: string;
 }> {
 	const teamId = `${idPrefix}-team`;
-	const betId = `${idPrefix}-bet`;
+	const rootTaskId = `${idPrefix}-bet`;
 	const taskId = `${idPrefix}-task`;
 	const agentId = `${idPrefix}-agent`;
 	const threadId = `${idPrefix}-thread`;
@@ -71,16 +70,19 @@ async function seedApprovableWorld(
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "Reengagement baked-emit test bet",
 		description: "Reengagement baked-emit test bet",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		ownerAgentId: agentId,
 		title: "Reengagement baked-emit test task",
@@ -88,10 +90,11 @@ async function seedApprovableWorld(
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
+	// BB1: hostKind "bet" removed — root tasks use hostKind "task".
 	await db.insert(threads).values({
 		id: threadId,
-		hostKind: "bet",
-		hostId: betId,
+		hostKind: "task",
+		hostId: rootTaskId,
 		initiatorId: agentId,
 		participants: JSON.stringify([agentId]),
 		lastActiveAt: NOW,

@@ -60,7 +60,6 @@ const ROSTER_RUN_STATE = new Map<string, unknown>([
 			healthDetail: "Healthy",
 			activeTaskTitle: null,
 			activeTaskId: null,
-			activeBetId: null,
 		},
 	],
 	[
@@ -71,7 +70,6 @@ const ROSTER_RUN_STATE = new Map<string, unknown>([
 			healthDetail: "2 of 6 sessions failed",
 			activeTaskTitle: null,
 			activeTaskId: null,
-			activeBetId: null,
 		},
 	],
 ]);
@@ -125,13 +123,12 @@ const POPULATED_TEAM: TeamDetail = {
 	roster: [AGENT_HEALTHY, AGENT_WARNING],
 	burn: {
 		capacity: 5,
-		activeBets: 2,
 	},
-	activeBets: [
+	tasksInProgress: [
 		{
 			id: "bet-1",
-			descriptionTitle: "Auth migration",
-			status: "active",
+			title: "Auth migration",
+			state: "in_progress" as const,
 			progressDone: 1,
 			progressTotal: 2,
 		},
@@ -168,9 +165,8 @@ const EMPTY_TEAM: TeamDetail = {
 	roster: [],
 	burn: {
 		capacity: 5,
-		activeBets: 0,
 	},
-	activeBets: [],
+	tasksInProgress: [],
 	routines: [],
 };
 
@@ -367,9 +363,9 @@ describe("AG1 AC-3 — empty team agent-health tile", () => {
 		expect(tiles).toHaveLength(2);
 	});
 
-	it("[GREEN] team-active-bets-empty shows when activeBets is empty", () => {
+	it("[GREEN] team-active-tasks-empty shows when activeBets is empty", () => {
 		renderPage(EMPTY_TEAM);
-		expect(screen.getByTestId("team-active-bets-empty")).toBeInTheDocument();
+		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
 	it("[GREEN] team-routines-empty shows when routines is empty", () => {
@@ -452,14 +448,14 @@ describe("AG1 AC-4 — all existing testids preserved (Tier 1 — test-asserted)
 		expect(screen.getByTestId("team-burn-vs-cap")).toBeInTheDocument();
 	});
 
-	it("[GREEN] team-active-bets present (Tier 1)", () => {
+	it("[GREEN] team-active-tasks present (Tier 1)", () => {
 		renderPage(POPULATED_TEAM);
-		expect(screen.getByTestId("team-active-bets")).toBeInTheDocument();
+		expect(screen.getByTestId("team-active-tasks")).toBeInTheDocument();
 	});
 
-	it("[GREEN] team-active-bets-empty present when no bets (Tier 1)", () => {
+	it("[GREEN] team-active-tasks-empty present when no bets (Tier 1)", () => {
 		renderPage(EMPTY_TEAM);
-		expect(screen.getByTestId("team-active-bets-empty")).toBeInTheDocument();
+		expect(screen.getByTestId("team-active-tasks-empty")).toBeInTheDocument();
 	});
 
 	it("[GREEN] team-routines present (Tier 1)", () => {

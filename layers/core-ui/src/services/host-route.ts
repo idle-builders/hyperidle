@@ -17,13 +17,12 @@ import type { HostKind } from "@hyperidle/domain-model";
  */
 export function resolveHostRoute(hostKind: HostKind, hostId: string): string | null {
 	switch (hostKind) {
-		case "bet":
-			return `/work/bet/${hostId}`;
 		case "task":
-			// @lore AM5 H5/BLOCKER-1: task→null (no betId in scope for resolveHostRoute).
-			// The route /work/bet/:betId/task/:taskId requires a betId not available here.
-			// Documented no-op — will be resolved in a future WP that threads betId.
-			return null;
+			// @lore BB1: this used to return null with a note that it could not
+			// build the route, because `/work/bet/:betId/task/:taskId` needed a
+			// betId this function never had. There is no parent to thread now —
+			// one task route at any depth — so the documented no-op is fixed.
+			return `/work/task/${hostId}`;
 		case "knowledge_item":
 			return `/knowledge/${hostId}`;
 		case "artifact":

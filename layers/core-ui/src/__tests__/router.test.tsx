@@ -11,10 +11,10 @@ vi.mock("../hooks/useTeams", () => ({
 					id: "t1",
 					name: "Alpha",
 					status: "healthy",
-					activeBets: 2,
+					tasksInProgress: 2,
 					phase: "build",
 					leadAgentId: null,
-					shipped: 0,
+					tasksDone: 0,
 					shipRate: "—",
 					progress: { done: 0, total: 0 },
 					routineCount: 0,
@@ -24,10 +24,10 @@ vi.mock("../hooks/useTeams", () => ({
 					id: "t2",
 					name: "Beta",
 					status: "behind",
-					activeBets: 0,
+					tasksInProgress: 0,
 					phase: "build",
 					leadAgentId: null,
-					shipped: 0,
+					tasksDone: 0,
 					shipRate: "—",
 					progress: { done: 0, total: 0 },
 					routineCount: 0,
@@ -57,7 +57,7 @@ import { Conversations } from "../pages/Conversations";
 import { KnowledgeDetail } from "../pages/KnowledgeDetail";
 import { KnowledgeList } from "../pages/KnowledgeList";
 import { NotFound } from "../pages/NotFound";
-import { WorkBet } from "../pages/WorkBet";
+import { WorkTaskPage } from "../pages/WorkTaskPage";
 // AD9: WorkPortfolio retired; WorkOverview is the new /work route
 import { WorkOverview } from "../pages/WorkOverview";
 
@@ -91,7 +91,7 @@ function renderRoute(initialPath: string): ReturnType<typeof render> {
 						path: "work/portfolio",
 						element: <Navigate to="/work" replace />,
 					},
-					{ path: "work/bet/:betId", element: <WorkBet /> },
+					{ path: "work/task/:taskId", element: <WorkTaskPage /> },
 					{ path: "knowledge", element: <KnowledgeList /> },
 					{ path: "knowledge/:knowledgeId", element: <KnowledgeDetail /> },
 					{ path: "*", element: <NotFound /> },
@@ -148,10 +148,17 @@ describe("Router (L9)", () => {
 		});
 	});
 
-	it("renders WorkBet page at /work/bet/:betId", async () => {
-		renderRoute("/work/bet/b1");
+	// @lore BB1: /work/bet/:betId replaced by /work/task/:taskId
+	it("renders WorkTaskPage at /work/task/:taskId", async () => {
+		renderRoute("/work/task/t1");
 		await waitFor(() => {
-			expect(screen.getByTestId("work-bet-page")).toBeInTheDocument();
+			// WorkTaskPage shows loading or task-page-not-found (no live API) — both are valid
+			const el =
+				document.querySelector("[data-testid='task-detail-page']") ??
+				document.querySelector("[data-testid='task-page-loading']") ??
+				document.querySelector("[data-testid='task-page-error']") ??
+				document.querySelector("[data-testid='task-page-not-found']");
+			expect(el).not.toBeNull();
 		});
 	});
 

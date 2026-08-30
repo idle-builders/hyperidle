@@ -21,10 +21,6 @@ describe("HOST_SCOPE map", () => {
 		expect(HOST_SCOPE.agent).toBe("participant");
 	});
 
-	it("bet → host-scope", () => {
-		expect(HOST_SCOPE.bet).toBe("host");
-	});
-
 	it("task → host-scope", () => {
 		expect(HOST_SCOPE.task).toBe("host");
 	});
@@ -52,7 +48,6 @@ describe("HOST_SCOPE map", () => {
 
 describe("canRead — host-scope", () => {
 	const hostKinds: Array<AuthorizableResource["hostKind"]> = [
-		"bet",
 		"task",
 		"knowledge_item",
 		"artifact",

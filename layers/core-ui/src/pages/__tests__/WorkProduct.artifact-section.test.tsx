@@ -73,10 +73,9 @@ const MOCK_TEAM: TeamDetail = {
 	teamMembers: { id: "tm-l12", formedAt: "2024-01-01T00:00:00.000Z", dissolvedAt: null },
 	roster: [],
 	burn: {
-		activeBets: 1,
 		capacity: 3,
 	},
-	activeBets: [],
+	tasksInProgress: [],
 };
 
 function renderTeam(teamId = "prod-l12"): ReturnType<typeof render> {

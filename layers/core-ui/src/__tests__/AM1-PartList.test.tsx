@@ -48,7 +48,7 @@ const blockEmbed: Embed = {
 const betBlockEmbed: Embed = {
 	kind: "block",
 	title: "Bet brief · §1",
-	target: { route: "host", hostKind: "bet", hostId: "bet-9" },
+	target: { route: "host", hostKind: "task", hostId: "bet-9" },
 };
 const artifactEmbed: Embed = {
 	kind: "artifact",
@@ -270,7 +270,7 @@ describe("AM1 PartList — onOpen routing seam (AC8)", () => {
 			/>,
 		);
 		fireEvent.click(screen.getByText("Bet brief · §1"));
-		expect(onOpen).toHaveBeenCalledWith({ route: "host", hostKind: "bet", hostId: "bet-9" });
+		expect(onOpen).toHaveBeenCalledWith({ route: "host", hostKind: "task", hostId: "bet-9" });
 	});
 
 	it("clicking an artifact chip fires onOpen({route:artifact})", () => {

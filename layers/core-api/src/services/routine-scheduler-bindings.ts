@@ -84,9 +84,12 @@ async function recomputeAttentionForCandidates(
 export function buildRoutineSchedulerPorts(port: AgentOrchestrationPort): RoutineSchedulerPorts {
 	return {
 		work: {
-			getBetById: (db, id) => work.get(db, "bet", id),
 			// BA9c: getTaskById for trigger event subject assembly.
-			getTaskById: (db, id) => work.get(db, "task", id),
+			getTaskById: async (db, id) => {
+				const row = await work.get(db, "task", id);
+				if (!row) return undefined;
+				return { id: row.id, title: row.title, description: row.description, state: row.state, parentTaskId: row.parentTaskId };
+			},
 			// BA9c: getItemById — work item (items table) for item_created events.
 			getItemById: (db, id) => work.get(db, "item", id),
 			// BA9c: getArtifactById — artifact for artifact_created events.

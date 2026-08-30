@@ -9,7 +9,6 @@
 
 import {
 	agentWorkIntents,
-	bets,
 	type HyperIdleDb,
 	routineRuns,
 	routines,
@@ -57,18 +56,20 @@ async function seedRoutine(db: HyperIdleDb): Promise<{ routineId: string; taskId
 		teamId: "team-1",
 		createdAt: now,
 	});
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
 		title: "Test task",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "team-1",
 		state: "in_progress",
 		ownerAgentId: "agent-1",

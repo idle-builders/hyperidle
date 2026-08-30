@@ -156,7 +156,7 @@ describe("AF14 — AssistantOverlay ThreadShell integration (assistant configura
 describe("AF14 — AssistantOverlay context attachment (AC-7)", () => {
 	it("renders context chips above the composer when contextRefs is non-empty", () => {
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
-			{ kind: "bet", id: "bet-123", label: "Ambrovia v2" },
+			{ kind: "task", id: "task-123", label: "Ambrovia v2" },
 		];
 		renderOverlay(true, contextRefs);
 		// A chip for the attached bet must appear.
@@ -165,7 +165,7 @@ describe("AF14 — AssistantOverlay context attachment (AC-7)", () => {
 
 	it("renders a dismiss button for each context chip", () => {
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
-			{ kind: "bet", id: "bet-123", label: "Ambrovia v2" },
+			{ kind: "task", id: "task-123", label: "Ambrovia v2" },
 			{ kind: "task", id: "task-456", label: "Fix bug" },
 		];
 		renderOverlay(true, contextRefs);
@@ -178,7 +178,7 @@ describe("AF14 — AssistantOverlay context attachment (AC-7)", () => {
 		const user = userEvent.setup();
 		const onRemoveContextRef = vi.fn();
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
-			{ kind: "bet", id: "bet-123", label: "Ambrovia v2" },
+			{ kind: "task", id: "task-123", label: "Ambrovia v2" },
 		];
 		renderOverlay(true, contextRefs, vi.fn(), onRemoveContextRef);
 		const dismissButton = screen.getByRole("button", { name: /remove|dismiss|×/i });
@@ -194,7 +194,7 @@ describe("AF14 — AssistantOverlay context attachment (AC-7)", () => {
 
 	it("renders context chips area with test-id when contextRefs is non-empty", () => {
 		const contextRefs: ReadonlyArray<AssistantContextRef> = [
-			{ kind: "bet", id: "bet-1", label: "My Bet" },
+			{ kind: "task", id: "task-1", label: "My Bet" },
 		];
 		renderOverlay(true, contextRefs);
 		expect(screen.getByTestId("assistant-context-chips")).toBeInTheDocument();
@@ -253,7 +253,7 @@ describe("AF14 — AssistantContext (AC-10)", () => {
 			attachContext: mockAttachContext,
 		};
 
-		const testRef: AssistantContextRef = { kind: "bet", id: "bet-xyz", label: "Test Bet" };
+		const testRef: AssistantContextRef = { kind: "task", id: "bet-xyz", label: "Test Bet" };
 
 		function Consumer(): null {
 			const { attachContext } = useContext(AssistantContext);

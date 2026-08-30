@@ -21,8 +21,8 @@ export const LockedBetScope = (): React.JSX.Element => {
 			open={open}
 			onClose={() => setOpen(false)}
 			onCreated={() => setOpen(false)}
-			lockedScopeKind="bet"
-			lockedScopeId="bet-abc-123"
+			lockedScopeKind="task"
+			lockedScopeId="task-abc-123"
 		/>
 	);
 };

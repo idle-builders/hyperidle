@@ -29,17 +29,18 @@ describe("AM1 navHandler — OpenTarget → navigate (N1, AC8)", () => {
 		expect(navigate).toHaveBeenCalledWith("/knowledge/k-1");
 	});
 
-	it("host + bet → navigate('/work/bet/:id') (C1 non-knowledge host)", () => {
+	// @lore BB1: task host now navigates to /work/task/:hostId (was /work/bet/:betId)
+	it("host + task → navigate('/work/task/:hostId') (BB1: C1 non-knowledge host)", () => {
 		const navigate = vi.fn();
-		createOpenHandler(navigate)({ route: "host", hostKind: "bet", hostId: "bet-9" });
-		expect(navigate).toHaveBeenCalledWith("/work/bet/bet-9");
+		createOpenHandler(navigate)({ route: "host", hostKind: "task", hostId: "bet-9" });
+		expect(navigate).toHaveBeenCalledWith("/work/task/bet-9");
 	});
 
-	it("host + task → does NOT navigate (AM5 H5/BLOCKER-1: no betId in scope, documented no-op)", () => {
+	// @lore BB1: task now navigates — was a no-op (AM5 H5/BLOCKER-1)
+	it("host + task (any id) → navigate('/work/task/:id') (BB1: no longer a no-op)", () => {
 		const navigate = vi.fn();
 		createOpenHandler(navigate)({ route: "host", hostKind: "task", hostId: "task-3" });
-		// AM5 H5: task host returns null from resolveHostRoute — no navigation (no betId)
-		expect(navigate).not.toHaveBeenCalled();
+		expect(navigate).toHaveBeenCalledWith("/work/task/task-3");
 	});
 
 	it("artifact → navigate('/artifacts/:id')", () => {

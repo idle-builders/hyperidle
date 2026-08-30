@@ -4,7 +4,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { EventBus } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
@@ -22,13 +22,15 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test", phase: "build", createdAt: now });
 
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "b1",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 
 	await db.insert(users).values({
@@ -52,7 +54,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "b1",
+		parentTaskId: "b1",
 		teamId: "p1",
 		ownerAgentId: "agent-a",
 		title: "T1",

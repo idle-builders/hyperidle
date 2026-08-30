@@ -11,7 +11,6 @@
 import {
 	agentRunConfig,
 	agentSessionRequests,
-	bets,
 	messages,
 	sessions,
 	tasks,
@@ -84,16 +83,19 @@ async function seedTaskRequest(
 		teamId: `${id}-team`,
 		createdAt: now,
 	});
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: `${id}-bet`,
+		parentTaskId: null,
 		teamId: `${id}-team`,
+		title: id,
 		description: id,
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: `${id}-task`,
-		betId: `${id}-bet`,
+		parentTaskId: `${id}-bet`,
 		teamId: `${id}-team`,
 		title: id,
 		state: "accepted",

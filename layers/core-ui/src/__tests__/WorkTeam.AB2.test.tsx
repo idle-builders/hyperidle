@@ -51,7 +51,6 @@ const ROSTER_RUN_STATE = new Map([
 			healthDetail: "Healthy",
 			activeTaskTitle: null,
 			activeTaskId: null,
-			activeBetId: null,
 		},
 	],
 	[
@@ -62,7 +61,6 @@ const ROSTER_RUN_STATE = new Map([
 			healthDetail: "Healthy",
 			activeTaskTitle: "Implement file upload",
 			activeTaskId: "task-123",
-			activeBetId: "bet-456",
 		},
 	],
 	[
@@ -73,7 +71,6 @@ const ROSTER_RUN_STATE = new Map([
 			healthDetail: "5 of 6 sessions failed",
 			activeTaskTitle: null,
 			activeTaskId: null,
-			activeBetId: null,
 		},
 	],
 ]);
@@ -104,9 +101,8 @@ const BASE_TEAM: TeamDetail = {
 	roster: [],
 	burn: {
 		capacity: 5,
-		activeBets: 0,
 	},
-	activeBets: [],
+	tasksInProgress: [],
 	routines: [],
 };
 

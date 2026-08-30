@@ -1,7 +1,7 @@
 /**
- * useArtifactThreadSummary — L18 hook for the bet-level artifact thread summary.
+ * useArtifactThreadSummary — L18 hook for the task-level artifact thread summary.
  *
- * Fetches GET /api/bets/:id/artifact-thread-summary and exposes
+ * Fetches GET /api/tasks/:id/artifact-thread-summary and exposes
  * { data, error, isLoading, refresh }.
  *
  * @lore L18: refresh() uses the version-fragment trick (appends #v=N to the URL).
@@ -24,9 +24,9 @@ export interface UseArtifactThreadSummaryResult {
 
 /**
  * Fetches the artifact thread summary for a bet.
- * Pass null as betId to skip the fetch (returns null data immediately).
+ * Pass null as taskId to skip the fetch (returns null data immediately).
  */
-export function useArtifactThreadSummary(betId: string | null): UseArtifactThreadSummaryResult {
+export function useArtifactThreadSummary(taskId: string | null): UseArtifactThreadSummaryResult {
 	const [version, setVersion] = useState(0);
 
 	const refresh = useCallback(() => {
@@ -34,10 +34,10 @@ export function useArtifactThreadSummary(betId: string | null): UseArtifactThrea
 	}, []);
 
 	const url = useMemo(() => {
-		if (!betId) return null;
-		const base = `/api/bets/${encodeURIComponent(betId)}/artifact-thread-summary`;
+		if (!taskId) return null;
+		const base = `/api/tasks/${encodeURIComponent(taskId)}/artifact-thread-summary`;
 		return version > 0 ? `${base}#v=${version}` : base;
-	}, [betId, version]);
+	}, [taskId, version]);
 
 	const state = useFetch<ArtifactThreadSummaryResponse>(url);
 

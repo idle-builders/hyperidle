@@ -28,10 +28,10 @@ function makeResponse(
 	return { summaries, totalCount, truncated };
 }
 
-function renderComponent(betId: string): ReturnType<typeof render> {
+function renderComponent(taskId: string): ReturnType<typeof render> {
 	return render(
 		<MemoryRouter>
-			<ArtifactThreadsSummary betId={betId} />
+			<ArtifactThreadsSummary taskId={taskId} />
 		</MemoryRouter>,
 	);
 }

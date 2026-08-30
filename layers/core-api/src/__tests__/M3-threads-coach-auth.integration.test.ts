@@ -87,8 +87,8 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 			method: "POST",
 			headers: authHeaders(), // No X-Identity header
 			body: JSON.stringify({
-				hostKind: "bet",
-				hostId: "bet-new-1",
+				hostKind: "task",
+				hostId: "task-new-1",
 				participants: ["test-founder-1"],
 				initialMessage: {
 					type: "plain",
@@ -139,8 +139,8 @@ describe("M3 — Thread route readSenderId + readInitialSenderId use auth contex
 			method: "POST",
 			headers: authHeaders(), // No X-Identity — falls through to readInitialSenderId
 			body: JSON.stringify({
-				hostKind: "bet",
-				hostId: "bet-review-1",
+				hostKind: "task",
+				hostId: "task-review-1",
 				participants: ["test-founder-1", "agent-builder-1"],
 				initialMessage: {
 					type: "review",

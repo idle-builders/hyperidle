@@ -177,8 +177,9 @@ describe("AppShell", () => {
 							{ path: "work/portfolio", element: <div>Portfolio Page</div> },
 							{ path: "work/team", element: <div>Team Page</div> },
 							{
-								path: "work/bet/:betId",
-								element: <div data-testid="work-bet-target">Work Bet Target</div>,
+								// @lore BB1: tasks replace bets
+								path: "work/task/:taskId",
+								element: <div data-testid="work-task-target">Work Task Target</div>,
 							},
 							{ path: "knowledge", element: <div>Knowledge Page</div> },
 							{
@@ -205,9 +206,8 @@ describe("AppShell", () => {
 								id: "b42",
 								title: "Bet Fortytwo",
 								team: "HyperIdle",
-								// @lore U1: "committed" merged into "active"
-								status: "active",
-								appetite: "2 weeks",
+								// @lore BB1: work items are now tasks — state replaces status+appetite
+								state: "in_progress",
 							},
 						],
 						knowledge: [
@@ -228,8 +228,8 @@ describe("AppShell", () => {
 			vi.restoreAllMocks();
 		});
 
-		it("navigates work result to /work/bet/{id}", async () => {
-			// I4 N1: work result id must produce /work/bet/<id>.
+		it("navigates work result to /work/task/{id}", async () => {
+			// @lore BB1: work result id must produce /work/task/<id>.
 			const { user, router } = renderShellWithProbes();
 			await user.keyboard("{Meta>}k{/Meta}");
 			// AD9: Sidebar adds a second textbox (search hint). Use placeholder to target
@@ -239,7 +239,7 @@ describe("AppShell", () => {
 			await waitFor(() => expect(screen.getByText("Bet Fortytwo")).toBeInTheDocument());
 			await user.click(screen.getByText("Bet Fortytwo"));
 			await waitFor(() => {
-				expect(router.state.location.pathname).toBe("/work/bet/b42");
+				expect(router.state.location.pathname).toBe("/work/task/b42");
 			});
 		});
 

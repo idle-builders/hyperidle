@@ -109,11 +109,8 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		expect(result.code).toBe("NOT_FOUND");
 	});
 
-	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-	// @lore AU20 repair: read_inbox (1) + write_session_notes (1) + commit_file (1) deleted → 22 → 19.
-	// @lore BA9d wave 2: merge_knowledge + split_knowledge added → 19 → 21.
-	// @lore BA9d wave 3: run_knowledge_sweep added → 21 → 22.
-	test("B3: assistant registry includes all 22 tools", ({ db, app }) => {
+	// @lore BB1: create_bet + edit_bet deleted, edit_task added → 22 → 21.
+	test("B3: assistant registry includes all 21 tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),
@@ -121,12 +118,12 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		);
 		const names = registry.definitions.map((d) => d.name).sort();
 		// 9 base + create_task (R5) + submit_review (R5) + create_artifact (R6) = 12
-		// + 5 AE3 management tools: create_team, add_agent, create_bet, create_routine, update_routine = 17
-		// + 1 AK4 draft tool: edit_bet = 18
-		// + 1 AU27 Increment 2: reply = 19
-		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 21
-		// + 1 BA9d wave 3: run_knowledge_sweep = 22
-		expect(names).toHaveLength(22);
+		// + 4 AE3 management tools: create_team, add_agent, create_routine, update_routine = 16
+		// BB1: create_bet + edit_bet deleted; edit_task added = 17
+		// + 1 AU27 Increment 2: reply = 18
+		// + 2 BA9d wave 2: merge_knowledge + split_knowledge = 20
+		// + 1 BA9d wave 3: run_knowledge_sweep = 21
+		expect(names).toHaveLength(21);
 		for (const t of FACILITATOR_ONLY) {
 			expect(names).toContain(t);
 		}
@@ -145,17 +142,16 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	// AE3 — AC-5: management tool authorization
+	// AE3 — AC-5: management tool authorization (BB1: create_bet removed)
 	const MANAGEMENT_TOOLS = [
 		"create_team",
 		"add_agent",
-		"create_bet",
 		"create_routine",
 		"update_routine",
 	] as const;
 
 	// @lore AD8b: role string "chief_of_staff" renamed to "assistant".
-	test("AE3 AC-5: assistant registry includes all 5 management tools", ({ db, app }) => {
+	test("AE3 AC-5: assistant registry includes all 4 management tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),
@@ -167,7 +163,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	test("AE3 AC-5: builder registry excludes all 5 management tools", ({ db, app }) => {
+	test("AE3 AC-5: builder registry excludes all 4 management tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),
@@ -179,7 +175,7 @@ describe("I2 B1/B2/B3 — buildToolRegistry role filter", () => {
 		}
 	});
 
-	test("AE3 AC-5: facilitator registry excludes all 5 management tools", ({ db, app }) => {
+	test("AE3 AC-5: facilitator registry excludes all 4 management tools", ({ db, app }) => {
 		const registry = buildToolRegistry(
 			buildToolDefinitions(createInProcessCoreApiTransport(app)),
 			makeContext(db),

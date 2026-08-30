@@ -343,7 +343,6 @@ function inlineRefToEmbed(ref: InlineRef): Embed {
 			};
 		case "knowledge_item":
 		case "task":
-		case "bet":
 			return {
 				kind: "entity-ref",
 				entityKind: ref.kind,

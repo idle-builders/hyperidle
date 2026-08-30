@@ -13,7 +13,7 @@
  *  - plan §11 (security/abuse cases)
  */
 
-import { bets, type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { HOST_KINDS, MESSAGE_TYPES } from "@hyperidle/domain-model";
 import type { DomainEvent } from "@hyperidle/event-bus";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -59,18 +59,20 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 		createdAt: now,
 	});
 	// A bet + task for host_kind='task' threads.
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-x",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "x",
 		description: "x",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-x",
+		parentTaskId: "bet-x",
 		teamId: "p1",
 		title: "T",
 		state: "in_progress",

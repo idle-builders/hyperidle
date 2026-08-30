@@ -6,7 +6,7 @@
  * POST /api/conversations/items       — create item
  */
 
-import { bets, type HyperIdleDb, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -29,13 +29,15 @@ async function seedThread(db: HyperIdleDb): Promise<{ threadId: string }> {
 		status: "active",
 		createdAt: now,
 	});
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(threads).values({
 		id: "thread-1",

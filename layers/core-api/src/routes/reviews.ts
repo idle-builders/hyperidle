@@ -41,7 +41,7 @@ const FIXTURE_REVIEW = {
 	// `/api/threads/undefined/messages`.
 	threadId: "thread:AL3:fixture",
 	title: "Fix expired-promo checkout — silent success → typed 422",
-	betId: "bet-123",
+	parentTaskId: "bet-123",
 	betTitle: "Billing reliability",
 	taskId: "task-456",
 	taskTitle: "Fix expired-promo checkout",

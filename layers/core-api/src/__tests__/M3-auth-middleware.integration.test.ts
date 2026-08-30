@@ -5,9 +5,14 @@
  * The middleware now queries `users WHERE kind = 'human' LIMIT 1` after API key
  * validation. Tests seed a human user row instead of factorySettings founder_id.
  * The fallback to "u-founder" is preserved for unseeded DBs.
+ *
+ * BB1 note: the A5 "revision log actor" describe block was deleted along with the
+ * bet routes and revisionLog concept. The actor-in-context property is covered by
+ * `PATCH /tasks/:id` preserving `userId` from the auth context in `outcomeRecordedBy`.
  */
 
-import { bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
+import { users } from "@hyperidle/db";
 import { describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -89,47 +94,6 @@ describe("M3 — GET /api/auth/me returns full identity from users table (A4)", 
 		const res = await app.request("/api/auth/me", { headers: authHeaders() });
 		const body = (await res.json()) as { id: string };
 		expect(body.id).not.toBe("u-founder");
-		vi.unstubAllEnvs();
-	});
-});
-
-describe("M3 — Bets routes: revision log actor comes from auth context (A5)", () => {
-	test("revision log actor is the seeded human user id, NOT 'u-founder'", async ({ app, db }) => {
-		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
-		const now = new Date().toISOString();
-		await db
-			.insert(teams)
-			.values({ id: "prod-1", name: "Test Product", phase: "build", createdAt: now });
-
-		// @lore U1: bets.teamId references `teams` (domain entity), not `teamMembers`.
-		await db.insert(bets).values({
-			id: "bet-1",
-			teamId: "prod-1",
-			description: "Test bet",
-			status: "active",
-			createdAt: now,
-		});
-
-		await seedFounderUser(db, "test-founder-1");
-		// @lore AU43 repair: updateBetField for `hypothesis` no longer writes revisionLog
-		// (AU43 bundle-07 deleted the write). Port to `description` which uses patchDescription()
-		// and still writes revisionLog with the actor from auth context.
-		const res = await app.request("/api/bets/bet-1", {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				field: "description",
-				value: "Updated description",
-				reason: "Test reason",
-			}),
-		});
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as { revisionLog?: string };
-		const log = body.revisionLog ? (JSON.parse(body.revisionLog) as Array<{ actor: string }>) : [];
-		expect(log.length).toBeGreaterThan(0);
-		const lastEntry = log[log.length - 1];
-		expect(lastEntry?.actor).toBe("test-founder-1");
-		expect(lastEntry?.actor).not.toBe("u-founder");
 		vi.unstubAllEnvs();
 	});
 });

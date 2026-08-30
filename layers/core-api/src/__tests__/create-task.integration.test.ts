@@ -2,7 +2,7 @@
  * R5 RED — Unit tests for create_task skill tool.
  *
  * AC1: Agent creates tasks via skill tools. A task row appears in the tasks
- * table with state: "proposed", correct betId, productId, teamId, ownerAgentId.
+ * table with state: "proposed", correct rootTaskId, productId, teamId, ownerAgentId.
  * AC5: New tasks from create_task start in proposed state (status chip renders).
  *
  * These tests FAIL until the create-task.ts implementation ships.
@@ -14,7 +14,7 @@ import {
 	buildToolDefinitions,
 	createInProcessCoreApiTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import type { TaskStateChangedEvent } from "@hyperidle/event-bus";
 import type { ToolContext } from "@hyperidle/harness-protocol";
 import { eq } from "drizzle-orm";
@@ -35,12 +35,15 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "b1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "Implement feature X",
 		description: "Implement feature X",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(users).values({
 		id: "agent-a",
@@ -52,7 +55,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "b1",
+		parentTaskId: "b1",
 		teamId: "team-1",
 		ownerAgentId: "agent-a",
 		title: "Parent Task",
@@ -78,9 +81,9 @@ function makeContext(
 }
 
 describe("create_task tool", () => {
-	// AC1 happy path: task created with correct betId, productId, teamId, ownerAgentId, state
+	// AC1 happy path: task created with correct rootTaskId, productId, teamId, ownerAgentId, state
 	describe("AC1: creates task with correct fields", () => {
-		test("returns ok with taskId and inserts task row with derived betId", async ({
+		test("returns ok with taskId and inserts task row with derived rootTaskId", async ({
 			db,
 			eventBus,
 			app,
@@ -95,13 +98,11 @@ describe("create_task tool", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 
-			const data = result.data as { taskId: string; betId: string };
+			const data = result.data as { taskId: string };
 			expect(typeof data.taskId).toBe("string");
-			expect(data.betId).toBe("b1");
 
 			const [inserted] = await db.select().from(tasks).where(eq(tasks.id, data.taskId));
 			expect(inserted).toBeDefined();
-			expect(inserted?.betId).toBe("b1");
 			// @lore U1: tasks.teamId now references teams.id (domain entity), no productId column.
 			expect(inserted?.teamId).toBe("team-1");
 			expect(inserted?.ownerAgentId).toBe("agent-a");

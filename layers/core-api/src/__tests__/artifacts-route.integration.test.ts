@@ -1,7 +1,7 @@
 // L3 RED — Hono route tests for /api/artifacts.
 // Source of truth: plans/L3/architecture.md §5, §12.
 
-import { artifacts, bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { artifacts, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -14,7 +14,7 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
 
 interface SeedScope {
 	productId: string;
-	betId: string;
+	rootTaskId: string;
 	taskId: string;
 }
 
@@ -22,34 +22,33 @@ async function seed(db: HyperIdleDb, suffix = ""): Promise<SeedScope> {
 	// @lore U1: productId is actually teamId (domain entity id), not productId.
 	// Kept as "productId" in SeedScope for backward compat with test axis queries.
 	const productId = `prod${suffix}`;
-	const betId = `bet${suffix}`;
+	const rootTaskId = `root${suffix}`;
 	const taskId = `task${suffix}`;
 	// Insert domain entity (teams table, formerly products)
 	await db.insert(teams).values({ id: productId, name: "P", phase: "build", createdAt: NOW });
-	// Insert membership group (teamMembers table, formerly teams)
 
-	// @lore U1: bets.teamId references teams.id (domain entity), not teamMembers.id
-	await db.insert(bets).values({
-		id: betId,
-		teamId: productId,
-		description: "p",
-		appetite: "1w",
-		status: "draft",
-		createdAt: NOW,
-	});
-
-	// @lore U1: tasks.teamId references teams.id (domain entity), not teamMembers.id
+	// BB1: root task replaces bet
 	await db.insert(tasks).values({
-		id: taskId,
-		betId,
+		id: rootTaskId,
+		parentTaskId: null,
 		teamId: productId,
-		title: "T",
-		state: "pending",
+		title: "Root",
+		state: "in_progress",
 		createdAt: NOW,
 		updatedAt: NOW,
 	});
 
-	return { productId, betId, taskId };
+	await db.insert(tasks).values({
+		id: taskId,
+		parentTaskId: rootTaskId,
+		teamId: productId,
+		title: "T",
+		state: "proposed",
+		createdAt: NOW,
+		updatedAt: NOW,
+	});
+
+	return { productId, rootTaskId, taskId };
 }
 
 // @lore O2: costMoneyMicros, costTokensInput, costTokensOutput, costSettledAt
@@ -115,23 +114,22 @@ describe("L3 GET /api/artifacts (axis discriminated union)", () => {
 		expect(ids).toEqual(["art_a1", "art_a2"]);
 	});
 
-	test("axis=bet aggregates artifacts across the bet's tasks", async ({ db, app }) => {
+	test("axis=bet aggregates artifacts across the root task subtree", async ({ db, app }) => {
 		const s = await seed(db);
-		// add a second task to the same bet
+		// add a second task under the same root
 		await db.insert(tasks).values({
 			id: "task2",
-			betId: s.betId,
-			// @lore U1: teamId references teams.id (domain entity = s.productId)
+			parentTaskId: s.rootTaskId,
 			teamId: s.productId,
 			title: "T2",
-			state: "pending",
+			state: "proposed",
 			createdAt: NOW,
 			updatedAt: NOW,
 		});
 
 		insertArtifact(db, "art_x", s.taskId);
 		insertArtifact(db, "art_y", "task2");
-		const res = await app.request(`/api/artifacts?axis=bet&betId=${s.betId}`, {
+		const res = await app.request(`/api/artifacts?axis=bet&rootTaskId=${s.rootTaskId}`, {
 			headers: authHeaders(),
 		});
 		expect(res.status).toBe(200);

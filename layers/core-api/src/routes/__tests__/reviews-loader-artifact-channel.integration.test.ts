@@ -19,13 +19,12 @@
  *
  * @lore scoped deliberately narrow to the `artifacts`/`artifactRef` fields
  * only — a wider "composed fallback for every missing field" (tokens,
- * tools, taskId, betId, ...) belongs to a separate, unrelated loader
+ * tools, taskId, rootTaskId, ...) belongs to a separate, unrelated loader
  * concern and is not exercised here.
  */
 
 import {
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	messages,
 	tasks,
@@ -47,7 +46,7 @@ interface World {
 /** Seed a team/bet/task/task-hosted-thread world with one agent sender. */
 async function seedWorld(db: HyperIdleDb, idPrefix: string): Promise<World> {
 	const teamId = `${idPrefix}-team`;
-	const betId = `${idPrefix}-bet`;
+	const rootTaskId = `${idPrefix}-bet`;
 	const taskId = `${idPrefix}-task`;
 	const threadId = `${idPrefix}-thread`;
 	const agentId = `${idPrefix}-agent`;
@@ -61,17 +60,19 @@ async function seedWorld(db: HyperIdleDb, idPrefix: string): Promise<World> {
 		status: "active",
 		createdAt: NOW,
 	});
-	await db.insert(bets).values({
-		id: betId,
-		teamId,
+	await db.insert(tasks).values({
+		id: rootTaskId,
+		parentTaskId: null,
+		teamId: teamId,
+		title: "d",
 		description: "d",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(tasks).values({
 		id: taskId,
-		betId,
+		parentTaskId: rootTaskId,
 		teamId,
 		ownerAgentId: agentId,
 		title: "T",

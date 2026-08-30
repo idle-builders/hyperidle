@@ -4,7 +4,6 @@ import * as path from "node:path";
 import {
 	agentRunConfig,
 	agentSessionRequests,
-	bets,
 	type HyperIdleDb,
 	messages,
 	routines,
@@ -90,17 +89,20 @@ async function seedWork(db: HyperIdleDb): Promise<void> {
 		harnessType: "recording",
 		modelProvider: "test",
 	});
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-au3-agent",
+		parentTaskId: null,
 		teamId: "team-au3-agent",
+		title: "Agent layer execution",
 		description: "Agent layer execution",
 		doneCondition: "Tasks exist",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-au3-agent",
-		betId: "bet-au3-agent",
+		parentTaskId: "bet-au3-agent",
 		teamId: "team-au3-agent",
 		title: "Execute through agent layer",
 		state: "accepted",

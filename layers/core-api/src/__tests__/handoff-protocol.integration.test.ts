@@ -2,7 +2,6 @@ import { buildRunOrchestrationComposition } from "@hyperidle/agent-orchestration
 import {
 	agentSessionRequests,
 	agentWorkIntents,
-	bets,
 	type HyperIdleDb,
 	items,
 	messages,
@@ -41,13 +40,15 @@ async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "b1",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 }
 
@@ -89,7 +90,7 @@ async function insertTask(
 
 	await db.insert(tasks).values({
 		id,
-		betId: "b1",
+		parentTaskId: "b1",
 		teamId: "p1",
 		ownerAgentId: ownerAgentId ?? null,
 		title: `Task ${id}`,
@@ -475,7 +476,7 @@ describe("Handoff Protocol", () => {
 
 			await db.insert(tasks).values({
 				id: "task-2",
-				betId: "b1",
+				parentTaskId: "b1",
 				teamId: "p1",
 				ownerAgentId: "agent-a",
 				title: "Task 2",
@@ -574,7 +575,7 @@ describe("Handoff Protocol", () => {
 
 			await db.insert(tasks).values({
 				id: "task-h1",
-				betId: "b1",
+				parentTaskId: "b1",
 				teamId: "p1",
 				ownerAgentId: "agent-a",
 				title: "H1 task",

@@ -129,12 +129,14 @@ async function assembleRoutineContextIntoSandbox(): Promise<void> {
 					description: "A task that triggered the BA9c probe routine",
 					state: "done",
 				},
-				bet: {
-					id: "bet-ba9c-harness-probe",
-					description: "Prove event context reaches the agent prompt",
-					appetite: "",
-					doneCondition: null,
-				},
+				ancestors: [
+					{
+						id: "bet-ba9c-harness-probe",
+						title: "Prove event context reaches the agent prompt",
+						description: null,
+						doneCondition: null,
+					},
+				],
 			},
 		},
 	};

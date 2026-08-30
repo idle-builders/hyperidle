@@ -11,7 +11,6 @@
 import {
 	agentSessionRequests,
 	agentWorkIntents,
-	bets,
 	explicitSessionStarts,
 	sessions,
 	tasks,
@@ -89,16 +88,19 @@ describe("agent-layer boot recovery", () => {
 				createdAt: nowIso,
 			},
 		]);
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "boot-bet",
+			parentTaskId: null,
 			teamId: "boot-team",
+			title: "boot",
 			description: "boot",
-			status: "active",
+			state: "in_progress",
 			createdAt: nowIso,
+			updatedAt: nowIso,
 		});
 		await db.insert(tasks).values({
 			id: "boot-task",
-			betId: "boot-bet",
+			parentTaskId: "boot-bet",
 			teamId: "boot-team",
 			title: "boot",
 			state: "accepted",

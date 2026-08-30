@@ -1,6 +1,7 @@
-import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import type { TaskStateMachineDeps } from "@hyperidle/work";
 import { checkAndUnblockDependents, InvalidTransitionError, transitionTask } from "@hyperidle/work";
@@ -8,29 +9,37 @@ import { eq } from "drizzle-orm";
 import { describe, expect } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
+const teamCapacity: TaskStateMachineDeps["teamCapacity"] = {
+	getByTeamId: (exec, teamId) => getTeam(exec, { id: teamId }),
+};
+
 /** AU19 Increment 1b: `transitionTask` now takes an injected `session-requests` port. */
 const testDeps: TaskStateMachineDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
+	teamCapacity,
 };
 
 /** AU20 Ag2: `checkAndUnblockDependents` relocated to work; `work:` sub-object removed. */
-const depWatcherDeps = {
+const depWatcherDeps: TaskStateMachineDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
 	taskRunResolver: { requireRunnableAgent },
+	teamCapacity,
 };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {
 	const now = new Date().toISOString();
 	await db.insert(teams).values({ id: "p1", name: "Test Product", phase: "build", createdAt: now });
 
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "b1",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "Test bet",
 		description: "Test bet",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 }
 
@@ -43,7 +52,7 @@ async function insertTask(
 	const now = new Date().toISOString();
 	await db.insert(tasks).values({
 		id,
-		betId: "b1",
+		parentTaskId: "b1",
 		teamId: "p1",
 		title: `Task ${id}`,
 		state,

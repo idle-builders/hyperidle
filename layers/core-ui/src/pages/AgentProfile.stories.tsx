@@ -120,7 +120,6 @@ export const WithActiveSession = (): JSX.Element =>
 				activeSession: {
 					sessionId: "sess-active",
 					taskId: "task-active",
-					betId: "bet-1",
 					startedAt: new Date().toISOString(),
 				},
 			}}

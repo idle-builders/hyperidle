@@ -4,9 +4,10 @@ import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+// @lore BB1: useBet mock removed — useBet is deleted; useTaskTree replaces it.
 vi.mock("../hooks/useArtifacts.js", () => ({ useArtifact: () => ({ isLoading: true }) }));
-vi.mock("../hooks/useBet.js", () => ({
-	useBet: () => ({ data: null, loading: true, error: null }),
+vi.mock("../hooks/useTaskTree.js", () => ({
+	useTaskTree: () => ({ data: null, loading: true, error: null, refresh: vi.fn() }),
 }));
 vi.mock("../hooks/useTeams", () => ({
 	useTeams: () => ({ data: null, loading: true, error: null, refetch: vi.fn() }),
@@ -33,11 +34,11 @@ import { NotFound } from "../pages/NotFound.js";
 import { ReviewPage } from "../pages/review/ReviewPage.js";
 import { SettingsPage } from "../pages/SettingsPage.js";
 import { SetupFlow } from "../pages/SetupFlow.js";
-import { WorkBet } from "../pages/WorkBet.js";
-import { WorkBetCreate } from "../pages/WorkBetCreate.js";
 import { WorkOverviewView } from "../pages/WorkOverview.js";
 import { WorkRoutine } from "../pages/WorkRoutine.js";
-import { WorkTask } from "../pages/WorkTask.js";
+// @lore BB1: WorkTaskCreate replaces WorkBetCreate; WorkTaskPage replaces WorkBet+WorkTask.
+import { WorkTaskCreate } from "../pages/WorkTaskCreate.js";
+import { WorkTaskPage } from "../pages/WorkTaskPage.js";
 import { WorkTeam } from "../pages/WorkTeam.js";
 import { ToastRegion } from "../shell/ToastRegion.js";
 
@@ -80,9 +81,9 @@ describe("real route outline ledger", () => {
 		["Conversation detail", "/conversations/thread-1", undefined, <Conversations />],
 		["Work Team", "/work/team/t", "Team", <WorkTeam overrideLoading />],
 		["Work Routine", "/work/routine/r", "Routine", <WorkRoutine overrideLoading />],
-		["New Bet", "/work/bet/new", "Untitled bet", <WorkBetCreate />],
-		["Work Bet", "/work/bet/b", "Bet", <WorkBet loading />],
-		["Work Task", "/work/bet/b/task/t", "Task", <WorkTask />],
+		// @lore BB1: New task routes; loading state has title "Task"
+		["New Task", "/work/task/new", "New task", <WorkTaskCreate />],
+		["Work Task (loading)", "/work/task/t", "Task", <WorkTaskPage />],
 		["Review", "/reviews/r", "Review", <ReviewPage loader={pendingReview} />],
 		["Agent", "/agents/a", "Agent", <AgentProfile overrideLoading />],
 		["Knowledge list", "/knowledge", "Knowledge", <KnowledgeList loading />],

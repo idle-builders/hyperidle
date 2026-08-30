@@ -94,9 +94,8 @@ const TEAM_WITH_AGENTS: TeamDetail = {
 	],
 	burn: {
 		capacity: 5,
-		activeBets: 0,
 	},
-	activeBets: [],
+	tasksInProgress: [],
 };
 
 /** Mock agent configs returned by GET /api/agents */

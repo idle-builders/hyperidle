@@ -23,8 +23,7 @@ export { ArtifactTimestamp } from "./ArtifactTimestamp.js";
 // ── Tier 0: Foundation primitives (W2) ──
 export type { AvatarGroupProps, AvatarProps } from "./Avatar.js";
 export { Avatar, AvatarGroup } from "./Avatar.js";
-export type { BetCardLeadAvatar, BetCardProps } from "./BetCard.js";
-export { BetCard } from "./BetCard.js";
+// @lore BB1: BetCard deleted — tasks are now the one work primitive.
 // ── Tier 2: Block primitive (L2) ──
 export type { BlockProps, BlockSlots } from "./Block.js";
 export { Block } from "./Block.js";
@@ -167,13 +166,12 @@ export { SplitView } from "./SplitView.js";
 export type { Status, StatusChipProps } from "./StatusChip.js";
 // ── Tier 1: Primitives ──
 export { StatusChip } from "./StatusChip.js";
+// @lore BB1: BET_STATUS_MAP and betStatusToStatus removed — bet vocabulary gone
 export {
 	AGENT_OPERATIONAL_STATUS_MAP,
 	agentOperationalStatusToStatus,
 	BET_OUTCOME_VERDICT_STATUS,
-	BET_STATUS_MAP,
 	betOutcomeVerdictToStatus,
-	betStatusToStatus,
 	KNOWLEDGE_STATUS_MAP,
 	knowledgeStatusToStatus,
 	ROUTINE_STATE_MAP,

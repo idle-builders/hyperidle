@@ -21,7 +21,6 @@
  */
 
 import {
-	bets,
 	type HyperIdleDb,
 	messages,
 	sessions,
@@ -68,17 +67,19 @@ async function seed(db: HyperIdleDb): Promise<void> {
 			createdAt: now,
 		},
 	]);
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "prod-1",
+		title: "Test",
 		description: "Test",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "prod-1",
 		title: "Test Task",
 		state: "in_progress",

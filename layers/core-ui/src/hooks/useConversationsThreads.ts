@@ -61,7 +61,6 @@ export interface UseConversationsThreadsResult {
 // renders an initials chip instead of a data: URI SVG fallback.
 
 const HOST_KIND_SET: ReadonlySet<string> = new Set<string>([
-	"bet",
 	"task",
 	"knowledge_item",
 	"artifact",

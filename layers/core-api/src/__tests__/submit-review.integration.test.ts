@@ -16,7 +16,6 @@ import {
 } from "@hyperidle/agent-orchestration";
 import {
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	messages,
 	tasks,
@@ -49,12 +48,15 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	await db
 		.insert(teams)
 		.values({ id: "team-1", name: "Test Team", phase: "build", createdAt: NOW });
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "b1",
+		parentTaskId: null,
 		teamId: "team-1",
+		title: "Implement feature X",
 		description: "Implement feature X",
-		status: "active",
+		state: "in_progress",
 		createdAt: NOW,
+		updatedAt: NOW,
 	});
 	await db.insert(users).values({
 		id: "agent-a",
@@ -66,7 +68,7 @@ async function seed(db: HyperIdleDb): Promise<void> {
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "b1",
+		parentTaskId: "b1",
 		teamId: "team-1",
 		ownerAgentId: "agent-a",
 		title: "Parent Task",
@@ -120,10 +122,10 @@ describe("submit_review tool", () => {
 			expect(result.success).toBe(true);
 			if (!result.success) return;
 
-			const data = result.data as { messageId: string; threadId: string; betId: string };
+			const data = result.data as { messageId: string; threadId: string; rootTaskId: string };
 			expect(typeof data.messageId).toBe("string");
 			expect(typeof data.threadId).toBe("string");
-			expect(data.betId).toBe("b1");
+			expect(data.rootTaskId).toBe("b1");
 
 			// Message exists with type "review"
 			const [msg] = await db.select().from(messages).where(eq(messages.id, data.messageId));

@@ -96,7 +96,7 @@ export const REVIEW_COMPOSITION_SUBJECT: ComposedReviewSubject = {
 	id: "review:AL3:fixture",
 	title: "Fix expired-promo checkout — silent success → typed 422",
 	threadId: "thread-review-1",
-	betId: "bet-123",
+	parentTaskId: "task-parent-1",
 	betTitle: "Billing reliability",
 	taskId: "task-456",
 	taskTitle: "Fix expired-promo checkout",

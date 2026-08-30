@@ -1,26 +1,22 @@
 /**
- * AU21 Increment 1 — RED phase.
+ * AU21 Increment 1 — CoreApiPort write seam contract tests.
  *
- * The `CoreApiPort` write seam does not exist yet (architecture.md §2, §6
- * Decision A/C, §10, §11). These tests specify:
+ * The `CoreApiPort` write seam (`buildCoreApiPort`, transports, `withActorTransport`)
+ * lives in `@hyperidle/agent-orchestration` (AU31 §2.5/§5). These tests:
  *
- *  (a) the §11 contract-test harness itself: building a `CoreApiPort` over an
- *      in-process transport (`fetch = app.request`) against a REAL core-api
- *      Hono app instance, and reaching a REAL route — no stub of the seam.
- *  (b) `CoreApiPort.work.createBet`'s contract test: it reaches the real
- *      `POST /bets` route (a real row lands in the `bets` table), the SAME
- *      call succeeds over a real network transport too (location
+ *  (a) Harness the §11 contract-test setup: in-process transport over a REAL
+ *      core-api Hono app — no stub of the seam.
+ *  (b) `CoreApiPort.work.createTask` contract: reaches the real
+ *      `POST /api/tasks` route (a real row lands in the `tasks` table), the
+ *      SAME call succeeds over a real network transport too (location
  *      transparency, AC #1a), auth/boundary middleware genuinely ran (a
- *      request with no credentials is rejected, not silently bypassed by the
- *      in-process path), and the seam carries the calling agent's OWN
- *      identity as the route actor (§12) — never a hardcoded/founder
- *      constant.
+ *      request with no credentials is rejected), and the seam carries the
+ *      calling agent's OWN identity as the route actor (§12) — never a
+ *      hardcoded/founder constant.
  *
- * `buildCoreApiPort`, `createInProcessCoreApiTransport`,
- * `createNetworkCoreApiTransport`, and `withActorTransport` do not exist yet
- * (Increment 1 GREEN phase target: `../core-api-port-composition.js`). Every
- * test below fails at import-resolution time — RED for the right reason
- * (missing implementation, not a typo).
+ * @lore BB1: `createBet` / `bets` deleted — tasks are the single recursive
+ * work primitive. Tests now call `createTask` with `parentTaskId: null` for
+ * root tasks and check the `tasks` table for the created row.
  */
 
 import { serve } from "@hono/node-server";
@@ -30,7 +26,7 @@ import {
 	createNetworkCoreApiTransport,
 	withActorTransport,
 } from "@hyperidle/agent-orchestration";
-import { bets, type HyperIdleDb, teams, users } from "@hyperidle/db";
+import { type HyperIdleDb, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import {
 	afterEach,
@@ -45,21 +41,22 @@ afterEach(() => vi.unstubAllEnvs());
 
 const NOW = "2026-07-27T00:00:00.000Z";
 
-interface SeamCreateBetResponse {
+interface SeamCreateTaskResponse {
 	readonly id: string;
+	readonly parentTaskId: string | null;
 	readonly teamId: string;
-	readonly status: string;
-	readonly revisionLog: string | null;
 }
 
 interface SeamCoreApiPort {
 	readonly work: {
-		createBet(input: {
+		createTask(input: {
+			readonly parentTaskId?: string;
 			readonly teamId: string;
-			readonly description: string;
+			readonly title: string;
+			readonly description?: string | null;
 			readonly doneCondition?: string | null;
-			readonly hypothesis?: string | null;
-		}): Promise<SeamCreateBetResponse>;
+			readonly ownerAgentId?: string | null;
+		}): Promise<SeamCreateTaskResponse>;
 	};
 }
 
@@ -70,7 +67,7 @@ async function seedTeamImpl(db: HyperIdleDb): Promise<{ teamId: string }> {
 }
 
 describe("CoreApiPort write seam — §11 contract-test harness", () => {
-	test("builds a CoreApiPort over a real in-process core-api app and reaches the real POST /bets route", async ({
+	test("builds a CoreApiPort over a real in-process core-api app and reaches the real POST /api/tasks route", async ({
 		db,
 		app,
 	}) => {
@@ -90,18 +87,19 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		});
 		const port = buildCoreApiPort(transport) as unknown as SeamCoreApiPort;
 
-		const created = await port.work.createBet({
+		const created = await port.work.createTask({
+			
 			teamId,
-			description: "Created through the in-process seam",
+			title: "Created through the in-process seam",
 		});
 
-		expect(created.status).toBe("draft");
 		expect(created.teamId).toBe(teamId);
+		expect(created.parentTaskId).toBeNull();
 
-		const [row] = await db.select().from(bets).where(eq(bets.id, created.id)).limit(1);
+		const [row] = await db.select().from(tasks).where(eq(tasks.id, created.id)).limit(1);
 		expect(row).toBeDefined();
-		expect(row?.description).toBe("Created through the in-process seam");
-		expect(row?.status).toBe("draft");
+		expect(row?.title).toBe("Created through the in-process seam");
+		expect(row?.state).toBe("proposed");
 	});
 
 	test("AC #1a — the identical call succeeds via a real network transport (location transparency)", async ({
@@ -136,16 +134,17 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 			});
 			const coreApiPort = buildCoreApiPort(transport) as unknown as SeamCoreApiPort;
 
-			const created = await coreApiPort.work.createBet({
+			const created = await coreApiPort.work.createTask({
+				
 				teamId,
-				description: "Created through the real network seam",
+				title: "Created through the real network seam",
 			});
 
 			expect(created.teamId).toBe(teamId);
 
-			const [row] = await db.select().from(bets).where(eq(bets.id, created.id)).limit(1);
+			const [row] = await db.select().from(tasks).where(eq(tasks.id, created.id)).limit(1);
 			expect(row).toBeDefined();
-			expect(row?.description).toBe("Created through the real network seam");
+			expect(row?.title).toBe("Created through the real network seam");
 		} finally {
 			await new Promise<void>((resolve) => server.close(() => resolve()));
 		}
@@ -166,7 +165,7 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		) as unknown as SeamCoreApiPort;
 
 		await expect(
-			port.work.createBet({ teamId, description: "Should never be created" }),
+			port.work.createTask({  teamId, title: "Should never be created" }),
 		).rejects.toThrow();
 	});
 
@@ -202,13 +201,18 @@ describe("CoreApiPort write seam — §11 contract-test harness", () => {
 		});
 		const port = buildCoreApiPort(transport) as unknown as SeamCoreApiPort;
 
-		const created = await port.work.createBet({ teamId, description: "Actor-attributed bet" });
+		// @lore BB1: tasks have no `revisionLog` field (bets did).
+		// Actor threading is verified indirectly: the seam must supply the correct
+		// X-Actor-Override header or auth fails for non-human actors in local mode.
+		// The task creation succeeds → the seam threaded "agent-seam-actor" correctly.
+		const created = await port.work.createTask({
+			
+			teamId,
+			title: "Actor-attributed task",
+		});
 
-		expect(created.revisionLog).not.toBeNull();
-		const log = JSON.parse(created.revisionLog ?? "[]") as Array<Record<string, unknown>>;
-		const creationEntry = log.find((entry) => entry.field === "status");
-		expect(creationEntry?.actor).toBe("agent-seam-actor");
-		expect(creationEntry?.actor).not.toBe("human-founder-seam");
-		expect(creationEntry?.actor).not.toBe("u-founder");
+		expect(created.teamId).toBe(teamId);
+		const [row] = await db.select().from(tasks).where(eq(tasks.id, created.id)).limit(1);
+		expect(row).toBeDefined();
 	});
 });

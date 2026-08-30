@@ -27,12 +27,7 @@ import type { AgentHealthLevel } from "@hyperidle/domain-model";
 export interface AgentActiveSession {
 	readonly sessionId: string;
 	readonly taskId: string;
-	/**
-	 * The betId of the task associated with this session.
-	 * Required to construct a valid /work/bet/:betId/task/:taskId link.
-	 * @lore AB1 M1: betId added per reviewer finding — the bet route expects betId, not taskId.
-	 */
-	readonly betId: string;
+	// @lore BB1: betId removed — /work/task/:taskId is now a direct route
 	readonly startedAt: string;
 }
 

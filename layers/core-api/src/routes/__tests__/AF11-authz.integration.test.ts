@@ -137,20 +137,22 @@ describe("AC1: GET /api/threads/:id — participant-scope IDOR guard", () => {
 		const now = new Date().toISOString();
 
 		// Import needed tables
-		const { teams, bets, tasks } = await import("@hyperidle/db");
+		const { teams, tasks } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({ id: "p-af11", name: "P-AF11", phase: "build", createdAt: now });
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "bet-af11",
+			parentTaskId: null,
 			teamId: "p-af11",
+			title: "af11 test",
 			description: "af11 test",
-			appetite: "small",
-			status: "active",
+			state: "in_progress",
 			createdAt: now,
+			updatedAt: now,
 		});
 		await db.insert(tasks).values({
 			id: "task-af11",
-			betId: "bet-af11",
+			parentTaskId: "bet-af11",
 			teamId: "p-af11",
 			title: "AF11",
 			state: "in_progress",
@@ -518,16 +520,18 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 	}) => {
 		const now = new Date().toISOString();
 
-		const { teams, bets } = await import("@hyperidle/db");
+		const { teams, tasks } = await import("@hyperidle/db");
 
 		await db.insert(teams).values({ id: "p-ac5", name: "P-AC5", phase: "build", createdAt: now });
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "bet-ac5",
+			parentTaskId: null,
 			teamId: "p-ac5",
+			title: "AC5 bet",
 			description: "AC5 bet",
-			appetite: "small",
-			status: "active",
+			state: "in_progress",
 			createdAt: now,
+			updatedAt: now,
 		});
 		await db.insert(users).values({
 			id: "u-ac5-user",
@@ -538,11 +542,12 @@ describe("AC5: Participant-scope routes reject cross-principal access", () => {
 			createdAt: now,
 		});
 
-		const res = await app.request("/api/bets/bet-ac5", {
+		// BB1: /api/bets/:id deleted — root tasks are accessible via /api/tasks/:id
+		const res = await app.request("/api/tasks/bet-ac5", {
 			method: "GET",
 			headers: authHeaders({ "X-Identity": "u-ac5-user" }),
 		});
-		// Host-scope bets should remain readable (Hard Rule 5 — no over-restriction)
+		// Host-scope root tasks should remain readable (Hard Rule 5 — no over-restriction)
 		expect(res.status).toBe(200);
 	});
 });

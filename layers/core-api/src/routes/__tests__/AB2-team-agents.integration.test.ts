@@ -28,7 +28,6 @@
 
 import {
 	agentRunConfig,
-	bets,
 	type HyperIdleDb,
 	sessions,
 	tasks,
@@ -102,16 +101,19 @@ describe("AB2 AC-2: GET /teams/:id roster shape", () => {
 
 	test("carries harnessAvailable and no run-derived fields", async ({ db, app }) => {
 		await seedBase(db);
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "ab2-bet-1",
+			parentTaskId: null,
 			teamId: "ab2-team",
+			title: "Test bet",
 			description: "Test bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 		await db.insert(tasks).values({
 			id: "ab2-task-1",
-			betId: "ab2-bet-1",
+			parentTaskId: "ab2-bet-1",
 			teamId: "ab2-team",
 			title: "Implement feature",
 			state: "in_progress",
@@ -170,18 +172,21 @@ describe("AU26: GET /teams/:teamId enqueues nothing", () => {
 	}) => {
 		await seedBase(db);
 		// Seed enough crashes to trigger critical
-		await db.insert(bets).values({
+		await db.insert(tasks).values({
 			id: "ab2-bet-notif",
+			parentTaskId: null,
 			teamId: "ab2-team",
+			title: "Notif bet",
 			description: "Notif bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 		for (let i = 1; i <= 4; i++) {
 			const paddedId = i.toString().padStart(2, "0");
 			await db.insert(tasks).values({
 				id: `ab2-task-notif-${paddedId}`,
-				betId: "ab2-bet-notif",
+				parentTaskId: "ab2-bet-notif",
 				teamId: "ab2-team",
 				title: `Task ${i}`,
 				state: "completed",

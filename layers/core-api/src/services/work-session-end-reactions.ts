@@ -1,57 +1,21 @@
 /**
- * AU21 §9 Increment 10 (Decision H1, task-only — the `decomposition` half of
- * this writeback is gone entirely via Increment 10a / Decision I, not
- * migrated) — core-api's POST-SESSION reaction that finalizes a `task`'s
- * `taskDispatchAttempts` row, replacing `session-requests`'s own direct
- * cross-layer write (`lifecycleProjectors.task` → `projectTask`,
- * `service.ts`, calling `deps.work.updateTaskDispatchAttemptIfActive`).
+ * AU21 §9 Increment 10 (Decision H1) — core-api's POST-SESSION reaction that
+ * finalizes a `task`'s `taskDispatchAttempts` row.
  *
- * Reuses `routine-run-session-end-reactions.ts`'s exact shape: a per-eventBus-
- * instance idempotency guard (`registeredBuses`) so booting the production
- * app AND a test requesting the same `eventBus` instance never double-
- * registers, and the same explicit `register*(db, eventBus)` wiring
- * convention (`registerPolicy`/`registerReviewSubscriptions`/
- * `registerRoutineRunSessionEndReactions`) — NOT auto-wired onto the
- * `test-fixtures.ts` `eventBus` fixture; tests call
- * `registerWorkSessionEndReactions(db, eventBus)` explicitly.
+ * Subscribes `agent_run_lifecycle_changed` ONLY for dispatch-attempt finalize.
+ * Idempotent by construction via `updateIfActive`'s guard.
  *
- * Subscribes **`agent_run_lifecycle_changed` ONLY** — NOT `session_ended`.
- * Per architecture.md §6 Decision H / §9 Increment 10: `SessionEndedEvent`'s
- * `SessionOutcome` vocabulary (`"completed"|"crashed"|"stopped"|
- * "not_returned"`) does not match `taskDispatchAttemptStore.updateIfActive`'s
- * expected status values, while `AgentRunLifecycleChangedEvent.state`
- * (`"completed"|"failed"|"cancelled"`, a required `requestId`) matches
- * exactly and fires on every terminal state including `"completed"`
- * (`transition-run.ts`'s `transitionAgentRunLifecycle`).
+ * AU21 §9 Increment 12 (Decision H3), BB1-adapted — a SECOND subscription on
+ * `session_ended` merges per-tier token counts into the WORKED TASK's own
+ * `tasks.tokensActualJson`. There is no ancestor rollup write — subtree totals
+ * are computed at read time by `GET /api/tasks/:id/tree`.
  *
- * Idempotent by construction: `updateIfActive`'s own
- * `status IN ('requested','running')` guard means a duplicate/redelivered
- * terminal event for an already-finalized attempt row is a safe no-op — it
- * can never move a row backwards or re-apply a stale `sessionId`.
- *
- * AU21 §9 Increment 12 (Decision H3), Wave D — a SECOND, independent
- * subscription on `session_ended` merges a task-sourced session's
- * accumulated per-tier token counts (`SessionEndedEvent.tokensByTier`,
- * additive payload growth) into the owning bet's `bets.tokensActualJson`.
- * This is the literal replacement for
- * `run-orchestration/provisioner.ts`'s deleted direct
- * `ports.work.updateBetById` write (`accumulateSessionTokensOnBet`), called
- * at every one of the four session-end branches (crash / budget_exhausted /
- * not_returned / normal completion) immediately after that branch's own
- * `session_ended`-emitting `transitionRun` call — the merge logic (existing
- * `byTier` read-modify-write) is copied verbatim.
- *
- * Unlike `agent_run_lifecycle_changed`'s dispatch-attempt-row-status guard,
- * there is no natural persisted marker for "this session's tokens were
- * already merged" (`sessions` carries no per-session token-application
- * column). Idempotency here is a per-eventBus-instance `Set<sessionId>`
- * guard (`processedTokenSessions`), scoped identically to this module's own
- * `registeredBuses` — defensive against event redelivery, matching the
- * production invariant that `session_ended` itself fires at most once per
- * session (CAS-gated at `transition-run.ts`'s emission source).
+ * @lore BB1: `task.betId` is gone. Tokens accumulate on the worked task itself
+ * (not on an ancestor). Per api-contract.md §"Token rollup": nothing writes a
+ * rollup onto an ancestor — `tokensActualRollup` is summed at read time.
  */
 
-import type { Bet, HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type {
 	AgentRunLifecycleChangedEvent,
@@ -76,23 +40,20 @@ function reactToLifecycleChanged(
 }
 
 /**
- * Merge `tokensByTier` into the bet owning `taskId`'s `tokensActualJson`,
- * copying `provisioner.ts`'s deleted `accumulateSessionTokensOnBet` exactly:
- * a read-modify-write per tier, additive onto any existing counts.
+ * Merge `tokensByTier` into the worked task's own `tokensActualJson`.
+ * Additive read-modify-write per tier. Never walks up to a parent.
  */
-async function mergeSessionTokensIntoBet(
+async function mergeSessionTokensOntoTask(
 	db: HyperIdleDb,
 	taskId: string,
 	tokensByTier: NonNullable<SessionEndedEvent["tokensByTier"]>,
 ): Promise<void> {
 	const task = await get(db, "task", taskId);
-	if (!task?.betId) return;
+	if (!task) return;
 
-	const bet: Bet | undefined = await get(db, "bet", task.betId);
-
-	const existing: Record<string, { prompt: number; completion: number }> = bet?.tokensActualJson
+	const existing: Record<string, { prompt: number; completion: number }> = task.tokensActualJson
 		? ((
-				JSON.parse(bet.tokensActualJson) as {
+				JSON.parse(task.tokensActualJson) as {
 					byTier: Record<string, { prompt: number; completion: number }>;
 				}
 			).byTier ?? {})
@@ -108,7 +69,7 @@ async function mergeSessionTokensIntoBet(
 		};
 	}
 
-	await update(db, "bet", task.betId, { tokensActualJson: JSON.stringify({ byTier: merged }) });
+	await update(db, "task", taskId, { tokensActualJson: JSON.stringify({ byTier: merged }) });
 }
 
 function reactToSessionEndedTokens(
@@ -126,12 +87,11 @@ function reactToSessionEndedTokens(
 	}
 	if (seen.has(event.sessionId)) return undefined;
 	seen.add(event.sessionId);
-	return mergeSessionTokensIntoBet(db, event.taskId, event.tokensByTier);
+	return mergeSessionTokensOntoTask(db, event.taskId, event.tokensByTier);
 }
 
 /**
- * Register core-api's POST-SESSION `taskDispatchAttempts` finalize reaction
- * + `session_ended` bet-token-writeback reaction on `eventBus`. Returns an
+ * Register core-api's POST-SESSION reactions on `eventBus`. Returns an
  * unsubscribe function. Safe to call more than once with the SAME `eventBus`
  * instance — only the first registration takes effect.
  */
@@ -152,7 +112,7 @@ export function registerWorkSessionEndReactions(db: HyperIdleDb, eventBus: Event
 	});
 	const unsubscribeTokens = eventBus.on("session_ended", (event) => {
 		void reactToSessionEndedTokens(db, eventBus, event)?.catch((error: unknown) => {
-			logger.error("session_ended bet token-writeback reaction failed", {
+			logger.error("session_ended task token-writeback reaction failed", {
 				sessionId: event.sessionId,
 				taskId: event.taskId,
 				error: error instanceof Error ? error.message : String(error),

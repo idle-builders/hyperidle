@@ -17,7 +17,7 @@
  *   - AI agent identity has correct name and role.
  */
 
-import { bets, type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
+import { type HyperIdleDb, messages, tasks, teams, threads, users } from "@hyperidle/db";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 
@@ -57,17 +57,19 @@ async function seedBase(db: HyperIdleDb): Promise<void> {
 	});
 
 	// A bet + task so we can host a thread on a task.
-	await db.insert(bets).values({
+	await db.insert(tasks).values({
 		id: "bet-1",
+		parentTaskId: null,
 		teamId: "p1",
+		title: "p",
 		description: "p",
-		appetite: "small",
-		status: "active",
+		state: "in_progress",
 		createdAt: now,
+		updatedAt: now,
 	});
 	await db.insert(tasks).values({
 		id: "task-1",
-		betId: "bet-1",
+		parentTaskId: "bet-1",
 		teamId: "p1",
 		title: "T",
 		state: "in_progress",

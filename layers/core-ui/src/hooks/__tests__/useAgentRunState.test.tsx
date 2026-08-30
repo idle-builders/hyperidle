@@ -80,7 +80,8 @@ afterEach(() => {
 });
 
 describe("useAgentRunState", () => {
-	it("resolves the active run, its task title and betId, and the success rate", async () => {
+	// @lore BB1: betId removed from activeSession — tasks link via /work/task/:taskId
+	it("resolves the active run, its task title, and the success rate (BB1: no betId)", async () => {
 		stubFetch(
 			[
 				run({
@@ -106,7 +107,6 @@ describe("useAgentRunState", () => {
 		expect(result.current.activeSession).toEqual({
 			sessionId: "r-live",
 			taskId: "t1",
-			betId: "bet-1",
 			startedAt: expect.any(String),
 		});
 		expect(result.current.recentSessions.map((s) => s.taskTitle)).toEqual([
@@ -202,7 +202,6 @@ describe("useRosterRunState", () => {
 			operationalStatus: "active",
 			activeTaskTitle: "Live task",
 			activeTaskId: "t1",
-			activeBetId: "bet-9",
 		});
 		expect(result.current.byAgent.get("a2")).toMatchObject({
 			operationalStatus: "idle",

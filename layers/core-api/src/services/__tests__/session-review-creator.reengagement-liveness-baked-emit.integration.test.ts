@@ -38,7 +38,6 @@
 import {
 	agentWorkIntents,
 	artifacts,
-	bets,
 	type HyperIdleDb,
 	messages,
 	proposedCalls,
@@ -69,7 +68,7 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 	}) => {
 		const idPrefix = "au21-reengage-liveness-1";
 		const teamId = `${idPrefix}-team`;
-		const betId = `${idPrefix}-bet`;
+		const rootTaskId = `${idPrefix}-bet`;
 		const taskId = `${idPrefix}-task`;
 		const agentId = `${idPrefix}-agent`;
 		const pcId = `${idPrefix}-pc`;
@@ -83,16 +82,19 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 			status: "active",
 			createdAt: NOW,
 		});
-		await db.insert(bets).values({
-			id: betId,
-			teamId,
+		await db.insert(tasks).values({
+			id: rootTaskId,
+			parentTaskId: null,
+			teamId: teamId,
+			title: "Reengagement liveness baked-emit test bet",
 			description: "Reengagement liveness baked-emit test bet",
-			status: "active",
+			state: "in_progress",
 			createdAt: NOW,
+			updatedAt: NOW,
 		});
 		await db.insert(tasks).values({
 			id: taskId,
-			betId,
+			parentTaskId: rootTaskId,
 			teamId,
 			ownerAgentId: agentId,
 			title: "Reengagement liveness baked-emit test task",
