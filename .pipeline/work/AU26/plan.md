@@ -1,134 +1,99 @@
 # AU26 — Challenge every agent/agent-environment domain sitting in core: relocate what core only administers but never itself works with
 
-## Work package
+## What we need
 
-**Work package.** As a maintainer, I want every domain in core-api that is about an agent or an agent's execution environment challenged with one precise test — **does core ever operationally consume this data/capability for its own purpose, or does core only (a) let a human administer/configure it and/or (b) hold an implementation that is ONLY ever exercised on behalf of an agent's session, never for core's own use?** — with anything that fails that test (core administers but doesn't work with it) relocated into agent-orchestration. Three concrete candidates surface from real investigation, not assumption (a fourth, `model-gateway`, was decided and closed directly in AU21 — see below, not this WP's scope anymore): `service_connections` (the fully-investigated, locked case — AU21's Decision J traced every dependent and concluded a full move: table, CRUD, crypto decrypt, HTTP delegation); `filesystems` (its mounting engine, `RegistryFilesystemMounter` in `packages/core-api/filesystems/src/mounter-registry.ts`, contains real `fs.symlinkSync`/`fs.cpSync`/git-worktree mounting logic that core-api holds but NEVER calls for its own purpose — only an agent's session ever gets a filesystem mounted, exactly the same "administers but doesn't work with it" shape as connections, which AU21's own earlier build wrongly waved through as "mostly stays core" without applying this sharper test); and the `users` table's agent-execution columns (`kind` ai/human, `harnessType`, `modelId`, `modelProvider`, `maxConcurrentSessions` — agent-execution configuration living on the same row as human identity, never challenged). `connections` is built whole in this WP, replacing AU21 Decision K1's throwaway bake-at-emit patch; `filesystems`' mounting engine and the `users` agent-config columns each get the same test applied for real, with an evidenced verdict and (where the verdict is "relocate") an actual move.
+Every domain in `core-api` that is about an agent or an agent's execution environment had to be challenged
+with one precise test, and anything that failed it relocated into `agent-orchestration`:
 
-**A fifth candidate, added after real investigation (not assumption) — the workspace-api / orchestration-api split.** `agent-orchestration` hosts **zero** of its own HTTP/WS routes today — verified directly: `find packages/agent-orchestration -iname "*route*"` returns nothing, and there is no `new Hono()`/`createApp` anywhere in the Layer. Everything, including `AgentOrchestrationPort`'s own session-cost/activity route, is hosted by core-api's single `packages/core-api/src/app.ts`, which internally calls into agent-orchestration's exported functions — a route *about* orchestration, not a route orchestration *hosts*. The founder directly named this a real gap and proposed the fix: split core-api's single, unified HTTP surface into two genuinely separate, named APIs — **`workspace-api`** (the core app's own surface: work/conversation/knowledge/users/settings) and **`orchestration-api`** (agent-orchestration hosting its own HTTP/WS surface directly for agent-domain concerns — the concrete, immediate case being session/harness streaming, so core-ui can dial directly into orchestration/execution the way the founder described from the start: *"there is no real time feature except the direct agent session dial in which is a ui directly into orchestration / execution thing"*). This resolves the `realtime` package's own displacement question at the same time: once orchestration hosts session/harness streaming itself, core-api's remaining WS transport (renamed off "realtime" during AU21 Increment 14d to a plain `WsConnectionHub`, since the generic broadcaster it used to be was deleted) is challenged by the SAME test as everything else here — is it a genuine workspace-api concern (pushing conversation/work's own domain changes) or is it leftover infrastructure with no domain of its own that shouldn't be a standalone package pretending to be a Service (the same fate model-gateway got in AU21 Decision L2)?
+> Does the core app ever actually use this itself, for its own purposes — or does it only let a human
+> configure it and then hand it to an agent?
 
-**Why this matters.** AU21 built and shipped a real "orchestration reads zero core-api state" boundary — but that boundary is only as clean as the domain model underneath it, and the domain model has never been challenged with a precise, general test — only case-by-case, sometimes hastily (filesystems got waved through during AU21's own build without this test being applied). AU21's own Decision K1 had to bake connections metadata onto an emitted request specifically because connections still lived in the wrong layer — a real staleness cost and genuinely throwaway engineering (a new resolver, 8 wired call sites, several tests — all deleted by this WP). The exact same shape of problem sits, unexamined, in filesystems' mounting engine and `users`' agent columns. And the fact that agent-orchestration has never hosted its own routes at all means every agent-domain HTTP/WS concern has defaulted into core-api by omission, not by a real domain decision — the workspace-api/orchestration-api split is the structural fix that stops this defaulting from recurring for the next agent-domain feature, not just the ones already found. Without applying one consistent test across all of them, the codebase will keep discovering these one at a time, each time only after a boundary read forces a throwaway patch instead of a real move.
+One real use and it stays. AU21 had shipped an "orchestration reads zero core-api state" boundary, but the
+domain model underneath was never challenged systematically. `service_connections` still lived in the wrong
+layer, forcing Decision K1's bake-at-emit patch — a real staleness cost and knowingly throwaway engineering.
+And `agent-orchestration` hosted no routes of its own, so every agent-domain HTTP/WS concern defaulted into
+`core-api` by omission rather than by a domain decision.
 
-**Amendment (2026-08-04, founder — the unit of challenge).** The sweep starts one level up: **challenge every Service package in `core-api` as a whole** — does this entire service belong in core? — and **then**, for the services that stay, challenge whether parts of them need to move. Whole-service first, parts second; both in scope. The real list at HEAD is **15 Service packages** under `packages/core-api/*/` (`connections`, `conversation`, `filesystems`, `git-export`, `knowledge`, `notifications`, `observability`, `org`, `policy`, `realtime`, `review`, `routine`, `settings`, `users`, `work`); the 19 units under `packages/core-api/src/services/` are wiring, not services, and each follows the verdict of the domain it wires rather than getting one of its own. The named candidates below (connections, the filesystems mounting engine, the `users` agent columns, `WsConnectionHub`) are not dropped — they become findings that fall out of this pass instead of being its whole content. See `.pipeline/work/AU26/requirements.md` §3–§4.
+The founder set the unit of challenge: whole service first — all 15 Service packages under
+`packages/core-api/*/` — then parts inside the services that stay. The 19 units under `src/services/` are
+wiring, not services, and each follows the verdict of the domain it wires. The charter-fixed domains (Work,
+Conversation, Knowledge, Users identity, Settings) are a strong prior, not an exemption: the "stays" still has
+to be reached on evidence, and a charter-fixed "moves" would escalate as a track-level finding rather than be
+built here.
 
-**Amendment (2026-08-04, founder — `git-export`).** Pass A's "stays" verdict on `git-export` was rejected
-on the record: *"git export definetly not stay wtf is that even that shouldn't exist the name already says bad
-bad bad."* The re-challenge (`.pipeline/work/AU26/service-verdicts/git-export-rechallenge.md`) found the
-package is two things — a **dead exporter** (off by default, zero web references in all history, no restore
-path, four routes with zero non-test callers, ~4,500 lines incl. tests) and a **live git subprocess runner**
-whose two of three consumers are `filesystems`'. **Both halves execute in AU26:** the runner relocates, the
-exporter **deletes**. Feature deletion is normally out of a layer-cleanup WP's axis; it is in scope here
-because the founder made the product call on the record, no user can reach the capability, and the package
-must be dissolved to free the runner. The doc claims it leaves stale
-(`docs/requirements/system-requirements.md` S-2.2, `docs/knowledge-architecture/the-canonical-store.md:67`,
-`facilitators.md:79-92`) are a `/write-docs` reconciliation; the product question *"should knowledge live in
-git?"* is a future `knowledge` WP, explicitly not AU26's.
+The dividing line, restated by the founder after one round cut too much: **AU26 moves code that is in the
+wrong place; AU28 writes the rules** — boundary definitions, owners for unmoved tables, guard scan scopes,
+linters, censuses. A move that incidentally clears an ACL violation is still a move. Destinations are
+`agent-orchestration` only, never `agent-execution` (no DB credentials, may run elsewhere); table definitions
+stay in `packages/db/src/schema.ts` and only the owning package changes; `AgentOrchestrationPort` stays
+read-only, so anything relocated needing a mutation door gets an orchestration route; a helper with no table,
+lifecycle or domain of its own dissolves rather than becoming a Service; and every move deletes the hack it
+replaces.
 
-**Amendment (2026-08-04, founder — scope, reverting an architecture-round expansion).** Architecture rounds 2
-and 3 expanded this WP into a repo-wide table-ownership programme: a census gate driving 100 ACL violations
-to zero, a whole-workspace scan scope for `scripts/table-ownership-guard.ts`, owners assigned to four tables
-this WP does not move, routing `packages/eval` through the owning Services, and relocating `packages/db`'s
-seeders. **The founder ruled that out of AU26** — *"why are you doing db ownership checks that is the task of
-AU28? please go back to what is the task of this workpackage and only do that"* / *"you are doing AU26. focus
-only on what is the scope of au26."* AU26's own axis is unchanged: relocate the agent-shaped domains core
-never uses, give `agent-orchestration` its own API, and enforce the new owner of each table **this WP itself
-moves**. General ownership debt belongs to AU28 (`.pipeline/work/AU28/plan.md`). The findings are not lost —
-`architecture.md` §14 hands every one of them to AU28 with its `file:line` evidence.
+Acceptance, in prose: a whole-service verdict for all 15 with `file:line` evidence; the part-level test
+applied at minimum to the mounting engine, `users`' agent-execution columns and `WsConnectionHub`; every
+"relocate" or "delete" executed here, never parked; guard-enforced ACL on the tables this package moves; and
+orchestration hosting its own session/harness route.
 
-**Amendment (2026-08-04, founder — the correction to the amendment above; the dividing line).** The scope
-cut recorded above was applied on the wrong axis. It asked *"is this ownership work or a relocation?"* and,
-on that reading, swept out four real **code moves** and one **package dissolution** along with the governance
-programme. The founder restated the line: *"policy, review and work are not cut to AU28. the move is part of
-this package. what is not part of this package is writing package boundary definition or linters and such."*
+## How it works
 
-**The axis is moving code vs. writing rules.** AU26 moves code that is in the wrong place — including when a
-move incidentally removes an ACL violation. AU28 writes package-boundary definitions, owners for tables
-nobody moves, guard scan scopes, exemption sets, linters and violation censuses. Restored to AU26 by this
-correction, all four provable as misplaced without appealing to any ownership rule, and all four needing no
-new `AgentOrchestrationPort` surface:
+The evidence bar is what makes the test reusable later. A real use writes a core table, gates a core
+operation, emits or consumes an event, or enqueues work. Rendering a value into a `core-api` response is
+**not** a use — every core route renders in core, so counting that makes everything stay by construction. Call
+sites are the evidence; a doc or `@lore` comment is a lead. When every call site is composition-root wiring
+the sites carry no signal — name the domain the unit wires and take that domain's answer.
 
-- `packages/core-api/policy/src/handoff-protocol.ts:120-124` — core-api writes the agent-run row inside
-  policy's own transaction and suppresses the run Layer's own `session_ended` to stay correct. Becomes a
-  downward call.
-- `packages/core-api/work/src/bet-kill-cascade.ts:58-70` — a real core need (kill a bet → stop its runs) done
-  as a raw CAS write with the same event suppression. Becomes a downward call.
-- `packages/core-api/work/src/work-service.ts:382-386` — the `latestSessionOutcome` correlated subquery is
-  pure decoration rendered at `routes/bets.ts:376`. Deleted and recomposed at the route, response
-  byte-identical.
-- `packages/core-api/review/src/session-review-creator.ts:50-55` — re-reads three fields
-  `SessionEndedEvent` already carries. Deleted.
-- the **`realtime` dissolution** (a "moves" verdict in `service-verdicts/group2.md`) is executed here as
-  written; a dissolution is a move, and this WP's own acceptance criteria forbid parking a "moves" verdict.
+`conversation`, `knowledge`, `notifications`, `routine` and `settings` stay outright. `connections` moved
+whole into a new SQL-owning orchestration Service, the core half renamed `@hyperidle/credentials` and K1's
+bake deleted. `filesystems` was verdicted stays-plus-three-parts, then superseded by a founder ruling that
+moved the whole domain — record, injections, probe, engine, captures — and dropped the `filesystem` knowledge
+scope. `git-export` split: its export feature was confirmed dead (off by default, no web references in any
+history, no restore path, no non-test callers) and was **deleted**, while its general-purpose git subprocess
+runner relocated to `@hyperidle/shared/git`. `observability` dissolved into `@hyperidle/shared` plus
+`settings`, and `realtime` with it: `WsConnectionHub` is transport with no domain, no tables and no consumers
+outside `core-api/src`, so it became a primitive inside `packages/core-api/src` rather than a package
+pretending to be a Service. `org`, `users`, `policy`, `work` and `review` each stayed but held something that
+moved: three `teams` agent-config columns into `team_run_config_defaults`; six `users` run-config columns into
+`agent_run_config` (migration `0055` with backfill, plus two dead column drops); policy's direct agent-run
+write inside its own transaction; `work`'s bet-kill session stop and its `latestSessionOutcome` decoration
+subquery; and `review`'s redundant re-read of fields `SessionEndedEvent` already carries.
 
-**Still out, unchanged:** giving `sessions` an owner; converting the core-api **Layer** routes that read it
-(a read core genuinely needs, closable only by first writing the rule and building a read family to serve
-it); the table-ownership census and any violation countdown; the guard's scan scope, `UNOWNED_SHARED_TABLES`
-and `assertDisjointOwnership`; owners for tables this WP does not move; routing `packages/eval` through
-owning Services; relocating `packages/db`'s seeders. Those remain AU28's, handed over with their evidence in
-`architecture.md` §14. The seven acceptance criteria below are unchanged by this correction.
+The API split settled as: each Layer owns and exports its own Hono app, and neither imports the other's
+routes. `createCoreApiApp()` and a net-new `createAgentOrchestrationApp()` are mounted by the Application tier
+(`remote-server`, `desktop`) onto one Hono instance behind one listener; composition — DB connection,
+`EventBus`, every cross-domain reactor, `WsConnectionHub`, the MCP bridge, `serve()` — moved out of core-api's
+`server-factory` into that tier. Never a second server or port: orchestration is always colocated in the same
+process. Probed first — two Hono apps do mount on one instance sharing middleware, the root `notFound` branch
+being the carry-forward trap.
 
-**Type.** backend.
+Rejected: relocating `observability` into `agent-orchestration` (three of the six event kinds it translates
+are pure core-domain, which inverts AU21's boundary); moving `WsConnectionHub` there; anything going to
+`agent-execution`; and the repo-wide table-ownership programme architecture rounds 2 and 3 grew — census,
+violation countdown, guard scan scope, owners for unmoved tables, eval routing, db seeders — cut to AU28.
+Mid-build the J4 ruling changed the UI half: core-api stopped composing agent-run state onto its responses, so
+that composition moved into the browser.
 
-**What exists today.** `service_connections`: see AU21's Decision J (`.pipeline/work/AU21/architecture.md`) — locked four-increment design (extract the AES-GCM primitive to `@hyperidle/shared`, rename the core package to `@hyperidle/credentials` stripped to just the LLM-key catalog, stand up a new SQL-owning `packages/agent-orchestration/connections/` Service, re-host `/api/connections`'s backend delegation + extend `AgentOrchestrationPort` with a read family). AU21's Decision K1 (shipped, CI-green) bakes the held-connection list onto every emitted request as an interim mechanism — precisely because the full move hadn't happened yet; now known-throwaway. `filesystems` (`packages/core-api/filesystems/src/`): `filesystem-registry.ts` (the record — team-registered repo/doc-set locations), `mounter-registry.ts` (`RegistryFilesystemMounter` and its per-source adapters — the actual mounting engine: symlink/copy/git-worktree-detect logic, composed ONCE at boot in `packages/core-api/src/server-factory.ts:1027` as `new RegistryFilesystemMounter(...)` and injected into `run-orchestration`'s `provisioner.ts`/`filesystem-provisioning.ts` as a same-process `FilesystemMounter` dependency — core-api itself never calls `.mount()`). AU21's own build already fixed the one live seam-call bug (the injected-filesystems LIST is now baked at emit) but left the mounting ENGINE itself sitting in core-api, unchallenged. `users` (`packages/db/src/schema.ts`) carries `kind` (`"ai"`/human), `harnessType`, `modelId`, `modelProvider`, `maxConcurrentSessions` directly on the same table as human identity/team-membership columns — confirmed by direct schema read, never individually challenged. `AgentOrchestrationPort` (a read-only seam, core-ui → agent-orchestration) already shipped in AU21 Increment 6/7, serving per-session cost — the re-hosting precedent every relocation here reuses. `packages/core-api/src/app.ts` hosts the ENTIRE HTTP/WS surface for both Layers today, including `agent-orchestration-sessions-routes.ts` (a route about orchestration, not one it hosts) — confirmed by direct search: `agent-orchestration` has no `route`-named file and no `new Hono()`/`createApp` anywhere. `realtime` (renamed `WsConnectionHub` during AU21 Increment 14d, after its generic broadcaster pattern was deleted) is the one remaining piece of `core-api`'s WS transport — pure connection/subscribe/authz/broadcast plumbing, zero owned tables, no domain concept of its own. AU20 (a sibling, still-planned WP) already established the "challenge, don't just document" pattern for a *different* axis (exposed-method-surface reduction); this WP runs one consistent domain-ownership test instead. **`model-gateway` was a fourth candidate here but is now CLOSED, decided directly in AU21 (Decision L2, 2026-08-03)** — dissolved as a Service entirely, its pure `resolveModel` function moved into `@hyperidle/shared`; no longer part of this WP's scope.
+## How we work on this
 
-**What's genuinely missing.** The connections FULL move (not the K1 interim patch). A real, evidenced re-application of the "administers vs. works with" test to `filesystems`' mounting engine specifically (distinct from the filesystem *record*, which may genuinely stay core as team-configured data — the engine and the record are not automatically the same verdict). A real, evidenced verdict on whether `users`' agent-execution columns should split out into an agent-orchestration-owned config table (the same "identity stays, operational config moves" shape already applied to credentials vs. connections). **A real architecture pass on the workspace-api/orchestration-api split**: should `agent-orchestration` host its own HTTP/WS surface directly (starting with session/harness streaming, the concrete case already identified), and if so, does the remaining `WsConnectionHub` transport in core-api belong to `workspace-api` (genuinely core-api's own concern, pushing conversation/work's own domain changes) or is it leftover infrastructure that should dissolve the same way `model-gateway` did. Anything the test concludes should relocate, actually relocated — not deferred again. And the test itself stated precisely enough that a future WP can re-apply it to a further candidate without re-deriving it from scratch.
+Shipped and founder-approved. Review round 1 came back NOT DONE (3 CRITICAL, 12 WARNING); all three criticals
+and nine warnings were fixed. What outlives the run:
 
-**Depends on.**
-- **AU21** — this WP relocates code AU21 built/touched (`CoreApiPort`, `AgentOrchestrationPort`, `RegistryFilesystemMounter`'s composition wiring, the K1 bake mechanism this WP deletes, the `WsConnectionHub` Increment 14d left behind) and reuses patterns AU21 established (the seam, the anti-regrowth guard, the per-Service ACL discipline); it cannot be meaningfully scoped or built until AU21 has shipped those doors.
-
-**Complexity.** L
-
-**Engineering tier.** production (matches AU21's own tier).
-
-**Pre-build gates.**
-- **Refinement:** Not required for the connections relocation — already settled via Decision J. Required, implicitly, for the `filesystems`-mounting-engine, `users`-columns, and workspace-api/orchestration-api challenges — but that challenge IS the architecture work itself (see Plan calls), not a separate goal-sharpening pass; there is no fuzzy user-facing goal, only a domain question to answer per candidate, using the test stated above.
-- **Design:** Not required — backend/infra, no new UI surface. Connections' and filesystems' Settings UI frontends are unchanged (only backend delegation re-points); if the `users`-columns split or the API split surfaces a genuine UI-facing consequence (e.g. core-ui needing a second base URL to dial orchestration-api directly), that gets scoped at architecture time.
-
-**Human review gates.** Yes — mandatory for every work package, and load-bearing here specifically: the `filesystems`-engine, `users`-columns, and workspace-api/orchestration-api verdicts are real, consequential domain calls the founder must confirm before those relocations (if any) are built, not accepted from an agent's audit alone.
-
-**Plan calls.** For `connections`: do NOT re-derive the design from scratch — Decision J's four-increment breakdown is locked; build it. For `filesystems`' mounting engine: a real architecture sub-pass applying the "administers vs. works with" test specifically to `mounter-registry.ts` — trace whether core-api ever calls `.mount()`/`.captureBack()` for its own purpose (if it genuinely never does, the engine relocates; the filesystem *record* + reachability-probe UI stay core regardless, since those are human-administered configuration data, a different question from who runs the mount). For `users`' agent-execution columns: propose the identity/operational-config split (mirroring server_credentials-stays / service_connections-moves), tracing every real reader/writer of `harnessType`/`modelId`/`modelProvider`/`maxConcurrentSessions` to confirm a clean cut is possible without breaking `users`' role as the single agent+human identity record. For the **workspace-api/orchestration-api split**: **the founder's framing sharpened past "does agent-orchestration host its own routes" to the root diagnosis — "its just bad codesmell that core has to import orchestration to produce an api" — and the resolution is now settled, not left as open lettered options.** Direct investigation (this session) confirms the violation is much larger than one misplaced route mount: `packages/core-api/src/server-factory.ts`'s `createServer()` is the ENTIRE backend composition root — it creates the DB connection, constructs `EventBus`, wires literally every cross-domain event reactor (`registerCoreDomainServices`/`registerAgentLayerServices`: knowledge relevance, notifications, policy, review, git-export, routine scheduler, retention reaper, dispatch, builtin-routine reactions), builds the `WsConnectionHub` (`server-factory.ts:1110`) and the MCP bridge registry, calls `createApp()` (which itself mounts all ~35 HTTP route modules including the cross-layer `agent-orchestration-sessions-routes.ts` — `app.ts:556-561`), and only THEN calls `@hono/node-server`'s `serve()` to actually boot the `http.Server` and static-file handler. By contrast `packages/remote-server/src/index.ts` (52 lines) and `packages/desktop/src/boot-server.ts` (71 lines) do almost nothing — each just supplies its own concrete `adapterPool`/`workspaceAdapter` and calls `createServer(port, deps)`; confirmed desktop uses the identical mechanism (not a different one) — `boot-server.ts` calls the same `@hyperidle/core-api/server-factory` `createServer`, just on `port 0` (OS-assigned) with a local-sandbox adapter, and the Electron renderer talks to it over `127.0.0.1` the same way a browser talks to a hosted `remote-server`. So today core-api isn't merely leaking one route across a Layer boundary — it IS the deploy unit; `remote-server`/`desktop` are thin shims.
-
-**Settled direction: each Layer owns and exports its own Hono app; neither Layer ever imports the other's routes.** `core-api` keeps a `createCoreApiApp()` — its own ~34 routes only, zero knowledge of agent-orchestration. `agent-orchestration` gets a new `createAgentOrchestrationApp()` — net-new; confirmed it has zero `route`/`router`/`app.ts`-shaped files today, no `new Hono()` anywhere, and no `hono` dependency in its `package.json` yet — hosting session/harness streaming directly. Composition — the DB connection, `EventBus`, every cross-domain reactor, `WsConnectionHub`, the MCP bridge, mounting BOTH Layer apps onto one Hono instance, then `serve()` — moves to the Application tier (`remote-server`, `desktop`), never to a third "neutral" package: `docs/architecture/runtime-simplification.md` is explicit that `agent-orchestration` is "Always colocated with `core-api` in the same process today" (only `agent-execution` ever splits out to a separate `remote-worker`), so this is two Hono app instances mounted under one HTTP listener in one process — never two servers or ports. Since `remote-server` and `desktop`'s composition wiring is otherwise near-identical (DB/eventbus/reactors/MCP-bridge/`WsConnectionHub`/mount-both-apps/`serve()`, differing only in which `adapterPool`/`workspaceAdapter` gets injected), architecture must decide whether they share this via a small composition-helper both import, or each owns a duplicated, slimmer bootstrap of its own — the Applications rule ("contains only wiring/bootstrap code, never business logic") is satisfied either way; the open question is DRY vs. zero-shared-package-surface, not layering correctness. Other real composition roots that also call `createServer`/`createApp` directly and would need updating (not relocating — core-api keeps its own app factory under this design, just slimmed): `packages/eval/src/provision-harness.ts` + 3 eval scenario files, `packages/web/scripts/{ah1,ah5,ah6}-test-server.ts`, and 11 `*.integration.test.ts` files under `packages/core-api` that construct `createApp()` directly. Resolve `WsConnectionHub`'s own fate under the same "administers vs. works with" test once orchestration hosts its own streaming — plausible verdict is "stays," since it already pushes real conversation/work domain changes (Increment 14d) which is genuinely workspace-api's own concern, distinct from session/harness streaming — but the verdict must follow evidence traced at architecture time, not this default. Any candidate whose verdict is "relocate" gets built using the connections relocation as the structural precedent (new SQL-owning agent-orchestration Service or table/module, ACL-enforced by a guard, `AgentOrchestrationPort`-style read door back to core-ui only if core-ui needs one). Expect this WP to fan out into independently-shippable increments — connections first (locked, largest), then the filesystems-engine, `users`-columns, and workspace-api/orchestration-api split as separately-scoped increments once each has its own architecture verdict. If, while applying the test to these, a further genuine candidate surfaces, name it and its evidence explicitly rather than silently expanding scope — a real find is welcome, an unbounded audit is not.
-
-**Contracts / constraints.**
-- No data migration for any relocation: table *definitions* stay in `packages/db/src/schema.ts`; only the ACL-holder (which Service package is the sole importer of a given table object, or which package composes a given engine) changes. If the `users`-columns split concludes a genuinely separate table is warranted, that IS a schema change and must be scoped explicitly at architecture time, not assumed free.
-- `Work`, `Conversation`, `Knowledge`, `Users` (identity), `Settings` are fixed as core app domains by this track's own charter (`.pipeline/AU.md`'s own header). Under the 2026-08-04 amendment these services are challenged **like everything else** — the charter is a strong prior, not an exemption, so the expected fast "stays" must still be *reached* on evidence (one named core-side use), never assumed. This does not re-open the charter as a strategic question: if a charter-fixed service's whole-service verdict came back "moves," that is escalated as a track-level finding with its evidence, not executed in AU26. Part-level findings inside those packages (e.g. `users`' agent-execution columns) remain squarely in scope and are executed here.
-- The filesystem *record* (team-registered repo/doc-set configuration) and the reachability-probe UI are NOT automatically relocated alongside the mounting engine — apply the test to each separately; a human-administered configuration record that core-ui genuinely displays/edits for its own purpose is a different case from an engine core never exercises itself.
-- `server_credentials` / `@hyperidle/credentials` (the LLM-key catalog) stays core-api-owned — Decision J already ruled this on a consumer-locus argument; this WP does not re-litigate that specific ruling without new evidence. (`model-gateway`, the Service that called the catalog, was already resolved by AU21 Decision L2 — not this WP's question anymore.)
-- `AgentOrchestrationPort` stays strictly read-only (its existing, already-shipped contract) for every relocation that needs a core-ui-facing read door — mutations stay HTTP-hosted in core-api, delegating to the relocated Service, never routed through a read-only seam. The workspace-api/orchestration-api split may supersede parts of this contract for session/harness streaming specifically (if orchestration hosts that route directly, `AgentOrchestrationPort`'s gateway for it becomes moot) — architecture decides this explicitly, don't assume `AgentOrchestrationPort` is untouchable if the split makes part of it redundant.
-- Must not attempt to give `agent-execution` any Service/DB access for any relocation — that Layer is structurally disqualified (zero DB credentials, may run on a separate machine) and is not a candidate destination for anything this WP moves.
-- Every relocation this WP performs must delete its own throwaway boundary-patch precedent where one exists (connections: delete K1's bake mechanism entirely) rather than leaving both the old patch and the new home coexisting.
-- Every verdict (stays or relocates) must be evidenced — real dependents traced, real "does core itself call this" tracing — not asserted from a plausible-sounding narrative.
-
-**Out of scope.**
-- **REVERSED by the 2026-08-04 amendment.** Every core-api Service package IS individually challenged now — `conversation`, `git-export`, `knowledge`, `notifications`, `observability`, `org`, `policy`, `realtime`, `review`, `routine`, `settings`, `users`, `work`, `filesystems`, `connections`, all 15, each gets a whole-service verdict. What IS out of scope is letting a verdict become an audit: a verdict is **one evidenced line** per service (the domain it owns, one named real core-side use with `file:line`, verdict), and depth is spent only where (a) that line can't be written, (b) the verdict is "moves," or (c) the verdict is "stays but contains something that moves." No inventory, no method-surface review (that is AU20's axis), no per-service doc for a service that obviously stays. Verdicts are for all 15; moves are only for what fails — and every "moves" is executed in this WP, never parked.
-- A second sweep in the reverse direction. "Is anything core-domain sitting inside `agent-orchestration`?" is answered by ONE grep over its 4 Service packages (`dispatch`, `run-orchestration`, `session-requests`, `tool-handlers`) for `@hyperidle/db` table objects in non-test source, recorded as one line. A bounded confirmation, never a per-service pass of its own.
-- **The general table-ownership programme — AU28's, not AU26's** (2026-08-04 founder ruling). Specifically out: assigning owners to tables this WP does not move (`sessions`, `propagationLog`, `taskDispatchAttempts`, `userSkills`); deleting or shrinking `UNOWNED_SHARED_TABLES`; changing what source roots `scripts/table-ownership-guard.ts` scans; a repo-wide violation census or a count that must reach zero; routing `packages/eval` through the owning Services; relocating `packages/db`'s seeders. AU26 declares owners **only** for the tables it itself relocates or creates. Findings are handed to AU28 in `architecture.md` §14 with their evidence. **Read this bullet with the correcting amendment above: it is a bar on writing rules, never on moving code.** The four `policy`/`work`/`review` moves and the `realtime` dissolution are AU26's, and a move that incidentally clears a violation is still a move.
-- The filesystem *record*/reachability-probe UI as a whole — only the mounting engine is challenged; the record's own domain status is a separate, narrower question this WP resolves alongside the engine, not a foregone "stays" conclusion either way.
-- Any UI redesign of the Settings connections/filesystems/agents pages — behavior only, no redesign.
-- Moving or renaming the LLM-key catalog (`server_credentials`/`@hyperidle/credentials`) itself.
-- Re-litigating `model-gateway`'s placement — closed by AU21 Decision L2, not reopened here.
-- AU21's assistant-turn output/execution de-specialization (Decision K2) — that is AU27's scope, unrelated to this WP's domain-ownership axis.
-
-**Effort.** L (~3-4 weeks) — the connections full relocation alone is ~4-6d (independently testable per Decision J's four-increment breakdown); the filesystems-engine, `users`-columns, and workspace-api/orchestration-api split are smaller individually but each needs its own real architecture pass before sizing its build increment (the API split in particular touches how Applications compose Layers, so its own investigation may reveal it's larger than it first looks).
-
-## Acceptance criteria
-
-- `service_connections` (table, CRUD, crypto decrypt path, and the AN2 provisioning operation) has exactly one Service importer — a new SQL-owning agent-orchestration `connections` Service — with zero core-api Service reaching the table directly, enforced by a real guard. AU21 Decision K1's bake-at-emit mechanism is deleted entirely; a test proves a connection added or removed after an intent's emit but before its drain is correctly reflected at spawn (K1's staleness regression is gone).
-- **(new, 2026-08-04)** Every Service package in `packages/core-api` — 15 at HEAD — receives a **whole-service verdict**: does this entire service belong in core? Each verdict is recorded with its evidence (the domain the service owns, and for a "stays" at least one real core-side use with `file:line`; for a "moves", no core-side use found across all traced sites). No service is exempted by the track charter — a charter-fixed domain is a strong prior that must still be evidenced. The reverse direction is confirmed once and bounded: one grep over `agent-orchestration`'s 4 Service packages showing no core-domain table object, recorded as one line.
-- For every service whose whole-service verdict is "stays", the "administers vs. works with" test is then applied at **part** granularity to the agent/agent-environment capabilities embedded in it, with real evidence (not assertion). Minimum coverage: `filesystems`' mounting engine, `users`' agent-execution columns, and `WsConnectionHub` — each gets a documented stays/relocates verdict. A unit wired only in a composition root is not judged on its call sites (they are all wiring and carry no signal); it follows the verdict of the domain it wires.
-- `RegistryFilesystemMounter` (the mounting engine) relocates to agent-orchestration if the test concludes core never operationally exercises it — with the filesystem record/reachability-probe UI's own status resolved as a separate, explicit question, not assumed to follow the engine automatically.
-- `agent-orchestration` hosts its own HTTP/WS route(s) directly for at least the session/harness-streaming case (core-ui dials in without a core-api gateway hop), with a documented, evidenced verdict on `WsConnectionHub`'s own fate (stays as `workspace-api`'s own transport, or dissolves) under the same test used for everything else in this WP.
-- Every candidate whose verdict is "relocate" **or "delete"** — from **either** pass, whole-service or part-level — is actually moved into agent-orchestration (or removed) in this WP (not deferred to yet another follow-up), with the same rigor as the connections move: guard-enforced ACL, an `AgentOrchestrationPort`-style read door back to core-ui only where core-ui genuinely needs one.
-
-- The Settings UI's connections, filesystems, and agents pages, and the session/harness live-activity UI, all work identically end-to-end after any relocation, with zero required frontend behavior changes (route/base-URL wiring may change, but what the user sees and when does not).
-
-  **AMENDED 2026-08-04 (build, recorded at review).** As literally written this criterion is **NOT MET**, and the record says so rather than letting it look satisfied. The founder's J4 ruling — *"its all for UI? thats why orchestration now has an api so that the ui can get the agent run state from the orchestration directly and combine this information in the ui instead of in the core api service"* — supersedes it in substance: core-api stopped composing run state onto its responses, so the composition moved into the browser. The real `packages/web` diff is therefore render logic, not fetch/config wiring (+1110/−285 across 42 files, including a net-new `hooks/useAgentRunState.ts` and changes in `AgentProfile.tsx`, `WorkTeam.tsx`, `WorkBet.tsx`, `SettingsAgents.tsx`).
-
-  What the user sees is unchanged. **When** they see it is not, and that difference is now bounded and deliberate, not accidental: the run-state hooks report `loading` / `ready` / `error`, and both screens render "unknown" rather than a confident idle/healthy/0 while a read is in flight or after it fails (review W5/W6). The request count per interaction changed too, and is back to one round-trip per screen for task titles via `GET /api/tasks?ids=` (review W4). The residue accepted here: two round-trips (core + orchestration) where there used to be one, which is the direct consequence of the founder's ruling.
-
-## Validation scenarios
-
-- Given a user adds a new held connection after a task_run intent has already been emitted but before it has drained, when the session spawns, then the newly-added connection is provisioned into the sandbox — proving the relocation reads live, in-layer, not from a stale emit-time bake.
-- Given a core-api Service attempts to import the `serviceConnections` table object (or, if relocated, the filesystem-mounting engine's internals) directly, when the guard runs, then it fails the build — the ACL is enforced, not just documented.
-- Given the mounting-engine test is applied to `RegistryFilesystemMounter`, when its real call sites are traced, then the evidence shows whether core-api ever calls `.mount()`/`.captureBack()` for a core-side purpose or exclusively on an agent's behalf — the verdict follows the evidence, not the connections precedent by default.
-- Given a user opens a live agent session's activity view after the workspace-api/orchestration-api split, when the UI connects for streaming updates, then it reaches agent-orchestration's own route directly — the same live activity renders identically to before the split.
+- **AC7 is not met as literally written**, and the record says so rather than letting it look satisfied. J4
+  supersedes it in substance: what the user sees is unchanged, *when* they see it is not — the run-state hooks
+  report loading/ready/error and render "unknown" rather than a confident idle/healthy/0 while a read is in
+  flight or has failed. Accepted residue: two round-trips where there was one.
+- The new run reads are **deliberately uncapped** — a cap cannot be behaviour-preserving, because
+  `totalSessions` counts every run and `idleDurationMs` reads the newest ended run of any age. Narrowing them
+  is a product decision.
+- Session-stream authorization is **widened for task-free runs** (assistant, routine, knowledge),
+  founder-accepted. It contradicts core's own socket, which still enforces thread participation for
+  `thread:<id>`: a user refused the thread can watch that thread's assistant run. Tightening is a founder
+  call.
+- `packages/agent-orchestration/src/` has no `package.json` and no guard widening, so the table-ownership
+  guard does not scan it, and the anti-regrowth guard's route-import scan is one-directional — AU28's work.
+- One documented read survives the sweep: the roster's `sessions` read in `teams-routes.ts`, kept because it
+  also feeds `maybeNotifyAgentError`. Scoped to three columns, reported as a blocker awaiting the founder.
+- The dropped `filesystem` knowledge scope has no CHECK constraint and no migration, so the "no production
+  data" claim is not verifiable from code; a surviving row silently reclassifies to Shared.
+- Deleting the git export leaves doc claims stale (`system-requirements` S-2.2, `the-canonical-store`,
+  `facilitators`) — a `/write-docs` reconciliation. Whether knowledge belongs in git is a future question.

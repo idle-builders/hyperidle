@@ -1,62 +1,57 @@
 # AU29 — The framework stops acting: `db` exports only the database, `shared` stays off the bus
 
-## Work package
+## What we need
 
-**Work package.** As a maintainer, I want `framework/db` and `framework/shared` to be pure substrate again — `db` exporting nothing but database access, `shared` publishing nothing on the event bus — so that the two packages every other package is allowed to name unconditionally stop being places where behaviour hides. Today `db` re-exports three functions that touch no database at all, three system-prompt template readers, and a `seed` symbol that belongs to no surface; and it writes rows into five tables owned by services, from a bootstrap routine that structurally cannot go through those owners because a framework package may not import a layer. `shared` both provides the event bus and publishes on it. When this ships, every export of `framework/db` resolves to a named database surface, first-boot state is composed by whatever boots the system rather than by the database package, and the framework is a pipe nobody upstream can hear.
+As a maintainer, I want `framework/db` and `framework/shared` to be pure substrate again — `db` exporting nothing but database access, `shared` publishing nothing on the event bus — so that the two packages every other package may name unconditionally stop being places where behaviour hides.
 
-**Why this matters.** `framework/db` and `framework/shared` are the two targets with `reach: everyone` — every layer, service, application and tool may name them without a second thought. That permission is only safe while they hold substrate. Each non-database export smuggled into `db` inherits that universal reach and becomes an unowned back-channel: `resolveAgentScaffoldSpecs` is agent configuration reachable from anywhere, and `readSystemPromptTemplateForRole` is prompt content reachable from anywhere, neither by anyone's decision. The maintainer's cost of *not* fixing this is that the one rule the whole model rests on — "the shared substrate is the one target every role may name" — is quietly false, and every future reviewer who trusts it is wrong. This is also the prerequisite AU30 needs: `factory-bootstrap`'s writes into `users` and `knowledgeItems` cannot be routed through their owning services while the code lives in `framework/`.
+These are the two targets with `reach: everyone`. That permission is only safe while they hold substrate. Every non-database export smuggled into `db` inherited that universal reach and became an unowned back-channel: agent scaffold configuration and system-prompt content were reachable from anywhere by nobody's decision. The cost of not fixing it was that the one rule the whole governance model rests on — "the shared substrate is the one target every role may name" — was quietly false, and every future reviewer trusting it was wrong. It was also the prerequisite for AU30: `factory-bootstrap`'s writes into service-owned tables could not be routed through their owning services while the code lived in `framework/`.
 
-**Type.** framework / infra. No UI surface.
+Done meant:
 
-**What exists today.** `governance/architecture.json` names thirteen modules of `framework/db/src` and maps each to a surface (`db:client`, `db:bootstrap`, `db:util`); anything unmapped falls to `db:unknown` and is reported by name. The `db:util` entry is already marked `ANOMALY, pending follow-up W1` and carries its own reason: `escapeLikePattern` (`like-escape.ts`), `resolveAgentScaffoldSpecs` (`agent-scaffold.ts`) and `resolveProfile` (`profiles.ts`) contain no SQL, no schema reference and no connection — the surface exists only because the exports do. Four symbols currently fall to `db:unknown`: three from `system-prompt-templates.ts` (a module the registry deliberately does not name) and `seed` (absent from the package's re-export list). `framework/db/src/factory-bootstrap.ts` writes `users` (3 sites), `knowledgeItems`, `knowledgeAppProjection` and two unowned tables, and reads two more — it is mapped to `db:bootstrap`, whose stated audience is composition roots, so the routine is already documented as belonging outside the database package. `framework/shared/src/agent-run-admission.ts:65` emits `agent_run_admission_failed` and `framework/shared/src/observability/dispatcher.ts:473` subscribes to `*`. These sites are the violations under `AU29`'s group keys, and those keys carry `"warn"` in `governance/rule-severity.json` until `AU29` clears them and removes them.
-
-**What's genuinely missing.** Nothing here is undiscovered — the gap is that the three misplaced utilities have no agreed destination, `system-prompt-templates.ts` has never been given a surface or a home, and first-boot composition has never been separated from the database package that happens to host it. The event-bus rows need the observability dispatcher and the admission emitter to live somewhere that is allowed to speak.
-
-**Depends on.** None. Every input is already committed on `pipeline/AU28`.
-
-**Complexity.** M
-
-**Engineering tier.** production — matches AU28's tier; this is foundational substrate in a shipped system.
-
-**Pre-build gates.**
-- **Refinement:** Required — run `/refine` first. Three destinations are genuinely unsettled and each is a real decision, not a mechanical move: where the three non-database utilities go, whether `system-prompt-templates.ts` becomes a named `db` surface or leaves the package, and which composition root owns first-boot state. `/refine` must settle those nouns before architecture.
-- **Design:** Not required — framework/infra, no UI surface.
-
-**Human review gates.** Yes — mandatory for every work package. Load-bearing here: this changes what the two universally-reachable packages are allowed to contain, which is the assumption the rest of the governance model rests on.
-
-**Plan calls.** Standard architecture pass. One thing to design deliberately rather than assume: moving `factory-bootstrap` to a composition root changes who runs first-boot and when, and the desktop and remote-server applications both boot today through the same path — plan the relocation against both, not one. Confirm against the live tree that `db:testing` and the `db:bootstrap` fixtures are not carrying the same problem before declaring the surface list clean.
-
-**Contracts / constraints.**
-- The end state is stated as the end state, never as a migration (Ruling 12). No transitional re-export, no deprecation alias, no "temporary" surface entry.
-- No production export may be added that only tests consume — `knip:production` deletes it as dead code.
-- The `db:util` surface entry is deleted from `governance/architecture.json`, not emptied or relaxed.
-- Promotion is a step: clearing a group key's last site removes that key from `governance/rule-severity.json` in the same pull request, and that is what makes the rule bite. Nothing is deferred to another work package, and there is no record to delete.
-- Every group key this work package clears is removed from `governance/rule-severity.json`; none is re-keyed, re-tagged or moved to another key.
-- `governance/rule-severity.json` is hand-edited and hand-read: no generator writes it, and no code path derives it from live violations.
-
-**Out of scope.**
-- Splitting `framework/shared` as a whole (568 exports, the markdown toolchain in every layer's closure) — that is its own work package; this one touches only the two bus sites and whatever moving them requires.
-- Assigning owners to the unowned tables, and routing service-owned table writes through their owners — AU30.
-- The 12 development-world writes in `framework/db`'s own test files — AU32.
-
-**Effort.** M (~1d)
-
-## Acceptance criteria
-
-- Every export of `framework/db` resolves to a named database surface; the governance lint reports zero symbols falling to `db:unknown`.
-- No package outside `framework/db` can reach a function that performs no database access through the database package.
-- First-boot database state is established by a composition root, and the database package writes no table owned by a service.
+- Every export of `framework/db` resolves to a named database surface, with zero symbols falling to `db:unknown`.
+- Nothing outside `framework/db` can reach a function that performs no database access through the database package.
+- First-boot state is established by a composition root, and the database package writes no table owned by a service.
 - The framework neither publishes to nor subscribes to the event bus.
-- Every `framework → *` and `* → db:util` / `* → db:unknown` production group key this work package owns is removed from `governance/rule-severity.json`, and those rules are at `error` from this pull request.
-- The AU28 bookkeeping mechanism is already gone (deleted unconditionally by `AU32`); reintroducing it, or any per-file allowance, under any name, fails the build via `no-per-file-allowances`.
-- `npm run verify` is green, and first boot on a clean database produces the same state it produces today — verified by running it, not by reading the code.
+- Every group key this work cleared is removed from the severity dial in the same pull request, so those rules bite from here on rather than being deferred to another work package.
+- First boot on a clean database produces the same state it produced before — verified by running it, not by reading the code.
 
-## Validation scenarios
+The end state is stated as the end state, never as a migration: no transitional re-export, no deprecation alias, no "temporary" surface entry, and no production export that only tests consume.
 
-**Given** a clean checkout and an empty database, **when** the application boots for the first time, **then** the resulting rows in `users`, `knowledgeItems` and `knowledgeAppProjection` are identical to those produced by `origin/main`'s first boot, and no write originated in `framework/db`.
+Boundary: splitting `framework/shared` as a whole is its own work package, and only the two bus sites were touched here. Assigning owners to unowned tables and routing service-owned writes through their owners is AU30. The development-world writes in `framework/db`'s own test files are AU32.
 
-**Given** the governance lint runs over the live tree, **when** it reports, **then** the `db:unknown` symbol list is empty and no production violation remains in any `db:util`, `db:unknown`, `framework → db:table` or `framework → EventBus` group.
+## How it works
 
-**Given** a developer adds a new export to `framework/db` that performs no database access, **when** `npm run lint` runs, **then** the build fails naming that symbol.
+Five things left `framework/db`, moved verbatim rather than improved, all to `framework/shared` because it is the only home legal for every consumer at once:
 
-**Given** a developer adds an `eventBus.emit(...)` call inside `framework/shared`, **when** `npm run lint` runs, **then** the build fails naming the file and event type.
+- `escapeLikePattern` — pure string escaping used by seven files across services and the layer.
+- `resolveProfile` and the deployment-profile constants and types — pure env-string resolution.
+- `resolveAgentScaffoldSpecs` together with the whole of `system-prompt-templates.ts`; they move as a pair because the scaffold resolver reads the templates. Their consumers span two layers, and the only surfaces both a `core-api` route and an `agent-orchestration` service may name are `shared` and `db` — and `db` is what this work package forbids. This introduced the first `fs.readFileSync` into `shared` production code. Its cwd-relative `docs/system-prompts/` resolution and its closed allowlist map are the traversal defense, which is why they moved byte-for-byte. The later shared-split work package is what gives these a narrower audience.
+- `seed-fixtures.ts`'s pure constants, beside the factory roster that already documents their derivation.
+
+`seed` turned out to be a phantom: `framework/db` exported no such symbol, and the `db:unknown` entry came from a desktop test that mocked `seed` into the package and destructured it back to assert desktop never calls it. The stale test was fixed rather than the export re-added.
+
+First-boot state is defined once and consumed by two worlds. Two layer faces hold it — `applyFactoryCoreState` in `core-api` (the propagation user, the roster users, the agent-category backfill, the knowledge seed) and `applyFactoryRunConfigDefaults` in `agent-orchestration` — each writing through the services that own the tables. The desktop application's boot calls the two faces directly; a new `tools/setup` package calls the same faces, so there is no second implementation of first-boot truth to diverge. Two details there are load-bearing: the knowledge seed uses a dedicated factory writer rather than the repository's `create`, because that writer also writes the edit log and would change first-boot state; and the face returns the rows it queried rather than the roster constant, which is what preserves the upgrade-path semantics where an existing row's actual role decides which template it gets.
+
+`tools/setup` picked up the relocated `setup-cli`, `bootstrap-pg`, `seed-pg-cli` and `demo-fixture`. It needed no registry edit — the existing `tools/*` glob already gives it the tooling role — and script names did not change. The demo fixture keeps its direct table writes: tooling touching any table is allowed, so rerouting it would have been invented scope.
+
+On the bus: the admission-failure emit act moved into the two sibling services that were its only consumers, while the pure type guards and the event declarations stayed in `shared` — a guard is not a bus act. The observability dispatcher moved to `core-api`, beside the one site that wires it. Separately, `toolsForRole` was dissolved: its one-line filter is inlined at its three callers, which removes the last `framework → layer` crossing and leaves no framework file receiving layer values. Three copies of a one-line predicate beat a shared function that structurally invites layer values into the framework; the rule now lives as a sentence on the `RegisteredTool.roles` contract.
+
+Enforcement went in with the change. The `db:util` and `db:bootstrap` surfaces were deleted outright, along with their six decided-rules rows, and a registered `db-symbols-all-placed` rule turns any barrel re-export from an unmapped module into an error that names the symbol — the detection already existed as a non-fatal note nothing read. Every group key this work cleared was removed from the severity dial in the same commit, which is what makes those rules bite.
+
+## How we work on this
+
+Shipped. Three review rounds; the last returned DONE with zero blocking findings.
+
+After ship, `origin/main` moved: AU32 replaced the shrink-only baseline ratchet this was built against with a per-rule severity dial where an absent key means error. On rebase, every baseline edit was dropped with the file, and the architectural outcome was preserved through the new mechanism instead. Promotion was re-proved live rather than assumed — an `eventBus.emit` re-injected into `framework/shared` and an unmapped `framework/db` export imported from a layer both failed the build as errors, then were reverted.
+
+Two founder rulings still explain shapes in the tree. Delete an unused surface entry rather than empty or relax it. And do not chase the hand-maintained `totals.differ` literal in the decided-rules file: what the linter outputs is what matters, the recorded count was already stale, and letting the derived value be the source of truth is a legitimate end state.
+
+Named residuals and follow-ups, none of them chased here:
+
+- A non-database function smuggled into an *already-mapped* `db:client` module is not statically decidable by the new rule and is not claimed as covered. One-door surface discipline and diff review are what guard it.
+- `factory-roster.ts`'s `templateRole` documentation still points at the dropped `factory_settings` table, and the field has zero readers repo-wide. A dead field with stale docs — a genuine follow-up.
+- The shared/remote server still has no in-process bootstrap: the deploy chart runs only the migration init-container, and `bootstrap-pg`'s "second init-container" comment is aspiration that nothing wires. The gap is recorded in the deployment docs and was deliberately left open, as no acceptance criterion covered it.
+
+Operationally worth knowing: the worktree needs node >= 24, and `npm ci` fails on a lock that is out of sync on main, so bootstrap with `npm install`. Every task regenerates a shared governance file in its own commit, so the build ran sequentially with a single builder rather than parallel leaves that would collide.
+
+One habit this run paid for: the regression guard added for the review's blocking finding was only believed after being run against the pre-fix source and watched fail, with a third run proving it was the added argument — not unrelated drift — that made it bite.

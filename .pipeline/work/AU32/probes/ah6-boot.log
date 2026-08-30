@@ -1,6 +1,0 @@
-[ah6-test-server] Seeded: team=ah6-e2e-team, teamMembers=ah6-e2e-team-members, user=u-founder
-[ah6-test-server] Using default smoke model: google/gemini-2.5-flash-preview-05-20:nitro
-[ah6-test-server] OpenRouter API key seeded into server_credentials.
-[ah6-test-server] Assistant agent seeded: id=ast-u-founder, model=google/gemini-2.5-flash-preview-05-20:nitro, provider=openrouter
-[ah6-test-server] ready on http://localhost:3098
-2026-08-08T13:17:31.116Z INFO [server.routine-scheduler] routine scheduler started {"pollIntervalMs":30000,"canProvision":true,"reaperEnabled":false}
