@@ -220,6 +220,14 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// a site under it.
 	let dbHandle: DbHandle | null = null;
 	let db: HyperIdleDb;
+	// @lore BA9g: where installed plugin files live, beside the database. Nothing
+	// set this before — `app.ts` documented it as "production wiring passes the
+	// platform config dir" and no Application ever did, so `plugins.install_path`
+	// was null on every real install. Two features were dead as a result: restore
+	// answered NO_INSTALL_PATH forever, and `mergePluginMcpContributions` skips
+	// any plugin without an install path, so a plugin's MCP servers never reached
+	// a session. Both only worked in tests, which pass a temp dir.
+	let pluginsBaseDir: string | undefined;
 	if (deps.db) {
 		db = deps.db;
 	} else {
@@ -232,6 +240,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 			dbHandle = createPostgresDb(dbUrl);
 		}
 		db = dbHandle.db;
+		// NOT "plugins": beside a dev checkout's database that is the repo's own
+		// plugin SOURCE directory, and install `rmSync`s the destination before
+		// copying — so installing would delete the sources it was built from.
+		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
 	}
 	const eventBus = new EventBus();
 
@@ -318,6 +330,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		upgradeWebSocket,
 		adapterPool: agentExecution.adapters.pool,
 		onHarnessRedetect,
+		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 		serviceBootstrap: (ctx) => {
 			// AF6/AU1: production boots the routine scheduler at the default
 			// 30s cadence. Runtime deps are present, so generic routine fires

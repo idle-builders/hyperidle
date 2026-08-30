@@ -42,6 +42,7 @@ applications/*/plans/
 tools/*/plans/
 framework/design-system/03-hearth.html
 framework/design-system/inspiration/
+installed-plugins/
 hyperidle-pg/
 eval-results*.json
 docs/product/.vitepress/cache

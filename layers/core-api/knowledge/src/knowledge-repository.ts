@@ -1478,16 +1478,21 @@ export async function setKnowledgeStatus(
  * We deliberately do NOT store a separate copy in plugin_configuration_defaults;
  * the file on disk IS the authoritative original.
  */
-export async function restorePluginSkillBody(
-	db: HyperIdleDb,
-	skillId: string,
+/**
+ * Put the plugin's version of a contributed document back.
+ *
+ * @lore BA9g: this also reset `updatedBy` to `plugin:<id>` to clear the
+ * "detached" signal. That sentinel is gone — detachment is a registry column,
+ * and `updated_by` names a person again. The caller clears it.
+ */
+export async function restorePluginDocumentBody(
+	exec: WriteExecutor,
+	documentId: string,
 	body: string,
-	pluginId: string,
+	restoredBy: string,
 ): Promise<void> {
-	// @lore D12: resetting updatedBy to plugin:${pluginId} clears the
-	// "detached" signal — the item matches its source again.
-	await db
+	await exec
 		.update(knowledgeItems)
-		.set({ body, updatedBy: `plugin:${pluginId}`, updatedAt: new Date().toISOString() })
-		.where(eq(knowledgeItems.id, skillId));
+		.set({ body, updatedBy: restoredBy, updatedAt: new Date().toISOString() })
+		.where(eq(knowledgeItems.id, documentId));
 }

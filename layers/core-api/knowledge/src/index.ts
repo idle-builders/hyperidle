@@ -66,7 +66,7 @@ export {
 	getAgentIdentityIds,
 	list,
 	remove,
-	restorePluginSkillBody,
+	restorePluginDocumentBody,
 	search,
 	setKnowledgeStatus,
 	transition,

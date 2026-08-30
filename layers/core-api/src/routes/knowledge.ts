@@ -64,6 +64,7 @@ import {
 	VersionConflictError,
 } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
+import { markDetached } from "@hyperidle/settings";
 import { findUser } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
 import { Hono } from "hono";
@@ -571,6 +572,18 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 				return c.json(response, 404);
 			}
 			throw error;
+		}
+
+		// @lore BA9g: a plugin-contributed document a person edits becomes theirs,
+		// so a reinstall leaves their version alone (D5: your edit wins) and the
+		// plugin's contributions view says which rows they have taken over. The
+		// route is the legal bridge — knowledge does not know about plugins, and
+		// the plugin service does not write `knowledge_items`.
+		//
+		// This replaces `updated_by <> 'plugin:<id>'`, which carried the same
+		// meaning and was never read by anything.
+		if (body.body !== undefined) {
+			await markDetached(db, { kind: "knowledge", entityId: id, ts: new Date().toISOString() });
 		}
 
 		const updated = await getKnowledgeItem(db, id);
