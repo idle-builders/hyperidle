@@ -47,7 +47,7 @@ Each already passes `design/no-handrolled-control` (E2's honest boundary, plan.m
 - [ ] **UI-212** `layers/core-ui/src/pages/Conversations.tsx` — 1 hand-rolled `<button>` site(s) at line(s) 218 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **S**
 - [ ] **UI-213** `layers/core-ui/src/pages/KnowledgeDetail.tsx` — 1 hand-rolled `<button>` site(s) at line(s) 509 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **S**
 - [ ] **UI-214** `layers/core-ui/src/pages/KnowledgeList.tsx` — 5 hand-rolled `<button>` site(s) at line(s) 381, 394, 606, 630, 654 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **M**
-- [ ] **UI-215** `layers/core-ui/src/pages/SetupFlow.tsx` — 4 hand-rolled `<input/button>` site(s) at line(s) 638, 767, 891, 927 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **M**
+- [ ] **UI-215** `layers/core-ui/src/pages/SetupFlow.tsx` — 2 hand-rolled `<input>` site(s) at line(s) 590, 719 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **S**
 - [ ] **UI-216** `layers/core-ui/src/pages/WorkBet.tsx` — 1 hand-rolled `<button>` site(s) at line(s) 752 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **S**
 - [ ] **UI-217** `layers/core-ui/src/pages/review/ReviewBatch.tsx` — 2 hand-rolled `<button>` site(s) at line(s) 230, 359 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **S**
 - [ ] **UI-218** `layers/core-ui/src/pages/review/ReviewCodeDiff.tsx` — 3 hand-rolled `<button>` site(s) at line(s) 148, 310, 576 · Now: token-legal chrome hand-rolled per element instead of a shared `Button`/`Input` recipe · Done: migrated to the design-system component; no visual regression · **S**
@@ -109,5 +109,5 @@ Set 1's "not a button" note and Set 5's status set don't cover "a small pill-sha
 
 ---
 
-**Totals at generation time:** 92 hand-rolled control sites / 49 files, 78 hand-rolled chip sites / 40 files (core-ui production only; framework/design-system's own internals are excluded — building a primitive's chrome is not a violation of the set it defines).
+**Totals at generation time:** 90 hand-rolled control sites / 49 files, 78 hand-rolled chip sites / 40 files (core-ui production only; framework/design-system's own internals are excluded — building a primitive's chrome is not a violation of the set it defines).
 

@@ -31,7 +31,6 @@ import type {
 	TeamDetail,
 	TeamListItem,
 } from "@hyperidle/domain-model";
-import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
 import { upsertAgentIdentity } from "@hyperidle/knowledge";
@@ -216,9 +215,8 @@ export function createTeamRoutes(
 		return c.json({ teams: result });
 	});
 
-	// POST / — create a new team with a team_members row and default agents.
+	// POST / — create a new team and its one agent.
 	// AU3: app-owned scaffolding produces specs; persistScaffoldedAgents remains the writer.
-	// Backward compat: no `functions` in body defaults to ["development","product"].
 	// Best-effort welcome message: failure does not roll back team creation.
 	router.post("/", async (c) => {
 		let body: unknown;
@@ -228,7 +226,7 @@ export function createTeamRoutes(
 			return c.json({ error: "Invalid JSON", code: "validation_error" }, 400);
 		}
 
-		const { name, repoPath, functions, userId, primaryHarness } = body as CreateTeamRequest;
+		const { name, repoPath, userId, primaryHarness } = body as CreateTeamRequest;
 		if (!name || typeof name !== "string" || name.trim().length === 0) {
 			return c.json({ error: "name is required", code: "validation_error" }, 400);
 		}
@@ -244,33 +242,24 @@ export function createTeamRoutes(
 			return c.json(existingTeam, 200);
 		}
 
-		// AE2: resolve team functions — default to ["development","product"] for backward compat.
-		const teamFunctions: string[] =
-			Array.isArray(functions) && functions.length > 0 ? functions : ["development", "product"];
-
 		const now = new Date().toISOString();
 		// @lore U2: ID prefix changed from `product-` to `team-` (domain rename).
 		// @lore AU44 B1: teamMembersId removed — a single teamId now identifies the team row.
 		const teamId = `team-${crypto.randomUUID()}`;
 
-		// AU3: route through app-owned scaffolding for the default roster.
-		// Resolved BEFORE inserting the team so an empty-specs result (unknown functions
-		// with no catalog matches) aborts with 400 without any DB writes — no rollback needed.
+		// @lore BA9g: one agent, not a roster. This used to map the team's declared
+		// `functions` through the role catalog and 400 with "Team functions produced
+		// no agents" when the mapping came up empty — a team with no agents was an
+		// error. Founder ruling: "a new team is just a single empty agent. and then
+		// you improve that team with plugins." There is no roster to be empty.
 		const specs = resolveAgentScaffoldSpecs({
 			trigger: "team_scaffold",
 			teamName: name.trim(),
-			functions: teamFunctions,
 			role: null,
 			name: null,
 			ownerUserId: null,
 			ownerUserName: null,
 		});
-
-		// AE2 AC-1h: If app scaffolding returns zero specs (e.g. unknown functions with no
-		// catalog matches), reject with 400 — a team with no agents is invalid.
-		if (specs.length === 0) {
-			return c.json({ error: "Team functions produced no agents", code: "validation_error" }, 400);
-		}
 
 		// @lore AU44 B1: createTeam now inserts a single teams row (capacity/activeBets/formedAt
 		// live on teams with schema defaults — no separate team_members insert needed).
@@ -280,8 +269,6 @@ export function createTeamRoutes(
 				name: name.trim(),
 				phase: "build",
 				factoryDbPath: typeof repoPath === "string" ? repoPath.trim() || null : null,
-				// AE2: store chosen functions as JSON for future reads.
-				functions: JSON.stringify(teamFunctions),
 				createdAt: now,
 			});
 		});
@@ -322,7 +309,6 @@ export function createTeamRoutes(
 			streamId: teamId,
 			teamId,
 			teamMembersId: teamId,
-			functions: teamFunctions,
 			agentIds,
 			at: now,
 		});
@@ -410,17 +396,12 @@ export function createTeamRoutes(
 					});
 				}
 
-				// Build agent names list for welcome message text.
-				// Use the persisted roster from DB (app-decided set).
-				const agentRows = await listUsers(db, { teamIds: [teamId] });
-				const agentLabels = agentRows
-					.map(({ role }) => {
-						const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
-						return entry?.label ?? role;
-					})
-					.join(", ");
-
-				const welcomeText = `Welcome! Your team is ready with ${agentIds.length} agent${agentIds.length !== 1 ? "s" : ""}: ${agentLabels}. I'm here to help you steer them.`;
+				// @lore BA9g: this used to read the persisted roster back and list it —
+				// "your team is ready with 3 agents: Builder, Product Manager, QA
+				// Engineer". There is no roster to list: a team is one agent, and what
+				// it becomes is the person's to write or a plugin's to bring.
+				const welcomeText =
+					"Welcome! Your team starts with one agent and nothing decided about it. Tell it what you need, or install a plugin to bring in more.";
 
 				await insertMessage(db, {
 					id: `msg-welcome-${crypto.randomUUID()}`,

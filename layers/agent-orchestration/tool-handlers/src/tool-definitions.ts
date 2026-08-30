@@ -1149,7 +1149,6 @@ function makeCreateTeamTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 				streamId: teamId,
 				teamId,
 				teamMembersId,
-				functions: input.functions,
 				agentIds,
 				at: now,
 			});

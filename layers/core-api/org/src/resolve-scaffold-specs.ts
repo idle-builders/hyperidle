@@ -1,4 +1,4 @@
-import { AGENT_ROLE_CATALOG, defaultRoster } from "@hyperidle/domain-model";
+import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { AgentScaffoldSpec } from "./scaffold-agents.js";
 
 /**
@@ -19,7 +19,6 @@ import type { AgentScaffoldSpec } from "./scaffold-agents.js";
 interface AgentScaffoldRequest {
 	readonly trigger: "team_scaffold" | "agent_added" | "user_assistant";
 	readonly teamName: string | null;
-	readonly functions: readonly string[] | null;
 	readonly role: string | null;
 	readonly name: string | null;
 	readonly ownerUserId: string | null;
@@ -45,19 +44,19 @@ export function resolveAgentScaffoldSpecs(
 	// rather than opinions the product holds. A scaffolded agent starts with no
 	// identity; install a plugin, or write one.
 	switch (request.trigger) {
-		case "team_scaffold": {
-			const specs: AgentScaffoldSpec[] = [];
-			for (const role of defaultRoster(request.functions ?? [])) {
-				const entry = AGENT_ROLE_CATALOG.find((candidate) => candidate.role === role);
-				specs.push({
-					role,
-					name: `${request.teamName ?? "Team"} ${entry?.label ?? role}`,
-					agentCategory: entry?.category ?? "team",
+		case "team_scaffold":
+			// One agent. A team used to arrive with a roster — Builder, Product
+			// Manager, QA Engineer — derived from its declared functions. Founder
+			// ruling: "a new team is just a single empty agent. and then you improve
+			// that team with plugins."
+			return [
+				{
+					role: "agent",
+					name: `${request.teamName ?? "Team"} Agent`,
+					agentCategory: "team",
 					systemPrompt: null,
-				});
-			}
-			return specs;
-		}
+				},
+			];
 		case "agent_added": {
 			if (request.role === null) throw new Error("agent_added trigger requires a role");
 			const entry = AGENT_ROLE_CATALOG.find((candidate) => candidate.role === request.role);

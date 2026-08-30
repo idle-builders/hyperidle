@@ -25,10 +25,8 @@ export type { AgentRoleCatalogEntry } from "./agent-roles.js";
 export {
 	AGENT_ROLE_CATALOG,
 	communityForRole,
-	defaultRoster,
 	findRoleCatalogEntry,
 	roleLabel,
-	TEAM_FUNCTIONS,
 } from "./agent-roles.js";
 // HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).

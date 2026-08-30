@@ -882,7 +882,6 @@ describe("BA9c — team_created produces kind:team rich subject", () => {
 				streamId: teamId,
 				teamId,
 				teamMembersId: "ba9c-tm-1-members",
-				functions: [],
 				agentIds: [],
 				at: new Date().toISOString(),
 			});

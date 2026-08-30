@@ -204,7 +204,6 @@ describe("routine transition constraint filter", () => {
 				streamId: "stream-tcc-notransition",
 				teamId: "tcc-notransition-team",
 				teamMembersId: "tcc-notransition-members",
-				functions: [],
 				agentIds: [],
 				at: NOW,
 			});

@@ -56,11 +56,6 @@ describe("AD8b — AGENT_ROLE_CATALOG: assistant entry", () => {
 		expect(entry?.category).toBe("individual");
 	});
 
-	it("assistant entry has hasTemplate=true", () => {
-		const entry = findRoleCatalogEntry("assistant");
-		expect(entry?.hasTemplate).toBe(true);
-	});
-
 	it("assistant entry has community='ops'", () => {
 		const entry = findRoleCatalogEntry("assistant");
 		expect(entry?.community).toBe("ops");

@@ -300,7 +300,6 @@ export function createOrgRoutes(
 		const resolved = resolveAgentScaffoldSpecs({
 			trigger: body.trigger,
 			teamName: body.teamName,
-			functions: body.functions,
 			role: body.role,
 			name: body.name,
 			ownerUserId: body.ownerUserId,

@@ -1,8 +1,15 @@
 /**
  * AB0 — Agent Roles: unit tests (RED phase)
  *
- * AC2: AGENT_ROLE_CATALOG has 16 entries with required fields for all known roles
- * AC3: TEAM_FUNCTIONS, defaultRoster(), communityForRole() behave correctly
+ * AC2: AGENT_ROLE_CATALOG carries the role vocabulary with required fields
+ * AC3: communityForRole() behaves correctly
+ *
+ * @lore BA9g: `TEAM_FUNCTIONS` and `defaultRoster()` are gone — a team no longer
+ * arrives with a roster derived from its functions. The catalog stays as
+ * VOCABULARY (a plugin agent declares `role: "builder"`, `roleLabel` renders it,
+ * `communityForRole` scopes a session's knowledge); `teamFunctions` and
+ * `hasTemplate` went with the roster. The count gained `agent`, the neutral role
+ * a new team's one agent carries.
  * AC7: communityForRole() replaces ROLE_TO_COMMUNITY record
  */
 
@@ -13,11 +20,8 @@ import {
 	type AgentCategory,
 	type AgentRoleCatalogEntry,
 	communityForRole,
-	defaultRoster,
 	findRoleCatalogEntry,
 	roleLabel,
-	TEAM_FUNCTIONS,
-	type TeamFunction,
 } from "../agent-roles.js";
 
 // ---------------------------------------------------------------------------
@@ -25,9 +29,10 @@ import {
 // ---------------------------------------------------------------------------
 
 describe("AGENT_ROLE_CATALOG", () => {
-	it("has 16 entries", () => {
-		// @lore AD8b: chief_of_staff replaced by assistant — count stays 16.
-		expect(AGENT_ROLE_CATALOG).toHaveLength(16);
+	it("has 17 entries", () => {
+		// @lore AD8b: chief_of_staff replaced by assistant — count stayed 16.
+		// @lore BA9g: +1 for `agent`, the role a new team's single agent carries.
+		expect(AGENT_ROLE_CATALOG).toHaveLength(17);
 	});
 
 	it("every entry has required fields", () => {
@@ -37,8 +42,6 @@ describe("AGENT_ROLE_CATALOG", () => {
 			expect(entry).toHaveProperty("category");
 			expect(entry).toHaveProperty("description");
 			expect(entry).toHaveProperty("community");
-			expect(entry).toHaveProperty("teamFunctions");
-			expect(entry).toHaveProperty("hasTemplate");
 
 			expect(typeof entry.role).toBe("string");
 			expect(entry.role.length).toBeGreaterThan(0);
@@ -48,8 +51,6 @@ describe("AGENT_ROLE_CATALOG", () => {
 			expect(entry.description.length).toBeGreaterThan(0);
 			expect(typeof entry.community).toBe("string");
 			expect(entry.community.length).toBeGreaterThan(0);
-			expect(Array.isArray(entry.teamFunctions)).toBe(true);
-			expect(typeof entry.hasTemplate).toBe("boolean");
 		}
 	});
 
@@ -183,73 +184,9 @@ describe("communityForRole", () => {
 // TEAM_FUNCTIONS — AC3
 // ---------------------------------------------------------------------------
 
-describe("TEAM_FUNCTIONS", () => {
-	it("is a readonly array of strings", () => {
-		expect(Array.isArray(TEAM_FUNCTIONS)).toBe(true);
-		for (const f of TEAM_FUNCTIONS) {
-			expect(typeof f).toBe("string");
-		}
-	});
-
-	it("includes development, product, design, marketing", () => {
-		expect(TEAM_FUNCTIONS).toContain("development");
-		expect(TEAM_FUNCTIONS).toContain("product");
-		expect(TEAM_FUNCTIONS).toContain("design");
-		expect(TEAM_FUNCTIONS).toContain("marketing");
-	});
-
-	it("type annotation: TeamFunction is assignable", () => {
-		// Type-level test — if this compiles, the type is correct
-		const f: TeamFunction = TEAM_FUNCTIONS[0];
-		expect(typeof f).toBe("string");
-	});
-});
-
 // ---------------------------------------------------------------------------
 // defaultRoster — AC3
 // ---------------------------------------------------------------------------
-
-describe("defaultRoster", () => {
-	it("returns builder and qa_engineer for development", () => {
-		const roster = defaultRoster(["development"]);
-		expect(roster).toEqual(["builder", "qa_engineer"]);
-	});
-
-	it("returns product_manager for product", () => {
-		const roster = defaultRoster(["product"]);
-		expect(roster).toContain("product_manager");
-	});
-
-	it("returns deduplicated union for development + product", () => {
-		const roster = defaultRoster(["development", "product"]);
-		expect(roster).toContain("builder");
-		expect(roster).toContain("qa_engineer");
-		expect(roster).toContain("product_manager");
-		// No duplicates
-		expect(new Set(roster).size).toBe(roster.length);
-	});
-
-	it("returns empty array for unknown function", () => {
-		expect(defaultRoster(["custom_function"])).toEqual([]);
-	});
-
-	it("returns empty array for empty functions array", () => {
-		expect(defaultRoster([])).toEqual([]);
-	});
-
-	it("results are sorted alphabetically", () => {
-		const roster = defaultRoster(["development", "product"]);
-		const sorted = [...roster].sort();
-		expect(roster).toEqual(sorted);
-	});
-
-	it("does not include individual-category agents (facilitator, assistant)", () => {
-		// @lore BA9d: strategy category removed; facilitator + assistant are both "individual" now
-		const roster = defaultRoster(["development", "product", "design", "marketing"]);
-		expect(roster).not.toContain("assistant"); // individual-category — not in team roster
-		expect(roster).not.toContain("facilitator"); // individual-category — not in team roster
-	});
-});
 
 // ---------------------------------------------------------------------------
 // AGENT_CATEGORIES re-export
