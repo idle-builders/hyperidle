@@ -369,6 +369,38 @@ harness and two harnesses can be compared on the same scenario.
 
 ---
 
+**Progress 2026-08-30. The cassette seam is deleted and no test intercepts a model call.**
+`llm-cassette`, `setLlmInterceptor`, the AH6 Playwright lane, its server, its committed cassettes and
+its scripts are gone, along with the two `af7` tests that guarded the built-in adapter's own internals.
+`core-ui`'s dependency on `harness-registry` existed only for that test server and went with it; the
+misplacement ledger loses its `llm-client` entry and ratchets 4 → 3. One `callLlm` mock remains, in
+`builtin-harness-adapter.test.ts`, and it is builtin's own unit test — it goes with builtin in Batch 6,
+not before, or the harness ships untested while it still ships.
+
+**The handoff lane across all harnesses is NOT done, and here is exactly where it got to.** The rewrite
+(shared proof body + five `requireHarness` lanes, mirroring `assistant-reply-live-harness`) works for
+`builtin` (13s) and `claude` (51s) when each lane runs alone. Run all five in one file and three time
+out. It is reverted rather than committed red. Three things it turned up, all of which a redo needs:
+
+1. **`HARNESS_TEST_MODELS.builtin` is mislabelled**, exactly like `opencode` was. It says
+   `openai-compatible` while its own `baseUrl` is `openrouter.ai` and its key is `OPENROUTER_API_KEY`.
+   Taking that label at face value sends the resolver hunting for an `openai_compatible_api_key`
+   nobody seeded, so no model resolves and the turn never starts. It was invisible because the old
+   lane hardcoded `"openrouter"` instead of reading the map.
+2. **`createServer(port, …)` composes the MCP base URL from the port it is HANDED, before binding.**
+   Pass `0` and every spawned harness is told to dial `http://localhost:0` — a bridge address that
+   cannot be reached, so the agent has no tools and can never call `reply()`. The built-in harness
+   never noticed, because it calls tools in-process; this is the single sharpest illustration of what
+   the built-in harness has been hiding. Bind a real free port first.
+3. **Five full servers, each with its own durable poller, do not coexist in one file** against a
+   fixture DB that truncates between tests — the leftovers surface as
+   `Unknown agent request <id>` unhandled rejections. `assistant-reply-live-harness` avoids this by
+   driving `composition.runSession` directly instead of booting a server per lane; the handoff proof
+   cannot, because the HTTP → poller chain IS what it proves. Either the lanes get one file each, or
+   disposal has to be provably complete between them.
+
+---
+
 ## Batch 6 — The built-in harness is gone
 
 **Change.** Delete `builtin-harness-adapter.ts` (1,034 lines), `llm-client.ts` (818) and `llm-types.ts`,
