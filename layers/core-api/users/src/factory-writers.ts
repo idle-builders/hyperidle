@@ -38,20 +38,29 @@ export async function listFactoryAgents(
 }
 
 /**
- * Set the `status` field on all user rows materialised by a plugin install.
- * Used by the plugin disable/enable/remove lifecycle in the route layer.
+ * Set the `status` field on the named agent rows.
  *
- * Users/agents are never hard-deleted on remove — many tables have
- * ON DELETE RESTRICT FKs on users.id (items.sourceAgentId,
- * routines.ownerAgentId, etc.). Status='inactive' is the safe tombstone.
+ * Users/agents are never hard-deleted — many tables have ON DELETE RESTRICT FKs
+ * on users.id (items.sourceAgentId, routines.ownerAgentId, etc.).
+ * Status='inactive' is the safe tombstone.
  *
- * @lore BA9d: the route cannot write the `users` table directly
- * (governance boundary) — it calls this function instead.
+ * @lore BA9d: the route cannot write the `users` table directly (governance
+ * boundary) — it calls this function instead.
+ *
+ * @lore BA9g: it took a `pluginId` and filtered on `users.plugin_id`. That
+ * column was the plugin service's provenance living in a table it does not own,
+ * which is exactly why this write had to be here in the first place. The plugin
+ * service now names the rows and this function writes them, so the boundary is
+ * the same and the ownership is honest.
  */
-export async function setPluginAgentsStatus(
+export async function setAgentsStatus(
 	exec: WriteExecutor,
-	pluginId: string,
+	agentIds: readonly string[],
 	status: "active" | "inactive",
 ): Promise<void> {
-	await exec.update(users).set({ status }).where(eq(users.pluginId, pluginId));
+	if (agentIds.length === 0) return;
+	await exec
+		.update(users)
+		.set({ status })
+		.where(inArray(users.id, [...agentIds]));
 }

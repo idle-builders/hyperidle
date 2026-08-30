@@ -32,6 +32,16 @@ export {
 } from "./action-rules.js";
 // -- plugin configuration (resolution engine, agent-behavior UI) --
 export { listConfiguration, writeConfigurationOverride } from "./plugin-configuration.js";
+export type { PluginContribution } from "./plugin-contributions.js";
+export {
+	clearDetached,
+	contributedEntityIds,
+	forgetContributionsExcept,
+	listContributions,
+	markDetached,
+	ownerOf,
+	recordContribution,
+} from "./plugin-contributions.js";
 // -- plugin install / manage (BA9a) --
 export type {
 	InstalledPlugin,

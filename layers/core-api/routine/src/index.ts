@@ -77,8 +77,8 @@ export {
 	listRoutineRuns,
 	listRoutines,
 	parseTransitionTo,
-	setPluginRoutinesActive,
-	softDeletePluginRoutines,
+	setRoutinesLive,
+	softDeleteRoutines,
 	updateRoutine,
 	updateRoutineRun,
 } from "./routine-service.js";

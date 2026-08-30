@@ -51,6 +51,7 @@ export type {
 	ConfigurationOrigin,
 	ConfigurationOriginType,
 	ConfigurationValueSource,
+	PluginContributionKind,
 	PluginScopeKind,
 	PluginState,
 	ResolvedConfigurationItem,
@@ -58,6 +59,7 @@ export type {
 export {
 	BUILTIN_PLUGIN_ID,
 	CONFIGURATION_KINDS,
+	PLUGIN_CONTRIBUTION_KINDS,
 	PLUGIN_SCOPE_KINDS,
 	PLUGIN_STATES,
 } from "./configuration.js";

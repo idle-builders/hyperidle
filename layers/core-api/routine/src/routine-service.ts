@@ -607,18 +607,35 @@ export async function resolveRoutineRunRequest(
 // ---------------------------------------------------------------------------
 
 /**
- * Set the `active` flag on all routines belonging to a plugin.
- * Used by the plugin disable/enable lifecycle in the route layer.
+ * Set liveness on the named routines.
  *
- * @lore BA9d: the route cannot write the `routines` table directly
- * (governance boundary) — it calls this function instead.
+ * @lore BA9d: the route cannot write the `routines` table directly (governance
+ * boundary) — it calls this function instead.
+ *
+ * @lore BA9g: it took a `pluginId` and filtered on `routines.plugin_id`, the
+ * plugin service's provenance living in a table it does not own. The plugin
+ * service names the rows now.
+ *
+ * It also wrote `active` alone, leaving `state` behind — so a plugin-disabled
+ * routine read as `state='active'` while the scheduler skipped it. Both move
+ * together, the way the routine DELETE route already writes them. Reviving also
+ * clears `deletedAt`: a removed plugin's routines used to keep it forever, so a
+ * reinstall could never bring them back.
  */
-export async function setPluginRoutinesActive(
+export async function setRoutinesLive(
 	exec: WriteExecutor,
-	pluginId: string,
+	routineIds: readonly string[],
 	active: boolean,
 ): Promise<void> {
-	await exec.update(routines).set({ active }).where(eq(routines.pluginId, pluginId));
+	if (routineIds.length === 0) return;
+	await exec
+		.update(routines)
+		.set(
+			active
+				? { active: true, state: "active" as const, deletedAt: null }
+				: { active: false, state: "paused" as const },
+		)
+		.where(inArray(routines.id, [...routineIds]));
 }
 
 /**
@@ -632,13 +649,21 @@ export async function setPluginRoutinesActive(
  * @lore BA9d: the route cannot write the `routines` table directly
  * (governance boundary) — it calls this function instead.
  */
-export async function softDeletePluginRoutines(
+/**
+ * Soft-delete the named routines.
+ *
+ * @lore BA9g: `state` moves with `active` and `deletedAt`, matching the routine
+ * DELETE route. It used to write two of the three, leaving a soft-deleted
+ * routine reading as `state='active'`.
+ */
+export async function softDeleteRoutines(
 	exec: WriteExecutor,
-	pluginId: string,
+	routineIds: readonly string[],
 ): Promise<void> {
+	if (routineIds.length === 0) return;
 	const now = new Date().toISOString();
 	await exec
 		.update(routines)
-		.set({ active: false, deletedAt: now })
-		.where(eq(routines.pluginId, pluginId));
+		.set({ active: false, state: "paused" as const, deletedAt: now })
+		.where(inArray(routines.id, [...routineIds]));
 }

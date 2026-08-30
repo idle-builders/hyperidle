@@ -62,6 +62,7 @@ export {
 	type PluginConfigurationDefaultRow,
 	type PluginRow,
 	pluginConfigurationDefaults,
+	pluginContributions,
 	plugins,
 	type Routine,
 	routineRuns,

@@ -9,25 +9,22 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import type { ConfigurationKind } from "@hyperidle/domain-model";
 import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
-	removeByPluginTopic,
 	restorePluginSkillBody,
-	setPluginSkillsStatus,
+	setKnowledgeStatus,
 	type UpsertPluginDocumentInput,
 	upsertPluginDocument,
 } from "@hyperidle/knowledge";
-import {
-	insertRoutine,
-	setPluginRoutinesActive,
-	softDeletePluginRoutines,
-} from "@hyperidle/routine";
+import { insertRoutine, setRoutinesLive, softDeleteRoutines } from "@hyperidle/routine";
 import {
 	agentItemId,
+	contributedEntityIds,
 	disablePlugin,
 	enablePlugin,
+	forgetContributionsExcept,
 	getInstalledPlugin,
 	type InstalledPlugin,
 	installPlugin,
@@ -36,12 +33,13 @@ import {
 	type PluginScope,
 	type PluginSource,
 	pluginContributionKey,
+	recordContribution,
 	removePlugin,
 	restorePluginContribution,
 	routineItemId,
 	skillItemId,
 } from "@hyperidle/settings";
-import { insertUserIfAbsent, setPluginAgentsStatus } from "@hyperidle/users";
+import { insertUserIfAbsent, setAgentsStatus } from "@hyperidle/users";
 import { Hono } from "hono";
 
 // ---------------------------------------------------------------------------
@@ -74,6 +72,33 @@ export interface PluginListResponse {
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
+
+/**
+ * Make everything a plugin contributed live, or not live.
+ *
+ * @lore BA9g: enable, disable and remove each spelled this out separately, over
+ * three different provenance mechanisms, and drifted apart — disable wrote a
+ * routine's `active` but not its `state`; remove set `deletedAt` that nothing
+ * ever cleared; install revived skills but not agents or routines, so
+ * reinstalling a disabled plugin produced one that reported `enabled` with a
+ * dead agent. One function, one outcome, whatever the caller is doing.
+ *
+ * The plugin service names the rows; the service owning each table writes them.
+ */
+async function setContributionsLive(
+	exec: WriteExecutor,
+	pluginId: string,
+	live: boolean,
+): Promise<void> {
+	const [agentIds, routineIds, knowledgeIds] = await Promise.all([
+		contributedEntityIds(exec, pluginId, "agent"),
+		contributedEntityIds(exec, pluginId, "routine"),
+		contributedEntityIds(exec, pluginId, "knowledge"),
+	]);
+	await setAgentsStatus(exec, agentIds, live ? "active" : "inactive");
+	await setRoutinesLive(exec, routineIds, live);
+	await setKnowledgeStatus(exec, knowledgeIds, live ? "active" : "archived");
+}
 
 export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Hono {
 	const router = new Hono();
@@ -225,10 +250,12 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		// Wrapped in a transaction so all cross-service writes are atomic.
 		const { plugin, skills, agents, routines, scopeKind, scopeId, installTs } = result;
 		await db.transaction(async (tx) => {
-			const keepIds: string[] = [];
+			const knowledgeIds: string[] = [];
+			const agentIds: string[] = [];
+			const routineIds: string[] = [];
 			for (const skill of skills) {
 				const id = skillItemId(plugin.id, skill.dirName);
-				keepIds.push(id);
+				knowledgeIds.push(id);
 				const input: UpsertPluginDocumentInput = {
 					id,
 					pluginId: plugin.id,
@@ -236,13 +263,13 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 					body: skill.body,
 					scopeKind,
 					scopeId,
-					topic: `plugin:${plugin.id}`,
+					// No `plugin:<id>` topic. The registry records who contributed
+					// this; the topic is a person's field.
+					topic: null,
 					ts: installTs,
 				};
 				await upsertPluginDocument(tx, input);
 			}
-			// Remove any stale skill items for this plugin (e.g., renamed skill dirs).
-			await removeByPluginTopic(tx, `plugin:${plugin.id}`, keepIds);
 
 			// Materialize declared agents as users rows.
 			// @lore BA9d: agentItemId/routineItemId include scope so factory installs
@@ -250,6 +277,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 			// per team (teamId=scopeId). insertUserIfAbsent makes reinstall idempotent.
 			for (const agentSpec of agents) {
 				const dbId = agentItemId(plugin.id, agentSpec.id, scopeKind, scopeId);
+				agentIds.push(dbId);
 				await insertUserIfAbsent(tx, {
 					id: dbId,
 					kind: "ai",
@@ -258,7 +286,6 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 					status: "active",
 					agentCategory: agentSpec.agentCategory,
 					teamId: scopeKind === "team" ? scopeId : null,
-					pluginId: plugin.id,
 					createdAt: installTs,
 				});
 			}
@@ -275,13 +302,14 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 				let routinePromptDocId: string | null = null;
 				if (routineSpec.prompt) {
 					routinePromptDocId = `ki_rp_${routineDbId}`;
+					knowledgeIds.push(routinePromptDocId);
 					await upsertPluginDocument(tx, {
 						id: routinePromptDocId,
 						pluginId: plugin.id,
 						title: `${routineSpec.name || "Routine"} — prompt`,
 						scopeKind: "factory",
 						scopeId: null,
-						topic: `plugin:${plugin.id}`,
+						topic: null,
 						body: routineSpec.prompt,
 						ts: installTs,
 						role: "ordinary",
@@ -297,12 +325,38 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 						triggerConfig: routineSpec.triggerConfig ?? null,
 						eventType: routineSpec.eventType ?? null,
 						promptKnowledgeId: routinePromptDocId,
-						pluginId: plugin.id,
 						createdAt: installTs,
 					},
 					{ onConflictDoNothing: true },
 				);
+				routineIds.push(routineDbId);
 			}
+
+			// Record what this install contributed, and forget what it no longer
+			// declares — a renamed skill directory, a dropped routine. The stale
+			// rows are archived; nothing is hard-deleted, because the audit tables
+			// hold RESTRICT FKs on them.
+			for (const [kind, ids] of [
+				["agent", agentIds],
+				["routine", routineIds],
+				["knowledge", knowledgeIds],
+			] as const) {
+				for (const entityId of ids) {
+					await recordContribution(tx, { pluginId: plugin.id, kind, entityId, ts: installTs });
+				}
+				const stale = await forgetContributionsExcept(tx, {
+					pluginId: plugin.id,
+					kind,
+					keepEntityIds: ids,
+				});
+				if (kind === "knowledge") await setKnowledgeStatus(tx, stale, "archived");
+				if (kind === "routine") await softDeleteRoutines(tx, stale);
+				if (kind === "agent") await setAgentsStatus(tx, stale, "inactive");
+			}
+
+			// Installing is a deliberate act: everything this plugin contributes is
+			// live afterwards, whatever a previous disable or remove left behind.
+			await setContributionsLive(tx, plugin.id, true);
 		});
 
 		return c.json({ plugin }, 201);
@@ -328,9 +382,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		// each table write; they accept WriteExecutor so this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				await setPluginRoutinesActive(tx, id, true);
-				await setPluginAgentsStatus(tx, id, "active");
-				await setPluginSkillsStatus(tx, id, "active");
+				await setContributionsLive(tx, id, true);
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -360,9 +412,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		// this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				await setPluginRoutinesActive(tx, id, false);
-				await setPluginAgentsStatus(tx, id, "inactive");
-				await setPluginSkillsStatus(tx, id, "archived");
+				await setContributionsLive(tx, id, false);
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -391,9 +441,10 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		// Service functions own each table write; they accept WriteExecutor so this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				await softDeletePluginRoutines(tx, id);
-				await setPluginAgentsStatus(tx, id, "inactive");
-				await removeByPluginTopic(tx, `plugin:${id}`, []);
+				await setContributionsLive(tx, id, false);
+				// Remove goes one step further than disable: the routines are
+				// soft-deleted, not just paused. A reinstall clears `deletedAt`.
+				await softDeleteRoutines(tx, await contributedEntityIds(tx, id, "routine"));
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);

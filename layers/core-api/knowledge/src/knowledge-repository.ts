@@ -23,6 +23,7 @@ import {
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
+	type WriteExecutor,
 } from "@hyperidle/db";
 
 import {
@@ -1266,7 +1267,8 @@ export interface UpsertPluginDocumentInput {
 	body: string;
 	scopeKind: string;
 	scopeId: string | null;
-	topic: string;
+	/** A real topic, or none. It no longer carries provenance — the registry does. */
+	topic: string | null;
 	ts: string;
 	/** Defaults to `skill`. A routine's prompt is an ordinary document. */
 	role?: KnowledgeRole;
@@ -1428,32 +1430,6 @@ export async function upsertPluginDocument(
 }
 
 /**
- * Archive knowledge items matching `topic`, excluding items whose IDs are
- * in `keepIds`. Used to clean up stale plugin skill items on reinstall or remove.
- */
-export async function removeByPluginTopic(
-	db: HyperIdleDb,
-	topic: string,
-	keepIds: readonly string[],
-): Promise<void> {
-	const rows = await db
-		.select({ id: knowledgeItems.id })
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.topic, topic));
-
-	const staleIds = rows.map((r) => r.id).filter((id) => !keepIds.includes(id));
-	if (staleIds.length === 0) return;
-
-	// @lore BA9d: archive instead of hard-delete — knowledge_edit_log/access_log/conflicts
-	// have RESTRICT FK on knowledge_items.id (I3 security: audit trail outlives subject).
-	// Archived items are excluded from session assembly (status != 'active' filter).
-	await db
-		.update(knowledgeItems)
-		.set({ status: "archived", updatedAt: new Date().toISOString() })
-		.where(inArray(knowledgeItems.id, staleIds));
-}
-
-/**
  * Set the status of all knowledge items for a plugin (by topic).
  * Used by the plugin disable/enable lifecycle in the route layer.
  *
@@ -1468,15 +1444,24 @@ export async function removeByPluginTopic(
  * disable/remove — skills do not go through plugin_configuration_defaults, so
  * restorePluginContribution() cannot recover them.
  */
-export async function setPluginSkillsStatus(
-	db: HyperIdleDb,
-	pluginId: string,
+/**
+ * Set status on the named knowledge documents.
+ *
+ * @lore BA9g: it took a `pluginId` and matched `topic = 'plugin:<id>'`. The
+ * topic is a person's field — editing it silently orphaned a document from
+ * uninstall and disable, permanently. The plugin service names the documents
+ * now, and `topic` means what it says.
+ */
+export async function setKnowledgeStatus(
+	exec: WriteExecutor,
+	ids: readonly string[],
 	status: "active" | "archived",
 ): Promise<void> {
-	await db
+	if (ids.length === 0) return;
+	await exec
 		.update(knowledgeItems)
 		.set({ status, updatedAt: new Date().toISOString() })
-		.where(eq(knowledgeItems.topic, `plugin:${pluginId}`));
+		.where(inArray(knowledgeItems.id, [...ids]));
 }
 
 /**
