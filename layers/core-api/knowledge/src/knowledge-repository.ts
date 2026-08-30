@@ -595,6 +595,35 @@ async function listBase(
  * @lore AU20 K1-reads: the three delegate functions (findById, findDetailById,
  * findKnowledgeItemProjectionById) are deleted — logic is inlined into each case.
  */
+/**
+ * What a viewer may see: everything except another person's private notes.
+ *
+ * `scope_kind='user'` says the document belongs to the subject in `scope_id`.
+ * That is two different things depending on the document's ROLE. An `ordinary`
+ * user-scoped document is a person's private note. A capability document —
+ * `agent_file`, `skill`, `rule` — with the same scope is a BINDING: it says
+ * which agent this identity, skill or rule applies to. A binding is ordinary
+ * team knowledge that happens to name its agent, not a secret.
+ *
+ * @lore BA9f: an agent's identity became a `scope_kind='user'` document bound to
+ * the agent. Spelled as "user scope is private, full stop", every one of those
+ * was invisible to everyone — including through the single knowledge edit
+ * endpoint that is now the only place to edit them. Proven by driving the live
+ * API: `GET /api/knowledge/ki_af_demo-agent-pm` answered 404 for a document
+ * sitting in the table.
+ *
+ * The rule stays inside knowledge's own vocabulary on purpose: telling an agent
+ * from a person means reading `users`, and that table belongs to another
+ * service.
+ */
+function visibleToViewer(viewerUserId: string): SQL | undefined {
+	return or(
+		ne(knowledgeItems.scopeKind, "user"),
+		ne(knowledgeItems.role, "ordinary"),
+		eq(knowledgeItems.updatedBy, viewerUserId),
+	);
+}
+
 export function get(
 	db: HyperIdleDb,
 	id: string,
@@ -605,6 +634,7 @@ export function get(
 	id: string,
 	opts?: { view?: "summary" },
 ): Promise<KnowledgeItem | null>;
+
 export async function get(
 	db: HyperIdleDb,
 	id: string,
@@ -716,7 +746,7 @@ export async function list(
 				knowledgeAppProjection,
 				eq(knowledgeAppProjection.knowledgeItemId, knowledgeItems.id),
 			)
-			.where(or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, viewerUserId)));
+			.where(visibleToViewer(viewerUserId));
 		return rows.map(({ item, projection }) => mergeWithProjection(item, projection));
 	}
 
@@ -783,7 +813,7 @@ export async function list(
 				and(
 					eq(knowledgeItems.topic, opts.topic),
 					ne(knowledgeItems.id, opts.excludeId),
-					or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, opts.viewerUserId)),
+					visibleToViewer(opts.viewerUserId),
 				),
 			)
 			.limit(opts.limit);
@@ -810,10 +840,7 @@ export async function count(
 		.select({ count: sql<number>`count(*)` })
 		.from(knowledgeItems)
 		.where(
-			and(
-				inArray(knowledgeItems.status, ["draft", "needs_human"]),
-				or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, viewerUserId)),
-			),
+			and(inArray(knowledgeItems.status, ["draft", "needs_human"]), visibleToViewer(viewerUserId)),
 		);
 	return Number(result?.count ?? 0);
 }
@@ -851,10 +878,7 @@ export async function search(
 	// "text"); the LIKE escape is inlined here because query-escaping was dissolved.
 	const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
 
-	const authFilter =
-		visibility != null
-			? or(ne(knowledgeItems.scopeKind, "user"), eq(knowledgeItems.updatedBy, visibility))
-			: undefined;
+	const authFilter = visibility != null ? visibleToViewer(visibility) : undefined;
 
 	const textFilter = or(
 		sql`${knowledgeItems.title} ILIKE ${pattern} ESCAPE '\\'`,
