@@ -44,6 +44,7 @@
 
 import { type HyperIdleDb, messages, threads, users } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { requireRunnableAgent } from "@hyperidle/users";
 
 async function seedThread(
@@ -123,6 +124,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 
 		const baked = await resolveAssistantTurnRequest(db, "message-resolver-1", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			readServerConfig: async () => ({ harnessDisabled: [] }),
 		});
 
@@ -150,6 +152,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 		await expect(
 			resolveAssistantTurnRequest(db, "message-does-not-exist", {
 				requireRunnableAgent,
+				getAgentIdentity,
 				readServerConfig: async () => ({ harnessDisabled: [] }),
 			}),
 		).rejects.toThrow();
@@ -180,6 +183,7 @@ describe("resolveAssistantTurnRequest — emit-time assistant_turn resolver (con
 		await expect(
 			resolveAssistantTurnRequest(db, "message-resolver-unrunnable", {
 				requireRunnableAgent,
+				getAgentIdentity,
 				readServerConfig: async () => ({ harnessDisabled: [] }),
 			}),
 		).rejects.toThrow();

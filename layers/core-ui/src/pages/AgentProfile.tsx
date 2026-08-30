@@ -436,15 +436,17 @@ function AgentProfileLoaded({
 						<KeyValue label="Max sessions" value={String(data.maxConcurrentSessions)} />
 						<KeyValue label="Created" value={createdDate} />
 					</div>
-					{data.systemPrompt && (
-						<details className="mt-[12px]">
-							<summary className="type-metadata  text-[var(--text-tertiary)] cursor-pointer hover:text-[var(--text-secondary)] select-none">
-								System prompt
-							</summary>
-							<pre className="type-data mt-[6px]  text-[var(--text-secondary)]  whitespace-pre-wrap break-all bg-[var(--surface-page)] rounded-[var(--r-subtle)] p-[9px] max-h-[200px] overflow-y-auto">
-								{data.systemPrompt}
-							</pre>
-						</details>
+					{/* Who the agent is. It is a knowledge document, so the profile
+					    links to it rather than reprinting it — one place to read it,
+					    one place to edit it. */}
+					{data.identityKnowledgeId && (
+						<RRLink
+							to={`/knowledge/${data.identityKnowledgeId}`}
+							data-testid="agent-identity-link"
+							className="type-metadata mt-[12px] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+						>
+							Identity document
+						</RRLink>
 					)}
 				</section>
 

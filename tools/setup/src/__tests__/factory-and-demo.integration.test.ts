@@ -164,18 +164,21 @@ describe("A2: Seed script", () => {
 		await runFactoryBootstrap(db);
 		await seedDemoWorld(db);
 
+		// @lore BA9f: the persona is the `agent_file` document bound to the agent.
 		const rolesList = SYSTEM_PROMPT_FILE_ROLES.map((r) => `'${r}'`).join(", ");
-		const rows = await queryRows<{ id: string; role: string; system_prompt: string | null }>(
+		const rows = await queryRows<{ id: string; role: string; body: string | null }>(
 			db,
-			`SELECT u.id, u.role, c.system_prompt FROM users u
-			   JOIN agent_run_config c ON c.agent_user_id = u.id
+			`SELECT u.id, u.role, k.body FROM users u
+			   JOIN knowledge_items k
+			     ON k.scope_kind = 'user' AND k.scope_id = u.id
+			    AND k.role = 'agent_file' AND k.status = 'active'
 			  WHERE u.role IN (${rolesList})`,
 		);
 		// Only product_manager agents exist (facilitators are plugin-provided, not seeded here).
 		expect(rows.length).toBeGreaterThanOrEqual(1);
 		for (const row of rows) {
-			expect(row.system_prompt, `${row.id} system_prompt must be set`).toBeTruthy();
-			expect((row.system_prompt ?? "").length).toBeGreaterThan(50);
+			expect(row.body, `${row.id} identity must be set`).toBeTruthy();
+			expect((row.body ?? "").length).toBeGreaterThan(50);
 		}
 	});
 

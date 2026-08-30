@@ -399,6 +399,26 @@ export interface RoutineRunResolverDeps {
 	 */
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
 	/**
+	 * The agent's identity document body, baked onto the request so the
+	 * provisioner never reads `knowledge_items` — that table belongs to the
+	 * knowledge service. Injected (Mechanism C), absent where nothing bakes.
+	 */
+	/**
+	 * The agent's identity document, baked onto the request.
+	 *
+	 * Required, not optional: while it was optional, two of the call sites that
+	 * bake an assistant turn simply never wired it, compiled clean, and baked no
+	 * identity at all. A required port turns that into a compile error.
+	 */
+	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
+	/**
+	 * Read the body of the knowledge document carrying this routine's
+	 * instruction. Injected (Mechanism C) because `knowledge_items` belongs to
+	 * the knowledge service — this package depends only on `@hyperidle/db` and
+	 * framework packages. Absent at a call site that bakes no prompt.
+	 */
+	getKnowledgeBody?(db: HyperIdleDb, knowledgeItemId: string): Promise<string | null>;
+	/**
 	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/org`'s
 	 * `getTeam`, injected (Mechanism C — `@hyperidle/routine`'s `package.json`
 	 * depends only on `@hyperidle/db` + framework packages, never
@@ -518,6 +538,15 @@ export async function resolveRoutineRunRequest(
 	// Proven on the packaged app by the case that exposed it: an individual
 	// agent ran with an empty sandbox, no `.claude/skills` written, while
 	// factory-scoped skills sat in the database.
+	// Both the instruction and the agent's identity are knowledge documents;
+	// they reach this resolver through injected ports.
+	const agentPersona = await deps.getAgentIdentity(db, agent.id);
+	// The instruction is a knowledge document; read it through the injected port.
+	const routinePrompt =
+		routine.promptKnowledgeId && deps.getKnowledgeBody
+			? await deps.getKnowledgeBody(db, routine.promptKnowledgeId)
+			: null;
+
 	let contextBundle: BakedContextBundle | undefined;
 	const { getTeamById, assembleSessionKnowledge } = deps;
 	if (assembleSessionKnowledge) {
@@ -531,7 +560,7 @@ export async function resolveRoutineRunRequest(
 			agentRole: agent.role,
 			// BA1 D3: the scorer ranks knowledge against the instruction the run
 			// will actually execute, not a description of the routine.
-			taskDescription: routine.prompt ?? routine.name,
+			taskDescription: routinePrompt ?? routine.name,
 			agentId: agent.id,
 		});
 		contextBundle = {
@@ -539,7 +568,7 @@ export async function resolveRoutineRunRequest(
 			routine: {
 				id: routine.id,
 				name: routine.name,
-				prompt: routine.prompt,
+				prompt: routinePrompt,
 				lastRunSummary: routine.lastRunSummary,
 			},
 			agent: { id: agent.id, name: agent.name, role: agent.role },
@@ -568,7 +597,7 @@ export async function resolveRoutineRunRequest(
 			...(teamId !== undefined ? { teamId } : {}),
 		},
 		...(contextBundle ? { contextBundle } : {}),
-		agentConfig: bakeAgentRunnableConfig(agent),
+		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 	};
 }

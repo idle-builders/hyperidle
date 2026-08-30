@@ -124,7 +124,6 @@ export async function seedAgent(
 	// Services, this one included.
 	await db.insert(agentRunConfig).values({
 		agentUserId: agentId,
-		systemPrompt: opts.systemPrompt ?? null,
 		harnessType: opts.harnessType ?? "builtin",
 		modelTierPreference: opts.modelTierPreference ?? null,
 	});

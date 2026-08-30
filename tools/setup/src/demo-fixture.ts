@@ -37,6 +37,8 @@ import {
 	agentRunConfig,
 	bets,
 	type HyperIdleDb,
+	knowledgeAppProjection,
+	knowledgeItems,
 	routines,
 	tasks,
 	teams,
@@ -73,16 +75,68 @@ import { createDemoClock } from "./demo-world/time.js";
 async function upsertDemoRunConfig(
 	db: HyperIdleDb,
 	agentUserId: string,
-	patch: { readonly systemPrompt?: string | null; readonly maxConcurrentSessions?: number },
+	patch: {
+		readonly systemPrompt?: string | null;
+		readonly agentName?: string | null;
+		readonly maxConcurrentSessions?: number;
+	},
 ): Promise<void> {
-	await db
-		.insert(agentRunConfig)
-		.values({
-			agentUserId,
-			systemPrompt: patch.systemPrompt ?? null,
-			maxConcurrentSessions: patch.maxConcurrentSessions ?? 1,
-		})
-		.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: { ...patch } });
+	const { systemPrompt, agentName, ...runConfigPatch } = patch;
+	// Only touch the run config when there is a run-config field to write. A
+	// patch that carries nothing but an identity leaves `runConfigPatch` empty,
+	// and drizzle rejects an empty conflict-update with "No values to set".
+	if (Object.keys(runConfigPatch).length > 0) {
+		await db
+			.insert(agentRunConfig)
+			.values({
+				agentUserId,
+				maxConcurrentSessions: patch.maxConcurrentSessions ?? 1,
+			})
+			.onConflictDoUpdate({ target: agentRunConfig.agentUserId, set: { ...runConfigPatch } });
+	} else {
+		await db
+			.insert(agentRunConfig)
+			.values({ agentUserId, maxConcurrentSessions: 1 })
+			.onConflictDoNothing();
+	}
+
+	// The agent's identity is an `agent_file` knowledge document bound to it —
+	// scope_kind='user' with scope_id = the agent, the binding context assembly
+	// already reads. Kernel row and projection are written together, as knowledge
+	// always writes them.
+	if (systemPrompt) {
+		const ts = new Date().toISOString();
+		const identityId = `ki_af_${agentUserId}`;
+		await db
+			.insert(knowledgeItems)
+			.values({
+				id: identityId,
+				scopeKind: "user",
+				scopeId: agentUserId,
+				topic: null,
+				// The agent's display name, matching what the migration and the create
+				// route write — the knowledge view shows this title.
+				title: `${agentName || agentUserId} — identity`,
+				body: systemPrompt,
+				format: "markdown",
+				status: "active",
+				version: 1,
+				role: "agent_file",
+				updatedBy: "demo-seed",
+				createdAt: ts,
+				updatedAt: ts,
+			})
+			.onConflictDoUpdate({ target: knowledgeItems.id, set: { body: systemPrompt } });
+		await db
+			.insert(knowledgeAppProjection)
+			.values({
+				id: `kp_af_${agentUserId}`,
+				knowledgeItemId: identityId,
+				layer: null,
+				scopeId: agentUserId,
+			})
+			.onConflictDoNothing();
+	}
 }
 
 export async function seedDemoWorld(
@@ -247,7 +301,7 @@ export async function seedDemoWorld(
 		const content = readSystemPromptTemplateForRole(role);
 		if (content === null) continue;
 		const matching = await db
-			.select({ id: users.id })
+			.select({ id: users.id, name: users.name })
 			.from(users)
 			.where(
 				and(
@@ -261,8 +315,8 @@ export async function seedDemoWorld(
 					eq(users.role, role),
 				),
 			);
-		for (const { id } of matching) {
-			await upsertDemoRunConfig(db, id, { systemPrompt: content });
+		for (const { id, name } of matching) {
+			await upsertDemoRunConfig(db, id, { systemPrompt: content, agentName: name });
 		}
 	}
 

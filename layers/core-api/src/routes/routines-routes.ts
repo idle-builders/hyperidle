@@ -8,8 +8,13 @@ import {
 	type RoutineRunOutcome,
 	type RoutineRunSummary,
 } from "@hyperidle/domain-model";
-import { validateBody } from "@hyperidle/domain-model/http";
+import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import { EVENT_TYPES, type EventBus } from "@hyperidle/event-bus";
+import {
+	create as createKnowledgeItem,
+	get as getKnowledgeItem,
+	update as updateKnowledgeItem,
+} from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import * as routineService from "@hyperidle/routine";
 import { humanizeSchedule, parseTransitionTo } from "@hyperidle/routine";
@@ -123,12 +128,51 @@ function stateToActive(state: string): boolean {
  * `routine-scheduler-bindings.ts`'s `fireRoutine` — dispatch itself no
  * longer knows about routines.
  */
+
+/**
+ * A routine's instruction lives in a knowledge document, so it can be read and
+ * edited like any other knowledge. These keep the routine and its document in
+ * step: `prompt` stays the field a caller writes, and this is where that text
+ * reaches the document.
+ *
+ * `knowledge_items` belongs to the knowledge service, so the writes go through
+ * its own functions rather than the routine service reaching into the table.
+ */
+async function readRoutinePrompt(
+	db: HyperIdleDb,
+	promptKnowledgeId: string | null | undefined,
+): Promise<string | null> {
+	if (!promptKnowledgeId) return null;
+	const doc = await getKnowledgeItem(db, promptKnowledgeId);
+	return doc?.body ?? null;
+}
+
+/** Create the document a new routine's prompt lives in. Returns its id, or null for no prompt. */
+async function createRoutinePromptDocument(
+	db: HyperIdleDb,
+	input: { readonly routineName: string; readonly prompt: string; readonly updatedBy: string },
+): Promise<string> {
+	const created = await createKnowledgeItem(db, {
+		layer: "L4",
+		scopeKind: "factory",
+		scopeId: null,
+		title: `${input.routineName || "Routine"} — prompt`,
+		body: input.prompt,
+		format: "markdown",
+		status: "active",
+		updatedBy: input.updatedBy,
+	});
+	return created.id;
+}
+
 export function createRoutineRoutes(
 	db: HyperIdleDb,
 	eventBus: EventBus,
 	agentOrchestration: AgentOrchestrationPort,
-): Hono {
-	const router = new Hono();
+): Hono<HyperIdleEnv> {
+	// Typed with the app env so handlers can read the actor the auth middleware
+	// resolved — a prompt document records who wrote it, like any knowledge edit.
+	const router = new Hono<HyperIdleEnv>();
 
 	// GET /event-types — BA1 D8: the one list `RoutineCreateDialog` fills its
 	// event `Select` from. Reads no row, reveals no tenant data.
@@ -222,11 +266,19 @@ export function createRoutineRoutes(
 		const routineId = body.id ?? crypto.randomUUID();
 		const now = new Date().toISOString();
 
+		const promptKnowledgeId = body.prompt
+			? await createRoutinePromptDocument(db, {
+					routineName: body.name,
+					prompt: body.prompt,
+					updatedBy: c.get("userId"),
+				})
+			: null;
+
 		try {
 			await routineService.insertRoutine(db, {
 				id: routineId,
 				name: body.name,
-				prompt: body.prompt ?? null,
+				promptKnowledgeId,
 				ownerAgentId: body.ownerAgentId,
 				triggerType: body.triggerType,
 				...(triggerConfig !== undefined ? { triggerConfig } : {}),
@@ -320,7 +372,7 @@ export function createRoutineRoutes(
 		const routineInfo: RoutineInfo = {
 			id: routine.id,
 			name: routine.name,
-			prompt: routine.prompt ?? null,
+			prompt: await readRoutinePrompt(db, routine.promptKnowledgeId),
 			state: (routine.state ?? "active") as RoutineInfo["state"],
 			triggerType: routine.triggerType,
 			triggerConfig: routine.triggerConfig ?? null,
@@ -389,7 +441,27 @@ export function createRoutineRoutes(
 		if (body.silent !== undefined) updates.silent = body.silent;
 		// AA1: extended fields
 		if (body.name !== undefined) updates.name = body.name;
-		if (body.prompt !== undefined) updates.prompt = body.prompt;
+		if (body.prompt !== undefined) {
+			// Write through to the document. A routine that never had a prompt gets
+			// one now; one that did keeps its document so edit history survives.
+			if (existing.promptKnowledgeId) {
+				const doc = await getKnowledgeItem(db, existing.promptKnowledgeId);
+				if (doc) {
+					await updateKnowledgeItem(
+						db,
+						existing.promptKnowledgeId,
+						{ body: body.prompt ?? "", updatedBy: c.get("userId") },
+						doc.version,
+					);
+				}
+			} else if (body.prompt) {
+				updates.promptKnowledgeId = await createRoutinePromptDocument(db, {
+					routineName: body.name ?? existing.name,
+					prompt: body.prompt,
+					updatedBy: c.get("userId"),
+				});
+			}
+		}
 		// BA9d D11: update transition constraint — serialized into trigger_config.
 		// null clears the constraint; a string value sets a new one.
 		if (body.eventTransitionTo !== undefined) {
@@ -408,7 +480,13 @@ export function createRoutineRoutes(
 		}
 
 		const updated = await routineService.getRoutine(db, routineId);
-		return c.json(updated);
+		// The row no longer carries the prompt text — resolve it from the document
+		// so the response still describes the routine as a caller expects.
+		return c.json(
+			updated
+				? { ...updated, prompt: await readRoutinePrompt(db, updated.promptKnowledgeId) }
+				: updated,
+		);
 	});
 
 	// POST /:id/trigger — Manually trigger routine

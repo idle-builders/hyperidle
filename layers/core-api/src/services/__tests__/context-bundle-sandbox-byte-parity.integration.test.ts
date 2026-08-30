@@ -43,7 +43,7 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { createContextAssembler } from "@hyperidle/run-orchestration/scaffolding";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -206,6 +206,7 @@ describe("context.ts sandbox output — bundle-consuming byte parity for a fixed
 				{ kind: "task_run", attemptId: ATTEMPT_ID },
 				{
 					requireRunnableAgent,
+					getAgentIdentity,
 					getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 					assembleSessionKnowledge,
 				},

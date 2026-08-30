@@ -62,6 +62,8 @@ export {
 	count,
 	create,
 	get,
+	getAgentIdentity,
+	getAgentIdentityIds,
 	list,
 	remove,
 	removeByPluginTopic,
@@ -69,9 +71,10 @@ export {
 	search,
 	setPluginSkillsStatus,
 	transition,
-	type UpsertPluginSkillInput,
+	type UpsertPluginDocumentInput,
 	update,
-	upsertPluginSkill,
+	upsertAgentIdentity,
+	upsertPluginDocument,
 } from "./knowledge-repository.js";
 export { sweep } from "./promotion-pipeline.js";
 // -- review-item factory (moved from @hyperidle/review, AU44 batch 4 rows 9/10 MERGE) --

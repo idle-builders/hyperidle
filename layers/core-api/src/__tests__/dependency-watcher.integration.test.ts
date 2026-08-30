@@ -1,6 +1,7 @@
 import { bets, type HyperIdleDb, tasks, teams } from "@hyperidle/db";
 import type { TaskState } from "@hyperidle/domain-model";
 import type { NotificationEvent, TaskStateChangedEvent } from "@hyperidle/event-bus";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { checkAndUnblockDependents } from "@hyperidle/work";
 import { eq } from "drizzle-orm";
@@ -12,7 +13,7 @@ import { describe, expect, test } from "../__testing__/test-fixtures.js";
 // AgentWorkIntentRecorderFn is a plain function (tx was ignored by the sole production impl).
 const depWatcherDeps = {
 	workIntents: async () => ({ id: crypto.randomUUID(), idempotencyKey: crypto.randomUUID() }),
-	taskRunResolver: { requireRunnableAgent },
+	taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 };
 
 async function seedPrerequisites(db: HyperIdleDb): Promise<void> {

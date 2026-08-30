@@ -33,6 +33,7 @@
 import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { HarnessCapabilityDescriptor } from "@hyperidle/harness-capability";
 import { type JSX, useEffect, useRef } from "react";
+import { Link as RRLink } from "react-router-dom";
 import { Button, Input, RoleCombobox, SectionLabel, Select, Toggle } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
 import {
@@ -72,7 +73,7 @@ export interface AgentEditorDraft {
 }
 
 export interface AgentEditorProps {
-	/** The agent id being edited. ast-* → assistant route; others → /api/agents/:id */
+	/** The agent id being edited. Every agent, assistants included, uses /api/agents/:id. */
 	agentId: string;
 	/** Controlled draft state. */
 	draft: AgentEditorDraft;
@@ -101,6 +102,12 @@ export interface AgentEditorProps {
 	 * Absent → the filesystem control is not rendered.
 	 */
 	filesystems?: InjectableFilesystem[];
+	/**
+	 * The agent's identity document, when it has one. Present → the editor links
+	 * to it instead of offering a prompt box: the identity is knowledge, edited
+	 * where knowledge is edited. Absent (creating an agent) → the box seeds it.
+	 */
+	identityKnowledgeId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +154,7 @@ export function AgentEditor({
 	error,
 	fetchTemplateOnMount,
 	filesystems,
+	identityKnowledgeId,
 }: AgentEditorProps): JSX.Element {
 	// Find the selected harness descriptor
 	const selectedDescriptor = harnesses.find((h) => h.type === draft.harnessType);
@@ -397,21 +405,36 @@ export function AgentEditor({
 				</div>
 			)}
 
-			{/* System prompt */}
-			<Input
-				id={`edit-system-prompt-${agentId}`}
-				label="System prompt"
-				textarea
-				rows={8}
-				value={draft.systemPrompt}
-				onChange={(e) =>
-					onDraftChange((prev) => ({
-						...prev,
-						systemPrompt: e.target.value,
-					}))
-				}
-				placeholder="System prompt text (optional). Leave empty for no persona."
-			/>
+			{/* Who the agent is. An existing agent's identity is a knowledge
+			    document, so the editor sends you there rather than keeping a second
+			    copy of the same text behind a different Save button. */}
+			{identityKnowledgeId ? (
+				<div className="flex flex-col gap-[6px]">
+					<span className="type-label   uppercase  text-[var(--text-tertiary)]">Identity</span>
+					<RRLink
+						to={`/knowledge/${identityKnowledgeId}`}
+						data-testid={`edit-identity-link-${agentId}`}
+						className="type-metadata  text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+					>
+						Edit identity document
+					</RRLink>
+				</div>
+			) : (
+				<Input
+					id={`edit-system-prompt-${agentId}`}
+					label="Identity"
+					textarea
+					rows={8}
+					value={draft.systemPrompt}
+					onChange={(e) =>
+						onDraftChange((prev) => ({
+							...prev,
+							systemPrompt: e.target.value,
+						}))
+					}
+					placeholder="Who this agent is (optional). Becomes its identity document."
+				/>
+			)}
 
 			{/* Filesystem injection — only when registry provided */}
 			{filesystems && filesystems.length > 0 && (

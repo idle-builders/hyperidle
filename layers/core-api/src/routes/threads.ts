@@ -53,6 +53,7 @@ import type {
 } from "@hyperidle/event-bus";
 import {
 	assembleSessionKnowledge,
+	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 } from "@hyperidle/knowledge";
@@ -1491,6 +1492,7 @@ export function createThreadRoutes(
 				// message is already committed, so a plain (non-tx) read sees it.
 				const bakedRequest = await resolveAssistantTurnRequest(db, messageId, {
 					requireRunnableAgent,
+					getAgentIdentity,
 					readServerConfig,
 				});
 				await agentWorkIntentRecorder({
@@ -1684,6 +1686,7 @@ export function createThreadRoutes(
 					getBetById: (execDb: HyperIdleDb, id: string) => work.get(execDb, "bet", id),
 					getTeamById: (execDb: HyperIdleDb, id: string) => getTeam(execDb, { id }),
 					assembleSessionKnowledge,
+					getAgentIdentity,
 					readServerConfig,
 					// AU27 Increment 1 (Decision 0): also bake callingThreadId.
 					resolveOrCreateCallingThread,

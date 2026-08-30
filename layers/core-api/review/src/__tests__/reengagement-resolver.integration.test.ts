@@ -64,7 +64,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
@@ -221,6 +221,7 @@ describe("resolveReengagementRequest — emit-time reengagement resolver (review
 
 		const baked = await resolveReengagementRequest(db, "pc-reengage-resolver-1", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			getTaskById,
 		});
 
@@ -288,6 +289,7 @@ describe("resolveReengagementRequest — emit-time reengagement resolver (review
 		await expect(
 			resolveReengagementRequest(db, "pc-reengage-resolver-nogrant", {
 				requireRunnableAgent,
+				getAgentIdentity,
 				getTaskById,
 			}),
 		).rejects.toThrow();
@@ -313,6 +315,7 @@ describe("resolveReengagementRequest — emit-time reengagement resolver (review
 		await expect(
 			resolveReengagementRequest(db, "pc-reengage-resolver-held", {
 				requireRunnableAgent,
+				getAgentIdentity,
 				getTaskById,
 			}),
 		).rejects.toThrow();
@@ -337,6 +340,7 @@ describe("resolveReengagementRequest — emit-time reengagement resolver (review
 		await expect(
 			resolveReengagementRequest(db, "pc-reengage-resolver-human", {
 				requireRunnableAgent,
+				getAgentIdentity,
 				getTaskById,
 			}),
 		).rejects.toThrow();
@@ -365,6 +369,7 @@ describe("resolveReengagementRequest — emit-time reengagement resolver (review
 		await expect(
 			resolveReengagementRequest(db, "pc-reengage-resolver-inactive", {
 				requireRunnableAgent,
+				getAgentIdentity,
 				getTaskById,
 			}),
 		).rejects.toThrow();
@@ -391,6 +396,7 @@ describe("resolveReengagementRequest — emit-time reengagement resolver (review
 		await expect(
 			resolveReengagementRequest(db, "pc-reengage-resolver-notask", {
 				requireRunnableAgent,
+				getAgentIdentity,
 				getTaskById,
 			}),
 		).rejects.toThrow();
@@ -456,6 +462,7 @@ describe("resolveReengagementRequest — contextBundle baking (Increment 12 Wave
 
 		const baked = await resolveReengagementRequest(db, "pc-reengage-ctx-1", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			getTaskById,
 			getBetById,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
@@ -533,6 +540,7 @@ describe("resolveReengagementRequest — callingThreadId baking (Increment 1)", 
 
 		const baked = await resolveReengagementRequest(db, "pc-reengage-thread-1", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			getTaskById,
 			resolveOrCreateCallingThread: resolveOrCreateCallingThreadForTest,
 		});
@@ -558,6 +566,7 @@ describe("resolveReengagementRequest — callingThreadId baking (Increment 1)", 
 
 		const baked = await resolveReengagementRequest(db, "pc-reengage-thread-2", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			getTaskById,
 		});
 

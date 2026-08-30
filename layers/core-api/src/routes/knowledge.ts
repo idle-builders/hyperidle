@@ -383,8 +383,11 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 404);
 		}
 
-		// Q2: user-scoped items are private — return 404 (not 403) to avoid leaking existence.
-		if (row.scopeKind === "user" && row.updatedBy !== userId) {
+		// Q2: a person's private note is private — 404 (not 403) so its existence
+		// does not leak. An `agent_file`/`skill`/`rule` with user scope is a
+		// BINDING to an agent, not a private note: it is ordinary team knowledge,
+		// and this endpoint is the only place its identity can be edited.
+		if (row.scopeKind === "user" && row.role === "ordinary" && row.updatedBy !== userId) {
 			const response: ApiErrorResponse = {
 				error: "Knowledge item not found",
 				code: API_ERROR_CODES.NOT_FOUND,

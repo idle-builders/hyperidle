@@ -278,6 +278,17 @@ export interface RoutineSchedulerPorts {
 		  }
 		| undefined
 	>;
+	/** Read an agent's identity document body — baked onto the request. */
+	/**
+	 * The agent's identity document, baked onto the request.
+	 *
+	 * Required, not optional: while it was optional, two of the call sites that
+	 * bake an assistant turn simply never wired it, compiled clean, and baked no
+	 * identity at all. A required port turns that into a compile error.
+	 */
+	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
+	/** Read a knowledge document's body — the routine's instruction lives in one. */
+	getKnowledgeBody?(db: HyperIdleDb, knowledgeItemId: string): Promise<string | null>;
 	assembleSessionKnowledge?(
 		db: HyperIdleDb,
 		input: {

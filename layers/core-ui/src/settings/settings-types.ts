@@ -84,7 +84,8 @@ export interface AgentConfig {
 	id: string;
 	name: string;
 	role: string;
-	systemPrompt: string | null;
+	/** The agent's identity document, or null when it has none. */
+	identityKnowledgeId: string | null;
 	harnessType: string | null;
 	modelTierPreference: string | null;
 	/** AH2: Per-agent model ID. null = use tier fallback. */

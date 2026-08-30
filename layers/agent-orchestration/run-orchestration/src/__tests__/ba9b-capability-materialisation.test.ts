@@ -168,7 +168,13 @@ describe("BA9b: rule items materialise to knowledge/rules/", () => {
 });
 
 describe("BA9b: agent_file items are bound to a specific agent", () => {
-	it("writes agent_file only for the matching agent", async () => {
+	// @lore BA9f: the agent file bound to THIS agent is its identity, and its home
+	// in the sandbox is the "## Identity" section of AGENTS.md — baked at emit and
+	// assembled by the provisioner. Materialising it into `knowledge/rules/` too
+	// would put the same text in the sandbox twice, so it is deliberately absent
+	// from there. The other two cases below are unchanged: an agent file bound to
+	// someone else never arrives, and an unbound one reaches every session.
+	it("does not re-materialise the bound agent's own identity", async () => {
 		const bundle = makeBundle("agent-alpha", [
 			{
 				id: "af-1",
@@ -195,7 +201,7 @@ describe("BA9b: agent_file items are bound to a specific agent", () => {
 
 		const rulesDir = path.join(sandboxPath, "knowledge/rules");
 		const files = fs.existsSync(rulesDir) ? fs.readdirSync(rulesDir) : [];
-		expect(files.length).toBeGreaterThan(0);
+		expect(files).toHaveLength(0);
 	});
 
 	it("does NOT write agent_file for a different agent", async () => {

@@ -76,7 +76,6 @@ function serializeModelOptions(options: ModelOptions): string | null {
 
 /** One agent's run configuration, keyless — the `users.id` is the caller's context. */
 export interface AgentRunConfig {
-	readonly systemPrompt: string | null;
 	readonly harnessType: string | null;
 	readonly modelTierPreference: string | null;
 	readonly modelId: string | null;
@@ -91,7 +90,6 @@ export interface AgentRunConfig {
  * a NOT NULL DEFAULT 1 (its exact pre-move shape on `users`).
  */
 export const DEFAULT_AGENT_RUN_CONFIG: AgentRunConfig = {
-	systemPrompt: null,
 	harnessType: null,
 	modelTierPreference: null,
 	modelId: null,
@@ -113,7 +111,6 @@ export type AgentRunConfigPatch = {
 };
 
 const CONFIG_COLUMNS = {
-	systemPrompt: agentRunConfig.systemPrompt,
 	harnessType: agentRunConfig.harnessType,
 	modelTierPreference: agentRunConfig.modelTierPreference,
 	modelId: agentRunConfig.modelId,
@@ -124,7 +121,6 @@ const CONFIG_COLUMNS = {
 
 /** Map a selected row's columns onto the config shape. */
 function rowToConfig(row: {
-	systemPrompt: string | null;
 	harnessType: string | null;
 	modelTierPreference: string | null;
 	modelId: string | null;
@@ -190,7 +186,6 @@ export async function writeAgentRunConfig(
 ): Promise<void> {
 	const insertValues: NewAgentRunConfigRow = {
 		agentUserId,
-		systemPrompt: patch.systemPrompt ?? DEFAULT_AGENT_RUN_CONFIG.systemPrompt,
 		harnessType: patch.harnessType ?? DEFAULT_AGENT_RUN_CONFIG.harnessType,
 		modelTierPreference: patch.modelTierPreference ?? DEFAULT_AGENT_RUN_CONFIG.modelTierPreference,
 		modelId: patch.modelId ?? DEFAULT_AGENT_RUN_CONFIG.modelId,
@@ -203,7 +198,6 @@ export async function writeAgentRunConfig(
 	};
 
 	const updateSet: Partial<NewAgentRunConfigRow> = {};
-	if ("systemPrompt" in patch) updateSet.systemPrompt = patch.systemPrompt ?? null;
 	if ("harnessType" in patch) updateSet.harnessType = patch.harnessType ?? null;
 	if ("modelTierPreference" in patch)
 		updateSet.modelTierPreference = patch.modelTierPreference ?? null;
@@ -238,7 +232,6 @@ export async function writeAgentRunConfigIfAbsent(
 ): Promise<void> {
 	const insertValues: NewAgentRunConfigRow = {
 		agentUserId,
-		systemPrompt: patch.systemPrompt ?? DEFAULT_AGENT_RUN_CONFIG.systemPrompt,
 		harnessType: patch.harnessType ?? DEFAULT_AGENT_RUN_CONFIG.harnessType,
 		modelTierPreference: patch.modelTierPreference ?? DEFAULT_AGENT_RUN_CONFIG.modelTierPreference,
 		modelId: patch.modelId ?? DEFAULT_AGENT_RUN_CONFIG.modelId,

@@ -2,7 +2,12 @@
  * AU29 §2.5.3 — the agent-orchestration first-boot face.
  *
  * RED PHASE: fails until `applyFactoryRunConfigDefaults` exists at
- * `layers/agent-orchestration/src/factory-run-config.ts` (architecture.md §2.5.3). Covers the real
+ * `layers/agent-orchestration/src/factory-run-config.ts` (architecture.md §2.5.3).
+ *
+ * The persona half is gone: an agent's identity is a knowledge document bound to
+ * it, seeded where the agent is created, not a run-config field written from a
+ * template on disk. The template read had also been dead since BA9d shrank the
+ * factory roster to the System Agent, whose role has no template. Covers the real
  * `agent_run_config` patch shapes the AU29 feasibility probe proved the owning-service writer
  * reproduces (`.pipeline/work/AU29/probes/run-config-equivalence.ts`, `feasibility.md` §2): a fresh
  * roster agent, and an upgrade over a pre-existing operator-configured row (AH2 fields overwritten,
@@ -17,12 +22,9 @@
  */
 
 import { agentRunConfig, users } from "@hyperidle/db";
-import { afterEach, describe, expect, test } from "@hyperidle/db/test-fixtures";
+import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import { eq } from "drizzle-orm";
-import {
-	applyFactoryRunConfigDefaults,
-	readSystemPromptTemplateForRole,
-} from "../factory-run-config.js";
+import { applyFactoryRunConfigDefaults } from "../factory-run-config.js";
 
 const AH2 = {
 	harnessType: "builtin",
@@ -35,16 +37,6 @@ const AH2 = {
  * Role that forces `readTemplate` to return null in the "missing template" test.
  * Reset after every test.
  */
-let nullTemplateRole: string | null = null;
-
-afterEach(() => {
-	nullTemplateRole = null;
-});
-
-function controlledReader(role: string): string | null {
-	if (role === nullTemplateRole) return null;
-	return readSystemPromptTemplateForRole(role);
-}
 
 async function seedUser(
 	db: Parameters<typeof applyFactoryRunConfigDefaults>[0],
@@ -62,9 +54,7 @@ async function seedUser(
 }
 
 describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC 7)", () => {
-	test("fresh roster agent gets AH2 runnable defaults and its role's template as systemPrompt", async ({
-		db,
-	}) => {
+	test("fresh roster agent gets AH2 runnable defaults", async ({ db }) => {
 		await seedUser(db, "agent-fresh-facilitator", "facilitator");
 
 		await applyFactoryRunConfigDefaults(db, [
@@ -79,7 +69,6 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 		expect(row?.modelId).toBe(AH2.modelId);
 		expect(row?.modelProvider).toBe(AH2.modelProvider);
 		expect(row?.maxConcurrentSessions).toBe(AH2.maxConcurrentSessions);
-		expect(row?.systemPrompt).toContain("You are a Facilitator");
 	});
 
 	test("existing operator-configured row is left completely untouched (first-boot-only, D5)", async ({
@@ -88,7 +77,6 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 		await seedUser(db, "agent-upgrade", "facilitator");
 		await db.insert(agentRunConfig).values({
 			agentUserId: "agent-upgrade",
-			systemPrompt: "operator-set prompt",
 			harnessType: "claude",
 			modelTierPreference: "workhorse",
 			modelId: "some-model",
@@ -108,31 +96,5 @@ describe("applyFactoryRunConfigDefaults — first-boot run-config state (AU29 AC
 		expect(row?.modelProvider).toBe("openrouter");
 		expect(row?.maxConcurrentSessions).toBe(3);
 		expect(row?.modelTierPreference).toBe("workhorse");
-		expect(row?.systemPrompt).toBe("operator-set prompt");
-	});
-
-	test("a missing template read preserves the agent's existing systemPrompt instead of nulling it", async ({
-		db,
-	}) => {
-		nullTemplateRole = "facilitator";
-		await seedUser(db, "agent-missing-template", "facilitator");
-		await db.insert(agentRunConfig).values({
-			agentUserId: "agent-missing-template",
-			systemPrompt: "pre-existing prompt that must survive",
-		});
-
-		await applyFactoryRunConfigDefaults(
-			db,
-			[{ id: "agent-missing-template", role: "facilitator" }],
-			controlledReader,
-		);
-
-		const [row] = await db
-			.select()
-			.from(agentRunConfig)
-			.where(eq(agentRunConfig.agentUserId, "agent-missing-template"));
-		// writeAgentRunConfigIfAbsent sees the existing row → skips entirely.
-		// The null template means the merged payload still isn't written — row unchanged.
-		expect(row?.systemPrompt).toBe("pre-existing prompt that must survive");
 	});
 });
