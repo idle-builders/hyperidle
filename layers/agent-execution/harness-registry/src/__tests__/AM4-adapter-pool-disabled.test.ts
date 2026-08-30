@@ -1,5 +1,5 @@
 /**
- * AM4 RED — AdapterPool select() disabledTypes gate + builtin hard-exemption (Task 3, AC2)
+ * AM4 — AdapterPool select() disabledTypes gate (Task 3, AC2)
  *
  * AC2 behavioral proof (the disable verb's only real proof):
  *  - register builtin + claude-code; select({ disabledTypes: ["claude-code"] }) NEVER returns claude-code
@@ -12,7 +12,7 @@
  *
  * FAILS until:
  *  - disabledTypes?: readonly string[] added to SelectRequirements
- *  - filter added to select() loop next to harnessType gate, with builtin hard-exemption
+ *  - filter added to select() loop next to the harnessType gate
  *  - refreshDiscoveries() async method added to AdapterPool
  */
 
@@ -167,37 +167,24 @@ describe("AM4 AC2 — AdapterPool.select() disabledTypes gate", () => {
 
 // ── AC2 hard-exemption back-stop: builtin ALWAYS selects ────────────────────
 
-describe("AM4 AC2 — builtin hard-exemption: NEVER skipped by disabledTypes", () => {
-	it("STILL returns builtin when 'builtin' is wrongly in disabledTypes (hard-exemption)", () => {
+describe("no harness is exempt from being disabled", () => {
+	it("a disabled harness is skipped even when it is the only one registered", () => {
+		// @lore The built-in harness used to be hard-exempt here: it could never be
+		// disabled, whatever the stored config said, because it was the fallback
+		// everything leaned on. Every harness is now something the person installed,
+		// so every one can be turned off — and a workspace that turns them all off
+		// gets no adapter rather than a special one.
 		const pool = new AdapterPool();
-		pool.register("local-builtin", makeAdapter(), BUILTIN_META);
-		pool.register("local-claude-code", makeAdapter(), CLAUDE_CODE_META);
-		pool.register("local-codex", makeAdapter(), CODEX_META);
-
-		// All non-builtin + builtin itself listed in disabled — builtin MUST still select
-		// This is the back-stop: select(harnessType="builtin", disabledTypes=["builtin",...])
-		// must return builtin regardless, because builtin is hard-exempt from the disabled filter.
-		const entry = pool.select({
-			harnessType: "builtin",
-			disabledTypes: ["builtin", "claude-code", "codex"],
-		} as AM4SelectRequirements);
-		// harnessType="builtin" + disabledTypes=["builtin"] → builtin hard-exemption must win
-		expect(entry).not.toBeNull();
-		expect(entry?.meta.type).toBe("builtin");
-	});
-
-	it("builtin-only pool ignores disabledTypes=['builtin'] entirely", () => {
-		const pool = new AdapterPool();
-		pool.register("local-builtin", makeAdapter(), BUILTIN_META);
-
-		// Only builtin; wrongly marking it disabled — must still select it
-		const entry = pool.select({ disabledTypes: ["builtin"] } as AM4SelectRequirements);
-		expect(entry).not.toBeNull();
-		expect(entry?.meta.type).toBe("builtin");
+		pool.register("local-claude-code", makeAdapter(), {
+			name: "Claude Code",
+			kind: "local",
+			type: "claude-code",
+			modelProviders: ["anthropic"],
+			maxConcurrent: 1,
+		});
+		expect(pool.select({ disabledTypes: ["claude-code"] })).toBeNull();
 	});
 });
-
-// ── Task 2: refreshDiscoveries() ─────────────────────────────────────────────
 
 describe("AM4 Task 2 — AdapterPool.refreshDiscoveries()", () => {
 	it("refreshDiscoveries() method exists on AdapterPool", async () => {

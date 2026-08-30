@@ -24,20 +24,6 @@ const BASE_CAPS: HarnessCapabilities = {
 const catalog = { describe: describeHarnessCapability, missing: missingHarnessCapabilities };
 
 describe("AM2 harness capability descriptor builders", () => {
-	it("describes builtin as API-gateway/direct-key access with model descriptors", () => {
-		const descriptor = catalog.describe(BUILTIN_META, BASE_CAPS);
-
-		expect(descriptor.type).toBe("builtin");
-		expect(descriptor.authAction.kind).toBe("enter_api_key");
-		expect(descriptor.models.length).toBeGreaterThan(0);
-		expect(
-			descriptor.models.some(
-				(model: (typeof descriptor.models)[number]) => model.provider === "anthropic",
-			),
-		).toBe(true);
-		expect(JSON.stringify(descriptor)).not.toContain("sk-");
-	});
-
 	it("describes CLI harnesses as provider-subscription CLI auth", () => {
 		const descriptor = catalog.describe(
 			{

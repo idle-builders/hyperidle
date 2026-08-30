@@ -15,7 +15,6 @@ import type {
 	SessionConfig,
 } from "@hyperidle/harness-protocol";
 import { describe, expect, it, vi } from "vitest";
-import { BuiltinHarnessAdapter } from "../builtin-harness-adapter.js";
 import { CliHarnessAdapter } from "../cli-harness-adapter.js";
 import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 
@@ -93,11 +92,6 @@ describe("Adapter mcpSupport capability declarations", () => {
 		expect(adapter.getCapabilities().mcpSupport).toBe(true);
 	});
 
-	it("BuiltinHarnessAdapter declares mcpSupport: false", () => {
-		const adapter = new BuiltinHarnessAdapter();
-		expect(adapter.getCapabilities().mcpSupport).toBe(false);
-	});
-
 	it("CliHarnessAdapter declares mcpSupport: true", () => {
 		const spawnSpy = vi.fn();
 		const adapter = new CliHarnessAdapter(
@@ -142,12 +136,6 @@ describe("AC6 — conditional tool_call interception based on mcpSupport + mcpBr
 
 	it("intercepts tool_call when mcpSupport: true BUT bridge token absent (bridge failed)", () => {
 		expect(shouldInterceptToolCalls(true, undefined)).toBe(true);
-	});
-
-	it("BuiltinHarnessAdapter (mcpSupport: false) always intercepts", () => {
-		const adapter = new BuiltinHarnessAdapter();
-		const intercepts = shouldInterceptToolCalls(adapter.getCapabilities().mcpSupport, "any-token");
-		expect(intercepts).toBe(true);
 	});
 
 	it("CliHarnessAdapter (mcpSupport: true) does NOT intercept when bridge is active", () => {
