@@ -594,8 +594,8 @@ export function SettingsAgents(): JSX.Element {
 				onCancel={handleEditCancel}
 				saving={saving}
 				error={editError}
-				fetchTemplateOnMount
 				filesystems={filesystems}
+				identityKnowledgeId={selectedAgent?.identityKnowledgeId ?? null}
 			/>
 		) : (
 			<EmptyState

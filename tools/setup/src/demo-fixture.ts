@@ -75,9 +75,13 @@ import { createDemoClock } from "./demo-world/time.js";
 async function upsertDemoRunConfig(
 	db: HyperIdleDb,
 	agentUserId: string,
-	patch: { readonly systemPrompt?: string | null; readonly maxConcurrentSessions?: number },
+	patch: {
+		readonly systemPrompt?: string | null;
+		readonly agentName?: string | null;
+		readonly maxConcurrentSessions?: number;
+	},
 ): Promise<void> {
-	const { systemPrompt, ...runConfigPatch } = patch;
+	const { systemPrompt, agentName, ...runConfigPatch } = patch;
 	// Only touch the run config when there is a run-config field to write. A
 	// patch that carries nothing but an identity leaves `runConfigPatch` empty,
 	// and drizzle rejects an empty conflict-update with "No values to set".
@@ -110,7 +114,9 @@ async function upsertDemoRunConfig(
 				scopeKind: "user",
 				scopeId: agentUserId,
 				topic: null,
-				title: `${agentUserId} — identity`,
+				// The agent's display name, matching what the migration and the create
+				// route write — the knowledge view shows this title.
+				title: `${agentName || agentUserId} — identity`,
 				body: systemPrompt,
 				format: "markdown",
 				status: "active",
@@ -295,7 +301,7 @@ export async function seedDemoWorld(
 		const content = readSystemPromptTemplateForRole(role);
 		if (content === null) continue;
 		const matching = await db
-			.select({ id: users.id })
+			.select({ id: users.id, name: users.name })
 			.from(users)
 			.where(
 				and(
@@ -309,8 +315,8 @@ export async function seedDemoWorld(
 					eq(users.role, role),
 				),
 			);
-		for (const { id } of matching) {
-			await upsertDemoRunConfig(db, id, { systemPrompt: content });
+		for (const { id, name } of matching) {
+			await upsertDemoRunConfig(db, id, { systemPrompt: content, agentName: name });
 		}
 	}
 
