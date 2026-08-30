@@ -7,9 +7,11 @@ export {
 export { applyMigrations, isDowngrade, type MigrationResult } from "./migrate.js";
 export * as schema from "./schema.js";
 export {
+	type ActionRuleRow,
 	type AgentSessionRequest,
 	type AgentWorkIntent,
 	type ArtifactRow,
+	actionRules,
 	agentRunConfig,
 	agentSessionRequests,
 	agentWorkIntents,
@@ -38,6 +40,7 @@ export {
 	loginSessions,
 	type Message,
 	messages,
+	type NewActionRuleRow,
 	type NewAgentRunConfigRow,
 	type NewBet,
 	type NewFilesystem,
