@@ -29,7 +29,8 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 //   container's `var(--bw-thin)` inline border, deleted with the five dead
 //   fields (`audienceLabel`/`excludedNote`/`sendPlan`/`ctaLabel`/`footer`)
 //   `mapRenderedPayload` hardcoded to "" unconditionally.
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 193, default: 17, strong: 11 } as const;
+// thin +2: knowledge document Role row (metadata row rule + error banner).
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 195, default: 17, strong: 11 } as const;
 
 const EXPECTED = {
 	typography: {
@@ -66,7 +67,7 @@ const EXPECTED = {
 		//   +1 ReviewFieldChangeSet.tsx (the unchanged-fields row now uses
 		//   `type-metadata` instead of a stray `type-control` left from when the row
 		//   was a disclosure button).
-		small: 218, // -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
+		small: 221, // +3: knowledge document Role row (label, read-only value, error banner); -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
 		// Review fix-round -1: ReviewRenderedInContext.tsx — the sendPlan value
 		//   span, dead along with the field it displayed.
 		copy: 45,
@@ -78,7 +79,7 @@ const EXPECTED = {
 		// trivia concept at all, so the toggle disclosed nothing real).
 		// Review fix-round -1: ReviewFieldChangeSet.tsx — the unchanged-fields row's
 		//   `type-control` class removed (it is a static count, not a control).
-		control: 93, // +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
+		control: 94, // +1: knowledge Role row error-banner dismiss; +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
 		input: 11, // +1: AgentEditor model-option select (a harness's declared select for the chosen model)
 		"avatar-initial": 14,
 		subheading: 9,

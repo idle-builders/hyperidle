@@ -8,7 +8,7 @@
  * - AC-1: scope_kind + scope_id columns on knowledgeItems table (via DB)
  * - AC-4: scope validation at API boundary (closed enum, scopeId required for non-factory)
  * - AC-6: user-scoped items visible only to their author
- * - AC-7: PATCH /:id/scope changes scope, bumps version, logs changes
+ * - AC-7: scope changes through PATCH /:id, bumps version, logs changes
  * - AC-8: all 7 scope kinds use the same schema and lifecycle
  * - AC-9: fabric layer assigned on creation (factory→L4, product→L2, etc.)
  * - AC-10: invalid scopeKind → 400; valid ones → 201
@@ -380,9 +380,11 @@ describe("Q2 AC-6: user-scoped item visibility", () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC-7: PATCH /:id/scope — scope change with version tracking and edit log
+// AC-7: scope change with version tracking and edit log — through PATCH /:id.
+// The separate /:id/scope endpoint and the `reason` it demanded are deleted;
+// scope is a field on the document and is edited with the rest of them.
 // ---------------------------------------------------------------------------
-describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
+describe("Q2 AC-7: scope mutation through PATCH /:id", () => {
 	beforeEach(() => {
 		vi.stubEnv("HYPERIDLE_API_KEY", TEST_API_KEY);
 	});
@@ -409,17 +411,16 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		return res.json() as Promise<{ id: string; version: number }>;
 	}
 
-	test("PATCH /:id/scope changes scope_kind and scope_id", async ({ db, app }) => {
+	test("PATCH /:id changes scope_kind and scope_id", async ({ db, app }) => {
 		await seedFounder(db, "u-founder");
 		const item = await createUserItem(app);
 
-		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
+		const patchRes = await app.request(`/api/knowledge/${item.id}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
 				scopeId: "prod-123",
-				reason: "Promoted to product knowledge",
 				updatedBy: "u-founder",
 				version: item.version,
 			}),
@@ -434,18 +435,17 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(updated.scopeId).toBe("prod-123");
 	});
 
-	test("PATCH /:id/scope bumps version by 1", async ({ db, app }) => {
+	test("a scope change bumps version by 1", async ({ db, app }) => {
 		await seedFounder(db, "u-founder");
 		const item = await createUserItem(app);
 		const originalVersion = item.version;
 
-		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
+		const patchRes = await app.request(`/api/knowledge/${item.id}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
 				scopeId: "prod-abc",
-				reason: "Promoting",
 				updatedBy: "u-founder",
 				version: originalVersion,
 			}),
@@ -455,17 +455,16 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		expect(updated.version).toBe(originalVersion + 1);
 	});
 
-	test("PATCH /:id/scope logs scope_kind change in knowledgeEditLog", async ({ db, app }) => {
+	test("a scope change is written to knowledgeEditLog", async ({ db, app }) => {
 		await seedFounder(db, "u-founder");
 		const item = await createUserItem(app);
 
-		await app.request(`/api/knowledge/${item.id}/scope`, {
+		await app.request(`/api/knowledge/${item.id}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
 				scopeId: "prod-xyz",
-				reason: "Promoted because useful to whole product",
 				updatedBy: "u-founder",
 				version: item.version,
 			}),
@@ -476,52 +475,22 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 			.from(knowledgeEditLog)
 			.where(eq(knowledgeEditLog.itemId, item.id));
 
-		const scopeKindLog = logs.find((l) => l.field === "scope_kind");
+		const scopeKindLog = logs.find((l) => l.field === "scopeKind");
 		expect(scopeKindLog).toBeDefined();
 		expect(scopeKindLog?.oldValue).toBe("user");
 		expect(scopeKindLog?.newValue).toContain("product");
-	});
-
-	test("PATCH /:id/scope reason is captured in edit log", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
-		const reason = "Promoted to product level";
-
-		await app.request(`/api/knowledge/${item.id}/scope`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				scopeKind: "product",
-				scopeId: "prod-abc",
-				reason,
-				updatedBy: "u-founder",
-				version: item.version,
-			}),
-		});
-
-		const logs = await db
-			.select()
-			.from(knowledgeEditLog)
-			.where(eq(knowledgeEditLog.itemId, item.id));
-
-		// At least one log entry should contain the reason
-		const hasReason = logs.some(
-			(l) => l.newValue?.includes(reason) || l.oldValue?.includes(reason),
-		);
-		expect(hasReason).toBe(true);
 	});
 
 	test("PATCH /:id/scope with wrong version returns 409", async ({ db, app }) => {
 		await seedFounder(db, "u-founder");
 		const item = await createUserItem(app);
 
-		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
+		const patchRes = await app.request(`/api/knowledge/${item.id}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
 				scopeId: "prod-abc",
-				reason: "Moving",
 				updatedBy: "u-founder",
 				version: item.version + 99, // wrong version
 			}),
@@ -537,7 +506,6 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 			body: JSON.stringify({
 				scopeKind: "product",
 				scopeId: "prod-abc",
-				reason: "Moving",
 				updatedBy: "u-founder",
 				version: 1,
 			}),
@@ -549,31 +517,12 @@ describe("Q2 AC-7: PATCH /:id/scope scope mutation", () => {
 		await seedFounder(db, "u-founder");
 		const item = await createUserItem(app);
 
-		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
+		const patchRes = await app.request(`/api/knowledge/${item.id}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "invalid_kind",
 				scopeId: null,
-				reason: "Moving",
-				updatedBy: "u-founder",
-				version: item.version,
-			}),
-		});
-		expect(patchRes.status).toBe(400);
-	});
-
-	test("PATCH /:id/scope with missing reason returns 400", async ({ db, app }) => {
-		await seedFounder(db, "u-founder");
-		const item = await createUserItem(app);
-
-		const patchRes = await app.request(`/api/knowledge/${item.id}/scope`, {
-			method: "PATCH",
-			headers: authHeaders(),
-			body: JSON.stringify({
-				scopeKind: "product",
-				scopeId: "prod-abc",
-				reason: "", // empty reason
 				updatedBy: "u-founder",
 				version: item.version,
 			}),
@@ -874,13 +823,12 @@ describe("Q2 AC-9: fabric layer reassignment after scope change", () => {
 		expect(beforeFabric?.layer ?? null).toBeNull();
 
 		// Change scope to product
-		const patchRes = await app.request(`/api/knowledge/${created.id}/scope`, {
+		const patchRes = await app.request(`/api/knowledge/${created.id}`, {
 			method: "PATCH",
 			headers: authHeaders(),
 			body: JSON.stringify({
 				scopeKind: "product",
 				scopeId: "prod-abc",
-				reason: "Promoting to product",
 				updatedBy: "u-founder",
 				version: created.version,
 			}),

@@ -27,6 +27,7 @@ import {
 
 import {
 	type KernelKnowledgeStatus,
+	type KnowledgeRole,
 	type SCOPE_KINDS,
 	scopeToLayer,
 } from "@hyperidle/domain-model";
@@ -54,6 +55,12 @@ export interface CreateKnowledgeItemInput {
 	 * when not provided (preserves existing behavior for callers that don't set scope). */
 	scopeKind?: string | null;
 	scopeId?: string | null;
+	/**
+	 * What context assembly does with this document: an ordinary knowledge file,
+	 * a SKILL.md in the harness skills directory, a rule, or an agent file bound
+	 * to one agent. Absent leaves the column default (`ordinary`).
+	 */
+	role?: KnowledgeRole;
 	/**
 	 * @lore AU14: made optional so callers with no `kind` concept (the HTTP route)
 	 * can omit it and keep `projection.kind` null, matching pre-AU14 route behavior.
@@ -100,6 +107,14 @@ export interface UpdateKnowledgeItemInput {
 	 * CreateKnowledgeItemInput.status (R7) — the PATCH route accepts kernel
 	 * statuses (e.g. "draft") that are outside the app-runtime KnowledgeStatus enum. */
 	status?: KnowledgeStatus | KernelKnowledgeStatus;
+	/** Changing this promotes an ordinary note into a skill, or demotes one back. */
+	role?: KnowledgeRole;
+	/**
+	 * Scope lives on the kernel row, and `scopeId` is mirrored onto the
+	 * projection after the kernel write — `list()` matches either column with an
+	 * OR, so leaving one behind silently changes who can find the document.
+	 */
+	scopeKind?: string;
 	updatedBy?: string;
 	/** @lore AU44 batch 4: retained so the retro upsert (Ruling 3 PLUGIN row) can write
 	 * reflection metadata until the BA curation plugin track provides a replacement. */
@@ -237,6 +252,9 @@ export async function create(
 		body: input.body,
 		format: input.format,
 		status: input.status,
+		// Absent leaves the column default (`ordinary`), which is what every
+		// caller predating an authorable role produced.
+		...(input.role ? { role: input.role } : {}),
 		version: 1,
 		updatedBy: input.updatedBy,
 		createdAt: timestamp,
@@ -287,9 +305,26 @@ export async function create(
  * @lore O2: projection fields (layer, scopeId, kind, attentionScore, confidence, meta)
  * are removed from canonical EDITABLE_FIELDS and written to the extension table instead.
  */
-const KERNEL_EDITABLE_FIELDS = ["topic", "title", "body", "format", "status", "updatedBy"] as const;
+// `role` rides the ordinary editable set so a change is versioned and written to
+// the edit log like any other field — promoting a note to a skill is an edit with
+// an author and a history, not a hidden reclassification.
+const KERNEL_EDITABLE_FIELDS = [
+	"topic",
+	"title",
+	"body",
+	"format",
+	"status",
+	"role",
+	"scopeKind",
+	"scopeId",
+	"updatedBy",
+] as const;
 
-const PROJECTION_EDITABLE_FIELDS = ["layer", "scopeId", "kind", "meta"] as const;
+// `scopeId` is deliberately NOT here. It lives on the kernel row and is mirrored
+// onto the projection after the kernel write, so the two cannot disagree. Listing
+// it here made the generic update write the projection while the (now deleted)
+// `/scope` route wrote the kernel — two writers, two tables, free to diverge.
+const PROJECTION_EDITABLE_FIELDS = ["layer", "kind", "meta"] as const;
 
 interface DiffResult {
 	readonly kernelChanges: Record<string, unknown>;
@@ -387,6 +422,21 @@ export async function update(
 				timestamp,
 			);
 
+			// Mirror the kernel's scopeId onto the projection in the same
+			// transaction, so the two columns `list()` ORs together cannot drift.
+			// A changed scopeKind also re-derives the fabric layer: the layer IS a
+			// function of the scope, and leaving it behind would strand the document
+			// in the layer its old scope implied.
+			// `kernelChanges` is an untyped diff bag, so the two scope fields are
+			// narrowed here rather than asserted at each use.
+			const nextScopeId = kernelChanges.scopeId as string | null | undefined;
+			const nextScopeKind = kernelChanges.scopeKind as (typeof SCOPE_KINDS)[number] | undefined;
+			const mirroredProjectionChanges = {
+				...projectionChanges,
+				...("scopeId" in kernelChanges ? { scopeId: nextScopeId ?? null } : {}),
+				...(nextScopeKind ? { layer: scopeToLayer(nextScopeKind) } : {}),
+			};
+
 			const updateRows = await tx
 				.update(knowledgeItems)
 				.set({
@@ -408,7 +458,7 @@ export async function update(
 			}
 
 			// Update extension table if there are projection changes.
-			if (Object.keys(projectionChanges).length > 0) {
+			if (Object.keys(mirroredProjectionChanges).length > 0) {
 				const [existingProjection] = await tx
 					.select({ id: knowledgeAppProjection.id })
 					.from(knowledgeAppProjection)
@@ -417,14 +467,14 @@ export async function update(
 				if (existingProjection) {
 					await tx
 						.update(knowledgeAppProjection)
-						.set(projectionChanges)
+						.set(mirroredProjectionChanges)
 						.where(eq(knowledgeAppProjection.knowledgeItemId, id));
 				} else {
 					// Create extension row if it doesn't exist
 					await tx.insert(knowledgeAppProjection).values({
 						id: generateId(),
 						knowledgeItemId: id,
-						...projectionChanges,
+						...mirroredProjectionChanges,
 					});
 				}
 			}
@@ -868,8 +918,11 @@ async function upsertProjectionLayer(
 }
 
 // ---------------------------------------------------------------------------
-// transition — unified lifecycle write (replaces changeScope/flagItem/
-// mergeItems/splitItem/promoteKnowledgeItem)
+// transition — unified lifecycle write (replaces flagItem/mergeItems/
+// splitItem/promoteKnowledgeItem)
+//
+// Scope is NOT a transition: it is a field on the document, edited through
+// `update()` with everything else.
 //
 // @lore AU20 K2-writes: the five per-operation write functions are collapsed
 // into one discriminated entry point. Each 'target' maps exactly to one old
@@ -908,17 +961,6 @@ export function transition(
 export function transition(
 	db: HyperIdleDb,
 	id: string,
-	ctx: {
-		readonly target: "changeScope";
-		readonly scopeKind: string;
-		readonly scopeId: string | null;
-		readonly reason: string;
-		readonly updatedBy: string;
-	},
-): Promise<KnowledgeItem>;
-export function transition(
-	db: HyperIdleDb,
-	id: string,
 	ctx: { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string },
 ): Promise<KnowledgeItem>;
 export function transition(
@@ -946,13 +988,6 @@ export async function transition(
 				readonly toStatus: string;
 				readonly reason?: string;
 				readonly editor: string;
-		  }
-		| {
-				readonly target: "changeScope";
-				readonly scopeKind: string;
-				readonly scopeId: string | null;
-				readonly reason: string;
-				readonly updatedBy: string;
 		  }
 		| { readonly target: "merge"; readonly sourceId: string; readonly updatedBy: string }
 		| {
@@ -1031,61 +1066,6 @@ export async function transition(
 
 				return { ok: true, fromStatus };
 			});
-		}
-
-		case "changeScope": {
-			const { scopeKind, scopeId, reason, updatedBy } = ctx;
-			const timestamp = now();
-			const existing = await getItemForTransition(db, id);
-
-			if (existing && existing.scopeKind !== scopeKind) {
-				await db.insert(knowledgeEditLog).values({
-					id: generateId(),
-					itemId: id,
-					editor: updatedBy,
-					field: "scope_kind",
-					oldValue: existing.scopeKind,
-					newValue: `${scopeKind} (reason: ${reason})`,
-					editType: "scope_change",
-					createdAt: timestamp,
-				});
-			}
-
-			if (existing && existing.scopeId !== scopeId) {
-				await db.insert(knowledgeEditLog).values({
-					id: generateId(),
-					itemId: id,
-					editor: updatedBy,
-					field: "scope_id",
-					oldValue: existing.scopeId ?? null,
-					newValue: scopeId ?? null,
-					editType: "scope_change",
-					createdAt: timestamp,
-				});
-			}
-
-			await db
-				.update(knowledgeItems)
-				.set({
-					scopeKind,
-					scopeId,
-					version: (existing?.version ?? 0) + 1,
-					updatedBy,
-					updatedAt: timestamp,
-				})
-				.where(eq(knowledgeItems.id, id));
-
-			await upsertProjectionLayer(db, id, scopeKind);
-
-			const [updated] = await db
-				.select()
-				.from(knowledgeItems)
-				.where(eq(knowledgeItems.id, id))
-				.limit(1);
-			if (!updated) {
-				throw new Error(`Failed to read back knowledge item ${id} after scope change`);
-			}
-			return updated;
 		}
 
 		case "merge": {
