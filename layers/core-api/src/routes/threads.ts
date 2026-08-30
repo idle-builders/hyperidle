@@ -1528,8 +1528,7 @@ export function createThreadRoutes(
 					timestamp: Date.now(),
 				};
 				eventBus.emit(resolvedEvent);
-
-				}
+			}
 			if (willReopen) {
 				const reopenedEvent: ThreadReopenedEvent = {
 					type: "thread_reopened",

@@ -88,8 +88,7 @@ export type AgentOrchestrationWorkIntentKind =
 	| "session_start"
 	| "knowledge_action"
 	| "routine_run"
-	| "task_run"
-	| "reengagement";
+	| "task_run";
 
 /**
  * Mirrors `AgentWorkIntentRecorderInput` — `bakedRequest` is carried opaque

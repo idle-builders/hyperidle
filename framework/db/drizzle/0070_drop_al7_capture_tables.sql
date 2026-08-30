@@ -7,6 +7,11 @@
 -- Also narrows the agent_work_intents kind/sourceKind CHECK constraints to
 -- remove the now-dead 'reengagement'/'proposed_call' entries.
 
+-- Historical rows first: the narrowed CHECK constraints below are rejected by
+-- Postgres if any existing row already violates them, so a database that ever
+-- recorded a reengagement intent could not run this migration at all. These
+-- rows belong to the deleted machinery and have no meaning without it.
+DELETE FROM "agent_work_intents" WHERE "kind" = 'reengagement' OR "source_kind" = 'proposed_call';--> statement-breakpoint
 ALTER TABLE "agent_work_intents" DROP CONSTRAINT IF EXISTS "agent_work_intents_kind_ck";--> statement-breakpoint
 ALTER TABLE "agent_work_intents" DROP CONSTRAINT IF EXISTS "agent_work_intents_source_kind_ck";--> statement-breakpoint
 ALTER TABLE "agent_work_intents" DROP CONSTRAINT IF EXISTS "agent_work_intents_kind_source_compat_ck";--> statement-breakpoint

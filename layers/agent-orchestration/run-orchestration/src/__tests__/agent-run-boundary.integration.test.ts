@@ -230,12 +230,7 @@ describe("agent run boundary", () => {
 			taskId: "task-au6",
 			forceReturnCount: 0,
 		}));
-		for (const sourceKind of [
-			"task",
-			"assistant",
-			"routine",
-			"knowledge",
-		] as const) {
+		for (const sourceKind of ["task", "assistant", "routine", "knowledge"] as const) {
 			const request = await createRequestForTest(db, sourceInput(sourceKind, "boundary"));
 			await executeAgentRunRequest(
 				{ db, eventBus, ports } as unknown as import("../contracts.js").RuntimeDeps,

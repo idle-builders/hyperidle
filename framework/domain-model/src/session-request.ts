@@ -6,19 +6,9 @@ import { z } from "zod";
  * "decomposition"-sourced session request) no longer exists, so this
  * session-source vocabulary member is dead, not merely unused.
  */
-export const AGENT_SESSION_SOURCE_KINDS = [
-	"task",
-	"assistant",
-	"routine",
-	"knowledge",
-] as const;
+export const AGENT_SESSION_SOURCE_KINDS = ["task", "assistant", "routine", "knowledge"] as const;
 
-export const AGENT_SESSION_PROMPT_MODES = [
-	"task",
-	"conversation",
-	"routine",
-	"knowledge",
-] as const;
+export const AGENT_SESSION_PROMPT_MODES = ["task", "conversation", "routine", "knowledge"] as const;
 
 export const AGENT_SESSION_REQUEST_STATUSES = [
 	"pending",
