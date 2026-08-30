@@ -55,11 +55,16 @@ export const RULE_SEVERITY: Record<string, ScopedSeverity> = {
 	// E6: replaces no-off-scale-radius outright (allowlist was the defect).
 	"radius-token-only": { coreUi: "error", designSystem: "error" },
 	// E2: core-ui only — design-system is where controls are BUILT (Trade-off 4).
-	"no-handrolled-control": { coreUi: "error", designSystem: "off" },
+	// At `warn`, not `error`, by maintainer decision: the widened clauses
+	// (token fill, token border, bare radius) match 97 elements across 34 files
+	// that no rule reached before, and migrating them is its own piece of work.
+	// This is a staged adoption, the shape AU31/AU32 argues against, taken
+	// knowingly. Raise both to `error` once the population is migrated.
+	"no-handrolled-control": { coreUi: "warn", designSystem: "off" },
 	// The chip half of the same population, scoped by the same boundary:
 	// `ds/` is where Avatar's circle, LiveDot's dot and Progress's pill-shaped
 	// track are BUILT, and all three match the predicate correctly.
-	"no-handrolled-chip": { coreUi: "error", designSystem: "off" },
+	"no-handrolled-chip": { coreUi: "warn", designSystem: "off" },
 	// E7: wired at error for the first time (D2: previously registered
 	// nowhere). Scoped to layers/core-ui/src by the rule's own filename check —
 	// design-system is legitimately a registry home, not a violation site.
