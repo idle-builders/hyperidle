@@ -3,17 +3,17 @@ import type { HyperIdleDb } from "@hyperidle/db";
 import { API_ERROR_CODES } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 import { persistScaffoldedAgents, resolveAgentScaffoldSpecs } from "@hyperidle/org";
-import type { HarnessCapabilityReader } from "../services/harness-capability-reader.js";
 // AK6: BUILTIN_ASSISTANT_SYSTEM_PROMPT REMOVED — persona comes from app defaults (T8).
 // The Kernel no longer hard-codes any assistant persona constant.
-// persistScaffoldedAgents now writes systemPrompt from the app AgentScaffoldSpec.
+// persistScaffoldedAgents seeds the agent's identity document from the app
+// AgentScaffoldSpec; after that the document is edited like any other.
 
 import { constantTimeStringEqual, type HyperIdleEnv } from "@hyperidle/domain-model/http";
+import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import { findUser, insertUser, listUsers, updateUser } from "@hyperidle/users";
 import { Hono } from "hono";
 import z from "zod";
 import { buildSeamBackedAgentRunConfigWriter } from "../services/agent-orchestration-port-composition.js";
-import { createAssistantSoulRoutes } from "./assistant.js";
 
 /**
  * @lore P4: PATCH /api/users/:id — only name and email are writable by the
@@ -67,6 +67,7 @@ export function createUserSetupRoute(
 		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
 		insertUser,
 		...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+		upsertAgentIdentity,
 	};
 
 	router.post("/", async (c) => {
@@ -167,11 +168,7 @@ export function createUserSetupRoute(
  * are preserved under /api/users (was /api/agents). The function name and file
  * are the only changes — behavior is identical.
  */
-export function createUserRoutes(
-	db: HyperIdleDb,
-	agentOrchestration: AgentOrchestrationPort,
-	adapterPool?: HarnessCapabilityReader | null,
-): Hono<HyperIdleEnv> {
+export function createUserRoutes(db: HyperIdleDb): Hono<HyperIdleEnv> {
 	const router = new Hono<HyperIdleEnv>();
 
 	// GET / — List all users. Optional `teamMembersId` query param scopes the
@@ -263,14 +260,11 @@ export function createUserRoutes(
 	});
 
 	// AD8b Task 8 — system prompt CRUD: GET + PATCH /api/users/:userId/assistant
-	// @lore AD8b: Mounted BEFORE the generic /:id handler if there is one.
-	// In this router the /:id handler is a GET, so we mount /:userId/assistant
-	// explicitly. Hono routes by registration order — the more specific path
-	// /:id/assistant is registered before /:id to avoid swallowing.
-	router.route(
-		"/:userId/assistant",
-		createAssistantSoulRoutes(db, adapterPool ?? null, agentOrchestration),
-	);
+	// There is no `/:userId/assistant` route. It was a second agent editor that
+	// existed only for assistants, because the persona used to be a column with
+	// an assistant-shaped guard on it. The persona is a knowledge document now,
+	// so an assistant is edited through `/api/agents/:id` like every other agent
+	// and its identity through the one knowledge edit endpoint.
 
 	return router;
 }

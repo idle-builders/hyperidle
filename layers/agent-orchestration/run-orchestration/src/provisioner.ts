@@ -1051,8 +1051,11 @@ async function admitSession(
 	// is exactly what an all-null `users` row resolved before the move.
 	const runConfig = await readAgentRunConfig(db, params.agentId);
 
-	// X3: system prompt from the agent's run config. No file read required.
-	const systemPromptText = runConfig.systemPrompt ?? "";
+	// The agent's identity is the `agent_file` knowledge document bound to it,
+	// baked onto the request core-side. It cannot be read here: `knowledge_items`
+	// belongs to the knowledge service, while `agent_run_config` — read just above
+	// — is orchestration's own.
+	const systemPromptText = agentConfig.persona ?? "";
 
 	// X3: Model tier priority: explicit param > agent preference > default "workhorse".
 	const rawPreference = runConfig.modelTierPreference;

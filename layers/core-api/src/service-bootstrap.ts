@@ -29,7 +29,7 @@ import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { ResolvedModel } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { installNotifications, type NotificationsDeps, reap } from "@hyperidle/notifications";
 import { getTeam, resolveReviewRecipients } from "@hyperidle/org";
 import type { PolicyDeps } from "@hyperidle/policy";
@@ -400,6 +400,7 @@ export function registerCoreDomainServices(ctx: {
 				getBetById: (exec: WriteExecutor, id: string) => work.get(exec, "bet", id),
 				getTeamById: (db: HyperIdleDb, id: string) => getTeam(db, { id }),
 				assembleSessionKnowledge,
+				getAgentIdentity,
 				readServerConfig,
 				// AU27 Increment 1 (Decision 0): also bake callingThreadId for the
 				// liveness-net re-provision.

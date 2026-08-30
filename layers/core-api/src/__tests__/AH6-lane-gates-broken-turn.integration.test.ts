@@ -35,6 +35,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
@@ -90,7 +91,13 @@ async function seedFounderAndThread(
 		harnessType: "builtin",
 		modelId: PER_AGENT_MODEL_ID,
 		modelProvider: "openrouter",
-		systemPrompt: "You are a helpful assistant.",
+	});
+	// Who the agent is — an `agent_file` document bound to it, not a run-config field.
+	await upsertAgentIdentity(db, {
+		agentId: assistantId,
+		agentName: "Assistant",
+		body: "You are a helpful assistant.",
+		updatedBy: assistantId,
 	});
 
 	await db.insert(threads).values({

@@ -180,6 +180,19 @@ export interface ReengagementResolverDeps {
 	 * this SAME already-validated row, no second read.
 	 */
 	requireRunnableAgent(db: HyperIdleDb, agentId: string): Promise<User>;
+	/**
+	 * The agent's identity document body, baked onto the request so the
+	 * provisioner never reads `knowledge_items` — that table belongs to the
+	 * knowledge service. Injected (Mechanism C).
+	 */
+	/**
+	 * The agent's identity document, baked onto the request.
+	 *
+	 * Required, not optional: while it was optional, two of the call sites that
+	 * bake an assistant turn simply never wired it, compiled clean, and baked no
+	 * identity at all. A required port turns that into a compile error.
+	 */
+	getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null>;
 	getTaskById(db: HyperIdleDb, id: string): Promise<Task | undefined>;
 	/**
 	 * AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/work`'s own
@@ -360,6 +373,9 @@ export async function resolveReengagementRequest(
 		? await resolveOrCreateCallingThread(db, task.id, view.grant.agentScope)
 		: undefined;
 
+	// The agent's identity is a knowledge document bound to it; read through the
+	// injected port and baked so the provisioner never touches knowledge.
+	const agentPersona = await deps.getAgentIdentity(db, agent.id);
 	return {
 		defaultAgentId: view.grant.agentScope,
 		sourceKind: "proposed_call",
@@ -373,7 +389,7 @@ export async function resolveReengagementRequest(
 			grantedAgentId: view.grant.agentScope,
 		},
 		...(contextBundle ? { contextBundle } : {}),
-		agentConfig: bakeAgentRunnableConfig(agent),
+		agentConfig: bakeAgentRunnableConfig(agent, agentPersona),
 		...(harnessDisabled !== undefined ? { harnessDisabled } : {}),
 		...(callingThreadId !== undefined ? { callingThreadId } : {}),
 	};
@@ -492,7 +508,11 @@ export type ProposedCallTransition =
  * versus the pre-migration async-fail-then-retry model, matching the
  * `knowledge_action` wave's precedent over `task_run`'s roll-back one.
  */
+// `getAgentIdentity` is NOT in the Partial half. Every other bake dep may be
+// omitted; the identity may not. While it was optional, callers that forgot it
+// compiled clean and emitted a run whose agent had no identity at all.
 type TransitionProposedCallPorts = Pick<ReviewPorts, "intentRecorder"> &
+	Pick<ReengagementResolverDeps, "getAgentIdentity"> &
 	Partial<ReengagementResolverDeps>;
 export function transitionProposedCall(
 	exec: HyperIdleDb,
@@ -568,6 +588,7 @@ export async function transitionProposedCall(
 								{
 									getTaskById: ports.getTaskById,
 									requireRunnableAgent: ports.requireRunnableAgent,
+									getAgentIdentity: ports.getAgentIdentity,
 									// AU21 §9 Increment 12 (Decision H3): forward the same
 									// optional contextBundle deps `resolveReengagementRequest`
 									// accepts, mirroring `applyLivenessRetry` below — this IS
@@ -684,7 +705,8 @@ async function applyLivenessRetry(
 	db: HyperIdleDb,
 	grant: TailoredGrant,
 	intentRecorder: LivenessIntentRecorder,
-	bakeDeps?: Partial<ReengagementResolverDeps>,
+	// Same rule as `TransitionProposedCallPorts`: the identity is not optional.
+	bakeDeps?: Pick<ReengagementResolverDeps, "getAgentIdentity"> & Partial<ReengagementResolverDeps>,
 ): Promise<void> {
 	if (grant.retryCount === 0) {
 		// First no-show: increment retry, record reengagement intent
@@ -698,6 +720,7 @@ async function applyLivenessRetry(
 				bakedRequest = await resolveReengagementRequest(db, grant.proposedCallId, {
 					getTaskById: bakeDeps.getTaskById,
 					requireRunnableAgent: bakeDeps.requireRunnableAgent,
+					getAgentIdentity: bakeDeps.getAgentIdentity,
 					// AU21 §9 Increment 12 (Decision H3): forward the same optional
 					// contextBundle deps `resolveReengagementRequest` accepts —
 					// present whenever the caller wired them (see `ReviewPorts`'
@@ -738,7 +761,9 @@ export async function handleUnconsumedGrantOnSessionEnd(
 		taskId: string;
 		agentId: string;
 		intentRecorder: LivenessIntentRecorder;
-	} & Partial<ReengagementResolverDeps>,
+		// Not optional — see `TransitionProposedCallPorts`.
+	} & Pick<ReengagementResolverDeps, "getAgentIdentity"> &
+		Partial<ReengagementResolverDeps>,
 ): Promise<void> {
 	const grants = await db
 		.select()
@@ -759,6 +784,7 @@ export async function handleUnconsumedGrantOnSessionEnd(
 		await applyLivenessRetry(db, grant, opts.intentRecorder, {
 			getTaskById: opts.getTaskById,
 			requireRunnableAgent: opts.requireRunnableAgent,
+			getAgentIdentity: opts.getAgentIdentity,
 			getBetById: opts.getBetById,
 			getTeamById: opts.getTeamById,
 			assembleSessionKnowledge: opts.assembleSessionKnowledge,
@@ -780,7 +806,9 @@ export async function reengageOnAdmissionFailure(
 	opts: {
 		proposedCallId: string;
 		intentRecorder: LivenessIntentRecorder;
-	} & Partial<ReengagementResolverDeps>,
+		// Not optional — see `TransitionProposedCallPorts`.
+	} & Pick<ReengagementResolverDeps, "getAgentIdentity"> &
+		Partial<ReengagementResolverDeps>,
 ): Promise<void> {
 	const [grant] = await db
 		.select()
@@ -794,6 +822,7 @@ export async function reengageOnAdmissionFailure(
 	await applyLivenessRetry(db, grant, opts.intentRecorder, {
 		getTaskById: opts.getTaskById,
 		requireRunnableAgent: opts.requireRunnableAgent,
+		getAgentIdentity: opts.getAgentIdentity,
 		getBetById: opts.getBetById,
 		getTeamById: opts.getTeamById,
 		assembleSessionKnowledge: opts.assembleSessionKnowledge,

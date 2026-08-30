@@ -6,7 +6,7 @@
  *  - Use AgentEditor (shared editor) in the SplitView destination pane.
  *  - Model dropdown reads descriptor.models (discovered), NOT MODEL_CATALOG.
  *  - SplitView ratio persisted via useUiPreference("settings.agents", 0.42).
- *  - Save routing: ast-* → PATCH /api/users/:userId/assistant; others → /api/agents/:id.
+ *  - Save routing: PATCH /api/agents/:id, for every agent including assistants.
  *
  * @lore AV2: The assistant (ast-*) was previously filtered out of this list and
  * managed in SettingsAssistant. AV2 unifies: the assistant IS an agent. The row
@@ -66,7 +66,8 @@ function agentToEditorDraft(agent: AgentConfig): AgentEditorDraft {
 	return {
 		name: agent.name,
 		role: agent.role,
-		systemPrompt: agent.systemPrompt ?? "",
+		// The identity is a document; the draft only seeds one when creating.
+		systemPrompt: "",
 		harnessType: agent.harnessType ?? "",
 		modelId: agent.modelId ?? "",
 		modelProvider: agent.modelProvider ?? null,
@@ -251,41 +252,22 @@ export function SettingsAgents(): JSX.Element {
 		setEditError(null);
 
 		try {
-			let res: Response;
-
-			if (selectedId.startsWith("ast-")) {
-				// Assistant save route (persona + triple)
-				// Extract userId from ast-{userId}
-				const userId = selectedId.replace(/^ast-/, "");
-				res = await apiFetch(`/api/users/${encodeURIComponent(userId)}/assistant`, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						name: draft.name,
-						systemPrompt: draft.systemPrompt || null,
-						harnessType: draft.harnessType || null,
-						modelId: draft.modelId || null,
-						modelProvider: draft.modelProvider || null,
-						modelOptions: draft.modelOptions,
-					}),
-				});
-			} else {
-				// Normal agent save route
-				res = await apiFetch(`/api/agents/${encodeURIComponent(selectedId)}`, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						name: draft.name,
-						role: draft.role,
-						systemPrompt: draft.systemPrompt || null,
-						harnessType: draft.harnessType || null,
-						modelId: draft.modelId || null,
-						modelProvider: draft.modelProvider || null,
-						maxConcurrentSessions: draft.maxConcurrentSessions,
-						modelOptions: draft.modelOptions,
-					}),
-				});
-			}
+			// One route for every agent. The `ast-` split existed because the
+			// persona was a column with an assistant-shaped guard on it; both the
+			// guard and the second route are gone.
+			const res = await apiFetch(`/api/agents/${encodeURIComponent(selectedId)}`, {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: draft.name,
+					role: draft.role,
+					harnessType: draft.harnessType || null,
+					modelId: draft.modelId || null,
+					modelProvider: draft.modelProvider || null,
+					maxConcurrentSessions: draft.maxConcurrentSessions,
+					modelOptions: draft.modelOptions,
+				}),
+			});
 
 			if (res.status === 422) {
 				const msg = await extract422Error(res);

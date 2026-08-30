@@ -16,6 +16,7 @@ import {
 	threads,
 	users,
 } from "@hyperidle/db";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { transitionProposedCall } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -267,7 +268,7 @@ describe("atomic production handoffs", () => {
 			enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]);
 		const localDeps = {
 			workIntents: workIntentsImpl,
-			taskRunResolver: { requireRunnableAgent },
+			taskRunResolver: { requireRunnableAgent, getAgentIdentity },
 		};
 		await checkAndUnblockDependents(db, eventBus, "au9-production-task", localDeps);
 
@@ -473,6 +474,7 @@ describe("atomic production handoffs", () => {
 				approvedArgs: { path: "result.txt" },
 			},
 			{
+				getAgentIdentity,
 				// @lore AU44: same cast pattern as workIntentsImpl above.
 				intentRecorder: (
 					input: Parameters<import("@hyperidle/domain-model").AgentWorkIntentRecorderFn>[0],

@@ -105,7 +105,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-builder-1",
 		name: "Atlas Builder",
 		role: "builder",
-		systemPrompt: "You are a meticulous builder who values clean code.",
+		identityKnowledgeId: "ki_af_demo",
 		harnessType: "claude-code",
 		modelTierPreference: "workhorse",
 		maxConcurrentSessions: 2,
@@ -117,7 +117,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-scout-1",
 		name: "Scout Agent",
 		role: "scout",
-		systemPrompt: null,
+		identityKnowledgeId: "ki_af_demo",
 		harnessType: null,
 		modelTierPreference: null,
 		maxConcurrentSessions: 1,
@@ -130,7 +130,7 @@ const MOCK_AGENT_CONFIGS = [
 		id: "agent-cos-1",
 		name: "System Agent",
 		role: "assistant",
-		systemPrompt: null,
+		identityKnowledgeId: "ki_af_demo",
 		harnessType: null,
 		modelTierPreference: null,
 		maxConcurrentSessions: 1,
@@ -277,9 +277,9 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		expect(firstBtn).toBeDefined();
 		await user.click((firstBtn as HTMLElement) ?? document.body);
 
-		// AV4: pane opens — no role="dialog"; system prompt textarea present
+		// AV4: pane opens — no role="dialog"; BA9f: the identity link is the marker
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 		expect(document.querySelectorAll('[role="dialog"]').length).toBe(0);
 	});
@@ -302,7 +302,10 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		});
 	});
 
-	it("edit dialog system prompt textarea is pre-filled with agent's systemPrompt", async () => {
+	// @lore BA9f: the pane links to the agent's identity document instead of
+	// carrying a textarea for it. Same claim — the pane reaches this agent's
+	// identity — read off the link the pane now renders.
+	it("the pane links to this agent's identity document", async () => {
 		const user = userEvent.setup();
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
@@ -319,9 +322,8 @@ describe("AB3 AC-2 — Edit dialog system prompt textarea pre-filled", () => {
 		await user.click((btnForSystemPrompt as HTMLElement) ?? document.body);
 
 		await waitFor(() => {
-			const textarea = screen.getByRole("textbox", { name: /system prompt/i });
-			expect(textarea).toBeInTheDocument();
-			expect((textarea as HTMLTextAreaElement).value).toContain("You are a meticulous builder");
+			const link = screen.getByTestId("agent-detail-identity-link");
+			expect(link.getAttribute("href")).toBe("/knowledge/ki_af_demo");
 		});
 	});
 
@@ -386,7 +388,7 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 
 		// AV4: wait for pane to open (system prompt textarea present)
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 
 		expect(screen.queryByText(/managed by app defaults/i)).not.toBeInTheDocument();
@@ -413,7 +415,7 @@ describe("AB3 AC-3 — Edit dialog category-aware behavior", () => {
 
 		// AV4: wait for pane (no dialog check)
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 
 		const configToggle = screen.getByRole("button", { name: /show configuration/i });
@@ -445,59 +447,10 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 		mockApiFetch.mockReset();
 	});
 
-	it("clicking Save calls PATCH /api/agents/:id with updated system prompt", async () => {
-		const user = userEvent.setup();
-
-		// Mock PATCH to return success
-		const patchResponse = new Response(
-			JSON.stringify({ ...MOCK_AGENT_CONFIGS[0], systemPrompt: "Updated system prompt text." }),
-			{ status: 200 },
-		);
-		mockApiFetch
-			.mockResolvedValueOnce(makeAgentsResponse()) // initial GET /api/agents
-			.mockResolvedValueOnce(patchResponse); // PATCH /api/agents/:id
-
-		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
-
-		await waitFor(() => {
-			expect(screen.getAllByTestId("agent-row").length).toBe(3);
-		});
-
-		const builderRow3 = screen
-			.getAllByTestId("agent-row")
-			.find((c) => c.textContent?.includes("Atlas Builder"));
-		const builderBtn3 = builderRow3?.querySelector('[data-testid="agent-customize-btn"]');
-		expect(builderBtn3).toBeDefined();
-		await user.click((builderBtn3 as HTMLElement) ?? document.body);
-
-		// AV4: pane opens (no dialog)
-		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
-		});
-
-		// Update system prompt textarea
-		const textarea = screen.getByRole("textbox", { name: /system prompt/i });
-		await user.clear(textarea);
-		await user.type(textarea, "Updated system prompt text.");
-
-		// Click Save
-		const saveBtn = screen.getByRole("button", { name: /^save$/i });
-		await user.click(saveBtn);
-
-		await waitFor(() => {
-			const patchCall = mockApiFetch.mock.calls.find(
-				(call) => (call[1] as RequestInit)?.method === "PATCH",
-			);
-			expect(patchCall).toBeDefined();
-			if (!patchCall) return;
-			expect(patchCall[0] as string).toContain("/api/agents/agent-builder-1");
-			const body = JSON.parse((patchCall[1] as RequestInit).body as string) as Record<
-				string,
-				unknown
-			>;
-			expect(body.systemPrompt).toBe("Updated system prompt text.");
-		});
-	});
+	// @lore BA9f: "Save writes the edited system prompt" lived here. The persona
+	// is a knowledge document now — this pane links to it and never PATCHes it —
+	// so the claim belongs to the knowledge edit endpoint. That this pane's Save
+	// reaches `PATCH /api/agents/:id` at all is proven by the next test.
 
 	it("Save button calls PATCH with modelTierPreference when config is changed", async () => {
 		const user = userEvent.setup();
@@ -523,7 +476,7 @@ describe("AB3 AC-4 — Config save via PATCH /api/agents/:id", () => {
 
 		// AV4: pane opens (no dialog)
 		await waitFor(() => {
-			expect(screen.getByRole("textbox", { name: /system prompt/i })).toBeInTheDocument();
+			expect(screen.getByTestId("agent-detail-identity-link")).toBeInTheDocument();
 		});
 
 		// Expand config
@@ -624,7 +577,7 @@ describe("AB3 AC-5 — Add custom agent dialog", () => {
 				id: "new-agent-1",
 				name: "New Custom Agent",
 				role: "builder",
-				systemPrompt: null,
+				identityKnowledgeId: "ki_af_demo",
 				harnessType: null,
 				modelTierPreference: null,
 				maxConcurrentSessions: 1,

@@ -37,6 +37,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import { AdapterPool } from "@hyperidle/harness-registry";
+import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
 import { createTestApp } from "../../__testing__/test-utils.js";
@@ -88,8 +89,15 @@ async function seedPrereqs(db: HyperIdleDb): Promise<void> {
 		agentUserId: "ab1-agent-builder",
 		maxConcurrentSessions: 2,
 		harnessType: "claude-code",
-		systemPrompt: "You are a builder agent.",
 		modelTierPreference: "workhorse",
+	});
+	// Who the agent is — an `agent_file` document bound to it. The profile links
+	// to the document; it does not carry its text.
+	await upsertAgentIdentity(db, {
+		agentId: "ab1-agent-builder",
+		agentName: "AB1 Builder Bot",
+		body: "You are a builder agent.",
+		updatedBy: "ab1-agent-builder",
 	});
 
 	// Seed a human user (to test 404 path)
@@ -156,7 +164,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body).toHaveProperty("teamName");
 		expect(body).toHaveProperty("createdAt");
 		// Config fields
-		expect(body).toHaveProperty("systemPrompt");
+		expect(body).toHaveProperty("identityKnowledgeId");
 		expect(body).toHaveProperty("harnessType");
 		expect(body).toHaveProperty("modelTierPreference");
 		expect(body).toHaveProperty("maxConcurrentSessions");
@@ -190,7 +198,7 @@ describe("AB1 AC-1: GET /api/agents/:id/profile returns 200 with correct shape",
 		expect(body.name).toBe("AB1 Builder Bot");
 		expect(body.role).toBe("builder");
 		expect(body.harnessType).toBe("claude-code");
-		expect(body.systemPrompt).toBe("You are a builder agent.");
+		expect(body.identityKnowledgeId).toBeTruthy();
 		expect(body.modelTierPreference).toBe("workhorse");
 		expect(body.maxConcurrentSessions).toBe(2);
 	});

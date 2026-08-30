@@ -40,6 +40,7 @@ import {
 import type { BetStateChangedEvent, EventBus, TaskStateChangedEvent } from "@hyperidle/event-bus";
 import {
 	create as createKnowledgeItem,
+	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 	recomputeAttention,
@@ -123,6 +124,7 @@ function makePorts(): RoutineSchedulerPorts {
 		},
 		workIntents: { enqueueWorkIntent },
 		requireRunnableAgent,
+		getAgentIdentity,
 		getTeamById: async (db, id) => {
 			const [row] = await db.select().from(teams).where(eq(teams.id, id)).limit(1);
 			return row;

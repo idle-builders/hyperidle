@@ -169,12 +169,23 @@ export async function persistScaffoldedAgents(
 			createdAt: now,
 		});
 		await users.writeAgentRunConfig(db, agentId, {
-			systemPrompt: spec.systemPrompt,
 			harnessType: resolvedHarness?.harnessType ?? "builtin",
 			modelId: resolvedHarness?.modelId ?? "claude-sonnet-4-6",
 			modelProvider: resolvedHarness?.modelProvider ?? "anthropic",
 			maxConcurrentSessions: spec.role === "builder" ? 3 : 1,
 		});
+		// The agent's identity is a knowledge document, seeded once here — the one
+		// place an agent comes into existence — and edited like any other document
+		// afterwards. Absent when the role has no template; the agent then has no
+		// persona section, which is a valid state.
+		if (spec.systemPrompt) {
+			await users.upsertAgentIdentity(db, {
+				agentId,
+				agentName: spec.name,
+				body: spec.systemPrompt,
+				updatedBy: "scaffold",
+			});
+		}
 
 		if (spec.role === "product_manager" && firstProductManagerId === null) {
 			firstProductManagerId = agentId;

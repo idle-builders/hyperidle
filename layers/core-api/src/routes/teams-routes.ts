@@ -34,6 +34,7 @@ import type {
 import { AGENT_ROLE_CATALOG } from "@hyperidle/domain-model";
 import type { HyperIdleEnv } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
+import { upsertAgentIdentity } from "@hyperidle/knowledge";
 import {
 	createTeam,
 	getTeam,
@@ -125,6 +126,7 @@ export function createTeamRoutes(
 		getUserById: (db2: HyperIdleDb, id: string) => findUser(db2, { id }),
 		insertUser,
 		...buildSeamBackedAgentRunConfigWriter(agentOrchestration),
+		upsertAgentIdentity,
 	};
 
 	// GET / — list all teams with portfolio counters

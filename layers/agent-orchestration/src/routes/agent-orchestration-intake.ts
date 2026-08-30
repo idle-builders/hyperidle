@@ -213,7 +213,6 @@ export function createAgentOrchestrationIntakeRoutes(db: HyperIdleDb): Hono<Hype
 		"/run-config/:agentId",
 		validateBody(
 			z.object({
-				systemPrompt: z.string().nullable().optional(),
 				harnessType: z.string().nullable().optional(),
 				modelTierPreference: z.string().nullable().optional(),
 				modelId: z.string().nullable().optional(),

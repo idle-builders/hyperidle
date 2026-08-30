@@ -130,6 +130,18 @@ export interface BakedAgentRunnableConfig {
 	readonly status: string;
 	readonly role: string;
 	readonly teamId: string | null;
+	/**
+	 * The agent's identity — the body of the `agent_file` knowledge document
+	 * bound to it, which becomes the "## Identity" section of the AGENTS.md its
+	 * session reads.
+	 *
+	 * Baked here rather than read at provisioning time because it lives in
+	 * `knowledge_items`, which belongs to the knowledge service; the provisioner
+	 * reads `agent_run_config`, which is orchestration's own. Every path bakes
+	 * this config, including the assistant turn, which bakes no context bundle —
+	 * so this is the one carrier that reaches all of them.
+	 */
+	readonly persona?: string | null;
 }
 
 /**
@@ -141,12 +153,16 @@ export interface BakedAgentRunnableConfig {
  * columns (name, avatar, credentials, etc.) that must never ride onto the
  * baked `AgentSessionRequest.payloadJson`.
  */
-export function bakeAgentRunnableConfig(agent: BakedAgentRunnableConfig): BakedAgentRunnableConfig {
+export function bakeAgentRunnableConfig(
+	agent: BakedAgentRunnableConfig,
+	persona?: string | null,
+): BakedAgentRunnableConfig {
 	return {
 		kind: agent.kind,
 		status: agent.status,
 		role: agent.role,
 		teamId: agent.teamId,
+		...(persona ? { persona } : {}),
 	};
 }
 

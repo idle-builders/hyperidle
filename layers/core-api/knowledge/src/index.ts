@@ -62,6 +62,8 @@ export {
 	count,
 	create,
 	get,
+	getAgentIdentity,
+	getAgentIdentityIds,
 	list,
 	remove,
 	removeByPluginTopic,
@@ -71,6 +73,7 @@ export {
 	transition,
 	type UpsertPluginDocumentInput,
 	update,
+	upsertAgentIdentity,
 	upsertPluginDocument,
 } from "./knowledge-repository.js";
 export { sweep } from "./promotion-pipeline.js";

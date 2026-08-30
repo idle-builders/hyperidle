@@ -35,7 +35,11 @@ import { insertThread } from "@hyperidle/conversation";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
 import { createLogger } from "@hyperidle/diagnostics";
 import type { AgentRunAdmissionFailedEvent, EventBus } from "@hyperidle/event-bus";
-import { type CreateReviewItemResult, createReviewItem } from "@hyperidle/knowledge";
+import {
+	type CreateReviewItemResult,
+	createReviewItem,
+	getAgentIdentity,
+} from "@hyperidle/knowledge";
 import { reengageOnAdmissionFailure } from "@hyperidle/review";
 import * as routineService from "@hyperidle/routine";
 import { readServerConfig } from "@hyperidle/settings";
@@ -118,6 +122,7 @@ async function reactToAdmissionFailure(
 				// see `applyLivenessRetry`'s `@lore` in `proposed-call-workflow.ts`.
 				getTaskById: (exec: WriteExecutor, id: string) => work.get(exec, "task", id),
 				requireRunnableAgent,
+				getAgentIdentity,
 				readServerConfig,
 				// AU27 Increment 1 (Decision 0): also bake callingThreadId.
 				resolveOrCreateCallingThread,

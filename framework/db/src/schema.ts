@@ -93,7 +93,7 @@ export const users = pgTable(
  * AU26 G1 — one agent's run configuration, keyed on its `users` row.
  *
  * @lore AU26 G1 (architecture §D-L): `users` used to carry agent-execution
- * configuration (`system_prompt`, `harness_type`, `model_tier_preference`,
+ * configuration (`harness_type`, `model_tier_preference`,
  * `model_id`, `model_provider`, `max_concurrent_sessions`) on the same row as
  * human identity. Core administers those fields but never operationally
  * consumes them — only an agent's session does — so they relocate here, owned
@@ -101,6 +101,10 @@ export const users = pgTable(
  * as the single human+agent identity record: `kind`, `status`, `agent_category`,
  * `role`, `team_id` stay put because core genuinely uses them
  * (`middleware/auth.ts`, `recipients.ts`, `policy-bindings.ts`).
+ *
+ * @lore The agent's identity is no longer here: it is an `agent_file` knowledge
+ * document bound to the agent (scope_kind='user', scope_id=agentId), which is
+ * what that role has always meant. Migration 0069 moved every existing prompt.
  *
  * @lore AU26 G1: `system_prompt_path` and `skills` were dropped, not moved —
  * zero production readers repo-wide (seed fixtures only) at the time of the
@@ -118,7 +122,6 @@ export const agentRunConfig = pgTable("agent_run_config", {
 	agentUserId: text("agent_user_id")
 		.primaryKey()
 		.references(() => users.id, { onDelete: "cascade" }),
-	systemPrompt: text("system_prompt"),
 	harnessType: text("harness_type"),
 	modelTierPreference: text("model_tier_preference"),
 	modelId: text("model_id"),

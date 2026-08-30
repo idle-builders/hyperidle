@@ -104,7 +104,7 @@ export const DETECTOR_FLOORS: readonly DetectorFloor[] = [
 	// Floor re-measured after AU44 B7+fd: factory-defaults dissolved. Live: 3060, suggested: 2754.
 	{ kind: "manifest", min: 141, floorKind: "magnitude" },
 	// Floor re-measured after AU44 fd: factory-defaults dissolved. Live: 157, suggested: 141.
-	{ kind: "di", min: 166, floorKind: "magnitude" },
+	{ kind: "di", min: 188, floorKind: "magnitude" },
 	{ kind: "api", min: 167, floorKind: "magnitude" },
 	{ kind: "mcp", min: 29, floorKind: "magnitude" },
 	{ kind: "event", min: 192, floorKind: "magnitude" },

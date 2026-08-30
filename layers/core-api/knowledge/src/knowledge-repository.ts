@@ -1258,6 +1258,110 @@ export interface UpsertPluginDocumentInput {
  * because these are machine-managed rows; a user edit through the knowledge
  * route writes its own log entry via the normal update() path.
  */
+/**
+ * The body of the `agent_file` knowledge document bound to this agent — its
+ * identity, which becomes the "## Identity" section of the AGENTS.md its
+ * sessions read.
+ *
+ * The binding is the one context assembly already uses for `agent_file`:
+ * `scopeKind='user'` with `scopeId` set to the agent's id. Null when the agent
+ * has no identity document, which is a valid state — the session then carries
+ * task, tools and workspace sections without a persona.
+ */
+/**
+ * Give an agent its identity document, or update the one it has.
+ *
+ * An agent's identity is an `agent_file` knowledge document bound to it —
+ * `scopeKind='user'` with `scopeId` set to the agent — which is what that role
+ * has always meant, and the binding context assembly already reads. Seeded once
+ * when the agent is created; after that it is edited like any other document.
+ *
+ * The body is NOT overwritten when the document already exists: an identity a
+ * person has edited is theirs, and re-seeding would silently discard it.
+ */
+export async function upsertAgentIdentity(
+	db: HyperIdleDb,
+	input: {
+		readonly agentId: string;
+		readonly agentName: string;
+		readonly body: string;
+		readonly updatedBy: string;
+	},
+): Promise<string> {
+	const id = `ki_af_${input.agentId}`;
+	const ts = now();
+	await db
+		.insert(knowledgeItems)
+		.values({
+			id,
+			scopeKind: "user",
+			scopeId: input.agentId,
+			topic: null,
+			title: `${input.agentName || input.agentId} — identity`,
+			body: input.body,
+			format: "markdown",
+			status: "active",
+			version: 1,
+			role: "agent_file",
+			updatedBy: input.updatedBy,
+			createdAt: ts,
+			updatedAt: ts,
+		})
+		.onConflictDoNothing();
+	// Kernel row and projection travel together, as knowledge always writes them.
+	await db
+		.insert(knowledgeAppProjection)
+		.values({
+			id: `kp_af_${input.agentId}`,
+			knowledgeItemId: id,
+			layer: null,
+			scopeId: input.agentId,
+		})
+		.onConflictDoNothing();
+	return id;
+}
+
+export async function getAgentIdentity(db: HyperIdleDb, agentId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ body: knowledgeItems.body })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.role, "agent_file"),
+				eq(knowledgeItems.scopeKind, "user"),
+				eq(knowledgeItems.scopeId, agentId),
+				eq(knowledgeItems.status, "active"),
+			),
+		)
+		.limit(1);
+	return row?.body ?? null;
+}
+
+/**
+ * The identity document id for each of `agentIds`, for agents that have one.
+ *
+ * The agent list needs to link every agent to the document that says who it is,
+ * and one query for the whole list beats one per agent.
+ */
+export async function getAgentIdentityIds(
+	db: HyperIdleDb,
+	agentIds: readonly string[],
+): Promise<Map<string, string>> {
+	if (agentIds.length === 0) return new Map();
+	const rows = await db
+		.select({ id: knowledgeItems.id, scopeId: knowledgeItems.scopeId })
+		.from(knowledgeItems)
+		.where(
+			and(
+				eq(knowledgeItems.role, "agent_file"),
+				eq(knowledgeItems.scopeKind, "user"),
+				eq(knowledgeItems.status, "active"),
+				inArray(knowledgeItems.scopeId, [...agentIds]),
+			),
+		);
+	return new Map(rows.flatMap((r) => (r.scopeId ? [[r.scopeId, r.id] as const] : [])));
+}
+
 export async function upsertPluginDocument(
 	db: HyperIdleDb,
 	input: UpsertPluginDocumentInput,

@@ -848,8 +848,14 @@ function writeSkillItem(sandboxPath: string, item: BakedContextKnowledgeItem): s
  * `fetchAllForLayer`/`rankAndBudget` DB-reading pair.
  *
  * @lore BA9b: capability roles (skill/rule/agent_file) are routed by role,
- * not by layer. `agentId` is required to filter agent_file items — only the
- * item whose agentBindingId matches receives it.
+ * not by layer.
+ *
+ * @lore BA9f: `agentId` decides which `agent_file` is THIS agent's identity.
+ * That one is already delivered as the "## Identity" section of AGENTS.md
+ * (baked at emit through `getAgentIdentity`), so materialising it here too
+ * would put the same text in the sandbox twice. Every OTHER agent file — an
+ * unbound one that applies to all sessions — is still written, which is what
+ * BA9b delivers.
  *
  * Items with role='ordinary' and an unrecognized/absent layer are skipped
  * (defensive — assembleSessionKnowledge only produces L4/L2/L3 ordinary items).
@@ -884,13 +890,17 @@ function writeBundleKnowledge(
 		}
 
 		if (role === "agent_file") {
-			// Only write if this item is bound to the current agent (or unbound).
-			if (item.agentBindingId !== null && item.agentBindingId !== agentId) {
+			// The agent file bound to THIS agent is its identity, and its home in
+			// the sandbox is the "## Identity" section of AGENTS.md. Writing it here
+			// too would deliver the same text twice.
+			if (item.agentBindingId === agentId) {
 				continue;
 			}
-			// agent_file: append to knowledge/rules so the agent reads it as a rule-like doc.
-			// @lore BA9b: agent_file content is delivered via knowledge/rules/ — the agent's
-			// AGENTS.md already contains the system prompt; agent_file supplements it.
+			// An agent file bound to someone else is not ours to carry.
+			if (item.agentBindingId !== null && item.agentBindingId !== undefined) {
+				continue;
+			}
+			// Unbound: applies to every session, so it is materialised (BA9b).
 			const relativePath = writeItem(sandboxPath, item, "knowledge/rules");
 			manifestItems[item.id] = {
 				version: item.version,

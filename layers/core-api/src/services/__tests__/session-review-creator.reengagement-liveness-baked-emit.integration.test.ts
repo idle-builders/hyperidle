@@ -49,6 +49,7 @@ import {
 	users,
 } from "@hyperidle/db";
 import type { SessionEndedEvent } from "@hyperidle/event-bus";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { registerReviewSubscriptions } from "@hyperidle/review";
 import { enqueueWorkIntent } from "@hyperidle/session-requests";
 import { requireRunnableAgent } from "@hyperidle/users";
@@ -173,6 +174,7 @@ describe("reengagement liveness-net retry is resolved and baked at emit time (se
 			) => enqueueWorkIntent(db, input as unknown as Parameters<typeof enqueueWorkIntent>[1]),
 			// See top-of-file `@lore forward-compat`.
 			requireRunnableAgent,
+			getAgentIdentity,
 		};
 
 		const unsub = registerReviewSubscriptions(db, eventBus, ports);

@@ -36,7 +36,7 @@ import {
 } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
 import type { BakedContextBundle } from "@hyperidle/domain-model";
-import { assembleSessionKnowledge } from "@hyperidle/knowledge";
+import { assembleSessionKnowledge, getAgentIdentity } from "@hyperidle/knowledge";
 import { getTeam } from "@hyperidle/org";
 import { requireRunnableAgent } from "@hyperidle/users";
 import { eq } from "drizzle-orm";
@@ -141,7 +141,7 @@ async function seedRun(
  * enumerate this file's cases by hand; the compiler will not do it for you.
  */
 function buildDeps() {
-	return { requireRunnableAgent };
+	return { requireRunnableAgent, getAgentIdentity };
 }
 
 describe("resolveRoutineRunRequest — emit-time routine_run resolver (routine)", () => {
@@ -313,6 +313,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-1", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			getKnowledgeBody: readKnowledgeBody,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge,
@@ -361,6 +362,7 @@ describe("resolveRoutineRunRequest — contextBundle baking (Increment 12 Wave B
 		let receivedTeamId: string | undefined = "unset";
 		const baked = await resolveRoutineRunRequest(db, "run-rrun-ctx-noteam", {
 			requireRunnableAgent,
+			getAgentIdentity,
 			getKnowledgeBody: readKnowledgeBody,
 			getTeamById: (d: HyperIdleDb, id: string) => getTeam(d, { id }),
 			assembleSessionKnowledge: async (_db, input) => {

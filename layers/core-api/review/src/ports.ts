@@ -113,6 +113,15 @@ export interface ReviewPorts {
 	 */
 	readonly getBetById?: (db: HyperIdleDb, id: string) => Promise<Bet | undefined>;
 	readonly getTeamById?: (db: HyperIdleDb, id: string) => Promise<Team | undefined>;
+	/** Read an agent's identity document body — baked onto the request. */
+	/**
+	 * The agent's identity document, baked onto the request.
+	 *
+	 * Required, not optional: while it was optional, two of the call sites that
+	 * bake an assistant turn simply never wired it, compiled clean, and baked no
+	 * identity at all. A required port turns that into a compile error.
+	 */
+	readonly getAgentIdentity: (db: HyperIdleDb, agentId: string) => Promise<string | null>;
 	/** AU21 §9 Increment 12 (Decision H3) — optional: `@hyperidle/knowledge`'s `assembleSessionKnowledge`, injected for the same Mechanism C reason. */
 	readonly assembleSessionKnowledge?: (
 		db: HyperIdleDb,

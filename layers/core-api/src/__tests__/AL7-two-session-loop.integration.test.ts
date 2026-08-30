@@ -39,6 +39,7 @@ import {
 } from "@hyperidle/db";
 import type { EventBus, SessionEndedEvent } from "@hyperidle/event-bus";
 import type { ToolContext, ToolRegistry } from "@hyperidle/harness-protocol";
+import { getAgentIdentity } from "@hyperidle/knowledge";
 import { type ReviewPorts, registerReviewSubscriptions } from "@hyperidle/review";
 import type { BuildToolRegistryOptions } from "@hyperidle/tool-handlers";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
@@ -379,6 +380,7 @@ describe("AC11b: liveness net — crash between consume and execute is surfaced"
 				getTaskById: async () => undefined,
 			},
 			org: { resolveReviewRecipients: async () => [] },
+			getAgentIdentity,
 			intentRecorder,
 			// AU21 §6 Decision B: bake-deps stub — the liveness net's bake attempt
 			// tolerates failure (getTaskById above always returns undefined, so
