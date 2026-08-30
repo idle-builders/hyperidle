@@ -32,7 +32,6 @@
 		"test:e2e:full": "npm run -w @hyperidle/core-ui test:e2e:full",
 		"test:e2e:ah1": "npm run -w @hyperidle/core-ui test:e2e:ah1",
 		"test:e2e:ah5": "npm run -w @hyperidle/core-ui test:e2e:ah5",
-		"test:e2e:ah6": "npm run -w @hyperidle/core-ui test:e2e:ah6",
 		"check": "npx tsx tools/repo-gates/src/typecheck-gate.ts",
 		"governance:floors": "npx tsx tools/governance/src/governance-floors.ts",
 		"governance:new-cells": "npx tsx tools/governance/src/governance-new-cells.ts",
@@ -69,8 +68,7 @@
 		"eval": "npm run -w @hyperidle/eval eval",
 		"eval:quick": "npm run -w @hyperidle/eval eval -- --quick",
 		"docs:dev": "vitepress dev docs/product",
-		"docs:build": "vitepress build docs/product",
-		"smoke:ah6": "tsx --env-file-if-exists=.env layers/core-ui/__scripts__/ah6-smoke-local.ts"
+		"docs:build": "vitepress build docs/product"
 	},
 	"overrides": {
 		"zod-validation-error": "^4.0.0",

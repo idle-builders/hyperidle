@@ -10,8 +10,7 @@
 		"test:e2e": "playwright test --only-changed=origin/main --pass-with-no-tests",
 		"test:e2e:full": "playwright test",
 		"test:e2e:ah1": "playwright test --config playwright.ah1.config.ts",
-		"test:e2e:ah5": "playwright test --config playwright.ah5.config.ts",
-		"test:e2e:ah6": "playwright test --config playwright.ah6.config.ts"
+		"test:e2e:ah5": "playwright test --config playwright.ah5.config.ts"
 	},
 	"dependencies": {
 		"@hyperidle/domain-model": "*",
@@ -48,7 +47,6 @@
 		"@hyperidle/credentials": "*",
 		"@hyperidle/db": "*",
 		"@hyperidle/eval": "*",
-		"@hyperidle/harness-registry": "*",
 		"@hyperidle/remote-server": "*",
 		"@playwright/test": "^1.61.1",
 		"@tailwindcss/vite": "^4.3.1",
