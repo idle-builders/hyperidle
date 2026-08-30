@@ -1,9 +1,14 @@
 /**
  * O2: Knowledge routes rewritten for kernel purity.
  * Q2: scope_kind + scope_id fields added to creation, list, and detail endpoints.
- *     PATCH /:id/scope endpoint added for scope mutation with version tracking.
  *     User-scoped items filtered by userId at GET / and GET /:id.
- *     App projection layer assigned (via knowledgeAppProjection) on creation and scope change.
+ *     App projection layer assigned (via knowledgeAppProjection) on creation.
+ *
+ * Scope is edited through `PATCH /:id` like every other field. The separate
+ * `PATCH /:id/scope` endpoint is DELETED: it demanded a `reason` that was
+ * concatenated into an edit-log value and read by nothing, and it wrote the
+ * kernel scopeId while the generic update wrote the projection's — two writers,
+ * two tables, free to disagree.
  *
  * URL shape simplified from /:layer/... to /:id and /.
  * Layer guard, createRelevanceService, and computeSignals removed.
@@ -219,13 +224,17 @@ const updateKnowledgeSchema = z.object({
 	topic: z.string().optional(),
 	format: z.string().optional(),
 	status: z.enum(KNOWLEDGE_STATUSES).optional(),
-	/**
-	 * Changing the role is how an ordinary note becomes a skill, and how a
-	 * skill goes back to being an ordinary note. Scope has its own route
-	 * (`PATCH /:id/scope`) because it carries a reason; a role change is an
-	 * ordinary field edit and rides the ordinary versioned update.
-	 */
+	/** An ordinary note becomes a skill, or a skill goes back to being one. */
 	role: z.enum(KNOWLEDGE_ROLES).optional(),
+	/**
+	 * Scope is a field on the document like any other. It had its own endpoint
+	 * demanding a `reason`, which was concatenated into an edit-log value and
+	 * read by nothing; that endpoint and that string are gone. Changing scope
+	 * alongside role or content is now one edit under one version bump instead
+	 * of two round trips that can half-fail.
+	 */
+	scopeKind: z.enum(SCOPE_KINDS).optional(),
+	scopeId: z.string().nullable().optional(),
 });
 
 // BA9d: agent-reachable merge/split doors (recovered from AU44 scope breach,
@@ -307,18 +316,6 @@ async function recomputeAttentionScoreForKnowledgeItem(
 		throw new Error("unexpected attention result");
 	return result;
 }
-
-/**
- * Q2: Schema for PATCH /:id/scope — change scope_kind and scope_id with version tracking.
- * `reason` is required (min 1 char) so scope changes always have an audit trail.
- */
-const changeScopeSchema = z.object({
-	scopeKind: z.enum(SCOPE_KINDS),
-	scopeId: z.string().optional(),
-	reason: z.string().min(1),
-	updatedBy: z.string(),
-	version: z.number(),
-});
 
 /**
  * Create Hono routes for knowledge endpoints.
@@ -498,64 +495,6 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 		return c.json(row, 201);
 	});
 
-	// PATCH /:id/scope — Q2: change scope_kind and scope_id with version tracking.
-	// Bumps version, logs change in knowledgeEditLog, updates app projection layer.
-	router.patch("/:id/scope", validateBody(changeScopeSchema), async (c) => {
-		const id = c.req.param("id");
-		const body = c.req.valid("json" as never) as z.infer<typeof changeScopeSchema>;
-
-		const existing = await getKnowledgeItem(db, id);
-
-		if (!existing) {
-			const response: ApiErrorResponse = {
-				error: "Knowledge item not found",
-				code: API_ERROR_CODES.NOT_FOUND,
-			};
-			return c.json(response, 404);
-		}
-
-		// Optimistic locking: check version
-		if (existing.version !== body.version) {
-			const response: ApiErrorResponse = {
-				error: `Version conflict: expected ${body.version}, current is ${existing.version}`,
-				code: API_ERROR_CODES.CONFLICT,
-				details: { currentVersion: existing.version },
-			};
-			return c.json(response, 409);
-		}
-
-		// Q2: scopeId validation for the new scope kind
-		if (requiresScopeId(body.scopeKind) && !body.scopeId) {
-			const response: ApiErrorResponse = {
-				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
-				code: API_ERROR_CODES.VALIDATION_ERROR,
-			};
-			return c.json(response, 400);
-		}
-
-		// @lore AU20 K2-writes: changeScope folded into transition({target:"changeScope"}).
-		// transition() fetches the item internally by id (no need to pass `existing`).
-		const updated = await knowledgeTransition(db, id, {
-			target: "changeScope",
-			scopeKind: body.scopeKind,
-			scopeId: body.scopeId ?? null,
-			reason: body.reason,
-			updatedBy: body.updatedBy,
-		});
-
-		// Emit knowledge_updated event for scope change
-		const updatedEvent: KnowledgeUpdatedEvent = {
-			type: "knowledge_updated",
-			streamId: `knowledge:${id}`,
-			itemId: id,
-			action: "updated",
-			timestamp: Date.now(),
-		};
-		eventBus.emit(updatedEvent);
-
-		return c.json(updated);
-	});
-
 	// PATCH /:id — update (optimistic locking)
 	// @lore AU14: routes through the shared repository's versioned update() instead of
 	// a manual per-field edit-log loop + raw db.update. Pre-checks (404/409) stay so the
@@ -585,6 +524,16 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 			return c.json(response, 409);
 		}
 
+		// The guard the deleted `/scope` route carried: a scope that names an
+		// external entity needs that entity's id.
+		if (body.scopeKind !== undefined && requiresScopeId(body.scopeKind) && !body.scopeId) {
+			const response: ApiErrorResponse = {
+				error: `scopeId is required for scopeKind '${body.scopeKind}'`,
+				code: API_ERROR_CODES.VALIDATION_ERROR,
+			};
+			return c.json(response, 400);
+		}
+
 		try {
 			await updateKnowledgeItem(
 				db,
@@ -596,6 +545,8 @@ export function createKnowledgeRoutes(db: HyperIdleDb, eventBus: EventBus): Hono
 					format: body.format,
 					status: body.status,
 					role: body.role,
+					scopeKind: body.scopeKind,
+					scopeId: body.scopeId,
 					updatedBy: body.updatedBy,
 				},
 				body.version,

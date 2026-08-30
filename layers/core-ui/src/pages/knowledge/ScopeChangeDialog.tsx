@@ -2,12 +2,15 @@
  * ScopeChangeDialog — Q2 scope mutation flow.
  *
  * Allows the founder to move a knowledge item to a different scope.
- * Requires: new scope kind, scope id (for scopes that need one), and a reason.
+ * Requires: new scope kind, and a scope id for scopes that name an entity.
  * Uses optimistic version tracking — the current version is sent with the PATCH
  * so the server can reject stale mutations.
  *
  * @lore Q2: Same Dialog primitive pattern as KnowledgeCreateDialog.
- * PATCH /api/knowledge/:id/scope carries { scopeKind, scopeId?, reason, updatedBy, version }.
+ * Scope is an ordinary field on the document, so this saves through
+ * PATCH /api/knowledge/:id with { scopeKind, scopeId?, updatedBy, version } —
+ * the same endpoint the body and the role use. The separate /scope endpoint and
+ * the reason it demanded are deleted; nothing ever read that reason.
  *
  * @lore Q2 reviewer warning: scope_id dropdown loading state. For v1 the
  * scopeId is a free-text input (no dropdown). A dropdown requires fetching the
@@ -15,7 +18,7 @@
  * free-text input satisfies the AC and unblocks the E2E tests.
  *
  * @lore AI2: Migrated from native <dialog> + showModal() to Dialog primitive.
- * isDirty = reason entered or scope changed from current. Authoring surface — guards.
+ * isDirty = scope changed from current. Authoring surface — guards.
  */
 
 import { SCOPES_REQUIRING_ID, type ScopeKind } from "@hyperidle/domain-model";
@@ -80,24 +83,23 @@ export function ScopeChangeDialog({
 	);
 	const scopeKind: ScopeKind = selectedOption.scopeKind;
 	const [scopeId, setScopeId] = useState<string>("");
-	const [reason, setReason] = useState<string>("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const needsScopeId = SCOPES_REQUIRING_ID.has(scopeKind);
-	const isDirty = reason.trim().length > 0 || selectedOption.scopeKind !== currentScopeKind;
-	const canSave = reason.trim().length > 0 && !submitting;
+	const isDirty = selectedOption.scopeKind !== currentScopeKind || scopeId.trim().length > 0;
+	const canSave = isDirty && !submitting;
 
 	const handleSave = async (): Promise<void> => {
-		const trimmedReason = reason.trim();
-		if (!trimmedReason) return;
+		// A scope that names an entity needs that entity's id; the server enforces
+		// this too, this is just the local guard.
+		if (needsScopeId && !scopeId.trim()) return;
 
 		setSubmitting(true);
 		setError(null);
 
 		const payload: Record<string, unknown> = {
 			scopeKind,
-			reason: trimmedReason,
 			version: currentVersion,
 			updatedBy: user?.id ?? "human",
 		};
@@ -106,7 +108,7 @@ export function ScopeChangeDialog({
 			payload.scopeId = scopeId.trim();
 		}
 
-		const res = await apiFetch(`/api/knowledge/${encodeURIComponent(knowledgeId)}/scope`, {
+		const res = await apiFetch(`/api/knowledge/${encodeURIComponent(knowledgeId)}`, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(payload),
@@ -182,17 +184,6 @@ export function ScopeChangeDialog({
 						disabled={submitting}
 					/>
 				)}
-
-				{/* Reason — required */}
-				<Input
-					textarea
-					label="Reason (required)"
-					placeholder="Why are you changing the scope?"
-					value={reason}
-					onChange={(e) => setReason(e.target.value)}
-					disabled={submitting}
-					maxLength={500}
-				/>
 
 				{error && (
 					<p role="alert" className="type-metadata  text-error">

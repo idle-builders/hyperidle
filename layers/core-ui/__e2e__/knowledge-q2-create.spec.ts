@@ -418,10 +418,10 @@ test.describe("Q2 AC-12: Change scope from user to product", () => {
 			}
 		});
 
-		// Mock PATCH /:id/scope — scope change endpoint
-		// @lore Q2: ScopeChangeDialog sends PATCH to /api/knowledge/:id/scope,
-		// not to /api/knowledge/:id. The pattern must include the /scope suffix.
-		await page.route(`**/api/knowledge/${userItem.id}/scope`, async (route) => {
+		// Mock the scope change. It rides the ordinary document edit —
+		// PATCH /api/knowledge/:id — because scope is a field like any other. The
+		// separate /:id/scope endpoint is deleted.
+		await page.route(`**/api/knowledge/${userItem.id}`, async (route) => {
 			if (route.request().method() === "PATCH") {
 				const body = (await route.request().postDataJSON()) as {
 					scopeKind?: string;
@@ -472,9 +472,6 @@ test.describe("Q2 AC-12: Change scope from user to product", () => {
 
 		// Fill scope_id — plain text input, located by placeholder
 		await dialog.getByPlaceholder("product ID").fill("prod-abc");
-
-		// Fill reason
-		await dialog.getByPlaceholder("Why are you changing the scope?").fill("Promoting to product");
 
 		// Save
 		await dialog.getByRole("button", { name: "Save" }).click();

@@ -12,7 +12,7 @@
  * promoted into a skill.
  */
 
-import { type HyperIdleDb, knowledgeItems, users } from "@hyperidle/db";
+import { type HyperIdleDb, knowledgeAppProjection, knowledgeItems, users } from "@hyperidle/db";
 import { assembleSessionKnowledge } from "@hyperidle/knowledge";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
@@ -186,5 +186,98 @@ describe("a knowledge document's role", () => {
 			agentId: "agent-alpha",
 		});
 		expect(after.find((i) => i.id === created.id)?.role).toBe("skill");
+	});
+
+	/**
+	 * Scope is a field on the document, so it is edited where every other field
+	 * is. It used to have its own endpoint demanding a `reason` — a string that
+	 * was concatenated into an edit-log value and never read by anything.
+	 */
+	test("scope is changed through the same edit, with no ceremony", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const createRes = await app.request("/api/knowledge", {
+			method: "POST",
+			headers: authHeaders(),
+			body: createBody(),
+		});
+		const created = (await createRes.json()) as { id: string; version: number };
+
+		const res = await app.request(`/api/knowledge/${created.id}`, {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				version: created.version,
+				updatedBy: "u-founder",
+				scopeKind: "team",
+				scopeId: "team-alpha",
+			}),
+		});
+
+		expect(res.status).toBe(200);
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
+		expect(row?.scopeKind).toBe("team");
+		expect(row?.scopeId).toBe("team-alpha");
+	});
+
+	test("role and scope change together in one edit, under one version bump", async ({
+		db,
+		app,
+	}) => {
+		await seedFounder(db, "u-founder");
+		const createRes = await app.request("/api/knowledge", {
+			method: "POST",
+			headers: authHeaders(),
+			body: createBody(),
+		});
+		const created = (await createRes.json()) as { id: string; version: number };
+
+		const res = await app.request(`/api/knowledge/${created.id}`, {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				version: created.version,
+				updatedBy: "u-founder",
+				role: "skill",
+				scopeKind: "team",
+				scopeId: "team-alpha",
+			}),
+		});
+		expect(res.status).toBe(200);
+
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
+		expect(row?.role).toBe("skill");
+		expect(row?.scopeKind).toBe("team");
+		// One edit, one bump — not two round trips that can half-fail.
+		expect(row?.version).toBe(created.version + 1);
+	});
+
+	test("the kernel and the projection agree on scope after an edit", async ({ db, app }) => {
+		await seedFounder(db, "u-founder");
+		const createRes = await app.request("/api/knowledge", {
+			method: "POST",
+			headers: authHeaders(),
+			body: createBody(),
+		});
+		const created = (await createRes.json()) as { id: string; version: number };
+
+		await app.request(`/api/knowledge/${created.id}`, {
+			method: "PATCH",
+			headers: authHeaders(),
+			body: JSON.stringify({
+				version: created.version,
+				updatedBy: "u-founder",
+				scopeKind: "team",
+				scopeId: "team-alpha",
+			}),
+		});
+
+		const [row] = await db.select().from(knowledgeItems).where(eq(knowledgeItems.id, created.id));
+		const [proj] = await db
+			.select()
+			.from(knowledgeAppProjection)
+			.where(eq(knowledgeAppProjection.knowledgeItemId, created.id));
+		// The list query ORs these two columns, so a disagreement silently changes
+		// who can find the document.
+		expect(proj?.scopeId).toBe(row?.scopeId);
 	});
 });
