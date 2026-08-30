@@ -4,21 +4,11 @@
 
 **Outcome.** At every supported viewport, a user can reach the last element of content on every page.
 
-**Why this matters.** The Work page — the product's primary planning surface — clips 538px of content at 1440×900 and 706px at 1024×768 with no scroll container anywhere on the page: no scrollbar, no wheel response, no keyboard scroll. The agent roster and the entire artifacts section are unreachable on desktop. A user cannot see who is on their team. The same latent fault sits under nearly every other page and is one wrapper away from repeating.
+**Why this matters.** The Work page — the product's primary planning surface — clipped 538px of content at 1440×900 and 706px at 1024×768 with no scroll container anywhere on the page: no scrollbar, no wheel response, no keyboard scroll. The agent roster and the entire artifacts section were unreachable on desktop. The same latent fault sat under nearly every other page, one wrapper away from repeating. The documented layout rule stated the contract; nothing enforced it. The delta is a scroll contract that is structural and enforced, not restated per page.
 
-**What exists today.** Pages follow a documented scaffold — pinned header, `flex-1` scrolling body — but the body region is declared without the minimum-height reset a flex child needs, so it grows to its content height instead of its parent's. Where an intermediate wrapper also hides overflow, the content is clipped and no ancestor can scroll it. Four regions in the codebase declare the reset correctly; the rest survive only because nothing clips them yet. The documented layout rule states this contract; nothing enforces it.
+**Complexity.** M · **Engineering tier.** mvp · **Depends on.** None.
 
-**Missing delta.** The scroll contract must be structural and enforced, not restated per page.
-
-**Depends on.** None.
-
-**Complexity.** M
-
-**Engineering tier.** mvp
-
-**Pre-build.** Not required — the correct behaviour is already documented and the cause is identified. A combined refine + design + architecture round still precedes the build — see the execution procedure below.
-
-**Execution procedure (human-approved).** Skip the pipeline's standard phase set. One agent runs a single **combined refine + design + architecture round** — sharpening the requirement, deciding the user-facing shape, and producing the technical plan as one artifact — and stops there. The founder reviews and approves that one artifact before any code is written. The same agent then builds in a single session — tests, then code. When it is done, one fresh agent reviews it, one round only. No separate refinement, design, critique or architecture phases, and no further human gate after the approval. Founder decision, 2026-08-11: this is the approved procedure for this work package and the orchestrator does not add phases to it.
+**Execution procedure (founder decision, 2026-08-11).** Skip the standard phase set. One agent runs a single **combined refine + design + architecture round** and stops. The founder approves that one artifact before any code. The same agent then builds in one session — tests, then code. One fresh agent reviews, one round only. No separate refinement, design, critique or architecture phases, and no further human gate after approval. The orchestrator does not add phases to this.
 
 **Constraints.** The pinned-header/scrolling-body anatomy and the single-`h1` heading contract stay as documented. Window-level scrolling remains impossible; each page owns its scroll region.
 
@@ -32,96 +22,78 @@
 - A page whose body can scroll exposes a scroll affordance consistent with the rest of the app.
 - Automated evidence fails if a page declares a scrolling body that can be clipped by an ancestor.
 
-## Validation scenarios
-
-- Given the team page at 1024×768, when the user scrolls to the bottom, then the last artifact row is fully visible.
-- Given any route at 1440×900, when the page content is taller than the viewport, then a scroll container exists and reaches the end of the content.
-- Given a new page added with a body region that omits the scroll contract, when verification runs, then it fails naming the page.
-
 ---
 
-## As-built decisions (2026-08-11 → 2026-08-12)
+# As built (2026-08-11 → 2026-08-12)
 
-### Correction: `min-h-0` on a scrolling body is a no-op
+## Correction: `min-h-0` on a scrolling body is a no-op
 
-`plan.md:9` originally stated the bug was "the body region is declared without the minimum-height reset a flex child needs". This is wrong. Measured in headless Chromium: an element whose computed overflow is not `visible` already gets an automatic minimum size of zero as a flex item, so `overflow-y-auto` supplies the reset by itself. Adding `min-h-0` to the scroll body changes nothing.
+The plan and the audit both blamed a missing minimum-height reset on the body region. That is wrong,
+and measured wrong in headless Chromium: an element whose computed overflow is not `visible` already
+gets an automatic flex-item minimum size of zero, so `overflow-y-auto` supplies the reset by itself.
+Adding `min-h-0` to a scroll body changes nothing.
 
-`min-h-0` **is** load-bearing in exactly one place — an intermediate flex column that does *not* set its own overflow. That is what the scaffold's `managed` body mode declares, and the only place `min-h-0` should appear.
+`min-h-0` **is** load-bearing in exactly one place — an intermediate flex column that does *not* set
+its own overflow. That is the scaffold's `managed` body mode, and the only place it should appear.
 
-The real invariant: **a scrolling body must be a flex item of a flex column whose own height is bounded.** Three ways to break it: a block between root and body (clips the child's `flex-1`), a root without `h-full` (root grows unbounded), an intermediate flex column with visible overflow and no `min-h-0`.
+The real invariant: **a scrolling body must be a flex item of a flex column whose own height is
+bounded.** Three ways to break it — a block element between root and body (it clips the child's
+`flex-1`), a root without `h-full` (it grows unbounded), an intermediate flex column with visible
+overflow and no `min-h-0`.
 
-The consequence for the implementation: the ~36 existing `flex-1 overflow-y-auto` sites that are direct flex children of `flex flex-col h-full` roots are **correct as written**. The migration existed only to enable a flat-prohibition lint rule. Accepted and supersedes the cause stated in the original plan and in the audit.
+Consequence: the ~36 existing `flex-1 overflow-y-auto` sites that are direct flex children of
+`flex flex-col h-full` roots were **correct as written**. The migration existed only to enable a flat
+prohibition lint rule, not to fix them.
 
-### Second broken page the audit missed
+The audit also missed a second broken page: `/artifacts/:id` (`ArtifactPermalink.tsx`) had no root
+height at all — four branches each returning `<div className="p-3 flex flex-col gap-3">`, no `h-full`,
+no scroll region.
 
-`/artifacts/:id` (`ArtifactPermalink.tsx`) had no root height at all — four branches all returning `<div className="p-3 flex flex-col gap-3">` with no `h-full`, no scroll region. Fixed in the same build session.
+## Supported viewports, settled here
 
-### Supported viewports settled here (no prior definition existed)
+No definition existed before. Exported as a constant in `layers/core-ui/__e2e__/AZ2-page-scroll.spec.ts`.
 
-| Viewport | Rationale |
+| Viewport | Why |
 |---|---|
-| 1440 × 900 | Audit's primary measurement; named in VS2. |
-| 1024 × 768 | Named in VS1 and AC3; shortest desktop height. |
+| 1440 × 900 | The audit's primary measurement. |
+| 1024 × 768 | Shortest desktop height. |
 | 375 × 812 | Exercises the mobile AppShell branch — a different DOM chain. |
 
-Exported as a constant in `layers/core-ui/__e2e__/AZ2-page-scroll.spec.ts`.
+## Architecture: `PageScaffold`
 
-### Architecture: `PageScaffold` component
+`framework/design-system/src/PageScaffold.tsx`, alongside `PageHeader` — they are one contract,
+documented on one page (`docs/ui-design/page-anatomy.md`). Two body modes:
 
-New export `PageScaffold` in `framework/design-system/src/PageScaffold.tsx`. Lives alongside `PageHeader` — they are one contract, documented on one page (`docs/ui-design/page-anatomy.md`).
+- `scroll` (default) — the scaffold owns the scroll region: `flex-1 overflow-y-auto` plus the
+  `data-page-scroll` attribute. No `min-h-0`, proven redundant above.
+- `managed` — the child owns its scrolling (SplitView, ConversationSurface). Renders
+  `flex-1 min-h-0 flex flex-col overflow-hidden`. Its `min-h-0` is *also* redundant by the same
+  reasoning (`overflow-hidden` yields the automatic min-size) and was left as belt-and-braces.
 
-Two body modes:
-- `scroll` (default) — scaffold owns the scroll region. Renders `flex-1 overflow-y-auto` with `data-page-scroll` attribute. No `min-h-0` (proven redundant).
-- `managed` — child owns its own scrolling (SplitView, ConversationSurface). Scaffold renders `flex-1 min-h-0 flex flex-col overflow-hidden` — the one place `min-h-0` genuinely earns its keep.
+`data-page-scroll=""` is the stable contract attribute for specs — never the class string. 15 page
+files (44 branches) migrated; every migration is behaviour-neutral, so any visible change is a
+regression.
 
-`data-page-scroll=""` is the stable contract attribute for specs, not the class string.
+## Enforcement
 
-Migrated 15 page files (44 branches). Every migration is behaviour-neutral — any visible change would be a regression.
+`design/no-handrolled-page-scaffold` in `tools/eslint-plugin-design`, at `error` on
+`layers/core-ui/src/pages/**/*.tsx`, running on every PR via `npm run lint`. Two arms: `flex-1` plus a
+vertical scroll overflow (a page may not declare its own scrolling body), and `flex-1` plus
+`overflow-hidden` without `flex-col` (the live defect shape). Both have RuleTester invalid cases with
+control twins that assert nothing is reported.
 
-### Enforcement: `design/no-handrolled-page-scaffold` lint rule
+**Honest limit:** it reads static string literals only. A computed `className` slips past. It stops
+the accident, not a determined bypass.
 
-Package `tools/eslint-plugin-design`. Two arms:
-- Arm 1 — `flex-1` + vertical scroll overflow (`overflow-y-auto`, `overflow-auto`, `overflow-y-scroll`). A page may not declare its own scrolling body.
-- Arm 2 — `flex-1` + `overflow-hidden` without `flex-col`. The live defect shape (`WorkTeam.tsx:709`, shape C).
+`layers/core-ui/__e2e__/AZ2-page-scroll.spec.ts` asserts, per route × viewport, that a scroll container
+exists, `clippedPx === 0`, the last content element is in view after scrolling to the end, the
+`data-page-scroll` hook is present, and a wheel event moves `scrollTop`. It hard-fails on an empty
+route list. Local-only lane, running in `verify:release` — the lint rule is the per-PR gate. The spec
+was accidentally served against pre-PageScaffold code and went red naming `scrollContainers: 0`, so it
+is not a passenger.
 
-Lands at `error` on `layers/core-ui/src/pages/**/*.tsx`. Runs on every PR via `npm run lint`. Both arms have RuleTester invalid cases with control twins (legal spellings that assert nothing reported).
+## Known residue
 
-Honest limit: reads static string literals only. Computed `className` strings slip past — stops the accident, not a determined bypass.
-
-### E2E spec
-
-`layers/core-ui/__e2e__/AZ2-page-scroll.spec.ts`. Per route × viewport: asserts scroll container exists, `clippedPx === 0`, last content element in viewport after scrolling to end, `data-page-scroll` hook present, wheel event moves `scrollTop`. Hard-fails if the route list is empty.
-
-Local-only lane — no GitHub Actions job. The lint rule is the per-PR gate; the e2e runs in `verify:release` and during the build session.
-
-### `min-h-0` in managed body is redundant (non-blocking)
-
-`PageScaffold.tsx` renders the managed body as `flex-1 min-h-0 flex flex-col overflow-hidden`. By the same reasoning in §Correction above, `overflow-hidden` already yields the automatic flex-item min-size of 0, so the explicit `min-h-0` is belt-and-suspenders. Functionally correct; cosmetic inconsistency left as-is.
-
-### Files of record
-
-- `framework/design-system/src/PageScaffold.tsx` (+ `.stories.tsx`, `__tests__/AZ2-PageScaffold.test.tsx`)
-- `tools/eslint-plugin-design/src/rules/no-handrolled-page-scaffold.ts` (+ `__tests__/AZ2-no-handrolled-page-scaffold.test.ts`), registered `eslint.config.ts:205`
-- `layers/core-ui/__e2e__/AZ2-page-scroll.spec.ts`
-- `docs/ui-design/page-anatomy.md`, `docs/ui-design/rules.md`, `framework/design-system/src/PageHeader.tsx` JSDoc
-
----
-
-## Review verdict (2026-08-12)
-
-**DONE — 0 blocking findings.**
-
-Verified on this branch (21 commits, 35 files):
-- `npm run check` exit 0
-- `npm run lint` exit 0 — `design/no-handrolled-page-scaffold` at `error` passes with zero violations
-- `npm run test:full` — 566 files, 6161 tests, all passed
-- New rule + component tests (25/25)
-- `AZ2-page-scroll.spec.ts` e2e — 21/21 passed on fresh server from this worktree
-
-The e2e was also served against pre-PageScaffold code (accidental break-test from a stale sibling-worktree vite on port 5179): team and artifact AC tests went RED naming `scrollContainers: 0` and zero `[data-page-scroll]` elements — the original live defect. Spec is not a passenger.
-
-Non-blocking findings carried forward:
-1. AC3/VS1 asserts an agent row, not an artifact row (fixture mocks `/api/artifacts*` as empty); the artifacts section reachability is proven via `clippedPx===0` + `ArtifactSection` rendered.
-2. Managed body's `min-h-0` is redundant (noted above).
-3. `overflow-auto` → `overflow-y-auto` in ReviewComposition: horizontal overflow now renders visibly instead of scrolling; low risk.
-4. E2E fragile to cross-worktree port reuse on the hard-coded `strictPort 5179` — not introduced by this work, pre-existing playwright config.
+`ReviewComposition` moved from `overflow-auto` to `overflow-y-auto`, so horizontal overflow there now
+renders visibly instead of scrolling. Low risk, accepted. The e2e is fragile to cross-worktree port
+reuse on the hard-coded `strictPort 5179` — pre-existing playwright config, not introduced here.

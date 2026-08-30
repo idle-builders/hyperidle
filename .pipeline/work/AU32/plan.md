@@ -16,17 +16,15 @@ single-door surface, importing the whole schema namespace or an undecided databa
 What had to hold when this shipped: no test fixture writes one row of a pair the owning service
 always writes together, with **no** exception for any file (the plan's own carve-out clause was
 withdrawn by the founder who would have signed it); no development file reaches past the database
-door; no assertion weakens, and a test is deleted only where it depended on an unreachable
-arrangement or probed an operation production has no path to perform; the development world holds
-zero known violations and its rules fail the build on reappearance; `npm run test:all` green with the
-integration pass count unchanged or higher. Boundary: the development world only — the 221 production
-violations stay with AU29/AU30/AU31, and consolidating the ~135 hand-rolled base worlds beyond the
-files this package touched is a developer-guide matter, not an access rule.
+door; no assertion weakens, and a test is deleted only where it depended on an unreachable arrangement
+or probed an operation production has no path to perform; the development world holds zero known
+violations and its rules fail the build on reappearance. Boundary: the development world only — the
+221 production violations stay with AU29/AU30/AU31, and consolidating the ~135 hand-rolled base worlds
+beyond the files this package touched is a developer-guide matter, not an access rule.
 
 ## How it works
 
-Five founder rulings (A–E, recorded at the concept gate) settled the shape, and supersede the earlier
-plan text wherever they collide.
+Five founder rulings (A–E, recorded at the concept gate) settled the shape and supersede the earlier plan text wherever they collide.
 
 **The one-seam requirement for AI requests is production-only (A).** The reasons the AI door exists —
 recording, pricing, replay, provider-agnosticism — are properties the shipped product must have. So
@@ -97,6 +95,6 @@ authorize.
 
 The per-boot PGlite temporary directories are removed on the graceful shutdown path only; a throw
 between `mkdtemp` and signal registration leaks one. Development tooling, no acceptance criterion
-governs it. Left as future work, not silent scope growth: `hint-progress.integration.test.ts`,
-`P2-org-edges.integration.test.ts` and `O2-schema-migration.integration.test.ts` also delete rows the
-rulings would reach, but those files carry no violation and were not touched here.
+governs it. Left as future work: `hint-progress.integration.test.ts`, `P2-org-edges.integration.test.ts`
+and `O2-schema-migration.integration.test.ts` also delete rows the rulings would reach, but those files
+carry no violation and were not touched here.
