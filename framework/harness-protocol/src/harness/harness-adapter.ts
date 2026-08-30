@@ -1,6 +1,6 @@
 /** Harness adapter interface — the boundary between meta-layer and agent runtime (D1). */
 
-import type { ModelTier, ResolvedModel, Reversibility, TokenUsage } from "@hyperidle/domain-model";
+import type { ModelTier, ResolvedModel, TokenUsage } from "@hyperidle/domain-model";
 import type {
 	HarnessAuthActionDescriptor,
 	HarnessDiscoveryStatus,
@@ -8,36 +8,6 @@ import type {
 	ReturnEnforcementChannel,
 } from "@hyperidle/harness-capability";
 import type { HarnessEvent } from "./harness-events.js";
-
-/**
- * AL7 trust-first — Session workflow for the route-to-review gate.
- *
- * Injected into `SessionConfig` at provision time. The workflow router in
- * `buildToolRegistry.invoke` reads this to classify reversibility and decide
- * whether to route an irreversible call to review or permit the approved op.
- *
- * session-1 (open-work): routeToReview=["irreversible"], sessionRole="open-work"
- * session-2 (grant-bearing): routeToReview=["irreversible"], sessionRole="grant-bearing",
- *   approvedCall carries the approved op for the CAS-consume.
- *
- * @lore AL7 D1: the workflow is collaboration plumbing, not a security floor.
- * ConversationMessage is NOT widened — no message-seed path.
- */
-export interface SessionWorkflow {
-	/** Reversibility classes routed to review at init (session 1: ["irreversible"]). */
-	readonly routeToReview: readonly Reversibility[];
-	readonly sessionRole: "open-work" | "grant-bearing";
-	/**
-	 * When grant-bearing, the approved op the agent works under (and may be arg-pinned
-	 * where a harness expresses arg-level scope).
-	 */
-	readonly approvedCall?: {
-		readonly toolId: string;
-		readonly args: Record<string, unknown>; // recorded approved args (used by the optional arg-pin)
-		readonly argPinned: boolean; // true ⇒ pin to these exact args where arg-level scope exists
-		readonly identityHash?: string; // optional metadata for the arg-pin; NOT a guard
-	};
-}
 
 /** X5: MCP bridge connection coordinates for a session. */
 export interface McpConnectionInfo {
@@ -130,13 +100,6 @@ export interface SessionConfig {
 	 * Optional for backward compatibility; omitted for non-task sessions.
 	 */
 	readonly returnHook?: ReturnHookConfig;
-	/**
-	 * AL7 trust-first: Session workflow for the route-to-review gate.
-	 * When present, `buildToolRegistry.invoke` classifies reversibility and routes
-	 * irreversible calls to review (session-1) or permits the approved op (session-2).
-	 * Optional — absent for sessions that don't participate in the review workflow.
-	 */
-	readonly sessionWorkflow?: SessionWorkflow;
 	/**
 	 * AL7 delta: Per-session MCP token env var for CLI harnesses that require the
 	 * token via an environment variable rather than inline in the config file.

@@ -88,7 +88,7 @@ export interface BakedWorkIntentRequest {
 	 * AU27 — the session's calling thread id, baked at emit time by every
 	 * resolver whose kind has a real thread host: `assistant_turn` (the
 	 * conversation thread), `task_run`/`session_start`/`reengagement`/
-	 * `proposed_call` (the task's thread), and `knowledge_action` (the
+	 * `knowledge_action` (the
 	 * knowledge item's thread). `routine_run` bakes none — a routine has no
 	 * thread host — and its `reply` tool call falls back to a direct thread
 	 * with the sole human user instead. Carried through onto the created
@@ -574,15 +574,6 @@ export type AgentWorkIntentRecorderInput =
 			readonly requestedBy?: string;
 			readonly idempotencyKey: string;
 			/** See `BakedWorkIntentRequest`. Populated at emit time by `task-run-resolver.ts` (AU21 Increment 3). */
-			readonly bakedRequest?: BakedWorkIntentRequest;
-	  }
-	| {
-			readonly kind: "reengagement";
-			readonly sourceKind: "proposed_call";
-			readonly sourceId: string;
-			readonly requestedBy?: string;
-			readonly idempotencyKey: string;
-			/** See `BakedWorkIntentRequest`. Populated at emit time by `proposed-call-workflow.ts`'s `resolveReengagementRequest` (AU21 Increment 3). */
 			readonly bakedRequest?: BakedWorkIntentRequest;
 	  };
 

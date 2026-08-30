@@ -51,7 +51,6 @@ import {
 	sessionRunRegistry,
 	transitionSessionRequest,
 } from "@hyperidle/session-requests";
-import type { ProposedCallWorkflowPort } from "@hyperidle/tool-handlers";
 import { buildToolRegistry as buildToolRegistryFromDefinitions } from "@hyperidle/tool-handlers";
 import { buildCoreApiPort, unconfiguredCoreApiTransport } from "./core-api-port-composition.js";
 import { buildToolDefinitions } from "./tool-handlers-bindings.js";
@@ -216,28 +215,6 @@ function widenToToolContext(ctx: SessionLifecycleToolContext): ToolContext<Hyper
 }
 
 /**
- * AU31 §2.5 — the AL7 trust-first workflow, rebuilt over the `CoreApiPort`
- * seam instead of a direct `@hyperidle/review` import (which would be an
- * orchestration → core-api service import after the tool dispatch's move).
- * Same bridge-adapter idiom as the deleted `tool-provider-bindings.ts`'s own
- * `proposedCallWorkflowPort` — old method names
- * (`captureProposedCall`/`consumeTailoredGrant`/`recordOutcome`) because
- * `ProposedCallWorkflowPort<TDb>` is `@hyperidle/tool-protocol`'s own type; `db` is
- * accepted and ignored (the seam's server side has its own `db`, from the
- * request that reaches its route, not this argument).
- */
-export function buildProposedCallWorkflowPort(
-	transport: CoreApiTransport,
-): ProposedCallWorkflowPort<HyperIdleDb> {
-	const port = buildCoreApiPort(transport);
-	return {
-		captureProposedCall: (_db, input) => port.review.captureProposedCall(input),
-		consumeTailoredGrant: (_db, opts) => port.review.consumeTailoredGrant(opts),
-		recordOutcome: (_db, id, result) => port.review.recordOutcome(id, result),
-	};
-}
-
-/**
  * AU31 §2.7 — the writeback processor's `knowledge` port, rebuilt over the
  * `CoreApiPort` seam instead of the Application injecting
  * `@hyperidle/knowledge` functions directly (`create-server.ts:545-562`
@@ -323,21 +300,14 @@ function buildToolProvider(
 	coreApiTransport: CoreApiTransport,
 	returnStatusToolAdapter: RunOrchestrationReturnStatusToolAdapter,
 ): SessionLifecyclePorts["toolProvider"] {
-	const workflowPort = buildProposedCallWorkflowPort(coreApiTransport);
 	return {
 		buildToolRegistry(ctx, options) {
 			const definitions = buildToolDefinitions(coreApiTransport);
-			return buildToolRegistryFromDefinitions(
-				definitions,
-				widenToToolContext(ctx),
-				{
-					role: options.role,
-					extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
-					sessionWorkflow: options.sessionWorkflow as ToolRegistryOptions["sessionWorkflow"],
-					useOnlyExtraTools: options.useOnlyExtraTools,
-				},
-				workflowPort,
-			);
+			return buildToolRegistryFromDefinitions(definitions, widenToToolContext(ctx), {
+				role: options.role,
+				extraTools: options.extraTools as ToolRegistryOptions["extraTools"],
+				useOnlyExtraTools: options.useOnlyExtraTools,
+			});
 		},
 		toolsForRole(role) {
 			return buildToolDefinitions(coreApiTransport).filter(

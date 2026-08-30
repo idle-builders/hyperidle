@@ -990,7 +990,6 @@ const PROMPT_MODE_BY_SOURCE: Record<string, string> = {
 	assistant: "conversation",
 	routine: "routine",
 	knowledge: "knowledge",
-	proposed_call: "proposed_call",
 };
 
 export type WorkIntentInput = {
@@ -999,15 +998,13 @@ export type WorkIntentInput = {
 		| "session_start"
 		| "knowledge_action"
 		| "routine_run"
-		| "task_run"
-		| "reengagement";
+		| "task_run";
 	readonly sourceKind:
 		| "thread_message"
 		| "explicit_session_start"
 		| "knowledge_action"
 		| "routine_run"
-		| "task_dispatch_attempt"
-		| "proposed_call";
+		| "task_dispatch_attempt";
 	readonly sourceId: string;
 	readonly requestedBy?: string;
 	readonly idempotencyKey: string;

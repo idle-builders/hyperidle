@@ -8,20 +8,21 @@
 // AU21 §9 Increment 10a (Decision I): `bet_decomposition` is REMOVED — the
 // built-in bet_decomposition mechanism no longer exists, so the union shrinks
 // from seven kinds to six.
+// BA2 (delete capture): `reengagement` REMOVED — AL7 capture machinery deleted,
+// union shrinks from six kinds to five.
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { AGENT_WORK_INTENT_KINDS, type AgentWorkIntentKind } from "../events.js";
 import type { AgentWorkIntentRecorderInput } from "../work-intent.js";
 
 describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
-	it("contains exactly the six canonical kinds", () => {
+	it("contains exactly the five canonical kinds", () => {
 		expect(AGENT_WORK_INTENT_KINDS).toEqual([
 			"assistant_turn",
 			"session_start",
 			"knowledge_action",
 			"routine_run",
 			"task_run",
-			"reengagement",
 		]);
 	});
 
@@ -33,8 +34,8 @@ describe("AGENT_WORK_INTENT_KINDS canonical runtime kind list", () => {
 	});
 });
 
-describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
-	it("accepts every one of the six kinds as its discriminant, paired with the correct sourceKind", () => {
+describe("AgentWorkIntentRecorderInput widened five-kind union", () => {
+	it("accepts every one of the five kinds as its discriminant, paired with the correct sourceKind", () => {
 		const inputs: AgentWorkIntentRecorderInput[] = [
 			{
 				kind: "assistant_turn",
@@ -66,12 +67,6 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 				sourceId: "s5",
 				idempotencyKey: "k5",
 			},
-			{
-				kind: "reengagement",
-				sourceKind: "proposed_call",
-				sourceId: "s6",
-				idempotencyKey: "k6",
-			},
 		];
 		expect(inputs.map((i) => i.kind)).toEqual(AGENT_WORK_INTENT_KINDS);
 	});
@@ -82,7 +77,7 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 
 	it("rejects an invented kind via type narrowing", () => {
 		acceptRecorderInput({
-			// @ts-expect-error — "not_a_real_kind" is not one of the six canonical kinds
+			// @ts-expect-error — "not_a_real_kind" is not one of the five canonical kinds
 			kind: "not_a_real_kind",
 			sourceKind: "thread_message",
 			sourceId: "s1",
@@ -102,7 +97,7 @@ describe("AgentWorkIntentRecorderInput widened six-kind union", () => {
 
 	it("rejects the removed bet_decomposition kind entirely (Decision I)", () => {
 		acceptRecorderInput({
-			// @ts-expect-error — "bet_decomposition" no longer exists in the six-kind union
+			// @ts-expect-error — "bet_decomposition" no longer exists in the five-kind union
 			kind: "bet_decomposition",
 			sourceKind: "thread_message",
 			sourceId: "s1",

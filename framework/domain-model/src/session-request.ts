@@ -11,7 +11,6 @@ export const AGENT_SESSION_SOURCE_KINDS = [
 	"assistant",
 	"routine",
 	"knowledge",
-	"proposed_call",
 ] as const;
 
 export const AGENT_SESSION_PROMPT_MODES = [
@@ -19,7 +18,6 @@ export const AGENT_SESSION_PROMPT_MODES = [
 	"conversation",
 	"routine",
 	"knowledge",
-	"proposed_call",
 ] as const;
 
 export const AGENT_SESSION_REQUEST_STATUSES = [
@@ -53,7 +51,6 @@ export const taskSessionRequestInputSchema = baseInput.extend({
 	sourceCorrelation: z.object({
 		taskId: z.string().min(1),
 		teamId: z.string().min(1),
-		proposedCallId: z.string().min(1).optional(),
 	}),
 });
 
@@ -95,23 +92,11 @@ export const knowledgeSessionRequestInputSchema = baseInput.extend({
 	}),
 });
 
-export const proposedCallSessionRequestInputSchema = baseInput.extend({
-	sourceKind: z.literal("proposed_call"),
-	promptMode: z.literal("proposed_call"),
-	taskId: z.string().min(1),
-	sourceCorrelation: z.object({
-		taskId: z.string().min(1),
-		proposedCallId: z.string().min(1),
-		grantedAgentId: z.string().min(1),
-	}),
-});
-
 export const agentSessionRequestInputSchema = z.discriminatedUnion("sourceKind", [
 	taskSessionRequestInputSchema,
 	assistantSessionRequestInputSchema,
 	routineSessionRequestInputSchema,
 	knowledgeSessionRequestInputSchema,
-	proposedCallSessionRequestInputSchema,
 ]);
 
 export type AgentSessionRequestInput = z.infer<typeof agentSessionRequestInputSchema>;

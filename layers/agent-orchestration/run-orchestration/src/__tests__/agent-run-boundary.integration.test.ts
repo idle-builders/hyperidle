@@ -134,18 +134,6 @@ function sourceInput(
 					teamId: "team-au6",
 				},
 			};
-		case "proposed_call":
-			return {
-				...base,
-				sourceKind,
-				taskId: "task-au6",
-				promptMode: "proposed_call",
-				sourceCorrelation: {
-					taskId: "task-au6",
-					proposedCallId: `proposed-call-${suffix}`,
-					grantedAgentId: "agent-au6",
-				},
-			};
 	}
 }
 
@@ -247,7 +235,6 @@ describe("agent run boundary", () => {
 			"assistant",
 			"routine",
 			"knowledge",
-			"proposed_call",
 		] as const) {
 			const request = await createRequestForTest(db, sourceInput(sourceKind, "boundary"));
 			await executeAgentRunRequest(
@@ -260,9 +247,9 @@ describe("agent run boundary", () => {
 				.where(eq(agentSessionRequests.id, request.id));
 			expect(row).toMatchObject({ sourceKind, status: "completed" });
 		}
-		expect(lifecycle).toHaveLength(5);
+		expect(lifecycle).toHaveLength(4);
 		expect(lifecycle.map(({ sourceKind, state }) => ({ sourceKind, state }))).toEqual(
-			["task", "assistant", "routine", "knowledge", "proposed_call"].map((sourceKind) => ({
+			["task", "assistant", "routine", "knowledge"].map((sourceKind) => ({
 				sourceKind,
 				state: "completed",
 			})),

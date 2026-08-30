@@ -135,11 +135,6 @@ function makeReplyTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<ReplyInput
 			"own calling thread (or, when the session has none, to a direct thread with the team's " +
 			"human).",
 		inputSchema: replyInputSchema,
-		// @lore AU27 C11 (Decision 1): `reversibility: "reversible"` is required,
-		// not decorative. `classifyReversibility` fails CLOSED to "irreversible"
-		// when a tool declares no signal — under an AL7 `sessionWorkflow`, an
-		// undeclared `reply` would route every reply to human review.
-		reversibility: "reversible",
 		handler: async (args, ctx) => {
 			const parsed = replyInputSchema.safeParse(args);
 			if (!parsed.success) return err("INVALID_INPUT", parsed.error.message);
