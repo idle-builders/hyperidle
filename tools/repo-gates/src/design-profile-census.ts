@@ -30,7 +30,7 @@ import { discoverDesignSources } from "./lib/design-source-discovery.js";
 //   fields (`audienceLabel`/`excludedNote`/`sendPlan`/`ctaLabel`/`footer`)
 //   `mapRenderedPayload` hardcoded to "" unconditionally.
 // thin +2: knowledge document Role row (metadata row rule + error banner).
-const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 195, default: 17, strong: 11 } as const;
+const APPROVED_BORDER_RECEIPT_EXPANSION = { thin: 193, default: 17, strong: 11 } as const; // -2: capture deletion — ExecutingBand + OutcomeBand borders removed
 
 const EXPECTED = {
 	typography: {
@@ -99,7 +99,7 @@ const EXPECTED = {
 	},
 	// Follow-up review fixes -1: ReviewMetricsMoved.tsx — the deleted trivia
 	// toggle button was the sole `motion-feedback` site removed with it.
-	motion: { feedback: 8, move: 16, spring: 2, enter: 1, activity: 7, loading: 6, busy: 2 },
+	motion: { feedback: 8, move: 16, spring: 2, enter: 1, activity: 7, loading: 6, busy: 1 }, // busy -1: capture deletion — ExecutingBand spinner removed
 	border: APPROVED_BORDER_RECEIPT_EXPANSION,
 } as const;
 

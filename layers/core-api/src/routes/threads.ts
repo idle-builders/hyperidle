@@ -51,12 +51,10 @@ import type {
 	ThreadResolvedEvent,
 } from "@hyperidle/event-bus";
 import {
-	assembleSessionKnowledge,
 	getAgentIdentity,
 	get as getKnowledgeItem,
 	list as listKnowledgeItems,
 } from "@hyperidle/knowledge";
-import { getTeam } from "@hyperidle/org";
 import { readServerConfig } from "@hyperidle/settings";
 import { findUser, listUsers, requireRunnableAgent } from "@hyperidle/users";
 import * as work from "@hyperidle/work";
