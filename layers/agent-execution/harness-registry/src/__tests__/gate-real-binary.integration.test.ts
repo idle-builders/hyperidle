@@ -386,7 +386,7 @@ describe("action gate — claude real binary", () => {
 				sandboxPath,
 				channel: "settings-claude",
 				bridgeToken: token,
-				mcpUrl: actionServer.url,
+				mcpUrl: `${actionServer.url}/mcp/${token}`,
 			});
 
 			const model = harnessTestResolvedModel("claude");
@@ -418,7 +418,7 @@ describe("action gate — claude real binary", () => {
 
 			// No pendingBlock in the gate entry.
 			const entry = actionServer.gateRegistry.get(sessionId);
-			expect(entry?.pendingBlock, "AC1: no pending block should exist").toBeUndefined();
+			expect(entry?.pendingBlock, "AC1: no pending block should exist").toBeNull();
 		} finally {
 			await actionServer?.close();
 			await mcpServer?.close();
@@ -464,7 +464,7 @@ describe("action gate — claude real binary", () => {
 				sandboxPath,
 				channel: "settings-claude",
 				bridgeToken: token,
-				mcpUrl: actionServer.url,
+				mcpUrl: `${actionServer.url}/mcp/${token}`,
 			});
 
 			const model = harnessTestResolvedModel("claude");
@@ -555,7 +555,7 @@ describe("action gate — claude real binary", () => {
 				sandboxPath,
 				channel: "settings-claude",
 				bridgeToken: token,
-				mcpUrl: actionServer.url,
+				mcpUrl: `${actionServer.url}/mcp/${token}`,
 			});
 
 			const model = harnessTestResolvedModel("claude");
@@ -648,7 +648,7 @@ describe("action gate — claude real binary", () => {
 				sandboxPath,
 				channel: "settings-claude",
 				bridgeToken: token,
-				mcpUrl: actionServer.url,
+				mcpUrl: `${actionServer.url}/mcp/${token}`,
 			});
 
 			const model = harnessTestResolvedModel("claude");
@@ -714,7 +714,7 @@ describe("action gate — claude real binary", () => {
 
 			// Clearance consumed — gate entry should have no pending block.
 			const postEntry = actionServer.gateRegistry.get(sessionId);
-			expect(postEntry?.pendingBlock, "AC4: clearance consumed, no pendingBlock").toBeUndefined();
+			expect(postEntry?.pendingBlock, "AC4: clearance consumed, no pendingBlock").toBeNull();
 		} finally {
 			await actionServer?.close();
 			await mcpServer?.close();
@@ -759,7 +759,7 @@ describe("action gate — claude real binary", () => {
 				sandboxPath,
 				channel: "settings-claude",
 				bridgeToken: token,
-				mcpUrl: actionServer.url,
+				mcpUrl: `${actionServer.url}/mcp/${token}`,
 			});
 
 			const model = harnessTestResolvedModel("claude");
@@ -855,7 +855,7 @@ describe("action gate — claude real binary", () => {
 				sandboxPath,
 				channel: "settings-claude",
 				bridgeToken: token,
-				mcpUrl: actionServer.url,
+				mcpUrl: `${actionServer.url}/mcp/${token}`,
 			});
 
 			const model = harnessTestResolvedModel("claude");
@@ -888,7 +888,7 @@ describe("action gate — claude real binary", () => {
 
 			// No pending block for blocked_tool.
 			const entry = actionServer.gateRegistry.get(sessionId);
-			expect(entry?.pendingBlock, "AC6: no pending block for non-matching tool").toBeUndefined();
+			expect(entry?.pendingBlock, "AC6: no pending block for non-matching tool").toBeNull();
 		} finally {
 			await actionServer?.close();
 			await mcpServer?.close();
@@ -942,7 +942,7 @@ describe("action gate — codex real binary", () => {
 				sandboxPath,
 				channel: "settings-codex",
 				bridgeToken: token,
-				mcpUrl: actionServer.url,
+				mcpUrl: `${actionServer.url}/mcp/${token}`,
 			});
 
 			const model = harnessTestResolvedModel("codex");
@@ -1046,7 +1046,7 @@ describe("action gate — cursor-agent real binary", () => {
 				sandboxPath,
 				channel: "soft-continue",
 				bridgeToken: token,
-				mcpUrl: actionServer.url,
+				mcpUrl: `${actionServer.url}/mcp/${token}`,
 			});
 
 			const model = harnessTestResolvedModel("cursor-agent");

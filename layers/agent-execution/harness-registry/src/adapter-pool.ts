@@ -448,12 +448,17 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 			"{{sandbox}}",
 			"--format",
 			"json",
-			"--pure",
 			"--model",
 			"{{model}}",
 		],
 		envMap: {
 			ANTHROPIC_API_KEY: "{{apiKey}}",
+			// @lore BA2 opencode-xdg-isolation: XDG_CONFIG_HOME points to a per-sandbox dir so
+			// the user's global ~/.config/opencode/plugins/ never loads in a sandboxed session,
+			// while project plugins from <sandbox>/.opencode/plugins/ still load via --dir.
+			// --pure was removed so project plugins DO load; XDG_CONFIG_HOME isolation replaces it.
+			// The dir is created lazily by opencode if absent — no mkdir required.
+			XDG_CONFIG_HOME: "{{sandbox}}/.xdg_config",
 		},
 		// AL7 delta: changed from "text" → "ndjson" because opencode --format json emits JSONL.
 		// @lore AL7 W3: opencode JSONL events (step_finish, tool) may normalize to `unknown` via
