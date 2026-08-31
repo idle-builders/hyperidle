@@ -438,7 +438,7 @@ export interface ArtifactCreatedEvent {
  * imports from strategy). The canonical definition is in packages/server/src/knowledge/types.ts.
  *
  * @lore U1: "product" renamed to "team" in propagation levels. The propagation
- * hierarchy is: session -> task -> bet -> team -> portfolio.
+ * hierarchy is: session -> task -> team -> portfolio.
  * Note: "product" scope kind in knowledge_items is UNCHANGED (different taxonomy).
  */
 type PropagationLevelLiteral = "session" | "task" | "team" | "portfolio";

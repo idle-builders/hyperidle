@@ -48,13 +48,27 @@ export interface ArtifactView {
 
 // @lore BB1: UpdateBetRequest DELETED — bet fields are now task fields; PATCH /tasks/:id.
 
-/** Mirrors `POST /tasks`'s validated request body (`createTaskSchema`, `routes/tasks.ts`). */
+/**
+ * Mirrors `POST /tasks`'s validated request body (`createTaskSchema`, `routes/tasks.ts`).
+ *
+ * @lore BB1: keep this in step with the schema. The route is `.strict()`, so a field the
+ * schema knows and this interface omits is not a harmless gap — it is a field no seam caller
+ * can discover, while a field this interface has and the schema does not is a 400 at runtime.
+ * Excess-property checking does NOT catch the drift, because the seam receives a variable
+ * rather than an object literal.
+ */
 export interface CreateTaskRequest {
 	readonly parentTaskId?: string | null;
+	/** Required when `parentTaskId` is omitted; inherited from the parent otherwise. */
+	readonly teamId?: string;
 	readonly title: string;
 	readonly description?: string | null;
 	readonly doneCondition?: string | null;
 	readonly ownerAgentId?: string | null;
+	/** When true, finishing this task sends it to `review` rather than `done`. */
+	readonly needsReview?: boolean;
+	/** AK5 provenance — the knowledge item this task was promoted from. */
+	readonly sourceKnowledgeItemId?: string;
 }
 
 /** Mirrors `PATCH /tasks/:id`'s validated request body. */
