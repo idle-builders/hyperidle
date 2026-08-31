@@ -135,12 +135,23 @@ function buildChildren(all: Task[], parentId: string): TaskNode[] {
 }
 
 /**
- * Sum token usage across the subtree. `tokensActualJson` is a JSON object of
- * numeric fields — sum each field across all tasks that carry it.
- * Returns null when no task in the subtree has token data.
+ * Total tokens used across a subtree — every task's own usage, summed at READ
+ * time. Returns null when no task in the subtree has recorded any.
+ *
+ * @lore BB1: `tokensActualJson` is a serialised `TokenUsage`
+ * (`framework/domain-model/src/types/money.ts`), which is NESTED:
+ * `{ byTier: { <tier>: { prompt, completion, cachedPrompt? } } }` — the exact
+ * shape `work-session-end-reactions.ts` writes. The first version of this
+ * function summed only TOP-LEVEL numeric fields, so every real row (whose only
+ * top-level key is the `byTier` object) contributed nothing and the rollup was
+ * always `null`. Read the shape from the writer, never from the field's name.
+ *
+ * Returns a scalar, because that is what a subtree total means to a reader and
+ * what the client type declares. A per-tier breakdown is a different question
+ * and would need its own field.
  */
-function sumTokensActual(tasks: Task[]): Record<string, number> | null {
-	const acc: Record<string, number> = {};
+function sumTokensActual(tasks: Task[]): number | null {
+	let total = 0;
 	let any = false;
 	for (const t of tasks) {
 		if (!t.tokensActualJson) continue;
@@ -151,14 +162,19 @@ function sumTokensActual(tasks: Task[]): Record<string, number> | null {
 			continue;
 		}
 		if (typeof parsed !== "object" || parsed === null) continue;
-		for (const [k, v] of Object.entries(parsed)) {
-			if (typeof v === "number") {
-				acc[k] = (acc[k] ?? 0) + v;
-				any = true;
+		const byTier = (parsed as { byTier?: unknown }).byTier;
+		if (typeof byTier !== "object" || byTier === null) continue;
+		for (const tier of Object.values(byTier)) {
+			if (typeof tier !== "object" || tier === null) continue;
+			for (const v of Object.values(tier)) {
+				if (typeof v === "number") {
+					total += v;
+					any = true;
+				}
 			}
 		}
 	}
-	return any ? acc : null;
+	return any ? total : null;
 }
 
 // ---------------------------------------------------------------------------

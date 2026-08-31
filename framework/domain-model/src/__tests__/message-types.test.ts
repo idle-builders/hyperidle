@@ -6,7 +6,7 @@
  * `exhaustiveAssert` boundary — the switch covers all four discriminants
  * and the default branch never executes.
  *
- * AC-4 (plan §3): MESSAGE_TYPES.length === 4, HOST_KINDS.length === 8.
+ * AC-4 (plan §3): MESSAGE_TYPES.length === 4, HOST_KINDS.length === 7 (BB1: "bet" removed).
  */
 
 import { describe, expect, it } from "vitest";
@@ -45,10 +45,10 @@ describe("AC-4 / AC-11 — message-type discriminant exhaustiveness", () => {
 		);
 	});
 
-	it("HOST_KINDS is exactly the closed 8-set per concept §4.5", () => {
-		expect(HOST_KINDS.length).toBe(8);
+	it("HOST_KINDS is exactly the closed 7-set (BB1: "bet" removed)", () => {
+		expect(HOST_KINDS.length).toBe(7);
 		expect([...HOST_KINDS].sort()).toEqual(
-			["agent", "artifact", "bet", "factory", "knowledge_item", "task", "team", "user"].sort(),
+			["agent", "artifact", "factory", "knowledge_item", "task", "team", "user"].sort(),
 		);
 	});
 

@@ -12,6 +12,7 @@
  */
 
 import { tasks, teams, users } from "@hyperidle/db";
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { test } from "../__testing__/test-fixtures.js";
 
@@ -31,6 +32,60 @@ describe("BB1 — task hierarchy", () => {
 	});
 
 	// -------------------------------------------------------------------------
+	// AC5 — token rollup, THROUGH THE ROUTE
+	//
+	// @lore BB1: the service-level AC5 test reimplemented the summation in its
+	// own test body, so it stayed green while the shipped route returned null for
+	// every real row (`sumTokensActual` summed top-level numbers, but the stored
+	// shape is the nested `{byTier:{tier:{prompt,completion}}}` that
+	// `work-session-end-reactions.ts` writes). A rollup test that does not call
+	// the rollup proves nothing — this one asks the route.
+	describe("AC5 — subtree token rollup via GET /tasks/:id/tree", () => {
+		test("sums a leaf's real nested TokenUsage onto an ancestor, writing no ancestor row", async ({
+			db,
+			app,
+		}) => {
+			const now = new Date().toISOString();
+			await db
+				.insert(teams)
+				.values({ id: "bb1-team-roll", name: "Rollup Team", phase: "build", createdAt: now });
+			const post = async (body: Record<string, unknown>): Promise<{ id: string }> => {
+				const r = await app.request("/api/tasks", {
+					method: "POST",
+					headers: authHeaders(),
+					body: JSON.stringify(body),
+				});
+				expect(r.status).toBe(201);
+				return (await r.json()) as { id: string };
+			};
+			const root = await post({ teamId: "bb1-team-roll", title: "rollup root" });
+			const leaf = await post({ parentTaskId: root.id, title: "rollup leaf" });
+
+			// The exact shape work-session-end-reactions.ts persists.
+			await db
+				.update(tasks)
+				.set({
+					tokensActualJson: JSON.stringify({
+						byTier: { high: { prompt: 100, completion: 50 } },
+					}),
+				})
+				.where(eq(tasks.id, leaf.id));
+
+			const res = await app.request(`/api/tasks/${root.id}/tree`, { headers: authHeaders() });
+			expect(res.status).toBe(200);
+			const tree = (await res.json()) as { tokensActualRollup: number | null };
+			expect(tree.tokensActualRollup).toBe(150);
+
+			// No ancestor row was written — the total is derived, never stored.
+			const [rootRow] = await db
+				.select({ tokensActualJson: tasks.tokensActualJson })
+				.from(tasks)
+				.where(eq(tasks.id, root.id))
+				.limit(1);
+			expect(rootRow?.tokensActualJson).toBeNull();
+		});
+	});
+
 	// AC1 — 4-level deep task chain via API; subtree tree read
 	// -------------------------------------------------------------------------
 	describe("AC1 — 4-level nested tasks, subtree read", () => {

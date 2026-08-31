@@ -24,7 +24,7 @@ describe("T4 — entityRefSchema", () => {
 	});
 
 	it("accepts all valid entity ref kinds", () => {
-		for (const kind of ["knowledge_item", "task", "artifact", "bet", "message"]) {
+		for (const kind of ["knowledge_item", "task", "artifact", "message"]) {
 			const result = entityRefSchema.safeParse({ kind, id: "some-id" });
 			expect(result.success, `kind=${kind}`).toBe(true);
 		}
@@ -36,7 +36,7 @@ describe("T4 — entityRefSchema", () => {
 	});
 
 	it("rejects entity ref missing id", () => {
-		const result = entityRefSchema.safeParse({ kind: "bet" });
+		const result = entityRefSchema.safeParse({ kind: "task" });
 		expect(result.success).toBe(false);
 	});
 });
@@ -46,7 +46,7 @@ describe("T4 — blockRefSchema", () => {
 		const result = blockRefSchema.safeParse({
 			kind: "block",
 			blockId: "blk:v1:abc123",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "bet-456",
 		});
 		expect(result.success).toBe(true);
@@ -64,9 +64,9 @@ describe("T4 — blockRefSchema", () => {
 
 	it("rejects block ref with wrong kind", () => {
 		const result = blockRefSchema.safeParse({
-			kind: "bet",
+			kind: "task",
 			blockId: "blk:v1:abc",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "bet-1",
 		});
 		expect(result.success).toBe(false);
@@ -75,7 +75,7 @@ describe("T4 — blockRefSchema", () => {
 	it("rejects block ref missing blockId", () => {
 		const result = blockRefSchema.safeParse({
 			kind: "block",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "bet-1",
 		});
 		expect(result.success).toBe(false);
@@ -94,7 +94,7 @@ describe("T4 — blockRefSchema", () => {
 		const result = blockRefSchema.safeParse({
 			kind: "block",
 			blockId: "blk:v1:abc",
-			hostKind: "bet",
+			hostKind: "task",
 		});
 		expect(result.success).toBe(false);
 	});
@@ -103,7 +103,7 @@ describe("T4 — blockRefSchema", () => {
 		const result = blockRefSchema.safeParse({
 			kind: "block",
 			blockId: "",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "bet-1",
 		});
 		expect(result.success).toBe(false);
@@ -113,7 +113,7 @@ describe("T4 — blockRefSchema", () => {
 		const result = blockRefSchema.safeParse({
 			kind: "block",
 			blockId: "blk:v1:abc",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "",
 		});
 		expect(result.success).toBe(false);
@@ -132,7 +132,7 @@ describe("T4 — blockRefSchema", () => {
 
 describe("T4 — inlineRefSchema (discriminated union)", () => {
 	it("accepts a valid entity ref", () => {
-		const result = inlineRefSchema.safeParse({ kind: "bet", id: "bet-999" });
+		const result = inlineRefSchema.safeParse({ kind: "task", id: "bet-999" });
 		expect(result.success).toBe(true);
 	});
 
@@ -148,9 +148,9 @@ describe("T4 — inlineRefSchema (discriminated union)", () => {
 
 	it("rejects a block-shaped ref with wrong kind", () => {
 		const result = inlineRefSchema.safeParse({
-			kind: "bet",
+			kind: "task",
 			blockId: "blk:v1:abc",
-			hostKind: "bet",
+			hostKind: "task",
 			hostId: "bet-1",
 		});
 		// "bet" kind requires id field (entity ref shape)
@@ -163,7 +163,7 @@ describe("T4 — inlineRefSchema (discriminated union)", () => {
 	});
 
 	it("entity ref still works after introducing block variant", () => {
-		for (const kind of ["knowledge_item", "task", "artifact", "bet", "message"]) {
+		for (const kind of ["knowledge_item", "task", "artifact", "message"]) {
 			const result = inlineRefSchema.safeParse({ kind, id: "some-id" });
 			expect(result.success, `entity kind=${kind}`).toBe(true);
 		}

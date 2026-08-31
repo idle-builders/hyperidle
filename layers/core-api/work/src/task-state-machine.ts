@@ -132,15 +132,28 @@ export async function transitionTask(
 
 			const now = new Date().toISOString();
 
-			// BB1: the WIP limit. Counted live inside this transaction rather than
-			// read off a stored tally, so two tasks starting at once cannot both
-			// see the same stale count and together exceed capacity — they
-			// serialize on the write lock the same way the bet commit path did.
+			// BB1: the WIP limit, enforced AT THE DOOR — the moment work is
+			// dispatched to an agent, which is this same transition (`accepted`
+			// with an owner is what inserts the dispatch attempt and records the
+			// work intent, below).
+			//
+			// @lore BB1: it was first put on the transition INTO `in_progress`,
+			// which is one step too late and actively harmful. Nothing in the
+			// dispatch chain consulted capacity, so at capacity a session still
+			// started and the agent did real, paid work — and then the reaction
+			// that moves the task to `in_progress` (`work-session-started-
+			// reactions.ts`) was refused, stranding the task in `accepted`. Since
+			// session-end propagation requires `in_progress`, the task never
+			// reached `review` and the work was silently lost. A limit must
+			// refuse work at the door; once a session exists, the transition is
+			// RECORDING a fact and must never fail.
 			//
 			// The count spans the whole team at every depth: what bounds the
 			// factory is how much work is actually running, not how many top-level
-			// commitments exist.
-			if (toState === "in_progress" && fromState !== "in_progress") {
+			// commitments exist. Counted live inside this transaction rather than
+			// read off a stored tally, so two dispatches racing cannot both see
+			// the same stale count.
+			if (toState === "accepted" && task.ownerAgentId && fromState !== "accepted") {
 				const team = await deps.teamCapacity.getByTeamId(tx, task.teamId);
 				if (!team) {
 					throw new Error(`Team not found: ${task.teamId}`);

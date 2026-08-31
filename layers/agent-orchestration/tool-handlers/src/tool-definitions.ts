@@ -37,6 +37,7 @@ import {
 	SCOPE_KINDS,
 	SCOPES_REQUIRING_ID,
 	type ScopeKind,
+	TASK_STATES,
 } from "@hyperidle/domain-model";
 import {
 	type ArtifactCreatedEvent,
@@ -586,14 +587,24 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 // edit_task
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * @lore BB1: this must stay field-for-field with the human `PATCH /api/tasks/:id`
+ * body — the whole point of the package is one door with the same reach for
+ * both. Two asymmetries were found in review and closed here: `state` was an
+ * unconstrained string (the tool advertised a domain it does not have; the route
+ * rejected bad values with a 400, so the schema was simply lying), and
+ * `parentTaskId` could not be null, so an agent could nest a task but never
+ * promote one back to a root the way a human can.
+ */
 const editTaskInputSchema = z.object({
 	taskId: z.string().min(1),
 	title: z.string().min(1).max(512).optional(),
 	description: z.string().max(65_536).optional(),
 	doneCondition: z.string().max(65_536).optional(),
 	ownerAgentId: z.string().min(1).optional(),
-	parentTaskId: z.string().min(1).optional(),
-	state: z.string().optional(),
+	/** `null` promotes the task to a root — the same reach the human door has. */
+	parentTaskId: z.string().min(1).nullable().optional(),
+	state: z.enum(TASK_STATES).optional(),
 });
 
 type EditTaskInput = z.infer<typeof editTaskInputSchema>;

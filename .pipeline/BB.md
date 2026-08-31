@@ -50,12 +50,22 @@ The audit behind this track traced every bet-only field to a writer and a reader
 | `tokens_actual_json` | **kept, moved** | Genuinely written, by `work-session-end-reactions.ts`, from real session usage. Moves onto the task and rolls up the subtree at read time. |
 | `source_knowledge_item_id` | **kept, moved** | AK5 promote-from-knowledge is a live feature; a forward provenance FK costs nothing. |
 
-**The WIP limit survives, with a new anchor (founder call).** Today `activeBets` vs `capacity` is
+**The WIP limit survives, at the dispatch door (founder call, corrected after live testing).** Today `activeBets` vs `capacity` is
 checked in exactly one place — the commit ceremony being cut. The limit itself is worth keeping, but
 as a guardrail on *execution* rather than a toll on *commitment*: a team caps how many tasks may be
 `in_progress` at once. This is a strictly better anchor. It bounds what is actually consuming agents,
 it applies at every depth, and it cannot be bypassed by starting work without committing it — which
 today's check cannot say anything about at all.
+
+**Corrected 2026-08-31, after manual testing on the packaged app.** The limit was first placed on the
+transition INTO `in_progress`. That is one step too late: nothing in the dispatch chain consulted
+capacity, so at capacity a session still started, an agent did real paid work, and only then was the
+transition that records it refused — stranding the task in `accepted`. Because session-end propagation
+requires `in_progress`, the task never reached `review` and the work was silently lost. Founder
+question that found it: *"why do we launch an agent session if we are at limit?"* — the answer was
+that nothing asked. The check now sits where work is admitted (accepting a task that has an owner,
+which is what requests the session); a transition that merely records an already-running session is
+never refused.
 
 ---
 

@@ -12,7 +12,7 @@
  *      limit counts tasks at EVERY depth, not just root tasks.
  */
 
-import { type HyperIdleDb, tasks, teams } from "@hyperidle/db";
+import { type HyperIdleDb, taskDispatchAttempts, tasks, teams, users } from "@hyperidle/db";
 import { eq } from "drizzle-orm";
 import { CapacityExceededError, TaskCycleError } from "../errors.js";
 import { type TaskKillCascadeDeps, cascadeTaskKill } from "../task-kill-cascade.js";
@@ -62,6 +62,36 @@ const taskDeps: TaskStateMachineDeps = {
 	teamCapacity,
 };
 
+/**
+ * Deps for the ONE test that must actually reach the dispatch block. Records
+ * the intent instead of throwing, and returns the seeded agent row.
+ *
+ * @lore BB1: kept separate from `taskDeps` on purpose — everywhere else, a
+ * dispatch firing is a bug, and the throwing stubs above are what catch it.
+ */
+const dispatchedIntents: string[] = [];
+const dispatchDeps: TaskStateMachineDeps = {
+	workIntents: async (intent) => {
+		dispatchedIntents.push(intent.sourceId);
+		return { id: `intent-${intent.sourceId}`, idempotencyKey: intent.idempotencyKey };
+	},
+	taskRunResolver: {
+		/**
+		 * @lore BB1: reads through the EXECUTOR it is handed, never a captured
+		 * outer `db`. `transitionTask` calls this from inside its transaction, and
+		 * on PGlite a query issued on the outer connection while that transaction
+		 * is open deadlocks the single connection — the test hangs to timeout
+		 * rather than failing, which is a genuinely confusing way to lose an hour.
+		 */
+		requireRunnableAgent: async (exec, agentId) => {
+			const [agent] = await exec.select().from(users).where(eq(users.id, agentId)).limit(1);
+			if (!agent) throw new Error(`no agent ${agentId}`);
+			return agent;
+		},
+	},
+	teamCapacity,
+};
+
 /** Kill-cascade deps: taskDeps plus a no-op run-stop (no active sessions in these seeds). */
 const killDeps: TaskKillCascadeDeps = {
 	...taskDeps,
@@ -84,10 +114,26 @@ async function insertTask(
 	teamId: string,
 	state: string,
 	parentTaskId: string | null = null,
+	ownerAgentId: string | null = null,
 ): Promise<void> {
 	await db
 		.insert(tasks)
-		.values({ id, parentTaskId, teamId, title: id, state, createdAt: NOW, updatedAt: NOW });
+		.values({
+			id,
+			parentTaskId,
+			teamId,
+			title: id,
+			state,
+			ownerAgentId,
+			createdAt: NOW,
+			updatedAt: NOW,
+		});
+}
+
+async function insertAgent(db: HyperIdleDb, id: string): Promise<void> {
+	await db
+		.insert(users)
+		.values({ id, name: id, kind: "ai", role: "builder", status: "active", createdAt: NOW });
 }
 
 // ---------------------------------------------------------------------------
@@ -278,47 +324,85 @@ describe("AC5 — read-time token rollup", () => {
 // ---------------------------------------------------------------------------
 
 describe("AC6 — WIP limit", () => {
-	test("capacity is enforced; limit counts tasks at every depth; slot freed on transition out of in_progress", async ({
+	test("capacity refuses DISPATCH (accept-with-owner), counts every depth, and frees on completion", async ({
 		db,
 		eventBus,
 	}) => {
-		// Arrange: capacity = 2; a root + grandchild will fill it
+		// Arrange: capacity = 2; a root + a depth-2 grandchild will fill it
 		await insertTeam(db, "team", 2);
+		await insertAgent(db, "agent-1");
 		await insertTask(db, "root1", "team", "accepted", null);
 		await insertTask(db, "child1", "team", "accepted", "root1");
 		await insertTask(db, "grandchild1", "team", "accepted", "child1"); // depth 2
-		await insertTask(db, "root2", "team", "accepted", null); // will be blocked
+		await insertTask(db, "root2", "team", "proposed", null, "agent-1"); // wants dispatch
 
-		// Fill to capacity: root1 (depth 0) + grandchild1 (depth 2) = 2
+		// Fill capacity with work at TWO DIFFERENT DEPTHS (0 and 2). A limit that
+		// only counted root tasks would not be full here — that is the regression
+		// this arrangement exists to catch.
 		await transitionTask(db, eventBus, "root1", "in_progress", taskDeps);
 		await transitionTask(db, eventBus, "grandchild1", "in_progress", taskDeps);
 
-		// Assert: the next in_progress attempt is refused at capacity
+		// Assert: accepting an OWNED task — the act that requests a session — is
+		// refused at capacity. `taskDeps` throws if the dispatch block is reached,
+		// so this also proves the check runs BEFORE any session is requested.
 		await expect(
-			transitionTask(db, eventBus, "root2", "in_progress", taskDeps),
+			transitionTask(db, eventBus, "root2", "accepted", taskDeps),
 		).rejects.toBeInstanceOf(CapacityExceededError);
 
-		// root2 row unchanged — CapacityExceededError rolls back inside the transaction
+		// The row is unchanged and — the point of the fix — NO dispatch attempt
+		// was written, so no agent was ever asked to start work.
 		const [root2Before] = await db
 			.select({ state: tasks.state })
 			.from(tasks)
 			.where(eq(tasks.id, "root2"))
 			.limit(1);
-		expect(root2Before?.state).toBe("accepted");
+		expect(root2Before?.state).toBe("proposed");
+		const attemptsAtCapacity = await db
+			.select({ id: taskDispatchAttempts.id })
+			.from(taskDispatchAttempts)
+			.where(eq(taskDispatchAttempts.taskId, "root2"));
+		expect(attemptsAtCapacity).toHaveLength(0);
 
-		// Free a slot: root1 moves out of in_progress → review
+		// Free a slot, then the same dispatch succeeds and DOES request a session.
 		await transitionTask(db, eventBus, "root1", "review", taskDeps);
+		await transitionTask(db, eventBus, "root2", "accepted", dispatchDeps);
 
-		// Now root2 can start (one slot is open)
+		const attemptsAfter = await db
+			.select({ id: taskDispatchAttempts.id })
+			.from(taskDispatchAttempts)
+			.where(eq(taskDispatchAttempts.taskId, "root2"));
+		expect(attemptsAfter).toHaveLength(1);
+		expect(dispatchedIntents).toHaveLength(1);
+	});
+
+	/**
+	 * The regression that live testing on the packaged app found: at capacity an
+	 * agent session still started, and the reaction that moves the task to
+	 * `in_progress` was refused — stranding the task in `accepted` so session-end
+	 * propagation never fired and the agent's work was lost. A transition that
+	 * RECORDS an already-running session must never be refused.
+	 */
+	test("a recording transition into in_progress is NEVER refused, even over capacity", async ({
+		db,
+		eventBus,
+	}) => {
+		await insertTeam(db, "team", 1);
+		await insertTask(db, "running", "team", "accepted", null);
+		await insertTask(db, "alsoRunning", "team", "accepted", null);
+
+		await transitionTask(db, eventBus, "running", "in_progress", taskDeps);
+
+		// Team is now at 1/1. A session has started for `alsoRunning`; recording
+		// that fact must succeed regardless of capacity.
 		await expect(
-			transitionTask(db, eventBus, "root2", "in_progress", taskDeps),
+			transitionTask(db, eventBus, "alsoRunning", "in_progress", taskDeps),
 		).resolves.toBeUndefined();
 
-		const [root2After] = await db
+		const [row] = await db
 			.select({ state: tasks.state })
 			.from(tasks)
-			.where(eq(tasks.id, "root2"))
+			.where(eq(tasks.id, "alsoRunning"))
 			.limit(1);
-		expect(root2After?.state).toBe("in_progress");
+		expect(row?.state).toBe("in_progress");
 	});
 });
