@@ -194,20 +194,18 @@ is ours to tune, and a non-complying model is a finding to characterise, not a f
 That is the right shape for a collaboration checkpoint and consistent with the ethos — security is earned,
 never preemptive — but it should be said plainly rather than implied.
 
-## Still open — needs a founder decision
+## A review belongs to a task — and that is not in question
 
-**Whether a session with no task can have rules at all.** `submit_review` is explicitly for the current
-task's work, and `sessions.taskId` is nullable by deliberate design: assistant, routine, knowledge and
-decomposition runs are real sessions without fabricated task rows.
+Ruling 6 stands: a review needs a task. An earlier draft of this plan reopened it, reasoning from the fact
+that `sessions.taskId` is nullable that there must be sessions the gate could never serve. That was wrong,
+and it came from confusing **how a session starts** with **what the agent does in it**.
 
-Those four do not split the way ruling 6 assumed. **Assistant** sessions are interactive — a human is in
-the conversation, and an agent that needs permission should simply ask there. But **routine, knowledge and
-decomposition** sessions run **unattended**, and they are precisely the sessions this gate exists for and
-precisely the ones with no task to anchor a review to.
+A session can be woken by any of the many routine trigger events, or by a mention in a conversation. That
+is only the trigger. **When the agent goes and makes something, that is a task** — `create_task` exists
+for exactly this. A session starts without a task because it has not done anything yet; by the time an
+agent is about to run a consequential command, it is doing work, and work is a task.
 
-The recommendation: let a review hang off the **session**, with the task as a stronger anchor when one
-exists. A session always exists, always has an agent and an owner. Ruling 6's instinct — that a review
-needs somewhere to belong — holds; "task" was the wrong noun for it.
-
-Nothing else is blocked by this. Task-backed sessions are the majority path, and the whole gate can be
-built and proven against them. This decides only how far it reaches afterwards.
+So there is no design question here. There is one **fact to verify while building**: `submit_review` reads
+`ctx.taskId` and errors if it is missing, so the gate needs that populated by the time the agent asks. If a
+routine-triggered session that creates a task carries that task id in its context, nothing needs doing. If
+it does not, that is a small wiring fix — not a question about what a review belongs to.
