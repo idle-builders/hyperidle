@@ -196,6 +196,24 @@ interface BakedTranscriptRow {
 }
 
 /**
+ * Gate resume payload — present when a `session_start` was dispatched by the
+ * gate verdict reaction. Parsed from `payloadJson` the same way other baked
+ * fields ride it. Absent for every non-gate-resume session kind.
+ */
+function parseGateResume(
+	request: AgentSessionRequest,
+): { readonly nativeSessionId: string; readonly blockedTool: string; readonly ruleId: string } | undefined {
+	if (!request.payloadJson) return undefined;
+	const payload = JSON.parse(request.payloadJson) as unknown;
+	if (!payload || typeof payload !== "object" || !("gateResume" in payload)) return undefined;
+	const gr = (payload as { gateResume?: unknown }).gateResume;
+	if (!gr || typeof gr !== "object") return undefined;
+	const { nativeSessionId, blockedTool, ruleId } = gr as Record<string, unknown>;
+	if (typeof nativeSessionId !== "string" || typeof blockedTool !== "string" || typeof ruleId !== "string") return undefined;
+	return { nativeSessionId, blockedTool, ruleId };
+}
+
+/**
  * AU27 Increment 4 (Decision 2) — the session's baked raw transcript rows,
  * carried on `request.payloadJson` the same way `callingThreadId`/
  * `contextBundle`/`agentConfig` ride it. Absent for a session with no
@@ -484,6 +502,7 @@ async function consumeAgentSessionRequest(
 	const transcript = rawTranscript
 		? mapTranscriptToMessages(rawTranscript, claimedRequest.agentId)
 		: undefined;
+	const gateResume = parseGateResume(claimedRequest);
 	const provisionParams: RunContextBundle = {
 		taskId: claimedRequest.taskId,
 		agentId: claimedRequest.agentId,
@@ -499,6 +518,7 @@ async function consumeAgentSessionRequest(
 		...(harnessDisabled ? { harnessDisabled } : {}),
 		...(callingThreadId ? { callingThreadId } : {}),
 		...(transcript ? { transcript } : {}),
+		...(gateResume ? { gateResume } : {}),
 		requestContext: {
 			requestId: claimedRequest.id,
 			sourceKind: claimedRequest.sourceKind as AgentSessionSourceKind,

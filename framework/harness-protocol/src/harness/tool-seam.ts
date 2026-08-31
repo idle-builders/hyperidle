@@ -66,6 +66,8 @@ export interface ToolContext<TDb = unknown> {
 	readonly sandboxPath: string;
 	readonly ingestion: { readonly dispose: () => void };
 	readonly onAbortSession?: (sessionId: string) => void;
+	/** Called by submit_review when the session has a pending gate block. Records the gate-reviews link. */
+	readonly onGateReview?: (reviewMessageId: string, agentId: string) => Promise<void>;
 }
 
 /** Discriminated union returned by every skill tool handler. */

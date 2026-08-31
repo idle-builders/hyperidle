@@ -50,6 +50,12 @@ export interface RunContextBundle {
 	readonly harnessDisabled?: readonly string[];
 	readonly callingThreadId?: string;
 	readonly transcript?: readonly ConversationMessage[];
+	/** Gate resume payload — present when a gate verdict reaction re-dispatches a suspended session. */
+	readonly gateResume?: {
+		readonly nativeSessionId: string;
+		readonly blockedTool: string;
+		readonly ruleId: string;
+	};
 }
 
 /** Narrow mirror of `@hyperidle/session-lifecycle`'s `AdmittedSession`. */

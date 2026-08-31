@@ -366,6 +366,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		workspace: agentExecution.adapters.sandbox,
 		pluginMcpContributions: coreApi.pluginMcpContributions,
 		resolveActionRules: coreApi.resolveActionRules,
+		recordGateReview: coreApi.recordGateReview,
 	} satisfies ApplicationProvisionSessionDeps;
 
 	// §5.1: the run runtime (poller/drain/watcher) starts INSIDE this boot —

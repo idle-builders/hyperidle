@@ -440,7 +440,7 @@ function extractClaudeResultMetrics(obj: Record<string, unknown>): {
 	// "cacheWriteTokens":9070}`. Without this fallback every cursor-agent
 	// session silently reports 0 input/output tokens regardless of real
 	// spend — the exact thing that made a real, reasoned model refusal look
-	// like "the prompt never arrived" in BA2's resumed-session investigation.
+	// like "the prompt never arrived" in resumed-session debugging.
 	return {
 		durationMs: finiteNonNegative(obj.duration_ms),
 		apiDurationMs: finiteNonNegative(obj.duration_api_ms),

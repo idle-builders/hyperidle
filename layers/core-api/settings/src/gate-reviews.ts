@@ -1,5 +1,5 @@
 /**
- * Gate reviews — persistence layer for the BA2 action gate review link.
+ * Gate reviews — persistence layer for the action gate review link.
  *
  * Records the association between a gate block and the review the agent filed.
  * Only a review with a gate_review record may trigger a session resume on verdict.
@@ -20,6 +20,9 @@ export interface GateReview {
 	readonly blockedTool: string;
 	readonly rulePattern: string;
 	readonly ruleId: string;
+	readonly nativeSessionId: string | null;
+	readonly agentId: string | null;
+	readonly taskId: string | null;
 	readonly createdAt: string;
 }
 
@@ -31,6 +34,9 @@ function rowToGateReview(row: GateReviewRow): GateReview {
 		blockedTool: row.blockedTool,
 		rulePattern: row.rulePattern,
 		ruleId: row.ruleId,
+		nativeSessionId: row.nativeSessionId ?? null,
+		agentId: row.agentId ?? null,
+		taskId: row.taskId ?? null,
 		createdAt: row.createdAt,
 	};
 }
@@ -41,6 +47,12 @@ export interface RecordGateReviewInput {
 	readonly blockedTool: string;
 	readonly rulePattern: string;
 	readonly ruleId: string;
+	/** Harness-native session ID — used by the verdict reaction to resume the right session. */
+	readonly nativeSessionId?: string | null;
+	/** The agent ID that was running — stored to avoid a sessions table read in the verdict reaction. */
+	readonly agentId?: string | null;
+	/** The task ID the session was running for. */
+	readonly taskId?: string | null;
 	/** Override current timestamp for deterministic tests only. */
 	readonly now?: string;
 }
@@ -57,6 +69,9 @@ export async function recordGateReview(
 		blockedTool: input.blockedTool,
 		rulePattern: input.rulePattern,
 		ruleId: input.ruleId,
+		nativeSessionId: input.nativeSessionId ?? null,
+		agentId: input.agentId ?? null,
+		taskId: input.taskId ?? null,
 		createdAt: input.now ?? new Date().toISOString(),
 	};
 	await db.insert(gateReviews).values(row);

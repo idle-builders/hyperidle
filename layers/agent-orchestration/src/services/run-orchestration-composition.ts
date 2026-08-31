@@ -91,6 +91,20 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 	}) => Promise<
 		ReadonlyArray<{ readonly id: string; readonly pattern: string; readonly description: string }>
 	>;
+	/**
+	 * Records the gate-review link when submit_review fires after a gate block.
+	 * Optional — absent when no gate recording is configured.
+	 */
+	readonly recordGateReview?: (input: {
+		readonly sessionId: string;
+		readonly reviewMessageId: string;
+		readonly blockedTool: string;
+		readonly rulePattern: string;
+		readonly ruleId: string;
+		readonly nativeSessionId?: string | null;
+		readonly agentId?: string | null;
+		readonly taskId?: string | null;
+	}) => Promise<void>;
 };
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];
@@ -181,6 +195,10 @@ export interface RunOrchestrationHarnessRuntimeAdapter {
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
 	}): Promise<{ readonly token: string; readonly url: string }>;
 	closeMcpBridge(token: string): Promise<void>;
+	/** The action gate registry. Optional — when absent the gate never activates. Passed through to harnessRuntime. */
+	readonly gateRegistry?: SessionLifecyclePorts["harnessRuntime"]["gateRegistry"];
+	/** Install the action-gate PreToolUse hook. Optional — omitting leaves gate hooks unprovisioned. */
+	readonly provisionGateHook?: SessionLifecyclePorts["harnessRuntime"]["provisionGateHook"];
 }
 
 /** `returnStatusTool.forRegistry(registry)`'s shape — an opaque `RegisteredTool`, never inspected here (mirrors `SessionLifecyclePorts["toolProvider"]["returnStatusToolForRegistry"]`'s own return type). */
@@ -214,6 +232,8 @@ function buildHarnessRuntime(
 				onToolCall: options.onToolCall,
 			}),
 		closeMcpBridge: (_registry, token) => adapter.closeMcpBridge(token),
+		...(adapter.gateRegistry ? { gateRegistry: adapter.gateRegistry } : {}),
+		...(adapter.provisionGateHook ? { provisionGateHook: adapter.provisionGateHook } : {}),
 	};
 }
 

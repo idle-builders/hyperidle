@@ -46,7 +46,7 @@ interface HarnessMcpConfigParams {
 	readonly token: string;
 	/**
 	 * Additional local paths to declare trusted, beyond the sandbox itself —
-	 * the session's mounted filesystems (BA2 founder ruling 18: the filesystem
+	 * the session's mounted filesystems (the filesystem
 	 * primitive is what declares trusted directories; the harness is told what
 	 * it declares, in whatever form that harness understands). Currently only
 	 * the codex-toml dialect acts on this — codex is the harness with a trust
@@ -139,7 +139,7 @@ function writeCodexToml(params: {
 }
 
 /**
- * BA2 ruling 22 (corrects ruling 18): trust is DECLARED through codex's own
+ * Trust is DECLARED through codex's own
  * mechanism, never bypassed — kept deliberately as the general shape (where a
  * harness has a trusted-directory mechanism, declare the filesystems we
  * inject as trusted through it), not because it was observed to change

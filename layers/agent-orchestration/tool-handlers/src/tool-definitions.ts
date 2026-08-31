@@ -729,6 +729,11 @@ function makeSubmitReviewTool<TDb>(
 			}
 			const messageId = created.id;
 
+			// Record the gate-review link if the session has a pending gate block.
+			if (ctx.onGateReview) {
+				await ctx.onGateReview(messageId, ctx.agentId);
+			}
+
 			await ports.coreApi.updateThread(threadId, { lastActiveAt: now }, ctx.agentId);
 
 			return ok({ messageId, threadId, betId: parentTask.betId });

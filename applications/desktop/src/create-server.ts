@@ -256,6 +256,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		adapterPool: agentExecution.adapters.pool,
 		workspace: agentExecution.adapters.sandbox,
 		resolveActionRules: coreApi.resolveActionRules,
+		recordGateReview: coreApi.recordGateReview,
 	} satisfies ApplicationProvisionSessionDeps;
 
 	if (!coreApi.upgradeTokenStore) {

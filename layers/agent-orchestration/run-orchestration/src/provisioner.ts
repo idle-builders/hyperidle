@@ -28,6 +28,7 @@ import {
 	type SessionHandle,
 	type SessionMetrics,
 	type SessionResult,
+	type SessionResumeConfig,
 } from "@hyperidle/harness-protocol";
 import { and, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { readAgentRunConfig } from "./agent-run-config-store.js";
@@ -140,6 +141,17 @@ interface SessionLifecycleServiceConnectionResolver {
 
 interface SessionLifecycleHarnessAdapter {
 	startSession(config: SessionConfig): Promise<SessionHandle>;
+	/**
+	 * Resume a previously suspended harness session. Optional — only CLI harnesses
+	 * that support native session resumption implement this (e.g. claude-code's
+	 * `--resume` flag). When absent, gate resume falls back to a new startSession.
+	 * Signature mirrors `HarnessAdapter.resumeSession` from `@hyperidle/harness-protocol`.
+	 */
+	resumeSession?(
+		nativeSessionId: string,
+		message: string,
+		config: SessionResumeConfig,
+	): Promise<SessionHandle>;
 	streamEvents(handle: SessionHandle): AsyncIterable<HarnessEvent>;
 	stopSession(handle: SessionHandle): Promise<SessionResult>;
 	getCapabilities(): {
@@ -294,11 +306,24 @@ interface SessionLifecycleHarnessRuntime {
 			sessionId: string,
 			entry: { readonly rules: readonly ActionGateRule[]; readonly sandboxPath: string },
 		): void;
+		get(sessionId: string):
+			| {
+					readonly pendingBlock: {
+						ruleId: string;
+						rulePattern: string;
+						blockedTool: string;
+					} | null;
+					readonly nativeSessionId?: string | null;
+					readonly clearances: Set<string>;
+			  }
+			| undefined;
 		checkAndConsumeClearance(sessionId: string, toolName: string): boolean;
 		setPendingBlock(
 			sessionId: string,
 			block: { ruleId: string; rulePattern: string; blockedTool: string },
 		): void;
+		clearPendingBlock(sessionId: string): void;
+		addClearance(sessionId: string, toolName: string): void;
 		setNativeSessionId(sessionId: string, nativeSessionId: string): void;
 		unregister(sessionId: string): void;
 	};
@@ -347,6 +372,8 @@ interface SessionLifecycleToolContext {
 	readonly sandboxPath: string;
 	readonly ingestion: { dispose(): void };
 	readonly onAbortSession?: (sessionId: string) => void;
+	/** Called by submit_review when the session has a pending gate block. Records the gate-reviews link. */
+	readonly onGateReview?: (reviewMessageId: string, agentId: string) => Promise<void>;
 	/**
 	 * AU27 Increment 1 (Decision 1) — the session's calling thread, forwarded
 	 * straight from `params.callingThreadId` (baked at emit — zero
@@ -871,6 +898,21 @@ interface ProvisionSessionDeps {
 		agentId: string;
 		teamId?: string | null;
 	}) => Promise<readonly ActionGateRule[]>;
+	/**
+	 * Records the gate-review link when submit_review fires after a gate block.
+	 * Optional — absent when no gate recording is configured. Application-composed
+	 * from `@hyperidle/core-api`'s settings surface via the CoreApiBoot.
+	 */
+	readonly recordGateReview?: (input: {
+		readonly sessionId: string;
+		readonly reviewMessageId: string;
+		readonly blockedTool: string;
+		readonly rulePattern: string;
+		readonly ruleId: string;
+		readonly nativeSessionId?: string | null;
+		readonly agentId?: string | null;
+		readonly taskId?: string | null;
+	}) => Promise<void>;
 }
 
 interface ProvisionSessionParams {
@@ -970,6 +1012,17 @@ interface ProvisionSessionParams {
 	 * transcript.
 	 */
 	readonly transcript?: readonly ConversationMessage[];
+	/**
+	 * Gate resume payload — present when this session was dispatched by the
+	 * gate verdict reaction to resume a suspended agent session. When present,
+	 * Phase 9 adds a per-tool clearance and calls `harness.resumeSession`
+	 * (if the selected adapter supports it) instead of `harness.startSession`.
+	 */
+	readonly gateResume?: {
+		readonly nativeSessionId: string;
+		readonly blockedTool: string;
+		readonly ruleId: string;
+	};
 }
 
 interface ProvisionSessionResult {
@@ -1386,6 +1439,31 @@ async function runSession(
 	let aborted = false;
 
 	// ── Phase 8: build tool registry bound to this context.
+	// Build onGateReview closure — fires when submit_review is called while a
+	// gate block is pending. Captures the gate registry and recordGateReview
+	// callback by reference so Phase 8b-gate's registration is visible when
+	// the closure runs (submit_review fires after the gate block, after
+	// Phase 8b-gate has already registered the session).
+	const gateReg = ports.harnessRuntime.gateRegistry;
+	const onGateReview =
+		gateReg && deps.recordGateReview
+			? async (reviewMessageId: string, agentId: string) => {
+					const entry = gateReg.get(sessionId);
+					const pendingBlock = entry?.pendingBlock;
+					if (!pendingBlock) return; // no gate block — ordinary review, skip
+					await deps.recordGateReview?.({
+						sessionId,
+						reviewMessageId,
+						blockedTool: pendingBlock.blockedTool,
+						rulePattern: pendingBlock.rulePattern,
+						ruleId: pendingBlock.ruleId,
+						nativeSessionId: entry?.nativeSessionId ?? null,
+						agentId,
+						taskId: params.taskId,
+					});
+					gateReg.clearPendingBlock(sessionId);
+				}
+			: undefined;
 	const toolContext: SessionLifecycleToolContext = {
 		db,
 		eventBus,
@@ -1397,6 +1475,7 @@ async function runSession(
 		...(params.callingThreadId ? { threadId: params.callingThreadId } : {}),
 		sandboxPath,
 		ingestion,
+		...(onGateReview ? { onGateReview } : {}),
 	};
 	// Every session, assistant included, gets the ordinary role-scoped tool
 	// registry — the assistant's tool surface spans every `roles: undefined`
@@ -1766,7 +1845,25 @@ async function runSession(
 	// on errors.
 	try {
 		if (!aborted) {
-			harnessHandle = await harness.startSession(sessionStartConfig as SessionConfig);
+			// ── Phase 9: start (or resume) the harness session.
+			// Gate resume: add per-tool clearance and call resumeSession when
+			// the adapter supports it, instead of starting a fresh session.
+			if (params.gateResume && ports.harnessRuntime.gateRegistry) {
+				ports.harnessRuntime.gateRegistry.addClearance(sessionId, params.gateResume.blockedTool);
+			}
+			harnessHandle =
+				params.gateResume?.nativeSessionId && harness.resumeSession
+					? await harness.resumeSession(
+							params.gateResume.nativeSessionId,
+							"Proceed — the requested action was approved.",
+							{
+								sandboxPath,
+								modelTier,
+								...(params.resolvedModel ? { resolvedModel: params.resolvedModel } : {}),
+								...(mcpTokenEnv ? { mcpTokenEnv } : {}),
+							},
+						)
+					: await harness.startSession(sessionStartConfig as SessionConfig);
 			ports.sessionRequests.registerSessionRun(sessionId, {
 				signalAbort: () => {
 					aborted = true;

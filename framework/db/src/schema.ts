@@ -1584,6 +1584,12 @@ export const gateReviews = pgTable(
 		rulePattern: text("rule_pattern").notNull(),
 		/** The rule ID. */
 		ruleId: text("rule_id").notNull(),
+		/** Harness-native session ID — set from the gate registry when submit_review is called. Used by the verdict reaction to call resumeSession on the right native session. */
+		nativeSessionId: text("native_session_id"),
+		/** The agent ID that was running when the block occurred. Stored to avoid a sessions table read in the verdict reaction. */
+		agentId: text("agent_id"),
+		/** The task ID the session was running for. Stored to avoid a sessions table read in the verdict reaction. */
+		taskId: text("task_id"),
 		/** ISO 8601 timestamp when the gate review was recorded. */
 		createdAt: text("created_at").notNull(),
 	},

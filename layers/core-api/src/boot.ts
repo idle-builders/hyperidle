@@ -60,6 +60,7 @@ import type { EventBus } from "@hyperidle/event-bus";
 import {
 	getPluginMcpContributions,
 	readServerConfig,
+	recordGateReview,
 	resolveActionRules,
 } from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
@@ -190,6 +191,22 @@ export interface CoreApiBoot {
 	}) => Promise<
 		ReadonlyArray<{ readonly id: string; readonly pattern: string; readonly description: string }>
 	>;
+	/**
+	 * Gate review recorder — called by the session provisioner when submit_review
+	 * fires after a gate block. Typed inline to keep core-api's boot boundary-clean.
+	 * The Application passes this into `runtimeSessionDeps.recordGateReview`.
+	 * Present whenever `db` is provided.
+	 */
+	readonly recordGateReview?: (input: {
+		readonly sessionId: string;
+		readonly reviewMessageId: string;
+		readonly blockedTool: string;
+		readonly rulePattern: string;
+		readonly ruleId: string;
+		readonly nativeSessionId?: string | null;
+		readonly agentId?: string | null;
+		readonly taskId?: string | null;
+	}) => Promise<void>;
 }
 
 /**
@@ -358,6 +375,16 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 					},
 					resolveActionRules: (input: { agentId: string; teamId?: string | null }) =>
 						resolveActionRules(db, input),
+					recordGateReview: (input: {
+						sessionId: string;
+						reviewMessageId: string;
+						blockedTool: string;
+						rulePattern: string;
+						ruleId: string;
+						nativeSessionId?: string | null;
+						agentId?: string | null;
+						taskId?: string | null;
+					}) => recordGateReview(db, input).then(() => undefined),
 				}
 			: {}),
 		...(credentialResolver ? { credentialResolver } : {}),

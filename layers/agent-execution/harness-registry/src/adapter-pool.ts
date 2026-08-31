@@ -381,8 +381,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// declaration in config.toml} → runs; {git repo, trust declared} → runs;
 		// {not a git repo, trust declared} → fails with the exact same message;
 		// {not a git repo, no trust declared} → fails. `trust_level = "trusted"`
-		// makes no observed difference in either direction — the earlier BA2
-		// ruling 18 comment asserted the opposite ("it is not a git-repo check")
+		// makes no observed difference in either direction — a prior comment asserted the opposite ("it is not a git-repo check")
 		// on the strength of a probe that never tried a git repo WITHOUT a trust
 		// declaration, so it never saw that the trust entry was doing nothing.
 		// Ruling 18's other claim — that a prior commit "removed"
@@ -396,7 +395,7 @@ const CLI_TOOL_CONFIGS: Partial<Record<HarnessType, CliAdapterConfig>> = {
 		// for why it cannot run before mounting. `writeCliMcpConfig`'s
 		// codex-toml dialect still writes the `[projects."<sandbox>"]
 		// trust_level = "trusted"` block (cli-mcp-config.ts, `buildCodexTrustBlock`)
-		// per BA2 ruling 22: kept deliberately, as the general shape — where a
+		// kept deliberately, as the general shape — where a
 		// harness has its own trusted-directory mechanism, declare the
 		// filesystems we inject as trusted through it — even though it was not
 		// observed to be load-bearing for this specific codex-cli precondition.

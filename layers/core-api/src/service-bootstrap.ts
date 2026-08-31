@@ -39,6 +39,7 @@ import { registerAgentHealthSessionEndReactions } from "./services/agent-health-
 import { registerAgentRunAdmissionReactions } from "./services/agent-run-admission-reactions.js";
 import { registerAssistantThreadPinReaction } from "./services/assistant-thread-pin-reaction.js";
 import { registerAssistantTurnCoherenceTrigger } from "./services/assistant-turn-coherence-trigger.js";
+import { registerGateVerdictReactions } from "./services/gate-verdict-reactions.js";
 // @lore AU21 Increment 14a: cost sentinel + `costOps`/`cost-bindings.ts` are
 // HARD-DELETED along with the rest of the cost feature — no replacement.
 import { registerRoutineRunSessionEndReactions } from "./services/routine-run-session-end-reactions.js";
@@ -320,6 +321,18 @@ export function registerCoreDomainServices(ctx: {
 			"work session-started reactions",
 			"unsubscribe",
 			["session_started subscription"],
+		),
+	);
+
+	// Gate verdict reaction — when a human approves a gate-blocked review,
+	// submit a session_start intent with gateResume so the provisioner can
+	// resume the suspended harness session.
+	disposers.push(
+		identifyBootstrapOwner(
+			registerGateVerdictReactions(db, eventBus, agentOrchestration),
+			"gate verdict reactions",
+			"unsubscribe",
+			["thread_resolved subscription"],
 		),
 	);
 
