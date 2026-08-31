@@ -485,3 +485,128 @@ screen left.
 Bundling or auto-installing a CLI. A model list written down anywhere. Reworking what evals measure.
 Touching `builtin:` routines, the reserved `builtin` plugin id, or the `builtin` behaviour-config origin.
 Keeping any compatibility path for anything removed.
+
+---
+
+# DONE — the removal, and what it cost
+
+The built-in harness is gone from discovery, settings, setup, the provisioner, the eval, and the
+database. Typecheck, lint, 5775 unit tests and 2427 service-integration tests are green, and the
+live reply proof passes on **all four harnesses** (claude, codex, opencode, cursor-agent).
+
+## What removal actually took out
+
+Each of these existed for the built-in harness alone and had said so in its own comments:
+
+- **Discovery's odd probe** — the one that answered a credential question instead of an
+  installed-binary one, and fetched its model list off the network (Anthropic + OpenRouter
+  `/models`). 223 lines.
+- **The two exemptions.** It was the one harness that could not be disabled, and the one
+  harness-type literal the descriptor-driven lint rule allowed. The rule now bans every harness-type
+  literal in presentation files — the surface is finally what it always claimed to be.
+- **The gateway-catalog UNKNOWN_MODEL clause**, which judged a model id against a static list of four
+  gateway ids.
+- **`inheritedFromGateway`** on the model descriptor — every producer had been setting it `false`
+  since discovery started reading each harness's own list.
+- **`SessionConfig.messages`**, which delivered the calling thread's transcript a second time. Only
+  the built-in adapter read it; every CLI harness takes the same transcript from the prompt's
+  `## Conversation` section.
+- **The `builtin-loop` enforcement channel**, which no adapter declares.
+- **The resolvedModel-presence guard** in admission, and **`enforceResolvedModelGuard`** threaded
+  through contracts and runtime to reach it.
+
+## Two fabricated defaults, deleted
+
+`derivePrimaryHarness` returned `claude-sonnet-4-6` / `anthropic` whenever a descriptor named no
+selectable model, and `scaffold-agents` did the same for a team with no stored model. That pair was
+invented, not chosen — it named an Anthropic model on harnesses that may not serve one, and was
+written onto every scaffolded agent as though a user had picked it. Absence is now carried as
+absence, and the harness runs its own default.
+
+## Answers to the open questions above
+
+1. **Existing builtin agents → codex** (your ruling), with `model_id`, `model_provider` and
+   `model_options_json` cleared. A builtin agent's model id is a gateway id codex cannot serve;
+   passing it as `--model` would fail every run in a way that looks like the agent is broken. NULL
+   means "the harness's own default", which is the honest answer — only the person who configured
+   that agent can pick its replacement. Migration `0065`, with a test that goes red when the model
+   is not cleared. An agent that stored NO harness is deliberately untouched: it never chose one.
+4. **Eval breadth: one harness per run.** `--harness` picks it, `--model` picks what it runs, and the
+   report records which harness produced the score. A report that mixed harnesses would not be
+   readable. `--judge-model` is a separate axis so a harness comparison is not also a judge
+   comparison.
+
+## The eval was measuring the wrong thing
+
+It assembled its own two-adapter pool: an in-process `BuiltinHarnessAdapter` by default, and a direct
+single-call LLM adapter under `harnessKind:"external"`. Both were model calls wearing the adapter
+interface, so a score said something about the model and almost nothing about HyperIdle — no MCP
+bridge, no `.mcp.json` dialect, no return hook was ever exercised. Eval now builds the same pool
+production builds.
+
+It also stopped passing a gateway credential into sessions. A CLI adapter forwards
+`resolvedModel.apiKey` to its subprocess under its provider's variable name, so handing codex an
+OpenRouter key as `OPENAI_API_KEY` would shadow the ChatGPT login it actually authenticates with.
+
+## Bring-your-own-key still works, on opencode
+
+A harness declares `acceptsApiKey` when it can run on a key HyperIdle stores — derived from the
+`credentialEnvByProvider` mapping that actually hands the key to the subprocess, not a per-binary
+list. opencode declares it; nothing else does, which is what stops an unrelated key being injected
+over another CLI's own login. The key fields render under that harness's row in setup, and the
+provider + model the user picks land on the team's `primaryHarness`.
+
+**`openai-compatible` is no longer offered at setup.** The key used to go to the gateway's tiers,
+which could store an arbitrary endpoint. Setup now writes the provider onto every scaffolded agent,
+and per-agent `openai-compatible` is rejected by `validateAgentConfig` (422 UNSUPPORTED_PROVIDER) and
+by the model resolver alike — a decision that predates this work. Offering it would have built a team
+the API refuses. **This is the one capability the removal narrowed**, and it needs your call — see
+below.
+
+---
+
+# DONE — why cursor never worked
+
+Every cursor session ran with **no HyperIdle tools at all**. The agent said so in its own transcript:
+
+> "there's no `hyperidle` MCP server registered" — so it answered in plain text, which never calls
+> `reply()`, so the lane read `not_returned` every time.
+
+**cursor-agent resolves `.cursor/mcp.json` against the root of the enclosing git repository, not its
+working directory.** A session sandbox is `<base>/local-sb-N-<ts>/`, and `<base>` is a git repo — so
+cursor looked in the base, found no `.cursor/`, and started with nothing. The config file had been
+written correctly the whole time, into a directory cursor never reads.
+
+Pinned by reproducing it three ways against the real binary: the same sandbox one directory up (a
+repo root) connects; as a plain subdirectory it does not; `git init` inside it connects again.
+
+Two things I checked and ruled out before finding it, both worth recording because both looked
+guilty:
+
+- **The literal tool name.** `literalToolNamerForAdapterType` maps cursor to `mcp__hyperidle__reply`,
+  but cursor's real name is `hyperidle-reply` — the comment claiming all three CLIs share the `mcp__`
+  convention is wrong about cursor. It changes nothing: cursor resolves either form through a
+  `getMcpTools` lookup first, and both succeed. A real inaccuracy, not the bug.
+- **The stateful MCP transport.** The bridge mints an `mcp-session-id` and validates it on requests
+  2+. Cursor echoes it correctly.
+
+`--workspace <sandbox>` does **not** fix it — cursor takes the workspace from the repo root
+regardless. Writing `.cursor/mcp.json` at the real repo root was rejected: that root can be the
+user's own checkout, and a per-session bridge token has no business being written into it.
+
+---
+
+# Still open — needs your call
+
+1. **The model gateway is half-retired.** `SettingsModels.tsx` (the three tier rows) is now reachable
+   only from its own story — dead production code by the repo's own rule. But `modelGateway` still
+   drives `resolveModel({kind:"tier"})` at runtime, so deleting the screen alone would leave a
+   setting nobody can see or change. Retiring it properly is its own piece of work.
+2. **Bringing an arbitrary OpenAI-compatible endpoint.** Blocked end-to-end today: per-agent
+   `openai-compatible` is refused in three places. Batch 3 built `customEndpointProvider` so opencode
+   could carry a brought endpoint — that plumbing is currently unreachable for the same reason. Do
+   you want that path opened (it needs somewhere to store the base URL), or is
+   anthropic + openrouter the whole supported set?
+3. **The AU9 all-harness handoff lane** is red on lanes other than the reply proof. It is new — I
+   wrote it in this session — so it is as likely to be wrong as the code. Worth a pass once you have
+   ruled on the two above.
