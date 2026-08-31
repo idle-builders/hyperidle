@@ -217,35 +217,6 @@ async function appendCodexGateHook(
 	hooksConfig.hooks = hooks;
 	fs.writeFileSync(hooksPath, JSON.stringify(hooksConfig, null, 2), "utf-8");
 
-	// Also write to the backward-compat .codex/ dir (unit tests inspect this).
-	const legacyCodexDir = path.join(sandboxPath, ".codex");
-	mkdirp(legacyCodexDir);
-	const legacyScriptPath = path.join(legacyCodexDir, "gate-check.py");
-	fs.writeFileSync(legacyScriptPath, buildPythonGateScript(bridgeToken, mcpUrl, "codex"), {
-		encoding: "utf-8",
-		mode: 0o755,
-	});
-	let legacyHooks: Record<string, unknown> = { hooks: {} };
-	try {
-		legacyHooks = JSON.parse(
-			fs.readFileSync(path.join(legacyCodexDir, "hooks.json"), "utf-8"),
-		) as Record<string, unknown>;
-	} catch {
-		/* empty */
-	}
-	const legacyHookMap = (legacyHooks.hooks ?? {}) as Record<string, unknown[]>;
-	legacyHookMap.PreToolUse = [
-		{
-			hooks: [{ type: "command", command: legacyScriptPath, timeout: 10 }],
-		},
-	];
-	legacyHooks.hooks = legacyHookMap;
-	fs.writeFileSync(
-		path.join(legacyCodexDir, "hooks.json"),
-		JSON.stringify(legacyHooks, null, 2),
-		"utf-8",
-	);
-
 	// Write execpolicy .rules backstop — fail-closed for shell commands.
 	// @lore BA2: The hook fails OPEN on error; .rules fails CLOSED (broken file → codex
 	// exits 1). We deny the specific patterns from our rules as a fallback.

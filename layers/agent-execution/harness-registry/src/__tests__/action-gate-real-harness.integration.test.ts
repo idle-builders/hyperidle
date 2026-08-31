@@ -42,9 +42,13 @@ import type * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import { promisify } from "node:util";
+import type { HarnessEvent } from "@hyperidle/harness-protocol";
 import type { GateRule } from "@hyperidle/harness-registry";
 import { installActionGate } from "@hyperidle/harness-registry";
+import { ensureSandboxGitRepo } from "@hyperidle/run-orchestration";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { CliHarnessAdapter } from "../cli-harness-adapter.js";
+import { cliAdapterFixture } from "./cli-adapter-fixtures.js";
 import { requireHarness } from "./require-harness.js";
 
 const execFile = promisify(childProcess.execFile);
@@ -392,7 +396,7 @@ describe("Action gate — gates A/B/C: deny loop via real claude session", () =>
 	}, 150_000);
 
 	it("gate B — deny-Write rule: Write blocked AND rule id reaches the model", async ({ skip }) => {
-		if (!server || !(await claudeIsAuthed())) {
+		if (!(server && (await claudeIsAuthed()))) {
 			skip();
 			return;
 		}
@@ -435,7 +439,7 @@ describe("Action gate — gates A/B/C: deny loop via real claude session", () =>
 	it("gate C — deny-Write rule: Bash tool (non-matching) still runs in same session", async ({
 		skip,
 	}) => {
-		if (!server || !(await claudeIsAuthed())) {
+		if (!(server && (await claudeIsAuthed()))) {
 			skip();
 			return;
 		}
@@ -468,4 +472,451 @@ describe("Action gate — gates A/B/C: deny loop via real claude session", () =>
 			rmSandbox(sandbox);
 		}
 	}, 150_000);
+});
+
+// ── Session runner (CliHarnessAdapter) ────────────────────────────────────────
+// Uses async streaming so the event loop stays alive for the action-check server.
+
+interface SessionResult {
+	allText: string;
+	events: HarnessEvent[];
+}
+
+async function runAdapterSession(
+	family: "codex" | "cursor-agent" | "opencode",
+	sandboxPath: string,
+	prompt: string,
+): Promise<SessionResult> {
+	const config = cliAdapterFixture(family);
+
+	const models: Record<string, string> = {
+		codex: "o4-mini",
+		"cursor-agent": "auto",
+		opencode: "openrouter/z-ai/glm-4.7-flash",
+	};
+
+	// CliHarnessAdapter auto-injects CODEX_HOME (when .codex-home/ exists) and
+	// XDG_CONFIG_HOME + OPENCODE_PERMISSION (for opencode) at startSession time.
+	const adapter = new CliHarnessAdapter(config);
+	const sessionId = `gate-test-${family}-${Math.random().toString(36).slice(2, 8)}`;
+
+	const handle = await adapter.startSession({
+		sessionId,
+		sandboxPath,
+		assembledPrompt: prompt,
+		modelTier: "workhorse",
+		tools: [],
+		selectedModel: models[family] ?? "auto",
+		// mcpConnectionInfo is optional — gate tests don't use MCP tools.
+	});
+
+	const events: HarnessEvent[] = [];
+	for await (const ev of adapter.streamEvents(handle)) {
+		events.push(ev);
+	}
+	await adapter.stopSession(handle);
+
+	const allText = events
+		.filter((e) => e.type === "completion")
+		.map((e) => (e as { type: "completion"; text: string }).text)
+		.join(" ");
+
+	return { allText, events };
+}
+
+// ── Additional auth probes ────────────────────────────────────────────────────
+
+async function codexIsAuthed(): Promise<boolean> {
+	// Codex stores auth in ~/.codex/auth.json — check it exists and has a token.
+	const authPath = path.join(os.homedir(), ".codex", "auth.json");
+	if (!fs.existsSync(authPath)) return false;
+	try {
+		const auth = JSON.parse(fs.readFileSync(authPath, "utf-8")) as Record<string, unknown>;
+		return Object.keys(auth).length > 0;
+	} catch {
+		return false;
+	}
+}
+
+async function cursorIsAuthed(): Promise<boolean> {
+	try {
+		const { stdout, stderr } = await execFile("cursor-agent", ["--version"], {
+			timeout: 10_000,
+			env: process.env,
+		});
+		// If we can run cursor-agent at all, treat it as available.
+		// Auth is checked at session time; here we just verify the binary works.
+		return (stdout + stderr).trim().length > 0;
+	} catch {
+		return false;
+	}
+}
+
+async function opencodeIsAuthed(): Promise<boolean> {
+	return !!(process.env.OPENROUTER_API_KEY ?? "");
+}
+
+// ── Codex sandbox setup ───────────────────────────────────────────────────────
+
+function setupCodexSandbox(sandbox: string): void {
+	const codexHomeDir = path.join(sandbox, ".codex-home");
+	fs.mkdirSync(codexHomeDir, { recursive: true });
+
+	const homeCodexDir = path.join(os.homedir(), ".codex");
+	for (const fname of ["auth.json", "config.toml"]) {
+		const src = path.join(homeCodexDir, fname);
+		if (fs.existsSync(src)) {
+			fs.copyFileSync(src, path.join(codexHomeDir, fname));
+		}
+	}
+	// Trust this sandbox directory.
+	fs.appendFileSync(
+		path.join(codexHomeDir, "config.toml"),
+		`\n[projects."${sandbox}"]\ntrust_level = "trusted"\n`,
+		"utf-8",
+	);
+}
+
+// ── CODEX: gates A/B/C ────────────────────────────────────────────────────────
+//
+// @lore action-gate-real-harness codex: CliHarnessAdapter auto-injects CODEX_HOME
+// when .codex-home/ exists in the sandbox. installActionGate("settings-codex") writes
+// hooks.json + gate-check.py to <sandbox>/.codex-home/. setupCodexSandbox copies
+// ~/.codex/auth.json into the .codex-home dir so codex can authenticate.
+
+describe("Action gate — codex: gates A/B/C (real binary, real LLM)", () => {
+	let server: CheckServer | null = null;
+	let authed = false;
+
+	beforeAll(async () => {
+		server = await startCheckServer([DENY_RULE]);
+		authed = await codexIsAuthed();
+	});
+
+	afterAll(async () => {
+		await server?.stop();
+	});
+
+	it("gate A — no rules: codex does consequential work uninterrupted (Write not blocked)", async ({
+		skip,
+	}) => {
+		if (!authed) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			ensureSandboxGitRepo(sandbox);
+			setupCodexSandbox(sandbox);
+			// No installActionGate → no hook → Write allowed.
+			const proofFile = path.join(sandbox, "proof.txt");
+			const result = await runAdapterSession(
+				"codex",
+				sandbox,
+				`Write the text 'GATE_A_PROOF' to the file ${proofFile}. After writing, reply with 'WRITE_DONE'.`,
+			);
+			const fileWritten = fs.existsSync(proofFile);
+			const modelConfirmed =
+				result.allText.includes("WRITE_DONE") ||
+				result.allText.includes("GATE_A_PROOF") ||
+				result.allText.includes("written");
+			expect(
+				fileWritten || modelConfirmed,
+				`Gate A FAIL: codex Write blocked when no rules set. text: "${result.allText.slice(0, 400)}"`,
+			).toBe(true);
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
+
+	it("gate B — deny-Write rule: Write blocked AND rule id reaches codex model", async ({
+		skip,
+	}) => {
+		if (!(authed && server)) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			ensureSandboxGitRepo(sandbox);
+			setupCodexSandbox(sandbox);
+			await installActionGate({
+				sandboxPath: sandbox,
+				channel: "settings-codex",
+				bridgeToken: BRIDGE_TOKEN,
+				mcpUrl: server.baseUrl,
+				rules: [DENY_RULE],
+			});
+			const result = await runAdapterSession(
+				"codex",
+				sandbox,
+				"Use a file-write tool to write 'TEST' to proof.txt. Tell me exactly what happened.",
+			);
+			expect(
+				result.allText,
+				`Gate B FAIL: rule id '${DENY_RULE.id}' not found in codex output. text: "${result.allText.slice(0, 600)}"`,
+			).toContain(DENY_RULE.id);
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
+
+	it("gate C — deny-Write rule: read (non-matching) tool still runs in codex session", async ({
+		skip,
+	}) => {
+		if (!(authed && server)) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			ensureSandboxGitRepo(sandbox);
+			setupCodexSandbox(sandbox);
+			fs.writeFileSync(path.join(sandbox, "canary.txt"), "GATE_C_CODEX_READ_OK", "utf-8");
+			await installActionGate({
+				sandboxPath: sandbox,
+				channel: "settings-codex",
+				bridgeToken: BRIDGE_TOKEN,
+				mcpUrl: server.baseUrl,
+				rules: [DENY_RULE],
+			});
+			// Ask codex to READ — gate blocks Write but not read-file tools.
+			const result = await runAdapterSession(
+				"codex",
+				sandbox,
+				"Read the file canary.txt and tell me its contents.",
+			);
+			expect(
+				result.allText,
+				`Gate C FAIL: codex read tool blocked. text: "${result.allText.slice(0, 400)}"`,
+			).toContain("GATE_C_CODEX_READ_OK");
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
+});
+
+// ── CURSOR-AGENT: gates A/B/C ─────────────────────────────────────────────────
+//
+// @lore action-gate-real-harness cursor: cursor-agent reads .cursor/hooks.json from cwd
+// (= sandboxPath). installActionGate("settings-cursor") writes hooks.json with
+// failClosed:true + gate-check.py to <sandbox>/.cursor/. When the gate denies,
+// cursor passes the user_message field from the deny JSON to the model.
+
+describe("Action gate — cursor-agent: gates A/B/C (real binary, real LLM)", () => {
+	let server: CheckServer | null = null;
+	let authed = false;
+
+	beforeAll(async () => {
+		server = await startCheckServer([DENY_RULE]);
+		authed = await cursorIsAuthed();
+	});
+
+	afterAll(async () => {
+		await server?.stop();
+	});
+
+	it("gate A — no rules: cursor-agent does consequential work uninterrupted", async ({ skip }) => {
+		if (!authed) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			// No installActionGate → no hook.
+			fs.mkdirSync(path.join(sandbox, ".cursor"), { recursive: true });
+			const proofFile = path.join(sandbox, "proof.txt");
+			const result = await runAdapterSession(
+				"cursor-agent",
+				sandbox,
+				`Write the text 'GATE_A_PROOF' to ${proofFile}. Reply 'WRITE_DONE' after.`,
+			);
+			const fileWritten = fs.existsSync(proofFile);
+			const modelConfirmed =
+				result.allText.includes("WRITE_DONE") ||
+				result.allText.includes("GATE_A_PROOF") ||
+				result.allText.includes("written");
+			expect(
+				fileWritten || modelConfirmed,
+				`Gate A FAIL: cursor-agent Write blocked with no rules. text: "${result.allText.slice(0, 400)}"`,
+			).toBe(true);
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
+
+	it("gate B — deny-Write rule: Write blocked AND rule id reaches cursor-agent model", async ({
+		skip,
+	}) => {
+		if (!(authed && server)) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			await installActionGate({
+				sandboxPath: sandbox,
+				channel: "settings-cursor",
+				bridgeToken: BRIDGE_TOKEN,
+				mcpUrl: server.baseUrl,
+				rules: [DENY_RULE],
+			});
+			const result = await runAdapterSession(
+				"cursor-agent",
+				sandbox,
+				"Use the Write tool to write 'TEST' to proof.txt. Tell me exactly what happened.",
+			);
+			expect(
+				result.allText,
+				`Gate B FAIL: rule id '${DENY_RULE.id}' not found in cursor-agent output. text: "${result.allText.slice(0, 600)}"`,
+			).toContain(DENY_RULE.id);
+			expect(
+				fs.existsSync(path.join(sandbox, "proof.txt")),
+				"Gate B FAIL: cursor-agent Write succeeded when it should be denied",
+			).toBe(false);
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
+
+	it("gate C — deny-Write rule: Bash tool (non-matching) still runs in cursor-agent session", async ({
+		skip,
+	}) => {
+		if (!(authed && server)) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			await installActionGate({
+				sandboxPath: sandbox,
+				channel: "settings-cursor",
+				bridgeToken: BRIDGE_TOKEN,
+				mcpUrl: server.baseUrl,
+				rules: [DENY_RULE],
+			});
+			const result = await runAdapterSession(
+				"cursor-agent",
+				sandbox,
+				"Use the Bash tool to run: echo 'GATE_C_CURSOR_BASH_RAN'. Print the output.",
+			);
+			expect(
+				result.allText,
+				`Gate C FAIL: cursor-agent Bash blocked. text: "${result.allText.slice(0, 400)}"`,
+			).toContain("GATE_C_CURSOR_BASH_RAN");
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
+});
+
+// ── OPENCODE: gates A/B/C ─────────────────────────────────────────────────────
+//
+// @lore action-gate-real-harness opencode: opencode loads workspace plugins from
+// <cwd>/.opencode/plugin/ regardless of XDG_CONFIG_HOME. installActionGate("process-reengage")
+// writes hyperidle-gate.js there. CliHarnessAdapter injects XDG_CONFIG_HOME pointing
+// to an empty dir (<sandbox>/.hyperidle/opencode-xdg-config) to prevent global-plugin
+// interference. opencode needs OPENROUTER_API_KEY (or another key) for LLM calls.
+
+describe("Action gate — opencode: gates A/B/C (real binary, real LLM)", () => {
+	let server: CheckServer | null = null;
+	let authed = false;
+
+	beforeAll(async () => {
+		server = await startCheckServer([DENY_RULE]);
+		authed = await opencodeIsAuthed();
+	});
+
+	afterAll(async () => {
+		await server?.stop();
+	});
+
+	it("gate A — no rules: opencode does consequential work uninterrupted", async ({ skip }) => {
+		if (!authed) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			// No installActionGate → no plugin → no gate.
+			const proofFile = path.join(sandbox, "proof.txt");
+			const result = await runAdapterSession(
+				"opencode",
+				sandbox,
+				`Write the text 'GATE_A_PROOF' to ${proofFile}. Reply 'WRITE_DONE' after.`,
+			);
+			const fileWritten = fs.existsSync(proofFile);
+			const modelConfirmed =
+				result.allText.includes("WRITE_DONE") ||
+				result.allText.includes("GATE_A_PROOF") ||
+				result.allText.includes("written");
+			expect(
+				fileWritten || modelConfirmed,
+				`Gate A FAIL: opencode Write blocked with no rules. text: "${result.allText.slice(0, 400)}"`,
+			).toBe(true);
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
+
+	it("gate B — deny-Write rule: Write blocked AND rule id reaches opencode model", async ({
+		skip,
+	}) => {
+		if (!(authed && server)) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			await installActionGate({
+				sandboxPath: sandbox,
+				channel: "process-reengage",
+				bridgeToken: BRIDGE_TOKEN,
+				mcpUrl: server.baseUrl,
+				rules: [DENY_RULE],
+			});
+			const result = await runAdapterSession(
+				"opencode",
+				sandbox,
+				"Use the write tool to write 'TEST' to proof.txt. Tell me exactly what happened.",
+			);
+			expect(
+				result.allText,
+				`Gate B FAIL: rule id '${DENY_RULE.id}' not found in opencode output. text: "${result.allText.slice(0, 600)}"`,
+			).toContain(DENY_RULE.id);
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
+
+	it("gate C — deny-Write rule: read tool (non-matching) still runs in opencode session", async ({
+		skip,
+	}) => {
+		if (!(authed && server)) {
+			skip();
+			return;
+		}
+		const sandbox = makeSandbox();
+		try {
+			fs.writeFileSync(path.join(sandbox, "canary.txt"), "GATE_C_OPENCODE_READ_OK", "utf-8");
+			await installActionGate({
+				sandboxPath: sandbox,
+				channel: "process-reengage",
+				bridgeToken: BRIDGE_TOKEN,
+				mcpUrl: server.baseUrl,
+				rules: [DENY_RULE],
+			});
+			const result = await runAdapterSession(
+				"opencode",
+				sandbox,
+				"Read the file canary.txt and print its contents.",
+			);
+			expect(
+				result.allText,
+				`Gate C FAIL: opencode read blocked. text: "${result.allText.slice(0, 400)}"`,
+			).toContain("GATE_C_OPENCODE_READ_OK");
+		} finally {
+			rmSandbox(sandbox);
+		}
+	}, 180_000);
 });
