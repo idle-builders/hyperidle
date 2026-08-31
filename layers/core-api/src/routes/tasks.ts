@@ -1,5 +1,6 @@
 import type { AgentOrchestrationPort } from "@hyperidle/api-contract";
 import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { TaskState } from "@hyperidle/domain-model";
 import { API_ERROR_CODES, TASK_OUTCOME_VERDICTS, TASK_STATES } from "@hyperidle/domain-model";
 import { type HyperIdleEnv, validateBody } from "@hyperidle/domain-model/http";
 import type { EventBus } from "@hyperidle/event-bus";
@@ -389,6 +390,37 @@ export function createTaskRoutes(
 	//   4. Everything else is a plain field write + updatedAt.
 	//   5. Unknown keys rejected (400) — enforced by .strict() on the schema.
 	// -------------------------------------------------------------------------
+	/**
+	 * Apply a requested `state` to a task through the right machine.
+	 *
+	 * @lore BB1: killing is a SUBTREE operation, and PATCH is the door the
+	 * interface actually uses. It used to call `transitionTask`, which kills
+	 * exactly one task — so killing a parent from the UI left its children alive
+	 * underneath a killed parent. The cascade existed and was tested, but its only
+	 * caller had been the bet overflow menu that BB1 deleted, so it shipped
+	 * unreachable. Routing the one edit door through `cascadeTaskKill` is what
+	 * makes the two agree, rather than adding a second door that disagrees.
+	 *
+	 * @lore BB1: `killed` deliberately escapes the same-state no-op guard. For
+	 * every other state, asking for the state a task already has is nothing to do.
+	 * A kill is not only about this task: re-issuing it on an already-killed
+	 * parent is how a half-killed subtree gets finished off, and the guard would
+	 * swallow that request whole.
+	 */
+	async function applyStateChange(
+		state: TaskState | undefined,
+		/** The task's stored state. Typed as the DB column is — text, not the union. */
+		current: string,
+		taskId: string,
+	): Promise<void> {
+		if (state === "killed") {
+			await cascadeTaskKill(db, eventBus, taskId, buildKillDeps(agentOrchestration));
+			return;
+		}
+		if (state === undefined || state === current) return;
+		await transitionTask(db, eventBus, taskId, state, buildTaskDeps(agentOrchestration));
+	}
+
 	router.patch("/:id", validateBody(patchTaskSchema), async (c) => {
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof patchTaskSchema>;
@@ -483,25 +515,7 @@ export function createTaskRoutes(
 			// Setting a field to the value it already holds is not an invalid
 			// transition; only an actual CHANGE of state goes through the machine.
 			//
-			// @lore BB1: `killed` deliberately escapes that guard. For every
-			// other state, asking for the state a task already has is nothing to do.
-			// A kill is not just about this task: re-issuing it on an already-killed
-			// parent is how you finish off a subtree that was half-killed, and the
-			// guard would swallow that request whole.
-			// @lore BB1: killing is a SUBTREE operation, and this is the door the
-			// interface actually uses. It used to call `transitionTask`, which kills
-			// exactly one task — so killing a parent from the UI left its children
-			// alive underneath a killed parent. The cascade existed and was tested,
-			// but its only caller had been the bet overflow menu that BB1 deleted, so
-			// it shipped unreachable. Routing the one edit door through
-			// `cascadeTaskKill` is what makes the two agree, rather than adding a
-			// second door that behaves differently from this one.
-			if (state === "killed") {
-				await cascadeTaskKill(db, eventBus, taskId, buildKillDeps(agentOrchestration));
-			} else if (state !== undefined && state !== existing.state) {
-				const deps = buildTaskDeps(agentOrchestration);
-				await transitionTask(db, eventBus, taskId, state, deps);
-			}
+			await applyStateChange(state, existing.state, taskId);
 		} catch (err) {
 			if (err instanceof TaskCycleError) {
 				return c.json({ error: err.message, code: "TASK_CYCLE" }, 409);

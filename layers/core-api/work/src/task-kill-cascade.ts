@@ -96,16 +96,23 @@ export async function cascadeTaskKill(
 	const doomed = subtree.filter((t) =>
 		t.id === rootTaskId ? t.state !== "killed" : !TERMINAL_TASK_STATES.includes(t.state),
 	);
-	// Runs are only stopped for tasks that were actually running; a `done` root
-	// has none, so this stays the non-terminal set.
-	const nonTerminal = doomed.filter((t) => !TERMINAL_TASK_STATES.includes(t.state));
-
-	// 2. Stop the active runs on those tasks. `run-orchestration` owns the
-	// select, the CAS and the `session_ended` suppression; it returns only the
-	// runs it actually stopped.
+	// 2. Stop the active runs on EVERY task being killed — including a `done`
+	// root. `run-orchestration` owns the select, the CAS and the `session_ended`
+	// suppression; it returns only the runs it actually stopped.
+	//
+	// @lore BB1: this deliberately does NOT pre-filter to non-terminal tasks. It
+	// did, on the reasoning that a `done` task has no session left to stop — and
+	// that is simply not true. `requestRunStopForTasks` selects on
+	// `sessions.state = "active"` alone, and nothing ends a session when its task
+	// moves to `done`: the transition writes task state and `completedAt`, and the
+	// `done` handler only propagates UPWARD to the parent. So `in_progress` ->
+	// `done` -> `killed`, all through the one edit door, left the task killed and
+	// its agent session still running — the exact inconsistency this cascade
+	// exists to prevent. Passing every doomed task is also simpler: the query is
+	// already state-guarded, so a task with no active run is a zero-row select.
 	const stoppedRuns = await deps.runOrchestration.requestRunStopForTasks(
 		db,
-		nonTerminal.map((t) => t.id),
+		doomed.map((t) => t.id),
 	);
 
 	// 3. Kill deepest-first. `listSubtreeIds` returns nearest-first (root at

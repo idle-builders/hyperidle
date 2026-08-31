@@ -218,6 +218,81 @@ describe("AC4 — recursive kill cascade", () => {
 		expect(rows).toHaveLength(5); // none missed
 	});
 
+	/**
+	 * @lore BB1: from the independent review of the cascade fix. The cascade used
+	 * to pre-filter the run-stop list to non-terminal tasks, on the reasoning that
+	 * a `done` task has no session left to stop. That is false:
+	 * `requestRunStopForTasks` selects on `sessions.state = "active"` alone, and
+	 * nothing ends a session when its task moves to `done` — the transition writes
+	 * task state and `completedAt`, and the `done` handler only propagates upward.
+	 * So `in_progress` -> `done` -> `killed` left the task killed with its agent
+	 * session still running, which is the exact inconsistency the cascade exists to
+	 * prevent. The seeds here have no real sessions; what is asserted is the
+	 * CONTRACT — which task ids the cascade asks run-orchestration to stop.
+	 */
+	test("asks run-orchestration to stop runs for a `done` root, not just live tasks", async ({
+		db,
+		eventBus,
+	}) => {
+		await insertTeam(db, "team");
+		await insertTask(db, "root", "team", "done");
+		await insertTask(db, "child", "team", "in_progress", "root");
+
+		const asked: string[][] = [];
+		const recordingDeps: TaskKillCascadeDeps = {
+			...taskDeps,
+			runOrchestration: {
+				requestRunStopForTasks: async (_exec, taskIds) => {
+					asked.push([...taskIds]);
+					return [];
+				},
+			},
+		};
+
+		await cascadeTaskKill(db, eventBus, "root", recordingDeps);
+
+		const requested = asked.flat().sort();
+		// The `done` root must be in the stop request. Before the fix it was
+		// filtered out, so a session running under it was orphaned by its own kill.
+		expect(requested).toContain("root");
+		expect(requested).toContain("child");
+	});
+
+	/**
+	 * @lore BB1: also from that review — every cascade test through the route was
+	 * depth 1 or shallower, so the recursive walk and the deepest-first sort were
+	 * only ever exercised on a single level. This is the combination where the
+	 * root/descendant asymmetry actually bites: a `done` ROOT (killed, because it
+	 * was named) over a `done` DESCENDANT (spared, because it is collateral), with
+	 * live work in between at two levels.
+	 */
+	test("a `done` root over a mixed 3-level tree: root dies, done descendant survives", async ({
+		db,
+		eventBus,
+	}) => {
+		await insertTeam(db, "team");
+		await insertTask(db, "root", "team", "done");
+		await insertTask(db, "live-child", "team", "in_progress", "root");
+		await insertTask(db, "done-child", "team", "done", "root");
+		await insertTask(db, "grandchild", "team", "accepted", "live-child");
+		await insertTask(db, "great-grandchild", "team", "blocked", "grandchild");
+
+		await cascadeTaskKill(db, eventBus, "root", killDeps);
+
+		const byId = new Map(
+			(
+				await list(db, "task", {
+					ids: ["root", "live-child", "done-child", "grandchild", "great-grandchild"],
+				})
+			).map((t) => [t.id, t.state]),
+		);
+		expect(byId.get("root"), "the named root dies even though it was done").toBe("killed");
+		expect(byId.get("live-child")).toBe("killed");
+		expect(byId.get("grandchild")).toBe("killed");
+		expect(byId.get("great-grandchild"), "the cascade reaches depth 3").toBe("killed");
+		expect(byId.get("done-child"), "finished work is never un-finished by collateral").toBe("done");
+	});
+
 	test("already-terminal tasks are not re-killed by the cascade", async ({ db, eventBus }) => {
 		// Arrange: root with one live child, one done child, one already-killed child
 		await insertTeam(db, "team");
