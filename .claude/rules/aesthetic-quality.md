@@ -23,7 +23,7 @@ Read this before trusting a rule to catch anything.
 - `npm run lint` runs ESLint with `--quiet`, which **drops every warn-level rule**. Anything wired at
   `warn` produces no output there and cannot fail the build.
 - `npm run lint:design` runs the design rule set standalone with warnings included. It currently
-  reports 0 errors and 182 warnings — that is the population no gate is stopping. Run it before
+  currently reports 0 errors and ~180 warnings — that is the population no gate is stopping. Run it for the live number. Run it before
   claiming a surface is clean.
 - A rule that is `off` in both scopes has a dedicated narrower block in `eslint.config.ts`; the
   totality test in the plugin fails if a rule is wired nowhere at all.
@@ -32,7 +32,7 @@ Read this before trusting a rule to catch anything.
 
 - **AQ-001** Authored composition gaps/margins use the numeric Hearth vocabulary `{0, 3, 6, 9, 12, 18, 24, 36, 48}` px, whether written as a supported Tailwind alias, arbitrary pixel class, or `--space-*` token. Values outside it are errors. Semantics are guidance ranges, not lint endpoints: close relations `3–9px` (normally `6–9px`), related groups `12–18px`, major vertical sections `24–36px`, and `48px` only exceptionally; horizontal guidance is `3–9 / 9–12 / 18–24 / 36–48px` as relation breadth increases. Density, typography, borders, surface changes, wrapping, and viewport choose the endpoint. Padding/control internals, fixed geometry, optical offsets, canvas coordinates, negative overlap, resets, and subject-authored content are separate narrow cases; never disable the rule for a whole surface. (lint: `design/no-off-grid-spacing`).
 - ~~**AQ-002**~~ Removed in W2. Density tokens stripped. Use literal Hearth grid values instead.
-- ~~**AQ-003**~~ Removed in W2. One size per component — there is no density system. AESTHETICS.md AQ-003 rewritten.
+- ~~**AQ-003**~~ Removed in W2. One size per component — there is no density system.
 - **AQ-004** Every authored typography declaration consumes one complete semantic profile: `label`, `metadata`, `small`, `copy`, `control`, `input`, `avatar-initial`, `subheading`, `lead`, `title`, `display`, `metric`, `data`, or `inline-code`. Raw family/size/weight/line-height/tracking definitions are legal only in the central registry. Inherited text with no authored field is valid. (lint: `design/typography-profile-only`).
 - **AQ-005** The `input` profile resolves to 16px on input/textarea/select controls at viewport ≤768px to prevent iOS zoom. No raw responsive size escape.
 - **AQ-006** `metric` includes tabular numerals. Use it for KPI values; use `data` for compact structured values.
@@ -51,7 +51,9 @@ Read this before trusting a rule to catch anything.
 - **AQ-019** System fonts only. Use `--font-sans` (system-ui, -apple-system, Segoe UI, sans-serif) and `--font-mono` (ui-monospace, SF Mono, Cascadia Code, monospace). No imports of Geist, Inter, or other web fonts. No `@font-face` declarations. No Google Fonts links.
 - **AQ-020** Authored border widths use only `--bw-thin` (1px), `--bw-default` (1.5px), or `--bw-strong` (2px). Preserve normal outlines and separators; Toast's default-width left rail is the only structural status border. (lint: `design/border-width-profile-only`).
 
-## AI-aesthetic blacklist (canonical 15-item catalog in AESTHETICS.md § AI-Aesthetic Anti-Patterns)
+## AI-aesthetic blacklist
+
+This list is the catalogue — there is no longer a fuller one elsewhere. AQ-112 was removed; the numbering keeps the gap so existing references still resolve.
 
 Lints under `design/no-ai-aesthetic`. Three or more screenshot-detectable tells in a single frame fails the screenshot rubric.
 

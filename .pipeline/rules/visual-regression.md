@@ -60,7 +60,7 @@ node "$CLAUDE_PLUGIN_ROOT/skills/design/viewer/launch.mjs" . --port 6006
 ```
 
 (Codex exposes the same path as `$PLUGIN_ROOT`.) It copies itself to `<repo-root>/viewer/` — gitignored,
-never committed — and serves the 134 stories under `layers/core-ui/src/**`. Pass the port; its default
+never committed — and serves the stories under `layers/core-ui/src/**`. Pass the port; its default
 is 5173, the app's own. `.pipeline/viewer.config.json` is what makes it work here: story globs, the CSS
 entry (`layers/core-ui/src/index.css`, which pulls in Tailwind, DaisyUI and the tokens) and the
 `tailwind-v4` toolchain. It does not read `designSystem.path` for any of that — without the config it
@@ -75,8 +75,8 @@ radius and colour all resolve correctly. Spacing gets judged in the app, never h
 ## 7. What the lints add
 
 - `npm run lint:design` runs the design rule set standalone, warnings included — currently 0 errors and
-  182 warnings. `npm run lint` runs the same rules under `--quiet`, which drops every warn-level rule,
-  so those 182 cannot fail a build. Severities live in
+  ~180 warnings. `npm run lint` runs the same rules under `--quiet`, which drops every warn-level rule,
+  so those warnings cannot fail a build. Severities live in
   `tools/eslint-plugin-design/src/hearth-config.ts`; read it before claiming a rule protects you.
 - `npm run check` catches a removed or renamed component variant — the quietest way a story stops
   representing its component.

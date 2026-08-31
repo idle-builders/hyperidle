@@ -20,7 +20,7 @@ Governance keeps three things apart, and a plan should name the one it touches:
 - a **clause** (`src/lib/governance-model.ts`) is a principle — changing one is a founder ruling;
 - a **registry** (`architecture.json`, `table-owners.json`) is a fact — a new package, surface,
   endpoint or table owner is a registry edit, not a model change;
-- a **decided rule** (`decided-rules.json`) is a decision already made, one at a time, and the 195 rows
+- a **decided rule** (`decided-rules.json`) is a decision already made, one at a time, and those rows
   double as the acceptance test the model must reproduce exactly.
 
 A plan that wants "an exception for this case" is asking for a founder ruling. Say that plainly rather

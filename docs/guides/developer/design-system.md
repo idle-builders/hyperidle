@@ -12,7 +12,7 @@ There is **no story browser in the repo**. The old in-app `/designsystem` route 
 node "$CLAUDE_PLUGIN_ROOT/skills/design/viewer/launch.mjs" . --port 6006
 ```
 
-It discovers the 134 stories under `layers/core-ui/src/**` from `.pipeline/viewer.config.json`, which also points it at `layers/core-ui/src/index.css` and the Tailwind v4 toolchain. Without that file the viewer falls back to generic globs, finds nothing, and renders unstyled.
+It discovers the stories under `layers/core-ui/src/**` from `.pipeline/viewer.config.json`, which also points it at `layers/core-ui/src/index.css` and the Tailwind v4 toolchain. Without that file the viewer falls back to generic globs, finds nothing, and renders unstyled.
 
 There is **no story-rendering snapshot net**. Visual fidelity is gated by `eslint-plugin-design` (`npm run lint` / `npm run lint:design`), type-check, and the human concept review — see [`.pipeline/rules/visual-regression.md`](../../../.pipeline/rules/visual-regression.md).
 

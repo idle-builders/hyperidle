@@ -6,8 +6,8 @@ paths:
 
 # Design System
 
-Components live in `layers/core-ui/src/ds/` — 57 component files, re-exported from
-`layers/core-ui/src/ds/index.ts` (components plus their prop types and helpers). Shell and region components stay in `layers/core-ui/src/shell/`.
+Components live in `layers/core-ui/src/ds/` — 57 at the top level plus nested parts in subfolders,
+re-exported from `layers/core-ui/src/ds/index.ts` along with their prop types and helpers. Shell and region components stay in `layers/core-ui/src/shell/`.
 There is no `framework/design-system` package; AU44 dissolved it into `ds/`, and
 `design-source.test.ts` fails if it ever comes back.
 
