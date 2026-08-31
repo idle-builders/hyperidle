@@ -16,23 +16,20 @@
  *   - Gate D does NOT require a running binary or LLM — it runs the gate hook script
  *     directly, proving the fail-closed path with the INSTALLED python3 against the
  *     REAL generated script. Uses spawnSync (no event-loop dependency).
- *   - Gates A–C start a minimal in-process HTTP server and run real claude sessions.
- *     They use async subprocess calls (child_process.execFile) so the event loop
- *     stays alive to handle hook requests from within the claude subprocess.
+ *   - Gates A–C use CliHarnessAdapter (async streaming via streamEvents) for
+ *     codex/cursor/opencode and execFile for claude. Both approaches keep the event
+ *     loop alive so the in-process action-check HTTP server can respond to hook
+ *     requests arriving from inside the binary subprocess.
  *
  * @lore action-gate-real-harness: A/B/C must NOT use spawnSync — spawnSync blocks
  * the Node.js event loop, preventing the in-process HTTP server from responding to
- * hook requests that arrive from the claude subprocess. Only execFile (async) keeps
- * the event loop free. Gate D uses spawnSync because it makes no HTTP calls.
+ * hook requests that arrive from the harness subprocess. Use execFile (claude) or
+ * CliHarnessAdapter streamEvents (codex/cursor/opencode). Gate D uses spawnSync
+ * because it makes no HTTP calls.
  *
  * @lore action-gate-real-harness server: the `/action-check` endpoint served here uses
  * raw node:http (no Hono), reading `body.tool_name` (snake_case) to match the gate
  * script's POST body format. The real mcp-route.ts reads the same field.
- *
- * @lore action-gate-real-harness cursor / opencode: gates A/B/C cover claude only
- * (simplest, most debuggable). Gate D covers all four (file/script inspection).
- * The other harnesses' deny-loop proof rides the existing return-enforcement harness
- * lanes whose provisioner now wires installActionGate.
  */
 
 import * as childProcess from "node:child_process";
