@@ -23,6 +23,7 @@ import {
 	knowledgeConflicts,
 	knowledgeEditLog,
 	knowledgeItems,
+	type WriteExecutor,
 } from "@hyperidle/db";
 
 import {
@@ -1266,7 +1267,8 @@ export interface UpsertPluginDocumentInput {
 	body: string;
 	scopeKind: string;
 	scopeId: string | null;
-	topic: string;
+	/** A real topic, or none. It no longer carries provenance — the registry does. */
+	topic: string | null;
 	ts: string;
 	/** Defaults to `skill`. A routine's prompt is an ordinary document. */
 	role?: KnowledgeRole;
@@ -1403,7 +1405,11 @@ export async function upsertPluginDocument(
 			status: "active",
 			version: 1,
 			role: input.role ?? "skill",
-			updatedBy: `plugin:${input.pluginId}`,
+			// @lore BA9g: `plugin:<id>` was a provenance sentinel here. Migration
+			// 0071 rewrote every existing one to `plugin` because it leaked into the
+			// knowledge view as a raw author string, and the registry carries
+			// provenance now — so a freshly installed document must not re-create it.
+			updatedBy: "plugin",
 			createdAt: input.ts,
 			updatedAt: input.ts,
 		})
@@ -1425,32 +1431,21 @@ export async function upsertPluginDocument(
 				updatedAt: input.ts,
 			},
 		});
-}
-
-/**
- * Archive knowledge items matching `topic`, excluding items whose IDs are
- * in `keepIds`. Used to clean up stale plugin skill items on reinstall or remove.
- */
-export async function removeByPluginTopic(
-	db: HyperIdleDb,
-	topic: string,
-	keepIds: readonly string[],
-): Promise<void> {
-	const rows = await db
-		.select({ id: knowledgeItems.id })
-		.from(knowledgeItems)
-		.where(eq(knowledgeItems.topic, topic));
-
-	const staleIds = rows.map((r) => r.id).filter((id) => !keepIds.includes(id));
-	if (staleIds.length === 0) return;
-
-	// @lore BA9d: archive instead of hard-delete — knowledge_edit_log/access_log/conflicts
-	// have RESTRICT FK on knowledge_items.id (I3 security: audit trail outlives subject).
-	// Archived items are excluded from session assembly (status != 'active' filter).
+	// Kernel row and projection travel together, as knowledge always writes them.
+	// @lore BA9g: this write was MISSING. Migrations 0068/0069/0071 all insert a
+	// projection and their tests assert "a document with no projection is a state
+	// production cannot produce" — while the install path produced exactly that.
+	// Migrated documents appeared in scope-filtered views (which inner-join the
+	// projection) and freshly installed ones did not.
 	await db
-		.update(knowledgeItems)
-		.set({ status: "archived", updatedAt: new Date().toISOString() })
-		.where(inArray(knowledgeItems.id, staleIds));
+		.insert(knowledgeAppProjection)
+		.values({
+			id: `kp_${input.id}`,
+			knowledgeItemId: input.id,
+			layer: scopeToLayer(input.scopeKind as (typeof SCOPE_KINDS)[number]),
+			scopeId: input.scopeId,
+		})
+		.onConflictDoNothing();
 }
 
 /**
@@ -1468,15 +1463,24 @@ export async function removeByPluginTopic(
  * disable/remove — skills do not go through plugin_configuration_defaults, so
  * restorePluginContribution() cannot recover them.
  */
-export async function setPluginSkillsStatus(
-	db: HyperIdleDb,
-	pluginId: string,
+/**
+ * Set status on the named knowledge documents.
+ *
+ * @lore BA9g: it took a `pluginId` and matched `topic = 'plugin:<id>'`. The
+ * topic is a person's field — editing it silently orphaned a document from
+ * uninstall and disable, permanently. The plugin service names the documents
+ * now, and `topic` means what it says.
+ */
+export async function setKnowledgeStatus(
+	exec: WriteExecutor,
+	ids: readonly string[],
 	status: "active" | "archived",
 ): Promise<void> {
-	await db
+	if (ids.length === 0) return;
+	await exec
 		.update(knowledgeItems)
 		.set({ status, updatedAt: new Date().toISOString() })
-		.where(eq(knowledgeItems.topic, `plugin:${pluginId}`));
+		.where(inArray(knowledgeItems.id, [...ids]));
 }
 
 /**
@@ -1493,16 +1497,21 @@ export async function setPluginSkillsStatus(
  * We deliberately do NOT store a separate copy in plugin_configuration_defaults;
  * the file on disk IS the authoritative original.
  */
-export async function restorePluginSkillBody(
-	db: HyperIdleDb,
-	skillId: string,
+/**
+ * Put the plugin's version of a contributed document back.
+ *
+ * @lore BA9g: this also reset `updatedBy` to `plugin:<id>` to clear the
+ * "detached" signal. That sentinel is gone — detachment is a registry column,
+ * and `updated_by` names a person again. The caller clears it.
+ */
+export async function restorePluginDocumentBody(
+	exec: WriteExecutor,
+	documentId: string,
 	body: string,
-	pluginId: string,
+	restoredBy: string,
 ): Promise<void> {
-	// @lore D12: resetting updatedBy to plugin:${pluginId} clears the
-	// "detached" signal — the item matches its source again.
-	await db
+	await exec
 		.update(knowledgeItems)
-		.set({ body, updatedBy: `plugin:${pluginId}`, updatedAt: new Date().toISOString() })
-		.where(eq(knowledgeItems.id, skillId));
+		.set({ body, updatedBy: restoredBy, updatedAt: new Date().toISOString() })
+		.where(eq(knowledgeItems.id, documentId));
 }

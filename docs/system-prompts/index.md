@@ -1,14 +1,34 @@
 # System Prompts
 
-Runtime templates are read directly from these files at boot time — there is no cache table. The map of role → filename lives in one place, `SYSTEM_PROMPT_TEMPLATE_FILES` (`framework/factory-defaults/src/system-prompt-templates.ts`), read by both the agent-orchestration first-boot face's (`layers/agent-orchestration/src/factory-run-config.ts`) boot-time backfill and by `agents.ts` at request time. The live prompt for each agent is stored in `agent_run_config.systemPrompt` (moved off `users` in AU26), assembled at session time. **Paths are frozen** — `SYSTEM_PROMPT_TEMPLATE_FILES` references these files by literal path (the allowlist that closes path traversal by construction); never rename or move them without updating that map.
+This folder holds one file: the persona for the per-user **Assistant**.
 
-Seven roles are wired (seeded on boot); `assistant.md` is an unwired draft (template declared in `agent-roles.ts` but not yet seeded — see the status note in that file).
+Every other role persona moved into the `role-personas` plugin
+(`plugins/role-personas/personas/`). HyperIdle ships no opinion about what a
+Builder or a Product Manager is — a new team is one agent with a bare identity,
+and roles arrive with a plugin or with you. See
+[agent-model §2.1](../agent-layer/agent-model.md).
 
-- [product-manager.md](product-manager.md) — team agent coordinating the team that ships a single product; owns PM judgment and handoffs.
-- [facilitator.md](facilitator.md) — strategy agent scoped to one community of practice (build/product/growth/ops/facilitation); organizes cross-product knowledge.
-- [builder.md](builder.md) — team agent that writes code and ships features for a single product team.
-- [designer.md](designer.md) — team agent owning UX research, interaction design, and visual polish for a single product team.
-- [growth.md](growth.md) — team agent owning top-of-funnel (awareness, acquisition, activation) for a single product team.
-- [ops.md](ops.md) — team agent owning deployment, reliability, and incident response for a single product team.
-- [qa-engineer.md](qa-engineer.md) — team agent owning test plans, regression testing, and bug triage for a single product team.
-- [assistant.md](assistant.md) — draft persona/guardrail template for the user's personal assistant agent; **not yet seeded by factory-bootstrap.ts** (wire-or-flip is an open work-package decision).
+## How an identity reaches a session
+
+An agent's identity is an `agent_file` knowledge document bound to that agent —
+`scope_kind='user'`, `scope_id` the agent's id. It is read and edited like any
+other document, through the one knowledge edit endpoint, and editing it changes
+what the agent's next session runs with. The document body becomes the
+`## Identity` section of the AGENTS.md written into the session's sandbox.
+
+Nothing reads a persona off disk at runtime any more. The old mechanism — a
+frozen `SYSTEM_PROMPT_TEMPLATE_FILES` allowlist mapping role → filename, read at
+boot and again at request time through `GET /api/agents/templates/:role`, with
+the live copy in `agent_run_config.system_prompt` — was removed in BA9f and
+BA9g, along with the route, the column and the map.
+
+A plugin seeds an identity by naming an `identity` file on the agent it
+contributes; installing the plugin materialises the document.
+
+## The one file here
+
+- [assistant.md](assistant.md) — the persona for the user's personal Assistant.
+
+The Assistant is the exception, deliberately: it is the single agent HyperIdle
+ships, one per human, and it carries extra rights. It is what you talk to on a
+fresh install, so it arrives with a persona rather than a blank identity.

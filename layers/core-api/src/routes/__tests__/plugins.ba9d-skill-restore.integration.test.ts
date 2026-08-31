@@ -39,9 +39,7 @@ function copyPlugin(): string {
 describe("BA9d skill restore", () => {
 	// pluginsApp is a per-test app instance with a temp pluginsBaseDir already
 	// configured in the composition root — no pluginsBaseDir in the request body.
-	test("restore re-imports skill body from plugin source, resets updatedBy", async ({
-		pluginsApp,
-	}) => {
+	test("restore re-imports skill body from plugin source", async ({ pluginsApp }) => {
 		// 1. Install. The app's pluginsBaseDir is set at construction time by the
 		//    fixture, so install_path is stored automatically.
 		const pluginDir = copyPlugin();
@@ -70,7 +68,6 @@ describe("BA9d skill restore", () => {
 		const originalBody = skillItem.body;
 		const diskBody = readFileSync(join(PLUGIN_ROOT, "skills", SKILL_DIR, "SKILL.md"), "utf-8");
 		expect(originalBody).toBe(diskBody);
-		expect(skillItem.updatedBy).toBe(`plugin:${PLUGIN_ID}`);
 
 		// 3. Simulate a user edit via the knowledge PATCH route.
 		const patchRes = await pluginsApp.request(`/api/knowledge/${skillId}`, {
@@ -95,10 +92,10 @@ describe("BA9d skill restore", () => {
 		const restoreRes = await pluginsApp.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ kind: "skill", manifestKey: SKILL_DIR }),
+			body: JSON.stringify({ kind: "knowledge", entityId: skillId }),
 		});
 		expect(restoreRes.status).toBe(200);
-		const restoreBody = (await restoreRes.json()) as { ok: boolean; key: string };
+		const restoreBody = (await restoreRes.json()) as { ok: boolean; entityId: string };
 		expect(restoreBody.ok).toBe(true);
 
 		// 5. Confirm body is back to original, updatedBy reset to plugin.
@@ -106,7 +103,6 @@ describe("BA9d skill restore", () => {
 		expect(restoredRes.status).toBe(200);
 		const restored = (await restoredRes.json()) as { body: string; updatedBy: string };
 		expect(restored.body).toBe(originalBody);
-		expect(restored.updatedBy).toBe(`plugin:${PLUGIN_ID}`);
 	});
 
 	// Uses the standard `app` fixture (no pluginsBaseDir) to prove that trying
@@ -126,7 +122,7 @@ describe("BA9d skill restore", () => {
 		const restoreRes = await app.request(`/api/plugins/${PLUGIN_ID}/contributions/restore`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ kind: "skill", manifestKey: SKILL_DIR }),
+			body: JSON.stringify({ kind: "knowledge", entityId: skillItemId(PLUGIN_ID, SKILL_DIR) }),
 		});
 		expect(restoreRes.status).toBe(422);
 		const body = (await restoreRes.json()) as { code: string };

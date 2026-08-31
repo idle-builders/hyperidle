@@ -33,6 +33,8 @@
  * All ids use "demo-*" or "seed-product-1" prefixes to clearly identify them as fixtures.
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
 	agentRunConfig,
 	bets,
@@ -44,7 +46,6 @@ import {
 	teams,
 	users,
 } from "@hyperidle/db";
-import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { and, eq, inArray } from "drizzle-orm";
 import { seedDemoWorldContent } from "./demo-world/index.js";
 import { createDemoClock } from "./demo-world/time.js";
@@ -139,6 +140,30 @@ async function upsertDemoRunConfig(
 	}
 }
 
+/** The persona the `role-personas` plugin ships for a role, read from its files. */
+function readRolePersona(role: string): string | null {
+	const filename = ROLE_PERSONA_FILES[role];
+	if (!filename) return null;
+	try {
+		return readFileSync(
+			resolve(process.cwd(), "plugins", "role-personas", "personas", filename),
+			"utf-8",
+		);
+	} catch {
+		return null;
+	}
+}
+
+const ROLE_PERSONA_FILES: Readonly<Record<string, string>> = {
+	builder: "builder.md",
+	designer: "designer.md",
+	facilitator: "facilitator.md",
+	growth: "growth.md",
+	ops: "ops.md",
+	product_manager: "product-manager.md",
+	qa_engineer: "qa-engineer.md",
+};
+
 export async function seedDemoWorld(
 	db: HyperIdleDb,
 ): Promise<{ teamId: string; founderId: string }> {
@@ -153,7 +178,6 @@ export async function seedDemoWorld(
 			id: teamId,
 			name: "Acme",
 			phase: "build",
-			functions: JSON.stringify(["development", "product"]),
 			createdAt: clock.daysAgo(44),
 		})
 		.onConflictDoNothing();
@@ -278,18 +302,13 @@ export async function seedDemoWorld(
 	// ── The lived-in world: cast, knowledge, work, conversations, activity ──
 	await seedDemoWorldContent(db, clock);
 
-	// ── Backfill systemPrompt on demo agents from docs-backed role templates ──
-	// @lore AF17: applyFactoryBootstrap() backfills factory agents' systemPrompt.
-	// Demo agents are created AFTER bootstrap, so they miss that backfill. We read
-	// the same docs-backed templates here and apply them to demo agents. This
-	// mirrors what the old monolithic seed.ts did for all agents in one pass.
-	// @lore AU18: previously read cached rows from `factorySettings.system_template:<role>`
-	// (written by bootstrap); that table is retired. Read directly via the shared
-	// `readSystemPromptTemplateForRole` (system-prompt-templates.ts) — the same
-	// map/reader bootstrap, roster.ts, and agents.ts now all use.
-	// @lore AU26 G1: `systemPrompt` moved to `agent_run_config`, so the role-scoped
-	// backfill resolves ids off `users` first and writes to the run-config rows.
-	// Roles without a docs template resolve null and are skipped.
+	// ── Give the demo agents the personas the role-personas plugin ships ──
+	// @lore BA9g: these used to come from `docs/system-prompts/*.md` through the
+	// runtime's own reader. Those files are the `role-personas` plugin's now, and
+	// the runtime reads no persona off disk at all — HyperIdle ships a single
+	// agent with a bare AGENTS.md. The demo world is what a team looks like once
+	// somebody has installed that plugin, so the fixture reads the plugin's files
+	// directly. This is seed tooling, not the shipping runtime.
 	const DEMO_AGENT_ROLES = [
 		"builder",
 		"product_manager",
@@ -298,7 +317,7 @@ export async function seedDemoWorld(
 		"growth",
 	] as const;
 	for (const role of DEMO_AGENT_ROLES) {
-		const content = readSystemPromptTemplateForRole(role);
+		const content = readRolePersona(role);
 		if (content === null) continue;
 		const matching = await db
 			.select({ id: users.id, name: users.name })

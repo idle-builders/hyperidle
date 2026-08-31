@@ -2,14 +2,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createLogger } from "@hyperidle/diagnostics";
 import type {
+	AgentSessionSourceCorrelation,
+	AgentSessionSourceKind,
 	BakedContextBundle,
 	BakedContextKnowledgeItem,
 	RoutineTriggerEvent,
-} from "@hyperidle/domain-model";
-import {
-	type AgentSessionSourceCorrelation,
-	type AgentSessionSourceKind,
-	communityForRole,
 } from "@hyperidle/domain-model";
 import type { EventBus } from "@hyperidle/event-bus";
 
@@ -279,7 +276,7 @@ function substituteTemplateVars(template: string, vars: Record<string, string>):
  * Returns { product, community }.
  */
 function buildTemplateVariables(context: SessionContextData): Record<string, string> {
-	const community = communityForRole(context.agent.role);
+	const community = context.agent.role;
 	return {
 		product: context.team.name,
 		community,
@@ -634,7 +631,7 @@ function assembleRoutinePrompt(input: RoutinePromptCompositionInput): PromptComp
 		// empty string is the right fallback rather than a visible defect.
 		const vars: Record<string, string> = {
 			product: context.team?.name ?? "",
-			community: communityForRole(context.agent.role),
+			community: context.agent.role,
 		};
 		personaSection = substituteTemplateVars(stripped, vars);
 	}

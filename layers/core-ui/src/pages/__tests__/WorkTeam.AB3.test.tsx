@@ -207,12 +207,15 @@ describe("AB3 AC-1 — Agent cards with name, description, and category tags", (
 		});
 	});
 
-	it("each agent card shows the role description from catalog", async () => {
+	// @lore BA9g: the card showed a one-line description the role catalog carried
+	// — "Engineer. Implements features…". The catalog is gone: a role is a string
+	// on an agent, and what an agent is for is its identity document, not a
+	// sentence the product wrote about its role. The card shows the role.
+	it("each agent card shows its role", async () => {
 		renderWithHints(<WorkTeam overrideData={TEAM_WITH_AGENTS} skipArtifacts />);
 
-		// "builder" role description from AGENT_ROLE_CATALOG
 		await waitFor(() => {
-			expect(screen.getByText(/Engineer\. Implements features/i)).toBeInTheDocument();
+			expect(screen.getByText("Builder")).toBeInTheDocument();
 		});
 	});
 

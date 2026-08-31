@@ -13,8 +13,8 @@
  * from the initial empty state. Authoring surface — guards on dismissal when dirty.
  */
 
-import { AGENT_ROLE_CATALOG, findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
-import { type JSX, useCallback, useEffect, useRef, useState } from "react";
+import { MODEL_TIERS, roleLabel } from "@hyperidle/domain-model";
+import { type JSX, useCallback, useEffect, useState } from "react";
 // hearth-internal-padding
 import { Button, Dialog, Input, KeyValue, Select } from "../ds";
 import { apiFetch } from "../services/api-fetch.js";
@@ -29,6 +29,8 @@ export interface AgentAddDialogProps {
 	onClose: () => void;
 	/** Called after successful create. Triggers refetch in parent. */
 	onCreated: () => void;
+	/** The roles agents actually have — what the picker offers. A new one introduces itself. */
+	rolesInUse?: readonly string[];
 }
 
 interface AddFormValues {
@@ -49,8 +51,12 @@ const INITIAL_FORM: AddFormValues = {
 	maxConcurrentSessions: 1,
 };
 
-// Roles that can be added as team agents (category === "team")
-const TEAM_ROLES = AGENT_ROLE_CATALOG.filter((e) => e.category === "team");
+/**
+ * @lore BA9g: this was `AGENT_ROLE_CATALOG.filter(category === "team")` behind a
+ * closed <Select> — you could only add an agent in one of 15 roles the product
+ * had decided on. A role is data now: the picker offers the roles the team's
+ * agents actually have, and typing a new one introduces it.
+ */
 
 export function AgentAddDialog({
 	open,
@@ -58,11 +64,11 @@ export function AgentAddDialog({
 	teamName,
 	onClose,
 	onCreated,
+	rolesInUse,
 }: AgentAddDialogProps): JSX.Element {
 	const { showToast } = useToast();
 	const [formValues, setFormValues] = useState<AddFormValues>(INITIAL_FORM);
 	const [creating, setCreating] = useState(false);
-	const templateFetchAbortRef = useRef<AbortController | null>(null);
 
 	// Reset form on open
 	useEffect(() => {
@@ -73,36 +79,13 @@ export function AgentAddDialog({
 
 	const isDirty = formValues.name.trim().length > 0 || formValues.systemPrompt.trim().length > 0;
 
-	// Fetch template for the selected role (abort on rapid changes)
-	const fetchTemplate = useCallback(async (role: string): Promise<void> => {
-		if (templateFetchAbortRef.current) {
-			templateFetchAbortRef.current.abort();
-		}
-		const controller = new AbortController();
-		templateFetchAbortRef.current = controller;
-		try {
-			const res = await apiFetch(`/api/agents/templates/${encodeURIComponent(role)}`, {
-				signal: controller.signal,
-			});
-			if (!res.ok) return;
-			const json = (await res.json()) as { role: string; content: string };
-			setFormValues((prev) => ({ ...prev, systemPrompt: json.content }));
-		} catch (err) {
-			if (err instanceof Error && err.name === "AbortError") return;
-		} finally {
-			if (templateFetchAbortRef.current === controller) {
-				templateFetchAbortRef.current = null;
-			}
-		}
-	}, []);
+	// @lore BA9g: prefilling a new agent's identity from the role's template is
+	// gone with the route and the files behind it. The personas belong to the
+	// `role-personas` plugin; a new agent starts with an empty identity.
 
-	const handleRoleChange = useCallback(
-		(newRole: string): void => {
-			setFormValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
-			void fetchTemplate(newRole);
-		},
-		[fetchTemplate],
-	);
+	const handleRoleChange = useCallback((newRole: string): void => {
+		setFormValues((prev) => ({ ...prev, role: newRole, systemPrompt: "" }));
+	}, []);
 
 	const handleCreate = useCallback(async (): Promise<void> => {
 		if (!formValues.name.trim()) return;
@@ -132,8 +115,7 @@ export function AgentAddDialog({
 		}
 	}, [formValues, teamMembersId, onCreated, onClose, showToast]);
 
-	const selectedEntry = findRoleCatalogEntry(formValues.role);
-	const roleDescription = selectedEntry?.description ?? formValues.role;
+	const roleDescription = roleLabel(formValues.role);
 
 	return (
 		<Dialog
@@ -185,7 +167,10 @@ export function AgentAddDialog({
 						size="sm"
 						value={formValues.role}
 						onChange={(e) => handleRoleChange(e.target.value)}
-						options={TEAM_ROLES.map((entry) => ({ value: entry.role, label: entry.label }))}
+						options={[...new Set([...(rolesInUse ?? []), formValues.role])]
+							.filter((role) => role.length > 0)
+							.sort()
+							.map((role) => ({ value: role, label: roleLabel(role) }))}
 					/>
 				</div>
 				{roleDescription && (

@@ -32,13 +32,7 @@
  */
 
 import type { ModelProvider } from "@hyperidle/domain-model";
-import {
-	AGENT_ROLE_CATALOG,
-	credentialNameForProvider,
-	defaultRoster,
-	MODEL_PROVIDERS,
-	TEAM_FUNCTIONS,
-} from "@hyperidle/domain-model";
+import { credentialNameForProvider, MODEL_PROVIDERS } from "@hyperidle/domain-model";
 import {
 	derivePrimaryHarness,
 	type HarnessCapabilityDescriptor,
@@ -59,34 +53,11 @@ import { apiFetch } from "../services/api-fetch.js";
  * AE2: Preset configurations for team function selection.
  * Each preset maps to a set of TEAM_FUNCTIONS that drive defaultRoster().
  */
-const PRESETS = [
-	{ id: "software", label: "Software", functions: ["development", "product"] },
-	{ id: "software_design", label: "Eng+UX", functions: ["development", "product", "design"] },
-	{
-		id: "full_team",
-		label: "Full team",
-		functions: ["development", "product", "design", "marketing"],
-	},
-	{ id: "marketing", label: "Growth", functions: ["marketing"] },
-	{ id: "custom", label: "Custom", functions: [] },
-] as const;
-
-type PresetId = (typeof PRESETS)[number]["id"];
-
-/**
- * Compute the roster preview label string from a set of functions.
- * Returns empty string when functions is empty.
- */
-function rosterPreviewLabel(functions: readonly string[]): string {
-	if (functions.length === 0) return "";
-	const roles = defaultRoster(functions);
-	if (roles.length === 0) return "";
-	const labels = roles.map((role) => {
-		const entry = AGENT_ROLE_CATALOG.find((e) => e.role === role);
-		return entry?.label ?? role;
-	});
-	return `Creates: ${labels.join(", ")}`;
-}
+// @lore BA9g: the "What are you building?" step is GONE, with the presets, the
+// custom function chips and the roster preview that promised "Creates: Builder,
+// Product Manager, QA Engineer". A team no longer arrives with a roster — it is
+// one empty agent, and you improve it with plugins — so the question had no
+// answer left to act on.
 
 // ── Harness picker helpers ────────────────────────────────────────────────────
 
@@ -262,9 +233,6 @@ export function SetupFlow(): JSX.Element {
 
 	// AE2: function selector state
 	// Default preset is "software" (development + product).
-	const [selectedPreset, setSelectedPreset] = useState<PresetId>("software");
-	// Custom chips — only visible when selectedPreset === "custom".
-	const [customFunctions, setCustomFunctions] = useState<string[]>([]);
 
 	// AV1: Harness discovery — fetch on mount; degrade to builtin on failure.
 	// @lore AV1: we never block setup on discovery; graceful-degrade to builtin.
@@ -329,19 +297,8 @@ export function SetupFlow(): JSX.Element {
 	}, [providerMeta.hasCatalog]);
 
 	// Resolved functions array based on current preset selection.
-	const resolvedFunctions: readonly string[] =
-		selectedPreset === "custom"
-			? customFunctions
-			: (PRESETS.find((p) => p.id === selectedPreset)?.functions ?? ["development", "product"]);
-
-	const toggleCustomFunction = useCallback((fn: string): void => {
-		setCustomFunctions((prev) =>
-			prev.includes(fn) ? prev.filter((f) => f !== fn) : [...prev, fn],
-		);
-	}, []);
 
 	// AE2: submit requires functions when custom is selected (can't have empty roster).
-	const functionsValid = selectedPreset !== "custom" || customFunctions.length > 0;
 
 	// Built-in is the only harness whose credential HyperIdle holds; every CLI
 	// harness carries its own login, so choosing one asks for no key at all.
@@ -360,10 +317,7 @@ export function SetupFlow(): JSX.Element {
 
 	// R2: Start requires a name; the gateway fields only bind when built-in needs them.
 	const canStart =
-		name.trim().length > 0 &&
-		functionsValid &&
-		(!needsGatewayCredential || gatewayConfigComplete) &&
-		!submitting;
+		name.trim().length > 0 && (!needsGatewayCredential || gatewayConfigComplete) && !submitting;
 
 	const handleFolderPick = useCallback(async (): Promise<void> => {
 		const folder = await window.__HYPERIDLE__?.shell.selectFolder();
@@ -450,7 +404,6 @@ export function SetupFlow(): JSX.Element {
 						name: derivedTeamName,
 						repoPath: repoPath.trim() || undefined,
 						// AE2: pass resolved functions and userId for welcome message seeding.
-						functions: [...resolvedFunctions],
 						userId: createdUserId,
 						// AV1: thread primaryHarness (omit when builtin so server applies builtin fallback)
 						...(primaryHarness !== undefined ? { primaryHarness } : {}),
@@ -566,7 +519,6 @@ export function SetupFlow(): JSX.Element {
 			name,
 			repoPath,
 			apiKey,
-			resolvedFunctions,
 			navigate,
 			chosenDescriptor,
 			folderInfo,
@@ -876,81 +828,6 @@ export function SetupFlow(): JSX.Element {
 								</div>
 							)}
 						</div>
-					</div>
-
-					{/* AE2: Function selector — preset pills */}
-					<div className="mb-[18px]">
-						<p className="type-small   text-[var(--text-primary)] mb-[6px]">
-							What are you building?{" "}
-							<span className="type-small  text-[var(--text-tertiary)]">(pick a team type)</span>
-						</p>
-						<div className="flex flex-wrap gap-[6px] mb-[9px]">
-							{PRESETS.map((preset) => {
-								const isSelected = selectedPreset === preset.id;
-								return (
-									<button
-										key={preset.id}
-										type="button"
-										aria-pressed={isSelected}
-										data-selected={isSelected ? "true" : undefined}
-										onClick={() => {
-											setSelectedPreset(preset.id);
-											// Reset custom chips when switching away from custom.
-											if (preset.id !== "custom") {
-												setCustomFunctions([]);
-											}
-										}}
-										// A pressed/selected TOGGLE in a preset picker group, not an
-										// action Button (Button has no built-in pressed/selected
-										// treatment distinct from its 4 action variants).
-										className={`type-control ${[
-											"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-pill)]  ",
-											"   ",
-											isSelected
-												? // eslint-disable-next-line design/no-handrolled-control -- see comment above
-													"border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--text-on-accent)]"
-												: "border-[var(--border-default)] bg-[var(--surface-elevated)] text-[var(--text-primary)] hover:border-[var(--border-strong)]",
-										].join(" ")}`}
-									>
-										{preset.label}
-									</button>
-								);
-							})}
-						</div>
-
-						{/* AE2: Custom function chips — visible only when Custom is selected */}
-						{selectedPreset === "custom" && (
-							<div className="flex flex-wrap gap-[6px] mb-[9px]">
-								{TEAM_FUNCTIONS.map((fn) => {
-									const isActive = customFunctions.includes(fn);
-									return (
-										<button
-											key={fn}
-											type="button"
-											aria-pressed={isActive}
-											onClick={() => toggleCustomFunction(fn)}
-											className={`type-control ${[
-												"min-h-[44px] px-[12px] py-[9px] rounded-[var(--r-subtle)]  capitalize",
-												"   ",
-												isActive
-													? "border-[var(--accent-deep)] bg-[var(--surface-elevated)] text-[var(--accent-deep)] "
-													: "border-[var(--border-subtle)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--border-default)]",
-											].join(" ")}`}
-										>
-											{fn}
-										</button>
-									);
-								})}
-							</div>
-						)}
-
-						{/* AE2: Roster preview */}
-						<p
-							data-testid="roster-preview"
-							className="type-metadata  text-[var(--text-tertiary)] min-h-[18px]"
-						>
-							{rosterPreviewLabel(resolvedFunctions)}
-						</p>
 					</div>
 
 					{/* Validation / submit error */}

@@ -146,6 +146,12 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 	// matching `@lore`.
 	let dbHandle: DbHandle | null = null;
 	let db: HyperIdleDb;
+	// @lore BA9g: installed plugin files live beside the database in userData.
+	// Nothing set this before, so `plugins.install_path` was null on every real
+	// install — restore answered NO_INSTALL_PATH forever and a plugin's MCP
+	// servers never reached a session, because the merge skips a plugin without
+	// an install path.
+	let pluginsBaseDir: string | undefined;
 	if (deps.db) {
 		db = deps.db;
 	} else {
@@ -154,6 +160,10 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		const dbUrl = resolvePglitePath(rawDbUrl);
 		dbHandle = await createPgliteDb(dbUrl);
 		db = dbHandle.db;
+		// NOT "plugins": beside a dev checkout's database that is the repo's own
+		// plugin SOURCE directory, and install `rmSync`s the destination before
+		// copying — so installing would delete the sources it was built from.
+		pluginsBaseDir = path.join(path.dirname(dbUrl), "installed-plugins");
 	}
 	const eventBus = new EventBus();
 
@@ -225,6 +235,7 @@ export async function createServer(port: number, deps: CreateServerDeps): Promis
 		upgradeWebSocket,
 		adapterPool: agentExecution.adapters.pool,
 		onHarnessRedetect,
+		...(pluginsBaseDir ? { pluginsBaseDir } : {}),
 		serviceBootstrap: (ctx) => {
 			return [
 				...registerCoreDomainServices({ ...ctx, canProvision: true }),

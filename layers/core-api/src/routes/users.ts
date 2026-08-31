@@ -135,7 +135,6 @@ export function createUserSetupRoute(
 		const specs = resolveAgentScaffoldSpecs({
 			trigger: "user_assistant",
 			teamName: null,
-			functions: null,
 			role: null,
 			name: null,
 			ownerUserId: id,

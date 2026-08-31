@@ -50,7 +50,7 @@ const EXPECTED = {
 		// hardcoded field names deleted); -2 ReviewVisualDiff.tsx net (the deleted
 		// MockScreen hero caption + the deleted Field's placeholder-box mark, offset
 		// by the honest-absence pane's own "No rendered image supplied" caption).
-		metadata: 224, // BA9f +3: the identity-document links in AgentProfile, AgentEditor and AgentDetailPane, each replacing an inline persona editor with a link to the one place it is edited. -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section; -1: BA9d D10 removed "Draft with AI" error span from WorkBet.tsx; -1: BA9d D5 removed "app-managed" note paragraph from AgentDetailPane.tsx; -1: capture deletion — OutcomeBand executedAt span removed; +3: action-rules intro lede + description text + scope-tag metadata spans
+		metadata: 223, // BA9g -2: the onboarding roster preview ("Creates: Builder, Product Manager…") and the AgentEditor helper under the deleted template prefill — the "What are you building?" step went with the roster it promised. +1: the plugin contributions list now renders a label per contributed row. +3: action-rules intro lede + description text + scope-tag metadata spans. BA9f +3: the identity-document links in AgentProfile, AgentEditor and AgentDetailPane, each replacing an inline persona editor with a link to the one place it is edited. -1: FR-3 read-mode header wrapper; -2: deletion pass removed Toast.tsx; +1: BA1 D8 RoutineCreateDialog "When" field label (team Select removed, When+Event Selects added net +1); +1: AgentEditor "Applied to every run of this agent." helper under the model-options section; -1: BA9d D10 removed "Draft with AI" error span from WorkBet.tsx; -1: BA9d D5 removed "app-managed" note paragraph from AgentDetailPane.tsx; -1: capture deletion — OutcomeBand executedAt span removed
 		// Review-canvas fabrication cleanup -8: -1 ReviewActionOperation.tsx
 		// (ProposedCallArgsPanel's arg-key `dt` deleted with the panel); -1
 		// ReviewBatch.tsx net (the "no reply drafted" dashed box's caption deleted;
@@ -67,7 +67,7 @@ const EXPECTED = {
 		//   +1 ReviewFieldChangeSet.tsx (the unchanged-fields row now uses
 		//   `type-metadata` instead of a stray `type-control` left from when the row
 		//   was a disclosure button).
-		small: 221, // +3: knowledge document Role row (label, read-only value, error banner); -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
+		small: 219, // BA9g -2: the onboarding "What are you building?" prompt and its "(pick a team type)" hint. +3: knowledge document Role row (label, read-only value, error banner); -1: FR-21 StaleRetryCard restyle; -3: deletion pass removed Toast.tsx; +2: BA9a SettingsPlugins contribution secondary text
 		// Review fix-round -1: ReviewRenderedInContext.tsx — the sendPlan value
 		//   span, dead along with the field it displayed.
 		copy: 45,
@@ -79,7 +79,7 @@ const EXPECTED = {
 		// trivia concept at all, so the toggle disclosed nothing real).
 		// Review fix-round -1: ReviewFieldChangeSet.tsx — the unchanged-fields row's
 		//   `type-control` class removed (it is a static count, not a control).
-		control: 94, // +1: knowledge Role row error-banner dismiss; +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
+		control: 92, // BA9g -2: the preset pills and the custom function chips in the deleted onboarding step. +1: knowledge Role row error-banner dismiss; +2: UI-084 skip-to-main-content link; -2: AU44 B0 deleted select+boolean option pills from SessionView; +1: BA9a SettingsPlugins plugin row name
 		input: 11, // +1: AgentEditor model-option select (a harness's declared select for the chosen model)
 		"avatar-initial": 14,
 		subheading: 9,

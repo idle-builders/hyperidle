@@ -16,9 +16,10 @@
  * @hyperidle/org — same function, moved to the owning service package.
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { HyperIdleDb } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";
-import { readSystemPromptTemplateForRole } from "@hyperidle/org";
 import { sql } from "drizzle-orm";
 import { runFactoryBootstrap } from "../factory-bootstrap-runner.js";
 
@@ -33,6 +34,34 @@ async function queryRows<T extends Record<string, unknown>>(
 // ─────────────────────────────────────────────────────────────────────────────
 // AC1: Factory layer is complete after a single runFactoryBootstrap call
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The persona the `role-personas` plugin ships for a role.
+ *
+ * @lore BA9g: these were `docs/system-prompts/*.md`, read by the runtime through
+ * `readSystemPromptTemplateForRole`. That reader is deleted — HyperIdle ships a
+ * single agent with a bare AGENTS.md and holds no built-in idea of a "builder".
+ * The demo world is what a team looks like once the plugin is installed, so the
+ * fixture and these tests read the plugin's own files.
+ */
+function rolePersona(role: string): string | null {
+	const files: Readonly<Record<string, string>> = {
+		builder: "builder.md",
+		designer: "designer.md",
+		facilitator: "facilitator.md",
+		growth: "growth.md",
+		ops: "ops.md",
+		product_manager: "product-manager.md",
+		qa_engineer: "qa-engineer.md",
+	};
+	const filename = files[role];
+	if (!filename) return null;
+	try {
+		return readFileSync(resolve("plugins/role-personas/personas", filename), "utf-8");
+	} catch {
+		return null;
+	}
+}
 
 describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () => {
 	test("system:propagation user exists after bootstrap", async ({ db }) => {
@@ -79,7 +108,7 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 	test("product_manager system prompt template resolves (docs-backed)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const content = readSystemPromptTemplateForRole("product_manager");
+		const content = rolePersona("product_manager");
 		expect(content).toBeTruthy();
 		expect((content ?? "").length).toBeGreaterThan(50);
 	});
@@ -87,7 +116,7 @@ describe("AF17 AC1: runFactoryBootstrap creates the complete factory layer", () 
 	test("facilitator system prompt template resolves (docs-backed)", async ({ db }) => {
 		await runFactoryBootstrap(db);
 
-		const content = readSystemPromptTemplateForRole("facilitator");
+		const content = rolePersona("facilitator");
 		expect(content).toBeTruthy();
 		expect((content ?? "").length).toBeGreaterThan(50);
 	});
@@ -173,10 +202,10 @@ describe("AF17 AC2: runFactoryBootstrap is idempotent", () => {
 	// it resolves).
 	test("running bootstrap twice produces identical resolved templates", async ({ db }) => {
 		await runFactoryBootstrap(db);
-		const first = readSystemPromptTemplateForRole("product_manager");
+		const first = rolePersona("product_manager");
 
 		await runFactoryBootstrap(db);
-		const second = readSystemPromptTemplateForRole("product_manager");
+		const second = rolePersona("product_manager");
 
 		expect(second).toEqual(first);
 	});

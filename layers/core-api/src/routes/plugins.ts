@@ -7,52 +7,67 @@
  * plugin-installer.ts.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import type { HyperIdleDb } from "@hyperidle/db";
-import type { ConfigurationKind } from "@hyperidle/domain-model";
+import type { HyperIdleDb, WriteExecutor } from "@hyperidle/db";
+import type { ConfigurationKind, PluginContributionKind } from "@hyperidle/domain-model";
 import { CONFIGURATION_KINDS } from "@hyperidle/domain-model";
 import {
-	removeByPluginTopic,
-	restorePluginSkillBody,
-	setPluginSkillsStatus,
+	get as getKnowledgeItem,
+	restorePluginDocumentBody,
+	setKnowledgeStatus,
 	type UpsertPluginDocumentInput,
 	upsertPluginDocument,
 } from "@hyperidle/knowledge";
-import {
-	insertRoutine,
-	setPluginRoutinesActive,
-	softDeletePluginRoutines,
-} from "@hyperidle/routine";
+import { getRoutine, insertRoutine, setRoutinesLive, softDeleteRoutines } from "@hyperidle/routine";
 import {
 	agentItemId,
+	clearDetached,
+	contributedEntityIds,
 	disablePlugin,
 	enablePlugin,
+	forgetContributionsExcept,
 	getInstalledPlugin,
 	type InstalledPlugin,
 	installPlugin,
 	listConfiguration,
+	listContributions,
 	listInstalledPlugins,
+	type PluginContribution,
 	type PluginScope,
 	type PluginSource,
+	parsePluginManifest,
 	pluginContributionKey,
+	recordContribution,
 	removePlugin,
 	restorePluginContribution,
 	routineItemId,
 	skillItemId,
 } from "@hyperidle/settings";
-import { insertUserIfAbsent, setPluginAgentsStatus } from "@hyperidle/users";
+import { insertUserIfAbsent, listUsers, setAgentsStatus } from "@hyperidle/users";
 import { Hono } from "hono";
 
 // ---------------------------------------------------------------------------
 // Response shapes (local — no domain-model entry needed for this surface)
 // ---------------------------------------------------------------------------
 
+/**
+ * One thing a plugin contributed, as the settings view shows it.
+ *
+ * @lore BA9g: this used to be a `plugin_configuration_defaults` row and nothing
+ * else, so the shipped `knowledge-management` plugin — one agent, three
+ * routines, three skills, and `"contributions": []` in its manifest — rendered
+ * an entirely empty view. The registry knows the agents, routines and knowledge
+ * too, so `kind` widened past `ConfigurationKind` and `entityId` names the row.
+ */
 export interface PluginContributionView {
-	readonly kind: ConfigurationKind;
+	readonly kind: ConfigurationKind | PluginContributionKind;
+	/** The contributed row's id, or the namespaced configuration key. */
+	readonly entityId: string;
+	/** What a person calls it: an agent's name, a routine's name, a document's title. */
+	readonly label: string;
 	readonly key: string; // namespaced: "pluginId/manifestKey"
 	readonly manifestKey: string;
-	readonly detached: boolean; // true when valueSource === "user_override"
+	/** A person has edited it, so a reinstall leaves their version alone. */
+	readonly detached: boolean;
 }
 
 export interface PluginView {
@@ -74,6 +89,110 @@ export interface PluginListResponse {
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
+
+/**
+ * Make everything a plugin contributed live, or not live.
+ *
+ * @lore BA9g: enable, disable and remove each spelled this out separately, over
+ * three different provenance mechanisms, and drifted apart — disable wrote a
+ * routine's `active` but not its `state`; remove set `deletedAt` that nothing
+ * ever cleared; install revived skills but not agents or routines, so
+ * reinstalling a disabled plugin produced one that reported `enabled` with a
+ * dead agent. One function, one outcome, whatever the caller is doing.
+ *
+ * The plugin service names the rows; the service owning each table writes them.
+ */
+async function setContributionsLive(
+	exec: WriteExecutor,
+	pluginId: string,
+	live: boolean,
+): Promise<void> {
+	const [agentIds, routineIds, knowledgeIds] = await Promise.all([
+		contributedEntityIds(exec, pluginId, "agent"),
+		contributedEntityIds(exec, pluginId, "routine"),
+		contributedEntityIds(exec, pluginId, "knowledge"),
+	]);
+	await setAgentsStatus(exec, agentIds, live ? "active" : "inactive");
+	await setRoutinesLive(exec, routineIds, live);
+	await setKnowledgeStatus(exec, knowledgeIds, live ? "active" : "archived");
+}
+
+/**
+ * What each contributed row is called, asked of the service that owns it.
+ *
+ * An id is not a name, and the contributions view is a list of what a plugin
+ * brought — so each row says what the thing is called.
+ */
+async function labelContributions(
+	db: HyperIdleDb,
+	contributions: readonly PluginContribution[],
+): Promise<ReadonlyMap<string, string>> {
+	const idsOf = (kind: PluginContributionKind): string[] =>
+		contributions.filter((c) => c.kind === kind).map((c) => c.entityId);
+
+	const agentIds = idsOf("agent");
+	const routineIds = idsOf("routine");
+	const knowledgeIds = idsOf("knowledge");
+
+	const [agents, routines, documents] = await Promise.all([
+		agentIds.length > 0 ? listUsers(db, { ids: agentIds }) : Promise.resolve([]),
+		routineIds.length > 0
+			? Promise.all(routineIds.map((id) => getRoutine(db, id)))
+			: Promise.resolve([]),
+		knowledgeIds.length > 0
+			? Promise.all(knowledgeIds.map((id) => getKnowledgeItem(db, id)))
+			: Promise.resolve([]),
+	]);
+
+	const labels = new Map<string, string>();
+	for (const a of agents) labels.set(a.id, a.name);
+	for (const r of routines) if (r) labels.set(r.id, r.name);
+	for (const d of documents) if (d) labels.set(d.id, d.title);
+	return labels;
+}
+
+/**
+ * The plugin's own version of a contributed document, read off disk.
+ *
+ * A skill document's id is `skillItemId(pluginId, dirName)` — a one-way hash —
+ * so there is no way back from the id to the directory. Enumerating the
+ * plugin's skill directories and hashing each one inverts it, and keeps the id
+ * derivation as the single source of truth rather than storing the mapping
+ * twice.
+ *
+ * Returns null when nothing on disk produces this id: a corrupt install, or a
+ * document whose source is the manifest rather than a file.
+ */
+function readPluginDocumentSource(
+	installPath: string,
+	pluginId: string,
+	documentId: string,
+): string | null {
+	const parsed = parsePluginManifest(installPath);
+	if (parsed.ok) {
+		for (const skill of parsed.manifest.skills) {
+			if (skillItemId(pluginId, skill.dirName) === documentId) return skill.body;
+		}
+		// An agent's identity is a document too, and its source is the file the
+		// manifest's `identity` names. Without this branch, restoring a persona —
+		// the whole point of the `role-personas` plugin — answered 422.
+		for (const agent of parsed.manifest.agents) {
+			if (agent.identity === null) continue;
+			const agentDbId = agentItemId(pluginId, agent.id, "factory", null);
+			if (`ki_af_${agentDbId}` === documentId) return agent.identity;
+		}
+
+		// A routine's prompt is a document too, and its source is the manifest
+		// rather than a file. Only the factory shape is derivable here — a
+		// team-scoped install's ids carry the team, which this function is not
+		// told; those fall through to null and the caller answers 422.
+		for (const routine of parsed.manifest.routines) {
+			const routineDbId = routineItemId(pluginId, routine.id, "factory", null);
+			if (`ki_rp_${routineDbId}` === documentId) return routine.prompt ?? null;
+		}
+	}
+	return null;
+}
 
 export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Hono {
 	const router = new Hono();
@@ -100,11 +219,34 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 			const manifestKey = slashIdx >= 0 ? item.key.slice(slashIdx + 1) : item.key;
 			existing.push({
 				kind: item.kind,
+				entityId: item.key,
+				label: manifestKey,
 				key: item.key,
 				manifestKey,
 				detached: item.valueSource === "user_override",
 			});
 			contributionsByPlugin.set(pid, existing);
+		}
+
+		// The registry's half: agents, routines and knowledge documents, which are
+		// rows in three other services' tables and were invisible here.
+		for (const p of installed) {
+			const contributions = await listContributions(db, p.id);
+			if (contributions.length === 0) continue;
+			const labels = await labelContributions(db, contributions);
+			const existing = contributionsByPlugin.get(p.id) ?? [];
+			for (const contribution of contributions) {
+				if (contribution.kind === "configuration_default") continue;
+				existing.push({
+					kind: contribution.kind,
+					entityId: contribution.entityId,
+					label: labels.get(contribution.entityId) ?? contribution.entityId,
+					key: contribution.entityId,
+					manifestKey: contribution.entityId,
+					detached: contribution.detachedAt !== null,
+				});
+			}
+			contributionsByPlugin.set(p.id, existing);
 		}
 
 		const plugins: PluginView[] = installed.map((p: InstalledPlugin) => ({
@@ -225,10 +367,12 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		// Wrapped in a transaction so all cross-service writes are atomic.
 		const { plugin, skills, agents, routines, scopeKind, scopeId, installTs } = result;
 		await db.transaction(async (tx) => {
-			const keepIds: string[] = [];
+			const knowledgeIds: string[] = [];
+			const agentIds: string[] = [];
+			const routineIds: string[] = [];
 			for (const skill of skills) {
 				const id = skillItemId(plugin.id, skill.dirName);
-				keepIds.push(id);
+				knowledgeIds.push(id);
 				const input: UpsertPluginDocumentInput = {
 					id,
 					pluginId: plugin.id,
@@ -236,13 +380,13 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 					body: skill.body,
 					scopeKind,
 					scopeId,
-					topic: `plugin:${plugin.id}`,
+					// No `plugin:<id>` topic. The registry records who contributed
+					// this; the topic is a person's field.
+					topic: null,
 					ts: installTs,
 				};
 				await upsertPluginDocument(tx, input);
 			}
-			// Remove any stale skill items for this plugin (e.g., renamed skill dirs).
-			await removeByPluginTopic(tx, `plugin:${plugin.id}`, keepIds);
 
 			// Materialize declared agents as users rows.
 			// @lore BA9d: agentItemId/routineItemId include scope so factory installs
@@ -250,6 +394,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 			// per team (teamId=scopeId). insertUserIfAbsent makes reinstall idempotent.
 			for (const agentSpec of agents) {
 				const dbId = agentItemId(plugin.id, agentSpec.id, scopeKind, scopeId);
+				agentIds.push(dbId);
 				await insertUserIfAbsent(tx, {
 					id: dbId,
 					kind: "ai",
@@ -258,9 +403,29 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 					status: "active",
 					agentCategory: agentSpec.agentCategory,
 					teamId: scopeKind === "team" ? scopeId : null,
-					pluginId: plugin.id,
 					createdAt: installTs,
 				});
+
+				// Who the agent is. A plugin contributing an agent contributes its
+				// identity — the gap BA9f named, closed now that an identity is a
+				// knowledge document. Deterministic id so a reinstall updates the same
+				// document instead of orphaning it, and `upsertPluginDocument` leaves
+				// the body alone on conflict so a person's edit survives.
+				if (agentSpec.identity) {
+					const identityId = `ki_af_${dbId}`;
+					knowledgeIds.push(identityId);
+					await upsertPluginDocument(tx, {
+						id: identityId,
+						pluginId: plugin.id,
+						title: `${agentSpec.name} — identity`,
+						scopeKind: "user",
+						scopeId: dbId,
+						topic: null,
+						body: agentSpec.identity,
+						ts: installTs,
+						role: "agent_file",
+					});
+				}
 			}
 
 			// Materialize declared routines. insertRoutine onConflictDoNothing makes
@@ -275,13 +440,17 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 				let routinePromptDocId: string | null = null;
 				if (routineSpec.prompt) {
 					routinePromptDocId = `ki_rp_${routineDbId}`;
+					knowledgeIds.push(routinePromptDocId);
 					await upsertPluginDocument(tx, {
 						id: routinePromptDocId,
 						pluginId: plugin.id,
 						title: `${routineSpec.name || "Routine"} — prompt`,
-						scopeKind: "factory",
-						scopeId: null,
-						topic: `plugin:${plugin.id}`,
+						// @lore BA9g: was hardcoded `factory`. A plugin installed at team
+						// scope contributes a team's routine; its instruction is that
+						// team's knowledge, not the whole org's.
+						scopeKind,
+						scopeId,
+						topic: null,
 						body: routineSpec.prompt,
 						ts: installTs,
 						role: "ordinary",
@@ -297,12 +466,38 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 						triggerConfig: routineSpec.triggerConfig ?? null,
 						eventType: routineSpec.eventType ?? null,
 						promptKnowledgeId: routinePromptDocId,
-						pluginId: plugin.id,
 						createdAt: installTs,
 					},
 					{ onConflictDoNothing: true },
 				);
+				routineIds.push(routineDbId);
 			}
+
+			// Record what this install contributed, and forget what it no longer
+			// declares — a renamed skill directory, a dropped routine. The stale
+			// rows are archived; nothing is hard-deleted, because the audit tables
+			// hold RESTRICT FKs on them.
+			for (const [kind, ids] of [
+				["agent", agentIds],
+				["routine", routineIds],
+				["knowledge", knowledgeIds],
+			] as const) {
+				for (const entityId of ids) {
+					await recordContribution(tx, { pluginId: plugin.id, kind, entityId, ts: installTs });
+				}
+				const stale = await forgetContributionsExcept(tx, {
+					pluginId: plugin.id,
+					kind,
+					keepEntityIds: ids,
+				});
+				if (kind === "knowledge") await setKnowledgeStatus(tx, stale, "archived");
+				if (kind === "routine") await softDeleteRoutines(tx, stale);
+				if (kind === "agent") await setAgentsStatus(tx, stale, "inactive");
+			}
+
+			// Installing is a deliberate act: everything this plugin contributes is
+			// live afterwards, whatever a previous disable or remove left behind.
+			await setContributionsLive(tx, plugin.id, true);
 		});
 
 		return c.json({ plugin }, 201);
@@ -328,9 +523,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		// each table write; they accept WriteExecutor so this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				await setPluginRoutinesActive(tx, id, true);
-				await setPluginAgentsStatus(tx, id, "active");
-				await setPluginSkillsStatus(tx, id, "active");
+				await setContributionsLive(tx, id, true);
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -360,9 +553,7 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		// this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				await setPluginRoutinesActive(tx, id, false);
-				await setPluginAgentsStatus(tx, id, "inactive");
-				await setPluginSkillsStatus(tx, id, "archived");
+				await setContributionsLive(tx, id, false);
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -391,9 +582,10 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		// Service functions own each table write; they accept WriteExecutor so this is one transaction.
 		try {
 			await db.transaction(async (tx) => {
-				await softDeletePluginRoutines(tx, id);
-				await setPluginAgentsStatus(tx, id, "inactive");
-				await removeByPluginTopic(tx, `plugin:${id}`, []);
+				await setContributionsLive(tx, id, false);
+				// Remove goes one step further than disable: the routines are
+				// soft-deleted, not just paused. A reinstall clears `deletedAt`.
+				await softDeleteRoutines(tx, await contributedEntityIds(tx, id, "routine"));
 			});
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);
@@ -415,7 +607,61 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		if (!body || typeof body !== "object") {
 			return c.json({ code: "INVALID_BODY", error: "Expected JSON body." }, 422);
 		}
-		const { kind, manifestKey } = body as { kind?: unknown; manifestKey?: unknown };
+		const { kind, manifestKey, entityId } = body as {
+			kind?: unknown;
+			manifestKey?: unknown;
+			entityId?: unknown;
+		};
+
+		// @lore BA9g: a registry-backed contribution — an agent, a routine, a
+		// knowledge document — is named by the row it points at, not by a manifest
+		// key. Those rows are not `plugin_configuration_defaults` entries, which is
+		// why they never appeared in the view and this branch was unreachable.
+		if (typeof entityId === "string" && entityId) {
+			const owned = await listContributions(db, pluginId);
+			const contribution = owned.find((cont) => cont.entityId === entityId);
+			if (!contribution) {
+				return c.json(
+					{
+						code: "NOT_FOUND",
+						error: `Plugin "${pluginId}" did not contribute "${entityId}".`,
+					},
+					404,
+				);
+			}
+			if (contribution.kind !== "knowledge") {
+				// An agent or a routine has no shipped body to re-import — what a
+				// person edits on those is their own configuration. Handing it back
+				// means clearing the claim, nothing more.
+				await clearDetached(db, { kind: contribution.kind, entityId });
+				return c.json({ ok: true, entityId });
+			}
+			if (!existing.installPath) {
+				return c.json(
+					{
+						code: "NO_INSTALL_PATH",
+						error:
+							"This plugin has no recorded install path — it was installed before restore was supported, or on a server not configured with a plugins directory. Reinstall the plugin to enable restore.",
+					},
+					422,
+				);
+			}
+			const sourceBody = readPluginDocumentSource(existing.installPath, pluginId, entityId);
+			if (sourceBody === null) {
+				return c.json(
+					{
+						code: "SKILL_SOURCE_NOT_FOUND",
+						error: `Source for "${entityId}" not found under ${existing.installPath}. The plugin install may be corrupted.`,
+					},
+					422,
+				);
+			}
+			await db.transaction(async (tx) => {
+				await restorePluginDocumentBody(tx, entityId, sourceBody, `plugin:${pluginId}`);
+				await clearDetached(tx, { kind: "knowledge", entityId });
+			});
+			return c.json({ ok: true, entityId });
+		}
 
 		if (typeof kind !== "string" || !CONFIGURATION_KINDS.includes(kind as ConfigurationKind)) {
 			return c.json(
@@ -431,38 +677,6 @@ export function createPluginRoutes(db: HyperIdleDb, pluginsBaseDir?: string): Ho
 		}
 
 		const namespacedKey = pluginContributionKey(pluginId, manifestKey);
-
-		// Skills are stored as knowledge_items and are not in plugin_configuration_defaults,
-		// so restoring them means re-reading the SKILL.md from the plugin's install_path.
-		// @lore BA9d D12: the plugin IS the canonical version; restore = re-import from disk.
-		if (kind === "skill") {
-			if (!existing.installPath) {
-				return c.json(
-					{
-						code: "NO_INSTALL_PATH",
-						error:
-							"This plugin has no recorded install path — it was installed before skill restore was supported, or on a server not configured with a plugins directory. Reinstall the plugin to enable restore.",
-					},
-					422,
-				);
-			}
-			const skillFilePath = join(existing.installPath, "skills", manifestKey, "SKILL.md");
-			let body: string;
-			try {
-				body = readFileSync(skillFilePath, "utf-8");
-			} catch {
-				return c.json(
-					{
-						code: "SKILL_SOURCE_NOT_FOUND",
-						error: `Skill source not found at ${skillFilePath}. The plugin install may be corrupted.`,
-					},
-					422,
-				);
-			}
-			const skillId = skillItemId(pluginId, manifestKey);
-			await restorePluginSkillBody(db, skillId, body, pluginId);
-			return c.json({ ok: true, key: namespacedKey });
-		}
 
 		await restorePluginContribution(db, {
 			pluginId,

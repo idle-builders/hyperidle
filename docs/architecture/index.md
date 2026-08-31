@@ -12,5 +12,6 @@ What may cross which package boundary is not documented here. It is machine-enfo
 - [system-boundary.md](./system-boundary.md) — where HyperIdle ends and git-host/CI/deploy begin; trigger-not-executor seam
 - [authorization-model.md](./authorization-model.md) — load-bearing access-boundary contract (cites `access-boundary.ts`), WS subscribe authorization
 - [credential-model.md](./credential-model.md) — infra-secret storage, AES-GCM encryption, runtime resolution, user visibility
+- [plugins.md](./plugins.md) — what a plugin contributes, the ownership registry, one lifecycle, detach and restore
 - [connection-model.md](./connection-model.md) — held vs inherited Connection split, `service_connections` table, resolver, descriptor extension
 - [decisions.md](./decisions.md) — code-verified architecture decision log

@@ -1,4 +1,8 @@
-import type { ConfigurationKind, PluginState } from "@hyperidle/domain-model";
+import type {
+	ConfigurationKind,
+	PluginContributionKind,
+	PluginState,
+} from "@hyperidle/domain-model";
 import { sql } from "drizzle-orm";
 import {
 	type AnyPgColumn,
@@ -30,13 +34,6 @@ export const teams = pgTable("teams", {
 	principlesPath: text("principles_path"),
 	factoryDbPath: text("factory_db_path"),
 	createdAt: text("created_at").notNull(),
-	/**
-	 * AB0: Team functions as JSON array of strings.
-	 * Determines which agent roles appear in the default roster.
-	 * @lore AB0: Open vocabulary. Known functions: development, product,
-	 * design, marketing, sales, operations, support, research.
-	 */
-	functions: text("functions"),
 	// AU44 B1: folded from team_members
 	leadAgentId: text("lead_agent_id"),
 	capacity: integer("capacity").notNull().default(5),
@@ -79,7 +76,6 @@ export const users = pgTable(
 			onDelete: "set null",
 		}),
 		/** BA9d: set when this user row was materialised by a plugin install. Used for disable/enable/remove cleanup. */
-		pluginId: text("plugin_id"),
 	},
 	(table) => [
 		check(
@@ -597,7 +593,6 @@ export const routines = pgTable(
 		/** AA2: Soft delete timestamp. When set, routine is archived. */
 		deletedAt: text("deleted_at"),
 		/** BA9d: set when this routine was materialised by a plugin install. Used for disable/enable/remove cleanup. */
-		pluginId: text("plugin_id"),
 		/** AA2: Last successful run's summary. Single-slot overwrite per concept doc. */
 		lastRunSummary: text("last_run_summary"),
 		/** AA2: Creation timestamp. Backfilled for pre-existing routines. */
@@ -1230,6 +1225,61 @@ export const pluginConfigurationDefaults = pgTable(
 		check(
 			"plugin_configuration_defaults_kind_ck",
 			sql`${table.kind} IN ('agent', 'skill', 'routine', 'tool', 'mcp_server', 'harness_descriptor')`,
+		),
+	],
+);
+
+/**
+ * What a plugin contributed, and whether the person has since taken it over.
+ *
+ * @lore BA9g: provenance used to be recorded SEVEN different ways —
+ * `users.plugin_id`, `routines.plugin_id`,
+ * `plugin_configuration_defaults.plugin_id`, `knowledge_items.topic =
+ * 'plugin:<id>'`, `knowledge_items.updated_by = 'plugin:<id>'`, a `<pluginId>/`
+ * prefix inside a configuration key, and one-way hashed row ids. Each covered a
+ * different subset, so no surface could answer "what did this plugin
+ * contribute" and the lifecycle operations disagreed with each other. Two of
+ * the seven were never read at all.
+ *
+ * Two of those were also table-ownership violations wearing a column: a
+ * `plugin_id` on `users` and on `routines` is provenance the PLUGIN service
+ * owns, sitting in tables it does not, which is why the write had to live in the
+ * users package. This table belongs to the plugin service, and it is the only
+ * answer to who contributed what.
+ *
+ * `detachedAt` replaces the `updated_by = 'plugin:<id>'` sentinel: a person
+ * edited this contribution, so a reinstall must not overwrite their version.
+ */
+export const pluginContributions = pgTable(
+	"plugin_contributions",
+	{
+		id: text("id").primaryKey(),
+		pluginId: text("plugin_id")
+			.notNull()
+			.references(() => plugins.id, { onDelete: "cascade" }),
+		/** Which table `entityId` points into. */
+		kind: text("kind").$type<PluginContributionKind>().notNull(),
+		/** The contributed row's primary key, in the table `kind` names. */
+		entityId: text("entity_id").notNull(),
+		/** Set when a person edited this contribution; a reinstall leaves their version alone. */
+		detachedAt: text("detached_at"),
+		createdAt: text("created_at").notNull(),
+	},
+	(table) => [
+		// One plugin cannot contribute the same row twice, and reinstall is an
+		// upsert on this key.
+		uniqueIndex("plugin_contributions_plugin_kind_entity_uq").on(
+			table.pluginId,
+			table.kind,
+			table.entityId,
+		),
+		// "Everything this plugin contributed" — the lifecycle's only read.
+		index("plugin_contributions_plugin_idx").on(table.pluginId),
+		// "Which plugin owns this row" — the provenance badge's read.
+		index("plugin_contributions_entity_idx").on(table.kind, table.entityId),
+		check(
+			"plugin_contributions_kind_ck",
+			sql`${table.kind} IN ('agent', 'routine', 'knowledge', 'configuration_default')`,
 		),
 	],
 );

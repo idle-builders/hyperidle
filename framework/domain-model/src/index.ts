@@ -21,15 +21,7 @@ export type {
 	AgentReviewTrackRecord,
 	AgentVerdictEntry,
 } from "./agent-profile.js";
-export type { AgentRoleCatalogEntry } from "./agent-roles.js";
-export {
-	AGENT_ROLE_CATALOG,
-	communityForRole,
-	defaultRoster,
-	findRoleCatalogEntry,
-	roleLabel,
-	TEAM_FUNCTIONS,
-} from "./agent-roles.js";
+export { roleLabel } from "./agent-roles.js";
 // HealthSignalInput, computeHealthSignals, deriveHealthLevel, deriveHealthDetail
 // moved to layers/core-ui/src/hooks/agent-health.ts (AU44 batch 8).
 export type {
@@ -51,6 +43,7 @@ export type {
 	ConfigurationOrigin,
 	ConfigurationOriginType,
 	ConfigurationValueSource,
+	PluginContributionKind,
 	PluginScopeKind,
 	PluginState,
 	ResolvedConfigurationItem,
@@ -58,6 +51,7 @@ export type {
 export {
 	BUILTIN_PLUGIN_ID,
 	CONFIGURATION_KINDS,
+	PLUGIN_CONTRIBUTION_KINDS,
 	PLUGIN_SCOPE_KINDS,
 	PLUGIN_STATES,
 } from "./configuration.js";

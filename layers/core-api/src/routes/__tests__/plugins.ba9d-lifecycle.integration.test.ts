@@ -5,8 +5,14 @@
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { knowledgeItems, routines, users } from "@hyperidle/db";
-import { and, eq } from "drizzle-orm";
+import {
+	type HyperIdleDb,
+	knowledgeItems,
+	pluginContributions,
+	routines,
+	users,
+} from "@hyperidle/db";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Hono } from "hono";
 import { afterEach, describe, expect } from "vitest";
 import { test } from "../../__testing__/test-fixtures.js";
@@ -51,17 +57,35 @@ async function installKmPlugin(app: Hono): Promise<void> {
 	}
 }
 
+/** What the plugin contributed — the registry is the only answer now. */
+async function contributed(
+	db: HyperIdleDb,
+	kind: "agent" | "routine" | "knowledge",
+): Promise<readonly string[]> {
+	const rows = await db
+		.select({ entityId: pluginContributions.entityId })
+		.from(pluginContributions)
+		.where(and(eq(pluginContributions.pluginId, PLUGIN_ID), eq(pluginContributions.kind, kind)));
+	return rows.map((r) => r.entityId);
+}
+
 describe("BA9d lifecycle: install materialises pluginId on rows", () => {
 	test("after install: routines and agent have pluginId set and are active", async ({
 		db,
 		app,
 	}) => {
 		await installKmPlugin(app);
-		const routineRows = await db.select().from(routines).where(eq(routines.pluginId, PLUGIN_ID));
+		const routineRows = await db
+			.select()
+			.from(routines)
+			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
 		expect(routineRows.length).toBeGreaterThan(0);
 		expect(routineRows.every((r) => r.active)).toBe(true);
 		expect(routineRows.every((r) => r.deletedAt === null)).toBe(true);
-		const agentRows = await db.select().from(users).where(eq(users.pluginId, PLUGIN_ID));
+		const agentRows = await db
+			.select()
+			.from(users)
+			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		expect(agentRows.length).toBeGreaterThan(0);
 		expect(agentRows.every((r) => r.status === "active")).toBe(true);
 	});
@@ -75,10 +99,16 @@ describe("BA9d lifecycle: disable deactivates materialised rows", () => {
 			headers: auth(),
 		});
 		expect(res.status).toBe(200);
-		const routineRows = await db.select().from(routines).where(eq(routines.pluginId, PLUGIN_ID));
+		const routineRows = await db
+			.select()
+			.from(routines)
+			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
 		expect(routineRows.length).toBeGreaterThan(0);
 		expect(routineRows.every((r) => !r.active)).toBe(true);
-		const agentRows = await db.select().from(users).where(eq(users.pluginId, PLUGIN_ID));
+		const agentRows = await db
+			.select()
+			.from(users)
+			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		expect(agentRows.length).toBeGreaterThan(0);
 		expect(agentRows.every((r) => r.status === "inactive")).toBe(true);
 	});
@@ -111,10 +141,16 @@ describe("BA9d lifecycle: enable reactivates materialised rows", () => {
 			headers: auth(),
 		});
 		expect(res.status).toBe(200);
-		const routineRows = await db.select().from(routines).where(eq(routines.pluginId, PLUGIN_ID));
+		const routineRows = await db
+			.select()
+			.from(routines)
+			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
 		expect(routineRows.length).toBeGreaterThan(0);
 		expect(routineRows.every((r) => r.active)).toBe(true);
-		const agentRows = await db.select().from(users).where(eq(users.pluginId, PLUGIN_ID));
+		const agentRows = await db
+			.select()
+			.from(users)
+			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		expect(agentRows.length).toBeGreaterThan(0);
 		expect(agentRows.every((r) => r.status === "active")).toBe(true);
 	});
@@ -128,11 +164,17 @@ describe("BA9d lifecycle: remove soft-deletes materialised rows", () => {
 			headers: auth(),
 		});
 		expect(res.status).toBe(200);
-		const routineRows = await db.select().from(routines).where(eq(routines.pluginId, PLUGIN_ID));
+		const routineRows = await db
+			.select()
+			.from(routines)
+			.where(inArray(routines.id, [...(await contributed(db, "routine"))]));
 		expect(routineRows.length).toBeGreaterThan(0);
 		expect(routineRows.every((r) => !r.active)).toBe(true);
 		expect(routineRows.every((r) => r.deletedAt !== null)).toBe(true);
-		const agentRows = await db.select().from(users).where(eq(users.pluginId, PLUGIN_ID));
+		const agentRows = await db
+			.select()
+			.from(users)
+			.where(inArray(users.id, [...(await contributed(db, "agent"))]));
 		expect(agentRows.length).toBeGreaterThan(0);
 		expect(agentRows.every((r) => r.status === "inactive")).toBe(true);
 	});

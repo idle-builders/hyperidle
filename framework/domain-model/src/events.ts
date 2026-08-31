@@ -516,7 +516,6 @@ export interface TeamCreatedEvent {
 	streamId: string;
 	teamId: string;
 	teamMembersId: string;
-	functions: readonly string[];
 	/** Ids of every agent users row created for this team (real ids, post-persist). */
 	agentIds: readonly string[];
 	at: string;

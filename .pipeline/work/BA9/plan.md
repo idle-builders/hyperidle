@@ -318,6 +318,32 @@ restores those. So a reinstall of a disabled plugin yields a plugin that reports
 agent and dead routines. Pre-existing; the ownership registry is where the lifecycle becomes one
 operation instead of three that can disagree.
 
+## BA9g: `${PLUGIN_ROOT}` stays at session time (2026-08-30)
+
+The batch listed "`mergePluginMcpContributions` expands `${PLUGIN_ROOT}`/
+`${PLUGIN_DATA}` at session-provisioning time; that moves to install." It does
+not move, and the item was aimed at the wrong thing.
+
+Expansion **never ran at all** in production. `pluginsBaseDir` was set by nothing
+but a test fixture — `app.ts` documented it as "production wiring passes the
+platform config dir" and no Application ever did — so `plugins.install_path` was
+null on every real install, and the merge skips any plugin without one. A
+plugin's MCP servers never reached a session. Restore was dead for the same
+reason. Both Applications wire it now; that was the actual bug.
+
+Expansion stays where it is, because moving it would store an absolute machine
+path in `default_value_json`, and `defaultVersionHash` is a hash of that value.
+That hash exists to answer "did the plugin's shipped default change"; baking a
+machine path in makes it answer "did the plugin change, or did the app move",
+and the UI surfaces it. It also goes stale on any userData relocation or
+restore-from-backup with no reinstall to fix it. Session-time expansion has one
+failure mode — the path must be right now, which it is.
+
+(The tempting argument that remote workers on other machines need per-machine
+expansion is WRONG and was checked: the provisioner runs wherever
+`agent-orchestration` boots, which is the server that installed the plugin. A
+remote worker holds only a harness adapter.)
+
 ## What refinement established, and what it got wrong
 
 Refinement plus an independent critique corrected five claims in the original plan. Each was

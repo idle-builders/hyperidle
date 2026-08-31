@@ -12,6 +12,12 @@
  * Found on the packaged app: a normal team agent ran with a sandbox holding one
  * knowledge file and no `.claude/skills` — with three factory-scoped skills
  * sitting in the database, all `archived`.
+ *
+ * @lore BA9g: "its agent and routines came back" was NOT true when this was
+ * written — `insertUserIfAbsent` and `insertRoutine(onConflictDoNothing)` are
+ * both no-ops on an existing row, so they stayed dead while the plugin reported
+ * `enabled`. Skills were the only thing a reinstall revived. It is true now:
+ * one lifecycle brings everything the plugin contributed back.
  */
 import { type HyperIdleDb, knowledgeItems } from "@hyperidle/db";
 import { describe, expect, test } from "@hyperidle/db/test-fixtures";

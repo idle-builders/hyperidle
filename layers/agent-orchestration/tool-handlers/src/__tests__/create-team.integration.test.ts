@@ -62,7 +62,6 @@ const ports: ToolHandlersPorts = {
 				id: input.id,
 				name: input.name,
 				phase: input.phase,
-				functions: input.functions,
 				factoryDbPath: input.factoryDbPath,
 				createdAt: input.createdAt,
 				capacity: 5,

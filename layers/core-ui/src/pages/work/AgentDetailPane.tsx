@@ -12,7 +12,7 @@
  */
 
 import type { RosterMember } from "@hyperidle/domain-model";
-import { findRoleCatalogEntry, MODEL_TIERS } from "@hyperidle/domain-model";
+import { roleLabel as deriveRoleLabel, MODEL_TIERS } from "@hyperidle/domain-model";
 import { type JSX, useCallback, useEffect, useState } from "react";
 import { Link as RRLink } from "react-router-dom";
 // hearth-internal-padding
@@ -106,9 +106,10 @@ export function AgentDetailPane({
 	}, [agent, formValues, onSaved, onClose, showToast]);
 
 	const role = rosterMember?.role ?? agent?.role ?? "";
-	const catalogEntry = findRoleCatalogEntry(role);
-	const roleLabel = catalogEntry?.label ?? role;
-	const roleDescription = catalogEntry?.description ?? role;
+	const roleLabel = deriveRoleLabel(role);
+	// @lore BA9g: the catalog's description went with the catalog — an agent's
+	// identity document says what it is for, not a sentence about its role.
+	const roleDescription = roleLabel;
 	// @lore BA9d D5: strategy category removed — isStrategy deleted.
 	const agentName = rosterMember?.name ?? agent?.name ?? "";
 	const initials = deriveInitials(agentName);
