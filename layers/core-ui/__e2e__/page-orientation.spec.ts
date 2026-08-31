@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Locator, Page, Route } from "@playwright/test";
 import { REVIEW_COMPOSITION_SUBJECT } from "../src/pages/review/__fixtures__/review-composition.fixture.js";
-import { expect, test } from "./fixtures";
+import { expect, makeTask, mockTaskTree, test } from "./fixtures";
 
 const EVIDENCE = resolve(process.cwd(), "test-results/page-orientation");
 const TASK_TITLE =
@@ -83,6 +83,9 @@ test.beforeEach(async ({ page }) => {
 		fulfillJson(route, { threads: [], nextCursor: null }),
 	);
 	await page.route("**/api/sessions*", (route) => fulfillJson(route, { sessions: [] }));
+	// @lore BB1: the task page is reached at /work/task/:taskId now — there is no
+	// bet segment in front of it — and it loads GET /api/tasks/:id/tree.
+	await mockTaskTree(page, { task: makeTask("task-orientation", { title: TASK_TITLE }) });
 });
 
 for (const viewport of [
@@ -96,7 +99,7 @@ for (const viewport of [
 		await proveHeader(page, `artifact-${viewport.name}.png`, ARTIFACT_TITLE);
 		await expect(page.locator("[data-ds-component='ArtifactPreview']")).toContainText(TASK_TITLE);
 		await expect(page.locator("[data-ds-component='ArtifactPreviewSurface'] h1")).toHaveCount(0);
-		await page.goto("/work/task/bet-orientation/task/task-orientation");
+		await page.goto("/work/task/task-orientation");
 		await proveHeader(page, `task-${viewport.name}.png`, TASK_TITLE);
 		await expect(page.getByTestId("nav-history-cluster")).toHaveCount(viewport.width > 768 ? 1 : 0);
 	});

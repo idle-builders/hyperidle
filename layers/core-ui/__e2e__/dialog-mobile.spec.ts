@@ -22,12 +22,69 @@ import { expect, test } from "./fixtures";
 const VIEWPORT_MOBILE = { width: 375, height: 667 };
 const KNOWLEDGE_ID = "k-mobile-dialog-test";
 
+function makeKnowledge() {
+	return {
+		id: KNOWLEDGE_ID,
+		title: "Mobile knowledge item",
+		body: "# Test\n\nContent.",
+		format: "markdown",
+		status: "active",
+		version: 1,
+		updatedBy: "tester",
+		scopeKind: "team",
+		scopeId: null,
+		topic: null,
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+		kind: "note",
+		layer: "team",
+	};
+}
+
+/**
+ * Assert that the dialog box (sheet) is bottom-anchored:
+ *   - box.bottom is within 20px of viewport height
+ *   - box.top > 0 (not fullscreen)
+ *   - box.width <= viewport width (no overflow)
+ */
+async function assertBottomAnchored(
+	page: import("@playwright/test").Page,
+	viewportHeight: number,
+): Promise<void> {
+	const box = await page.evaluate((_vh) => {
+		// Find the dialog box — it may be marked by data-dialog-box or role="dialog"
+		const el =
+			(document.querySelector("[data-dialog-box]") as HTMLElement) ??
+			(document.querySelector("[role='dialog']") as HTMLElement);
+		if (!el) return null;
+		const rect = el.getBoundingClientRect();
+		return {
+			top: rect.top,
+			bottom: rect.bottom,
+			left: rect.left,
+			right: rect.right,
+			width: rect.width,
+			scrollWidth: el.scrollWidth,
+			clientWidth: el.clientWidth,
+		};
+	}, viewportHeight);
+
+	expect(box, "Dialog box must exist in the DOM").not.toBeNull();
+	// No horizontal overflow
+	expect(box!.scrollWidth, "No horizontal overflow on mobile dialog").toBeLessThanOrEqual(
+		box!.clientWidth + 1, // 1px tolerance for border-box rounding
+	);
+	// Bottom-anchored: box bottom within 20px of viewport bottom
+	expect(box!.bottom, "Dialog sheet bottom ≈ viewport height (bottom-anchored)").toBeGreaterThan(
+		viewportHeight - 20,
+	);
+	// Not fullscreen: top must be > 0
+	expect(box!.top, "Dialog sheet top > 0 (not fullscreen takeover)").toBeGreaterThan(0);
+}
+
 test.describe("AI2 — Mobile bottom-sheet at 375px (AC-4)", () => {
 	test.use({ viewport: VIEWPORT_MOBILE });
 
-	// AG3: BetCreateDialog deleted — bet creation is now a full-page route at /work/task/new.
-	// The mobile bottom-sheet test for BetCreate no longer applies.
-	// Skipped — mobile behavior for bet create is now tested in AG3-bet-authoring.spec.ts.
 	test("ScopeChangeDialog — 375px: no horizontal overflow, bottom-anchored sheet", async ({
 		page,
 	}) => {

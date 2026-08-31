@@ -218,8 +218,41 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 	test("modal Dialog (--z-dialog=60) stacks above NotificationPopover (--z-overlay=40)", async ({
 		page,
 	}) => {
-		// Need the WorkBet route for the kill-bet dialog (ConsequencePreviewDialog).
-		const BET_ID = "bet-dialog-layer-test";
+		// @lore BB1: this opened the kill-bet ConsequencePreviewDialog through the
+		// WorkBet overflow menu. Both are deleted — no production component emits
+		// data-bet-action any more — so the modal comes from ScopeChangeDialog on
+		// knowledge detail instead. The assertion is about the z-index SCALE, not
+		// about which dialog opened, so any real modal proves the same contract.
+		const KNOWLEDGE_ID = "k-dialog-layer-test";
+		await page.route(`**/api/knowledge/${KNOWLEDGE_ID}`, (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({
+					id: KNOWLEDGE_ID,
+					title: "Layering knowledge item",
+					body: "# Test\n\nContent.",
+					format: "markdown",
+					status: "active",
+					version: 1,
+					updatedBy: "tester",
+					scopeKind: "team",
+					scopeId: null,
+					topic: null,
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					kind: "note",
+					layer: "team",
+				}),
+			}),
+		);
+		await page.route("**/api/knowledge/triage-count", (route) =>
+			route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ count: 0 }),
+			}),
+		);
 		await page.route("**/api/artifacts**", (route) =>
 			route.fulfill({
 				status: 200,
@@ -228,26 +261,19 @@ test.describe("AI2 — overlay z-layer ordering (AC-3 runtime)", () => {
 			}),
 		);
 
-		await page.goto(`/work/task/${BET_ID}`);
+		await page.goto(`/knowledge/${KNOWLEDGE_ID}`);
+		await expect(page.locator("[data-testid='knowledge-detail-page']")).toBeVisible();
 
-		// @lore AI2: wait for success state via overflow button (not task-detail-page testid
-		// which appears in loading/error states). Matches pattern from dialog-dismissal.spec.ts.
-		const overflowBtn = page.locator("[data-testid='bet-overflow-btn']");
-		await expect(
-			overflowBtn,
-			"bet-overflow-btn must be visible — WorkBet success state must render",
-		).toBeVisible({ timeout: 15000 });
+		await page.getByRole("button", { name: /more options/i }).click();
+		const changeScope = page.locator("[data-testid='knowledge-change-scope']");
+		await expect(changeScope, "Change scope item must appear in the overflow menu").toBeVisible();
+		await changeScope.click();
 
-		// Wait for network to settle before interacting (prevents re-render detach)
-		await page.waitForLoadState("networkidle");
-		await overflowBtn.first().click();
-		const killItem = page.locator("[data-bet-action='kill']");
-		await expect(killItem, "Kill dropdown item must appear").toBeVisible();
-		await killItem.click();
+		await expect(page.getByRole("dialog")).toBeVisible();
 
 		const dialogZ = await computedZIndex(page, "[data-dialog-layer='dialog']");
-		// A dialog (60) must be higher than overlay (40) — even if no overlay is open,
-		// we assert the raw z-value satisfies the scale contract.
+		// A dialog (60) must outrank an overlay (40) — assert the raw z-value
+		// satisfies the scale contract even when no overlay is open.
 		expect(dialogZ).toBeGreaterThanOrEqual(60);
 	});
 });

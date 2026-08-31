@@ -51,13 +51,16 @@ test.describe("Global Search", () => {
 				contentType: "application/json",
 				body: JSON.stringify({
 					conversations: [],
+					// @lore BB1: WorkResult is { id, title, team, state } now. It was
+					// { id, title, product, status, appetite } — bet vocabulary. A row in
+					// the old shape is DROPPED by the parser, so the panel rendered an
+					// empty result list rather than failing on the shape.
 					work: [
 						{
-							id: "b99",
+							id: "t99",
 							title: "E2E Work Result",
-							product: "HyperIdle",
-							status: "active",
-							appetite: "2 weeks",
+							team: "HyperIdle",
+							state: "in_progress",
 						},
 					],
 					knowledge: [],
@@ -77,7 +80,7 @@ test.describe("Global Search", () => {
 		});
 		await expect(page.getByText("E2E Work Result")).toBeVisible();
 		await page.getByRole("button", { name: /E2E Work Result/ }).dispatchEvent("click");
-		await expect(page).toHaveURL(/\/work\/bet\/b99$/);
+		await expect(page).toHaveURL(/\/work\/task\/t99$/);
 		await expect(page.getByRole("dialog")).toHaveCount(0);
 		await page.goBack();
 		await expect(page).toHaveURL(originUrl);

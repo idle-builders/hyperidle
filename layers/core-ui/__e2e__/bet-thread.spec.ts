@@ -11,29 +11,15 @@ const NOW = "2026-05-05T09:00:00.000Z";
 const LATER = "2026-05-05T09:05:00.000Z";
 const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-bet-001";
-const BET_ID = "bet-thread-test";
-
-function makeBetResponse() {
-	return {
-		id: BET_ID,
-		title: "Auth Flow Bet",
-		product: "Alpha",
-		team: "Alpha Core",
-		status: "in_progress",
-		tokensActual: null,
-		progress: { done: 2, total: 5 },
-		description: "# Problem\n\nThis bet has a discussion thread.\n",
-		tasks: [],
-	};
-}
+const ROOT_TASK_ID = "task-thread-test";
 
 function makeThreadListResponse() {
 	return {
 		threads: [
 			{
 				id: THREAD_ID,
-				hostKind: "bet",
-				hostId: BET_ID,
+				hostKind: "task",
+				hostId: ROOT_TASK_ID,
 				initiatorId: FOUNDER_ID,
 				participants: [FOUNDER_ID],
 				pinned: false,
@@ -51,8 +37,8 @@ function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
 	return {
 		thread: {
 			id: THREAD_ID,
-			hostKind: "bet",
-			hostId: BET_ID,
+			hostKind: "task",
+			hostId: ROOT_TASK_ID,
 			initiatorId: FOUNDER_ID,
 			participants: [FOUNDER_ID],
 			pinned: false,
@@ -66,8 +52,8 @@ function makeThreadDetailResponse(messages: Array<Record<string, unknown>>) {
 	};
 }
 
-test.describe("L18 — Bet detail thread surface", () => {
-	test("thread surface shows on bet detail; post a comment; reload; message persists", async ({
+test.describe("L18 — Task detail thread surface", () => {
+	test("thread surface shows on task detail; post a comment; reload; message persists", async ({
 		page,
 	}) => {
 		const postedMessages: Array<Record<string, unknown>> = [];
@@ -76,8 +62,8 @@ test.describe("L18 — Bet detail thread surface", () => {
 
 		// Mock /api/bets/:id
 
-		// Mock GET /api/threads?host_kind=bet&host_id=...
-		await page.route(`**/api/threads?**host_kind=bet**`, async (route) => {
+		// Mock GET /api/threads?host_kind=task&host_id=...
+		await page.route(`**/api/threads?**host_kind=task**`, async (route) => {
 			await route.fulfill({
 				status: 200,
 				contentType: "application/json",
@@ -128,7 +114,7 @@ test.describe("L18 — Bet detail thread surface", () => {
 			}
 		});
 
-		await page.goto(`/work/task/${BET_ID}`);
+		await page.goto(`/work/task/${ROOT_TASK_ID}`);
 
 		// Thread surface should be visible
 		await expect(page.getByTestId("host-thread-section")).toBeVisible();

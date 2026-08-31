@@ -364,12 +364,11 @@ interface RouteCase {
 	setup: (page: Page) => Promise<void>;
 }
 
-const BET_ID = "bet-az2";
-const TASK_ID = "task-az2";
-const ROUTINE_ID = "routine-az2";
+const ROOT_TASK_ID = "task-az2";
 const AGENT_ID = "agent-az2";
 const KNOWLEDGE_ID = "knowledge-az2";
 const THREAD_ID = "thread-az2";
+const ROUTINE_ID = "routine-az2";
 
 async function mockDefaultThreads(page: Page): Promise<void> {
 	await page.route("**/api/threads?**", async (route: Route) => {
@@ -402,26 +401,13 @@ const ROUTES: readonly RouteCase[] = [
 		},
 	},
 	{
-		name: "work-bet",
-		url: `/work/task/${BET_ID}`,
-		readySelector: "[data-testid='task-detail-page']",
-		setup: async (page) => {
-			await mockDefaultThreads(page);
-		},
-	},
-	{
+		// @lore BB1: was two rows, "work-bet" and "work-task" — a bet page and the
+		// task page nested under it. They are the same page now, so this is one row.
 		name: "work-task",
-		url: `/work/task/${BET_ID}/task/${TASK_ID}`,
+		url: `/work/task/${ROOT_TASK_ID}`,
 		readySelector: "[data-testid='task-detail-page']",
 		setup: async (page) => {
 			await mockDefaultThreads(page);
-			await page.route("**/api/sessions*", async (route: Route) => {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({ sessions: [] }),
-				});
-			});
 		},
 	},
 	{
@@ -548,9 +534,9 @@ const ROUTES: readonly RouteCase[] = [
 		setup: async () => undefined,
 	},
 	{
-		name: "work-bet-create",
+		name: "work-task-create",
 		url: "/work/task/new",
-		readySelector: "[data-testid='bet-create-page']",
+		readySelector: "[data-testid='task-create-page']",
 		setup: async (page) => {
 			await page.route("**/api/teams", async (route: Route) => {
 				await route.fulfill({
@@ -579,7 +565,7 @@ const ROUTES: readonly RouteCase[] = [
 					status: 200,
 					contentType: "application/json",
 					body: JSON.stringify({
-						thread: { id: THREAD_ID, hostKind: "bet", hostId: BET_ID },
+						thread: { id: THREAD_ID, hostKind: "bet", hostId: ROOT_TASK_ID },
 						messages: [],
 						headMessageId: null,
 						identities: {},

@@ -54,40 +54,6 @@ const TEAMS_FIXTURE = {
 	],
 };
 
-const BETS_FIXTURE = {
-	draft: [
-		{
-			id: "bet-u11-draft",
-			title: "Hearth Design System",
-			teamId: "team-u11-1",
-			description: "Implement the Hearth warm-earth design language across all surfaces.",
-			status: "draft",
-			atRisk: false,
-		},
-	],
-	active: [
-		{
-			id: "bet-u11-active",
-			title: "Auth Migration",
-			teamId: "team-u11-2",
-			description: "Migrate auth to JWT with refresh tokens.",
-			status: "active",
-			atRisk: false,
-		},
-	],
-	completed: [
-		{
-			id: "bet-u11-completed",
-			title: "Onboarding Flow",
-			teamId: "team-u11-1",
-			description: "First-run setup journey.",
-			status: "completed",
-			atRisk: false,
-		},
-	],
-	killed: [],
-};
-
 const THREADS_FIXTURE = {
 	threads: [
 		{
@@ -147,37 +113,6 @@ const MESSAGES_FIXTURE = {
 		},
 	],
 	nextCursor: null,
-};
-
-const BET_DETAIL_FIXTURE = {
-	id: "bet-u11-active",
-	title: "Auth Migration",
-	teamId: "team-u11-2",
-	description: "**Migrate auth** to JWT with refresh tokens.",
-	status: "active",
-	atRisk: false,
-	tokensActual: null,
-	progress: { done: 1, total: 3 },
-	tasks: [
-		{
-			id: "task-u11-1",
-			title: "Design token schema",
-			status: "done",
-			assigneeId: "agent-lead",
-		},
-		{
-			id: "task-u11-2",
-			title: "Implement refresh rotation",
-			status: "in_progress",
-			assigneeId: "agent-lead",
-		},
-		{
-			id: "task-u11-3",
-			title: "Update session middleware",
-			status: "todo",
-			assigneeId: null,
-		},
-	],
 };
 
 const TEAM_DETAIL_FIXTURE = {

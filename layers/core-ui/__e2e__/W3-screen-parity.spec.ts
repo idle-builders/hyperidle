@@ -21,7 +21,6 @@ const TEAMS_FIXTURE = {
 	teams: [{ id: "t1", name: "Alpha Core", phase: "build", active: true }],
 };
 const THREADS_FIXTURE = { threads: [], nextCursor: null };
-const BETS_FIXTURE = { bets: [] };
 const KNOWLEDGE_FIXTURE = { items: [] };
 
 test.describe("W3 AC-57 — Max-width centering across all screens", () => {

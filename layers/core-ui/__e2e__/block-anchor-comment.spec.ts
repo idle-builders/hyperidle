@@ -14,21 +14,6 @@ const FOUNDER_ID = "u-founder";
 const THREAD_ID = "t-bet-anchor";
 const BET_ID = "bet-anchor-test";
 
-function makeBetResponse() {
-	return {
-		id: BET_ID,
-		title: "Block Anchor Test Bet",
-		product: "Alpha",
-		team: "Alpha Core",
-		status: "in_progress",
-		tokensActual: null,
-		progress: { done: 0, total: 1 },
-		description:
-			"# Problem\n\nThis paragraph block will receive an anchored comment.\n\n## Solution\n\nAnother block here.",
-		tasks: [],
-	};
-}
-
 function makeThreadListResponse() {
 	return { threads: [], nextCursor: null };
 }

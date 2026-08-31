@@ -46,18 +46,6 @@ const COACH_THREAD_FIXTURE = {
 	},
 };
 
-const BET_FIXTURE = {
-	id: BET_ID,
-	title: "Daily Digest",
-	product: "Acme",
-	team: "Alpha Core",
-	status: "draft",
-	tokensActual: null,
-	progress: { done: 0, total: 1 },
-	description: "A bet about daily digest.",
-	tasks: [],
-};
-
 const THREADS_LIST_FIXTURE = {
 	threads: [
 		{
@@ -149,26 +137,6 @@ async function setupApiMocks(page: import("@playwright/test").Page): Promise<voi
 			return;
 		}
 
-		// GET /api/bets/:id/artifact-thread-summary
-		if (url.includes(`/api/bets/${BET_ID}/artifact-thread-summary`)) {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(null),
-			});
-			return;
-		}
-
-		// GET /api/bets/:id
-		if (url.includes(`/api/bets/${BET_ID}`)) {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify(BET_FIXTURE),
-			});
-			return;
-		}
-
 		// Unrecognized paths: fall through to auto-use fixture handlers
 		// @lore AD8a: historical — (auth/me, settings, rail [deleted], threads, products).
 		await route.fallback();
@@ -232,7 +200,7 @@ test.describe("L21 — CoC Overlay E2E", () => {
 		await expect(dialog.getByPlaceholder(/reply to thread/i)).toBeVisible();
 	});
 
-	test("AC-E4: user can add a bet as context — chip appears in overlay", async ({ page }) => {
+	test("AC-E4: user can add a task as context — chip appears in overlay", async ({ page }) => {
 		// Navigate to a bet page so a BetCard is visible in Main.
 		await page.goto(`/work/task/${BET_ID}`);
 

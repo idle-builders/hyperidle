@@ -37,31 +37,6 @@ const TEAMS_FIXTURE = {
 	],
 };
 
-const BETS_FIXTURE = {
-	draft: [
-		{
-			id: "bet-draft-1",
-			title: "Draft Bet Alpha",
-			teamId: "team-alpha",
-			description: "A draft bet for alpha team",
-			status: "draft",
-			atRisk: false,
-		},
-	],
-	active: [
-		{
-			id: "bet-active-1",
-			title: "Active Bet Beta",
-			teamId: "team-beta",
-			description: "An active bet for beta team",
-			status: "active",
-			atRisk: false,
-		},
-	],
-	completed: [],
-	killed: [],
-};
-
 const KNOWLEDGE_ITEMS_FIXTURE = {
 	items: [
 		{

@@ -43,7 +43,7 @@ function makeTask(state: string) {
 	};
 }
 
-function makeBetResponse(betStatus: string, taskState: string) {
+function _makeBetResponse(betStatus: string, taskState: string) {
 	return {
 		id: BET_ID,
 		title: "L20 Lifecycle Bet",

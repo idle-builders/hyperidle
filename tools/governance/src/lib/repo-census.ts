@@ -143,7 +143,19 @@ const NAME_DECLARED_SUFFIXES: readonly {
 		clause: "spec-suffix",
 		suffixes: [".spec.ts", ".spec.tsx"],
 		description: "a `.spec.ts(x)` file is a Playwright end-to-end spec",
-		minFiles: 84,
+		/**
+		 * @lore BB1: re-based 84 -> 82 after DELETING 10 e2e specs whose surfaces no
+		 * longer exist (the bet pages, their overflow menu and its dialogs, the
+		 * Canvas portfolio). This floor guards against the MEASUREMENT breaking —
+		 * "the tree moved and the pattern must be re-rooted" — not against the repo
+		 * legitimately having fewer specs, and it was checked in that spirit before
+		 * being moved: the pattern still matches every one of the 82 `.spec.ts`
+		 * files that exist, all of them under `layers/core-ui/__e2e__/`. Re-base
+		 * only with that check done and the deletion visible in the same diff;
+		 * a drop you cannot account for file-by-file is the bug this rule exists
+		 * to catch, and lowering the number would hide it.
+		 */
+		minFiles: 82,
 	},
 ];
 

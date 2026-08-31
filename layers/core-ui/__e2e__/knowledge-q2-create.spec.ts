@@ -40,7 +40,7 @@ const MOCK_KNOWLEDGE_USER_ITEM = {
 	updatedBy: "test-founder",
 };
 
-const MOCK_BET = {
+const _MOCK_BET = {
 	id: "bet-test-1",
 	title: "Auth flow bet",
 	product: "HyperIdle Core",

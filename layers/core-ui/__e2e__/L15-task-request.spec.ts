@@ -25,43 +25,6 @@ const BET_ID = "b1";
 
 const NOW = new Date().toISOString();
 
-function makeBetDetailResponse() {
-	return {
-		id: BET_ID,
-		title: "User auth flow",
-		product: "HyperIdle Core",
-		team: "Core Team",
-		status: "in_progress",
-		tokensActual: null,
-		progress: { done: 1, total: 2 },
-		description: "# Problem\n\nAuth needs work.\n",
-		tasks: [
-			{
-				id: TASK_ID,
-				betId: BET_ID,
-				title: "Implement login endpoint",
-				ownerAgentId: "agent-dev-1",
-				state: "in_progress",
-				latestSessionOutcome: null,
-				latestSessionTokensInput: null,
-				latestSessionTokensOutput: null,
-				latestSessionHarnessUrl: null,
-			},
-			{
-				id: "t2",
-				betId: BET_ID,
-				title: "Design signup form",
-				ownerAgentId: "agent-dev-2",
-				state: "accepted",
-				latestSessionOutcome: null,
-				latestSessionTokensInput: null,
-				latestSessionTokensOutput: null,
-				latestSessionHarnessUrl: null,
-			},
-		],
-	};
-}
-
 function makeThreadListResponse(threads: Array<{ id: string; hostId: string }>): object {
 	return {
 		threads: threads.map((t) => ({

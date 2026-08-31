@@ -44,49 +44,6 @@ const BET_1 = {
 	atRisk: false,
 };
 
-const BET_2 = {
-	id: "bet-r9-2",
-	title: "Dashboard redesign",
-	description: "# Problem\n\nDashboard needs a refresh.\n",
-	status: "draft" as const,
-	teamId: "team-r9-1",
-	atRisk: false,
-};
-
-const BET_DETAIL_1 = {
-	id: "bet-r9-1",
-	title: "Auth migration",
-	description: "# Problem\n\nWe need better auth.\n",
-	product: "HyperIdle Core",
-	team: "Alpha Core",
-	status: "active" as const,
-	tokensActual: null,
-	tokenAppetite: null,
-	progress: { done: 1, total: 3 },
-	tasks: [
-		{
-			id: "task-r9-1",
-			title: "Implement OAuth",
-			state: "ready",
-			owner: "test-founder",
-			latestSessionOutcome: null,
-			latestSessionHarnessUrl: null,
-			latestSessionModelTier: null,
-			ownerAgentId: null,
-		},
-		{
-			id: "task-r9-2",
-			title: "Add refresh tokens",
-			state: "done",
-			owner: "test-founder",
-			latestSessionOutcome: null,
-			latestSessionHarnessUrl: null,
-			latestSessionModelTier: null,
-			ownerAgentId: null,
-		},
-	],
-};
-
 const THREAD_1 = {
 	id: "thread-r9-1",
 	hostKind: "user",
@@ -659,7 +616,7 @@ test.describe("R9 — Setup page", () => {
 
 test.describe("R9 — Portfolio page", () => {
 	// portfolio-create-bet: "New bet" button visible + EmptyState CTA visible (AC-1, AC-2)
-	test("portfolio-create-bet: New bet btn-sm visible; empty state CTA visible", async ({
+	test("portfolio-create-task: New task btn-sm visible; empty state CTA visible", async ({
 		page,
 	}) => {
 		await seedEmpty(page);
@@ -678,58 +635,6 @@ test.describe("R9 — Portfolio page", () => {
 		// AC-2: CTA button inside EmptyState is visible and clickable
 		const ctaButton = emptyState.getByRole("button", { name: /new bet/i });
 		await expect(ctaButton).toBeVisible();
-	});
-
-	// portfolio-open-bet: Click first BetCard → URL matches /work/task/:id
-	test("portfolio-open-bet: clicking BetCard navigates to /work/task/:id", async ({ page }) => {
-		await seedFirstBet(page);
-		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-overview-page']");
-
-		// Bet grid should show the bet
-		const betGrid = page.getByTestId("bet-grid");
-		await expect(betGrid).toBeVisible();
-
-		// Click the bet card
-		await betGrid.getByText("Auth migration").click();
-
-		await expect(page).toHaveURL(new RegExp(`/work/task/${BET_1.id}`), { timeout: 5_000 });
-	});
-
-	// portfolio-filter-team: Click team pill → filtered bet grid shows matching bets
-	test("portfolio-filter-team: team pill filters bet grid", async ({ page }) => {
-		await seedActiveWork(page);
-
-		// Override teams so multiple teams exist for pill filters
-		await page.route("**/api/teams", async (route) => {
-			if (route.request().method() === "GET") {
-				await route.fulfill({
-					status: 200,
-					contentType: "application/json",
-					body: JSON.stringify({
-						teams: [
-							{ id: "team-r9-1", name: "Alpha Core", phase: "build", active: true },
-							{ id: "team-r9-2", name: "Beta Squad", phase: "build", active: true },
-						],
-					}),
-				});
-			} else {
-				await route.continue();
-			}
-		});
-
-		await page.goto("/work/portfolio");
-		await page.waitForSelector("[data-testid='work-overview-page']");
-
-		// Team pill filter group must be visible
-		const pillFilters = page.getByTestId("team-pill-filters");
-		await expect(pillFilters).toBeVisible();
-
-		// Click a team pill — activating a filter
-		await pillFilters.getByText("Alpha Core").click();
-
-		// The pill should become active (btn-primary class)
-		await expect(pillFilters.getByText("Alpha Core")).toHaveClass(/btn-primary/);
 	});
 });
 
@@ -779,7 +684,9 @@ test.describe("R9 — Team page", () => {
 
 	// team-open-bet: Click BetRow → URL matches /work/task/:id
 	// @lore R9: WorkTeam uses data-testid="team-active-tasks" (not "product-active-bets")
-	test("team-open-bet: clicking BetRow on team page navigates to bet detail", async ({ page }) => {
+	test("team-open-task: clicking BetRow on team page navigates to task detail", async ({
+		page,
+	}) => {
 		await seedFirstBet(page);
 		await page.goto(`/work/team/${BET_1.teamId}`);
 		await page.waitForSelector("[data-testid='work-team-page']");
@@ -827,7 +734,7 @@ test.describe("R9 — Team page", () => {
 // Bet (3 tests) — seedFirstBet
 // ---------------------------------------------------------------------------
 
-test.describe("R9 — Bet detail page", () => {
+test.describe("R9 — Task detail page", () => {
 	test.beforeEach(async ({ page }) => {
 		await seedFirstBet(page);
 
@@ -852,7 +759,7 @@ test.describe("R9 — Bet detail page", () => {
 	// onClick on table rows/cells because force-dispatched events bypass the pointer
 	// event chain that React's delegation relies on. Use page.evaluate() to fire a
 	// real bubbling click event through JS, which React's root listener intercepts.
-	test("bet-open-task: clicking task row opens task sheet", async ({ page }) => {
+	test("task-open-task: clicking task row opens task sheet", async ({ page }) => {
 		await page.goto(`/work/task/${BET_1.id}`);
 		await expect(page.getByTestId("task-detail-page")).toBeVisible();
 
@@ -871,7 +778,7 @@ test.describe("R9 — Bet detail page", () => {
 	});
 
 	// bet-post-discussion: Type in host thread composer + send → POST intercepted
-	test("bet-post-discussion: posting to host thread section intercepts POST", async ({ page }) => {
+	test("task-post-discussion: posting to host thread section intercepts POST", async ({ page }) => {
 		let postCalled = false;
 
 		// @lore R9: The beforeEach mock returns empty threads for **/api/threads?**.
@@ -942,51 +849,6 @@ test.describe("R9 — Bet detail page", () => {
 	// 2. useBetDescriptionSave/useAutoSave: unmountedRef.current reset to false in
 	//    effect setup so React 18 StrictMode double-invocation doesn't permanently
 	//    mark the hook as "unmounted" after cleanup+re-run.
-	test("bet-edit-description: editing description fires PATCH and shows saving indicator", async ({
-		page,
-	}) => {
-		// @lore R9: Intercept all thread requests to prevent 500 errors from threads API.
-		await page.route("**/api/threads**", async (route) => {
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ threads: [], nextCursor: null, thread: null }),
-			});
-		});
-
-		// @lore R9: GET falls through to seedFirstBet's GET handler via fallback().
-		// PATCH is captured via waitForRequest() at the network level.
-
-		await page.goto(`/work/task/${BET_1.id}`);
-		await expect(page.getByTestId("task-detail-page")).toBeVisible();
-
-		// BodyEditor is present for active bets
-		const editor = page.locator('[data-testid="bet-description-editor"]');
-		await expect(editor).toBeVisible({ timeout: 5_000 });
-
-		// @lore R9: .fill() silently no-ops on ProseMirror (not a form element); drive
-		// TipTap via keyboard input (pressSequentially). Start waitForRequest() BEFORE
-		// typing so the debounced PATCH (1500ms after last keystroke) is captured.
-		const contentEditable = editor.locator('[contenteditable="true"]').first();
-		await contentEditable.click();
-
-		// Start listening for the PATCH BEFORE typing (debounce 1500ms, budget 10s)
-		const patchPromise = page.waitForRequest(
-			(req) => req.url().includes(`/api/bets/${BET_1.id}`) && req.method() === "PATCH",
-			{ timeout: 10_000 },
-		);
-
-		await contentEditable.pressSequentially("Updated");
-
-		// Wait for the debounced PATCH to arrive (debounce=1500ms; 10s budget covers latency)
-		const patchRequest = await patchPromise;
-		const capturedPatchBody = JSON.parse(patchRequest.postData() ?? "{}") as Record<
-			string,
-			unknown
-		>;
-
-		expect(capturedPatchBody.field).toBe("description");
-	});
 });
 
 // ---------------------------------------------------------------------------

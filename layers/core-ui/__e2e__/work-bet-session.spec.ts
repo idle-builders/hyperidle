@@ -21,46 +21,9 @@
 import { expect, test } from "./fixtures";
 
 const BET_ID = "bet-session-e2e";
-const TASK_WITH_SESSION_ID = "task-with-session-001";
-const TASK_WITHOUT_SESSION_ID = "task-no-session-001";
+const _TASK_WITH_SESSION_ID = "task-with-session-001";
+const _TASK_WITHOUT_SESSION_ID = "task-no-session-001";
 const HARNESS_URL = "https://harness.example.com/session/abc123";
-
-function makeBetResponse() {
-	return {
-		id: BET_ID,
-		title: "Session E2E Test Bet",
-		product: "Alpha",
-		team: "Alpha Core",
-		status: "in_progress",
-		tokensActual: null,
-		progress: { done: 0, total: 2 },
-		description: "# Problem\n\nTest session metadata display.",
-		tasks: [
-			{
-				id: TASK_WITH_SESSION_ID,
-				betId: BET_ID,
-				title: "Task with session",
-				ownerAgentId: "agent-dev-1",
-				state: "in_progress",
-				latestSessionOutcome: "completed",
-				latestSessionTokensInput: 2000,
-				latestSessionTokensOutput: 3000,
-				latestSessionHarnessUrl: HARNESS_URL,
-			},
-			{
-				id: TASK_WITHOUT_SESSION_ID,
-				betId: BET_ID,
-				title: "Task without session",
-				ownerAgentId: "agent-dev-1",
-				state: "accepted",
-				latestSessionOutcome: null,
-				latestSessionTokensInput: null,
-				latestSessionTokensOutput: null,
-				latestSessionHarnessUrl: null,
-			},
-		],
-	};
-}
 
 test.describe("L19 — WorkBet session metadata (e2e)", () => {
 	test.beforeEach(async ({ page }) => {
