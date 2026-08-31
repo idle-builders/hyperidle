@@ -224,10 +224,34 @@ in `../BA2/harness-research/interception-*.md`.
 | **claude-code** 2.1.247 | `PreToolUse` command hook | `--settings` (file or inline JSON) + `--setting-sources user` — **nothing in the workspace, nothing in `~/.claude`** | `permissionDecision: "deny"`, or **`"defer"`** (see below) | `permissionDecisionReason`, verbatim |
 | **codex** 0.150.1 | `PreToolUse` hook **and** execpolicy `.rules` | `$CODEX_HOME/hooks.json` and `$CODEX_HOME/rules/*.rules` | hook: `permissionDecision: "deny"` or exit 2 + stderr · rules: `decision="forbidden"` | reason verbatim · rule `justification` |
 | **cursor-agent** 2026.08.25 | `preToolUse` command hook | `<sandbox>/.cursor/hooks.json` (project level) | `{"permission":"deny","user_message":"…"}` | `user_message` (**`agent_message` is silently dropped on the CLI path**) |
-| **opencode** 1.18.x | `OPENCODE_PERMISSION` env var — **no plugin needed** | process env; JSON merged into resolved config | config `deny` | fixed prose + the matched rule pattern (the plugin route gives exact text, at the cost of a plugin) |
+| **opencode** 1.18.x | plugin hook `tool.execute.before` | `<sandbox>/.opencode/plugin/` — drop `--pure`, isolate with `XDG_CONFIG_HOME` | the handler **throws** | the thrown message, verbatim |
 
 codex's `PreToolUse` is **not** a Claude-ism: codex has deliberately adopted the Claude-compatible wire
 format. cursor and opencode have entirely their own vocabularies.
+
+**Why opencode uses its plugin and not `OPENCODE_PERMISSION`.** The env var is the simpler mechanism and
+the research recommended it, but it is the wrong shape for this design on two counts, and consistency
+across harnesses is worth more than saving a plugin file.
+
+`OPENCODE_PERMISSION` is **static JSON merged into the resolved config at process start**. It cannot ask
+anything. Every other harness gates through a hook that calls back to HyperIdle and lets **our** code
+decide — which is a standing decision of this plan, made because a config can only ever match a tool
+name. An env-var deny list would make opencode the one harness whose decisions are made somewhere else,
+by a weaker rule language, and it could never consult a rule that changed mid-session.
+
+It also cannot name the rule. On the env-var route the model hears fixed prose plus the matched pattern;
+on the plugin route the thrown message reaches the model **verbatim** — measured, with the model repeating
+our text back. Moment 2 of this plan requires a terse fact naming the rule, so the plugin is the only
+route that satisfies it.
+
+`OPENCODE_PERMISSION` keeps a role as a **fail-closed backstop** underneath the plugin, exactly as
+execpolicy `.rules` sits underneath codex's hook. Both harnesses then have the same two-layer shape: a
+dynamic hook that asks us, over a static layer that holds if the hook never loads.
+
+**The cost, recorded honestly:** the plugin route needs `--pure` dropped, and on first load opencode
+auto-provisions `package.json` and a full `node_modules/` into `<sandbox>/.opencode/` — measured at ~5s
+cold in a fresh sandbox, and it needs network. `XDG_CONFIG_HOME` replaces everything `--pure` was
+providing and more.
 
 ### What is true on every harness
 
@@ -241,6 +265,10 @@ format. cursor and opencode have entirely their own vocabularies.
   malformed JSON or timeout. cursor fails open unless `"failClosed": true` is set per entry. An opencode
   plugin that fails to load is fail-open, and its only signal is a stderr line the adapter currently
   discards. Every gate must be fail-closed by construction and proven so.
+- **Read the tool arguments from the right place.** In opencode's `tool.execute.before` the args are on
+  the **second** parameter (`output.args`); the first carries only `{ tool, sessionID, callID }`. The
+  existing implementation reads `input.input`, so the bridge always received `{}` and could never see the
+  command it was judging. A gate that cannot read the command silently allows everything.
 
 ### The one place a harness is better than the plan
 
