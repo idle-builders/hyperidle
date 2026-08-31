@@ -50,6 +50,7 @@ export function buildTestHarnessRuntimeAdapter(): RunOrchestrationHarnessRuntime
 			);
 		},
 		closeMcpBridge: async () => {},
+		releaseActionGate: () => undefined,
 	};
 }
 

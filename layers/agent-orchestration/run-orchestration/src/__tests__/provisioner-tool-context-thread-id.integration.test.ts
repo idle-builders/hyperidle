@@ -78,6 +78,7 @@ function buildHarnessPorts(captured: {
 			evaluateReturn: () => "returned" as const,
 			provisionReturnHook: async () => undefined,
 			provisionActionGate: async () => undefined,
+			releaseActionGate: () => undefined,
 			writeCliMcpConfig: neverCalled("harnessRuntime.writeCliMcpConfig"),
 			writePluginStdioMcpEntries: neverCalled("harnessRuntime.writePluginStdioMcpEntries"),
 			openMcpBridge: neverCalled("harnessRuntime.openMcpBridge"),

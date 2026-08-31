@@ -257,7 +257,7 @@ interface SessionLifecycleHarnessRuntime {
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
-		/** BA2 ruling 18: the session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
+		/** The session's mounted filesystems, so a harness with a trust precondition (codex) can declare them trusted alongside the sandbox. */
 		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 	/** @lore BA9b B2: write plugin stdio MCP entries in the harness's dialect. Dialect knowledge lives in cli-mcp-config.ts. */
@@ -297,6 +297,8 @@ interface SessionLifecycleHarnessRuntime {
 		registry: SessionLifecycleMcpBridgeRegistry | undefined,
 		token: string,
 	): Promise<void>;
+	/** Release the action gate store entry for a session — called at teardown alongside closeMcpBridge. */
+	releaseActionGate(sessionId: string): void;
 }
 
 interface SessionLifecycleMcpBridgeRegistry {
@@ -841,9 +843,9 @@ interface ProvisionSessionDeps {
 	 */
 	readonly pluginMcpContributions?: PluginMcpContributionsPort;
 	/**
-	 * BA2: Action rules resolver. Absent → no gate provisioned (ungated session).
-	 * When present, called at Phase 8b-gate to resolve the rules for this agent/team
-	 * and provision the harness's PreToolUse hook.
+	 * Action rules resolver for the action gate deny half. Absent → no gate provisioned
+	 * (ungated session). When present, called at Phase 8b-gate to resolve the rules for
+	 * this agent/team and provision the harness's PreToolUse hook.
 	 */
 	readonly actionRulesPort?: {
 		resolveFor(agentId: string, teamId?: string | null): Promise<readonly SessionActionRule[]>;
@@ -1512,7 +1514,7 @@ async function runSession(
 		fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpJsonConfig, null, 2), "utf-8");
 
 		if (adapterCapabilities.cliMcpDialect) {
-			// BA2 ruling 18: the session's mounted filesystems (AO2, phase 4.5
+			// The session's mounted filesystems (AO2, phase 4.5
 			// above) are the trusted directories — tell the harness what the
 			// filesystem primitive already declared, alongside the sandbox.
 			const trustedPaths = mountedFilesystems
@@ -1763,6 +1765,7 @@ async function runSession(
 	if (mcpBridgeToken) {
 		await ports.harnessRuntime.closeMcpBridge(mcpBridgeRegistry, mcpBridgeToken);
 	}
+	ports.harnessRuntime.releaseActionGate(sessionId);
 
 	function computeForceReturnCount(): number {
 		const registryEntry = ports.harnessRuntime.enforcementRegistry.get(sessionId);

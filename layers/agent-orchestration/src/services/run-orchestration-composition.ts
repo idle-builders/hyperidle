@@ -84,6 +84,20 @@ export type ProvisionSessionDeps = Pick<RuntimeInput, "db" | "eventBus" | "onHar
 	readonly adapterPool?: unknown;
 	readonly workspace?: unknown;
 	readonly pluginMcpContributions?: PluginMcpContributionsPort;
+	/**
+	 * Action rules resolver — threaded inline (not importing provisioner's
+	 * SessionActionRule) so the composition boundary stays clean. Structural
+	 * compatibility with provisioner.ts's ProvisionSessionDeps.actionRulesPort
+	 * is checked when the deps object is cast to RuntimeInput.
+	 */
+	readonly actionRulesPort?: {
+		resolveFor(
+			agentId: string,
+			teamId?: string | null,
+		): Promise<
+			readonly { readonly id: string; readonly pattern: string; readonly description: string }[]
+		>;
+	};
 };
 type SessionLifecycleToolContext = Parameters<typeof buildToolRegistryFromDefinitions>[1];
 type ToolRegistryOptions = Parameters<typeof buildToolRegistryFromDefinitions>[2];
@@ -167,6 +181,7 @@ export interface RunOrchestrationHarnessRuntimeAdapter {
 	readonly evaluateReturn: SessionLifecyclePorts["harnessRuntime"]["evaluateReturn"];
 	readonly provisionReturnHook: SessionLifecyclePorts["harnessRuntime"]["provisionReturnHook"];
 	readonly provisionActionGate: SessionLifecyclePorts["harnessRuntime"]["provisionActionGate"];
+	readonly releaseActionGate: SessionLifecyclePorts["harnessRuntime"]["releaseActionGate"];
 	readonly writeCliMcpConfig: SessionLifecyclePorts["harnessRuntime"]["writeCliMcpConfig"];
 	readonly writePluginStdioMcpEntries: SessionLifecyclePorts["harnessRuntime"]["writePluginStdioMcpEntries"];
 	openMcpBridge(session: {
@@ -193,6 +208,7 @@ function buildHarnessRuntime(
 		evaluateReturn: adapter.evaluateReturn,
 		provisionReturnHook: adapter.provisionReturnHook,
 		provisionActionGate: adapter.provisionActionGate,
+		releaseActionGate: adapter.releaseActionGate,
 		writeCliMcpConfig: adapter.writeCliMcpConfig,
 		writePluginStdioMcpEntries: adapter.writePluginStdioMcpEntries,
 		// The execution face already owns one bridge instance and one

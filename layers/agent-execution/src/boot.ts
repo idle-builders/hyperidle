@@ -116,7 +116,7 @@ export interface AgentExecutionHarnessRuntime {
 		readonly sandboxPath: string;
 		readonly mcpUrl: string;
 		readonly token: string;
-		/** BA2 ruling 18: the session's mounted filesystems — see `ProvisionOptions.trustedPaths`. */
+		/** The session's mounted filesystems — see `ProvisionOptions.trustedPaths`. */
 		readonly trustedPaths?: readonly string[];
 	}): Promise<{ readonly tokenEnv?: Record<string, string> }>;
 	/** @lore BA9b B2: plugin stdio MCP entries — dialect knowledge lives in cli-mcp-config.ts. */
@@ -141,6 +141,8 @@ export interface AgentExecutionHarnessRuntime {
 		readonly onToolCall?: (call: { toolName: string; args: unknown }) => void;
 	}): Promise<{ readonly token: string; readonly url: string }>;
 	closeMcpBridge(token: string): Promise<void>;
+	/** Release the action gate store entry for this session — call at teardown. */
+	releaseActionGate(sessionId: string): void;
 }
 
 /**
@@ -222,6 +224,7 @@ export async function bootAgentExecution(
 				onToolCall: session.onToolCall,
 			}),
 		closeMcpBridge: (token) => bridge.close(token),
+		releaseActionGate: (sessionId) => actionGateStore.delete(sessionId),
 	};
 
 	return {

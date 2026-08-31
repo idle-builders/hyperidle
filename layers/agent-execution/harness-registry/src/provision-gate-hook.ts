@@ -452,7 +452,7 @@ function buildOpencodeGatePlugin(bridgeToken: string, mcpUrl: string): string {
  * Bridge: ${mcpUrl}
  */
 
-export const HyperiIdleGate = async ({ directory }) => {
+export const HyperIdleGate = async ({ directory }) => {
   return {
     "tool.execute.before": async (input, output) => {
       const toolName = input.tool ?? "";
@@ -522,7 +522,7 @@ function buildPythonGateScript(
 	const allowEmitter =
 		harness === "cursor"
 			? `sys.stdout.write(json.dumps({"permission":"allow"}))`
-			: `# allow: no output needed (exit 0)`;
+			: "pass  # allow: no output, exit 0";
 
 	const fallbackReason = "HyperIdle action gate unavailable — denied by default.";
 

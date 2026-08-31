@@ -442,7 +442,7 @@ function extractClaudeResultMetrics(obj: Record<string, unknown>): {
 	// "cacheWriteTokens":9070}`. Without this fallback every cursor-agent
 	// session silently reports 0 input/output tokens regardless of real
 	// spend — the exact thing that made a real, reasoned model refusal look
-	// like "the prompt never arrived" in BA2's resumed-session investigation.
+	// like "the prompt never arrived" in a resumed-session investigation.
 	return {
 		durationMs: finiteNonNegative(obj.duration_ms),
 		apiDurationMs: finiteNonNegative(obj.duration_api_ms),
@@ -613,9 +613,16 @@ export class CliHarnessAdapter implements HarnessAdapter {
 		//
 		// @lore BA2: CODEX_HOME injection pattern; neither var is in envAllowlist.
 		if (this.config.binary === "opencode") {
+			// Always inject XDG_CONFIG_HOME for opencode — gated or not — to ensure
+			// the user's global ~/.config/opencode plugins/config cannot reach into
+			// the session. The xdg-config dir is created here when installActionGate
+			// did not already create it (ungated sessions).
 			const xdgConfigDir = path.join(config.sandboxPath, ".hyperidle", "opencode-xdg-config");
-			if (fs.existsSync(xdgConfigDir)) {
+			try {
+				fs.mkdirSync(xdgConfigDir, { recursive: true });
 				resolvedEnvMap.XDG_CONFIG_HOME = xdgConfigDir;
+			} catch {
+				// sandbox dir not yet created (test harness with fake path) — skip XDG isolation
 			}
 			const permissionFile = path.join(
 				config.sandboxPath,

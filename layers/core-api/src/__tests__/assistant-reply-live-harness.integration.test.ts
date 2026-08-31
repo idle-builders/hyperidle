@@ -115,6 +115,7 @@ function buildLiveHarnessRuntimeAdapter(
 			return { token, url: `${mcpBaseUrl}/api/mcp/${token}` };
 		},
 		closeMcpBridge: (token) => mcpBridgeRegistry.close(token),
+		releaseActionGate: () => undefined,
 	};
 }
 

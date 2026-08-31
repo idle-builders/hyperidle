@@ -27,7 +27,8 @@ async function postActionCheck(
 	opts: { auth?: string; body?: unknown } = {},
 ) {
 	const auth = opts.auth ?? `Bearer ${token}`;
-	const body = opts.body !== undefined ? JSON.stringify(opts.body) : JSON.stringify({ tool_name: "Write" });
+	const body =
+		opts.body !== undefined ? JSON.stringify(opts.body) : JSON.stringify({ tool_name: "Write" });
 	return router.request(`/mcp/${token}/action-check`, {
 		method: "POST",
 		headers: { Authorization: auth, "Content-Type": "application/json" },
@@ -59,7 +60,7 @@ describe("/mcp/:token/action-check route", () => {
 		const { token } = await bridge.open({ sessionId: "s-nogate", registry });
 		const res = await postActionCheck(bridge.router, token);
 		expect(res.status).toBe(200);
-		const body = await res.json() as { decision: string };
+		const body = (await res.json()) as { decision: string };
 		expect(body.decision).toBe("allow");
 	});
 
@@ -70,7 +71,7 @@ describe("/mcp/:token/action-check route", () => {
 		// No rules set for this session
 		const res = await postActionCheck(bridge.router, token, { body: { tool_name: "Write" } });
 		expect(res.status).toBe(200);
-		const body = await res.json() as { decision: string };
+		const body = (await res.json()) as { decision: string };
 		expect(body.decision).toBe("allow");
 	});
 
@@ -82,7 +83,7 @@ describe("/mcp/:token/action-check route", () => {
 
 		const res = await postActionCheck(bridge.router, token, { body: { tool_name: "Bash" } });
 		expect(res.status).toBe(200);
-		const body = await res.json() as { decision: string; reason?: string };
+		const body = (await res.json()) as { decision: string; reason?: string };
 		expect(body.decision).toBe("deny");
 		expect(body.reason).toBe("All tools require approval");
 	});
@@ -95,7 +96,7 @@ describe("/mcp/:token/action-check route", () => {
 
 		const res = await postActionCheck(bridge.router, token, { body: { tool_name: "Write" } });
 		expect(res.status).toBe(200);
-		const body = await res.json() as { decision: string };
+		const body = (await res.json()) as { decision: string };
 		expect(body.decision).toBe("allow");
 	});
 
@@ -110,7 +111,7 @@ describe("/mcp/:token/action-check route", () => {
 			body: "not-json{{{",
 		});
 		expect(res.status).toBe(200);
-		const body = await res.json() as { decision: string };
+		const body = (await res.json()) as { decision: string };
 		expect(body.decision).toBe("deny");
 	});
 

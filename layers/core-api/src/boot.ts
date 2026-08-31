@@ -54,7 +54,7 @@ import {
 } from "@hyperidle/credentials";
 
 import type { EventBus } from "@hyperidle/event-bus";
-import { getPluginMcpContributions } from "@hyperidle/settings";
+import { getPluginMcpContributions, resolveActionRules } from "@hyperidle/settings";
 import { createUpgradeTokenStore, listUsers, type UpgradeTokenStore } from "@hyperidle/users";
 import type { Hono } from "hono";
 import type { UpgradeWebSocket } from "hono/ws";
@@ -158,6 +158,26 @@ export interface CoreApiBoot {
 				readonly defaultValueJson: string;
 				readonly installPath: string | null;
 			}[]
+		>;
+	};
+	/**
+	 * Action rules port for the session action gate deny half.
+	 * Resolves the global + team + agent rules that apply to a given session.
+	 * Absent → no gate is provisioned (ungated session). Present whenever `db`
+	 * is provided. The Application threads this into
+	 * `runtimeSessionDeps.actionRulesPort`.
+	 *
+	 * Typed inline (not importing from @hyperidle/run-orchestration) so
+	 * core-api's boot stays boundary-clean. Structural compatibility with
+	 * ProvisionSessionDeps.actionRulesPort is checked at the assignment site
+	 * in create-server.ts.
+	 */
+	readonly actionRulesPort?: {
+		resolveFor(
+			agentId: string,
+			teamId?: string | null,
+		): Promise<
+			readonly { readonly id: string; readonly pattern: string; readonly description: string }[]
 		>;
 	};
 }
@@ -299,6 +319,10 @@ export async function bootCoreApi(options?: CoreApiBootOptions): Promise<CoreApi
 			? {
 					pluginMcpContributions: {
 						getContributions: (teamId: string | null) => getPluginMcpContributions(db, teamId),
+					},
+					actionRulesPort: {
+						resolveFor: (agentId: string, teamId?: string | null) =>
+							resolveActionRules(db, { agentId, teamId: teamId ?? null }),
 					},
 				}
 			: {}),

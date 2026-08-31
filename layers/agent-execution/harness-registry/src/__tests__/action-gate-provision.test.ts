@@ -13,11 +13,42 @@
  *   empty rules        → no-op (no files written for any channel)
  */
 
+import * as child_process from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { installActionGate } from "../provision-gate-hook.js";
+
+/**
+ * Run py_compile on a Python file. Throws if the file is not valid Python.
+ * This proves the gate script can actually be PARSED by Python — a string-grep
+ * that the word "except" appears is not enough (a comment-only else: block
+ * parses as IndentationError).
+ */
+function assertPythonValid(scriptPath: string): void {
+	const result = child_process.spawnSync("python3", ["-m", "py_compile", scriptPath], {
+		encoding: "utf-8",
+	});
+	if (result.status !== 0) {
+		throw new Error(`Python parse failed for ${scriptPath}:\n${result.stderr}`);
+	}
+}
+
+/**
+ * Run the gate script with no server running (network error) and assert it
+ * prints a deny JSON to stdout (fail-closed behavior).
+ */
+function assertPythonFailsClosed(scriptPath: string): void {
+	const result = child_process.spawnSync("python3", [scriptPath], {
+		input: JSON.stringify({ tool_name: "Write" }),
+		encoding: "utf-8",
+		timeout: 10_000,
+	});
+	expect(result.stdout, "gate script must write deny JSON to stdout on network error").toContain(
+		"deny",
+	);
+}
 
 const BRIDGE_TOKEN = "test-bridge-token-abc";
 const MCP_URL = "http://localhost:3001/api/mcp/test-bridge-token-abc";
@@ -73,7 +104,10 @@ describe("installActionGate", () => {
 			});
 			const settingsPath = path.join(sandboxPath, ".claude", "settings.json");
 			expect(fs.existsSync(settingsPath)).toBe(true);
-			const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+			const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8")) as Record<
+				string,
+				unknown
+			>;
 			expect(settings).toHaveProperty("hooks");
 			const hooks = settings.hooks as Record<string, unknown>;
 			expect(hooks).toHaveProperty("PreToolUse");
@@ -107,7 +141,7 @@ describe("installActionGate", () => {
 			expect(scriptContent).toContain("action-check");
 		});
 
-		it("gate-check.py has an exception handler that prints deny JSON (fail-closed)", async () => {
+		it("gate-check.py is valid Python and fails closed when the server is unreachable", async () => {
 			await installActionGate({
 				sandboxPath,
 				channel: "settings-claude",
@@ -115,13 +149,11 @@ describe("installActionGate", () => {
 				mcpUrl: MCP_URL,
 				rules,
 			});
-			const scriptContent = fs.readFileSync(
-				path.join(sandboxPath, ".claude", "gate-check.py"),
-				"utf-8",
-			);
-			// The fail-closed handler must print a deny decision on any exception.
-			expect(scriptContent).toContain("except");
-			expect(scriptContent).toContain("deny");
+			const scriptPath = path.join(sandboxPath, ".claude", "gate-check.py");
+			// Proves the script can be parsed — catches comment-only else: blocks.
+			assertPythonValid(scriptPath);
+			// Proves fail-closed: deny JSON on stdout when server is not running.
+			assertPythonFailsClosed(scriptPath);
 		});
 
 		it("merges PreToolUse into an existing settings.json without clobbering other keys", async () => {
@@ -234,14 +266,11 @@ describe("installActionGate", () => {
 				mcpUrl: MCP_URL,
 				rules,
 			});
-			const content = fs.readFileSync(
-				path.join(sandboxPath, ".cursor", "hooks.json"),
-				"utf-8",
-			);
+			const content = fs.readFileSync(path.join(sandboxPath, ".cursor", "hooks.json"), "utf-8");
 			expect(content).not.toContain('"matcher"');
 		});
 
-		it("writes .cursor/gate-check.py sidecar script with token and action-check URL", async () => {
+		it("writes .cursor/gate-check.py — valid Python, token present, fails closed", async () => {
 			await installActionGate({
 				sandboxPath,
 				channel: "settings-cursor",
@@ -249,15 +278,12 @@ describe("installActionGate", () => {
 				mcpUrl: MCP_URL,
 				rules,
 			});
-			const scriptContent = fs.readFileSync(
-				path.join(sandboxPath, ".cursor", "gate-check.py"),
-				"utf-8",
-			);
-			expect(scriptContent).toContain(BRIDGE_TOKEN);
-			expect(scriptContent).toContain("action-check");
-			// Fail-closed exception handler
-			expect(scriptContent).toContain("except");
-			expect(scriptContent).toContain("deny");
+			const scriptPath = path.join(sandboxPath, ".cursor", "gate-check.py");
+			const content = fs.readFileSync(scriptPath, "utf-8");
+			expect(content).toContain(BRIDGE_TOKEN);
+			expect(content).toContain("action-check");
+			assertPythonValid(scriptPath);
+			assertPythonFailsClosed(scriptPath);
 		});
 	});
 

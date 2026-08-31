@@ -17,7 +17,7 @@
  * migrateCredentialsToStore uses an inline type.
  */
 
-// -- action rules (BA2 — scoped items for agent action approval) --
+// -- action rules (scoped items for agent action approval) --
 export type {
 	ActionRule,
 	ActionRuleScope,
