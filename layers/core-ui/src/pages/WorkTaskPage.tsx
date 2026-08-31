@@ -78,18 +78,62 @@ const TASK_STATE_OPTIONS: { value: TaskState; label: string }[] = [
 	{ value: "killed", label: TASK_STATE_LABEL.killed },
 ];
 
+// ── Reorder arrow icons ─────────────────────────────────────────────────────
+//
+// 16×16 filled chevrons consistent with ds/Fold.tsx's icon style.
+// Paths are vertical mirrors of ICON_FOLD from Fold.tsx.
+
+const ICON_CHEVRON_UP = "M8 5.5L3.5 10l1 1L8 7.5 11.5 11l1-1L8 5.5z";
+const ICON_CHEVRON_DOWN = "M8 10.5L3.5 6l1-1L8 8.5 11.5 5l1 1L8 10.5z";
+
+function ChevronUpIcon(): JSX.Element {
+	return (
+		<svg
+			viewBox="0 0 16 16"
+			fill="currentColor"
+			aria-hidden="true"
+			style={{ width: 12, height: 12 }}
+			className="shrink-0"
+		>
+			<path d={ICON_CHEVRON_UP} />
+		</svg>
+	);
+}
+
+function ChevronDownIcon(): JSX.Element {
+	return (
+		<svg
+			viewBox="0 0 16 16"
+			fill="currentColor"
+			aria-hidden="true"
+			style={{ width: 12, height: 12 }}
+			className="shrink-0"
+		>
+			<path d={ICON_CHEVRON_DOWN} />
+		</svg>
+	);
+}
+
 // ── Recursive subtask tree ──────────────────────────────────────────────────
 
 /**
  * Renders a recursive list of subtask nodes at any depth.
  * Each leaf can expand further via the Add subtask affordance.
+ *
+ * @param onReorder - callback to PATCH position for a task within its sibling
+ *   list. Receives the task id and the target position (0-indexed). When
+ *   provided, each row shows move-up / move-down controls disabled at the
+ *   boundary siblings. Works at every depth — grandchildren reorder within
+ *   their own sibling list, not their parent's.
  */
 function SubtaskTree({
 	nodes,
 	depth = 0,
+	onReorder,
 }: {
 	nodes: TaskNode[];
 	depth?: number;
+	onReorder?: (taskId: string, newPosition: number) => void;
 }): JSX.Element {
 	if (nodes.length === 0) {
 		return (
@@ -102,9 +146,15 @@ function SubtaskTree({
 			className="flex flex-col gap-[6px]"
 			style={depth > 0 ? { paddingLeft: "18px" } : undefined}
 		>
-			{nodes.map((node) => (
+			{nodes.map((node, idx) => (
 				<li key={node.task.id}>
-					<SubtaskRow node={node} depth={depth} />
+					<SubtaskRow
+						node={node}
+						depth={depth}
+						index={idx}
+						totalSiblings={nodes.length}
+						onReorder={onReorder}
+					/>
 				</li>
 			))}
 		</ul>
@@ -114,11 +164,20 @@ function SubtaskTree({
 function SubtaskRow({
 	node,
 	depth,
+	index,
+	totalSiblings,
+	onReorder,
 }: {
 	node: TaskNode;
 	depth: number;
+	index: number;
+	totalSiblings: number;
+	onReorder?: (taskId: string, newPosition: number) => void;
 }): JSX.Element {
 	const { task, children } = node;
+	const isFirst = index === 0;
+	const isLast = index === totalSiblings - 1;
+
 	return (
 		<div
 			data-testid="subtask-row"
@@ -137,14 +196,43 @@ function SubtaskRow({
 					status={taskStateToStatus(task.state)}
 					label={TASK_STATE_LABEL[task.state]}
 				/>
+				{/* Reorder controls — only rendered when a reorder handler is wired */}
+				{onReorder !== undefined && (
+					<div className="flex items-center gap-[3px] shrink-0">
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Move up"
+							disabled={isFirst}
+							onClick={() => {
+								onReorder(task.id, index - 1);
+							}}
+							data-testid={`move-up-${task.id}`}
+						>
+							<ChevronUpIcon />
+						</Button>
+						<Button
+							variant="ghost"
+							size="icon"
+							aria-label="Move down"
+							disabled={isLast}
+							onClick={() => {
+								onReorder(task.id, index + 1);
+							}}
+							data-testid={`move-down-${task.id}`}
+						>
+							<ChevronDownIcon />
+						</Button>
+					</div>
+				)}
 			</div>
 			{task.ownerAgentId && (
 				<span className="type-metadata text-[var(--text-tertiary)]">{task.ownerAgentId}</span>
 			)}
-			{/* Recursively render grandchildren */}
+			{/* Recursively render grandchildren — pass onReorder so any depth works */}
 			{children.length > 0 && (
 				<div className="mt-[6px]">
-					<SubtaskTree nodes={children} depth={depth + 1} />
+					<SubtaskTree nodes={children} depth={depth + 1} onReorder={onReorder} />
 				</div>
 			)}
 		</div>
@@ -363,6 +451,19 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 	const { data: sessionsData } = useTaskSessions(taskId);
 	const onOpenArtifact = useArtifactOpen();
 
+	// Position reordering — PATCH /api/tasks/:id with { position } then re-read
+	// the tree so the order the user sees matches what the server stored.
+	// @lore BB1: useTaskPatch(refresh) wires the onSaved callback so the tree
+	// re-fetches after every successful PATCH. The re-fetch is what keeps
+	// server order authoritative — never an optimistic local swap.
+	const { patch: patchPosition } = useTaskPatch(refresh);
+	const onReorder = useCallback(
+		(reorderTaskId: string, newPosition: number): void => {
+			patchPosition(reorderTaskId, { position: newPosition });
+		},
+		[patchPosition],
+	);
+
 	// ── Loading ────────────────────────────────────────────────────────────
 
 	if (loading) {
@@ -532,7 +633,7 @@ export function WorkTaskPage({ overrideTaskId }: WorkTaskPageProps = {}): JSX.El
 						</Button>
 					</div>
 					<div className="mt-[12px]">
-						<SubtaskTree nodes={children} />
+						<SubtaskTree nodes={children} onReorder={onReorder} />
 					</div>
 				</section>
 

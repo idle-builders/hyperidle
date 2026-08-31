@@ -121,21 +121,37 @@ is as deep as the task is.
 
 ---
 
-## Parent completion (added 2026-08-31, founder call)
+## Finishing a task: `done` by default, `review` on request (2026-08-31, founder call)
 
-When **every child of a task reaches a terminal state** (`done` or `killed`), the parent is moved to
-**`review`** automatically. This restores the behaviour bets had — all work underneath finished, so the
-container advances by itself — but lands on `review` rather than `done`, because a container whose
-children are finished is ready for a *verdict*, not silently closed.
+A task finishes by going to **`done`**. It goes to **`review`** only when it asked to — the boolean
+`tasks.needs_review`, default `false`, settable on create and through `PATCH /api/tasks/:id` and the
+agent tool, by a person or an agent alike.
 
-To make that reachable, `review` becomes a legal target from **every non-terminal state**
-(`proposed`, `accepted`, `hold`, `in_progress`, `blocked`). The rule is simply: *any live task can be
-put up for review.* Without this a parent that was never itself worked — the normal case for a
-container — had no legal path to `review` at all, and the cascade died there.
+One rule, applied in both places work can finish:
 
-The cascade continues upward as each level is marked `done`: leaf finishes → parent to `review` →
-someone accepts it → grandparent to `review`. A human verdict between levels is the point of `review`,
-not a gap in the automation.
+| What happened | `needsReview` false | `needsReview` true |
+|---|---|---|
+| A session on the task ended | task → `done` | task → `review` |
+| Every child reached a terminal state (`done`/`killed`) | parent → `done` | parent → `review` |
+
+**Why the flag exists.** Before this, *every* task went to `review` when its session ended — review was
+a queue nobody could keep up with, so it meant nothing. Founder: *"that makes it less of a constant
+review spam."* Opting in is what makes the queue mean something.
+
+**Why a boolean and not a risk tier.** The product used to carry `riskTier` on `task_planning_signals`;
+that table was deleted, and the docs that still describe it are stale. Reviving a three-value scale
+would mean inventing how risk gets estimated, and nothing estimates it today. Founder: *"lets keep it
+simple lets start with needsReview and we can later always add ways to estimate risk."* A flag
+something sets beats a scale nothing computes.
+
+**Consequence, and it is the point.** With most tasks closing to `done`, the cascade runs all the way
+up by itself — child done → parent done → grandparent done — which is what bets used to do. A task
+marked `needsReview` is where the chain deliberately stops until a person acts.
+
+**State machine.** `done` and `review` must both be reachable from every non-terminal state
+(`proposed`, `accepted`, `hold`, `in_progress`, `blocked`). A container task nobody personally worked
+otherwise has no legal path to either, which is exactly why the old rule silently died at the first
+such parent.
 
 ## Sibling ordering (added 2026-08-31, founder call)
 

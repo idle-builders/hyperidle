@@ -70,6 +70,8 @@ const createTaskSchema = z
 		description: z.string().nullish(),
 		doneCondition: z.string().nullish(),
 		ownerAgentId: z.string().nullish(),
+		/** When true, finishing this task sends it to `review` rather than `done`. */
+		needsReview: z.boolean().optional(),
 	})
 	.refine((b) => b.teamId !== undefined || b.parentTaskId !== undefined, {
 		message: "teamId is required when parentTaskId is omitted",
@@ -79,6 +81,11 @@ const createTaskSchema = z
 /**
  * BB1 PATCH /tasks/:id — the one edit door. No actor gate.
  * `.strict()` rejects unknown keys with a 400.
+ *
+ * `position` moves the task within its sibling list; siblings are renumbered
+ * to a clean 0..n-1 sequence with no gaps inside a single transaction.
+ * On reparent (`parentTaskId` change), the task is assigned the last position
+ * under its new parent regardless of any explicit `position` value.
  */
 const patchTaskSchema = z
 	.object({
@@ -89,6 +96,9 @@ const patchTaskSchema = z
 		dependencies: z.string().nullable().optional(),
 		parentTaskId: z.string().nullable().optional(),
 		state: z.enum(enumValues(TASK_STATES)).optional(),
+		position: z.number().int().nonnegative().optional(),
+		/** Flip whether finishing this task routes to `review` (true) or `done` (false). */
+		needsReview: z.boolean().optional(),
 	})
 	.strict();
 
@@ -316,16 +326,30 @@ export function createTaskRoutes(
 			return c.json({ error: "teamId is required", code: API_ERROR_CODES.VALIDATION_ERROR }, 400);
 		}
 
+		// Assign position as last among current siblings so new tasks append
+		// rather than all landing on the schema default 0.
+		// @lore BB1: `work.maxSiblingPosition` returns -1 for an empty group so the
+		// first child gets 0. This read and insert are NOT in one transaction —
+		// two concurrent POSTs can race and both compute the same max. That is
+		// acceptable: both will land on the same position value and the tiebreak
+		// ordering (createdAt, id) in list() keeps the display order stable.
+		// A fully serialised increment would require a transaction per insert,
+		// which is overkill given the ultra-low concurrent-create rate in practice.
+		const resolvedParentTaskId = body.parentTaskId ?? null;
+		const siblingMax = await work.maxSiblingPosition(db, resolvedParentTaskId);
+
 		const taskId = crypto.randomUUID();
 		await work.create(db, "task", {
 			id: taskId,
-			parentTaskId: body.parentTaskId ?? null,
+			parentTaskId: resolvedParentTaskId,
 			teamId: resolvedTeamId,
 			title: body.title,
 			description: body.description ?? null,
 			doneCondition: body.doneCondition ?? null,
 			ownerAgentId: body.ownerAgentId ?? null,
 			state: "proposed",
+			position: siblingMax + 1,
+			needsReview: body.needsReview ?? false,
 			createdAt: now,
 			updatedAt: now,
 		});
@@ -348,8 +372,8 @@ export function createTaskRoutes(
 		const taskId = c.req.param("id");
 		const body = c.req.valid("json" as never) as z.infer<typeof patchTaskSchema>;
 
-		// Separate state and parentTaskId from the plain-field patch.
-		const { state, parentTaskId, ...plainFields } = body;
+		// Separate state, parentTaskId, and position from the plain-field patch.
+		const { state, parentTaskId, position, ...plainFields } = body;
 
 		// Verify the task exists before any writes.
 		const existing = await work.get(db, "task", taskId);
@@ -366,9 +390,53 @@ export function createTaskRoutes(
 					if (parentTaskId !== null) {
 						await assertNoCycle(tx, taskId, parentTaskId);
 					}
-					// Write parentTaskId and any other plain fields together.
-					const patch: Record<string, unknown> = { ...plainFields, parentTaskId, updatedAt: now };
+					// Assign last position under the new parent so the task appends
+					// rather than colliding with an existing sibling's position.
+					// @lore BB1: this read is INSIDE the transaction — two concurrent
+					// reparents to the same parent cannot both compute the same max.
+					const newParentMax = await work.maxSiblingPosition(tx, parentTaskId);
+					const patch: Record<string, unknown> = {
+						...plainFields,
+						parentTaskId,
+						position: newParentMax + 1,
+						updatedAt: now,
+					};
 					await work.update(tx, "task", taskId, patch);
+				});
+			} else if (position !== undefined) {
+				// -- position reorder within current sibling group --
+				// Reads all siblings inside a transaction, moves this task to the
+				// requested slot, renumbers all to a clean 0..n-1 sequence.
+				// @lore BB1: the read + bulk update are atomic inside one transaction
+				// so two concurrent moves cannot interleave into a corrupt order.
+				await db.transaction(async (tx) => {
+					// Apply any other plain-field changes alongside the reorder.
+					if (Object.keys(plainFields).length > 0) {
+						await work.update(tx, "task", taskId, { ...plainFields, updatedAt: now });
+					}
+
+					// Read all siblings (including this task) ordered by current position.
+					// `parentTaskId: null` selects root tasks — work.list handles both.
+					const siblings = await work.list(tx, "task", {
+						parentTaskId: existing.parentTaskId,
+					});
+
+					// Build the new order: remove self, insert at clamped slot.
+					const others = siblings.filter((s) => s.id !== taskId);
+					const clamped = Math.max(0, Math.min(position, others.length));
+					const self = siblings.find((s) => s.id === taskId);
+					const reordered = [
+						...others.slice(0, clamped),
+						self ?? { id: taskId },
+						...others.slice(clamped),
+					];
+
+					// Renumber all siblings to a clean 0..n-1 sequence.
+					for (let i = 0; i < reordered.length; i++) {
+						const row = reordered[i];
+						if (!row) continue;
+						await work.update(tx, "task", row.id, { position: i, updatedAt: now });
+					}
 				});
 			} else if (Object.keys(plainFields).length > 0) {
 				// Plain field writes only.

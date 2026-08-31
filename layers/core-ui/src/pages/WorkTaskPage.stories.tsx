@@ -28,6 +28,7 @@ function makeTask(
 		state: string;
 		ownerAgentId: string;
 		teamId: string;
+		position: number;
 	}> = {},
 ): object {
 	return {
@@ -39,6 +40,7 @@ function makeTask(
 		description: overrides.description ?? null,
 		doneCondition: overrides.doneCondition ?? null,
 		state: overrides.state ?? "proposed",
+		position: overrides.position ?? 0,
 		dependencies: null,
 		artifacts: null,
 		threadId: null,

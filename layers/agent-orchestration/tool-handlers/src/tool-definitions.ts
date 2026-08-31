@@ -520,6 +520,8 @@ const createTaskInputSchema = z.object({
 	doneCondition: z.string().max(65_536).optional(),
 	/** Explicit parent — any depth. Omit to nest under the session's own task. */
 	parentTaskId: z.string().min(1).optional(),
+	/** When true, finishing this task sends it to `review` rather than `done`. */
+	needsReview: z.boolean().optional(),
 });
 
 type CreateTaskInput = z.infer<typeof createTaskInputSchema>;
@@ -563,6 +565,7 @@ function makeCreateTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<Creat
 					description: input.description ?? null,
 					doneCondition: input.doneCondition ?? null,
 					ownerAgentId: ctx.agentId,
+					...(input.needsReview !== undefined ? { needsReview: input.needsReview } : {}),
 				},
 				ctx.agentId,
 			);
@@ -605,6 +608,10 @@ const editTaskInputSchema = z.object({
 	/** `null` promotes the task to a root — the same reach the human door has. */
 	parentTaskId: z.string().min(1).nullable().optional(),
 	state: z.enum(TASK_STATES).optional(),
+	/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
+	position: z.number().int().nonnegative().optional(),
+	/** Flip whether finishing this task routes to `review` (true) or `done` (false). */
+	needsReview: z.boolean().optional(),
 });
 
 type EditTaskInput = z.infer<typeof editTaskInputSchema>;
@@ -613,7 +620,7 @@ function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTas
 	return {
 		name: "edit_task",
 		description:
-			"Edit a task's fields. Supply any subset of title, description, doneCondition, ownerAgentId, parentTaskId, or state; omitted fields are unchanged. State transitions route through the task state machine.",
+			"Edit a task's fields. Supply any subset of title, description, doneCondition, ownerAgentId, parentTaskId, position, or state; omitted fields are unchanged. State transitions route through the task state machine. Setting position moves the task within its sibling list and renumbers siblings to a clean sequence.",
 		inputSchema: editTaskInputSchema,
 		handler: async (args, ctx) => {
 			const parsed = editTaskInputSchema.safeParse(args);
@@ -627,6 +634,8 @@ function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTas
 				ownerAgentId?: string | null;
 				parentTaskId?: string | null;
 				state?: string;
+				position?: number;
+				needsReview?: boolean;
 			} = {};
 			if (input.title !== undefined) updates.title = input.title;
 			if (input.description !== undefined) updates.description = input.description;
@@ -634,6 +643,8 @@ function makeEditTaskTool<TDb>(ports: ToolHandlersPorts): ToolDefinition<EditTas
 			if (input.ownerAgentId !== undefined) updates.ownerAgentId = input.ownerAgentId;
 			if (input.parentTaskId !== undefined) updates.parentTaskId = input.parentTaskId;
 			if (input.state !== undefined) updates.state = input.state;
+			if (input.position !== undefined) updates.position = input.position;
+			if (input.needsReview !== undefined) updates.needsReview = input.needsReview;
 
 			if (Object.keys(updates).length === 0) {
 				return err("INVALID_INPUT", "No fields to update.");

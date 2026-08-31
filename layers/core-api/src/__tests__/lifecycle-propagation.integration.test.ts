@@ -219,10 +219,14 @@ describe("registerLifecyclePropagation — session -> task", () => {
 			outcome: "completed",
 		});
 
-		// Assert: task is now in review — use vi.waitFor because the handler is async fire-and-forget
+		// Assert: the task closed on its own — use vi.waitFor because the handler
+		// is async fire-and-forget.
 		await vi.waitFor(async () => {
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-			expect(task?.state).toBe("review");
+			// @lore BB1: `done`, not `review`. A finished task closes to `done`
+			// unless it asked for a verdict via `needsReview`; before BB1 every
+			// finished task went to `review`, which made the queue meaningless.
+			expect(task?.state).toBe("done");
 		});
 	});
 
@@ -251,11 +255,16 @@ describe("registerLifecyclePropagation — session -> task", () => {
 
 		// Assert: propagation_applied event emitted — use vi.waitFor because the handler is async fire-and-forget
 		await vi.waitFor(() => {
-			expect(appliedEvents).toHaveLength(1);
+			// @lore BB1: was `toHaveLength(1)`. The cascade no longer stops at the
+			// task — the task closes to `done`, which makes its parent's children
+			// all-terminal, so the parent closes too, and so on up. More than one
+			// applied event is the CORRECT new behaviour; assert the session->task
+			// hop is present rather than that it is the only hop.
+			expect(appliedEvents.length).toBeGreaterThanOrEqual(1);
 			expect(appliedEvents[0]!.sourceLevel).toBe("session");
 			expect(appliedEvents[0]!.targetLevel).toBe("task");
 			expect(appliedEvents[0]!.targetId).toBe("task-1");
-			expect(appliedEvents[0]!.targetTransition).toBe("in_progress -> review");
+			expect(appliedEvents[0]!.targetTransition).toBe("in_progress -> done");
 		});
 	});
 
@@ -356,7 +365,7 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Assert: the sibling does not block — the task reaches review.
 		await vi.waitFor(async () => {
 			const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
-			expect(task?.state).toBe("review");
+			expect(task?.state).toBe("done");
 		});
 	});
 
@@ -386,6 +395,10 @@ describe("registerLifecyclePropagation — session -> task", () => {
 		// Handler returns early — wait briefly then assert task unchanged
 		await new Promise((r) => setTimeout(r, 80));
 		const [task] = await db.select().from(tasks).where(eq(tasks.id, "task-1"));
+		// Unchanged: the task was seeded in `review` and the handler returns early
+		// because it is not `in_progress`. This one is NOT the BB1 done-by-default
+		// rule — it is the guard that stops a second session end re-transitioning
+		// a task someone already moved.
 		expect(task?.state).toBe("review");
 		expect(appliedEvents).toHaveLength(0);
 	});
@@ -467,7 +480,12 @@ describe("registerLifecyclePropagation — propagation events", () => {
 
 		// Assert: propagation_applied event was emitted — use vi.waitFor because the handler is async fire-and-forget
 		await vi.waitFor(() => {
-			expect(appliedEvents).toHaveLength(1);
+			// @lore BB1: was `toHaveLength(1)`. The cascade no longer stops at the
+			// task — the task closes to `done`, which makes its parent's children
+			// all-terminal, so the parent closes too, and so on up. More than one
+			// applied event is the CORRECT new behaviour; assert the session->task
+			// hop is present rather than that it is the only hop.
+			expect(appliedEvents.length).toBeGreaterThanOrEqual(1);
 			expect(appliedEvents[0]!.sourceLevel).toBe("session");
 			expect(appliedEvents[0]!.targetLevel).toBe("task");
 		});

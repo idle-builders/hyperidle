@@ -166,6 +166,8 @@ interface ToolHandlersCoreApiAccessor {
 			readonly description: string | null;
 			readonly doneCondition: string | null;
 			readonly ownerAgentId: string | null;
+			/** When true, finishing this task sends it to `review` rather than `done`. */
+			readonly needsReview?: boolean;
 		},
 		actorId: string,
 	): Promise<{ readonly id: string; readonly teamId: string }>;
@@ -185,6 +187,10 @@ interface ToolHandlersCoreApiAccessor {
 			readonly dependencies?: string | null;
 			readonly parentTaskId?: string | null;
 			readonly state?: string;
+			/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
+			readonly position?: number;
+			/** Flip whether finishing this task routes to `review` (true) or `done` (false). */
+			readonly needsReview?: boolean;
 		},
 		actorId: string,
 	): Promise<void>;

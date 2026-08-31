@@ -130,12 +130,20 @@ describe("Task State Machine", () => {
 	});
 
 	describe("invalid transitions", () => {
-		test("throws InvalidTransitionError for proposed -> done", async ({ db, eventBus }) => {
+		/**
+		 * @lore BB1: this used to assert `proposed -> done`, which is LEGAL now. A
+		 * task finishes to `done` by default rather than `review`, and a container
+		 * parent that nobody personally worked still sits in `proposed` when its
+		 * children finish — so it needs a legal path to `done` or the cascade dies
+		 * at the first such parent. `done -> in_progress` is the invariant that
+		 * genuinely still holds: a finished task does not reopen.
+		 */
+		test("throws InvalidTransitionError for done -> in_progress", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
-			await insertTask(db, "task-1", "proposed");
-			await expect(transitionTask(db, eventBus, "task-1", "done", testDeps)).rejects.toThrow(
-				InvalidTransitionError,
-			);
+			await insertTask(db, "task-1", "done");
+			await expect(
+				transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
+			).rejects.toThrow(InvalidTransitionError);
 		});
 
 		test("throws InvalidTransitionError for done -> proposed", async ({ db, eventBus }) => {
@@ -266,13 +274,15 @@ describe("Task State Machine", () => {
 
 		test("does not emit event on invalid transition", async ({ db, eventBus }) => {
 			await seedPrerequisites(db);
-			await insertTask(db, "task-1", "proposed");
+			// @lore BB1: `done -> in_progress`, not `proposed -> done` — the latter
+			// is legal now (see the note above).
+			await insertTask(db, "task-1", "done");
 			const events: TaskStateChangedEvent[] = [];
 			eventBus.on("task_state_changed", (e) => events.push(e));
 
-			await expect(transitionTask(db, eventBus, "task-1", "done", testDeps)).rejects.toThrow(
-				InvalidTransitionError,
-			);
+			await expect(
+				transitionTask(db, eventBus, "task-1", "in_progress", testDeps),
+			).rejects.toThrow(InvalidTransitionError);
 			expect(events).toHaveLength(0);
 		});
 	});

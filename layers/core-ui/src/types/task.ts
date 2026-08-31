@@ -26,6 +26,10 @@ export interface Task {
 	description: string | null;
 	doneCondition: string | null;
 	state: TaskState;
+	/** Display order within the sibling group. Assigned on create (append), settable via PATCH. */
+	position: number;
+	/** When true, finishing this task sends it to `review` rather than `done`. */
+	needsReview: boolean;
 	dependencies: string | null;
 	artifacts: string | null;
 	threadId: string | null;
@@ -63,4 +67,8 @@ export interface TaskPatchBody {
 	dependencies?: string | null;
 	parentTaskId?: string | null;
 	state?: TaskState;
+	/** Moves the task within its sibling list; siblings are renumbered 0..n-1. */
+	position?: number;
+	/** Flip whether finishing this task routes to `review` (true) or `done` (false). */
+	needsReview?: boolean;
 }

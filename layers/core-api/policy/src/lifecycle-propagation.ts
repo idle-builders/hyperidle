@@ -88,6 +88,18 @@ const SYSTEM_PROPAGATION_AGENT_ID = "system:propagation";
 /** Terminal task states — tasks in these states count as finished. */
 const TERMINAL_TASK_STATES = new Set(["done", "killed"]);
 
+/**
+ * States an ancestor may already be in that mean we should not attempt to
+ * transition it via auto-completion. Terminal states are already finished;
+ * `review` means it was advanced by a prior propagation pass (needsReview=true)
+ * and is awaiting a human verdict — we do not re-trigger it.
+ *
+ * @lore BB1: `review` is in this set because a second sibling completing would
+ * otherwise try `review -> review`, throw InvalidTransitionError, and silently
+ * abort the walk. `done` and `killed` are already terminal and need no action.
+ */
+const SKIP_ANCESTOR_STATES = new Set(["done", "killed", "review"]);
+
 // ─── Session -> Task propagation ─────────────────────────────────────────────
 
 async function propagateSessionToTask(
@@ -144,7 +156,11 @@ async function propagateSessionToTask(
 		if (!task) return;
 		if (task.state !== "in_progress") return;
 
-		await transitionTask(db, eventBus, taskId, "review", deps);
+		// BB1 needsReview fork: only tasks that explicitly asked for review go
+		// to `review`; everything else completes directly to `done`, keeping the
+		// upward cascade moving without requiring a verdict at every leaf.
+		const targetState: TaskState = task.needsReview ? "review" : "done";
+		await transitionTask(db, eventBus, taskId, targetState, deps);
 
 		// Emit propagation_applied event
 		const appliedEvent: PropagationAppliedEvent = {
@@ -154,7 +170,7 @@ async function propagateSessionToTask(
 			sourceId: sessionId,
 			targetLevel: "task",
 			targetId: taskId,
-			targetTransition: "in_progress -> review",
+			targetTransition: `in_progress -> ${targetState}`,
 			timestamp: Date.now(),
 		};
 		eventBus.emit(appliedEvent);
@@ -194,12 +210,15 @@ async function propagateSessionToTask(
  * emitted by each `transitionTask` re-triggers this handler for the ancestor;
  * those secondary calls find their own ancestors already done and skip (CAS).
  *
- * Only `review -> done` is legal per the task state machine. Ancestors in other
- * states (e.g. `in_progress`) cause an `InvalidTransitionError` which is caught
- * and treated as a race — the human's current state wins.
+ * `review` is now a legal target from every non-terminal state (BB1). Ancestors
+ * that are already in `review` or a terminal state are skipped so a second
+ * sibling completing does not re-attempt the same transition. The cascade
+ * advances ONE level per call: leaf → middle to `review`, then when middle is
+ * marked `done` by a human the next `task_state_changed(done)` event advances
+ * root to `review`. A human verdict between levels is the point of `review`.
  *
- * A root task completing (`parentTaskId === null`) is what used to be a bet
- * completing. The ship-confirmation thread is created only for root tasks.
+ * A root task reaching `review` (`parentTaskId === null`) is what used to be a
+ * bet completing. The ship-confirmation thread is created only for root tasks.
  */
 async function propagateTaskToParent(
 	db: HyperIdleDb,
@@ -221,11 +240,15 @@ async function propagateTaskToParent(
 			const ancestor = await deps.work.getTaskById(db, ancestorId);
 			if (!ancestor) break;
 
-			// Already terminal: this ancestor was completed by a prior iteration
-			// or a concurrent write. Continue up the chain — the grandparent
-			// might still be waiting for this ancestor AND another sibling, but
-			// if the ancestor is now done we can still check higher up.
-			if (TERMINAL_TASK_STATES.has(ancestor.state)) continue;
+			// Already in review or terminal: skip this ancestor.
+			// Terminal ancestors are already finished; `review` means a prior
+			// propagation pass (or a human) already advanced this ancestor and
+			// it is awaiting a verdict — do not re-trigger.
+			// @lore BB1: `review` is added to the skip set because parent
+			// auto-completion now targets `review`. Without this a second sibling
+			// completing would try `review -> review`, throw InvalidTransitionError,
+			// and silently abort the walk.
+			if (SKIP_ANCESTOR_STATES.has(ancestor.state)) continue;
 
 			// Check: are ALL direct children of this ancestor terminal?
 			const children = await deps.work.listChildTasks(db, ancestorId);
@@ -235,12 +258,20 @@ async function propagateTaskToParent(
 
 			const fromState = ancestor.state;
 
-			// Transition to done. The task state machine requires `review -> done`;
-			// if the ancestor is in another state this throws InvalidTransitionError,
-			// caught below as a race (human intent wins).
-			await transitionTask(db, eventBus, ancestorId, "done", deps);
+			// BB1 needsReview fork: parent goes to `review` only when it asked for
+			// one; otherwise it goes straight to `done`. When the parent goes to
+			// `done`, transitionTask emits task_state_changed(done) for it, which
+			// re-triggers this handler for the GRANDPARENT — the cascade continues
+			// upward without requiring a human verdict at every level. A task with
+			// needsReview=true is where the chain deliberately stops until a person
+			// acts. Every non-terminal state has a legal edge to both `review` and
+			// `done` (BB1 founder ruling, 2026-08-31).
+			const targetState: TaskState = ancestor.needsReview ? "review" : "done";
+			await transitionTask(db, eventBus, ancestorId, targetState, deps);
 
-			// Root task completion is what used to be a bet completing.
+			// Root task completing is what used to be a bet completing.
+			// Create the ship-confirmation thread when the root reaches its final
+			// auto-driven state (either `review` or `done`).
 			// @lore BB1: anchored on parentTaskId === null, NOT on depth or a flag.
 			if (ancestor.parentTaskId === null) {
 				await createShipConfirmationThread(db, eventBus, ancestorId, children, deps);
@@ -253,7 +284,7 @@ async function propagateTaskToParent(
 					sourceId: ancestorId,
 					targetLevel: "team",
 					targetId: ancestor.teamId,
-					targetTransition: `${fromState} -> done`,
+					targetTransition: `${fromState} -> ${targetState}`,
 					timestamp: Date.now(),
 				};
 				eventBus.emit(teamEvent);
@@ -267,7 +298,7 @@ async function propagateTaskToParent(
 				sourceId: taskId,
 				targetLevel: "task",
 				targetId: ancestorId,
-				targetTransition: `${fromState} -> done`,
+				targetTransition: `${fromState} -> ${targetState}`,
 				timestamp: Date.now(),
 			};
 			eventBus.emit(appliedEvent);

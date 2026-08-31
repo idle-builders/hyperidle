@@ -662,6 +662,29 @@ function buildArtifactGuardCond(guard: TransitionGuard): SQL {
 	throw new Error(`Unknown artifact field for transition guard: ${guard.field}`);
 }
 
+// -- maxSiblingPosition() -----------------------------------------------------
+
+/**
+ * Returns the current maximum `position` value among tasks with the given
+ * `parentTaskId` (or among root tasks when `parentTaskId` is null).
+ * Returns -1 when the sibling group is empty, so the first child gets 0.
+ *
+ * @lore BB1: used by POST /tasks (append) and PATCH /tasks/:id (reparent) to
+ * assign the next-last position without a data race — callers that need
+ * atomicity must call this INSIDE their own transaction.
+ */
+export async function maxSiblingPosition(
+	exec: WriteExecutor,
+	parentTaskId: string | null,
+): Promise<number> {
+	const cond = parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId);
+	const [row] = await exec
+		.select({ m: sql<number>`COALESCE(MAX(${tasks.position}), -1)` })
+		.from(tasks)
+		.where(cond);
+	return row?.m ?? -1;
+}
+
 // -- create() -----------------------------------------------------------------
 
 /** Insert a new entity row. Discriminated by entity literal; values typed per entity. */

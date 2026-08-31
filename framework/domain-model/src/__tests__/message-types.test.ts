@@ -45,7 +45,7 @@ describe("AC-4 / AC-11 — message-type discriminant exhaustiveness", () => {
 		);
 	});
 
-	it("HOST_KINDS is exactly the closed 7-set (BB1: "bet" removed)", () => {
+	it("HOST_KINDS is exactly the closed 7-set (BB1: 'bet' removed)", () => {
 		expect(HOST_KINDS.length).toBe(7);
 		expect([...HOST_KINDS].sort()).toEqual(
 			["agent", "artifact", "factory", "knowledge_item", "task", "team", "user"].sort(),

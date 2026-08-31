@@ -91,6 +91,7 @@ export {
 	listAncestorIds,
 	listSubtreeIds,
 	MAX_TASK_DEPTH,
+	maxSiblingPosition,
 	taskDispatchAttemptStore,
 	transition,
 	update,

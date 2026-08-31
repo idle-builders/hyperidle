@@ -225,6 +225,25 @@ export const tasks = pgTable(
 		 * chose the same shape for the same reason.
 		 */
 		position: integer("position").notNull().default(0),
+		/**
+		 * BB1: does finishing this task need a human verdict?
+		 *
+		 * `false` (the default) means the task closes straight to `done` when its
+		 * work finishes — a session ending, or every child reaching a terminal
+		 * state. `true` sends it to `review` instead.
+		 *
+		 * @lore BB1: before this, EVERY task went to `review` when its session
+		 * ended (`lifecycle-propagation.ts`), which made review a queue nobody
+		 * could keep up with. Opting in is what makes the queue mean something.
+		 *
+		 * @lore BB1: deliberately a boolean, not a risk tier. The product used to
+		 * carry `riskTier` on `task_planning_signals`, which was deleted; reviving
+		 * a three-value scale would mean inventing how risk gets estimated, and
+		 * nothing estimates it today. Founder call: start with the flag, add a way
+		 * to derive it later. A flag that something sets beats a scale nothing
+		 * computes.
+		 */
+		needsReview: boolean("needs_review").notNull().default(false),
 	},
 	(table) => [
 		index("tasks_parent_task_id_idx").on(table.parentTaskId),

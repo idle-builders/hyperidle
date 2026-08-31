@@ -35,6 +35,12 @@ ALTER TABLE tasks ADD COLUMN outcome_summary text;
 --> statement-breakpoint
 ALTER TABLE tasks ADD COLUMN position integer NOT NULL DEFAULT 0;
 --> statement-breakpoint
+-- Does finishing this task need a human verdict? Default false: work closes to
+-- `done` on its own. Existing rows inherit the default, which is the intended
+-- migration behaviour — before this every task went to `review`, and that is the
+-- spam this flag exists to end.
+ALTER TABLE tasks ADD COLUMN needs_review boolean NOT NULL DEFAULT false;
+--> statement-breakpoint
 
 -- 2. Refuse to run if a bet id already names a task. Both are UUIDs, so this
 --    cannot happen in practice — but "cannot happen" is not a reason to
