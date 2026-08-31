@@ -610,3 +610,66 @@ user's own checkout, and a per-session bridge token has no business being writte
 3. **The AU9 all-harness handoff lane** is red on lanes other than the reply proof. It is new — I
    wrote it in this session — so it is as likely to be wrong as the code. Worth a pass once you have
    ruled on the two above.
+
+
+---
+
+# DONE — the model gateway, fully removed
+
+You asked whether it could go entirely. It could, and it has.
+
+**Why it was half-retired:** the tier screen had lost its only entry point, but the config behind it
+still ran at session start. Every session resolved a `ResolvedModel` — provider, model, apiKey,
+baseUrl — and three things still read it in the CLI adapter: the `{{model}}` fallback, the key
+injection into opencode, and the brought-endpoint block. Deleting the screen alone would have left a
+setting nobody could see that still ran.
+
+Your ruling on keys killed all three, so the whole thing went:
+
+- `ModelGatewayConfig` / `ModelTierConfig` in server config, with its per-tier merge
+- `BUILT_IN_GATEWAY_CONFIG`, `PATCH /api/model-gateway`, the `SettingsModels` tier screen
+- `resolveModel` and `resolve-model.ts`; the `resolveModel` port threaded through contracts,
+  runtime, both boots and both applications; the drain-time resolution in `start-runtime`
+- `MODEL_CATALOG` with `catalogEntry`/`isCatalogModel` and `DEFAULT_AGENT_MODEL_ID`
+- `context-window.ts`, which sized a context window for the harness that made the call
+- `ResolvedModel` off the session path entirely
+
+`model-gateway.ts` is now `model-provider.ts`, holding the provider names an agent's
+`model_provider` and an adapter's `modelProviders` still speak.
+
+**The credential catalog went from four names to one.** The three model-provider keys existed so
+HyperIdle could call a provider, and later so a key could be injected into a harness. Neither
+happens. `shared_backend_key` stays — the key a remote worker presents to reach this server, and the
+only secret genuinely ours to hold. With the three went the boot env-seed, the desktop app's
+read-key-into-`ANTHROPIC_API_KEY` step, its worker provider detection, and the two API-pinging
+validators. `CredentialResolver` survived the file it lived in: the port outlives the resolution,
+because that one key still has to be fetched.
+
+**Bring-your-own-key is out of setup entirely** — no provider picker, no key field, no OpenRouter
+catalogue fetch, no credential write. A harness arrives logged in or it is not choosable. This also
+retires the open question above about arbitrary OpenAI-compatible endpoints: not supported, by
+decision rather than by omission.
+
+The eval's judge keeps working — it resolves its own model straight from the environment, which is
+all it ever needed for one SDK call.
+
+---
+
+# DONE — the harness lane
+
+Three things kept it red, and none of them was a harness being broken:
+
+1. **`opencode-runs-on-a-brought-key`** proved opencode answered on an injected key. That capability
+   is gone, so the lane went with it.
+2. **`adapter-pool-real-discovery`** asserted "always-present local adapters are registered" and
+   expected at least two — from when the built-in adapter was unconditional. It now asserts what
+   `requireHarness` guarantees, plus the inverse: no adapter is registered that is not a real CLI.
+3. **A detached failure path could throw into the void.** `runSession`'s `.catch()` ends with
+   `transitionAgentRunLifecycle`, which throws "Unknown agent request" when the CAS matches no row —
+   usually because the request already reached a terminal state. Nothing catches it, so it became an
+   unhandled rejection. That is why AU9 reported as a failed file while all four of its harness lanes
+   passed. It is caught and reported now, not swallowed.
+
+**codex was never broken.** I probed the real binary directly: its `Stop` hook fires reliably with
+`CODEX_HOME`, with the copied `config.toml`, and with the exact argv the test uses. The
+return-enforcement lane passes.
