@@ -239,7 +239,7 @@ export function SettingsHarnesses(): JSX.Element {
 		return (
 			<EmptyState
 				title="No agent backends detected"
-				description="The built-in backend is always available as a fallback."
+				description="HyperIdle runs your agents through a coding CLI you install and sign into. Install one, sign in, then re-detect."
 			/>
 		);
 	}

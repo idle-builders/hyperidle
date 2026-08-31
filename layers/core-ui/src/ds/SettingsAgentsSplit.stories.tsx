@@ -65,7 +65,7 @@ const AGENTS: DemoAgent[] = [
 		name: "Iris",
 		role: "designer",
 		roleLabel: "Designer",
-		harness: "builtin",
+		harness: "opencode",
 		model: "Sonnet 4.6",
 	},
 	{
@@ -111,7 +111,7 @@ const MODELS_FOR_HARNESS = [
 ];
 
 const HARNESSES = [
-	{ value: "builtin", label: "Built-in" },
+	{ value: "opencode", label: "OpenCode" },
 	{ value: "claude-code", label: "Claude Code" },
 	{ value: "codex", label: "Codex" },
 ];

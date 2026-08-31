@@ -26,7 +26,7 @@ const PROFILE: AgentProfileResponse = {
 	teamId: null,
 	createdAt: "2026-08-01T00:00:00.000Z",
 	systemPrompt: "",
-	harnessType: "builtin",
+	harnessType: "opencode",
 	modelTierPreference: "fast",
 	maxConcurrentSessions: 1,
 	mcpSetup: null,

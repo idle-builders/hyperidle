@@ -27,11 +27,16 @@ const ALL_CAPS_FALSE = {
 
 const MOCK_DESCRIPTORS = [
 	{
-		type: "builtin",
-		name: "Built-in",
+		type: "opencode",
+		name: "OpenCode",
 		kind: "local",
-		accessMode: "api-gateway",
-		authAction: { kind: "enter_api_key", label: "Enter API key" },
+		accessMode: "provider-subscription-cli",
+		acceptsApiKey: true,
+		authAction: {
+			kind: "native_cli_login",
+			label: "Log in to OpenCode",
+			command: ["opencode", "providers", "login"],
+		},
 		discovery: { state: "ready" },
 		models: [
 			{

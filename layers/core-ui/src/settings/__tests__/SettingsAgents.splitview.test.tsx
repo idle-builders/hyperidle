@@ -17,8 +17,8 @@ import { SettingsAgents } from "../SettingsAgents.js";
 
 const MOCK_HARNESSES_WITH_MODELS = [
 	{
-		type: "builtin",
-		name: "Built-in",
+		type: "opencode",
+		name: "OpenCode",
 		kind: "local",
 		models: [
 			{
@@ -69,7 +69,7 @@ const MOCK_AGENTS = [
 		name: "Nova",
 		role: "assistant",
 		systemPrompt: "I am your assistant",
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
 		modelTierPreference: null,
@@ -84,7 +84,7 @@ const MOCK_AGENTS = [
 		name: "Atlas",
 		role: "builder",
 		systemPrompt: "Build things",
-		harnessType: "builtin",
+		harnessType: "opencode",
 		modelId: "deepseek/deepseek-v4-flash",
 		modelProvider: "openrouter",
 		modelTierPreference: null,

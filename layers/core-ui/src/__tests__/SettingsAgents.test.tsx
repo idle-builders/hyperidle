@@ -34,7 +34,7 @@ function mockFetch(
 			return Promise.resolve({
 				ok: true,
 				status: 200,
-				json: async () => [{ type: "builtin", name: "Built-in", modelProviders: ["anthropic"] }],
+				json: async () => [{ type: "opencode", name: "OpenCode", modelProviders: ["anthropic"] }],
 			});
 		}
 		if (urlStr.includes("/api/org")) {

@@ -75,7 +75,7 @@ const AGENT_BEHAVIOR_ITEMS = [
 		origin: { type: "builtin", label: "Built-in HyperIdle", state: "enabled" },
 		valueSource: "default",
 		active: true,
-		activeSummary: "assistant · builtin harness",
+		activeSummary: "assistant · opencode harness",
 		statusLabel: "Default",
 		editableFields: [{ id: "name", label: "Name", kind: "text", value: "Assistant" }],
 		links: [{ target: "settings-agents", label: "Open Agents", href: "#settings-section-agents" }],
@@ -143,7 +143,7 @@ function setupFetch(): void {
 							item: {
 								...AGENT_BEHAVIOR_ITEMS[2],
 								name: "Founder Assistant",
-								activeSummary: "Founder Assistant · builtin harness",
+								activeSummary: "Founder Assistant · opencode harness",
 								valueSource: "user_override",
 							},
 						}),
@@ -247,7 +247,7 @@ describe("Settings Agent behavior surface", () => {
 
 		await waitFor(() => {
 			expect(
-				within(section).getAllByText("Founder Assistant · builtin harness").length,
+				within(section).getAllByText("Founder Assistant · opencode harness").length,
 			).toBeGreaterThan(0);
 		});
 		expect(screen.getByTestId("settings-section-agents")).toBeInTheDocument();
@@ -267,7 +267,7 @@ describe("Settings Agent behavior surface", () => {
 			within(section).getByRole("button", { name: "Cancel agent behavior editing" }),
 		);
 		expect(within(section).queryByLabelText("Name")).toBeNull();
-		expect(within(section).getAllByText(/assistant · builtin harness/i).length).toBeGreaterThan(0);
+		expect(within(section).getAllByText(/assistant · opencode harness/i).length).toBeGreaterThan(0);
 	});
 
 	it("keeps MCP URL changes read-only in Agent behavior and routes to Connections", async () => {

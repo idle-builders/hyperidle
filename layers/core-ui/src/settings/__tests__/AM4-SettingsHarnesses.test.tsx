@@ -2,7 +2,7 @@
  * AM4 RED — SettingsHarnesses component tests (Task 9, AC1/AC4)
  *
  * AC1: Renders each in-scope backend with name, status, version, auth
- * AC4: Only in-scope backend kinds surface (builtin, codex, claude-code, opencode;
+ * AC4: Only in-scope backend kinds surface (codex, claude-code, opencode, cursor-agent;
  *      cursor-agent present as unavailable/no-toggle)
  *      UI renders exactly what the descriptor list contains — no out-of-scope families fabricated
  *
@@ -34,27 +34,14 @@ const ALL_CAPS_FALSE = {
 	toolUse: false,
 };
 
-/** The five AM4-scope descriptors (production shape — caps all-false) */
+/**
+ * The AM4-scope descriptors (production shape — caps all-false).
+ *
+ * @lore There were five: these four families plus the built-in gateway, which
+ * led the list because it was the one entry always present. Four is now the
+ * whole scope.
+ */
 const MOCK_DESCRIPTORS = [
-	{
-		type: "builtin",
-		name: "Built-in",
-		kind: "local",
-		accessMode: "api-gateway",
-		authAction: { kind: "enter_api_key", label: "Enter API key" },
-		discovery: { state: "ready" },
-		models: [
-			{
-				id: "claude-opus-4-8",
-				label: "Claude Opus 4.8",
-				provider: "anthropic",
-				selectable: true,
-				options: [],
-			},
-		],
-		runtime: { ...ALL_CAPS_FALSE, modelProviders: ["anthropic", "openrouter"] },
-		modelProviders: ["anthropic", "openrouter"],
-	},
 	{
 		type: "claude-code",
 		name: "Claude Code",
@@ -186,7 +173,6 @@ describe("AM4 AC1 — SettingsHarnesses renders in-scope backends with status/ve
 		render(<SettingsHarnesses />);
 
 		await waitFor(() => {
-			expect(screen.getByText("Built-in")).toBeInTheDocument();
 			expect(screen.getByText("Claude Code")).toBeInTheDocument();
 			expect(screen.getByText("Codex")).toBeInTheDocument();
 			expect(screen.getByText("OpenCode")).toBeInTheDocument();
@@ -222,7 +208,7 @@ describe("AM4 AC4 — SettingsHarnesses respects AM2 scope", () => {
 		render(<SettingsHarnesses />);
 
 		await waitFor(() => {
-			expect(screen.getByText("Built-in")).toBeInTheDocument();
+			expect(screen.getByText("OpenCode")).toBeInTheDocument();
 		});
 
 		// The UI must render ONLY what the descriptor list contains
